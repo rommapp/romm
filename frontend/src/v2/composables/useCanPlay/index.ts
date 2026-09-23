@@ -6,14 +6,17 @@
 // "Playable" means EJS, js-dos, PICO-8, or Ruffle can run the platform on this
 // server (admin toggles + platform support + WebGL availability) and there
 // is a file to boot, or a streaming container is configured for the
-// platform. A physical game or one missing from the filesystem has nothing
+// platform, or the desktop shell has a locally installed emulator for it.
+// A physical game or one missing from the filesystem has nothing
 // to hand the emulator, and js-dos additionally needs the file to be one of
 // its own bundles. The individual flags are exposed so the play action can
-// pick the right route (EJS vs js-dos vs PICO-8 vs Ruffle vs Stream).
+// pick the right route (EJS vs js-dos vs PICO-8 vs Ruffle vs Stream vs
+// Native).
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
+import { useNativeStore } from "@/stores/native";
 import type { SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import {
@@ -32,10 +35,12 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
   canPlayPico8: ComputedRef<boolean>;
   canPlayRuffle: ComputedRef<boolean>;
   canPlayStream: ComputedRef<boolean>;
+  canPlayNative: ComputedRef<boolean>;
 } {
   const heartbeatStore = storeHeartbeat();
   const configStore = storeConfig();
   const streamingStore = useStreamingStore();
+  const nativeStore = useNativeStore();
   const { value: heartbeat } = storeToRefs(heartbeatStore);
 
   const supportedBy = (check: typeof isEJSEmulationSupported) =>
@@ -68,13 +73,22 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
     return streamingStore.containerForPlatform(rom.platform_slug) !== null;
   });
 
+  // The shell either downloads the file or reads it off disk, so the same
+  // "something to boot" rule applies.
+  const canPlayNative = computed(() => {
+    const rom = getRom();
+    if (!rom?.has_file_on_disk) return false;
+    return nativeStore.isSupportedPlatform(rom.platform_slug);
+  });
+
   const canPlay = computed(
     () =>
       canPlayEJS.value ||
       canPlayJsDos.value ||
       canPlayPico8.value ||
       canPlayRuffle.value ||
-      canPlayStream.value,
+      canPlayStream.value ||
+      canPlayNative.value,
   );
 
   return {
@@ -84,5 +98,6 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
     canPlayPico8,
     canPlayRuffle,
     canPlayStream,
+    canPlayNative,
   };
 }

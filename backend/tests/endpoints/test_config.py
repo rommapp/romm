@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi import status
 
@@ -85,6 +85,46 @@ def test_add_platform_version_payload_shape(client, access_token: str):
 
     assert response.status_code == status.HTTP_200_OK
     add_platform_version.assert_called_once_with("n64", "1.0")
+
+
+def test_mapping_a_folder_with_a_case_variant_sibling_is_rejected(
+    client, access_token: str
+):
+    """One config key covers both, so the write would remap the sibling too."""
+    with (
+        patch(
+            "endpoints.configs.fs_platform_handler.find_ambiguous_folders",
+            AsyncMock(return_value=["PSX", "psx"]),
+        ),
+        patch.object(cm, "add_platform_binding") as add_platform_binding,
+    ):
+        response = client.post(
+            "/api/config/system/platforms",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"fs_slug": "PSX", "slug": "ps2"},
+        )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert "differ only by case" in response.json()["detail"]
+    add_platform_binding.assert_not_called()
+
+
+def test_mapping_a_folder_whose_name_is_unique_is_allowed(client, access_token: str):
+    with (
+        patch(
+            "endpoints.configs.fs_platform_handler.find_ambiguous_folders",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(cm, "add_platform_binding") as add_platform_binding,
+    ):
+        response = client.post(
+            "/api/config/system/platforms",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"fs_slug": "Nintendo 64", "slug": "n64"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    add_platform_binding.assert_called_once_with("Nintendo 64", "n64")
 
 
 def test_add_exclusion_payload_shape(client, access_token: str):

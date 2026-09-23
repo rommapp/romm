@@ -75,7 +75,9 @@ async def test_fetch_listing_caches_parsed_filenames(service):
     assert result == ["Final Fantasy VII (USA).png"]
 
     cache_key = service._cache_key(system_name, LibretroArtType.LOGO)
-    assert json.loads(await async_cache.get(cache_key)) == result
+    cached = await async_cache.get(cache_key)
+    assert cached is not None
+    assert json.loads(cached) == result
     assert await async_cache.ttl(cache_key) == LIBRETRO_LISTING_CACHE_TTL
 
 
@@ -88,7 +90,9 @@ async def test_fetch_listing_caches_miss_on_404(service):
     assert await fetch_with(service, session, system_name) == []
 
     cache_key = service._cache_key(system_name, LibretroArtType.LOGO)
-    assert json.loads(await async_cache.get(cache_key)) == []
+    cached = await async_cache.get(cache_key)
+    assert cached is not None
+    assert json.loads(cached) == []
     assert await async_cache.ttl(cache_key) == LIBRETRO_MISSING_LISTING_CACHE_TTL
 
 
@@ -113,7 +117,9 @@ async def test_fetch_listing_caches_miss_on_410(service):
     assert await fetch_with(service, session, system_name) == []
 
     cache_key = service._cache_key(system_name, LibretroArtType.LOGO)
-    assert json.loads(await async_cache.get(cache_key)) == []
+    cached = await async_cache.get(cache_key)
+    assert cached is not None
+    assert json.loads(cached) == []
 
 
 @pytest.mark.asyncio

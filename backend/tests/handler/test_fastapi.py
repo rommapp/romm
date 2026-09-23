@@ -818,6 +818,7 @@ async def test_scan_rom_hashes_rematches_hasheous(
 
     mock_lookup.assert_called_once()
     assert result.hasheous_id == 999
+    assert result.hasheous_metadata is not None
     assert result.hasheous_metadata["nointro_match"] is True
     assert result.hasheous_metadata["ra_match"] is True
     # A rehash must not rewrite user-visible fields.

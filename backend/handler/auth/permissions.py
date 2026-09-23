@@ -111,7 +111,7 @@ def _resolve_grant_map(
 def resolve_permissions(
     user: User,
     *,
-    session=None,  # type: ignore
+    session=None,
 ) -> ResolvedPermissions:
     # Admins bypass everything -- no DB access needed.
     if user.role == Role.ADMIN:
@@ -129,7 +129,7 @@ def resolve_permissions(
 def _resolve_non_admin(
     user: User,
     *,
-    session=None,  # type: ignore
+    session=None,
 ) -> ResolvedPermissions:
     from handler.database import db_permission_handler
 
@@ -165,7 +165,7 @@ def _resolve_non_admin(
 def compute_oauth_scopes(
     user: User,
     *,
-    session=None,  # type: ignore
+    session=None,
 ) -> list[Scope]:
     """Project a user's effective grants onto the coarse legacy ``Scope`` set.
 
@@ -184,7 +184,7 @@ def compute_oauth_scopes(
 def _compute_non_admin_scopes(
     user: User,
     *,
-    session=None,  # type: ignore
+    session=None,
 ) -> list[Scope]:
     grant_map = _resolve_grant_map(user, session=session)
     scopes = set(

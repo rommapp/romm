@@ -13,7 +13,7 @@ from .base_handler import DBBaseHandler
 
 
 class DBScreenshotsHandler(DBBaseHandler):
-    def filter[QueryT: Select[tuple[Screenshot]] | Update | Delete](
+    def filter[QueryT: (Select[tuple[Screenshot]], Update, Delete)](
         self,
         query: QueryT,
         *,
