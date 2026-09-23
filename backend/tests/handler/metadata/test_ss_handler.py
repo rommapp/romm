@@ -2216,6 +2216,38 @@ class TestExtractFromSSDump:
         """No filename tag answers to it, so reading it would split the facet."""
         assert extract_tags_from_ss_dump(cast(SSGameRom, {"unl": "1"})) == []
 
+    async def test_a_hash_match_carries_the_dump_tags(self):
+        """The primary path: lookup_rom answers a hash, so its dump is ours."""
+        handler = SSHandler()
+        rom_file = MagicMock(
+            file_size_bytes=40976,
+            is_top_level=True,
+            file_extension="nes",
+            file_name="Super Mario Bros. (W) [T Fre].nes",
+            archive_members=None,
+            md5_hash="811b027eaf99c2def7b933c5208636de",
+            sha1_hash="",
+            crc_hash="",
+        )
+        rom = MagicMock(platform_slug="nes", platform_id=1, id=100, regions=[])
+
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                new=AsyncMock(return_value=self._game()),
+            ),
+            patch(
+                "handler.metadata.ss_handler.build_ss_game",
+                side_effect=lambda *_: SSRom(ss_id=1245),
+            ),
+        ):
+            result, _ = await handler.lookup_rom(rom, 3, [rom_file])
+
+        assert result.get("tags") == ["Translation"]
+        assert result.get("languages") == ["French"]
+
     def test_a_dump_without_tags_reports_nothing(self):
         dump = cast(SSGameRom, {"id": 1})
 
