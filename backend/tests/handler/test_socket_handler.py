@@ -22,7 +22,11 @@ class TestEmitToUser:
 
         await handler.emit_to_user(5, "notifications:read", {"ids": None})
 
-        assert make.call_args.kwargs == {"channel": "test-channel", "write_only": True}
+        assert make.call_args.kwargs == {
+            "channel": "test-channel",
+            "write_only": True,
+            "json": socket_handler_module.json_module,
+        }
         manager.emit.assert_awaited_once_with(
             "notifications:read", {"ids": None}, room="user:5"
         )

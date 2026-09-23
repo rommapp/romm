@@ -55,6 +55,24 @@ describe("notificationInbox", () => {
     expect(inbox.unreadCount).toBe(1);
   });
 
+  it("drops a list that arrives after a reset", async () => {
+    let answer!: (value: unknown) => void;
+    getNotifications.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    const inbox = storeNotificationInbox();
+
+    const pending = inbox.fetch();
+    inbox.reset();
+    answer({ data: [notification(1)] });
+    await pending;
+
+    expect(inbox.notifications).toEqual([]);
+    expect(inbox.loaded).toBe(false);
+  });
+
   it("puts a pushed notification first, once", () => {
     const inbox = storeNotificationInbox();
     inbox.receive(notification(1));

@@ -8,6 +8,9 @@ import type {
 } from "@/__generated__";
 import notificationApi from "@/services/api/notification";
 
+// Bumped by reset(), so a list requested for the previous user is dropped.
+let generation = 0;
+
 // No ids stands for every notification, as it does in the API.
 type NotificationIds = NotificationIdsPayload["ids"];
 
@@ -24,7 +27,9 @@ export default defineStore("v2NotificationInbox", {
 
   actions: {
     async fetch() {
+      const requested = generation;
       const { data } = await notificationApi.getNotifications();
+      if (requested !== generation) return;
       this.notifications = data;
       this.loaded = true;
     },
@@ -91,6 +96,7 @@ export default defineStore("v2NotificationInbox", {
     },
 
     reset() {
+      generation += 1;
       this.notifications = [];
       this.loaded = false;
     },

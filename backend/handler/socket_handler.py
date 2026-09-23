@@ -35,8 +35,9 @@ class SocketHandler:
         # each job in a new loop.
         loop = asyncio.get_running_loop()
         if self._write_manager is None or self._write_manager_loop is not loop:
+            # Only a manager attached to a server inherits its JSON encoder.
             self._write_manager = socketio.AsyncRedisManager(
-                REDIS_URL, channel=self.channel, write_only=True
+                REDIS_URL, channel=self.channel, write_only=True, json=json_module
             )
             self._write_manager_loop = loop
         return self._write_manager
