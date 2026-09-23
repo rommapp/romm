@@ -63,7 +63,6 @@ function submit(): void {
         if (!v) close();
       }
     "
-    @close="close"
   >
     <template #header>
       <span>{{ title ?? t("rom.asset-labels") }}</span>

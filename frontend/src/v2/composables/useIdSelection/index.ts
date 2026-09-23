@@ -1,10 +1,10 @@
-import { computed, ref, type ComputedRef, type Ref } from "vue";
+import { computed, shallowRef, type ComputedRef, type Ref } from "vue";
 
 /**
  * Checkbox selection over a list of items identified by a numeric id.
  *
- * The set is cloned on every write: Vue does not track `Set` mutation, so a
- * handler that added in place would leave the checkboxes stale.
+ * The set is held in a `shallowRef` and cloned on every write, so reads cost
+ * no proxy and a replacement is what notifies the checkboxes.
  */
 export interface IdSelection<T> {
   /** The raw ids, for passing to a list component. */
@@ -25,7 +25,7 @@ export function useIdSelection<T>(
   items: () => readonly T[],
   idOf: (item: T) => number = (item) => (item as { id: number }).id,
 ): IdSelection<T> {
-  const selectedIds = ref<ReadonlySet<number>>(new Set<number>());
+  const selectedIds = shallowRef<ReadonlySet<number>>(new Set<number>());
 
   // Derived from the live list rather than the set's own size, so an id left
   // behind by a delete or a refresh elsewhere cannot inflate the count.

@@ -351,6 +351,10 @@ const allCheckedFavorite = (type: AssetType) => {
   return assets.length > 0 && assets.every((a) => a.is_favorite);
 };
 
+// One bulk write at a time: each fans out a request per asset, so a second
+// click would double the traffic and race the refresh.
+const bulkBusy = ref(false);
+
 /** Reports a fanned-out bulk write, which has no single-call route. */
 async function reportBulk(
   results: PromiseSettledResult<unknown>[],
@@ -375,26 +379,31 @@ async function reportBulk(
 
 async function toggleCheckedFavorite(type: AssetType) {
   const assets = selectionFor(type).selected.value;
-  if (assets.length === 0) return;
+  if (assets.length === 0 || bulkBusy.value) return;
   const isFavorite = !allCheckedFavorite(type);
 
-  const results = await Promise.allSettled(
-    assets.map((asset) =>
-      type === "save"
-        ? saveApi.setSaveFavorite({ id: asset.id, isFavorite })
-        : stateApi.setStateFavorite({ id: asset.id, isFavorite }),
-    ),
-  );
-  await reportBulk(
-    results,
-    "rom.favorites-updated-n",
-    "rom.cant-toggle-favorite",
-  );
+  bulkBusy.value = true;
+  try {
+    const results = await Promise.allSettled(
+      assets.map((asset) =>
+        type === "save"
+          ? saveApi.setSaveFavorite({ id: asset.id, isFavorite })
+          : stateApi.setStateFavorite({ id: asset.id, isFavorite }),
+      ),
+    );
+    await reportBulk(
+      results,
+      "rom.favorites-updated-n",
+      "rom.cant-toggle-favorite",
+    );
+  } finally {
+    bulkBusy.value = false;
+  }
 }
 
 async function deleteChecked(type: AssetType) {
   const assets = selectionFor(type).selected.value;
-  if (assets.length === 0) return;
+  if (assets.length === 0 || bulkBusy.value) return;
 
   const ok = await confirm({
     title: t(
@@ -408,13 +417,16 @@ async function deleteChecked(type: AssetType) {
   });
   if (!ok) return;
 
-  selectionFor(type).clear();
+  bulkBusy.value = true;
   try {
     if (type === "save") {
       await saveApi.deleteSaves({ saves: assets as SaveSchema[] });
     } else {
       await stateApi.deleteStates({ states: assets as StateSchema[] });
     }
+    // Only once the rows are gone: a failed delete keeps them checked so the
+    // user can retry without picking them again.
+    selectionFor(type).clear();
     snackbar.success(
       t(
         type === "save" ? "rom.saves-deleted-n" : "rom.states-deleted-n",
@@ -431,6 +443,8 @@ async function deleteChecked(type: AssetType) {
       }),
       { icon: "mdi-close-circle" },
     );
+  } finally {
+    bulkBusy.value = false;
   }
 }
 
