@@ -118,7 +118,8 @@ const locationClass = computed(
         v-if="modelValue"
         class="r-badge"
         :class="[
-          locationClass,
+          // An anchor's transform would shift an inline badge off its line.
+          inline ? null : locationClass,
           {
             'r-badge--dot': dot,
             'r-badge--bordered': bordered,
