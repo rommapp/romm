@@ -1117,9 +1117,10 @@ tasks.run                    : Task execution
 
 ### Session Management
 
-- Redis keys: `session:{session_id}`, `user_sessions:{username}`
+- Redis keys: `session:{session_id}`, `user_sessions:{username}`, `session_sockets:{session_id}`
 - Cookie: `romm_session` (httponly, samesite=lax/strict)
 - `clear_user_sessions(user_id)` on password change clears all sessions
+- Removing a session (logout, revoke) disconnects the sockets it opened, which would otherwise keep their `user:{id}` and `admin` rooms
 
 ---
 
@@ -1290,6 +1291,8 @@ await notify_admins("custom", NotificationLevel.WARNING, title="Disk almost full
 ```
 
 A `NotificationKind` is translated by the client from `data`; a new one needs a describer in `frontend/src/v2/utils/notifications.ts` and locale keys. Until then, or for a one-off, pass any other kind with `title`/`body`/`link`/`icon`. Both helpers log and swallow failures, so a job never fails over reporting itself.
+
+A task reports its success from `run_task_by_name`. Its failure is reported by `report_task_failure`, an exception handler `RomMWorker` installs, so a timeout, a killed work horse or a dead worker notifies too, for cron runs as well as manual ones.
 
 ---
 
@@ -1560,6 +1563,7 @@ Falls back to `FakeRedis` in test mode.
 | -------------------------- | --------------- | ------------------------------- |
 | `session:{id}`             | 14 days         | Session JSON                    |
 | `user_sessions:{username}` | 14 days         | Set of session IDs              |
+| `session_sockets:{id}`     | 14 days         | Socket IDs a session opened     |
 | `reset-jti:{jti}`          | 10 min          | Password reset token (one-time) |
 | `invite-jti:{jti}`         | 10 min          | Invite token (one-time)         |
 | `refresh-jti:{jti}`        | 7 days          | Refresh token validation        |
