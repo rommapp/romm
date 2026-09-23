@@ -5,19 +5,21 @@
 // keeping the `?tab=` query param so deep links survive a reload.
 //
 // Tabs are gated by scope: `users.write` for the groups tab,
-// `tasks.run` for the Tasks tab, `app.admin` for Streaming, whose every
-// endpoint is admin-only. Users tab is always visible to anyone who can
+// `tasks.run` for the Tasks tab, `app.admin` for Streaming and
+// Notifications, whose endpoints are admin-only. Users tab is always visible to anyone who can
 // reach this route (route-level guard already checks `app.admin`).
 import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import storeAuth from "@/stores/auth";
+import storePermissions from "@/stores/permissions";
 import CreateUserDialog from "@/v2/components/Settings/CreateUserDialog.vue";
 import EditUserDialog from "@/v2/components/Settings/EditUserDialog.vue";
 import GroupFormDialog from "@/v2/components/Settings/GroupFormDialog.vue";
 import InviteLinkDialog from "@/v2/components/Settings/InviteLinkDialog.vue";
 import PermissionGroupsSection from "@/v2/components/Settings/PermissionGroupsSection.vue";
+import SendNotificationSection from "@/v2/components/Settings/SendNotificationSection.vue";
 import StreamingSection from "@/v2/components/Settings/StreamingSection.vue";
 import TasksSection from "@/v2/components/Settings/TasksSection.vue";
 import UsersSection from "@/v2/components/Settings/UsersSection.vue";
@@ -27,10 +29,17 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
+const permissions = storePermissions();
 const isAdmin = useCan("app.admin");
 
-type Tab = "users" | "groups" | "tasks" | "streaming";
-const validTabs: Tab[] = ["users", "groups", "tasks", "streaming"];
+type Tab = "users" | "groups" | "tasks" | "streaming" | "notifications";
+const validTabs: Tab[] = [
+  "users",
+  "groups",
+  "tasks",
+  "streaming",
+  "notifications",
+];
 
 const tab = ref<Tab>(
   (validTabs as string[]).includes(route.query.tab as string)
@@ -82,21 +91,30 @@ const tabs = computed<RTabNavItem[]>(() => {
     });
   }
   if (isAdmin.value) {
-    items.push({
-      id: "streaming",
-      label: t("settings.streaming"),
-      icon: "mdi-monitor-dashboard",
-    });
+    items.push(
+      {
+        id: "streaming",
+        label: t("settings.streaming"),
+        icon: "mdi-monitor-dashboard",
+      },
+      {
+        id: "notifications",
+        label: t("notifications.notifications"),
+        icon: "mdi-bullhorn-outline",
+      },
+    );
   }
   return items;
 });
 
 // A tab nobody can see is not one the query param may select: the route
 // admits `users.write` as well, and Streaming would otherwise deep-link them
-// to a panel whose every request 403s.
+// to a panel whose every request 403s. Admin-only tabs appear once
+// permissions load, so a deep link waits for them.
 watch(
-  tabs,
-  (items) => {
+  () => [tabs.value, permissions.hydrated] as const,
+  ([items, hydrated]) => {
+    if (!hydrated) return;
     if (!items.some((item) => item.id === tab.value)) tab.value = "users";
   },
   { immediate: true },
@@ -119,6 +137,7 @@ const tabModel = computed<string>({
     <PermissionGroupsSection v-else-if="tab === 'groups'" />
     <TasksSection v-else-if="tab === 'tasks'" />
     <StreamingSection v-else-if="tab === 'streaming' && isAdmin" />
+    <SendNotificationSection v-else-if="tab === 'notifications' && isAdmin" />
 
     <CreateUserDialog />
     <EditUserDialog />

@@ -27,9 +27,19 @@ function count(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-// The server only stores in-app paths; this keeps a stray one from leaving RomM.
-function inAppLink(link: string | null): string | null {
-  return link?.startsWith("/") && !link.startsWith("//") ? link : null;
+// Mirror the columns in backend/models/notification.py.
+export const NOTIFICATION_TITLE_MAX_LENGTH = 255;
+export const NOTIFICATION_BODY_MAX_LENGTH = 1000;
+export const NOTIFICATION_LINK_MAX_LENGTH = 1000;
+
+/** Whether a link stays inside RomM, by the rule the server enforces. */
+export function isInAppPath(link: string): boolean {
+  return (
+    link.startsWith("/") &&
+    !link.startsWith("//") &&
+    !link.includes("\\") &&
+    !/\s/.test(link)
+  );
 }
 
 function ownContent(notification: NotificationSchema): NotificationView {
@@ -37,7 +47,10 @@ function ownContent(notification: NotificationSchema): NotificationView {
     icon: notification.icon ?? "mdi-bell-outline",
     title: notification.title ?? t("notifications.unknown"),
     body: notification.body,
-    to: inAppLink(notification.link),
+    to:
+      notification.link && isInAppPath(notification.link)
+        ? notification.link
+        : null,
     toast: true,
   };
 }
