@@ -7,6 +7,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from config import SESSION_MAX_AGE_SECONDS
 from handler.redis_handler import async_cache
+from handler.socket_handler import socket_handler
 
 
 class RedisSessionMiddleware:
@@ -36,11 +37,11 @@ class RedisSessionMiddleware:
 
         # A member arrives as bytes from a client that does not decode, and its
         # repr in a key name would miss the session and leave it live.
-        keys = [
-            f"session:{sid.decode() if isinstance(sid, bytes) else sid}"
-            for sid in session_ids
-        ]
-        await async_cache.delete(*keys, f"user_sessions:{user_id}")
+        ids = [sid.decode() if isinstance(sid, bytes) else sid for sid in session_ids]
+        await async_cache.delete(
+            *(f"session:{sid}" for sid in ids), f"user_sessions:{user_id}"
+        )
+        await socket_handler.close_login_sessions(ids)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):
@@ -103,6 +104,7 @@ class RedisSessionMiddleware:
                         await async_cache.srem(
                             f"user_sessions:{initial_user_id}", session_id
                         )
+                        await socket_handler.close_login_sessions([session_id])
 
                     header_value = f"{self.session_cookie}=null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; {self.security_flags}"
                     headers.append("Set-Cookie", header_value)

@@ -1,11 +1,20 @@
 import asyncio
-from typing import Any
+from collections.abc import Iterable
+from typing import Any, Final
 
 import socketio
 
-from config import REDIS_URL
+from config import REDIS_URL, SESSION_MAX_AGE_SECONDS
+from handler.redis_handler import async_cache
 from logger.logger import log
 from utils import json_module
+
+# Where a socket's own session records the login session that opened it.
+LOGIN_SESSION_ID_KEY: Final = "login_session_id"
+
+
+def _login_session_sockets_key(session_id: str) -> str:
+    return f"session_sockets:{session_id}"
 
 
 class SocketHandler:
@@ -50,6 +59,46 @@ class SocketHandler:
             await self.write_manager().emit(event, payload, room=f"user:{user_id}")
         except Exception:  # noqa: BLE001
             log.warning(f"Failed to push {event} to user {user_id}", exc_info=True)
+
+    async def bind_to_login_session(self, sid: str, session_id: str) -> None:
+        """Record which login session opened a socket, so revoking it closes the socket."""
+        key = _login_session_sockets_key(session_id)
+        await async_cache.sadd(key, sid)
+        await async_cache.expire(key, SESSION_MAX_AGE_SECONDS)
+        async with self.socket_server.session(sid) as session:
+            session[LOGIN_SESSION_ID_KEY] = session_id
+
+    async def unbind_from_login_session(self, sid: str) -> None:
+        """Forget a disconnecting socket, logging a failure."""
+        try:
+            session = await self.socket_server.get_session(sid)
+            session_id = session.get(LOGIN_SESSION_ID_KEY)
+            if session_id:
+                await async_cache.srem(_login_session_sockets_key(session_id), sid)
+        except Exception:  # noqa: BLE001
+            log.warning(f"Failed to unbind socket {sid}", exc_info=True)
+
+    async def close_login_sessions(self, session_ids: Iterable[str]) -> None:
+        """Disconnect every socket the given login sessions opened, on any worker.
+
+        A socket keeps the rooms its session earned at connect, so a revoked
+        session would otherwise go on receiving its user's and the admins' events.
+        """
+        for session_id in session_ids:
+            key = _login_session_sockets_key(session_id)
+            try:
+                sids = await async_cache.smembers(key)
+                await async_cache.delete(key)
+                for sid in sids:
+                    # A socket on another worker is disconnected through the broker.
+                    await self.socket_server.disconnect(
+                        sid.decode() if isinstance(sid, bytes) else sid
+                    )
+            except Exception:  # noqa: BLE001
+                log.warning(
+                    f"Failed to close the sockets of session {session_id}",
+                    exc_info=True,
+                )
 
 
 socket_handler = SocketHandler(path="/ws/socket.io")
