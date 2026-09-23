@@ -10,7 +10,15 @@ import pytest
 from fastapi import UploadFile
 
 from config.config_manager import DEFAULT_EXCLUDED_FILES
-from handler.filesystem.base_handler import FSHandler, region_ranks_for_priority
+from handler.filesystem.base_handler import (
+    FSHandler,
+    normalize_language,
+    normalize_provider_languages,
+    normalize_provider_regions,
+    provider_language_name,
+    provider_region_name,
+    region_ranks_for_priority,
+)
 from models.base import FILE_NAME_MAX_LENGTH
 
 
@@ -637,3 +645,147 @@ class TestRegionRanksForPriority:
 
     def test_empty_priority_yields_no_ranks(self):
         assert region_ranks_for_priority([]) == {}
+
+
+class TestNormalizeProviderRegions:
+    """Provider shortcodes collapse onto the names filename parsing produces."""
+
+    def test_provider_shortcodes_resolve_to_canonical_names(self):
+        assert normalize_provider_regions(["us", "eu", "wor", "asi"]) == [
+            "USA",
+            "Europe",
+            "World",
+            "Asia",
+        ]
+
+    def test_filename_spellings_are_accepted_too(self):
+        assert normalize_provider_regions(["usa", "J", "EUROPE"]) == [
+            "USA",
+            "Japan",
+            "Europe",
+        ]
+
+    def test_shortcode_shared_with_a_language_stays_a_region(self):
+        # "de" and "fr" also spell a language tag, but a provider reporting
+        # them under a region field means Germany and France.
+        assert normalize_provider_regions(["de", "fr"]) == ["Germany", "France"]
+
+    def test_duplicate_spellings_collapse_to_one_value(self):
+        assert normalize_provider_regions(["us", "USA", "U"]) == ["USA"]
+
+    def test_unknown_value_is_kept_as_given(self):
+        assert normalize_provider_regions([" Neptune "]) == ["Neptune"]
+
+    def test_blank_values_are_dropped(self):
+        assert normalize_provider_regions(["", "  ", "us"]) == ["USA"]
+
+
+class TestNormalizeProviderLanguages:
+    """ISO-639-1 codes collapse onto the names filename parsing produces."""
+
+    def test_iso_codes_resolve_to_canonical_names(self):
+        assert normalize_provider_languages(["en", "fr", "ja"]) == [
+            "English",
+            "French",
+            "Japanese",
+        ]
+
+    def test_duplicate_spellings_collapse_to_one_value(self):
+        assert normalize_provider_languages(["en", "English", "EN"]) == ["English"]
+
+    def test_unknown_value_is_kept_as_given(self):
+        assert normalize_provider_languages([" Klingon "]) == ["Klingon"]
+
+    def test_blank_values_are_dropped(self):
+        assert normalize_provider_languages(["", "  ", "en"]) == ["English"]
+
+
+# Every region ScreenScraper can report, from its published list. Providers
+# send these bare, so one that resolves to nothing becomes a facet value.
+SCREENSCRAPER_REGION_CODES = (
+    "de",
+    "asi",
+    "au",
+    "br",
+    "bg",
+    "ca",
+    "cl",
+    "cn",
+    "ame",
+    "kr",
+    "dk",
+    "sp",
+    "eu",
+    "fi",
+    "fr",
+    "gr",
+    "hu",
+    "il",
+    "it",
+    "jp",
+    "kw",
+    "wor",
+    "mor",
+    "no",
+    "nz",
+    "oce",
+    "nl",
+    "pe",
+    "pl",
+    "pt",
+    "cz",
+    "uk",
+    "ru",
+    "sk",
+    "se",
+    "tw",
+    "tr",
+    "us",
+)
+
+# The buckets that name no place. Both readers drop these rather than store them.
+SCREENSCRAPER_PSEUDO_REGIONS = ("ss", "cus")
+
+
+class TestProviderVocabularyCoverage:
+    """A code a provider can send has to resolve, or it lands in a facet raw."""
+
+    @pytest.mark.parametrize("code", SCREENSCRAPER_REGION_CODES)
+    def test_every_screenscraper_region_resolves(self, code: str):
+        assert provider_region_name(code) is not None
+
+    @pytest.mark.parametrize("code", SCREENSCRAPER_PSEUDO_REGIONS)
+    def test_the_screenscraper_buckets_resolve_to_nothing(self, code: str):
+        assert provider_region_name(code) is None
+
+    @pytest.mark.parametrize(
+        "code,expected",
+        [
+            ("pl", "Poland"),
+            ("cz", "Czech Republic"),
+            ("tr", "Turkey"),
+            ("wor", "World"),
+        ],
+    )
+    def test_a_region_with_no_filename_shortcode_still_canonicalizes(
+        self, code: str, expected: str
+    ):
+        assert normalize_provider_regions([code]) == [expected]
+
+    @pytest.mark.parametrize(
+        "code,expected",
+        [("cs", "Czech"), ("tr", "Turkish"), ("he", "Hebrew"), ("uk", "Ukrainian")],
+    )
+    def test_an_iso_language_with_no_filename_shortcode_canonicalizes(
+        self, code: str, expected: str
+    ):
+        assert normalize_provider_languages([code]) == [expected]
+
+    def test_the_provider_languages_stay_out_of_filename_parsing(self):
+        """A filename "(Tr)" marks a translation, not Turkish."""
+        assert normalize_language("tr") is None
+        assert provider_language_name("tr") == "Turkish"
+
+    def test_a_provider_name_resolves_to_the_same_value_as_its_code(self):
+        assert provider_region_name("Poland") == provider_region_name("pl")
+        assert provider_language_name("czech") == provider_language_name("cs")

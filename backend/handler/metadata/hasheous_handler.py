@@ -1,6 +1,7 @@
 import json
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 import httpx
 import pydash
@@ -8,6 +9,11 @@ import yarl
 from fastapi import status
 
 from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
+from handler.filesystem.base_handler import (
+    normalize_provider_values,
+    provider_language_name,
+    provider_region_name,
+)
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
@@ -47,6 +53,8 @@ class HasheousPlatform(TypedDict):
 
 class HasheousRom(BaseRom):
     hasheous_id: int | None
+    regions: NotRequired[list[str]]
+    languages: NotRequired[list[str]]
     igdb_id: NotRequired[int | None]
     slug: NotRequired[str]
     igdb_metadata: NotRequired[IGDBMetadata]
@@ -57,6 +65,62 @@ class HasheousRom(BaseRom):
 
 
 ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {UPS.DC: ["bin", "chd", "cue"]}
+
+# Signature sources whose region data is preferred, as Hasheous spells them.
+# The curated per-region dumps describe one release; the rest lump variants
+# together or, for ScreenScraper, carry the game's whole release spread.
+PREFERRED_SIGNATURE_SOURCES: Final = ("NoIntros", "Redump")
+
+# Codes Hasheous prints as ISO-3166 that a filename shortcode claims for
+# somewhere else: CH is Switzerland here and China in a No-Intro name, AS is
+# American Samoa and Asia. The name printed beside them decides instead.
+_AMBIGUOUS_COUNTRY_CODES: Final = frozenset({"ch", "as"})
+
+
+def _country_name(code: str) -> str | None:
+    if code.strip().lower() in _AMBIGUOUS_COUNTRY_CODES:
+        return None
+    return provider_region_name(code)
+
+
+def _tags_from_signatures(
+    signatures: dict[str, Any],
+    field: str,
+    resolve: Callable[[str], str | None],
+) -> list[str]:
+    """Read one dump's countries or languages out of the matched signatures.
+
+    Only `rom` is read, never the `game` beside it, which spans every release
+    of the title. A resolved code wins over the name Hasheous printed.
+    """
+    if not isinstance(signatures, dict):
+        return []
+
+    ordered_sources = [
+        source for source in PREFERRED_SIGNATURE_SOURCES if source in signatures
+    ] + [source for source in signatures if source not in PREFERRED_SIGNATURE_SOURCES]
+
+    # Every field below comes straight off the wire, so none of its shapes are
+    # assumed: a raise here would abort the scan of the rom.
+    for source in ordered_sources:
+        entries = signatures.get(source)
+        for entry in entries if isinstance(entries, list) else []:
+            tags = pydash.get(entry, ["rom", field])
+            if not isinstance(tags, dict):
+                continue
+
+            values = normalize_provider_values(
+                (
+                    resolve(code) or (name if isinstance(name, str) else "")
+                    for code, name in tags.items()
+                    if isinstance(code, str)
+                ),
+                resolve,
+            )
+            if values:
+                return values
+
+    return []
 
 
 def _involved_company_names(rom: dict[str, Any], role: str) -> list[str]:
@@ -328,7 +392,7 @@ class HasheousHandler(MetadataHandler):
 
         metadata = hasheous_game.get("metadata", [])
         attributes = hasheous_game.get("attributes", [])
-        signatures = hasheous_game.get("signatures", {}).keys()
+        signatures = hasheous_game.get("signatures", {})
 
         igdb_id = None
         tgdb_id = None
@@ -359,6 +423,10 @@ class HasheousHandler(MetadataHandler):
             HasheousRom(
                 hasheous_id=hasheous_game["id"],
                 name=hasheous_game.get("name", ""),
+                regions=_tags_from_signatures(signatures, "country", _country_name),
+                languages=_tags_from_signatures(
+                    signatures, "language", provider_language_name
+                ),
                 igdb_id=int(igdb_id) if igdb_id else None,
                 tgdb_id=int(tgdb_id) if tgdb_id else None,
                 ra_id=int(ra_id) if ra_id else None,
