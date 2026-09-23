@@ -27,12 +27,16 @@ function render() {
     global: {
       stubs: {
         NotificationInbox: stub("NotificationInbox"),
+        NotificationChannelsSection: stub("NotificationChannelsSection"),
         SendNotificationSection: stub("SendNotificationSection"),
         RTabNav: defineComponent({
           name: "RTabNav",
-          props: { modelValue: { type: String, default: "" } },
+          props: {
+            modelValue: { type: String, default: "" },
+            items: { type: Array, default: () => [] },
+          },
           emits: ["update:modelValue"],
-          template: `<nav :data-active="modelValue" />`,
+          template: `<nav :data-active="modelValue" :data-tabs="items.map((i) => i.id).join(',')" />`,
         }),
       },
     },
@@ -52,13 +56,13 @@ describe("Notifications view", () => {
     replace.mockClear();
   });
 
-  it("shows a user only the inbox, even under a link to the form", () => {
+  it("gives a user the inbox and their channels, never the form", () => {
     signIn(false);
     route.query = { tab: "send" };
 
     const wrapper = render();
 
-    expect(wrapper.find("nav").exists()).toBe(false);
+    expect(wrapper.find("nav").attributes("data-tabs")).toBe("inbox,channels");
     expect(wrapper.find('[data-testid="NotificationInbox"]').exists()).toBe(
       true,
     );
@@ -67,14 +71,29 @@ describe("Notifications view", () => {
     ).toBe(false);
   });
 
-  it("gives an admin the inbox and a send tab", () => {
+  it("gives an admin a send tab too", () => {
     signIn(true);
 
     const wrapper = render();
 
+    expect(wrapper.find("nav").attributes("data-tabs")).toBe(
+      "inbox,channels,send",
+    );
     expect(wrapper.find("nav").attributes("data-active")).toBe("inbox");
+  });
+
+  it("deep-links anyone to their channels", () => {
+    signIn(false);
+    route.query = { tab: "channels" };
+
+    const wrapper = render();
+
+    expect(wrapper.find("nav").attributes("data-active")).toBe("channels");
+    expect(
+      wrapper.find('[data-testid="NotificationChannelsSection"]').exists(),
+    ).toBe(true);
     expect(wrapper.find('[data-testid="NotificationInbox"]').exists()).toBe(
-      true,
+      false,
     );
   });
 
