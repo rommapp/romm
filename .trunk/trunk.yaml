@@ -21,8 +21,6 @@ lint:
     - svgo
     - oxipng
     - pyright
-    # Trunk's venv lacks the project's packages; mypy.yml runs it against uv's.
-    - mypy
   enabled:
     - zizmor@1.30.1
     - pinact@4.0.0
@@ -36,6 +34,46 @@ lint:
     - checkov@3.3.8
     - git-diff-check
     - isort@8.0.1
+    # Typed packages mypy resolves imports against, pinned as in uv.lock.
+    - mypy@2.3.1:
+        packages:
+          - aiohttp@3.14.3
+          - alembic@1.18.4
+          - anyio@4.14.2
+          - asyncssh@2.23.1
+          - cryptography@50.0.0
+          - fakeredis@2.30.1
+          - fastapi@0.134.0
+          - fastapi-pagination@0.15.0
+          - httpcore@1.0.9
+          - httpx@0.28.1
+          - hypothesis@6.152.9
+          - itsdangerous@2.2.0
+          - joserfc@1.6.8
+          - mutagen@1.47.0
+          - opentelemetry-api@1.44.0
+          - pillow@12.3.0
+          - pydantic@2.13.5
+          - pydash@8.0.6
+          - pytest@9.0.3
+          - pytest-asyncio@1.3.0
+          - pytest-mock@3.14.1
+          - python-dotenv@1.2.2
+          - python-magic@0.4.27
+          - redis@6.2.0
+          - rq@2.12.0
+          - sentry-sdk@2.69.1
+          - sqlalchemy@2.0.52
+          - starlette@1.6.0
+          - types-colorama@0.4.15.20240311
+          - types-passlib@1.7.7.20250602
+          - types-pyyaml@6.0.12.20250516
+          - types-redis@4.6.0.20241004
+          - ua-parser@1.0.1
+          - unidecode@1.3.8
+          - uvicorn@0.35.0
+          - yarl@1.24.2
+          - zstandard@0.25.0
     - osv-scanner@2.3.3
     - prettier@3.9.5:
         packages:
@@ -58,6 +96,12 @@ lint:
         - backend/utils/rom_patcher/patcher.js
         # Intentionally malformed YAML, used as a test fixture
         - backend/tests/config/fixtures/config/malformed_config.yml
+    # Alembic env/migrations rely on runtime-injected globals (context, op)
+    # that mypy cannot resolve; already excluded in mypy.ini, but Trunk passes
+    # changed files explicitly, which bypasses that exclude.
+    - linters: [mypy]
+      paths:
+        - backend/alembic/**
     # The v1 UI is frozen and the freeze check blocks changes to these paths,
     # so ESLint findings in its templates cannot lead to fixes. Its TypeScript
     # stays covered, since that was already linted before .vue was.

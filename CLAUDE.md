@@ -6,14 +6,14 @@ RomM is a self-hosted ROM manager and player: scan a game library off disk, enri
 
 ## The stack at a glance
 
-|           | Backend                                      | Frontend                                  |
-| --------- | -------------------------------------------- | ----------------------------------------- |
-| Path      | `backend/`                                   | `frontend/`                               |
-| Language  | Python 3.14+                                 | TypeScript 5.9 (Vue 3)                    |
-| Framework | FastAPI, SQLAlchemy 2.0, Alembic             | Vue 3 + Vite, Vuetify, Pinia, Vue Router  |
-| Infra     | Redis + RQ (jobs/cache/sessions), Socket.IO  | vue-i18n, Socket.IO client                |
-| DB        | MariaDB (default), MySQL, PostgreSQL         | -                                         |
-| Tooling   | `uv`, pytest, mypy, Trunk (ruff/black/isort) | `npm`, vue-tsc, ESLint, Vitest, Storybook |
+|           | Backend                                     | Frontend                                  |
+| --------- | ------------------------------------------- | ----------------------------------------- |
+| Path      | `backend/`                                  | `frontend/`                               |
+| Language  | Python 3.14+                                | TypeScript 5.9 (Vue 3)                    |
+| Framework | FastAPI, SQLAlchemy 2.0, Alembic            | Vue 3 + Vite, Vuetify, Pinia, Vue Router  |
+| Infra     | Redis + RQ (jobs/cache/sessions), Socket.IO | vue-i18n, Socket.IO client                |
+| DB        | MariaDB (default), MySQL, PostgreSQL        | -                                         |
+| Tooling   | `uv`, pytest, Trunk (ruff/black/isort/mypy) | `npm`, vue-tsc, ESLint, Vitest, Storybook |
 
 The frontend talks to the backend over `/api/*` (REST) and `/ws` (Socket.IO). TypeScript types are **generated** from the backend's OpenAPI schema into `frontend/src/__generated__/` - the backend is the single source of truth for API shapes.
 
@@ -61,7 +61,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 
 **Disclose AI assistance in the PR.** RomM requires it (see `CONTRIBUTING.md`): state that AI was used and to what extent. This is mandatory and non-negotiable for agent-written contributions.
 **Branch off `master`; open PRs against `master`.** Fork → feature branch → PR. Don't push to `master`.
-**Linting is via [Trunk](https://trunk.io)** (`trunk fmt && trunk check`), which wraps ruff, black, isort, ESLint, Prettier, and more, and runs in CI on every PR. **Never commit with `--no-verify`.**
+**Linting is via [Trunk](https://trunk.io)** (`trunk fmt && trunk check`) — it wraps ruff, black, isort, mypy, ESLint, Prettier, and more, and runs in CI on every PR. **Never commit with `--no-verify`.**
 **The backend owns the API contract.** Changed a response schema or route? Regenerate frontend types (`npm run generate`) and re-typecheck.
 **Tests travel with code.** New logic gets a test; new endpoints get endpoint tests; new v2 primitives get a Storybook story (+ `play()` if interactive).
 **Verify before handoff.** Don't say "done" on UI work without testing it in the browser in both themes and all input modalities. See `review-polish`.
@@ -90,7 +90,6 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 uv sync --all-extras --dev          # install
 uv run main.py              # run (migrations auto-apply)
 uv run pytest <path/file>           # test - affected files only, NEVER the whole suite
-uv run mypy --config-file ../.trunk/configs/mypy.ini .   # type-check the whole backend
 uv run alembic revision --autogenerate -m "msg"   # new migration (then HAND-REVIEW)
 uv run alembic upgrade head         # apply migrations
 ```
