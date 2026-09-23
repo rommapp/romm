@@ -40,6 +40,10 @@ class HasheousMetadata(TypedDict):
     ra_match: bool
     fbneo_match: bool
     puredos_match: bool
+    # What the dump our hashes matched says of itself, kept by the scan.
+    dump_regions: NotRequired[list[str]]
+    dump_languages: NotRequired[list[str]]
+    dump_tags: NotRequired[list[str]]
 
 
 class HasheousPlatform(TypedDict):

@@ -79,6 +79,37 @@ def ss_translated_by_id() -> Iterator[AsyncMock]:
 
 
 @pytest.fixture
+def ss_match_by_id() -> Iterator[AsyncMock]:
+    """Patch the id refetch with an answer that finds the game but not our dump."""
+    with patch(
+        "handler.scan_handler.meta_ss_handler.get_rom_by_id",
+        new=AsyncMock(return_value=SS_MATCH),
+    ) as by_id:
+        yield by_id
+
+
+@pytest.fixture
+def hasheous_no_match() -> Iterator[AsyncMock]:
+    """Patch a Hasheous hash lookup that answers and finds nothing."""
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    with (
+        patch(
+            "handler.scan_handler.meta_hasheous_handler.lookup_rom",
+            new=AsyncMock(return_value=(no_match, True)),
+        ) as lookup,
+        patch(
+            "handler.scan_handler.meta_hasheous_handler.get_igdb_game",
+            new=AsyncMock(return_value=no_match),
+        ),
+        patch(
+            "handler.scan_handler.meta_hasheous_handler.get_ra_game",
+            new=AsyncMock(return_value=no_match),
+        ),
+    ):
+        yield lookup
+
+
+@pytest.fixture
 def ss_name_search() -> Iterator[AsyncMock]:
     """Patch the ScreenScraper name search, which identifies a title, not a dump."""
     with (
@@ -163,6 +194,8 @@ async def test_screenscraper_tags_a_translated_dump(ss_translated: AsyncMock):
     result = await _scan(MetadataSource.SS, tags=[])
 
     assert result.tags == ["Translation"]
+    assert result.ss_metadata is not None
+    assert result.ss_metadata["dump_tags"] == ["Translation"]
 
 
 async def test_a_dump_tag_joins_the_filename_tags(ss_translated: AsyncMock):
@@ -212,3 +245,111 @@ async def test_a_filename_tag_survives_a_provider_that_reports_none(
     result = await _scan(MetadataSource.SS, fs_name="Mario Kart 64 (Beta).z64")
 
     assert result.tags == ["Beta"]
+
+
+async def test_an_update_that_skips_screenscraper_keeps_what_its_dump_said():
+    """The row's tags are re-read from the filename first, as a selected rescan does."""
+    result = await _scan(
+        MetadataSource.HASHEOUS,
+        scan_type=ScanType.UPDATE,
+        ss_id=42,
+        ss_metadata={"dump_regions": ["Europe"], "dump_tags": ["Translation"]},
+        regions=[],
+        tags=[],
+    )
+
+    assert result.regions == ["Europe"]
+    assert result.tags == ["Translation"]
+
+
+async def test_a_hashes_scan_keeps_the_dump_tag_screenscraper_gave():
+    """A hashes scan never asks ScreenScraper again, and tags merge onto the filename's."""
+    result = await _scan(
+        MetadataSource.SS,
+        scan_type=ScanType.HASHES,
+        ss_id=42,
+        ss_metadata={"dump_tags": ["Translation"]},
+        tags=["Translation"],
+    )
+
+    assert result.tags == ["Translation"]
+
+
+async def test_a_fresh_answer_replaces_what_the_blob_kept(ss_match_by_id: AsyncMock):
+    """ScreenScraper answering without our dump outranks the dump tags it kept."""
+    result = await _scan(
+        MetadataSource.SS,
+        scan_type=ScanType.UPDATE,
+        ss_id=42,
+        ss_metadata={"dump_tags": ["Translation"]},
+        tags=[],
+    )
+
+    assert result.tags == []
+    assert result.ss_metadata is not None
+    assert result.ss_metadata["dump_tags"] == []
+
+
+async def test_a_kept_region_only_fills_an_empty_slot():
+    """The row's region may be a gamelist's, which this scan didn't ask either."""
+    result = await _scan(
+        MetadataSource.SS,
+        scan_type=ScanType.HASHES,
+        ss_id=42,
+        ss_metadata={"dump_regions": ["Europe"]},
+        regions=["USA"],
+    )
+
+    assert result.regions == ["USA"]
+
+
+async def test_a_rehash_that_drops_hasheous_drops_its_tags(
+    hasheous_no_match: AsyncMock,
+):
+    result = await _scan(
+        MetadataSource.HASHEOUS,
+        scan_type=ScanType.HASHES,
+        hasheous_id=1,
+        hasheous_metadata={"dump_regions": ["Japan"]},
+        regions=[],
+    )
+
+    assert result.hasheous_id is None
+    assert result.regions == []
+
+
+@pytest.mark.parametrize(
+    "stored,expected",
+    [
+        (["Translation"], []),
+        ("Translation", []),
+        ({"dump_tags": "Translation"}, []),
+        ({"dump_tags": [1, "Translation"]}, ["Translation"]),
+    ],
+)
+async def test_a_hand_edited_blob_yields_only_listed_tags(
+    stored: Any, expected: list[str]
+):
+    """An edit of the raw metadata can store any JSON in the blob."""
+    result = await _scan(
+        MetadataSource.SS,
+        scan_type=ScanType.HASHES,
+        ss_id=42,
+        ss_metadata=stored,
+        tags=[],
+    )
+
+    assert result.tags == expected
+
+
+async def test_a_complete_rescan_without_screenscraper_drops_its_tags(
+    hasheous_lookup: AsyncMock,
+):
+    result = await _scan(
+        MetadataSource.HASHEOUS,
+        ss_id=42,
+        ss_metadata={"dump_tags": ["Translation"]},
+        tags=["Translation"],
+    )
+
+    assert result.tags == []
