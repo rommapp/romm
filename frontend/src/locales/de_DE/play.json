@@ -176,7 +176,6 @@
   "resume-from-state": "Vom Zustand fortsetzen",
   "save-and-quit": "Speichern und beenden",
   "save-data": "Spielstand",
-  "save-data-detail": "Aktualisiert {time} · {size}",
   "save-data-none": "Noch kein Spielstand",
   "save-data-none-hint": "{platform} speichert den Fortschritt im eigenen Spielstand des Spiels",
   "save-data-none-note": "Spiele und speichere im Spiel. Der Stand wird am Ende der Sitzung synchronisiert.",

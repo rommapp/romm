@@ -11,11 +11,10 @@
 //   * manage (selectable=false) — Save data subtab. Rows are static; the
 //     trailing area renders the `#actions` slot (download/delete/toggle),
 //     and `showOwner` adds an author chip for community items.
-import { RBtn, RCheckbox, REmptyState, RIcon, RTooltip } from "@v2/lib";
+import { RBtn, RCheckbox, REmptyState, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
-import { formatTimestamp } from "@/utils";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
@@ -98,17 +97,13 @@ defineSlots<{
   actions(props: { asset: Asset }): unknown;
 }>();
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 const { xs } = useBreakpoint();
 
 const emptyLabel = computed(() =>
   props.type === "save"
     ? t("play.no-saves-available")
     : t("play.no-states-available"),
-);
-
-const timeLabel = computed(() =>
-  props.timestamp === "created" ? t("rom.created") : t("rom.updated"),
 );
 
 function slotOf(asset: Asset): string | null {
@@ -309,29 +304,12 @@ const fadeIndex = computed(() =>
               <AssetTimestamp
                 class="r-asset-list__time"
                 :date="dateOf(asset, timestamp)"
-                :align="xs ? 'start' : 'end'"
+                :stacked="!xs"
               />
 
               <span v-if="!selectable" class="r-asset-list__actions">
                 <slot name="actions" :asset="asset" />
               </span>
-
-              <RTooltip
-                v-if="selectable"
-                activator="parent"
-                location="top"
-                :open-delay="400"
-              >
-                <div class="r-asset-list__tip">
-                  <span class="r-asset-list__tip-name">
-                    {{ asset.file_name }}
-                  </span>
-                  <span class="r-asset-list__tip-sub">
-                    {{ timeLabel }}:
-                    {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
-                  </span>
-                </div>
-              </RTooltip>
             </component>
           </li>
         </ul>
@@ -556,42 +534,28 @@ const fadeIndex = computed(() =>
   align-self: flex-start;
 }
 
-.r-asset-list__tip {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 360px;
-}
-.r-asset-list__tip-name {
-  font-size: 12px;
-  font-weight: var(--r-font-weight-semibold);
-  word-break: break-all;
-}
-.r-asset-list__tip-sub {
-  font-size: 11px;
-  opacity: 0.85;
-}
-
 /* Phones give each part its own band, which `display: contents` allows by
    lifting the text block's children into the row grid: the name rides the
-   thumbnail, then labels, then facts beside the timestamp, then the actions. */
+   thumbnail, then labels, facts, the timestamp and the actions. */
 html[data-bp~="xs"] .r-asset-list__row {
   padding: var(--r-space-2) var(--r-space-3);
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-areas:
-    "icon name name"
-    "labels labels labels"
-    "facts facts time"
-    "actions actions actions";
+    "icon name"
+    "labels labels"
+    "facts facts"
+    "time time"
+    "actions actions";
   gap: var(--r-space-1) var(--r-space-3);
 }
 html[data-bp~="xs"] .r-asset-list__row--checkable {
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr);
   grid-template-areas:
-    "check icon name name"
-    "check labels labels labels"
-    "check facts facts time"
-    "check actions actions actions";
+    "check icon name"
+    "check labels labels"
+    "check facts facts"
+    "check time time"
+    "check actions actions";
 }
 html[data-bp~="xs"] .r-asset-list__check {
   grid-area: check;

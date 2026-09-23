@@ -176,7 +176,6 @@
   "resume-from-state": "Wznów ze stanu",
   "save-and-quit": "Zapisz i zakończ",
   "save-data": "Dane zapisu",
-  "save-data-detail": "Zaktualizowano {time} · {size}",
   "save-data-none": "Brak danych zapisu",
   "save-data-none-hint": "{platform} przechowuje postęp we własnym zapisie gry",
   "save-data-none-note": "Zagraj i zapisz w grze. Synchronizacja nastąpi po zakończeniu sesji.",

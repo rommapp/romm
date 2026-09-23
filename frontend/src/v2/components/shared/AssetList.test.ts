@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { SaveSchema } from "@/__generated__";
+import { saveFixture } from "@/utils/assets.fixtures";
 import AssetList from "./AssetList.vue";
 
 vi.mock("vue-i18n", () => ({
@@ -30,7 +31,6 @@ const stubs = {
   RTag,
   RCheckbox,
   RIcon: true,
-  RTooltip: true,
   RAvatar: true,
 };
 
@@ -38,16 +38,12 @@ let nextId = 1;
 function save(slot: string | null, hoursAgo: number): SaveSchema {
   const id = nextId++;
   const at = new Date(Date.UTC(2026, 8, 16, 12) - hoursAgo * 3600_000);
-  return {
+  return saveFixture({
     id,
-    user_id: 1,
     file_name: `save_${id}.srm`,
-    file_size_bytes: 1024,
     updated_at: at.toISOString(),
-    emulator: null,
     slot,
-    screenshot: null,
-  } as SaveSchema;
+  });
 }
 
 function library() {
