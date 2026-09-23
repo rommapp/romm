@@ -264,6 +264,24 @@ class TestDiscNumber:
     def test_reads_a_split_disc(self):
         assert disc_number(_make_file("G (Disc 2A).chd", "chd")) == 2
 
+    def test_reads_a_lettered_disc(self):
+        assert disc_number(_make_file("G (Disc A).chd", "chd")) == 1
+        assert disc_number(_make_file("G (disc c).chd", "chd")) == 3
+        assert disc_number(_make_file("G (Disk B of 2).adf", "adf")) == 2
+
+    def test_a_letter_needs_a_space_to_be_a_disc(self):
+        # "(CDi)" names the platform, not disc I.
+        assert disc_number(_make_file("G (CDi).chd", "chd")) is None
+
+    def test_a_non_ascii_letter_is_not_a_disc(self):
+        # Case folding would let "İ" and "ſ" through as i and s.
+        assert disc_number(_make_file("G (Disc İ).chd", "chd")) is None
+        assert disc_number(_make_file("G (Disc ſ).chd", "chd")) is None
+
+    def test_a_non_breaking_space_still_separates_the_tag(self):
+        assert disc_number(_make_file("G (Disc 2).chd", "chd")) == 2
+        assert disc_number(_make_file("G (Disc B).chd", "chd")) == 2
+
     def test_a_name_that_claims_no_disc(self):
         assert disc_number(_make_file("G (USA).chd", "chd")) is None
 
@@ -322,6 +340,19 @@ class TestPlaylistOrder:
             "G (Disc 1).chd",
             "G (Disc 2).chd",
             "Bonus Disc.chd",
+        ]
+
+    def test_a_lettered_set_boots_from_disc_a(self):
+        files = [
+            _make_file("A Making Of.chd", "chd"),
+            _make_file("G (disc b).chd", "chd"),
+            _make_file("G (Disc A).chd", "chd"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == [
+            "G (Disc A).chd",
+            "G (disc b).chd",
+            "A Making Of.chd",
         ]
 
     def test_an_unnumbered_set_keeps_its_name_order(self):
