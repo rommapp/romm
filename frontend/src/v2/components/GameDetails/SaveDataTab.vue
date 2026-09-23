@@ -13,7 +13,7 @@
 // into a specific list works.
 import { RBtn, RDropzone } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   DetailedRomSchema,
@@ -29,6 +29,7 @@ import storeConfig from "@/stores/config";
 import { getSupportedEJSCores } from "@/utils";
 import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
 import AssetLabelsDialog from "@/v2/components/GameDetails/AssetLabelsDialog.vue";
+import AssetSelectionToolbar from "@/v2/components/GameDetails/AssetSelectionToolbar.vue";
 import SubtabNav, {
   type SubtabNavItem,
 } from "@/v2/components/GameDetails/SubtabNav.vue";
@@ -39,6 +40,7 @@ import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIdSelection } from "@/v2/composables/useIdSelection";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
@@ -257,6 +259,7 @@ async function deleteSave(save: SaveSchema) {
     body: t("rom.delete-save-body-named", { name: save.file_name }),
     confirmText: t("rom.delete-save"),
     tone: "danger",
+    requireTyped: t("rom.delete-keyword"),
   });
   if (!ok) return;
   try {
@@ -276,6 +279,7 @@ async function deleteState(state: StateSchema) {
     body: t("rom.delete-state-body-named", { name: state.file_name }),
     confirmText: t("rom.delete-state"),
     tone: "danger",
+    requireTyped: t("rom.delete-keyword"),
   });
   if (!ok) return;
   try {
@@ -328,10 +332,132 @@ async function toggleStateVisibility(state: StateSchema) {
   }
 }
 
+// ---------- Bulk selection (own items only) ----------
+// A save and a state can share an id and both panels stay mounted, so each
+// kind gets its own selection rather than one keyed by id alone.
+const saveSelection = useIdSelection(() => mySaves.value);
+const stateSelection = useIdSelection(() => myStates.value);
+
+function selectionFor(type: AssetType) {
+  return type === "save" ? saveSelection : stateSelection;
+}
+
+// A selection only makes sense against the list it was made on. Read through
+// getters: `subTab` is a shallowRef, and a shallow source makes Vue fire the
+// watcher on every dependency trigger, so a refresh alone would wipe it.
+watch([() => subTab.value, () => props.rom.id], () => {
+  saveSelection.clear();
+  stateSelection.clear();
+});
+
+const allCheckedFavorite = (type: AssetType) => {
+  const assets = selectionFor(type).selected.value;
+  return assets.length > 0 && assets.every((a) => a.is_favorite);
+};
+
+// One bulk write at a time: each fans out a request per asset, so a second
+// click would double the traffic and race the refresh.
+const bulkBusy = ref(false);
+
+/** Reports a fanned-out bulk write, then refreshes if any of it landed. */
+async function reportAndRefreshBulk(
+  results: PromiseSettledResult<unknown>[],
+  okKey: string,
+  failKey: string,
+) {
+  const ok = results.filter((r) => r.status === "fulfilled").length;
+  if (ok > 0) {
+    snackbar.success(t(okKey, ok, { named: { n: ok } }), {
+      icon: "mdi-check-bold",
+    });
+  }
+  const failed = results.find((r) => r.status === "rejected");
+  if (failed) {
+    snackbar.error(t(failKey, { error: errorMessage(failed.reason) }), {
+      icon: "mdi-close-circle",
+    });
+  }
+  if (ok > 0) await refreshRom();
+}
+
+async function toggleCheckedFavorite(type: AssetType) {
+  const assets = selectionFor(type).selected.value;
+  if (assets.length === 0 || bulkBusy.value) return;
+  const isFavorite = !allCheckedFavorite(type);
+
+  bulkBusy.value = true;
+  try {
+    const results = await Promise.allSettled(
+      assets.map((asset) => writeFavorite(type, asset.id, isFavorite)),
+    );
+    await reportAndRefreshBulk(
+      results,
+      "rom.favorites-updated-n",
+      "rom.cant-toggle-favorite",
+    );
+  } finally {
+    bulkBusy.value = false;
+  }
+}
+
+async function deleteChecked(type: AssetType) {
+  const assets = selectionFor(type).selected.value;
+  if (assets.length === 0 || bulkBusy.value) return;
+
+  const ok = await confirm({
+    title: t(
+      type === "save" ? "rom.delete-saves-title" : "rom.delete-states-title",
+      assets.length,
+      { named: { n: assets.length } },
+    ),
+    body: t("rom.delete-assets-body"),
+    confirmText: t("common.delete"),
+    tone: "danger",
+    requireTyped: t("rom.delete-keyword"),
+  });
+  if (!ok) return;
+
+  bulkBusy.value = true;
+  try {
+    if (type === "save") {
+      await saveApi.deleteSaves({ saves: assets as SaveSchema[] });
+    } else {
+      await stateApi.deleteStates({ states: assets as StateSchema[] });
+    }
+    // Only once the rows are gone: a failed delete keeps them checked so the
+    // user can retry without picking them again.
+    selectionFor(type).clear();
+    snackbar.success(
+      t(
+        type === "save" ? "rom.saves-deleted-n" : "rom.states-deleted-n",
+        assets.length,
+        { named: { n: assets.length } },
+      ),
+      { icon: "mdi-check-bold" },
+    );
+    await refreshRom();
+  } catch (error) {
+    snackbar.error(
+      t(type === "save" ? "rom.cant-delete-save" : "rom.cant-delete-state", {
+        error: errorMessage(error),
+      }),
+      { icon: "mdi-close-circle" },
+    );
+    // The route deletes in a loop and raises on the first id it cannot find,
+    // so a failure can still have removed the assets ahead of it.
+    await refreshRom();
+  } finally {
+    bulkBusy.value = false;
+  }
+}
+
 // ---------- Favorite and labels (own items only) ----------
 // Keyed by type too: a save and a state can share an id.
 const favoritingKey = ref<string | null>(null);
-const labelTarget = ref<{ type: AssetType; asset: AssetSlot } | null>(null);
+// One asset replaces its labels; a null asset means the whole selection, and
+// that adds to each, so a bulk edit can never wipe a label it did not show.
+type LabelEdit = { type: AssetType; asset: AssetSlot | null };
+const labelTarget = ref<LabelEdit | null>(null);
 const savingLabels = ref(false);
 
 function isFavoriting(type: AssetType, asset: AssetSlot): boolean {
@@ -343,11 +469,7 @@ async function toggleFavorite(type: AssetType, asset: AssetSlot) {
   favoritingKey.value = `${type}:${asset.id}`;
   const isFavorite = !asset.is_favorite;
   try {
-    if (type === "save") {
-      await saveApi.setSaveFavorite({ id: asset.id, isFavorite });
-    } else {
-      await stateApi.setStateFavorite({ id: asset.id, isFavorite });
-    }
+    await writeFavorite(type, asset.id, isFavorite);
     await refreshRom();
   } catch (error) {
     snackbar.error(
@@ -359,21 +481,45 @@ async function toggleFavorite(type: AssetType, asset: AssetSlot) {
   }
 }
 
+function writeFavorite(type: AssetType, id: number, isFavorite: boolean) {
+  return type === "save"
+    ? saveApi.setSaveFavorite({ id, isFavorite })
+    : stateApi.setStateFavorite({ id, isFavorite });
+}
+
+function writeLabels(type: AssetType, id: number, labels: string[]) {
+  return type === "save"
+    ? saveApi.setSaveLabels({ id, labels })
+    : stateApi.setStateLabels({ id, labels });
+}
+
 async function submitLabels(labels: string[]) {
   const target = labelTarget.value;
   if (!target || savingLabels.value) return;
   savingLabels.value = true;
   try {
-    if (target.type === "save") {
-      await saveApi.setSaveLabels({ id: target.asset.id, labels });
+    if (target.asset) {
+      await writeLabels(target.type, target.asset.id, labels);
+      await refreshRom();
+      snackbar.success(t("rom.labels-updated"), { icon: "mdi-check-bold" });
     } else {
-      await stateApi.setStateLabels({ id: target.asset.id, labels });
+      const assets = selectionFor(target.type).selected.value;
+      const results = await Promise.allSettled(
+        assets.map((asset) =>
+          writeLabels(target.type, asset.id, [
+            ...new Set([...(asset.labels ?? []), ...labels]),
+          ]),
+        ),
+      );
+      await reportAndRefreshBulk(
+        results,
+        "rom.labels-applied-n",
+        "rom.cant-update-labels",
+      );
     }
-    await refreshRom();
     // Escape closes the dialog mid-save, so a slow write must not shut the
     // editor the user has since opened on another asset.
     if (labelTarget.value === target) labelTarget.value = null;
-    snackbar.success(t("rom.labels-updated"), { icon: "mdi-check-bold" });
   } catch (error) {
     snackbar.error(
       t("rom.cant-update-labels", { error: errorMessage(error) }),
@@ -468,11 +614,26 @@ const labelSuggestions = computed(() =>
             multiple
             @files="openUpload('save', $event)"
           >
+            <AssetSelectionToolbar
+              :count="saveSelection.count.value"
+              :total="mySaves.length"
+              :all-checked="saveSelection.allSelected.value"
+              :some-checked="saveSelection.someSelected.value"
+              :all-favorite="allCheckedFavorite('save')"
+              @toggle-all="saveSelection.toggleAll()"
+              @toggle-favorite="toggleCheckedFavorite('save')"
+              @edit-labels="labelTarget = { type: 'save', asset: null }"
+              @delete="deleteChecked('save')"
+              @clear="saveSelection.clear()"
+            />
             <AssetList
               :assets="mySaves"
               type="save"
               :selectable="false"
               :scrollable="false"
+              checkable
+              :checked-ids="saveSelection.selectedIds.value"
+              @toggle="saveSelection.toggle($event.id)"
             >
               <template #actions="{ asset }">
                 <AssetActions
@@ -562,12 +723,27 @@ const labelSuggestions = computed(() =>
             multiple
             @files="openUpload('state', $event)"
           >
+            <AssetSelectionToolbar
+              :count="stateSelection.count.value"
+              :total="myStates.length"
+              :all-checked="stateSelection.allSelected.value"
+              :some-checked="stateSelection.someSelected.value"
+              :all-favorite="allCheckedFavorite('state')"
+              @toggle-all="stateSelection.toggleAll()"
+              @toggle-favorite="toggleCheckedFavorite('state')"
+              @edit-labels="labelTarget = { type: 'state', asset: null }"
+              @delete="deleteChecked('state')"
+              @clear="stateSelection.clear()"
+            />
             <AssetStrip
               :assets="myStates"
               type="state"
               :selectable="false"
+              checkable
+              :checked-ids="stateSelection.selectedIds.value"
               layout="flow"
               group-by="emulator"
+              @toggle="stateSelection.toggle($event.id)"
             >
               <template #actions="{ asset }">
                 <AssetActions
@@ -628,7 +804,10 @@ const labelSuggestions = computed(() =>
 
     <AssetLabelsDialog
       :model-value="labelTarget !== null"
-      :initial-labels="labelTarget?.asset.labels ?? []"
+      :initial-labels="labelTarget?.asset?.labels ?? []"
+      :title="
+        labelTarget && !labelTarget.asset ? t('rom.add-labels') : undefined
+      "
       :suggestions="labelSuggestions"
       :busy="savingLabels"
       @update:model-value="!$event && (labelTarget = null)"
