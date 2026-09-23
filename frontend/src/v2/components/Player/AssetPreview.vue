@@ -6,9 +6,10 @@ import { RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
-import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { formatBytes, formatTimestamp } from "@/utils";
 import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
+import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { dateOf, type AssetDateField } from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
 
@@ -197,13 +198,11 @@ const emptyText = computed(() =>
             {{ formatBytes(asset.file_size_bytes) }}
           </span>
         </div>
-        <p class="r-asset-preview__when">
-          <RIcon icon="mdi-clock-outline" size="11" />
-          {{ formatRelativeDate(dateOf(asset, timestamp)) }}
-          <span class="r-asset-preview__when-exact">
-            {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
-          </span>
-        </p>
+        <AssetTimestamp
+          class="r-asset-preview__when"
+          :date="dateOf(asset, timestamp)"
+          inline
+        />
       </div>
 
       <!-- For states this stays as an empty block: the stage already carries
@@ -515,25 +514,6 @@ const emptyText = computed(() =>
   border-radius: var(--r-radius-pill);
   font-size: 10px;
   color: var(--r-color-fg-secondary);
-}
-
-.r-asset-preview__when {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--r-color-fg-secondary);
-  font-variant-numeric: tabular-nums;
-}
-.r-asset-preview__when-exact {
-  color: var(--r-color-fg-muted);
-}
-/* Separates the exact stamp from the relative one it trails. */
-.r-asset-preview__when-exact::before {
-  content: "·";
-  margin-right: 4px;
 }
 
 .r-asset-preview__empty-hint {

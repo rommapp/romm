@@ -1,13 +1,15 @@
 <script setup lang="ts">
-// When an asset was last written: relative first, the exact moment under it.
+// When an asset was last written: relative first, the exact moment under it
+// (or beside it when `inline`).
 import { useI18n } from "vue-i18n";
 import { formatRelativeDate, formatTimestamp } from "@/utils";
 
 defineOptions({ inheritAttrs: false });
 
-withDefaults(defineProps<{ date: string; align?: "start" | "end" }>(), {
-  align: "start",
-});
+withDefaults(
+  defineProps<{ date: string; align?: "start" | "end"; inline?: boolean }>(),
+  { align: "start", inline: false },
+);
 
 const { locale } = useI18n();
 </script>
@@ -15,7 +17,10 @@ const { locale } = useI18n();
 <template>
   <span
     class="r-asset-timestamp"
-    :class="`r-asset-timestamp--${align}`"
+    :class="[
+      `r-asset-timestamp--${align}`,
+      { 'r-asset-timestamp--inline': inline },
+    ]"
     v-bind="$attrs"
   >
     <span class="r-asset-timestamp__relative">
@@ -38,6 +43,12 @@ const { locale } = useI18n();
 .r-asset-timestamp--end {
   align-items: flex-end;
 }
+.r-asset-timestamp--inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 6px;
+}
 .r-asset-timestamp__relative {
   font-size: 11px;
   font-weight: var(--r-font-weight-medium);
@@ -47,10 +58,5 @@ const { locale } = useI18n();
   font-size: 10px;
   color: var(--r-color-fg-muted);
   font-variant-numeric: tabular-nums;
-}
-
-/* On a phone the exact moment is the first thing to go; tooltips keep it. */
-html[data-bp~="xs"] .r-asset-timestamp__exact {
-  display: none;
 }
 </style>

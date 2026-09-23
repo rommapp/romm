@@ -310,6 +310,7 @@ const fadeIndex = computed(() =>
                 class="r-asset-list__time"
                 :date="dateOf(asset, timestamp)"
                 :align="xs ? 'start' : 'end'"
+                :inline="xs"
               />
 
               <span v-if="!selectable" class="r-asset-list__actions">
@@ -574,24 +575,26 @@ const fadeIndex = computed(() =>
 
 /* Phones give each part its own band, which `display: contents` allows by
    lifting the text block's children into the row grid: the name rides the
-   thumbnail, then labels, then facts beside the timestamp, then the actions. */
+   thumbnail, then labels, facts, the timestamp and the actions. */
 html[data-bp~="xs"] .r-asset-list__row {
   padding: var(--r-space-2) var(--r-space-3);
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-areas:
-    "icon name name"
-    "labels labels labels"
-    "facts facts time"
-    "actions actions actions";
+    "icon name"
+    "labels labels"
+    "facts facts"
+    "time time"
+    "actions actions";
   gap: var(--r-space-1) var(--r-space-3);
 }
 html[data-bp~="xs"] .r-asset-list__row--checkable {
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr);
   grid-template-areas:
-    "check icon name name"
-    "check labels labels labels"
-    "check facts facts time"
-    "check actions actions actions";
+    "check icon name"
+    "check labels labels"
+    "check facts facts"
+    "check time time"
+    "check actions actions";
 }
 html[data-bp~="xs"] .r-asset-list__check {
   grid-area: check;

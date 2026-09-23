@@ -252,6 +252,7 @@ const fadeIndex = computed(() =>
                   />
                   <AssetTimestamp
                     :date="asset.updated_at"
+                    :inline="layout === 'flow'"
                     class="r-asset-strip__time"
                   />
                   <AssetOwnerChip
@@ -361,12 +362,11 @@ const fadeIndex = computed(() =>
   border-radius: 6px;
 }
 
-/* Flow layout (Save data subtab): a responsive grid instead of a single
-   horizontal scroll row. Tiles fill their grid cell, so the per-tile
-   flex-basis below is overridden. */
+/* Flow layout: a responsive grid with cells wide enough that labels and chips
+   don't stack a tile too tall. min() lets a lone column shrink on a phone. */
 .r-asset-strip--flow .r-asset-strip__track {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   overflow: visible;
   scroll-snap-type: none;
   padding: 4px 0;
