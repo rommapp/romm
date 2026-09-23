@@ -9,6 +9,7 @@
 // Per-ROM action menus are not app-wide: each GameCard owns its own
 // `MoreMenu` dropdown on the three-dots button. Right-click is left to
 // the browser so "Open in new tab" etc. keep working.
+import { useEventListener, useThrottleFn } from "@vueuse/core";
 import {
   defineAsyncComponent,
   onBeforeUnmount,
@@ -19,6 +20,7 @@ import {
 } from "vue";
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
+import { useNativeStore } from "@/stores/native";
 import storePlatforms from "@/stores/platforms";
 import storePlaying from "@/stores/playing";
 import { useStreamingStore } from "@/stores/streaming";
@@ -36,6 +38,7 @@ import { installGalleryProvenance } from "@/v2/composables/useGalleryProvenance"
 import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { installNativeLaunchFeedback } from "@/v2/composables/useNativeLaunch";
 import { installOverlayRouteDismiss } from "@/v2/composables/useOverlayRouteDismiss";
 import { installPendingAssetSync } from "@/v2/composables/usePendingAssetSync";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
@@ -77,8 +80,47 @@ watch(
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
 const streamingStore = useStreamingStore();
+const nativeStore = useNativeStore();
 
 const playingStore = storePlaying();
+
+// Snackbars for launches handed to the desktop shell. Installed in setup
+// because it injects the emitter; a no-op outside the shell.
+installNativeLaunchFeedback();
+
+// The native answer is per-platform, so unlike the streaming config the probe
+// needs the platform list. It watches for that list rather than hanging off
+// one fetch, because `fetchPlatforms` resolves empty when another view already
+// has one in flight. Re-probing is cheap: the store skips slugs it has
+// answered.
+watch(
+  // Serialized rather than joined: a slug comes from a folder name and may
+  // contain a comma, so ["a,b"] and ["a", "b"] would compare equal and a list
+  // that changed between them would never be probed.
+  () => JSON.stringify(platformsStore.allPlatforms.map((p) => p.slug)),
+  () => {
+    const slugs = platformsStore.allPlatforms.map((p) => p.slug);
+    if (slugs.length === 0) return;
+    void nativeStore.probe(slugs);
+  },
+  { immediate: true },
+);
+
+// The answer describes the user's machine, so installing an emulator (through
+// the shell's own settings or anywhere else) changes it with nothing here to
+// notice. Re-asked when the window comes back, which is when whatever did the
+// installing has just been in front. Throttled because alt-tabbing is cheap
+// and the shell answers this off the filesystem; a no-op outside the shell.
+const NATIVE_REPROBE_THROTTLE_MS = 10_000;
+useEventListener(
+  window,
+  "focus",
+  useThrottleFn(() => {
+    const slugs = platformsStore.allPlatforms.map((p) => p.slug);
+    if (slugs.length === 0) return;
+    void nativeStore.probe(slugs, { force: true });
+  }, NATIVE_REPROBE_THROTTLE_MS),
+);
 
 // Developer debug overlay — opt-in via Settings → Developer (per-device).
 // Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
