@@ -1,5 +1,6 @@
 """Webhook deliveries: RomM's own JSON, a Discord embed or an ntfy message."""
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -21,6 +22,9 @@ from .messages import OutboundMessage
 
 TIMEOUT_SECONDS: Final = 15
 SIGNATURE_HEADER: Final = "X-RomM-Signature"
+# How much of a refusal's body is read, for the error its owner sees.
+ERROR_DETAIL_BYTES: Final = 1024
+ERROR_DETAIL_CHARS: Final = 200
 
 DISCORD_COLORS: Final[dict[str, int]] = {
     NotificationLevel.INFO: 0x3498DB,
@@ -78,6 +82,12 @@ def check_url(url: str, format: WebhookFormat, allow_private: bool) -> None:
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ValueError("The URL must start with http:// or https://")
+    try:
+        port_ok = parts.port != 0
+    except ValueError:
+        port_ok = False
+    if not port_ok:
+        raise ValueError("The URL's port isn't valid")
     if not allow_private:
         try:
             validate_url_for_http_request(url)
@@ -148,7 +158,12 @@ def build_request(
         channel_name: What the owner called the channel, which a Discord embed
             shows in its footer.
     """
-    headers = {"Content-Type": "application/json", "User-Agent": "RomM"}
+    # Identity, so a refusal's body is read as sent rather than decompressed.
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "RomM",
+        "Accept-Encoding": "identity",
+    }
     secret = config.get("secret")
     url = config["url"]
 
@@ -179,13 +194,23 @@ def _client(allow_private: bool) -> httpx.AsyncClient:
     return client
 
 
+async def _error_detail(response: httpx.Response) -> str:
+    body = b""
+    async for chunk in response.aiter_raw():
+        body += chunk
+        if len(body) >= ERROR_DETAIL_BYTES:
+            break
+    text = body[:ERROR_DETAIL_BYTES].decode(response.encoding or "utf-8", "replace")
+    return text.strip()[:ERROR_DETAIL_CHARS]
+
+
 async def send(
     config: WebhookConfig,
     message: OutboundMessage,
     allow_private: bool,
     channel_name: str = "",
 ) -> None:
-    """POST the message to the webhook.
+    """POST the message to the webhook, giving it TIMEOUT_SECONDS in all.
 
     Raises:
         WebhookError: The destination refused it, or could not be reached.
@@ -193,19 +218,25 @@ async def send(
     request = build_request(config, message, channel_name)
     host = urlsplit(request.url).hostname
     try:
-        async with _client(allow_private) as client:
-            response = await client.post(
-                request.url, content=request.content, headers=request.headers
-            )
+        async with (
+            asyncio.timeout(TIMEOUT_SECONDS),
+            _client(allow_private) as client,
+            client.stream(
+                "POST", request.url, content=request.content, headers=request.headers
+            ) as response,
+        ):
+            if response.is_error:
+                detail = await _error_detail(response)
+                raise WebhookError(
+                    f"{host} answered {response.status_code}"
+                    + (f": {detail}" if detail else "")
+                )
+    except TimeoutError as exc:
+        raise WebhookError(
+            f"{host} did not answer within {TIMEOUT_SECONDS} seconds"
+        ) from exc
     except ValidationError as exc:
         raise WebhookError(exc.message) from exc
     except httpx.HTTPError as exc:
         reason = str(exc) or type(exc).__name__
         raise WebhookError(f"Could not reach {host}: {reason}") from exc
-
-    if response.is_error:
-        detail = response.text.strip()[:200]
-        raise WebhookError(
-            f"{host} answered {response.status_code}"
-            + (f": {detail}" if detail else "")
-        )

@@ -29,10 +29,14 @@ def read_config(sealed: str) -> dict[str, Any]:
         return {}
 
 
-def masked_url(url: str) -> str:
-    """The URL with its path hidden, which is where a webhook keeps its token."""
+def origin(url: str) -> str:
+    """The URL's scheme, host and port: whom a request to it reaches."""
     parts = urlsplit(url)
     port = f":{parts.port}" if parts.port else ""
-    origin = f"{parts.scheme}://{parts.hostname or ''}{port}"
-    tail = parts.path.rstrip("/")[-4:]
-    return f"{origin}/…{tail}" if tail else origin
+    return f"{parts.scheme}://{parts.hostname or ''}{port}"
+
+
+def masked_url(url: str) -> str:
+    """The URL with its path hidden, which is where a webhook keeps its token."""
+    tail = urlsplit(url).path.rstrip("/")[-4:]
+    return f"{origin(url)}/…{tail}" if tail else origin(url)

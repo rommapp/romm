@@ -55,6 +55,8 @@ class OIDCDict(TypedDict):
 
 class NotificationsDict(TypedDict):
     EMAIL_ENABLED: bool
+    # Email is set up and ROMM_BASE_URL is shareable, so reset links are mailed.
+    EMAILS_RESET_LINKS: bool
 
 
 class TasksDict(TypedDict):

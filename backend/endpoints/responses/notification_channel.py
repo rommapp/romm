@@ -27,7 +27,7 @@ EmailAddress = Annotated[str, Field(max_length=320)]
 
 
 def _check_address(address: str | None) -> str | None:
-    if address is not None and not EMAIL_PATTERN.match(address):
+    if address is not None and not EMAIL_PATTERN.fullmatch(address):
         raise ValueError("Not a valid email address")
     return address
 

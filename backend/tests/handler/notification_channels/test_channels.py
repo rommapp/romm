@@ -51,6 +51,7 @@ def issue(mocker):
 def _stored(type=NotificationChannelType.WEBHOOK, confirmed=True, **config):
     return MagicMock(
         id=4,
+        user_id=USER.id,
         type=type,
         enabled=True,
         confirmed_at=datetime.now(timezone.utc) if confirmed else None,
@@ -122,7 +123,7 @@ class TestCreate:
         )
 
         assert channel.confirmed_at is None
-        issue.assert_awaited_once_with(channel.id, "a@example.com")
+        issue.assert_awaited_once_with(channel.id, USER.id, "a@example.com")
 
     async def test_an_address_whose_code_cannot_go_out_is_not_kept(
         self, db, email_on, issue
@@ -169,6 +170,49 @@ class TestUpdate:
             "secret": "k",
         }
 
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"url": "https://elsewhere.example.com/a"},
+            {"url": "https://hooks.example.com:8443/a"},
+            {"format": WebhookFormat.NTFY},
+        ],
+    )
+    async def test_a_kept_secret_does_not_follow_it_elsewhere(self, db, change):
+        stored = _stored(url="https://hooks.example.com/a", format="json", secret="k")
+
+        with pytest.raises(ChannelError, match="secret again"):
+            await update_channel(stored, USER, {}, **change)
+
+        db.update_channel.assert_not_called()
+
+    async def test_moving_to_discord_drops_the_secret_it_never_sends(self, db):
+        stored = _stored(url="https://hooks.example.com/a", format="json", secret="k")
+
+        updated = await update_channel(
+            stored,
+            USER,
+            {},
+            url="https://discord.com/api/webhooks/1/t",
+            format=WebhookFormat.DISCORD,
+        )
+
+        assert read_config(updated.config)["secret"] is None
+
+    async def test_a_secret_given_again_goes_to_the_new_url(self, db):
+        stored = _stored(url="https://hooks.example.com/a", format="json", secret="k")
+
+        updated = await update_channel(
+            stored,
+            USER,
+            {},
+            url="https://elsewhere.example.com/a",
+            secret="k2",
+            secret_given=True,
+        )
+
+        assert read_config(updated.config)["secret"] == "k2"
+
     async def test_an_empty_secret_drops_it(self, db):
         stored = _stored(url="https://hooks.example.com/a", format="json", secret="k")
 
@@ -190,7 +234,7 @@ class TestUpdate:
         updated = await update_channel(stored, USER, {}, address="b@example.com")
 
         assert updated.confirmed_at is None
-        issue.assert_awaited_once_with(4, "b@example.com")
+        issue.assert_awaited_once_with(4, USER.id, "b@example.com")
 
     async def test_a_new_address_whose_code_cannot_go_out_is_not_kept(
         self, db, email_on, issue
@@ -259,7 +303,7 @@ class TestResend:
             )
         )
 
-        issue.assert_awaited_once_with(4, "a@example.com")
+        issue.assert_awaited_once_with(4, USER.id, "a@example.com")
 
     async def test_a_webhook_needs_no_code(self, db, email_on, issue):
         with pytest.raises(ChannelError):

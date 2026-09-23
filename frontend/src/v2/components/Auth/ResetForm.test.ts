@@ -35,8 +35,8 @@ describe("ResetForm", () => {
     requestPasswordReset.mockResolvedValue({});
   });
 
-  it("says the link is on its way when the server sends email", async () => {
-    storeHeartbeat().value.NOTIFICATIONS.EMAIL_ENABLED = true;
+  it("says the link is on its way when the server emails it", async () => {
+    storeHeartbeat().value.NOTIFICATIONS.EMAILS_RESET_LINKS = true;
 
     const wrapper = await requestFor("player");
 
@@ -45,8 +45,9 @@ describe("ResetForm", () => {
     expect(wrapper.emitted("done")).toHaveLength(1);
   });
 
-  it("points to the admin when it doesn't", async () => {
-    storeHeartbeat().value.NOTIFICATIONS.EMAIL_ENABLED = false;
+  it("points to the admin when it doesn't, even with email set up", async () => {
+    storeHeartbeat().value.NOTIFICATIONS.EMAIL_ENABLED = true;
+    storeHeartbeat().value.NOTIFICATIONS.EMAILS_RESET_LINKS = false;
 
     await requestFor("player");
 

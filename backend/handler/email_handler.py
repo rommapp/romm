@@ -9,6 +9,7 @@ from typing import Final
 import config
 
 TIMEOUT_SECONDS: Final = 30
+SMTP_SECURITY_MODES: Final = ("starttls", "tls", "none")
 
 
 class EmailError(RuntimeError):
@@ -37,6 +38,12 @@ def send_email(to: str, subject: str, text: str) -> None:
     """
     if not config.EMAIL_ENABLED:
         raise EmailError("Email isn't set up on this server")
+    # Refused rather than read as `none`, which would log in over plaintext.
+    if config.SMTP_SECURITY not in SMTP_SECURITY_MODES:
+        raise EmailError(
+            f"SMTP_SECURITY is {config.SMTP_SECURITY!r}, not one of "
+            + ", ".join(SMTP_SECURITY_MODES)
+        )
 
     message = build_message(to, subject, text)
     context = ssl.create_default_context()

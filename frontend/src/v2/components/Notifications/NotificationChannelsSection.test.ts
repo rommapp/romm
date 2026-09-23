@@ -54,14 +54,12 @@ function channel(
   };
 }
 
+const DialogStub = defineComponent({ emits: ["saved"], template: "<div />" });
+
 async function mountWith(channels: NotificationChannelSchema[]) {
   api.getChannels.mockResolvedValue({ data: channels });
   const wrapper = mount(NotificationChannelsSection, {
-    global: {
-      stubs: {
-        NotificationChannelDialog: defineComponent({ template: "<div />" }),
-      },
-    },
+    global: { stubs: { NotificationChannelDialog: DialogStub } },
   });
   await flushPromises();
   return wrapper;
@@ -98,6 +96,26 @@ describe("NotificationChannelsSection", () => {
       "notifications.channel-level-warning · notifications.topic-scans, notifications.topic-tasks",
     );
     expect(text).toContain("notifications.channel-last-error");
+  });
+
+  it("says a code went out only for an address new to the channel", async () => {
+    const waiting = channel({
+      type: "email",
+      format: null,
+      target: "a@example.com",
+      confirmed: false,
+    });
+    const wrapper = await mountWith([waiting]);
+    const dialog = wrapper.findComponent(DialogStub);
+
+    dialog.vm.$emit("saved", { ...waiting, name: "Renamed" }, false);
+    expect(snackbar.info).not.toHaveBeenCalled();
+    expect(snackbar.success).toHaveBeenCalledWith(
+      "notifications.channel-saved",
+    );
+
+    dialog.vm.$emit("saved", { ...waiting, target: "b@example.com" }, false);
+    expect(snackbar.info).toHaveBeenCalledOnce();
   });
 
   it("turns a channel off at once and back on if the server refuses", async () => {

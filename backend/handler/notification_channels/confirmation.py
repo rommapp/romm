@@ -22,20 +22,37 @@ def _key(channel_id: int, part: str) -> str:
     return f"notification-channel:{channel_id}:{part}"
 
 
+def _cooldown_keys(user_id: int, address: str) -> tuple[str, str]:
+    # Per user and per address rather than per channel, which a delete and a
+    # re-create would reset.
+    address_digest = hashlib.sha256(address.strip().lower().encode()).hexdigest()
+    return (
+        f"notification-channel-cooldown:user:{user_id}",
+        f"notification-channel-cooldown:address:{address_digest}",
+    )
+
+
 def _digest(channel_id: int, code: str) -> str:
     return hashlib.sha256(f"{channel_id}:{code}".encode()).hexdigest()
 
 
-async def issue_code(channel_id: int, address: str) -> None:
+async def issue_code(channel_id: int, user_id: int, address: str) -> None:
     """Email a fresh code to the address, replacing any earlier one.
 
     Raises:
-        CodeCooldownError: A code went out less than a minute ago.
+        CodeCooldownError: A code went out to the user, or to the address, less
+            than a minute ago.
         EmailError: The email could not be sent.
     """
-    if not await async_cache.set(
-        _key(channel_id, "cooldown"), "1", ex=RESEND_COOLDOWN_SECONDS, nx=True
-    ):
+    cooldowns = _cooldown_keys(user_id, address)
+    claimed = [
+        key
+        for key in cooldowns
+        if await async_cache.set(key, "1", ex=RESEND_COOLDOWN_SECONDS, nx=True)
+    ]
+    if len(claimed) < len(cooldowns):
+        if claimed:
+            await async_cache.delete(*claimed)
         raise CodeCooldownError("Wait a minute before asking for another code")
 
     code = f"{secrets.randbelow(10**6):06d}"
@@ -53,7 +70,7 @@ async def issue_code(channel_id: int, address: str) -> None:
             "If you didn't add this address to RomM, you can ignore this email.",
         )
     except Exception:
-        await async_cache.delete(_key(channel_id, "code"), _key(channel_id, "cooldown"))
+        await async_cache.delete(_key(channel_id, "code"), *cooldowns)
         raise
 
 

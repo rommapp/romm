@@ -75,12 +75,14 @@ function openDialog(channel: NotificationChannelSchema | null) {
 }
 
 function onSaved(channel: NotificationChannelSchema, created: boolean) {
+  const before = channels.value.find((c) => c.id === channel.id);
   if (!created) {
     replace(channel);
   } else {
     channels.value = [...channels.value, channel];
   }
-  if (!channel.confirmed) {
+  // A code only goes out for an address that's new to the channel.
+  if (!channel.confirmed && before?.target !== channel.target) {
     snackbar.info(
       t("notifications.channel-code-sent", { address: channel.target }),
       { icon: "mdi-email-fast-outline" },

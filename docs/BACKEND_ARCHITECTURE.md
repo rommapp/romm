@@ -814,7 +814,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | POST   | `/forgot-password` | No   | Email a reset link, or log it without email    |
 | POST   | `/reset-password`  | No   | Reset password with token                      |
 
-A reset link is emailed when SMTP is set up, the user has an address and `ROMM_BASE_URL` is shareable, at most once a minute per user; otherwise it goes to the log for an admin to pass on. It is built from `ROMM_BASE_URL`, never the request's `Host`.
+A reset link is emailed when SMTP is set up, the user has an address and `ROMM_BASE_URL` is shareable, at most once a minute per user; otherwise it goes to the log for an admin to pass on. It is built from `ROMM_BASE_URL`, never the request's `Host`. The heartbeat's `NOTIFICATIONS.EMAILS_RESET_LINKS` says whether links are emailed.
 
 ### 6.2 Users (`/api/users`)
 
@@ -1042,7 +1042,7 @@ Each user forwards their own notifications to webhooks and email addresses. A ch
 | POST   | `/{id}/confirm`     | ME_WRITE | Confirm an email address with its code                 |
 | POST   | `/{id}/resend-code` | ME_WRITE | Email a new code (once a minute)                       |
 
-A webhook's `format` is `json` (RomM's payload below), `discord` (an embed that mentions nobody) or `ntfy` (JSON publishing to the topic's server, with the secret as its access token). Only an admin's webhooks may reach private addresses; everyone else's go through the SSRF guard. Text for RomM's own kinds is English until outbound messages are translated. Links are absolute only when `ROMM_BASE_URL` is shareable.
+A webhook's `format` is `json` (RomM's payload below), `discord` (an embed that mentions nobody) or `ntfy` (JSON publishing to the topic's server, with the secret as its access token). Only an admin's webhooks may reach private addresses; everyone else's go through the SSRF guard. A kept secret doesn't follow a channel to another origin or format; it has to be given again. A delivery gets 15 s in all, and only the start of a refusal's body is read. Text for RomM's own kinds is English until outbound messages are translated. Links are absolute only when `ROMM_BASE_URL` is shareable.
 
 ```json
 {
@@ -1594,24 +1594,26 @@ Falls back to `FakeRedis` in test mode.
 
 ### Cache Key Patterns
 
-| Pattern                          | TTL             | Content                            |
-| -------------------------------- | --------------- | ---------------------------------- |
-| `session:{id}`                   | 14 days         | Session JSON                       |
-| `user_sessions:{username}`       | 14 days         | Set of session IDs                 |
-| `session_sockets:{id}`           | 14 days         | Socket IDs a session opened        |
-| `notification-channel:{id}:code` | 30 min          | Hash of an email confirmation code |
-| `reset-jti:{jti}`                | 10 min          | Password reset token (one-time)    |
-| `invite-jti:{jti}`               | 10 min          | Invite token (one-time)            |
-| `refresh-jti:{jti}`              | 7 days          | Refresh token validation           |
-| `romm:mame_index`                | Permanent       | MAME game index                    |
-| `romm:scummvm_index`             | Permanent       | ScummVM game index                 |
-| `romm:ps1_serials`               | Permanent       | PS1 serial codes                   |
-| `romm:ps2_serials`               | Permanent       | PS2 serial codes                   |
-| `romm:psp_serials`               | Permanent       | PSP serial codes                   |
-| `romm:switch_titledb`            | Refreshed daily | Switch TitleDB                     |
-| `romm:known_bios`                | Permanent       | Verified BIOS hashes               |
-| Upload sessions                  | 24 hours        | Chunked upload state               |
-| Netplay rooms                    | Dynamic         | Active room state                  |
+| Pattern                           | TTL             | Content                             |
+| --------------------------------- | --------------- | ----------------------------------- |
+| `session:{id}`                    | 14 days         | Session JSON                        |
+| `user_sessions:{username}`        | 14 days         | Set of session IDs                  |
+| `session_sockets:{id}`            | 14 days         | Socket IDs a session opened         |
+| `notification-channel:{id}:code`  | 30 min          | Hash of an email confirmation code  |
+| `notification-channel-cooldown:*` | 1 min           | A user's and an address's last code |
+| `reset-email:{user_id}`           | 1 min           | A user's last emailed reset link    |
+| `reset-jti:{jti}`                 | 10 min          | Password reset token (one-time)     |
+| `invite-jti:{jti}`                | 10 min          | Invite token (one-time)             |
+| `refresh-jti:{jti}`               | 7 days          | Refresh token validation            |
+| `romm:mame_index`                 | Permanent       | MAME game index                     |
+| `romm:scummvm_index`              | Permanent       | ScummVM game index                  |
+| `romm:ps1_serials`                | Permanent       | PS1 serial codes                    |
+| `romm:ps2_serials`                | Permanent       | PS2 serial codes                    |
+| `romm:psp_serials`                | Permanent       | PSP serial codes                    |
+| `romm:switch_titledb`             | Refreshed daily | Switch TitleDB                      |
+| `romm:known_bios`                 | Permanent       | Verified BIOS hashes                |
+| Upload sessions                   | 24 hours        | Chunked upload state                |
+| Netplay rooms                     | Dynamic         | Active room state                   |
 
 ---
 

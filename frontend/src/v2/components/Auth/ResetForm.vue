@@ -29,7 +29,7 @@ async function submit() {
     await identityApi.requestPasswordReset(forgotUser.value);
     snackbar.success(
       t(
-        heartbeat.value.NOTIFICATIONS.EMAIL_ENABLED
+        heartbeat.value.NOTIFICATIONS.EMAILS_RESET_LINKS
           ? "login.reset-sent-email"
           : "login.reset-sent",
       ),

@@ -76,3 +76,13 @@ def test_nothing_goes_out_without_a_server(mocker):
 
     with pytest.raises(EmailError, match="isn't set up"):
         send_email("a@example.com", "Hi", "There")
+
+
+def test_an_unknown_security_is_refused_not_sent_in_the_clear(mocker, smtp_settings):
+    smtp_settings(security="ssl")
+    connect = mocker.patch.object(email_handler.smtplib, "SMTP")
+
+    with pytest.raises(EmailError, match="SMTP_SECURITY is 'ssl'"):
+        send_email("a@example.com", "Hi", "There")
+
+    connect.assert_not_called()

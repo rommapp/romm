@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import hmac
 import json
@@ -151,6 +152,29 @@ class TestCheckUrl:
     def test_lets_an_admin_reach_the_local_network(self):
         check_url("http://192.168.1.10/hook", WebhookFormat.JSON, allow_private=True)
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://example.com:abc/x",
+            "https://example.com:99999/x",
+            "https://example.com:0/x",
+        ],
+    )
+    def test_refuses_a_port_that_isnt_one(self, url):
+        with pytest.raises(ValueError, match="port"):
+            check_url(url, WebhookFormat.JSON, allow_private=True)
+
+
+def _serve(mocker, handler) -> None:
+    mocker.patch.object(
+        webhook,
+        "_client",
+        return_value=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+
+_CONFIG = WebhookConfig(url="https://hooks.example.com/romm", format="json")
+
 
 class TestSend:
     @pytest.fixture
@@ -158,15 +182,15 @@ class TestSend:
         def install(status_code: int, text: str = ""):
             calls: list[httpx.Request] = []
 
+            async def body():
+                yield text.encode()
+
+            # Streamed, as a response off the network is.
             def handler(request: httpx.Request) -> httpx.Response:
                 calls.append(request)
-                return httpx.Response(status_code, text=text)
+                return httpx.Response(status_code, content=body())
 
-            mocker.patch.object(
-                webhook,
-                "_client",
-                return_value=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
-            )
+            _serve(mocker, handler)
             return calls
 
         return install
@@ -174,11 +198,7 @@ class TestSend:
     async def test_posts_the_built_request(self, respond):
         calls = respond(204)
 
-        await send(
-            WebhookConfig(url="https://hooks.example.com/romm", format="json"),
-            _message(),
-            allow_private=False,
-        )
+        await send(_CONFIG, _message(), allow_private=False)
 
         [request] = calls
         assert str(request.url) == "https://hooks.example.com/romm"
@@ -196,19 +216,36 @@ class TestSend:
                 allow_private=False,
             )
 
+    async def test_reads_only_the_start_of_an_endless_refusal(self, mocker):
+        async def endless():
+            while True:
+                yield b"x" * 4096
+
+        _serve(mocker, lambda request: httpx.Response(500, content=endless()))
+
+        with pytest.raises(WebhookError) as caught:
+            await send(_CONFIG, _message(), allow_private=False)
+
+        assert str(caught.value) == (
+            "hooks.example.com answered 500: " + "x" * webhook.ERROR_DETAIL_CHARS
+        )
+
+    async def test_gives_up_on_a_host_that_never_answers(self, mocker):
+        async def handler(request: httpx.Request) -> httpx.Response:
+            await asyncio.sleep(10)
+            return httpx.Response(204)
+
+        mocker.patch.object(webhook, "TIMEOUT_SECONDS", 0.05)
+        _serve(mocker, handler)
+
+        with pytest.raises(WebhookError, match="hooks.example.com did not answer"):
+            await send(_CONFIG, _message(), allow_private=False)
+
     async def test_an_unreachable_host_is_a_webhook_error(self, mocker):
         def handler(request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectError("Connection refused")
 
-        mocker.patch.object(
-            webhook,
-            "_client",
-            return_value=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
-        )
+        _serve(mocker, handler)
 
         with pytest.raises(WebhookError, match="Could not reach hooks.example.com"):
-            await send(
-                WebhookConfig(url="https://hooks.example.com/romm", format="json"),
-                _message(),
-                allow_private=False,
-            )
+            await send(_CONFIG, _message(), allow_private=False)

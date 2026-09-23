@@ -43,6 +43,11 @@ oct_key = OctKey.import_key(ROMM_AUTH_SECRET_KEY)
 RESET_EMAIL_COOLDOWN_SECONDS = 60
 
 
+def reset_link_base_url() -> str | None:
+    """Where an emailed reset link points; None when links can't be emailed."""
+    return get_public_base_url() if EMAIL_ENABLED else None
+
+
 def _romm_username(provided: str, fallback: str) -> str:
     """A valid, unused RomM username for the name an identity provider chose.
 
@@ -185,8 +190,8 @@ class AuthHandler:
         The link is built from ROMM_BASE_URL alone, never from the request, so a
         forged Host header can't point it at another server.
         """
-        base_url = get_public_base_url()
-        if not (EMAIL_ENABLED and user.email and base_url):
+        base_url = reset_link_base_url()
+        if not (base_url and user.email):
             self._log_password_reset_link(
                 user, self.generate_password_reset_token(user)
             )

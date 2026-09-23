@@ -4,5 +4,6 @@
 /* eslint-disable */
 export type NotificationsDict = {
     EMAIL_ENABLED: boolean;
+    EMAILS_RESET_LINKS: boolean;
 };
 

@@ -15,7 +15,7 @@ from models.notification_channel import (
 )
 from models.user import Role, User
 
-from .config import EmailConfig, WebhookConfig, read_config, seal_config
+from .config import EmailConfig, WebhookConfig, origin, read_config, seal_config
 from .confirmation import check_code, issue_code
 from .delivery import sample_message, send_to_channel
 from .webhook import check_url
@@ -98,7 +98,7 @@ async def create_channel(
 
     if address and type == NotificationChannelType.EMAIL:
         try:
-            await issue_code(channel.id, address)
+            await issue_code(channel.id, user.id, address)
         except Exception:
             db_notification_channel_handler.delete_channel(channel.id, user.id)
             raise
@@ -137,7 +137,7 @@ async def update_channel(
         if address and address != config.get("address"):
             _require_email()
             # The code goes out first, so an address it can't reach isn't kept.
-            await issue_code(channel.id, address)
+            await issue_code(channel.id, user.id, address)
             changes["config"] = seal_config(EmailConfig(address=address))
             changes["confirmed_at"] = None
     elif url or format or secret_given:
@@ -146,12 +146,19 @@ async def update_channel(
         if not new_url:
             raise ChannelError("The channel needs its URL again")
         _check_webhook(new_url, new_format, user)
+        new_secret = (secret or None) if secret_given else config.get("secret")
+        moved = new_format != config.get("format") or origin(new_url) != origin(
+            config.get("url", "")
+        )
+        # A kept secret only goes where it was given for; Discord needs none.
+        if new_secret and moved and not secret_given:
+            if new_format != WebhookFormat.DISCORD:
+                raise ChannelError(
+                    "Enter the secret again for the new URL or format, or remove it"
+                )
+            new_secret = None
         changes["config"] = seal_config(
-            WebhookConfig(
-                url=new_url,
-                format=new_format,
-                secret=(secret or None) if secret_given else config.get("secret"),
-            )
+            WebhookConfig(url=new_url, format=new_format, secret=new_secret)
         )
 
     updated = (
@@ -217,4 +224,4 @@ async def resend_code(channel: NotificationChannel) -> None:
     address = read_config(channel.config).get("address")
     if not address:
         raise ChannelError("The channel needs its address again")
-    await issue_code(channel.id, address)
+    await issue_code(channel.id, channel.user_id, address)
