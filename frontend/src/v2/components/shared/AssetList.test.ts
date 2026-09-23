@@ -206,18 +206,29 @@ describe("AssetList slot grouping", () => {
     expect(checked.findAll(".r-asset-list__item--checked")).toHaveLength(1);
   });
 
-  it("unfolds every slot when a caller expands it", async () => {
+  it("shows every version of a slot while checkable, with no fold control", () => {
     nextId = 1;
     const newest = save("main_quest", 1);
     const middle = save("main_quest", 5);
     const oldest = save("main_quest", 50);
-    const wrapper = mountList({ assets: [newest, middle, oldest] });
+    const assets = [newest, middle, oldest];
 
-    expect(names(wrapper)).toEqual(["save_1.srm"]);
+    const folded = mountList({ assets });
+    expect(names(folded)).toEqual(["save_1.srm"]);
+    expect(folded.findAll(".fold")).not.toHaveLength(0);
 
-    (wrapper.vm as unknown as { expandAll: () => void }).expandAll();
-    await wrapper.vm.$nextTick();
+    const checkable = mountList({
+      assets,
+      selectable: false,
+      checkable: true,
+      checkedIds: new Set<number>(),
+    });
 
-    expect(names(wrapper)).toEqual(["save_1.srm", "save_2.srm", "save_3.srm"]);
+    expect(names(checkable)).toEqual([
+      "save_1.srm",
+      "save_2.srm",
+      "save_3.srm",
+    ]);
+    expect(checkable.findAll(".fold")).toHaveLength(0);
   });
 });

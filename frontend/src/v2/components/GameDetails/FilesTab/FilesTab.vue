@@ -599,7 +599,7 @@ async function refreshRom() {
           <span class="r-v2-files__toolbar-status">
             <template v-if="selectedCount > 0">
               {{
-                t("rom.files-selected-of", {
+                t("rom.selected-of", {
                   selected: selectedCount,
                   total: filteredCount,
                 })

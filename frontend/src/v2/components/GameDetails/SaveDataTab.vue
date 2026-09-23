@@ -340,20 +340,6 @@ function selectionFor(type: AssetType) {
   return type === "save" ? saveSelection : stateSelection;
 }
 
-const mySavesList = ref<InstanceType<typeof AssetList> | null>(null);
-const myStatesStrip = ref<InstanceType<typeof AssetStrip> | null>(null);
-
-function toggleAllChecked(type: AssetType) {
-  const selection = selectionFor(type);
-  // A folded slot hides its older versions, and select-all reaches them, so
-  // open everything first: a bulk delete must never take a row the user
-  // could not see.
-  if (!selection.allSelected.value) {
-    (type === "save" ? mySavesList : myStatesStrip).value?.expandAll();
-  }
-  selection.toggleAll();
-}
-
 // A selection only makes sense against the list it was made on.
 watch([subTab, () => props.rom.id], () => {
   saveSelection.clear();
@@ -388,7 +374,8 @@ async function reportBulk(
       icon: "mdi-close-circle",
     });
   }
-  await refreshRom();
+  // Nothing landed, so nothing upstream changed.
+  if (ok > 0) await refreshRom();
 }
 
 async function toggleCheckedFavorite(type: AssetType) {
@@ -399,11 +386,7 @@ async function toggleCheckedFavorite(type: AssetType) {
   bulkBusy.value = true;
   try {
     const results = await Promise.allSettled(
-      assets.map((asset) =>
-        type === "save"
-          ? saveApi.setSaveFavorite({ id: asset.id, isFavorite })
-          : stateApi.setStateFavorite({ id: asset.id, isFavorite }),
-      ),
+      assets.map((asset) => writeFavorite(type, asset.id, isFavorite)),
     );
     await reportBulk(
       results,
@@ -465,11 +448,9 @@ async function deleteChecked(type: AssetType) {
 // ---------- Favorite and labels (own items only) ----------
 // Keyed by type too: a save and a state can share an id.
 const favoritingKey = ref<string | null>(null);
-// Editing one asset replaces its labels; editing a selection adds to each,
-// so a bulk edit can never wipe a label it did not show the user.
-type LabelEdit =
-  | { kind: "one"; type: AssetType; asset: AssetSlot }
-  | { kind: "many"; type: AssetType };
+// One asset replaces its labels; a null asset means the whole selection, and
+// that adds to each, so a bulk edit can never wipe a label it did not show.
+type LabelEdit = { type: AssetType; asset: AssetSlot | null };
 const labelTarget = ref<LabelEdit | null>(null);
 const savingLabels = ref(false);
 
@@ -482,11 +463,7 @@ async function toggleFavorite(type: AssetType, asset: AssetSlot) {
   favoritingKey.value = `${type}:${asset.id}`;
   const isFavorite = !asset.is_favorite;
   try {
-    if (type === "save") {
-      await saveApi.setSaveFavorite({ id: asset.id, isFavorite });
-    } else {
-      await stateApi.setStateFavorite({ id: asset.id, isFavorite });
-    }
+    await writeFavorite(type, asset.id, isFavorite);
     await refreshRom();
   } catch (error) {
     snackbar.error(
@@ -496,6 +473,12 @@ async function toggleFavorite(type: AssetType, asset: AssetSlot) {
   } finally {
     favoritingKey.value = null;
   }
+}
+
+function writeFavorite(type: AssetType, id: number, isFavorite: boolean) {
+  return type === "save"
+    ? saveApi.setSaveFavorite({ id, isFavorite })
+    : stateApi.setStateFavorite({ id, isFavorite });
 }
 
 function writeLabels(type: AssetType, id: number, labels: string[]) {
@@ -509,7 +492,7 @@ async function submitLabels(labels: string[]) {
   if (!target || savingLabels.value) return;
   savingLabels.value = true;
   try {
-    if (target.kind === "one") {
+    if (target.asset) {
       await writeLabels(target.type, target.asset.id, labels);
       await refreshRom();
       snackbar.success(t("rom.labels-updated"), { icon: "mdi-check-bold" });
@@ -626,20 +609,18 @@ const labelSuggestions = computed(() =>
             @files="openUpload('save', $event)"
           >
             <AssetSelectionToolbar
-              v-if="mySaves.length > 0"
               :count="saveSelection.count.value"
               :total="mySaves.length"
               :all-checked="saveSelection.allSelected.value"
               :some-checked="saveSelection.someSelected.value"
               :all-favorite="allCheckedFavorite('save')"
-              @toggle-all="toggleAllChecked('save')"
+              @toggle-all="saveSelection.toggleAll()"
               @toggle-favorite="toggleCheckedFavorite('save')"
-              @edit-labels="labelTarget = { kind: 'many', type: 'save' }"
+              @edit-labels="labelTarget = { type: 'save', asset: null }"
               @delete="deleteChecked('save')"
               @clear="saveSelection.clear()"
             />
             <AssetList
-              ref="mySavesList"
               :assets="mySaves"
               type="save"
               :selectable="false"
@@ -656,9 +637,7 @@ const labelSuggestions = computed(() =>
                   :toggling="togglingSaveId === asset.id"
                   :favoriting="isFavoriting('save', asset)"
                   @toggle-favorite="toggleFavorite('save', asset)"
-                  @edit-labels="
-                    labelTarget = { kind: 'one', type: 'save', asset }
-                  "
+                  @edit-labels="labelTarget = { type: 'save', asset }"
                   @toggle-visibility="toggleSaveVisibility(asSave(asset))"
                   @download="downloadAsset(asset)"
                   @delete="deleteSave(asSave(asset))"
@@ -739,20 +718,18 @@ const labelSuggestions = computed(() =>
             @files="openUpload('state', $event)"
           >
             <AssetSelectionToolbar
-              v-if="myStates.length > 0"
               :count="stateSelection.count.value"
               :total="myStates.length"
               :all-checked="stateSelection.allSelected.value"
               :some-checked="stateSelection.someSelected.value"
               :all-favorite="allCheckedFavorite('state')"
-              @toggle-all="toggleAllChecked('state')"
+              @toggle-all="stateSelection.toggleAll()"
               @toggle-favorite="toggleCheckedFavorite('state')"
-              @edit-labels="labelTarget = { kind: 'many', type: 'state' }"
+              @edit-labels="labelTarget = { type: 'state', asset: null }"
               @delete="deleteChecked('state')"
               @clear="stateSelection.clear()"
             />
             <AssetStrip
-              ref="myStatesStrip"
               :assets="myStates"
               type="state"
               :selectable="false"
@@ -770,9 +747,7 @@ const labelSuggestions = computed(() =>
                   :toggling="togglingStateId === asset.id"
                   :favoriting="isFavoriting('state', asset)"
                   @toggle-favorite="toggleFavorite('state', asset)"
-                  @edit-labels="
-                    labelTarget = { kind: 'one', type: 'state', asset }
-                  "
+                  @edit-labels="labelTarget = { type: 'state', asset }"
                   @toggle-visibility="toggleStateVisibility(asState(asset))"
                   @download="downloadAsset(asset)"
                   @delete="deleteState(asState(asset))"
@@ -823,10 +798,10 @@ const labelSuggestions = computed(() =>
 
     <AssetLabelsDialog
       :model-value="labelTarget !== null"
-      :initial-labels="
-        labelTarget?.kind === 'one' ? (labelTarget.asset.labels ?? []) : []
+      :initial-labels="labelTarget?.asset?.labels ?? []"
+      :title="
+        labelTarget && !labelTarget.asset ? t('rom.add-labels') : undefined
       "
-      :title="labelTarget?.kind === 'many' ? t('rom.add-labels') : undefined"
       :suggestions="labelSuggestions"
       :busy="savingLabels"
       @update:model-value="!$event && (labelTarget = null)"

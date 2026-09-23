@@ -77,15 +77,4 @@ describe("useIdSelection", () => {
     expect(s.allSelected.value).toBe(true);
     expect(s.selected.value).toEqual([{ id: 1 }]);
   });
-
-  it("takes a custom id accessor", () => {
-    const s = useIdSelection(
-      () => [{ fileId: 7 }, { fileId: 9 }],
-      (item) => item.fileId,
-    );
-
-    s.toggleAll();
-
-    expect(s.selected.value).toEqual([{ fileId: 7 }, { fileId: 9 }]);
-  });
 });

@@ -48,7 +48,7 @@ describe("AssetSelectionToolbar", () => {
 
     const some = toolbar({ count: 2, someChecked: true });
 
-    expect(some.get(".all").text()).toBe("rom.assets-selected-of");
+    expect(some.get(".all").text()).toBe("rom.selected-of");
     expect(some.findAll(".btn").map((b) => b.attributes("aria-label"))).toEqual(
       [
         "rom.add-to-favorites",

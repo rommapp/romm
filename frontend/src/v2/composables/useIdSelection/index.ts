@@ -21,16 +21,15 @@ export interface IdSelection<T> {
   clear: () => void;
 }
 
-export function useIdSelection<T>(
+export function useIdSelection<T extends { id: number }>(
   items: () => readonly T[],
-  idOf: (item: T) => number = (item) => (item as { id: number }).id,
 ): IdSelection<T> {
   const selectedIds = shallowRef<ReadonlySet<number>>(new Set<number>());
 
   // Derived from the live list rather than the set's own size, so an id left
   // behind by a delete or a refresh elsewhere cannot inflate the count.
   const selected = computed(() =>
-    items().filter((item) => selectedIds.value.has(idOf(item))),
+    items().filter((item) => selectedIds.value.has(item.id)),
   );
   const count = computed(() => selected.value.length);
   const allSelected = computed(
@@ -54,7 +53,7 @@ export function useIdSelection<T>(
   function toggleAll(): void {
     selectedIds.value = allSelected.value
       ? new Set<number>()
-      : new Set(items().map(idOf));
+      : new Set(items().map((item) => item.id));
   }
 
   function clear(): void {

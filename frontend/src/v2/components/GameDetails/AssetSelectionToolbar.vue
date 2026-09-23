@@ -36,7 +36,7 @@ const { t } = useI18n();
       hide-details
       :label="
         count > 0
-          ? t('rom.assets-selected-of', { selected: count, total })
+          ? t('rom.selected-of', { selected: count, total })
           : t('rom.assets-count-n', total, { named: { n: total } })
       "
       @update:model-value="emit('toggleAll')"

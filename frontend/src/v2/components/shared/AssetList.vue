@@ -183,10 +183,10 @@ const fold = useGroupFold<SlotGroup>({
   defaultOpen: () => false,
   selectedId: () => props.selectedId,
 });
-// Lets a bulk action unfold what it is about to reach.
-defineExpose({ expandAll: fold.openAll });
 function isExpanded(group: SlotGroup): boolean {
-  return !grouped.value || fold.isOpen(group);
+  // A checkable list never folds: select-all must not reach a row the user
+  // cannot see, and that holds by construction rather than by remembering.
+  return !grouped.value || props.checkable || fold.isOpen(group);
 }
 function visibleVersions(group: SlotGroup): Asset[] {
   return isExpanded(group) ? group.versions : group.pinned;
@@ -337,7 +337,7 @@ const fadeIndex = computed(() =>
         </ul>
 
         <RBtn
-          v-if="grouped && group.hidden.length > 0"
+          v-if="grouped && !checkable && group.hidden.length > 0"
           class="r-asset-list__fold"
           variant="text"
           size="x-small"
