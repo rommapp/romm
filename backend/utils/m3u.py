@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,6 +19,26 @@ DESCRIPTOR_EXTENSIONS = frozenset({"cue", "gdi", "ccd", "mds"})
 COMPANION_EXTENSIONS = frozenset(
     {"bin", "raw", "img", "sub", "mdf", "wav", "ogg", "flac", "mp3"}
 )
+
+
+# The spellings a dumper writes a disc number with: "(Disc 2)", "(CD 2)", the
+# "(Disk 1 of 2)" TOSEC uses, and the letter a split disc adds, "(Disc 2A)".
+DISC_TAG_REGEX = re.compile(
+    r"\((?:disc|disk|cd|disque)\s*([0-9]+)[a-z]?(?:\s+of\s+[0-9]+)?\)",
+    re.I,
+)
+
+
+def disc_number(file: RomFile) -> int | None:
+    """The disc a file's name claims to be, or None when it names none."""
+    match = DISC_TAG_REGEX.search(file.file_name)
+    return int(match.group(1)) if match else None
+
+
+def _disc_order(file: RomFile) -> tuple[bool, int, str]:
+    """Sort numbered discs first and in order, then the rest by name."""
+    number = disc_number(file)
+    return (number is None, number or 0, file.file_name)
 
 
 def first_playlist_entry(m3u_path: Path) -> Path | None:
@@ -62,9 +83,11 @@ def playlist_files(files: list[RomFile]) -> list[RomFile]:
     which files are discs.
     """
     discs = [f for f in files if f.file_extension.lower() != "m3u"]
-    if not any(f.file_extension.lower() in DESCRIPTOR_EXTENSIONS for f in discs):
-        return discs
-    return [f for f in discs if f.file_extension.lower() not in COMPANION_EXTENSIONS]
+    if any(f.file_extension.lower() in DESCRIPTOR_EXTENSIONS for f in discs):
+        discs = [
+            f for f in discs if f.file_extension.lower() not in COMPANION_EXTENSIONS
+        ]
+    return sorted(discs, key=_disc_order)
 
 
 def generate_m3u_content(
