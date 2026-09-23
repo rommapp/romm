@@ -91,3 +91,18 @@ describe("AssetStrip grouped by core", () => {
     expect(wrapper.findAll(".r-asset-timestamp")).toHaveLength(4);
   });
 });
+
+describe("AssetStrip timestamp", () => {
+  it("sets the times inline on tiles", () => {
+    const wrapper = mountStrip();
+
+    expect(wrapper.findAll(".r-asset-timestamp--inline")).toHaveLength(4);
+  });
+
+  it("keeps them stacked in the list layout's time column", () => {
+    const wrapper = mountStrip({ layout: "list" });
+
+    expect(wrapper.findAll(".r-asset-timestamp")).toHaveLength(4);
+    expect(wrapper.findAll(".r-asset-timestamp--inline")).toHaveLength(0);
+  });
+});

@@ -49,6 +49,9 @@ const { locale } = useI18n();
   align-items: baseline;
   column-gap: 6px;
 }
+.r-asset-timestamp--inline.r-asset-timestamp--end {
+  justify-content: flex-end;
+}
 .r-asset-timestamp__relative {
   font-size: 11px;
   font-weight: var(--r-font-weight-medium);

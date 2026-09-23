@@ -252,7 +252,7 @@ const fadeIndex = computed(() =>
                   />
                   <AssetTimestamp
                     :date="asset.updated_at"
-                    :inline="layout === 'flow'"
+                    :inline="layout !== 'list'"
                     class="r-asset-strip__time"
                   />
                   <AssetOwnerChip
