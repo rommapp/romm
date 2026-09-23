@@ -115,6 +115,7 @@
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",
   "delete-filesystem-warning": "削除しようとしています {n} 件のROMをファイルシステムから。この操作は取り消せません！",
   "delete-from-disk-aria": "{name}をディスクから削除",
+  "delete-keyword": "DELETE",
   "delete-manual-button": "削除",
   "delete-manual-confirm-body": "マニュアルファイルはファイルシステムから完全に削除されます。",
   "delete-manual-confirm-title": "マニュアルを削除してもよろしいですか？",

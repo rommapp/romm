@@ -115,6 +115,7 @@
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",
   "delete-filesystem-warning": "삭제하려고 합니다 {n} 개의 ROM을 파일 시스템에서. 이 작업은 되돌릴 수 없습니다!",
   "delete-from-disk-aria": "디스크에서 {name} 삭제",
+  "delete-keyword": "DELETE",
   "delete-manual-button": "삭제",
   "delete-manual-confirm-body": "매뉴얼 파일이 파일 시스템에서 영구적으로 제거됩니다.",
   "delete-manual-confirm-title": "매뉴얼을 삭제하시겠습니까?",

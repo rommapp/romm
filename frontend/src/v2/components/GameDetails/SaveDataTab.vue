@@ -259,6 +259,7 @@ async function deleteSave(save: SaveSchema) {
     body: t("rom.delete-save-body-named", { name: save.file_name }),
     confirmText: t("rom.delete-save"),
     tone: "danger",
+    requireTyped: t("rom.delete-keyword"),
   });
   if (!ok) return;
   try {
@@ -278,6 +279,7 @@ async function deleteState(state: StateSchema) {
     body: t("rom.delete-state-body-named", { name: state.file_name }),
     confirmText: t("rom.delete-state"),
     tone: "danger",
+    requireTyped: t("rom.delete-keyword"),
   });
   if (!ok) return;
   try {
@@ -411,6 +413,7 @@ async function deleteChecked(type: AssetType) {
     body: t("rom.delete-assets-body"),
     confirmText: t("common.delete"),
     tone: "danger",
+    requireTyped: t("rom.delete-keyword"),
   });
   if (!ok) return;
 
@@ -440,6 +443,9 @@ async function deleteChecked(type: AssetType) {
       }),
       { icon: "mdi-close-circle" },
     );
+    // The route deletes in a loop and raises on the first id it cannot find,
+    // so a failure can still have removed the assets ahead of it.
+    await refreshRom();
   } finally {
     bulkBusy.value = false;
   }

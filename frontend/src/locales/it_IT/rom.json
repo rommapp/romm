@@ -115,6 +115,7 @@
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",
   "delete-filesystem-warning": "Stai per rimuovere {n} ROM dal tuo filesystem. Questa azione non può essere annullata! | Stai per rimuovere {n} ROM dal tuo filesystem. Questa azione non può essere annullata!",
   "delete-from-disk-aria": "Elimina {name} dal disco",
+  "delete-keyword": "DELETE",
   "delete-manual-button": "Elimina",
   "delete-manual-confirm-body": "Il file del manuale verrà rimosso permanentemente dal filesystem.",
   "delete-manual-confirm-title": "Sei sicuro di voler eliminare il manuale?",

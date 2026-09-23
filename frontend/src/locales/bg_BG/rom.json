@@ -115,6 +115,7 @@
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",
   "delete-filesystem-warning": "Ще премахнеш {n} ROM от файловата си система. Това действие е необратимо! | Ще премахнеш {n} ROM-а от файловата си система. Това действие е необратимо!",
   "delete-from-disk-aria": "Изтрий {name} от диска",
+  "delete-keyword": "DELETE",
   "delete-manual-button": "Изтрий",
   "delete-manual-confirm-body": "Файлът с ръководството ще бъде окончателно премахнат от файловата система.",
   "delete-manual-confirm-title": "Сигурен ли си, че искаш да изтриеш ръководството?",

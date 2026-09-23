@@ -115,6 +115,7 @@
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",
   "delete-filesystem-warning": "Urmează să elimini {n} ROM din sistemul de fișiere. Această acțiune nu poate fi anulată! | Urmează să elimini {n} ROM-uri din sistemul de fișiere. Această acțiune nu poate fi anulată!",
   "delete-from-disk-aria": "Șterge {name} de pe disc",
+  "delete-keyword": "DELETE",
   "delete-manual-button": "Șterge",
   "delete-manual-confirm-body": "Fișierul manualului va fi eliminat permanent din sistemul de fișiere.",
   "delete-manual-confirm-title": "Ești sigur că vrei să ștergi manualul?",

@@ -115,6 +115,7 @@
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",
   "delete-filesystem-warning": "You are going to remove {n} ROM from your filesystem. This action can't be reverted! | You are going to remove {n} ROMs from your filesystem. This action can't be reverted!",
   "delete-from-disk-aria": "Delete {name} from disk",
+  "delete-keyword": "DELETE",
   "delete-manual-button": "Delete",
   "delete-manual-confirm-body": "The manual file will be permanently removed from the filesystem.",
   "delete-manual-confirm-title": "Are you sure you want to delete the manual?",

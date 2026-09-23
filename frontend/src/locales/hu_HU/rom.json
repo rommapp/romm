@@ -115,6 +115,7 @@
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",
   "delete-filesystem-warning": "Elfogsz távolítani {n} ROM-ot a fájlrendszeredből. Ez a művelet visszafordíthatatlan! | Elfogsz távolítani {n} ROM-okat a fájlrendszeredből. Ez a művelet visszafordíthatatlan!",
   "delete-from-disk-aria": "{name} törlése a lemezről",
+  "delete-keyword": "DELETE",
   "delete-manual-button": "Törlés",
   "delete-manual-confirm-body": "A kézikönyvfájl véglegesen törlésre kerül a fájlrendszerből.",
   "delete-manual-confirm-title": "Biztos törölni akarod a kézikönyvet?",

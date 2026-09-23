@@ -115,6 +115,7 @@
   "delete-files-confirm-title": "删除 {n} 个文件 | 删除 {n} 个文件",
   "delete-filesystem-warning": "您将要删除 {n} 个 ROM 从您的文件系统。此操作无法撤销！",
   "delete-from-disk-aria": "从磁盘删除 {name}",
+  "delete-keyword": "DELETE",
   "delete-manual-button": "删除",
   "delete-manual-confirm-body": "手册文件将从文件系统中永久删除。",
   "delete-manual-confirm-title": "确定要删除手册吗？",

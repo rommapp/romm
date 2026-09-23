@@ -115,6 +115,7 @@
   "delete-files-confirm-title": "Delete {n} file | Delete {n} files",
   "delete-filesystem-warning": "Dosya sisteminizden {n} ROM kaldıracaksınız. Bu işlem geri alınamaz! | Dosya sisteminizden {n} ROM kaldıracaksınız. Bu işlem geri alınamaz!",
   "delete-from-disk-aria": "{name} dosyasını diskten sil",
+  "delete-keyword": "DELETE",
   "delete-manual-button": "Sil",
   "delete-manual-confirm-body": "Kılavuz dosyası dosya sisteminden kalıcı olarak kaldırılacak.",
   "delete-manual-confirm-title": "Kılavuzu silmek istediğinizden emin misiniz?",
