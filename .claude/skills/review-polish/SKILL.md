@@ -145,6 +145,12 @@ Run from `frontend/`:
 1. `npm run typecheck`: zero errors (`vue-tsc --noEmit`).
 2. `npm run typecheck:scripts`: zero errors (`tsc -p tsconfig.node.json`, covers `scripts/`).
 3. `npm run lint` _(if present)_ / ESLint clean. Trunk also runs ESLint + Prettier in CI.
+   If polish turned up a mechanical pattern (you fixed the same kind of thing
+   twice), encode it instead of relying on the next reviewer: enable a stock
+   rule in `eslint.config.js`, or add `frontend/eslint-plugin-romm/rules/<name>.js`
+   plus `<name>.test.ts` (`RuleTester`, valid and invalid cases), register it in
+   the plugin's `index.js`, and turn it on in `eslint.config.js`. Test with
+   `npx vitest run eslint-plugin-romm` and `npm run typecheck:scripts`.
 4. `npm run test`: zero failures (Vitest + happy-dom; runs unit tests **and** every `/lib` story's `play()` via `composeStories`).
 5. `npm run build`: zero failures (CI sanity check).
 

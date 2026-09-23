@@ -45,7 +45,7 @@ If any fails: **shared composite** if generic across features, **feature composi
 ### Primitive boundaries
 
 - **Can use**: tokens, other primitives, Vue, generic composables (`useInput*`, `useFocus*`).
-- **Cannot use**: Pinia stores, API services, `emitter`, `router` (a `RouterLink` may be accepted as a prop), `i18n` directly. **No `$t()` in primitives** — text comes via props or slots.
+- **Cannot use**: Pinia stores, API services, `emitter`, `router` (a `RouterLink` may be accepted as a prop), `i18n` directly. **No `$t()` in primitives** — text comes via props or slots. ESLint's `@typescript-eslint/no-restricted-imports` block for `src/v2/lib` enforces the import side. Domain knowledge that is not an import (a hardcoded `/assets/...` path, domain-named props) still needs review.
 - **Chrome labels** are the exception to "via props": the accessible name
   of a control the primitive renders for itself (a dialog's close button, a
   chip's remove X, a date field's steppers, a stepper's "Step 2 of 5") is
@@ -72,6 +72,7 @@ If any fails: **shared composite** if generic across features, **feature composi
 - `defineOptions({ inheritAttrs: false })` on every wrapper, paired with `v-bind="$attrs"` and slot passthrough (without the bind, attrs vanish silently).
 - Props via `defineProps<Props>()` (interface), never runtime declarations. Emits via `defineEmits<{...}>()`. Slots with payload via `defineSlots<{}>()`.
 - Order: `<script setup>` → `<template>` → `<style scoped>`. Unscoped `<style>` (teleport overrides only) goes after the scoped block.
+- ESLint enforces `lang="ts"`, `<script setup>`, block order, and type-based `defineProps`/`defineEmits` on `src/v2/**/*.vue`.
 
 ### Import order & aliases
 

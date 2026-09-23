@@ -6,6 +6,7 @@ import vue from "eslint-plugin-vue";
 import vuea11y from "eslint-plugin-vuejs-accessibility";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import romm from "./eslint-plugin-romm/index.js";
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -57,6 +58,8 @@ export default tseslint.config(
       "*.local",
       "*.config.js",
       "src/plugins/*.d.ts",
+      // Typechecked by tsconfig.node.json, outside the app project service.
+      "eslint-plugin-romm/**",
     ],
     languageOptions: {
       parserOptions: {
@@ -118,6 +121,83 @@ export default tseslint.config(
     // rule and cannot be refactored under the freeze.
     files: ["src/console/**"],
     rules: { "import-x/no-cycle": "off" },
+  },
+  // v2 primitives: no stores, services, i18n, emitter, or product domain.
+  {
+    files: ["src/v2/lib/**/*.ts", "src/v2/lib/**/*.vue"],
+    ignores: ["**/*.stories.ts", "**/*.test.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "pinia", message: "Primitives take state via props." },
+            {
+              name: "vue-i18n",
+              message:
+                "Primitives take text via props, slots, or useChromeLabels().",
+            },
+            { name: "axios", message: "Primitives do not fetch." },
+            {
+              name: "vue-router",
+              importNames: ["useRouter", "useRoute"],
+              message: "Primitives accept a RouterLink `to`, not the router.",
+            },
+          ],
+          patterns: [
+            {
+              group: [
+                "@/services/*",
+                "@/services/**",
+                "@/stores/*",
+                "@/stores/**",
+              ],
+              message:
+                "Primitives do not use services or stores; move this to a shared or feature composite.",
+            },
+            {
+              group: ["@/__generated__", "@/__generated__/**"],
+              message:
+                "Backend types are product domain; primitives take generic props.",
+            },
+            {
+              group: ["@/types/emitter"],
+              message: "Primitives do not use the emitter.",
+            },
+            {
+              group: [
+                "@/v2/components/**",
+                "@/v2/composables/usePlatformIconCache",
+                "@/v2/composables/usePlatformIconCache/**",
+              ],
+              message:
+                "Primitives cannot depend on composites or domain composables.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // v2 SFC shape, from the frontend-v2-components skill.
+  {
+    files: ["src/v2/**/*.vue"],
+    rules: {
+      "vue/block-lang": ["error", { script: { lang: "ts" } }],
+      "vue/component-api-style": ["error", ["script-setup"]],
+      "vue/block-order": ["error", { order: ["script", "template", "style"] }],
+      "vue/define-props-declaration": ["error", "type-based"],
+      "vue/define-emits-declaration": ["error", "type-based"],
+    },
+  },
+  // Repo rules without a stock equivalent live in ./eslint-plugin-romm.
+  {
+    files: ["src/v2/**/*.ts", "src/v2/**/*.vue"],
+    plugins: { romm },
+    rules: {
+      "romm/no-em-dash": "error",
+      "romm/no-color-literal": "error",
+      "romm/no-layout-media-query": "error",
+    },
   },
   // Keep last: Prettier owns formatting, so this switches off every
   // stylistic rule the two tools would otherwise fight over.
