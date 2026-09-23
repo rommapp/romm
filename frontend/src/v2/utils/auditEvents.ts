@@ -14,6 +14,8 @@ import { formatPlaytime } from "@/v2/utils/time";
 
 export interface AuditEventView {
   icon: string;
+  /** An RAvatar color: the category's, or danger for something that failed. */
+  tone: string;
   title: string;
   detail: string | null;
   /** Where the target lives, or null once it's gone. */
@@ -24,7 +26,7 @@ type AuditData = AuditEventSchema["data"];
 type Describer = (
   event: AuditEventSchema,
   target: string,
-) => Omit<AuditEventView, "to">;
+) => Omit<AuditEventView, "to" | "tone">;
 
 const t = i18n.global.t;
 
@@ -431,9 +433,25 @@ function targetRoute(event: AuditEventSchema): RouteLocationRaw | null {
   }
 }
 
+const CATEGORY_TONES: Record<AuditCategory, string> = {
+  consumption: "primary",
+  library: "info",
+  collections: "accent",
+  operations: "secondary",
+  security: "warning",
+};
+
+function toneOf(event: AuditEventSchema): string {
+  if (event.action === "auth.login_failed" || event.data.status === "failed") {
+    return "danger";
+  }
+  return event.category ? CATEGORY_TONES[event.category] : "secondary";
+}
+
 function fallback(event: AuditEventSchema, target: string): AuditEventView {
   return {
     icon: "mdi-help-circle-outline",
+    tone: "secondary",
     title: [event.action, target].filter(Boolean).join(" "),
     detail: null,
     to: null,
@@ -451,6 +469,7 @@ export function describeAuditEvent(event: AuditEventSchema): AuditEventView {
   try {
     return {
       ...DESCRIBERS[event.action](event, target),
+      tone: toneOf(event),
       to: targetRoute(event),
     };
   } catch (error) {

@@ -5,10 +5,11 @@ import {
   RAvatar,
   RBtn,
   RDateField,
+  REmptyState,
+  RIcon,
   RSelect,
-  RTable,
+  RSkeletonBlock,
   RTextField,
-  type RTableColumn,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
@@ -19,6 +20,8 @@ import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { useAuditLog } from "@/v2/composables/useAuditLog";
+import { useGridNav } from "@/v2/composables/useGridNav";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import {
   AUDIT_CATEGORIES,
@@ -176,32 +179,16 @@ const rows = computed<Row[]>(() =>
   events.value.map((event) => ({ event, view: describeAuditEvent(event) })),
 );
 
-const columns = computed<RTableColumn[]>(() => [
-  {
-    key: "when",
-    label: t("audit.col-when"),
-    width: "150px",
-    skeletonWidth: 110,
-  },
-  {
-    key: "who",
-    label: t("audit.col-who"),
-    width: "minmax(0, 1fr)",
-    skeletonWidth: 120,
-  },
-  {
-    key: "what",
-    label: t("audit.col-what"),
-    width: "minmax(0, 2.6fr)",
-    skeletonWidth: 240,
-  },
-  {
-    key: "device",
-    label: t("audit.col-device"),
-    width: "minmax(0, 1fr)",
-    skeletonWidth: 100,
-  },
-]);
+const phase = useLoadingPhase(
+  () => loading.value,
+  () => rows.value.length === 0,
+);
+
+const listRoot = ref<HTMLElement | null>(null);
+useGridNav(listRoot, {
+  rowSelector: ".r-v2-audit-event",
+  getCells: (row) => Array.from(row.querySelectorAll<HTMLElement>("a")),
+});
 
 function actorName(event: AuditEventSchema): string {
   if (event.actor_kind === "system") return t("audit.system");
@@ -297,69 +284,81 @@ function actorAvatar(event: AuditEventSchema): string | undefined {
       </RBtn>
     </div>
 
-    <RTable
-      :columns="columns"
-      :items="rows"
-      :item-key="(row) => (row as Row).event.id"
-      :loading="loading && rows.length === 0"
-      :loading-rows="10"
-      empty-icon="mdi-clipboard-text-clock-outline"
-      :empty-message="hasFilters ? t('audit.no-matches') : t('audit.empty')"
-    >
-      <template #cell.when="{ row }">
-        <AssetTimestamp :date="(row as Row).event.occurred_at" stacked />
-      </template>
-      <template #cell.who="{ row }">
-        <span class="r-v2-audit__who">
+    <div v-if="phase === 'skeleton'" class="r-v2-audit__list">
+      <RSkeletonBlock
+        v-for="n in 8"
+        :key="`sk-${n}`"
+        width="100%"
+        height="76px"
+        rounded="lg"
+      />
+    </div>
+
+    <REmptyState
+      v-else-if="phase === 'empty'"
+      icon="mdi-clipboard-text-clock-outline"
+      :title="hasFilters ? t('audit.no-matches') : t('audit.empty')"
+    />
+
+    <ul v-else-if="phase === 'content'" ref="listRoot" class="r-v2-audit__list">
+      <li
+        v-for="{ event, view } in rows"
+        :key="event.id"
+        class="r-v2-audit-event"
+      >
+        <component
+          :is="view.to ? RouterLink : 'div'"
+          :to="view.to ?? undefined"
+          class="r-v2-audit-event__main"
+        >
           <RAvatar
-            :image="actorAvatar((row as Row).event)"
-            :icon="actorIcon((row as Row).event)"
+            :icon="view.icon"
+            :color="view.tone"
             variant="translucent"
-            size="28"
+            size="36"
+            class="r-v2-audit-event__icon"
           />
-          <span class="r-v2-audit__ellipsis">
-            {{ actorName((row as Row).event) }}
-          </span>
-        </span>
-      </template>
-      <template #cell.what="{ row }">
-        <span class="r-v2-audit__what">
-          <RAvatar
-            :icon="(row as Row).view.icon"
-            variant="text"
-            size="28"
-            class="r-v2-audit__icon"
-          />
-          <span class="r-v2-audit__text">
-            <component
-              :is="(row as Row).view.to ? RouterLink : 'span'"
-              :to="(row as Row).view.to ?? undefined"
-              class="r-v2-audit__title"
-            >
-              {{ (row as Row).view.title }}
-            </component>
-            <span v-if="(row as Row).view.detail" class="r-v2-audit__detail">
-              {{ (row as Row).view.detail }}
+          <span class="r-v2-audit-event__text">
+            <span class="r-v2-audit-event__title">{{ view.title }}</span>
+            <span v-if="view.detail" class="r-v2-audit-event__detail">
+              {{ view.detail }}
+            </span>
+            <span class="r-v2-audit-event__meta">
+              <span class="r-v2-audit-event__meta-item">
+                <RAvatar
+                  :image="actorAvatar(event)"
+                  :icon="actorIcon(event)"
+                  variant="translucent"
+                  size="16"
+                />
+                {{ actorName(event) }}
+              </span>
+              <span
+                v-if="event.device_name"
+                class="r-v2-audit-event__meta-item"
+              >
+                <RIcon icon="mdi-devices" size="14" />
+                {{ event.device_name }}
+              </span>
+              <span
+                v-if="event.ip_address"
+                class="r-v2-audit-event__meta-item r-v2-audit-event__ip"
+              >
+                <RIcon icon="mdi-ip-network-outline" size="14" />
+                {{ event.ip_address }}
+              </span>
             </span>
           </span>
-        </span>
-      </template>
-      <template #cell.device="{ row }">
-        <span class="r-v2-audit__text">
-          <span class="r-v2-audit__ellipsis">
-            {{ (row as Row).event.device_name ?? "—" }}
-          </span>
-          <span
-            v-if="(row as Row).event.ip_address"
-            class="r-v2-audit__detail r-v2-audit__ip"
-          >
-            {{ (row as Row).event.ip_address }}
-          </span>
-        </span>
-      </template>
-    </RTable>
+          <AssetTimestamp
+            :date="event.occurred_at"
+            stacked
+            class="r-v2-audit-event__time"
+          />
+        </component>
+      </li>
+    </ul>
 
-    <div v-if="hasMore" class="r-v2-audit__more">
+    <div v-if="hasMore && phase === 'content'" class="r-v2-audit__more">
       <RBtn variant="text" :loading="loadingMore" @click="showMore">
         {{ t("audit.load-more") }}
       </RBtn>
@@ -418,53 +417,92 @@ html[data-bp~="sm-and-down"] .r-v2-audit__date {
   flex: 1 1 0;
 }
 
-.r-v2-audit__who,
-.r-v2-audit__what {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.r-v2-audit__icon {
-  flex-shrink: 0;
-  color: var(--r-color-fg-muted);
-}
-
-.r-v2-audit__text {
+.r-v2-audit__list {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  gap: var(--r-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.r-v2-audit__title {
-  color: var(--r-color-fg);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.r-v2-audit-event {
+  border-radius: var(--r-radius-card);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
+}
+
+.r-v2-audit-event__main {
+  display: flex;
+  align-items: center;
+  gap: var(--r-space-3);
+  padding: var(--r-space-3) var(--r-space-4);
+  border-radius: var(--r-radius-card);
+  color: inherit;
   text-decoration: none;
 }
 
-a.r-v2-audit__title:hover {
-  text-decoration: underline;
+a.r-v2-audit-event__main:hover {
+  background: var(--r-color-surface-hover);
 }
 
-.r-v2-audit__detail {
+.r-v2-audit-event__icon {
+  flex-shrink: 0;
+}
+
+.r-v2-audit-event__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.r-v2-audit-event__title {
+  font-size: var(--r-font-size-md);
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg);
+  overflow-wrap: anywhere;
+}
+
+.r-v2-audit-event__detail {
   font-size: var(--r-font-size-sm);
   color: var(--r-color-fg-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
-.r-v2-audit__ip {
+.r-v2-audit-event__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--r-space-3);
+  margin-top: 2px;
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-secondary);
+}
+
+.r-v2-audit-event__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.r-v2-audit-event__ip {
   font-family: var(--r-font-family-mono);
 }
 
-.r-v2-audit__ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* On a phone the time moves under the text so the sentence keeps the width. */
+html[data-bp~="xs"] .r-v2-audit-event__main {
+  flex-wrap: wrap;
+  row-gap: var(--r-space-1);
+}
+html[data-bp~="xs"] .r-v2-audit-event__time {
+  order: 3;
+  flex-basis: 100%;
+  flex-direction: row;
+  align-items: baseline;
+  padding-left: calc(36px + var(--r-space-3));
 }
 
 .r-v2-audit__more {

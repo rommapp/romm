@@ -137,6 +137,17 @@ describe("describeAuditEvent", () => {
     expect(view.title).toBe("Added #12");
   });
 
+  it("colors a failure apart from its category", () => {
+    expect(
+      describeAuditEvent(event("rom.play", { category: "consumption" })).tone,
+    ).toBe("primary");
+    expect(
+      describeAuditEvent(
+        event("auth.login_failed", { category: "security", data: {} }),
+      ).tone,
+    ).toBe("danger");
+  });
+
   it("shows an action it doesn't know as it came", () => {
     const view = describeAuditEvent(event("rom.teleport"));
 
