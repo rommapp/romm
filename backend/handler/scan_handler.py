@@ -138,6 +138,9 @@ PROVIDER_TAG_FIELDS = ("regions", "languages")
 # Tags merge rather than fill: being a translation says nothing about being a
 # revision, so a dump's tags join the filename's instead of replacing them.
 PROVIDER_MERGED_TAG_FIELDS = ("tags",)
+PROVIDER_ALL_TAG_FIELDS = PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
+# Where a hash source's blob keeps each tag field its dump gave.
+DUMP_TAG_KEYS = {field: f"dump_{field}" for field in PROVIDER_ALL_TAG_FIELDS}
 
 
 def hash_source_tags(
@@ -153,12 +156,16 @@ def hash_source_tags(
         Each tag field's values, or None when the source doesn't cover the ROM.
     """
     handler = fields["handler"]
-    tag_fields = PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
     if handler.get(fields["id_field"]):
-        return {field: list(handler.get(field) or []) for field in tag_fields}
+        return {
+            field: list(handler.get(field) or []) for field in PROVIDER_ALL_TAG_FIELDS
+        }
     if rom_attrs.get(fields["id_field"]):
         stored = rom_attrs.get(fields["metadata_field"]) or {}
-        return {field: list(stored.get(f"dump_{field}") or []) for field in tag_fields}
+        return {
+            field: list(stored.get(DUMP_TAG_KEYS[field]) or [])
+            for field in PROVIDER_ALL_TAG_FIELDS
+        }
     return None
 
 
@@ -1444,8 +1451,8 @@ async def scan_rom(
         handler = fields["handler"]
         if handler.get(fields["id_field"]):
             dump_tags = {
-                f"dump_{field}": list(handler[field])
-                for field in PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
+                DUMP_TAG_KEYS[field]: list(handler[field] or [])
+                for field in PROVIDER_ALL_TAG_FIELDS
                 if field in handler
             }
             blob = {**(handler.get(fields["metadata_field"]) or {}), **dump_tags}
@@ -1468,7 +1475,7 @@ async def scan_rom(
         # Only update fields that have valid values
         for key, field_value in handler_data.items():
             if (
-                key in PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
+                key in PROVIDER_ALL_TAG_FIELDS
                 and source_name in HASH_MATCHED_TAG_SOURCES
             ):
                 continue

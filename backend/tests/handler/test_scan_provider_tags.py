@@ -236,6 +236,38 @@ async def test_an_update_that_skips_screenscraper_keeps_what_its_dump_said():
     assert result.tags == ["Translation"]
 
 
+async def test_a_hashes_scan_keeps_the_dump_tag_screenscraper_gave():
+    """A hashes scan never asks ScreenScraper again, and tags merge onto the filename's."""
+    result = await _scan(
+        MetadataSource.SS,
+        scan_type=ScanType.HASHES,
+        ss_id=42,
+        ss_metadata={"dump_tags": ["Translation"]},
+        tags=["Translation"],
+    )
+
+    assert result.tags == ["Translation"]
+
+
+async def test_a_fresh_answer_replaces_what_the_blob_kept():
+    """ScreenScraper answering without our dump outranks the dump tags it kept."""
+    with patch(
+        "handler.scan_handler.meta_ss_handler.get_rom_by_id",
+        new=AsyncMock(return_value=SS_MATCH),
+    ):
+        result = await _scan(
+            MetadataSource.SS,
+            scan_type=ScanType.UPDATE,
+            ss_id=42,
+            ss_metadata={"dump_tags": ["Translation"]},
+            tags=[],
+        )
+
+    assert result.tags == []
+    assert result.ss_metadata is not None
+    assert "dump_tags" not in result.ss_metadata
+
+
 async def test_a_complete_rescan_without_screenscraper_drops_its_tags(
     hasheous_lookup: AsyncMock,
 ):
