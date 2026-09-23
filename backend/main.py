@@ -46,6 +46,7 @@ from endpoints.memory_cards import router as memory_cards_router
 from endpoints.music import router as music_router
 from endpoints.music_playlists import router as music_playlists_router
 from endpoints.netplay import router as netplay_router
+from endpoints.notification_channels import router as notification_channels_router
 from endpoints.notifications import router as notifications_router
 from endpoints.permissions import router as permissions_router
 from endpoints.platform import router as platform_router
@@ -186,6 +187,7 @@ app.include_router(activity_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
 app.include_router(client_tokens_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
+app.include_router(notification_channels_router, prefix="/api")
 app.include_router(device_router, prefix="/api")
 app.include_router(device_auth_router, prefix="/api")
 app.include_router(play_sessions_router, prefix="/api")

@@ -34,6 +34,11 @@ def emit(mocker):
     )
 
 
+@pytest.fixture(autouse=True)
+def enqueue_channel_deliveries(mocker):
+    return mocker.patch.object(notification_handler, "enqueue_channel_deliveries")
+
+
 @pytest.fixture
 def add_notifications(mocker):
     return mocker.patch.object(
@@ -60,6 +65,14 @@ class TestNotify:
         assert payload["id"] == 7
         assert payload["data"] == {"new_roms": 2}
         assert payload["created_at"].startswith("2026-09-23")
+
+    async def test_queues_the_stored_row_for_the_users_channels(
+        self, emit, add_notifications, enqueue_channel_deliveries
+    ):
+        await notify(3, NotificationKind.SCAN_FAILED, NotificationLevel.ERROR)
+
+        [(user_id, schema)] = enqueue_channel_deliveries.call_args.args[0]
+        assert (user_id, schema.id) == (3, 7)
 
     async def test_carries_its_own_content_for_a_custom_kind(
         self, emit, add_notifications

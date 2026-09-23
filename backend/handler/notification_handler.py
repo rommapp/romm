@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 from endpoints.responses.notification import NotificationSchema
 from handler.database import db_notification_handler, db_user_handler
+from handler.notification_channels.delivery import enqueue_channel_deliveries
 from handler.socket_handler import socket_handler
 from logger.logger import log
 from models.notification import Notification, NotificationKind, NotificationLevel
@@ -16,7 +17,7 @@ NOTIFICATIONS_DISMISSED_EVENT = "notifications:dismissed"
 
 
 async def deliver(notifications: Sequence[Notification]) -> list[NotificationSchema]:
-    """Store notifications in one transaction, then push each to its user's open tabs.
+    """Store notifications, push each to its user's tabs and queue it for their channels.
 
     Raises if they can't be stored.
     """
@@ -29,6 +30,7 @@ async def deliver(notifications: Sequence[Notification]) -> list[NotificationSch
         await socket_handler.emit_to_user(
             user_id, NOTIFICATIONS_NEW_EVENT, schema.model_dump(mode="json")
         )
+    enqueue_channel_deliveries(stored)
     return [schema for _, schema in stored]
 
 

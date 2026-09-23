@@ -53,6 +53,10 @@ class OIDCDict(TypedDict):
     RP_INITIATED_LOGOUT: bool
 
 
+class NotificationsDict(TypedDict):
+    EMAIL_ENABLED: bool
+
+
 class TasksDict(TypedDict):
     ENABLE_SCHEDULED_RESCAN: bool
     SCHEDULED_RESCAN_CRON: str
@@ -71,4 +75,5 @@ class HeartbeatResponse(TypedDict):
     EMULATION: EmulationDict
     FRONTEND: FrontendDict
     OIDC: OIDCDict
+    NOTIFICATIONS: NotificationsDict
     TASKS: TasksDict

@@ -1,0 +1,200 @@
+"""Webhook deliveries: RomM's own JSON, a Discord embed or an ntfy message."""
+
+import hashlib
+import hmac
+import json
+from dataclasses import dataclass
+from typing import Any, Final
+from urllib.parse import urlsplit, urlunsplit
+
+import httpx
+
+from config import has_proxy_env
+from models.notification import NotificationLevel
+from models.notification_channel import WebhookFormat
+from utils.context import create_httpx_async_client
+from utils.ssrf import validate_url_for_http_request
+from utils.validation import ValidationError
+
+from .config import WebhookConfig
+from .messages import OutboundMessage
+
+TIMEOUT_SECONDS: Final = 15
+SIGNATURE_HEADER: Final = "X-RomM-Signature"
+
+DISCORD_COLORS: Final[dict[str, int]] = {
+    NotificationLevel.INFO: 0x3498DB,
+    NotificationLevel.SUCCESS: 0x2ECC71,
+    NotificationLevel.WARNING: 0xF1C40F,
+    NotificationLevel.ERROR: 0xE74C3C,
+}
+NTFY_TAGS: Final[dict[str, str]] = {
+    NotificationLevel.INFO: "information_source",
+    NotificationLevel.SUCCESS: "white_check_mark",
+    NotificationLevel.WARNING: "warning",
+    NotificationLevel.ERROR: "rotating_light",
+}
+# ntfy's scale runs 1 to 5, where 3 is the default and 4 is high.
+NTFY_ERROR_PRIORITY: Final = 4
+NTFY_DEFAULT_PRIORITY: Final = 3
+
+
+class WebhookError(RuntimeError):
+    """The destination refused the delivery or could not be reached."""
+
+
+@dataclass(frozen=True)
+class WebhookRequest:
+    url: str
+    content: bytes
+    headers: dict[str, str]
+
+
+def split_ntfy_url(url: str) -> tuple[str, str]:
+    """The server a topic URL points at and the topic, for ntfy's JSON publishing.
+
+    Raises:
+        ValueError: The URL names no topic.
+    """
+    parts = urlsplit(url)
+    base_path, _, topic = parts.path.rstrip("/").rpartition("/")
+    if not topic:
+        raise ValueError(
+            "An ntfy URL ends with its topic, such as https://ntfy.sh/romm"
+        )
+    return urlunsplit((parts.scheme, parts.netloc, base_path or "/", "", "")), topic
+
+
+def check_url(url: str, format: WebhookFormat, allow_private: bool) -> None:
+    """Refuse a webhook URL that can never be delivered to.
+
+    Args:
+        allow_private: Whether the channel may reach the local network, which
+            only an admin's may.
+
+    Raises:
+        ValueError: With a reason fit to show the user.
+    """
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("The URL must start with http:// or https://")
+    if not allow_private:
+        try:
+            validate_url_for_http_request(url)
+        except ValidationError as exc:
+            raise ValueError(exc.message) from exc
+    if format == WebhookFormat.NTFY:
+        split_ntfy_url(url)
+
+
+def _json_payload(message: OutboundMessage) -> dict[str, Any]:
+    n = message.notification
+    return {
+        "event": "notification",
+        "id": n.id,
+        "kind": n.kind,
+        "level": n.level,
+        "title": message.title,
+        "body": message.body,
+        "url": message.url,
+        "data": n.data,
+        "actor": {"id": n.actor.id, "username": n.actor.username} if n.actor else None,
+        "created_at": n.created_at.isoformat(),
+    }
+
+
+def _discord_payload(message: OutboundMessage) -> dict[str, Any]:
+    n = message.notification
+    embed: dict[str, Any] = {
+        # Discord's own limits on an embed's title and description.
+        "title": message.title[:256],
+        "color": DISCORD_COLORS.get(n.level, DISCORD_COLORS[NotificationLevel.INFO]),
+        "timestamp": n.created_at.isoformat(),
+    }
+    if message.body:
+        embed["description"] = message.body[:4096]
+    if message.url:
+        embed["url"] = message.url
+    if n.actor:
+        embed["footer"] = {"text": f"From {n.actor.username}"}
+    # A user's own text must not ping @everyone or a role.
+    return {"username": "RomM", "embeds": [embed], "allowed_mentions": {"parse": []}}
+
+
+def _ntfy_payload(message: OutboundMessage, topic: str) -> dict[str, Any]:
+    n = message.notification
+    payload: dict[str, Any] = {
+        "topic": topic,
+        "title": message.title,
+        "message": message.body or message.title,
+        "priority": (
+            NTFY_ERROR_PRIORITY
+            if n.level == NotificationLevel.ERROR
+            else NTFY_DEFAULT_PRIORITY
+        ),
+        "tags": [NTFY_TAGS.get(n.level, NTFY_TAGS[NotificationLevel.INFO])],
+    }
+    if message.url:
+        payload["click"] = message.url
+    return payload
+
+
+def build_request(config: WebhookConfig, message: OutboundMessage) -> WebhookRequest:
+    headers = {"Content-Type": "application/json", "User-Agent": "RomM"}
+    secret = config.get("secret")
+    url = config["url"]
+
+    match config["format"]:
+        case WebhookFormat.DISCORD:
+            payload = _discord_payload(message)
+        case WebhookFormat.NTFY:
+            # JSON publishing takes non-ASCII titles that headers can't carry.
+            url, topic = split_ntfy_url(url)
+            payload = _ntfy_payload(message, topic)
+            if secret:
+                headers["Authorization"] = f"Bearer {secret}"
+        case _:
+            payload = _json_payload(message)
+
+    content = json.dumps(payload).encode()
+    if secret and config["format"] == WebhookFormat.JSON:
+        digest = hmac.new(secret.encode(), content, hashlib.sha256).hexdigest()
+        headers[SIGNATURE_HEADER] = f"sha256={digest}"
+    return WebhookRequest(url=url, content=content, headers=headers)
+
+
+def _client(allow_private: bool) -> httpx.AsyncClient:
+    if allow_private:
+        return httpx.AsyncClient(trust_env=has_proxy_env(), timeout=TIMEOUT_SECONDS)
+    client = create_httpx_async_client()
+    client.timeout = httpx.Timeout(TIMEOUT_SECONDS)
+    return client
+
+
+async def send(
+    config: WebhookConfig, message: OutboundMessage, allow_private: bool
+) -> None:
+    """POST the message to the webhook.
+
+    Raises:
+        WebhookError: The destination refused it, or could not be reached.
+    """
+    request = build_request(config, message)
+    host = urlsplit(request.url).hostname
+    try:
+        async with _client(allow_private) as client:
+            response = await client.post(
+                request.url, content=request.content, headers=request.headers
+            )
+    except ValidationError as exc:
+        raise WebhookError(exc.message) from exc
+    except httpx.HTTPError as exc:
+        reason = str(exc) or type(exc).__name__
+        raise WebhookError(f"Could not reach {host}: {reason}") from exc
+
+    if response.is_error:
+        detail = response.text.strip()[:200]
+        raise WebhookError(
+            f"{host} answered {response.status_code}"
+            + (f": {detail}" if detail else "")
+        )
