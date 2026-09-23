@@ -12,6 +12,7 @@ from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema, RomFileUserSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from handler.audit_handler import AuditTarget, record_download
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_can, assert_rom_visible, get_permissions
 from handler.database import db_rom_handler
@@ -95,7 +96,7 @@ async def get_romfile_content(
 
     # 404-mask file bytes of roms hidden from the caller: resolve the parent
     # rom and apply its visibility before serving any content.
-    rom = db_rom_handler.get_rom_visibility(file.rom_id)
+    rom = db_rom_handler.get_rom_visibility_label(file.rom_id)
     if not rom:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -130,6 +131,20 @@ async def get_romfile_content(
     else:
         media_type = "application/octet-stream"
         disposition = "attachment"
+
+    # Inline files feed the in-page viewers and players; only an attachment is
+    # someone taking the file away.
+    if disposition == "attachment":
+        record_download(
+            request,
+            AuditTarget.of_rom(rom),
+            f"file:{file.id}",
+            {
+                "file_name": file.file_name,
+                "file_ids": [file.id],
+                "size_bytes": file.file_size_bytes,
+            },
+        )
 
     # Inline files are served under an explicit, trusted Content-Type; nosniff
     # keeps the browser from sniffing them into anything script-capable (e.g. a

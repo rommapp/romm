@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
-from typing import Annotated, Any, Sequence
+from typing import Annotated, Any, Literal, Sequence
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -51,6 +51,7 @@ from endpoints.responses.rom import (
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
+from handler.audit_handler import AuditTarget, record_download
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
@@ -109,6 +110,7 @@ from handler.scan_handler import (
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction, AuditTargetType
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
@@ -814,6 +816,32 @@ def get_random_rom(
     return SimpleRomSchema.from_orm_with_request(rom, request)
 
 
+def _bulk_download_target(
+    platform_id: int | None,
+    collection_id: int | None,
+    smart_collection_id: int | None,
+    virtual_collection_id: str | None,
+) -> AuditTarget | None:
+    """What a bulk download took whole, or None for a hand-picked list of roms."""
+    if platform_id:
+        platform = db_platform_handler.get_platform(platform_id)
+        return AuditTarget.of_platform(platform) if platform else None
+    if collection_id:
+        collection = db_collection_handler.get_collection(collection_id)
+        return AuditTarget.of_collection(collection) if collection else None
+    if smart_collection_id:
+        smart = db_collection_handler.get_smart_collection(smart_collection_id)
+        return AuditTarget.of_smart_collection(smart) if smart else None
+    if virtual_collection_id:
+        virtual = db_collection_handler.get_virtual_collection(virtual_collection_id)
+        return AuditTarget(
+            AuditTargetType.VIRTUAL_COLLECTION,
+            virtual_collection_id,
+            virtual.name if virtual else None,
+        )
+    return None
+
+
 @protected_route(
     router.get,
     "/download",
@@ -917,6 +945,15 @@ async def download_roms(
 
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
+    )
+    record_download(
+        request,
+        _bulk_download_target(
+            platform_id, collection_id, smart_collection_id, virtual_collection_id
+        ),
+        f"bulk:{binascii.crc32(','.join(map(str, sorted(found_ids))).encode())}",
+        {"count": len(rom_objects), "rom_ids": sorted(found_ids)},
+        action=AuditAction.ROM_BULK_DOWNLOAD,
     )
 
     all_entries = []
@@ -1287,6 +1324,12 @@ async def get_rom_content(
             description="Comma-separated list of file ids to download for multi-part roms."
         ),
     ] = None,
+    purpose: Annotated[
+        Literal["download", "play"],
+        Query(
+            description="`play` when an in-browser player fetches the rom to run it."
+        ),
+    ] = "download",
 ):
     """Download a rom.
 
@@ -1329,6 +1372,19 @@ async def get_rom_content(
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
+    if purpose == "download":
+        record_download(
+            request,
+            AuditTarget.of_rom(rom),
+            f"rom:{rom.id}:{file_ids or ''}",
+            {
+                "file_name": (
+                    files[0].file_name if len(files) == 1 else f"{file_name}.zip"
+                ),
+                "file_ids": [f.id for f in files] if file_ids else None,
+                "size_bytes": sum(f.file_size_bytes for f in files),
+            },
+        )
 
     m3u_files = playlist_files(files)
 

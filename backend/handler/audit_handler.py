@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from models.collection import Collection, SmartCollection
     from models.firmware import Firmware
     from models.platform import Platform
-    from models.rom import Rom
+    from models.rom import Rom, RomDeletionTarget, RomVisibilityLabel
     from models.user import User
 
 # Lists in `data` (rom ids, changed fields) keep this many entries.
@@ -112,7 +112,7 @@ class AuditTarget:
     name: str | None
 
     @classmethod
-    def of_rom(cls, rom: Rom) -> AuditTarget:
+    def of_rom(cls, rom: Rom | RomVisibilityLabel | RomDeletionTarget) -> AuditTarget:
         return cls(AuditTargetType.ROM, rom.id, rom.name or rom.fs_name)
 
     @classmethod
@@ -251,7 +251,7 @@ def _starts_a_transfer(range_header: str | None) -> bool:
 
 def record_download(
     conn: HTTPConnection,
-    target: AuditTarget,
+    target: AuditTarget | None,
     dedupe_key: str,
     data: dict[str, Any] | None = None,
     *,
