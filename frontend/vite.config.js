@@ -79,6 +79,7 @@ export default defineConfig(({ mode }) => {
   logDevProxyTarget(proxyTarget);
   const proxy = createRommDevProxy(proxyTarget.target, {
     remote: proxyTarget.remote,
+    proxyAssets: proxyTarget.proxyAssets,
   });
 
   return {

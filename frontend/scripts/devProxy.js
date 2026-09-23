@@ -3,7 +3,7 @@
  * Target comes from DEV_PROXY_TARGET (remote) or local backend on DEV_PORT.
  */
 
-/** @typedef {{ target: string; remote: boolean; warning?: string }} ResolvedDevProxyTarget */
+/** @typedef {{ target: string; remote: boolean; proxyAssets: boolean; warning?: string }} ResolvedDevProxyTarget */
 
 /**
  * @param {string | undefined} raw
@@ -14,7 +14,7 @@ export function resolveDevProxyTarget(raw, backendPort = "5000") {
   const localTarget = `http://127.0.0.1:${backendPort}`;
   const trimmed = raw?.trim();
   if (!trimmed) {
-    return { target: localTarget, remote: false };
+    return { target: localTarget, remote: false, proxyAssets: false };
   }
 
   /** @type {URL} */
@@ -25,6 +25,7 @@ export function resolveDevProxyTarget(raw, backendPort = "5000") {
     return {
       target: localTarget,
       remote: false,
+      proxyAssets: false,
       warning: `DEV_PROXY_TARGET is not a valid URL ("${trimmed}"); using ${localTarget} instead.`,
     };
   }
@@ -33,6 +34,7 @@ export function resolveDevProxyTarget(raw, backendPort = "5000") {
     return {
       target: localTarget,
       remote: false,
+      proxyAssets: false,
       warning: `DEV_PROXY_TARGET must be http or https (got "${url.protocol}"); using ${localTarget} instead.`,
     };
   }
@@ -43,7 +45,7 @@ export function resolveDevProxyTarget(raw, backendPort = "5000") {
     hostname === "127.0.0.1" ||
     hostname === "[::1]";
 
-  return { target: url.origin, remote: !isLocal };
+  return { target: url.origin, remote: !isLocal, proxyAssets: true };
 }
 
 /** @param {import("http").IncomingMessage} proxyRes */
@@ -57,9 +59,9 @@ function rewriteSetCookieForLocalhost(proxyRes) {
 
 /**
  * @param {string} target
- * @param {{ remote: boolean }} options
+ * @param {{ remote: boolean; proxyAssets: boolean }} options
  */
-export function createRommDevProxy(target, { remote }) {
+export function createRommDevProxy(target, { remote, proxyAssets }) {
   const shared = remote
     ? {
         changeOrigin: true,
@@ -83,8 +85,8 @@ export function createRommDevProxy(target, { remote }) {
     },
   };
 
-  // Remote only: local dev serves covers from the frontend/assets symlink.
-  if (remote) {
+  // Default dev (no DEV_PROXY_TARGET) serves covers from the frontend/assets symlink.
+  if (proxyAssets) {
     proxy["/assets/romm"] = { target, ...shared };
   }
 
@@ -97,7 +99,7 @@ export function logDevProxyTarget(resolved) {
     console.warn(`[vite] ${resolved.warning}`);
     return;
   }
-  if (resolved.remote) {
+  if (resolved.proxyAssets) {
     console.log(
       `[vite] DEV_PROXY_TARGET: proxying /api, /ws, /assets/romm to ${resolved.target}`,
     );
