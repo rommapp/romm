@@ -5,6 +5,7 @@ volumes:
 
 services:
   romm:
+    # `edge` tracks master: unstable, and its migrations can't be undone by returning to `latest`
     image: rommapp/romm:latest
     container_name: romm
     restart: unless-stopped

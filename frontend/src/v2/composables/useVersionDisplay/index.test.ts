@@ -57,6 +57,16 @@ describe("useVersionDisplay", () => {
     );
   });
 
+  it("links an edge build to the commit it was built from", () => {
+    heartbeatStore = makeHeartbeatStore({
+      VERSION: "edge-a1b2c3d",
+      GIT_BRANCH: null,
+    });
+    const { version, href } = useVersionDisplay();
+    expect(version.value).toBe("edge-a1b2c3d");
+    expect(href.value).toBe("https://github.com/rommapp/romm/commit/a1b2c3d");
+  });
+
   it("encodes URL-reserved characters within a branch segment", () => {
     heartbeatStore = makeHeartbeatStore({
       VERSION: "development",
