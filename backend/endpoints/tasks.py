@@ -24,6 +24,7 @@ from endpoints.responses import (
     WatcherTaskStatusResponse,
 )
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
+from handler.audit_handler import AuditActor, AuditTarget, record
 from handler.auth.constants import Scope
 from handler.redis_handler import (
     ALL_QUEUES,
@@ -33,6 +34,7 @@ from handler.redis_handler import (
     low_prio_queue,
     redis_client,
 )
+from models.audit_event import AuditAction, AuditTargetType
 from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS, enqueue_task
 from tasks.tasks import Task, TaskType
 from utils.router import APIRouter
@@ -334,6 +336,12 @@ async def run_single_task(
         queue=low_prio_queue,
         task_kwargs=task_kwargs or {},
         run_by_user_id=request.user.id,
+    )
+    record(
+        AuditAction.TASK_RUN,
+        AuditActor.from_request(request),
+        AuditTarget(AuditTargetType.TASK, task_name, task_instance.title),
+        {"job_id": job.id, "kwargs": task_kwargs or {}},
     )
 
     return {

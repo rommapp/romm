@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Optional
+from typing import Annotated, Final, Literal, Optional
 from urllib.parse import urlencode
 
 from fastapi import BackgroundTasks, Body, Depends, HTTPException, Request, status
@@ -23,17 +23,68 @@ from exceptions.auth_exceptions import (
     OIDCNotConfiguredException,
     UserDisabledException,
 )
+from handler.audit_handler import AuditActor, AuditTarget, claim_once, record
 from handler.auth import auth_handler, oauth_handler, oidc_handler
 from handler.database import db_user_handler
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction, AuditActorKind
+from models.user import User
 from utils.auth import create_or_find_web_device
 from utils.router import APIRouter
 
 router = APIRouter(
     tags=["auth"],
 )
+
+
+# Failed sign-ins from one address for one username within this window are one attempt.
+LOGIN_FAILURE_WINDOW_SECONDS: Final = 60
+
+LoginMethod = Literal["password", "token", "oidc"]
+
+
+def _client_ip(request: Request) -> str | None:
+    return request.client.host if request.client else None
+
+
+def _record_login(
+    request: Request, user: User, method: LoginMethod, device_id: str | None = None
+) -> None:
+    record(
+        AuditAction.AUTH_LOGIN,
+        AuditActor.for_user(user, ip_address=_client_ip(request), device_id=device_id),
+        data={"method": method},
+    )
+
+
+def _record_login_failure(
+    request: Request,
+    username: str | None,
+    method: LoginMethod,
+    reason: Literal["credentials", "disabled"],
+) -> None:
+    ip_address = _client_ip(request)
+    if not claim_once(
+        f"login_failed:{ip_address}:{username}", LOGIN_FAILURE_WINDOW_SECONDS
+    ):
+        return
+    user = db_user_handler.get_user_by_username(username) if username else None
+    actor = (
+        AuditActor.for_user(user, ip_address=ip_address)
+        if user
+        else AuditActor(AuditActorKind.ANONYMOUS, ip_address=ip_address)
+    )
+    record(
+        AuditAction.AUTH_LOGIN_FAILED,
+        actor,
+        data={
+            "username": username[:255] if username else None,
+            "method": method,
+            "reason": reason,
+        },
+    )
 
 
 # Session authentication endpoints
@@ -55,9 +106,11 @@ def login(
 
     user = auth_handler.authenticate_user(credentials.username, credentials.password)
     if not user:
+        _record_login_failure(request, credentials.username, "password", "credentials")
         raise AuthCredentialsException
 
     if not user.enabled:
+        _record_login_failure(request, credentials.username, "password", "disabled")
         raise UserDisabledException
 
     request.session["iss"] = "romm:auth"
@@ -70,6 +123,7 @@ def login(
     # Update last login and active times
     now = datetime.now(timezone.utc)
     db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
+    _record_login(request, user, "password", device.id)
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
@@ -107,7 +161,9 @@ async def logout(request: Request) -> Optional[OIDCLogoutResponse]:
 
 
 @router.post("/token")
-async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResponse:
+async def token(
+    request: Request, form_data: Annotated[OAuth2RequestForm, Depends()]
+) -> TokenResponse:
     """OAuth2 token endpoint
 
     Args:
@@ -181,12 +237,14 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
 
         user = auth_handler.authenticate_user(form_data.username, form_data.password)
         if not user:
+            _record_login_failure(request, form_data.username, "token", "credentials")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid username or password",
             )
 
         if not user.enabled:
+            _record_login_failure(request, form_data.username, "token", "disabled")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled"
             )
@@ -229,6 +287,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
         },
         expires_delta=timedelta(seconds=OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS),
     )
+    _record_login(request, user, "token")
 
     return {
         "access_token": access_token,
@@ -293,9 +352,11 @@ async def auth_openid(request: Request):
     )
 
     if not potential_user:
+        _record_login_failure(request, None, "oidc", "credentials")
         raise AuthCredentialsException
 
     if not potential_user.enabled:
+        _record_login_failure(request, potential_user.username, "oidc", "disabled")
         raise UserDisabledException
 
     request.session["iss"] = "romm:auth"
@@ -312,13 +373,16 @@ async def auth_openid(request: Request):
     db_user_handler.update_user(
         potential_user.id, {"last_login": now, "last_active": now}
     )
+    _record_login(request, potential_user, "oidc", device.id)
 
     return RedirectResponse(url="/")
 
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 def request_password_reset(
-    background_tasks: BackgroundTasks, username: str = Body(..., embed=True)
+    request: Request,
+    background_tasks: BackgroundTasks,
+    username: str = Body(..., embed=True),
 ) -> None:
     """Request a password reset link for the user.
 
@@ -332,6 +396,11 @@ def request_password_reset(
     if user:
         # After the response, so its timing can't tell whether the user exists.
         background_tasks.add_task(auth_handler.send_password_reset_link, user)
+        record(
+            AuditAction.AUTH_PASSWORD_RESET_REQUEST,
+            AuditActor(AuditActorKind.ANONYMOUS, ip_address=_client_ip(request)),
+            AuditTarget.of_user(user),
+        )
     else:
         log.warning(
             f"Reset password link requested for a user {hl(username, color=CYAN)}, but that username does not exist."
@@ -340,6 +409,7 @@ def request_password_reset(
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 async def reset_password(
+    request: Request,
     token: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
 ) -> None:
@@ -355,6 +425,11 @@ async def reset_password(
     user = auth_handler.verify_password_reset_token(token)
 
     await auth_handler.set_user_new_password(user, new_password)
+    record(
+        AuditAction.AUTH_PASSWORD_RESET,
+        AuditActor.for_user(user, ip_address=_client_ip(request)),
+        AuditTarget.of_user(user),
+    )
 
     log.info(
         f"Password was successfully reset for user {hl(user.username, color=CYAN)}."

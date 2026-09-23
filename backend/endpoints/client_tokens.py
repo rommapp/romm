@@ -10,10 +10,12 @@ from endpoints.responses.client_token import (
     ClientTokenPairSchema,
     ClientTokenSchema,
 )
+from handler.audit_handler import AuditActor, AuditTarget, record
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_client_token_handler
 from handler.redis_handler import sync_cache
+from models.audit_event import AuditAction, AuditTargetType
 from models.client_token import ClientToken
 from utils.client_tokens import (
     PAIR_CODE_TTL_SECONDS,
@@ -45,6 +47,15 @@ class ClientTokenExchangePayload(BaseModel):
     code: str
 
 
+def _record_token(request: Request, action: AuditAction, token: ClientToken) -> None:
+    record(
+        action,
+        AuditActor.from_request(request),
+        AuditTarget(AuditTargetType.CLIENT_TOKEN, token.id, token.name),
+        {"owner_id": token.user_id, "scopes": token.scopes.split()},
+    )
+
+
 @protected_route(router.post, "", [Scope.ME_WRITE], status_code=status.HTTP_201_CREATED)
 def create_token(
     request: Request,
@@ -72,6 +83,7 @@ def create_token(
         expires_at=expires_at,
     )
     token = db_client_token_handler.add_token(token)
+    _record_token(request, AuditAction.CLIENT_TOKEN_CREATE, token)
     return build_create_schema(token, raw_token)
 
 
@@ -83,14 +95,18 @@ def list_tokens(request: Request) -> list[ClientTokenSchema]:
 
 @protected_route(router.delete, "/{token_id}", [Scope.ME_WRITE])
 def delete_token(request: Request, token_id: int) -> None:
+    token = db_client_token_handler.get_token(
+        token_id=token_id, user_id=request.user.id
+    )
     rows = db_client_token_handler.delete_token(
         token_id=token_id, user_id=request.user.id
     )
-    if rows == 0:
+    if rows == 0 or token is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Token not found",
         )
+    _record_token(request, AuditAction.CLIENT_TOKEN_REVOKE, token)
 
 
 @protected_route(router.put, "/{token_id}/regenerate", [Scope.ME_WRITE])
@@ -108,6 +124,7 @@ def regenerate_token(request: Request, token_id: int) -> ClientTokenCreateSchema
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Token not found",
         )
+    _record_token(request, AuditAction.CLIENT_TOKEN_REGENERATE, token)
     return build_create_schema(token, raw_token)
 
 
@@ -159,9 +176,11 @@ def list_all_tokens(request: Request) -> list[ClientTokenAdminSchema]:
 
 @protected_route(router.delete, "/{token_id}/admin", [Scope.USERS_WRITE])
 def admin_delete_token(request: Request, token_id: int) -> None:
+    token = db_client_token_handler.get_token(token_id=token_id)
     rows = db_client_token_handler.delete_token(token_id=token_id)
-    if rows == 0:
+    if rows == 0 or token is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Token not found",
         )
+    _record_token(request, AuditAction.CLIENT_TOKEN_REVOKE, token)

@@ -30,6 +30,7 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from exceptions.socket_exceptions import ScanStoppedException
+from handler.audit_handler import AuditActor, record
 from handler.auth.constants import Scope
 from handler.database import (
     db_collection_handler,
@@ -82,6 +83,7 @@ from handler.socket_handler import socket_handler
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.firmware import Firmware
 from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
@@ -145,6 +147,12 @@ def report_scan_failure(
     async def report() -> None:
         await _get_socket_manager().emit("scan:done_ko", reason)
         await notify_scan_end(job.kwargs.get("started_by_user_id"), reason)
+
+    record(
+        AuditAction.SCAN_FINISH,
+        AuditActor.for_user_id(job.kwargs.get("started_by_user_id")),
+        data={"status": "failed", "error": reason},
+    )
 
     try:
         asyncio.run(report())
@@ -1169,6 +1177,19 @@ async def scan_platforms(
     if not platform_fs_slugs:
         platform_fs_slugs = []
 
+    audit_actor = AuditActor.for_user_id(started_by_user_id)
+    record(
+        AuditAction.SCAN_START,
+        audit_actor,
+        data={
+            "type": scan_type.value,
+            "platform_ids": platform_ids,
+            "platform_fs_slugs": platform_fs_slugs,
+            "rom_ids": roms_ids,
+            "sources": metadata_sources,
+        },
+    )
+
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
 
@@ -1181,6 +1202,17 @@ async def scan_platforms(
         update_job_meta({SCAN_REPORTED_META_KEY: True})
         await scan_stats.flush(socket_manager)
         await socket_manager.emit(event, payload)
+        failed = event == "scan:done_ko"
+        record(
+            AuditAction.SCAN_FINISH,
+            audit_actor,
+            data={
+                "status": "failed" if failed else "stopped" if stopped else "completed",
+                "error": payload if failed else None,
+                "rom_ids": roms_ids,
+                **scan_stats.to_dict(),
+            },
+        )
         if event == "scan:done_ko":
             await notify_scan_end(started_by_user_id, payload)
         # A stop is the user's own doing, and a rescan of named roms answers a
@@ -1546,7 +1578,8 @@ async def scan_handler(sid: str, options: dict[str, Any]):
 async def stop_scan_handler(sid: str):
     """Stop scan socket endpoint"""
 
-    if await authorize_scan(sid) is None:
+    user = await authorize_scan(sid)
+    if user is None:
         return
 
     log.info(f"{emoji.EMOJI_STOP_BUTTON} Stop scan requested...")
@@ -1573,4 +1606,12 @@ async def stop_scan_handler(sid: str):
         f"{emoji.EMOJI_STOP_BUTTON} Stopping scan "
         f"({int(running_job is not None)} running, {len(queued_jobs)} queued, "
         f"{len(scheduled_jobs)} scheduled)"
+    )
+    record(
+        AuditAction.SCAN_STOP,
+        AuditActor.for_user(user),
+        data={
+            "running": running_job is not None,
+            "cancelled": len(queued_jobs) + len(scheduled_jobs),
+        },
     )

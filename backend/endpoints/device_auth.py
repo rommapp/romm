@@ -27,11 +27,13 @@ from endpoints.responses.device_auth import (
     DeviceAuthTokenPayload,
     DeviceAuthTokenResponse,
 )
+from handler.audit_handler import AuditActor, AuditTarget, record
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_client_token_handler, db_device_handler
 from handler.database.base_handler import sync_session
 from logger.logger import log
+from models.audit_event import AuditAction, AuditTargetType
 from models.client_token import ClientToken
 from models.device import Device, SyncMode
 from utils.client_tokens import parse_expiry
@@ -252,6 +254,17 @@ def approve(
         f"device_id={device.id} token_id={token.id} "
         f"device_code_prefix={_device_code_prefix(device_code)} "
         f"scopes={' '.join(sorted(approved_set))}"
+    )
+
+    record(
+        AuditAction.DEVICE_APPROVE,
+        AuditActor.from_request(request),
+        AuditTarget(AuditTargetType.DEVICE, device.id, device_name),
+        {
+            "client": data.get("client"),
+            "platform": data.get("platform"),
+            "scopes": sorted(approved_set),
+        },
     )
 
     return DeviceAuthApproveResponse(device_id=device.id, device_name=device_name)

@@ -80,12 +80,19 @@ class AuditActor:
         )
 
     @classmethod
-    def for_user(cls, user: User, *, ip_address: str | None = None) -> AuditActor:
+    def for_user(
+        cls,
+        user: User,
+        *,
+        ip_address: str | None = None,
+        device_id: str | None = None,
+    ) -> AuditActor:
         return cls(
             AuditActorKind.USER,
             user_id=user.id,
             name=user.username,
             ip_address=ip_address,
+            device_id=device_id,
         )
 
     @classmethod
