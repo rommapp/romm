@@ -336,7 +336,7 @@ const spinnerSize = computed(() => {
       <!-- Icon-only mode: when `icon` is a string, render the matching
            RIcon directly. When `icon` is bare `true`, fall through to
            the default slot so consumers can drop their own glyph in
-           (e.g. RPlatformIcon on a GameCard badge) — without this
+           (e.g. PlatformIcon on a GameCard badge) — without this
            branch the slot was silently dropped and the button rendered
            empty. -->
       <RIcon
@@ -512,7 +512,7 @@ const spinnerSize = computed(() => {
   min-width: 0;
 }
 
-/* Slot-driven icon-only content (e.g. `<RBtn icon><RPlatformIcon /></RBtn>`).
+/* Slot-driven icon-only content (e.g. `<RBtn icon><PlatformIcon /></RBtn>`).
    Separate class from `.r-btn__icon` so the icon-font sizing rule
    (`.r-btn__icon { font-size: 1.25em }`) doesn't bleed into image-based
    slot content. Just a centered inline-flex shell. */

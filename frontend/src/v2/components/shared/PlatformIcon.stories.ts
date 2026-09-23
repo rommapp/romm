@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { expect } from "storybook/test";
+import { expect, waitFor } from "storybook/test";
 import { DEFAULT_PLATFORM_ICON } from "@/v2/composables/usePlatformIconCache/iconCache";
 import {
   platformGalleryArgTypes,
@@ -15,6 +15,7 @@ import {
   shippedPlatformGalleryEntries,
 } from "../../../../.storybook/fixtures/platformIconGallery";
 import {
+  MISSING_PROD_SRC,
   PLATFORM_ICON_SIZE_MAX,
   PLATFORM_ICON_SIZE_MIN,
   PLATFORM_ICON_SLUG_OPTIONS,
@@ -147,6 +148,28 @@ export const ExplicitFixtureSrcNotInGlob: Story = {
   play: async ({ canvasElement }) => {
     const img = canvasElement.querySelector("img");
     expect(img?.getAttribute("src")).toBe(STORYBOOK_NON_CACHED_ICON_SVG);
+  },
+};
+
+export const ExplicitSrcMissingFallsBackOnError: Story = {
+  name: "Missing explicit src",
+  args: {
+    overrideSrc: true,
+    src: MISSING_PROD_SRC,
+    size: 40,
+    alt: "Missing platform",
+    title: "Missing prod asset",
+    showTooltip: false,
+  },
+  play: async ({ canvasElement }) => {
+    const triggerFallback = () => {
+      canvasElement.querySelector("img")?.dispatchEvent(new Event("error"));
+    };
+    triggerFallback();
+    await waitFor(() => {
+      const img = canvasElement.querySelector("img");
+      expect(img?.getAttribute("src")).toBe(DEFAULT_PLATFORM_ICON);
+    });
   },
 };
 

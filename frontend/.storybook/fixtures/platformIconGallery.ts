@@ -53,28 +53,6 @@ export const platformGalleryStyles = {
     "font:10px/1.25 sans-serif;color:var(--r-color-fg-muted);word-break:break-all;max-width:100%",
 };
 
-export const rPlatformIconGalleryTemplate = `
-  <div :style="styles.shell">
-    <p :style="styles.meta">{{ icons.length }} shipped platform icons</p>
-    <div :style="styles.grid">
-      <div
-        v-for="entry in icons"
-        :key="entry.slug"
-        :style="styles.cell"
-      >
-        <RPlatformIcon
-          :src="entry.url"
-          :fallback-src="fallback"
-          :size="args.size"
-          :title="entry.slug"
-          :show-tooltip="args.showTooltip"
-        />
-        <span v-if="args.showLabels" :style="styles.label">{{ entry.slug }}</span>
-      </div>
-    </div>
-  </div>
-`;
-
 export const platformIconGalleryTemplate = `
   <div :style="styles.shell">
     <p :style="styles.meta">{{ icons.length }} shipped platform icons</p>
@@ -117,35 +95,6 @@ export const platformSizesStoryStyles = {
   sizeSlot:
     "box-sizing:border-box;width:100%;height:72px;display:flex;align-items:flex-end;justify-content:center",
 };
-
-export const rPlatformIconSizesTemplate = `
-  <div :style="styles.shell">
-    <div
-      v-for="entry in icons"
-      :key="entry.slug"
-      :style="styles.row"
-    >
-      <code :style="styles.rowTitle">{{ entry.slug }}</code>
-      <div :style="styles.sizeRun">
-        <div
-          v-for="size in sizes"
-          :key="size"
-          :style="styles.sizeCell"
-        >
-          <div :style="styles.sizeSlot">
-            <RPlatformIcon
-              :src="entry.url"
-              :fallback-src="fallback"
-              :size="size"
-              :show-tooltip="false"
-            />
-          </div>
-          <span :style="styles.sizeLabel">{{ size }}px</span>
-        </div>
-      </div>
-    </div>
-  </div>
-`;
 
 export const platformIconSizesTemplate = `
   <div :style="styles.shell">

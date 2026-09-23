@@ -1,11 +1,33 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import { DEFAULT_PLATFORM_ICON } from "@/v2/composables/usePlatformIconCache/iconCache";
 import PlatformIcon from "./PlatformIcon.vue";
 
 vi.mock("@/v2/lib/structural/RTooltip/RTooltip.vue", () => ({
   default: { template: "<span><slot /></span>" },
 }));
+
+type Props = Partial<InstanceType<typeof PlatformIcon>["$props"]>;
+
+async function loadChain(props: Props): Promise<string[]> {
+  const wrapper = mount(PlatformIcon, {
+    props: { showTooltip: false, ...props },
+  });
+
+  const seen: string[] = [];
+  for (let step = 0; step < 8; step += 1) {
+    const img = wrapper.find("img");
+    if (!img.exists()) break;
+    const src = img.attributes("src");
+    if (!src || seen[seen.length - 1] === src) break;
+    seen.push(src);
+    await img.trigger("error");
+    await nextTick();
+  }
+  wrapper.unmount();
+  return seen;
+}
 
 describe("PlatformIcon", () => {
   it("uses the shipped file for the canonical slug", () => {
@@ -46,5 +68,18 @@ describe("PlatformIcon", () => {
 
     expect(wrapper.find("img").attributes("src")).toBe("/custom/icon.png");
     wrapper.unmount();
+  });
+
+  it("falls back to the default when an explicit src fails to paint", async () => {
+    await expect(loadChain({ src: "/custom/icon.png" })).resolves.toEqual([
+      "/custom/icon.png",
+      DEFAULT_PLATFORM_ICON,
+    ]);
+  });
+
+  it("stays on src when already showing the default", async () => {
+    await expect(loadChain({ fsSlug: "dreamcast" })).resolves.toEqual([
+      DEFAULT_PLATFORM_ICON,
+    ]);
   });
 });

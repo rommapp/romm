@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { RPlatformIcon } from "@v2/lib";
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import {
   DEFAULT_PLATFORM_ICON,
   platformIconSrc,
 } from "@/v2/composables/usePlatformIconCache/iconCache";
+import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -41,16 +41,62 @@ const resolvedAlt = computed(
 const tooltipText = computed(
   () => props.title ?? props.alt ?? props.name ?? props.slug ?? "",
 );
+
+const failed = ref(false);
+watch(resolvedSrc, () => {
+  failed.value = false;
+});
+
+const displaySrc = computed(() =>
+  failed.value ? DEFAULT_PLATFORM_ICON : resolvedSrc.value,
+);
+
+function onImgError() {
+  if (displaySrc.value !== DEFAULT_PLATFORM_ICON) {
+    failed.value = true;
+  }
+}
+
+const resolvedSize = computed(() =>
+  typeof props.size === "number" ? `${props.size}px` : props.size,
+);
 </script>
 
 <template>
-  <RPlatformIcon
+  <span
     v-bind="$attrs"
-    :src="resolvedSrc"
-    :fallback-src="DEFAULT_PLATFORM_ICON"
-    :size="size"
-    :alt="resolvedAlt"
-    :title="tooltipText"
-    :show-tooltip="showTooltip"
-  />
+    class="r-platform-icon"
+    :style="{ width: resolvedSize, height: resolvedSize }"
+  >
+    <img
+      :key="displaySrc"
+      :src="displaySrc"
+      :alt="resolvedAlt"
+      class="r-platform-icon__img"
+      @error="onImgError"
+    />
+    <RTooltip
+      v-if="showTooltip && tooltipText"
+      :text="tooltipText"
+      activator="parent"
+      location="bottom"
+    />
+  </span>
 </template>
+
+<style scoped>
+.r-platform-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--r-color-fg-muted);
+}
+
+.r-platform-icon__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+</style>
