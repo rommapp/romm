@@ -905,6 +905,13 @@ function onRowPointerDown(e: PointerEvent) {
   background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
 }
 
+/* Inset, like the platform and collection rows: the row runs to the screen
+   edge, where the scroller would clip an outset ring. */
+.game-list-row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--r-color-brand-primary);
+}
+
 /* Select cell — checkbox column. Empty when the row is in skeleton
    mode so the chrome only appears once a real row is loaded. */
 .game-list-row__select {

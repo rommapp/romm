@@ -1309,10 +1309,8 @@ html[data-bp~="md-and-up"] .r-v2-shell {
      viewport. */
   min-width: calc(var(--r-list-min-w) + var(--r-list-bleed-start, 0px));
 }
-/* The header already reaches the left edge, so its pinned glass starts there
-   and runs under the strip column, out to the right edge. */
+/* Its pinned glass also runs under the strip column, out to the right edge. */
 .r-v2-shell__list-header::before {
-  left: 0;
   right: calc(-1 * (var(--r-row-pad) + var(--r-v2-shell-strip)));
 }
 
