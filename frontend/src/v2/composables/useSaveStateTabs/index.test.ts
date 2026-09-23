@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { SaveSchema, StateSchema } from "@/__generated__";
+import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import { useSaveStateTabs } from "./index";
 
 vi.mock("vue-i18n", () => ({
@@ -8,11 +9,11 @@ vi.mock("vue-i18n", () => ({
 }));
 
 function makeSave(overrides: Partial<SaveSchema> = {}): SaveSchema {
-  return { id: 1, file_name: "1.srm", ...overrides } as SaveSchema;
+  return saveFixture({ id: 1, file_name: "1.srm", ...overrides });
 }
 
 function makeState(emulator: string | null): StateSchema {
-  return { id: 2, file_name: "2.state", emulator } as StateSchema;
+  return stateFixture({ id: 2, file_name: "2.state", emulator });
 }
 
 describe("useSaveStateTabs", () => {

@@ -176,7 +176,6 @@
   "resume-from-state": "Reprendre depuis un état",
   "save-and-quit": "Sauvegarder et quitter",
   "save-data": "Données de sauvegarde",
-  "save-data-detail": "Mis à jour {time} · {size}",
   "save-data-none": "Aucune donnée de sauvegarde",
   "save-data-none-hint": "{platform} conserve la progression dans la sauvegarde du jeu",
   "save-data-none-note": "Jouez, puis sauvegardez dans le jeu. La synchronisation se fait à la fin de la session.",

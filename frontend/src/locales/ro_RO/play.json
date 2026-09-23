@@ -176,7 +176,6 @@
   "resume-from-state": "Reia din stare",
   "save-and-quit": "Salvează și ieși",
   "save-data": "Date de salvare",
-  "save-data-detail": "Actualizat {time} · {size}",
   "save-data-none": "Încă nu există date de salvare",
   "save-data-none-hint": "{platform} păstrează progresul în salvarea proprie a jocului",
   "save-data-none-note": "Joacă, apoi salvează în joc. Se sincronizează la încheierea sesiunii.",

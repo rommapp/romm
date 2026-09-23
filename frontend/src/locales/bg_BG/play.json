@@ -176,7 +176,6 @@
   "resume-from-state": "Продължи от бърз запис",
   "save-and-quit": "Запази и излез",
   "save-data": "Записани данни",
-  "save-data-detail": "Обновено {time} · {size}",
   "save-data-none": "Все още няма записани данни",
   "save-data-none-hint": "{platform} пази напредъка в собствения запис на играта",
   "save-data-none-note": "Играйте и запишете в играта. Ще се синхронизира при края на сесията.",

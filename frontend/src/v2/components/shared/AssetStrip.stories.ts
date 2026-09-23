@@ -301,8 +301,7 @@ export const EmptyStates: Story = {
   }),
 };
 
-// States from another emulator stay listed but cannot be picked; the
-// tooltip says why. Hover a dimmed tile.
+// States from another emulator stay listed, dimmed, but cannot be picked.
 export const IncompatibleStates: Story = {
   name: "States · 6, half from another emulator",
   render: () => ({

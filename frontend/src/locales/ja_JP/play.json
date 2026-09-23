@@ -176,7 +176,6 @@
   "resume-from-state": "ステートセーブから再開",
   "save-and-quit": "保存して終了",
   "save-data": "セーブデータ",
-  "save-data-detail": "更新: {time} · {size}",
   "save-data-none": "セーブデータはまだありません",
   "save-data-none-hint": "{platform} は進行状況をゲーム自身のセーブに保存します",
   "save-data-none-note": "プレイしてゲーム内でセーブしてください。セッション終了時に同期されます。",

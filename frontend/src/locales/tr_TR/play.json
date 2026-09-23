@@ -176,7 +176,6 @@
   "resume-from-state": "Durum kaydından devam et",
   "save-and-quit": "Kaydet ve çık",
   "save-data": "Kayıt verisi",
-  "save-data-detail": "Güncellendi {time} · {size}",
   "save-data-none": "Henüz kayıt verisi yok",
   "save-data-none-hint": "{platform}, ilerlemeyi oyunun kendi kaydında tutar",
   "save-data-none-note": "Oyna, sonra oyun içinde kaydet. Oturum bitince eşitlenir.",

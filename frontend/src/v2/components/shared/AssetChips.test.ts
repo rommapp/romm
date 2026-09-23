@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import type { SaveSchema } from "@/__generated__";
+import { saveFixture } from "@/utils/assets.fixtures";
 import AssetChips from "./AssetChips.vue";
 
 vi.mock("vue-i18n", () => ({
@@ -12,7 +12,7 @@ const RTag = {
   template: `<span class="tag">{{ text }}</span>`,
 };
 
-const save = { file_size_bytes: 2048, emulator: "snes9x" } as SaveSchema;
+const save = saveFixture({ file_size_bytes: 2048, emulator: "snes9x" });
 
 function chips(props: { latest?: boolean; showEmulator?: boolean } = {}) {
   return mount(AssetChips, {

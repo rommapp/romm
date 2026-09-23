@@ -176,7 +176,6 @@
   "resume-from-state": "Resume from state",
   "save-and-quit": "Save and quit",
   "save-data": "Save data",
-  "save-data-detail": "Updated {time} · {size}",
   "save-data-none": "No save data yet",
   "save-data-none-hint": "{platform} keeps progress in the game's own save",
   "save-data-none-note": "Play, then save in-game. It syncs back when the session ends.",

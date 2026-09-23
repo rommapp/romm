@@ -135,6 +135,9 @@ SCENE_METADATA_SOURCES = frozenset(
 # library, so they own these fields and the locale pickers read them back.
 HASH_MATCHED_TAG_SOURCES = frozenset({MetadataSource.SS, MetadataSource.HASHEOUS})
 PROVIDER_TAG_FIELDS = ("regions", "languages")
+# Tags merge rather than fill: being a translation says nothing about being a
+# revision, so a dump's tags join the filename's instead of replacing them.
+PROVIDER_MERGED_TAG_FIELDS = ("tags",)
 
 
 def scene_apply_sources(
@@ -989,7 +992,11 @@ async def scan_rom(
             try:
                 # Use the ID to refetch metadata
                 if scan_type == ScanType.UPDATE and rom.ss_id:
-                    return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
+                    # With the files, the refetch still finds our own dump among
+                    # the game's, so a rescan keeps the tags the hash earned.
+                    return await meta_ss_handler.get_rom_by_id(
+                        rom, rom.ss_id, get_match_files()
+                    )
 
                 # Use Playmatch's hash-based id when available
                 if playmatch_rom["ss_id"] is not None:
@@ -999,7 +1006,7 @@ async def scan_rom(
                         extra=LOGGER_MODULE_NAME,
                     )
                     return await meta_ss_handler.get_rom_by_id(
-                        rom, playmatch_rom["ss_id"]
+                        rom, playmatch_rom["ss_id"], get_match_files()
                     )
 
                 # Use the file hashes for lookup
@@ -1415,7 +1422,10 @@ async def scan_rom(
         handler_data = metadata_handlers[source_name]["handler"]
         # Only update fields that have valid values
         for key, field_value in handler_data.items():
-            if key in PROVIDER_TAG_FIELDS and source_name in HASH_MATCHED_TAG_SOURCES:
+            if (
+                key in PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
+                and source_name in HASH_MATCHED_TAG_SOURCES
+            ):
                 continue
             if field_value:
                 rom_attrs[key] = field_value
@@ -1426,6 +1436,7 @@ async def scan_rom(
     local_tags = {
         "regions": filename_tags.regions,
         "languages": filename_tags.languages,
+        "tags": filename_tags.other_tags,
     }
     for field in PROVIDER_TAG_FIELDS:
         if local_tags[field] or any(
@@ -1441,6 +1452,25 @@ async def scan_rom(
             if field_value:
                 rom_attrs[field] = field_value
                 break
+
+    for field in PROVIDER_MERGED_TAG_FIELDS:
+        # The base is what a local source says now, never the stored list: a
+        # dump that stops being a translation has to lose the tag again.
+        merged_tags = list(local_tags[field])
+        for source_name in priority_ordered:
+            if source_name in HASH_MATCHED_TAG_SOURCES:
+                continue
+            claimed = metadata_handlers[source_name]["handler"].get(field)
+            if claimed:
+                merged_tags = list(claimed)
+                break
+        for source_name in priority_ordered:
+            if source_name not in HASH_MATCHED_TAG_SOURCES:
+                continue
+            for tag in metadata_handlers[source_name]["handler"].get(field) or []:
+                if tag not in merged_tags:
+                    merged_tags.append(tag)
+        rom_attrs[field] = merged_tags
 
     # Artwork sources are prioritized separately, and each field can carry its
     # own override on top of the shared artwork priority.
