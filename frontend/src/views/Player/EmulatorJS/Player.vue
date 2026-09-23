@@ -37,6 +37,7 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
 } from "@/utils";
+import { puaeFirmwareFiles } from "@/utils/emulatorjsFirmware";
 import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
 import {
   saveSave,
@@ -78,6 +79,7 @@ const props = defineProps<{
   save: SaveSchema | null;
   state: StateSchema | null;
   bios: FirmwareSchema | null;
+  firmware: FirmwareSchema[];
   core: string | null;
   disc: number | null;
   /** Slot for new saves when the loaded save has none; defaults to autosave. */
@@ -334,6 +336,7 @@ window.EJS_gameUrl = getDownloadPath({
 window.EJS_biosUrl = props.bios
   ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
   : "";
+window.EJS_externalFiles = puaeFirmwareFiles(window.EJS_core, props.firmware);
 window.EJS_player = "#game";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
