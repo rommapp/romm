@@ -115,11 +115,14 @@ function onSubmit(ev: Event) {
 </script>
 
 <template>
+  <!-- `novalidate`: fields report through their rules and RTooltip, never
+       the browser's own validation bubbles. -->
   <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- form-level keydown implements Enter-to-submit (§VI.F); the form is the correct owner -->
   <form
     ref="formRef"
     v-bind="attrs"
     class="r-form"
+    novalidate
     @submit="onSubmit"
     @keydown="onKeyDown"
   >

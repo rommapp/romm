@@ -811,8 +811,10 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | POST   | `/token`           | No   | OAuth2 token (password, refresh_token grants)  |
 | GET    | `/login/openid`    | No   | OIDC login redirect                            |
 | GET    | `/oauth/openid`    | No   | OIDC callback                                  |
-| POST   | `/forgot-password` | No   | Request password reset                         |
+| POST   | `/forgot-password` | No   | Email a reset link, or log it without email    |
 | POST   | `/reset-password`  | No   | Reset password with token                      |
+
+A reset link is emailed when SMTP is set up, the user has an address and `ROMM_BASE_URL` is shareable, at most once a minute per user; otherwise it goes to the log for an admin to pass on. It is built from `ROMM_BASE_URL`, never the request's `Host`. The heartbeat's `NOTIFICATIONS.EMAILS_RESET_LINKS` says whether links are emailed.
 
 ### 6.2 Users (`/api/users`)
 
@@ -1025,6 +1027,39 @@ curl -X POST "$ROMM/api/notifications" -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"title": "Sync finished", "body": "12 saves uploaded", "level": "success", "link": "/rom/12"}'
 ```
+
+#### Notification channels (`/api/notification-channels`)
+
+Each user forwards their own notifications to webhooks and email addresses. A channel filters by minimum level and by topic (`scans`, `tasks`, `streaming`, `account`, `custom`); every stored notification that passes goes out in its own RQ job, retried at 30 s, 2 min and 10 min. A channel that fails 10 deliveries in a row turns itself off and tells its owner.
+
+| Method | Path                | Scope    | Description                                            |
+| ------ | ------------------- | -------- | ------------------------------------------------------ |
+| GET    | `/`                 | ME_READ  | Caller's channels, secrets masked                      |
+| POST   | `/`                 | ME_WRITE | Add a webhook, or an email address that gets a code    |
+| PATCH  | `/{id}`             | ME_WRITE | Change it; a blank URL or secret keeps the current one |
+| DELETE | `/{id}`             | ME_WRITE | Delete it                                              |
+| POST   | `/{id}/test`        | ME_WRITE | Send a sample notification now                         |
+| POST   | `/{id}/confirm`     | ME_WRITE | Confirm an email address with its code                 |
+| POST   | `/{id}/resend-code` | ME_WRITE | Email a new code (once a minute)                       |
+
+A webhook's `format` is `json` (RomM's payload below), `discord` (an embed that mentions nobody) or `ntfy` (JSON publishing to the topic's server, with the secret as its access token). Only an admin's webhooks may reach private addresses; everyone else's go through the SSRF guard. A kept secret doesn't follow a channel to another origin or format; it has to be given again. A delivery gets 15 s in all, and only the start of a refusal's body is read. Text for RomM's own kinds is English until outbound messages are translated. Links are absolute only when `ROMM_BASE_URL` is shareable.
+
+```json
+{
+  "event": "notification",
+  "id": 42,
+  "kind": "scan_completed",
+  "level": "success",
+  "title": "Scan completed",
+  "body": "3 new games",
+  "url": "https://romm.example.com/scan",
+  "data": { "new_roms": 3 },
+  "actor": null,
+  "created_at": "2026-09-23T12:00:00+00:00"
+}
+```
+
+With a secret, the JSON format adds `X-RomM-Signature: sha256=<hex HMAC-SHA256 of the body>`. Email needs `SMTP_HOST` and `SMTP_FROM` (see `env.template`); the heartbeat's `NOTIFICATIONS.EMAIL_ENABLED` says whether it's set up. Channel configs are sealed with a key derived from `ROMM_AUTH_SECRET_KEY`, so rotating it means entering their URLs again.
 
 ### 6.17 Other Endpoints
 
@@ -1559,23 +1594,26 @@ Falls back to `FakeRedis` in test mode.
 
 ### Cache Key Patterns
 
-| Pattern                    | TTL             | Content                         |
-| -------------------------- | --------------- | ------------------------------- |
-| `session:{id}`             | 14 days         | Session JSON                    |
-| `user_sessions:{username}` | 14 days         | Set of session IDs              |
-| `session_sockets:{id}`     | 14 days         | Socket IDs a session opened     |
-| `reset-jti:{jti}`          | 10 min          | Password reset token (one-time) |
-| `invite-jti:{jti}`         | 10 min          | Invite token (one-time)         |
-| `refresh-jti:{jti}`        | 7 days          | Refresh token validation        |
-| `romm:mame_index`          | Permanent       | MAME game index                 |
-| `romm:scummvm_index`       | Permanent       | ScummVM game index              |
-| `romm:ps1_serials`         | Permanent       | PS1 serial codes                |
-| `romm:ps2_serials`         | Permanent       | PS2 serial codes                |
-| `romm:psp_serials`         | Permanent       | PSP serial codes                |
-| `romm:switch_titledb`      | Refreshed daily | Switch TitleDB                  |
-| `romm:known_bios`          | Permanent       | Verified BIOS hashes            |
-| Upload sessions            | 24 hours        | Chunked upload state            |
-| Netplay rooms              | Dynamic         | Active room state               |
+| Pattern                           | TTL             | Content                             |
+| --------------------------------- | --------------- | ----------------------------------- |
+| `session:{id}`                    | 14 days         | Session JSON                        |
+| `user_sessions:{username}`        | 14 days         | Set of session IDs                  |
+| `session_sockets:{id}`            | 14 days         | Socket IDs a session opened         |
+| `notification-channel:{id}:code`  | 30 min          | Hash of an email confirmation code  |
+| `notification-channel-cooldown:*` | 1 min           | A user's and an address's last code |
+| `reset-email:{user_id}`           | 1 min           | A user's last emailed reset link    |
+| `reset-jti:{jti}`                 | 10 min          | Password reset token (one-time)     |
+| `invite-jti:{jti}`                | 10 min          | Invite token (one-time)             |
+| `refresh-jti:{jti}`               | 7 days          | Refresh token validation            |
+| `romm:mame_index`                 | Permanent       | MAME game index                     |
+| `romm:scummvm_index`              | Permanent       | ScummVM game index                  |
+| `romm:ps1_serials`                | Permanent       | PS1 serial codes                    |
+| `romm:ps2_serials`                | Permanent       | PS2 serial codes                    |
+| `romm:psp_serials`                | Permanent       | PSP serial codes                    |
+| `romm:switch_titledb`             | Refreshed daily | Switch TitleDB                      |
+| `romm:known_bios`                 | Permanent       | Verified BIOS hashes                |
+| Upload sessions                   | 24 hours        | Chunked upload state                |
+| Netplay rooms                     | Dynamic         | Active room state                   |
 
 ---
 

@@ -34,12 +34,23 @@ scan_queue = Queue(name=SCAN_QUEUE_NAME, connection=redis_client)
 ALL_QUEUES: Final = (scan_queue, high_prio_queue, default_queue, low_prio_queue)
 
 
+def __get_fake_server() -> Any:
+    # Only import fakeredis when running tests, as it is a test dependency.
+    from fakeredis import FakeServer
+
+    # One keyspace for both caches, as one Redis serves both outside tests, so
+    # a flush between tests clears what either of them wrote.
+    return FakeServer(version=7)
+
+
+_fake_server = __get_fake_server() if IS_PYTEST_RUN else None
+
+
 def __get_sync_cache() -> Redis:
     if IS_PYTEST_RUN:
-        # Only import fakeredis when running tests, as it is a test dependency.
         from fakeredis import FakeRedis
 
-        return FakeRedis(version=7)
+        return FakeRedis(server=_fake_server)
 
     # A separate client that auto-decodes responses is needed
     client = Redis.from_url(REDIS_URL, decode_responses=True)
@@ -51,10 +62,9 @@ def __get_sync_cache() -> Redis:
 
 def __get_async_cache() -> AsyncRedis:
     if IS_PYTEST_RUN:
-        # Only import fakeredis when running tests, as it is a test dependency.
         from fakeredis import FakeAsyncRedis
 
-        return FakeAsyncRedis(version=7)
+        return FakeAsyncRedis(server=_fake_server)
 
     # A separate client that auto-decodes responses is needed
     client = AsyncRedis.from_url(REDIS_URL, decode_responses=True)
@@ -72,8 +82,7 @@ def __get_async_binary_cache() -> AsyncRedis:
     """A client that leaves values as bytes, since `async_cache` decodes every
     response as UTF-8 and a zstd frame is not."""
     if IS_PYTEST_RUN:
-        # Two fakeredis clients get two keyspaces, so the fake is shared. It
-        # does not decode responses, which is what this client wants anyway.
+        # The fake does not decode responses, which is what this client wants.
         return async_cache
 
     return AsyncRedis.from_url(REDIS_URL)

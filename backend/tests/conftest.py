@@ -37,6 +37,7 @@ from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.firmware import Firmware
 from models.notification import Notification
+from models.notification_channel import NotificationChannel
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
@@ -133,6 +134,7 @@ def setup_database():
 def clear_database():
     with session.begin() as s:
         s.query(Notification).delete(synchronize_session="evaluate")
+        s.query(NotificationChannel).delete(synchronize_session="evaluate")
         s.query(PlaySession).delete(synchronize_session="evaluate")
         s.query(ClientToken).delete(synchronize_session="evaluate")
         s.query(SyncSession).delete(synchronize_session="evaluate")

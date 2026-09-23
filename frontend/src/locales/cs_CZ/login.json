@@ -17,6 +17,7 @@
   "reset-link-failed": "Nepodařilo se odeslat odkaz pro resetování",
   "reset-password": "Resetovat heslo",
   "reset-sent": "Odkaz pro resetování odeslán. Kontaktujte svého administrátora.",
+  "reset-sent-email": "Pokud má účet e-mailovou adresu, odkaz pro resetování je na cestě. Pokud ne, obraťte se na administrátora.",
   "send-reset-link": "Odeslat odkaz pro resetování",
   "setup-wizard": "Průvodce nastavením",
   "unable-to-login": "Nelze se přihlásit: {error}",

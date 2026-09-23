@@ -6,6 +6,7 @@ from .devices_handler import DBDevicesHandler
 from .firmware_handler import DBFirmwareHandler
 from .memory_cards_handler import DBMemoryCardsHandler
 from .music_playlists_handler import DBMusicPlaylistsHandler
+from .notification_channels_handler import DBNotificationChannelsHandler
 from .notifications_handler import DBNotificationsHandler
 from .permissions_handler import DBPermissionsHandler
 from .platforms_handler import DBPlatformsHandler
@@ -27,6 +28,7 @@ db_device_save_sync_handler = DBDeviceSaveSyncHandler()
 db_firmware_handler = DBFirmwareHandler()
 db_memory_card_handler = DBMemoryCardsHandler()
 db_music_playlist_handler = DBMusicPlaylistsHandler()
+db_notification_channel_handler = DBNotificationChannelsHandler()
 db_notification_handler = DBNotificationsHandler()
 db_permission_handler = DBPermissionsHandler()
 db_platform_handler = DBPlatformsHandler()

@@ -10,6 +10,7 @@ import pytest
 from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from handler.auth import auth_handler
 from handler.auth import base_handler as auth_handler_module
 from handler.auth import oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
@@ -36,6 +37,25 @@ def test_login_logout(client, admin_user: User):
     response = client.post("/api/logout")
 
     assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.parametrize("known", [True, False])
+def test_forgot_password_answers_alike_and_sends_the_link_afterwards(
+    client, admin_user: User, known: bool
+):
+    with mock.patch.object(auth_handler, "send_password_reset_link") as send_link:
+        response = client.post(
+            "/api/forgot-password",
+            json={"username": admin_user.username if known else "nobody"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() is None
+    if known:
+        send_link.assert_called_once()
+        assert send_link.call_args.args[0].id == admin_user.id
+    else:
+        send_link.assert_not_called()
 
 
 def test_get_all_users(client, access_token: str):

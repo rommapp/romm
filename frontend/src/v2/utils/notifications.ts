@@ -112,6 +112,13 @@ const DESCRIBERS: Record<
       toast: true,
     };
   },
+  channel_disabled: (data) => ({
+    icon: "mdi-send-variant-outline",
+    title: t("notifications.channel-disabled", { name: text(data.name) ?? "" }),
+    body: text(data.error),
+    to: { name: ROUTES.NOTIFICATIONS, query: { tab: "channels" } },
+    toast: true,
+  }),
   role_changed: (data) => {
     const role = text(data.role);
     return {

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
 from urllib.parse import urlencode
 
-from fastapi import Body, Depends, HTTPException, Request, status
+from fastapi import BackgroundTasks, Body, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic
 
@@ -317,7 +317,9 @@ async def auth_openid(request: Request):
 
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
-def request_password_reset(username: str = Body(..., embed=True)) -> None:
+def request_password_reset(
+    background_tasks: BackgroundTasks, username: str = Body(..., embed=True)
+) -> None:
     """Request a password reset link for the user.
 
     Args:
@@ -328,7 +330,8 @@ def request_password_reset(username: str = Body(..., embed=True)) -> None:
     user = db_user_handler.get_user_by_username(username)
 
     if user:
-        auth_handler.generate_password_reset_token(user)
+        # After the response, so its timing can't tell whether the user exists.
+        background_tasks.add_task(auth_handler.send_password_reset_link, user)
     else:
         log.warning(
             f"Reset password link requested for a user {hl(username, color=CYAN)}, but that username does not exist."
