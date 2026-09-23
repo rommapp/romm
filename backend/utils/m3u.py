@@ -35,9 +35,10 @@ def disc_number(file: RomFile) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def _disc_order(file: RomFile) -> tuple[int, str]:
-    """Sort discs by their number, and anything unnumbered by name alone."""
-    return (disc_number(file) or 0, file.file_name)
+def _disc_order(file: RomFile) -> tuple[bool, int, str]:
+    """Sort numbered discs first and in order, then the rest by name."""
+    number = disc_number(file)
+    return (number is None, number or 0, file.file_name)
 
 
 def first_playlist_entry(m3u_path: Path) -> Path | None:

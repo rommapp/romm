@@ -310,6 +310,20 @@ class TestPlaylistOrder:
             "G (Disk 10 of 12).adf",
         ]
 
+    def test_an_unnumbered_disc_follows_the_numbered_ones(self):
+        """The first entry is what boots, so a bonus disc cannot take it."""
+        files = [
+            _make_file("Bonus Disc.chd", "chd"),
+            _make_file("G (Disc 2).chd", "chd"),
+            _make_file("G (Disc 1).chd", "chd"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == [
+            "G (Disc 1).chd",
+            "G (Disc 2).chd",
+            "Bonus Disc.chd",
+        ]
+
     def test_an_unnumbered_set_keeps_its_name_order(self):
         files = [
             _make_file("beta.chd", "chd"),
