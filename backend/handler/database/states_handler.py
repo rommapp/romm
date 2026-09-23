@@ -125,12 +125,20 @@ class DBStatesHandler(DBBaseHandler):
         self,
         id: int,
         data: dict,
+        touch: bool = True,
         session: Session = None,  # type: ignore
     ) -> State:
+        """Write `data` onto a state.
+
+        Args:
+            touch: False keeps `updated_at`, since annotating is not a write
+                to the bytes and device sync reads it to detect staleness.
+        """
+        values = data if touch else {**data, "updated_at": State.updated_at}
         session.execute(
             update(State)
             .where(State.id == id)
-            .values(**data)
+            .values(**values)
             .execution_options(synchronize_session="evaluate")
         )
         return session.scalars(select(State).filter_by(id=id)).one()

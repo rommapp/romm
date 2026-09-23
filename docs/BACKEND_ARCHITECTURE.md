@@ -1008,7 +1008,25 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | GET    | `/{id}`       | TASKS_RUN | Status of specific task  |
 | POST   | `/run/{name}` | TASKS_RUN | Trigger task execution   |
 
-### 6.16 Other Endpoints
+### 6.16 Notifications (`/api/notifications`)
+
+| Method | Path    | Scope    | Description                                                 |
+| ------ | ------- | -------- | ----------------------------------------------------------- |
+| GET    | `/`     | ME_READ  | Caller's notifications, newest first                        |
+| POST   | `/`     | ME_WRITE | Send one to yourself; admins also to users, `admins`, `all` |
+| POST   | `/read` | ME_WRITE | Mark ids read (`ids: null` marks all)                       |
+| DELETE | `/{id}` | ME_WRITE | Dismiss one for good                                        |
+| DELETE | `/`     | ME_WRITE | Dismiss all                                                 |
+
+A client's notification carries its own `title`, `body`, `icon` (`mdi-*`) and `link`, which must be a path inside RomM. RomM's own `kind`s are reserved; any other (`custom`, `argosy.sync_done`) is shown as sent.
+
+```bash
+curl -X POST "$ROMM/api/notifications" -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Sync finished", "body": "12 saves uploaded", "level": "success", "link": "/rom/12"}'
+```
+
+### 6.17 Other Endpoints
 
 | Router        | Path                                   | Description                            |
 | ------------- | -------------------------------------- | -------------------------------------- |
@@ -1099,9 +1117,10 @@ tasks.run                    : Task execution
 
 ### Session Management
 
-- Redis keys: `session:{session_id}`, `user_sessions:{username}`
+- Redis keys: `session:{session_id}`, `user_sessions:{username}`, `session_sockets:{session_id}`
 - Cookie: `romm_session` (httponly, samesite=lax/strict)
 - `clear_user_sessions(user_id)` on password change clears all sessions
+- Removing a session (logout, revoke) disconnects the sockets it opened, which would otherwise keep their `user:{id}` and `admin` rooms
 
 ---
 
@@ -1251,7 +1270,7 @@ Manages two Socket.IO servers:
 | `socket_handler`         | `/ws`      | Scan progress, general notifications |
 | `netplay_socket_handler` | `/netplay` | Netplay room management              |
 
-Both use Redis as the message queue backend for horizontal scaling.
+Both use Redis as the message queue backend for horizontal scaling, each on its own channel: netplay clients are unauthenticated and name their own rooms, so they must never see the `user:{id}` or `admin` rooms. `socket_handler.emit_to_user(user_id, event, payload)` pushes to one user's open tabs from the web process or a worker.
 
 **Scan Progress Events:**
 
@@ -1261,6 +1280,19 @@ ScanStats:
     total_roms, scanned_roms, new_roms, identified_roms
     scanned_firmware, new_firmware
 ```
+
+### 8.9 Notifications (`handler/notification_handler.py`)
+
+Persistent per-user notifications, kept until dismissed and pushed live to the user's `user:{id}` socket room. From backend code, web process or worker alike:
+
+```python
+await notify(user.id, NotificationKind.SCAN_COMPLETED, NotificationLevel.SUCCESS, stats)
+await notify_admins("custom", NotificationLevel.WARNING, title="Disk almost full")
+```
+
+A `NotificationKind` is translated by the client from `data`; a new one needs a describer in `frontend/src/v2/utils/notifications.ts` and locale keys. Until then, or for a one-off, pass any other kind with `title`/`body`/`link`/`icon`. Both helpers log and swallow failures, so a job never fails over reporting itself.
+
+A task reports its success from `run_task_by_name`. Its failure is reported by `report_task_failure`, an exception handler `RomMWorker` installs, so a timeout, a killed work horse or a dead worker notifies too, for cron runs as well as manual ones.
 
 ---
 
@@ -1359,6 +1391,16 @@ Client  ←──Socket.IO──→  FastAPI (python-socketio)  ←──Redis P
 | `scan:update_stats` | `ScanStats` object | Each ROM/platform processed |
 | `scan:log`          | Log message        | Scan log entries            |
 | `scan:stop`         |                    | Scan completed or cancelled |
+
+### Notifications (`/ws`)
+
+Sent to the user's own `user:{id}` room:
+
+| Event                     | Payload                | When                         |
+| ------------------------- | ---------------------- | ---------------------------- |
+| `notifications:new`       | `NotificationSchema`   | One was stored for the user  |
+| `notifications:read`      | `{ids: int[] \| null}` | Another tab marked some read |
+| `notifications:dismissed` | `{ids: int[] \| null}` | Another tab dismissed some   |
 
 ### Netplay (`/netplay`)
 
@@ -1521,6 +1563,7 @@ Falls back to `FakeRedis` in test mode.
 | -------------------------- | --------------- | ------------------------------- |
 | `session:{id}`             | 14 days         | Session JSON                    |
 | `user_sessions:{username}` | 14 days         | Set of session IDs              |
+| `session_sockets:{id}`     | 14 days         | Socket IDs a session opened     |
 | `reset-jti:{jti}`          | 10 min          | Password reset token (one-time) |
 | `invite-jti:{jti}`         | 10 min          | Invite token (one-time)         |
 | `refresh-jti:{jti}`        | 7 days          | Refresh token validation        |

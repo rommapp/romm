@@ -58,7 +58,7 @@ useGridNav(rootEl, {
 <template>
   <div ref="rootEl" class="game-actions">
     <GameActionBtn
-      v-if="actions.canPlayInBrowser.value"
+      v-if="actions.canPlayLocally.value"
       :rom="rom"
       action="play"
       :size="btnSize"

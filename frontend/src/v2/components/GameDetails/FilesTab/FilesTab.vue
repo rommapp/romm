@@ -55,6 +55,7 @@ import SubtabNav, {
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIdSelection } from "@/v2/composables/useIdSelection";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useRomFileUpload } from "@/v2/composables/useRomFileUpload";
 import { useRomSync } from "@/v2/composables/useRomSync";
@@ -338,63 +339,27 @@ const filteredFiles = computed<RomFileSchema[]>(() => {
 });
 
 // ---------- Selection ----------
-const selectedIds = ref<Set<number>>(new Set());
+// Destructured so the template sees plain refs; a nested one is not unwrapped.
+const {
+  selected: selectedFiles,
+  count: selectedCount,
+  allSelected: visibleAllSelected,
+  someSelected: visibleSomeSelected,
+  isSelected,
+  toggle: toggleFile,
+  toggleAll: toggleVisible,
+  clear: clearSelection,
+} = useIdSelection(() => filteredFiles.value);
 
 // Reset selection whenever the active subtab or the rom changes —
 // keeping selections across categories would let the user "Download
 // selected" with files invisible to them, which is surprising.
-watch([subTab, () => props.rom.id], () => {
-  selectedIds.value = new Set();
-});
-
-const selectedCount = computed(() => {
-  // Only count selections that are still in the filtered view —
-  // protects against stale ids if the underlying rom file list
-  // changes mid-selection (uploads, deletions in other tabs).
-  let n = 0;
-  for (const f of filteredFiles.value) if (selectedIds.value.has(f.id)) n++;
-  return n;
-});
+// Getters, not the refs: `subTab` is a shallowRef, and a shallow source makes
+// Vue fire the watcher on every dependency trigger, refresh included.
+watch([() => subTab.value, () => props.rom.id], clearSelection);
 
 const filteredCount = computed(() => filteredFiles.value.length);
 const showUpload = computed(() => filteredCount.value > 0 && canUpload.value);
-
-const visibleAllSelected = computed(
-  () => filteredCount.value > 0 && selectedCount.value === filteredCount.value,
-);
-
-const visibleSomeSelected = computed(
-  () => selectedCount.value > 0 && !visibleAllSelected.value,
-);
-
-function isSelected(file: RomFileSchema): boolean {
-  return selectedIds.value.has(file.id);
-}
-
-function toggleFile(file: RomFileSchema) {
-  const next = new Set(selectedIds.value);
-  if (next.has(file.id)) next.delete(file.id);
-  else next.add(file.id);
-  selectedIds.value = next;
-}
-
-function toggleVisible() {
-  const next = new Set(selectedIds.value);
-  if (visibleAllSelected.value) {
-    for (const f of filteredFiles.value) next.delete(f.id);
-  } else {
-    for (const f of filteredFiles.value) next.add(f.id);
-  }
-  selectedIds.value = next;
-}
-
-function clearSelection() {
-  selectedIds.value = new Set();
-}
-
-const selectedFiles = computed<RomFileSchema[]>(() =>
-  filteredFiles.value.filter((f) => selectedIds.value.has(f.id)),
-);
 
 // ---------- Clipboard helper ----------
 // Used by the per-subtab + per-selection copy-link buttons; per-file
@@ -636,7 +601,7 @@ async function refreshRom() {
           <span class="r-v2-files__toolbar-status">
             <template v-if="selectedCount > 0">
               {{
-                t("rom.files-selected-of", {
+                t("rom.selected-of", {
                   selected: selectedCount,
                   total: filteredCount,
                 })
@@ -709,12 +674,12 @@ async function refreshRom() {
           :file="file"
           :display-path="displayPath(file)"
           :relative-path="relativePath(file)"
-          :selected="isSelected(file)"
+          :selected="isSelected(file.id)"
           :show-row-icon="subTab === 'all'"
           :show-category-badge="subTab === 'all'"
           :can-delete="canDelete"
           :missing="rom.missing_from_fs"
-          @toggle="toggleFile(file)"
+          @toggle="toggleFile(file.id)"
           @download="downloadFile(file)"
           @copy-link="copyFileLink(file)"
           @delete="deleteFiles([file])"

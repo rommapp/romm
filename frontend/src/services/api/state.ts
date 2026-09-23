@@ -120,9 +120,33 @@ async function setStateVisibility({
   });
 }
 
+async function setStateFavorite({
+  id,
+  isFavorite,
+}: {
+  id: number;
+  isFavorite: boolean;
+}) {
+  return api.put<StateSchema>(`/states/${id}/favorite`, {
+    is_favorite: isFavorite,
+  });
+}
+
+async function setStateLabels({
+  id,
+  labels,
+}: {
+  id: number;
+  labels: string[];
+}) {
+  return api.put<StateSchema>(`/states/${id}/labels`, { labels });
+}
+
 export default {
   uploadStates,
   updateState,
   deleteStates,
   setStateVisibility,
+  setStateFavorite,
+  setStateLabels,
 };

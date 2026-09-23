@@ -329,7 +329,12 @@ async def run_single_task(
 
     # The caller's arguments are nested rather than spread, so a body cannot
     # name a different task than the one this route just authorized.
-    job = enqueue_task(task_name, queue=low_prio_queue, task_kwargs=task_kwargs or {})
+    job = enqueue_task(
+        task_name,
+        queue=low_prio_queue,
+        task_kwargs=task_kwargs or {},
+        run_by_user_id=request.user.id,
+    )
 
     return {
         "task_key": task_name,

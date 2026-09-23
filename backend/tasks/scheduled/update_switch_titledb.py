@@ -52,8 +52,6 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
         update_stats = UpdateStats()
 
         content = await super().run()
-        if content is None:
-            return update_stats.to_dict()
 
         # An import merges into its hashes, so an older release's rows go first.
         await drop_stale_cache_store(async_cache, SWITCH_TITLEDB_STORE)
