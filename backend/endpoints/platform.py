@@ -9,6 +9,7 @@ from decorators.auth import protected_route
 from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from handler.audit_handler import AuditActor, AuditTarget, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
@@ -21,6 +22,7 @@ from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.permission import PermAction, PermEntity
 from models.platform import (
     CUSTOM_NAME_MAX_LENGTH,
@@ -53,9 +55,14 @@ async def add_platform(
         log.info(f"Detected platform: {hl(fs_slug)}")
 
     scanned_platform = await scan_platform(fs_slug, [fs_slug])
-    return PlatformSchema.model_validate(
-        db_platform_handler.add_platform(scanned_platform)
+    platform = db_platform_handler.add_platform(scanned_platform)
+    record(
+        AuditAction.PLATFORM_CREATE,
+        AuditActor.from_request(request),
+        AuditTarget.of_platform(platform),
+        {"fs_slug": fs_slug},
     )
+    return PlatformSchema.model_validate(platform)
 
 
 @protected_route(router.get, "", [Scope.PLATFORMS_READ])
@@ -158,11 +165,23 @@ async def update_platform(
         raise PlatformNotFoundInDatabaseException(id)
     assert_platform_visible(request, platform_db)
 
+    changed = [
+        field
+        for field, value in (("custom_name", custom_name), ("description", description))
+        if value is not None and value != getattr(platform_db, field)
+    ]
     if custom_name is not None:
         platform_db.custom_name = custom_name
     if description is not None:
         platform_db.description = description
     platform_db = db_platform_handler.add_platform(platform_db)
+    if changed:
+        record(
+            AuditAction.PLATFORM_EDIT,
+            AuditActor.from_request(request),
+            AuditTarget.of_platform(platform_db),
+            {"changed": changed},
+        )
 
     return PlatformSchema.model_validate(platform_db)
 
@@ -190,3 +209,9 @@ async def delete_platform(
         f"Deleting {hl(platform.name, color=BLUE)} [{hl(platform.fs_slug)}] from database"
     )
     db_platform_handler.delete_platform(id)
+    record(
+        AuditAction.PLATFORM_DELETE,
+        AuditActor.from_request(request),
+        AuditTarget.of_platform(platform),
+        {"fs_slug": platform.fs_slug},
+    )

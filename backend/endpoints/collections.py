@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from io import BytesIO
-from typing import Annotated, TypeVar
+from typing import Annotated, Any, TypeVar
 
 from fastapi import File, Form, HTTPException
 from fastapi import Path as PathVar
@@ -20,6 +20,7 @@ from exceptions.endpoint_exceptions import (
     CollectionNotFoundInDatabaseException,
     CollectionPermissionError,
 )
+from handler.audit_handler import AuditActor, AuditTarget, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_collection_handler, db_rom_handler
@@ -29,6 +30,7 @@ from handler.filesystem.base_handler import CoverSize
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.collection import (
     Collection,
     SmartCollection,
@@ -80,6 +82,33 @@ def _hide_collection_roms(
             s.rom_ids = visible
             s.rom_count = len(visible)
     return schemas
+
+
+def _record_collection(
+    request: Request,
+    action: AuditAction,
+    collection: Collection,
+    data: dict[str, Any] | None = None,
+) -> None:
+    # Every heart toggle goes through the favourites collection; that's not news.
+    if collection.is_favorite:
+        return
+    record(
+        action,
+        AuditActor.from_request(request),
+        AuditTarget.of_collection(collection),
+        data,
+    )
+
+
+def _record_smart_collection(
+    request: Request, action: AuditAction, collection: SmartCollection
+) -> None:
+    record(
+        action,
+        AuditActor.from_request(request),
+        AuditTarget.of_smart_collection(collection),
+    )
 
 
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
@@ -152,6 +181,7 @@ async def add_collection(
         },
     )
 
+    _record_collection(request, AuditAction.COLLECTION_CREATE, created_collection)
     return CollectionSchema.model_validate(created_collection)
 
 
@@ -205,6 +235,9 @@ async def add_smart_collection(
     smart_collection = (
         db_collection_handler.refresh_smart_collection(created_smart_collection.id)
         or created_smart_collection
+    )
+    _record_smart_collection(
+        request, AuditAction.SMART_COLLECTION_CREATE, smart_collection
     )
 
     return SmartCollectionSchema.model_validate(smart_collection)
@@ -514,6 +547,25 @@ async def update_collection(
     updated_collection = db_collection_handler.update_collection(
         id, cleaned_data, parsed_rom_ids
     )
+    changed = [
+        field
+        for field in ("name", "description", "is_public")
+        if cleaned_data[field] != getattr(collection, field)
+    ]
+    if remove_cover or "path_cover_l" in cleaned_data:
+        changed.append("cover")
+    before_ids, after_ids = set(collection.rom_ids), set(parsed_rom_ids)
+    if changed or before_ids != after_ids:
+        _record_collection(
+            request,
+            AuditAction.COLLECTION_EDIT,
+            updated_collection,
+            {
+                "changed": changed,
+                "added": len(after_ids - before_ids),
+                "removed": len(before_ids - after_ids),
+            },
+        )
 
     return CollectionSchema.model_validate(updated_collection)
 
@@ -549,6 +601,12 @@ async def add_roms_to_collection(
         id, payload.rom_ids
     )
     refresh_affected_smart_collections(payload.rom_ids, membership_only=True)
+    _record_collection(
+        request,
+        AuditAction.COLLECTION_ADD_ROMS,
+        collection,
+        {"count": len(payload.rom_ids), "rom_ids": payload.rom_ids},
+    )
     return CollectionSchema.model_validate(updated_collection)
 
 
@@ -579,6 +637,12 @@ async def remove_roms_from_collection(
         id, payload.rom_ids
     )
     refresh_affected_smart_collections(payload.rom_ids, membership_only=True)
+    _record_collection(
+        request,
+        AuditAction.COLLECTION_REMOVE_ROMS,
+        collection,
+        {"count": len(payload.rom_ids), "rom_ids": payload.rom_ids},
+    )
     return CollectionSchema.model_validate(updated_collection)
 
 
@@ -638,6 +702,9 @@ async def update_smart_collection(
     smart_collection = (
         db_collection_handler.refresh_smart_collection(id) or updated_smart_collection
     )
+    _record_smart_collection(
+        request, AuditAction.SMART_COLLECTION_EDIT, smart_collection
+    )
 
     return SmartCollectionSchema.model_validate(smart_collection)
 
@@ -662,6 +729,7 @@ async def delete_collection(
 
     log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)
+    _record_collection(request, AuditAction.COLLECTION_DELETE, collection)
 
     try:
         await fs_resource_handler.remove_directory(collection.fs_resources_path)
@@ -691,3 +759,6 @@ async def delete_smart_collection(
 
     log.info(f"Deleting {hl(smart_collection.name, color=BLUE)} from database")
     db_collection_handler.delete_smart_collection(id)
+    _record_smart_collection(
+        request, AuditAction.SMART_COLLECTION_DELETE, smart_collection
+    )

@@ -12,7 +12,7 @@ from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema, RomFileUserSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from handler.audit_handler import AuditTarget, record_download
+from handler.audit_handler import AuditActor, AuditTarget, record, record_download
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_can, assert_rom_visible, get_permissions
 from handler.database import db_rom_handler
@@ -20,6 +20,7 @@ from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.permission import PermAction, PermEntity
 from models.rom import DOCUMENT_CATEGORIES, RomFileCategory
 from utils.audio_tags import guess_audio_media_type
@@ -230,6 +231,12 @@ async def delete_rom_file(
     log.info(
         f"Deleted file {hl(rom_file.file_name)} from "
         f"{hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
+    )
+    record(
+        AuditAction.ROM_FILE_DELETE,
+        AuditActor.from_request(request),
+        AuditTarget.of_rom(rom),
+        {"file_id": file_id, "file_name": rom_file.file_name},
     )
 
     return Response()

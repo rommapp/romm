@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
-from typing import Annotated, Any, Literal, Sequence
+from typing import Annotated, Any, Final, Literal, Sequence
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -51,7 +51,14 @@ from endpoints.responses.rom import (
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from handler.audit_handler import AuditTarget, record_download
+from handler.audit_handler import (
+    AuditActor,
+    AuditDraft,
+    AuditTarget,
+    record,
+    record_download,
+    record_many,
+)
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
@@ -282,6 +289,50 @@ class RomUpdateForm(BaseModel):
     fs_name: str | None = None
     url_cover: str | None = None
     url_manual: str | None = None
+
+
+# The provider ids the edit form sets; changing one rematches the rom.
+MATCH_ID_FIELDS: Final = tuple(
+    f for f in RomUpdateForm.model_fields if f.endswith("_id")
+)
+# What an edit reports as changed, each read off one or more columns.
+_EDIT_AUDIT_FIELDS: Final[dict[str, tuple[str, ...]]] = {
+    "name": ("name",),
+    "sort_name": ("name_sort_key",),
+    "fs_name": ("fs_name",),
+    "summary": ("summary",),
+    "cover": ("url_cover", "path_cover_l"),
+    "manual": ("url_manual",),
+}
+
+
+def _record_rom_update(request: Request, before: Rom, after: Rom) -> None:
+    """Record an edit as a rematch when a provider id moved, else as the fields it changed."""
+    providers = {
+        f: getattr(after, f)
+        for f in MATCH_ID_FIELDS
+        if getattr(before, f) != getattr(after, f)
+    }
+    changed = [
+        label
+        for label, columns in _EDIT_AUDIT_FIELDS.items()
+        if any(getattr(before, c) != getattr(after, c) for c in columns)
+    ]
+    if not providers and not changed:
+        return
+
+    data: dict[str, Any] = {"changed": changed}
+    for field in ("name", "fs_name"):
+        if field in changed:
+            data[field] = {"from": getattr(before, field), "to": getattr(after, field)}
+    if providers:
+        data["providers"] = providers
+    record(
+        AuditAction.ROM_MATCH if providers else AuditAction.ROM_EDIT,
+        AuditActor.from_request(request),
+        AuditTarget.of_rom(after),
+        data,
+    )
 
 
 class RomUserData(BaseModel):
@@ -1631,6 +1682,12 @@ async def create_physical_rom(
 
     db_rom_handler.invalidate_filter_values_cache()
     refresh_affected_smart_collections([added_rom.id])
+    record(
+        AuditAction.ROM_CREATE,
+        AuditActor.from_request(request),
+        AuditTarget.of_rom(added_rom),
+        {"physical": True},
+    )
 
     return DetailedRomSchema.from_orm_with_request(added_rom, request)
 
@@ -1667,6 +1724,8 @@ async def update_rom(
     assert_rom_visible(request, rom)
 
     if unmatch_metadata:
+        unmatched = {f: getattr(rom, f) for f in MATCH_ID_FIELDS if getattr(rom, f)}
+        unmatch_target = AuditTarget.of_rom(rom)
         db_rom_handler.update_rom(
             id,
             {
@@ -1718,6 +1777,12 @@ async def update_rom(
 
         db_rom_handler.invalidate_filter_values_cache()
         refresh_affected_smart_collections([id])
+        record(
+            AuditAction.ROM_UNMATCH,
+            AuditActor.from_request(request),
+            unmatch_target,
+            {"providers": unmatched},
+        )
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     provided_fields = form_data.model_fields_set
@@ -2186,9 +2251,11 @@ async def update_rom(
             )
 
     # Refetch the rom from the database
+    before = rom
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+    _record_rom_update(request, before, rom)
 
     if meta_playmatch_handler.is_manual_match(form_data.model_fields_set):
         fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
@@ -2264,6 +2331,8 @@ async def delete_roms(
     deleted_ids: list[int] = []
     failed_ids = []
     errors = []
+    actor = AuditActor.from_request(request)
+    audit_drafts: list[AuditDraft] = []
 
     for id in roms:
         rom = db_rom_handler.get_rom_deletion_target(id)
@@ -2317,10 +2386,22 @@ async def delete_roms(
                 )
 
             deleted_ids.append(id)
+            audit_drafts.append(
+                AuditDraft(
+                    AuditAction.ROM_DELETE,
+                    actor,
+                    AuditTarget.of_rom(rom),
+                    {
+                        "deleted_from_fs": id in delete_from_fs,
+                        "platform": rom.platform_display_name,
+                    },
+                )
+            )
         except Exception as e:
             failed_ids.append(id)
             errors.append(f"Failed to delete ROM {id}: {str(e)}")
 
+    record_many(audit_drafts)
     if deleted_ids:
         db_rom_handler.invalidate_filter_values_cache()
         # Deleted ROMs would otherwise linger in the cached smart collection
