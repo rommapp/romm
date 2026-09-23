@@ -53,6 +53,7 @@ import {
   getSortOptions,
   isListSortKey,
   LIST_HEADER_HEIGHT_PX,
+  LIST_ROW_PAD_X_PX,
   type ListSortKey,
 } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
@@ -351,7 +352,10 @@ const { ratioVersion, ratioAt, onCardRatio } = useGalleryCoverRatios();
 // to the virtual scroller as `minContentWidth` in list mode so a viewport
 // narrower than the columns scrolls the list HORIZONTALLY instead of clipping
 // them. Also drives the sticky column header's width so it scrolls in step.
-const listMinWidth = computed(() => getListMinWidth(props.showPlatformColumn));
+// Less the rows' leading padding, which sits in the gutter they bleed into.
+const listMinWidth = computed(
+  () => getListMinWidth(props.showPlatformColumn) - LIST_ROW_PAD_X_PX,
+);
 
 // Compact list rows (phones / tablets) open one detail panel at a time; the
 // virtualiser reads the same position to give that row its taller slot.
@@ -923,7 +927,7 @@ defineExpose({
       '--r-v2-shell-toolbar-h': `${toolbarHeight}px`,
       '--r-v2-shell-pin-distance': `${pinDistance}px`,
       '--r-cover-ratio': coverAspectRatio,
-      '--r-list-min-w': smAndDown ? '0px' : `${listMinWidth}px`,
+      '--r-list-min-w': `${listMinWidth}px`,
     }"
   >
     <RVirtualScroller
@@ -1222,6 +1226,13 @@ html[data-bp~="sm-and-down"] .r-v2-shell__list-header {
 html[data-bp~="md-and-up"] .r-v2-shell {
   --r-list-bleed-start: var(--r-row-pad);
 }
+html[data-bp~="md-and-up"] .r-v2-shell__list-header {
+  margin-inline-start: calc(-1 * var(--r-list-bleed-start));
+  padding-inline-start: max(var(--r-space-3), var(--r-list-bleed-start));
+  /* Match the rows' natural width so the column header scrolls horizontally
+     in step with them when the list is wider than the viewport. */
+  min-width: calc(var(--r-list-min-w) + var(--r-list-bleed-start));
+}
 
 /* The horizontal pads live here so all in-flow content (header, toolbar,
    rows) shares one column. */
@@ -1304,10 +1315,6 @@ html[data-bp~="md-and-up"] .r-v2-shell {
   position: sticky;
   top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h));
   z-index: 3;
-  /* Match the rows' natural width (bleed included) so the column header
-     scrolls horizontally in step with them when the list is wider than the
-     viewport. */
-  min-width: calc(var(--r-list-min-w) + var(--r-list-bleed-start, 0px));
 }
 /* Its pinned glass also runs under the strip column, out to the right edge. */
 .r-v2-shell__list-header::before {

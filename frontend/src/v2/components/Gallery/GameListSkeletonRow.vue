@@ -142,7 +142,7 @@ const { smAndDown } = useBreakpoint();
 }
 .r-glr-skel--columns {
   margin-inline-start: calc(-1 * var(--r-list-bleed-start, 0px));
-  padding-inline-start: var(--r-list-bleed-start, var(--r-space-3));
+  padding-inline-start: max(var(--r-space-3), var(--r-list-bleed-start, 0px));
 }
 
 .r-glr-skel--compact > .r-glr-skel__select {

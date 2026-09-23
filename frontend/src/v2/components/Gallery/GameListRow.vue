@@ -781,7 +781,7 @@ function onRowPointerDown(e: PointerEvent) {
      gutter as padding so the first column lines up with the toolbar. */
   margin-inline-start: calc(-1 * var(--r-list-bleed-start, 0px));
   padding: 0 var(--r-space-3);
-  padding-inline-start: var(--r-list-bleed-start, var(--r-space-3));
+  padding-inline-start: max(var(--r-space-3), var(--r-list-bleed-start, 0px));
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
 }
@@ -905,11 +905,10 @@ function onRowPointerDown(e: PointerEvent) {
   background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
 }
 
-/* Inset, like the platform and collection rows: the row runs to the screen
-   edge, where the scroller would clip an outset ring. */
+/* The row runs to the screen edge, where the scroller would clip the global
+   ring's outset. */
 .game-list-row:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--r-color-brand-primary);
+  outline-offset: calc(-1 * var(--r-focus-ring-width));
 }
 
 /* Select cell — checkbox column. Empty when the row is in skeleton

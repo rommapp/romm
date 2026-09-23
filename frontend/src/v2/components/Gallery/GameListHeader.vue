@@ -115,12 +115,7 @@ function handleClick(col: ListColumn) {
     />
   </div>
 
-  <div
-    v-else
-    class="game-list-header game-list-header--columns"
-    :style="gridStyle"
-    role="row"
-  >
+  <div v-else class="game-list-header" :style="gridStyle" role="row">
     <template v-for="col in columns" :key="String(col.key)">
       <!-- Tri-state select-all checkbox (off → some → all), judged
            against the whole filtered result. -->
@@ -185,12 +180,6 @@ function handleClick(col: ListColumn) {
   height: var(--r-list-header-h);
   /* Overridable so a pinned header can run it edge to edge (r-pinned-list-header). */
   border-bottom: var(--r-list-header-border, 1px solid var(--r-color-border));
-}
-
-/* Bleeds with the rows underneath (see GameListRow). */
-.game-list-header--columns {
-  margin-inline-start: calc(-1 * var(--r-list-bleed-start, 0px));
-  padding-inline-start: var(--r-list-bleed-start, var(--r-space-3));
 }
 
 /* Compact (phones / tablets): the tick plus one sort control. */
