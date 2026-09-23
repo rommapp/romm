@@ -298,7 +298,6 @@ MATCH_ID_FIELDS: Final = tuple(
 # What an edit reports as changed, each read off one or more columns.
 _EDIT_AUDIT_FIELDS: Final[dict[str, tuple[str, ...]]] = {
     "name": ("name",),
-    "sort_name": ("name_sort_key",),
     "fs_name": ("fs_name",),
     "summary": ("summary",),
     "cover": ("url_cover", "path_cover_l"),
@@ -313,10 +312,13 @@ def _record_rom_update(request: Request, before: Rom, after: Rom) -> None:
         for f in MATCH_ID_FIELDS
         if getattr(before, f) != getattr(after, f)
     }
+    # A save writes "" over a column that was null, which is no change.
     changed = [
         label
         for label, columns in _EDIT_AUDIT_FIELDS.items()
-        if any(getattr(before, c) != getattr(after, c) for c in columns)
+        if any(
+            (getattr(before, c) or None) != (getattr(after, c) or None) for c in columns
+        )
     ]
     if not providers and not changed:
         return

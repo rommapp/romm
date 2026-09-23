@@ -14,18 +14,18 @@ def _add(
     minutes_ago: int = 0,
     **overrides,
 ) -> AuditEvent:
-    event = AuditEvent(
-        occurred_at=datetime.now(timezone.utc) - timedelta(minutes=minutes_ago),
-        actor_kind=AuditActorKind.USER if actor else AuditActorKind.SYSTEM,
-        actor_id=actor.id if actor else None,
-        actor_name=actor.username if actor else None,
-        action=action,
-        target_type="rom",
-        target_id="1",
-        target_name="Super Mario Bros.",
-        data={},
-        **overrides,
-    )
+    fields = {
+        "occurred_at": datetime.now(timezone.utc) - timedelta(minutes=minutes_ago),
+        "actor_kind": AuditActorKind.USER if actor else AuditActorKind.SYSTEM,
+        "actor_id": actor.id if actor else None,
+        "actor_name": actor.username if actor else None,
+        "action": action,
+        "target_type": "rom",
+        "target_id": "1",
+        "target_name": "Super Mario Bros.",
+        "data": {},
+    }
+    event = AuditEvent(**{**fields, **overrides})
     db_audit_event_handler.add_events([event])
     return event
 

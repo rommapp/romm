@@ -20,6 +20,7 @@ from handler.database.audit_events_handler import AuditEventFilters
 from handler.redis_handler import sync_cache
 from models.audit_event import AuditAction, AuditActorKind, AuditEvent, AuditTargetType
 from models.user import User
+from utils.datetime import to_utc
 
 ROM = AuditTarget(AuditTargetType.ROM, 12, "Metroid")
 
@@ -156,7 +157,7 @@ class TestRecord:
         )
 
         [event] = _events()
-        assert event.occurred_at > now - timedelta(days=2)
+        assert to_utc(event.occurred_at) > now - timedelta(days=2)
 
     def test_for_user_id_without_a_user_is_the_system(self):
         assert AuditActor.for_user_id(None) == audit_handler.SYSTEM_ACTOR

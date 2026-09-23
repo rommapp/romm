@@ -1,4 +1,5 @@
 import base64
+import uuid
 from unittest.mock import Mock, patch
 
 import pytest
@@ -160,11 +161,13 @@ class TestClientTokens:
 
 
 def test_a_new_permission_group_is_recorded(client: TestClient, access_token: str):
+    # Groups outlive a test, so the name has to be one no earlier run left behind.
+    name = f"Kids {uuid.uuid4().hex[:8]}"
     client.post(
         "/api/permissions/groups",
-        json={"name": "Kids", "grants": []},
+        json={"name": name, "grants": []},
         headers=_auth(access_token),
     )
 
     [event] = _events()
-    assert (event.action, event.target_name) == ("permission_group.create", "Kids")
+    assert (event.action, event.target_name) == ("permission_group.create", name)
