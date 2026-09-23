@@ -1,6 +1,5 @@
-// The version to display and where it should link. Shows the branch on a
-// dev build, when known, instead of the bare "development" placeholder, and
-// links an edge build (`edge-<short sha>`, built from master) to its commit.
+// The version to display and where it links: the branch on a dev build when
+// known, the commit on an edge build (`edge-<short sha>`), else the release.
 import { computed } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 
