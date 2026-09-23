@@ -1,15 +1,13 @@
 <script setup lang="ts">
 // Administration — v2-native page chrome for the admin-only sections.
 // Uses the shared `RTabNav` primitive (same one Library Management
-// uses) to expose Users / Groups / Tasks / Streaming / Notifications as
-// sibling tabs,
+// uses) to expose Users / Groups / Tasks / Streaming as sibling tabs,
 // keeping the `?tab=` query param so deep links survive a reload.
 //
 // Tabs are gated by scope: `users.write` for the groups tab,
-// `tasks.run` for the Tasks tab, `app.admin` for Streaming and
-// Notifications, whose endpoints are admin-only. Users tab is always
-// visible to anyone who can reach this route (route-level guard already
-// checks `app.admin`).
+// `tasks.run` for the Tasks tab, `app.admin` for Streaming, whose every
+// endpoint is admin-only. Users tab is always visible to anyone who can
+// reach this route (route-level guard already checks `app.admin`).
 import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -21,7 +19,6 @@ import EditUserDialog from "@/v2/components/Settings/EditUserDialog.vue";
 import GroupFormDialog from "@/v2/components/Settings/GroupFormDialog.vue";
 import InviteLinkDialog from "@/v2/components/Settings/InviteLinkDialog.vue";
 import PermissionGroupsSection from "@/v2/components/Settings/PermissionGroupsSection.vue";
-import SendNotificationSection from "@/v2/components/Settings/SendNotificationSection.vue";
 import StreamingSection from "@/v2/components/Settings/StreamingSection.vue";
 import TasksSection from "@/v2/components/Settings/TasksSection.vue";
 import UsersSection from "@/v2/components/Settings/UsersSection.vue";
@@ -34,14 +31,8 @@ const auth = storeAuth();
 const permissions = storePermissions();
 const isAdmin = useCan("app.admin");
 
-type Tab = "users" | "groups" | "tasks" | "streaming" | "notifications";
-const validTabs: Tab[] = [
-  "users",
-  "groups",
-  "tasks",
-  "streaming",
-  "notifications",
-];
+type Tab = "users" | "groups" | "tasks" | "streaming";
+const validTabs: Tab[] = ["users", "groups", "tasks", "streaming"];
 
 const tab = ref<Tab>(
   (validTabs as string[]).includes(route.query.tab as string)
@@ -93,18 +84,11 @@ const tabs = computed<RTabNavItem[]>(() => {
     });
   }
   if (isAdmin.value) {
-    items.push(
-      {
-        id: "streaming",
-        label: t("settings.streaming"),
-        icon: "mdi-monitor-dashboard",
-      },
-      {
-        id: "notifications",
-        label: t("notifications.notifications"),
-        icon: "mdi-bullhorn-outline",
-      },
-    );
+    items.push({
+      id: "streaming",
+      label: t("settings.streaming"),
+      icon: "mdi-monitor-dashboard",
+    });
   }
   return items;
 });
@@ -138,7 +122,6 @@ const tabModel = computed<string>({
     <PermissionGroupsSection v-else-if="tab === 'groups'" />
     <TasksSection v-else-if="tab === 'tasks'" />
     <StreamingSection v-else-if="tab === 'streaming' && isAdmin" />
-    <SendNotificationSection v-else-if="tab === 'notifications' && isAdmin" />
 
     <CreateUserDialog />
     <EditUserDialog />

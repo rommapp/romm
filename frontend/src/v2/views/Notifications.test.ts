@@ -1,126 +1,120 @@
 /* eslint-disable vue/one-component-per-file */
-import { flushPromises, mount } from "@vue/test-utils";
+import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent } from "vue";
-import type { NotificationSchema } from "@/__generated__";
-import storeNotificationInbox from "@/v2/stores/notificationInbox";
-import { makeNotification } from "@/v2/utils/notifications.fixtures";
+import { defineComponent, reactive } from "vue";
+import storePermissions from "@/stores/permissions";
 import Notifications from "./Notifications.vue";
 
-const { api, confirm } = vi.hoisted(() => ({
-  api: {
-    dismiss: vi.fn(),
-    dismissAll: vi.fn(),
-    getNotifications: vi.fn(),
-    markRead: vi.fn(),
-  },
-  confirm: vi.fn(),
-}));
+const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
+const route = reactive<{ query: Record<string, string> }>({ query: {} });
 
-vi.mock("@/services/api/notification", () => ({ default: api }));
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRoute: () => route,
+  useRouter: () => ({ replace }),
+}));
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock("@/v2/utils/notifications", () => ({
-  describeNotification: (n: NotificationSchema) => ({
-    icon: "mdi-bell-outline",
-    title: `title-${n.id}`,
-    body: null,
-    to: null,
-    toast: true,
-  }),
-}));
+const stub = (name: string) =>
+  defineComponent({ name, template: `<div data-testid="${name}" />` });
 
-vi.mock("@/v2/composables/useConfirm", () => ({
-  useConfirm: () => confirm,
-}));
-
-vi.mock("@/v2/composables/useGridNav", () => ({ useGridNav: () => {} }));
-
-vi.mock("@/v2/composables/useSnackbar", () => ({
-  useSnackbar: () => ({ error: vi.fn() }),
-}));
-
-vi.mock("@/v2/components/shared/AssetTimestamp.vue", () => ({
-  default: defineComponent({ template: "<span />" }),
-}));
-
-vi.mock("@v2/lib", () => ({
-  RAvatar: defineComponent({ template: "<span />" }),
-  RBtn: defineComponent({
-    emits: ["click"],
-    template: "<button @click=\"$emit('click')\"><slot /></button>",
-  }),
-  REmptyState: defineComponent({
-    props: { title: { type: String, default: "" } },
-    template: '<div class="empty-state">{{ title }}</div>',
-  }),
-  RIcon: defineComponent({ template: "<i />" }),
-  RSkeletonBlock: defineComponent({ template: "<div />" }),
-}));
-
-function notification(
-  id: number,
-  overrides: Partial<NotificationSchema> = {},
-): NotificationSchema {
-  return makeNotification({ id, kind: "role_changed", ...overrides });
+function render() {
+  return mount(Notifications, {
+    global: {
+      stubs: {
+        NotificationInbox: stub("NotificationInbox"),
+        SendNotificationSection: stub("SendNotificationSection"),
+        RTabNav: defineComponent({
+          name: "RTabNav",
+          props: { modelValue: { type: String, default: "" } },
+          emits: ["update:modelValue"],
+          template: `<nav :data-active="modelValue" />`,
+        }),
+      },
+    },
+  });
 }
 
-function mountWith(notifications: NotificationSchema[]) {
-  const inbox = storeNotificationInbox();
-  inbox.notifications = notifications;
-  inbox.loaded = true;
-  return { inbox, wrapper: mount(Notifications) };
+function signIn(isAdmin: boolean) {
+  const permissions = storePermissions();
+  permissions.isAdmin = isAdmin;
+  permissions.hydrated = true;
 }
 
 describe("Notifications view", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    vi.resetAllMocks();
-    api.markRead.mockResolvedValue({});
-    api.dismiss.mockResolvedValue({});
-    api.dismissAll.mockResolvedValue({});
+    route.query = {};
+    replace.mockClear();
   });
 
-  it("marks what it shows read and keeps their accent for the visit", async () => {
-    const { inbox, wrapper } = mountWith([
-      notification(2),
-      notification(1, { read_at: "2026-09-22T10:00:00+00:00" }),
-    ]);
-    await flushPromises();
+  it("shows a user only the inbox, even under a link to the form", () => {
+    signIn(false);
+    route.query = { tab: "send" };
 
-    expect(api.markRead).toHaveBeenCalledWith([2]);
-    expect(inbox.unreadCount).toBe(0);
-    const rows = wrapper.findAll(".r-v2-notification");
-    expect(rows[0].classes()).toContain("r-v2-notification--unread");
-    expect(rows[1].classes()).not.toContain("r-v2-notification--unread");
+    const wrapper = render();
+
+    expect(wrapper.find("nav").exists()).toBe(false);
+    expect(wrapper.find('[data-testid="NotificationInbox"]').exists()).toBe(
+      true,
+    );
+    expect(
+      wrapper.find('[data-testid="SendNotificationSection"]').exists(),
+    ).toBe(false);
   });
 
-  it("dismisses one row for good", async () => {
-    const { wrapper } = mountWith([notification(2), notification(1)]);
+  it("gives an admin the inbox and a send tab", () => {
+    signIn(true);
 
-    await wrapper.findAll(".r-v2-notification button")[0].trigger("click");
-    await flushPromises();
+    const wrapper = render();
 
-    expect(api.dismiss).toHaveBeenCalledWith(2);
-    expect(wrapper.findAll(".r-v2-notification")).toHaveLength(1);
+    expect(wrapper.find("nav").attributes("data-active")).toBe("inbox");
+    expect(wrapper.find('[data-testid="NotificationInbox"]').exists()).toBe(
+      true,
+    );
   });
 
-  it("clears everything only once confirmed", async () => {
-    confirm.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-    const { wrapper } = mountWith([notification(2), notification(1)]);
-    const dismissAll = wrapper.find(".r-v2-notifications__head button");
+  it("deep-links an admin to the form", () => {
+    signIn(true);
+    route.query = { tab: "send" };
 
-    await dismissAll.trigger("click");
-    await flushPromises();
-    expect(api.dismissAll).not.toHaveBeenCalled();
+    const wrapper = render();
 
-    await dismissAll.trigger("click");
-    await flushPromises();
-    expect(api.dismissAll).toHaveBeenCalledOnce();
-    expect(wrapper.find(".empty-state").exists()).toBe(true);
+    expect(wrapper.find("nav").attributes("data-active")).toBe("send");
+    expect(
+      wrapper.find('[data-testid="SendNotificationSection"]').exists(),
+    ).toBe(true);
+    expect(wrapper.find('[data-testid="NotificationInbox"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it("keeps the inbox unmounted while it can't tell who follows a form link", () => {
+    route.query = { tab: "send" };
+
+    const wrapper = render();
+
+    expect(wrapper.find('[data-testid="NotificationInbox"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it("puts the chosen tab in the URL", async () => {
+    signIn(true);
+    const wrapper = render();
+
+    await wrapper
+      .findComponent({ name: "RTabNav" })
+      .vm.$emit("update:modelValue", "send");
+    expect(replace).toHaveBeenLastCalledWith({ query: { tab: "send" } });
+
+    await wrapper
+      .findComponent({ name: "RTabNav" })
+      .vm.$emit("update:modelValue", "inbox");
+    expect(replace).toHaveBeenLastCalledWith({ query: { tab: undefined } });
   });
 });
