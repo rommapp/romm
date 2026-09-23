@@ -7,6 +7,7 @@ from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
+from handler.database.permissions_handler import DBPermissionsHandler
 from models.permission import PermissionGroup
 
 
@@ -169,6 +170,25 @@ def test_cannot_delete_default_group(client, access_token):
         f"/api/permissions/groups/{default['id']}", headers=_bearer(access_token)
     )
     assert resp.status_code == 400
+
+
+def test_update_group_deleted_mid_update_returns_404(client, access_token, mocker):
+    try:
+        gid = client.post(
+            "/api/permissions/groups",
+            headers=_bearer(access_token),
+            json={"name": "Vanishing"},
+        ).json()["id"]
+        mocker.patch.object(DBPermissionsHandler, "update_group", return_value=None)
+
+        resp = client.put(
+            f"/api/permissions/groups/{gid}",
+            headers=_bearer(access_token),
+            json={"description": "renamed"},
+        )
+        assert resp.status_code == 404
+    finally:
+        _cleanup()
 
 
 def test_delete_group_falls_members_back(client, access_token, viewer_user):
