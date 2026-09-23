@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { StateSchema } from "@/__generated__";
+import { stateFixture } from "@/utils/assets.fixtures";
 import AssetStrip from "./AssetStrip.vue";
 
 vi.mock("vue-i18n", () => ({
@@ -14,15 +15,12 @@ const RTag = {
 const stubs = { RTag, RIcon: true, RExpandTransition: false };
 
 function state(id: number, emulator: string | null, updated_at: string) {
-  return {
+  return stateFixture({
     id,
-    user_id: 1,
     file_name: `state_${id}.state`,
-    file_size_bytes: 1024,
     updated_at,
     emulator,
-    screenshot: null,
-  } as StateSchema;
+  });
 }
 
 // Two snes9x states share a timestamp; mgba has one; one is core-less.

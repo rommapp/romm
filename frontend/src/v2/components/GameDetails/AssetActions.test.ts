@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { SaveSchema } from "@/__generated__";
+import { saveFixture } from "@/utils/assets.fixtures";
 import AssetActions from "./AssetActions.vue";
 
 vi.mock("vue-i18n", () => ({
@@ -13,7 +14,7 @@ const RBtn = {
   template: `<button class="btn" :aria-label="ariaLabel" @click="$emit('click')" />`,
 };
 
-const save = { file_name: "a.srm", is_public: false } as SaveSchema;
+const save = saveFixture({ file_name: "a.srm", is_public: false });
 
 function actions(props: Record<string, unknown> = {}) {
   return mount(AssetActions, {
@@ -53,11 +54,11 @@ describe("AssetActions", () => {
   });
 
   it("reads the heart and labels buttons off the asset's own state", () => {
-    const labelled = {
+    const labelled: SaveSchema = {
       ...save,
       is_favorite: true,
       labels: ["100% run", "no deaths"],
-    } as SaveSchema;
+    };
     const buttons = actions({ own: true, asset: labelled }).findAll(".btn");
 
     expect(buttons[0].attributes("aria-label")).toBe(

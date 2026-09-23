@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SaveSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
+import { saveFixture } from "@/utils/assets.fixtures";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
@@ -144,16 +145,15 @@ function save(
   file_name: string,
   overrides: Partial<SaveSchema> = {},
 ): SaveSchema {
-  return {
+  return saveFixture({
     id,
     file_name,
     emulator: "retroarch",
     rom_id: 3,
-    user_id: 1,
     created_at: `2026-09-14T0${id}:00:00`,
     updated_at: `2026-09-14T0${id}:00:00`,
     ...overrides,
-  } as SaveSchema;
+  });
 }
 
 // Newest first, the order the launch screen sorts into.
