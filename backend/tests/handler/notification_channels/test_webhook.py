@@ -60,6 +60,7 @@ class TestDiscordFormat:
         request = build_request(
             WebhookConfig(url="https://discord.com/api/webhooks/1/t", format="discord"),
             _message(level=NotificationLevel.ERROR, actor=make_actor()),
+            "#romm",
         )
 
         payload = json.loads(request.content)
@@ -68,8 +69,18 @@ class TestDiscordFormat:
         assert embed["description"] == "RomM restarts at 23:00"
         assert embed["url"] == "https://romm.example.com/platforms"
         assert embed["color"] == webhook.DISCORD_COLORS[NotificationLevel.ERROR]
-        assert embed["footer"] == {"text": "From admin"}
+        assert embed["footer"] == {"text": "#romm · From admin"}
         assert payload["allowed_mentions"] == {"parse": []}
+
+    def test_names_the_channel_alone_without_a_sender(self):
+        request = build_request(
+            WebhookConfig(url="https://discord.com/api/webhooks/1/t", format="discord"),
+            _message(),
+            "#romm",
+        )
+
+        [embed] = json.loads(request.content)["embeds"]
+        assert embed["footer"] == {"text": "#romm"}
 
     def test_keeps_within_discords_limits(self):
         message = OutboundMessage(

@@ -103,7 +103,7 @@ def _json_payload(message: OutboundMessage) -> dict[str, Any]:
     }
 
 
-def _discord_payload(message: OutboundMessage) -> dict[str, Any]:
+def _discord_payload(message: OutboundMessage, channel_name: str) -> dict[str, Any]:
     n = message.notification
     embed: dict[str, Any] = {
         # Discord's own limits on an embed's title and description.
@@ -115,8 +115,8 @@ def _discord_payload(message: OutboundMessage) -> dict[str, Any]:
         embed["description"] = message.body[:4096]
     if message.url:
         embed["url"] = message.url
-    if n.actor:
-        embed["footer"] = {"text": f"From {n.actor.username}"}
+    footer = [channel_name, f"From {n.actor.username}" if n.actor else ""]
+    embed["footer"] = {"text": " · ".join(part for part in footer if part)[:2048]}
     # A user's own text must not ping @everyone or a role.
     return {"username": "RomM", "embeds": [embed], "allowed_mentions": {"parse": []}}
 
@@ -139,14 +139,22 @@ def _ntfy_payload(message: OutboundMessage, topic: str) -> dict[str, Any]:
     return payload
 
 
-def build_request(config: WebhookConfig, message: OutboundMessage) -> WebhookRequest:
+def build_request(
+    config: WebhookConfig, message: OutboundMessage, channel_name: str = ""
+) -> WebhookRequest:
+    """The request a webhook gets for a message.
+
+    Args:
+        channel_name: What the owner called the channel, which a Discord embed
+            shows in its footer.
+    """
     headers = {"Content-Type": "application/json", "User-Agent": "RomM"}
     secret = config.get("secret")
     url = config["url"]
 
     match config["format"]:
         case WebhookFormat.DISCORD:
-            payload = _discord_payload(message)
+            payload = _discord_payload(message, channel_name)
         case WebhookFormat.NTFY:
             # JSON publishing takes non-ASCII titles that headers can't carry.
             url, topic = split_ntfy_url(url)
@@ -172,14 +180,17 @@ def _client(allow_private: bool) -> httpx.AsyncClient:
 
 
 async def send(
-    config: WebhookConfig, message: OutboundMessage, allow_private: bool
+    config: WebhookConfig,
+    message: OutboundMessage,
+    allow_private: bool,
+    channel_name: str = "",
 ) -> None:
     """POST the message to the webhook.
 
     Raises:
         WebhookError: The destination refused it, or could not be reached.
     """
-    request = build_request(config, message)
+    request = build_request(config, message, channel_name)
     host = urlsplit(request.url).hostname
     try:
         async with _client(allow_private) as client:

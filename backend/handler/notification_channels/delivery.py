@@ -91,6 +91,7 @@ async def send_to_channel(
             ),
             message,
             allow_private=allow_private,
+            channel_name=channel.name,
         )
 
 
