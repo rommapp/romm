@@ -9,7 +9,7 @@ name: romm-streaming
 
 services:
   romm-webstation:
-    image: taisun/random-images:webstation-romm
+    image: lscr.io/linuxserver/webstation:romm
     # No arm64 image exists; on Apple silicon this runs under emulation and
     # has no GPU, so the desktop renders but most emulators will not.
     platform: linux/amd64
