@@ -21,6 +21,7 @@ export function useScanTrigger() {
       return false;
     }
     scanningStore.setScanning(true);
+    scanningStore.startedInThisTab = true;
     if (!socket.connected) socket.connect();
     for (const request of requests) socket.emit("scan", request);
     return true;
