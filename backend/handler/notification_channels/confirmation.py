@@ -23,8 +23,7 @@ def _key(channel_id: int, part: str) -> str:
 
 
 def _cooldown_keys(user_id: int, address: str) -> tuple[str, str]:
-    # Per user and per address rather than per channel, which a delete and a
-    # re-create would reset.
+    # Per user and per address, since a channel is easy to delete and add again.
     address_digest = hashlib.sha256(address.strip().lower().encode()).hexdigest()
     return (
         f"notification-channel-cooldown:user:{user_id}",
