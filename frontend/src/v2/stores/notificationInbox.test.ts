@@ -3,15 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NotificationSchema } from "@/__generated__";
 import storeNotificationInbox from "@/v2/stores/notificationInbox";
 
-const { dismiss, dismissAll, getNotifications, markRead } = vi.hoisted(() => ({
-  dismiss: vi.fn(),
-  dismissAll: vi.fn(),
-  getNotifications: vi.fn(),
-  markRead: vi.fn(),
-}));
+const { create, dismiss, dismissAll, getNotifications, markRead } = vi.hoisted(
+  () => ({
+    create: vi.fn(),
+    dismiss: vi.fn(),
+    dismissAll: vi.fn(),
+    getNotifications: vi.fn(),
+    markRead: vi.fn(),
+  }),
+);
 
 vi.mock("@/services/api/notification", () => ({
-  default: { dismiss, dismissAll, getNotifications, markRead },
+  default: { create, dismiss, dismissAll, getNotifications, markRead },
 }));
 
 function notification(
@@ -22,6 +25,10 @@ function notification(
     id,
     kind: "task_completed",
     level: "success",
+    title: null,
+    body: null,
+    link: null,
+    icon: null,
     data: {},
     actor: null,
     read_at: null,
@@ -52,10 +59,23 @@ describe("notificationInbox", () => {
     const inbox = storeNotificationInbox();
     inbox.receive(notification(1));
 
-    inbox.receive(notification(2));
-    inbox.receive(notification(2));
+    expect(inbox.receive(notification(2))).toBe(true);
+    expect(inbox.receive(notification(2))).toBe(false);
 
     expect(inbox.notifications.map((n) => n.id)).toEqual([2, 1]);
+  });
+
+  it("sends a notification to the signed-in user", async () => {
+    create.mockResolvedValue({ data: [notification(5)] });
+    const inbox = storeNotificationInbox();
+
+    const sent = await inbox.send({ title: "Sync finished", level: "success" });
+
+    expect(create).toHaveBeenCalledWith({
+      title: "Sync finished",
+      level: "success",
+    });
+    expect(sent.id).toBe(5);
   });
 
   it("marks read what another tab read, or everything for null", () => {

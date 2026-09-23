@@ -12,6 +12,10 @@ function notification(
     id: 1,
     kind,
     level: "info",
+    title: null,
+    body: null,
+    link: null,
+    icon: null,
     data,
     actor: null,
     read_at: null,
@@ -85,10 +89,39 @@ describe("describeNotification", () => {
     expect(view.title).toBe("Your role is now Admin");
   });
 
+  it("shows a custom notification with its own content", () => {
+    const view = describeNotification({
+      ...notification("argosy.sync_done"),
+      title: "Sync finished",
+      body: "12 saves uploaded",
+      link: "/rom/12",
+      icon: "mdi-sync",
+    });
+
+    expect(view).toEqual({
+      icon: "mdi-sync",
+      title: "Sync finished",
+      body: "12 saves uploaded",
+      to: "/rom/12",
+      toast: true,
+    });
+  });
+
+  it("never links outside RomM", () => {
+    const view = describeNotification({
+      ...notification("custom", {}),
+      title: "Hi",
+      link: "//evil.example/login",
+    });
+
+    expect(view.to).toBeNull();
+  });
+
   it("still renders a kind this client doesn't know", () => {
     const view = describeNotification(notification("from_the_future"));
 
     expect(view.title).toBe("New notification");
+    expect(view.icon).toBe("mdi-bell-outline");
     expect(view.to).toBeNull();
   });
 });

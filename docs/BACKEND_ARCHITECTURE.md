@@ -1008,7 +1008,25 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | GET    | `/{id}`       | TASKS_RUN | Status of specific task  |
 | POST   | `/run/{name}` | TASKS_RUN | Trigger task execution   |
 
-### 6.16 Other Endpoints
+### 6.16 Notifications (`/api/notifications`)
+
+| Method | Path    | Scope    | Description                                                 |
+| ------ | ------- | -------- | ----------------------------------------------------------- |
+| GET    | `/`     | ME_READ  | Caller's notifications, newest first                        |
+| POST   | `/`     | ME_WRITE | Send one to yourself; admins also to users, `admins`, `all` |
+| POST   | `/read` | ME_WRITE | Mark ids read (`ids: null` marks all)                       |
+| DELETE | `/{id}` | ME_WRITE | Dismiss one for good                                        |
+| DELETE | `/`     | ME_WRITE | Dismiss all                                                 |
+
+A client's notification carries its own `title`, `body`, `icon` (`mdi-*`) and `link`, which must be a path inside RomM. RomM's own `kind`s are reserved; any other (`custom`, `argosy.sync_done`) is shown as sent.
+
+```bash
+curl -X POST "$ROMM/api/notifications" -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Sync finished", "body": "12 saves uploaded", "level": "success", "link": "/rom/12"}'
+```
+
+### 6.17 Other Endpoints
 
 | Router        | Path                                   | Description                            |
 | ------------- | -------------------------------------- | -------------------------------------- |
@@ -1262,6 +1280,17 @@ ScanStats:
     scanned_firmware, new_firmware
 ```
 
+### 8.9 Notifications (`handler/notification_handler.py`)
+
+Persistent per-user notifications, kept until dismissed and pushed live to the user's `user:{id}` socket room. From backend code, web process or worker alike:
+
+```python
+await notify(user.id, NotificationKind.SCAN_COMPLETED, NotificationLevel.SUCCESS, stats)
+await notify_admins("custom", NotificationLevel.WARNING, title="Disk almost full")
+```
+
+A `NotificationKind` is translated by the client from `data`; a new one needs a describer in `frontend/src/v2/utils/notifications.ts` and locale keys. Until then, or for a one-off, pass any other kind with `title`/`body`/`link`/`icon`. Both helpers log and swallow failures, so a job never fails over reporting itself.
+
 ---
 
 ## 9. External Integrations (Adapters)
@@ -1359,6 +1388,16 @@ Client  ←──Socket.IO──→  FastAPI (python-socketio)  ←──Redis P
 | `scan:update_stats` | `ScanStats` object | Each ROM/platform processed |
 | `scan:log`          | Log message        | Scan log entries            |
 | `scan:stop`         |                    | Scan completed or cancelled |
+
+### Notifications (`/ws`)
+
+Sent to the user's own `user:{id}` room:
+
+| Event                     | Payload                | When                         |
+| ------------------------- | ---------------------- | ---------------------------- |
+| `notifications:new`       | `NotificationSchema`   | One was stored for the user  |
+| `notifications:read`      | `{ids: int[] \| null}` | Another tab marked some read |
+| `notifications:dismissed` | `{ids: int[] \| null}` | Another tab dismissed some   |
 
 ### Netplay (`/netplay`)
 

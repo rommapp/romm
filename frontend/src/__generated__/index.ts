@@ -153,6 +153,7 @@ export type { MuteRequest } from './models/MuteRequest';
 export type { MuteResponse } from './models/MuteResponse';
 export type { NetplayICEServer } from './models/NetplayICEServer';
 export type { NotificationActorSchema } from './models/NotificationActorSchema';
+export type { NotificationCreatePayload } from './models/NotificationCreatePayload';
 export type { NotificationIdsPayload } from './models/NotificationIdsPayload';
 export type { NotificationKind } from './models/NotificationKind';
 export type { NotificationLevel } from './models/NotificationLevel';

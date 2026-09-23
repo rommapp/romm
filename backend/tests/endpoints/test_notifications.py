@@ -154,3 +154,111 @@ def test_an_inbox_keeps_only_the_newest(admin_user):
 
     assert len(remaining) == MAX_NOTIFICATIONS_PER_USER
     assert oldest.id not in {n.id for n in remaining}
+
+
+class TestCreateNotification:
+    def test_a_user_notifies_themselves(
+        self, client, viewer_access_token, viewer_user, emit
+    ):
+        response = client.post(
+            "/api/notifications",
+            json={
+                "title": "Sync finished",
+                "body": "12 saves uploaded",
+                "kind": "argosy.sync_done",
+                "level": "success",
+                "link": "/rom/12",
+                "icon": "mdi-sync",
+                "data": {"device": "deck"},
+            },
+            headers=_auth(viewer_access_token),
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [sent] = response.json()
+        assert sent["title"] == "Sync finished"
+        assert sent["kind"] == "argosy.sync_done"
+        assert sent["actor"] is None
+        [stored] = db_notification_handler.get_notifications(viewer_user.id)
+        assert (stored.link, stored.data) == ("/rom/12", {"device": "deck"})
+        emit.assert_awaited_once()
+
+    def test_only_an_admin_notifies_others(
+        self, client, viewer_access_token, admin_user, emit
+    ):
+        response = client.post(
+            "/api/notifications",
+            json={"title": "Hello", "recipients": [admin_user.id]},
+            headers=_auth(viewer_access_token),
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert db_notification_handler.get_notifications(admin_user.id) == []
+
+    def test_an_admin_notifies_everyone_as_the_sender(
+        self, client, access_token, admin_user, viewer_user, editor_user, emit
+    ):
+        response = client.post(
+            "/api/notifications",
+            json={
+                "title": "Maintenance tonight",
+                "level": "warning",
+                "recipients": "all",
+            },
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert len(response.json()) == 3
+        [to_viewer] = db_notification_handler.get_notifications(viewer_user.id)
+        assert to_viewer.actor_id == admin_user.id
+        [to_self] = db_notification_handler.get_notifications(admin_user.id)
+        assert to_self.actor_id is None
+
+    def test_an_admin_notifies_only_the_admins(
+        self, client, access_token, admin_user, viewer_user, emit
+    ):
+        client.post(
+            "/api/notifications",
+            json={"title": "Disk almost full", "recipients": "admins"},
+            headers=_auth(access_token),
+        )
+
+        assert len(db_notification_handler.get_notifications(admin_user.id)) == 1
+        assert db_notification_handler.get_notifications(viewer_user.id) == []
+
+    def test_an_unknown_recipient_is_not_found(
+        self, client, access_token, viewer_user, emit
+    ):
+        response = client.post(
+            "/api/notifications",
+            json={"title": "Hello", "recipients": [viewer_user.id, 999_999]},
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert db_notification_handler.get_notifications(viewer_user.id) == []
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            {"kind": "role_changed"},
+            {"link": "https://example.com"},
+            {"link": "//example.com/login"},
+            {"link": "/\\example.com"},
+            {"icon": "not-an-icon"},
+            {"title": ""},
+            {"data": {"blob": "x" * 5000}},
+        ],
+    )
+    def test_rejects_what_a_client_may_not_send(
+        self, client, access_token, admin_user, field, emit
+    ):
+        response = client.post(
+            "/api/notifications",
+            json={"title": "Hello", **field},
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert db_notification_handler.get_notifications(admin_user.id) == []

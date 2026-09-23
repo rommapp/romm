@@ -1,5 +1,6 @@
-// A stored notification carries its kind and the values behind its text, not
-// the text itself, so it reads in the language of whoever opens it.
+// RomM's own kinds carry the values behind their text rather than the text, so
+// they read in the language of whoever opens them. Any other kind brings its
+// own title and body.
 import type { RouteLocationRaw } from "vue-router";
 import type { NotificationKind, NotificationSchema } from "@/__generated__";
 import i18n from "@/locales";
@@ -26,8 +27,23 @@ function count(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+// The server only stores in-app paths; this keeps a stray one from leaving RomM.
+function inAppLink(link: string | null): string | null {
+  return link?.startsWith("/") && !link.startsWith("//") ? link : null;
+}
+
+function ownContent(notification: NotificationSchema): NotificationView {
+  return {
+    icon: notification.icon ?? "mdi-bell-outline",
+    title: notification.title ?? t("notifications.unknown"),
+    body: notification.body,
+    to: inAppLink(notification.link),
+    toast: true,
+  };
+}
+
 const DESCRIBERS: Record<
-  NotificationKind,
+  Exclude<NotificationKind, "custom">,
   (data: NotificationData) => NotificationView
 > = {
   scan_completed: (data) => {
@@ -97,21 +113,14 @@ const DESCRIBERS: Record<
   },
 };
 
-function isKnownKind(kind: string): kind is NotificationKind {
+function isTranslatedKind(kind: string): kind is keyof typeof DESCRIBERS {
   return Object.hasOwn(DESCRIBERS, kind);
 }
 
 export function describeNotification(
   notification: NotificationSchema,
 ): NotificationView {
-  if (isKnownKind(notification.kind)) {
-    return DESCRIBERS[notification.kind](notification.data);
-  }
-  return {
-    icon: "mdi-bell-outline",
-    title: t("notifications.unknown"),
-    body: null,
-    to: null,
-    toast: true,
-  };
+  return isTranslatedKind(notification.kind)
+    ? DESCRIBERS[notification.kind](notification.data)
+    : ownContent(notification);
 }

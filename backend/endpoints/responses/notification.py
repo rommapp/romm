@@ -1,8 +1,18 @@
-from typing import Any
+import json
+from typing import Any, Literal
 
-from pydantic import ConfigDict, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
-from models.notification import NotificationKind, NotificationLevel
+from models.notification import (
+    NOTIFICATION_BODY_MAX_LENGTH,
+    NOTIFICATION_DATA_MAX_LENGTH,
+    NOTIFICATION_ICON_MAX_LENGTH,
+    NOTIFICATION_KIND_MAX_LENGTH,
+    NOTIFICATION_LINK_MAX_LENGTH,
+    NOTIFICATION_TITLE_MAX_LENGTH,
+    NotificationKind,
+    NotificationLevel,
+)
 
 from .base import BaseModel, UTCDatetime
 
@@ -23,6 +33,10 @@ class NotificationSchema(BaseModel):
     # A row written under a kind a later version dropped must still list.
     kind: NotificationKind | str
     level: NotificationLevel
+    title: str | None
+    body: str | None
+    link: str | None
+    icon: str | None
     data: dict[str, Any]
     actor: NotificationActorSchema | None
     read_at: UTCDatetime | None
@@ -32,6 +46,68 @@ class NotificationSchema(BaseModel):
     @classmethod
     def _data_never_null(cls, value: Any) -> Any:
         return value or {}
+
+
+class NotificationCreatePayload(BaseModel):
+    """A notification sent through the API, shown with its own title and body."""
+
+    title: str = Field(min_length=1, max_length=NOTIFICATION_TITLE_MAX_LENGTH)
+    body: str | None = Field(default=None, max_length=NOTIFICATION_BODY_MAX_LENGTH)
+    level: NotificationLevel = NotificationLevel.INFO
+    # Lets a client tell its own notifications apart, e.g. `argosy.sync_done`.
+    kind: str = Field(
+        default=NotificationKind.CUSTOM,
+        max_length=NOTIFICATION_KIND_MAX_LENGTH,
+        pattern=r"^[a-z0-9][a-z0-9_.:-]*$",
+    )
+    link: str | None = Field(
+        default=None,
+        max_length=NOTIFICATION_LINK_MAX_LENGTH,
+        description="A path inside RomM, such as `/rom/12`.",
+    )
+    icon: str | None = Field(
+        default=None,
+        max_length=NOTIFICATION_ICON_MAX_LENGTH,
+        pattern=r"^mdi-[a-z0-9-]+$",
+        description="A Material Design Icons name, such as `mdi-sync`.",
+    )
+    data: dict[str, Any] = Field(default_factory=dict)
+    recipients: list[int] | Literal["admins", "all"] | None = Field(
+        default=None,
+        description="User ids, `admins` or `all`; only an admin may notify "
+        "anyone but themselves. Null notifies the caller.",
+    )
+
+    @field_validator("kind")
+    @classmethod
+    def _kind_not_reserved(cls, value: str) -> str:
+        # Stops a client passing itself off as one of RomM's own events.
+        if value != NotificationKind.CUSTOM and value in NotificationKind:
+            raise ValueError(f"'{value}' is reserved for RomM's own notifications")
+        return value
+
+    @field_validator("data")
+    @classmethod
+    def _data_fits(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if len(json.dumps(value)) > NOTIFICATION_DATA_MAX_LENGTH:
+            raise ValueError(
+                f"data must serialize to at most {NOTIFICATION_DATA_MAX_LENGTH} characters"
+            )
+        return value
+
+    @field_validator("link")
+    @classmethod
+    def _link_stays_in_app(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if (
+            not value.startswith("/")
+            or value.startswith("//")
+            or "\\" in value
+            or any(char.isspace() for char in value)
+        ):
+            raise ValueError("link must be a path inside RomM, such as /rom/12")
+        return value
 
 
 class NotificationIdsPayload(BaseModel):

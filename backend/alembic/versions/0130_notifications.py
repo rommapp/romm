@@ -29,6 +29,10 @@ def upgrade() -> None:
         sa.Column("actor_id", sa.Integer(), nullable=True),
         sa.Column("kind", sa.String(length=64), nullable=False),
         sa.Column("level", sa.String(length=16), nullable=False),
+        sa.Column("title", sa.String(length=255), nullable=True),
+        sa.Column("body", sa.String(length=1000), nullable=True),
+        sa.Column("link", sa.String(length=1000), nullable=True),
+        sa.Column("icon", sa.String(length=64), nullable=True),
         sa.Column("data", CustomJSON(), nullable=True),
         sa.Column("read_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column(

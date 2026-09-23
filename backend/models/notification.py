@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from sqlalchemy import TIMESTAMP, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,14 +22,27 @@ class NotificationLevel(enum.StrEnum):
 
 
 class NotificationKind(enum.StrEnum):
-    """What happened. The client renders the text from it, in the reader's language."""
+    """What happened. The client renders these in the reader's language.
 
+    Any other kind, `custom` included, is rendered from its own title and body.
+    """
+
+    CUSTOM = "custom"
     SCAN_COMPLETED = "scan_completed"
     SCAN_FAILED = "scan_failed"
     TASK_COMPLETED = "task_completed"
     TASK_FAILED = "task_failed"
     STREAMING_SESSION_ENDED = "streaming_session_ended"
     ROLE_CHANGED = "role_changed"
+
+
+NOTIFICATION_KIND_MAX_LENGTH: Final = 64
+NOTIFICATION_TITLE_MAX_LENGTH: Final = 255
+NOTIFICATION_BODY_MAX_LENGTH: Final = 1000
+NOTIFICATION_LINK_MAX_LENGTH: Final = 1000
+NOTIFICATION_ICON_MAX_LENGTH: Final = 64
+# Of `data` serialized as JSON, for what API clients send.
+NOTIFICATION_DATA_MAX_LENGTH: Final = 4096
 
 
 class Notification(BaseModel):
@@ -48,8 +61,21 @@ class Notification(BaseModel):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     # Strings rather than database enums, so a new kind needs no migration.
-    kind: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(NOTIFICATION_KIND_MAX_LENGTH))
     level: Mapped[str] = mapped_column(String(16))
+    title: Mapped[str | None] = mapped_column(
+        String(NOTIFICATION_TITLE_MAX_LENGTH), nullable=True
+    )
+    body: Mapped[str | None] = mapped_column(
+        String(NOTIFICATION_BODY_MAX_LENGTH), nullable=True
+    )
+    # An in-app path (`/rom/12`), never an external URL.
+    link: Mapped[str | None] = mapped_column(
+        String(NOTIFICATION_LINK_MAX_LENGTH), nullable=True
+    )
+    icon: Mapped[str | None] = mapped_column(
+        String(NOTIFICATION_ICON_MAX_LENGTH), nullable=True
+    )
     # The values the kind's text is built from (names, counts, ids to link to).
     data: Mapped[dict[str, Any] | None] = mapped_column(CustomJSON(), default=dict)
     read_at: Mapped[datetime | None] = mapped_column(

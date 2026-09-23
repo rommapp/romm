@@ -1,8 +1,15 @@
-import type { NotificationSchema } from "@/__generated__";
+import type {
+  NotificationCreatePayload,
+  NotificationSchema,
+} from "@/__generated__";
 import api from "@/services/api";
 
 async function getNotifications() {
   return api.get<NotificationSchema[]>("/notifications");
+}
+
+async function create(payload: NotificationCreatePayload) {
+  return api.post<NotificationSchema[]>("/notifications", payload);
 }
 
 async function markRead(ids: number[] | null) {
@@ -19,6 +26,7 @@ async function dismissAll() {
 
 export default {
   getNotifications,
+  create,
   markRead,
   dismiss,
   dismissAll,

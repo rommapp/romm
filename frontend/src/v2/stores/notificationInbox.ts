@@ -1,7 +1,10 @@
 // notificationInbox (v2) — the signed-in user's notifications, newest first,
 // kept current by `installNotificationInbox`.
 import { defineStore } from "pinia";
-import type { NotificationSchema } from "@/__generated__";
+import type {
+  NotificationCreatePayload,
+  NotificationSchema,
+} from "@/__generated__";
 import notificationApi from "@/services/api/notification";
 
 // `null` stands for every notification, as it does in the API.
@@ -25,9 +28,21 @@ export default defineStore("v2NotificationInbox", {
       this.loaded = true;
     },
 
-    receive(notification: NotificationSchema) {
-      if (this.notifications.some((n) => n.id === notification.id)) return;
+    /** Adds a notification; false when it was already here. */
+    receive(notification: NotificationSchema): boolean {
+      if (this.notifications.some((n) => n.id === notification.id)) {
+        return false;
+      }
       this.notifications = [notification, ...this.notifications];
+      return true;
+    },
+
+    /** Notifies the signed-in user and returns what was stored. */
+    async send(
+      payload: Omit<NotificationCreatePayload, "recipients">,
+    ): Promise<NotificationSchema> {
+      const { data } = await notificationApi.create(payload);
+      return data[0];
     },
 
     applyRead(ids: NotificationIds, readAt = new Date().toISOString()) {

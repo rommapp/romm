@@ -1,14 +1,22 @@
 from fastapi import HTTPException, Request, status
 
 from decorators.auth import protected_route
-from endpoints.responses.notification import NotificationIdsPayload, NotificationSchema
+from endpoints.responses.notification import (
+    NotificationCreatePayload,
+    NotificationIdsPayload,
+    NotificationSchema,
+)
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_admin
 from handler.database import db_notification_handler
 from handler.notification_handler import (
     NOTIFICATIONS_DISMISSED_EVENT,
     NOTIFICATIONS_READ_EVENT,
+    deliver,
     emit_to_user,
+    recipient_ids,
 )
+from models.notification import Notification
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -23,6 +31,46 @@ def get_notifications(request: Request) -> list[NotificationSchema]:
     return [
         NotificationSchema.model_validate(n)
         for n in db_notification_handler.get_notifications(request.user.id)
+    ]
+
+
+@protected_route(router.post, "", [Scope.ME_WRITE], status_code=status.HTTP_201_CREATED)
+async def create_notification(
+    request: Request, payload: NotificationCreatePayload
+) -> list[NotificationSchema]:
+    """Notify the caller or, for an admin, other users; returns what was sent.
+
+    Other users see the caller as its sender.
+    """
+    sender_id = request.user.id
+    if payload.recipients is None or payload.recipients == [sender_id]:
+        user_ids = [sender_id]
+    else:
+        assert_admin(request)
+        user_ids = recipient_ids(payload.recipients)
+        if isinstance(payload.recipients, list):
+            missing = set(payload.recipients) - set(user_ids)
+            if missing:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No enabled user with id {', '.join(map(str, sorted(missing)))}",
+                )
+
+    return [
+        await deliver(
+            Notification(
+                user_id=user_id,
+                actor_id=sender_id if user_id != sender_id else None,
+                kind=payload.kind,
+                level=payload.level,
+                title=payload.title,
+                body=payload.body,
+                link=payload.link,
+                icon=payload.icon,
+                data=payload.data,
+            )
+        )
+        for user_id in user_ids
     ]
 
 

@@ -9,6 +9,10 @@ export type NotificationSchema = {
     id: number;
     kind: (NotificationKind | string);
     level: NotificationLevel;
+    title: (string | null);
+    body: (string | null);
+    link: (string | null);
+    icon: (string | null);
     data: Record<string, any>;
     actor: (NotificationActorSchema | null);
     read_at: (string | null);

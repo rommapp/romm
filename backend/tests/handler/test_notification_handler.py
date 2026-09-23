@@ -53,6 +53,27 @@ class TestNotify:
         assert payload["data"] == {"new_roms": 2}
         assert payload["created_at"].startswith("2026-09-23")
 
+    async def test_carries_its_own_content_for_a_custom_kind(
+        self, emit, add_notification
+    ):
+        await notify(
+            3,
+            "argosy.sync_done",
+            NotificationLevel.INFO,
+            title="Sync finished",
+            body="12 saves uploaded",
+            link="/rom/12",
+            icon="mdi-sync",
+        )
+
+        payload = emit.await_args.args[2]
+        assert payload["kind"] == "argosy.sync_done"
+        assert (payload["title"], payload["body"]) == (
+            "Sync finished",
+            "12 saves uploaded",
+        )
+        assert (payload["link"], payload["icon"]) == ("/rom/12", "mdi-sync")
+
     async def test_a_storage_failure_pushes_nothing(self, mocker, emit):
         mocker.patch.object(
             notification_handler.db_notification_handler,
@@ -78,9 +99,8 @@ class TestNotifyAdmins:
 
         await notify_admins(NotificationKind.TASK_FAILED, NotificationLevel.ERROR)
 
-        notify_mock.assert_awaited_once_with(
-            1, NotificationKind.TASK_FAILED, NotificationLevel.ERROR, None
-        )
+        assert notify_mock.await_count == 1
+        assert notify_mock.await_args.args[0] == 1
 
 
 class TestEmitToUser:

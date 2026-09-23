@@ -1,10 +1,11 @@
 """Persistent per-user notifications, stored first and then pushed to open tabs.
 
-Every entry point swallows its own failures: the caller is usually a job whose
-outcome must not hinge on reporting it.
+`notify` and `notify_admins` swallow their own failures: the caller is usually
+a job whose outcome must not hinge on reporting it.
 """
 
-from typing import Any
+from collections.abc import Sequence
+from typing import Any, Literal
 
 import socketio
 
@@ -28,46 +29,85 @@ async def emit_to_user(user_id: int, event: str, payload: dict[str, Any]) -> Non
         log.warning(f"Failed to push {event} to user {user_id}", exc_info=True)
 
 
+async def deliver(notification: Notification) -> NotificationSchema:
+    """Store a notification and push it to its user's open tabs; raises if it can't be stored."""
+    stored = NotificationSchema.model_validate(
+        db_notification_handler.add_notification(notification)
+    )
+    await emit_to_user(
+        notification.user_id, NOTIFICATIONS_NEW_EVENT, stored.model_dump(mode="json")
+    )
+    return stored
+
+
+def recipient_ids(recipients: Sequence[int] | Literal["admins", "all"]) -> list[int]:
+    """The enabled users among the given ids, or among every admin or user."""
+    if recipients == "admins":
+        users = list(db_user_handler.get_admin_users())
+    elif recipients == "all":
+        users = list(db_user_handler.get_users())
+    else:
+        users = [
+            user
+            for user_id in dict.fromkeys(recipients)
+            if (user := db_user_handler.get_user(user_id))
+        ]
+    return [user.id for user in users if user.enabled]
+
+
 async def notify(
     user_id: int,
-    kind: NotificationKind,
+    kind: NotificationKind | str,
     level: NotificationLevel,
     data: dict[str, Any] | None = None,
     actor_id: int | None = None,
+    *,
+    title: str | None = None,
+    body: str | None = None,
+    link: str | None = None,
+    icon: str | None = None,
 ) -> None:
-    """Store a notification for one user and push it to their open tabs."""
+    """Notify one user.
+
+    A kind RomM's client knows is shown translated from `data`; any other, like
+    `custom`, is shown with `title`, `body`, `link` (an in-app path) and `icon`.
+    """
     try:
-        notification = db_notification_handler.add_notification(
+        await deliver(
             Notification(
                 user_id=user_id,
                 actor_id=actor_id,
                 kind=kind,
                 level=level,
+                title=title,
+                body=body,
+                link=link,
+                icon=icon,
                 data=data or {},
             )
         )
-        payload = NotificationSchema.model_validate(notification).model_dump(
-            mode="json"
-        )
     except Exception:  # noqa: BLE001
         log.exception(f"Failed to store {kind} notification for user {user_id}")
-        return
-
-    await emit_to_user(user_id, NOTIFICATIONS_NEW_EVENT, payload)
 
 
 async def notify_admins(
-    kind: NotificationKind,
+    kind: NotificationKind | str,
     level: NotificationLevel,
     data: dict[str, Any] | None = None,
+    *,
+    title: str | None = None,
+    body: str | None = None,
+    link: str | None = None,
+    icon: str | None = None,
 ) -> None:
     """Notify every enabled admin, for what the system did on nobody's behalf."""
     try:
-        admins = db_user_handler.get_admin_users()
+        admin_ids = recipient_ids("admins")
     except Exception:  # noqa: BLE001
         log.exception(f"Failed to look up the admins to notify of {kind}")
         return
 
-    for admin in admins:
-        if admin.enabled:
-            await notify(admin.id, kind, level, data)
+    for admin_id in admin_ids:
+        await notify(
+            admin_id, kind, level, data, title=title, body=body, link=link, icon=icon
+        )
