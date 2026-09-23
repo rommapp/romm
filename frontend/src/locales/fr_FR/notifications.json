@@ -1,6 +1,6 @@
 {
   "dismiss-all": "Tout ignorer",
-  "dismiss-all-body": "Toutes les notifications seront supprimées définitivement.",
+  "dismiss-all-body": "Toutes les notifications seront supprimées.",
   "dismiss-all-title": "Ignorer toutes les notifications ?",
   "dismiss-failed": "Impossible d'ignorer la notification",
   "empty": "Aucune notification",

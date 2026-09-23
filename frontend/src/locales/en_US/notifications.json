@@ -1,6 +1,6 @@
 {
   "dismiss-all": "Dismiss all",
-  "dismiss-all-body": "Every notification will be removed for good.",
+  "dismiss-all-body": "Every notification will be removed.",
   "dismiss-all-title": "Dismiss all notifications?",
   "dismiss-failed": "Could not dismiss the notification",
   "empty": "No notifications",

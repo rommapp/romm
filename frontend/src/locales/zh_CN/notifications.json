@@ -1,6 +1,6 @@
 {
   "dismiss-all": "全部忽略",
-  "dismiss-all-body": "所有通知都将被永久移除。",
+  "dismiss-all-body": "所有通知都将被移除。",
   "dismiss-all-title": "忽略所有通知？",
   "dismiss-failed": "无法忽略该通知",
   "empty": "暂无通知",

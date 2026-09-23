@@ -1,6 +1,6 @@
 {
   "dismiss-all": "すべて閉じる",
-  "dismiss-all-body": "すべての通知が完全に削除されます。",
+  "dismiss-all-body": "すべての通知が削除されます。",
   "dismiss-all-title": "すべての通知を閉じますか？",
   "dismiss-failed": "通知を閉じられませんでした",
   "empty": "通知はありません",
