@@ -21,7 +21,9 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
         playlist = session.merge(playlist)
         session.flush()
 
-        return session.scalar(select(MusicPlaylist).filter_by(id=playlist.id).limit(1))
+        return session.scalars(
+            select(MusicPlaylist).filter_by(id=playlist.id).limit(1)
+        ).one()
 
     @begin_session
     def get_playlist(
@@ -78,7 +80,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        return session.scalar(select(MusicPlaylist).filter_by(id=id).limit(1))
+        return session.scalars(select(MusicPlaylist).filter_by(id=id).limit(1)).one()
 
     @begin_session
     def delete_playlist(

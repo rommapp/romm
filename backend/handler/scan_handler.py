@@ -386,7 +386,7 @@ async def scan_firmware(
     firmware_path = fs_firmware_handler.get_firmware_fs_structure(platform.fs_slug)
 
     # Set default properties
-    firmware_attrs = {
+    firmware_attrs: dict[str, Any] = {
         "id": firmware.id if firmware else None,
         "platform_id": platform.id,
     }

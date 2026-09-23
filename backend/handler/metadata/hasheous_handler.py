@@ -80,6 +80,7 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
                 else None
             ),
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
+            "total_rating_count": rom.get("total_rating_count"),
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": (
                 int(
@@ -98,6 +99,10 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
             "alternative_names": pydash.map_(rom.get("alternative_names", {}), "name"),
             "collections": pydash.map_(rom.get("collections", {}), "name"),
             "game_modes": pydash.map_(rom.get("game_modes", {}), "name"),
+            # Not in `expandColumns`, so the proxy returns bare ids with no names.
+            "keywords": [],
+            "themes": [],
+            "player_perspectives": [],
             "companies": pydash.compact(
                 pydash.map_(rom.get("involved_companies", {}), "company.name")
             ),
