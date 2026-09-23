@@ -214,7 +214,7 @@ function onRowClick(e: MouseEvent) {
 .coll-list-row--columns {
   display: grid;
   gap: 0 var(--r-space-3);
-  padding: 0 var(--r-space-3);
+  padding: 0 max(var(--r-space-3), var(--r-list-bleed, 0px));
 }
 
 /* Clear of the screen edge, which the row itself runs to. */
