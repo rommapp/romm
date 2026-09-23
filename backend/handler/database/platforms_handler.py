@@ -2,8 +2,8 @@ import functools
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import delete, func, or_, select, update
-from sqlalchemy.orm import Query, Session, selectinload
+from sqlalchemy import Select, delete, func, or_, select, update
+from sqlalchemy.orm import Session, selectinload
 
 from decorators.database import begin_session
 from models.platform import Platform
@@ -29,13 +29,13 @@ class DBPlatformsHandler(DBBaseHandler):
     def add_platform(
         self,
         platform: Platform,
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Platform]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Platform:
         platform = session.merge(platform)
         session.flush()
 
-        return session.scalar(query.filter_by(id=platform.id).limit(1))
+        return session.scalars(query.filter_by(id=platform.id).limit(1)).one()
 
     @begin_session
     def update_platform(
@@ -50,14 +50,14 @@ class DBPlatformsHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Platform).filter_by(id=id).one()
+        return session.scalars(select(Platform).filter_by(id=id)).one()
 
     @begin_session
     @with_firmware
     def get_platform(
         self,
         id: int,
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Platform]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Platform | None:
         return session.scalar(query.filter_by(id=id).limit(1))
@@ -68,7 +68,7 @@ class DBPlatformsHandler(DBBaseHandler):
         self,
         updated_after: datetime | None = None,
         hidden_platform_ids: Sequence[int] | None = None,
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Platform]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Sequence[Platform]:
         if updated_after:
@@ -100,7 +100,7 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platform_by_fs_slug(
         self,
         fs_slug: str,
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Platform]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Platform | None:
         platform = session.scalar(query.filter_by(fs_slug=fs_slug).limit(1))
@@ -118,7 +118,7 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platform_by_slug(
         self,
         slug: str,
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Platform]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Platform | None:
         return session.scalar(query.filter_by(slug=slug).limit(1))
@@ -146,7 +146,6 @@ class DBPlatformsHandler(DBBaseHandler):
     def mark_missing_platforms(
         self,
         fs_platforms_to_keep: list[str],
-        query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Sequence[Platform]:
         missing_platforms = (

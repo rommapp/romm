@@ -17,7 +17,6 @@ from sqlalchemy import (
 from sqlalchemy.engine import Row
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
-    Query,
     QueryableAttribute,
     Session,
     load_only,
@@ -74,20 +73,20 @@ class DBCollectionsHandler(DBBaseHandler):
     def add_collection(
         self,
         collection: Collection,
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Collection]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Collection:
         collection = session.merge(collection)
         session.flush()
 
-        return session.scalar(query.filter_by(id=collection.id).limit(1))
+        return session.scalars(query.filter_by(id=collection.id).limit(1)).one()
 
     @begin_session
     @with_roms
     def get_collection(
         self,
         id: int,
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Collection]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Collection | None:
         return session.scalar(query.filter_by(id=id).limit(1))
@@ -98,7 +97,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         name: str,
         user_id: int,
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Collection]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Collection | None:
         return session.scalar(query.filter_by(name=name, user_id=user_id).limit(1))
@@ -108,7 +107,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def get_favorite_collection(
         self,
         user_id: int,
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Collection]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Collection | None:
         return session.scalar(
@@ -158,7 +157,7 @@ class DBCollectionsHandler(DBBaseHandler):
         id: int,
         data: dict,
         rom_ids: list[int] | None = None,
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Collection]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Collection:
         session.execute(
@@ -189,7 +188,7 @@ class DBCollectionsHandler(DBBaseHandler):
                         ],
                     )
 
-        return session.scalar(query.filter_by(id=id).limit(1))
+        return session.scalars(query.filter_by(id=id).limit(1)).one()
 
     @begin_session
     @with_roms
@@ -197,7 +196,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         id: int,
         rom_ids: list[int],
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Collection]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Collection:
         if rom_ids:
@@ -232,7 +231,7 @@ class DBCollectionsHandler(DBBaseHandler):
                     .execution_options(synchronize_session="evaluate")
                 )
 
-        return session.scalar(query.filter_by(id=id).limit(1))
+        return session.scalars(query.filter_by(id=id).limit(1)).one()
 
     @begin_session
     @with_roms
@@ -240,7 +239,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         id: int,
         rom_ids: list[int],
-        query: Query = None,  # type: ignore
+        query: Select[tuple[Collection]] = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Collection:
         if rom_ids:
@@ -258,7 +257,7 @@ class DBCollectionsHandler(DBBaseHandler):
                     .execution_options(synchronize_session="evaluate")
                 )
 
-        return session.scalar(query.filter_by(id=id).limit(1))
+        return session.scalars(query.filter_by(id=id).limit(1)).one()
 
     @begin_session
     def delete_collection(
@@ -386,7 +385,9 @@ class DBCollectionsHandler(DBBaseHandler):
         smart_collection = session.merge(smart_collection)
         session.flush()
 
-        return session.query(SmartCollection).filter_by(id=smart_collection.id).one()
+        return session.scalars(
+            select(SmartCollection).filter_by(id=smart_collection.id)
+        ).one()
 
     @begin_session
     def get_smart_collection(
@@ -499,7 +500,7 @@ class DBCollectionsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        return session.query(SmartCollection).filter_by(id=id).one()
+        return session.scalars(select(SmartCollection).filter_by(id=id)).one()
 
     @begin_session
     def delete_smart_collection(

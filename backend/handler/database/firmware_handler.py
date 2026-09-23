@@ -110,7 +110,7 @@ class DBFirmwareHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Firmware).filter_by(id=id).one()
+        return session.scalars(select(Firmware).filter_by(id=id)).one()
 
     @begin_session
     def delete_firmware(

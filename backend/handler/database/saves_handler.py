@@ -234,7 +234,7 @@ class DBSavesHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Save).filter_by(id=id).one()
+        return session.scalars(select(Save).filter_by(id=id)).one()
 
     @begin_session
     def prune_slot(

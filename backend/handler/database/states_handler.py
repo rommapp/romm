@@ -133,7 +133,7 @@ class DBStatesHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(State).filter_by(id=id).one()
+        return session.scalars(select(State).filter_by(id=id)).one()
 
     @begin_session
     def delete_state(
