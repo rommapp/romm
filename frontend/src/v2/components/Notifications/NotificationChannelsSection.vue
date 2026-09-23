@@ -294,6 +294,7 @@ async function remove(channel: NotificationChannelSchema) {
                 variant="text"
                 size="small"
                 icon="mdi-delete-outline"
+                color="danger"
                 :aria-label="t('notifications.channel-delete')"
                 @click="remove(channel)"
               />
