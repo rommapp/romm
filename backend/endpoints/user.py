@@ -201,6 +201,10 @@ def create_user_from_invite(
         UserSchema: Newly created user
     """
 
+    # Ahead of the "already exists" checks, which would otherwise enumerate
+    # accounts for an invalid token. Not consumed, so a retry keeps the invite.
+    auth_handler.assert_invite_link_token_valid(token)
+
     try:
         validate_username(username)
         validate_password(password)
@@ -565,6 +569,10 @@ async def refresh_retro_achievements(
     ] = False,
 ) -> None:
     """Refresh RetroAchievements progression data for a user."""
+    # Admin users can refresh any user, while other users can only refresh self
+    if id != request.user.id and request.user.role != Role.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
     user = db_user_handler.get_user(id)
     if not user or not user.ra_username:
         raise HTTPException(
