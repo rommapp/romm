@@ -182,11 +182,7 @@ async def test_a_tag_both_sources_report_is_not_repeated(ss_translated: AsyncMoc
 
 
 async def test_an_update_rescan_keeps_the_dump_tag(ss_translated_by_id: AsyncMock):
-    """An UPDATE refetches by id, which still carries every dump of the game.
-
-    The filename says nothing, so without the dump the tag an earlier scan
-    earned would be dropped when the filename tags are re-read.
-    """
+    """An UPDATE refetches by id, which still carries the game's dumps."""
     result = await _scan(
         MetadataSource.SS,
         scan_type=ScanType.UPDATE,

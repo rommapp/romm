@@ -1123,9 +1123,7 @@ class SSHandler(MetadataHandler):
         """Refetch a game by its ScreenScraper id.
 
         Args:
-            files: the ROM's files, when the caller wants the dump-specific
-                tags too. Passing them hash-matches our own copy inside the
-                game's dumps, which a caller that only picked an id cannot do.
+            files: the ROM's files, when the dump-specific tags are wanted too.
         """
         if not self.is_enabled():
             return SSRom(ss_id=None)

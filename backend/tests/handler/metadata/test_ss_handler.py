@@ -2187,34 +2187,34 @@ class TestExtractFromSSDump:
 
     def test_a_translated_dump_is_tagged(self):
         """ScreenScraper sends the flag as a string, not an int."""
-        assert extract_tags_from_ss_dump(cast(SSGameRom, {"trad": "1"})) == [
-            "Translation"
-        ]
-        assert extract_tags_from_ss_dump(cast(SSGameRom, {"trad": 1})) == [
-            "Translation"
-        ]
+        assert extract_tags_from_ss_dump(SSGameRom(trad="1")) == ["Translation"]
+        assert extract_tags_from_ss_dump(SSGameRom(trad=1)) == ["Translation"]
 
-    def test_an_untranslated_dump_is_not_tagged(self):
-        for trad in ("0", 0, "", None):
-            assert extract_tags_from_ss_dump(cast(SSGameRom, {"trad": trad})) == []
+    @pytest.mark.parametrize("trad", ["0", 0, ""])
+    def test_an_untranslated_dump_is_not_tagged(self, trad: int | str):
+        assert extract_tags_from_ss_dump(SSGameRom(trad=trad)) == []
 
     @pytest.mark.parametrize(
-        ("flag", "tag"),
-        [("hack", "Hack"), ("beta", "Beta"), ("demo", "Demo")],
+        ("dump", "tag"),
+        [
+            (SSGameRom(hack="1"), "Hack"),
+            (SSGameRom(beta="1"), "Beta"),
+            (SSGameRom(demo="1"), "Demo"),
+        ],
     )
     def test_the_other_flags_spell_their_tag_the_way_a_filename_does(
-        self, flag: str, tag: str
+        self, dump: SSGameRom, tag: str
     ):
-        assert extract_tags_from_ss_dump(cast(SSGameRom, {flag: "1"})) == [tag]
+        assert extract_tags_from_ss_dump(dump) == [tag]
 
     def test_a_dump_raising_several_flags_carries_each_tag(self):
-        dump = cast(SSGameRom, {"trad": "1", "hack": "1", "beta": "1"})
+        dump = SSGameRom(trad="1", hack="1", beta="1")
 
         assert extract_tags_from_ss_dump(dump) == ["Translation", "Hack", "Beta"]
 
     def test_unl_is_not_a_tag(self):
         """No filename tag answers to it, so reading it would split the facet."""
-        assert extract_tags_from_ss_dump(cast(SSGameRom, {"unl": "1"})) == []
+        assert extract_tags_from_ss_dump(SSGameRom(unl="1")) == []
 
     async def test_a_hash_match_carries_the_dump_tags(self):
         """The primary path: lookup_rom answers a hash, so its dump is ours."""

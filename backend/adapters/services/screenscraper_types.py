@@ -104,13 +104,14 @@ class SSGameRom(TypedDict):
     romsha1: NotRequired[str]
     regions: NotRequired[SSRomRegions]
     langues: NotRequired[SSRomLanguages]
-    # Sent as "1"/"0" strings. No `proto`: jeuInfos omits the key entirely,
-    # unlike `demo` and `unl`, which it sends set to zero.
-    beta: NotRequired[int]
-    demo: NotRequired[int]
-    trad: NotRequired[int]
-    hack: NotRequired[int]
-    unl: NotRequired[int]
+    # Sent as "1"/"0" strings, typed for the int some platforms send instead.
+    # No `proto`: jeuInfos omits the key entirely, unlike `demo` and `unl`,
+    # which it sends set to zero.
+    beta: NotRequired[int | str]
+    demo: NotRequired[int | str]
+    trad: NotRequired[int | str]
+    hack: NotRequired[int | str]
+    unl: NotRequired[int | str]
 
 
 # https://api.screenscraper.fr/webapi2.php#jeuInfos
