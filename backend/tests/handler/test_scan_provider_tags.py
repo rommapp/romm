@@ -212,3 +212,38 @@ async def test_a_filename_tag_survives_a_provider_that_reports_none(
     result = await _scan(MetadataSource.SS, fs_name="Mario Kart 64 (Beta).z64")
 
     assert result.tags == ["Beta"]
+
+
+async def test_a_dump_tag_is_kept_in_its_sources_blob(ss_translated: AsyncMock):
+    result = await _scan(MetadataSource.SS)
+
+    assert result.ss_metadata is not None
+    assert result.ss_metadata["dump_tags"] == ["Translation"]
+
+
+async def test_an_update_that_skips_screenscraper_keeps_what_its_dump_said():
+    """The row's tags are re-read from the filename first, as a selected rescan does."""
+    result = await _scan(
+        MetadataSource.HASHEOUS,
+        scan_type=ScanType.UPDATE,
+        ss_id=42,
+        ss_metadata={"dump_regions": ["Europe"], "dump_tags": ["Translation"]},
+        regions=[],
+        tags=[],
+    )
+
+    assert result.regions == ["Europe"]
+    assert result.tags == ["Translation"]
+
+
+async def test_a_complete_rescan_without_screenscraper_drops_its_tags(
+    hasheous_lookup: AsyncMock,
+):
+    result = await _scan(
+        MetadataSource.HASHEOUS,
+        ss_id=42,
+        ss_metadata={"dump_tags": ["Translation"]},
+        tags=["Translation"],
+    )
+
+    assert result.tags == []

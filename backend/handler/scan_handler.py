@@ -140,6 +140,28 @@ PROVIDER_TAG_FIELDS = ("regions", "languages")
 PROVIDER_MERGED_TAG_FIELDS = ("tags",)
 
 
+def hash_source_tags(
+    fields: dict[str, Any], rom_attrs: dict[str, Any]
+) -> dict[str, list[str]] | None:
+    """The tags a hash-matched source vouches for: its answer now, else its last.
+
+    Args:
+        fields: The source's entry in the scan's handler table.
+        rom_attrs: The ROM's attributes, still holding its stored ids and blobs.
+
+    Returns:
+        Each tag field's values, or None when the source doesn't cover the ROM.
+    """
+    handler = fields["handler"]
+    tag_fields = PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
+    if handler.get(fields["id_field"]):
+        return {field: list(handler.get(field) or []) for field in tag_fields}
+    if rom_attrs.get(fields["id_field"]):
+        stored = rom_attrs.get(fields["metadata_field"]) or {}
+        return {field: list(stored.get(f"dump_{field}") or []) for field in tag_fields}
+    return None
+
+
 def scene_apply_sources(
     available_sources: list[MetadataSource],
     *,
@@ -1415,6 +1437,29 @@ async def scan_rom(
             extra=LOGGER_MODULE_NAME,
         )
 
+    # A skipped source's tags can't be told apart on the row, so each hash source
+    # keeps the ones its dump gave in its own blob.
+    for source_name in HASH_MATCHED_TAG_SOURCES:
+        fields = metadata_handlers[source_name]
+        handler = fields["handler"]
+        if handler.get(fields["id_field"]):
+            dump_tags = {
+                f"dump_{field}": list(handler[field])
+                for field in PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
+                if field in handler
+            }
+            blob = {**(handler.get(fields["metadata_field"]) or {}), **dump_tags}
+            fields["handler"] = {**handler, fields["metadata_field"]: blob}
+    hash_claims = {
+        source_name: claims
+        for source_name in HASH_MATCHED_TAG_SOURCES
+        if (claims := hash_source_tags(metadata_handlers[source_name], rom_attrs))
+        is not None
+    }
+    hash_sources = get_priority_ordered_metadata_sources(
+        scene_apply_sources(list(hash_claims), scene_locked=scene_locked), "metadata"
+    )
+
     # Apply metadata priority order
     priority_ordered = get_priority_ordered_metadata_sources(apply_sources, "metadata")
     # Reverse priority order to apply highest priority last
@@ -1445,10 +1490,8 @@ async def scan_rom(
             if source_name not in HASH_MATCHED_TAG_SOURCES
         ):
             continue
-        for source_name in priority_ordered:
-            if source_name not in HASH_MATCHED_TAG_SOURCES:
-                continue
-            field_value = metadata_handlers[source_name]["handler"].get(field)
+        for source_name in hash_sources:
+            field_value = hash_claims[source_name][field]
             if field_value:
                 rom_attrs[field] = field_value
                 break
@@ -1464,10 +1507,8 @@ async def scan_rom(
             if claimed:
                 merged_tags = list(claimed)
                 break
-        for source_name in priority_ordered:
-            if source_name not in HASH_MATCHED_TAG_SOURCES:
-                continue
-            for tag in metadata_handlers[source_name]["handler"].get(field) or []:
+        for source_name in hash_sources:
+            for tag in hash_claims[source_name][field]:
                 if tag not in merged_tags:
                     merged_tags.append(tag)
         rom_attrs[field] = merged_tags
