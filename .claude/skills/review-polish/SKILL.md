@@ -106,7 +106,7 @@ short a word.
 
 ## D. Tests: strict typing is part of the test
 
-Trunk runs mypy over `backend/tests/`, and `vue-tsc` covers frontend tests. Both
+mypy covers `backend/tests/`, and `vue-tsc` covers frontend tests. Both
 catch these, but only after the contributor has handed the PR over.
 
 - **Narrow optionals before attribute access.** `mock.await_args` is
@@ -181,13 +181,14 @@ With `uiVersion = "v2"`:
 Run from `backend/`:
 
 1. `uv run pytest <path/file>` — zero failures on the tests affected by the diff. Never run the whole suite locally (20+ minutes); see [AGENTS.md](../../../AGENTS.md) for how to pick targets. CI runs it in full.
-2. `trunk fmt && trunk check` — ruff/black/isort/mypy/bandit clean (CI enforces Trunk).
-3. **If you added a migration:** `uv run alembic upgrade head` then `uv run alembic downgrade -1` to prove both directions; it must work on MariaDB **and** PostgreSQL (CI runs both).
-4. **If a response schema or route signature changed:** regenerate frontend types (`npm run generate`) and typecheck the frontend.
+2. `trunk fmt && trunk check`: ruff/black/isort/bandit clean (CI enforces Trunk).
+3. `uv run mypy --config-file ../.trunk/configs/mypy.ini .`: zero errors across the backend (CI enforces it).
+4. **If you added a migration:** `uv run alembic upgrade head` then `uv run alembic downgrade -1` to prove both directions; it must work on MariaDB **and** PostgreSQL (CI runs both).
+5. **If a response schema or route signature changed:** regenerate frontend types (`npm run generate`) and typecheck the frontend.
 
 ### CI gates this mirrors
 
-`typecheck.yml` (vue-tsc + lockfile lint), `frontend.yml` (vitest + build), `i18n.yml` (locale check), `pytest.yml` (pytest on MariaDB + PostgreSQL), `migrations.yml` (alembic on both DBs), `trunk-check.yml` (Trunk across the repo). Green locally → green in CI.
+`typecheck.yml` (vue-tsc + lockfile lint), `frontend.yml` (vitest + build), `i18n.yml` (locale check), `pytest.yml` (pytest on MariaDB + PostgreSQL), `migrations.yml` (alembic on both DBs), `mypy.yml` (mypy across the backend), `trunk-check.yml` (Trunk across the repo). Green locally → green in CI.
 
 ### Don't
 
