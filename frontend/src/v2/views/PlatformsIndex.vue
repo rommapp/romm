@@ -53,7 +53,8 @@ const phase = useLoadingPhase(
 const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
 const searchTerm = useTileSearchUrl();
-const { isPlayable, isStreamable } = usePlatformPlayableChecker();
+const { isPlayable, isStreamable, isNativeSupported } =
+  usePlatformPlayableChecker();
 
 // Empty (0-game) platforms are leftovers: rows whose folder vanished from
 // disk, whose ROMs were all deleted, or that a config exclusion keeps out
@@ -110,14 +111,20 @@ useWrapGridNav(gridRoot, { cellSelector: ".plat-tile" });
 // Pre-compute the play flag per platform: sort comparator and every row
 // read this map so the column, the badge on the tile, and the playable
 // bucket all agree on a single source of truth. "Playable" here means by
-// any means: in this tab through EmulatorJS or Ruffle, or on a configured
-// streaming container.
+// any means: in this tab through EmulatorJS or Ruffle, on a configured
+// streaming container, or in a local emulator when the desktop shell is
+// there to launch one -- a platform with no in-browser core at all, PS2
+// being the example, is playable inside the shell and has to sort as such.
 const playableById = computed(() => {
   const playableFn = isPlayable.value;
   const streamableFn = isStreamable.value;
+  const nativeFn = isNativeSupported.value;
   const map = new Map<number | string, boolean>();
   for (const p of allPlatforms.value) {
-    map.set(p.id, playableFn(p.slug) || streamableFn(p.slug));
+    map.set(
+      p.id,
+      playableFn(p.slug) || streamableFn(p.slug) || nativeFn(p.slug),
+    );
   }
   return map;
 });

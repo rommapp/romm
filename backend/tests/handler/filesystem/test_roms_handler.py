@@ -401,6 +401,34 @@ class TestFSRomsHandler:
         assert parsed.languages == []
         assert parsed.other_tags == ["Translation"]
 
+    def test_parse_tags_reads_two_letter_region_codes(self, handler: FSRomsHandler):
+        """TOSEC and similar sets write the provider shortcode, not the GoodTools
+        one, so "(US)" has to read as a region rather than land in tags."""
+        assert handler.parse_tags("Game (US).rom").regions == ["USA"]
+        assert handler.parse_tags("Game (JP).rom").regions == ["Japan"]
+        assert handler.parse_tags("Game (EU).rom").regions == ["Europe"]
+        assert handler.parse_tags("Game (BR).rom").regions == ["Brazil"]
+        assert handler.parse_tags("Game (CZ).rom").regions == ["Czech Republic"]
+
+        parsed = handler.parse_tags("Game (1994)(Konami)(JP).tap")
+        assert parsed.regions == ["Japan"]
+        assert "JP" not in parsed.other_tags
+
+    def test_parse_tags_leaves_the_ambiguous_codes_to_their_own_tables(
+        self, handler: FSRomsHandler
+    ):
+        """A two-letter code a language table claims keeps its old meaning, which
+        is what issue #3026 turned on."""
+        assert handler.parse_tags("Game (De).rom").languages == ["German"]
+        assert handler.parse_tags("Game (Fr).rom").languages == ["French"]
+        assert handler.parse_tags("Game (Pt).rom").languages == ["Portuguese"]
+        assert handler.parse_tags("Game (De).rom").regions == []
+
+        # "(Tr)" marks a translation by dumper convention, never Turkey.
+        parsed = handler.parse_tags("Game (Japan) (Tr).rom")
+        assert parsed.regions == ["Japan"]
+        assert parsed.other_tags == ["Translation"]
+
     def test_parse_tags_language_casing_is_normalized(self, handler: FSRomsHandler):
         """Language names collapse to one canonical spelling regardless of casing."""
         for fs_name in (
@@ -2856,15 +2884,15 @@ class TestExtractCHDHash:
 
         chd_file.write_bytes(header)
 
-        # Remove read permissions
-        chd_file.chmod(0o000)
-
-        try:
+        # Root ignores permission bits, so chmod can't simulate this.
+        with patch(
+            "utils.archives.open",
+            create=True,
+            side_effect=PermissionError(13, "Permission denied"),
+        ):
             result = extract_chd_hash(chd_file)
-            assert result == ""
-        finally:
-            # Restore permissions for cleanup
-            chd_file.chmod(0o644)
+
+        assert result == ""
 
     def test_extract_chd_hash_real_header(self, tmp_path):
         """Test extracting hash from real Pebble Beach Golf Links CHD v5 header

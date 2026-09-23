@@ -23,7 +23,7 @@ import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "
 import api from "@/services/api";
 import socket from "@/services/socket";
 import storeUpload from "@/stores/upload";
-import { getDownloadPath } from "@/utils";
+import { getDownloadPath } from "@/utils/downloadPath";
 import { buildFormInput, type FormInputField } from "@/utils/formData";
 
 export const romApi = api;

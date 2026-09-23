@@ -9,6 +9,7 @@ from joserfc import jwt
 from joserfc.errors import BadSignatureError, DecodeError
 from joserfc.jwk import OctKey
 from passlib.context import CryptContext
+from redis.exceptions import RedisError
 from starlette.requests import HTTPConnection
 
 from config import (
@@ -74,6 +75,15 @@ def _romm_username(provided: str, fallback: str) -> str:
     return username
 
 
+def _invite_token_spent() -> HTTPException:
+    """The one response for a spent or unusable invite, so neither caller
+    distinguishes them."""
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invite token has already been used or is invalid.",
+    )
+
+
 class AuthHandler:
     def __init__(self) -> None:
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -88,7 +98,12 @@ class AuthHandler:
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def verify_password(self, plain_password, hashed_password):
-        return self.pwd_context.verify(plain_password, hashed_password)
+        try:
+            return self.pwd_context.verify(plain_password, hashed_password)
+        except ValueError:
+            # OIDC-provisioned accounts hold a placeholder, not a bcrypt hash,
+            # and passlib raises on one it cannot identify.
+            return False
 
     def get_password_hash(self, password):
         return self.pwd_context.hash(password)
@@ -205,6 +220,43 @@ class AuthHandler:
 
         return user
 
+    async def apply_user_update(
+        self,
+        user_id: int,
+        data: dict[str, Any],
+        revoke_sessions_for: str | None = None,
+    ) -> None:
+        """
+        Write an update to a user, revoking that account's sessions around it.
+        Args:
+            user_id (int): The user the update applies to.
+            data (dict[str, Any]): The fields to write.
+            revoke_sessions_for (str | None): Username the sessions are keyed by,
+                or None to write without revoking.
+        """
+        from handler.database import db_user_handler
+
+        if revoke_sessions_for:
+            # Ahead of the write: an unreachable Redis then aborts the change
+            # rather than committing it with the account's sessions left live.
+            await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
+
+        db_user_handler.update_user(user_id, data)
+
+        if revoke_sessions_for:
+            # After it, for a login the old password was still good for. The
+            # write has committed, so a failure here is logged, not raised.
+            try:
+                await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
+            except RedisError, OSError:
+                log.error(
+                    "Credentials for '%s' changed, but revoking its sessions "
+                    "afterwards failed; a session created during the update may "
+                    "still be live",
+                    hl(revoke_sessions_for, color=CYAN),
+                    exc_info=True,
+                )
+
     async def set_user_new_password(self, user: Any, new_password: str) -> None:
         """
         Set the new password for the user.
@@ -212,12 +264,11 @@ class AuthHandler:
             user (Any): The user object.
             new_password (str): The new password to set.
         """
-        from handler.database import db_user_handler
-
-        db_user_handler.update_user(
-            user.id, {"hashed_password": self.get_password_hash(new_password)}
+        await self.apply_user_update(
+            user.id,
+            {"hashed_password": self.get_password_hash(new_password)},
+            revoke_sessions_for=user.username,
         )
-        await RedisSessionMiddleware.clear_user_sessions(user.username)
 
     def generate_invite_link_token(
         self, user: Any, role: str, expiration: int | None = None
@@ -252,12 +303,23 @@ class AuthHandler:
             to_encode,
             oct_key,
         )
-        invite_link = f"{ROMM_BASE_URL}/register?token={token}"
+        # The link is already in the response; the token registers an account on
+        # its own, so the log gets only its id.
         log.info(
-            f"Invite link created by {hl(user.username, color=CYAN)}: {hl(invite_link)}"
+            f"Invite link created by {hl(user.username, color=CYAN)} (jti: {hl(jti)})"
         )
         redis_client.setex(f"invite-jti:{jti}", expires_in, "valid")
         return token
+
+    def assert_invite_link_token_valid(self, token: str) -> None:
+        """Raise unless the invite link token is valid, leaving it unspent.
+
+        Args:
+            token (str): The token to check.
+        """
+        jti, _ = self._decode_invite_link_token(token)
+        if redis_client.get(f"invite-jti:{jti}") != b"valid":
+            raise _invite_token_spent()
 
     def consume_invite_link_token(self, token: str) -> str:
         """
@@ -269,6 +331,17 @@ class AuthHandler:
         Returns:
             str: The role associated with the token.
         """
+        jti, role = self._decode_invite_link_token(token)
+
+        # Read and invalidate in one operation, so two registrations racing on
+        # one invite cannot both see it as valid and both create an account.
+        if redis_client.getdel(f"invite-jti:{jti}") != b"valid":
+            raise _invite_token_spent()
+
+        return role
+
+    def _decode_invite_link_token(self, token: str) -> tuple[str, str]:
+        """Decode an invite link token and return its `(jti, role)`."""
         try:
             payload = jwt.decode(token, oct_key, algorithms=[ALGORITHM])
         except (BadSignatureError, DecodeError, ValueError) as exc:
@@ -282,16 +355,10 @@ class AuthHandler:
 
         jti = payload.claims.get("jti")
         role = payload.claims.get("role", "USER").upper()
-        if not jti or redis_client.get(f"invite-jti:{jti}") != b"valid":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invite token has already been used or is invalid.",
-            )
+        if not jti:
+            raise _invite_token_spent()
 
-        # Invalidate the token as soon as it's read
-        redis_client.delete(f"invite-jti:{jti}")
-
-        return role
+        return jti, role
 
 
 class OAuthHandler:
@@ -430,7 +497,7 @@ class OpenIDHandler:
                 detail="Email is missing from token.",
             )
 
-        metadata = await oauth.openid.load_server_metadata()  # type: ignore
+        metadata = await oauth.openid.load_server_metadata()
         claims_supported = metadata.get("claims_supported")
         is_email_verified = userinfo.get("email_verified", None)
 

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
 
-import socketio  # type: ignore
+import socketio
 from redis import Redis
 from rq import get_current_job
 from rq.exceptions import AbandonedJobError
@@ -1431,7 +1431,7 @@ async def reject_unauthorized_scan(sid: str) -> bool:
     return True
 
 
-@socket_handler.socket_server.on("scan")  # type: ignore
+@socket_handler.socket_server.on("scan")
 async def scan_handler(sid: str, options: dict[str, Any]):
     """Scan socket endpoint
 
@@ -1494,7 +1494,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     )
 
 
-@socket_handler.socket_server.on("scan:stop")  # type: ignore
+@socket_handler.socket_server.on("scan:stop")
 async def stop_scan_handler(sid: str):
     """Stop scan socket endpoint"""
 

@@ -1,6 +1,9 @@
+from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any, Self, cast
 
+from fastapi_pagination.bases import AbstractParams
+from fastapi_pagination.limit_offset import LimitOffsetPage
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import PlainSerializer
 
@@ -19,3 +22,18 @@ class BaseModel(PydanticBaseModel):
     """Base response model for all API responses."""
 
     pass
+
+
+class TypedLimitOffsetPage[T: PydanticBaseModel](LimitOffsetPage[T]):
+    """LimitOffsetPage whose `create` is typed to return the subclass it builds."""
+
+    @classmethod
+    def create(
+        cls,
+        items: Sequence[T],
+        params: AbstractParams,
+        *,
+        total: int | None = None,
+        **kwargs: Any,
+    ) -> Self:
+        return cast(Self, super().create(items, params, total=total, **kwargs))

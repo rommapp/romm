@@ -416,7 +416,8 @@ class TestInstallation:
 
         client = create_httpx_async_client()
         try:
-            assert isinstance(client._transport._pool._network_backend, Async)
+            transport: Any = client._transport
+            assert isinstance(transport._pool._network_backend, Async)
         finally:
             asyncio.run(client.aclose())
 
@@ -425,7 +426,8 @@ class TestInstallation:
         from utils.ssrf import SSRFProtectedSyncBackend as Sync
 
         with create_httpx_client() as client:
-            assert isinstance(client._transport._pool._network_backend, Sync)
+            transport: Any = client._transport
+            assert isinstance(transport._pool._network_backend, Sync)
 
     def test_proxy_transports_are_not_wrapped(self):
         """Proxy mounts must keep their stock backend.
@@ -447,12 +449,14 @@ class TestInstallation:
         client = httpx.AsyncClient(proxy="http://proxy.invalid:3128")
         try:
             install_async_ssrf_protection(client)
-            assert isinstance(client._transport._pool._network_backend, Async)
+            transport: Any = client._transport
+            assert isinstance(transport._pool._network_backend, Async)
             for mount in client._mounts.values():
                 if mount is None:
                     continue
                 # Proxy mount must NOT have been wrapped.
-                assert not isinstance(mount._pool._network_backend, Async)
+                mount_transport: Any = mount
+                assert not isinstance(mount_transport._pool._network_backend, Async)
         finally:
             asyncio.run(client.aclose())
 

@@ -1,6 +1,6 @@
 import { useLocalStorage } from "@vueuse/core";
 import { defineStore } from "pinia";
-import { ROUTES } from "@/plugins/router";
+import { ROUTES } from "@/plugins/routeNames";
 
 const mainBarCollapsed = useLocalStorage("ui.mainBarCollapsed", false);
 

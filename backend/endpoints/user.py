@@ -201,6 +201,10 @@ def create_user_from_invite(
         UserSchema: Newly created user
     """
 
+    # Ahead of the "already exists" checks, which would otherwise enumerate
+    # accounts for an invalid token. Not consumed, so a retry keeps the invite.
+    auth_handler.assert_invite_link_token_valid(token)
+
     try:
         validate_username(username)
         validate_password(password)
@@ -430,14 +434,14 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You cannot demote the last admin user",
             )
-        cleaned_data["role"] = new_role  # type: ignore[assignment]
+        cleaned_data["role"] = new_role
 
     # You can't disable yourself
     if form_data.enabled is not None and request.user.id != id:
-        cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
+        cleaned_data["enabled"] = form_data.enabled
 
     if form_data.ra_username:
-        cleaned_data["ra_username"] = form_data.ra_username  # type: ignore[assignment]
+        cleaned_data["ra_username"] = form_data.ra_username
 
     if form_data.ui_settings is not None:
         try:
@@ -449,7 +453,7 @@ async def update_user(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=msg,
                 )
-            cleaned_data["ui_settings"] = ui_settings  # type: ignore[assignment]
+            cleaned_data["ui_settings"] = ui_settings
         except (json.JSONDecodeError, ValueError) as exc:
             msg = f"Invalid ui_settings JSON: {str(exc)}"
             log.error(msg)
@@ -471,18 +475,25 @@ async def update_user(
         cleaned_data["avatar_path"] = file_location
 
     if cleaned_data:
-        db_user_handler.update_user(id, cleaned_data)
+        # Sessions are keyed by username, so the old one is what identifies
+        # them once the update has renamed the account.
+        previous_username = db_user.username
+        creds_updated = cleaned_data.get("username") or cleaned_data.get(
+            "hashed_password"
+        )
+
+        await auth_handler.apply_user_update(
+            id,
+            cleaned_data,
+            revoke_sessions_for=previous_username if creds_updated else None,
+        )
+
+        if creds_updated and request.user.id == id:
+            request.session.clear()
 
         # A role change alters the user's effective permissions; tell their UI.
         if "role" in cleaned_data:
             await emit_permissions_changed(id)
-
-        # Log out the current user if username or password changed
-        creds_updated = cleaned_data.get("username") or cleaned_data.get(
-            "hashed_password"
-        )
-        if request.user.id == id and creds_updated:
-            request.session.clear()
 
     db_user = db_user_handler.get_user(id)
     if not db_user:
@@ -558,6 +569,10 @@ async def refresh_retro_achievements(
     ] = False,
 ) -> None:
     """Refresh RetroAchievements progression data for a user."""
+    # Admin users can refresh any user, while other users can only refresh self
+    if id != request.user.id and request.user.role != Role.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
     user = db_user_handler.get_user(id)
     if not user or not user.ra_username:
         raise HTTPException(

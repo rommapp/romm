@@ -31,6 +31,11 @@ import storeGallerySelection from "@/v2/stores/gallerySelection";
 
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 8;
+/** How close to the scroller's edge the finger has to get before a paint
+ *  drag starts pulling the list along, and how fast it pulls at the very
+ *  edge. Below that band the drag is a plain paint. */
+const EDGE_BAND_PX = 72;
+const EDGE_MAX_SPEED_PX = 14;
 
 interface LongPressState {
   romId: number;
@@ -45,10 +50,106 @@ interface LongPressState {
 }
 
 let longPress: LongPressState | null = null;
+/** The drag's own selections, keyed by position, so dragging back out of the
+ *  range gives them back. Null while no drag is painting. */
+let painted: Map<number, number> | null = null;
+/** Where the drag started and how far it has reached: the range it owns is
+ *  everything between the two. */
+let paintAnchor: number | null = null;
+let paintReach: number | null = null;
+/** True between a tracked touch going down and coming back up. The long-press
+ *  state outlives that, waiting for the click it has to swallow. */
+let pressActive = false;
+/** Where the finger is, for the auto-scroll to keep painting from. */
+let paintPoint: { x: number; y: number } | null = null;
+let paintScroller: HTMLElement | null = null;
+/** The stretch of the scroller the list is actually reachable in, measured
+ *  past the chrome pinned over it. The bands live at its two ends. */
+let paintBounds: { top: number; bottom: number } | null = null;
+let edgeFrame: number | null = null;
+/** Drops the window listeners the live gesture is tracked through. */
+let untrackPointer: (() => void) | null = null;
+
+function stopEdgeScroll() {
+  if (edgeFrame !== null) cancelAnimationFrame(edgeFrame);
+  edgeFrame = null;
+  paintPoint = null;
+  paintScroller = null;
+  paintBounds = null;
+}
+
+/** First row found straight down the hit stack, past anything over it. */
+function rowAt(x: number, y: number): HTMLElement | null {
+  for (const el of document.elementsFromPoint(x, y)) {
+    const host = el.closest<HTMLElement>("[data-rom-position]");
+    if (host) return host;
+  }
+  return null;
+}
+
+/** Where the list stops being covered, at each end: the column header and
+ *  toolbar pinned over the top, the nav and the selection bar over the
+ *  bottom. Probed rather than named, so no chrome's class name is load
+ *  bearing in here, and measured once per drag since it barely moves. */
+function reachableBounds(
+  scroller: HTMLElement,
+  x: number,
+): { top: number; bottom: number } {
+  const rect = scroller.getBoundingClientRect();
+  const STEP_PX = 8;
+  // Uncovered means the row is what the finger would touch, not chrome.
+  const uncovered = (y: number) =>
+    document.elementFromPoint(x, y)?.closest("[data-rom-position]") != null;
+
+  let top = rect.top;
+  while (top < rect.bottom && !uncovered(top)) top += STEP_PX;
+  if (top >= rect.bottom) return { top: rect.top, bottom: rect.bottom };
+
+  let bottom = rect.bottom;
+  while (bottom > top && !uncovered(bottom)) bottom -= STEP_PX;
+  return { top, bottom };
+}
 
 function resetLongPress() {
+  untrackPointer?.();
   if (longPress?.timer) clearTimeout(longPress.timer);
   longPress = null;
+  painted = null;
+  paintAnchor = null;
+  paintReach = null;
+  stopEdgeScroll();
+}
+
+/** Nearest ancestor that actually scrolls, which is what the drag pulls. */
+function scrollableAncestor(el: Element | null): HTMLElement | null {
+  for (let node = el; node instanceof HTMLElement; node = node.parentElement) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if (
+      (overflowY === "auto" || overflowY === "scroll") &&
+      node.scrollHeight > node.clientHeight
+    ) {
+      return node;
+    }
+  }
+  return null;
+}
+
+/** Px to scroll this frame: nothing until the finger enters the edge band,
+ *  then proportional to how far into it the finger has gone. Exported for
+ *  its own test; the drag itself reads it through `runEdgeScroll`. */
+export function edgeSpeed(y: number, top: number, bottom: number): number {
+  if (y < top + EDGE_BAND_PX) {
+    return (
+      -EDGE_MAX_SPEED_PX * Math.min(1, (top + EDGE_BAND_PX - y) / EDGE_BAND_PX)
+    );
+  }
+  if (y > bottom - EDGE_BAND_PX) {
+    return (
+      EDGE_MAX_SPEED_PX *
+      Math.min(1, (y - (bottom - EDGE_BAND_PX)) / EDGE_BAND_PX)
+    );
+  }
+  return 0;
 }
 
 export function useGallerySelectionInput() {
@@ -100,8 +201,19 @@ export function useGallerySelectionInput() {
   ) {
     if (event.pointerType !== "touch") return;
     if (event.isPrimary === false) return;
+    // A press that lands on a control belongs to that control. The row and
+    // the card are an `<a>`, so neither matches this and both still track.
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest("button, input, select, textarea, [role='menuitem']")
+    ) {
+      return;
+    }
 
     resetLongPress();
+    trackPointer();
+    pressActive = true;
     longPress = {
       romId: rom.id,
       position,
@@ -120,11 +232,132 @@ export function useGallerySelectionInput() {
       state.consumed = true;
       state.timer = null;
       selection.toggle(rom, position);
+      // Whatever the press selected anchors the drag; it owns nothing yet.
+      painted = new Map();
+      paintAnchor = position;
+      paintReach = position;
     }, LONG_PRESS_MS);
   }
 
+  /** Select the row under the finger, if it is one we haven't painted. */
+  function paintAt(clientX: number, clientY: number) {
+    if (!painted) return;
+    // Chrome floats over both ends of the list, and a drag parks its finger
+    // at exactly those ends, so take the row under it rather than the thing
+    // on top of it.
+    const host = rowAt(clientX, clientY);
+    if (!host) return;
+    const position = Number(host.dataset.romPosition);
+    paintScroller ??= scrollableAncestor(host);
+    if (!Number.isInteger(position)) return;
+    reachTo(position);
+  }
+
+  /** Move the drag's far end to `position`: everything now between it and the
+   *  anchor is selected, and everything the drag has left behind is given
+   *  back. Only the rows this drag selected are ever unselected. */
+  function reachTo(position: number) {
+    if (!painted || paintAnchor === null || paintReach === null) return;
+    if (position === paintReach) return;
+    const low = Math.min(paintAnchor, position);
+    const high = Math.max(paintAnchor, position);
+    // Only the stretch between the old and the new far end can have changed.
+    for (
+      let p = Math.min(paintReach, position);
+      p <= Math.max(paintReach, position);
+      p++
+    ) {
+      if (p === paintAnchor) continue;
+      if (p >= low && p <= high) {
+        if (painted.has(p)) continue;
+        const rom = galleryRoms.getRomAt(p);
+        // A row that was already selected is the user's, not the drag's: it
+        // stays put, and leaving it behind must not take it away.
+        if (!rom || selection.isSelected(rom.id)) continue;
+        painted.set(p, rom.id);
+        selection.selectMany([rom]);
+      } else {
+        const id = painted.get(p);
+        if (id === undefined) continue;
+        painted.delete(p);
+        selection.removeIds([id]);
+      }
+    }
+    paintReach = position;
+  }
+
+  /** While the finger sits in the edge band, pull the list past it and keep
+   *  painting whatever arrives under it, so a drag can run past one screen. */
+  function runEdgeScroll() {
+    edgeFrame = null;
+    const scroller = paintScroller;
+    const point = paintPoint;
+    if (!painted || !scroller || !point) return;
+    paintBounds ??= reachableBounds(scroller, point.x);
+    const { top, bottom } = paintBounds;
+    const speed = edgeSpeed(point.y, top, bottom);
+    if (speed !== 0) {
+      const before = scroller.scrollTop;
+      scroller.scrollTop += speed;
+      if (scroller.scrollTop !== before) paintAt(point.x, point.y);
+    }
+    edgeFrame = requestAnimationFrame(runEdgeScroll);
+  }
+
+  // The row that took the press unmounts mid-drag whenever the virtualiser
+  // recycles it, and the finger ends a drag over the chrome at the list's
+  // edge rather than over a row. Either way its own events stop arriving, so
+  // the gesture is followed on the window until the finger lifts.
+  function trackPointer() {
+    const move = (event: PointerEvent) => handlePointerMove(event);
+    const end = () => handlePointerEnd();
+    // A painting finger owns the gesture; the page must not scroll under it.
+    const scroll = (event: TouchEvent) => {
+      if (isPainting()) event.preventDefault();
+    };
+    window.addEventListener("pointermove", move, { passive: true });
+    window.addEventListener("pointerup", end, { passive: true });
+    window.addEventListener("pointercancel", end, { passive: true });
+    window.addEventListener("touchmove", scroll, { passive: false });
+    untrackPointer = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      window.removeEventListener("touchmove", scroll);
+      untrackPointer = null;
+    };
+  }
+
+  /** Drops a gesture still in flight, for a surface going away under it:
+   *  its timer would otherwise select into the gallery that replaced it. */
+  function cancel() {
+    resetLongPress();
+    pressActive = false;
+  }
+
+  /** True while a long press has turned into a drag that paints rows. */
+  function isPainting(): boolean {
+    return painted !== null;
+  }
+
+  /** Suppress the native callout the browser offers on a long press, which
+   *  would otherwise cover the selection the press just made. Only a live
+   *  touch counts, so a right-click still opens the browser's menu. */
+  function handleContextMenu(event: Event) {
+    if (pressActive) event.preventDefault();
+  }
+
   function handlePointerMove(event: PointerEvent) {
-    if (!longPress || longPress.consumed) return;
+    if (!longPress) return;
+    // Past the long press, the drag selects every row it crosses. Touch
+    // events stay with the element that got the press, so the row under the
+    // finger is looked up by coordinates.
+    if (longPress.consumed) {
+      paintPoint = { x: event.clientX, y: event.clientY };
+      paintAt(event.clientX, event.clientY);
+      if (edgeFrame === null) edgeFrame = requestAnimationFrame(runEdgeScroll);
+      return;
+    }
     const dx = Math.abs(event.clientX - longPress.startX);
     const dy = Math.abs(event.clientY - longPress.startY);
     if (
@@ -136,6 +369,9 @@ export function useGallerySelectionInput() {
   }
 
   function handlePointerEnd() {
+    untrackPointer?.();
+    pressActive = false;
+    stopEdgeScroll();
     // If the timer hasn't fired yet, the press was a normal tap —
     // cancel so the click event passes through unchanged. If it did
     // fire (`consumed: true`), keep the state so the synthetic click
@@ -146,8 +382,9 @@ export function useGallerySelectionInput() {
 
   return {
     handleActivate,
+    handleContextMenu,
+    isPainting,
     handlePointerDown,
-    handlePointerMove,
-    handlePointerEnd,
+    cancel,
   };
 }

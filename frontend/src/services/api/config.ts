@@ -22,7 +22,7 @@ async function addPlatformBindConfig({
 }
 
 async function deletePlatformBindConfig({ fsSlug }: { fsSlug: string }) {
-  return api.delete(`/config/system/platforms/${fsSlug}`);
+  return api.delete(`/config/system/platforms/${encodeURIComponent(fsSlug)}`);
 }
 
 async function addPlatformVersionConfig({
@@ -39,7 +39,7 @@ async function addPlatformVersionConfig({
 }
 
 async function deletePlatformVersionConfig({ fsSlug }: { fsSlug: string }) {
-  return api.delete(`/config/system/versions/${fsSlug}`);
+  return api.delete(`/config/system/versions/${encodeURIComponent(fsSlug)}`);
 }
 
 async function addExclusion({
@@ -65,7 +65,9 @@ async function deleteExclusion({
   exclusionValue: string;
   exclusionType: string;
 }) {
-  return api.delete(`/config/exclude/${exclusionType}/${exclusionValue}`);
+  return api.delete(
+    `/config/exclude/${exclusionType}/${encodeURIComponent(exclusionValue)}`,
+  );
 }
 
 async function updateScanSettings(payload: ScanSettingsPayload) {
