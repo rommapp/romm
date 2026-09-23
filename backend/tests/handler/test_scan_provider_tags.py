@@ -166,21 +166,16 @@ async def test_screenscraper_tags_a_translated_dump(ss_translated: AsyncMock):
 
 
 async def test_a_dump_tag_joins_the_filename_tags(ss_translated: AsyncMock):
-    """Unlike a region, a tag adds: the dump is a translation and a revision."""
-    result = await _scan(
-        MetadataSource.SS,
-        fs_name="Mario Kart 64 (Japan) (Rev A).z64",
-        tags=["Rev A"],
-    )
+    """Unlike a region, a tag adds: the dump is a translation and a beta."""
+    result = await _scan(MetadataSource.SS, fs_name="Mario Kart 64 (Japan) (Beta).z64")
 
-    assert result.tags == ["Rev A", "Translation"]
+    assert result.tags == ["Beta", "Translation"]
 
 
 async def test_a_tag_both_sources_report_is_not_repeated(ss_translated: AsyncMock):
     result = await _scan(
         MetadataSource.SS,
         fs_name="Mario Kart 64 (Japan) [T+Eng].z64",
-        tags=["Translation"],
     )
 
     assert result.tags == ["Translation"]
@@ -196,7 +191,6 @@ async def test_an_update_rescan_keeps_the_dump_tag(ss_translated_by_id: AsyncMoc
         MetadataSource.SS,
         scan_type=ScanType.UPDATE,
         ss_id=42,
-        tags=["Translation"],
     )
 
     assert result.tags == ["Translation"]
@@ -205,3 +199,20 @@ async def test_an_update_rescan_keeps_the_dump_tag(ss_translated_by_id: AsyncMoc
     await_args = ss_translated_by_id.await_args
     assert await_args is not None, "the id path should run"
     assert len(await_args.args) == 3, "the refetch needs the files"
+
+
+async def test_a_dump_that_is_no_longer_a_translation_loses_the_tag(
+    ss_lookup: AsyncMock,
+):
+    """The row cannot say where a tag came from, so it is never the base."""
+    result = await _scan(MetadataSource.SS, tags=["Translation"])
+
+    assert result.tags == []
+
+
+async def test_a_filename_tag_survives_a_provider_that_reports_none(
+    ss_lookup: AsyncMock,
+):
+    result = await _scan(MetadataSource.SS, fs_name="Mario Kart 64 (Beta).z64")
+
+    assert result.tags == ["Beta"]

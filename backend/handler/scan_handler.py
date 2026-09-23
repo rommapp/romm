@@ -1436,6 +1436,7 @@ async def scan_rom(
     local_tags = {
         "regions": filename_tags.regions,
         "languages": filename_tags.languages,
+        "tags": filename_tags.other_tags,
     }
     for field in PROVIDER_TAG_FIELDS:
         if local_tags[field] or any(
@@ -1453,7 +1454,16 @@ async def scan_rom(
                 break
 
     for field in PROVIDER_MERGED_TAG_FIELDS:
-        merged_tags = list(rom_attrs.get(field) or [])
+        # The base is what a local source says now, never the stored list: a
+        # dump that stops being a translation has to lose the tag again.
+        merged_tags = list(local_tags[field])
+        for source_name in priority_ordered:
+            if source_name in HASH_MATCHED_TAG_SOURCES:
+                continue
+            claimed = metadata_handlers[source_name]["handler"].get(field)
+            if claimed:
+                merged_tags = list(claimed)
+                break
         for source_name in priority_ordered:
             if source_name not in HASH_MATCHED_TAG_SOURCES:
                 continue
