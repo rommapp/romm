@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { NotificationChannelMinLevel } from './NotificationChannelMinLevel';
 import type { NotificationChannelType } from './NotificationChannelType';
-import type { NotificationLevel } from './NotificationLevel';
 import type { NotificationTopic } from './NotificationTopic';
 import type { WebhookFormat } from './WebhookFormat';
 export type NotificationChannelSchema = {
@@ -11,7 +11,7 @@ export type NotificationChannelSchema = {
     type: NotificationChannelType;
     name: string;
     enabled: boolean;
-    min_level: NotificationLevel;
+    min_level: NotificationChannelMinLevel;
     topics: (Array<NotificationTopic> | null);
     target: string;
     format: (WebhookFormat | null);

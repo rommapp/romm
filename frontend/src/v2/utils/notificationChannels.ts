@@ -1,7 +1,7 @@
 // What a notification channel can pick from, shared by its list and its dialog.
 import type {
+  NotificationChannelMinLevel,
   NotificationChannelSchema,
-  NotificationLevel,
   NotificationTopic,
   WebhookFormat,
 } from "@/__generated__";
@@ -14,8 +14,18 @@ export const CHANNEL_TOPICS: NotificationTopic[] = [
   "custom",
 ];
 
-// Info and success both mean nothing needs doing, so the lowest bar is info.
-export const CHANNEL_LEVELS: NotificationLevel[] = ["info", "warning", "error"];
+export const CHANNEL_LEVELS: NotificationChannelMinLevel[] = [
+  "info",
+  "warning",
+  "error",
+];
+
+// Mirror the limits in backend/models/notification_channel.py.
+export const NOTIFICATION_CHANNEL_NAME_MAX_LENGTH = 100;
+export const NOTIFICATION_CHANNEL_URL_MAX_LENGTH = 2000;
+export const NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH = 255;
+export const NOTIFICATION_CHANNEL_ADDRESS_MAX_LENGTH = 320;
+export const NOTIFICATION_CHANNEL_CODE_MAX_LENGTH = 16;
 
 export const FORMAT_ICONS: Record<WebhookFormat, string> = {
   json: "mdi-webhook",

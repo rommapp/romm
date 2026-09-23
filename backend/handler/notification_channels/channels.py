@@ -6,18 +6,24 @@ from typing import Any
 
 from config import EMAIL_ENABLED
 from handler.database import db_notification_channel_handler
-from models.notification import NotificationLevel, NotificationTopic
+from models.notification import NotificationTopic
 from models.notification_channel import (
     MAX_NOTIFICATION_CHANNELS_PER_USER,
     NotificationChannel,
+    NotificationChannelMinLevel,
     NotificationChannelType,
     WebhookFormat,
 )
-from models.user import Role, User
+from models.user import User
 
 from .config import EmailConfig, WebhookConfig, origin, read_config, seal_config
 from .confirmation import check_code, issue_code
-from .delivery import sample_message, send_to_channel
+from .delivery import (
+    describe_error,
+    may_reach_private_network,
+    sample_message,
+    send_to_channel,
+)
 from .webhook import check_url
 
 
@@ -25,15 +31,16 @@ class ChannelError(ValueError):
     """A change the channel can't take, worded for the user."""
 
 
-def _may_reach_private_network(user: User) -> bool:
-    return user.role == Role.ADMIN
-
-
-def _check_webhook(url: str, format: WebhookFormat, user: User) -> None:
+def _webhook_config(
+    url: str, format: WebhookFormat, secret: str | None, user: User
+) -> WebhookConfig:
+    """A webhook's config once its URL checks out; Discord takes no secret."""
     try:
-        check_url(url, format, allow_private=_may_reach_private_network(user))
+        check_url(url, format, allow_private=may_reach_private_network(user.role))
     except ValueError as exc:
         raise ChannelError(str(exc)) from exc
+    secret = None if format == WebhookFormat.DISCORD else secret
+    return WebhookConfig(url=url, format=format, secret=secret or None)
 
 
 def _require_email() -> None:
@@ -45,7 +52,7 @@ async def create_channel(
     user: User,
     type: NotificationChannelType,
     name: str,
-    min_level: NotificationLevel,
+    min_level: NotificationChannelMinLevel,
     topics: Sequence[NotificationTopic] | None,
     *,
     url: str | None = None,
@@ -78,8 +85,7 @@ async def create_channel(
     else:
         if not url:
             raise ChannelError("A webhook needs a URL")
-        _check_webhook(url, format, user)
-        config = WebhookConfig(url=url, format=format, secret=secret or None)
+        config = _webhook_config(url, format, secret, user)
         confirmed_at = datetime.now(timezone.utc)
 
     channel = db_notification_channel_handler.add_channel(
@@ -145,28 +151,28 @@ async def update_channel(
         new_format = WebhookFormat(format or config.get("format") or WebhookFormat.JSON)
         if not new_url:
             raise ChannelError("The channel needs its URL again")
-        _check_webhook(new_url, new_format, user)
-        new_secret = (secret or None) if secret_given else config.get("secret")
+        new_config = _webhook_config(
+            new_url,
+            new_format,
+            secret if secret_given else config.get("secret"),
+            user,
+        )
         moved = new_format != config.get("format") or origin(new_url) != origin(
             config.get("url", "")
         )
-        # A kept secret only goes where it was given for; Discord needs none.
-        if new_secret and moved and not secret_given:
-            if new_format != WebhookFormat.DISCORD:
-                raise ChannelError(
-                    "Enter the secret again for the new URL or format, or remove it"
-                )
-            new_secret = None
-        changes["config"] = seal_config(
-            WebhookConfig(url=new_url, format=new_format, secret=new_secret)
-        )
+        # A kept secret only goes where it was given for.
+        if moved and not secret_given and new_config.get("secret"):
+            raise ChannelError(
+                "Enter the secret again for the new URL or format, or remove it"
+            )
+        changes["config"] = seal_config(new_config)
 
-    updated = (
+    if not changes:
+        return channel
+    return (
         db_notification_channel_handler.update_channel(channel.id, user.id, changes)
-        if changes
-        else channel
+        or channel
     )
-    return updated or channel
 
 
 async def send_sample(channel: NotificationChannel, user: User) -> str | None:
@@ -181,10 +187,10 @@ async def send_sample(channel: NotificationChannel, user: User) -> str | None:
         await send_to_channel(
             channel,
             sample_message(),
-            allow_private=_may_reach_private_network(user),
+            allow_private=may_reach_private_network(user.role),
         )
     except Exception as exc:  # noqa: BLE001 - the error goes back to the user
-        error = str(exc) or type(exc).__name__
+        error = describe_error(exc)
         db_notification_channel_handler.record_failure(channel.id, error, counts=False)
         return error
     db_notification_channel_handler.record_delivery(channel.id)

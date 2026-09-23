@@ -11,7 +11,7 @@ from models.notification_channel import (
     NOTIFICATION_CHANNEL_ERROR_MAX_LENGTH,
     NotificationChannel,
 )
-from models.user import Role, User
+from models.user import User
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -63,8 +63,8 @@ class DBNotificationChannelsHandler(DBBaseHandler):
         self,
         channel_id: int,
         session: Session = None,  # type: ignore
-    ) -> tuple[NotificationChannel, bool] | None:
-        """The channel and whether its owner is an admin, as of now."""
+    ) -> tuple[NotificationChannel, str] | None:
+        """The channel and its owner's role, as of now."""
         row = session.execute(
             select(NotificationChannel, User.role)
             .join(User, User.id == NotificationChannel.user_id)
@@ -73,7 +73,7 @@ class DBNotificationChannelsHandler(DBBaseHandler):
         if row is None:
             return None
         channel, role = row
-        return channel, role == Role.ADMIN
+        return channel, role
 
     @begin_session
     def get_deliverable_channels(

@@ -15,9 +15,9 @@ from handler.notification_channels.channels import (
 )
 from handler.notification_channels.config import read_config, seal_config
 from handler.notification_channels.confirmation import CodeCooldownError
-from models.notification import NotificationLevel
 from models.notification_channel import (
     MAX_NOTIFICATION_CHANNELS_PER_USER,
+    NotificationChannelMinLevel,
     NotificationChannelType,
     WebhookFormat,
 )
@@ -65,7 +65,7 @@ class TestCreate:
             USER,
             NotificationChannelType.WEBHOOK,
             "Discord",
-            NotificationLevel.WARNING,
+            NotificationChannelMinLevel.WARNING,
             None,
             url="https://discord.com/api/webhooks/1/t",
             format=WebhookFormat.DISCORD,
@@ -78,13 +78,27 @@ class TestCreate:
             "secret": None,
         }
 
+    async def test_a_discord_webhook_keeps_no_secret(self, db):
+        channel = await create_channel(
+            USER,
+            NotificationChannelType.WEBHOOK,
+            "Discord",
+            NotificationChannelMinLevel.INFO,
+            None,
+            url="https://discord.com/api/webhooks/1/t",
+            format=WebhookFormat.DISCORD,
+            secret="unused",
+        )
+
+        assert read_config(channel.config)["secret"] is None
+
     async def test_a_user_stays_off_the_local_network(self, db):
         with pytest.raises(ChannelError):
             await create_channel(
                 USER,
                 NotificationChannelType.WEBHOOK,
                 "LAN",
-                NotificationLevel.INFO,
+                NotificationChannelMinLevel.INFO,
                 None,
                 url="http://192.168.1.2/hook",
             )
@@ -94,7 +108,7 @@ class TestCreate:
             ADMIN,
             NotificationChannelType.WEBHOOK,
             "LAN",
-            NotificationLevel.INFO,
+            NotificationChannelMinLevel.INFO,
             None,
             url="http://192.168.1.2/hook",
         )
@@ -107,7 +121,7 @@ class TestCreate:
                 USER,
                 NotificationChannelType.WEBHOOK,
                 "One more",
-                NotificationLevel.INFO,
+                NotificationChannelMinLevel.INFO,
                 None,
                 url="https://hooks.example.com",
             )
@@ -117,7 +131,7 @@ class TestCreate:
             USER,
             NotificationChannelType.EMAIL,
             "Mail",
-            NotificationLevel.INFO,
+            NotificationChannelMinLevel.INFO,
             None,
             address="a@example.com",
         )
@@ -135,7 +149,7 @@ class TestCreate:
                 USER,
                 NotificationChannelType.EMAIL,
                 "Mail",
-                NotificationLevel.INFO,
+                NotificationChannelMinLevel.INFO,
                 None,
                 address="a@example.com",
             )
@@ -150,7 +164,7 @@ class TestCreate:
                 USER,
                 NotificationChannelType.EMAIL,
                 "Mail",
-                NotificationLevel.INFO,
+                NotificationChannelMinLevel.INFO,
                 None,
                 address="a@example.com",
             )

@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
+import { makeChannel as channel } from "@/v2/utils/notificationChannels.fixtures";
 import NotificationChannelsSection from "./NotificationChannelsSection.vue";
 
 const api = vi.hoisted(() => ({
@@ -31,28 +32,6 @@ vi.mock("@/v2/composables/useSnackbar", async (importOriginal) => ({
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirmDialog,
 }));
-
-function channel(
-  overrides: Partial<NotificationChannelSchema> = {},
-): NotificationChannelSchema {
-  return {
-    id: 1,
-    type: "webhook",
-    name: "Discord",
-    enabled: true,
-    min_level: "info",
-    topics: null,
-    target: "https://discord.com/…oken",
-    format: "discord",
-    has_secret: false,
-    confirmed: true,
-    last_delivered_at: null,
-    last_error: null,
-    consecutive_failures: 0,
-    created_at: "2026-09-23T12:00:00+00:00",
-    ...overrides,
-  };
-}
 
 const DialogStub = defineComponent({ emits: ["saved"], template: "<div />" });
 
@@ -108,13 +87,13 @@ describe("NotificationChannelsSection", () => {
     const wrapper = await mountWith([waiting]);
     const dialog = wrapper.findComponent(DialogStub);
 
-    dialog.vm.$emit("saved", { ...waiting, name: "Renamed" }, false);
+    dialog.vm.$emit("saved", { ...waiting, name: "Renamed" });
     expect(snackbar.info).not.toHaveBeenCalled();
     expect(snackbar.success).toHaveBeenCalledWith(
       "notifications.channel-saved",
     );
 
-    dialog.vm.$emit("saved", { ...waiting, target: "b@example.com" }, false);
+    dialog.vm.$emit("saved", { ...waiting, target: "b@example.com" });
     expect(snackbar.info).toHaveBeenCalledOnce();
   });
 

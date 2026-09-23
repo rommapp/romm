@@ -196,9 +196,12 @@ SMTP_PORT: Final[int] = safe_int(_get_env("SMTP_PORT"), 587)
 SMTP_USERNAME: Final[str] = _get_env("SMTP_USERNAME", "")
 SMTP_PASSWORD: Final[str] = _get_env("SMTP_PASSWORD", "")
 SMTP_FROM: Final[str] = _get_env("SMTP_FROM", "")
-# `starttls`, `tls` (implicit TLS, usually port 465) or `none`.
+# `tls` is implicit TLS, usually on port 465; any other value leaves email off.
+SMTP_SECURITY_MODES: Final = ("starttls", "tls", "none")
 SMTP_SECURITY: Final[str] = _get_env("SMTP_SECURITY", "starttls").strip().lower()
-EMAIL_ENABLED: Final[bool] = bool(SMTP_HOST and SMTP_FROM)
+EMAIL_ENABLED: Final[bool] = bool(
+    SMTP_HOST and SMTP_FROM and SMTP_SECURITY in SMTP_SECURITY_MODES
+)
 
 ROMM_CORS_ALLOWED_ORIGINS: Final[list[str]] = [
     o.strip()

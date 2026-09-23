@@ -3,12 +3,15 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, field_validator
 
 from handler.notification_channels.config import masked_url, read_config
-from models.notification import NotificationLevel, NotificationTopic
+from models.notification import NotificationTopic
 from models.notification_channel import (
+    NOTIFICATION_CHANNEL_ADDRESS_MAX_LENGTH,
+    NOTIFICATION_CHANNEL_CODE_MAX_LENGTH,
     NOTIFICATION_CHANNEL_NAME_MAX_LENGTH,
     NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH,
     NOTIFICATION_CHANNEL_URL_MAX_LENGTH,
     NotificationChannel,
+    NotificationChannelMinLevel,
     NotificationChannelType,
     WebhookFormat,
 )
@@ -23,7 +26,7 @@ WebhookUrl = Annotated[
     str, Field(min_length=1, max_length=NOTIFICATION_CHANNEL_URL_MAX_LENGTH)
 ]
 ChannelSecret = Annotated[str, Field(max_length=NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH)]
-EmailAddress = Annotated[str, Field(max_length=320)]
+EmailAddress = Annotated[str, Field(max_length=NOTIFICATION_CHANNEL_ADDRESS_MAX_LENGTH)]
 
 
 def _check_address(address: str | None) -> str | None:
@@ -37,7 +40,7 @@ class NotificationChannelSchema(BaseModel):
     type: NotificationChannelType
     name: str
     enabled: bool
-    min_level: NotificationLevel
+    min_level: NotificationChannelMinLevel
     # None forwards every topic.
     topics: list[NotificationTopic] | None
     # A webhook's URL with its token hidden, or an email address.
@@ -59,7 +62,7 @@ class NotificationChannelSchema(BaseModel):
             type=NotificationChannelType(channel.type),
             name=channel.name,
             enabled=channel.enabled,
-            min_level=NotificationLevel(channel.min_level),
+            min_level=NotificationChannelMinLevel(channel.min_level),
             topics=(
                 [NotificationTopic(topic) for topic in channel.topics]
                 if channel.topics is not None
@@ -81,7 +84,7 @@ class NotificationChannelSchema(BaseModel):
 
 
 class _ChannelFilters(BaseModel):
-    min_level: NotificationLevel = NotificationLevel.INFO
+    min_level: NotificationChannelMinLevel = NotificationChannelMinLevel.INFO
     topics: list[NotificationTopic] | None = None
 
 
@@ -113,7 +116,7 @@ class NotificationChannelUpdatePayload(BaseModel):
 
     name: ChannelName | None = None
     enabled: bool | None = None
-    min_level: NotificationLevel | None = None
+    min_level: NotificationChannelMinLevel | None = None
     topics: list[NotificationTopic] | None = None
     url: WebhookUrl | None = None
     format: WebhookFormat | None = None
@@ -124,7 +127,7 @@ class NotificationChannelUpdatePayload(BaseModel):
 
 
 class NotificationChannelCodePayload(BaseModel):
-    code: str = Field(min_length=1, max_length=16)
+    code: str = Field(min_length=1, max_length=NOTIFICATION_CHANNEL_CODE_MAX_LENGTH)
 
 
 class NotificationChannelTestResult(BaseModel):

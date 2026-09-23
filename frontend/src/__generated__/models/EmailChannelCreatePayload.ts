@@ -2,10 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { NotificationLevel } from './NotificationLevel';
+import type { NotificationChannelMinLevel } from './NotificationChannelMinLevel';
 import type { NotificationTopic } from './NotificationTopic';
 export type EmailChannelCreatePayload = {
-    min_level?: NotificationLevel;
+    min_level?: NotificationChannelMinLevel;
     topics?: (Array<NotificationTopic> | null);
     type: string;
     name: string;

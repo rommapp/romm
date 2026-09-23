@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
+import { makeChannel } from "@/v2/utils/notificationChannels.fixtures";
 import NotificationChannelDialog from "./NotificationChannelDialog.vue";
 
 const api = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn() }));
@@ -15,23 +16,15 @@ vi.mock("vue-i18n", () => ({
 function channel(
   overrides: Partial<NotificationChannelSchema> = {},
 ): NotificationChannelSchema {
-  return {
+  return makeChannel({
     id: 4,
-    type: "webhook",
     name: "Hook",
-    enabled: true,
-    min_level: "info",
     topics: ["scans"],
     target: "https://hooks.example.com/…oken",
     format: "json",
     has_secret: true,
-    confirmed: true,
-    last_delivered_at: null,
-    last_error: null,
-    consecutive_failures: 0,
-    created_at: "2026-09-23T12:00:00+00:00",
     ...overrides,
-  };
+  });
 }
 
 async function open(existing: NotificationChannelSchema | null = null) {
@@ -93,7 +86,7 @@ describe("NotificationChannelDialog", () => {
       min_level: "info",
       topics: null,
     });
-    expect(wrapper.emitted("saved")?.[0]).toEqual([channel(), true]);
+    expect(wrapper.emitted("saved")?.[0]).toEqual([channel()]);
     expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual([false]);
     wrapper.unmount();
   });
@@ -164,6 +157,7 @@ describe("NotificationChannelDialog", () => {
   it("shows why the server refused and stays open", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     api.update.mockRejectedValue({
+      isAxiosError: true,
       response: { data: { detail: "The URL must start with http://" } },
     });
     const wrapper = await open(channel());

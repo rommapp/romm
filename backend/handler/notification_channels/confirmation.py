@@ -80,9 +80,11 @@ async def check_code(channel_id: int, code: str) -> bool:
     if not stored:
         return False
 
-    attempts = await async_cache.incr(_key(channel_id, "attempts"))
-    if attempts == 1:
-        await async_cache.expire(_key(channel_id, "attempts"), CODE_TTL_SECONDS)
+    pipe = async_cache.pipeline()
+    pipe.incr(_key(channel_id, "attempts"))
+    # In the same transaction, so no counter is left without a TTL.
+    pipe.expire(_key(channel_id, "attempts"), CODE_TTL_SECONDS, nx=True)
+    attempts, _ = await pipe.execute()
     if attempts > MAX_ATTEMPTS:
         await async_cache.delete(_key(channel_id, "code"))
         return False

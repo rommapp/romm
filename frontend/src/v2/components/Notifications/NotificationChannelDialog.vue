@@ -14,28 +14,33 @@ import {
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
+  NotificationChannelMinLevel,
   NotificationChannelSchema,
   NotificationChannelType,
   NotificationChannelUpdatePayload,
-  NotificationLevel,
   NotificationTopic,
   WebhookFormat,
 } from "@/__generated__";
 import notificationChannelApi from "@/services/api/notificationChannel";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
+import { errorMessage } from "@/v2/utils/errorMessage";
 import {
   CHANNEL_LEVELS,
   CHANNEL_TOPICS,
   EMAIL_ICON,
   FORMAT_ICONS,
+  NOTIFICATION_CHANNEL_ADDRESS_MAX_LENGTH,
+  NOTIFICATION_CHANNEL_NAME_MAX_LENGTH,
+  NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH,
+  NOTIFICATION_CHANNEL_URL_MAX_LENGTH,
 } from "@/v2/utils/notificationChannels";
 import { email as emailRule, notBlank } from "@/v2/utils/validation";
 
 const props = defineProps<{ channel: NotificationChannelSchema | null }>();
 const show = defineModel<boolean>({ required: true });
 const emit = defineEmits<{
-  saved: [channel: NotificationChannelSchema, created: boolean];
+  saved: [channel: NotificationChannelSchema];
 }>();
 
 const { t } = useI18n();
@@ -50,7 +55,7 @@ const url = ref("");
 const secret = ref("");
 const removeSecret = ref(false);
 const address = ref("");
-const minLevel = ref<NotificationLevel>("info");
+const minLevel = ref<NotificationChannelMinLevel>("info");
 const topics = ref<NotificationTopic[]>([]);
 const saving = ref(false);
 const error = ref<string | null>(null);
@@ -59,9 +64,7 @@ const editing = computed(() => props.channel !== null);
 const emailEnabled = computed(
   () => heartbeat.value.NOTIFICATIONS.EMAIL_ENABLED,
 );
-const keepsSecret = computed(
-  () => editing.value && !!props.channel?.has_secret,
-);
+const keepsSecret = computed(() => !!props.channel?.has_secret);
 
 const typeItems = computed(() => [
   { title: t("notifications.channel-type-webhook"), value: "webhook" },
@@ -120,8 +123,7 @@ watch(show, (open) => {
   removeSecret.value = false;
   address.value =
     channel?.type === "email" ? channel.target : (auth.user?.email ?? "");
-  minLevel.value =
-    channel && channel.min_level !== "success" ? channel.min_level : "info";
+  minLevel.value = channel?.min_level ?? "info";
   topics.value = channel?.topics ? [...channel.topics] : [];
   error.value = null;
   formRef.value?.resetValidation();
@@ -175,16 +177,11 @@ async function save() {
   error.value = null;
   try {
     const { data } = await request();
-    emit("saved", data, !editing.value);
+    emit("saved", data);
     show.value = false;
   } catch (err) {
     console.error("Could not save the notification channel:", err);
-    const detail = (err as { response?: { data?: { detail?: unknown } } })
-      .response?.data?.detail;
-    error.value =
-      typeof detail === "string"
-        ? detail
-        : t("notifications.channel-save-failed");
+    error.value = errorMessage(err, t("notifications.channel-save-failed"));
   } finally {
     saving.value = false;
   }
@@ -252,7 +249,7 @@ async function save() {
         <RTextField
           v-model="name"
           :rules="nameRules"
-          :maxlength="100"
+          :maxlength="NOTIFICATION_CHANNEL_NAME_MAX_LENGTH"
           prefix-label="stacked"
           required
         >
@@ -266,7 +263,7 @@ async function save() {
           <RTextField
             v-model="url"
             :rules="urlRules"
-            :maxlength="2000"
+            :maxlength="NOTIFICATION_CHANNEL_URL_MAX_LENGTH"
             :placeholder="editing ? channel?.target : URL_PLACEHOLDERS[format]"
             :hint="editing ? t('notifications.channel-url-keep') : undefined"
             autocomplete="off"
@@ -284,7 +281,7 @@ async function save() {
             <RTextField
               v-model="secret"
               type="password"
-              :maxlength="255"
+              :maxlength="NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH"
               :disabled="removeSecret"
               :hint="
                 keepsSecret ? t('notifications.channel-secret-keep') : undefined
@@ -310,7 +307,7 @@ async function save() {
           v-model="address"
           type="email"
           :rules="addressRules"
-          :maxlength="320"
+          :maxlength="NOTIFICATION_CHANNEL_ADDRESS_MAX_LENGTH"
           :hint="t('notifications.channel-address-hint')"
           autocomplete="email"
           prefix-label="stacked"

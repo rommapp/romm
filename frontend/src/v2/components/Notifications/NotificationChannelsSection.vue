@@ -19,7 +19,11 @@ import NotificationChannelDialog from "@/v2/components/Notifications/Notificatio
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useGridNav } from "@/v2/composables/useGridNav";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { channelIcon } from "@/v2/utils/notificationChannels";
+import { errorMessage } from "@/v2/utils/errorMessage";
+import {
+  NOTIFICATION_CHANNEL_CODE_MAX_LENGTH,
+  channelIcon,
+} from "@/v2/utils/notificationChannels";
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
@@ -42,12 +46,6 @@ useGridNav(listRoot, {
       ),
     ),
 });
-
-function detailOf(error: unknown, fallback: string): string {
-  const detail = (error as { response?: { data?: { detail?: unknown } } })
-    .response?.data?.detail;
-  return typeof detail === "string" ? detail : fallback;
-}
 
 async function load() {
   try {
@@ -74,30 +72,30 @@ function openDialog(channel: NotificationChannelSchema | null) {
   dialogOpen.value = true;
 }
 
-function onSaved(channel: NotificationChannelSchema, created: boolean) {
+function notifyCodeSent(channel: NotificationChannelSchema) {
+  snackbar.info(
+    t("notifications.channel-code-sent", { address: channel.target }),
+    { icon: "mdi-email-fast-outline" },
+  );
+}
+
+function onSaved(channel: NotificationChannelSchema) {
   const before = channels.value.find((c) => c.id === channel.id);
-  if (!created) {
+  if (before) {
     replace(channel);
   } else {
     channels.value = [...channels.value, channel];
   }
   // A code only goes out for an address that's new to the channel.
   if (!channel.confirmed && before?.target !== channel.target) {
-    snackbar.info(
-      t("notifications.channel-code-sent", { address: channel.target }),
-      { icon: "mdi-email-fast-outline" },
-    );
+    notifyCodeSent(channel);
   } else {
     snackbar.success(t("notifications.channel-saved"));
   }
 }
 
 function filtersLabel(channel: NotificationChannelSchema): string {
-  const level = t(
-    `notifications.channel-level-${
-      channel.min_level === "success" ? "info" : channel.min_level
-    }`,
-  );
+  const level = t(`notifications.channel-level-${channel.min_level}`);
   const topics = channel.topics
     ? channel.topics
         .map((topic) => t(`notifications.topic-${topic}`))
@@ -136,7 +134,10 @@ async function sendTest(channel: NotificationChannelSchema) {
   } catch (error) {
     console.error("Could not test notification channel:", error);
     snackbar.error(
-      detailOf(error, t("notifications.channel-test-failed", { error: "" })),
+      errorMessage(
+        error,
+        t("notifications.channel-test-failed", { error: "" }),
+      ),
     );
   } finally {
     busy.delete(channel.id);
@@ -154,7 +155,9 @@ async function confirmCode(channel: NotificationChannelSchema) {
     snackbar.success(t("notifications.channel-confirmed"));
   } catch (error) {
     console.error("Could not confirm notification channel:", error);
-    snackbar.error(detailOf(error, t("notifications.channel-confirm-failed")));
+    snackbar.error(
+      errorMessage(error, t("notifications.channel-confirm-failed")),
+    );
   } finally {
     busy.delete(channel.id);
   }
@@ -163,13 +166,12 @@ async function confirmCode(channel: NotificationChannelSchema) {
 async function resendCode(channel: NotificationChannelSchema) {
   try {
     await notificationChannelApi.resendCode(channel.id);
-    snackbar.info(
-      t("notifications.channel-code-sent", { address: channel.target }),
-      { icon: "mdi-email-fast-outline" },
-    );
+    notifyCodeSent(channel);
   } catch (error) {
     console.error("Could not resend the confirmation code:", error);
-    snackbar.error(detailOf(error, t("notifications.channel-resend-failed")));
+    snackbar.error(
+      errorMessage(error, t("notifications.channel-resend-failed")),
+    );
   }
 }
 
@@ -298,7 +300,7 @@ async function remove(channel: NotificationChannelSchema) {
               :aria-label="t('notifications.channel-code')"
               inputmode="numeric"
               autocomplete="one-time-code"
-              :maxlength="16"
+              :maxlength="NOTIFICATION_CHANNEL_CODE_MAX_LENGTH"
               density="compact"
               hide-details
               mono

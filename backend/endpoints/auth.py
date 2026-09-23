@@ -322,9 +322,6 @@ def request_password_reset(
 ) -> None:
     """Request a password reset link for the user.
 
-    The link goes out after the response, so how long it takes to send can't
-    tell a caller whether the username exists.
-
     Args:
         username (str): Username of the user requesting the reset
     Returns:
@@ -333,6 +330,7 @@ def request_password_reset(
     user = db_user_handler.get_user_by_username(username)
 
     if user:
+        # After the response, so its timing can't tell whether the user exists.
         background_tasks.add_task(auth_handler.send_password_reset_link, user)
     else:
         log.warning(

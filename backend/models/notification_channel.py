@@ -22,10 +22,20 @@ class WebhookFormat(enum.StrEnum):
     NTFY = "ntfy"
 
 
+class NotificationChannelMinLevel(enum.StrEnum):
+    """The least severe notification a channel forwards; success ranks as info."""
+
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+
+
 NOTIFICATION_CHANNEL_NAME_MAX_LENGTH: Final = 100
 NOTIFICATION_CHANNEL_URL_MAX_LENGTH: Final = 2000
 NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH: Final = 255
 NOTIFICATION_CHANNEL_ERROR_MAX_LENGTH: Final = 1000
+NOTIFICATION_CHANNEL_ADDRESS_MAX_LENGTH: Final = 320
+NOTIFICATION_CHANNEL_CODE_MAX_LENGTH: Final = 16
 MAX_NOTIFICATION_CHANNELS_PER_USER: Final = 20
 # A channel that fails this many deliveries in a row turns itself off.
 MAX_CONSECUTIVE_DELIVERY_FAILURES: Final = 10

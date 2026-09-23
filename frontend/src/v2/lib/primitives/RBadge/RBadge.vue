@@ -195,12 +195,6 @@ const locationClass = computed(
   box-shadow: 0 0 0 2px var(--r-color-bg);
 }
 
-/* ── Inline — no absolute positioning, sits next to the anchor ─── */
-.r-badge--inline {
-  position: static;
-  transform: none;
-}
-
 /* ── Floating positioning ─────────────────────────────────────── */
 /* Each anchor sets its corner + a `translate` that centers the badge
    on the corner so the visible mass sits half inside / half outside

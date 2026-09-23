@@ -155,6 +155,7 @@ export type { MuteResponse } from './models/MuteResponse';
 export type { NetplayICEServer } from './models/NetplayICEServer';
 export type { NotificationActorSchema } from './models/NotificationActorSchema';
 export type { NotificationChannelCodePayload } from './models/NotificationChannelCodePayload';
+export type { NotificationChannelMinLevel } from './models/NotificationChannelMinLevel';
 export type { NotificationChannelSchema } from './models/NotificationChannelSchema';
 export type { NotificationChannelTestResult } from './models/NotificationChannelTestResult';
 export type { NotificationChannelType } from './models/NotificationChannelType';

@@ -10,6 +10,7 @@ from handler.notification_channels.delivery import (
 )
 from handler.notification_channels.webhook import WebhookError
 from models.notification import NotificationKind, NotificationLevel, NotificationTopic
+from models.user import Role
 
 from .fixtures import make_notification
 
@@ -91,7 +92,7 @@ class TestDeliverToChannel:
     @pytest.fixture
     def db(self, mocker):
         handler = mocker.patch.object(delivery, "db_notification_channel_handler")
-        handler.get_channel_for_delivery.return_value = (_channel(), False)
+        handler.get_channel_for_delivery.return_value = (_channel(), Role.USER)
         handler.turn_off_if_failing.return_value = False
         return handler
 
@@ -108,8 +109,15 @@ class TestDeliverToChannel:
         assert send.await_args.kwargs == {"allow_private": False}
         db.record_delivery.assert_called_once_with(3)
 
+    def test_an_admins_channel_may_reach_the_local_network(self, db, send):
+        db.get_channel_for_delivery.return_value = (_channel(), Role.ADMIN)
+
+        self._run()
+
+        assert send.await_args.kwargs == {"allow_private": True}
+
     def test_skips_a_channel_turned_off_meanwhile(self, db, send):
-        db.get_channel_for_delivery.return_value = (_channel(enabled=False), True)
+        db.get_channel_for_delivery.return_value = (_channel(enabled=False), Role.ADMIN)
 
         self._run()
 

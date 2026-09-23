@@ -185,11 +185,8 @@ class AuthHandler:
         return token
 
     def send_password_reset_link(self, user: Any) -> None:
-        """Email the user a reset link, or log it for an admin to pass on.
-
-        The link is built from ROMM_BASE_URL alone, never from the request, so a
-        forged Host header can't point it at another server.
-        """
+        """Email the user a reset link, or log it for an admin to pass on."""
+        # ROMM_BASE_URL alone, so a forged Host header can't point it elsewhere.
         base_url = reset_link_base_url()
         if not (base_url and user.email):
             self._log_password_reset_link(
