@@ -7,7 +7,6 @@ import {
   platformGalleryDefaultArgs,
   platformGalleryStoryParameters,
   platformGalleryStyles,
-  platformIconSizesTemplate,
   platformSizeLadderSteps,
   platformSizesStoryParameters,
   platformSizesStoryStyles,
