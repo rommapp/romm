@@ -43,11 +43,6 @@ class NotificationSchema(BaseModel):
     read_at: UTCDatetime | None
     created_at: UTCDatetime
 
-    @field_validator("data", mode="before")
-    @classmethod
-    def _data_never_null(cls, value: Any) -> Any:
-        return value or {}
-
 
 class NotificationCreatePayload(BaseModel):
     """A notification sent through the API, shown with its own title and body."""

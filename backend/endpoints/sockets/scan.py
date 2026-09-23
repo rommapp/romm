@@ -16,7 +16,7 @@ from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
-from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
+from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from endpoints.responses import TaskType
@@ -53,7 +53,7 @@ from handler.metadata.launchbox_handler.types import LAUNCHBOX_PLATFORMS_DIR
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
-from handler.notification_handler import notify, notify_admins
+from handler.notification_handler import notify_user_or_admins
 from handler.recommendation import top_up_similarity
 from handler.redis_handler import (
     cancel_job,
@@ -261,7 +261,7 @@ class ScanStats:
 
 def _get_socket_manager() -> socketio.AsyncRedisManager:
     """Connect to external socketio server"""
-    return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+    return socket_handler.write_manager()
 
 
 async def notify_scan_end(
@@ -269,23 +269,28 @@ async def notify_scan_end(
     stats: ScanStats | None = None,
     error: str | None = None,
 ) -> None:
-    """Notify whoever started a scan of how it ended.
+    """Notify whoever started a scan of how it ended, with `error` if it failed.
 
     Args:
         started_by_user_id: None for a scheduled or watcher scan, which notifies
             the admins only when it failed or found something new.
     """
     if error is not None:
-        kind, level = NotificationKind.SCAN_FAILED, NotificationLevel.ERROR
-        data: dict[str, Any] = {"error": error}
-    else:
-        kind, level = NotificationKind.SCAN_COMPLETED, NotificationLevel.SUCCESS
-        data = stats.to_dict() if stats else {}
-
-    if started_by_user_id is not None:
-        await notify(started_by_user_id, kind, level, data)
-    elif error is not None or (stats and (stats.new_roms or stats.new_platforms)):
-        await notify_admins(kind, level, data)
+        await notify_user_or_admins(
+            started_by_user_id,
+            NotificationKind.SCAN_FAILED,
+            NotificationLevel.ERROR,
+            {"error": error},
+            admins_too=True,
+        )
+    elif stats is not None:
+        await notify_user_or_admins(
+            started_by_user_id,
+            NotificationKind.SCAN_COMPLETED,
+            NotificationLevel.SUCCESS,
+            stats.to_dict(),
+            admins_too=bool(stats.new_roms or stats.new_platforms),
+        )
 
 
 async def _identify_firmware(
@@ -1172,11 +1177,17 @@ async def scan_platforms(
     # which entries changed rather than how many.
     scanned_rom_ids: set[int] = set()
 
-    async def finish(event: str, payload: Any) -> None:
+    async def finish(event: str, payload: Any, *, stopped: bool = False) -> None:
         """End the scan, reporting whatever a coalesced increment held back."""
         update_job_meta({SCAN_REPORTED_META_KEY: True})
         await scan_stats.flush(socket_manager)
         await socket_manager.emit(event, payload)
+        if event == "scan:done_ko":
+            await notify_scan_end(started_by_user_id, error=payload)
+        # A stop is the user's own doing, and a rescan of named roms answers a
+        # click whose result is already on screen.
+        elif not stopped and not roms_ids:
+            await notify_scan_end(started_by_user_id, scan_stats)
 
     # A ROM-id-scoped scan resolves its work from the database, so it neither
     # needs nor can afford the filesystem walk a library scan starts with.
@@ -1198,7 +1209,6 @@ async def scan_platforms(
         except FolderStructureNotMatchException as e:
             log.error(e)
             await finish("scan:done_ko", e.message)
-            await notify_scan_end(started_by_user_id, error=e.message)
             return scan_stats
 
     # Clear the gamelist cache to ensure we're using fresh gamelist.xml data
@@ -1304,7 +1314,7 @@ async def scan_platforms(
 
     async def stop_scan():
         log.info(f"{emoji.EMOJI_STOP_SIGN} Scan stopped manually")
-        await finish("scan:done", scan_stats.to_dict())
+        await finish("scan:done", scan_stats.to_dict(), stopped=True)
         redis_client.delete(STOP_SCAN_FLAG)
 
     try:
@@ -1435,16 +1445,12 @@ async def scan_platforms(
             log.info("Pegasus metadata auto-export completed.")
 
         await finish("scan:done", scan_stats.to_dict())
-        # Rescanning named roms answers a click whose result is already on screen.
-        if not roms_ids:
-            await notify_scan_end(started_by_user_id, scan_stats)
     except ScanStoppedException:
         await stop_scan()
     except Exception as e:
         log.error(f"Error in scan_platform: {e}")
         # Catch all exceptions and emit error to the client
         await finish("scan:done_ko", str(e))
-        await notify_scan_end(started_by_user_id, error=str(e))
         # Re-raise the exception to be caught by the error handler
         raise e
 

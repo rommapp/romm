@@ -16,7 +16,8 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock("@/v2/composables/useSnackbar", () => ({
+vi.mock("@/v2/composables/useSnackbar", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/v2/composables/useSnackbar")>()),
   useSnackbar: () => ({ success, error: vi.fn() }),
 }));
 

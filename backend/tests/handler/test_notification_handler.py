@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
@@ -6,37 +7,41 @@ import pytest
 from handler import notification_handler
 from handler.notification_handler import (
     NOTIFICATIONS_NEW_EVENT,
-    emit_to_user,
     notify,
     notify_admins,
+    notify_user_or_admins,
+    recipient_ids,
 )
 from models.notification import Notification, NotificationKind, NotificationLevel
 
 
-def _stored(notification: Notification) -> Notification:
-    notification.id = 7
-    notification.created_at = datetime(2026, 9, 23, tzinfo=timezone.utc)
-    notification.read_at = None
-    notification.actor = None
-    return notification
+def _stored(notifications: Sequence[Notification]) -> Sequence[Notification]:
+    for i, notification in enumerate(notifications, start=7):
+        notification.id = i
+        notification.created_at = datetime(2026, 9, 23, tzinfo=timezone.utc)
+        notification.read_at = None
+        notification.actor = None
+    return notifications
 
 
 @pytest.fixture
 def emit(mocker):
-    return mocker.patch.object(notification_handler, "emit_to_user", AsyncMock())
+    return mocker.patch.object(
+        notification_handler.socket_handler, "emit_to_user", AsyncMock()
+    )
 
 
 @pytest.fixture
-def add_notification(mocker):
+def add_notifications(mocker):
     return mocker.patch.object(
         notification_handler.db_notification_handler,
-        "add_notification",
+        "add_notifications",
         side_effect=_stored,
     )
 
 
 class TestNotify:
-    async def test_stores_then_pushes_the_stored_row(self, emit, add_notification):
+    async def test_stores_then_pushes_the_stored_row(self, emit, add_notifications):
         await notify(
             3,
             NotificationKind.SCAN_COMPLETED,
@@ -44,7 +49,7 @@ class TestNotify:
             {"new_roms": 2},
         )
 
-        stored = add_notification.call_args.args[0]
+        [stored] = add_notifications.call_args.args[0]
         assert stored.user_id == 3
         assert stored.kind == NotificationKind.SCAN_COMPLETED
         user_id, event, payload = emit.await_args.args
@@ -54,7 +59,7 @@ class TestNotify:
         assert payload["created_at"].startswith("2026-09-23")
 
     async def test_carries_its_own_content_for_a_custom_kind(
-        self, emit, add_notification
+        self, emit, add_notifications
     ):
         await notify(
             3,
@@ -77,7 +82,7 @@ class TestNotify:
     async def test_a_storage_failure_pushes_nothing(self, mocker, emit):
         mocker.patch.object(
             notification_handler.db_notification_handler,
-            "add_notification",
+            "add_notifications",
             side_effect=RuntimeError("database gone"),
         )
 
@@ -87,51 +92,71 @@ class TestNotify:
 
 
 class TestNotifyAdmins:
-    async def test_skips_disabled_admins(self, mocker):
-        enabled = MagicMock(id=1, enabled=True)
-        disabled = MagicMock(id=2, enabled=False)
-        mocker.patch.object(
-            notification_handler.db_user_handler,
-            "get_admin_users",
-            return_value=[enabled, disabled],
-        )
-        notify_mock = mocker.patch.object(notification_handler, "notify", AsyncMock())
+    async def test_stores_one_row_per_admin_in_one_go(
+        self, mocker, emit, add_notifications
+    ):
+        mocker.patch.object(notification_handler, "recipient_ids", return_value=[1, 4])
 
         await notify_admins(NotificationKind.TASK_FAILED, NotificationLevel.ERROR)
 
-        assert notify_mock.await_count == 1
-        assert notify_mock.await_args.args[0] == 1
+        add_notifications.assert_called_once()
+        assert [n.user_id for n in add_notifications.call_args.args[0]] == [1, 4]
+        assert emit.await_count == 2
 
 
-class TestEmitToUser:
-    async def test_targets_the_users_room(self, mocker):
-        manager = MagicMock(emit=AsyncMock())
-        mocker.patch.object(
-            notification_handler.socketio, "AsyncRedisManager", return_value=manager
+class TestRecipientIds:
+    @pytest.fixture
+    def users(self, mocker):
+        return mocker.patch.object(
+            notification_handler.db_user_handler,
+            "get_users",
+            return_value=[
+                MagicMock(id=1, enabled=True),
+                MagicMock(id=2, enabled=False),
+                MagicMock(id=3, enabled=True),
+            ],
         )
 
-        await emit_to_user(5, "notifications:read", {"ids": None})
+    def test_everyone_enabled(self, users):
+        assert recipient_ids("all") == [1, 3]
 
-        manager.emit.assert_awaited_once_with(
-            "notifications:read", {"ids": None}, room="user:5"
+    def test_only_the_named_enabled_users(self, users):
+        assert recipient_ids([3, 2, 3, 99]) == [3]
+
+
+class TestNotifyUserOrAdmins:
+    @pytest.fixture
+    def targets(self, mocker):
+        return (
+            mocker.patch.object(notification_handler, "notify", AsyncMock()),
+            mocker.patch.object(notification_handler, "notify_admins", AsyncMock()),
         )
 
-    async def test_reuses_one_client_on_the_same_loop(self, mocker):
-        manager = MagicMock(emit=AsyncMock())
-        make = mocker.patch.object(
-            notification_handler.socketio, "AsyncRedisManager", return_value=manager
+    async def test_the_starter_hears_first(self, targets):
+        notify_mock, admins_mock = targets
+
+        await notify_user_or_admins(
+            5,
+            NotificationKind.TASK_FAILED,
+            NotificationLevel.ERROR,
+            {},
+            admins_too=True,
         )
 
-        await emit_to_user(5, "notifications:read", {"ids": None})
-        await emit_to_user(6, "notifications:read", {"ids": None})
+        notify_mock.assert_awaited_once()
+        admins_mock.assert_not_awaited()
 
-        make.assert_called_once()
-        assert manager.emit.await_count == 2
+    @pytest.mark.parametrize("admins_too", [True, False])
+    async def test_nobody_started_it(self, targets, admins_too):
+        notify_mock, admins_mock = targets
 
-    async def test_swallows_a_broker_failure(self, mocker):
-        manager = MagicMock(emit=AsyncMock(side_effect=ConnectionError("redis")))
-        mocker.patch.object(
-            notification_handler.socketio, "AsyncRedisManager", return_value=manager
+        await notify_user_or_admins(
+            None,
+            NotificationKind.TASK_FAILED,
+            NotificationLevel.ERROR,
+            {},
+            admins_too=admins_too,
         )
 
-        await emit_to_user(5, "notifications:read", {"ids": None})
+        notify_mock.assert_not_awaited()
+        assert admins_mock.await_count == int(admins_too)

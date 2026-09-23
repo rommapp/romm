@@ -12,7 +12,7 @@ async function create(payload: NotificationCreatePayload) {
   return api.post<NotificationSchema[]>("/notifications", payload);
 }
 
-async function markRead(ids: number[] | null) {
+async function markRead(ids: number[]) {
   return api.post("/notifications/read", { ids });
 }
 

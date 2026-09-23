@@ -31,6 +31,7 @@ from endpoints.sockets.scan import (
 )
 from exceptions.fs_exceptions import FolderStructureNotMatchException
 from exceptions.socket_exceptions import ScanStoppedException
+from handler import notification_handler
 from handler.auth.constants import Scope
 from handler.database.roms_handler import SyncedRomFiles
 from handler.filesystem.roms_handler import (
@@ -277,17 +278,27 @@ class TestScanEndNotification:
 
         notify_scan_end.assert_awaited_once_with(3, error="boom")
 
+    async def test_a_stopped_scan_leaves_none(self, patched, notify_scan_end, mocker):
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=ScanStoppedException()
+        )
+        mocker.patch.object(scan_module, "redis_client")
+
+        await scan_platforms(platform_ids=[], metadata_sources=[], started_by_user_id=3)
+
+        notify_scan_end.assert_not_awaited()
+
 
 class TestNotifyScanEnd:
     """Who hears about a scan's end depends on who started it."""
 
     @pytest.fixture
     def notify(self, mocker):
-        return mocker.patch.object(scan_module, "notify", AsyncMock())
+        return mocker.patch.object(notification_handler, "notify", AsyncMock())
 
     @pytest.fixture
     def notify_admins(self, mocker):
-        return mocker.patch.object(scan_module, "notify_admins", AsyncMock())
+        return mocker.patch.object(notification_handler, "notify_admins", AsyncMock())
 
     async def test_the_starter_hears_of_a_quiet_scan(self, notify, notify_admins):
         await scan_module.notify_scan_end(3, ScanStats(scanned_roms=5))

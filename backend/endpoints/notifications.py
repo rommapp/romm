@@ -13,9 +13,9 @@ from handler.notification_handler import (
     NOTIFICATIONS_DISMISSED_EVENT,
     NOTIFICATIONS_READ_EVENT,
     deliver,
-    emit_to_user,
     recipient_ids,
 )
+from handler.socket_handler import socket_handler
 from models.notification import Notification
 from utils.router import APIRouter
 
@@ -62,8 +62,8 @@ async def create_notification(
                     detail=f"No enabled user with id {', '.join(map(str, sorted(missing)))}",
                 )
 
-    return [
-        await deliver(
+    return await deliver(
+        [
             Notification(
                 user_id=user_id,
                 actor_id=sender_id if user_id != sender_id else None,
@@ -75,9 +75,9 @@ async def create_notification(
                 icon=payload.icon,
                 data=payload.data,
             )
-        )
-        for user_id in user_ids
-    ]
+            for user_id in user_ids
+        ]
+    )
 
 
 @protected_route(router.post, "/read", [Scope.ME_WRITE])
@@ -86,7 +86,9 @@ async def mark_notifications_read(
 ) -> None:
     """Mark the given notifications read, or all of them when `ids` is null."""
     db_notification_handler.mark_read(request.user.id, payload.ids)
-    await emit_to_user(request.user.id, NOTIFICATIONS_READ_EVENT, {"ids": payload.ids})
+    await socket_handler.emit_to_user(
+        request.user.id, NOTIFICATIONS_READ_EVENT, {"ids": payload.ids}
+    )
 
 
 @protected_route(router.delete, "/{notification_id}", [Scope.ME_WRITE])
@@ -99,7 +101,7 @@ async def dismiss_notification(request: Request, notification_id: int) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Notification not found",
         )
-    await emit_to_user(
+    await socket_handler.emit_to_user(
         request.user.id, NOTIFICATIONS_DISMISSED_EVENT, {"ids": [notification_id]}
     )
 
@@ -107,4 +109,6 @@ async def dismiss_notification(request: Request, notification_id: int) -> None:
 @protected_route(router.delete, "", [Scope.ME_WRITE])
 async def dismiss_all_notifications(request: Request) -> None:
     db_notification_handler.delete_notifications(request.user.id)
-    await emit_to_user(request.user.id, NOTIFICATIONS_DISMISSED_EVENT, {"ids": None})
+    await socket_handler.emit_to_user(
+        request.user.id, NOTIFICATIONS_DISMISSED_EVENT, {"ids": None}
+    )

@@ -58,27 +58,26 @@ async def _notify_task_end(
         return
 
     # Imported here because the notification schemas import this module.
-    from handler.notification_handler import notify, notify_admins
+    from handler.notification_handler import notify_user_or_admins
     from models.notification import NotificationKind, NotificationLevel
 
     data: dict[str, Any] = {"task": name, "title": task.title}
     if error is None:
-        if run_by_user_id is not None:
-            await notify(
-                run_by_user_id,
-                NotificationKind.TASK_COMPLETED,
-                NotificationLevel.SUCCESS,
-                data,
-            )
-        return
-
-    data["error"] = error
-    if run_by_user_id is not None:
-        await notify(
-            run_by_user_id, NotificationKind.TASK_FAILED, NotificationLevel.ERROR, data
+        await notify_user_or_admins(
+            run_by_user_id,
+            NotificationKind.TASK_COMPLETED,
+            NotificationLevel.SUCCESS,
+            data,
+            admins_too=False,
         )
     else:
-        await notify_admins(NotificationKind.TASK_FAILED, NotificationLevel.ERROR, data)
+        await notify_user_or_admins(
+            run_by_user_id,
+            NotificationKind.TASK_FAILED,
+            NotificationLevel.ERROR,
+            {**data, "error": error},
+            admins_too=True,
+        )
 
 
 def update_job_meta(metadata: dict[str, Any]) -> None:

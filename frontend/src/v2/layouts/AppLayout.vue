@@ -19,6 +19,7 @@ import {
   watch,
 } from "vue";
 import { useRouter } from "vue-router";
+import socket from "@/services/socket";
 import storeCollections from "@/stores/collections";
 import { useNativeStore } from "@/stores/native";
 import storePlatforms from "@/stores/platforms";
@@ -48,6 +49,9 @@ import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
 import { installStageActiveClass } from "@/v2/composables/useStageActive";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
 
+// The server joins a socket to its user's rooms when it connects, so one left
+// open across a logout would still get the last user's pushes.
+if (socket.connected) socket.disconnect().connect();
 installPermissionsHydration();
 // Global scan socket → store wiring so `scanning` flips back to false on
 // `scan:done` / `scan:done_ko` and `scanStats` keeps ticking from any

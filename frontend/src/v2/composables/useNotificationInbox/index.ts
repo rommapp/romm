@@ -6,7 +6,6 @@ import type {
   NotificationIdsPayload,
   NotificationSchema,
 } from "@/__generated__";
-import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
@@ -18,10 +17,6 @@ export function installNotificationInbox() {
   const { user } = storeToRefs(storeAuth());
   const snackbar = useSnackbar();
   const userId = computed(() => user.value?.id ?? null);
-
-  // The server joins a socket to its user's room from the session it connects
-  // with, so one left open across a logout would still get the last user's.
-  if (socket.connected) socket.disconnect().connect();
 
   async function refresh() {
     try {
@@ -52,13 +47,13 @@ export function installNotificationInbox() {
 
   // Another of the user's tabs read or dismissed some.
   useSocketEvent<NotificationIdsPayload>("notifications:read", ({ ids }) => {
-    inbox.applyRead(ids ?? null);
+    inbox.applyRead(ids);
   });
 
   useSocketEvent<NotificationIdsPayload>(
     "notifications:dismissed",
     ({ ids }) => {
-      inbox.applyDismissed(ids ?? null);
+      inbox.applyDismissed(ids);
     },
   );
 

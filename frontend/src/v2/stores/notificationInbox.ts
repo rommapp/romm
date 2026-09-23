@@ -3,12 +3,13 @@
 import { defineStore } from "pinia";
 import type {
   NotificationCreatePayload,
+  NotificationIdsPayload,
   NotificationSchema,
 } from "@/__generated__";
 import notificationApi from "@/services/api/notification";
 
-// `null` stands for every notification, as it does in the API.
-type NotificationIds = number[] | null;
+// No ids stands for every notification, as it does in the API.
+type NotificationIds = NotificationIdsPayload["ids"];
 
 export default defineStore("v2NotificationInbox", {
   state: () => ({
@@ -45,22 +46,25 @@ export default defineStore("v2NotificationInbox", {
       return data[0];
     },
 
-    applyRead(ids: NotificationIds, readAt = new Date().toISOString()) {
+    // Both leave the list untouched when nothing matches, as when a tab's own
+    // change comes back over the socket, so the view doesn't re-render.
+    applyRead(ids: NotificationIds) {
       const targets = ids && new Set(ids);
+      const matches = (n: NotificationSchema) =>
+        !n.read_at && (!targets || targets.has(n.id));
+      if (!this.notifications.some(matches)) return;
+      const readAt = new Date().toISOString();
       this.notifications = this.notifications.map((n) =>
-        !n.read_at && (!targets || targets.has(n.id))
-          ? { ...n, read_at: readAt }
-          : n,
+        matches(n) ? { ...n, read_at: readAt } : n,
       );
     },
 
     applyDismissed(ids: NotificationIds) {
-      if (!ids) {
-        this.notifications = [];
-        return;
-      }
-      const targets = new Set(ids);
-      this.notifications = this.notifications.filter((n) => !targets.has(n.id));
+      const targets = ids && new Set(ids);
+      const kept = targets
+        ? this.notifications.filter((n) => !targets.has(n.id))
+        : [];
+      if (kept.length !== this.notifications.length) this.notifications = kept;
     },
 
     async markRead(ids: number[]) {

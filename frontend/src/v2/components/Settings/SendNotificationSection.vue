@@ -10,9 +10,8 @@ import notificationApi from "@/services/api/notification";
 import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
-import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { TONE_ICONS, useSnackbar } from "@/v2/composables/useSnackbar";
 import {
-  LEVEL_ICONS,
   NOTIFICATION_BODY_MAX_LENGTH,
   NOTIFICATION_LINK_MAX_LENGTH,
   NOTIFICATION_TITLE_MAX_LENGTH,
@@ -44,14 +43,15 @@ const AUDIENCE_ICONS: Record<Audience, string> = {
   users: "mdi-account-multiple-check-outline",
 };
 
-const audienceItems = computed(() => [
-  { title: t("notifications.send-to-all"), value: "all" },
-  { title: t("notifications.send-to-admins"), value: "admins" },
-  { title: t("notifications.send-to-users"), value: "users" },
-]);
+const audienceItems = computed(() =>
+  (Object.keys(AUDIENCE_ICONS) as Audience[]).map((value) => ({
+    title: t(`notifications.send-to-${value}`),
+    value,
+  })),
+);
 
 const levelItems = computed(() =>
-  (Object.keys(LEVEL_ICONS) as NotificationLevel[]).map((value) => ({
+  (Object.keys(TONE_ICONS) as NotificationLevel[]).map((value) => ({
     title: t(`notifications.level-${value}`),
     value,
   })),
@@ -135,7 +135,7 @@ async function send() {
         <RSelect
           v-model="level"
           :items="levelItems"
-          :prepend-inner-icon="LEVEL_ICONS[level]"
+          :prepend-inner-icon="TONE_ICONS[level]"
           prefix-label="stacked"
           hide-details
         >

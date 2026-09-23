@@ -14,12 +14,12 @@ access to the main socket server instance.
 
 import socketio
 
-from config import REDIS_URL
+from handler.socket_handler import socket_handler
 
 
 def _get_socket_manager() -> socketio.AsyncRedisManager:
-    """Create a write-only Redis manager for emitting from background tasks."""
-    return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+    """The write-only Redis manager for emitting from background tasks."""
+    return socket_handler.write_manager()
 
 
 async def emit_sync_started(

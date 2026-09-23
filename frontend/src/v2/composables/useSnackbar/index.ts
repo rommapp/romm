@@ -33,6 +33,14 @@ export interface SnackbarOptions {
   persist?: boolean | { body?: string; link?: string };
 }
 
+/** The icon for a tone, where the caller gives none. */
+export const TONE_ICONS: Record<SnackbarTone, string> = {
+  info: "mdi-information-outline",
+  success: "mdi-check-circle-outline",
+  warning: "mdi-alert-outline",
+  error: "mdi-alert-circle-outline",
+};
+
 const TONE_TO_COLOR: Record<SnackbarTone, string> = {
   success: "success",
   error: "error",

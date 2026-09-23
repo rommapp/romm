@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Notifications: the signed-in user's inbox. Whatever it shows is marked read,
 // and a row that was unread keeps its accent until the user leaves.
-import { RAvatar, RBtn, REmptyState, RIcon, RSkeletonBlock } from "@v2/lib";
+import { RAvatar, RBtn, REmptyState, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -146,19 +146,22 @@ async function dismissAll() {
         v-for="({ notification, view }, i) in rows"
         :key="notification.id"
         class="r-v2-notification"
-        :class="[
-          `r-v2-notification--${notification.level}`,
-          { 'r-v2-notification--unread': unreadThisVisit.has(notification.id) },
-        ]"
+        :class="{
+          'r-v2-notification--unread': unreadThisVisit.has(notification.id),
+        }"
       >
         <component
           :is="view.to ? RouterLink : 'div'"
           :to="view.to ?? undefined"
           class="r-v2-notification__main"
         >
-          <span class="r-v2-notification__icon">
-            <RIcon :icon="view.icon" size="18" />
-          </span>
+          <RAvatar
+            :icon="view.icon"
+            :color="notification.level"
+            variant="translucent"
+            size="36"
+            class="r-v2-notification__icon"
+          />
           <span class="r-v2-notification__text">
             <span class="r-v2-notification__title">{{ view.title }}</span>
             <span v-if="view.body" class="r-v2-notification__body">
@@ -257,44 +260,6 @@ a.r-v2-notification__main:hover {
 
 .r-v2-notification__icon {
   flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--r-radius-full);
-}
-
-.r-v2-notification--success .r-v2-notification__icon {
-  color: var(--r-color-success);
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-success) 14%,
-    transparent
-  );
-}
-.r-v2-notification--error .r-v2-notification__icon {
-  color: var(--r-color-danger-fg);
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 14%,
-    transparent
-  );
-}
-.r-v2-notification--warning .r-v2-notification__icon {
-  color: var(--r-color-warning-fg);
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-warning) 14%,
-    transparent
-  );
-}
-.r-v2-notification--info .r-v2-notification__icon {
-  color: var(--r-color-brand-primary);
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-info) 14%,
-    transparent
-  );
 }
 
 .r-v2-notification__text {

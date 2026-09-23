@@ -18,10 +18,6 @@ vi.mock("@/services/api/notification", () => ({
   default: { getNotifications },
 }));
 
-vi.mock("@/services/socket", () => ({
-  default: { connected: false, disconnect: vi.fn() },
-}));
-
 vi.mock("@/v2/composables/useSocketEvent", () => ({
   useSocketEvent: (event: string, handler: (payload: unknown) => void) => {
     handlers.set(event, handler);
@@ -29,7 +25,8 @@ vi.mock("@/v2/composables/useSocketEvent", () => ({
   },
 }));
 
-vi.mock("@/v2/composables/useSnackbar", () => ({
+vi.mock("@/v2/composables/useSnackbar", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/v2/composables/useSnackbar")>()),
   useSnackbar: () => ({ show }),
 }));
 

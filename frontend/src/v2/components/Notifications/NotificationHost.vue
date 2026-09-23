@@ -12,19 +12,18 @@ import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeNotifications from "@/stores/notifications";
 import type { Events, SnackbarStatus } from "@/types/emitter";
+import { TONE_ICONS, type SnackbarTone } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-
-type ToastTone = "success" | "error" | "warning" | "info";
 
 type Toast = {
   id: number;
   msg: string;
   icon?: string;
   image?: string | null;
-  tone: ToastTone;
+  tone: SnackbarTone;
   timer?: number;
 };
 
@@ -35,7 +34,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 // The existing v1 emitters pass free-form colour strings ("green", "red",
 // "primary", "orange"). Collapse down to four v2 tones for consistent
 // styling; unknown colours become `info`.
-function toneFromColor(color: string | undefined): ToastTone {
+function toneFromColor(color: string | undefined): SnackbarTone {
   if (!color) return "info";
   const c = color.toLowerCase();
   if (c.includes("green") || c === "success") return "success";
@@ -45,12 +44,8 @@ function toneFromColor(color: string | undefined): ToastTone {
   return "info";
 }
 
-function iconFor(tone: ToastTone, fallback?: string): string {
-  if (fallback) return fallback;
-  if (tone === "success") return "mdi-check-circle-outline";
-  if (tone === "error") return "mdi-alert-circle-outline";
-  if (tone === "warning") return "mdi-alert-outline";
-  return "mdi-information-outline";
+function iconFor(tone: SnackbarTone, fallback?: string): string {
+  return fallback || TONE_ICONS[tone];
 }
 
 let counter = 1;

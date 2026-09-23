@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 
-from endpoints import notifications as notifications_endpoints
 from handler.auth import oauth_handler
 from handler.database import db_notification_handler
+from handler.socket_handler import socket_handler
 from models.notification import (
     MAX_NOTIFICATIONS_PER_USER,
     Notification,
@@ -17,16 +17,19 @@ from models.user import User
 
 
 def _add(user: User, minutes_ago: int = 0, **overrides) -> Notification:
-    return db_notification_handler.add_notification(
-        Notification(
-            user_id=user.id,
-            kind=NotificationKind.TASK_COMPLETED,
-            level=NotificationLevel.SUCCESS,
-            data={"task": "cleanup_missing_roms"},
-            created_at=datetime.now(timezone.utc) - timedelta(minutes=minutes_ago),
-            **overrides,
-        )
+    [stored] = db_notification_handler.add_notifications(
+        [
+            Notification(
+                user_id=user.id,
+                kind=NotificationKind.TASK_COMPLETED,
+                level=NotificationLevel.SUCCESS,
+                data={"task": "cleanup_missing_roms"},
+                created_at=datetime.now(timezone.utc) - timedelta(minutes=minutes_ago),
+                **overrides,
+            )
+        ]
     )
+    return stored
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -35,7 +38,7 @@ def _auth(token: str) -> dict[str, str]:
 
 @pytest.fixture
 def emit(mocker):
-    return mocker.patch.object(notifications_endpoints, "emit_to_user", AsyncMock())
+    return mocker.patch.object(socket_handler, "emit_to_user", AsyncMock())
 
 
 class TestListNotifications:

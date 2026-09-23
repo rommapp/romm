@@ -77,9 +77,9 @@ class Notification(BaseModel):
         String(NOTIFICATION_ICON_MAX_LENGTH), nullable=True
     )
     # The values the kind's text is built from (names, counts, ids to link to).
-    data: Mapped[dict[str, Any] | None] = mapped_column(CustomJSON(), default=dict)
+    data: Mapped[dict[str, Any]] = mapped_column(CustomJSON(), default=dict)
     read_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
 
-    actor: Mapped[User | None] = relationship(lazy="joined", foreign_keys=[actor_id])
+    actor: Mapped[User | None] = relationship(lazy="raise", foreign_keys=[actor_id])

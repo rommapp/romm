@@ -2,13 +2,10 @@
 // they read in the language of whoever opens them. Any other kind brings its
 // own title and body.
 import type { RouteLocationRaw } from "vue-router";
-import type {
-  NotificationKind,
-  NotificationLevel,
-  NotificationSchema,
-} from "@/__generated__";
+import type { NotificationKind, NotificationSchema } from "@/__generated__";
 import i18n from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
+import { TONE_ICONS } from "@/v2/composables/useSnackbar";
 
 export interface NotificationView {
   icon: string;
@@ -31,13 +28,6 @@ function count(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-export const LEVEL_ICONS: Record<NotificationLevel, string> = {
-  info: "mdi-information-outline",
-  success: "mdi-check-circle-outline",
-  warning: "mdi-alert-outline",
-  error: "mdi-alert-circle-outline",
-};
-
 // Mirror the columns in backend/models/notification.py.
 export const NOTIFICATION_TITLE_MAX_LENGTH = 255;
 export const NOTIFICATION_BODY_MAX_LENGTH = 1000;
@@ -55,13 +45,27 @@ export function isInAppPath(link: string): boolean {
 
 function ownContent(notification: NotificationSchema): NotificationView {
   return {
-    icon: notification.icon ?? LEVEL_ICONS[notification.level],
+    icon: notification.icon ?? TONE_ICONS[notification.level],
     title: notification.title ?? t("notifications.unknown"),
     body: notification.body,
     to:
       notification.link && isInAppPath(notification.link)
         ? notification.link
         : null,
+    toast: true,
+  };
+}
+
+function taskView(
+  key: string,
+  data: NotificationData,
+  body: string | null,
+): NotificationView {
+  return {
+    icon: "mdi-pulse",
+    title: t(key, { task: text(data.title) ?? "" }),
+    body,
+    to: { name: ROUTES.ADMINISTRATION },
     toast: true,
   };
 }
@@ -92,24 +96,10 @@ const DESCRIBERS: Record<
     to: { name: ROUTES.SCAN },
     toast: false,
   }),
-  task_completed: (data) => ({
-    icon: "mdi-pulse",
-    title: t("notifications.task-completed", {
-      task: text(data.title) ?? text(data.task) ?? "",
-    }),
-    body: null,
-    to: { name: ROUTES.ADMINISTRATION },
-    toast: true,
-  }),
-  task_failed: (data) => ({
-    icon: "mdi-pulse",
-    title: t("notifications.task-failed", {
-      task: text(data.title) ?? text(data.task) ?? "",
-    }),
-    body: text(data.error),
-    to: { name: ROUTES.ADMINISTRATION },
-    toast: true,
-  }),
+  task_completed: (data) =>
+    taskView("notifications.task-completed", data, null),
+  task_failed: (data) =>
+    taskView("notifications.task-failed", data, text(data.error)),
   streaming_session_ended: (data) => {
     const game = text(data.rom_name);
     const romId = count(data.rom_id);
