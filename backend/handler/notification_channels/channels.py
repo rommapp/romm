@@ -67,14 +67,6 @@ async def create_channel(
         CodeCooldownError, EmailError: The confirmation code could not go out,
             in which case the channel is not kept.
     """
-    if (
-        db_notification_channel_handler.count_channels(user.id)
-        >= MAX_NOTIFICATION_CHANNELS_PER_USER
-    ):
-        raise ChannelError(
-            f"A user can have at most {MAX_NOTIFICATION_CHANNELS_PER_USER} channels"
-        )
-
     config: WebhookConfig | EmailConfig
     if type == NotificationChannelType.EMAIL:
         _require_email()
@@ -99,8 +91,13 @@ async def create_channel(
             enabled=True,
             confirmed_at=confirmed_at,
             consecutive_failures=0,
-        )
+        ),
+        MAX_NOTIFICATION_CHANNELS_PER_USER,
     )
+    if channel is None:
+        raise ChannelError(
+            f"A user can have at most {MAX_NOTIFICATION_CHANNELS_PER_USER} channels"
+        )
 
     if address and type == NotificationChannelType.EMAIL:
         try:

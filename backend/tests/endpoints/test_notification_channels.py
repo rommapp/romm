@@ -7,7 +7,10 @@ from fastapi import status
 from handler.database import db_notification_channel_handler
 from handler.email_handler import EmailError
 from handler.notification_channels import channels, confirmation
-from models.notification_channel import MAX_CONSECUTIVE_DELIVERY_FAILURES
+from models.notification_channel import (
+    MAX_CONSECUTIVE_DELIVERY_FAILURES,
+    MAX_NOTIFICATION_CHANNELS_PER_USER,
+)
 
 API = "/api/notification-channels"
 
@@ -60,6 +63,20 @@ class TestCreate:
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_a_user_has_at_most_so_many(self, client, access_token):
+        for n in range(MAX_NOTIFICATION_CHANNELS_PER_USER):
+            created = client.post(
+                API, json=_webhook(name=f"Hook {n}"), headers=_auth(access_token)
+            )
+            assert created.status_code == status.HTTP_201_CREATED
+
+        response = client.post(
+            API, json=_webhook(name="One more"), headers=_auth(access_token)
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "at most" in response.json()["detail"]
 
     @pytest.mark.parametrize(
         "payload",

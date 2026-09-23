@@ -225,8 +225,13 @@ async def send(
                 "POST", request.url, content=request.content, headers=request.headers
             ) as response,
         ):
-            if response.is_error:
-                detail = await _error_detail(response)
+            if not response.is_success:
+                # Redirects aren't followed, so one is a delivery that didn't land.
+                detail = (
+                    f"redirected to {response.headers['location']}"
+                    if response.is_redirect
+                    else await _error_detail(response)
+                )
                 raise WebhookError(
                     f"{host} answered {response.status_code}"
                     + (f": {detail}" if detail else "")

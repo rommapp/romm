@@ -18,6 +18,7 @@ import { formatRelativeDate } from "@/utils";
 import NotificationChannelDialog from "@/v2/components/Notifications/NotificationChannelDialog.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useGridNav } from "@/v2/composables/useGridNav";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
 import {
@@ -28,12 +29,14 @@ import {
 const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const isAlive = useIsAlive();
 
 const channels = ref<NotificationChannelSchema[]>([]);
 const loaded = ref(false);
 const dialogOpen = ref(false);
 const editing = ref<NotificationChannelSchema | null>(null);
 const busy = reactive(new Set<number>());
+const deleting = reactive(new Set<number>());
 const codes = reactive<Record<number, string>>({});
 
 const listRoot = ref<HTMLElement | null>(null);
@@ -47,10 +50,19 @@ useGridNav(listRoot, {
     ),
 });
 
+// Counts the changes made here, so a reload that raced one doesn't undo it.
+let localChanges = 0;
+
+function setChannels(next: NotificationChannelSchema[]) {
+  channels.value = next;
+  localChanges++;
+}
+
 async function load() {
+  const changesBefore = localChanges;
   try {
     const { data } = await notificationChannelApi.getChannels();
-    channels.value = data;
+    if (isAlive.value && localChanges === changesBefore) channels.value = data;
   } catch (error) {
     console.error("Could not load notification channels:", error);
     snackbar.error(t("notifications.channels-load-failed"));
@@ -61,10 +73,14 @@ async function load() {
 
 onMounted(load);
 
-function replace(channel: NotificationChannelSchema) {
-  channels.value = channels.value.map((c) =>
-    c.id === channel.id ? channel : c,
+function patch(id: number, fields: Partial<NotificationChannelSchema>) {
+  setChannels(
+    channels.value.map((c) => (c.id === id ? { ...c, ...fields } : c)),
   );
+}
+
+function replace(channel: NotificationChannelSchema) {
+  patch(channel.id, channel);
 }
 
 function openDialog(channel: NotificationChannelSchema | null) {
@@ -84,7 +100,7 @@ function onSaved(channel: NotificationChannelSchema) {
   if (before) {
     replace(channel);
   } else {
-    channels.value = [...channels.value, channel];
+    setChannels([...channels.value, channel]);
   }
   // A code only goes out for an address that's new to the channel.
   if (!channel.confirmed && before?.target !== channel.target) {
@@ -106,7 +122,7 @@ function filtersLabel(channel: NotificationChannelSchema): string {
 
 // Optimistic: the switch flips at once and flips back if the server refuses.
 async function toggle(channel: NotificationChannelSchema, enabled: boolean) {
-  replace({ ...channel, enabled });
+  patch(channel.id, { enabled });
   try {
     const { data } = await notificationChannelApi.update(channel.id, {
       enabled,
@@ -114,7 +130,7 @@ async function toggle(channel: NotificationChannelSchema, enabled: boolean) {
     replace(data);
   } catch (error) {
     console.error("Could not update notification channel:", error);
-    replace(channel);
+    patch(channel.id, { enabled: !enabled });
     snackbar.error(t("notifications.channel-update-failed"));
   }
 }
@@ -176,6 +192,7 @@ async function resendCode(channel: NotificationChannelSchema) {
 }
 
 async function remove(channel: NotificationChannelSchema) {
+  if (deleting.has(channel.id)) return;
   const ok = await confirm({
     title: t("notifications.channel-delete-title", { name: channel.name }),
     body: t("notifications.channel-delete-body"),
@@ -183,12 +200,15 @@ async function remove(channel: NotificationChannelSchema) {
     tone: "danger",
   });
   if (!ok) return;
+  deleting.add(channel.id);
   try {
     await notificationChannelApi.remove(channel.id);
-    channels.value = channels.value.filter((c) => c.id !== channel.id);
+    setChannels(channels.value.filter((c) => c.id !== channel.id));
   } catch (error) {
     console.error("Could not delete notification channel:", error);
     snackbar.error(t("notifications.channel-delete-failed"));
+  } finally {
+    deleting.delete(channel.id);
   }
 }
 </script>
@@ -282,6 +302,8 @@ async function remove(channel: NotificationChannelSchema) {
               size="small"
               icon="mdi-delete-outline"
               color="danger"
+              :loading="deleting.has(channel.id)"
+              :disabled="deleting.has(channel.id)"
               :aria-label="t('notifications.channel-delete')"
               @click="remove(channel)"
             />

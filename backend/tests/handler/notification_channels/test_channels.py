@@ -16,7 +16,6 @@ from handler.notification_channels.channels import (
 from handler.notification_channels.config import read_config, seal_config
 from handler.notification_channels.confirmation import CodeCooldownError
 from models.notification_channel import (
-    MAX_NOTIFICATION_CHANNELS_PER_USER,
     NotificationChannelMinLevel,
     NotificationChannelType,
     WebhookFormat,
@@ -30,8 +29,7 @@ USER = MagicMock(id=2, role=Role.USER)
 @pytest.fixture
 def db(mocker):
     handler = mocker.patch.object(channels, "db_notification_channel_handler")
-    handler.count_channels.return_value = 0
-    handler.add_channel.side_effect = lambda channel: channel
+    handler.add_channel.side_effect = lambda channel, limit: channel
     handler.update_channel.side_effect = lambda _id, _user, changes: MagicMock(
         **changes
     )
@@ -114,7 +112,8 @@ class TestCreate:
         )
 
     async def test_there_is_a_limit(self, db):
-        db.count_channels.return_value = MAX_NOTIFICATION_CHANNELS_PER_USER
+        db.add_channel.side_effect = None
+        db.add_channel.return_value = None
 
         with pytest.raises(ChannelError, match="at most"):
             await create_channel(

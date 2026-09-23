@@ -216,6 +216,20 @@ class TestSend:
                 allow_private=False,
             )
 
+    async def test_a_redirect_is_a_delivery_that_did_not_land(self, mocker):
+        _serve(
+            mocker,
+            lambda request: httpx.Response(
+                301, headers={"Location": "https://hooks.example.com/new"}
+            ),
+        )
+
+        with pytest.raises(
+            WebhookError,
+            match="answered 301: redirected to https://hooks.example.com/new",
+        ):
+            await send(_CONFIG, _message(), allow_private=False)
+
     async def test_reads_only_the_start_of_an_endless_refusal(self, mocker):
         async def endless():
             while True:

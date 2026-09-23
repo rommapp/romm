@@ -123,6 +123,16 @@ class TestDeliverToChannel:
 
         send.assert_not_called()
 
+    def test_skips_an_address_changed_since_it_was_queued(self, db, send):
+        db.get_channel_for_delivery.return_value = (
+            _channel(confirmed_at=None),
+            Role.USER,
+        )
+
+        self._run()
+
+        send.assert_not_called()
+
     def test_a_failure_with_retries_left_is_raised_for_rq(self, mocker, db, send):
         send.side_effect = WebhookError("discord.com answered 502")
         mocker.patch.object(

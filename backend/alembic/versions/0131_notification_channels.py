@@ -1,7 +1,4 @@
-"""Add the notification_channels table
-
-Each user's webhooks and email addresses that their notifications are forwarded
-to, with the delivery status the UI shows per channel.
+"""Add the notification_channels table.
 
 Revision ID: 0131_notification_channels
 Revises: 0130_notifications

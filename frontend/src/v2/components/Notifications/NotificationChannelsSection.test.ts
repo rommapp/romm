@@ -136,6 +136,29 @@ describe("NotificationChannelsSection", () => {
     expect(api.getChannels).toHaveBeenCalledTimes(2);
   });
 
+  it("drops a reload that raced a change made meanwhile", async () => {
+    const wrapper = await mountWith([channel()]);
+    let answer!: (value: { data: NotificationChannelSchema[] }) => void;
+    api.getChannels.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    api.test.mockResolvedValue({ data: { ok: true, error: null } });
+    api.update.mockResolvedValue({ data: channel({ enabled: false }) });
+
+    await button(wrapper, "notifications.channel-test").trigger("click");
+    await flushPromises();
+    await wrapper.find('[role="switch"]').trigger("click");
+    await flushPromises();
+    answer({ data: [channel()] });
+    await flushPromises();
+
+    expect(wrapper.find(".r-v2-channel").classes()).toContain(
+      "r-v2-channel--off",
+    );
+  });
+
   it("confirms an address with the code typed in", async () => {
     api.confirm.mockResolvedValue({
       data: channel({ type: "email", confirmed: true }),
@@ -167,6 +190,30 @@ describe("NotificationChannelsSection", () => {
     await button(wrapper, "notifications.channel-delete").trigger("click");
     await flushPromises();
     expect(api.remove).toHaveBeenCalledWith(1);
+    expect(wrapper.find(".r-v2-channel").exists()).toBe(false);
+  });
+
+  it("deletes once, holding the button while it does", async () => {
+    confirmDialog.mockResolvedValue(true);
+    let done!: (value: object) => void;
+    api.remove.mockReturnValue(
+      new Promise((resolve) => {
+        done = resolve;
+      }),
+    );
+    const wrapper = await mountWith([channel()]);
+
+    await button(wrapper, "notifications.channel-delete").trigger("click");
+    await flushPromises();
+    expect(
+      button(wrapper, "notifications.channel-delete").attributes("disabled"),
+    ).toBeDefined();
+    await button(wrapper, "notifications.channel-delete").trigger("click");
+    done({});
+    await flushPromises();
+
+    expect(confirmDialog).toHaveBeenCalledOnce();
+    expect(api.remove).toHaveBeenCalledOnce();
     expect(wrapper.find(".r-v2-channel").exists()).toBe(false);
   });
 });

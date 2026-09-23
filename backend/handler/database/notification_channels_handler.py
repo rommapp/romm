@@ -44,21 +44,6 @@ class DBNotificationChannelsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def count_channels(
-        self,
-        user_id: int,
-        session: Session = None,  # type: ignore
-    ) -> int:
-        return (
-            session.scalar(
-                select(func.count())
-                .select_from(NotificationChannel)
-                .where(NotificationChannel.user_id == user_id)
-            )
-            or 0
-        )
-
-    @begin_session
     def get_channel_for_delivery(
         self,
         channel_id: int,
@@ -94,8 +79,21 @@ class DBNotificationChannelsHandler(DBBaseHandler):
     def add_channel(
         self,
         channel: NotificationChannel,
+        limit: int,
         session: Session = None,  # type: ignore
-    ) -> NotificationChannel:
+    ) -> NotificationChannel | None:
+        """Add the channel unless its user already has `limit`; None if they do."""
+        # Locking the user's row makes that user's concurrent adds count in turn.
+        session.execute(
+            select(User.id).where(User.id == channel.user_id).with_for_update()
+        )
+        count = session.scalar(
+            select(func.count())
+            .select_from(NotificationChannel)
+            .where(NotificationChannel.user_id == channel.user_id)
+        )
+        if (count or 0) >= limit:
+            return None
         session.add(channel)
         session.flush()
         return channel

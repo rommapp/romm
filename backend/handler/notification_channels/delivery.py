@@ -136,7 +136,8 @@ def deliver_to_channel(channel_id: int, notification: dict[str, Any]) -> None:
     if found is None:
         return
     channel, owner_role = found
-    if not channel.enabled:
+    # Checked again, as the channel may have changed since this was queued.
+    if not channel.enabled or channel.confirmed_at is None:
         return
 
     message = render(NotificationSchema.model_validate(notification))
