@@ -4,7 +4,8 @@ Pieces:
 - ``connect`` handler on the main socket server: resolves the session user,
   joins them to their own ``user:{id}`` room, and, if they are an admin, also
   joins the ``admin`` room. It never rejects a connection, so the existing
-  scan/sync sockets keep working for everyone.
+  scan/sync sockets keep working for everyone. It also ties the socket to its
+  login session, which ``disconnect`` undoes.
 - ``start_log_forwarder``: a single background task (Redis-lock guarded) that
   subscribes to the ``romm:logs`` pub/sub channel — fed by ``LogStreamHandler``
   in every backend process — and relays each line to the ``admin`` room.
@@ -15,10 +16,8 @@ import asyncio
 import uuid
 from typing import Any, Final
 
-import socketio
-
-from config import DISABLE_LOGS_VIEWER, REDIS_URL
-from endpoints.sockets.activity import store_authenticated_user
+from config import DISABLE_LOGS_VIEWER
+from endpoints.sockets.activity import activity_on_disconnect, store_authenticated_user
 from handler.database import db_user_handler
 from handler.redis_handler import async_cache
 from handler.socket_handler import socket_handler
@@ -63,8 +62,20 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
 
         if not DISABLE_LOGS_VIEWER and user.role == Role.ADMIN:
             await socket_handler.socket_server.enter_room(sid, ADMIN_ROOM)
+
+        session_id = session.get("session_id")
+        if session_id:
+            await socket_handler.bind_to_login_session(sid, session_id)
     except Exception:  # noqa: BLE001 - never let auth resolution refuse a socket
         log.exception("Failed to resolve user on socket connect")
+
+
+# A server takes one handler per event, so this one does every module's cleanup.
+@socket_handler.socket_server.on("disconnect")
+async def disconnect(sid: str) -> None:
+    """Undo what ``connect`` and the activity events tied to the socket."""
+    await socket_handler.unbind_from_login_session(sid)
+    await activity_on_disconnect(sid)
 
 
 async def get_recent_logs(limit: int) -> list[dict[str, Any]]:
@@ -95,9 +106,8 @@ async def start_log_forwarder() -> None:
     pubsub = None
     # Write-only manager for emitting — the same proven path scan/sync use. It
     # publishes the room emit to Redis; the main socket server's read-side
-    # manager resolves `admin` room membership and delivers. Created inside the
-    # running loop (like sync.py) rather than at import time.
-    socket_manager = socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+    # manager resolves `admin` room membership and delivers.
+    socket_manager = socket_handler.write_manager()
     try:
         while True:
             got_lock = await async_cache.set(

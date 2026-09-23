@@ -3,7 +3,7 @@
 // navigator. The dropdown mirrors the SettingsSidebar's information
 // architecture so the user has the same mental model in both places:
 //
-//   • Account  — Profile, User interface
+//   • Account  — Notifications, Profile, User interface
 //   • Library  — Library management, Scan settings, Metadata sources,
 //                Client API tokens
 //   • System   — Administration, Server stats
@@ -16,6 +16,7 @@
 // unauthorised users don't see options they can't open.
 import {
   RAvatar,
+  RBadge,
   RBtn,
   RChip,
   RDivider,
@@ -31,11 +32,13 @@ import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
+import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import storeNotificationInbox from "@/v2/stores/notificationInbox";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
@@ -46,6 +49,7 @@ const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const { user, scopes } = storeToRefs(authStore);
+const { unreadCount } = storeToRefs(storeNotificationInbox());
 
 const open = ref(false);
 
@@ -95,6 +99,8 @@ async function onLogout() {
   open.value = false;
   try {
     const { data } = await identityApi.logout();
+    // The socket keeps the rooms it joined as this user until it reconnects.
+    socket.disconnect();
     const oidcLogoutUrl = (data as { oidc_logout_url?: string })
       ?.oidc_logout_url;
     if (oidcLogoutUrl) {
@@ -136,7 +142,14 @@ async function onLogout() {
         data-user-menu-trigger
         :aria-label="`Account menu for ${user?.username ?? 'Guest'}`"
       >
-        <RAvatar :image="avatarSrc" size="30" />
+        <RBadge
+          :model-value="unreadCount > 0"
+          :content="unreadCount"
+          bordered
+          :inset="4"
+        >
+          <RAvatar :image="avatarSrc" size="30" />
+        </RBadge>
         <span class="r-v2-user__name">
           {{ user?.username ?? "Guest" }}
         </span>
@@ -169,6 +182,20 @@ async function onLogout() {
       <div class="r-v2-user-menu__group-label">
         {{ t("settings.group-account") }}
       </div>
+      <RMenuItem
+        :to="{ name: ROUTES.NOTIFICATIONS }"
+        icon="mdi-bell-outline"
+        :label="t('notifications.notifications')"
+        @click="open = false"
+      >
+        <template #append>
+          <RBadge
+            inline
+            :model-value="unreadCount > 0"
+            :content="unreadCount"
+          />
+        </template>
+      </RMenuItem>
       <RMenuItem
         v-if="canSeeProfile"
         :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"

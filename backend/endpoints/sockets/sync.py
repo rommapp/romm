@@ -12,14 +12,7 @@ RQ background workers (push-pull task, folder watcher) that don't have
 access to the main socket server instance.
 """
 
-import socketio
-
-from config import REDIS_URL
-
-
-def _get_socket_manager() -> socketio.AsyncRedisManager:
-    """Create a write-only Redis manager for emitting from background tasks."""
-    return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+from handler.socket_handler import socket_handler
 
 
 async def emit_sync_started(
@@ -29,7 +22,7 @@ async def emit_sync_started(
     sync_mode: str,
 ) -> None:
     """Notify that a sync session has started."""
-    sm = _get_socket_manager()
+    sm = socket_handler.write_manager()
     await sm.emit(
         "sync:started",
         {
@@ -50,7 +43,7 @@ async def emit_sync_progress(
     current_file: str | None = None,
 ) -> None:
     """Notify sync progress update."""
-    sm = _get_socket_manager()
+    sm = socket_handler.write_manager()
     await sm.emit(
         "sync:progress",
         {
@@ -72,7 +65,7 @@ async def emit_sync_completed(
     operations_failed: int,
 ) -> None:
     """Notify that a sync session has completed."""
-    sm = _get_socket_manager()
+    sm = socket_handler.write_manager()
     await sm.emit(
         "sync:completed",
         {
@@ -94,7 +87,7 @@ async def emit_sync_conflict(
     reason: str,
 ) -> None:
     """Notify that a sync conflict was detected."""
-    sm = _get_socket_manager()
+    sm = socket_handler.write_manager()
     await sm.emit(
         "sync:conflict",
         {
@@ -115,7 +108,7 @@ async def emit_sync_error(
     error_message: str,
 ) -> None:
     """Notify that a sync error occurred."""
-    sm = _get_socket_manager()
+    sm = socket_handler.write_manager()
     await sm.emit(
         "sync:error",
         {

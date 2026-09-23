@@ -1,5 +1,8 @@
 """Test suite for RedisSessionMiddleware's Redis-backed session persistence."""
 
+from unittest.mock import AsyncMock
+
+import pytest
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
@@ -9,6 +12,7 @@ from starlette.testclient import TestClient
 
 from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.socket_handler import socket_handler
 
 USERNAME = "user_1"
 
@@ -27,11 +31,16 @@ def create_test_app() -> Starlette:
     async def whoami(request: Request) -> JSONResponse:
         return JSONResponse({"sub": request.session.get("sub")})
 
+    async def logout(request: Request) -> JSONResponse:
+        request.session.clear()
+        return JSONResponse({"ok": True})
+
     return Starlette(
         routes=[
             Route("/login", login, methods=["POST"]),
             Route("/revoke", revoke, methods=["POST"]),
             Route("/whoami", whoami, methods=["GET"]),
+            Route("/logout", logout, methods=["POST"]),
         ],
         middleware=[
             Middleware(
@@ -67,3 +76,42 @@ class TestRedisSessionMiddleware:
         response = client.post("/login")
 
         assert response.cookies[SESSION_COOKIE_NAME] != "not-a-real-session"
+
+
+class TestRevokedSessionsCloseTheirSockets:
+    @pytest.fixture
+    def close_login_sessions(self, mocker):
+        return mocker.patch.object(socket_handler, "close_login_sessions", AsyncMock())
+
+    def test_logging_out_closes_that_sessions_sockets(
+        self, close_login_sessions
+    ) -> None:
+        client = TestClient(create_test_app())
+        session_id = client.post("/login").cookies[SESSION_COOKIE_NAME]
+
+        client.post("/logout")
+
+        close_login_sessions.assert_awaited_once_with([session_id])
+
+    def test_revoking_a_users_sessions_closes_all_their_sockets(
+        self, close_login_sessions
+    ) -> None:
+        phone, laptop = TestClient(create_test_app()), TestClient(create_test_app())
+        ids = {
+            phone.post("/login").cookies[SESSION_COOKIE_NAME],
+            laptop.post("/login").cookies[SESSION_COOKIE_NAME],
+        }
+
+        phone.post("/revoke")
+
+        assert ids <= set(close_login_sessions.await_args.args[0])
+
+    def test_a_cookie_for_a_gone_session_closes_nothing(
+        self, close_login_sessions
+    ) -> None:
+        client = TestClient(create_test_app())
+        client.cookies.set(SESSION_COOKIE_NAME, "not-a-real-session")
+
+        client.post("/logout")
+
+        close_login_sessions.assert_not_awaited()

@@ -13,6 +13,10 @@ from defusedxml import ElementTree as ET
 from config.config_manager import PLATFORM_MEDIA_DIRS, MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_platform_handler, fs_resource_handler
+from handler.filesystem.base_handler import (
+    normalize_provider_languages,
+    normalize_provider_regions,
+)
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom, compute_name_sort_key
@@ -460,15 +464,15 @@ class GamelistHandler(MetadataHandler):
                 summary = (
                     desc_elem.text if desc_elem is not None and desc_elem.text else ""
                 )
-                regions = (
-                    _split_comma_separated_values(region_elem.text)
-                    if region_elem is not None
-                    else []
+                regions = normalize_provider_regions(
+                    _split_comma_separated_values(
+                        region_elem.text if region_elem is not None else None
+                    )
                 )
-                languages = (
-                    _split_comma_separated_values(lang_elem.text)
-                    if lang_elem is not None
-                    else []
+                languages = normalize_provider_languages(
+                    _split_comma_separated_values(
+                        lang_elem.text if lang_elem is not None else None
+                    )
                 )
 
                 # Build ROM data

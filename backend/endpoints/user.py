@@ -20,7 +20,9 @@ from handler.filesystem.assets_handler import (
 )
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
+from handler.notification_handler import notify
 from logger.logger import log
+from models.notification import NotificationKind, NotificationLevel
 from models.user import Role, User
 from utils.router import APIRouter
 from utils.validation import (
@@ -200,6 +202,10 @@ def create_user_from_invite(
     Returns:
         UserSchema: Newly created user
     """
+
+    # Ahead of the "already exists" checks, which would otherwise enumerate
+    # accounts for an invalid token. Not consumed, so a retry keeps the invite.
+    auth_handler.assert_invite_link_token_valid(token)
 
     try:
         validate_username(username)
@@ -490,6 +496,14 @@ async def update_user(
         # A role change alters the user's effective permissions; tell their UI.
         if "role" in cleaned_data:
             await emit_permissions_changed(id)
+            if cleaned_data["role"] != db_user.role:
+                await notify(
+                    id,
+                    NotificationKind.ROLE_CHANGED,
+                    NotificationLevel.INFO,
+                    {"role": cleaned_data["role"]},
+                    actor_id=request.user.id,
+                )
 
     db_user = db_user_handler.get_user(id)
     if not db_user:
@@ -565,6 +579,10 @@ async def refresh_retro_achievements(
     ] = False,
 ) -> None:
     """Refresh RetroAchievements progression data for a user."""
+    # Admin users can refresh any user, while other users can only refresh self
+    if id != request.user.id and request.user.role != Role.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
     user = db_user_handler.get_user(id)
     if not user or not user.ra_username:
         raise HTTPException(

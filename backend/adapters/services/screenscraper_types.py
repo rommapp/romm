@@ -80,6 +80,40 @@ class SSGameMedia(TypedDict):
     format: str
 
 
+class SSRomRegions(TypedDict):
+    """Parallel arrays, one entry per region, keyed by name language."""
+
+    regions_shortname: NotRequired[list[str]]
+    regions_en: NotRequired[list[str]]
+
+
+class SSRomLanguages(TypedDict):
+    """Parallel arrays, one entry per language, keyed by name language."""
+
+    langues_shortname: NotRequired[list[str]]
+    langues_en: NotRequired[list[str]]
+
+
+class SSGameRom(TypedDict):
+    """One dump of a game, as `jeu.roms` lists every dump ScreenScraper knows."""
+
+    id: NotRequired[int]
+    romfilename: NotRequired[str]
+    romcrc: NotRequired[str]
+    rommd5: NotRequired[str]
+    romsha1: NotRequired[str]
+    regions: NotRequired[SSRomRegions]
+    langues: NotRequired[SSRomLanguages]
+    # Sent as "1"/"0" strings, typed for the int some platforms send instead.
+    # No `proto`: jeuInfos omits the key entirely, unlike `demo` and `unl`,
+    # which it sends set to zero.
+    beta: NotRequired[int | str]
+    demo: NotRequired[int | str]
+    trad: NotRequired[int | str]
+    hack: NotRequired[int | str]
+    unl: NotRequired[int | str]
+
+
 # https://api.screenscraper.fr/webapi2.php#jeuInfos
 class SSGame(TypedDict):
     id: int
@@ -101,3 +135,4 @@ class SSGame(TypedDict):
     modes: list[SSGameMode]
     familles: list[SSGameFranchise]
     medias: list[SSGameMedia]
+    roms: NotRequired[list[SSGameRom]]
