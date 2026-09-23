@@ -21,9 +21,12 @@ COMPANION_EXTENSIONS = frozenset(
 )
 
 
-# The spellings a dumper writes a disc number with, as "(Disc 2)", "(CD 2)" or
-# "(Disque 2)". A trailing letter covers the "(Disc 2A)" a split disc carries.
-DISC_TAG_REGEX = re.compile(r"\((?:disc|disk|cd|disque)\s*([0-9]{1,2})[a-z]?\)", re.I)
+# The spellings a dumper writes a disc number with: "(Disc 2)", "(CD 2)", the
+# "(Disk 1 of 2)" TOSEC uses, and the letter a split disc adds, "(Disc 2A)".
+DISC_TAG_REGEX = re.compile(
+    r"\((?:disc|disk|cd|disque)\s*([0-9]{1,2})[a-z]?(?:\s+of\s+[0-9]{1,2})?\)",
+    re.I,
+)
 
 
 def disc_number(file: RomFile) -> int | None:
@@ -33,11 +36,7 @@ def disc_number(file: RomFile) -> int | None:
 
 
 def _disc_order(file: RomFile) -> tuple[int, str]:
-    """Sort discs by their number, and anything unnumbered by name alone.
-
-    Numbering is what the name cannot give: "(Disc 10)" sorts before "(Disc 2)"
-    as text, and a set is free to mix "Disc 1" with "CD2".
-    """
+    """Sort discs by their number, and anything unnumbered by name alone."""
     return (disc_number(file) or 0, file.file_name)
 
 

@@ -249,6 +249,14 @@ class TestDiscNumber:
         ):
             assert disc_number(_make_file(name, "chd")) == 2
 
+    def test_reads_the_tosec_of_form(self):
+        assert disc_number(_make_file("G (Disk 1 of 2).adf", "adf")) == 1
+        assert disc_number(_make_file("G (Disk 10 of 12).adf", "adf")) == 10
+
+    def test_a_disc_count_is_not_a_disc_number(self):
+        # "(2 CD)" says how many the release had, not which one this is.
+        assert disc_number(_make_file("G (2 CD).pbp", "pbp")) is None
+
     def test_reads_a_split_disc(self):
         assert disc_number(_make_file("G (Disc 2A).chd", "chd")) == 2
 
@@ -285,6 +293,17 @@ class TestPlaylistOrder:
         assert [f.file_name for f in playlist_files(files)] == [
             "G (Disc 1).chd",
             "G (CD 2).chd",
+        ]
+
+    def test_a_tosec_disk_set_orders_past_nine(self):
+        files = [
+            _make_file("G (Disk 10 of 12).adf", "adf"),
+            _make_file("G (Disk 2 of 12).adf", "adf"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == [
+            "G (Disk 2 of 12).adf",
+            "G (Disk 10 of 12).adf",
         ]
 
     def test_an_unnumbered_set_keeps_its_name_order(self):
