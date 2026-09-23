@@ -22,10 +22,7 @@ class NotificationLevel(enum.StrEnum):
 
 
 class NotificationKind(enum.StrEnum):
-    """What happened. The client renders these in the reader's language.
-
-    Any other kind, `custom` included, is rendered from its own title and body.
-    """
+    """What happened, translated by the client; any other kind shows its own title and body."""
 
     CUSTOM = "custom"
     SCAN_COMPLETED = "scan_completed"
@@ -35,6 +32,9 @@ class NotificationKind(enum.StrEnum):
     STREAMING_SESSION_ENDED = "streaming_session_ended"
     ROLE_CHANGED = "role_changed"
 
+
+# A user who never clears their inbox keeps only this many, newest first.
+MAX_NOTIFICATIONS_PER_USER: Final = 200
 
 NOTIFICATION_KIND_MAX_LENGTH: Final = 64
 NOTIFICATION_TITLE_MAX_LENGTH: Final = 255

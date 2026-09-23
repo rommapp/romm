@@ -121,7 +121,7 @@ describe("describeNotification", () => {
     const view = describeNotification(notification("from_the_future"));
 
     expect(view.title).toBe("New notification");
-    expect(view.icon).toBe("mdi-bell-outline");
+    expect(view.icon).toBe("mdi-information-outline");
     expect(view.to).toBeNull();
   });
 });

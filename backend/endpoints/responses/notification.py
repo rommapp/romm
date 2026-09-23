@@ -4,6 +4,7 @@ from typing import Any, Literal
 from pydantic import ConfigDict, Field, field_validator
 
 from models.notification import (
+    MAX_NOTIFICATIONS_PER_USER,
     NOTIFICATION_BODY_MAX_LENGTH,
     NOTIFICATION_DATA_MAX_LENGTH,
     NOTIFICATION_ICON_MAX_LENGTH,
@@ -86,10 +87,28 @@ class NotificationCreatePayload(BaseModel):
             raise ValueError(f"'{value}' is reserved for RomM's own notifications")
         return value
 
+    @field_validator("title", "body", "link")
+    @classmethod
+    def _no_nul(cls, value: str | None) -> str | None:
+        # PostgreSQL refuses NUL in text columns.
+        if value is not None and "\x00" in value:
+            raise ValueError("must not contain NUL characters")
+        return value
+
+    @field_validator("recipients")
+    @classmethod
+    def _names_someone(
+        cls, value: list[int] | Literal["admins", "all"] | None
+    ) -> list[int] | Literal["admins", "all"] | None:
+        if value == []:
+            raise ValueError("must name at least one user")
+        return value
+
     @field_validator("data")
     @classmethod
     def _data_fits(cls, value: dict[str, Any]) -> dict[str, Any]:
-        if len(json.dumps(value)) > NOTIFICATION_DATA_MAX_LENGTH:
+        # `allow_nan=False` rejects NaN and Infinity, which no database stores as JSON.
+        if len(json.dumps(value, allow_nan=False)) > NOTIFICATION_DATA_MAX_LENGTH:
             raise ValueError(
                 f"data must serialize to at most {NOTIFICATION_DATA_MAX_LENGTH} characters"
             )
@@ -113,4 +132,4 @@ class NotificationCreatePayload(BaseModel):
 class NotificationIdsPayload(BaseModel):
     """Targets some of the caller's notifications, or all of them when `ids` is null."""
 
-    ids: list[int] | None = None
+    ids: list[int] | None = Field(default=None, max_length=MAX_NOTIFICATIONS_PER_USER)

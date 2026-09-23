@@ -271,8 +271,9 @@ async def notify_scan_end(
 ) -> None:
     """Notify whoever started a scan of how it ended.
 
-    A scan nobody started (schedule, watcher) goes to the admins, and only when
-    it failed or found something new.
+    Args:
+        started_by_user_id: None for a scheduled or watcher scan, which notifies
+            the admins only when it failed or found something new.
     """
     if error is not None:
         kind, level = NotificationKind.SCAN_FAILED, NotificationLevel.ERROR

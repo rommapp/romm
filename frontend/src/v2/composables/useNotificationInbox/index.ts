@@ -1,4 +1,4 @@
-// installNotificationInbox — loads the signed-in user's notifications and keeps
+// installNotificationInbox: loads the signed-in user's notifications and keeps
 // them current from their socket room. Mounted once in AppLayout.
 import { storeToRefs } from "pinia";
 import { computed, watch } from "vue";
@@ -31,11 +31,12 @@ export function installNotificationInbox() {
     }
   }
 
+  // Cleared first, so a failed fetch can't leave the last user's inbox behind.
   watch(
     userId,
     (id) => {
+      inbox.reset();
       if (id) void refresh();
-      else inbox.reset();
     },
     { immediate: true },
   );

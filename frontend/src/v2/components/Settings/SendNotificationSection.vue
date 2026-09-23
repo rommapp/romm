@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// SendNotificationSection — an admin notifies everyone, the admins or
+// SendNotificationSection: an admin notifies everyone, the admins or
 // chosen users on demand, through the same endpoint API clients use.
 import { RBtn, RForm, RIcon, RSelect, RTextField } from "@v2/lib";
 import { storeToRefs } from "pinia";
@@ -12,6 +12,7 @@ import storeUsers from "@/stores/users";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import {
+  LEVEL_ICONS,
   NOTIFICATION_BODY_MAX_LENGTH,
   NOTIFICATION_LINK_MAX_LENGTH,
   NOTIFICATION_TITLE_MAX_LENGTH,
@@ -48,13 +49,6 @@ const audienceItems = computed(() => [
   { title: t("notifications.send-to-admins"), value: "admins" },
   { title: t("notifications.send-to-users"), value: "users" },
 ]);
-
-const LEVEL_ICONS: Record<NotificationLevel, string> = {
-  info: "mdi-information-outline",
-  success: "mdi-check-circle-outline",
-  warning: "mdi-alert-outline",
-  error: "mdi-alert-circle-outline",
-};
 
 const levelItems = computed(() =>
   (Object.keys(LEVEL_ICONS) as NotificationLevel[]).map((value) => ({
@@ -123,7 +117,8 @@ async function send() {
     :title="t('notifications.send-section')"
     icon="mdi-bullhorn-outline"
   >
-    <RForm ref="formRef" class="r-v2-send-notification" @submit="send">
+    <!-- Enter mustn't send: an unfinished title would go out to everyone. -->
+    <RForm ref="formRef" class="r-v2-send-notification" disable-enter-submit>
       <div class="r-v2-send-notification__pickers">
         <RSelect
           v-model="audience"
@@ -211,11 +206,12 @@ async function send() {
 
       <div class="r-v2-send-notification__actions">
         <RBtn
-          type="submit"
           variant="flat"
           color="primary"
           prepend-icon="mdi-send-outline"
+          class="r-v2-send-notification__send"
           :loading="sending"
+          @click="send"
         >
           {{ t("notifications.send") }}
         </RBtn>

@@ -5,12 +5,9 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
-from models.notification import Notification
+from models.notification import MAX_NOTIFICATIONS_PER_USER, Notification
 
 from .base_handler import DBBaseHandler, affected_rows
-
-# A user who never clears their inbox keeps only this many, newest first.
-MAX_NOTIFICATIONS_PER_USER = 200
 
 
 class DBNotificationsHandler(DBBaseHandler):

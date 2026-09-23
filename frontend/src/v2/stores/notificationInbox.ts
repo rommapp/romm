@@ -1,4 +1,4 @@
-// notificationInbox (v2) — the signed-in user's notifications, newest first,
+// notificationInbox (v2): the signed-in user's notifications, newest first,
 // kept current by `installNotificationInbox`.
 import { defineStore } from "pinia";
 import type {

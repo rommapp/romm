@@ -52,7 +52,7 @@ describe("SendNotificationSection", () => {
       link: "/activity",
     });
 
-    await wrapper.find("form").trigger("submit");
+    await wrapper.find(".r-v2-send-notification__send").trigger("click");
     await flushPromises();
 
     expect(create).toHaveBeenCalledWith({
@@ -74,7 +74,20 @@ describe("SendNotificationSection", () => {
   it("sends nothing without a title", async () => {
     const wrapper = mountSection();
 
-    await wrapper.find("form").trigger("submit");
+    await wrapper.find(".r-v2-send-notification__send").trigger("click");
+    await flushPromises();
+
+    expect(create).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("doesn't send when Enter is pressed in the title", async () => {
+    const wrapper = mountSection();
+    await fill(wrapper, { title: "Half-written" });
+
+    await wrapper
+      .find("input.r-text-field__input")
+      .trigger("keydown", { key: "Enter" });
     await flushPromises();
 
     expect(create).not.toHaveBeenCalled();
@@ -85,7 +98,7 @@ describe("SendNotificationSection", () => {
     const wrapper = mountSection();
     await fill(wrapper, { title: "Hi", link: "https://example.com" });
 
-    await wrapper.find("form").trigger("submit");
+    await wrapper.find(".r-v2-send-notification__send").trigger("click");
     await flushPromises();
 
     expect(create).not.toHaveBeenCalled();

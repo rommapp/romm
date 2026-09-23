@@ -1,9 +1,6 @@
-"""Persistent per-user notifications, stored first and then pushed to open tabs.
+"""Persistent per-user notifications, stored first and then pushed to open tabs."""
 
-`notify` and `notify_admins` swallow their own failures: the caller is usually
-a job whose outcome must not hinge on reporting it.
-"""
-
+import asyncio
 from collections.abc import Sequence
 from typing import Any, Literal
 
@@ -19,12 +16,25 @@ NOTIFICATIONS_NEW_EVENT = "notifications:new"
 NOTIFICATIONS_READ_EVENT = "notifications:read"
 NOTIFICATIONS_DISMISSED_EVENT = "notifications:dismissed"
 
+# A Redis client is bound to the loop that made it, and a worker runs each job in
+# a new loop, so the manager is kept only while its loop is the running one.
+_manager: socketio.AsyncRedisManager | None = None
+_manager_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _write_manager() -> socketio.AsyncRedisManager:
+    global _manager, _manager_loop
+    loop = asyncio.get_running_loop()
+    if _manager is None or _manager_loop is not loop:
+        _manager = socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+        _manager_loop = loop
+    return _manager
+
 
 async def emit_to_user(user_id: int, event: str, payload: dict[str, Any]) -> None:
     """Push an event to every open tab of one user, from the web process or a worker."""
     try:
-        manager = socketio.AsyncRedisManager(REDIS_URL, write_only=True)
-        await manager.emit(event, payload, room=f"user:{user_id}")
+        await _write_manager().emit(event, payload, room=f"user:{user_id}")
     except Exception:  # noqa: BLE001
         log.warning(f"Failed to push {event} to user {user_id}", exc_info=True)
 
@@ -67,10 +77,11 @@ async def notify(
     link: str | None = None,
     icon: str | None = None,
 ) -> None:
-    """Notify one user.
+    """Notify one user, logging rather than raising a failure to store it.
 
-    A kind RomM's client knows is shown translated from `data`; any other, like
-    `custom`, is shown with `title`, `body`, `link` (an in-app path) and `icon`.
+    Args:
+        kind: A `NotificationKind` is translated from `data`; any other shows
+            `title`, `body`, `link` (an in-app path) and `icon`.
     """
     try:
         await deliver(
@@ -100,7 +111,7 @@ async def notify_admins(
     link: str | None = None,
     icon: str | None = None,
 ) -> None:
-    """Notify every enabled admin, for what the system did on nobody's behalf."""
+    """Notify every enabled admin of what the system did on nobody's behalf."""
     try:
         admin_ids = recipient_ids("admins")
     except Exception:  # noqa: BLE001

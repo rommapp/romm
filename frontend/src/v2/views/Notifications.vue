@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Notifications — the signed-in user's inbox. Whatever it shows is marked read,
+// Notifications: the signed-in user's inbox. Whatever it shows is marked read,
 // and a row that was unread keeps its accent until the user leaves.
 import { RAvatar, RBtn, REmptyState, RIcon, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";

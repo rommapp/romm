@@ -116,6 +116,18 @@ class TestEmitToUser:
             "notifications:read", {"ids": None}, room="user:5"
         )
 
+    async def test_reuses_one_client_on_the_same_loop(self, mocker):
+        manager = MagicMock(emit=AsyncMock())
+        make = mocker.patch.object(
+            notification_handler.socketio, "AsyncRedisManager", return_value=manager
+        )
+
+        await emit_to_user(5, "notifications:read", {"ids": None})
+        await emit_to_user(6, "notifications:read", {"ids": None})
+
+        make.assert_called_once()
+        assert manager.emit.await_count == 2
+
     async def test_swallows_a_broker_failure(self, mocker):
         manager = MagicMock(emit=AsyncMock(side_effect=ConnectionError("redis")))
         mocker.patch.object(

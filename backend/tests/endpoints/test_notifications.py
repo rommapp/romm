@@ -5,9 +5,14 @@ import pytest
 from fastapi import status
 
 from endpoints import notifications as notifications_endpoints
+from handler.auth import oauth_handler
 from handler.database import db_notification_handler
-from handler.database.notifications_handler import MAX_NOTIFICATIONS_PER_USER
-from models.notification import Notification, NotificationKind, NotificationLevel
+from models.notification import (
+    MAX_NOTIFICATIONS_PER_USER,
+    Notification,
+    NotificationKind,
+    NotificationLevel,
+)
 from models.user import User
 
 
@@ -249,6 +254,8 @@ class TestCreateNotification:
             {"icon": "not-an-icon"},
             {"title": ""},
             {"data": {"blob": "x" * 5000}},
+            {"title": "nul\u0000byte"},
+            {"recipients": []},
         ],
     )
     def test_rejects_what_a_client_may_not_send(
@@ -262,3 +269,25 @@ class TestCreateNotification:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
         assert db_notification_handler.get_notifications(admin_user.id) == []
+
+
+def test_an_admin_token_without_users_write_notifies_only_itself(
+    client, admin_user, viewer_user, emit
+):
+    token = oauth_handler.create_access_token(
+        data={
+            "sub": admin_user.username,
+            "iss": "romm:oauth",
+            "scopes": "me.read me.write",
+        },
+        expires_delta=timedelta(minutes=5),
+    )
+
+    response = client.post(
+        "/api/notifications",
+        json={"title": "Hello", "recipients": "all"},
+        headers=_auth(token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert db_notification_handler.get_notifications(viewer_user.id) == []

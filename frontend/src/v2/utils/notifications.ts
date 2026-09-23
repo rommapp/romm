@@ -2,7 +2,11 @@
 // they read in the language of whoever opens them. Any other kind brings its
 // own title and body.
 import type { RouteLocationRaw } from "vue-router";
-import type { NotificationKind, NotificationSchema } from "@/__generated__";
+import type {
+  NotificationKind,
+  NotificationLevel,
+  NotificationSchema,
+} from "@/__generated__";
 import i18n from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
 
@@ -27,6 +31,13 @@ function count(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+export const LEVEL_ICONS: Record<NotificationLevel, string> = {
+  info: "mdi-information-outline",
+  success: "mdi-check-circle-outline",
+  warning: "mdi-alert-outline",
+  error: "mdi-alert-circle-outline",
+};
+
 // Mirror the columns in backend/models/notification.py.
 export const NOTIFICATION_TITLE_MAX_LENGTH = 255;
 export const NOTIFICATION_BODY_MAX_LENGTH = 1000;
@@ -44,7 +55,7 @@ export function isInAppPath(link: string): boolean {
 
 function ownContent(notification: NotificationSchema): NotificationView {
   return {
-    icon: notification.icon ?? "mdi-bell-outline",
+    icon: notification.icon ?? LEVEL_ICONS[notification.level],
     title: notification.title ?? t("notifications.unknown"),
     body: notification.body,
     to:

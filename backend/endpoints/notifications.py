@@ -47,6 +47,12 @@ async def create_notification(
         user_ids = [sender_id]
     else:
         assert_admin(request)
+        # An admin's token scoped below users.write must not speak for them to others.
+        if Scope.USERS_WRITE not in request.auth.scopes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Notifying other users needs the users.write scope",
+            )
         user_ids = recipient_ids(payload.recipients)
         if isinstance(payload.recipients, list):
             missing = set(payload.recipients) - set(user_ids)

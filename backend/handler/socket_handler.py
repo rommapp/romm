@@ -5,14 +5,14 @@ from utils import json_module
 
 
 class SocketHandler:
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, channel: str = "socketio") -> None:
         self.socket_server = socketio.AsyncServer(
             cors_allowed_origins="*",
             async_mode="asgi",
             json=json_module,
             logger=False,
             engineio_logger=False,
-            client_manager=socketio.AsyncRedisManager(REDIS_URL),
+            client_manager=socketio.AsyncRedisManager(REDIS_URL, channel=channel),
             ping_timeout=60,
             ping_interval=25,
             max_http_buffer_size=1e6,  # 1MB
@@ -23,4 +23,6 @@ class SocketHandler:
 
 
 socket_handler = SocketHandler(path="/ws/socket.io")
-netplay_socket_handler = SocketHandler(path="/netplay/socket.io")
+# Netplay clients are unauthenticated and name their own rooms, so they must not
+# share a channel where `user:{id}` and `admin` rooms are addressed.
+netplay_socket_handler = SocketHandler(path="/netplay/socket.io", channel="netplay")
