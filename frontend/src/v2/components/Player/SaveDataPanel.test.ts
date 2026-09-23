@@ -10,12 +10,23 @@ vi.mock("vue-i18n", () => ({
 function save(overrides: Partial<SaveSchema> = {}): SaveSchema {
   return {
     id: 1,
+    rom_id: 1,
+    user_id: 1,
     file_name: "game.srm",
+    file_name_no_tags: "game",
+    file_name_no_ext: "game",
+    file_extension: "srm",
+    file_path: "saves/ps2",
     file_size_bytes: 2048,
+    full_path: "saves/ps2/game.srm",
+    download_path: "/api/saves/1/content/game.srm",
+    missing_from_fs: false,
+    created_at: "2026-09-16T12:00:00Z",
     updated_at: "2026-09-16T12:00:00Z",
     emulator: "retroarch",
+    screenshot: null,
     ...overrides,
-  } as SaveSchema;
+  };
 }
 
 function mountPanel(props: { save: SaveSchema | null }) {
