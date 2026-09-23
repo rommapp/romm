@@ -27,6 +27,13 @@ export function useGroupFold<G>(options: GroupFoldOptions<G>) {
     overrides.value.set(options.keyOf(group), !isOpen(group));
   }
 
+  /** Opens every group, so nothing the caller is about to act on stays hidden. */
+  function openAll() {
+    for (const group of options.groups.value) {
+      overrides.value.set(options.keyOf(group), true);
+    }
+  }
+
   watch(options.selectedId, () => {
     for (const group of options.groups.value) {
       if (options.holdsSelection(group)) {
@@ -35,5 +42,5 @@ export function useGroupFold<G>(options: GroupFoldOptions<G>) {
     }
   });
 
-  return { isOpen, toggle };
+  return { isOpen, toggle, openAll };
 }

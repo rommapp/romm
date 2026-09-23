@@ -205,4 +205,19 @@ describe("AssetList slot grouping", () => {
 
     expect(checked.findAll(".r-asset-list__item--checked")).toHaveLength(1);
   });
+
+  it("unfolds every slot when a caller expands it", async () => {
+    nextId = 1;
+    const newest = save("main_quest", 1);
+    const middle = save("main_quest", 5);
+    const oldest = save("main_quest", 50);
+    const wrapper = mountList({ assets: [newest, middle, oldest] });
+
+    expect(names(wrapper)).toEqual(["save_1.srm"]);
+
+    (wrapper.vm as unknown as { expandAll: () => void }).expandAll();
+    await wrapper.vm.$nextTick();
+
+    expect(names(wrapper)).toEqual(["save_1.srm", "save_2.srm", "save_3.srm"]);
+  });
 });

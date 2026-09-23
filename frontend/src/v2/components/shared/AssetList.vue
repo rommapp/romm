@@ -183,6 +183,8 @@ const fold = useGroupFold<SlotGroup>({
   defaultOpen: () => false,
   selectedId: () => props.selectedId,
 });
+// Lets a bulk action unfold what it is about to reach.
+defineExpose({ expandAll: fold.openAll });
 function isExpanded(group: SlotGroup): boolean {
   return !grouped.value || fold.isOpen(group);
 }

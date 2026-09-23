@@ -149,6 +149,8 @@ const fold = useGroupFold<AssetGroup>({
   defaultOpen: (group) => !group.disabled,
   selectedId: () => props.selectedId,
 });
+// Lets a bulk action unfold what it is about to reach.
+defineExpose({ expandAll: fold.openAll });
 function isOpen(group: AssetGroup): boolean {
   return !props.groupBy || fold.isOpen(group);
 }

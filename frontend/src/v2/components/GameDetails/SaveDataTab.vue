@@ -340,6 +340,20 @@ function selectionFor(type: AssetType) {
   return type === "save" ? saveSelection : stateSelection;
 }
 
+const mySavesList = ref<InstanceType<typeof AssetList> | null>(null);
+const myStatesStrip = ref<InstanceType<typeof AssetStrip> | null>(null);
+
+function toggleAllChecked(type: AssetType) {
+  const selection = selectionFor(type);
+  // A folded slot hides its older versions, and select-all reaches them, so
+  // open everything first: a bulk delete must never take a row the user
+  // could not see.
+  if (!selection.allSelected.value) {
+    (type === "save" ? mySavesList : myStatesStrip).value?.expandAll();
+  }
+  selection.toggleAll();
+}
+
 // A selection only makes sense against the list it was made on.
 watch([subTab, () => props.rom.id], () => {
   saveSelection.clear();
@@ -618,13 +632,14 @@ const labelSuggestions = computed(() =>
               :all-checked="saveSelection.allSelected.value"
               :some-checked="saveSelection.someSelected.value"
               :all-favorite="allCheckedFavorite('save')"
-              @toggle-all="saveSelection.toggleAll()"
+              @toggle-all="toggleAllChecked('save')"
               @toggle-favorite="toggleCheckedFavorite('save')"
               @edit-labels="labelTarget = { kind: 'many', type: 'save' }"
               @delete="deleteChecked('save')"
               @clear="saveSelection.clear()"
             />
             <AssetList
+              ref="mySavesList"
               :assets="mySaves"
               type="save"
               :selectable="false"
@@ -730,13 +745,14 @@ const labelSuggestions = computed(() =>
               :all-checked="stateSelection.allSelected.value"
               :some-checked="stateSelection.someSelected.value"
               :all-favorite="allCheckedFavorite('state')"
-              @toggle-all="stateSelection.toggleAll()"
+              @toggle-all="toggleAllChecked('state')"
               @toggle-favorite="toggleCheckedFavorite('state')"
               @edit-labels="labelTarget = { kind: 'many', type: 'state' }"
               @delete="deleteChecked('state')"
               @clear="stateSelection.clear()"
             />
             <AssetStrip
+              ref="myStatesStrip"
               :assets="myStates"
               type="state"
               :selectable="false"
