@@ -105,7 +105,6 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=edge,enable=${{ github.event_name == 'push' }}
-            type=sha,prefix=edge-,enable=${{ github.event_name == 'push' }}
           labels: |
             org.opencontainers.image.version={{version}}-slim
             org.opencontainers.image.title="rommapp/romm"
@@ -124,15 +123,14 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=edge,enable=${{ github.event_name == 'push' }}
-            type=sha,prefix=edge-,enable=${{ github.event_name == 'push' }}
           labels: |
             org.opencontainers.image.version={{version}}
             org.opencontainers.image.title="rommapp/romm"
             org.opencontainers.image.description="RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
             org.opencontainers.image.licenses="AGPLv3"
 
-      # Edge builds carry the short commit (matching the `edge-<sha>` tag) so each
-      # one is identifiable and busts version-keyed caches.
+      # Edge builds carry the short commit so each one is identifiable and busts
+      # version-keyed caches.
       - name: Set version
         env:
           VERSION: ${{ steps.meta.outputs.version }}
@@ -263,7 +261,6 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=edge,enable=${{ github.event_name == 'push' }}
-            type=sha,prefix=edge-,enable=${{ github.event_name == 'push' }}
 
       - name: Generate Docker metadata (full)
         id: meta
@@ -277,7 +274,6 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=edge,enable=${{ github.event_name == 'push' }}
-            type=sha,prefix=edge-,enable=${{ github.event_name == 'push' }}
 
       # Tags spanning both registries are fine here: `imagetools create` copies
       # the blobs over when a target sits in a different registry than the digests.
