@@ -82,12 +82,14 @@ class DBAuditEventsHandler(DBBaseHandler):
             like = f"%{escape_like(filters.search.lower())}%"
             clauses.append(
                 or_(
-                    func.lower(AuditEvent.actor_name).like(
-                        like, escape=LIKE_ESCAPE_CHAR
-                    ),
-                    func.lower(AuditEvent.target_name).like(
-                        like, escape=LIKE_ESCAPE_CHAR
-                    ),
+                    *(
+                        func.lower(column).like(like, escape=LIKE_ESCAPE_CHAR)
+                        for column in (
+                            AuditEvent.actor_name,
+                            AuditEvent.target_name,
+                            AuditEvent.ip_address,
+                        )
+                    )
                 )
             )
         if filters.hidden_rom_ids:

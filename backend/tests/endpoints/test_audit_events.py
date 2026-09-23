@@ -160,11 +160,12 @@ class TestFilters:
 
         assert _ids(response) == [inside.id]
 
-    def test_search_matches_actor_or_target_names(
+    def test_search_matches_names_and_addresses(
         self, client, access_token, admin_user, viewer_user
     ):
         by_viewer = _add(viewer_user, target_name="Tetris")
         zelda = _add(admin_user, target_name="The Legend of Zelda")
+        from_lan = _add(None, target_name="Doom", ip_address="192.168.1.20")
 
         viewer = client.get(
             "/api/audit-events",
@@ -177,8 +178,15 @@ class TestFilters:
             headers=_auth(access_token),
         )
 
+        address = client.get(
+            "/api/audit-events",
+            params={"search": "192.168.1"},
+            headers=_auth(access_token),
+        )
+
         assert _ids(viewer) == [by_viewer.id]
         assert _ids(target) == [zelda.id]
+        assert _ids(address) == [from_lan.id]
 
     def test_pages_stay_pinned_to_max_id(self, client, access_token, admin_user):
         events = [_add(admin_user, minutes_ago=10 - i) for i in range(3)]

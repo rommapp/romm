@@ -48,7 +48,8 @@ def get_audit_events(
     since: Annotated[datetime | None, Query(description="Inclusive.")] = None,
     until: Annotated[datetime | None, Query(description="Exclusive.")] = None,
     search: Annotated[
-        str | None, Query(description="Substring match on the actor or target name.")
+        str | None,
+        Query(description="Substring match on the actor, target name or IP address."),
     ] = None,
     max_id: Annotated[
         int | None,
