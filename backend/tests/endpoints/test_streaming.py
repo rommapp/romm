@@ -15,6 +15,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from main import app
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import streaming
@@ -58,7 +59,6 @@ from handler.streaming.config import (
     resolve_entry,
 )
 from handler.streaming.protocol import protocol_for
-from main import app
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform

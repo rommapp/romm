@@ -5,13 +5,13 @@ from unittest import mock
 
 import pytest
 from fastapi import status
+from tests._zipfile_shim import reload_zipfile
 
 from handler.database import db_memory_card_handler
 from handler.filesystem import fs_asset_handler
 from models.assets import MemoryCard, MemoryCardVersion
 from models.platform import Platform
 from models.user import User
-from tests._zipfile_shim import reload_zipfile
 from utils.memory_cards import content_hash_of_bytes, store_memory_card_version
 
 

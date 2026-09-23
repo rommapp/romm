@@ -4,11 +4,11 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from main import app
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.database import db_device_handler, db_play_session_handler, db_rom_handler
-from main import app
 from models.device import Device
 from models.platform import Platform
 from models.rom import Rom, RomUserStatus
