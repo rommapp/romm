@@ -318,6 +318,30 @@ async def test_a_rehash_that_drops_hasheous_drops_its_tags(
     assert result.regions == []
 
 
+@pytest.mark.parametrize(
+    "stored,expected",
+    [
+        (["Translation"], []),
+        ("Translation", []),
+        ({"dump_tags": "Translation"}, []),
+        ({"dump_tags": [1, "Translation"]}, ["Translation"]),
+    ],
+)
+async def test_a_hand_edited_blob_yields_only_listed_tags(
+    stored: Any, expected: list[str]
+):
+    """An edit of the raw metadata can store any JSON in the blob."""
+    result = await _scan(
+        MetadataSource.SS,
+        scan_type=ScanType.HASHES,
+        ss_id=42,
+        ss_metadata=stored,
+        tags=[],
+    )
+
+    assert result.tags == expected
+
+
 async def test_a_complete_rescan_without_screenscraper_drops_its_tags(
     hasheous_lookup: AsyncMock,
 ):

@@ -165,9 +165,17 @@ def hash_source_tags(
         blob = rom_attrs.get(fields["metadata_field"]) or {}
     else:
         blob = {}
-    claims = {
-        field: blob.get(DUMP_TAG_KEYS[field]) or [] for field in PROVIDER_ALL_TAG_FIELDS
-    }
+    # A hand edit of the raw metadata can store any JSON; only lists of strings count.
+    if not isinstance(blob, dict):
+        blob = {}
+    claims = {}
+    for field in PROVIDER_ALL_TAG_FIELDS:
+        value = blob.get(DUMP_TAG_KEYS[field])
+        claims[field] = (
+            [tag for tag in value if isinstance(tag, str)]
+            if isinstance(value, list)
+            else []
+        )
     return claims, answered
 
 
