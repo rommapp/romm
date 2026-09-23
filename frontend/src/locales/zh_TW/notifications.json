@@ -51,7 +51,6 @@
   "channels-empty": "尚無管道",
   "channels-empty-hint": "將你的通知轉發到 Discord、ntfy、電子郵件或任何 Webhook。",
   "channels-load-failed": "無法載入你的管道",
-  "channels-section": "通知管道",
   "dismiss-all": "全部關閉",
   "dismiss-all-body": "所有通知都將被移除。",
   "dismiss-all-title": "關閉所有通知？",

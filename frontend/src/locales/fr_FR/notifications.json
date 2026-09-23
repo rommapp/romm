@@ -51,7 +51,6 @@
   "channels-empty": "Aucun canal pour l'instant",
   "channels-empty-hint": "Transférez vos notifications vers Discord, ntfy, l'e-mail ou n'importe quel webhook.",
   "channels-load-failed": "Impossible de charger vos canaux",
-  "channels-section": "Canaux de notification",
   "dismiss-all": "Tout ignorer",
   "dismiss-all-body": "Toutes les notifications seront supprimées.",
   "dismiss-all-title": "Ignorer toutes les notifications ?",

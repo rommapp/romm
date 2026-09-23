@@ -51,7 +51,6 @@
   "channels-empty": "Noch keine Kanäle",
   "channels-empty-hint": "Leite deine Benachrichtigungen an Discord, ntfy, E-Mail oder einen beliebigen Webhook weiter.",
   "channels-load-failed": "Deine Kanäle konnten nicht geladen werden",
-  "channels-section": "Benachrichtigungskanäle",
   "dismiss-all": "Alle verwerfen",
   "dismiss-all-body": "Alle Benachrichtigungen werden entfernt.",
   "dismiss-all-title": "Alle Benachrichtigungen verwerfen?",

@@ -51,7 +51,6 @@
   "channels-empty": "チャンネルはまだありません",
   "channels-empty-hint": "通知を Discord、ntfy、メール、または任意の Webhook に転送できます。",
   "channels-load-failed": "チャンネルを読み込めませんでした",
-  "channels-section": "通知チャンネル",
   "dismiss-all": "すべて閉じる",
   "dismiss-all-body": "すべての通知が削除されます。",
   "dismiss-all-title": "すべての通知を閉じますか？",

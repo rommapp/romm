@@ -51,7 +51,6 @@
   "channels-empty": "Zatím žádné kanály",
   "channels-empty-hint": "Přeposílejte oznámení na Discord, ntfy, e-mail nebo jakýkoli webhook.",
   "channels-load-failed": "Vaše kanály se nepodařilo načíst",
-  "channels-section": "Kanály oznámení",
   "dismiss-all": "Zavřít vše",
   "dismiss-all-body": "Všechna oznámení budou odstraněna.",
   "dismiss-all-title": "Zavřít všechna oznámení?",

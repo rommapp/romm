@@ -51,7 +51,6 @@
   "channels-empty": "暂无渠道",
   "channels-empty-hint": "将你的通知转发到 Discord、ntfy、电子邮件或任意 Webhook。",
   "channels-load-failed": "无法加载你的渠道",
-  "channels-section": "通知渠道",
   "dismiss-all": "全部忽略",
   "dismiss-all-body": "所有通知都将被移除。",
   "dismiss-all-title": "忽略所有通知？",

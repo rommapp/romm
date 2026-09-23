@@ -16,7 +16,6 @@ import type { NotificationChannelSchema } from "@/__generated__";
 import notificationChannelApi from "@/services/api/notificationChannel";
 import { formatRelativeDate } from "@/utils";
 import NotificationChannelDialog from "@/v2/components/Notifications/NotificationChannelDialog.vue";
-import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useGridNav } from "@/v2/composables/useGridNav";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -191,150 +190,144 @@ async function remove(channel: NotificationChannelSchema) {
 </script>
 
 <template>
-  <SettingsSection
-    :title="t('notifications.channels-section')"
-    icon="mdi-send-variant-outline"
-  >
-    <template #header-actions>
+  <div class="r-v2-channels">
+    <div v-if="!loaded" class="r-v2-channels__list">
+      <RSkeletonBlock
+        v-for="n in 2"
+        :key="`sk-${n}`"
+        width="100%"
+        height="72px"
+        rounded="lg"
+      />
+    </div>
+
+    <REmptyState
+      v-else-if="channels.length === 0"
+      icon="mdi-send-variant-outline"
+      :title="t('notifications.channels-empty')"
+      :hint="t('notifications.channels-empty-hint')"
+    />
+
+    <ul v-else ref="listRoot" class="r-v2-channels__list">
+      <li
+        v-for="channel in channels"
+        :key="channel.id"
+        class="r-v2-channel"
+        :class="{ 'r-v2-channel--off': !channel.enabled }"
+      >
+        <div class="r-v2-channel__main">
+          <RAvatar
+            :icon="channelIcon(channel)"
+            variant="translucent"
+            size="36"
+            class="r-v2-channel__icon"
+          />
+          <span class="r-v2-channel__text">
+            <span class="r-v2-channel__name">{{ channel.name }}</span>
+            <span class="r-v2-channel__target">{{ channel.target }}</span>
+            <span class="r-v2-channel__meta">
+              {{ filtersLabel(channel) }}
+            </span>
+            <span
+              v-if="channel.last_error"
+              class="r-v2-channel__meta r-v2-channel__meta--error"
+            >
+              <RIcon icon="mdi-alert-circle-outline" size="14" />
+              {{
+                t("notifications.channel-last-error", {
+                  error: channel.last_error,
+                })
+              }}
+            </span>
+            <span
+              v-else-if="channel.last_delivered_at"
+              class="r-v2-channel__meta"
+            >
+              {{
+                t("notifications.channel-last-sent", {
+                  when: formatRelativeDate(channel.last_delivered_at),
+                })
+              }}
+            </span>
+          </span>
+          <span class="r-v2-channel__actions">
+            <RSwitch
+              :model-value="channel.enabled"
+              :disabled="!channel.confirmed"
+              :aria-label="t('notifications.channel-enabled')"
+              @update:model-value="toggle(channel, $event)"
+            />
+            <RBtn
+              variant="text"
+              size="small"
+              icon="mdi-send-check-outline"
+              :loading="busy.has(channel.id)"
+              :disabled="!channel.confirmed"
+              :aria-label="t('notifications.channel-test')"
+              @click="sendTest(channel)"
+            />
+            <RBtn
+              variant="text"
+              size="small"
+              icon="mdi-pencil-outline"
+              :aria-label="t('notifications.channel-edit')"
+              @click="openDialog(channel)"
+            />
+            <RBtn
+              variant="text"
+              size="small"
+              icon="mdi-delete-outline"
+              color="danger"
+              :aria-label="t('notifications.channel-delete')"
+              @click="remove(channel)"
+            />
+          </span>
+        </div>
+
+        <div v-if="!channel.confirmed" class="r-v2-channel__confirm">
+          <span class="r-v2-channel__meta">
+            {{ t("notifications.channel-awaiting-code") }}
+          </span>
+          <div class="r-v2-channel__code">
+            <RTextField
+              v-model="codes[channel.id]"
+              class="r-v2-channel__code-input"
+              :placeholder="t('notifications.channel-code')"
+              :aria-label="t('notifications.channel-code')"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              :maxlength="16"
+              density="compact"
+              hide-details
+              mono
+              @keydown.enter="confirmCode(channel)"
+            />
+            <RBtn
+              variant="flat"
+              color="primary"
+              size="small"
+              :loading="busy.has(channel.id)"
+              @click="confirmCode(channel)"
+            >
+              {{ t("common.confirm") }}
+            </RBtn>
+            <RBtn variant="text" size="small" @click="resendCode(channel)">
+              {{ t("notifications.channel-resend") }}
+            </RBtn>
+          </div>
+        </div>
+      </li>
+    </ul>
+
+    <div class="r-v2-channels__footer">
       <RBtn
         variant="flat"
         color="primary"
-        size="small"
         prepend-icon="mdi-plus"
         @click="openDialog(null)"
       >
         {{ t("notifications.channel-add") }}
       </RBtn>
-    </template>
-
-    <div class="r-v2-channels">
-      <div v-if="!loaded" class="r-v2-channels__list">
-        <RSkeletonBlock
-          v-for="n in 2"
-          :key="`sk-${n}`"
-          width="100%"
-          height="72px"
-          rounded="lg"
-        />
-      </div>
-
-      <REmptyState
-        v-else-if="channels.length === 0"
-        icon="mdi-send-variant-outline"
-        :title="t('notifications.channels-empty')"
-        :hint="t('notifications.channels-empty-hint')"
-      />
-
-      <ul v-else ref="listRoot" class="r-v2-channels__list">
-        <li
-          v-for="channel in channels"
-          :key="channel.id"
-          class="r-v2-channel"
-          :class="{ 'r-v2-channel--off': !channel.enabled }"
-        >
-          <div class="r-v2-channel__main">
-            <RAvatar
-              :icon="channelIcon(channel)"
-              variant="translucent"
-              size="36"
-              class="r-v2-channel__icon"
-            />
-            <span class="r-v2-channel__text">
-              <span class="r-v2-channel__name">{{ channel.name }}</span>
-              <span class="r-v2-channel__target">{{ channel.target }}</span>
-              <span class="r-v2-channel__meta">
-                {{ filtersLabel(channel) }}
-              </span>
-              <span
-                v-if="channel.last_error"
-                class="r-v2-channel__meta r-v2-channel__meta--error"
-              >
-                <RIcon icon="mdi-alert-circle-outline" size="14" />
-                {{
-                  t("notifications.channel-last-error", {
-                    error: channel.last_error,
-                  })
-                }}
-              </span>
-              <span
-                v-else-if="channel.last_delivered_at"
-                class="r-v2-channel__meta"
-              >
-                {{
-                  t("notifications.channel-last-sent", {
-                    when: formatRelativeDate(channel.last_delivered_at),
-                  })
-                }}
-              </span>
-            </span>
-            <span class="r-v2-channel__actions">
-              <RSwitch
-                :model-value="channel.enabled"
-                :disabled="!channel.confirmed"
-                :aria-label="t('notifications.channel-enabled')"
-                @update:model-value="toggle(channel, $event)"
-              />
-              <RBtn
-                variant="text"
-                size="small"
-                icon="mdi-send-check-outline"
-                :loading="busy.has(channel.id)"
-                :disabled="!channel.confirmed"
-                :aria-label="t('notifications.channel-test')"
-                @click="sendTest(channel)"
-              />
-              <RBtn
-                variant="text"
-                size="small"
-                icon="mdi-pencil-outline"
-                :aria-label="t('notifications.channel-edit')"
-                @click="openDialog(channel)"
-              />
-              <RBtn
-                variant="text"
-                size="small"
-                icon="mdi-delete-outline"
-                color="danger"
-                :aria-label="t('notifications.channel-delete')"
-                @click="remove(channel)"
-              />
-            </span>
-          </div>
-
-          <div v-if="!channel.confirmed" class="r-v2-channel__confirm">
-            <span class="r-v2-channel__meta">
-              {{ t("notifications.channel-awaiting-code") }}
-            </span>
-            <div class="r-v2-channel__code">
-              <RTextField
-                v-model="codes[channel.id]"
-                class="r-v2-channel__code-input"
-                :placeholder="t('notifications.channel-code')"
-                :aria-label="t('notifications.channel-code')"
-                inputmode="numeric"
-                autocomplete="one-time-code"
-                :maxlength="16"
-                density="compact"
-                hide-details
-                mono
-                @keydown.enter="confirmCode(channel)"
-              />
-              <RBtn
-                variant="flat"
-                color="primary"
-                size="small"
-                :loading="busy.has(channel.id)"
-                @click="confirmCode(channel)"
-              >
-                {{ t("common.confirm") }}
-              </RBtn>
-              <RBtn variant="text" size="small" @click="resendCode(channel)">
-                {{ t("notifications.channel-resend") }}
-              </RBtn>
-            </div>
-          </div>
-        </li>
-      </ul>
     </div>
 
     <NotificationChannelDialog
@@ -342,12 +335,20 @@ async function remove(channel: NotificationChannelSchema) {
       :channel="editing"
       @saved="onSaved"
     />
-  </SettingsSection>
+  </div>
 </template>
 
 <style scoped>
+/* Bare Settings tab: the SettingsLayout content column owns the gutters. */
 .r-v2-channels {
-  padding: var(--r-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.r-v2-channels__footer {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .r-v2-channels__list {

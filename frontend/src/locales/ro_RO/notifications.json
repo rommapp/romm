@@ -51,7 +51,6 @@
   "channels-empty": "Încă nu există canale",
   "channels-empty-hint": "Redirecționează notificările către Discord, ntfy, e-mail sau orice webhook.",
   "channels-load-failed": "Canalele tale nu au putut fi încărcate",
-  "channels-section": "Canale de notificare",
   "dismiss-all": "Închide toate",
   "dismiss-all-body": "Toate notificările vor fi eliminate.",
   "dismiss-all-title": "Închizi toate notificările?",

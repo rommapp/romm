@@ -51,7 +51,6 @@
   "channels-empty": "Még nincsenek csatornák",
   "channels-empty-hint": "Továbbítsd az értesítéseidet Discordra, ntfy-ra, e-mailbe vagy bármilyen webhookra.",
   "channels-load-failed": "Nem sikerült betölteni a csatornáidat",
-  "channels-section": "Értesítési csatornák",
   "dismiss-all": "Összes elvetése",
   "dismiss-all-body": "Az összes értesítés törlődik.",
   "dismiss-all-title": "Elveted az összes értesítést?",

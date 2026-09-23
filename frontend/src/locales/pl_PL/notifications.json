@@ -51,7 +51,6 @@
   "channels-empty": "Brak kanałów",
   "channels-empty-hint": "Przekazuj powiadomienia do Discorda, ntfy, na e-mail lub do dowolnego webhooka.",
   "channels-load-failed": "Nie udało się wczytać Twoich kanałów",
-  "channels-section": "Kanały powiadomień",
   "dismiss-all": "Odrzuć wszystkie",
   "dismiss-all-body": "Wszystkie powiadomienia zostaną usunięte.",
   "dismiss-all-title": "Odrzucić wszystkie powiadomienia?",

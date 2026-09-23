@@ -51,7 +51,6 @@
   "channels-empty": "Все още няма канали",
   "channels-empty-hint": "Препращайте известията си към Discord, ntfy, имейл или всеки уебхук.",
   "channels-load-failed": "Каналите ви не можаха да бъдат заредени",
-  "channels-section": "Канали за известия",
   "dismiss-all": "Затвори всички",
   "dismiss-all-body": "Всички известия ще бъдат премахнати.",
   "dismiss-all-title": "Затваряне на всички известия?",

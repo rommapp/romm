@@ -51,7 +51,6 @@
   "channels-empty": "아직 채널이 없습니다",
   "channels-empty-hint": "알림을 Discord, ntfy, 이메일 또는 모든 웹훅으로 전달하세요.",
   "channels-load-failed": "채널을 불러올 수 없습니다",
-  "channels-section": "알림 채널",
   "dismiss-all": "모두 닫기",
   "dismiss-all-body": "모든 알림이 삭제됩니다.",
   "dismiss-all-title": "모든 알림을 닫으시겠습니까?",

@@ -51,7 +51,6 @@
   "channels-empty": "No channels yet",
   "channels-empty-hint": "Forward your notifications to Discord, ntfy, email or any webhook.",
   "channels-load-failed": "Could not load your channels",
-  "channels-section": "Notification channels",
   "dismiss-all": "Dismiss all",
   "dismiss-all-body": "Every notification will be removed.",
   "dismiss-all-title": "Dismiss all notifications?",

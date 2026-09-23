@@ -51,7 +51,6 @@
   "channels-empty": "Aún no hay canales",
   "channels-empty-hint": "Reenvía tus notificaciones a Discord, ntfy, correo o cualquier webhook.",
   "channels-load-failed": "No se pudieron cargar tus canales",
-  "channels-section": "Canales de notificaciones",
   "dismiss-all": "Descartar todas",
   "dismiss-all-body": "Se eliminarán todas las notificaciones.",
   "dismiss-all-title": "¿Descartar todas las notificaciones?",

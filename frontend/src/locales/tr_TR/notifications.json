@@ -51,7 +51,6 @@
   "channels-empty": "Henüz kanal yok",
   "channels-empty-hint": "Bildirimlerinizi Discord, ntfy, e-posta veya herhangi bir webhook'a iletin.",
   "channels-load-failed": "Kanallarınız yüklenemedi",
-  "channels-section": "Bildirim kanalları",
   "dismiss-all": "Tümünü kapat",
   "dismiss-all-body": "Tüm bildirimler kaldırılacak.",
   "dismiss-all-title": "Tüm bildirimler kapatılsın mı?",

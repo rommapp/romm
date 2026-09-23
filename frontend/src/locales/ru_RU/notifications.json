@@ -51,7 +51,6 @@
   "channels-empty": "Каналов пока нет",
   "channels-empty-hint": "Пересылайте уведомления в Discord, ntfy, на эл. почту или в любой вебхук.",
   "channels-load-failed": "Не удалось загрузить ваши каналы",
-  "channels-section": "Каналы уведомлений",
   "dismiss-all": "Закрыть все",
   "dismiss-all-body": "Все уведомления будут удалены.",
   "dismiss-all-title": "Закрыть все уведомления?",
