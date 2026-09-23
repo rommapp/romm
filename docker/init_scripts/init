@@ -294,8 +294,7 @@ start_rq_worker() {
 		--logging_level "${LOGLEVEL}" \
 		--with-scheduler \
 		"$@" &
-	# Not --pid: RQ writes that file only once the worker class is imported,
-	# and until then the watchdog would start a duplicate.
+	# RQ writes --pid only after importing the worker class, too late for the watchdog.
 	echo "$!" >"/tmp/${name}.pid"
 }
 

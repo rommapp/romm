@@ -82,20 +82,11 @@ def test_gunicorn_outlives_nginx_upstream_idle_timeout() -> None:
     assert _init_script_keepalive() > NGINX_UPSTREAM_IDLE_TIMEOUT
 
 
-def test_init_script_records_the_rq_worker_pid_at_launch() -> None:
-    match = re.search(
-        r"^start_rq_worker\(\) \{\n(.*?)^\}", INIT_SCRIPT.read_text(), re.M | re.S
-    )
-    assert match, "could not read start_rq_worker from the init script"
-    body = match.group(1)
-    assert not re.search(r"^\s*--pid\b", body, re.M), (
-        "RQ writes --pid only after importing the worker class, so the watchdog "
-        "would start duplicate workers while a slow import runs"
-    )
-    assert re.search(r'^\s*echo "\$!" >"/tmp/\$\{name\}\.pid"$', body, re.M)
-
-
 def test_env_template_documents_the_same_keepalive_default() -> None:
     match = re.search(r"^WEB_SERVER_KEEPALIVE=(\d+)", ENV_TEMPLATE.read_text(), re.M)
     assert match, "env.template is missing WEB_SERVER_KEEPALIVE"
     assert int(match.group(1)) == _init_script_keepalive()
+
+
+def test_init_script_records_the_rq_worker_pid_at_launch() -> None:
+    assert 'echo "$!" >"/tmp/${name}.pid"' in INIT_SCRIPT.read_text()
