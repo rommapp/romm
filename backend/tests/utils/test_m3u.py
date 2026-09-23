@@ -273,6 +273,11 @@ class TestDiscNumber:
         # "(CDi)" names the platform, not disc I.
         assert disc_number(_make_file("G (CDi).chd", "chd")) is None
 
+    def test_a_non_ascii_letter_is_not_a_disc(self):
+        # Case folding would let "İ" and "ſ" through as i and s.
+        assert disc_number(_make_file("G (Disc İ).chd", "chd")) is None
+        assert disc_number(_make_file("G (Disc ſ).chd", "chd")) is None
+
     def test_a_name_that_claims_no_disc(self):
         assert disc_number(_make_file("G (USA).chd", "chd")) is None
 
