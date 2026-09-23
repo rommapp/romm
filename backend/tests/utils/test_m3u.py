@@ -1,6 +1,11 @@
 from unittest.mock import MagicMock
 
-from utils.m3u import first_playlist_entry, generate_m3u_content, playlist_files
+from utils.m3u import (
+    disc_number,
+    first_playlist_entry,
+    generate_m3u_content,
+    playlist_files,
+)
 
 
 class TestFirstPlaylistEntry:
@@ -78,6 +83,7 @@ class TestFirstPlaylistEntry:
 def _make_file(name: str, extension: str, download_name: str | None = None):
     f = MagicMock()
     f.file_extension = extension
+    f.file_name = name
     f.file_name_for_download.return_value = download_name or name
     return f
 
@@ -231,3 +237,70 @@ class TestPlaylistFiles:
         # Nothing describes them, so they are all there is to play.
         tracks = [_make_file("track01.bin", "bin"), _make_file("track02.bin", "bin")]
         assert playlist_files(tracks) == tracks
+
+
+class TestDiscNumber:
+    def test_reads_the_spellings_a_dumper_uses(self):
+        for name in (
+            "G (Disc 2).chd",
+            "G (disc2).chd",
+            "G (CD 2).chd",
+            "G (Disque 2).chd",
+        ):
+            assert disc_number(_make_file(name, "chd")) == 2
+
+    def test_reads_a_split_disc(self):
+        assert disc_number(_make_file("G (Disc 2A).chd", "chd")) == 2
+
+    def test_a_name_that_claims_no_disc(self):
+        assert disc_number(_make_file("G (USA).chd", "chd")) is None
+
+    def test_a_bare_word_is_not_a_disc_number(self):
+        # The parentheses are what make it a tag rather than part of a title.
+        assert disc_number(_make_file("Disc Jockey 2.chd", "chd")) is None
+
+
+class TestPlaylistOrder:
+    """The playlist, the download and the disc swapper all read this order."""
+
+    def test_the_tenth_disc_follows_the_second(self):
+        files = [
+            _make_file("G (Disc 10).chd", "chd"),
+            _make_file("G (Disc 2).chd", "chd"),
+            _make_file("G (Disc 1).chd", "chd"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == [
+            "G (Disc 1).chd",
+            "G (Disc 2).chd",
+            "G (Disc 10).chd",
+        ]
+
+    def test_a_set_that_mixes_spellings_still_orders(self):
+        files = [
+            _make_file("G (CD 2).chd", "chd"),
+            _make_file("G (Disc 1).chd", "chd"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == [
+            "G (Disc 1).chd",
+            "G (CD 2).chd",
+        ]
+
+    def test_an_unnumbered_set_keeps_its_name_order(self):
+        files = [
+            _make_file("beta.chd", "chd"),
+            _make_file("alpha.chd", "chd"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == ["alpha.chd", "beta.chd"]
+
+    def test_the_playlist_lists_the_discs_in_order(self):
+        files = [
+            _make_file("G (Disc 10).chd", "chd"),
+            _make_file("G (Disc 2).chd", "chd"),
+        ]
+
+        assert generate_m3u_content(files, hidden_folder=False) == (
+            b"G (Disc 2).chd\nG (Disc 10).chd"
+        )
