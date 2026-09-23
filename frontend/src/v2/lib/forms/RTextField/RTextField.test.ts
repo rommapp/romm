@@ -52,3 +52,41 @@ describe("RTextField popup wiring", () => {
     wrapper.unmount();
   });
 });
+
+describe("RTextField required", () => {
+  function tooltip(wrapper: ReturnType<typeof mount>) {
+    return wrapper.findComponent({ name: "RTooltip" });
+  }
+
+  it("announces it without the browser's own validation", () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "", required: true },
+    });
+
+    const input = wrapper.get("input");
+    expect(input.attributes("aria-required")).toBe("true");
+    expect(input.attributes("required")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("says so in a tooltip only while it's empty", async () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "", required: true },
+    });
+
+    expect(tooltip(wrapper).props("text")).toBe("Required");
+    expect(tooltip(wrapper).props("disabled")).toBe(false);
+
+    await wrapper.setProps({ modelValue: "RomM" });
+    expect(tooltip(wrapper).props("disabled")).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("keeps quiet on a field that isn't required", () => {
+    const wrapper = mount(RTextField, { props: { modelValue: "" } });
+
+    expect(wrapper.get("input").attributes("aria-required")).toBeUndefined();
+    expect(tooltip(wrapper).props("disabled")).toBe(true);
+    wrapper.unmount();
+  });
+});
