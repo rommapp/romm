@@ -1,0 +1,19 @@
+{
+  "dismiss-all": "全部關閉",
+  "dismiss-all-body": "所有通知都將被永久移除。",
+  "dismiss-all-title": "關閉所有通知？",
+  "dismiss-failed": "無法關閉通知",
+  "empty": "沒有通知",
+  "empty-hint": "背景工作與其他使用者操作的動態會顯示在這裡。",
+  "notifications": "通知",
+  "role-changed": "您的角色已變更為 {role}",
+  "scan-completed": "掃描完成",
+  "scan-failed": "掃描失敗",
+  "scan-new-games": "{n} 個新遊戲 | {n} 個新遊戲",
+  "scan-no-new-games": "沒有新遊戲",
+  "stream-ended": "您的 {game} 串流已被終止",
+  "stream-ended-no-game": "您的串流工作階段已被終止",
+  "task-completed": "任務已完成：{task}",
+  "task-failed": "任務失敗：{task}",
+  "unknown": "新通知"
+}

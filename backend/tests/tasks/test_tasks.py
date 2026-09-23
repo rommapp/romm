@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from exceptions.task_exceptions import TaskNotFoundException
+from models.notification import NotificationKind, NotificationLevel
 from tasks.tasks import PeriodicTask, RemoteFilePullTask, TaskType, run_task_by_name
 
 
@@ -184,3 +185,76 @@ class TestRunTaskByName:
 
         with pytest.raises(TaskNotFoundException, match="some_task"):
             await run_task_by_name("some_task")
+
+
+class TestRunTaskByNameNotifications:
+    """A run reports how it ended: to whoever ran it, or to the admins on failure."""
+
+    @pytest.fixture
+    def notify(self, mocker):
+        return mocker.patch("handler.notification_handler.notify", AsyncMock())
+
+    @pytest.fixture
+    def notify_admins(self, mocker):
+        return mocker.patch("handler.notification_handler.notify_admins", AsyncMock())
+
+    def _task(self, mocker, task_type=TaskType.CLEANUP, **run_kwargs):
+        task = MagicMock(title="Cleanup Missing ROMs", task_type=task_type)
+        task.run = AsyncMock(**run_kwargs)
+        mocker.patch("tasks.registry.get_task", return_value=task)
+        return task
+
+    async def test_tells_the_runner_it_finished(self, mocker, notify, notify_admins):
+        self._task(mocker, return_value=None)
+
+        await run_task_by_name("cleanup_missing_roms", run_by_user_id=4)
+
+        user_id, kind, level, data = notify.await_args.args
+        assert (user_id, kind, level) == (
+            4,
+            NotificationKind.TASK_COMPLETED,
+            NotificationLevel.SUCCESS,
+        )
+        assert data == {"task": "cleanup_missing_roms", "title": "Cleanup Missing ROMs"}
+        notify_admins.assert_not_awaited()
+
+    async def test_a_scheduled_success_stays_quiet(self, mocker, notify, notify_admins):
+        self._task(mocker, return_value=None)
+
+        await run_task_by_name("cleanup_missing_roms")
+
+        notify.assert_not_awaited()
+        notify_admins.assert_not_awaited()
+
+    async def test_tells_the_runner_why_it_failed(self, mocker, notify, notify_admins):
+        self._task(mocker, side_effect=RuntimeError("disk full"))
+
+        with pytest.raises(RuntimeError):
+            await run_task_by_name("cleanup_missing_roms", run_by_user_id=4)
+
+        user_id, kind, _, data = notify.await_args.args
+        assert (user_id, kind) == (4, NotificationKind.TASK_FAILED)
+        assert data["error"] == "disk full"
+        notify_admins.assert_not_awaited()
+
+    async def test_a_scheduled_failure_goes_to_the_admins(
+        self, mocker, notify, notify_admins
+    ):
+        self._task(mocker, side_effect=RuntimeError("disk full"))
+
+        with pytest.raises(RuntimeError):
+            await run_task_by_name("cleanup_missing_roms")
+
+        kind, level, data = notify_admins.await_args.args
+        assert (kind, level) == (NotificationKind.TASK_FAILED, NotificationLevel.ERROR)
+        assert data["error"] == "disk full"
+        notify.assert_not_awaited()
+
+    async def test_a_scan_is_left_to_report_itself(self, mocker, notify, notify_admins):
+        self._task(mocker, task_type=TaskType.SCAN, side_effect=RuntimeError("boom"))
+
+        with pytest.raises(RuntimeError):
+            await run_task_by_name("scan_library", run_by_user_id=4)
+
+        notify.assert_not_awaited()
+        notify_admins.assert_not_awaited()

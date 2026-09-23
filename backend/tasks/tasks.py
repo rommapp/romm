@@ -11,7 +11,11 @@ from logger.logger import log
 from utils.context import ctx_httpx_client
 
 
-async def run_task_by_name(name: str, task_kwargs: dict[str, Any] | None = None) -> Any:
+async def run_task_by_name(
+    name: str,
+    task_kwargs: dict[str, Any] | None = None,
+    run_by_user_id: int | None = None,
+) -> Any:
     """Run the task registered under ``name``.
 
     Every scheduled and manually triggered task is enqueued through here, so a
@@ -22,6 +26,8 @@ async def run_task_by_name(name: str, task_kwargs: dict[str, Any] | None = None)
         name: The key the task is registered under.
         task_kwargs: Forwarded to the task's ``run``, nested so that they cannot
             collide with the name of the task to run.
+        run_by_user_id: Who ran it by hand, notified of how it ended. A run
+            nobody asked for (cron, startup) notifies the admins of a failure.
 
     Returns:
         Whatever the task returns.
@@ -34,7 +40,45 @@ async def run_task_by_name(name: str, task_kwargs: dict[str, Any] | None = None)
     if task is None:
         raise TaskNotFoundException(name)
 
-    return await task.run(**(task_kwargs or {}))
+    try:
+        result = await task.run(**(task_kwargs or {}))
+    except Exception as exc:
+        await _notify_task_end(name, task, run_by_user_id, error=str(exc) or repr(exc))
+        raise
+
+    await _notify_task_end(name, task, run_by_user_id)
+    return result
+
+
+async def _notify_task_end(
+    name: str, task: "Task", run_by_user_id: int | None, error: str | None = None
+) -> None:
+    # A scan notifies of its own end, with the counts a task result lacks.
+    if task.task_type is TaskType.SCAN:
+        return
+
+    # Imported here because the notification schemas import this module.
+    from handler.notification_handler import notify, notify_admins
+    from models.notification import NotificationKind, NotificationLevel
+
+    data: dict[str, Any] = {"task": name, "title": task.title}
+    if error is None:
+        if run_by_user_id is not None:
+            await notify(
+                run_by_user_id,
+                NotificationKind.TASK_COMPLETED,
+                NotificationLevel.SUCCESS,
+                data,
+            )
+        return
+
+    data["error"] = error
+    if run_by_user_id is not None:
+        await notify(
+            run_by_user_id, NotificationKind.TASK_FAILED, NotificationLevel.ERROR, data
+        )
+    else:
+        await notify_admins(NotificationKind.TASK_FAILED, NotificationLevel.ERROR, data)
 
 
 def update_job_meta(metadata: dict[str, Any]) -> None:

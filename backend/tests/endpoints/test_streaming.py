@@ -25,6 +25,7 @@ from handler.auth import oauth_handler
 from handler.database import (
     db_container_adoption_handler,
     db_memory_card_handler,
+    db_notification_handler,
     db_platform_handler,
     db_play_session_handler,
     db_rom_handler,
@@ -60,6 +61,7 @@ from handler.streaming.config import (
 )
 from handler.streaming.protocol import protocol_for
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
+from models.notification import NotificationKind
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile
@@ -2410,6 +2412,27 @@ def test_admin_release_leaves_termination_notice(
     assert body["termination"]["ended_by"]
 
 
+def test_admin_release_notifies_the_displaced_player(
+    client, access_token, viewer_access_token, admin_user, viewer_user, rom: Rom
+):
+    """The note expires with the claim, so the player who had no tab open when
+    an admin ended their game hears of it from a notification instead."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "maintenance window"},
+            headers=_auth(access_token),
+        )
+
+    [notification] = db_notification_handler.get_notifications(viewer_user.id)
+    assert notification.kind == NotificationKind.STREAMING_SESSION_ENDED
+    assert notification.actor_id == admin_user.id
+    assert notification.data["rom_id"] == rom.id
+    assert notification.data["reason"] == "maintenance window"
+    assert db_notification_handler.get_notifications(admin_user.id) == []
+
+
 def test_heartbeat_carries_termination_notice(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -2453,7 +2476,9 @@ def test_force_release_all_leaves_termination_notice(
     assert r.json()["termination"]["reason"] == "server restart"
 
 
-def test_self_release_leaves_no_termination_notice(client, access_token, rom: Rom):
+def test_self_release_leaves_no_termination_notice(
+    client, access_token, admin_user, rom: Rom
+):
     """A user who closed their own session already knows why it stopped. The
     player's own release path sends no reason, which is what marks it as such."""
     with _streaming(_container_for(rom)):
@@ -2467,6 +2492,7 @@ def test_self_release_leaves_no_termination_notice(client, access_token, rom: Ro
             headers=_auth(access_token),
         )
     assert r.json()["termination"] is None
+    assert db_notification_handler.get_notifications(admin_user.id) == []
 
 
 def test_admin_release_of_own_session_leaves_notice(client, access_token, rom: Rom):

@@ -1,0 +1,19 @@
+{
+  "dismiss-all": "Tout ignorer",
+  "dismiss-all-body": "Toutes les notifications seront supprimées définitivement.",
+  "dismiss-all-title": "Ignorer toutes les notifications ?",
+  "dismiss-failed": "Impossible d'ignorer la notification",
+  "empty": "Aucune notification",
+  "empty-hint": "Les nouvelles des tâches en arrière-plan et des actions des autres utilisateurs apparaîtront ici.",
+  "notifications": "Notifications",
+  "role-changed": "Votre rôle est désormais {role}",
+  "scan-completed": "Scan terminé",
+  "scan-failed": "Échec du scan",
+  "scan-new-games": "{n} nouveau jeu | {n} nouveaux jeux",
+  "scan-no-new-games": "Aucun nouveau jeu",
+  "stream-ended": "Votre stream de {game} a été arrêté",
+  "stream-ended-no-game": "Votre session de streaming a été arrêtée",
+  "task-completed": "Tâche terminée : {task}",
+  "task-failed": "Échec de la tâche : {task}",
+  "unknown": "Nouvelle notification"
+}

@@ -13,8 +13,10 @@ from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import base_handler as auth_handler_module
 from handler.auth import oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.database import db_notification_handler
 from handler.database.users_handler import DBUsersHandler
 from handler.redis_handler import async_cache
+from models.notification import NotificationKind
 from models.user import Role, User
 
 
@@ -196,6 +198,34 @@ def test_update_user(client, access_token: str, editor_user: User):
 
     user = response.json()
     assert user["role"] == "user"
+
+
+def test_role_change_notifies_the_user(
+    client, access_token: str, admin_user: User, editor_user: User
+):
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"role": "admin"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    [notification] = db_notification_handler.get_notifications(editor_user.id)
+    assert notification.kind == NotificationKind.ROLE_CHANGED
+    assert notification.actor_id == admin_user.id
+    assert notification.data == {"role": "admin"}
+
+
+def test_resubmitting_the_same_role_notifies_nobody(
+    client, access_token: str, editor_user: User
+):
+    client.put(
+        f"/api/users/{editor_user.id}",
+        data={"role": "user"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert db_notification_handler.get_notifications(editor_user.id) == []
 
 
 def test_update_user_rejects_non_image_avatar(

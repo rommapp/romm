@@ -1,0 +1,19 @@
+{
+  "dismiss-all": "Tümünü kapat",
+  "dismiss-all-body": "Tüm bildirimler kalıcı olarak kaldırılacak.",
+  "dismiss-all-title": "Tüm bildirimler kapatılsın mı?",
+  "dismiss-failed": "Bildirim kapatılamadı",
+  "empty": "Bildirim yok",
+  "empty-hint": "Arka plan görevlerinden ve diğer kullanıcıların eylemlerinden gelen haberler burada görünür.",
+  "notifications": "Bildirimler",
+  "role-changed": "Rolünüz artık {role}",
+  "scan-completed": "Tarama tamamlandı",
+  "scan-failed": "Tarama başarısız",
+  "scan-new-games": "{n} yeni oyun | {n} yeni oyun",
+  "scan-no-new-games": "Yeni oyun yok",
+  "stream-ended": "{game} yayınınız sonlandırıldı",
+  "stream-ended-no-game": "Yayın oturumunuz sonlandırıldı",
+  "task-completed": "Görev tamamlandı: {task}",
+  "task-failed": "Görev başarısız: {task}",
+  "unknown": "Yeni bildirim"
+}

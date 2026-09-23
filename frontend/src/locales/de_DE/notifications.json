@@ -1,0 +1,19 @@
+{
+  "dismiss-all": "Alle verwerfen",
+  "dismiss-all-body": "Alle Benachrichtigungen werden endgültig entfernt.",
+  "dismiss-all-title": "Alle Benachrichtigungen verwerfen?",
+  "dismiss-failed": "Die Benachrichtigung konnte nicht verworfen werden",
+  "empty": "Keine Benachrichtigungen",
+  "empty-hint": "Neuigkeiten von Hintergrundaufgaben und Aktionen anderer Benutzer erscheinen hier.",
+  "notifications": "Benachrichtigungen",
+  "role-changed": "Deine Rolle ist jetzt {role}",
+  "scan-completed": "Scan abgeschlossen",
+  "scan-failed": "Scan fehlgeschlagen",
+  "scan-new-games": "{n} neues Spiel | {n} neue Spiele",
+  "scan-no-new-games": "Keine neuen Spiele",
+  "stream-ended": "Dein Stream von {game} wurde beendet",
+  "stream-ended-no-game": "Deine Streaming-Sitzung wurde beendet",
+  "task-completed": "{task} abgeschlossen",
+  "task-failed": "{task} fehlgeschlagen",
+  "unknown": "Neue Benachrichtigung"
+}

@@ -1,0 +1,19 @@
+{
+  "dismiss-all": "すべて閉じる",
+  "dismiss-all-body": "すべての通知が完全に削除されます。",
+  "dismiss-all-title": "すべての通知を閉じますか？",
+  "dismiss-failed": "通知を閉じられませんでした",
+  "empty": "通知はありません",
+  "empty-hint": "バックグラウンドタスクや他のユーザーの操作に関するお知らせがここに表示されます。",
+  "notifications": "通知",
+  "role-changed": "役割が{role}に変更されました",
+  "scan-completed": "スキャンが完了しました",
+  "scan-failed": "スキャンに失敗しました",
+  "scan-new-games": "新しいゲーム{n}件 | 新しいゲーム{n}件",
+  "scan-no-new-games": "新しいゲームはありません",
+  "stream-ended": "{game}のストリームが終了されました",
+  "stream-ended-no-game": "ストリーミングセッションが終了されました",
+  "task-completed": "タスクが完了しました: {task}",
+  "task-failed": "タスクが失敗しました: {task}",
+  "unknown": "新しい通知"
+}

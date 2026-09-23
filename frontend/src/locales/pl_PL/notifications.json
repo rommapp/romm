@@ -1,0 +1,19 @@
+{
+  "dismiss-all": "Odrzuć wszystkie",
+  "dismiss-all-body": "Wszystkie powiadomienia zostaną trwale usunięte.",
+  "dismiss-all-title": "Odrzucić wszystkie powiadomienia?",
+  "dismiss-failed": "Nie udało się odrzucić powiadomienia",
+  "empty": "Brak powiadomień",
+  "empty-hint": "Tutaj pojawią się informacje o zadaniach w tle i działaniach innych użytkowników.",
+  "notifications": "Powiadomienia",
+  "role-changed": "Twoja rola to teraz {role}",
+  "scan-completed": "Skanowanie zakończone",
+  "scan-failed": "Skanowanie nie powiodło się",
+  "scan-new-games": "{n} nowa gra | {n} nowe gry | {n} nowych gier",
+  "scan-no-new-games": "Brak nowych gier",
+  "stream-ended": "Twój stream gry {game} został zakończony",
+  "stream-ended-no-game": "Twoja sesja streamingu została zakończona",
+  "task-completed": "Zadanie zakończone: {task}",
+  "task-failed": "Zadanie nie powiodło się: {task}",
+  "unknown": "Nowe powiadomienie"
+}

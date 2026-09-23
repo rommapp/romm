@@ -1,0 +1,19 @@
+{
+  "dismiss-all": "Összes elvetése",
+  "dismiss-all-body": "Az összes értesítés végleg törlődik.",
+  "dismiss-all-title": "Elveted az összes értesítést?",
+  "dismiss-failed": "Nem sikerült elvetni az értesítést",
+  "empty": "Nincsenek értesítések",
+  "empty-hint": "Itt jelennek meg a háttérfeladatok és más felhasználók műveleteinek hírei.",
+  "notifications": "Értesítések",
+  "role-changed": "Az új szerepköröd: {role}",
+  "scan-completed": "Szkennelés befejezve",
+  "scan-failed": "A szkennelés sikertelen",
+  "scan-new-games": "{n} új játék | {n} új játék",
+  "scan-no-new-games": "Nincs új játék",
+  "stream-ended": "A(z) {game} streamed le lett állítva",
+  "stream-ended-no-game": "A streaming munkameneted le lett állítva",
+  "task-completed": "Feladat befejezve: {task}",
+  "task-failed": "A feladat sikertelen: {task}",
+  "unknown": "Új értesítés"
+}

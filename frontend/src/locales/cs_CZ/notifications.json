@@ -1,0 +1,19 @@
+{
+  "dismiss-all": "Zavřít vše",
+  "dismiss-all-body": "Všechna oznámení budou trvale odstraněna.",
+  "dismiss-all-title": "Zavřít všechna oznámení?",
+  "dismiss-failed": "Oznámení se nepodařilo zavřít",
+  "empty": "Žádná oznámení",
+  "empty-hint": "Zde se zobrazí novinky z úloh na pozadí a z akcí ostatních uživatelů.",
+  "notifications": "Oznámení",
+  "role-changed": "Vaše role je nyní {role}",
+  "scan-completed": "Skenování dokončeno",
+  "scan-failed": "Skenování selhalo",
+  "scan-new-games": "{n} nových her | {n} nová hra | {n} nové hry | {n} nových her",
+  "scan-no-new-games": "Žádné nové hry",
+  "stream-ended": "Váš stream hry {game} byl ukončen",
+  "stream-ended-no-game": "Vaše streamovací relace byla ukončena",
+  "task-completed": "Úloha dokončena: {task}",
+  "task-failed": "Úloha selhala: {task}",
+  "unknown": "Nové oznámení"
+}

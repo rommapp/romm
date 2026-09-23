@@ -39,6 +39,7 @@ import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { installNativeLaunchFeedback } from "@/v2/composables/useNativeLaunch";
+import { installNotificationInbox } from "@/v2/composables/useNotificationInbox";
 import { installOverlayRouteDismiss } from "@/v2/composables/useOverlayRouteDismiss";
 import { installPendingAssetSync } from "@/v2/composables/usePendingAssetSync";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
@@ -56,6 +57,8 @@ installScanLifecycle();
 // Saves and states a player could not hand over reach the server from any
 // route, so the next launch screen can offer them.
 installPendingAssetSync();
+// The navbar badge counts unread notifications on every route.
+installNotificationInbox();
 // Mirror useBreakpoint() refs onto <html data-bp="…"> so scoped styles
 // can branch on viewport via `html[data-bp~="xs"] .foo { … }` instead of
 // hardcoding `@media (max-width: …)` values across every SFC.

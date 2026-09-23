@@ -1,0 +1,19 @@
+{
+  "dismiss-all": "全部忽略",
+  "dismiss-all-body": "所有通知都将被永久移除。",
+  "dismiss-all-title": "忽略所有通知？",
+  "dismiss-failed": "无法忽略该通知",
+  "empty": "暂无通知",
+  "empty-hint": "后台任务和其他用户操作的动态会显示在这里。",
+  "notifications": "通知",
+  "role-changed": "您的角色已变为 {role}",
+  "scan-completed": "扫描完成",
+  "scan-failed": "扫描失败",
+  "scan-new-games": "{n} 个新游戏 | {n} 个新游戏",
+  "scan-no-new-games": "没有新游戏",
+  "stream-ended": "您的 {game} 串流已被终止",
+  "stream-ended-no-game": "您的串流会话已被终止",
+  "task-completed": "任务已完成：{task}",
+  "task-failed": "任务失败：{task}",
+  "unknown": "新通知"
+}

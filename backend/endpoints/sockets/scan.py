@@ -53,6 +53,7 @@ from handler.metadata.launchbox_handler.types import LAUNCHBOX_PLATFORMS_DIR
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
+from handler.notification_handler import notify, notify_admins
 from handler.recommendation import top_up_similarity
 from handler.redis_handler import (
     cancel_job,
@@ -82,8 +83,10 @@ from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.firmware import Firmware
+from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
 from models.rom import Rom, RomFile
+from models.user import User
 from tasks.tasks import update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
@@ -138,8 +141,13 @@ def report_scan_failure(
 
     reason = _SCAN_FAILURE_REASONS.get(exc_type, "it stopped unexpectedly")
     log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} is over: {reason}")
+
+    async def report() -> None:
+        await _get_socket_manager().emit("scan:done_ko", reason)
+        await notify_scan_end(job.kwargs.get("started_by_user_id"), error=reason)
+
     try:
-        asyncio.run(_get_socket_manager().emit("scan:done_ko", reason))
+        asyncio.run(report())
     except Exception:
         # RQ re-raises out of the registry sweep that calls this, which would
         # leave the failed scans in the registry and stop the worker.
@@ -254,6 +262,29 @@ class ScanStats:
 def _get_socket_manager() -> socketio.AsyncRedisManager:
     """Connect to external socketio server"""
     return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+
+
+async def notify_scan_end(
+    started_by_user_id: int | None,
+    stats: ScanStats | None = None,
+    error: str | None = None,
+) -> None:
+    """Notify whoever started a scan of how it ended.
+
+    A scan nobody started (schedule, watcher) goes to the admins, and only when
+    it failed or found something new.
+    """
+    if error is not None:
+        kind, level = NotificationKind.SCAN_FAILED, NotificationLevel.ERROR
+        data: dict[str, Any] = {"error": error}
+    else:
+        kind, level = NotificationKind.SCAN_COMPLETED, NotificationLevel.SUCCESS
+        data = stats.to_dict() if stats else {}
+
+    if started_by_user_id is not None:
+        await notify(started_by_user_id, kind, level, data)
+    elif error is not None or (stats and (stats.new_roms or stats.new_platforms)):
+        await notify_admins(kind, level, data)
 
 
 async def _identify_firmware(
@@ -1103,6 +1134,7 @@ async def scan_platforms(
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
     platform_fs_slugs: list[str] | None = None,
+    started_by_user_id: int | None = None,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -1112,6 +1144,8 @@ async def scan_platforms(
         scan_type (ScanType): Type of scan to be performed.
         roms_ids (list[int], optional): List of selected roms to be scanned.
         platform_fs_slugs (list[str], optional): Folders to scan with no database row.
+        started_by_user_id (int, optional): Who asked for the scan, None for a scan
+            the schedule or the filesystem watcher started.
     """
     # The flag is cleared by the scan that observes it, so one set against a
     # scan that ended first would otherwise stop this one before it began. A
@@ -1163,6 +1197,7 @@ async def scan_platforms(
         except FolderStructureNotMatchException as e:
             log.error(e)
             await finish("scan:done_ko", e.message)
+            await notify_scan_end(started_by_user_id, error=e.message)
             return scan_stats
 
     # Clear the gamelist cache to ensure we're using fresh gamelist.xml data
@@ -1399,20 +1434,24 @@ async def scan_platforms(
             log.info("Pegasus metadata auto-export completed.")
 
         await finish("scan:done", scan_stats.to_dict())
+        # Rescanning named roms answers a click whose result is already on screen.
+        if not roms_ids:
+            await notify_scan_end(started_by_user_id, scan_stats)
     except ScanStoppedException:
         await stop_scan()
     except Exception as e:
         log.error(f"Error in scan_platform: {e}")
         # Catch all exceptions and emit error to the client
         await finish("scan:done_ko", str(e))
+        await notify_scan_end(started_by_user_id, error=str(e))
         # Re-raise the exception to be caught by the error handler
         raise e
 
     return scan_stats
 
 
-async def reject_unauthorized_scan(sid: str) -> bool:
-    """Return ``True`` (and notify the caller) if the socket may not run scans.
+async def authorize_scan(sid: str) -> User | None:
+    """Return the socket's user if they may run scans, else tell the caller and return None.
 
     Scans are a privileged, destructive operation, so gate them on the same
     ``TASKS_RUN`` scope the REST task endpoints require, resolved from the
@@ -1420,7 +1459,7 @@ async def reject_unauthorized_scan(sid: str) -> bool:
     """
     user = await get_authenticated_user(sid)
     if user is not None and Scope.TASKS_RUN in user.oauth_scopes:
-        return False
+        return user
 
     log.warning(f"{emoji.EMOJI_STOP_SIGN} Unauthorized scan request rejected")
     await socket_handler.socket_server.emit(
@@ -1428,7 +1467,7 @@ async def reject_unauthorized_scan(sid: str) -> bool:
         "You are not authorized to run scans",
         to=sid,
     )
-    return True
+    return None
 
 
 @socket_handler.socket_server.on("scan")
@@ -1439,7 +1478,8 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         options (dict): Socket options
     """
 
-    if await reject_unauthorized_scan(sid):
+    user = await authorize_scan(sid)
+    if user is None:
         return
 
     platform_ids = options.get("platforms", [])
@@ -1474,6 +1514,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
             platform_fs_slugs=platform_fs_slugs,
+            started_by_user_id=user.id,
         )
 
     return scan_queue.enqueue(
@@ -1488,6 +1529,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
         platform_fs_slugs=platform_fs_slugs,
+        started_by_user_id=user.id,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta=scan_job_meta(scan_type),
@@ -1498,7 +1540,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
 async def stop_scan_handler(sid: str):
     """Stop scan socket endpoint"""
 
-    if await reject_unauthorized_scan(sid):
+    if await authorize_scan(sid) is None:
         return
 
     log.info(f"{emoji.EMOJI_STOP_BUTTON} Stop scan requested...")

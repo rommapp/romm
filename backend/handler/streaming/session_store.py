@@ -24,9 +24,11 @@ from typing import Any, NamedTuple
 
 from redis.exceptions import WatchError
 
+from handler.notification_handler import notify
 from handler.redis_handler import async_cache
 from handler.socket_handler import socket_handler
 from logger.logger import log
+from models.notification import NotificationKind, NotificationLevel
 
 # Sessions are stored in Redis so they are shared across uvicorn workers and
 # survive backend restarts (the emulator container keeps running either way).
@@ -553,10 +555,13 @@ async def record_termination(
     *,
     ended_by: str | None,
     reason: str | None,
+    ended_by_user_id: int | None = None,
 ) -> None:
     """Leave a note for the player whose session was taken away, and push it
     over the socket so the poll isn't the only way that tab finds out. No-op
-    when the session records no owner, since there is nobody to notify."""
+    when the session records no owner, since there is nobody to notify.
+
+    Another user ending it also leaves the player a lasting notification."""
     user_id = session.get("user_id")
     if not isinstance(user_id, int):
         return
@@ -574,6 +579,20 @@ async def record_termination(
         ex=_TERMINATION_TTL_SECONDS,
     )
     await push_to_user(user_id, "streaming:session-ended", notice)
+
+    if ended_by_user_id is not None and ended_by_user_id != user_id:
+        await notify(
+            user_id,
+            NotificationKind.STREAMING_SESSION_ENDED,
+            NotificationLevel.WARNING,
+            {
+                "rom_id": notice["rom_id"],
+                "rom_name": notice["rom_name"],
+                "platform": notice["platform"],
+                "reason": notice["reason"],
+            },
+            actor_id=ended_by_user_id,
+        )
 
 
 async def push_to_user(user_id: Any, event: str, payload: dict[str, Any]) -> None:

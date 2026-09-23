@@ -1,0 +1,19 @@
+{
+  "dismiss-all": "모두 닫기",
+  "dismiss-all-body": "모든 알림이 영구적으로 삭제됩니다.",
+  "dismiss-all-title": "모든 알림을 닫으시겠습니까?",
+  "dismiss-failed": "알림을 닫을 수 없습니다",
+  "empty": "알림이 없습니다",
+  "empty-hint": "백그라운드 작업과 다른 사용자의 활동 소식이 여기에 표시됩니다.",
+  "notifications": "알림",
+  "role-changed": "역할이 {role}(으)로 변경되었습니다",
+  "scan-completed": "스캔 완료",
+  "scan-failed": "스캔 실패",
+  "scan-new-games": "새 게임 {n}개 | 새 게임 {n}개",
+  "scan-no-new-games": "새 게임 없음",
+  "stream-ended": "{game} 스트림이 종료되었습니다",
+  "stream-ended-no-game": "스트리밍 세션이 종료되었습니다",
+  "task-completed": "작업 완료: {task}",
+  "task-failed": "작업 실패: {task}",
+  "unknown": "새 알림"
+}

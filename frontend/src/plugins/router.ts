@@ -329,6 +329,19 @@ const routes = [
             },
           },
           {
+            path: "notifications",
+            name: ROUTES.NOTIFICATIONS,
+            meta: {
+              title: "notifications.notifications",
+              bare: true,
+            },
+            components: {
+              // v2-only view, like Activity.
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.NOTIFICATIONS),
+            },
+          },
+          {
             path: "user/:user",
             name: ROUTES.USER_PROFILE,
             meta: { bare: true },

@@ -1,0 +1,19 @@
+{
+  "dismiss-all": "Închide toate",
+  "dismiss-all-body": "Toate notificările vor fi eliminate definitiv.",
+  "dismiss-all-title": "Închizi toate notificările?",
+  "dismiss-failed": "Notificarea nu a putut fi închisă",
+  "empty": "Nicio notificare",
+  "empty-hint": "Aici vor apărea noutățile de la sarcinile din fundal și de la acțiunile altor utilizatori.",
+  "notifications": "Notificări",
+  "role-changed": "Rolul tău este acum {role}",
+  "scan-completed": "Scanare finalizată",
+  "scan-failed": "Scanarea a eșuat",
+  "scan-new-games": "{n} joc nou | {n} jocuri noi",
+  "scan-no-new-games": "Niciun joc nou",
+  "stream-ended": "Streamul tău pentru {game} a fost oprit",
+  "stream-ended-no-game": "Sesiunea ta de streaming a fost oprită",
+  "task-completed": "Sarcină finalizată: {task}",
+  "task-failed": "Sarcina a eșuat: {task}",
+  "unknown": "Notificare nouă"
+}
