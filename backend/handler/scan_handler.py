@@ -992,7 +992,11 @@ async def scan_rom(
             try:
                 # Use the ID to refetch metadata
                 if scan_type == ScanType.UPDATE and rom.ss_id:
-                    return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
+                    # With the files, the refetch still finds our own dump among
+                    # the game's, so a rescan keeps the tags the hash earned.
+                    return await meta_ss_handler.get_rom_by_id(
+                        rom, rom.ss_id, get_match_files()
+                    )
 
                 # Use Playmatch's hash-based id when available
                 if playmatch_rom["ss_id"] is not None:
@@ -1002,7 +1006,7 @@ async def scan_rom(
                         extra=LOGGER_MODULE_NAME,
                     )
                     return await meta_ss_handler.get_rom_by_id(
-                        rom, playmatch_rom["ss_id"]
+                        rom, playmatch_rom["ss_id"], get_match_files()
                     )
 
                 # Use the file hashes for lookup

@@ -24,6 +24,7 @@ from handler.metadata.ss_handler import (
     SWITCH_SS_ID,
     ScreenScraperExhaustedError,
     SSHandler,
+    SSRom,
     _get_rom_type,
     _is_daily_quota_error,
     _is_notgame,
@@ -2203,6 +2204,41 @@ class TestExtractFromSSDump:
         assert extract_regions_from_ss_dump(dump) == []
         assert extract_languages_from_ss_dump(dump) == []
         assert extract_tags_from_ss_dump(dump) == []
+
+    async def test_a_refetch_by_id_keeps_our_dump_when_given_the_files(self):
+        """An UPDATE scan refetches by id, so the dump has to survive that path."""
+        handler = SSHandler()
+        rom = MagicMock(platform_slug="nes")
+        rom_file = MagicMock(
+            file_size_bytes=40976,
+            is_top_level=True,
+            file_extension="nes",
+            md5_hash="811b027eaf99c2def7b933c5208636de",
+            sha1_hash=None,
+            crc_hash=None,
+        )
+
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                new=AsyncMock(return_value=self._game()),
+            ),
+            patch(
+                "handler.metadata.ss_handler.build_ss_game",
+                side_effect=lambda *_: SSRom(ss_id=1245),
+            ),
+        ):
+            with_files = await handler.get_rom_by_id(rom, 1245, [rom_file])
+            without_files = await handler.get_rom_by_id(rom, 1245)
+
+        assert with_files.get("tags") == ["Translation"]
+        assert with_files.get("languages") == ["French"]
+
+        # A caller that only picked an id, like a manual match, says nothing
+        # about which dump is on disk.
+        assert "tags" not in without_files
 
     def test_a_game_with_no_dumps_matches_nothing(self):
         game = cast(SSGame, {"id": 1})

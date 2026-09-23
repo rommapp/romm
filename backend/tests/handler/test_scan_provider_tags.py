@@ -69,6 +69,16 @@ def ss_translated() -> Iterator[AsyncMock]:
 
 
 @pytest.fixture
+def ss_translated_by_id() -> Iterator[AsyncMock]:
+    """Patch the id refetch an UPDATE scan takes, dump tags included."""
+    with patch(
+        "handler.scan_handler.meta_ss_handler.get_rom_by_id",
+        new=AsyncMock(return_value=SS_TRANSLATED),
+    ) as by_id:
+        yield by_id
+
+
+@pytest.fixture
 def ss_name_search() -> Iterator[AsyncMock]:
     """Patch the ScreenScraper name search, which identifies a title, not a dump."""
     with (
@@ -87,14 +97,13 @@ def ss_name_search() -> Iterator[AsyncMock]:
 async def _scan(
     source: MetadataSource,
     fs_name: str = "Mario Kart 64.z64",
+    scan_type: ScanType = ScanType.COMPLETE,
     **rom_overrides: Any,
 ) -> Rom:
     platform = add_n64_platform(hasheous_id=4, ss_id=14)
     rom = add_rom(platform, fs_name, "Mario Kart 64", **rom_overrides)
 
-    return await run_scan(
-        platform, rom, scan_type=ScanType.COMPLETE, metadata_sources=[source]
-    )
+    return await run_scan(platform, rom, scan_type=scan_type, metadata_sources=[source])
 
 
 async def test_hasheous_fills_untagged_regions_and_languages(
@@ -175,3 +184,24 @@ async def test_a_tag_both_sources_report_is_not_repeated(ss_translated: AsyncMoc
     )
 
     assert result.tags == ["Translation"]
+
+
+async def test_an_update_rescan_keeps_the_dump_tag(ss_translated_by_id: AsyncMock):
+    """An UPDATE refetches by id, which still carries every dump of the game.
+
+    The filename says nothing, so without the dump the tag an earlier scan
+    earned would be dropped when the filename tags are re-read.
+    """
+    result = await _scan(
+        MetadataSource.SS,
+        scan_type=ScanType.UPDATE,
+        ss_id=42,
+        tags=["Translation"],
+    )
+
+    assert result.tags == ["Translation"]
+
+    # The files are what let the refetch pick our dump out of the game's.
+    await_args = ss_translated_by_id.await_args
+    assert await_args is not None, "the id path should run"
+    assert len(await_args.args) == 3, "the refetch needs the files"
