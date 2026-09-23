@@ -341,7 +341,11 @@ async def teardown_released_session(
         # logged in as the same account that is playing in another tab.
         if session.get("user_id") != acting_user_id or reason is not None:
             await record_termination(
-                session, session_key, ended_by=acting_username, reason=reason
+                session,
+                session_key,
+                ended_by=acting_username,
+                reason=reason,
+                ended_by_user_id=acting_user_id,
             )
             log.info(
                 "session force-released, platform=%s by=%s user_id=%s reason=%s",

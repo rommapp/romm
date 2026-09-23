@@ -1528,6 +1528,7 @@ async def force_release_all(
                     container_key,
                     ended_by=request.user.username,
                     reason=reason,
+                    ended_by_user_id=request.user.id,
                 )
         finally:
             # The sweep answered "released", so the key goes even when a step

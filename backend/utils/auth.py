@@ -45,9 +45,11 @@ async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
     if not session_data:
         return {}
     try:
-        return json_module.loads(session_data)
+        session = json_module.loads(session_data)
     except Exception:  # noqa: BLE001 - malformed session is "no session"
         return {}
+    # The middleware adds the same key on the scope path.
+    return {**session, "session_id": morsel.value}
 
 
 def _get_device_name(user_agent: UAResult) -> str | None:
