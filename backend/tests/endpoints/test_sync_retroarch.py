@@ -119,7 +119,7 @@ def synced_state_screenshot(admin_user: User, rom: Rom, synced_state: State):
             rom_id=rom.id,
             user_id=admin_user.id,
             file_name=f"{synced_state.file_name}.png",
-            file_path=synced_state.file_path,
+            file_path=sync_handler.state_screenshot_dir(admin_user, rom, "snes9x"),
             file_size_bytes=8,
         )
     )
@@ -563,6 +563,41 @@ class TestRetroArchSyncStateScreenshots:
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_same_named_states_under_two_cores_keep_separate_screenshots(
+        self, client, admin_user: User, rom: Rom, synced_state: State
+    ):
+        db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name=synced_state.file_name,
+                file_path=fs_asset_handler.build_states_file_path(
+                    user=admin_user,
+                    platform_fs_slug=rom.platform.fs_slug,
+                    rom_id=rom.id,
+                    emulator="bsnes",
+                ),
+                file_size_bytes=4,
+                emulator="bsnes",
+            )
+        )
+
+        for core, content in (("Snes9x", b"snes9x-png"), ("bsnes", b"bsnes-png")):
+            response = client.put(
+                f"/api/sync/retroarch/states/{core}/test_rom.state.png",
+                content=content,
+                auth=ADMIN_AUTH,
+            )
+            assert response.status_code == status.HTTP_201_CREATED
+
+        for core, content in (("Snes9x", b"snes9x-png"), ("bsnes", b"bsnes-png")):
+            response = client.get(
+                f"/api/sync/retroarch/states/{core}/test_rom.state.png",
+                auth=ADMIN_AUTH,
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert response.content == content
 
     def test_slot_without_a_screenshot_does_not_claim_another_slots(
         self,

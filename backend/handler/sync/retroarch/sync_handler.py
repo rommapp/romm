@@ -163,14 +163,30 @@ def resolve_state_by_slot(
     return group_states_by_slot(states).get(key)
 
 
+def state_screenshot_dir(user: User, rom: Rom, emulator: str | None) -> str:
+    """Per core, so same-named states under two cores keep separate screenshots."""
+    return fs_asset_handler.build_screenshots_file_path(
+        user=user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
+    )
+
+
 def _match_state_screenshot(
-    state: State, screenshots: Iterable[Screenshot]
+    user: User, state: State, screenshots: Iterable[Screenshot]
 ) -> Screenshot | None:
+    own_dir = state_screenshot_dir(user, state.rom, state.emulator)
+    rom_dir = state_screenshot_dir(user, state.rom, None)
+    candidates = [
+        s
+        for s in screenshots
+        if s.file_path == own_dir or not s.file_path.startswith(f"{rom_dir}/")
+    ]
     exact_name = f"{state.file_name}.png"
-    candidates = list(screenshots)
-    exact = next((s for s in candidates if s.file_name == exact_name), None)
+    exact = [s for s in candidates if s.file_name == exact_name]
     if exact:
-        return exact
+        return min(exact, key=lambda s: (s.file_path != own_dir, -s.id))
 
     # `State.screenshot` matches on the name stem, which a RetroArch slot name
     # (`<rom>.state1`) shares with every other slot's and gallery shot.
@@ -201,7 +217,7 @@ def state_screenshots(user: User, states: Collection[State]) -> dict[int, Screen
         by_rom[screenshot.rom_id].append(screenshot)
 
     matches = {
-        state.id: _match_state_screenshot(state, by_rom[state.rom_id])
+        state.id: _match_state_screenshot(user, state, by_rom[state.rom_id])
         for state in states
     }
     return {state_id: shot for state_id, shot in matches.items() if shot}

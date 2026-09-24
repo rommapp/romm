@@ -502,10 +502,8 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             f"{owning_state.file_name}.png" if owning_state else file_name
         )
 
-        screenshot_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user,
-            platform_fs_slug=rom.platform.fs_slug,
-            rom_id=rom.id,
+        screenshot_path = sync_handler.state_screenshot_dir(
+            request.user, rom, parsed.emulator
         )
         async with _request_body(request) as body:
             await fs_asset_handler.write_file(
@@ -517,9 +515,18 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             user=request.user,
             platform_fs_slug=rom.platform.fs_slug,
             rom_id=rom.id,
+            emulator=parsed.emulator,
         )
-        existing_screenshot = db_screenshot_handler.get_screenshot(
-            rom_id=rom.id, user_id=request.user.id, file_name=screenshot_file_name
+        existing_screenshot = next(
+            (
+                shot
+                for shot in db_screenshot_handler.get_screenshots(
+                    user_id=request.user.id, rom_ids={rom.id}
+                )
+                if shot.file_name == screenshot_file_name
+                and shot.file_path == screenshot_path
+            ),
+            None,
         )
         if existing_screenshot:
             db_screenshot_handler.update_screenshot(

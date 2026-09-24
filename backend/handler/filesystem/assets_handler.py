@@ -169,10 +169,14 @@ class FSAssetsHandler(FSHandler):
 
     # /users/557365723a31/screenshots/{rom.id}/n64
     def build_screenshots_file_path(
-        self, user: User, platform_fs_slug: str, rom_id: int
+        self,
+        user: User,
+        platform_fs_slug: str,
+        rom_id: int,
+        emulator: str | None = None,
     ):
         return self._build_asset_file_path(
-            user, "screenshots", platform_fs_slug, rom_id
+            user, "screenshots", platform_fs_slug, rom_id, emulator
         )
 
     # /users/557365723a31/memory_cards/pcsx2/{card_id}
