@@ -1,14 +1,14 @@
 """Opaque per-user storage for the Cloud Sync categories no ROM owns: config/,
 thumbnails/ and system/."""
 
-from config import CLOUD_SYNC_BLOB_BASE_PATH
+from config import WEBDAV_CLOUD_SYNC_BLOB_BASE_PATH
 
 from .base_handler import FSHandler
 
 
-class FSCloudSyncBlobHandler(FSHandler):
+class FSWebDAVCloudSyncBlobHandler(FSHandler):
     def __init__(self) -> None:
-        super().__init__(base_path=CLOUD_SYNC_BLOB_BASE_PATH)
+        super().__init__(base_path=WEBDAV_CLOUD_SYNC_BLOB_BASE_PATH)
 
     async def list_blob_paths(self, prefix: str) -> list[str]:
         """Posix paths of every file under `prefix` (relative to the blob root),

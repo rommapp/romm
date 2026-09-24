@@ -20,13 +20,13 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import Literal
 
-from config import CLOUD_SYNC_PSP_PENDING_PATH, CLOUD_SYNC_PSP_SERIAL_MAP
-from handler import cloud_sync_handler
-from handler.cloud_sync_emulator_names import to_romm_emulator
+from config import WEBDAV_CLOUD_SYNC_PSP_PENDING_PATH, WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP
 from handler.database import db_platform_handler, db_rom_handler, db_save_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import hash_zip_contents
 from handler.filesystem.base_handler import FSHandler
+from handler.webdav_cloud_sync import sync_handler
+from handler.webdav_cloud_sync.emulator_names import to_romm_emulator
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import Save
@@ -44,7 +44,7 @@ _BUNDLE_MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
 
 _BUNDLE_FOLDER_PATTERN = re.compile(r"^PSP-(.+?)(?: \[.*])?\.zip$")
 
-fs_psp_pending_handler = FSHandler(base_path=CLOUD_SYNC_PSP_PENDING_PATH)
+fs_psp_pending_handler = FSHandler(base_path=WEBDAV_CLOUD_SYNC_PSP_PENDING_PATH)
 
 
 class PspFolderUnresolved(Exception):
@@ -62,7 +62,7 @@ class PspFilePath:
 
 def resolve_psp_path(file_path: str) -> PspFilePath | Literal["ignore"] | None:
     """A PSP save-folder file, ``"ignore"`` for engine caches, or None for any other path."""
-    segments = cloud_sync_handler.split_segments(file_path)
+    segments = sync_handler.split_segments(file_path)
     if segments is None or len(segments) < 3 or segments[0] != "saves":
         return None
 
@@ -115,9 +115,9 @@ def _latest_bundles_by_folder(
         if save_folder is None or save.slot is not None or not can_see(save.rom):
             continue
         current = latest.get(save_folder)
-        if current is None or cloud_sync_handler.recency_key(
-            save
-        ) > cloud_sync_handler.recency_key(current):
+        if current is None or sync_handler.recency_key(save) > sync_handler.recency_key(
+            current
+        ):
             latest[save_folder] = save
 
     return latest
@@ -219,15 +219,15 @@ def _match_by_normalized_title(
 def _resolve_rom(
     save_folder: str, sfo_title: str | None, can_see: Callable[[Rom], bool]
 ) -> Rom | None:
-    """The ROM a save folder belongs to, via CLOUD_SYNC_PSP_SERIAL_MAP, else its PARAM.SFO title."""
+    """The ROM a save folder belongs to, via WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP, else its PARAM.SFO title."""
     serial = _derive_serial(save_folder)
-    mapped_title = CLOUD_SYNC_PSP_SERIAL_MAP.get(serial)
+    mapped_title = WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP.get(serial)
     if mapped_title:
-        rom = cloud_sync_handler.resolve_rom(mapped_title, can_see)
+        rom = sync_handler.resolve_rom(mapped_title, can_see)
         if rom:
             return rom
         log.warning(
-            f"CLOUD_SYNC_PSP_SERIAL_MAP entry for {hl(serial)} ({hl(mapped_title)}) "
+            f"WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP entry for {hl(serial)} ({hl(mapped_title)}) "
             "didn't match any rom in the library"
         )
 
@@ -242,7 +242,7 @@ def _resolve_rom(
         log.warning(
             f"Couldn't auto-match PARAM.SFO title {hl(sfo_title)} for PSP save "
             f"folder {hl(save_folder)}; add serial {hl(serial)} to "
-            "CLOUD_SYNC_PSP_SERIAL_MAP if this keeps happening"
+            "WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP if this keeps happening"
         )
 
     return None
@@ -446,7 +446,7 @@ async def delete_psp_file(
 ) -> None:
     """Drops one member from its folder's bundle, and the bundle once empty.
 
-    A missing bundle or member is a no-op, like every other cloud-sync delete.
+    A missing bundle or member is a no-op, like every other webdav-cloud-sync delete.
     """
     async with _folder_locks[f"{user.id}:{info.save_folder}"]:
         bundle = _find_bundle_by_folder(user, info.save_folder, can_see)
@@ -482,7 +482,7 @@ async def build_psp_manifest_entries(
         for member_name, data in members.items():
             entries.append(
                 {
-                    "path": cloud_sync_handler.build_cloud_sync_path(
+                    "path": sync_handler.build_webdav_cloud_sync_path(
                         "saves",
                         save.emulator,
                         f"PSP/SAVEDATA/{save_folder}/{member_name}",

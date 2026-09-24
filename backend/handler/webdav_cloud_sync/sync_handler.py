@@ -10,16 +10,19 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, cast
 
-from handler import cloud_sync_psp
-from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
 from handler.database import (
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
 )
-from handler.filesystem import fs_asset_handler, fs_cloud_sync_blob_handler
+from handler.filesystem import fs_asset_handler, fs_webdav_cloud_sync_blob_handler
 from handler.redis_handler import async_cache
+from handler.webdav_cloud_sync import psp
+from handler.webdav_cloud_sync.emulator_names import (
+    to_retroarch_dir_name,
+    to_romm_emulator,
+)
 from models.assets import Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
@@ -44,7 +47,7 @@ _HASH_CACHE_TTL_SECONDS = 60 * 60 * 24
 
 
 @dataclass(frozen=True)
-class CloudSyncPath:
+class WebDAVCloudSyncPath:
     """A parsed client-side path, e.g. ``saves/Snes9x/Super Mario World.srm``."""
 
     kind: AssetKind
@@ -64,7 +67,7 @@ def split_segments(path: str) -> list[str] | None:
     return segments
 
 
-def parse_cloud_sync_path(path: str) -> CloudSyncPath | None:
+def parse_webdav_cloud_sync_path(path: str) -> WebDAVCloudSyncPath | None:
     """Parse a ``<root>/[<core>/]<file>`` client path, or None if unsupported."""
     segments = split_segments(path)
     if segments is None or not 2 <= len(segments) <= 3:
@@ -76,7 +79,7 @@ def parse_cloud_sync_path(path: str) -> CloudSyncPath | None:
 
     # RomM's web player matches saves on the lowercase libretro core id, not
     # RetroArch's display-cased folder name.
-    return CloudSyncPath(
+    return WebDAVCloudSyncPath(
         kind=kind,
         emulator=to_romm_emulator(segments[1]) if len(segments) == 3 else None,
         file_name=segments[-1],
@@ -179,7 +182,9 @@ def resolve_state_screenshot_by_slot(
     return state_screenshot(state) if state else None
 
 
-def build_cloud_sync_path(kind: AssetKind, emulator: str | None, file_name: str) -> str:
+def build_webdav_cloud_sync_path(
+    kind: AssetKind, emulator: str | None, file_name: str
+) -> str:
     if emulator:
         return f"{kind}/{to_retroarch_dir_name(emulator)}/{file_name}"
     return f"{kind}/{file_name}"
@@ -201,7 +206,7 @@ def build_asset_file_path(
     )
 
 
-def parse_cloud_sync_blob_path(path: str) -> str | None:
+def parse_webdav_cloud_sync_blob_path(path: str) -> str | None:
     """A blob-category client path as ``category/...``, or None if it isn't one.
 
     Nesting is arbitrary: RetroArch mirrors its on-device tree here.
@@ -238,13 +243,13 @@ async def _cached_md5(
 async def blob_md5(user: User, blob_path: str) -> str | None:
     disk_path = user_blob_path(user, blob_path)
     try:
-        stat = fs_cloud_sync_blob_handler.validate_path(disk_path).stat()
+        stat = fs_webdav_cloud_sync_blob_handler.validate_path(disk_path).stat()
     except (ValueError, OSError):
         return None
 
     return await _cached_md5(
-        f"romm:cloud_sync:blob_md5:{user.id}:{blob_path}:{stat.st_size}:{stat.st_mtime}",
-        lambda: fs_cloud_sync_blob_handler.compute_file_md5(disk_path),
+        f"romm:webdav_cloud_sync:blob_md5:{user.id}:{blob_path}:{stat.st_size}:{stat.st_mtime}",
+        lambda: fs_webdav_cloud_sync_blob_handler.compute_file_md5(disk_path),
     )
 
 
@@ -252,7 +257,7 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
     entries: list[dict[str, str]] = []
     for category in BLOB_CATEGORIES:
         prefix = f"{fs_asset_handler.user_folder_path(user)}/{category}"
-        for relative in await fs_cloud_sync_blob_handler.list_blob_paths(prefix):
+        for relative in await fs_webdav_cloud_sync_blob_handler.list_blob_paths(prefix):
             blob_path = f"{category}/{relative}"
             digest = await blob_md5(user, blob_path)
             if not digest:
@@ -265,7 +270,7 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
 def resolve_roms(
     game_names: Iterable[str], can_see: Callable[[Rom], bool]
 ) -> dict[str, Rom]:
-    """The ROM each cloud-sync game name belongs to, matched on file name alone.
+    """The ROM each webdav-cloud-sync game name belongs to, matched on file name alone.
 
     An ambiguous name resolves to its first visible ROM by id, so it stays
     stable across syncs.
@@ -289,7 +294,7 @@ def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
 
 async def asset_md5(asset: Save | State | Screenshot) -> str | None:
     return await _cached_md5(
-        f"romm:cloud_sync:md5:{asset.full_path}"
+        f"romm:webdav_cloud_sync:md5:{asset.full_path}"
         f":{asset.file_size_bytes}:{asset.updated_at.timestamp()}",
         lambda: fs_asset_handler.compute_file_md5(asset.full_path),
     )
@@ -310,7 +315,7 @@ async def build_manifest(
         for save in saves
         if not save.missing_from_fs
         and can_see(save.rom)
-        and not cloud_sync_psp.is_psp_bundle_file_name(save.file_name)
+        and not psp.is_psp_bundle_file_name(save.file_name)
     ]
     listed_states = [
         (emulator, canonical_state_file_name(state.rom, slot_suffix), state)
@@ -343,14 +348,15 @@ async def build_manifest(
     for save in listed_saves:
         if is_addressable(save.rom, "saves", save.file_name):
             await add(
-                build_cloud_sync_path("saves", save.emulator, save.file_name), save
+                build_webdav_cloud_sync_path("saves", save.emulator, save.file_name),
+                save,
             )
 
     for emulator, file_name, state in listed_states:
         if not is_addressable(state.rom, "states", file_name):
             continue
 
-        state_path = build_cloud_sync_path("states", emulator, file_name)
+        state_path = build_webdav_cloud_sync_path("states", emulator, file_name)
         if not await add(state_path, state):
             continue
 
@@ -359,7 +365,7 @@ async def build_manifest(
             await add(f"{state_path}.png", screenshot)
 
     entries += await build_blob_manifest_entries(user)
-    entries += await cloud_sync_psp.build_psp_manifest_entries(saves, can_see)
+    entries += await psp.build_psp_manifest_entries(saves, can_see)
 
     entries.sort(key=lambda entry: entry["path"])
     return entries

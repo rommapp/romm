@@ -37,7 +37,7 @@ class RomFile:
 
 # Clients expect absolute <D:href>s; relative ones make them render the
 # requested collection as an endlessly nested subfolder of itself.
-WEBDAV_MOUNT_PREFIX = "/api/cloud-sync"
+WEBDAV_MOUNT_PREFIX = "/api/webdav-cloud-sync"
 
 
 def _href_escape(path: str) -> str:

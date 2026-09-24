@@ -3,7 +3,7 @@
 RetroArch issues OPTIONS, GET, PUT, DELETE, MKCOL and MOVE, and diffs a
 manifest instead of listing collections. PROPFIND, LOCK and UNLOCK exist only
 for read-only browsing from generic WebDAV clients. See
-`handler/cloud_sync_handler.py` for how the client-side paths map onto RomM's
+`handler/webdav_cloud_sync/sync_handler.py` for how the client-side paths map onto RomM's
 asset storage.
 
 Error responses are deliberately body-less: RetroArch logs failure responses
@@ -20,21 +20,25 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from handler import cloud_sync_handler, cloud_sync_psp, webdav_browser
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
-from handler.cloud_sync_handler import MANIFEST_FILE_NAME, AssetKind, CloudSyncPath
 from handler.database import (
     db_platform_handler,
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
 )
-from handler.filesystem import fs_asset_handler, fs_cloud_sync_blob_handler
+from handler.filesystem import fs_asset_handler, fs_webdav_cloud_sync_blob_handler
 from handler.filesystem.assets_handler import build_asset_file_response
 from handler.filesystem.base_handler import FSHandler
 from handler.scan_handler import scan_save, scan_screenshot, scan_state
+from handler.webdav_cloud_sync import browser, psp, sync_handler
+from handler.webdav_cloud_sync.sync_handler import (
+    MANIFEST_FILE_NAME,
+    AssetKind,
+    WebDAVCloudSyncPath,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -43,7 +47,7 @@ from models.rom import Rom
 from models.user import User
 from utils.filesystem import sanitize_filename
 
-router = APIRouter(prefix="/cloud-sync", tags=["cloud-sync"])
+router = APIRouter(prefix="/webdav-cloud-sync", tags=["webdav-cloud-sync"])
 
 ALLOWED_METHODS = "OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, LOCK, UNLOCK"
 
@@ -83,15 +87,17 @@ def _rom_visibility(permissions: ResolvedPermissions) -> Callable[[Rom], bool]:
 
 
 def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | None:
-    game_name = cloud_sync_handler.game_name_from_file_name(kind, file_name)
-    return cloud_sync_handler.resolve_rom(
+    game_name = sync_handler.game_name_from_file_name(kind, file_name)
+    return sync_handler.resolve_rom(
         game_name, _rom_visibility(get_permissions(request))
     )
 
 
-def _get_asset(user: User, rom: Rom, parsed: CloudSyncPath) -> Save | State | None:
+def _get_asset(
+    user: User, rom: Rom, parsed: WebDAVCloudSyncPath
+) -> Save | State | None:
     if parsed.kind == "saves":
-        file_path = cloud_sync_handler.build_asset_file_path(
+        file_path = sync_handler.build_asset_file_path(
             user, rom, parsed.kind, parsed.emulator
         )
         return db_save_handler.get_save_by_path(
@@ -103,7 +109,7 @@ def _get_asset(user: User, rom: Rom, parsed: CloudSyncPath) -> Save | State | No
 
     # The requested name is the canonical slot name, which a web-player state's
     # own file name won't match, so the slot is resolved instead.
-    return cloud_sync_handler.resolve_state_by_slot(
+    return sync_handler.resolve_state_by_slot(
         user, rom, parsed.emulator, parsed.file_name
     )
 
@@ -121,7 +127,7 @@ def _serve(handler: FSHandler, path: str, filename: str) -> Response:
 
 
 @router.api_route("/{file_path:path}", methods=["OPTIONS"], include_in_schema=False)
-def cloud_sync_options(request: Request, file_path: str) -> Response:
+def webdav_cloud_sync_options(request: Request, file_path: str) -> Response:
     """Advertise DAV support. RetroArch stats the base URL before syncing."""
     denied = _authorize(request, Scope.ASSETS_READ)
     if denied:
@@ -136,7 +142,7 @@ def cloud_sync_options(request: Request, file_path: str) -> Response:
 
 
 @router.api_route("/{file_path:path}", methods=["LOCK"], include_in_schema=False)
-def cloud_sync_lock(request: Request, file_path: str) -> Response:
+def webdav_cloud_sync_lock(request: Request, file_path: str) -> Response:
     """Always-granted fake lock, for clients that won't mount without one."""
     denied = _authorize(request, Scope.ASSETS_READ)
     if denied:
@@ -161,7 +167,7 @@ def cloud_sync_lock(request: Request, file_path: str) -> Response:
 
 
 @router.api_route("/{file_path:path}", methods=["UNLOCK"], include_in_schema=False)
-def cloud_sync_unlock(request: Request, file_path: str) -> Response:
+def webdav_cloud_sync_unlock(request: Request, file_path: str) -> Response:
     denied = _authorize(request, Scope.ASSETS_READ)
     if denied:
         return denied
@@ -170,7 +176,7 @@ def cloud_sync_unlock(request: Request, file_path: str) -> Response:
 
 
 @router.api_route("/{file_path:path}", methods=["PROPFIND"], include_in_schema=False)
-async def cloud_sync_propfind(request: Request, file_path: str) -> Response:
+async def webdav_cloud_sync_propfind(request: Request, file_path: str) -> Response:
     """Read-only browsing of `roms/` and the manifest's current `saves/`/`states/`.
 
     RetroArch never sends PROPFIND; this serves generic WebDAV clients.
@@ -181,14 +187,14 @@ async def cloud_sync_propfind(request: Request, file_path: str) -> Response:
 
     depth = 0 if request.headers.get("depth") == "0" else 1
     permissions = get_permissions(request)
-    parts = cloud_sync_handler.split_segments(file_path)
+    parts = sync_handler.split_segments(file_path)
     if parts is None:
         return _empty(status.HTTP_404_NOT_FOUND)
 
     if parts and parts[0] == "roms" and not _can_read_roms(request):
         return _empty(status.HTTP_403_FORBIDDEN)
 
-    entries: list[webdav_browser.PropfindEntry] | None
+    entries: list[browser.PropfindEntry] | None
     if not parts:
         entries = [_collection_entry("")]
         if depth != 0:
@@ -198,9 +204,9 @@ async def cloud_sync_propfind(request: Request, file_path: str) -> Response:
     elif parts == ["roms"]:
         entries = [_collection_entry("roms")]
         if depth != 0:
-            platforms = webdav_browser.list_platforms(permissions)
+            platforms = browser.list_platforms(permissions)
             entries += [
-                webdav_browser.PropfindEntry(
+                browser.PropfindEntry(
                     href=f"roms/{p.fs_slug}/", is_collection=True, display_name=p.name
                 )
                 for p in platforms
@@ -217,7 +223,7 @@ async def cloud_sync_propfind(request: Request, file_path: str) -> Response:
     if entries is None:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    body = webdav_browser.build_multistatus(entries)
+    body = browser.build_multistatus(entries)
     return Response(
         content=body,
         status_code=207,
@@ -226,15 +232,15 @@ async def cloud_sync_propfind(request: Request, file_path: str) -> Response:
     )
 
 
-def _collection_entry(name: str) -> webdav_browser.PropfindEntry:
-    return webdav_browser.PropfindEntry(
+def _collection_entry(name: str) -> browser.PropfindEntry:
+    return browser.PropfindEntry(
         href=f"{name}/" if name else "", is_collection=True, display_name=name
     )
 
 
 def _platform_listing(
     slug: str, depth: int, permissions: ResolvedPermissions
-) -> list[webdav_browser.PropfindEntry] | None:
+) -> list[browser.PropfindEntry] | None:
     platform = db_platform_handler.get_platform_by_fs_slug(slug)
     if (
         not platform
@@ -243,15 +249,15 @@ def _platform_listing(
     ):
         return None
 
-    self_entry = webdav_browser.PropfindEntry(
+    self_entry = browser.PropfindEntry(
         href=f"roms/{slug}/", is_collection=True, display_name=platform.name
     )
     if depth == 0:
         return [self_entry]
 
-    files = webdav_browser.list_rom_files(platform, permissions)
+    files = browser.list_rom_files(platform, permissions)
     return [self_entry] + [
-        webdav_browser.PropfindEntry(
+        browser.PropfindEntry(
             href=f"roms/{slug}/{f.display_name}",
             is_collection=False,
             display_name=f.display_name,
@@ -264,13 +270,13 @@ def _platform_listing(
 
 def _rom_file_entry(
     slug: str, file_name: str, permissions: ResolvedPermissions
-) -> list[webdav_browser.PropfindEntry] | None:
-    file = webdav_browser.find_rom_file(slug, file_name, permissions)
+) -> list[browser.PropfindEntry] | None:
+    file = browser.find_rom_file(slug, file_name, permissions)
     if not file:
         return None
 
     return [
-        webdav_browser.PropfindEntry(
+        browser.PropfindEntry(
             href=f"roms/{slug}/{file_name}",
             is_collection=False,
             display_name=file_name,
@@ -282,10 +288,8 @@ def _rom_file_entry(
 
 async def _save_state_listing(
     parts: list[str], depth: int, user: User, permissions: ResolvedPermissions
-) -> list[webdav_browser.PropfindEntry] | None:
-    manifest = await cloud_sync_handler.build_manifest(
-        user, _rom_visibility(permissions)
-    )
+) -> list[browser.PropfindEntry] | None:
+    manifest = await sync_handler.build_manifest(user, _rom_visibility(permissions))
     clean = "/".join(parts)
 
     exact = (
@@ -301,7 +305,7 @@ async def _save_state_listing(
     if len(parts) > 1 and not has_children:
         return None
 
-    self_entry = webdav_browser.PropfindEntry(
+    self_entry = browser.PropfindEntry(
         href=prefix, is_collection=True, display_name=parts[-1]
     )
     if depth == 0:
@@ -321,7 +325,7 @@ async def _save_state_listing(
     return (
         [self_entry]
         + [
-            webdav_browser.PropfindEntry(
+            browser.PropfindEntry(
                 href=f"{prefix}{folder}/", is_collection=True, display_name=folder
             )
             for folder in sorted(child_folders)
@@ -330,8 +334,8 @@ async def _save_state_listing(
     )
 
 
-def _manifest_file_entry(entry: dict[str, str]) -> webdav_browser.PropfindEntry:
-    return webdav_browser.PropfindEntry(
+def _manifest_file_entry(entry: dict[str, str]) -> browser.PropfindEntry:
+    return browser.PropfindEntry(
         href=entry["path"],
         is_collection=False,
         display_name=entry["path"].rsplit("/", 1)[-1],
@@ -339,43 +343,43 @@ def _manifest_file_entry(entry: dict[str, str]) -> webdav_browser.PropfindEntry:
 
 
 @router.api_route("/{file_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
-async def cloud_sync_get(request: Request, file_path: str) -> Response:
+async def webdav_cloud_sync_get(request: Request, file_path: str) -> Response:
     """Serve the manifest, or the bytes of a single save/state."""
     denied = _authorize(request, Scope.ASSETS_READ)
     if denied:
         return denied
 
     if file_path.strip("/") == MANIFEST_FILE_NAME:
-        manifest = await cloud_sync_handler.build_manifest(
+        manifest = await sync_handler.build_manifest(
             request.user, _rom_visibility(get_permissions(request))
         )
         return JSONResponse(content=manifest)
 
-    blob_path = cloud_sync_handler.parse_cloud_sync_blob_path(file_path)
+    blob_path = sync_handler.parse_webdav_cloud_sync_blob_path(file_path)
     if blob_path:
         return _serve(
-            fs_cloud_sync_blob_handler,
-            cloud_sync_handler.user_blob_path(request.user, blob_path),
+            fs_webdav_cloud_sync_blob_handler,
+            sync_handler.user_blob_path(request.user, blob_path),
             os.path.basename(blob_path),
         )
 
-    psp_path = cloud_sync_psp.resolve_psp_path(file_path)
+    psp_path = psp.resolve_psp_path(file_path)
     if psp_path == "ignore":
         return _empty(status.HTTP_404_NOT_FOUND)
     if psp_path:
-        data = await cloud_sync_psp.get_psp_file(
+        data = await psp.get_psp_file(
             request.user, psp_path, _rom_visibility(get_permissions(request))
         )
         if data is None:
             return _empty(status.HTTP_404_NOT_FOUND)
         return Response(content=data, media_type="application/octet-stream")
 
-    rom_parts = cloud_sync_handler.split_segments(file_path)
+    rom_parts = sync_handler.split_segments(file_path)
     if rom_parts and len(rom_parts) == 3 and rom_parts[0] == "roms":
         if not _can_read_roms(request):
             return _empty(status.HTTP_403_FORBIDDEN)
 
-        file = webdav_browser.find_rom_file(
+        file = browser.find_rom_file(
             rom_parts[1], rom_parts[2], get_permissions(request)
         )
         if not file:
@@ -388,7 +392,7 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
         )
 
-    parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)
+    parsed = sync_handler.parse_webdav_cloud_sync_path(file_path)
     if not parsed:
         return _empty(status.HTTP_404_NOT_FOUND)
 
@@ -398,7 +402,7 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
 
     asset: Save | State | Screenshot | None
     if parsed.is_state_screenshot:
-        asset = cloud_sync_handler.resolve_state_screenshot_by_slot(
+        asset = sync_handler.resolve_state_screenshot_by_slot(
             request.user, rom, parsed.emulator, parsed.file_name
         )
     else:
@@ -411,7 +415,7 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
 
 
 @router.api_route("/{file_path:path}", methods=["PUT"], include_in_schema=False)
-async def cloud_sync_put(request: Request, file_path: str) -> Response:
+async def webdav_cloud_sync_put(request: Request, file_path: str) -> Response:
     """Store an uploaded save/state against the ROM its file name points at."""
     denied = _authorize(request, Scope.ASSETS_WRITE)
     if denied:
@@ -424,12 +428,12 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
 
     # config/, thumbnails/ and system/ belong to no ROM, so they're stored as
     # opaque per-user blobs.
-    blob_path = cloud_sync_handler.parse_cloud_sync_blob_path(file_path)
+    blob_path = sync_handler.parse_webdav_cloud_sync_blob_path(file_path)
     if blob_path:
-        disk_path = cloud_sync_handler.user_blob_path(request.user, blob_path)
+        disk_path = sync_handler.user_blob_path(request.user, blob_path)
         try:
-            existed = await fs_cloud_sync_blob_handler.file_exists(disk_path)
-            await fs_cloud_sync_blob_handler.write_file(
+            existed = await fs_webdav_cloud_sync_blob_handler.file_exists(disk_path)
+            await fs_webdav_cloud_sync_blob_handler.write_file(
                 file=await request.body(),
                 path=os.path.dirname(disk_path),
                 filename=os.path.basename(disk_path),
@@ -441,23 +445,23 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
             status.HTTP_204_NO_CONTENT if existed else status.HTTP_201_CREATED
         )
 
-    psp_path = cloud_sync_psp.resolve_psp_path(file_path)
+    psp_path = psp.resolve_psp_path(file_path)
     if psp_path == "ignore":
         # PSP engine cache file (shader cache etc.), not save data.
         return _empty(status.HTTP_204_NO_CONTENT)
     if psp_path:
         try:
-            await cloud_sync_psp.put_psp_file(
+            await psp.put_psp_file(
                 request.user,
                 psp_path,
                 await request.body(),
                 _rom_visibility(get_permissions(request)),
             )
-        except (cloud_sync_psp.PspFolderUnresolved, ValueError):
+        except (psp.PspFolderUnresolved, ValueError):
             return _empty(status.HTTP_409_CONFLICT)
         return _empty(status.HTTP_201_CREATED)
 
-    parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)
+    parsed = sync_handler.parse_webdav_cloud_sync_path(file_path)
     if not parsed:
         return _empty(status.HTTP_409_CONFLICT)
 
@@ -480,7 +484,7 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
     if parsed.is_state_screenshot:
         # Written under the owning state's real name, which may differ from the
         # canonical one, so an existing screenshot is updated rather than forked.
-        owning_state = cloud_sync_handler.resolve_state_by_slot(
+        owning_state = sync_handler.resolve_state_by_slot(
             request.user, rom, parsed.emulator, file_name[: -len(".png")]
         )
         screenshot_file_name = (
@@ -522,7 +526,7 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
         db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
         return _empty(status.HTTP_201_CREATED)
 
-    asset_path = cloud_sync_handler.build_asset_file_path(
+    asset_path = sync_handler.build_asset_file_path(
         request.user, rom, parsed.kind, parsed.emulator
     )
 
@@ -591,7 +595,7 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
 @router.api_route(
     "/{file_path:path}", methods=["DELETE", "MOVE"], include_in_schema=False
 )
-async def cloud_sync_delete(request: Request, file_path: str) -> Response:
+async def webdav_cloud_sync_delete(request: Request, file_path: str) -> Response:
     """Drop a save/state the client no longer has.
 
     MOVE lands here too. RetroArch uses it in non-destructive mode to shelve the
@@ -602,26 +606,26 @@ async def cloud_sync_delete(request: Request, file_path: str) -> Response:
     if denied:
         return denied
 
-    blob_path = cloud_sync_handler.parse_cloud_sync_blob_path(file_path)
+    blob_path = sync_handler.parse_webdav_cloud_sync_blob_path(file_path)
     if blob_path:
         try:
-            await fs_cloud_sync_blob_handler.remove_file(
-                file_path=cloud_sync_handler.user_blob_path(request.user, blob_path)
+            await fs_webdav_cloud_sync_blob_handler.remove_file(
+                file_path=sync_handler.user_blob_path(request.user, blob_path)
             )
         except FileNotFoundError:
             return _empty(status.HTTP_404_NOT_FOUND)
 
         return _empty(status.HTTP_204_NO_CONTENT)
 
-    psp_path = cloud_sync_psp.resolve_psp_path(file_path)
+    psp_path = psp.resolve_psp_path(file_path)
     if psp_path:
         if psp_path != "ignore":
-            await cloud_sync_psp.delete_psp_file(
+            await psp.delete_psp_file(
                 request.user, psp_path, _rom_visibility(get_permissions(request))
             )
         return _empty(status.HTTP_204_NO_CONTENT)
 
-    parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)
+    parsed = sync_handler.parse_webdav_cloud_sync_path(file_path)
     if not parsed:
         return _empty(status.HTTP_404_NOT_FOUND)
 
@@ -630,7 +634,7 @@ async def cloud_sync_delete(request: Request, file_path: str) -> Response:
         return _empty(status.HTTP_404_NOT_FOUND)
 
     if parsed.is_state_screenshot:
-        screenshot = cloud_sync_handler.resolve_state_screenshot_by_slot(
+        screenshot = sync_handler.resolve_state_screenshot_by_slot(
             request.user, rom, parsed.emulator, parsed.file_name
         )
         if not screenshot:
@@ -661,7 +665,7 @@ async def cloud_sync_delete(request: Request, file_path: str) -> Response:
 
 
 @router.api_route("/{file_path:path}", methods=["MKCOL"], include_in_schema=False)
-def cloud_sync_mkcol(request: Request, file_path: str) -> Response:
+def webdav_cloud_sync_mkcol(request: Request, file_path: str) -> Response:
     """Accept directory creation. Storage layout is derived from the ROM, so
     there is nothing to create; failing here would abort the client's sync."""
     denied = _authorize(request, Scope.ASSETS_WRITE)
