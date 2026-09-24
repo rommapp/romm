@@ -1,9 +1,14 @@
 import struct
+import zipfile
 
 import pytest
 
 from handler.cloud_sync_psp import (
+    _BUNDLE_MAX_MEMBERS,
     PspFilePath,
+    _bundle_pattern,
+    _load_bundle_entries,
+    _write_bundle,
     is_psp_bundle_file_name,
     parse_sfo,
     resolve_psp_path,
@@ -53,8 +58,27 @@ class TestResolvePspPath:
         assert resolve_psp_path(
             "saves/PPSSPP/PSP/SAVEDATA/ULUS10336DATA0/PARAM.SFO"
         ) == PspFilePath(
-            emulator="PPSSPP", save_folder="ULUS10336DATA0", file_name="PARAM.SFO"
+            emulator="ppsspp", save_folder="ULUS10336DATA0", file_name="PARAM.SFO"
         )
+
+    def test_parses_a_savedata_file_without_a_core_folder(self):
+        assert resolve_psp_path(
+            "saves/PSP/SAVEDATA/ULUS10336DATA0/PARAM.SFO"
+        ) == PspFilePath(
+            emulator=None, save_folder="ULUS10336DATA0", file_name="PARAM.SFO"
+        )
+        assert resolve_psp_path("saves/PSP/SYSTEM/CACHE/shader.bin") == "ignore"
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "saves/PPSSPP/PSP/SAVEDATA/../PARAM.SFO",
+            "saves/PPSSPP/PSP/SAVEDATA/ULUS10336DATA0/..",
+            "saves/PPSSPP/PSP/SAVEDATA/./PARAM.SFO",
+        ],
+    )
+    def test_rejects_traversal_segments(self, path):
+        assert resolve_psp_path(path) is None
 
     def test_ignores_system_cache_files(self):
         assert resolve_psp_path("saves/PPSSPP/PSP/SYSTEM/CACHE/shader.bin") == "ignore"
@@ -77,6 +101,29 @@ class TestIsPspBundleFileName:
         assert not is_psp_bundle_file_name("test_rom.srm")
 
 
+class TestBundlePattern:
+    def test_matches_the_folder_and_its_tagged_names(self):
+        pattern = _bundle_pattern("ULUS10336DATA0")
+        assert pattern.match("PSP-ULUS10336DATA0.zip")
+        assert pattern.match("PSP-ULUS10336DATA0 [2026-01-01 00-00-00].zip")
+
+    def test_does_not_match_a_longer_folder_name(self):
+        pattern = _bundle_pattern("FOO")
+        assert not pattern.match("PSP-FOO-BAR.zip")
+        assert not pattern.match("PSP-FOO.BAR.zip")
+
+
+class TestLoadBundleEntries:
+    def test_round_trips_members(self):
+        entries = {"PARAM.SFO": b"sfo", "DATA.BIN": b"data"}
+        assert _load_bundle_entries(_write_bundle(entries)) == entries
+
+    def test_rejects_too_many_members(self):
+        entries = {f"{i}.BIN": b"" for i in range(_BUNDLE_MAX_MEMBERS + 1)}
+        with pytest.raises(zipfile.BadZipFile):
+            _load_bundle_entries(_write_bundle(entries))
+
+
 class TestParseSfo:
     def test_rejects_bad_magic(self):
         with pytest.raises(ValueError):
@@ -94,3 +141,8 @@ class TestParseSfo:
         sfo = _build_fake_sfo({"SAVEDATA_FILE_LIST": 0, "PARENTAL_LEVEL": 3})
         parsed = parse_sfo(sfo)
         assert parsed["PARENTAL_LEVEL"] == 3
+
+    def test_truncated_index_table_is_a_value_error(self):
+        header = b"\x00PSF" + struct.pack("<IIII", 0x0101, 20, 20, 1000)
+        with pytest.raises(ValueError):
+            parse_sfo(header)

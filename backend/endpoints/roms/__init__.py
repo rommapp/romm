@@ -1931,7 +1931,8 @@ async def update_rom(
             )
 
     new_fs_name = str(form_data.fs_name or rom.fs_name)
-    new_fs_name = sanitize_filename(new_fs_name)
+    # A "+" from a metadata rename suggestion breaks the download path (#2746).
+    new_fs_name = sanitize_filename(new_fs_name.replace("+", ""))
     cleaned_data.update({"fs_name": new_fs_name})
 
     # Re-parse tags from the filename so region/language/revision/version/tags

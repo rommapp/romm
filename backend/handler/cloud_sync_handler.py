@@ -19,7 +19,12 @@ from typing import Literal
 
 from handler import cloud_sync_psp
 from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
-from handler.database import db_rom_handler, db_save_handler, db_state_handler
+from handler.database import (
+    db_rom_handler,
+    db_save_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from handler.filesystem import fs_asset_handler, fs_cloud_sync_blob_handler
 from handler.redis_handler import async_cache
 from models.assets import Save, Screenshot, State
@@ -38,7 +43,7 @@ ASSET_ROOTS: dict[str, AssetKind] = {"saves": "saves", "states": "states"}
 # instead of going through the asset/ROM matching machinery below.
 BLOB_CATEGORIES = ("config", "thumbnails", "system")
 
-# `<game>.state`, `<game>.state3`, `<game>.state.auto` — the auto suffix makes
+# `<game>.state`, `<game>.state3`, `<game>.state.auto`: the auto suffix makes
 # this a two-segment extension, which splitext alone gets wrong.
 STATE_SUFFIX_PATTERN = re.compile(r"\.state\d*(?:\.auto)?$", re.IGNORECASE)
 
@@ -195,6 +200,26 @@ def resolve_state_by_slot(
     return latest_state_for_slot(states, rom.id, emulator, slot_suffix)
 
 
+def state_screenshot(state: State) -> Screenshot | None:
+    """The screenshot synced alongside this exact state.
+
+    `State.screenshot` also matches on the name stem, which a RetroArch slot
+    name (`<rom>.state1`) shares with every other slot's and gallery shot.
+    """
+    exact_name = f"{state.file_name}.png"
+    screenshot = db_screenshot_handler.get_screenshot(
+        rom_id=state.rom_id, user_id=state.user_id, file_name=exact_name
+    )
+    if screenshot and screenshot.file_name == exact_name:
+        return screenshot
+
+    if state.file_name_no_ext == state.rom.fs_name_no_ext:
+        return None
+
+    screenshot = state.screenshot
+    return None if screenshot is None or screenshot.is_gallery else screenshot
+
+
 def resolve_state_screenshot_by_slot(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> Screenshot | None:
@@ -208,7 +233,7 @@ def resolve_state_screenshot_by_slot(
     state = resolve_state_by_slot(
         user, rom, emulator, requested_file_name[: -len(".png")]
     )
-    return state.screenshot if state else None
+    return state_screenshot(state) if state else None
 
 
 def build_cloud_sync_path(kind: AssetKind, emulator: str | None, file_name: str) -> str:
@@ -402,7 +427,7 @@ async def build_manifest(
             }
         )
 
-        screenshot = state.screenshot
+        screenshot = state_screenshot(state)
         if screenshot and not screenshot.missing_from_fs:
             screenshot_digest = await asset_md5(screenshot)
             if screenshot_digest:

@@ -82,17 +82,21 @@ RETROARCH_DIR_BY_ROMM_EMULATOR: dict[str, str] = {
 }
 
 
+# Reversed so the first core listed for a shared folder (e.g. "Beetle PSX") wins.
+ROMM_EMULATOR_BY_RETROARCH_DIR: dict[str, str] = {
+    dir_name: emulator
+    for emulator, dir_name in reversed(RETROARCH_DIR_BY_ROMM_EMULATOR.items())
+}
+
+
 def to_romm_emulator(retroarch_dir_name: str) -> str:
     """RetroArch's local directory name (e.g. "Snes9x") -> RomM's `emulator`
-    convention (e.g. "snes9x"). A plain, universally-safe normalization --
-    RomM's own convention is always lowercase with underscores, so this
-    never needs a lookup table."""
-    return retroarch_dir_name.lower().replace(" ", "_").replace("-", "_")
+    convention (e.g. "snes9x"). Unknown names are kept verbatim so
+    `to_retroarch_dir_name` can hand the exact folder back."""
+    return ROMM_EMULATOR_BY_RETROARCH_DIR.get(retroarch_dir_name, retroarch_dir_name)
 
 
 def to_retroarch_dir_name(romm_emulator: str) -> str:
     """RomM's `emulator` value -> RetroArch's local directory name. Cores
-    outside the table round-trip unchanged: guessing at a casing or spacing
-    that hasn't been verified against a real RetroArch install risks
-    inventing a folder that's just as wrong as the untranslated one."""
-    return RETROARCH_DIR_BY_ROMM_EMULATOR.get(romm_emulator.lower(), romm_emulator)
+    outside the table round-trip unchanged."""
+    return RETROARCH_DIR_BY_ROMM_EMULATOR.get(romm_emulator, romm_emulator)

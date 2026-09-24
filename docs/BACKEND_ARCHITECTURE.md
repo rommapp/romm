@@ -941,8 +941,9 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 ### 6.9b RetroArch Cloud Sync (`/api/cloud-sync`)
 
 A minimal WebDAV surface for RetroArch's Cloud Sync driver, which diffs a JSON
-manifest of `{path, hash}` entries instead of listing collections (hence no
-PROPFIND). Point RetroArch's WebDAV URL at `https://<host>/api/cloud-sync/`
+manifest of `{path, hash}` entries instead of listing collections. PROPFIND,
+LOCK and UNLOCK exist only for read-only browsing from generic WebDAV clients,
+and listing `roms/` also needs ROMS_READ. Point RetroArch's WebDAV URL at `https://<host>/api/cloud-sync/`
 (trailing slash required), enable save/state sync only, and authenticate with a
 RomM username and password over HTTP Basic.
 
@@ -964,7 +965,7 @@ World`), so a name shared across platforms resolves ambiguously. The optional
 `core` segment is RetroArch's own directory casing (e.g. `Snes9x`), translated
 through `cloud_sync_emulator_names.to_romm_emulator`/`to_retroarch_dir_name` to
 and from the asset's `emulator` field, which namespaces storage exactly as it
-does for uploads through `/api/saves` — storing RetroArch's raw casing instead
+does for uploads through `/api/saves`. Storing RetroArch's raw casing instead
 would make the save invisible to RomM's own web player, which matches saves
 against the lowercase libretro core id. Cores outside the small translation
 table round-trip unchanged rather than guessing at an unverified casing.
@@ -977,7 +978,7 @@ client mishandles large ones.
 RetroArch's other three Cloud Sync categories (Sync Configuration/Thumbnails/
 System Files) have no ROM to attach to, so they're stored as opaque per-user
 blobs under `CLOUD_SYNC_BLOB_BASE_PATH` (`FSCloudSyncBlobHandler`) instead of
-going through the asset/ROM matching above — namespaced by user so two
+going through the asset/ROM matching above, namespaced by user so two
 RetroArch installs syncing to the same RomM instance under different accounts
 never see each other's files. Unlike asset hashes, blob hashes are always real
 MD5s of the file on disk, computed on every manifest build (still Redis-cached

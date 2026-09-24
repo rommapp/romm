@@ -1,9 +1,10 @@
 """WebDAV surface for RetroArch's Cloud Sync feature.
 
-Only the verbs RetroArch actually issues are implemented (OPTIONS, GET, PUT,
-DELETE, MKCOL, MOVE); there is no PROPFIND because the client diffs a manifest
-instead of listing collections. See `handler/cloud_sync_handler.py` for how the
-client-side paths map onto RomM's asset storage.
+RetroArch issues OPTIONS, GET, PUT, DELETE, MKCOL and MOVE, and diffs a
+manifest instead of listing collections. PROPFIND, LOCK and UNLOCK exist only
+for read-only browsing from generic WebDAV clients. See
+`handler/cloud_sync_handler.py` for how the client-side paths map onto RomM's
+asset storage.
 
 Error responses are deliberately body-less: RetroArch logs failure responses
 from a fixed-size buffer, and a large body has been observed to corrupt its
@@ -62,6 +63,10 @@ def _authorize(request: Request, scope: Scope) -> Response | None:
         return _empty(status.HTTP_403_FORBIDDEN)
 
     return None
+
+
+def _can_read_roms(request: Request) -> bool:
+    return Scope.ROMS_READ in request.auth.scopes
 
 
 def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | None:
@@ -177,15 +182,16 @@ async def cloud_sync_propfind(request: Request, file_path: str) -> Response:
     permissions = get_permissions(request)
     parts = [p for p in file_path.strip("/").split("/") if p]
 
+    if parts and parts[0] == "roms" and not _can_read_roms(request):
+        return _empty(status.HTTP_403_FORBIDDEN)
+
     entries: list[webdav_browser.PropfindEntry] | None
     if not parts:
         entries = [_root_entry()]
         if depth != 0:
-            entries += [
-                _roms_root_entry(),
-                _virtual_root_entry("saves"),
-                _virtual_root_entry("states"),
-            ]
+            if _can_read_roms(request):
+                entries.append(_roms_root_entry())
+            entries += [_virtual_root_entry("saves"), _virtual_root_entry("states")]
     elif parts == ["roms"]:
         entries = [_roms_root_entry()]
         if depth != 0:
@@ -388,6 +394,9 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
 
     rom_parts = [p for p in file_path.strip("/").split("/") if p]
     if len(rom_parts) == 3 and rom_parts[0] == "roms":
+        if not _can_read_roms(request):
+            return _empty(status.HTTP_403_FORBIDDEN)
+
         permissions = get_permissions(request)
         file = webdav_browser.find_rom_file(
             rom_parts[1],
@@ -458,13 +467,15 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
     blob_path = cloud_sync_handler.parse_cloud_sync_blob_path(file_path)
     if blob_path:
         disk_path = cloud_sync_handler.user_blob_path(request.user, blob_path)
-        existed = await fs_cloud_sync_blob_handler.file_exists(disk_path)
-
-        await fs_cloud_sync_blob_handler.write_file(
-            file=await request.body(),
-            path=os.path.dirname(disk_path),
-            filename=os.path.basename(disk_path),
-        )
+        try:
+            existed = await fs_cloud_sync_blob_handler.file_exists(disk_path)
+            await fs_cloud_sync_blob_handler.write_file(
+                file=await request.body(),
+                path=os.path.dirname(disk_path),
+                filename=os.path.basename(disk_path),
+            )
+        except ValueError:
+            return _empty(status.HTTP_409_CONFLICT)
 
         return _empty(
             status.HTTP_204_NO_CONTENT if existed else status.HTTP_201_CREATED
@@ -483,7 +494,7 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
                 await request.body(),
                 lambda rom: permissions.can_see_rom(rom.id, rom.platform_id),
             )
-        except cloud_sync_psp.PspFolderUnresolved:
+        except (cloud_sync_psp.PspFolderUnresolved, ValueError):
             return _empty(status.HTTP_409_CONFLICT)
         return _empty(status.HTTP_201_CREATED)
 
@@ -491,8 +502,12 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
     if not parsed:
         return _empty(status.HTTP_409_CONFLICT)
 
+    # Stored under the client's exact name, or the manifest would advertise a
+    # different path than the one the client uploaded.
+    file_name = parsed.file_name
     try:
-        file_name = sanitize_filename(parsed.file_name)
+        if sanitize_filename(file_name) != file_name:
+            return _empty(status.HTTP_409_CONFLICT)
     except ValueError:
         return _empty(status.HTTP_409_CONFLICT)
 
@@ -545,7 +560,10 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
         if existing_screenshot:
             db_screenshot_handler.update_screenshot(
                 existing_screenshot.id,
-                {"file_size_bytes": scanned_screenshot.file_size_bytes},
+                {
+                    "file_size_bytes": scanned_screenshot.file_size_bytes,
+                    "missing_from_fs": False,
+                },
             )
             return _empty(status.HTTP_204_NO_CONTENT)
 
@@ -589,6 +607,7 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
                 {
                     "file_size_bytes": scanned_save.file_size_bytes,
                     "content_hash": scanned_save.content_hash,
+                    "missing_from_fs": False,
                 },
             )
         else:
@@ -606,7 +625,11 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
         )
         if existing:
             db_state_handler.update_state(
-                existing.id, {"file_size_bytes": scanned_state.file_size_bytes}
+                existing.id,
+                {
+                    "file_size_bytes": scanned_state.file_size_bytes,
+                    "missing_from_fs": False,
+                },
             )
         else:
             scanned_state.rom_id = rom.id
@@ -650,12 +673,8 @@ async def cloud_sync_delete(request: Request, file_path: str) -> Response:
 
     psp_path = cloud_sync_psp.resolve_psp_path(file_path)
     if psp_path:
-        # Best-effort, same as every other delete here: RetroArch deletes a
-        # PSP save folder file-by-file, so the first of the folder's several
-        # DELETEs removes the whole bundle and the rest find nothing left to
-        # remove.
         if psp_path != "ignore":
-            await cloud_sync_psp.delete_psp_folder(request.user, psp_path.save_folder)
+            await cloud_sync_psp.delete_psp_file(request.user, psp_path)
         return _empty(status.HTTP_204_NO_CONTENT)
 
     parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)

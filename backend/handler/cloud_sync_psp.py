@@ -16,6 +16,8 @@ cloud sync, "one WebDAV path = one RomM asset" holds, but it doesn't here.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import os
 import re
 import struct
 import zipfile
@@ -25,7 +27,7 @@ from io import BytesIO
 from typing import Literal
 
 from config import CLOUD_SYNC_PSP_PENDING_PATH, PSP_SERIAL_MAP
-from handler.cloud_sync_emulator_names import to_retroarch_dir_name
+from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
 from handler.database import db_platform_handler, db_rom_handler, db_save_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.base_handler import FSHandler
@@ -39,6 +41,11 @@ from utils.zip_cache import ensure_zipfile_writable
 _IGNORED_CATEGORY = "SYSTEM"
 _SAVEDATA_CATEGORY = "SAVEDATA"
 
+# Real PSP save folders hold a handful of small files; anything past these is
+# not one, and inflating it on every manifest build would exhaust memory.
+_BUNDLE_MAX_MEMBERS = 64
+_BUNDLE_MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
+
 fs_psp_pending_handler = FSHandler(base_path=CLOUD_SYNC_PSP_PENDING_PATH)
 
 
@@ -50,10 +57,10 @@ class PspFolderUnresolved(Exception):
 
 @dataclass(frozen=True)
 class PspFilePath:
-    """A parsed ``saves/<emulator>/PSP/SAVEDATA/<save_folder>/<file_name>``
+    """A parsed ``saves/[<emulator>/]PSP/SAVEDATA/<save_folder>/<file_name>``
     cloud-sync path."""
 
-    emulator: str
+    emulator: str | None
     save_folder: str
     file_name: str
 
@@ -63,23 +70,32 @@ def resolve_psp_path(file_path: str) -> PspFilePath | Literal["ignore"] | None:
     PSP engine-cache noise to ignore, or neither (a normal single-file save
     -- None, let the generic save/state path handle it)."""
     segments = [s for s in file_path.strip("/").split("/") if s]
-    if len(segments) < 4 or segments[0] != "saves":
+    if len(segments) < 3 or segments[0] != "saves":
         return None
-    if segments[2].upper() != "PSP":
+    if any(segment in (os.curdir, os.pardir) for segment in segments):
         return None
 
-    category = segments[3].upper()
+    # Without "sort saves by core", PPSSPP's memory stick sits at the saves root.
+    categories = (_IGNORED_CATEGORY, _SAVEDATA_CATEGORY)
+    if segments[1].upper() == "PSP" and segments[2].upper() in categories:
+        emulator, rest = None, segments[2:]
+    elif len(segments) >= 4 and segments[2].upper() == "PSP":
+        emulator, rest = to_romm_emulator(segments[1]), segments[3:]
+    else:
+        return None
+
+    category = rest[0].upper()
     if category == _IGNORED_CATEGORY:
         return "ignore"
     if category != _SAVEDATA_CATEGORY:
         return None
-    if len(segments) < 6:
+    if len(rest) < 3:
         return None
 
     return PspFilePath(
-        emulator=segments[1],
-        save_folder=segments[4],
-        file_name="/".join(segments[5:]),
+        emulator=emulator,
+        save_folder=rest[1],
+        file_name="/".join(rest[2:]),
     )
 
 
@@ -95,11 +111,9 @@ def is_psp_bundle_file_name(file_name: str) -> bool:
 
 
 def _bundle_pattern(save_folder: str) -> re.Pattern[str]:
-    """Matches a stored bundle filename by prefix/suffix only, tolerating
-    whatever else ends up between them -- there is nothing else to key on,
-    since bundles are update-in-place (one row per save folder), not
-    history-preserving."""
-    return re.compile(rf"^PSP-{re.escape(save_folder)}\b.*\.zip$")
+    """Matches this exact folder's bundle file name, with or without a
+    trailing ` [tag]`, the same shape `_BUNDLE_FOLDER_PATTERN` parses."""
+    return re.compile(rf"^PSP-{re.escape(save_folder)}(?: \[.*])?\.zip$")
 
 
 def _find_bundle_by_folder(user: User, save_folder: str) -> Save | None:
@@ -144,6 +158,13 @@ def parse_sfo(data: bytes) -> dict[str, str | int]:
     if len(data) < 20 or data[0:4] != b"\x00PSF":
         raise ValueError("Not a PARAM.SFO file (bad magic)")
 
+    try:
+        return _parse_sfo_tables(data)
+    except struct.error as exc:
+        raise ValueError(f"Truncated PARAM.SFO file: {exc}") from exc
+
+
+def _parse_sfo_tables(data: bytes) -> dict[str, str | int]:
     key_table_offset, data_table_offset, entry_count = struct.unpack_from(
         "<III", data, 8
     )
@@ -179,17 +200,22 @@ def parse_sfo(data: bytes) -> dict[str, str | int]:
 def _match_by_normalized_title(
     title: str, can_see: Callable[[Rom], bool]
 ) -> Rom | None:
+    # Searching on the raw title would hand punctuation-glued words like
+    # "-FINAL" to the ILIKE fallback, which then never matches.
+    target = _normalize_title(title)
+    if not target:
+        return None
+
     platform = db_platform_handler.get_platform_by_fs_slug("psp")
     platform_ids = [platform.id] if platform else None
     candidates = [
         rom
         for rom in db_rom_handler.get_roms_scalar(
-            search_term=title, platform_ids=platform_ids
+            search_term=target, platform_ids=platform_ids
         )
         if can_see(rom)
     ]
 
-    target = _normalize_title(title)
     for attr in ("fs_name_no_tags", "name", "fs_name_no_ext"):
         for rom in candidates:
             value = getattr(rom, attr, None)
@@ -243,8 +269,19 @@ def _resolve_rom(
 
 
 def _load_bundle_entries(zip_bytes: bytes) -> dict[str, bytes]:
+    """The bundle's members by name.
+
+    Raises:
+        zipfile.BadZipFile: The bundle is corrupt or exceeds the bundle limits.
+    """
     with zipfile.ZipFile(BytesIO(zip_bytes)) as zf:
-        return {name: zf.read(name) for name in zf.namelist()}
+        infos = zf.infolist()
+        if len(infos) > _BUNDLE_MAX_MEMBERS or (
+            sum(info.file_size for info in infos) > _BUNDLE_MAX_UNCOMPRESSED_BYTES
+        ):
+            raise zipfile.BadZipFile("PSP bundle exceeds the size limits")
+        # `read` stops at each member's declared size, so the check above holds.
+        return {info.filename: zf.read(info) for info in infos}
 
 
 def _write_bundle(entries: dict[str, bytes]) -> bytes:
@@ -288,9 +325,8 @@ async def put_psp_file(
     several individual file PUTs a fraction of a second apart, so keeping
     every intermediate partially-merged bundle as its own history entry
     would just be noise -- only the final, fully-merged state after a save
-    event is a meaningful checkpoint. The previous bundle row is deleted
-    once the merged one is up, so RomM holds exactly one row per (rom, save
-    folder) at a time.
+    event is a meaningful checkpoint. The bundle is rewritten in place, so
+    RomM holds exactly one row per (rom, save folder) at a time.
 
     Raises `PspFolderUnresolved` if the folder can't yet be matched to a
     rom -- the file is buffered on disk and will be folded in once it is.
@@ -301,9 +337,12 @@ async def put_psp_file(
 
         prior_entries: dict[str, bytes] = {}
         if existing:
-            rom_id = existing.rom_id
-            zip_bytes = await fs_asset_handler.read_file(existing.full_path)
-            prior_entries = _load_bundle_entries(zip_bytes)
+            try:
+                zip_bytes = await fs_asset_handler.read_file(existing.full_path)
+            except FileNotFoundError:
+                log.warning(f"PSP bundle {hl(existing.full_path)} is gone, rebuilding")
+            else:
+                prior_entries = _load_bundle_entries(zip_bytes)
         else:
             sfo_title = None
             if info.file_name.upper() == "PARAM.SFO":
@@ -330,6 +369,13 @@ async def put_psp_file(
                 )
                 raise PspFolderUnresolved(info.save_folder)
             rom_id = rom.id
+            bundle_path = fs_asset_handler.build_saves_file_path(
+                user=user,
+                platform_fs_slug=rom.platform.fs_slug,
+                rom_id=rom.id,
+                emulator=info.emulator,
+            )
+            bundle_name = _bundle_base_name(info.save_folder)
 
         # Now resolved (either an existing bundle, or fresh via this call)
         # -- fold in anything buffered earlier while this folder was
@@ -347,33 +393,24 @@ async def put_psp_file(
 
         merged = {**prior_entries, **pending}
         merged[info.file_name] = content
-        zip_bytes = _write_bundle(merged)
-
-        rom = db_rom_handler.get_rom(rom_id)
-        assert rom is not None
-        saves_path = fs_asset_handler.build_saves_file_path(
-            user=user,
-            platform_fs_slug=rom.platform.fs_slug,
-            rom_id=rom.id,
-            emulator=info.emulator,
-        )
-        bundle_name = _bundle_base_name(info.save_folder)
-        await fs_asset_handler.write_file(
-            file=zip_bytes, path=saves_path, filename=bundle_name
-        )
 
         if existing:
-            db_save_handler.update_save(
-                existing.id, {"file_size_bytes": len(zip_bytes)}
-            )
+            await _rewrite_bundle(existing, merged)
         else:
+            zip_bytes = _write_bundle(merged)
+            await fs_asset_handler.write_file(
+                file=zip_bytes, path=bundle_path, filename=bundle_name
+            )
             db_save_handler.add_save(
                 Save(
                     rom_id=rom_id,
                     user_id=user.id,
                     file_name=bundle_name,
-                    file_path=saves_path,
+                    file_path=bundle_path,
                     file_size_bytes=len(zip_bytes),
+                    content_hash=await fs_asset_handler.compute_content_hash(
+                        f"{bundle_path}/{bundle_name}"
+                    ),
                     emulator=info.emulator,
                     slot=None,
                 )
@@ -387,30 +424,65 @@ async def put_psp_file(
                     pass
 
 
+async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:
+    """Write `entries` over the bundle's own file and refresh its row."""
+    zip_bytes = _write_bundle(entries)
+    await fs_asset_handler.write_file(
+        file=zip_bytes, path=bundle.file_path, filename=bundle.file_name
+    )
+    db_save_handler.update_save(
+        bundle.id,
+        {
+            "file_size_bytes": len(zip_bytes),
+            "content_hash": await fs_asset_handler.compute_content_hash(
+                bundle.full_path
+            ),
+            "missing_from_fs": False,
+        },
+    )
+
+
+async def _read_bundle(bundle: Save) -> dict[str, bytes] | None:
+    try:
+        return _load_bundle_entries(await fs_asset_handler.read_file(bundle.full_path))
+    except (FileNotFoundError, zipfile.BadZipFile) as exc:
+        log.warning(f"Failed to read PSP bundle {hl(bundle.full_path)}: {exc}")
+        return None
+
+
 async def get_psp_file(user: User, info: PspFilePath) -> bytes | None:
     bundle = _find_bundle_by_folder(user, info.save_folder)
     if not bundle:
         return None
-    zip_bytes = await fs_asset_handler.read_file(bundle.full_path)
-    entries = _load_bundle_entries(zip_bytes)
-    return entries.get(info.file_name)
+    entries = await _read_bundle(bundle)
+    return entries.get(info.file_name) if entries else None
 
 
-async def delete_psp_folder(user: User, save_folder: str) -> bool:
-    """Drops an entire PSP save folder's bundle -- RetroArch deletes a save
-    folder file-by-file, but since the bundle is one row, the first delete
-    for a folder removes it and the rest are silent no-ops (matching
-    `find_bundle_by_folder` returning nothing for them)."""
-    bundle = _find_bundle_by_folder(user, save_folder)
-    if not bundle:
-        return False
+async def delete_psp_file(user: User, info: PspFilePath) -> None:
+    """Drops one member from its folder's bundle, and the bundle once empty.
 
-    db_save_handler.delete_save(bundle.id)
-    try:
-        await fs_asset_handler.remove_file(file_path=bundle.full_path)
-    except FileNotFoundError:
-        pass
-    return True
+    A missing bundle or member is a no-op, like every other cloud-sync delete.
+    """
+    lock = _get_folder_lock(f"{user.id}:{info.save_folder}")
+    async with lock:
+        bundle = _find_bundle_by_folder(user, info.save_folder)
+        if not bundle:
+            return
+
+        entries = await _read_bundle(bundle) or {}
+        if info.file_name in entries:
+            del entries[info.file_name]
+            if entries:
+                await _rewrite_bundle(bundle, entries)
+                return
+        elif entries:
+            return
+
+        db_save_handler.delete_save(bundle.id)
+        try:
+            await fs_asset_handler.remove_file(file_path=bundle.full_path)
+        except FileNotFoundError:
+            pass
 
 
 _BUNDLE_FOLDER_PATTERN = re.compile(r"^PSP-(.+?)(?: \[.*])?\.zip$")
@@ -423,8 +495,6 @@ async def build_psp_manifest_entries(
     RetroArch diffs per-file, so each PARAM.SFO/ICON0.PNG/save-data file
     within a folder needs its own {path, hash}, not one entry for the whole
     bundle."""
-    import hashlib
-
     saves = db_save_handler.get_saves(user_id=user.id)
 
     latest_by_folder: dict[str, Save] = {}
@@ -444,21 +514,19 @@ async def build_psp_manifest_entries(
 
     entries: list[dict[str, str]] = []
     for save_folder, save in latest_by_folder.items():
-        try:
-            zip_bytes = await fs_asset_handler.read_file(save.full_path)
-            members = _load_bundle_entries(zip_bytes)
-        except (FileNotFoundError, zipfile.BadZipFile) as exc:
-            log.warning(
-                f"Failed to read PSP bundle for {hl(save_folder)}, skipping "
-                f"from manifest: {exc}"
-            )
+        members = await _read_bundle(save)
+        if members is None:
             continue
 
-        dir_name = to_retroarch_dir_name(save.emulator) if save.emulator else "PPSSPP"
+        root = (
+            f"saves/{to_retroarch_dir_name(save.emulator)}/PSP"
+            if save.emulator
+            else "saves/PSP"
+        )
         for member_name, data in members.items():
             entries.append(
                 {
-                    "path": f"saves/{dir_name}/PSP/SAVEDATA/{save_folder}/{member_name}",
+                    "path": f"{root}/SAVEDATA/{save_folder}/{member_name}",
                     "hash": hashlib.md5(data, usedforsecurity=False).hexdigest(),
                 }
             )

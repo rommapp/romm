@@ -113,11 +113,6 @@ def link_or_copy_file(source: Path, dest: Path) -> None:
 
 
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")
-# "+" is not invalid on any major filesystem (Windows' actual reserved set is
-# `< > : " / \ | ? *`) -- stripping it here broke cloud-sync's filename-based
-# ROM matching for any game whose real fs_name contains one (e.g. "Super
-# Mario All-Stars + Super Mario World (USA)"), which RomM itself stores
-# on disk with the "+" intact.
 INVALID_CHARS_EMPTY = re.compile(r'[*?"<>]')
 
 # C0 controls plus DEL. Illegal on most filesystems, and a line feed in a name

@@ -1,7 +1,7 @@
 """Local disk storage for the RetroArch Cloud Sync categories RomM has no
 concept of at all: config/, thumbnails/, system/. These are unrelated to any
-ROM in the library — the client just wants an opaque per-user bucket to keep
-its own files in sync across devices — so they're stored as plain files,
+ROM in the library (the client just wants an opaque per-user bucket to keep
+its own files in sync across devices), so they're stored as plain files,
 namespaced by user, rather than going through the asset/ROM machinery.
 """
 

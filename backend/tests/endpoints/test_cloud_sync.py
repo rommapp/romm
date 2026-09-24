@@ -117,11 +117,30 @@ class TestCloudSyncEmulatorNames:
             ("Snes9x", "snes9x"),
             ("Genesis Plus GX", "genesis_plus_gx"),
             ("PCSX-ReARMed", "pcsx_rearmed"),
-            ("RetroArduous", "retroarduous"),
+            ("Beetle PSX", "beetle_psx"),
+            ("RetroArduous", "RetroArduous"),
+            ("Beetle VB", "Beetle VB"),
         ],
     )
     def test_to_romm_emulator(self, retroarch_dir_name, romm_emulator):
         assert to_romm_emulator(retroarch_dir_name) == romm_emulator
+
+    @pytest.mark.parametrize(
+        "retroarch_dir_name",
+        [
+            "Snes9x",
+            "Beetle PSX",
+            "PPSSPP",
+            "RetroArduous",
+            "Beetle VB",
+            "bsnes-hd beta",
+        ],
+    )
+    def test_dir_name_round_trips(self, retroarch_dir_name):
+        assert (
+            to_retroarch_dir_name(to_romm_emulator(retroarch_dir_name))
+            == retroarch_dir_name
+        )
 
     @pytest.mark.parametrize(
         ("romm_emulator", "retroarch_dir_name"),
@@ -151,7 +170,7 @@ class TestCloudSyncPathParsing:
             (
                 "saves/RetroArduous/test_rom.srm",
                 "saves",
-                "retroarduous",
+                "RetroArduous",
                 "test_rom.srm",
             ),
         ],
@@ -592,6 +611,38 @@ class TestCloudSyncStateScreenshots:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
+    def test_slot_without_a_screenshot_does_not_claim_another_slots(
+        self,
+        client,
+        admin_user: User,
+        rom: Rom,
+        states_path: str,
+        synced_state_screenshot: Screenshot,
+    ):
+        db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_rom.state1",
+                file_path=states_path,
+                file_size_bytes=4,
+                emulator="snes9x",
+            )
+        )
+
+        response = client.request(
+            "DELETE",
+            "/api/cloud-sync/states/Snes9x/test_rom.state1.png",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert db_screenshot_handler.get_screenshot(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name=synced_state_screenshot.file_name,
+        )
+
 
 class TestCloudSyncUpload:
     @mock.patch(
@@ -671,6 +722,49 @@ class TestCloudSyncUpload:
         saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
         assert len(saves) == 1
         assert saves[0].file_size_bytes == 7
+
+    @mock.patch(
+        "endpoints.cloud_sync.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.cloud_sync.scan_save", new_callable=mock.AsyncMock)
+    def test_overwrite_clears_missing_from_fs(
+        self,
+        mock_scan_save: mock.AsyncMock,
+        _mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        synced_save: Save,
+        saves_path: str,
+    ):
+        db_save_handler.update_save(synced_save.id, {"missing_from_fs": True})
+        mock_scan_save.return_value = Save(
+            file_name="test_rom.srm",
+            file_path=saves_path,
+            file_size_bytes=4,
+            content_hash="8d777f385d3dfec8815d20f7496026dc",
+        )
+
+        response = client.put(
+            "/api/cloud-sync/saves/Snes9x/test_rom.srm",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        save = db_save_handler.get_save(user_id=admin_user.id, id=synced_save.id)
+        assert save is not None
+        assert not save.missing_from_fs
+
+    def test_rejects_a_name_sanitizing_would_change(
+        self, client, admin_user: User, rom: Rom
+    ):
+        response = client.put(
+            "/api/cloud-sync/saves/Snes9x/test_rom%3F.srm",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
 
     @mock.patch(
         "endpoints.cloud_sync.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -884,6 +978,61 @@ class TestCloudSyncPsp:
             "saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
         }
 
+    def test_updates_a_tagged_bundle_in_place(self, client, admin_user: User, rom: Rom):
+        tagged_path = fs_asset_handler.build_saves_file_path(
+            user=admin_user,
+            platform_fs_slug="test_platform_slug",
+            rom_id=rom.id,
+            emulator="ppsspp",
+        )
+        tagged_name = "PSP-TEST12345DATA0 [2026-01-01 00-00-00].zip"
+        zip_bytes = cloud_sync_psp._write_bundle({"PARAM.SFO": b"sfo"})
+        disk_path = fs_asset_handler.validate_path(f"{tagged_path}/{tagged_name}")
+        disk_path.parent.mkdir(parents=True, exist_ok=True)
+        disk_path.write_bytes(zip_bytes)
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name=tagged_name,
+                file_path=tagged_path,
+                file_size_bytes=len(zip_bytes),
+                emulator="ppsspp",
+                slot=None,
+            )
+        )
+
+        response = client.put(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        assert [save.file_name for save in saves] == [tagged_name]
+
+        get_data = client.get(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert get_data.content == b"data"
+
+    def test_bundles_a_folder_synced_without_core_sorting(
+        self, client, admin_user: User
+    ):
+        client.put(
+            "/api/cloud-sync/saves/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.get("/api/cloud-sync/manifest.server", auth=ADMIN_AUTH)
+
+        assert [entry["path"] for entry in response.json()] == [
+            "saves/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN"
+        ]
+
     def test_unresolved_folder_is_buffered_and_conflicts(
         self, client, admin_user: User, monkeypatch: pytest.MonkeyPatch
     ):
@@ -897,7 +1046,9 @@ class TestCloudSyncPsp:
 
         assert response.status_code == status.HTTP_409_CONFLICT
 
-    def test_delete_removes_the_whole_bundle(self, client, admin_user: User, rom: Rom):
+    def test_delete_keeps_the_rest_of_the_bundle(
+        self, client, admin_user: User, rom: Rom
+    ):
         client.put(
             "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
             content=b"sfo",
@@ -915,6 +1066,38 @@ class TestCloudSyncPsp:
             auth=ADMIN_AUTH,
         )
         assert response.status_code == status.HTTP_204_NO_CONTENT
+
+        get_sfo = client.get(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            auth=ADMIN_AUTH,
+        )
+        assert get_sfo.status_code == status.HTTP_200_OK
+        assert get_sfo.content == b"sfo"
+
+        get_data = client.get(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert get_data.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_deleting_every_member_removes_the_bundle(
+        self, client, admin_user: User, rom: Rom
+    ):
+        for name in ("PARAM.SFO", "SAVE.BIN"):
+            client.put(
+                f"/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/{name}",
+                content=b"data",
+                auth=ADMIN_AUTH,
+            )
+
+        for name in ("PARAM.SFO", "SAVE.BIN"):
+            response = client.request(
+                "DELETE",
+                f"/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/{name}",
+                auth=ADMIN_AUTH,
+            )
+            assert response.status_code == status.HTTP_204_NO_CONTENT
+
         assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
 
         get_response = client.get(

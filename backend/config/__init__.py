@@ -39,7 +39,7 @@ LIBRARY_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/library"
 RESOURCES_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/assets"
 # Opaque storage for RetroArch Cloud Sync categories RomM has no concept of
-# (config/, thumbnails/, system/) — unrelated to any ROM, so it lives outside
+# (config/, thumbnails/, system/), unrelated to any ROM, so it lives outside
 # the asset tree but still under the same persistent volume.
 CLOUD_SYNC_BLOB_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cloud_sync_blobs"
 # Holds a PSP save folder's files that arrived before the folder could be
