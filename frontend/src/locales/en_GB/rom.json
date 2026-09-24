@@ -373,7 +373,6 @@
   "revision": "Revision",
   "rom-updated-successfully": "Rom updated successfully!",
   "save-conflict-detected": "Save conflict detected for {game}.",
-  "save-conflict-detected-unknown-game": "Save conflict detected.",
   "save-data": "Save data",
   "save-deleted": "Save deleted.",
   "save-target": "Save File/Folder Target",

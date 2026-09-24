@@ -373,7 +373,6 @@
   "revision": "Revision",
   "rom-updated-successfully": "ROM erfolgreich aktualisiert!",
   "save-conflict-detected": "Spielstand-Konflikt für {game} erkannt.",
-  "save-conflict-detected-unknown-game": "Spielstand-Konflikt erkannt.",
   "save-data": "Speicherdaten",
   "save-deleted": "Spielstand gelöscht.",
   "save-target": "Save File/Folder Target",

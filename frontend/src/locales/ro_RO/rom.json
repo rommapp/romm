@@ -373,7 +373,6 @@
   "revision": "Revision",
   "rom-updated-successfully": "ROM actualizat cu succes!",
   "save-conflict-detected": "Conflict de salvare detectat pentru {game}.",
-  "save-conflict-detected-unknown-game": "Conflict de salvare detectat.",
   "save-data": "Date salvate",
   "save-deleted": "Salvare ștearsă.",
   "save-target": "Save File/Folder Target",

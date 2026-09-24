@@ -17,6 +17,7 @@ from handler.database import (
     db_save_handler,
     db_sync_session_handler,
 )
+from handler.socket_handler import socket_handler
 from models.assets import Save
 from models.device import Device, SyncMode
 from models.platform import Platform
@@ -1069,6 +1070,15 @@ class TestNegotiateConflictEvents:
             side_effect=side_effect,
         )
 
+    @staticmethod
+    def _patch_broker_emit(side_effect: Any):
+        """Fail below emit_sync_conflict, where production failures happen."""
+        return mock.patch.object(
+            socket_handler,
+            "write_manager",
+            return_value=mock.Mock(emit=mock.AsyncMock(side_effect=side_effect)),
+        )
+
     def test_conflict_emits_socket_event(
         self, client, access_token: str, admin_user: User, save: Save
     ):
@@ -1088,6 +1098,7 @@ class TestNegotiateConflictEvents:
             "session_id": data["session_id"],
             "file_name": save.file_name,
             "rom_id": save.rom_id,
+            "rom_name": "test_rom",
             "reason": "Both sides changed since last sync",
         }
 
@@ -1117,7 +1128,7 @@ class TestNegotiateConflictEvents:
         """An unreachable Redis must not stop a client from syncing."""
         device = self._device_with_history("neg-conflict-down", admin_user, [save])
 
-        with self._patch_emit(RuntimeError("redis is down")):
+        with self._patch_broker_emit(RuntimeError("redis is down")):
             data = _negotiate(
                 client, access_token, device.id, [self._changed_client_save(save)]
             )
@@ -1172,7 +1183,9 @@ class TestNegotiateConflictEvents:
         ]
         device = self._device_with_history("neg-conflict-wide", admin_user, saves)
 
-        with self._patch_emit([RuntimeError("redis blip"), None, None]) as emit:
+        with self._patch_broker_emit(
+            [RuntimeError("redis blip"), None, None]
+        ) as write_manager:
             data = _negotiate(
                 client,
                 access_token,
@@ -1181,4 +1194,4 @@ class TestNegotiateConflictEvents:
             )
 
         assert data["total_conflict"] == len(saves)
-        assert emit.await_count == len(saves)
+        assert write_manager.return_value.emit.await_count == len(saves)

@@ -373,7 +373,6 @@
   "revision": "Revision",
   "rom-updated-successfully": "ROM успешно обновлён!",
   "save-conflict-detected": "Обнаружен конфликт сохранения для {game}.",
-  "save-conflict-detected-unknown-game": "Обнаружен конфликт сохранения.",
   "save-data": "Сохранения",
   "save-deleted": "Сохранение удалено.",
   "save-target": "Save File/Folder Target",

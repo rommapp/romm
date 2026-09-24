@@ -373,7 +373,6 @@
   "revision": "Revision",
   "rom-updated-successfully": "ROM zaktualizowany pomyślnie!",
   "save-conflict-detected": "Wykryto konflikt zapisu dla {game}.",
-  "save-conflict-detected-unknown-game": "Wykryto konflikt zapisu.",
   "save-data": "Dane zapisu",
   "save-deleted": "Zapis usunięty.",
   "save-target": "Save File/Folder Target",

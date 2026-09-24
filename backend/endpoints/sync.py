@@ -125,22 +125,21 @@ async def _notify_conflicts(
     device_id: str,
     session_id: int,
     conflict_ops: list[SyncOperationSchema],
+    rom_names: dict[int, str],
 ) -> None:
     """Emit one sync:conflict event per operation, within one deadline."""
     try:
         async with asyncio.timeout(CONFLICT_NOTIFY_TIMEOUT_S):
             for op in conflict_ops:
-                try:
-                    await emit_sync_conflict(
-                        user_id=user_id,
-                        device_id=device_id,
-                        session_id=session_id,
-                        file_name=op.file_name,
-                        rom_id=op.rom_id,
-                        reason=op.reason,
-                    )
-                except Exception as e:  # noqa: BLE001
-                    log.warning(f"Failed to emit sync:conflict for {op.file_name}: {e}")
+                await emit_sync_conflict(
+                    user_id=user_id,
+                    device_id=device_id,
+                    session_id=session_id,
+                    file_name=op.file_name,
+                    rom_id=op.rom_id,
+                    rom_name=rom_names[op.rom_id],
+                    reason=op.reason,
+                )
     except TimeoutError:
         log.warning(
             f"Gave up on {len(conflict_ops)} sync:conflict events "
@@ -383,6 +382,10 @@ def negotiate_sync(
             device_id=device.id,
             session_id=sync_session.id,
             conflict_ops=conflict_ops,
+            rom_names={
+                save.rom_id: save.rom.name or save.rom.fs_name
+                for save in server_save_map.values()
+            },
         )
 
     return SyncNegotiateResponse(

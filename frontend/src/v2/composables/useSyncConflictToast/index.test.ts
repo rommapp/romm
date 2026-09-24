@@ -2,7 +2,10 @@ import { mount } from "@vue/test-utils";
 import mitt from "mitt";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
-import { installSyncConflictToast } from "./index";
+import {
+  type SyncConflictSocketPayload,
+  installSyncConflictToast,
+} from "./index";
 
 // Minimal socket stand-in: records handlers so tests can fire events, and
 // stays "connected" so `useSocketEvent` never tries to dial out.
@@ -18,30 +21,10 @@ vi.mock("@/services/socket", () => ({
   },
 }));
 
-// The composable only interpolates, so echoing the key and the name is enough
-// to tell "named the game" from "fell back to the generic string".
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({
-    t: (key: string, params?: { game?: string }) =>
-      params?.game ? `${key}:${params.game}` : key,
+    t: (key: string, params: { game: string }) => `${key}:${params.game}`,
   }),
-}));
-
-const cachedRom = {
-  id: 7,
-  name: "Pokemon Violet",
-  fs_name: "pokemon_violet.zip",
-};
-const blankNameRom = { id: 8, name: "", fs_name: "blank_name.zip" };
-vi.mock("@/v2/stores/galleryRoms", () => ({
-  default: () => ({
-    getRomById: (id: number) =>
-      [cachedRom, blankNameRom].find((rom) => rom.id === id) ?? null,
-  }),
-}));
-
-vi.mock("@/stores/roms", () => ({
-  default: () => ({ currentRom: null, recentRoms: [] }),
 }));
 
 const emitter = mitt();
@@ -59,12 +42,15 @@ function install() {
   );
 }
 
-function conflict(overrides: Record<string, unknown> = {}) {
+function conflict(
+  overrides: Partial<SyncConflictSocketPayload> = {},
+): SyncConflictSocketPayload {
   return {
     device_id: "dev-1",
     session_id: 3,
     file_name: "pokemon_violet.sav",
-    rom_id: cachedRom.id,
+    rom_id: 7,
+    rom_name: "Pokemon Violet",
     reason: "Both sides changed since last sync",
     ...overrides,
   };
@@ -73,7 +59,7 @@ function conflict(overrides: Record<string, unknown> = {}) {
 describe("useSyncConflictToast", () => {
   let toasts: unknown[] = [];
 
-  function fire(overrides: Record<string, unknown> = {}) {
+  function fire(overrides: Partial<SyncConflictSocketPayload> = {}) {
     handlers.get("sync:conflict")?.(conflict(overrides));
   }
 
@@ -94,31 +80,13 @@ describe("useSyncConflictToast", () => {
     host = null;
   });
 
-  it("warns with the game name", () => {
+  it("warns with the game name from the payload", () => {
     fire();
 
     expect(toasts).toHaveLength(1);
     expect(toasts[0]).toMatchObject({
       color: "warning",
-      msg: `rom.save-conflict-detected:${cachedRom.name}`,
-    });
-  });
-
-  it("falls back to the file name when the ROM's name is blank", () => {
-    fire({ rom_id: blankNameRom.id });
-
-    expect(toasts).toHaveLength(1);
-    expect(toasts[0]).toMatchObject({
-      msg: `rom.save-conflict-detected:${blankNameRom.fs_name}`,
-    });
-  });
-
-  it("falls back to the generic string when the ROM is not cached", () => {
-    fire({ rom_id: 999 });
-
-    expect(toasts).toHaveLength(1);
-    expect(toasts[0]).toMatchObject({
-      msg: "rom.save-conflict-detected-unknown-game",
+      msg: "rom.save-conflict-detected:Pokemon Violet",
     });
   });
 

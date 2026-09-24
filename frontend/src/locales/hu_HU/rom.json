@@ -373,7 +373,6 @@
   "revision": "Revision",
   "rom-updated-successfully": "A ROM frissítése sikeresen megtörtént!",
   "save-conflict-detected": "Mentéskonfliktus észlelve: {game}.",
-  "save-conflict-detected-unknown-game": "Mentéskonfliktus észlelve.",
   "save-data": "Mentések",
   "save-deleted": "Mentés törölve.",
   "save-target": "Save File/Folder Target",

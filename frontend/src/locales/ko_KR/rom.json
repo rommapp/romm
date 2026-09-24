@@ -373,7 +373,6 @@
   "revision": "Revision",
   "rom-updated-successfully": "ROM이 성공적으로 업데이트되었습니다!",
   "save-conflict-detected": "{game}의 세이브 충돌이 감지되었습니다.",
-  "save-conflict-detected-unknown-game": "세이브 충돌이 감지되었습니다.",
   "save-data": "저장 데이터",
   "save-deleted": "세이브가 삭제되었습니다.",
   "save-target": "Save File/Folder Target",
