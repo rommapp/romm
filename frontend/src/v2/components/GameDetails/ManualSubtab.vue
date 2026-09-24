@@ -19,6 +19,7 @@ import { useCan } from "@/v2/composables/useCan";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { versionedRomFileUrl } from "@/v2/utils/romFiles";
 
 const PdfViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/PdfViewer.vue"),
@@ -83,9 +84,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
       entries.push({
         id: `file-${file.id}`,
         label: file.file_name.replace(/\.[^.]+$/, ""),
-        url: `/api/roms/${file.id}/files/content/${encodeURIComponent(
-          file.file_name,
-        )}?v=${cacheBust}`,
+        url: versionedRomFileUrl(file),
         isPrimary: false,
         fileId: file.id,
         kind: kindFor(file.file_name),

@@ -17,6 +17,7 @@ import {
 } from "@/v2/composables/useRomFileUpload";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { versionedRomFileUrl } from "@/v2/utils/romFiles";
 
 const PdfViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/PdfViewer.vue"),
@@ -69,7 +70,6 @@ function kindFor(name: string): ViewerKind {
 }
 
 const entries = computed<WalkthroughEntry[]>(() => {
-  const cacheBust = encodeURIComponent(props.rom.updated_at);
   const out: WalkthroughEntry[] = [];
   for (const file of props.rom.files ?? []) {
     if (file.category !== "walkthrough") continue;
@@ -78,9 +78,7 @@ const entries = computed<WalkthroughEntry[]>(() => {
       fileId: file.id,
       // Prefer the scraped guide title when present, else the file name.
       label: file.doc_meta?.title ?? file.file_name.replace(/\.[^.]+$/, ""),
-      url: `/api/roms/${file.id}/files/content/${encodeURIComponent(
-        file.file_name,
-      )}?v=${cacheBust}`,
+      url: versionedRomFileUrl(file),
       kind: kindFor(file.file_name),
     });
   }
