@@ -724,7 +724,7 @@ def update_save_visibility(
     """Toggle a save's public/private visibility (owner only)."""
     save = _owned_save_or_404(id, request.user.id)
 
-    updated = db_save_handler.update_save(id, {"is_public": is_public})
+    updated = db_save_handler.update_save(id, {"is_public": is_public}, touch=False)
 
     # Keep the auto-captured thumbnail's visibility in sync so a shared save
     # still renders its preview for other users.

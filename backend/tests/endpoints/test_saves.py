@@ -3632,6 +3632,11 @@ class TestSaveFavoritesAndLabels:
             json={"labels": ["seed 42"]},
             headers=headers,
         )
+        client.put(
+            f"/api/saves/{save.id}/visibility",
+            json={"is_public": True},
+            headers=headers,
+        )
 
         # Annotating is not a write to the save's bytes, and device sync reads
         # `updated_at` to decide whether a device is stale.
@@ -3640,6 +3645,7 @@ class TestSaveFavoritesAndLabels:
         assert refreshed.updated_at == stamp
         assert refreshed.is_favorite is True
         assert refreshed.labels == ["seed 42"]
+        assert refreshed.is_public is True
 
     def test_non_owner_cannot_star_a_save(
         self, client, viewer_access_token: str, save: Save

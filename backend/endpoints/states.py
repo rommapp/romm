@@ -285,7 +285,7 @@ def update_state_visibility(
     """Toggle a state's public/private visibility (owner only)."""
     state = _owned_state_or_404(id, request.user.id)
 
-    updated = db_state_handler.update_state(id, {"is_public": is_public})
+    updated = db_state_handler.update_state(id, {"is_public": is_public}, touch=False)
 
     # Keep the auto-captured thumbnail's visibility in sync so a shared state
     # still renders its preview for other users.

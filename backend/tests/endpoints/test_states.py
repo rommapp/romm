@@ -614,6 +614,11 @@ class TestStateFavoritesAndLabels:
             json={"labels": ["seed 42"]},
             headers=_auth(access_token),
         )
+        client.put(
+            f"/api/states/{state.id}/visibility",
+            json={"is_public": True},
+            headers=_auth(access_token),
+        )
 
         # Annotating is not a write to the state's bytes, and the lists order
         # on `updated_at`.
@@ -622,6 +627,7 @@ class TestStateFavoritesAndLabels:
         assert refreshed.updated_at == stamp
         assert refreshed.is_favorite is True
         assert refreshed.labels == ["seed 42"]
+        assert refreshed.is_public is True
 
     def test_non_owner_cannot_star_a_state(
         self, client, viewer_access_token: str, state: State
