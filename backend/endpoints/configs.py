@@ -16,7 +16,7 @@ from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
-from handler.audit_handler import AuditActor, AuditTarget, record
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.filesystem import fs_platform_handler
@@ -188,7 +188,7 @@ async def _reject_ambiguous_folder(fs_slug: str) -> None:
 def _record_config(request: Request, setting: str, op: str, **values: str) -> None:
     record(
         AuditAction.CONFIG_UPDATE,
-        AuditActor.from_request(request),
+        request,
         AuditTarget(AuditTargetType.CONFIG, setting, None),
         {"setting": setting, "op": op, **values},
     )

@@ -17,7 +17,7 @@ from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from handler.audit_handler import AuditActor, AuditTarget, record
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import db_platform_handler, db_rom_handler
@@ -164,17 +164,19 @@ async def _commit(
         ) from exc
 
 
-def _record_upload(request: Request, rom: Rom | None, session: dict) -> None:
+def _upload_target(rom: Rom | None, platform_id: int) -> AuditTarget | None:
     if rom is not None:
-        target = AuditTarget.of_rom(rom)
-    else:
-        # A platform folder upload has no rom until the next scan finds it.
-        platform = db_platform_handler.get_platform(session["platform_id"])
-        target = AuditTarget.of_platform(platform) if platform else None
+        return AuditTarget.of_rom(rom)
+    # A platform folder upload has no rom until the next scan finds it.
+    platform = db_platform_handler.get_platform(platform_id)
+    return AuditTarget.of_platform(platform) if platform else None
+
+
+def _record_upload(request: Request, rom: Rom | None, session: dict) -> None:
     record(
         AuditAction.ROM_UPLOAD,
-        AuditActor.from_request(request),
-        target,
+        request,
+        lambda: _upload_target(rom, session["platform_id"]),
         {
             "file_name": session["filename"],
             "size_bytes": session["total_size"],

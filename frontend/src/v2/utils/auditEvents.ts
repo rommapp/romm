@@ -9,6 +9,8 @@ import type {
 import i18n from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
 import { formatBytes, toBrowserLocale } from "@/utils";
+import { count, list, text } from "@/v2/utils/eventData";
+import { joinNames } from "@/v2/utils/lists";
 import { METADATA_PROVIDERS } from "@/v2/utils/metadataProviders";
 import { formatPlaytime } from "@/v2/utils/time";
 
@@ -38,27 +40,17 @@ export const AUDIT_CATEGORIES: readonly AuditCategory[] = [
   "security",
 ];
 
-function text(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function count(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function list(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
-}
-
 function kebab(value: string): string {
   return value.replaceAll("_", "-");
 }
 
+function names(values: string[]): string | null {
+  return values.length ? joinNames(values, i18n.global.locale.value) : null;
+}
+
 function fields(value: unknown): string | null {
-  const labels = list(value).map((field) => t(`audit.field-${kebab(field)}`));
-  return labels.length
-    ? t("audit.detail-changed", { fields: labels.join(", ") })
-    : null;
+  const labels = names(list(value).map((f) => t(`audit.field-${kebab(f)}`)));
+  return labels ? t("audit.detail-changed", { fields: labels }) : null;
 }
 
 function change(value: unknown): { from: string; to: string } | null {
@@ -70,12 +62,18 @@ function change(value: unknown): { from: string; to: string } | null {
 function providers(data: AuditData): string | null {
   const ids = data.providers;
   if (!ids || typeof ids !== "object") return null;
-  const names = Object.keys(ids).map(
-    (key) =>
-      METADATA_PROVIDERS.find((p) => p.key === key)?.name ??
-      key.replace(/_id$/, "").toUpperCase(),
+  return names(
+    Object.keys(ids).map(
+      (key) =>
+        METADATA_PROVIDERS.find((p) => p.key === key)?.name ??
+        key.replace(/_id$/, "").toUpperCase(),
+    ),
   );
-  return names.length ? names.join(", ") : null;
+}
+
+function size(data: AuditData): string | null {
+  const bytes = count(data.size_bytes);
+  return bytes ? formatBytes(bytes) : null;
 }
 
 function joinDetails(...parts: (string | null)[]): string | null {
@@ -83,42 +81,59 @@ function joinDetails(...parts: (string | null)[]): string | null {
   return present.length ? present.join(" · ") : null;
 }
 
-function simple(icon: string, key: string): Describer {
-  return (_event, target) => ({
+function principal(data: AuditData): string {
+  const from = data.from;
+  if (!from || typeof from !== "object") return "";
+  const { name, id } = from as Record<string, unknown>;
+  return text(name) ?? `#${String(id ?? "")}`;
+}
+
+// The sentence names the target; `detail` adds a muted second line.
+function simple(
+  icon: string,
+  key: string,
+  detail: (event: AuditEventSchema) => string | null = () => null,
+): Describer {
+  return (event, target) => ({
     icon,
     title: t(key, { target }),
+    detail: detail(event),
+  });
+}
+
+// A sentence about a number of games, such as roms added to a collection.
+function counted(icon: string, key: string): Describer {
+  return (event, target) => {
+    const n = count(event.data.count);
+    return { icon, title: t(key, n, { named: { n, target } }), detail: null };
+  };
+}
+
+function visibility(icon: string, key: string): Describer {
+  return (event, target) => ({
+    icon,
+    title: t(key, { target, principal: principal(event.data) }),
     detail: null,
   });
 }
 
 function edited(icon: string, key: string): Describer {
-  return (event, target) => {
+  return simple(icon, key, (event) => {
     const renamed = change(event.data.name);
-    return {
-      icon,
-      title: t(key, { target }),
-      detail: joinDetails(
-        fields(event.data.changed),
-        renamed ? t("audit.detail-renamed", renamed) : null,
-      ),
-    };
-  };
+    return joinDetails(
+      fields(event.data.changed),
+      renamed ? t("audit.detail-renamed", renamed) : null,
+    );
+  });
 }
 
-function download(event: AuditEventSchema): string | null {
-  const size = count(event.data.size_bytes);
-  return joinDetails(
-    text(event.data.file_name),
-    size ? formatBytes(size) : null,
-  );
-}
+const deletedFromDisk = (event: AuditEventSchema) =>
+  event.data.deleted_from_fs ? t("audit.detail-deleted-from-disk") : null;
 
 const DESCRIBERS: Record<AuditAction, Describer> = {
-  "rom.download": (event, target) => ({
-    icon: "mdi-download",
-    title: t("audit.action-rom-download", { target }),
-    detail: download(event),
-  }),
+  "rom.download": simple("mdi-download", "audit.action-rom-download", (e) =>
+    joinDetails(text(e.data.file_name), size(e.data)),
+  ),
   "rom.bulk_download": (event, target) => {
     const n = count(event.data.count);
     return {
@@ -129,14 +144,12 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
       detail: null,
     };
   },
-  "rom.play": (event, target) => ({
-    icon: "mdi-play-circle-outline",
-    title: t("audit.action-rom-play", { target }),
-    detail: formatPlaytime(
-      count(event.data.duration_ms) / 1000,
+  "rom.play": simple("mdi-play-circle-outline", "audit.action-rom-play", (e) =>
+    formatPlaytime(
+      count(e.data.duration_ms) / 1000,
       toBrowserLocale(i18n.global.locale.value),
     ),
-  }),
+  ),
 
   "rom.upload": (event, target) => ({
     icon: "mdi-cloud-upload-outline",
@@ -144,35 +157,28 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
       target,
       file: text(event.data.file_name) ?? "",
     }),
-    detail: count(event.data.size_bytes)
-      ? formatBytes(count(event.data.size_bytes))
-      : null,
+    detail: size(event.data),
   }),
   "rom.create": simple("mdi-plus-box-outline", "audit.action-rom-create"),
   "rom.edit": edited("mdi-pencil-outline", "audit.action-rom-edit"),
-  "rom.match": (event, target) => ({
-    icon: "mdi-link-variant",
-    title: t("audit.action-rom-match", { target }),
-    detail: providers(event.data),
-  }),
-  "rom.unmatch": (event, target) => ({
-    icon: "mdi-link-variant-off",
-    title: t("audit.action-rom-unmatch", { target }),
-    detail: providers(event.data),
-  }),
-  "rom.delete": (event, target) => ({
-    icon: "mdi-trash-can-outline",
-    title: t("audit.action-rom-delete", { target }),
-    detail: joinDetails(
-      text(event.data.platform),
-      event.data.deleted_from_fs ? t("audit.detail-deleted-from-disk") : null,
-    ),
-  }),
-  "rom.file_delete": (event, target) => ({
-    icon: "mdi-file-remove-outline",
-    title: t("audit.action-rom-file-delete", { target }),
-    detail: text(event.data.file_name),
-  }),
+  "rom.match": simple("mdi-link-variant", "audit.action-rom-match", (e) =>
+    providers(e.data),
+  ),
+  "rom.unmatch": simple(
+    "mdi-link-variant-off",
+    "audit.action-rom-unmatch",
+    (e) => providers(e.data),
+  ),
+  "rom.delete": simple(
+    "mdi-trash-can-outline",
+    "audit.action-rom-delete",
+    (e) => joinDetails(text(e.data.platform), deletedFromDisk(e)),
+  ),
+  "rom.file_delete": simple(
+    "mdi-file-remove-outline",
+    "audit.action-rom-file-delete",
+    (e) => text(e.data.file_name),
+  ),
   "platform.create": simple(
     "mdi-gamepad-variant-outline",
     "audit.action-platform-create",
@@ -182,18 +188,14 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
     "mdi-trash-can-outline",
     "audit.action-platform-delete",
   ),
-  "firmware.upload": (event, target) => ({
-    icon: "mdi-chip",
-    title: t("audit.action-firmware-upload", { target }),
-    detail: list(event.data.file_names).join(", ") || null,
-  }),
-  "firmware.delete": (event, target) => ({
-    icon: "mdi-trash-can-outline",
-    title: t("audit.action-firmware-delete", { target }),
-    detail: event.data.deleted_from_fs
-      ? t("audit.detail-deleted-from-disk")
-      : null,
-  }),
+  "firmware.upload": simple("mdi-chip", "audit.action-firmware-upload", (e) =>
+    names(list(e.data.file_names)),
+  ),
+  "firmware.delete": simple(
+    "mdi-trash-can-outline",
+    "audit.action-firmware-delete",
+    deletedFromDisk,
+  ),
   "config.update": (event) => {
     const setting = text(event.data.setting);
     const values = [event.data.fs_slug, event.data.slug, event.data.value]
@@ -212,45 +214,35 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
     "mdi-bookmark-plus-outline",
     "audit.action-collection-create",
   ),
-  "collection.edit": (event, target) => {
-    const added = count(event.data.added);
-    const removed = count(event.data.removed);
-    return {
-      icon: "mdi-bookmark-outline",
-      title: t("audit.action-collection-edit", { target }),
-      detail: joinDetails(
-        fields(event.data.changed),
+  "collection.edit": simple(
+    "mdi-bookmark-outline",
+    "audit.action-collection-edit",
+    (e) => {
+      const added = count(e.data.added);
+      const removed = count(e.data.removed);
+      return joinDetails(
+        fields(e.data.changed),
         added
           ? t("audit.detail-games-added", added, { named: { n: added } })
           : null,
         removed
           ? t("audit.detail-games-removed", removed, { named: { n: removed } })
           : null,
-      ),
-    };
-  },
+      );
+    },
+  ),
   "collection.delete": simple(
     "mdi-bookmark-remove-outline",
     "audit.action-collection-delete",
   ),
-  "collection.add_roms": (event, target) => {
-    const n = count(event.data.count);
-    return {
-      icon: "mdi-bookmark-plus-outline",
-      title: t("audit.action-collection-add-roms", n, { named: { n, target } }),
-      detail: null,
-    };
-  },
-  "collection.remove_roms": (event, target) => {
-    const n = count(event.data.count);
-    return {
-      icon: "mdi-bookmark-minus-outline",
-      title: t("audit.action-collection-remove-roms", n, {
-        named: { n, target },
-      }),
-      detail: null,
-    };
-  },
+  "collection.add_roms": counted(
+    "mdi-bookmark-plus-outline",
+    "audit.action-collection-add-roms",
+  ),
+  "collection.remove_roms": counted(
+    "mdi-bookmark-minus-outline",
+    "audit.action-collection-remove-roms",
+  ),
   "smart_collection.create": simple(
     "mdi-bookmark-plus-outline",
     "audit.action-smart-collection-create",
@@ -264,14 +256,9 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
     "audit.action-smart-collection-delete",
   ),
 
-  "scan.start": () => ({
-    icon: "mdi-radar",
-    title: t("audit.action-scan-start"),
-    detail: null,
-  }),
+  "scan.start": simple("mdi-radar", "audit.action-scan-start"),
   "scan.finish": (event) => {
     const status = text(event.data.status);
-    const n = count(event.data.new_roms);
     if (status === "failed") {
       return {
         icon: "mdi-radar",
@@ -279,6 +266,7 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
         detail: text(event.data.error),
       };
     }
+    const n = count(event.data.new_roms);
     return {
       icon: "mdi-radar",
       title:
@@ -288,18 +276,10 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
       detail: t("audit.detail-new-games", n, { named: { n } }),
     };
   },
-  "scan.stop": () => ({
-    icon: "mdi-stop-circle-outline",
-    title: t("audit.action-scan-stop"),
-    detail: null,
-  }),
+  "scan.stop": simple("mdi-stop-circle-outline", "audit.action-scan-stop"),
   "task.run": simple("mdi-pulse", "audit.action-task-run"),
 
-  "auth.login": () => ({
-    icon: "mdi-login",
-    title: t("audit.action-auth-login"),
-    detail: null,
-  }),
+  "auth.login": simple("mdi-login", "audit.action-auth-login"),
   "auth.login_failed": (event) => {
     const reason = text(event.data.reason);
     return {
@@ -319,36 +299,35 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
     "audit.action-auth-password-reset",
   ),
   "user.create": simple("mdi-account-plus-outline", "audit.action-user-create"),
-  "user.register": () => ({
-    icon: "mdi-account-plus-outline",
-    title: t("audit.action-user-register"),
-    detail: null,
-  }),
-  "user.edit": (event, target) => {
-    const role = change(event.data.role);
-    return {
-      icon: "mdi-account-edit-outline",
-      title: t("audit.action-user-edit", { target }),
-      detail: joinDetails(
-        fields(event.data.changed),
+  "user.register": simple(
+    "mdi-account-plus-outline",
+    "audit.action-user-register",
+  ),
+  "user.edit": simple(
+    "mdi-account-edit-outline",
+    "audit.action-user-edit",
+    (e) => {
+      const role = change(e.data.role);
+      return joinDetails(
+        fields(e.data.changed),
         role
           ? t("audit.detail-role", {
               from: t(`settings.role-${role.from}`),
               to: t(`settings.role-${role.to}`),
             })
           : null,
-      ),
-    };
-  },
+      );
+    },
+  ),
   "user.delete": simple(
     "mdi-account-remove-outline",
     "audit.action-user-delete",
   ),
-  "user.permissions_edit": (event, target) => ({
-    icon: "mdi-shield-account-outline",
-    title: t("audit.action-user-permissions-edit", { target }),
-    detail: text(event.data.group),
-  }),
+  "user.permissions_edit": simple(
+    "mdi-shield-account-outline",
+    "audit.action-user-permissions-edit",
+    (e) => text(e.data.group),
+  ),
   "permission_group.create": simple(
     "mdi-shield-plus-outline",
     "audit.action-permission-group-create",
@@ -361,22 +340,14 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
     "mdi-shield-remove-outline",
     "audit.action-permission-group-delete",
   ),
-  "visibility.hide": (event, target) => ({
-    icon: "mdi-eye-off-outline",
-    title: t("audit.action-visibility-hide", {
-      target,
-      principal: principal(event.data),
-    }),
-    detail: null,
-  }),
-  "visibility.unhide": (event, target) => ({
-    icon: "mdi-eye-outline",
-    title: t("audit.action-visibility-unhide", {
-      target,
-      principal: principal(event.data),
-    }),
-    detail: null,
-  }),
+  "visibility.hide": visibility(
+    "mdi-eye-off-outline",
+    "audit.action-visibility-hide",
+  ),
+  "visibility.unhide": visibility(
+    "mdi-eye-outline",
+    "audit.action-visibility-unhide",
+  ),
   "client_token.create": simple(
     "mdi-key-plus",
     "audit.action-client-token-create",
@@ -389,49 +360,12 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
     "mdi-key-remove",
     "audit.action-client-token-revoke",
   ),
-  "device.approve": (event, target) => ({
-    icon: "mdi-cellphone-link",
-    title: t("audit.action-device-approve", { target }),
-    detail: text(event.data.client),
-  }),
+  "device.approve": simple(
+    "mdi-cellphone-link",
+    "audit.action-device-approve",
+    (e) => text(e.data.client),
+  ),
 };
-
-function principal(data: AuditData): string {
-  const from = data.from;
-  if (!from || typeof from !== "object") return "";
-  const { name, id } = from as Record<string, unknown>;
-  return text(name) ?? `#${String(id ?? "")}`;
-}
-
-const DELETES = new Set<string>([
-  "rom.delete",
-  "platform.delete",
-  "firmware.delete",
-  "collection.delete",
-  "smart_collection.delete",
-  "user.delete",
-  "permission_group.delete",
-  "client_token.revoke",
-]);
-
-function targetRoute(event: AuditEventSchema): RouteLocationRaw | null {
-  const id = event.target_id;
-  if (!id || DELETES.has(event.action)) return null;
-  switch (event.target_type) {
-    case "rom":
-      return { name: ROUTES.ROM, params: { rom: id } };
-    case "platform":
-      return { name: ROUTES.PLATFORM, params: { platform: id } };
-    case "collection":
-      return { name: ROUTES.COLLECTION, params: { collection: id } };
-    case "smart_collection":
-      return { name: ROUTES.SMART_COLLECTION, params: { collection: id } };
-    case "virtual_collection":
-      return { name: ROUTES.VIRTUAL_COLLECTION, params: { collection: id } };
-    default:
-      return null;
-  }
-}
 
 const CATEGORY_TONES: Record<AuditCategory, string> = {
   consumption: "primary",
@@ -446,6 +380,26 @@ function toneOf(event: AuditEventSchema): string {
     return "danger";
   }
   return event.category ? CATEGORY_TONES[event.category] : "secondary";
+}
+
+function targetRoute(event: AuditEventSchema): RouteLocationRaw | null {
+  const id = event.target_id;
+  // What was deleted has nowhere left to link to.
+  if (!id || event.action.endsWith(".delete")) return null;
+  switch (event.target_type) {
+    case "rom":
+      return { name: ROUTES.ROM, params: { rom: id } };
+    case "platform":
+      return { name: ROUTES.PLATFORM, params: { platform: id } };
+    case "collection":
+      return { name: ROUTES.COLLECTION, params: { collection: id } };
+    case "smart_collection":
+      return { name: ROUTES.SMART_COLLECTION, params: { collection: id } };
+    case "virtual_collection":
+      return { name: ROUTES.VIRTUAL_COLLECTION, params: { collection: id } };
+    default:
+      return null;
+  }
 }
 
 function fallback(event: AuditEventSchema, target: string): AuditEventView {

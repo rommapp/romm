@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Final
@@ -27,10 +27,12 @@ from models.audit_event import (
     AuditEvent,
     AuditTargetType,
 )
+from models.collection import Collection, SmartCollection
+from utils.auth import current_device_id
 from utils.datetime import to_utc
+from utils.rate_limit import count_in_window
 
 if TYPE_CHECKING:
-    from models.collection import Collection, SmartCollection
     from models.firmware import Firmware
     from models.platform import Platform
     from models.rom import Rom, RomDeletionTarget, RomVisibilityLabel
@@ -66,23 +68,19 @@ class AuditActor:
     def from_request(cls, conn: HTTPConnection) -> AuditActor:
         """Whoever made the request, anonymous when no account is behind it."""
         user = conn.scope.get("user")
-        ip_address = client_ip(conn)
-        device_id = getattr(conn.state, "device_id", None) or (
-            conn.scope.get("session") or {}
-        ).get("device_id")
         if (
             user is None
             or not user.is_authenticated
             or getattr(user, "is_kiosk_guest", False)
         ):
-            return cls(AuditActorKind.ANONYMOUS, ip_address=ip_address)
-        return cls(
-            AuditActorKind.USER,
-            user_id=user.id,
-            name=user.username,
-            ip_address=ip_address,
-            device_id=device_id,
+            return cls.anonymous(client_ip(conn))
+        return cls.for_user(
+            user, ip_address=client_ip(conn), device_id=current_device_id(conn)
         )
+
+    @classmethod
+    def anonymous(cls, ip_address: str | None) -> AuditActor:
+        return cls(AuditActorKind.ANONYMOUS, ip_address=ip_address)
 
     @classmethod
     def for_user(
@@ -136,12 +134,13 @@ class AuditTarget:
         )
 
     @classmethod
-    def of_collection(cls, collection: Collection) -> AuditTarget:
-        return cls(AuditTargetType.COLLECTION, collection.id, collection.name)
-
-    @classmethod
-    def of_smart_collection(cls, collection: SmartCollection) -> AuditTarget:
-        return cls(AuditTargetType.SMART_COLLECTION, collection.id, collection.name)
+    def of_collection(cls, collection: Collection | SmartCollection) -> AuditTarget:
+        kind = (
+            AuditTargetType.SMART_COLLECTION
+            if isinstance(collection, SmartCollection)
+            else AuditTargetType.COLLECTION
+        )
+        return cls(kind, collection.id, collection.name)
 
     @classmethod
     def of_firmware(cls, firmware: Firmware) -> AuditTarget:
@@ -152,13 +151,44 @@ class AuditTarget:
         return cls(AuditTargetType.USER, user.id, user.username)
 
 
+# A target that takes a lookup to name can be passed as a function, so the
+# lookup runs inside the recorder's error handling, and only if it records.
+TargetSource = AuditTarget | Callable[[], AuditTarget | None] | None
+
+
 @dataclass(frozen=True, slots=True)
 class AuditDraft:
     action: AuditAction
     actor: AuditActor
-    target: AuditTarget | None = None
+    target: TargetSource = None
     data: dict[str, Any] | None = None
     occurred_at: datetime | None = None
+
+
+def _unset(value: Any) -> Any:
+    # A save writes "" over a column that was null, which is no change.
+    return None if value == "" else value
+
+
+def _value(source: object, field: str) -> Any:
+    if isinstance(source, Mapping):
+        return _unset(source.get(field))
+    return _unset(getattr(source, field, None))
+
+
+def changed_fields(before: object, after: object, fields: Iterable[str]) -> list[str]:
+    """The fields whose value differs; `after` may be a mapping of the fields given."""
+    return [
+        field
+        for field in fields
+        if (not isinstance(after, Mapping) or field in after)
+        and _value(before, field) != _value(after, field)
+    ]
+
+
+def change(before: object, after: object, field: str) -> dict[str, Any]:
+    """One field's change, in the shape the event log reads it."""
+    return {"from": _value(before, field), "to": _value(after, field)}
 
 
 def _encode(data: dict[str, Any]) -> str:
@@ -187,7 +217,8 @@ def _normalize_data(data: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _to_row(draft: AuditDraft) -> AuditEvent:
-    actor, target = draft.actor, draft.target
+    actor = draft.actor
+    target = draft.target() if callable(draft.target) else draft.target
     return AuditEvent(
         occurred_at=to_utc(draft.occurred_at or datetime.now(timezone.utc)),
         actor_kind=actor.kind,
@@ -228,12 +259,15 @@ def record_many(drafts: Sequence[AuditDraft]) -> None:
 
 def record(
     action: AuditAction,
-    actor: AuditActor,
-    target: AuditTarget | None = None,
+    actor: AuditActor | HTTPConnection,
+    target: TargetSource = None,
     data: dict[str, Any] | None = None,
     *,
     occurred_at: datetime | None = None,
 ) -> None:
+    """Record one event; `actor` may be the request, whose caller then acts."""
+    if isinstance(actor, HTTPConnection):
+        actor = AuditActor.from_request(actor)
     record_many([AuditDraft(action, actor, target, data, occurred_at)])
 
 
@@ -255,14 +289,10 @@ def claim_once(key: str, window_seconds: int) -> bool:
 def within_budget(key: str, limit: int, window_seconds: int) -> bool:
     """Whether `key` has been counted at most `limit` times this window; True if Redis fails."""
     try:
-        pipe = sync_cache.pipeline()
-        pipe.incr(_claim_key(key))
-        pipe.expire(_claim_key(key), window_seconds, nx=True)
-        count, _ = pipe.execute()
+        return count_in_window(_claim_key(key), window_seconds) <= limit
     except Exception:  # noqa: BLE001 - better a duplicate than a gap
         log.exception(f"Failed to count audit key {key}")
         return True
-    return int(count) <= limit
 
 
 def _starts_a_transfer(range_header: str | None) -> bool:
@@ -280,7 +310,7 @@ def _starts_a_transfer(range_header: str | None) -> bool:
 
 def record_download(
     conn: HTTPConnection,
-    target: AuditTarget | None,
+    target: TargetSource,
     dedupe_key: str,
     data: dict[str, Any] | None = None,
     *,

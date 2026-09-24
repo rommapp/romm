@@ -17,7 +17,6 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { AuditCategory, AuditEventSchema } from "@/__generated__";
-import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
 import { toBrowserLocale } from "@/utils";
 import EventLogRow from "@/v2/components/Settings/EventLogRow.vue";
@@ -38,8 +37,7 @@ const router = useRouter();
 const snackbar = useSnackbar();
 const usersStore = storeUsers();
 const { allUsers } = storeToRefs(usersStore);
-const { events, loading, loadingMore, hasMore, reset, loadMore } =
-  useAuditLog(200);
+const { events, loading, hasMore, reset, loadMore } = useAuditLog(200);
 
 const ALL = "all";
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -127,7 +125,7 @@ async function refresh() {
         categoryFilter.value === ALL
           ? undefined
           : [categoryFilter.value as AuditCategory],
-      search: appliedSearch.value || undefined,
+      search: appliedSearch.value,
       since: since.value ? localMidnight(since.value) : undefined,
       // Inclusive of the whole day picked.
       until: until.value ? localMidnight(until.value, 1) : undefined,
@@ -167,27 +165,16 @@ watch(
 
 onMounted(async () => {
   void refresh();
-  if (allUsers.value.length > 0) return;
   try {
-    const { data } = await userApi.fetchUsers();
-    usersStore.set(data);
+    await usersStore.ensureLoaded();
   } catch (error) {
     console.error("Could not load users:", error);
   }
 });
 
-interface Row {
-  event: AuditEventSchema;
-  view: AuditEventView;
-}
-
-const rows = computed<Row[]>(() =>
-  events.value.map((event) => ({ event, view: describeAuditEvent(event) })),
-);
-
 const phase = useLoadingPhase(
   () => loading.value,
-  () => rows.value.length === 0,
+  () => events.value.length === 0,
 );
 
 const timeFormat = computed(
@@ -198,21 +185,46 @@ const timeFormat = computed(
     }),
 );
 
-function dayLabel(date: Date, today: Date): string {
+const dayFormats = computed(() => {
+  const intlLocale = toBrowserLocale(locale.value);
+  const format = { weekday: "long", day: "numeric", month: "long" } as const;
+  return {
+    thisYear: new Intl.DateTimeFormat(intlLocale, format),
+    otherYear: new Intl.DateTimeFormat(intlLocale, {
+      ...format,
+      year: "numeric",
+    }),
+  };
+});
+
+function dayLabel(date: Date, year: number): string {
   if (isToday(date)) return t("common.today");
   if (isYesterday(date)) return t("audit.yesterday");
-  return new Intl.DateTimeFormat(toBrowserLocale(locale.value), {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
-  }).format(date);
+  const { thisYear, otherYear } = dayFormats.value;
+  return (date.getFullYear() === year ? thisYear : otherYear).format(date);
+}
+
+// Each page brings the earlier ones along, so their sentences are kept rather
+// than rebuilt; the cache starts over with the language.
+const described = computed(() => {
+  void locale.value;
+  return new WeakMap<AuditEventSchema, AuditEventView>();
+});
+
+function describe(event: AuditEventSchema): AuditEventView {
+  let view = described.value.get(event);
+  if (!view) {
+    view = describeAuditEvent(event);
+    described.value.set(event, view);
+  }
+  return view;
 }
 
 interface EventItem {
   kind: "event";
   key: number;
-  row: Row;
+  event: AuditEventSchema;
+  view: AuditEventView;
   first: boolean;
   last: boolean;
 }
@@ -232,31 +244,34 @@ const ITEM_HEIGHTS: Record<Item["kind"], number> = {
   more: 56,
 };
 
-// Events arrive newest first, so each local day is one run of them.
+// Events arrive newest first, so each local day is one run of them. Nothing is
+// handed to the scroller until the list is shown.
 const items = computed<Item[]>(() => {
-  const today = new Date();
+  if (phase.value !== "content") return [];
+  const year = new Date().getFullYear();
   const out: Item[] = [];
   let dayKey: string | null = null;
-  rows.value.forEach((row, index) => {
-    const date = new Date(row.event.occurred_at);
+  let previous: EventItem | null = null;
+  for (const event of events.value) {
+    const date = new Date(event.occurred_at);
     const key = date.toDateString();
-    const next = rows.value[index + 1];
-    if (key !== dayKey) {
+    const startsDay = key !== dayKey;
+    if (startsDay) {
+      if (previous) previous.last = true;
       dayKey = key;
-      out.push({
-        kind: "day",
-        key: `day-${key}`,
-        label: dayLabel(date, today),
-      });
+      out.push({ kind: "day", key: `day-${key}`, label: dayLabel(date, year) });
     }
-    out.push({
+    previous = {
       kind: "event",
-      key: row.event.id,
-      row,
-      first: out.at(-1)?.kind === "day",
-      last: !next || new Date(next.event.occurred_at).toDateString() !== key,
-    });
-  });
+      key: event.id,
+      event,
+      view: describe(event),
+      first: startsDay,
+      last: false,
+    };
+    out.push(previous);
+  }
+  if (previous) previous.last = true;
   if (hasMore.value) out.push({ kind: "more", key: "more" });
   return out;
 });
@@ -270,8 +285,6 @@ function itemKey(item: unknown): string | number {
 }
 
 function onViewportRange({ last }: { first: number; last: number }) {
-  // The scroller holds no items until the list is shown.
-  if (phase.value !== "content") return;
   if (hasMore.value && !moreFailed.value && last >= items.value.length - 20) {
     void showMore();
   }
@@ -288,7 +301,7 @@ useGridNav(listRoot, {
   <div ref="listRoot" class="r-v2-audit">
     <RVirtualScroller
       class="r-v2-audit__scroller"
-      :items="phase === 'content' ? items : []"
+      :items="items"
       :get-item-height="itemHeight"
       :get-item-key="itemKey"
       @update:viewport-range="onViewportRange"
@@ -400,14 +413,12 @@ useGridNav(listRoot, {
         </div>
         <EventLogRow
           v-else-if="(item as Item).kind === 'event'"
-          :event="(item as EventItem).row.event"
-          :view="(item as EventItem).row.view"
+          :event="(item as EventItem).event"
+          :view="(item as EventItem).view"
           :first="(item as EventItem).first"
           :last="(item as EventItem).last"
           :time="
-            timeFormat.format(
-              new Date((item as EventItem).row.event.occurred_at),
-            )
+            timeFormat.format(new Date((item as EventItem).event.occurred_at))
           "
         />
       </template>

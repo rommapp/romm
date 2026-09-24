@@ -55,6 +55,8 @@ from handler.audit_handler import (
     AuditActor,
     AuditDraft,
     AuditTarget,
+    change,
+    changed_fields,
     record,
     record_download,
     record_many,
@@ -118,6 +120,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.audit_event import AuditAction, AuditTargetType
+from models.collection import VirtualCollection
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
@@ -308,17 +311,12 @@ _EDIT_AUDIT_FIELDS: Final[dict[str, tuple[str, ...]]] = {
 def _record_rom_update(request: Request, before: Rom, after: Rom) -> None:
     """Record an edit as a rematch when a provider id moved, else as the fields it changed."""
     providers = {
-        f: getattr(after, f)
-        for f in MATCH_ID_FIELDS
-        if getattr(before, f) != getattr(after, f)
+        f: getattr(after, f) for f in changed_fields(before, after, MATCH_ID_FIELDS)
     }
-    # A save writes "" over a column that was null, which is no change.
     changed = [
         label
         for label, columns in _EDIT_AUDIT_FIELDS.items()
-        if any(
-            (getattr(before, c) or None) != (getattr(after, c) or None) for c in columns
-        )
+        if changed_fields(before, after, columns)
     ]
     if not providers and not changed:
         return
@@ -326,12 +324,12 @@ def _record_rom_update(request: Request, before: Rom, after: Rom) -> None:
     data: dict[str, Any] = {"changed": changed}
     for field in ("name", "fs_name"):
         if field in changed:
-            data[field] = {"from": getattr(before, field), "to": getattr(after, field)}
+            data[field] = change(before, after, field)
     if providers:
         data["providers"] = providers
     record(
         AuditAction.ROM_MATCH if providers else AuditAction.ROM_EDIT,
-        AuditActor.from_request(request),
+        request,
         AuditTarget.of_rom(after),
         data,
     )
@@ -884,30 +882,23 @@ def _bulk_download_target(
     if platform_id:
         platform = db_platform_handler.get_platform(platform_id)
         return AuditTarget.of_platform(platform) if platform else None
+    if virtual_collection_id:
+        name, _ = VirtualCollection.from_id(virtual_collection_id)
+        return AuditTarget(
+            AuditTargetType.VIRTUAL_COLLECTION, virtual_collection_id, name
+        )
     if collection_id:
         collection = db_collection_handler.get_collection(collection_id)
-        visible = collection and (collection.is_public or collection.user_id == user_id)
-        return AuditTarget(
-            AuditTargetType.COLLECTION,
-            collection_id,
-            collection.name if collection and visible else None,
-        )
-    if smart_collection_id:
-        smart = db_collection_handler.get_smart_collection(smart_collection_id)
-        visible = smart and (smart.is_public or smart.user_id == user_id)
-        return AuditTarget(
-            AuditTargetType.SMART_COLLECTION,
-            smart_collection_id,
-            smart.name if smart and visible else None,
-        )
-    if virtual_collection_id:
-        virtual = db_collection_handler.get_virtual_collection(virtual_collection_id)
-        return AuditTarget(
-            AuditTargetType.VIRTUAL_COLLECTION,
-            virtual_collection_id,
-            virtual.name if virtual else None,
-        )
-    return None
+    elif smart_collection_id:
+        collection = db_collection_handler.get_smart_collection(smart_collection_id)
+    else:
+        return None
+    if collection is None:
+        return None
+    target = AuditTarget.of_collection(collection)
+    if collection.is_public or collection.user_id == user_id:
+        return target
+    return AuditTarget(target.type, target.id, None)
 
 
 @protected_route(
@@ -1016,7 +1007,7 @@ async def download_roms(
     )
     record_download(
         request,
-        _bulk_download_target(
+        lambda: _bulk_download_target(
             request.user.id,
             platform_id,
             collection_id,
@@ -1705,7 +1696,7 @@ async def create_physical_rom(
     refresh_affected_smart_collections([added_rom.id])
     record(
         AuditAction.ROM_CREATE,
-        AuditActor.from_request(request),
+        request,
         AuditTarget.of_rom(added_rom),
         {"physical": True},
     )
@@ -1800,7 +1791,7 @@ async def update_rom(
         refresh_affected_smart_collections([id])
         record(
             AuditAction.ROM_UNMATCH,
-            AuditActor.from_request(request),
+            request,
             unmatch_target,
             {"providers": unmatched},
         )

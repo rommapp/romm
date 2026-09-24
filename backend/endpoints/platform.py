@@ -9,7 +9,7 @@ from decorators.auth import protected_route
 from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
-from handler.audit_handler import AuditActor, AuditTarget, record
+from handler.audit_handler import AuditTarget, changed_fields, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
@@ -58,7 +58,7 @@ async def add_platform(
     platform = db_platform_handler.add_platform(scanned_platform)
     record(
         AuditAction.PLATFORM_CREATE,
-        AuditActor.from_request(request),
+        request,
         AuditTarget.of_platform(platform),
         {"fs_slug": fs_slug},
     )
@@ -165,11 +165,10 @@ async def update_platform(
         raise PlatformNotFoundInDatabaseException(id)
     assert_platform_visible(request, platform_db)
 
-    changed = [
-        field
-        for field, value in (("custom_name", custom_name), ("description", description))
-        if value is not None and value != getattr(platform_db, field)
-    ]
+    submitted = {"custom_name": custom_name, "description": description}
+    changed = changed_fields(
+        platform_db, {k: v for k, v in submitted.items() if v is not None}, submitted
+    )
     if custom_name is not None:
         platform_db.custom_name = custom_name
     if description is not None:
@@ -178,7 +177,7 @@ async def update_platform(
     if changed:
         record(
             AuditAction.PLATFORM_EDIT,
-            AuditActor.from_request(request),
+            request,
             AuditTarget.of_platform(platform_db),
             {"changed": changed},
         )
@@ -211,7 +210,7 @@ async def delete_platform(
     db_platform_handler.delete_platform(id)
     record(
         AuditAction.PLATFORM_DELETE,
-        AuditActor.from_request(request),
+        request,
         AuditTarget.of_platform(platform),
         {"fs_slug": platform.fs_slug},
     )

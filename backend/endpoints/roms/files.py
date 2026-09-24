@@ -12,7 +12,7 @@ from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema, RomFileUserSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from handler.audit_handler import AuditActor, AuditTarget, record, record_download
+from handler.audit_handler import AuditTarget, record, record_download
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_can, assert_rom_visible, get_permissions
 from handler.database import db_rom_handler
@@ -71,6 +71,11 @@ async def get_romfile(
     return RomFileSchema.model_validate(file)
 
 
+def _rom_target(rom_id: int) -> AuditTarget | None:
+    rom = db_rom_handler.get_rom_visibility_label(rom_id)
+    return AuditTarget.of_rom(rom) if rom else None
+
+
 @protected_route(
     router.get,
     "/{id}/files/content/{file_name}",
@@ -97,7 +102,7 @@ async def get_romfile_content(
 
     # 404-mask file bytes of roms hidden from the caller: resolve the parent
     # rom and apply its visibility before serving any content.
-    rom = db_rom_handler.get_rom_visibility_label(file.rom_id)
+    rom = db_rom_handler.get_rom_visibility(file.rom_id)
     if not rom:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -138,7 +143,7 @@ async def get_romfile_content(
     if disposition == "attachment":
         record_download(
             request,
-            AuditTarget.of_rom(rom),
+            lambda: _rom_target(file.rom_id),
             f"file:{file.id}",
             {
                 "file_name": file.file_name,
@@ -234,7 +239,7 @@ async def delete_rom_file(
     )
     record(
         AuditAction.ROM_FILE_DELETE,
-        AuditActor.from_request(request),
+        request,
         AuditTarget.of_rom(rom),
         {"file_id": file_id, "file_name": rom_file.file_name},
     )

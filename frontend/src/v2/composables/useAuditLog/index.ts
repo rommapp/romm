@@ -2,10 +2,7 @@ import { computed, ref, shallowRef } from "vue";
 import type { AuditEventSchema } from "@/__generated__";
 import auditApi, { type AuditEventsQuery } from "@/services/api/audit";
 
-export type AuditLogFilters = Omit<
-  AuditEventsQuery,
-  "maxId" | "limit" | "offset"
->;
+type AuditLogFilters = Omit<AuditEventsQuery, "maxId" | "limit" | "offset">;
 
 /** Pages through the audit log, newest first, pinned to what the first page saw. */
 export function useAuditLog(pageSize = 50) {
@@ -68,5 +65,5 @@ export function useAuditLog(pageSize = 50) {
     }
   }
 
-  return { events, total, loading, loadingMore, hasMore, reset, loadMore };
+  return { events, loading, hasMore, reset, loadMore };
 }

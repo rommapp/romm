@@ -5,6 +5,7 @@ import { defineComponent, reactive } from "vue";
 import type { AuditEventSchema } from "@/__generated__";
 import i18n, { loadLocale } from "@/locales";
 import auditApi from "@/services/api/audit";
+import { makeAuditEvent } from "@/v2/utils/auditEvents.fixtures";
 import EventLog from "./EventLog.vue";
 
 const route = reactive<{ query: Record<string, string> }>({ query: {} });
@@ -28,22 +29,16 @@ function event(
   action: string,
   data: AuditEventSchema["data"],
 ): AuditEventSchema {
-  return {
+  return makeAuditEvent({
     id,
     action,
-    category: null,
-    occurred_at: "2026-09-24T10:00:00Z",
-    actor_kind: "user",
-    actor: null,
     actor_name: "maria",
-    target_type: "rom",
     target_id: "33",
     target_name: "Hollow Knight",
     ip_address: "192.168.1.20",
-    device_id: null,
     device_name: "Steam Deck",
     data,
-  };
+  });
 }
 
 const EVENTS = [

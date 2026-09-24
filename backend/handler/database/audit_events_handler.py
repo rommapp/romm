@@ -2,7 +2,7 @@ from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, String, cast, delete, func, or_, select
+from sqlalchemy import ColumnElement, Select, String, cast, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from decorators.database import begin_session
@@ -37,12 +37,16 @@ class AuditEventFilters:
     hidden_platform_ids: Collection[int] = field(default_factory=frozenset)
 
 
-def _not_targeting(target_type: str, ids: Collection[int]):
+def _not_targeting(
+    target_type: str, ids: Collection[int] | Select
+) -> ColumnElement[bool]:
+    """Events other than those on the given targets of one type."""
+    excluded = ids if isinstance(ids, Select) else [str(i) for i in ids]
     return or_(
         AuditEvent.target_type.is_(None),
         AuditEvent.target_type != target_type,
         AuditEvent.target_id.is_(None),
-        AuditEvent.target_id.not_in([str(i) for i in ids]),
+        AuditEvent.target_id.not_in(excluded),
     )
 
 
@@ -100,14 +104,10 @@ class DBAuditEventsHandler(DBBaseHandler):
             clauses.append(_not_targeting("platform", filters.hidden_platform_ids))
             # A platform's hide covers its roms too.
             clauses.append(
-                or_(
-                    AuditEvent.target_type.is_(None),
-                    AuditEvent.target_type != "rom",
-                    AuditEvent.target_id.is_(None),
-                    AuditEvent.target_id.not_in(
-                        select(cast(Rom.id, String)).where(
-                            Rom.platform_id.in_(filters.hidden_platform_ids)
-                        )
+                _not_targeting(
+                    "rom",
+                    select(cast(Rom.id, String)).where(
+                        Rom.platform_id.in_(filters.hidden_platform_ids)
                     ),
                 )
             )

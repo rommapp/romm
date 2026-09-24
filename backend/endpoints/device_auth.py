@@ -27,7 +27,7 @@ from endpoints.responses.device_auth import (
     DeviceAuthTokenPayload,
     DeviceAuthTokenResponse,
 )
-from handler.audit_handler import AuditActor, AuditTarget, record
+from handler.audit_handler import AuditTarget, record
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_client_token_handler, db_device_handler
@@ -258,7 +258,7 @@ def approve(
 
     record(
         AuditAction.DEVICE_APPROVE,
-        AuditActor.from_request(request),
+        request,
         AuditTarget(AuditTargetType.DEVICE, device.id, device_name),
         {
             "client": data.get("client"),

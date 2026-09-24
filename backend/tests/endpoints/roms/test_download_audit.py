@@ -1,13 +1,12 @@
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.audit_events import recorded_events
 
 from handler.database import (
     db_audit_event_handler,
     db_collection_handler,
     db_rom_handler,
 )
-from handler.database.audit_events_handler import AuditEventFilters
-from models.audit_event import AuditEvent
 from models.collection import Collection
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -16,13 +15,6 @@ from models.user import User
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
-
-
-def _events() -> list[AuditEvent]:
-    rows, _, _ = db_audit_event_handler.get_events(
-        AuditEventFilters(), limit=50, offset=0
-    )
-    return [event for event, _ in rows]
 
 
 class TestRomContent:
@@ -37,7 +29,7 @@ class TestRomContent:
             )
             assert response.status_code == status.HTTP_200_OK
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "rom.download"
         assert event.actor_name == "test_admin"
         assert (event.target_type, event.target_id) == ("rom", str(rom.id))
@@ -54,7 +46,7 @@ class TestRomContent:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert _events() == []
+        assert recorded_events() == []
 
     def test_a_resumed_transfer_is_not_a_new_download(
         self, client: TestClient, access_token: str, rom: Rom, rom_file: RomFile
@@ -65,7 +57,7 @@ class TestRomContent:
             follow_redirects=False,
         )
 
-        assert _events() == []
+        assert recorded_events() == []
 
     def test_a_head_request_is_not_a_download(
         self, client: TestClient, access_token: str, rom: Rom, rom_file: RomFile
@@ -76,7 +68,7 @@ class TestRomContent:
             follow_redirects=False,
         )
 
-        assert _events() == []
+        assert recorded_events() == []
 
     def test_a_failing_recorder_still_serves_the_file(
         self,
@@ -121,7 +113,7 @@ class TestRomFileContent:
             headers=_auth(access_token),
         )
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "rom.download"
         assert event.data["file_ids"] == [file.id]
 
@@ -135,7 +127,7 @@ class TestRomFileContent:
             headers=_auth(access_token),
         )
 
-        assert _events() == []
+        assert recorded_events() == []
 
 
 def test_a_bulk_download_is_one_event_on_its_platform(
@@ -148,7 +140,7 @@ def test_a_bulk_download_is_one_event_on_its_platform(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    [event] = _events()
+    [event] = recorded_events()
     assert event.action == "rom.bulk_download"
     assert (event.target_type, event.target_id) == ("platform", str(platform.id))
     assert event.data["count"] == 1
@@ -178,5 +170,5 @@ def test_someone_elses_private_collection_is_kept_by_id_only(
         headers=_auth(access_token),
     )
 
-    [event] = _events()
+    [event] = recorded_events()
     assert (event.target_id, event.target_name) == (str(private.id), None)

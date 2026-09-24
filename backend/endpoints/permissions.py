@@ -16,7 +16,7 @@ from endpoints.responses.permission import (
     UserPermissionsSchema,
     UserPermissionsUpdate,
 )
-from handler.audit_handler import AuditActor, AuditTarget, record
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_admin, get_permissions
 from handler.database import (
@@ -102,14 +102,17 @@ def _group_target(group: PermissionGroup) -> AuditTarget:
 def _hidden_target(entity: PermEntity, entity_id: int) -> AuditTarget | None:
     if entity == PermEntity.ROMS:
         rom = db_rom_handler.get_rom_visibility_label(entity_id)
-        name = (rom.name or rom.fs_name) if rom else None
-        return AuditTarget(AuditTargetType.ROM, entity_id, name)
+        return (
+            AuditTarget.of_rom(rom)
+            if rom
+            else AuditTarget(AuditTargetType.ROM, entity_id, None)
+        )
     if entity == PermEntity.PLATFORMS:
         platform = db_platform_handler.get_platform(entity_id)
-        return AuditTarget(
-            AuditTargetType.PLATFORM,
-            entity_id,
-            (platform.custom_name or platform.name) if platform else None,
+        return (
+            AuditTarget.of_platform(platform)
+            if platform
+            else AuditTarget(AuditTargetType.PLATFORM, entity_id, None)
         )
     return None
 
@@ -152,7 +155,7 @@ def create_permission_group(
     )
     record(
         AuditAction.PERMISSION_GROUP_CREATE,
-        AuditActor.from_request(request),
+        request,
         _group_target(group),
         {"grants": len(body.grants), "is_default": body.is_default},
     )
@@ -207,7 +210,7 @@ async def update_permission_group(
         await emit_permissions_changed(member_id)
     record(
         AuditAction.PERMISSION_GROUP_EDIT,
-        AuditActor.from_request(request),
+        request,
         _group_target(updated),
         {"changed": sorted(body.model_dump(exclude_none=True))},
     )
@@ -236,7 +239,7 @@ async def delete_permission_group(request: Request, id: int) -> None:
     db_permission_handler.delete_group(id)
     record(
         AuditAction.PERMISSION_GROUP_DELETE,
-        AuditActor.from_request(request),
+        request,
         _group_target(group),
         {"members": len(member_ids)},
     )
@@ -314,7 +317,7 @@ async def update_user_permissions(
     group = db_permission_handler.get_group(group_id) if group_id is not None else None
     record(
         AuditAction.USER_PERMISSIONS_EDIT,
-        AuditActor.from_request(request),
+        request,
         AuditTarget.of_user(user),
         {
             "group": group.name if group else None,
@@ -355,8 +358,8 @@ async def add_hidden_entity(
     )
     record(
         AuditAction.VISIBILITY_HIDE,
-        AuditActor.from_request(request),
-        _hidden_target(body.entity, body.entity_id),
+        request,
+        lambda: _hidden_target(body.entity, body.entity_id),
         {
             "from": _principal(body.user_id, body.group_id),
             "entity": body.entity,
@@ -392,8 +395,8 @@ async def remove_hidden_entity(
     )
     record(
         AuditAction.VISIBILITY_UNHIDE,
-        AuditActor.from_request(request),
-        _hidden_target(entity, entity_id),
+        request,
+        lambda: _hidden_target(entity, entity_id),
         {
             "from": _principal(user_id, group_id),
             "entity": entity,

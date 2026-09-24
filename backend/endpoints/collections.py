@@ -20,7 +20,7 @@ from exceptions.endpoint_exceptions import (
     CollectionNotFoundInDatabaseException,
     CollectionPermissionError,
 )
-from handler.audit_handler import AuditActor, AuditTarget, record
+from handler.audit_handler import AuditTarget, changed_fields, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_collection_handler, db_rom_handler
@@ -87,28 +87,13 @@ def _hide_collection_roms(
 def _record_collection(
     request: Request,
     action: AuditAction,
-    collection: Collection,
+    collection: Collection | SmartCollection,
     data: dict[str, Any] | None = None,
 ) -> None:
     # Every heart toggle goes through the favourites collection; that's not news.
-    if collection.is_favorite:
+    if getattr(collection, "is_favorite", False):
         return
-    record(
-        action,
-        AuditActor.from_request(request),
-        AuditTarget.of_collection(collection),
-        data,
-    )
-
-
-def _record_smart_collection(
-    request: Request, action: AuditAction, collection: SmartCollection
-) -> None:
-    record(
-        action,
-        AuditActor.from_request(request),
-        AuditTarget.of_smart_collection(collection),
-    )
+    record(action, request, AuditTarget.of_collection(collection), data)
 
 
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
@@ -236,9 +221,7 @@ async def add_smart_collection(
         db_collection_handler.refresh_smart_collection(created_smart_collection.id)
         or created_smart_collection
     )
-    _record_smart_collection(
-        request, AuditAction.SMART_COLLECTION_CREATE, smart_collection
-    )
+    _record_collection(request, AuditAction.SMART_COLLECTION_CREATE, smart_collection)
 
     return SmartCollectionSchema.model_validate(smart_collection)
 
@@ -547,11 +530,9 @@ async def update_collection(
     updated_collection = db_collection_handler.update_collection(
         id, cleaned_data, parsed_rom_ids
     )
-    changed = [
-        field
-        for field in ("name", "description", "is_public")
-        if cleaned_data[field] != getattr(collection, field)
-    ]
+    changed = changed_fields(
+        collection, cleaned_data, ("name", "description", "is_public")
+    )
     new_artwork = artwork is not None and artwork.filename is not None
     new_cover_url = url_cover is not None and url_cover != collection.url_cover
     if remove_cover or new_artwork or new_cover_url:
@@ -704,9 +685,7 @@ async def update_smart_collection(
     smart_collection = (
         db_collection_handler.refresh_smart_collection(id) or updated_smart_collection
     )
-    _record_smart_collection(
-        request, AuditAction.SMART_COLLECTION_EDIT, smart_collection
-    )
+    _record_collection(request, AuditAction.SMART_COLLECTION_EDIT, smart_collection)
 
     return SmartCollectionSchema.model_validate(smart_collection)
 
@@ -761,6 +740,4 @@ async def delete_smart_collection(
 
     log.info(f"Deleting {hl(smart_collection.name, color=BLUE)} from database")
     db_collection_handler.delete_smart_collection(id)
-    _record_smart_collection(
-        request, AuditAction.SMART_COLLECTION_DELETE, smart_collection
-    )
+    _record_collection(request, AuditAction.SMART_COLLECTION_DELETE, smart_collection)

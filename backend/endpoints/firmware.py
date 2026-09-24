@@ -122,7 +122,7 @@ async def add_firmware(
 
     record(
         AuditAction.FIRMWARE_UPLOAD,
-        AuditActor.from_request(request),
+        request,
         AuditTarget.of_platform(db_platform),
         {"file_names": [file.filename for file in files if file.filename]},
     )

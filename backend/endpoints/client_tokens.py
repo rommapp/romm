@@ -10,7 +10,7 @@ from endpoints.responses.client_token import (
     ClientTokenPairSchema,
     ClientTokenSchema,
 )
-from handler.audit_handler import AuditActor, AuditTarget, record
+from handler.audit_handler import AuditTarget, record
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_client_token_handler
@@ -50,7 +50,7 @@ class ClientTokenExchangePayload(BaseModel):
 def _record_token(request: Request, action: AuditAction, token: ClientToken) -> None:
     record(
         action,
-        AuditActor.from_request(request),
+        request,
         AuditTarget(AuditTargetType.CLIENT_TOKEN, token.id, token.name),
         {"owner_id": token.user_id, "scopes": token.scopes.split()},
     )

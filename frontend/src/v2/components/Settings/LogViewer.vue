@@ -476,7 +476,7 @@ html[data-bp~="sm-and-down"] .r-v2-logs__spacer {
 .r-v2-logs__scroller {
   height: 100%;
 }
-/* The rows' font, so the `ch` in the content width measures their characters. */
+/* The rows' font, set here so the `ch` in the content width measures them. */
 .r-v2-logs__scroller :deep(.r-virtual-scroller__inner) {
   font-family: var(--r-font-family-mono);
   font-size: var(--r-font-size-sm);
@@ -490,8 +490,6 @@ html[data-bp~="sm-and-down"] .r-v2-logs__spacer {
   box-sizing: border-box;
   height: 24px;
   padding: 0 16px;
-  font-family: var(--r-font-family-mono);
-  font-size: var(--r-font-size-sm);
   line-height: 22px;
   white-space: nowrap;
   /* Structural guard: the row is one line tall, so anything taller would

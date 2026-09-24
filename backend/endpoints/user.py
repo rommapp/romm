@@ -10,7 +10,14 @@ from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
-from handler.audit_handler import AuditActor, AuditTarget, client_ip, record
+from handler.audit_handler import (
+    AuditActor,
+    AuditTarget,
+    change,
+    changed_fields,
+    client_ip,
+    record,
+)
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
@@ -53,11 +60,9 @@ _USER_EDIT_AUDIT_FIELDS: Final = (
 def _record_user_edit(
     request: Request, before: User, after: User, cleaned_data: dict[str, Any]
 ) -> None:
-    changed = [
-        field
-        for field in _USER_EDIT_AUDIT_FIELDS
-        if field in cleaned_data and getattr(before, field) != getattr(after, field)
-    ]
+    changed = changed_fields(
+        before, after, [f for f in _USER_EDIT_AUDIT_FIELDS if f in cleaned_data]
+    )
     if not changed:
         return
     data: dict[str, Any] = {
@@ -65,13 +70,8 @@ def _record_user_edit(
     }
     for field in ("username", "role", "enabled"):
         if field in changed:
-            data[field] = {"from": getattr(before, field), "to": getattr(after, field)}
-    record(
-        AuditAction.USER_EDIT,
-        AuditActor.from_request(request),
-        AuditTarget.of_user(after),
-        data,
-    )
+            data[field] = change(before, after, field)
+    record(AuditAction.USER_EDIT, request, AuditTarget.of_user(after), data)
 
 
 @protected_route(
@@ -158,7 +158,7 @@ def add_user(
     created_user = db_user_handler.add_user(user)
     record(
         AuditAction.USER_CREATE,
-        AuditActor.from_request(request),
+        request,
         AuditTarget.of_user(created_user),
         {"role": created_user.role},
     )
@@ -605,7 +605,7 @@ async def delete_user(
     db_user_handler.delete_user(id)
     record(
         AuditAction.USER_DELETE,
-        AuditActor.from_request(request),
+        request,
         AuditTarget.of_user(user),
         {"role": user.role},
     )

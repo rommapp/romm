@@ -4,6 +4,7 @@ from typing import Any
 import pytest
 from starlette.authentication import UnauthenticatedUser
 from starlette.requests import Request
+from tests.audit_events import recorded_events
 
 from handler import audit_handler
 from handler.audit_handler import (
@@ -16,9 +17,8 @@ from handler.audit_handler import (
     record_many,
 )
 from handler.database import db_audit_event_handler
-from handler.database.audit_events_handler import AuditEventFilters
 from handler.redis_handler import sync_cache
-from models.audit_event import AuditAction, AuditActorKind, AuditEvent, AuditTargetType
+from models.audit_event import AuditAction, AuditActorKind, AuditTargetType
 from models.user import User
 from utils.datetime import to_utc
 
@@ -54,13 +54,6 @@ def _request(
             "session": session or {},
         }
     )
-
-
-def _events() -> list[AuditEvent]:
-    rows, _, _ = db_audit_event_handler.get_events(
-        AuditEventFilters(), limit=50, offset=0
-    )
-    return [event for event, _ in rows]
 
 
 class TestActorFromRequest:
@@ -109,7 +102,7 @@ class TestRecord:
             {"changed": ["name"]},
         )
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "rom.edit"
         assert event.actor_id == admin_user.id
         assert event.actor_name == "test_admin"
@@ -134,7 +127,7 @@ class TestRecord:
             data={"rom_ids": list(range(80)), "name": "a\x00b"},
         )
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.data["rom_ids"] == list(range(50))
         assert event.data["truncated"] is True
         assert event.data["name"] == "ab"
@@ -158,7 +151,7 @@ class TestRecord:
             ]
         )
 
-        [event] = _events()
+        [event] = recorded_events()
         assert to_utc(event.occurred_at) > now - timedelta(days=2)
 
     def test_for_user_id_without_a_user_is_the_system(self):
@@ -191,24 +184,24 @@ class TestRecordDownload:
 
         record_download(_request(admin_user, headers=headers), ROM, "12")
 
-        assert len(_events()) == (1 if counted else 0)
+        assert len(recorded_events()) == (1 if counted else 0)
 
     def test_a_head_request_never_counts(self, admin_user: User):
         record_download(_request(admin_user, method="HEAD"), ROM, "12")
 
-        assert _events() == []
+        assert recorded_events() == []
 
     def test_a_repeat_within_the_window_counts_once(self, admin_user: User):
         record_download(_request(admin_user), ROM, "12")
         record_download(_request(admin_user), ROM, "12")
         record_download(_request(admin_user), ROM, "13")
 
-        assert len(_events()) == 2
+        assert len(recorded_events()) == 2
 
     def test_an_anonymous_download_is_kept_by_ip(self):
         record_download(_request(headers={"user-agent": "Tinfoil/19.0"}), ROM, "12")
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.actor_kind == "anonymous"
         assert event.actor_id is None
         assert event.ip_address == "203.0.113.9"

@@ -36,7 +36,7 @@ from handler.database import db_user_handler
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.audit_event import AuditAction, AuditActorKind
+from models.audit_event import AuditAction
 from models.user import User
 from utils.auth import create_or_find_web_device
 from utils.router import APIRouter
@@ -87,7 +87,7 @@ def _record_login_failure(
     actor = (
         AuditActor.for_user(user, ip_address=ip_address)
         if user
-        else AuditActor(AuditActorKind.ANONYMOUS, ip_address=ip_address)
+        else AuditActor.anonymous(ip_address)
     )
     record(
         AuditAction.AUTH_LOGIN_FAILED,
@@ -107,7 +107,7 @@ def _record_password_reset_request(ip_address: str | None, user: User) -> None:
     ):
         record(
             AuditAction.AUTH_PASSWORD_RESET_REQUEST,
-            AuditActor(AuditActorKind.ANONYMOUS, ip_address=ip_address),
+            AuditActor.anonymous(ip_address),
             AuditTarget.of_user(user),
         )
 

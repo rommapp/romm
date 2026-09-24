@@ -3,15 +3,13 @@ from unittest.mock import patch
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.audit_events import recorded_events
 
 from config.config_manager import config_manager as cm
 from handler.database import (
-    db_audit_event_handler,
     db_collection_handler,
     db_rom_handler,
 )
-from handler.database.audit_events_handler import AuditEventFilters
-from models.audit_event import AuditEvent
 from models.collection import Collection
 from models.platform import Platform
 from models.rom import Rom
@@ -20,13 +18,6 @@ from models.user import User
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
-
-
-def _events() -> list[AuditEvent]:
-    rows, _, _ = db_audit_event_handler.get_events(
-        AuditEventFilters(), limit=50, offset=0
-    )
-    return [event for event, _ in rows]
 
 
 def _collection(user: User, *, favorite: bool = False) -> Collection:
@@ -52,7 +43,7 @@ class TestRomUpdate:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "rom.edit"
         assert event.target_name == "Metroid"
         assert event.data["changed"] == ["name"]
@@ -67,7 +58,7 @@ class TestRomUpdate:
             data={"sgdb_id": "4242"},
         )
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "rom.match"
         assert event.data["providers"] == {"sgdb_id": 4242}
 
@@ -80,7 +71,7 @@ class TestRomUpdate:
             data={"name": "test_rom"},
         )
 
-        assert _events() == []
+        assert recorded_events() == []
 
     def test_an_unmatch_records_the_ids_it_dropped(
         self, client: TestClient, access_token: str, rom: Rom
@@ -93,7 +84,7 @@ class TestRomUpdate:
             headers=_auth(access_token),
         )
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "rom.unmatch"
         assert event.data["providers"] == {"sgdb_id": 4242}
 
@@ -106,7 +97,7 @@ def test_a_deleted_rom_keeps_its_name(client: TestClient, access_token: str, rom
     )
 
     assert response.status_code == status.HTTP_200_OK
-    [event] = _events()
+    [event] = recorded_events()
     assert event.action == "rom.delete"
     assert (event.target_id, event.target_name) == (str(rom.id), "test_rom")
     assert event.data["deleted_from_fs"] is False
@@ -121,7 +112,7 @@ def test_a_platform_rename_is_an_edit(
         json={"custom_name": "Famicom"},
     )
 
-    [event] = _events()
+    [event] = recorded_events()
     assert event.action == "platform.edit"
     assert event.target_name == "Famicom"
     assert event.data["changed"] == ["custom_name"]
@@ -138,7 +129,7 @@ def test_a_config_change_names_its_setting(client: TestClient, access_token: str
             },
         )
 
-    [event] = _events()
+    [event] = recorded_events()
     assert event.action == "config.update"
     assert event.data == {
         "setting": "exclusion",
@@ -156,7 +147,7 @@ class TestCollections:
             headers=_auth(access_token),
         )
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "collection.create"
         assert event.target_name == "Shelf"
 
@@ -171,7 +162,7 @@ class TestCollections:
             headers=_auth(access_token),
         )
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "collection.add_roms"
         assert event.data == {"count": 1, "rom_ids": [rom.id]}
 
@@ -193,4 +184,4 @@ class TestCollections:
             headers=_auth(access_token),
         )
 
-        assert _events() == []
+        assert recorded_events() == []

@@ -5,12 +5,10 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.audit_events import recorded_events
 
 from endpoints import auth as auth_endpoints
 from handler.auth import auth_handler
-from handler.database import db_audit_event_handler
-from handler.database.audit_events_handler import AuditEventFilters
-from models.audit_event import AuditEvent
 from models.user import User
 from tasks.tasks import Task, TaskType
 
@@ -24,13 +22,6 @@ def _basic(username: str, password: str) -> dict[str, str]:
     return {"Authorization": f"Basic {encoded}"}
 
 
-def _events() -> list[AuditEvent]:
-    rows, _, _ = db_audit_event_handler.get_events(
-        AuditEventFilters(), limit=50, offset=0
-    )
-    return [event for event, _ in rows]
-
-
 class TestLogin:
     def test_a_session_login_names_its_device(
         self, client: TestClient, admin_user: User
@@ -40,7 +31,7 @@ class TestLogin:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "auth.login"
         assert event.actor_id == admin_user.id
         assert event.device_id is not None
@@ -53,7 +44,7 @@ class TestLogin:
             response = client.post("/api/login", headers=_basic("test_admin", "wrong"))
             assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "auth.login_failed"
         assert event.actor_id == admin_user.id
         assert event.data["reason"] == "credentials"
@@ -61,7 +52,7 @@ class TestLogin:
     def test_a_failure_for_an_unknown_name_is_anonymous(self, client: TestClient):
         client.post("/api/login", headers=_basic("nobody", "wrong"))
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.actor_kind == "anonymous"
         assert event.data["username"] == "nobody"
 
@@ -71,7 +62,7 @@ class TestLogin:
         for i in range(6):
             client.post("/api/login", headers=_basic(f"guess{i}", "wrong"))
 
-        assert len(_events()) == 3
+        assert len(recorded_events()) == 3
 
     def test_repeated_reset_requests_are_one(
         self, client: TestClient, admin_user: User, mocker
@@ -81,7 +72,7 @@ class TestLogin:
         for _ in range(2):
             client.post("/api/forgot-password", json={"username": "test_admin"})
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "auth.password_reset_request"
         assert (event.actor_kind, event.target_name) == ("anonymous", "test_admin")
 
@@ -96,7 +87,7 @@ class TestLogin:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        [event] = _events()
+        [event] = recorded_events()
         assert (event.action, event.data["method"]) == ("auth.login", "token")
 
 
@@ -110,7 +101,7 @@ class TestUsers:
             headers=_auth(access_token),
         )
 
-        [event] = _events()
+        [event] = recorded_events()
         assert event.action == "user.edit"
         assert event.target_name == "test_viewer"
         assert event.data["changed"] == ["role"]
@@ -125,14 +116,14 @@ class TestUsers:
             headers=_auth(access_token),
         )
 
-        assert _events() == []
+        assert recorded_events() == []
 
     def test_a_deleted_user_keeps_their_name(
         self, client: TestClient, access_token: str, viewer_user: User
     ):
         client.delete(f"/api/users/{viewer_user.id}", headers=_auth(access_token))
 
-        [event] = _events()
+        [event] = recorded_events()
         assert (event.action, event.target_name) == ("user.delete", "test_viewer")
 
 
@@ -156,7 +147,7 @@ def test_a_manual_task_run_is_recorded(
     with patch("endpoints.tasks.RUNNABLE_TASKS", {"cleanup": task}):
         client.post("/api/tasks/run/cleanup", headers=_auth(access_token))
 
-    [event] = _events()
+    [event] = recorded_events()
     assert event.action == "task.run"
     assert (event.target_id, event.target_name) == ("cleanup", "Cleanup")
     assert event.data["job_id"] == "job-1"
@@ -177,7 +168,7 @@ class TestClientTokens:
     ):
         client.delete(f"/api/client-tokens/{token_id}", headers=_auth(access_token))
 
-        revoke, create = _events()
+        revoke, create = recorded_events()
         assert create.action == "client_token.create"
         assert revoke.action == "client_token.revoke"
         assert revoke.target_name == "Argosy"
@@ -193,5 +184,5 @@ def test_a_new_permission_group_is_recorded(client: TestClient, access_token: st
         headers=_auth(access_token),
     )
 
-    [event] = _events()
+    [event] = recorded_events()
     assert (event.action, event.target_name) == ("permission_group.create", name)

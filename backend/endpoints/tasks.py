@@ -24,7 +24,7 @@ from endpoints.responses import (
     WatcherTaskStatusResponse,
 )
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
-from handler.audit_handler import AuditActor, AuditTarget, record
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.redis_handler import (
     ALL_QUEUES,
@@ -339,7 +339,7 @@ async def run_single_task(
     )
     record(
         AuditAction.TASK_RUN,
-        AuditActor.from_request(request),
+        request,
         AuditTarget(AuditTargetType.TASK, task_name, task_instance.title),
         {"job_id": job.id, "kwargs": task_kwargs or {}},
     )

@@ -3,28 +3,13 @@ import type { AuditEventSchema } from "@/__generated__";
 import { loadLocale } from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
 import { describeAuditEvent } from "@/v2/utils/auditEvents";
+import { makeAuditEvent } from "@/v2/utils/auditEvents.fixtures";
 
 function event(
   action: string,
   overrides: Partial<AuditEventSchema> = {},
 ): AuditEventSchema {
-  return {
-    id: 1,
-    action,
-    category: null,
-    occurred_at: "2026-09-24T10:00:00Z",
-    actor_kind: "user",
-    actor: null,
-    actor_name: "zurdi",
-    target_type: "rom",
-    target_id: "12",
-    target_name: "Metroid",
-    ip_address: null,
-    device_id: null,
-    device_name: null,
-    data: {},
-    ...overrides,
-  };
+  return makeAuditEvent({ action, ...overrides });
 }
 
 beforeAll(async () => {
@@ -67,7 +52,7 @@ describe("describeAuditEvent", () => {
       }),
     );
 
-    expect(view.detail).toBe("Changed: name, file name · metroid → Metroid");
+    expect(view.detail).toBe("Changed: name and file name · metroid → Metroid");
   });
 
   it("names the providers of a manual match", () => {
@@ -76,7 +61,7 @@ describe("describeAuditEvent", () => {
     );
 
     expect(view.title).toBe("Matched Metroid");
-    expect(view.detail).toBe("IGDB, SGDB");
+    expect(view.detail).toBe("IGDB and SGDB");
   });
 
   it("doesn't link to what was deleted", () => {
