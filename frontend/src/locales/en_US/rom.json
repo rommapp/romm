@@ -144,7 +144,6 @@
   "download-all": "Download all",
   "download-file": "Download file",
   "download-link-copied": "Download link copied to clipboard.",
-  "download-link-copy-failed": "Couldn't copy download link.",
   "download-named": "Download {name}",
   "download-selected": "Download selected",
   "edit-labels": "Edit labels",

@@ -33,6 +33,7 @@
   "clipboard-copied": "{label} in die Zwischenablage kopiert",
   "clipboard-copy-failed": "Kopieren in die Zwischenablage fehlgeschlagen. Dies erfordert eine sichere (HTTPS) Verbindung.",
   "clipboard-unavailable": "Zwischenablage in diesem Kontext nicht verfügbar. Markiere den Link unten, um ihn manuell zu kopieren.",
+  "clipboard-write-failed": "Kopieren in die Zwischenablage fehlgeschlagen",
   "close": "Schließen",
   "cloud": "Cloud",
   "collapse": "Einklappen",

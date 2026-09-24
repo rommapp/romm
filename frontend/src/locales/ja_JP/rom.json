@@ -144,7 +144,6 @@
   "download-all": "すべてダウンロード",
   "download-file": "ファイルをダウンロード",
   "download-link-copied": "ダウンロードリンクをクリップボードにコピーしました。",
-  "download-link-copy-failed": "ダウンロードリンクをコピーできませんでした。",
   "download-named": "{name}をダウンロード",
   "download-selected": "選択をダウンロード",
   "edit-labels": "ラベルを編集",

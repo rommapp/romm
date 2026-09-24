@@ -5,11 +5,13 @@ import { RBtn, RSelect, RTextField, RTooltip, RVirtualScroller } from "@v2/lib";
 import { computed, nextTick, onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/services/api";
+import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
+const clipboard = useClipboard();
 
 interface LogEntry {
   ts: number;
@@ -219,21 +221,13 @@ function asLine(e: LogRow) {
 }
 
 async function copyLogs() {
-  try {
-    await navigator.clipboard.writeText(filtered.value.map(asLine).join("\n"));
-    snackbar.success(t("logs.copied"));
-  } catch {
-    snackbar.error(t("logs.copy-error"));
-  }
+  await clipboard.copy(filtered.value.map(asLine).join("\n"), {
+    successMessage: t("logs.copied"),
+  });
 }
 
 async function copyRow(row: LogRow) {
-  try {
-    await navigator.clipboard.writeText(asLine(row));
-    snackbar.success(t("logs.line-copied"));
-  } catch {
-    snackbar.error(t("logs.copy-error"));
-  }
+  await clipboard.copy(asLine(row), { successMessage: t("logs.line-copied") });
 }
 
 function downloadLogs() {
