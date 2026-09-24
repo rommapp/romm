@@ -144,7 +144,6 @@
   "download-all": "全部下载",
   "download-file": "下载文件",
   "download-link-copied": "下载链接已复制到剪贴板。",
-  "download-link-copy-failed": "无法复制下载链接。",
   "download-named": "下载 {name}",
   "download-selected": "下载所选",
   "edit-labels": "编辑标签",

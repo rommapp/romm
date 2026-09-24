@@ -1,23 +1,31 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
 import FilesTab from "./FilesTab.vue";
 
-const { uploadRoms, refetchRom, confirmFn, snackbar, routeQuery, grants } =
-  vi.hoisted(() => ({
-    uploadRoms: vi.fn(),
-    refetchRom: vi.fn(),
-    confirmFn: vi.fn(),
-    snackbar: {
-      success: vi.fn(),
-      error: vi.fn(),
-      warning: vi.fn(),
-      info: vi.fn(),
-    },
-    routeQuery: { tab: "files", subtab: undefined as string | undefined },
-    grants: { upload: true, delete: false },
-  }));
+const {
+  uploadRoms,
+  refetchRom,
+  confirmFn,
+  snackbar,
+  emitter,
+  routeQuery,
+  grants,
+} = vi.hoisted(() => ({
+  uploadRoms: vi.fn(),
+  refetchRom: vi.fn(),
+  confirmFn: vi.fn(),
+  snackbar: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+  emitter: { emit: vi.fn() },
+  routeQuery: { tab: "files", subtab: undefined as string | undefined },
+  grants: { upload: true, delete: false },
+}));
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -92,6 +100,7 @@ function mountTab(r = rom()) {
   return mount(FilesTab, {
     props: { rom: r },
     global: {
+      provide: { emitter },
       stubs: {
         FileRow: true,
         FilesSummary: true,
@@ -316,5 +325,78 @@ describe("FilesTab selection", () => {
     await flushPromises();
 
     expect(selectedFlags(wrapper)).toEqual([false, false]);
+  });
+});
+
+describe("FilesTab copy link", () => {
+  function setClipboard(
+    writeText: ((text: string) => Promise<void>) | null,
+    secure = true,
+  ) {
+    Object.defineProperty(window, "isSecureContext", {
+      configurable: true,
+      value: secure,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: writeText ? { writeText } : undefined,
+    });
+  }
+
+  async function copyFirstFileLink() {
+    const wrapper = mountTab();
+    wrapper.findComponent({ name: "FileRow" }).vm.$emit("copy-link");
+    await flushPromises();
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    routeQuery.subtab = undefined;
+    snackbar.success.mockReset();
+    snackbar.error.mockReset();
+    emitter.emit.mockReset();
+  });
+
+  afterEach(() => {
+    setClipboard(null);
+  });
+
+  it("writes the link to the clipboard in a secure context", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setClipboard(writeText);
+
+    await copyFirstFileLink();
+
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining("file_ids=1"),
+    );
+    expect(snackbar.success).toHaveBeenCalled();
+    expect(emitter.emit).not.toHaveBeenCalled();
+  });
+
+  // Over plain HTTP `navigator.clipboard` is undefined, so the link is shown
+  // for manual copying instead of failing.
+  it("opens the link dialog when the context is not secure", async () => {
+    setClipboard(null, false);
+
+    await copyFirstFileLink();
+
+    expect(emitter.emit).toHaveBeenCalledWith(
+      "showCopyDownloadLinkDialog",
+      expect.stringContaining("file_ids=1"),
+    );
+    expect(snackbar.error).not.toHaveBeenCalled();
+  });
+
+  it("opens the link dialog when the clipboard write is rejected", async () => {
+    setClipboard(vi.fn().mockRejectedValue(new Error("denied")));
+
+    await copyFirstFileLink();
+
+    expect(emitter.emit).toHaveBeenCalledWith(
+      "showCopyDownloadLinkDialog",
+      expect.stringContaining("file_ids=1"),
+    );
+    expect(snackbar.success).not.toHaveBeenCalled();
   });
 });
