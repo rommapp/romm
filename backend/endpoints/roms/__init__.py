@@ -1002,19 +1002,23 @@ async def download_roms(
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
     )
-    record_download(
-        request,
-        lambda: _bulk_download_target(
-            request.user.id,
-            platform_id,
-            collection_id,
-            smart_collection_id,
-            virtual_collection_id,
-        ),
-        f"bulk:{binascii.crc32(','.join(map(str, sorted(found_ids))).encode())}",
-        {"count": len(rom_objects), "rom_ids": sorted(found_ids)},
-        action=AuditAction.ROM_BULK_DOWNLOAD,
-    )
+
+    def served(response: Response) -> Response:
+        # Recorded once there's a response, so a download that failed isn't logged.
+        record_download(
+            request,
+            lambda: _bulk_download_target(
+                request.user.id,
+                platform_id,
+                collection_id,
+                smart_collection_id,
+                virtual_collection_id,
+            ),
+            f"bulk:{binascii.crc32(','.join(map(str, sorted(found_ids))).encode())}",
+            {"count": len(rom_objects), "rom_ids": sorted(found_ids)},
+            action=AuditAction.ROM_BULK_DOWNLOAD,
+        )
+        return response
 
     all_entries = []
     for rom in rom_objects:
@@ -1045,9 +1049,11 @@ async def download_roms(
             log_label=f"bulk download ({len(rom_objects)} ROMs)",
         )
         if redirect_path:
-            return FileRedirectResponse(
-                download_path=redirect_path,
-                filename=file_name,
+            return served(
+                FileRedirectResponse(
+                    download_path=redirect_path,
+                    filename=file_name,
+                )
             )
 
     content_lines = [
@@ -1060,9 +1066,11 @@ async def download_roms(
         for e in all_entries
     ]
 
-    return ZipResponse(
-        content_lines=content_lines,
-        filename=quote(file_name),
+    return served(
+        ZipResponse(
+            content_lines=content_lines,
+            filename=quote(file_name),
+        )
     )
 
 
@@ -1433,24 +1441,28 @@ async def get_rom_content(
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
-    # The marker is the client's word, so a player's fetch is still recorded.
-    record_download(
-        request,
-        AuditTarget.of_rom(rom),
-        f"rom:{purpose}:{rom.id}:{file_ids or ''}",
-        {
-            "file_name": (
-                files[0].file_name if len(files) == 1 else f"{file_name}.zip"
+
+    def served(response: Response) -> Response:
+        # Recorded once there's a response, so a fetch that failed isn't logged.
+        # The marker is the client's word, so a player's fetch is still recorded.
+        record_download(
+            request,
+            AuditTarget.of_rom(rom),
+            f"rom:{purpose}:{rom.id}:{file_ids or ''}",
+            {
+                "file_name": (
+                    files[0].file_name if len(files) == 1 else f"{file_name}.zip"
+                ),
+                "file_ids": [f.id for f in files] if file_ids else None,
+                "size_bytes": sum(f.file_size_bytes for f in files),
+            },
+            action=(
+                AuditAction.ROM_PLAYER_LOAD
+                if purpose == "play"
+                else AuditAction.ROM_DOWNLOAD
             ),
-            "file_ids": [f.id for f in files] if file_ids else None,
-            "size_bytes": sum(f.file_size_bytes for f in files),
-        },
-        action=(
-            AuditAction.ROM_PLAYER_LOAD
-            if purpose == "play"
-            else AuditAction.ROM_DOWNLOAD
-        ),
-    )
+        )
+        return response
 
     m3u_files = playlist_files(files)
 
@@ -1464,14 +1476,16 @@ async def get_rom_content(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"File {file.file_name} not found on disk for ROM {id}",
                 )
-            return FileResponse(
-                path=rom_path,
-                filename=file.file_name,
-                headers={
-                    "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file.file_name)}; filename=\"{quote(file.file_name)}\"",
-                    "Content-Type": "application/octet-stream",
-                    "Content-Length": str(file.file_size_bytes),
-                },
+            return served(
+                FileResponse(
+                    path=rom_path,
+                    filename=file.file_name,
+                    headers={
+                        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file.file_name)}; filename=\"{quote(file.file_name)}\"",
+                        "Content-Type": "application/octet-stream",
+                        "Content-Length": str(file.file_size_bytes),
+                    },
+                )
             )
 
         async def build_zip_in_memory() -> bytes:
@@ -1526,18 +1540,22 @@ async def get_rom_content(
         zip_data = await build_zip_in_memory()
 
         # Streams the zip file to the client
-        return Response(
-            content=zip_data,
-            media_type="application/zip",
-            headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
-            },
+        return served(
+            Response(
+                content=zip_data,
+                media_type="application/zip",
+                headers={
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
+                },
+            )
         )
 
     # Otherwise proxy through nginx
     if len(files) == 1:
-        return FileRedirectResponse(
-            download_path=Path(f"/library/{files[0].full_path}"),
+        return served(
+            FileRedirectResponse(
+                download_path=Path(f"/library/{files[0].full_path}"),
+            )
         )
 
     # Multi-file path: serve cached ZIP for Range requests (resumable),
@@ -1554,9 +1572,11 @@ async def get_rom_content(
             log_label=f"ROM {rom.id}",
         )
         if redirect_path:
-            return FileRedirectResponse(
-                download_path=redirect_path,
-                filename=f"{file_name}.zip",
+            return served(
+                FileRedirectResponse(
+                    download_path=redirect_path,
+                    filename=f"{file_name}.zip",
+                )
             )
 
     content_lines = [
@@ -1580,9 +1600,11 @@ async def get_rom_content(
         )
         content_lines.append(m3u_line)
 
-    return ZipResponse(
-        content_lines=content_lines,
-        filename=f"{quote(file_name)}.zip",
+    return served(
+        ZipResponse(
+            content_lines=content_lines,
+            filename=f"{quote(file_name)}.zip",
+        )
     )
 
 
@@ -2358,6 +2380,7 @@ async def delete_roms(
             errors.append(f"ROM with ID {id} not found")
             continue
 
+        removed = False
         try:
             if id in delete_from_fs:
                 log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
@@ -2366,8 +2389,10 @@ async def delete_roms(
                     full_path = fs_rom_handler.validate_path(rom_path)
                     if full_path.is_dir():
                         await fs_rom_handler.remove_directory(rom_path)
+                        removed = True
                     else:
                         await fs_rom_handler.remove_file(rom_path)
+                        removed = True
                         # Clean up empty parent directory if it becomes empty
                         parent = full_path.parent
                         if (
@@ -2392,6 +2417,18 @@ async def delete_roms(
                 f"Deleting {hl(str(rom.name or 'ROM'), color=BLUE)} [{hl(rom.fs_name)}] from database"
             )
             db_rom_handler.delete_rom(id)
+            # Recorded as soon as the row is gone, whatever becomes of its resources.
+            audit_drafts.append(
+                AuditDraft(
+                    AuditAction.ROM_DELETE,
+                    actor,
+                    AuditTarget.of_rom(rom),
+                    {
+                        "deleted_from_fs": removed,
+                        "platform": rom.platform_display_name,
+                    },
+                )
+            )
 
             try:
                 await fs_resource_handler.remove_directory(rom.fs_resources_path)
@@ -2401,17 +2438,6 @@ async def delete_roms(
                 )
 
             deleted_ids.append(id)
-            audit_drafts.append(
-                AuditDraft(
-                    AuditAction.ROM_DELETE,
-                    actor,
-                    AuditTarget.of_rom(rom),
-                    {
-                        "deleted_from_fs": id in delete_from_fs,
-                        "platform": rom.platform_display_name,
-                    },
-                )
-            )
         except Exception as e:
             failed_ids.append(id)
             errors.append(f"Failed to delete ROM {id}: {str(e)}")

@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from tests.audit_events import recorded_events
 
 from endpoints import auth as auth_endpoints
+from endpoints import permissions as permission_endpoints
 from handler.auth import auth_handler
 from models.user import User
 from tasks.tasks import Task, TaskType
@@ -75,6 +76,19 @@ class TestLogin:
         [event] = recorded_events()
         assert event.action == "auth.password_reset_request"
         assert (event.actor_kind, event.target_name) == ("anonymous", "test_admin")
+
+    def test_a_reset_request_is_recorded_when_its_link_fails(
+        self, client: TestClient, admin_user: User, mocker
+    ):
+        mocker.patch.object(
+            auth_handler, "send_password_reset_link", side_effect=RuntimeError("smtp")
+        )
+
+        with pytest.raises(RuntimeError):
+            client.post("/api/forgot-password", json={"username": "test_admin"})
+
+        [event] = recorded_events()
+        assert event.action == "auth.password_reset_request"
 
     def test_a_token_grant_is_a_login(self, client: TestClient, admin_user: User):
         response = client.post(
@@ -173,6 +187,23 @@ class TestClientTokens:
         assert revoke.action == "client_token.revoke"
         assert revoke.target_name == "Argosy"
         assert revoke.data["scopes"] == ["roms.read"]
+
+
+def test_a_hide_succeeds_when_naming_it_for_the_log_fails(
+    client: TestClient, access_token: str, viewer_user: User, rom, mocker
+):
+    mocker.patch.object(
+        permission_endpoints, "_principal", side_effect=RuntimeError("db gone")
+    )
+
+    response = client.post(
+        "/api/permissions/hidden",
+        headers=_auth(access_token),
+        json={"entity": "roms", "entity_id": rom.id, "user_id": viewer_user.id},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert recorded_events() == []
 
 
 def test_a_new_permission_group_is_recorded(client: TestClient, access_token: str):

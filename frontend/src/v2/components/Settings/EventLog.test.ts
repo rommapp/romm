@@ -90,6 +90,25 @@ describe("EventLog", () => {
     expect(text).toContain("Steam Deck");
   });
 
+  it("follows a link that changes its query while it stays open", async () => {
+    const wrapper = render();
+    await flushPromises();
+    getAuditEvents.mockClear();
+
+    route.query = { q: "steam", category: "security" };
+    await flushPromises();
+
+    expect(getAuditEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ search: "steam", categories: ["security"] }),
+    );
+    expect(
+      (
+        wrapper.find('input[placeholder="Search events"]')
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("steam");
+  });
+
   it("searches once typing pauses, or straight away on Enter", async () => {
     // lodash's debounce reads the clock; setImmediate stays real for flushPromises.
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });

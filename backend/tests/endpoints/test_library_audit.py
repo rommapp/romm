@@ -10,7 +10,9 @@ from handler.database import (
     db_collection_handler,
     db_rom_handler,
 )
+from handler.filesystem import fs_firmware_handler, fs_resource_handler
 from models.collection import Collection
+from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -103,6 +105,42 @@ def test_a_deleted_rom_keeps_its_name(client: TestClient, access_token: str, rom
     assert event.data["deleted_from_fs"] is False
 
 
+def test_a_rom_whose_resources_stay_behind_is_still_deleted(
+    client: TestClient, access_token: str, rom: Rom, mocker
+):
+    mocker.patch.object(
+        fs_resource_handler, "remove_directory", side_effect=PermissionError("busy")
+    )
+
+    response = client.post(
+        "/api/roms/delete",
+        headers=_auth(access_token),
+        json={"roms": [rom.id]},
+    )
+
+    assert response.json()["failed_ids"] == [rom.id]
+    [event] = recorded_events()
+    assert event.action == "rom.delete"
+
+
+def test_a_firmware_file_left_on_disk_is_not_deleted_from_it(
+    client: TestClient, access_token: str, firmware: Firmware, mocker
+):
+    mocker.patch.object(
+        fs_firmware_handler, "remove_file", side_effect=PermissionError("read-only")
+    )
+
+    client.post(
+        "/api/firmware/delete",
+        headers=_auth(access_token),
+        json={"firmware": [firmware.id], "delete_from_fs": [firmware.id]},
+    )
+
+    [event] = recorded_events()
+    assert event.action == "firmware.delete"
+    assert event.data["deleted_from_fs"] is False
+
+
 def test_a_platform_rename_is_an_edit(
     client: TestClient, access_token: str, platform: Platform
 ):
@@ -165,6 +203,28 @@ class TestCollections:
         [event] = recorded_events()
         assert event.action == "collection.add_roms"
         assert event.data == {"count": 1, "rom_ids": [rom.id]}
+
+    @pytest.mark.parametrize("method", ["post", "delete"])
+    def test_games_that_change_nothing_are_not_recorded(
+        self,
+        client: TestClient,
+        access_token: str,
+        admin_user: User,
+        rom: Rom,
+        method: str,
+    ):
+        collection = _collection(admin_user)
+        if method == "post":
+            db_collection_handler.add_roms_to_collection(collection.id, [rom.id])
+
+        client.request(
+            method.upper(),
+            f"/api/collections/{collection.id}/roms",
+            json={"rom_ids": [rom.id] if method == "post" else [999999]},
+            headers=_auth(access_token),
+        )
+
+        assert recorded_events() == []
 
     @pytest.mark.parametrize("method", ["post", "delete"])
     def test_a_favourite_toggle_is_not(

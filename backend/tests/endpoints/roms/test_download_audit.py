@@ -2,6 +2,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from tests.audit_events import recorded_events
 
+from endpoints import roms as rom_endpoints
 from handler.database import (
     db_audit_event_handler,
     db_collection_handler,
@@ -51,6 +52,25 @@ class TestRomContent:
             "rom.download",
             "rom.player_load",
         ]
+
+    def test_a_file_missing_from_disk_is_not_a_download(
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+        rom_file: RomFile,
+        mocker,
+    ):
+        mocker.patch.object(rom_endpoints, "DEV_MODE", True)
+
+        response = client.get(
+            f"/api/roms/{rom.id}/content/test_rom.zip",
+            headers=_auth(access_token),
+            follow_redirects=False,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert recorded_events() == []
 
     def test_a_resumed_transfer_is_not_a_new_download(
         self, client: TestClient, access_token: str, rom: Rom, rom_file: RomFile

@@ -540,7 +540,7 @@ async def update_collection(
         or changed_fields(collection, cleaned_data, ["url_cover"])
     ):
         changed.append("cover")
-    before_ids, after_ids = set(collection.rom_ids), set(parsed_rom_ids)
+    before_ids, after_ids = set(collection.rom_ids), set(updated_collection.rom_ids)
     if changed or before_ids != after_ids:
         _record_collection(
             request,
@@ -583,16 +583,18 @@ async def add_roms_to_collection(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
+    before = set(collection.rom_ids)
     updated_collection = db_collection_handler.add_roms_to_collection(
         id, payload.rom_ids
     )
     refresh_affected_smart_collections(payload.rom_ids, membership_only=True)
-    _record_collection(
-        request,
-        AuditAction.COLLECTION_ADD_ROMS,
-        collection,
-        {"count": len(payload.rom_ids), "rom_ids": payload.rom_ids},
-    )
+    if added := sorted(set(updated_collection.rom_ids) - before):
+        _record_collection(
+            request,
+            AuditAction.COLLECTION_ADD_ROMS,
+            collection,
+            {"count": len(added), "rom_ids": added},
+        )
     return CollectionSchema.model_validate(updated_collection)
 
 
@@ -619,16 +621,18 @@ async def remove_roms_from_collection(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
+    before = set(collection.rom_ids)
     updated_collection = db_collection_handler.remove_roms_from_collection(
         id, payload.rom_ids
     )
     refresh_affected_smart_collections(payload.rom_ids, membership_only=True)
-    _record_collection(
-        request,
-        AuditAction.COLLECTION_REMOVE_ROMS,
-        collection,
-        {"count": len(payload.rom_ids), "rom_ids": payload.rom_ids},
-    )
+    if removed := sorted(before - set(updated_collection.rom_ids)):
+        _record_collection(
+            request,
+            AuditAction.COLLECTION_REMOVE_ROMS,
+            collection,
+            {"count": len(removed), "rom_ids": removed},
+        )
     return CollectionSchema.model_validate(updated_collection)
 
 

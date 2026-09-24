@@ -118,7 +118,17 @@ class TestRecord:
             db_audit_event_handler, "add_events", side_effect=RuntimeError("down")
         )
 
-        record(AuditAction.SCAN_START, audit_handler.SYSTEM_ACTOR)
+        assert record(AuditAction.SCAN_START, audit_handler.SYSTEM_ACTOR) is False
+
+    def test_a_lookup_for_the_data_fails_inside_the_recorder(self):
+        def lookup() -> dict[str, Any]:
+            raise RuntimeError("db gone")
+
+        assert (
+            record(AuditAction.SCAN_START, audit_handler.SYSTEM_ACTOR, data=lookup)
+            is False
+        )
+        assert recorded_events() == []
 
     def test_clips_long_lists_and_drops_nul(self):
         record(
@@ -197,6 +207,19 @@ class TestRecordDownload:
         record_download(_request(admin_user), ROM, "13")
 
         assert len(recorded_events()) == 2
+
+    def test_a_download_that_failed_to_store_is_recorded_on_retry(
+        self, admin_user: User, mocker
+    ):
+        mocker.patch.object(
+            db_audit_event_handler, "add_events", side_effect=RuntimeError("down")
+        )
+        record_download(_request(admin_user), ROM, "12")
+        mocker.stopall()
+
+        record_download(_request(admin_user), ROM, "12")
+
+        assert len(recorded_events()) == 1
 
     def test_an_anonymous_download_is_kept_by_ip(self):
         record_download(_request(headers={"user-agent": "Tinfoil/19.0"}), ROM, "12")

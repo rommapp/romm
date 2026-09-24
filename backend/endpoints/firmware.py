@@ -332,23 +332,18 @@ async def delete_firmware(
             errors.append(f"Firmware with ID {id} not found")
             continue
 
+        deleted = removed = False
         try:
             log.info(f"Deleting {hl(fw.file_name)} from database")
             db_firmware_handler.delete_firmware(id)
-            audit_drafts.append(
-                AuditDraft(
-                    AuditAction.FIRMWARE_DELETE,
-                    actor,
-                    AuditTarget.of_firmware(fw),
-                    {"deleted_from_fs": id in delete_from_fs},
-                )
-            )
+            deleted = True
 
             if id in delete_from_fs:
                 log.info(f"Deleting {hl(fw.file_name)} from filesystem")
                 try:
                     file_path = f"{fw.file_path}/{fw.file_name}"
                     await fs_firmware_handler.remove_file(file_path=file_path)
+                    removed = True
                 except FileNotFoundError:
                     error = f"Firmware file {hl(fw.file_name)} not found for platform {hl(fw.platform.slug)}"
                     log.error(error)
@@ -360,6 +355,17 @@ async def delete_firmware(
         except Exception as e:
             failed_ids.append(id)
             errors.append(f"Failed to delete firmware {id}: {str(e)}")
+        finally:
+            # The row is gone whatever became of its file.
+            if deleted:
+                audit_drafts.append(
+                    AuditDraft(
+                        AuditAction.FIRMWARE_DELETE,
+                        actor,
+                        AuditTarget.of_firmware(fw),
+                        {"deleted_from_fs": removed},
+                    )
+                )
 
     record_many(audit_drafts)
     return {

@@ -148,9 +148,10 @@ class AuditTarget:
         return cls(AuditTargetType.USER, user.id, user.username)
 
 
-# A target that takes a lookup to name can be passed as a function, so the
+# A target or data that takes a lookup can be passed as a function, so the
 # lookup runs inside the recorder's error handling, and only if it records.
 TargetSource = AuditTarget | Callable[[], AuditTarget | None] | None
+DataSource = dict[str, Any] | Callable[[], dict[str, Any]] | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,7 +159,7 @@ class AuditDraft:
     action: AuditAction
     actor: AuditActor
     target: TargetSource = None
-    data: dict[str, Any] | None = None
+    data: DataSource = None
     occurred_at: datetime | None = None
 
 
@@ -216,6 +217,7 @@ def _normalize_data(data: dict[str, Any] | None) -> dict[str, Any]:
 def _to_row(draft: AuditDraft) -> AuditEvent:
     actor = draft.actor
     target = draft.target() if callable(draft.target) else draft.target
+    data = draft.data() if callable(draft.data) else draft.data
     return AuditEvent(
         occurred_at=to_utc(draft.occurred_at or datetime.now(timezone.utc)),
         actor_kind=actor.kind,
@@ -227,12 +229,12 @@ def _to_row(draft: AuditDraft) -> AuditEvent:
         target_name=_clip_name(target.name) if target else None,
         ip_address=actor.ip_address[:45] if actor.ip_address else None,
         device_id=_clip_name(actor.device_id),
-        data=_normalize_data(draft.data),
+        data=_normalize_data(data),
     )
 
 
-def record_many(drafts: Sequence[AuditDraft]) -> None:
-    """Store events, logging rather than raising when they can't be stored."""
+def record_many(drafts: Sequence[AuditDraft]) -> bool:
+    """Store events, logging rather than raising when they can't; False then."""
     try:
         cutoff = (
             datetime.now(timezone.utc) - timedelta(days=AUDIT_LOG_RETENTION_DAYS)
@@ -252,20 +254,22 @@ def record_many(drafts: Sequence[AuditDraft]) -> None:
         log.exception(
             f"Failed to record audit events {[draft.action for draft in drafts]}"
         )
+        return False
+    return True
 
 
 def record(
     action: AuditAction,
     actor: AuditActor | HTTPConnection,
     target: TargetSource = None,
-    data: dict[str, Any] | None = None,
+    data: DataSource = None,
     *,
     occurred_at: datetime | None = None,
-) -> None:
+) -> bool:
     """Record one event; `actor` may be the request, whose caller then acts."""
     if isinstance(actor, HTTPConnection):
         actor = AuditActor.from_request(actor)
-    record_many([AuditDraft(action, actor, target, data, occurred_at)])
+    return record_many([AuditDraft(action, actor, target, data, occurred_at)])
 
 
 def _claim_key(key: str) -> str:
@@ -282,6 +286,14 @@ def claim_once(key: str, window_seconds: int) -> bool:
         # The key may hold a failed sign-in's text, so only its kind is logged.
         log.exception(f"Failed to claim a {key.split(':', 1)[0]} audit key")
         return True
+
+
+def release_claim(key: str) -> None:
+    """Give up a claim whose event couldn't be stored, so a retry records it."""
+    try:
+        sync_cache.delete(_claim_key(key))
+    except Exception:  # noqa: BLE001 - the claim expires with its window anyway
+        log.exception(f"Failed to release a {key.split(':', 1)[0]} audit key")
 
 
 def within_budget(key: str, limit: int, window_seconds: int) -> bool:
@@ -321,12 +333,14 @@ def record_download(
         return
     actor = AuditActor.from_request(conn)
     caller = actor.user_id if actor.user_id is not None else actor.ip_address
-    if not claim_once(f"download:{caller}:{dedupe_key}", DOWNLOAD_DEDUPE_SECONDS):
+    key = f"download:{caller}:{dedupe_key}"
+    if not claim_once(key, DOWNLOAD_DEDUPE_SECONDS):
         return
     user_agent = conn.headers.get("user-agent")
-    record(
+    if not record(
         action,
         actor,
         target,
         {**(data or {}), "user_agent": user_agent[:255] if user_agent else None},
-    )
+    ):
+        release_claim(key)

@@ -117,13 +117,17 @@ def _hidden_target(entity: PermEntity, entity_id: int) -> AuditTarget | None:
     return None
 
 
+def _group_name(group_id: int | None) -> str | None:
+    group = db_permission_handler.get_group(group_id) if group_id is not None else None
+    return group.name if group else None
+
+
 def _principal(user_id: int | None, group_id: int | None) -> dict[str, Any]:
     """Who something was hidden from, named for the audit log."""
     if user_id is not None:
         user = db_user_handler.get_user(user_id)
         return {"type": "user", "id": user_id, "name": user.username if user else None}
-    group = db_permission_handler.get_group(group_id) if group_id is not None else None
-    return {"type": "group", "id": group_id, "name": group.name if group else None}
+    return {"type": "group", "id": group_id, "name": _group_name(group_id)}
 
 
 @protected_route(router.get, "/groups", [Scope.USERS_READ])
@@ -314,13 +318,12 @@ async def update_user_permissions(
         )
 
     await emit_permissions_changed(user_id)
-    group = db_permission_handler.get_group(group_id) if group_id is not None else None
     record(
         AuditAction.USER_PERMISSIONS_EDIT,
         request,
         AuditTarget.of_user(user),
-        {
-            "group": group.name if group else None,
+        lambda: {
+            "group": _group_name(group_id),
             "group_changed": body.set_group and group_id != user.permission_group_id,
             "overrides": len(body.overrides) if body.overrides is not None else None,
         },
@@ -360,7 +363,7 @@ async def add_hidden_entity(
         AuditAction.VISIBILITY_HIDE,
         request,
         lambda: _hidden_target(body.entity, body.entity_id),
-        {
+        lambda: {
             "from": _principal(body.user_id, body.group_id),
             "entity": body.entity,
             "entity_id": body.entity_id,
@@ -397,7 +400,7 @@ async def remove_hidden_entity(
         AuditAction.VISIBILITY_UNHIDE,
         request,
         lambda: _hidden_target(entity, entity_id),
-        {
+        lambda: {
             "from": _principal(user_id, group_id),
             "entity": entity,
             "entity_id": entity_id,

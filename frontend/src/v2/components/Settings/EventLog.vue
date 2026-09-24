@@ -38,6 +38,7 @@ import {
 import { useAuditLog } from "@/v2/composables/useAuditLog";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGridNav } from "@/v2/composables/useGridNav";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import {
@@ -133,6 +134,7 @@ const hasFilters = computed(
 
 // Set when a page fails to load, so scrolling doesn't retry it on every frame.
 const moreFailed = ref(false);
+const alive = useIsAlive();
 
 async function refresh() {
   moreFailed.value = false;
@@ -150,7 +152,7 @@ async function refresh() {
       until: until.value ? localMidnight(until.value, 1) : undefined,
     });
   } catch {
-    snackbar.error(t("audit.load-error"));
+    if (alive.value) snackbar.error(t("audit.load-error"));
   }
 }
 
@@ -170,6 +172,24 @@ async function showMore() {
     moreFailed.value = true;
   }
 }
+
+// A link to this page, such as the sidebar's, can change the query while the
+// tab stays mounted.
+watch(
+  () => route.query,
+  () => {
+    userFilter.value = queryString("user") ?? ALL;
+    categoryFilter.value = queryString("category") ?? ALL;
+    since.value = queryDay("from");
+    until.value = queryDay("to");
+    const q = queryString("q") ?? "";
+    if (q !== appliedSearch.value) {
+      applySearch.cancel();
+      search.value = q;
+      appliedSearch.value = q;
+    }
+  },
+);
 
 watch(
   [userFilter, categoryFilter, appliedSearch, since, until],

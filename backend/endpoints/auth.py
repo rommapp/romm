@@ -29,6 +29,7 @@ from handler.audit_handler import (
     claim_once,
     client_ip,
     record,
+    release_claim,
     within_budget,
 )
 from handler.auth import auth_handler, oauth_handler, oidc_handler
@@ -75,9 +76,8 @@ def _record_login_failure(
     reason: Literal["credentials", "disabled"],
 ) -> None:
     ip_address = client_ip(request)
-    if not claim_once(
-        f"login_failed:{ip_address}:{username}", LOGIN_FAILURE_WINDOW_SECONDS
-    ) or not within_budget(
+    key = f"login_failed:{ip_address}:{username}"
+    if not claim_once(key, LOGIN_FAILURE_WINDOW_SECONDS) or not within_budget(
         f"login_failed:{ip_address}",
         LOGIN_FAILURES_PER_ADDRESS,
         LOGIN_FAILURE_ADDRESS_WINDOW_SECONDS,
@@ -86,7 +86,7 @@ def _record_login_failure(
     user = db_user_handler.get_user_by_username(username) if username else None
     # A name that matches no account may be a password typed in the wrong box,
     # so only an account's own name is kept.
-    record(
+    if not record(
         AuditAction.AUTH_LOGIN_FAILED,
         (
             AuditActor.for_user(user, ip_address=ip_address)
@@ -98,19 +98,18 @@ def _record_login_failure(
             "method": method,
             "reason": reason,
         },
-    )
+    ):
+        release_claim(key)
 
 
 def _record_password_reset_request(ip_address: str | None, user: User) -> None:
-    if claim_once(
-        f"password_reset:{ip_address}:{user.id}",
-        PASSWORD_RESET_REQUEST_WINDOW_SECONDS,
+    key = f"password_reset:{ip_address}:{user.id}"
+    if claim_once(key, PASSWORD_RESET_REQUEST_WINDOW_SECONDS) and not record(
+        AuditAction.AUTH_PASSWORD_RESET_REQUEST,
+        AuditActor.anonymous(ip_address),
+        AuditTarget.of_user(user),
     ):
-        record(
-            AuditAction.AUTH_PASSWORD_RESET_REQUEST,
-            AuditActor.anonymous(ip_address),
-            AuditTarget.of_user(user),
-        )
+        release_claim(key)
 
 
 # Session authentication endpoints
@@ -421,10 +420,11 @@ def request_password_reset(
 
     if user:
         # After the response, so its timing can't tell whether the user exists.
-        background_tasks.add_task(auth_handler.send_password_reset_link, user)
+        # The record goes first: a link that fails to send stops the tasks after it.
         background_tasks.add_task(
             _record_password_reset_request, client_ip(request), user
         )
+        background_tasks.add_task(auth_handler.send_password_reset_link, user)
     else:
         log.warning(
             f"Reset password link requested for a user {hl(username, color=CYAN)}, but that username does not exist."
