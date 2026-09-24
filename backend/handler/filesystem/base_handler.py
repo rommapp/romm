@@ -465,6 +465,9 @@ class FSHandler:
         """MD5 of the bytes on disk, unlike zip-aware `compute_content_hash`."""
         try:
             return await self._compute_file_hash(file_path)
+        # Expected for DB rows whose file is gone, and hit on every sync manifest.
+        except FileNotFoundError:
+            return None
         except OSError as e:
             log.debug(f"Failed to compute MD5 for {file_path}: {e}")
             return None

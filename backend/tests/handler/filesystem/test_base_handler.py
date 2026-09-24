@@ -115,6 +115,18 @@ class TestFSHandler:
         assert handler.validate_path("") == base
         assert handler.validate_path(".") == base
 
+    async def test_compute_file_md5(self, handler: FSHandler):
+        await handler.write_file(b"romm", ".", "file.bin")
+        assert (
+            await handler.compute_file_md5("file.bin")
+            == "356bc0b7ad776f256d85069abcb4698c"
+        )
+
+    async def test_compute_file_md5_missing_file_does_not_log(self, handler: FSHandler):
+        with patch("handler.filesystem.base_handler.log") as mock_log:
+            assert await handler.compute_file_md5("missing.bin") is None
+        mock_log.debug.assert_not_called()
+
     def test_validate_path_traversal_attack(self, handler: FSHandler):
         """Test path validation prevents directory traversal attacks"""
         malicious_paths = [
