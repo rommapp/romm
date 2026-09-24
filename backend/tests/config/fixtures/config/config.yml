@@ -73,7 +73,7 @@ emulatorjs:
   cache_limit: 1000
   disable_auto_unload: true
   disable_batch_bootup: true
-  auto_save_sync: true
+  auto_save_sync: false
   netplay:
     enabled: true
     ice_servers:
@@ -81,6 +81,9 @@ emulatorjs:
       - urls: "turn:global.relay.metered.ca:80"
         username: "user"
         credential: "password"
+  default_cores:
+    nds: desmume
+    Nintendo-DSi: melonds
   settings:
     parallel_n64:
       vsync: disabled

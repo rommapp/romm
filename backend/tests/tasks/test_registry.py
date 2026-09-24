@@ -44,10 +44,15 @@ class TestEnqueueTask:
         args, kwargs = queue.enqueue.call_args
         task = SCHEDULED_TASKS["cleanup_zip_cache"]
         assert args[0] is run_task_by_name
-        assert kwargs["kwargs"] == {"name": "cleanup_zip_cache", "task_kwargs": {}}
+        assert kwargs["kwargs"] == {
+            "name": "cleanup_zip_cache",
+            "task_kwargs": {},
+            "run_by_user_id": None,
+        }
         assert kwargs["job_timeout"] == task.timeout
         assert kwargs["result_ttl"] == TASK_RESULT_TTL
-        assert kwargs["meta"] == task.job_meta
+        assert kwargs["meta"] == task.job_meta("cleanup_zip_cache")
+        assert kwargs["meta"]["task_key"] == "cleanup_zip_cache"
 
     def test_caller_arguments_are_nested_under_the_name(self, queue):
         enqueue_task("cleanup_missing_roms", queue=queue, task_kwargs={"dry_run": True})
@@ -56,6 +61,7 @@ class TestEnqueueTask:
         assert kwargs == {
             "name": "cleanup_missing_roms",
             "task_kwargs": {"dry_run": True},
+            "run_by_user_id": None,
         }
 
     def test_job_options_reach_rq(self, queue):

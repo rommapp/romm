@@ -86,6 +86,8 @@ DB_PASSWD: Final[str | None] = _get_env("DB_PASSWD")
 DB_NAME: Final[str] = _get_env("DB_NAME", "romm")
 DB_QUERY_JSON: Final[str | None] = _get_env("DB_QUERY_JSON")
 ROMM_DB_DRIVER: Final[str] = _get_env("ROMM_DB_DRIVER", "mariadb")
+# Kept under the idle `wait_timeout` a host may impose; -1 never recycles.
+DB_POOL_RECYCLE_SECONDS: Final[int] = safe_int(_get_env("DB_POOL_RECYCLE_SECONDS"), 300)
 
 # REDIS
 REDIS_HOST: Final[str | None] = _get_env("REDIS_HOST")
@@ -200,6 +202,19 @@ DISABLE_DOWNLOAD_ENDPOINT_AUTH: Final[bool] = safe_str_to_bool(
 )
 DISABLE_USERPASS_LOGIN: Final[bool] = safe_str_to_bool(
     _get_env("DISABLE_USERPASS_LOGIN")
+)
+
+# EMAIL, for notification channels and password reset links; off until a host and a sender are set
+SMTP_HOST: Final[str] = _get_env("SMTP_HOST", "")
+SMTP_PORT: Final[int] = safe_int(_get_env("SMTP_PORT"), 587)
+SMTP_USERNAME: Final[str] = _get_env("SMTP_USERNAME", "")
+SMTP_PASSWORD: Final[str] = _get_env("SMTP_PASSWORD", "")
+SMTP_FROM: Final[str] = _get_env("SMTP_FROM", "")
+# `tls` is implicit TLS, usually on port 465; any other value leaves email off.
+SMTP_SECURITY_MODES: Final = ("starttls", "tls", "none")
+SMTP_SECURITY: Final[str] = _get_env("SMTP_SECURITY", "starttls").strip().lower()
+EMAIL_ENABLED: Final[bool] = bool(
+    SMTP_HOST and SMTP_FROM and SMTP_SECURITY in SMTP_SECURITY_MODES
 )
 
 ROMM_CORS_ALLOWED_ORIGINS: Final[list[str]] = [
@@ -333,6 +348,7 @@ SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))
 DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
 DISABLE_JSDOS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_JSDOS"))
+DISABLE_PICO8: Final[bool] = safe_str_to_bool(_get_env("DISABLE_PICO8"))
 
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
@@ -345,6 +361,8 @@ MAX_ASSET_UPLOAD_SIZE_BYTES: Final[int] = safe_int(
 MAX_AUTOCLEANUP_LIMIT: Final[int] = max(
     1, safe_int(_get_env("MAX_AUTOCLEANUP_LIMIT"), 100)
 )
+# Versions the server keeps per save slot whatever the client asks; 0 disables.
+MAX_SAVES_PER_SLOT: Final[int] = max(0, safe_int(_get_env("MAX_SAVES_PER_SLOT"), 50))
 
 # LOGGING
 LOGLEVEL: Final[str] = _get_env("LOGLEVEL", "INFO").upper()

@@ -30,6 +30,7 @@ const SORT_VALUE: Record<GalleryOrderKey, (rom: SimpleRom) => unknown> = {
   updated_at: (rom) => rom.updated_at,
   first_release_date: (rom) => rom.metadatum?.first_release_date,
   average_rating: (rom) => rom.metadatum?.average_rating,
+  hltb_main_story: (rom) => rom.hltb_metadata?.main_story,
   last_played: (rom) => rom.rom_user?.last_played,
 };
 

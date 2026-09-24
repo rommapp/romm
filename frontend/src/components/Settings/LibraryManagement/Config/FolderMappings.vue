@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** @deprecated v1 UI; superseded by `v2/components/Settings/FolderMappingsSection.vue`. */
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onMounted, ref } from "vue";
@@ -39,8 +40,6 @@ const HEADERS = [
 const mappings = computed<Row[]>(() => {
   const result: Row[] = [];
   const folders = heartbeat.value?.FILESYSTEM?.FS_PLATFORMS || [];
-  const bindings = config.value.PLATFORMS_BINDING || {};
-  const versions = config.value.PLATFORMS_VERSIONS || {};
   const autoSlugByFs: Record<string, string | undefined> = {};
 
   for (const p of supportedPlatforms.value) {
@@ -48,21 +47,32 @@ const mappings = computed<Row[]>(() => {
   }
 
   for (const folder of folders) {
-    if (bindings[folder]) {
-      const slug = bindings[folder];
-      const platform = supportedPlatforms.value.find((p) => p.slug === slug);
-      const displayName = platform?.display_name || platform?.name || slug;
-      result.push({ fsSlug: folder, slug, displayName, type: "alias" });
+    const binding = configStore.getPlatformBinding(folder);
+    if (binding) {
+      const platform = supportedPlatforms.value.find((p) => p.slug === binding);
+      const displayName = platform?.display_name || platform?.name || binding;
+      result.push({
+        fsSlug: folder,
+        slug: binding,
+        displayName,
+        type: "alias",
+      });
       continue;
     }
-    if (versions[folder]) {
-      const slug = versions[folder];
-      const platform = supportedPlatforms.value.find((p) => p.slug === slug);
-      const displayName = platform?.display_name || platform?.name || slug;
-      result.push({ fsSlug: folder, slug, displayName, type: "variant" });
+    const version = configStore.getPlatformVersion(folder);
+    if (version) {
+      const platform = supportedPlatforms.value.find((p) => p.slug === version);
+      const displayName = platform?.display_name || platform?.name || version;
+      result.push({
+        fsSlug: folder,
+        slug: version,
+        displayName,
+        type: "variant",
+      });
       continue;
     }
-    const auto = autoSlugByFs[folder];
+    // Platform slugs are lowercase; the folder on disk may not be.
+    const auto = autoSlugByFs[folder.toLowerCase()];
     if (auto) {
       const platform = supportedPlatforms.value.find((p) => p.slug === auto);
       const displayName = platform?.display_name || platform?.name || auto;

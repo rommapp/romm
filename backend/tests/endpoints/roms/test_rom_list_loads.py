@@ -1,13 +1,10 @@
-from collections.abc import Iterator
 from typing import Any
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from sqlalchemy import event
 
 from handler.database import db_rom_handler
-from handler.database.base_handler import sync_engine
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
@@ -140,27 +137,6 @@ def test_file_stats_match_between_derived_and_sql_paths(
     }
 
 
-@pytest.fixture
-def executed_statements() -> Iterator[list[str]]:
-    statements: list[str] = []
-
-    def before_execute(
-        conn: object,
-        cursor: object,
-        statement: str,
-        parameters: object,
-        context: object,
-        executemany: bool,
-    ) -> None:
-        statements.append(statement)
-
-    event.listen(sync_engine, "before_cursor_execute", before_execute)
-    try:
-        yield statements
-    finally:
-        event.remove(sync_engine, "before_cursor_execute", before_execute)
-
-
 def test_with_files_query_count_does_not_scale_with_file_count(
     client: TestClient,
     access_token: str,
@@ -184,3 +160,30 @@ def test_with_files_query_count_does_not_scale_with_file_count(
 
     track_meta_queries = [s for s in executed_statements if "track_meta" in s]
     assert len(track_meta_queries) <= 1
+
+
+def test_identifiers_does_not_load_the_roms_it_lists(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    executed_statements: list[str],
+) -> None:
+    """The endpoint answers with ids, so the joins a `Rom` brings are pure cost."""
+    rom = _add_rom(admin_user, platform, "identifiers_rom", "identifiers_rom.zip")
+
+    executed_statements.clear()
+    response = client.get(
+        "/api/roms/identifiers",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == [rom.id]
+
+    loaded_related = [
+        statement
+        for statement in executed_statements
+        if "roms_metadata" in statement or "platforms" in statement
+    ]
+    assert loaded_related == []

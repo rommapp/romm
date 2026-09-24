@@ -274,8 +274,10 @@ def extract_metadata_from_igdb_rom(
             # list, so the two sources overlap for most games that have one.
             "franchises": pydash.uniq(
                 pydash.compact(
-                    [franchise.get("name") if franchise else None]
-                    + _expanded_names(franchises)
+                    [
+                        franchise.get("name") if franchise else None,
+                        *_expanded_names(franchises),
+                    ]
                 )
             ),
             "alternative_names": _expanded_names(alternative_names),

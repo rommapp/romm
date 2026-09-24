@@ -29,6 +29,7 @@ class StreamingContainerSchema(BaseModel):
     capabilities: SlotCapabilitiesSchema
     emulator: str
     supports_memory_cards: bool
+    supports_save_picker: bool
 
 
 class StreamingConfigSchema(BaseModel):
@@ -160,11 +161,6 @@ class LoadStateResponse(BaseModel):
 class SwapDiscResponse(BaseModel):
     status: Literal["ok"]
     file_id: int
-    platform: str
-
-
-class StateFrameResponse(BaseModel):
-    status: Literal["ok"]
     platform: str
 
 

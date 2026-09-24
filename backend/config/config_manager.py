@@ -395,8 +395,8 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
 )
 
 # Valid values for scan.priority.region_mode. "prefer_rom_tags" keeps the
-# rom's filename region tags authoritative for media selection;
-# "prefer_config" makes scan.priority.region win over the rom's own tags.
+# rom's filename region tags authoritative; "prefer_config" makes
+# scan.priority.region win over them, for artwork, title and release date alike.
 VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 
 
@@ -422,6 +422,7 @@ class StreamingPlatformOverride(TypedDict):
     # Anything set here wins over the same key on the container.
     label: NotRequired[str]
     memory_card_sync: NotRequired[bool]
+    clears_stale_saves: NotRequired[bool]
 
 
 class StreamingContainer(TypedDict):
@@ -444,6 +445,9 @@ class StreamingContainer(TypedDict):
     # Opt in to whole memory-card sync (broker /memory-card). When true, the
     # legacy per-file /save-file in-game-save path is skipped for this container.
     memory_card_sync: NotRequired[bool]
+    # Whether this broker empties the save tree before restoring an archive,
+    # which is what lets the launch screen offer a save other than the newest.
+    clears_stale_saves: NotRequired[bool]
     # Broker dialect. Omitted (or "broker") is the per-emulator mod contract;
     # "webstation" is the LSIO webstation container's activate/exit contract.
     protocol: NotRequired[str]
@@ -476,6 +480,7 @@ class Config:
     EJS_ENABLE_AUTO_SAVE_SYNC: bool
     EJS_NETPLAY_ENABLED: bool
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
+    EJS_DEFAULT_CORES: dict[str, str]  # platform_slug -> core_name
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
     SCAN_METADATA_PRIORITY: list[str]
@@ -755,7 +760,7 @@ class ConfigManager:
                 self._raw_config, "emulatorjs.disable_batch_bootup", False
             ),
             EJS_ENABLE_AUTO_SAVE_SYNC=pydash.get(
-                self._raw_config, "emulatorjs.auto_save_sync", False
+                self._raw_config, "emulatorjs.auto_save_sync", True
             ),
             EJS_NETPLAY_ENABLED=pydash.get(
                 self._raw_config, "emulatorjs.netplay.enabled", False
@@ -763,6 +768,10 @@ class ConfigManager:
             EJS_NETPLAY_ICE_SERVERS=pydash.get(
                 self._raw_config, "emulatorjs.netplay.ice_servers", []
             ),
+            EJS_DEFAULT_CORES=pydash.get(
+                self._raw_config, "emulatorjs.default_cores", {}
+            )
+            or {},
             EJS_SETTINGS=pydash.get(self._raw_config, "emulatorjs.settings", {}),
             EJS_CONTROLS=self._get_ejs_controls(),
             SCAN_METADATA_PRIORITY=pydash.get(
@@ -895,22 +904,32 @@ class ConfigManager:
         return yaml_controls
 
     def _validated_platform_map(self, raw: Any, config_key: str) -> dict[str, str]:
-        """Check a folder name to slug mapping.
+        """Check a mapping of platform or folder names to non-empty strings.
 
-        Folder names are lowercased so lookups can ignore case.
+        Keys are lowercased so lookups can ignore case.
         """
         if not isinstance(raw, dict):
             log.critical(f"Invalid config.yml: {config_key} must be a dictionary")
             sys.exit(3)
 
         normalized: dict[str, str] = {}
-        for fs_slug, slug in raw.items():
-            if not isinstance(slug, str) or not slug:
+        for key, value in raw.items():
+            if not isinstance(value, str) or not value:
                 log.critical(
-                    f"Invalid config.yml: {config_key}.{fs_slug} must be a non-empty string"
+                    f"Invalid config.yml: {config_key}.{key} must be a non-empty string"
                 )
                 sys.exit(3)
-            normalized[str(fs_slug).lower()] = slug
+            folded = str(key).lower()
+            # One key covers `PSX` and `psx` alike, so a second spelling of the
+            # same folder silently replaces the first.
+            if folded in normalized and normalized[folded] != value:
+                log.warning(
+                    f"{config_key}.{key} replaces a case variant of the same "
+                    f"folder name: {hl(normalized[folded])} is dropped for "
+                    f"{hl(value)}, since folder names are matched "
+                    "case-insensitively"
+                )
+            normalized[folded] = value
 
         return normalized
 
@@ -1063,6 +1082,10 @@ class ConfigManager:
                 "Invalid config.yml: emulatorjs.netplay.ice_servers must be a list"
             )
             sys.exit(3)
+
+        self.config.EJS_DEFAULT_CORES = self._validated_platform_map(
+            self.config.EJS_DEFAULT_CORES, "emulatorjs.default_cores"
+        )
 
         if not isinstance(self.config.EJS_SETTINGS, dict):
             log.critical("Invalid config.yml: emulatorjs.settings must be a dictionary")
@@ -1335,6 +1358,7 @@ class ConfigManager:
                     "enabled": self.config.EJS_NETPLAY_ENABLED,
                     "ice_servers": self.config.EJS_NETPLAY_ICE_SERVERS,
                 },
+                "default_cores": self.config.EJS_DEFAULT_CORES,
                 "settings": self.config.EJS_SETTINGS,
                 "controls": self._format_ejs_controls_for_yaml(),
             },
@@ -1387,9 +1411,11 @@ class ConfigManager:
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
         fs_slug = fs_slug.lower()
         platform_bindings = self.config.PLATFORMS_BINDING
-        if fs_slug in platform_bindings:
-            log.warning(f"Binding for {hl(fs_slug)} already exists")
+        bound = platform_bindings.get(fs_slug)
+        if bound == slug:
             return None
+        if bound:
+            log.info(f"Rebinding {hl(fs_slug)} from {hl(bound)} to {hl(slug)}")
 
         platform_bindings[fs_slug] = slug
         self.config.PLATFORMS_BINDING = platform_bindings
@@ -1409,9 +1435,11 @@ class ConfigManager:
     def add_platform_version(self, fs_slug: str, slug: str) -> None:
         fs_slug = fs_slug.lower()
         platform_versions = self.config.PLATFORMS_VERSIONS
-        if fs_slug in platform_versions:
-            log.warning(f"Version for {hl(fs_slug)} already exists")
+        parent = platform_versions.get(fs_slug)
+        if parent == slug:
             return None
+        if parent:
+            log.info(f"Reparenting {hl(fs_slug)} from {hl(parent)} to {hl(slug)}")
 
         platform_versions[fs_slug] = slug
         self.config.PLATFORMS_VERSIONS = platform_versions

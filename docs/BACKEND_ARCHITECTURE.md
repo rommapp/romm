@@ -412,11 +412,18 @@ HTTP Request
 
 ### Supported Databases
 
-| Database      | Driver                | Status    |
-| ------------- | --------------------- | --------- |
-| MariaDB 10.5+ | `mariadb+pymysql`     | Default   |
-| MySQL 8.0+    | `mysql+pymysql`       | Supported |
-| PostgreSQL    | `postgresql+psycopg2` | Supported |
+| Database       | Driver                | Status    |
+| -------------- | --------------------- | --------- |
+| MariaDB 10.11+ | `mariadb+pymysql`     | Default   |
+| MySQL 8.0+     | `mysql+pymysql`       | Supported |
+| PostgreSQL     | `postgresql+psycopg2` | Supported |
+
+MariaDB 10.5 and 10.6 reached upstream end of life in June 2025 and July 2026, so
+10.11 is the oldest LTS still receiving fixes.
+
+CI runs the test suite against MariaDB 12.3 and PostgreSQL 16, and the migration
+suite additionally against MariaDB 10.11, which predates the 11.6 `uca1400`
+collation default. MySQL has no CI coverage.
 
 ### Engine & Session Setup
 
@@ -804,8 +811,10 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | POST   | `/token`           | No   | OAuth2 token (password, refresh_token grants)  |
 | GET    | `/login/openid`    | No   | OIDC login redirect                            |
 | GET    | `/oauth/openid`    | No   | OIDC callback                                  |
-| POST   | `/forgot-password` | No   | Request password reset                         |
+| POST   | `/forgot-password` | No   | Email a reset link, or log it without email    |
 | POST   | `/reset-password`  | No   | Reset password with token                      |
+
+A reset link is emailed when SMTP is set up, the user has an address and `ROMM_BASE_URL` is shareable, at most once a minute per user; otherwise it goes to the log for an admin to pass on. It is built from `ROMM_BASE_URL`, never the request's `Host`. The heartbeat's `NOTIFICATIONS.EMAILS_RESET_LINKS` says whether links are emailed.
 
 ### 6.2 Users (`/api/users`)
 
@@ -900,7 +909,7 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | Method | Path     | Scope     | Description                          |
 | ------ | -------- | --------- | ------------------------------------ |
 | GET    | `/roms`  | ROMS_READ | Search metadata across all providers |
-| GET    | `/cover` | ROMS_READ | Search SteamGridDB for cover art     |
+| GET    | `/cover` | ROMS_READ | Search SteamGridDB and Steam covers  |
 
 ### 6.8 Saves (`/api/saves`)
 
@@ -1046,7 +1055,58 @@ by path+size+mtime, same as asset hashes) since these files are typically tiny.
 | GET    | `/{id}`       | TASKS_RUN | Status of specific task  |
 | POST   | `/run/{name}` | TASKS_RUN | Trigger task execution   |
 
-### 6.16 Other Endpoints
+### 6.16 Notifications (`/api/notifications`)
+
+| Method | Path    | Scope    | Description                                                 |
+| ------ | ------- | -------- | ----------------------------------------------------------- |
+| GET    | `/`     | ME_READ  | Caller's notifications, newest first                        |
+| POST   | `/`     | ME_WRITE | Send one to yourself; admins also to users, `admins`, `all` |
+| POST   | `/read` | ME_WRITE | Mark ids read (`ids: null` marks all)                       |
+| DELETE | `/{id}` | ME_WRITE | Dismiss one for good                                        |
+| DELETE | `/`     | ME_WRITE | Dismiss all                                                 |
+
+A client's notification carries its own `title`, `body`, `icon` (`mdi-*`) and `link`, which must be a path inside RomM. RomM's own `kind`s are reserved; any other (`custom`, `argosy.sync_done`) is shown as sent.
+
+```bash
+curl -X POST "$ROMM/api/notifications" -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Sync finished", "body": "12 saves uploaded", "level": "success", "link": "/rom/12"}'
+```
+
+#### Notification channels (`/api/notification-channels`)
+
+Each user forwards their own notifications to webhooks and email addresses. A channel filters by minimum level and by topic (`scans`, `tasks`, `streaming`, `account`, `custom`); every stored notification that passes goes out in its own RQ job, retried at 30 s, 2 min and 10 min. A channel that fails 10 deliveries in a row turns itself off and tells its owner.
+
+| Method | Path                | Scope    | Description                                            |
+| ------ | ------------------- | -------- | ------------------------------------------------------ |
+| GET    | `/`                 | ME_READ  | Caller's channels, secrets masked                      |
+| POST   | `/`                 | ME_WRITE | Add a webhook, or an email address that gets a code    |
+| PATCH  | `/{id}`             | ME_WRITE | Change it; a blank URL or secret keeps the current one |
+| DELETE | `/{id}`             | ME_WRITE | Delete it                                              |
+| POST   | `/{id}/test`        | ME_WRITE | Send a sample notification now                         |
+| POST   | `/{id}/confirm`     | ME_WRITE | Confirm an email address with its code                 |
+| POST   | `/{id}/resend-code` | ME_WRITE | Email a new code (once a minute)                       |
+
+A webhook's `format` is `json` (RomM's payload below), `discord` (an embed that mentions nobody) or `ntfy` (JSON publishing to the topic's server, with the secret as its access token). Only an admin's webhooks may reach private addresses; everyone else's go through the SSRF guard. A kept secret doesn't follow a channel to another origin or format; it has to be given again. A delivery gets 15 s in all, and only the start of a refusal's body is read. Text for RomM's own kinds is English until outbound messages are translated. Links are absolute only when `ROMM_BASE_URL` is shareable.
+
+```json
+{
+  "event": "notification",
+  "id": 42,
+  "kind": "scan_completed",
+  "level": "success",
+  "title": "Scan completed",
+  "body": "3 new games",
+  "url": "https://romm.example.com/scan",
+  "data": { "new_roms": 3 },
+  "actor": null,
+  "created_at": "2026-09-23T12:00:00+00:00"
+}
+```
+
+With a secret, the JSON format adds `X-RomM-Signature: sha256=<hex HMAC-SHA256 of the body>`. Email needs `SMTP_HOST` and `SMTP_FROM` (see `env.template`); the heartbeat's `NOTIFICATIONS.EMAIL_ENABLED` says whether it's set up. Channel configs are sealed with a key derived from `ROMM_AUTH_SECRET_KEY`, so rotating it means entering their URLs again.
+
+### 6.17 Other Endpoints
 
 | Router        | Path                                   | Description                            |
 | ------------- | -------------------------------------- | -------------------------------------- |
@@ -1137,9 +1197,10 @@ tasks.run                    : Task execution
 
 ### Session Management
 
-- Redis keys: `session:{session_id}`, `user_sessions:{username}`
+- Redis keys: `session:{session_id}`, `user_sessions:{username}`, `session_sockets:{session_id}`
 - Cookie: `romm_session` (httponly, samesite=lax/strict)
 - `clear_user_sessions(user_id)` on password change clears all sessions
+- Removing a session (logout, revoke) disconnects the sockets it opened, which would otherwise keep their `user:{id}` and `admin` rooms
 
 ---
 
@@ -1289,7 +1350,7 @@ Manages two Socket.IO servers:
 | `socket_handler`         | `/ws`      | Scan progress, general notifications |
 | `netplay_socket_handler` | `/netplay` | Netplay room management              |
 
-Both use Redis as the message queue backend for horizontal scaling.
+Both use Redis as the message queue backend for horizontal scaling, each on its own channel: netplay clients are unauthenticated and name their own rooms, so they must never see the `user:{id}` or `admin` rooms. `socket_handler.emit_to_user(user_id, event, payload)` pushes to one user's open tabs from the web process or a worker.
 
 **Scan Progress Events:**
 
@@ -1299,6 +1360,19 @@ ScanStats:
     total_roms, scanned_roms, new_roms, identified_roms
     scanned_firmware, new_firmware
 ```
+
+### 8.9 Notifications (`handler/notification_handler.py`)
+
+Persistent per-user notifications, kept until dismissed and pushed live to the user's `user:{id}` socket room. From backend code, web process or worker alike:
+
+```python
+await notify(user.id, NotificationKind.SCAN_COMPLETED, NotificationLevel.SUCCESS, stats)
+await notify_admins("custom", NotificationLevel.WARNING, title="Disk almost full")
+```
+
+A `NotificationKind` is translated by the client from `data`; a new one needs a describer in `frontend/src/v2/utils/notifications.ts` and locale keys. Until then, or for a one-off, pass any other kind with `title`/`body`/`link`/`icon`. Both helpers log and swallow failures, so a job never fails over reporting itself.
+
+A task reports its success from `run_task_by_name`. Its failure is reported by `report_task_failure`, an exception handler `RomMWorker` installs, so a timeout, a killed work horse or a dead worker notifies too, for cron runs as well as manual ones.
 
 ---
 
@@ -1358,7 +1432,7 @@ Each adapter wraps an external API with authentication, retry logic, and type sa
 | ------------- | -------------------- | ------------------------------------------------- |
 | LaunchBox     | `launchbox_handler/` | Local XML database + remote API, platform mapping |
 | HowLongToBeat | `hltb_handler`       | Game playtime estimates                           |
-| Steam         | `steam_handler`      | Storefront metadata for win/linux/mac only        |
+| Steam         | `steam_handler`      | Storefront metadata (win/linux/mac) and cover art |
 | Hasheous      | `hasheous_handler`   | Hash-based ROM identification                     |
 | TheGamesDB    | `tgdb_handler`       | Alternative game metadata                         |
 | Flashpoint    | `flashpoint_handler` | Browser game archive database                     |
@@ -1397,6 +1471,16 @@ Client  ←──Socket.IO──→  FastAPI (python-socketio)  ←──Redis P
 | `scan:update_stats` | `ScanStats` object | Each ROM/platform processed |
 | `scan:log`          | Log message        | Scan log entries            |
 | `scan:stop`         |                    | Scan completed or cancelled |
+
+### Notifications (`/ws`)
+
+Sent to the user's own `user:{id}` room:
+
+| Event                     | Payload                | When                         |
+| ------------------------- | ---------------------- | ---------------------------- |
+| `notifications:new`       | `NotificationSchema`   | One was stored for the user  |
+| `notifications:read`      | `{ids: int[] \| null}` | Another tab marked some read |
+| `notifications:dismissed` | `{ids: int[] \| null}` | Another tab dismissed some   |
 
 ### Netplay (`/netplay`)
 
@@ -1454,7 +1538,7 @@ Toggled via environment variables:
 
 ### Manual Tasks
 
-Triggered via `POST /api/tasks/run/{task_name}`:
+Triggered via `POST /api/tasks/run/{task_name}`, which enqueues on `low_prio_queue` and answers 503 when no live worker is listening on it:
 
 | Task                   | Description                                   |
 | ---------------------- | --------------------------------------------- |
@@ -1555,22 +1639,26 @@ Falls back to `FakeRedis` in test mode.
 
 ### Cache Key Patterns
 
-| Pattern                    | TTL             | Content                         |
-| -------------------------- | --------------- | ------------------------------- |
-| `session:{id}`             | 14 days         | Session JSON                    |
-| `user_sessions:{username}` | 14 days         | Set of session IDs              |
-| `reset-jti:{jti}`          | 10 min          | Password reset token (one-time) |
-| `invite-jti:{jti}`         | 10 min          | Invite token (one-time)         |
-| `refresh-jti:{jti}`        | 7 days          | Refresh token validation        |
-| `romm:mame_index`          | Permanent       | MAME game index                 |
-| `romm:scummvm_index`       | Permanent       | ScummVM game index              |
-| `romm:ps1_serials`         | Permanent       | PS1 serial codes                |
-| `romm:ps2_serials`         | Permanent       | PS2 serial codes                |
-| `romm:psp_serials`         | Permanent       | PSP serial codes                |
-| `romm:switch_titledb`      | Refreshed daily | Switch TitleDB                  |
-| `romm:known_bios`          | Permanent       | Verified BIOS hashes            |
-| Upload sessions            | 24 hours        | Chunked upload state            |
-| Netplay rooms              | Dynamic         | Active room state               |
+| Pattern                           | TTL             | Content                             |
+| --------------------------------- | --------------- | ----------------------------------- |
+| `session:{id}`                    | 14 days         | Session JSON                        |
+| `user_sessions:{username}`        | 14 days         | Set of session IDs                  |
+| `session_sockets:{id}`            | 14 days         | Socket IDs a session opened         |
+| `notification-channel:{id}:code`  | 30 min          | Hash of an email confirmation code  |
+| `notification-channel-cooldown:*` | 1 min           | A user's and an address's last code |
+| `reset-email:{user_id}`           | 1 min           | A user's last emailed reset link    |
+| `reset-jti:{jti}`                 | 10 min          | Password reset token (one-time)     |
+| `invite-jti:{jti}`                | 10 min          | Invite token (one-time)             |
+| `refresh-jti:{jti}`               | 7 days          | Refresh token validation            |
+| `romm:mame_index`                 | Permanent       | MAME game index                     |
+| `romm:scummvm_index`              | Permanent       | ScummVM game index                  |
+| `romm:ps1_serials`                | Permanent       | PS1 serial codes                    |
+| `romm:ps2_serials`                | Permanent       | PS2 serial codes                    |
+| `romm:psp_serials`                | Permanent       | PSP serial codes                    |
+| `romm:switch_titledb`             | Refreshed daily | Switch TitleDB                      |
+| `romm:known_bios`                 | Permanent       | Verified BIOS hashes                |
+| Upload sessions                   | 24 hours        | Chunked upload state                |
+| Netplay rooms                     | Dynamic         | Active room state                   |
 
 ---
 
@@ -1590,14 +1678,16 @@ Falls back to `FakeRedis` in test mode.
 
 #### Database
 
-| Variable         | Default   | Description                         |
-| ---------------- | --------- | ----------------------------------- |
-| `ROMM_DB_DRIVER` | `mariadb` | `mariadb`, `mysql`, or `postgresql` |
-| `DB_HOST`        |           | Database host                       |
-| `DB_PORT`        | `3306`    | Database port                       |
-| `DB_USER`        |           | Database user                       |
-| `DB_PASSWD`      |           | Database password                   |
-| `DB_NAME`        | `romm`    | Database name                       |
+| Variable                  | Default   | Description                                                        |
+| ------------------------- | --------- | ------------------------------------------------------------------ |
+| `ROMM_DB_DRIVER`          | `mariadb` | `mariadb`, `mysql`, or `postgresql`                                |
+| `DB_HOST`                 |           | Database host                                                      |
+| `DB_PORT`                 | `3306`    | Database port                                                      |
+| `DB_USER`                 |           | Database user                                                      |
+| `DB_PASSWD`               |           | Database password                                                  |
+| `DB_NAME`                 | `romm`    | Database name                                                      |
+| `DB_QUERY_JSON`           |           | Extra connection parameters, as JSON                               |
+| `DB_POOL_RECYCLE_SECONDS` | `300`     | Retire a pooled connection after this long (`-1` to never recycle) |
 
 #### Redis
 
@@ -1666,6 +1756,7 @@ Falls back to `FakeRedis` in test mode.
 | `DISABLE_EMULATOR_JS`    | `false` | Hide EmulatorJS player   |
 | `DISABLE_RUFFLE_RS`      | `false` | Hide Ruffle Flash player |
 | `DISABLE_JSDOS`          | `false` | Hide js-dos player       |
+| `DISABLE_PICO8`          | `false` | Hide PICO-8 player       |
 
 #### Task Scheduling
 
@@ -1731,6 +1822,8 @@ scan:
 
 emulatorjs:
   debug: false
+  default_cores:
+    nds: desmume # platform slug → core preselected in the player
   netplay:
     enabled: false
     ice_servers:

@@ -19,6 +19,23 @@ elif [[ ! -e /app/frontend/assets/romm/resources ]]; then
 	ln -s "${ROMM_BASE_PATH}/resources" "/app/frontend/assets/romm/resources"
 fi
 
+# The ./frontend bind mount hides whatever the build wrote under /app/frontend,
+# so link the image's emulator runtimes into the tree the dev server serves.
+if [[ -n ${EMULATOR_ASSETS_DIR-} && -d ${EMULATOR_ASSETS_DIR} ]]; then
+	for runtime_dir in "${EMULATOR_ASSETS_DIR}"/*; do
+		target="/app/frontend/assets/$(basename "${runtime_dir}")"
+		mkdir -p "${target}"
+		for entry in "${runtime_dir}"/*; do
+			link="${target}/$(basename "${entry}")"
+			# Never replace checked-in art that shares a name with a runtime file.
+			if [[ -e ${link} && ! -L ${link} ]]; then
+				continue
+			fi
+			ln -sfn "${entry}" "${link}"
+		done
+	done
+fi
+
 # Define a signal handler to propagate termination signals
 function handle_termination() {
 	echo "Terminating child processes..."

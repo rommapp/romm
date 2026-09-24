@@ -4,13 +4,13 @@ import os
 import re
 import shutil
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Sequence
 from contextlib import asynccontextmanager
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
-from typing import BinaryIO
+from typing import BinaryIO, Final
 
 from anyio import Path as AnyioPath
 from anyio import open_file
@@ -133,6 +133,25 @@ REGION_NAME_TO_PROVIDER_SHORTCODE: dict[str, str] = {
     "Taiwan": "tw",
     "USA": "us",
     "World": "wor",
+    # ScreenScraper regions with no filename shortcode of their own. Providers
+    # send these codes bare, so without a name here they land in a facet as
+    # "pl" beside the "Poland" a filename or Hasheous produces.
+    "Americas": "ame",
+    "Bulgaria": "bg",
+    "Chile": "cl",
+    "Czech Republic": "cz",
+    "Denmark": "dk",
+    "Hungary": "hu",
+    "Israel": "il",
+    "Kuwait": "kw",
+    "Middle East": "mor",
+    "New Zealand": "nz",
+    "Oceania": "oce",
+    "Peru": "pe",
+    "Poland": "pl",
+    "Portugal": "pt",
+    "Slovakia": "sk",
+    "Turkey": "tr",
 }
 
 _REGION_NAME_TO_PROVIDER_SHORTCODE_CI = {
@@ -182,6 +201,21 @@ def region_ranks_for_priority(shortcodes: Sequence[str]) -> dict[str, int]:
     return ranks
 
 
+# Provider spellings kept out of the filename aliases, where several of these
+# codes ("de", "fr", "nl", "ru") read as a language tag instead (issue #3026).
+_REGION_BY_PROVIDER_ALIAS = {
+    **{name.lower(): name for name in REGION_NAME_TO_PROVIDER_SHORTCODE},
+    **{code: names[0] for code, names in _REGION_NAMES_BY_PROVIDER_SHORTCODE.items()},
+}
+
+
+def provider_region_name(value: str) -> str | None:
+    """Resolve a metadata provider's region spelling to its canonical name."""
+    return normalize_region(value) or _REGION_BY_PROVIDER_ALIAS.get(
+        value.strip().lower()
+    )
+
+
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
 
 # Every accepted language spelling, lowercased, mapped to its canonical name.
@@ -198,6 +232,128 @@ def normalize_language(tag: str) -> str | None:
     facet value. Returns None for tags that name no known language.
     """
     return _LANGUAGE_BY_ALIAS.get(tag.strip().lower())
+
+
+# Codes only a translation tag uses for its target language ("[T+Eng]",
+# "[T-Ge]"). Two-letter ISO codes are absent: normalize_language has those.
+_TRANSLATION_LANGUAGE_ALIASES = {
+    "ara": "Arabic",
+    "chi": "Chinese",
+    "dan": "Danish",
+    "du": "Dutch",
+    "dut": "Dutch",
+    "eng": "English",
+    "fin": "Finnish",
+    "fre": "French",
+    "ge": "German",
+    "ger": "German",
+    "gr": "Greek",
+    "gre": "Greek",
+    "ita": "Italian",
+    "jap": "Japanese",
+    "jp": "Japanese",
+    "kor": "Korean",
+    "nor": "Norwegian",
+    "pol": "Polish",
+    "por": "Portuguese",
+    "rus": "Russian",
+    "ser": "Serbian",
+    "sp": "Spanish",
+    "spa": "Spanish",
+    "swe": "Swedish",
+}
+
+
+# The tag a translated dump carries, in place of the group and patch version
+# the raw tag encodes, which would give every translation its own facet value.
+TRANSLATION_TAG = "Translation"
+
+
+def translation_language(code: str) -> str | None:
+    """Resolve the language a translation tag targets, or None."""
+    tag = code.strip().lower()
+    return normalize_language(tag) or _TRANSLATION_LANGUAGE_ALIASES.get(tag)
+
+
+# ISO-639-1 languages with no filename shortcode of their own. Provider-only,
+# because a filename tag reads by dumper convention instead: "(Tr)" marks a
+# translation, not Turkish.
+PROVIDER_LANGUAGES: Final = (
+    ("af", "Afrikaans"),
+    ("be", "Belarusian"),
+    ("bg", "Bulgarian"),
+    ("ca", "Catalan"),
+    ("cs", "Czech"),
+    ("et", "Estonian"),
+    ("he", "Hebrew"),
+    ("hi", "Hindi"),
+    ("hr", "Croatian"),
+    ("hu", "Hungarian"),
+    ("hy", "Armenian"),
+    ("id", "Indonesian"),
+    ("is", "Icelandic"),
+    ("la", "Latin"),
+    ("lt", "Lithuanian"),
+    ("lv", "Latvian"),
+    ("mk", "Macedonian"),
+    ("ro", "Romanian"),
+    ("sk", "Slovak"),
+    ("sl", "Slovenian"),
+    ("sq", "Albanian"),
+    ("th", "Thai"),
+    ("tr", "Turkish"),
+    ("uk", "Ukrainian"),
+    ("vi", "Vietnamese"),
+)
+
+_LANGUAGE_BY_PROVIDER_ALIAS = {
+    **{name.lower(): name for _, name in PROVIDER_LANGUAGES},
+    **{code: name for code, name in PROVIDER_LANGUAGES},
+}
+
+# Region shortcodes a filename can also carry, as TOSEC and similar sets write
+# them ("(US)", "(JP)"). Added once both language vocabularies are known, and
+# only for a code neither claims: "(De)" is German, and "(Tr)" marks a
+# translation rather than Turkey (issue #3026).
+_REGION_BY_ALIAS.update(
+    {
+        code: names[0]
+        for code, names in _REGION_NAMES_BY_PROVIDER_SHORTCODE.items()
+        if code not in _LANGUAGE_BY_ALIAS and code not in _LANGUAGE_BY_PROVIDER_ALIAS
+    }
+)
+
+
+def provider_language_name(value: str) -> str | None:
+    """Resolve a metadata provider's language spelling to its canonical name."""
+    return normalize_language(value) or _LANGUAGE_BY_PROVIDER_ALIAS.get(
+        value.strip().lower()
+    )
+
+
+def normalize_provider_values(
+    values: Iterable[str], resolve: Callable[[str], str | None]
+) -> list[str]:
+    """Canonicalize provider spellings, dropping blanks and duplicates.
+
+    An unrecognized value is kept as given, the way filename parsing keeps a
+    tag it does not know rather than dropping it.
+    """
+    return list(
+        dict.fromkeys(
+            resolve(value) or value.strip()
+            for value in values
+            if value and value.strip()
+        )
+    )
+
+
+def normalize_provider_regions(values: Iterable[str]) -> list[str]:
+    return normalize_provider_values(values, provider_region_name)
+
+
+def normalize_provider_languages(values: Iterable[str]) -> list[str]:
+    return normalize_provider_values(values, provider_language_name)
 
 
 class CoverSize(Enum):

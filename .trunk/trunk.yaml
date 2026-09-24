@@ -22,7 +22,7 @@ lint:
     - oxipng
     - pyright
   enabled:
-    - grype@0.110.0
+    - zizmor@1.30.1
     - pinact@4.0.0
     - dotenv-linter@4.0.0
     - hadolint@2.14.0
@@ -63,6 +63,15 @@ lint:
     - linters: [mypy]
       paths:
         - backend/alembic/**
+    # The v1 UI is frozen and the freeze check blocks changes to these paths,
+    # so ESLint findings in its templates cannot lead to fixes. Its TypeScript
+    # stays covered, since that was already linted before .vue was.
+    - linters: [eslint]
+      paths:
+        - frontend/src/views/**/*.vue
+        - frontend/src/components/**/*.vue
+        - frontend/src/console/**/*.vue
+        - frontend/src/layouts/**/*.vue
   files:
     - name: vue
       extensions: [vue]
@@ -71,6 +80,7 @@ lint:
       files:
         - javascript
         - typescript
+        - vue
       commands:
         - name: lint
           run_from: ${root_or_parent_with_any_config}

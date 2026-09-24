@@ -21,8 +21,7 @@ const { t } = useI18n();
 const canEdit = useCan("rom.edit");
 const soundtrackActions = useSoundtrackActions();
 
-const { mode, search, artist, genre, platform, decade, game, selectedDecade } =
-  useJukeboxUrlState();
+const { mode, artist, genre, platform, decade, game } = useJukeboxUrlState();
 
 interface BrowseConfig {
   icon: string;
@@ -131,11 +130,11 @@ const headerTitle = computed(() =>
 );
 
 const SESSION_MODES = ["play-all", "station", "favorite", "recent"] as const;
-type SessionMode = (typeof SESSION_MODES)[number];
+type SessionModeKey = (typeof SESSION_MODES)[number];
 
 const sessionMode = computed(() =>
   (SESSION_MODES as readonly string[]).includes(mode.value)
-    ? (mode.value as SessionMode)
+    ? (mode.value as SessionModeKey)
     : null,
 );
 
@@ -159,7 +158,7 @@ async function deleteSoundtrack(fileId: number, romId: number) {
 <template>
   <section class="jukebox">
     <div class="jukebox__header">
-      <PageHeader :title="headerTitle">
+      <PageHeader :title="headerTitle" class="jukebox__title">
         <template v-if="mode !== 'home'" #prepend>
           <RBtn
             icon="mdi-arrow-left"
@@ -213,9 +212,14 @@ async function deleteSoundtrack(fileId: number, romId: number) {
   overflow: hidden;
 }
 
+/* The divider under the title runs edge to edge; only the title is inset. */
 .jukebox__header {
   grid-column: 1 / -1;
-  padding: 24px var(--r-row-pad) 0;
+  padding-top: var(--r-space-6);
+}
+
+.jukebox__title {
+  padding-inline: var(--r-row-pad);
 }
 
 html[data-bp~="sm-and-down"] .jukebox {

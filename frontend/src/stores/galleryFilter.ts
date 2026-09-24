@@ -66,6 +66,10 @@ const buildDefaultFilterState = () => ({
   selectedMetadataProviders: [] as string[],
   selectedTags: [] as string[],
   selectedStatuses: [] as string[],
+  // HowLongToBeat main-story bounds in hours; null leaves that end open. Games
+  // with no HowLongToBeat time are excluded whenever either bound is set.
+  selectedLengthMinHours: null as number | null,
+  selectedLengthMaxHours: null as number | null,
   // Logic operators for multi-select filters
   genresLogic: "any" as FilterLogicOperator,
   franchisesLogic: "any" as FilterLogicOperator,
@@ -92,38 +96,38 @@ export default defineStore("galleryFilter", {
     setFilterPlatforms(platforms: Platform[]) {
       this.filterPlatforms = platforms;
     },
-    setFilterGenres(genres: string[]) {
-      this.filterGenres = genres;
+    setFilterGenres(genres: string[] | null | undefined) {
+      this.filterGenres = genres ?? [];
     },
-    setFilterFranchises(franchises: string[]) {
-      this.filterFranchises = franchises;
+    setFilterFranchises(franchises: string[] | null | undefined) {
+      this.filterFranchises = franchises ?? [];
     },
-    setFilterCollections(collections: string[]) {
-      this.filterCollections = collections;
+    setFilterCollections(collections: string[] | null | undefined) {
+      this.filterCollections = collections ?? [];
     },
-    setFilterCompanies(companies: string[]) {
-      this.filterCompanies = companies;
+    setFilterCompanies(companies: string[] | null | undefined) {
+      this.filterCompanies = companies ?? [];
     },
-    setFilterPublishers(publishers: string[]) {
-      this.filterPublishers = publishers;
+    setFilterPublishers(publishers: string[] | null | undefined) {
+      this.filterPublishers = publishers ?? [];
     },
-    setFilterDevelopers(developers: string[]) {
-      this.filterDevelopers = developers;
+    setFilterDevelopers(developers: string[] | null | undefined) {
+      this.filterDevelopers = developers ?? [];
     },
-    setFilterAgeRatings(ageRatings: string[]) {
-      this.filterAgeRatings = ageRatings;
+    setFilterAgeRatings(ageRatings: string[] | null | undefined) {
+      this.filterAgeRatings = ageRatings ?? [];
     },
-    setFilterRegions(regions: string[]) {
-      this.filterRegions = regions;
+    setFilterRegions(regions: string[] | null | undefined) {
+      this.filterRegions = regions ?? [];
     },
-    setFilterLanguages(languages: string[]) {
-      this.filterLanguages = languages;
+    setFilterLanguages(languages: string[] | null | undefined) {
+      this.filterLanguages = languages ?? [];
     },
-    setFilterPlayerCounts(playerCounts: string[]) {
-      this.filterPlayerCounts = playerCounts;
+    setFilterPlayerCounts(playerCounts: string[] | null | undefined) {
+      this.filterPlayerCounts = playerCounts ?? [];
     },
-    setFilterTags(tags: string[]) {
-      this.filterTags = tags;
+    setFilterTags(tags: string[] | null | undefined) {
+      this.filterTags = tags ?? [];
     },
     setSelectedFilterPlatform(platform: Platform) {
       this.selectedPlatform = platform
@@ -212,6 +216,10 @@ export default defineStore("galleryFilter", {
     },
     setStatusesLogic(logic: FilterLogicOperator) {
       this.statusesLogic = logic;
+    },
+    setSelectedFilterLengthHours(min: number | null, max: number | null) {
+      this.selectedLengthMinHours = min;
+      this.selectedLengthMaxHours = max;
     },
     setFilterMatched(value: boolean | null) {
       this.filterMatched = value;
@@ -468,7 +476,9 @@ export default defineStore("galleryFilter", {
         this.selectedPlayerCounts.length > 0 ||
         this.selectedMetadataProviders.length > 0 ||
         this.selectedTags.length > 0 ||
-        this.selectedStatuses.length > 0,
+        this.selectedStatuses.length > 0 ||
+        this.selectedLengthMinHours !== null ||
+        this.selectedLengthMaxHours !== null,
       );
     },
     reset() {
@@ -490,6 +500,8 @@ export default defineStore("galleryFilter", {
       this.selectedMetadataProviders = [];
       this.selectedTags = [];
       this.selectedStatuses = [];
+      this.selectedLengthMinHours = null;
+      this.selectedLengthMaxHours = null;
       this.filterMatched = null;
       this.filterFavorites = null;
       this.filterDuplicates = null;

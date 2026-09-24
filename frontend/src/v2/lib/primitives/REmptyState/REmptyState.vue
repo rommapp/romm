@@ -15,17 +15,26 @@ interface Props {
   iconSize?: string | number;
   /** Size ladder shared with RBtn / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
+  /** `plain` drops the box for a surface that already frames it (a table body). */
+  variant?: "boxed" | "plain";
 }
 
 withDefaults(defineProps<Props>(), {
   icon: "mdi-tray-remove",
+  title: undefined,
+  hint: undefined,
   iconSize: 48,
   size: "default",
+  variant: "boxed",
 });
 </script>
 
 <template>
-  <div v-bind="$attrs" class="r-empty-state" :class="`r-empty-state--${size}`">
+  <div
+    v-bind="$attrs"
+    class="r-empty-state"
+    :class="[`r-empty-state--${size}`, `r-empty-state--${variant}`]"
+  >
     <slot name="icon">
       <RIcon :icon="icon" :size="iconSize" />
     </slot>
@@ -46,11 +55,27 @@ withDefaults(defineProps<Props>(), {
   display: flex;
   flex-direction: column;
   align-items: center;
+  text-align: center;
+  color: var(--r-color-fg-muted);
+  animation: r-empty-state-in var(--r-motion-med) var(--r-motion-ease-out) both;
+}
+.r-empty-state--boxed {
   background: var(--r-color-bg-elevated);
   border: 1px dashed var(--r-color-border);
   border-radius: var(--r-radius-md);
-  text-align: center;
-  color: var(--r-color-fg-muted);
+}
+
+/* Fades in so swapping from a loader or from content doesn't snap. */
+@keyframes r-empty-state-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r-empty-state {
+    animation: none;
+  }
 }
 
 /* Size ladder — same vocabulary as RBtn/RChip/RTag/RTabNav. Ramps both

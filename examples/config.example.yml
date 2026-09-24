@@ -62,10 +62,10 @@
 # system:
 #   # Asociate different platform names to your current file system platform names
 #   # [your custom platform folder name]: [RomM platform name]
-#   # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
+#   # Case-insensitive. Batocera, RetroBat and ES-DE folders are already recognised.
 #   platforms:
-#     gc: ngc
 #     ps1: psx
+#     super_nintendo: snes
 
 #   # Asociate one platform to it's main version (IGDB only)
 #   versions:
@@ -108,6 +108,7 @@
 #       - steam # Steam (PC platforms only)
 #       - hltb # HowLongToBeat (lowest priority)
 #     artwork: # Cover art and screenshots
+#       - sgdb # SteamGridDB (highest priority)
 #       - igdb # IGDB
 #       - moby # MobyGames
 #       - ss # Screenscraper
@@ -181,7 +182,11 @@
 #   cache_limit: null # Cache limit per ROM (in bytes)
 #   disable_batch_bootup: false
 #   disable_auto_unload: false
-#   auto_save_sync: false # Upload the save to the server whenever it changes, without Save & Quit
+#   auto_save_sync: true # Upload the save to the server seconds after the game writes it, without Save & Quit
+#   default_cores: # Core preselected per platform, unless overridden on the device
+#     # Use the exact core name, as listed for the platform in the docs
+#     nds: desmume
+#     nintendo-dsi: melonds
 #   settings:
 #     parallel_n64: # Use the exact core name
 #       vsync: disabled
@@ -216,7 +221,7 @@
 #   containers:
 #     # One container can serve many platforms. Container keys are defaults
 #     # for every platform it serves; a platform block may override emulator,
-#     # label, and memory_card_sync.
+#     # label, memory_card_sync, and clears_stale_saves.
 #     - protocol: webstation
 #       host: https://192.168.1.56:3010  # browser-facing UI, must be https
 #       subfolder: /streaming            # matches the container's SUBFOLDER
@@ -229,3 +234,10 @@
 #         ps2:                            # ...or a block overriding container keys
 #           emulator: pcsx2
 #           memory_card_sync: true
+#         # Whether the broker wipes the save tree before restoring, which is
+#         # what lets the launch screen restore a save other than the newest.
+#         # RomM assumes what each emulator's broker does; set this only on a
+#         # fork or a broker newer than your RomM.
+#         wii:
+#           emulator: dolphin
+#           clears_stale_saves: true

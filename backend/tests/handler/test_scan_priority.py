@@ -41,6 +41,16 @@ def test_per_field_override_reorders_only_that_field():
     assert screenshots == [MetadataSource.IGDB, MetadataSource.SS]
 
 
+def test_a_source_listed_twice_keeps_its_first_position():
+    """A repeated config entry must not hand a provider two slots."""
+    config = _fake_config(url_cover=["sgdb", "steam", "sgdb"])
+    available = [MetadataSource.STEAM, MetadataSource.SGDB]
+    with patch("handler.scan_handler.cm.get_config", return_value=config):
+        ordered = get_priority_ordered_metadata_sources(available, "url_cover")
+
+    assert ordered == [MetadataSource.SGDB, MetadataSource.STEAM]
+
+
 def test_sources_absent_from_priority_are_appended():
     """Available sources not named in the priority list still appear, last."""
     available = [MetadataSource.SS, MetadataSource.MOBY, MetadataSource.LAUNCHBOX]

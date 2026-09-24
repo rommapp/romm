@@ -296,12 +296,11 @@ function onSort({ key, dir }: RTableSortPayload) {
     </div>
 
     <!-- Active exclusions table or empty state -->
-    <div v-if="exclusions.length === 0" class="r-v2-excluded__empty">
-      <REmptyState
-        icon="mdi-format-list-bulleted"
-        :message="t('settings.exclusions-none')"
-      />
-    </div>
+    <REmptyState
+      v-if="exclusions.length === 0"
+      icon="mdi-format-list-bulleted"
+      :title="t('settings.exclusions-none')"
+    />
     <RTable
       v-else
       :columns="columns"
@@ -373,6 +372,7 @@ function onSort({ key, dir }: RTableSortPayload) {
       icon="mdi-cancel"
       :width="540"
       scroll-content
+      cancelable
       @close="closeCreate"
     >
       <template #header>
@@ -421,10 +421,6 @@ function onSort({ key, dir }: RTableSortPayload) {
         </RTextField>
       </template>
       <template #footer>
-        <RBtn variant="text" @click="closeCreate">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <div style="flex: 1" />
         <RBtn
           variant="flat"
           color="primary"
@@ -478,15 +474,6 @@ function onSort({ key, dir }: RTableSortPayload) {
     var(--r-color-danger) 12%,
     transparent
   ) !important;
-}
-
-/* Empty state with CTA below. */
-.r-v2-excluded__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  padding: 24px 16px 32px;
 }
 
 /* Defaults list (read-only). */

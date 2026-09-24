@@ -29,6 +29,9 @@ services:
       - /app/frontend/dist # Empty directory
       - ./romm_mock:/app/romm
       - ~/.vite-plugin-mkcert:/app/.vite-plugin-mkcert
+      # Read-only, so the backend can report the checked-out branch (see
+      # backend/utils/__init__.py get_git_branch) without git write access.
+      - ./.git:/app/.git:ro
     depends_on:
       - romm-db-dev
       - romm-valkey-dev
@@ -37,7 +40,7 @@ services:
     tty: true
 
   romm-db-dev:
-    image: mariadb:11.3.2
+    image: mariadb:12.3.3
     container_name: romm-db-dev
     restart: unless-stopped
     env_file: .env
@@ -52,7 +55,7 @@ services:
       - "3306:3306"
 
   romm-valkey-dev:
-    image: valkey/valkey:8
+    image: valkey/valkey:9.0.6
     container_name: romm-valkey-dev
     restart: unless-stopped
     env_file: .env

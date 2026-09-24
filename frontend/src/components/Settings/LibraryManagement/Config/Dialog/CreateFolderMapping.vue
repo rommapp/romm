@@ -36,13 +36,10 @@ const availableFolders = computed(() => {
     }
 
     // Exclude folders that are already mapped as either an alias or a variant.
-    const isBound = Object.keys(configStore.config.PLATFORMS_BINDING).includes(
-      folder,
+    return (
+      !configStore.getPlatformBinding(folder) &&
+      !configStore.getPlatformVersion(folder)
     );
-    const isVersion = Object.keys(
-      configStore.config.PLATFORMS_VERSIONS,
-    ).includes(folder);
-    return !isBound && !isVersion;
   });
 });
 

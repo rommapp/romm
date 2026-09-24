@@ -41,7 +41,7 @@ const { destinations, activeId } = useNavDestinations();
 </template>
 
 <style scoped>
-/* Matches .r-v2-shell__app's height without adding to it; flex-end anchors the pill to sticky's bottom. */
+/* Matches .r-v2-app-shell__body's height without adding to it; flex-end anchors the pill to sticky's bottom. */
 .r-v2-bottom-nav-anchor {
   position: absolute;
   inset: 0;

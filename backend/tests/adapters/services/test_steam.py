@@ -5,7 +5,11 @@ import aiohttp
 import pytest
 from fastapi import HTTPException, status
 
-from adapters.services.steam import STEAM_LIBRARY_CAPSULE_URL, SteamService
+from adapters.services.steam import (
+    STEAM_HEADER_IMAGE_URL,
+    STEAM_LIBRARY_CAPSULE_URL,
+    SteamService,
+)
 
 
 def _response(json_body: object) -> MagicMock:
@@ -140,3 +144,17 @@ async def test_library_capsule_url_is_none_when_the_probe_fails(session):
     session.head.side_effect = aiohttp.ClientConnectionError()
 
     assert await SteamService().get_library_capsule_url(400) is None
+
+
+async def test_header_image_url_when_the_cdn_serves_one(session):
+    session.head.return_value = MagicMock(status=http.HTTPStatus.OK)
+
+    url = await SteamService().get_header_image_url(400)
+
+    assert url == STEAM_HEADER_IMAGE_URL.format(app_id=400)
+
+
+async def test_header_image_url_is_none_when_missing(session):
+    session.head.return_value = MagicMock(status=http.HTTPStatus.NOT_FOUND)
+
+    assert await SteamService().get_header_image_url(400) is None

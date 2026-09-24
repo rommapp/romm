@@ -35,6 +35,7 @@
 //   ?playerCounts=…&playerCountsLogic=…
 //   ?metadataProviders=…&metadataProvidersLogic=…
 //   ?tags=…&tagsLogic=…
+//   ?lengthMin=…&lengthMax=…   (HowLongToBeat main story, in hours)
 //
 // Direction notes:
 //   * URL → store fires on every `route.query` change (browser back /
@@ -88,6 +89,13 @@ function qLogic(
   return null;
 }
 
+function qHours(v: LocationQueryValue | LocationQueryValue[]): number | null {
+  const s = qStr(v);
+  if (s === null) return null;
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 function eqStrArr(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
@@ -127,6 +135,8 @@ export function useGalleryFilterUrl() {
     selectedMetadataProviders,
     selectedTags,
     selectedStatuses,
+    selectedLengthMinHours,
+    selectedLengthMaxHours,
     genresLogic,
     franchisesLogic,
     collectionsLogic,
@@ -191,6 +201,8 @@ export function useGalleryFilterUrl() {
       tagsLogic: qLogic(q.tagsLogic),
       statuses: qList(q.statuses),
       statusesLogic: qLogic(q.statusesLogic),
+      lengthMin: qHours(q.lengthMin),
+      lengthMax: qHours(q.lengthMax),
     };
 
     if (url.search !== searchTerm.value) searchTerm.value = url.search;
@@ -305,6 +317,13 @@ export function useGalleryFilterUrl() {
       filter.setSelectedFilterStatuses(url.statuses);
     if (url.statusesLogic && url.statusesLogic !== statusesLogic.value)
       filter.setStatusesLogic(url.statusesLogic);
+
+    if (
+      url.lengthMin !== selectedLengthMinHours.value ||
+      url.lengthMax !== selectedLengthMaxHours.value
+    ) {
+      filter.setSelectedFilterLengthHours(url.lengthMin, url.lengthMax);
+    }
   }
 
   // Apply once before the view's setup reads any of the refs.
@@ -433,6 +452,18 @@ export function useGalleryFilterUrl() {
       "statusesLogic",
       selectedStatuses.value.length > 0 ? statusesLogic.value : null,
     );
+    setOrDelete(
+      "lengthMin",
+      selectedLengthMinHours.value === null
+        ? null
+        : String(selectedLengthMinHours.value),
+    );
+    setOrDelete(
+      "lengthMax",
+      selectedLengthMaxHours.value === null
+        ? null
+        : String(selectedLengthMaxHours.value),
+    );
 
     // Skip the push if nothing actually changed — keeps router from
     // emitting a route-update for an identical URL.
@@ -495,6 +526,8 @@ export function useGalleryFilterUrl() {
       tagsLogic,
       selectedStatuses,
       statusesLogic,
+      selectedLengthMinHours,
+      selectedLengthMaxHours,
     ],
     () => pushDebounced(),
     { deep: true },

@@ -2,8 +2,13 @@ import { flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storePlatforms, { type Platform } from "@/stores/platforms";
 // Import after the mock so the store binds to the mocked rom API.
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, {
+  orderSupportsLetters,
+  SELECT_ALL_PAGE_SIZE,
+  type GalleryOrderKey,
+} from "@/v2/stores/galleryRoms";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
 
@@ -16,6 +21,29 @@ interface Deferred {
   resolve: (value: unknown) => void;
 }
 
+function platform(overrides: Partial<Platform> = {}): Platform {
+  return {
+    id: 1,
+    slug: "snes",
+    fs_slug: "snes",
+    rom_count: 1,
+    name: "Super Nintendo",
+    igdb_slug: null,
+    moby_slug: null,
+    hltb_slug: null,
+    libretro_slug: null,
+    created_at: "",
+    updated_at: "",
+    fs_size_bytes: 0,
+    is_unidentified: false,
+    is_identified: true,
+    missing_from_fs: false,
+    display_name: "Super Nintendo",
+    firmware_count: 0,
+    ...overrides,
+  };
+}
+
 function deferred(): Deferred {
   let resolve!: (value: unknown) => void;
   const promise = new Promise<unknown>((r) => {
@@ -24,8 +52,8 @@ function deferred(): Deferred {
   return { promise, resolve };
 }
 
-function windowResponse(offset: number, total = 1000) {
-  return { data: { total, items: [], char_index: {}, rom_id_index: [] } };
+function windowResponse(total: number | null = 1000, items: unknown[] = []) {
+  return { data: { total, items, char_index: {}, rom_id_index: [] } };
 }
 
 describe("galleryRoms windowed fetch", () => {
@@ -45,9 +73,7 @@ describe("galleryRoms windowed fetch", () => {
   });
 
   it("collapses many visible positions into one request per 72-item window", async () => {
-    getRoms.mockImplementation((params: { offset: number }) =>
-      Promise.resolve(windowResponse(params.offset)),
-    );
+    getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
     const store = storeGalleryRoms();
 
     // Every position falls inside the first 72-item window.
@@ -88,7 +114,7 @@ describe("galleryRoms windowed fetch", () => {
     // Resolve the four in-flight windows; each freed slot pulls one from the
     // queue until all six have run.
     for (const offset of [0, 72, 144, 216]) {
-      pending.get(offset)?.resolve(windowResponse(offset));
+      pending.get(offset)?.resolve(windowResponse());
     }
     await flushPromises();
 
@@ -119,7 +145,7 @@ describe("galleryRoms windowed fetch", () => {
     // Drain by resolving windows one at a time; the peak in-flight count must
     // never pass the cap of 4.
     while (pending.length > 0) {
-      pending.shift()?.resolve(windowResponse(0));
+      pending.shift()?.resolve(windowResponse());
       await flushPromises();
     }
 
@@ -189,6 +215,43 @@ describe("galleryRoms windowed fetch", () => {
     expect(galleryFilter.filterGenres).toEqual(["RPG", "Shooter"]);
   });
 
+  it("coerces null or missing filter_value lists from the API", async () => {
+    // Publishers and developers are omitted, as an older API sends them.
+    getRoms.mockResolvedValue({
+      data: {
+        total: 1,
+        items: [],
+        char_index: {},
+        rom_id_index: [],
+        filter_values: {
+          genres: null,
+          franchises: null,
+          collections: null,
+          companies: null,
+          age_ratings: null,
+          regions: null,
+          languages: null,
+          player_counts: null,
+          tags: null,
+          platforms: null,
+        },
+      },
+    });
+    storePlatforms().set([platform()]);
+    const galleryFilter = storeGalleryFilter();
+    galleryFilter.setFilterGenres(["RPG"]);
+    const store = storeGalleryRoms();
+
+    await store.fetchInitialMetadata();
+
+    // The bootstrap swallows errors, so this proves nothing threw midway.
+    expect(store.metadataLoaded).toBe(true);
+    expect(galleryFilter.filterPlatforms).toEqual([]);
+    expect(galleryFilter.filterGenres).toEqual([]);
+    expect(galleryFilter.filterDevelopers).toEqual([]);
+    expect(galleryFilter.filterTags).toEqual([]);
+  });
+
   it("keeps the bootstrap char_index when the first window skips aggregations", async () => {
     getRoms.mockImplementation((params: { limit?: number }) => {
       // The bootstrap (limit 1) carries the char index; the follow-up
@@ -203,7 +266,7 @@ describe("galleryRoms windowed fetch", () => {
           },
         });
       }
-      return Promise.resolve(windowResponse(0, 500));
+      return Promise.resolve(windowResponse(500));
     });
     const store = storeGalleryRoms();
 
@@ -258,7 +321,7 @@ describe("galleryRoms windowed fetch", () => {
   // The very first window doubles as the bootstrap when nothing has loaded
   // yet, so it still has to bring the total back with it.
   it("asks for the total on the first window when no bootstrap ran", async () => {
-    getRoms.mockResolvedValue(windowResponse(0, 300));
+    getRoms.mockResolvedValue(windowResponse(300));
     const store = storeGalleryRoms();
 
     store.syncVisibleWindows([0]);
@@ -311,5 +374,127 @@ describe("galleryRoms windowed fetch", () => {
     getRoms.mockImplementation(() => deferred().promise);
     store.syncVisibleWindows([0]);
     expect(getRoms).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("galleryRoms whole-result fetch", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    getRoms.mockReset();
+  });
+
+  it("pages through backend-capped pages until a short page", async () => {
+    // A full page (the backend's limit cap) forces a second request.
+    const fullPage = Array.from({ length: SELECT_ALL_PAGE_SIZE }, (_, i) => ({
+      id: i,
+    }));
+    const lastPage = [
+      { id: SELECT_ALL_PAGE_SIZE },
+      { id: SELECT_ALL_PAGE_SIZE + 1 },
+    ];
+    getRoms.mockImplementation((params: { offset: number }) =>
+      Promise.resolve(
+        windowResponse(null, params.offset === 0 ? fullPage : lastPage),
+      ),
+    );
+    const store = storeGalleryRoms();
+    store.currentSearch = true;
+
+    const roms = await store.fetchAllFilteredRoms();
+
+    expect(roms).toHaveLength(SELECT_ALL_PAGE_SIZE + 2);
+    expect(getRoms).toHaveBeenCalledTimes(2);
+    expect(getRoms.mock.calls.map((c) => c[0].offset)).toEqual([
+      0,
+      SELECT_ALL_PAGE_SIZE,
+    ]);
+    // Whole-result pages skip every sidecar aggregation.
+    expect(getRoms.mock.calls[0][0]).toMatchObject({
+      withCharIndex: false,
+      withFilterValues: false,
+      withRomIdIndex: false,
+      withTotal: false,
+    });
+    // Loaded windows stay untouched: the result goes to the selection,
+    // not into the sparse gallery cache.
+    expect(store.byPosition.size).toBe(0);
+  });
+
+  it("returns null when the gallery context is invalidated mid-flight", async () => {
+    const d = deferred();
+    getRoms.mockReturnValue(d.promise);
+    const store = storeGalleryRoms();
+    store.currentSearch = true;
+
+    const fetching = store.fetchAllFilteredRoms();
+    store.invalidateWindows();
+    d.resolve(windowResponse(null, [{ id: 1 }]));
+
+    expect(await fetching).toBeNull();
+    expect(store.selectingAll).toBe(false);
+  });
+
+  it("refuses to fetch off the gallery view", async () => {
+    // Without a context the params would describe the whole library.
+    const store = storeGalleryRoms();
+
+    expect(await store.fetchAllFilteredRoms()).toBeNull();
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+});
+
+describe("galleryRoms length filter", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    getRoms.mockReset();
+    getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends the hour bounds to the API as seconds", () => {
+    storeGalleryFilter().setSelectedFilterLengthHours(5, 20);
+
+    storeGalleryRoms().syncVisibleWindows([0]);
+
+    expect(getRoms.mock.calls[0][0].hltbMainStoryMin).toBe(5 * 3600);
+    expect(getRoms.mock.calls[0][0].hltbMainStoryMax).toBe(20 * 3600);
+  });
+
+  it("leaves an open end of the range unset", () => {
+    storeGalleryFilter().setSelectedFilterLengthHours(null, 10);
+
+    storeGalleryRoms().syncVisibleWindows([0]);
+
+    expect(getRoms.mock.calls[0][0].hltbMainStoryMin).toBeNull();
+    expect(getRoms.mock.calls[0][0].hltbMainStoryMax).toBe(10 * 3600);
+  });
+});
+
+describe("orderSupportsLetters", () => {
+  // The backend indexes first letters off a text column only, so every other
+  // order answers with an empty char_index. Spelling out every key means a new
+  // sort key fails here until someone says which kind it is.
+  const EXPECTED: Record<GalleryOrderKey, boolean> = {
+    name: true,
+    fs_name: true,
+    platform_id: false,
+    fs_size_bytes: false,
+    created_at: false,
+    updated_at: false,
+    first_release_date: false,
+    average_rating: false,
+    hltb_main_story: false,
+    last_played: false,
+  };
+
+  it.each(Object.entries(EXPECTED))("answers for %s", (key, expected) => {
+    expect(orderSupportsLetters(key as GalleryOrderKey)).toBe(expected);
   });
 });

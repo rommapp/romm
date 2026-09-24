@@ -30,6 +30,7 @@ import sqlalchemy as sa
 from alembic import op
 
 from utils.database import CustomJSON
+from utils.roms_columns import ensure_roms_columns
 
 # revision identifiers, used by Alembic.
 revision = "0113_roms_locked_fields"
@@ -48,14 +49,10 @@ def _roms_table() -> sa.TableClause:
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("locked_fields", CustomJSON(), nullable=True),
-            if_not_exists=True,
-        )
+    connection = op.get_bind()
+    ensure_roms_columns(connection)
 
     roms = _roms_table()
-    connection = op.get_bind()
 
     # A stored cover path with an empty url is the pre-migration marker for an
     # upload.

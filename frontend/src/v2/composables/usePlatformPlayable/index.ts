@@ -9,11 +9,10 @@
 // slugs at once (sort comparators, group-by buckets in PlatformsIndex).
 //
 // `emulator` resolves to the in-browser engine that actually drives the
-// platform: "ruffle" for Flash, "jsdos" for Windows 3.x/9x, "dosbox"
-// when the EJS catalogue picks the dosbox_pure core (DOS is wrapped by
-// EJS but distinctive enough to surface by name in the UI),
-// "emulatorjs" for everything else playable, and `null` when nothing on
-// the server can run it.
+// platform: "ruffle" for Flash, "jsdos" for Windows 3.x/9x, "dosbox" when
+// the EJS catalogue picks the dosbox_pure core (DOS is wrapped by EJS but
+// distinctive enough to surface by name in the UI), "emulatorjs" for
+// everything else playable, and `null` when nothing on the server can run it.
 //
 // `mode` folds the in-browser answer together with streaming: a platform
 // served by a configured streaming container is playable too, just not in
@@ -24,17 +23,19 @@ import { computed, type ComputedRef } from "vue";
 import i18n from "@/locales";
 import storeConfig, { type Config } from "@/stores/config";
 import storeHeartbeat, { type Heartbeat } from "@/stores/heartbeat";
+import { useNativeStore } from "@/stores/native";
 import { useStreamingStore } from "@/stores/streaming";
 import {
   getSupportedEJSCores,
   isEJSEmulationSupported,
   isJsDosEmulationSupported,
+  isPico8EmulationSupported,
   isRuffleEmulationSupported,
   resolvePlatformSlug,
 } from "@/utils";
 
 export type PlatformEmulator =
-  "emulatorjs" | "ruffle" | "jsdos" | "dosbox" | null;
+  "emulatorjs" | "ruffle" | "jsdos" | "pico8" | "dosbox" | null;
 
 export type PlatformPlayMode = "browser" | "stream" | "both" | null;
 
@@ -56,6 +57,7 @@ function resolveEmulator(
   if (!slug) return null;
   if (isRuffleEmulationSupported(slug, heartbeat, config)) return "ruffle";
   if (isJsDosEmulationSupported(slug, heartbeat, config)) return "jsdos";
+  if (isPico8EmulationSupported(slug, heartbeat, config)) return "pico8";
   if (!isEJSEmulationSupported(slug, heartbeat, config)) return null;
   const cores = getSupportedEJSCores(resolvePlatformSlug(slug, config));
   if (cores.includes("dosbox_pure")) return "dosbox";
@@ -104,10 +106,12 @@ export function usePlatformPlayableChecker(): {
     (slug: string | null | undefined) => PlatformEmulator
   >;
   isStreamable: ComputedRef<(slug: string | null | undefined) => boolean>;
+  isNativeSupported: ComputedRef<(slug: string | null | undefined) => boolean>;
 } {
   const heartbeatStore = storeHeartbeat();
   const configStore = storeConfig();
   const streamingStore = useStreamingStore();
+  const nativeStore = useNativeStore();
   const { value: heartbeat } = storeToRefs(heartbeatStore);
 
   // Expose computed functions so callers that consume them inside another
@@ -133,7 +137,16 @@ export function usePlatformPlayableChecker(): {
       cfg.enabled && streamingStore.containerForPlatform(slug) !== null;
   });
 
-  return { isPlayable, getEmulator, isStreamable };
+  // Whether the desktop shell can launch this platform locally. Deliberately
+  // not folded into `mode`: the badge answers a question about the server, and
+  // this one is about the machine the page is open on.
+  const isNativeSupported = computed(() => {
+    const probed = nativeStore.support;
+    return (slug: string | null | undefined): boolean =>
+      Boolean(probed) && nativeStore.isSupportedPlatform(slug);
+  });
+
+  return { isPlayable, getEmulator, isStreamable, isNativeSupported };
 }
 
 /** Human-readable tooltip for the play badge / column. Shared by every
@@ -155,6 +168,8 @@ export function playTooltip(
           return t("platform.playable-browser-ruffle");
         case "jsdos":
           return t("platform.playable-browser-jsdos");
+        case "pico8":
+          return t("platform.playable-browser-pico8");
         case "dosbox":
           return t("platform.playable-browser-dosbox");
         default:

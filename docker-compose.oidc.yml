@@ -11,7 +11,7 @@ name: romm-oidc
 
 services:
   romm-postgres-dev:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: romm-postgresql-dev
     restart: unless-stopped
     env_file: .env
@@ -27,7 +27,7 @@ services:
       - romm_default
 
   romm-authentik-server:
-    image: ghcr.io/goauthentik/server:2024.10.4
+    image: ghcr.io/goauthentik/server:2024.12.5
     container_name: romm-authentik-server
     restart: unless-stopped
     command: server
@@ -52,7 +52,7 @@ services:
       - romm_default
 
   romm-authentik-worker:
-    image: ghcr.io/goauthentik/server:2024.10.4
+    image: ghcr.io/goauthentik/server:2024.12.5
     container_name: romm-authentik-worker
     restart: unless-stopped
     command: worker

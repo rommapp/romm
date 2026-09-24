@@ -8,6 +8,12 @@ import api from "@/services/api";
 
 export type Config = ConfigResponse;
 
+// The backend lowercases folder names before writing them to config.yml, so
+// every read and write of a mapping normalizes the on-disk name the same way.
+function normalizeFsSlug(fsSlug: string): string {
+  return fsSlug.toLowerCase();
+}
+
 const defaultConfig = {
   CONFIG_FILE_MOUNTED: false,
   CONFIG_FILE_WRITABLE: false,
@@ -30,8 +36,9 @@ const defaultConfig = {
   EJS_CACHE_LIMIT: null,
   EJS_DISABLE_AUTO_UNLOAD: false,
   EJS_DISABLE_BATCH_BOOTUP: false,
-  EJS_ENABLE_AUTO_SAVE_SYNC: false,
+  EJS_ENABLE_AUTO_SAVE_SYNC: true,
   EJS_NETPLAY_ICE_SERVERS: [],
+  EJS_DEFAULT_CORES: {},
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
   SCAN_METADATA_PRIORITY: [],
@@ -65,17 +72,23 @@ export default defineStore("config", {
         return this.config;
       }
     },
+    getPlatformBinding(fsSlug: string): string | undefined {
+      return this.config.PLATFORMS_BINDING[normalizeFsSlug(fsSlug)];
+    },
     addPlatformBinding(fsSlug: string, slug: string) {
-      this.config.PLATFORMS_BINDING[fsSlug] = slug;
+      this.config.PLATFORMS_BINDING[normalizeFsSlug(fsSlug)] = slug;
     },
     removePlatformBinding(fsSlug: string) {
-      delete this.config.PLATFORMS_BINDING[fsSlug];
+      delete this.config.PLATFORMS_BINDING[normalizeFsSlug(fsSlug)];
+    },
+    getPlatformVersion(fsSlug: string): string | undefined {
+      return this.config.PLATFORMS_VERSIONS[normalizeFsSlug(fsSlug)];
     },
     addPlatformVersion(fsSlug: string, slug: string) {
-      this.config.PLATFORMS_VERSIONS[fsSlug] = slug;
+      this.config.PLATFORMS_VERSIONS[normalizeFsSlug(fsSlug)] = slug;
     },
     removePlatformVersion(fsSlug: string) {
-      delete this.config.PLATFORMS_VERSIONS[fsSlug];
+      delete this.config.PLATFORMS_VERSIONS[normalizeFsSlug(fsSlug)];
     },
     addExclusion(exclusionType: ExclusionType, exclusionValue: string) {
       this.config[exclusionType].push(exclusionValue);
@@ -92,6 +105,9 @@ export default defineStore("config", {
     },
     isExclusionType(type: string): type is ExclusionType {
       return Object.keys(this.config).includes(type);
+    },
+    getEJSDefaultCore(platformSlug: string): string | null {
+      return this.config.EJS_DEFAULT_CORES[platformSlug.toLowerCase()] ?? null;
     },
     getEJSCoreOptions(core: string | null): Record<string, string | boolean> {
       const defaultOptions = this.config.EJS_SETTINGS["default"] || {};

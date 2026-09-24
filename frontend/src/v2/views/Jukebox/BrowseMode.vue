@@ -2,6 +2,7 @@
 // One facet-driven browse screen: artist / genre / platform / decade / album
 // differ only by the facet they load and the filter they hand the track query.
 import {
+  REmptyState,
   RIcon,
   RList,
   RListItem,
@@ -14,7 +15,7 @@ import { useI18n } from "vue-i18n";
 import musicApi, { type MusicTrackFilters } from "@/services/api/music";
 import useMusicFavorites from "@/stores/musicFavorites";
 import SoundtrackPanel from "@/v2/components/Soundtrack/Panel.vue";
-import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useTrackPager } from "@/v2/composables/useTrackPager";
 import { panelTracksFromCatalog } from "@/v2/utils/soundtrackTracks";
 
@@ -53,19 +54,23 @@ const entries = ref<BrowseEntry[]>([]);
 const loadingEntries = ref(true);
 const entriesFailed = ref(false);
 const search = ref("");
+const entriesPhase = useLoadingPhase(
+  loadingEntries,
+  () => entriesFailed.value || !entries.value.length,
+);
 
 const pager = useTrackPager((items) => favorites.merge(items));
 
 let entriesToken = 0;
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
-async function loadEntries(term: string) {
+async function fetchEntries(term: string) {
   const token = ++entriesToken;
   loadingEntries.value = true;
-  entriesFailed.value = false;
   try {
     const next = await props.loadEntries(term);
     if (token !== entriesToken) return;
+    entriesFailed.value = false;
     entries.value = next;
     // Keep the URL's pick when it still exists, else fall back to the first.
     const stillThere = next.some((entry) => entry.key === props.selected);
@@ -88,7 +93,7 @@ function loadTracks(key: string) {
 
 watch(search, (term) => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => void loadEntries(term.trim()), 250);
+  searchTimer = setTimeout(() => void fetchEntries(term.trim()), 250);
 });
 
 watch(
@@ -98,13 +103,13 @@ watch(
 );
 
 // A delete also changes the sidebar's counts, and may empty the picked
-// entry entirely (loadEntries then falls back to the first one).
+// entry entirely (fetchEntries then falls back to the first one).
 watch(
   () => props.refreshToken,
-  () => void loadEntries(search.value.trim()),
+  () => void fetchEntries(search.value.trim()),
 );
 
-void loadEntries("");
+void fetchEntries("");
 
 const panelTracks = computed(() => panelTracksFromCatalog(pager.tracks.value));
 
@@ -127,20 +132,18 @@ function onDelete(fileId: number, romId: number) {
     </div>
 
     <div class="jukebox__entries r-v2-scroll-hidden">
-      <template v-if="loadingEntries">
+      <template v-if="entriesPhase === 'skeleton'">
         <RSkeletonBlock v-for="n in 7" :key="n" height="60px" rounded="md" />
       </template>
-      <EmptyState
-        v-else-if="entriesFailed"
+      <REmptyState
+        v-else-if="entriesPhase === 'empty'"
+        size="small"
         :icon="icon"
-        :message="t('common.unknown-error')"
+        :title="
+          entriesFailed ? t('common.unknown-error') : t('common.no-results')
+        "
       />
-      <EmptyState
-        v-else-if="!entries.length"
-        :icon="icon"
-        :message="t('common.no-results')"
-      />
-      <RList v-else density="default">
+      <RList v-else-if="entriesPhase === 'content'" density="default">
         <RListItem
           v-for="entry in entries"
           :key="entry.key"
@@ -264,11 +267,6 @@ html[data-bp~="xs"] .jukebox__entries :deep(.r-list-item) {
 
 html[data-bp~="xs"] .jukebox__entries :deep(.r-list-item__body),
 html[data-bp~="xs"] .jukebox__entries :deep(.r-list-item__append) {
-  display: none;
-}
-
-html[data-bp~="xs"] .jukebox__player :deep(.r-v2-stp__row-duration),
-html[data-bp~="xs"] .jukebox__player :deep(.r-v2-stp__row-size) {
   display: none;
 }
 </style>

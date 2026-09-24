@@ -1,8 +1,7 @@
 import axios from "axios";
 import { default as Cookies } from "js-cookie";
 import { debounce } from "lodash";
-import router from "@/plugins/router";
-import { ROUTES, isAuthExemptRoute } from "@/plugins/router";
+import { isAuthExemptRoute, ROUTES } from "@/plugins/routeNames";
 
 const api = axios.create({
   // This will keep the url query params on refresh
@@ -115,11 +114,7 @@ api.interceptors.response.use(
     // failure): the session is still valid, so stay on the page and let the
     // caller surface the error. Only refresh the CSRF token when the backend
     // rejected it, so the next attempt uses a fresh one.
-    if (
-      error.response?.status === 403 &&
-      typeof error.response?.data === "string" &&
-      error.response.data.includes("CSRF")
-    ) {
+    if (isCsrfFailure(error)) {
       await refetchCSRFToken().catch(() => {});
     }
 
@@ -136,6 +131,10 @@ api.interceptors.response.use(
       const search = window.location.search;
       const params = new URLSearchParams(search);
       const fullPath = pathname + search;
+
+      // Loaded lazily: a static import evaluates the router while this module
+      // is still initialising, so `router` reads as undefined.
+      const { default: router } = await import("@/plugins/router");
 
       // Don't redirect to login if already on an auth-exempt route.
       // Also resolve the route from the browser URL to handle the case where
@@ -172,6 +171,16 @@ export function keepaliveHeaders(): Record<string, string> {
     "Content-Type": "application/json",
     "x-csrftoken": Cookies.get("romm_csrftoken") ?? "",
   };
+}
+
+/** Whether the backend turned a request down over its CSRF token, not its user. */
+export function isCsrfFailure(error: unknown): boolean {
+  const response = axios.isAxiosError(error) ? error.response : undefined;
+  return (
+    response?.status === 403 &&
+    typeof response.data === "string" &&
+    response.data.includes("CSRF")
+  );
 }
 
 export async function refetchCSRFToken() {

@@ -15,6 +15,7 @@
 // smart collections continue to load.
 import type { Composer } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
+import { formatPlaytimeBound, playtimeHoursToSeconds } from "@/v2/utils/time";
 
 export type FilterLogic = "any" | "all" | "none";
 
@@ -64,6 +65,9 @@ export interface SmartFilterCriteria {
   tags_logic?: FilterLogic;
   selected_status?: string[];
   statuses_logic?: FilterLogic;
+  /** HowLongToBeat main-story bounds in seconds, the unit `filter_roms` takes. */
+  hltb_main_story_min?: number;
+  hltb_main_story_max?: number;
 }
 
 // Subset of `storeGalleryFilter`'s state shape that we read from.
@@ -109,6 +113,8 @@ export interface GalleryFilterSnapshot {
   tagsLogic: FilterLogic;
   selectedStatuses: string[];
   statusesLogic: FilterLogic;
+  selectedLengthMinHours: number | null;
+  selectedLengthMaxHours: number | null;
 }
 
 /**
@@ -224,6 +230,11 @@ export function buildSmartFilterCriteria(
     out.statuses_logic = snap.statusesLogic;
   }
 
+  const lengthMin = playtimeHoursToSeconds(snap.selectedLengthMinHours);
+  if (lengthMin !== null) out.hltb_main_story_min = lengthMin;
+  const lengthMax = playtimeHoursToSeconds(snap.selectedLengthMaxHours);
+  if (lengthMax !== null) out.hltb_main_story_max = lengthMax;
+
   return out;
 }
 
@@ -257,7 +268,8 @@ type FieldKind =
   | "platforms"
   | "collection"
   | "virtual-collection"
-  | "smart-collection";
+  | "smart-collection"
+  | "playtime";
 interface FieldSpec {
   storage: keyof SmartFilterCriteria;
   logicStorage?: keyof SmartFilterCriteria;
@@ -510,6 +522,20 @@ const FIELDS: FieldSpec[] = [
     defaultLabel: "Statuses",
     kind: "list",
   },
+  {
+    storage: "hltb_main_story_min",
+    icon: "mdi-timer-outline",
+    labelKey: "platform.length-at-least",
+    defaultLabel: "Length at least",
+    kind: "playtime",
+  },
+  {
+    storage: "hltb_main_story_max",
+    icon: "mdi-timer-outline",
+    labelKey: "platform.length-at-most",
+    defaultLabel: "Length at most",
+    kind: "playtime",
+  },
 ];
 
 export interface SummaryLookups {
@@ -537,6 +563,7 @@ export function summarizeSmartFilterCriteria(
   criteria: SmartFilterCriteria,
   t: Composer["t"],
   lookups?: SummaryLookups | ((id: number) => string | null),
+  locale?: string,
 ): SmartCriteriaSummaryItem[] {
   const resolved: SummaryLookups =
     typeof lookups === "function" ? { platform: lookups } : (lookups ?? {});
@@ -594,6 +621,15 @@ export function summarizeSmartFilterCriteria(
           icon: f.icon,
           label,
           values: [resolved.smartCollection?.(raw) ?? `#${raw}`],
+        });
+      }
+    } else if (f.kind === "playtime") {
+      if (typeof raw === "number") {
+        out.push({
+          key: f.storage,
+          icon: f.icon,
+          label,
+          values: [formatPlaytimeBound(raw, locale)],
         });
       }
     } else if (f.kind === "list") {

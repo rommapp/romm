@@ -3,7 +3,7 @@
 // navigator. The dropdown mirrors the SettingsSidebar's information
 // architecture so the user has the same mental model in both places:
 //
-//   • Account  — Profile, User interface
+//   • Account  — Notifications, Profile, User interface
 //   • Library  — Library management, Scan settings, Metadata sources,
 //                Client API tokens
 //   • System   — Administration, Server stats
@@ -16,6 +16,7 @@
 // unauthorised users don't see options they can't open.
 import {
   RAvatar,
+  RBadge,
   RBtn,
   RChip,
   RDivider,
@@ -31,11 +32,13 @@ import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
+import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import storeNotificationInbox from "@/v2/stores/notificationInbox";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
@@ -46,6 +49,7 @@ const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const { user, scopes } = storeToRefs(authStore);
+const { unreadCount } = storeToRefs(storeNotificationInbox());
 
 const open = ref(false);
 
@@ -95,6 +99,8 @@ async function onLogout() {
   open.value = false;
   try {
     const { data } = await identityApi.logout();
+    // The socket keeps the rooms it joined as this user until it reconnects.
+    socket.disconnect();
     const oidcLogoutUrl = (data as { oidc_logout_url?: string })
       ?.oidc_logout_url;
     if (oidcLogoutUrl) {
@@ -102,7 +108,7 @@ async function onLogout() {
       return;
     }
     await refetchCSRFToken();
-    snackbar.success("Logged out", { icon: "mdi-check-bold" });
+    snackbar.success(t("common.logout-success"), { icon: "mdi-check-bold" });
     await router.push({ name: ROUTES.LOGIN });
     const pinia = getActivePinia() as
       { _s?: Map<string, { reset?: () => void } & StateTree> } | undefined;
@@ -110,7 +116,7 @@ async function onLogout() {
       store.reset?.();
     });
   } catch (error) {
-    snackbar.error("Could not log out. Please try again.", {
+    snackbar.error(t("common.logout-error"), {
       icon: "mdi-close-circle",
     });
     console.error("Logout error:", error);
@@ -136,7 +142,14 @@ async function onLogout() {
         data-user-menu-trigger
         :aria-label="`Account menu for ${user?.username ?? 'Guest'}`"
       >
-        <RAvatar :image="avatarSrc" size="30" />
+        <RBadge
+          :model-value="unreadCount > 0"
+          :content="unreadCount"
+          bordered
+          :inset="4"
+        >
+          <RAvatar :image="avatarSrc" size="30" />
+        </RBadge>
         <span class="r-v2-user__name">
           {{ user?.username ?? "Guest" }}
         </span>
@@ -169,6 +182,20 @@ async function onLogout() {
       <div class="r-v2-user-menu__group-label">
         {{ t("settings.group-account") }}
       </div>
+      <RMenuItem
+        :to="{ name: ROUTES.NOTIFICATIONS }"
+        icon="mdi-bell-outline"
+        :label="t('notifications.notifications')"
+        @click="open = false"
+      >
+        <template #append>
+          <RBadge
+            inline
+            :model-value="unreadCount > 0"
+            :content="unreadCount"
+          />
+        </template>
+      </RMenuItem>
       <RMenuItem
         v-if="canSeeProfile"
         :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
@@ -333,7 +360,7 @@ async function onLogout() {
   border-radius: var(--r-radius-pill) !important;
   padding: 3px 12px 3px 3px !important;
   color: var(--r-color-fg) !important;
-  height: auto !important;
+  height: var(--r-nav-pill-h) !important;
   min-width: 0 !important;
   opacity: 1;
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
@@ -350,6 +377,16 @@ async function onLogout() {
 .r-v2-user__name {
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
+}
+
+/* Phones keep the trigger to the avatar so the top bar always has the same
+   room for the scan indicator and the mini player. */
+html[data-bp~="xs"] .r-v2-user {
+  padding: 3px !important;
+}
+html[data-bp~="xs"] .r-v2-user__name,
+html[data-bp~="xs"] .r-v2-user__chevron {
+  display: none;
 }
 
 /* Group section inside the dropdown — small uppercase label above each

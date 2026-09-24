@@ -1,4 +1,5 @@
 # Stages:
+#   - python-runtime: Patch the Python image's libraries before they ship
 #   - frontend-build: Build frontend
 #   - backend-build: Build backend environment
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
@@ -14,26 +15,34 @@
 
 
 # ARGUMENT DECLARATIONS
-ARG ALPINE_VERSION=3.23
-ARG ALPINE_SHA256=25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
+ARG ALPINE_VERSION=3.24
+ARG ALPINE_SHA256=294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 # Pins the base image tag, so it cannot read ../.python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
-ARG PYTHON_ALPINE_SHA256=8caa2adfeb414dfe68d8b257f7aea9e205a400521c2b13b2d2e5e731fb8e70e5
+ARG PYTHON_ALPINE_SHA256=9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
 ARG NODE_VERSION=24.16
-ARG NODE_ALPINE_SHA256=2bdb65ed1dab192432bc31c95f94155ca5ad7fc1392fb7eb7526ab682fa5bf14
-ARG NGINX_VERSION=1.29.5
-ARG NGINX_SHA256=1d13701a5f9f3fb01aaa88cef2344d65b6b5bf6b7d9fa4cf0dca557a8d7702ba
-ARG UV_VERSION=0.11.2
-ARG UV_SHA256=f661eb5c4ea5aae705674c4bc5052a4a0b5148db95452395dbececa1e9e7a1ec
+ARG NODE_ALPINE_SHA256=21f403ab171f2dc89bad4dd69d7721bfd15f084ccb46cdd225f31f2bc59b5c9a
+ARG NGINX_VERSION=1.30.5
+ARG NGINX_SHA256=a5f2157a0302eb0c5e300415effb63a9e70ed1eb9c107283819bf6d149ab607c
+ARG UV_VERSION=0.12.13
+ARG UV_SHA256=eb47c391d3a252d9d912270dd2b5e234af5493e92039fedb483f1dd1cb5659ce
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
 
 
+# PATCHED PYTHON RUNTIME
+# production-stage copies /usr/lib from here over its own, so these libraries
+# need the same patches, or the stale ones land in the final image. Kept apart
+# from python-alias so that busting this layer's cache (see `no-cache-filters`
+# in build.yml) does not also rebuild the venv and the sigil bindings.
+FROM python-alias AS python-runtime
+RUN apk upgrade --no-cache
+
+
 # FRONTEND BUILD
 # Built on the native build platform: the output (/front/dist) is static JS/CSS,
 # fully architecture-independent, so there is no need to emulate the target arch.
-# This avoids running `npm ci`/Node under QEMU arm64 emulation, which hangs.
 FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS frontend-build
 WORKDIR /front
 
@@ -58,12 +67,10 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${
 # BACKEND PYTHON BUILD
 FROM python-alias AS backend-build
 
-# git is needed to install streaming-form-data fork
 # libpq-dev is needed to build psycopg-c
 # mariadb-connector-c-dev is needed to build mariadb-connector
 RUN apk add --no-cache \
     gcc \
-    git \
     libpq-dev \
     mariadb-connector-c-dev \
     musl-dev
@@ -118,9 +125,9 @@ RUN apk add --no-cache \
     musl-dev
 
 # Keep this pin in sync with the dev image's SIGIL_VERSION in ../Dockerfile.
-ARG SIGIL_VERSION=9665f03c04d0f547ed38dd5e5e31916c1da5f2e9
+ARG SIGIL_VERSION=8a3b0089676e07f74da2d9ad08979dedf5cae7c0
 
-RUN git clone --filter=blob:none https://github.com/rommforge/argosy-sigil.git && \
+RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && \
     cd ./argosy-sigil && \
     git checkout "${SIGIL_VERSION}" && \
     git submodule update --init --recursive && \
@@ -133,7 +140,8 @@ RUN git clone --filter=blob:none https://github.com/rommforge/argosy-sigil.git &
     cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
 
 
-# FETCH EMULATORJS, RUFFLE AND JS-DOS
+# FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08
+# Keep the pins below in sync with the dev image's copies in ../Dockerfile.
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
 
 RUN apk add --no-cache \
@@ -169,6 +177,19 @@ RUN wget "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION
     rm -f jsdos.zip && \
     rm -rf /jsdos/dist/index.html /jsdos/dist/emulators/types && \
     find /jsdos/dist \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
+
+ARG FAKE08_P3A_COMMIT=6519efd9dd1ca853e5c66f7ae9146ace0b7073dc
+ARG FAKE08_JS_SHA256=fd2cd4677956037e41a91dbd40fc1a9c4f5979355d55ce3f9312400e11da463e
+ARG FAKE08_WASM_SHA256=4339a77e0aa5aa6f4a5bce9fd8286053eedf7f23f2d853db7f4900f6fff4c93a
+ARG FAKE08_P3A_RAW=https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8
+
+# FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
+# which compiled them. Pinned by commit and checksum: that tree has no tags.
+RUN mkdir -p /fake08 && \
+    wget "${FAKE08_P3A_RAW}/fake08.js" -O /fake08/fake08.js && \
+    wget "${FAKE08_P3A_RAW}/fake08.wasm" -O /fake08/fake08.wasm && \
+    echo "${FAKE08_JS_SHA256}  /fake08/fake08.js" | sha256sum -c - && \
+    echo "${FAKE08_WASM_SHA256}  /fake08/fake08.wasm" | sha256sum -c -
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
@@ -206,7 +227,9 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
 FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}@sha256:${NGINX_SHA256} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
-RUN apk add --no-cache \
+# Alpine backports security fixes to its repo faster than the base image is
+# rebuilt, so the digest pin alone leaves known-vulnerable packages in the image.
+RUN apk upgrade --no-cache && apk add --no-cache \
     bash \
     libarchive-tools \
     libmagic \
@@ -223,11 +246,11 @@ RUN apk add --no-cache \
 # TODO: Replace with a bundled installation of Python using `uv`, when it is supported.
 #       Related issue: https://github.com/astral-sh/uv/issues/7865
 ARG PYTHON_VERSION
-COPY --from=python-alias /usr/lib/* /usr/lib/
-COPY --from=python-alias /usr/local/bin/* /usr/local/bin/
-COPY --from=python-alias /usr/local/include/python${PYTHON_VERSION} /usr/local/include/python${PYTHON_VERSION}
-COPY --from=python-alias /usr/local/lib/libpython* /usr/local/lib/
-COPY --from=python-alias /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
+COPY --from=python-runtime /usr/lib/* /usr/lib/
+COPY --from=python-runtime /usr/local/bin/* /usr/local/bin/
+COPY --from=python-runtime /usr/local/include/python${PYTHON_VERSION} /usr/local/include/python${PYTHON_VERSION}
+COPY --from=python-runtime /usr/local/lib/libpython* /usr/local/lib/
+COPY --from=python-runtime /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
@@ -302,6 +325,7 @@ ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 COPY --from=emulator-stage /jsdos/dist ${WEBSERVER_FOLDER}/assets/jsdos
+COPY --from=emulator-stage /fake08 ${WEBSERVER_FOLDER}/assets/pico8
 
 
 FROM slim-image AS dev-slim

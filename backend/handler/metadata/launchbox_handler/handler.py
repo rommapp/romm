@@ -4,6 +4,7 @@ from config import LAUNCHBOX_API_ENABLED
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import async_cache
 from logger.logger import log
+from utils.cache import is_cache_store_ready
 from utils.database import safe_int
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -16,6 +17,7 @@ from .types import (
     DASH_COLON_REGEX,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_STORE,
     LAUNCHBOX_PLATFORMS_DIR,
     LAUNCHBOX_TAG_REGEX,
     LaunchboxPlatform,
@@ -42,7 +44,9 @@ class LaunchboxHandler(MetadataHandler):
 
     @staticmethod
     async def is_remote_store_populated() -> bool:
-        return bool(await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY))
+        return await is_cache_store_ready(
+            async_cache, LAUNCHBOX_METADATA_STORE, LAUNCHBOX_METADATA_NAME_KEY
+        )
 
     @staticmethod
     async def is_remote_store_importing() -> bool:

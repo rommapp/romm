@@ -38,6 +38,9 @@ TRANSFER_TIMEOUT = 60
 SWAP_DISC_TIMEOUT = 120
 CARD_HYDRATE_TIMEOUT = 120
 CARD_TEARDOWN_TIMEOUT = 30
+# An optional thumbnail, fetched while the claim is still held and the player
+# waits on the exit screen, so it does not get the archive budget.
+STATE_SCREENSHOT_TIMEOUT = 10
 
 # A pulled save archive can be large (PCSX2 ships whole 8 MB memory cards, a
 # Wii NAND can hold many titles); 256 MB is generous for every emulator that

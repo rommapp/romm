@@ -14,6 +14,7 @@ import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame, SimilarRomSchema } from "@/__generated__";
 import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
+import { pendingAssetKinds } from "@/services/pending-asset";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
@@ -28,13 +29,18 @@ import MetadataTab from "@/v2/components/GameDetails/MetadataTab.vue";
 import NotesTab from "@/v2/components/GameDetails/NotesTab.vue";
 import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
 import PatcherTab from "@/v2/components/GameDetails/PatcherTab.vue";
+import PrevNextNav from "@/v2/components/GameDetails/PrevNextNav.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useRomScanRefresh } from "@/v2/composables/useRomScanRefresh";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
+import { patchQuery } from "@/v2/utils/routeQuery";
 
 const route = useRoute();
 const router = useRouter();
@@ -45,6 +51,7 @@ const { currentRom } = storeToRefs(romsStore);
 const { toWebp } = useWebpSupport();
 const { showRecommendations } = useUISettings();
 const { locale, t } = useI18n();
+const { smAndDown } = useBreakpoint();
 
 const setBgArt = useBackgroundArt();
 
@@ -65,6 +72,25 @@ useRightStickScroll(panelEl);
 // The files badge and every tab read `currentRom`, so the view owns the
 // post-scan refetch rather than the Files tab.
 useRomScanRefresh();
+
+// The player replaces the document on its way out, taking its toasts with it,
+// so progress the browser still holds is announced here.
+const snackbar = useSnackbar();
+const isAlive = useIsAlive();
+watch(
+  () => currentRom.value?.id ?? null,
+  async (romId, _previous, onCleanup) => {
+    if (!romId) return;
+    let stale = false;
+    onCleanup(() => (stale = true));
+    const held = await pendingAssetKinds(romId);
+    // The route moved on to another game while the lookup ran.
+    if (stale || !isAlive.value) return;
+    if (held.has("save")) snackbar.warning(t("play.save-not-synced"));
+    if (held.has("state")) snackbar.warning(t("play.state-not-synced"));
+  },
+  { immediate: true },
+);
 
 onBeforeRouteUpdate(async (to) => {
   const nextId = parseInt(to.params.rom as string);
@@ -88,10 +114,8 @@ onBeforeRouteUpdate(async (to) => {
 const tab = ref<string>((route.query.tab as string) || "overview");
 watch(tab, (value) => {
   if (route.query.tab !== value) {
-    router.replace({
-      path: route.path,
-      query: { ...route.query, tab: value },
-    });
+    // The subtab and note belong to the tab being left.
+    patchQuery(router, { tab: value, subtab: undefined, note: undefined });
   }
 });
 watch(
@@ -293,7 +317,6 @@ const filesCount = computed(() => currentRom.value?.files?.length ?? 0);
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "overview", label: t("rom.tab-overview") },
   { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
-  { id: "patcher", label: t("common.patcher") },
   { id: "media", label: t("rom.media") },
   { id: "notes", label: t("rom.tab-notes") },
   {
@@ -306,6 +329,7 @@ const tabs = computed<RTabNavItem[]>(() => [
     label: t("rom.save-data"),
     badge: saveDataCount.value,
   },
+  { id: "patcher", label: t("common.patcher") },
   { id: "metadata", label: t("rom.metadata") },
 ]);
 </script>
@@ -313,7 +337,12 @@ const tabs = computed<RTabNavItem[]>(() => [
 <template>
   <section v-if="currentRom" class="r-v2-det">
     <div class="r-v2-det__body">
-      <CoverColumn :rom="currentRom" :alt="title" />
+      <!-- Phones stack the cover above the header, so the prev / next arrows
+           flank the cover instead of the title. -->
+      <PrevNextNav v-if="smAndDown" :rom-id="currentRom.id">
+        <CoverColumn :rom="currentRom" :alt="title" />
+      </PrevNextNav>
+      <CoverColumn v-else :rom="currentRom" :alt="title" />
 
       <div class="r-v2-det__info">
         <GameHeader
@@ -349,7 +378,6 @@ const tabs = computed<RTabNavItem[]>(() => [
             :similar-roms="similarRoms"
           />
           <FilesTab v-if="tab === 'files'" :rom="currentRom" />
-          <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />
           <MediaTab v-if="tab === 'media'" :rom="currentRom" />
           <NotesTab v-if="tab === 'notes'" :rom="currentRom" />
           <AchievementsTab
@@ -358,6 +386,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :earned-achievement-ids="earnedAchievementIds"
           />
           <SaveDataTab v-if="tab === 'save-data'" :rom="currentRom" />
+          <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />
           <MetadataTab v-if="tab === 'metadata'" :rom="currentRom" />
         </div>
       </div>

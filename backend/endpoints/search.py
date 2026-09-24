@@ -1,12 +1,11 @@
 import asyncio
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, TypeVar
 
 from fastapi import HTTPException, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
-from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_rom_handler
@@ -19,7 +18,9 @@ from handler.metadata import (
     meta_moby_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
 )
+from handler.metadata.base_handler import CoverResult, MetadataHandler
 from handler.metadata.demozoo_handler import DemozooRom
 from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
@@ -28,6 +29,7 @@ from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSRom
+from handler.metadata.steam_handler import SteamRom
 from handler.scan_handler import (
     MetadataSource,
     get_main_platform_igdb_id,
@@ -61,7 +63,14 @@ def _without_failures(
 
 
 # The order the provider lookups are gathered in, for reporting which one failed.
-_ID_SEARCH_PROVIDERS = ("IGDB", "MobyGames", "ScreenScraper", "LaunchBox", "Demozoo")
+_ID_SEARCH_PROVIDERS = (
+    "IGDB",
+    "MobyGames",
+    "ScreenScraper",
+    "LaunchBox",
+    "Demozoo",
+    "Steam",
+)
 _NAME_SEARCH_PROVIDERS = (
     "IGDB",
     "MobyGames",
@@ -69,6 +78,7 @@ _NAME_SEARCH_PROVIDERS = (
     "Flashpoint",
     "LaunchBox",
     "Demozoo",
+    "Steam",
 )
 
 
@@ -114,6 +124,7 @@ async def search_rom(
         and not meta_flashpoint_handler.is_enabled()
         and not meta_launchbox_handler.is_cloud_enabled()
         and not meta_demozoo_handler.is_enabled()
+        and not meta_steam_handler.is_enabled()
     ):
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(
@@ -150,6 +161,7 @@ async def search_rom(
     flashpoint_matched_roms: list[FlashpointRom] = []
     launchbox_matched_roms: list[LaunchboxRom] = []
     demozoo_matched_roms: list[DemozooRom] = []
+    steam_matched_roms: list[SteamRom] = []
 
     if search_by.lower() == "id":
         try:
@@ -159,6 +171,9 @@ async def search_rom(
                 meta_ss_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_launchbox_handler.get_matched_rom_by_id(int(search_term)),
                 meta_demozoo_handler.get_rom_by_id(int(search_term)),
+                meta_steam_handler.get_matched_rom_by_id(
+                    int(search_term), rom.platform.slug
+                ),
                 return_exceptions=True,
             )
         except ValueError as exc:
@@ -168,7 +183,7 @@ async def search_rom(
                 detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
             ) from exc
         else:
-            igdb_rom, moby_rom, ss_rom, lb_rom, dz_rom = _resolved(
+            igdb_rom, moby_rom, ss_rom, lb_rom, dz_rom, steam_rom = _resolved(
                 gathered, _ID_SEARCH_PROVIDERS, lambda: None
             )
             igdb_matched_roms = [igdb_rom] if igdb_rom else []
@@ -178,6 +193,9 @@ async def search_rom(
             demozoo_matched_roms = (
                 [dz_rom] if dz_rom and dz_rom.get("demozoo_id") else []
             )
+            steam_matched_roms = (
+                [steam_rom] if steam_rom and steam_rom.get("steam_id") else []
+            )
     elif search_by.lower() == "name":
         (
             igdb_matched_roms,
@@ -186,6 +204,7 @@ async def search_rom(
             flashpoint_matched_roms,
             launchbox_matched_roms,
             demozoo_matched_roms,
+            steam_matched_roms,
         ) = _resolved(
             await asyncio.gather(
                 meta_igdb_handler.get_matched_roms_by_name(
@@ -206,6 +225,9 @@ async def search_rom(
                 meta_demozoo_handler.get_matched_roms_by_name(
                     search_term, rom.platform.slug
                 ),
+                meta_steam_handler.get_matched_roms_by_name(
+                    search_term, rom.platform.slug
+                ),
                 return_exceptions=True,
             ),
             _NAME_SEARCH_PROVIDERS,
@@ -214,7 +236,9 @@ async def search_rom(
 
     merged_dict: dict[str, dict] = {}
 
-    source_configs = {
+    source_configs: dict[
+        MetadataSource, tuple[Sequence[Mapping[str, Any]], MetadataHandler, str, str]
+    ] = {
         MetadataSource.IGDB: (
             igdb_matched_roms,
             meta_igdb_handler,
@@ -246,6 +270,12 @@ async def search_rom(
             "demozoo_id",
             "demozoo_url_cover",
         ),
+        MetadataSource.STEAM: (
+            steam_matched_roms,
+            meta_steam_handler,
+            "steam_id",
+            "steam_url_cover",
+        ),
     }
 
     ordered_sources = get_priority_ordered_metadata_sources(
@@ -256,7 +286,7 @@ async def search_rom(
         source_matched_roms, meta_handler, id_key, cover_key = source_configs[
             meta_source
         ]
-        for source_rom in source_matched_roms:  # trunk-ignore(mypy/attr-defined)
+        for source_rom in source_matched_roms:
             if source_rom[id_key]:
                 normalized_name = meta_handler.normalize_search_term(
                     source_rom.get("name", ""),
@@ -319,18 +349,44 @@ async def search_cover(
     request: Request,
     search_term: str = "",
 ) -> list[SearchCoverSchema]:
-    if not meta_sgdb_handler.is_enabled():
-        log.error("Search error: No SteamGridDB enabled")
+    """Search the cover art providers, in the configured cover priority order."""
+    if not meta_sgdb_handler.is_enabled() and not meta_steam_handler.is_enabled():
+        log.error("Search error: No cover art providers enabled")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No SteamGridDB enabled",
+            detail="No cover art providers enabled",
         )
 
-    try:
-        covers = await meta_sgdb_handler.get_details(search_term=search_term)
-    except SGDBInvalidAPIKeyException as err:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid SGDB API key"
-        ) from err
+    lookups = {
+        MetadataSource.SGDB: meta_sgdb_handler.get_details(search_term=search_term),
+        MetadataSource.STEAM: meta_steam_handler.get_details(search_term=search_term),
+    }
+    gathered = await asyncio.gather(*lookups.values(), return_exceptions=True)
+    fetched: dict[MetadataSource, list[CoverResult] | BaseException] = dict(
+        zip(lookups, gathered, strict=True)
+    )
 
-    return [SearchCoverSchema.model_validate(cover) for cover in covers]
+    # A rejected key is the user's to fix, so it is reported rather than
+    # costing the SteamGridDB covers silently.
+    sgdb_result = fetched[MetadataSource.SGDB]
+    if (
+        isinstance(sgdb_result, HTTPException)
+        and sgdb_result.status_code == status.HTTP_401_UNAUTHORIZED
+    ):
+        raise sgdb_result
+
+    ordered_sources = get_priority_ordered_metadata_sources(
+        metadata_sources=list(lookups.keys()), priority_type="url_cover"
+    )
+    covers: list[SearchCoverSchema] = []
+    for source in ordered_sources:
+        results = fetched[source]
+        if isinstance(results, BaseException):
+            log.error("Error fetching %s covers: %s", source.value, results)
+            continue
+        covers.extend(
+            SearchCoverSchema.model_validate({"provider": source.value, **cover})
+            for cover in results
+        )
+
+    return covers

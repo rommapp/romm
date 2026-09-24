@@ -94,6 +94,7 @@ async function fetchConfig() {
 async function claimSession(
   romId: number,
   stateId?: number,
+  saveId?: number,
   memoryCardId?: number,
   cardImport?: MemoryCardImport,
   multiplayer?: boolean,
@@ -101,6 +102,7 @@ async function claimSession(
   return api.post<LaunchingSession>("/streaming/sessions", {
     rom_id: romId,
     ...(stateId !== undefined ? { state_id: stateId } : {}),
+    ...(saveId !== undefined ? { save_id: saveId } : {}),
     ...(memoryCardId !== undefined ? { memory_card_id: memoryCardId } : {}),
     ...(cardImport !== undefined ? { card_import: cardImport } : {}),
     ...(multiplayer !== undefined ? { multiplayer } : {}),
@@ -149,8 +151,12 @@ async function saveAndExit(platform: string, slot = 0, wait = true) {
   });
 }
 
-async function heartbeatSession(platform: string) {
-  return api.post<SessionStatus>(`/streaming/sessions/${platform}/heartbeat`);
+async function heartbeatSession(platform: string, container?: string) {
+  return api.post<SessionStatus>(
+    `/streaming/sessions/${platform}/heartbeat`,
+    undefined,
+    { params: { container } },
+  );
 }
 
 async function sessionStatus(platform: string) {
@@ -172,14 +178,6 @@ async function setMute(platform: string, mute?: boolean) {
 
 async function saveState(platform: string, slot = 1) {
   return api.post(`/streaming/sessions/${platform}/save-state`, { slot });
-}
-
-// The frame the browser grabbed off the stream canvas, held server-side until
-// the state save that follows claims it as its thumbnail.
-async function putStateFrame(platform: string, frame: Blob) {
-  return api.post(`/streaming/sessions/${platform}/state-frame`, frame, {
-    headers: { "Content-Type": "image/png" },
-  });
 }
 
 async function loadState(platform: string, slot = 1) {
@@ -249,7 +247,6 @@ export default {
   setVolume,
   setMute,
   saveState,
-  putStateFrame,
   loadState,
   swapDisc,
   adminListSessions,

@@ -304,7 +304,7 @@ def get_cached_feed(user_id: int, limit: int) -> list[RecommendedRom] | None:
 
     try:
         entries: list[dict[str, Any]] = json.loads(raw)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
     roms = hydrate_roms([entry["rom_id"] for entry in entries])

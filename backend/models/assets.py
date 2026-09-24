@@ -13,12 +13,18 @@ from models.base import (
     BaseModel,
     compute_file_name_parts,
 )
+from utils.database import CustomJSON
 
 if TYPE_CHECKING:
     from models.device_save_sync import DeviceSaveSync
     from models.platform import Platform
     from models.rom import Rom
     from models.user import User
+
+
+SAVE_SLOT_MAX_LENGTH = 255
+ASSET_LABEL_MAX_LENGTH = 255
+ASSET_LABELS_MAX = 20
 
 
 class BaseAsset(BaseModel):
@@ -98,7 +104,9 @@ class Save(RomAsset):
     )
 
     emulator: Mapped[str | None] = mapped_column(String(length=50))
-    slot: Mapped[str | None] = mapped_column(String(length=255), index=True)
+    slot: Mapped[str | None] = mapped_column(
+        String(length=SAVE_SLOT_MAX_LENGTH), index=True
+    )
     content_hash: Mapped[str | None] = mapped_column(String(length=32))
     origin_device_id: Mapped[str | None] = mapped_column(
         String(length=255),
@@ -109,6 +117,10 @@ class Save(RomAsset):
     # `is_public` mirrors Screenshot/RomNote — lets other users browse and
     # download a user's public saves (community). Defaults false (private).
     is_public: Mapped[bool] = mapped_column(default=False)
+    # Owner-only annotations: favorites sort ahead of the rest, labels tell
+    # apart runs a filename and a timestamp cannot (a route, a seed, a run).
+    is_favorite: Mapped[bool] = mapped_column(default=False)
+    labels: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="saves")
     user: Mapped[User] = relationship(lazy="joined", back_populates="saves")
@@ -142,6 +154,10 @@ class State(RomAsset):
     # `is_public` mirrors Screenshot/RomNote — lets other users browse and
     # download a user's public states (community). Defaults false (private).
     is_public: Mapped[bool] = mapped_column(default=False)
+    # Owner-only annotations: favorites sort ahead of the rest, labels tell
+    # apart runs a filename and a timestamp cannot (a route, a seed, a run).
+    is_favorite: Mapped[bool] = mapped_column(default=False)
+    labels: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     # The disc mounted when this state was captured, so a resume can put the
     # same one back. SET NULL rather than CASCADE: losing the file row must
     # not take the player's save with it.

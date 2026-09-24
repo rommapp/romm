@@ -34,7 +34,7 @@ Create Date: 2026-07-19 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
-from utils.database import is_postgresql
+from utils.database import column_names, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0098_generated_metadata_columns"
@@ -468,14 +468,17 @@ def upgrade() -> None:
     else:
         columns = _mysql_columns()
 
+    present = column_names(connection, "roms")
     adds = ",\n".join(
         f"ADD COLUMN {name} {type_} GENERATED ALWAYS AS ({expr}) STORED"
         for name, type_, expr in columns
+        if name not in present
     )
-    op.execute(f"ALTER TABLE roms\n{adds}")  # nosec B608
+    if adds:
+        op.execute(f"ALTER TABLE roms\n{adds}")  # nosec B608
 
     for col in _INDEXED_COLUMNS:
-        op.create_index(f"idx_roms_{col}", "roms", [col])
+        op.create_index(f"idx_roms_{col}", "roms", [col], if_not_exists=True)
 
     op.execute(_thin_view_sql(pg))
 

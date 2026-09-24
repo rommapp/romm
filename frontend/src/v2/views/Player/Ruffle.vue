@@ -12,6 +12,7 @@ import type { DetailedRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
+import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
@@ -23,6 +24,7 @@ const DEFAULT_BACKGROUND_COLOR = colorCanvas.bgDeep;
 
 const { t } = useI18n();
 const { fullscreenOnPlay } = useFullscreenPref();
+useFullscreenFallback();
 const playingStore = storePlaying();
 const playSession = usePlaySession();
 

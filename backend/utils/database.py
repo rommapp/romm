@@ -1,10 +1,16 @@
 import json
+from datetime import date
 from typing import Any, Sequence
+from uuid import uuid4
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
+
+# What `Session.get_bind()` returns; these helpers only read `.engine`, which
+# an Engine answers with itself.
+type DatabaseBind = sa.Engine | sa.Connection
 
 # Single-column foreign keys that MariaDB/MySQL index implicitly but PostgreSQL
 # does not, so 0124 creates them there only and no model declares them.
@@ -45,7 +51,7 @@ def CustomJSON(**kwargs: Any) -> sa.JSON:
 
 
 def is_db_version_compatible(
-    conn: sa.Connection,
+    conn: DatabaseBind,
     min_version: tuple[int, ...] | None = None,
 ) -> bool:
     """Check if the database server version complies with the given version constraints."""
@@ -56,23 +62,88 @@ def is_db_version_compatible(
 
 
 def is_postgresql(
-    conn: sa.Connection, min_version: tuple[int, ...] | None = None
+    conn: DatabaseBind, min_version: tuple[int, ...] | None = None
 ) -> bool:
     if conn.engine.name != "postgresql":
         return False
     return is_db_version_compatible(conn, min_version=min_version)
 
 
-def is_mysql(conn: sa.Connection, min_version: tuple[int, ...] | None = None) -> bool:
+def is_mysql(conn: DatabaseBind, min_version: tuple[int, ...] | None = None) -> bool:
     if conn.engine.name != "mysql":
         return False
     return is_db_version_compatible(conn, min_version=min_version)
 
 
-def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) -> bool:
+def is_mariadb(conn: DatabaseBind, min_version: tuple[int, ...] | None = None) -> bool:
     if conn.engine.name != "mariadb":
         return False
     return is_db_version_compatible(conn, min_version=min_version)
+
+
+# Error 1419, which MariaDB and MySQL raise for every trigger statement while
+# binary logging is on and the user lacks SUPER (issue #3932).
+BINLOG_TRIGGER_DDL_ERRNO = 1419
+
+
+def alembic_command_runs_revisions(command: str, *, pending: bool) -> bool:
+    """Whether this alembic command reaches revision code, trigger DDL included.
+
+    `command` is the `fn` name alembic hands its environment, not the CLI word.
+    """
+    return command == "downgrade" or (command == "upgrade" and pending)
+
+
+def is_binlog_trigger_privilege_error(exc: BaseException) -> bool:
+    """Whether `exc` is the server refusing trigger DDL under binary logging."""
+    orig = getattr(exc, "orig", exc)
+    errno = getattr(orig, "errno", None)
+    if errno is None:
+        args = getattr(orig, "args", ())
+        errno = args[0] if args else None
+    return errno == BINLOG_TRIGGER_DDL_ERRNO
+
+
+def probe_trigger_name() -> str:
+    """A trigger name no schema can already hold, for the privilege probe.
+
+    Trigger names are schema-wide, so a fixed one could name an operator's own
+    trigger and the probe would really drop it.
+    """
+    return f"romm_trigger_ddl_probe_{uuid4().hex}"
+
+
+def trigger_ddl_is_blocked(conn: sa.Connection) -> bool:
+    """Whether the server refuses the trigger DDL the migrations need.
+
+    Dropping a trigger that cannot exist is the cheapest statement that still
+    goes through the privilege check, and the only error it can raise is the
+    refusal itself. Rolls `conn` back on one.
+    """
+    if not (is_mysql(conn) or is_mariadb(conn)):
+        return False
+
+    try:
+        conn.exec_driver_sql(f"DROP TRIGGER IF EXISTS {probe_trigger_name()}")
+    except sa.exc.DBAPIError as exc:
+        conn.rollback()
+        return is_binlog_trigger_privilege_error(exc)
+
+    return False
+
+
+def column_names(conn: sa.Connection, table: str) -> set[str]:
+    """The columns `table` currently carries, for guards over a set of them.
+
+    One reflection answers the whole set; `has_column` per candidate costs one
+    round-trip each.
+    """
+    return {column["name"] for column in sa.inspect(conn).get_columns(table)}
+
+
+def has_column(conn: sa.Connection, table: str, column: str) -> bool:
+    """Whether `table` already carries `column`, which `Inspector` cannot answer."""
+    return column in column_names(conn, table)
 
 
 def full_path_digest_sql(conn: sa.Connection) -> str:
@@ -80,9 +151,14 @@ def full_path_digest_sql(conn: sa.Connection) -> str:
 
     `test_migrations` pins this to the Python function it mirrors.
     """
+    # COALESCE because the Python side reads a NULL as "", while both dialects
+    # would fold the whole concatenation to NULL and fail 0126's NOT NULL step.
     if is_postgresql(conn):
-        return "encode(sha256(convert_to(fs_path || '/' || fs_name, 'UTF8')), 'hex')"
-    return "SHA2(CONCAT(fs_path, '/', fs_name), 256)"
+        return (
+            "encode(sha256(convert_to(COALESCE(fs_path, '') || '/' || "
+            "COALESCE(fs_name, ''), 'UTF8')), 'hex')"
+        )
+    return "SHA2(CONCAT(COALESCE(fs_path, ''), '/', COALESCE(fs_name, '')), 256)"
 
 
 def json_array_contains_value(
@@ -96,7 +172,7 @@ def json_array_contains_value(
         if isinstance(value, str):
             return sa.type_coerce(column, sa_pg.JSONB).has_key(value)
         return sa.type_coerce(column, sa_pg.JSONB).contains(
-            func.cast(value, sa_pg.JSONB)
+            func.cast(sa.literal(value, sa_pg.JSONB), sa_pg.JSONB)
         )
     elif is_mysql(conn) or is_mariadb(conn):
         # In MySQL and MariaDB, JSON_CONTAINS requires a JSON-formatted string (even if it's an int).
@@ -167,6 +243,79 @@ def json_array_contains_all(
 
     raise NotImplementedError(
         f"json_array_contains_all is not implemented for engine: {conn.engine.name}"
+    )
+
+
+MS_PER_DAY = 86_400_000
+
+# Tennis for Two (1958) predates the epoch, so the oldest ranges are negative.
+EARLIEST_RELEASE_YEAR = 1958
+
+# The range union has to be finite, so "any year" stops here.
+LATEST_RELEASE_YEAR = 2100
+
+_EPOCH = date(1970, 1, 1)
+
+
+def day_of_year_ranges(
+    month: int, day: int, *, before_year: int
+) -> list[tuple[int, int]]:
+    """Half-open epoch-millisecond ranges covering (month, day) in each earlier year.
+
+    Ranges rather than `MONTH()/DAY()` on the value, because they are sargable
+    and emit no SQL date function, so every dialect plans them the same way.
+
+    Args:
+        month: Calendar month, 1-12.
+        day: Day of the month, 1-31.
+        before_year: Exclusive upper bound on the years covered.
+
+    Returns:
+        Ascending (start, end) pairs, skipping years the date does not exist in,
+        so an impossible date yields none at all.
+    """
+    ranges: list[tuple[int, int]] = []
+    for year in range(EARLIEST_RELEASE_YEAR, before_year):
+        try:
+            start = (date(year, month, day) - _EPOCH).days * MS_PER_DAY
+        except ValueError:
+            continue
+        ranges.append((start, start + MS_PER_DAY))
+
+    return ranges
+
+
+def release_day_ranges(
+    days: Sequence[tuple[int, int]], *, before_year: int | None = None
+) -> list[tuple[int, int]]:
+    """Epoch-millisecond ranges covering every day in `days`, in every year.
+
+    Args:
+        days: (month, day) pairs to match.
+        before_year: Exclusive upper bound on the years covered, defaulting to
+            `LATEST_RELEASE_YEAR`.
+
+    Returns:
+        (start, end) pairs, skipping years a date does not exist in.
+    """
+    bound = LATEST_RELEASE_YEAR if before_year is None else before_year
+
+    return [
+        day_range
+        for month, day in days
+        for day_range in day_of_year_ranges(month, day, before_year=bound)
+    ]
+
+
+def epoch_ms_in_ranges(
+    column: sa.Column | Any, ranges: Sequence[tuple[int, int]]
+) -> ColumnElement:
+    """Match an epoch-millisecond column against any of the given half-open ranges."""
+    if not ranges:
+        return sa.false()
+
+    return sa.or_(
+        *[sa.and_(column >= start, column < end) for start, end in sorted(ranges)]
     )
 
 

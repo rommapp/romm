@@ -4,10 +4,9 @@
 // same payload for the same choices.
 //
 // Hash matchers are proxies, not catalogs: they match files by hash and
-// feed IDs into the primary catalogs. Hasheous rides along in `apis`
-// (backend gate: `MetadataSource.HASHEOUS in apis`); Playmatch has no enum
-// entry and uses the separate `playmatch_enabled` flag (backend gate:
-// `playmatch_enabled and IGDB in apis`), hence its IGDB requirement.
+// feed IDs into the primary catalogs. Both ride along in `apis` (backend
+// gate: `MetadataSource.HASHEOUS in apis`, and `MetadataSource.PLAYMATCH in
+// apis` plus a supported catalog, hence Playmatch's IGDB requirement).
 //
 // A group's RSelect treats an empty model as "All", so an All-mode group
 // contributes nothing to `metadataSources`, while the backend reads an
@@ -50,7 +49,6 @@ export interface HashMatcher {
 export interface ScanPayload {
   apis: string[];
   launchbox_remote_enabled: boolean;
-  playmatch_enabled: boolean;
 }
 
 export interface UseScanProviders {
@@ -242,10 +240,10 @@ export function useScanProviders(): UseScanProviders {
   function buildScanPayload(): ScanPayload {
     const apis = effectiveMetadataSources.value.map((s) => s.value);
     if (isOn("hasheous")) apis.push("hasheous");
+    if (isOn("playmatch")) apis.push("playmatch");
     return {
       apis,
       launchbox_remote_enabled: launchboxRemoteEnabled.value,
-      playmatch_enabled: isOn("playmatch"),
     };
   }
 

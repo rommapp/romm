@@ -1,8 +1,8 @@
 from collections.abc import Collection, Sequence
 from typing import Literal
 
-from sqlalchemy import and_, asc, delete, desc, func, or_, select, update
-from sqlalchemy.orm import QueryableAttribute, Session, load_only
+from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select, update
+from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
 from models.assets import Save
@@ -80,8 +80,7 @@ class DBSavesHandler(DBBaseHandler):
             query = query.filter(Save.slot == slot)
         return session.scalar(query.limit(1))
 
-    @begin_session
-    def get_saves(
+    def _saves_query(
         self,
         user_id: int,
         rom_ids: Collection[int] | None = None,
@@ -90,9 +89,7 @@ class DBSavesHandler(DBBaseHandler):
         slot_not_null: bool = False,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[Save]:
+    ) -> Select[tuple[Save]]:
         query = select(Save).filter_by(user_id=user_id)
 
         # An empty collection is an explicit empty scope, not an absent filter.
@@ -113,12 +110,57 @@ class DBSavesHandler(DBBaseHandler):
         if order_by:
             order_col = getattr(Save, order_by)
             order_fn = asc if order_dir == "asc" else desc
-            query = query.order_by(order_fn(order_col))
+            # Timestamps tie at second resolution; the id keeps the order stable.
+            query = query.order_by(order_fn(order_col), order_fn(Save.id))
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
+        return query
 
+    @begin_session
+    def get_saves(
+        self,
+        user_id: int,
+        rom_ids: Collection[int] | None = None,
+        platform_id: int | None = None,
+        slot: str | None = None,
+        slot_not_null: bool = False,
+        order_by: Literal["updated_at", "created_at"] | None = None,
+        order_dir: Literal["asc", "desc"] = "desc",
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Save]:
+        query = self._saves_query(
+            user_id=user_id,
+            rom_ids=rom_ids,
+            platform_id=platform_id,
+            slot=slot,
+            slot_not_null=slot_not_null,
+            order_by=order_by,
+            order_dir=order_dir,
+        )
         return session.scalars(query).all()
+
+    @begin_session
+    def get_save_ids(
+        self,
+        user_id: int,
+        rom_ids: Collection[int] | None = None,
+        platform_id: int | None = None,
+        slot: str | None = None,
+        slot_not_null: bool = False,
+        order_by: Literal["updated_at", "created_at"] | None = None,
+        order_dir: Literal["asc", "desc"] = "desc",
+        session: Session = None,  # type: ignore
+    ) -> list[int]:
+        """Ids only, so no `Save` is built and no eager rom or user join fires."""
+        query = self._saves_query(
+            user_id=user_id,
+            rom_ids=rom_ids,
+            platform_id=platform_id,
+            slot=slot,
+            slot_not_null=slot_not_null,
+            order_by=order_by,
+            order_dir=order_dir,
+        )
+        return list(session.scalars(query.with_only_columns(Save.id)).all())
 
     @begin_session
     def get_save_by_id(
@@ -184,15 +226,55 @@ class DBSavesHandler(DBBaseHandler):
         self,
         id: int,
         data: dict,
+        touch: bool = True,
         session: Session = None,  # type: ignore
     ) -> Save:
+        """Write `data` onto a save.
+
+        Args:
+            touch: False keeps `updated_at`, since annotating is not a write
+                to the bytes and device sync reads it to detect staleness.
+        """
+        values = data if touch else {**data, "updated_at": Save.updated_at}
         session.execute(
             update(Save)
             .where(Save.id == id)
-            .values(**data)
+            .values(**values)
             .execution_options(synchronize_session="evaluate")
         )
         return session.query(Save).filter_by(id=id).one()
+
+    @begin_session
+    def prune_slot(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str,
+        keep: int,
+        session: Session = None,  # type: ignore
+    ) -> list[tuple[str, str, str]]:
+        """Delete every version of a slot past the ``keep`` newest.
+
+        The rows are locked while they are listed and deleted, so two uploads
+        pruning the same slot cannot both keep a version the other dropped.
+
+        Returns:
+            ``(file_path, file_name, file_name_no_ext)`` of each deleted version.
+        """
+        rows = session.execute(
+            select(Save.id, Save.file_path, Save.file_name, Save.file_name_no_ext)
+            .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
+            .order_by(desc(Save.updated_at), desc(Save.id))
+            .offset(keep)
+            .with_for_update()
+        ).all()
+        if rows:
+            session.execute(
+                delete(Save)
+                .where(Save.id.in_([row.id for row in rows]))
+                .execution_options(synchronize_session="evaluate")
+            )
+        return [(row.file_path, row.file_name, row.file_name_no_ext) for row in rows]
 
     @begin_session
     def delete_save(

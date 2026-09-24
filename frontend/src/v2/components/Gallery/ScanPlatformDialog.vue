@@ -25,10 +25,7 @@ import type { Platform } from "@/stores/platforms";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import {
-  scanNeedsMetadataSource,
-  type ScanType as SharedScanType,
-} from "@/v2/types/scan";
+import { type ScanType as SharedScanType } from "@/v2/types/scan";
 
 defineOptions({ inheritAttrs: false });
 
@@ -113,9 +110,12 @@ function onScan() {
   if (!started) return;
   persistSelection();
 
-  snackbar.info(`Scanning ${props.platform.display_name}…`, {
-    icon: "mdi-loading mdi-spin",
-  });
+  snackbar.info(
+    t("scan.scanning-platform", { platform: props.platform.display_name }),
+    {
+      icon: "mdi-loading mdi-spin",
+    },
+  );
   closeDialog();
 }
 </script>
@@ -125,6 +125,7 @@ function onScan() {
     :model-value="modelValue"
     icon="mdi-magnify-scan"
     :width="560"
+    cancelable
     @update:model-value="$emit('update:modelValue', $event)"
     @close="closeDialog"
   >
@@ -398,10 +399,6 @@ function onScan() {
     </template>
 
     <template #footer>
-      <RBtn variant="text" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <span class="r-v2-scan-plat__footer-spacer" />
       <RBtn
         variant="translucent"
         color="primary"
@@ -422,10 +419,6 @@ function onScan() {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.r-v2-scan-plat__footer-spacer {
-  flex: 1;
 }
 
 /* Platform identity row — sibling of `.r-v2-refresh__rom` in

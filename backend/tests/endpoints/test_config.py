@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi import status
 
@@ -33,6 +33,7 @@ def test_config(client):
         DEFAULT_EXCLUDED_MULTI_FILE_DIRS
     )
     assert config.get("PLATFORMS_BINDING") == {}
+    assert config.get("EJS_DEFAULT_CORES") == {}
     assert not config.get("SKIP_HASH_CALCULATION")
     assert config.get("GAMELIST_MEDIA_THUMBNAIL") == "box2d"
     assert config.get("GAMELIST_MEDIA_IMAGE") == "screenshot"
@@ -86,6 +87,46 @@ def test_add_platform_version_payload_shape(client, access_token: str):
     add_platform_version.assert_called_once_with("n64", "1.0")
 
 
+def test_mapping_a_folder_with_a_case_variant_sibling_is_rejected(
+    client, access_token: str
+):
+    """One config key covers both, so the write would remap the sibling too."""
+    with (
+        patch(
+            "endpoints.configs.fs_platform_handler.find_ambiguous_folders",
+            AsyncMock(return_value=["PSX", "psx"]),
+        ),
+        patch.object(cm, "add_platform_binding") as add_platform_binding,
+    ):
+        response = client.post(
+            "/api/config/system/platforms",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"fs_slug": "PSX", "slug": "ps2"},
+        )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert "differ only by case" in response.json()["detail"]
+    add_platform_binding.assert_not_called()
+
+
+def test_mapping_a_folder_whose_name_is_unique_is_allowed(client, access_token: str):
+    with (
+        patch(
+            "endpoints.configs.fs_platform_handler.find_ambiguous_folders",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(cm, "add_platform_binding") as add_platform_binding,
+    ):
+        response = client.post(
+            "/api/config/system/platforms",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"fs_slug": "Nintendo 64", "slug": "n64"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    add_platform_binding.assert_called_once_with("Nintendo 64", "n64")
+
+
 def test_add_exclusion_payload_shape(client, access_token: str):
     with patch.object(cm, "add_exclusion") as add_exclusion:
         response = client.post(
@@ -112,7 +153,7 @@ def test_add_exclusion_rejects_unknown_type(client, access_token: str):
             json={"exclusion_type": "platforms", "exclusion_value": "README.txt"},
         )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     add_exclusion.assert_not_called()
 
 
@@ -123,7 +164,7 @@ def test_delete_exclusion_rejects_unknown_type(client, access_token: str):
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     remove_exclusion.assert_not_called()
 
 
@@ -186,7 +227,7 @@ def test_update_scan_settings_rejects_unknown_source(client, access_token: str):
             json=_scan_payload(metadata_priority=["igdb", "not-a-source"]),
         )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     update_scan_settings.assert_not_called()
 
 
@@ -201,7 +242,7 @@ def test_update_scan_settings_rejects_invalid_gamelist_thumbnail(
             json=_scan_payload(gamelist_thumbnail="screenshot"),
         )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     update_scan_settings.assert_not_called()
 
 

@@ -4,20 +4,42 @@ The test database is built from the migrations, so an index declared in one but
 not the other goes unnoticed until autogenerate proposes dropping it.
 """
 
+import importlib.util
+import re
+from pathlib import Path
+from types import ModuleType
+from typing import Any
+
+import alembic.config
 import pytest
 import sqlalchemy as sa
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from sqlalchemy import Table, UniqueConstraint
 
 import models
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
-from models.rom import compute_full_path_hash
+from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     POSTGRESQL_FK_INDEXES,
     full_path_digest_sql,
+    has_column,
+    is_mariadb,
+    is_postgresql,
+)
+from utils.roms_columns import (
+    FULL_PATH_HASH_COLUMN,
+    HLTB_MAIN_STORY_COLUMN,
+    ROMS_METADATA_VIEW_COLUMNS,
+    STEAM_FED_COLUMNS,
+    STEAM_METADATA_COLUMN,
+    ensure_roms_columns,
+    has_server_default,
+    rebuild_generated_columns,
+    steam_fed_columns,
 )
 
 # `compare_metadata` yields flat tuples for schema-level diffs, and a list of
@@ -84,9 +106,12 @@ def test_postgresql_fk_indexes_cover_every_unindexed_foreign_key():
         ("roms/nes/Hacks & Tra'nslations", "Zelda [T-Eng].nes"),
         ("roms/nes/Ünïcøde", "Pokémon Édition Rouge.gb"),
         ("", ""),
+        (None, None),
     ],
 )
-def test_the_migrated_full_path_digest_matches_the_models(fs_path: str, fs_name: str):
+def test_the_migrated_full_path_digest_matches_the_models(
+    fs_path: str | None, fs_name: str | None
+):
     """0126 backfills `full_path_hash` in SQL; the app writes it from Python.
 
     A mismatch would make every pre-existing rom look new to the unique index.
@@ -101,3 +126,370 @@ def test_the_migrated_full_path_digest_matches_the_models(fs_path: str, fs_name:
         ).scalar_one()
 
     assert digest == compute_full_path_hash(fs_path, fs_name)
+
+
+def _load_migration(filename: str) -> ModuleType:
+    """Import a revision by file name, which no package path can reach."""
+    path = Path(__file__).parent.parent / "alembic" / "versions" / filename
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    assert spec and spec.loader
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    return migration
+
+
+# Columns by nullability and indexes by (columns, uniqueness).
+TableSchema = tuple[
+    dict[str, bool], dict[str | None, tuple[tuple[str | None, ...], bool]]
+]
+
+
+def _schema_of(connection: sa.Connection, table: str) -> TableSchema:
+    inspector = sa.inspect(connection)
+    return (
+        {column["name"]: column["nullable"] for column in inspector.get_columns(table)},
+        {
+            index["name"]: (tuple(index["column_names"]), bool(index["unique"]))
+            for index in inspector.get_indexes(table)
+        },
+    )
+
+
+def _replay(connection: sa.Connection, filename: str) -> None:
+    with Operations.context(MigrationContext.configure(connection)):
+        _load_migration(filename).upgrade()
+
+
+# None of these is touched by a later revision, so replaying one over the
+# migrated schema has to leave that schema exactly as it found it.
+@pytest.mark.parametrize(
+    "filename,table",
+    [
+        ("0111_physical_roms.py", "roms"),
+        ("0120_container_adoptions.py", "streaming_container_adoptions"),
+        ("0122_rom_similarity.py", "rom_similarity"),
+        ("0123_recommendation_metadata.py", "roms"),
+        ("0126_unique_rom_full_path.py", "roms"),
+        ("0128_hltb_main_story_column.py", "roms"),
+        ("0130_notifications.py", "notifications"),
+        ("0131_notification_channels.py", "notification_channels"),
+    ],
+)
+def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
+    filename: str, table: str
+):
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, table)
+        _replay(connection, filename)
+
+        assert _schema_of(connection, table) == before
+
+
+def test_the_rom_similarity_revision_fills_in_a_missing_index():
+    """0122 meets its own table on a replay, with only some of its indexes.
+
+    Alembic issues those as their own statements after the table, so a run can
+    die between them.
+    """
+    migration = _load_migration("0122_rom_similarity.py")
+    name, _ = migration.INDEXES[0]
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, migration.TABLE)
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            # The other one backs a foreign key, which MariaDB will not let go.
+            operations.drop_index(name, table_name=migration.TABLE)
+            migration.upgrade()
+
+        assert _schema_of(connection, migration.TABLE) == before
+
+
+def test_the_memory_card_revision_replays_under_the_one_that_prunes_it():
+    """0119 re-creates the index 0125 drops, so the pair has to replay together.
+
+    A real upgrade always runs 0125 after 0119; this pins that the second pass
+    still lands on the same schema.
+    """
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "memory_card_versions")
+        _replay(connection, "0119_memory_cards.py")
+        _replay(connection, "0125_drop_redundant_indexes.py")
+
+        assert _schema_of(connection, "memory_card_versions") == before
+
+
+def test_the_full_path_hash_migration_resumes_an_interrupted_run(rom: Rom):
+    """0126 finishes a run that died right after its ADD COLUMN.
+
+    That run leaves the column with no digest, no NOT NULL and neither index.
+    """
+    migration = _load_migration("0126_unique_rom_full_path.py")
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            migration.downgrade()
+            operations.add_column(
+                "roms",
+                sa.Column(
+                    migration.COLUMN_NAME, sa.String(length=FULL_PATH_HASH_LENGTH)
+                ),
+            )
+            migration.upgrade()
+
+        columns, indexes = _schema_of(connection, "roms")
+        digest = connection.execute(
+            sa.text(
+                f"SELECT {migration.COLUMN_NAME} FROM roms WHERE id = :rom_id"
+            ),  # nosec B608
+            {"rom_id": rom.id},
+        ).scalar_one()
+
+    assert not columns[migration.COLUMN_NAME]
+    assert indexes[migration.UNIQUE_INDEX_NAME][1]
+    assert not indexes[migration.LOOKUP_INDEX_NAME][1]
+    assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
+
+
+def test_the_hltb_migration_resumes_an_interrupted_run():
+    """0128 keeps the generated column it already added and builds its index."""
+    migration = _load_migration("0128_hltb_main_story_column.py")
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            operations.drop_index(migration.INDEX_NAME, table_name="roms")
+            migration.upgrade()
+
+        _, indexes = _schema_of(connection, "roms")
+
+    assert migration.INDEX_NAME in indexes
+
+
+def test_has_column_reflects_the_migrated_schema():
+    """The guard every replayed column add is skipped by."""
+    with sync_engine.connect() as connection:
+        assert has_column(connection, "roms", "generated_publishers")
+        assert not has_column(connection, "roms", "no_such_column")
+
+
+def _roms_alters(connection: sa.Connection) -> list[str]:
+    """Record every ALTER TABLE roms the connection issues from here on."""
+    statements: list[str] = []
+
+    @sa.event.listens_for(connection, "before_cursor_execute")
+    def _record(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+        if re.match(r"ALTER TABLE roms\b", statement.lstrip(), re.IGNORECASE):
+            statements.append(statement)
+
+    return statements
+
+
+def _generation_expressions(connection: sa.Connection) -> dict[str, str]:
+    """The expression behind every generated column on `roms`."""
+    return {
+        column["name"]: column["computed"]["sqltext"]
+        for column in sa.inspect(connection).get_columns("roms")
+        if column.get("computed")
+    }
+
+
+def test_the_roms_columns_helper_leaves_a_migrated_table_alone():
+    """Every revision calls it, so all but the first must cost nothing."""
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        alters = _roms_alters(connection)
+
+        ensure_roms_columns(connection)
+
+        assert _schema_of(connection, "roms") == before
+        assert alters == []
+
+
+def test_the_roms_columns_helper_adds_every_missing_column_at_once():
+    """A stored and a generated column missing together cost one table copy."""
+    hltb = _load_migration("0128_hltb_main_story_column.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            operations.drop_index(hltb.INDEX_NAME, table_name="roms")
+            operations.drop_column("roms", "upc")
+            operations.drop_column("roms", HLTB_MAIN_STORY_COLUMN)
+        alters = _roms_alters(connection)
+
+        ensure_roms_columns(connection)
+        # 0128 owns the index, so its replay finishes the schema.
+        _replay(connection, "0128_hltb_main_story_column.py")
+
+        assert _schema_of(connection, "roms") == before
+        assert len(alters) == 1
+
+
+def test_the_roms_columns_helper_redefines_a_column_that_predates_steam():
+    """0123 taught the metadata chains to read Steam; an older table is rebuilt."""
+    with sync_engine.begin() as connection:
+        pg = is_postgresql(connection)
+        before = _schema_of(connection, "roms")
+        genres = next(
+            column
+            for column in steam_fed_columns(pg, with_steam=False)
+            if column.name == "generated_genres"
+        )
+        rebuild_generated_columns(
+            connection,
+            add=[genres],
+            drop=[],
+            view_columns=ROMS_METADATA_VIEW_COLUMNS,
+        )
+        assert (
+            STEAM_METADATA_COLUMN
+            not in _generation_expressions(connection)["generated_genres"]
+        )
+        alters = _roms_alters(connection)
+
+        ensure_roms_columns(connection)
+
+        assert _schema_of(connection, "roms") == before
+        assert len(alters) == 1
+        expressions = _generation_expressions(connection)
+        for column in STEAM_FED_COLUMNS:
+            assert STEAM_METADATA_COLUMN in expressions[column]
+        assert sa.inspect(connection).has_table("roms_metadata")
+
+
+def _roms_schema(
+    connection: sa.Connection,
+) -> tuple[TableSchema, dict[str, str], list[str]]:
+    """`_schema_of` plus every generated expression and what the view projects."""
+    view = sa.inspect(connection).get_columns("roms_metadata")
+    return (
+        _schema_of(connection, "roms"),
+        _generation_expressions(connection),
+        [column["name"] for column in view],
+    )
+
+
+def test_the_first_roms_columns_revision_downgrades_to_the_schema_it_found():
+    """0108 adds every later revision's column, so alone it has to take them all back."""
+    migration = _load_migration("0126_unique_rom_full_path.py")
+
+    alembic.config.main(argv=["downgrade", "0107_roms_dedup_cover_index"])
+    try:
+        with sync_engine.connect() as connection:
+            before = _roms_schema(connection)
+
+        alembic.config.main(argv=["upgrade", "0108_roms_primary_region"])
+        # 0126 creates this before it is stamped, so a run that died right
+        # after leaves it for the downgrade to meet.
+        with sync_engine.begin() as connection:
+            with Operations.context(MigrationContext.configure(connection)) as ops:
+                ops.create_index(
+                    migration.UNIQUE_INDEX_NAME,
+                    "roms",
+                    ["platform_id", FULL_PATH_HASH_COLUMN],
+                    unique=True,
+                )
+        alembic.config.main(argv=["downgrade", "0107_roms_dedup_cover_index"])
+
+        with sync_engine.connect() as connection:
+            after = _roms_schema(connection)
+    finally:
+        alembic.config.main(argv=["upgrade", "head"])
+
+    assert after == before
+
+
+def test_the_roms_columns_helper_puts_back_a_view_a_run_lost():
+    """A run that died between the ALTER and the CREATE VIEW replays to the view."""
+    with sync_engine.begin() as connection:
+        connection.execute(sa.text("DROP VIEW roms_metadata"))
+        alters = _roms_alters(connection)
+
+        ensure_roms_columns(connection)
+
+        assert sa.inspect(connection).has_table("roms_metadata")
+        assert alters == []
+
+
+def test_the_roms_columns_helper_drops_a_digest_default_a_run_left_behind():
+    """MariaDB fills the digest through a DEFAULT the run removes right after."""
+    with sync_engine.begin() as connection:
+        if not is_mariadb(connection):
+            pytest.skip("only MariaDB gives the column a default")
+        connection.execute(
+            sa.text(
+                f"ALTER TABLE roms ALTER COLUMN {FULL_PATH_HASH_COLUMN} SET DEFAULT ''"
+            )
+        )
+        assert has_server_default(connection, FULL_PATH_HASH_COLUMN)
+        alters = _roms_alters(connection)
+
+        ensure_roms_columns(connection)
+
+        assert not has_server_default(connection, FULL_PATH_HASH_COLUMN)
+        assert len(alters) == 1
+
+
+def test_the_roms_columns_helper_fills_the_full_path_digest_where_it_can(rom: Rom):
+    """MariaDB gets the digest in the same copy; the others leave it to 0126."""
+    migration = _load_migration("0126_unique_rom_full_path.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            operations.drop_index(migration.UNIQUE_INDEX_NAME, table_name="roms")
+            operations.drop_column("roms", FULL_PATH_HASH_COLUMN)
+
+            ensure_roms_columns(connection)
+
+            columns, _ = _schema_of(connection, "roms")
+            assert columns[FULL_PATH_HASH_COLUMN] is not is_mariadb(connection)
+            assert not has_server_default(connection, FULL_PATH_HASH_COLUMN)
+            if is_mariadb(connection):
+                digest = connection.execute(
+                    sa.text(
+                        f"SELECT {FULL_PATH_HASH_COLUMN} FROM roms WHERE id = :rom_id"  # nosec B608
+                    ),
+                    {"rom_id": rom.id},
+                ).scalar_one()
+                assert digest == compute_full_path_hash(rom.fs_path, rom.fs_name)
+
+            migration.upgrade()
+
+        assert _schema_of(connection, "roms") == before
+
+
+@pytest.mark.parametrize(
+    "drop_column",
+    [False, True],
+    ids=["died before the index", "died before the column"],
+)
+def test_the_state_disc_file_migration_resumes_an_interrupted_run(drop_column: bool):
+    """0121 completes whatever a run that died partway left behind.
+
+    Nothing else in the schema references these, so the interrupted states can
+    be built for real: the foreign key and index missing, or all three.
+    """
+    migration = _load_migration("0121_state_disc_file.py")
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)) as operations:
+            # The foreign key goes first: MariaDB refuses to drop a column it
+            # still needs, and an index it still sits on.
+            operations.drop_constraint(
+                "fk_states_disc_file_id", "states", type_="foreignkey"
+            )
+            operations.drop_index("ix_states_disc_file_id", table_name="states")
+            if drop_column:
+                operations.drop_column("states", "disc_file_id")
+
+            migration.upgrade()
+
+        inspector = sa.inspect(connection)
+        columns = {column["name"] for column in inspector.get_columns("states")}
+        index = inspector.has_index("states", "ix_states_disc_file_id")
+        foreign_keys = {key["name"] for key in inspector.get_foreign_keys("states")}
+
+    assert "disc_file_id" in columns
+    assert index
+    assert "fk_states_disc_file_id" in foreign_keys

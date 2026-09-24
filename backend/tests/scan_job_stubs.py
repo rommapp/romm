@@ -1,6 +1,7 @@
 """Job stubs and Redis patching shared by the scan job discovery tests."""
 
 from itertools import count
+from typing import Any
 from unittest.mock import MagicMock
 
 from rq.exceptions import NoSuchJobError
@@ -21,6 +22,7 @@ def make_job(
     status=JobStatus.QUEUED,
     task_name: str | None = None,
     task_type: TaskType | None = None,
+    meta: dict[str, Any] | None = None,
 ):
     """An RQ job stub that scan job discovery will accept."""
     job = MagicMock(spec=Job)
@@ -28,11 +30,13 @@ def make_job(
     job.func_name = func_name
     job.get_status.return_value = status
     job.kwargs = {}
-    job.meta = {}
+    job.meta = dict(meta or {})
     if task_name:
         job.meta["task_name"] = task_name
     if task_type:
         job.meta["task_type"] = task_type
+    # Same dict, so a test that mutates `meta` is seen by a re-read.
+    job.get_meta.return_value = job.meta
     return job
 
 

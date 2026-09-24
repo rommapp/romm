@@ -8,7 +8,9 @@
 // the gallery's selected-platforms (so this tab starts from a known
 // state), then bootstrap metadata. The sortable column header and the
 // platform multi-select feed the same store inputs the real galleries
-// use; cleanup-all is the only missing-games-specific control. On
+// use; delete-all is the only missing-games-specific control, and the
+// gallery's SelectionBar carries the bulk actions for a hand-picked set
+// (minus download, since these rows point at files that are gone). On
 // unmount we restore the caller's filter so the next gallery view they
 // land on doesn't inherit `filterMissing=true`.
 //
@@ -17,6 +19,7 @@
 // own scroll, so the Settings document scroll stays separate.
 import {
   RBtn,
+  REmptyState,
   RIcon,
   RMenu,
   RMenuItem,
@@ -33,31 +36,29 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
 import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
+import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
+  isListSortKey,
   LIST_ROW_HEIGHT_PX,
   type ListSortKey,
 } from "@/v2/components/Gallery/listColumns";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
+import { useListExpansion } from "@/v2/composables/useListExpansion";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import storeGalleryRoms, { type SidecarOptions } from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, { NO_SIDECARS } from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
+import { errorMessage } from "@/v2/utils/errorMessage";
 
 interface PlatformItem {
   id: number;
   slug: string;
   name: string;
 }
-
-// This tab renders no filter drawer and no AlphaStrip, and sizes its
-// scroller off `total` alone, so all three whole-library aggregates are
-// scans whose results it would discard.
-const NO_SIDECARS: SidecarOptions = {
-  withCharIndex: false,
-  withFilterValues: false,
-  withRomIdIndex: false,
-};
 
 defineOptions({ inheritAttrs: false });
 
@@ -83,6 +84,13 @@ let prevSelectedPlatforms: Platform[] = [];
 
 const cleaningUp = ref(false);
 const platformSearch = ref("");
+// The store still holds the previous gallery until onMounted resets it.
+const bootstrapped = ref(false);
+
+const phase = useLoadingPhase(
+  () => !bootstrapped.value || !metadataLoaded.value || initialFetching.value,
+  () => total.value === 0,
+);
 
 const platformItems = computed<PlatformItem[]>(() =>
   allPlatforms.value
@@ -109,32 +117,21 @@ const selectedPlatformIds = computed<number[]>({
   },
 });
 
-// Map `galleryRoms.orderBy` to the list header's accepted keys. The
-// store may carry a key the list mode doesn't expose (e.g.
-// `last_played`), in which case we paint no active sort.
+// The store may carry a key list mode doesn't expose (e.g. `last_played`),
+// in which case we paint no active sort.
 const listSortKey = computed<ListSortKey | null>(() => {
-  const k = orderBy.value;
-  if (
-    k === "name" ||
-    k === "fs_size_bytes" ||
-    k === "created_at" ||
-    k === "first_release_date" ||
-    k === "average_rating"
-  ) {
-    return k;
-  }
-  return null;
+  const key = orderBy.value;
+  return isListSortKey(key) ? key : null;
 });
 
-// Virtual items: one entry per absolute position (0 .. total) once
-// metadata is loaded; bootstrap-phase placeholders before then so the
-// table never collapses to "empty" between the fetch firing and total
-// resolving.
+// One entry per absolute position (0 .. total) once metadata is loaded;
+// before then, skeleton placeholders once the skeleton is due.
 type VItem =
   { kind: "list-row"; position: number } | { kind: "skeleton"; key: number };
 
 const virtualItems = computed<VItem[]>(() => {
   if (!metadataLoaded.value) {
+    if (phase.value !== "skeleton") return [];
     return Array.from({ length: 8 }, (_, i) => ({
       kind: "skeleton" as const,
       key: i,
@@ -147,9 +144,31 @@ const virtualItems = computed<VItem[]>(() => {
   return items;
 });
 
-function vItemHeight(_item: unknown): number {
-  return LIST_ROW_HEIGHT_PX;
+// The rows are the gallery's, detail panel and all, so their heights come
+// from the same place.
+const listExpansion = useListExpansion();
+
+function vItemHeight(item: unknown): number {
+  const v = item as VItem;
+  return isListRow(v)
+    ? listExpansion.rowHeight(v.position)
+    : LIST_ROW_HEIGHT_PX;
 }
+
+// The open row's slot is reserved at its settled height; these are the frames
+// on the way there (see `useListExpansion`).
+const expandedIndex = computed(() => {
+  const position = listExpansion.expandedPosition.value;
+  if (position == null) return -1;
+  return virtualItems.value.findIndex(
+    (item) => isListRow(item) && item.position === position,
+  );
+});
+const offsetShift = computed(() =>
+  expandedIndex.value < 0
+    ? undefined
+    : { fromIndex: expandedIndex.value, px: listExpansion.shiftPx.value },
+);
 
 interface VListRow {
   kind: "list-row";
@@ -164,10 +183,6 @@ function rowPosition(item: unknown): number {
   const v = item as VItem;
   return isListRow(v) ? v.position : -1;
 }
-
-const showEmpty = computed(
-  () => metadataLoaded.value && !initialFetching.value && total.value === 0,
-);
 
 function onListSort({ key, dir }: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderBy(key);
@@ -220,6 +235,7 @@ function onViewportRange(range: { first: number; last: number }) {
 // (rows 0..N are visible in both), so the scroller may not re-emit. Sync
 // immediately against the current viewport so the first window loads.
 watch(virtualItems, () => {
+  listExpansion.collapse();
   if (fetchDebounceTimer) {
     clearTimeout(fetchDebounceTimer);
     fetchDebounceTimer = null;
@@ -238,7 +254,7 @@ async function cleanupAll() {
   const ok = await confirm({
     title: t("common.confirm-deletion"),
     body: t("settings.cleanup-all-confirm", { platform: platformLabel }),
-    confirmText: t("settings.cleanup-all"),
+    confirmText: t("settings.missing-games-delete-all"),
     tone: "danger",
     requireTyped: "DELETE",
   });
@@ -255,7 +271,9 @@ async function cleanupAll() {
       await galleryRoms.fetchInitialMetadata(NO_SIDECARS);
     }
   } catch (err) {
-    snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
+    snackbar.error(
+      t("settings.couldnt-queue-cleanup", { error: errorMessage(err) }),
+    );
   } finally {
     cleaningUp.value = false;
   }
@@ -269,14 +287,20 @@ onMounted(() => {
   galleryFilter.setSelectedFilterPlatforms([]);
   galleryRoms.setOrderBy("name");
   galleryRoms.setOrderDir("asc");
+  bootstrapped.value = true;
   void galleryRoms.fetchInitialMetadata(NO_SIDECARS);
 });
 
 onBeforeUnmount(() => {
+  // A press still in flight would otherwise fire into the next surface.
+  useGallerySelectionInput().cancel();
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
   galleryFilter.setFilterMissing(prevFilterMissing);
   galleryFilter.setSelectedFilterPlatforms(prevSelectedPlatforms);
   galleryRoms.resetGallery();
+  // Selection is surface-scoped: drop it so the next gallery's
+  // SelectionBar doesn't resurface picks made on this tab.
+  storeGallerySelection().clear();
 });
 </script>
 
@@ -331,8 +355,9 @@ onBeforeUnmount(() => {
         <RTag
           v-if="metadataLoaded"
           prepend-icon="mdi-folder-question-outline"
-          :text="total"
+          :text="total.toLocaleString()"
           tone="neutral"
+          class="r-v2-missing__count"
         />
         <RMenu location="bottom end" :offset="6" width="220px">
           <template #activator="{ props: activatorProps }">
@@ -347,32 +372,31 @@ onBeforeUnmount(() => {
             />
           </template>
           <RMenuItem
-            :label="t('settings.cleanup-all')"
+            :label="t('settings.missing-games-delete-all')"
             icon="mdi-delete-outline"
             variant="danger"
-            :disabled="cleaningUp || showEmpty"
+            :disabled="cleaningUp || phase !== 'content'"
             @click="cleanupAll"
           />
         </RMenu>
       </div>
     </div>
 
-    <div class="r-v2-missing__list">
+    <REmptyState
+      v-if="phase === 'empty'"
+      icon="mdi-folder-question-outline"
+      :title="t('settings.missing-games-none')"
+    />
+    <div v-else-if="phase !== 'idle'" class="r-v2-missing__list">
       <GameListHeader
         :sort-key="listSortKey"
         :sort-dir="orderDir"
         @sort="onListSort"
       />
-
-      <div v-if="showEmpty" class="r-v2-missing__empty">
-        <RIcon icon="mdi-folder-question-outline" :size="48" />
-        <p>{{ t("settings.missing-games-none") }}</p>
-      </div>
-
       <RVirtualScroller
-        v-else
         :items="virtualItems"
         :get-item-height="vItemHeight"
+        :offset-shift="offsetShift"
         :overscan="25"
         class="r-v2-missing__scroller"
         @update:viewport-range="onViewportRange"
@@ -382,11 +406,17 @@ onBeforeUnmount(() => {
             v-if="isListRow(item as VItem)"
             :position="rowPosition(item)"
             :webp="supportsWebp"
+            expandable
+            :expanded="listExpansion.isExpanded(rowPosition(item))"
+            :detail-height="listExpansion.panelHeight(rowPosition(item))"
+            @toggle-expand="listExpansion.toggle(rowPosition(item))"
           />
           <GameListSkeletonRow v-else />
         </template>
       </RVirtualScroller>
     </div>
+
+    <SelectionBar hide-download />
   </div>
 </template>
 
@@ -437,9 +467,16 @@ onBeforeUnmount(() => {
    slack the platform-select absorbs. */
 .r-v2-missing__actions {
   display: flex;
+  align-self: stretch;
   align-items: center;
   gap: 10px;
   margin-left: auto;
+}
+
+/* Stretched to the toolbar row and pill-shaped to pair with the kebab. */
+.r-v2-missing__count {
+  align-self: stretch;
+  border-radius: var(--r-radius-pill);
 }
 
 /* List frame — the column header sits at the top, the virtualiser
@@ -460,17 +497,5 @@ onBeforeUnmount(() => {
 .r-v2-missing__scroller {
   flex: 1;
   min-height: 0;
-}
-
-.r-v2-missing__empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 48px 24px;
-  color: var(--r-color-fg-muted);
-  text-align: center;
 }
 </style>

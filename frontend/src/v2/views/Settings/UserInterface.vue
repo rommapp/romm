@@ -8,8 +8,9 @@
 //   4. Gallery           (toggle grid + boxart RSelect prefix-label +
 //                         advanced per-page boxart overrides)
 //   5. Gameplay          (launch-confirmation toggle)
-//   6. Virtual collections (RSelect prefix-label)
-//   7. UI version        (v2-only, beta — kept last)
+//   6. Desktop shell     (only inside it — opens its own settings)
+//   7. Virtual collections (RSelect prefix-label)
+//   8. UI version        (v2-only, beta — kept last)
 //
 // The v1 "Platforms drawer" section was removed (no equivalent in v2).
 // `useUISettings` still exposes `platformsGroupBy` for v1 — we just
@@ -19,7 +20,9 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
 import { useUiVersion } from "@/composables/useUiVersion";
+import { canOpenNativeSettings, openNativeSettings } from "@/services/native";
 import storeCollections from "@/stores/collections";
+import { useNativeStore } from "@/stores/native";
 import CrtWarmup from "@/v2/components/AppShell/CrtWarmup.vue";
 import WidgetReorderList from "@/v2/components/Home/Widgets/WidgetReorderList.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
@@ -30,11 +33,26 @@ import { isBoxartStyle } from "@/v2/composables/useCoverArt";
 import { useCrtMode } from "@/v2/composables/useCrtMode";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const { t } = useI18n();
 const uiVersion = useUiVersion();
 const { enabled: debugEnabled } = useDebugMode();
 const collectionsStore = storeCollections();
+const nativeStore = useNativeStore();
+const snackbar = useSnackbar();
+
+// The shell's settings are a file on the user's own machine, so this only asks
+// it to open them: RomM never reads or writes what is in there.
+const showShellSettings = nativeStore.available && canOpenNativeSettings();
+
+// A missing or unwritable configuration fails inside the shell, where the user
+// cannot see it, so the button would otherwise look like it does nothing.
+async function onOpenShellSettings() {
+  if (!(await openNativeSettings())) {
+    snackbar.error(t("settings.open-shell-settings-failed"));
+  }
+}
 
 const {
   theme: selectedTheme,
@@ -51,6 +69,7 @@ const {
   showHomeWidgets,
   widgetRandomPick,
   widgetLibraryStats,
+  widgetAnniversaries,
   libraryStatsMode,
   widgetOrder,
   // Gallery
@@ -309,6 +328,12 @@ function onVirtualCollectionTypeChange(value: unknown) {
             :disabled="!showHomeWidgets"
           />
           <SettingsToggleRow
+            v-model="widgetAnniversaries"
+            :title="t('settings.widget-anniversaries')"
+            :description="t('settings.widget-anniversaries-desc')"
+            :disabled="!showHomeWidgets"
+          />
+          <SettingsToggleRow
             v-model="widgetLibraryStats"
             :title="t('settings.widget-library-stats')"
             :description="t('settings.widget-library-stats-desc')"
@@ -444,6 +469,30 @@ function onVirtualCollectionTypeChange(value: unknown) {
           :title="t('settings.confirm-protected-launch')"
           :description="t('settings.confirm-protected-launch-desc')"
         />
+      </div>
+    </SettingsSection>
+
+    <SettingsSection
+      v-if="showShellSettings"
+      :title="t('settings.desktop-shell')"
+      icon="mdi-desktop-classic"
+    >
+      <div class="r-v2-ui__field">
+        <p class="r-v2-ui__desc">
+          {{
+            t("settings.desktop-shell-desc", {
+              version: nativeStore.shellVersion ?? "",
+            })
+          }}
+        </p>
+        <RBtn
+          variant="outlined"
+          size="small"
+          prepend-icon="mdi-cog-outline"
+          @click="onOpenShellSettings"
+        >
+          {{ t("settings.open-shell-settings") }}
+        </RBtn>
       </div>
     </SettingsSection>
 

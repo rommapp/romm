@@ -11,7 +11,7 @@ from .base_handler import DBBaseHandler
 
 
 class DBUsersHandler(DBBaseHandler):
-    def filter[QueryT: Select[tuple[User]] | Update | Delete](
+    def filter[QueryT: (Select[tuple[User]], Update, Delete)](
         self,
         query: QueryT,
         *,

@@ -1,14 +1,16 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import romApi, { type UpdateRom } from "@/services/api/rom";
+import storeUpload from "@/stores/upload";
 
-const { post, put } = vi.hoisted(() => ({
+const { get, post, put } = vi.hoisted(() => ({
+  get: vi.fn(),
   post: vi.fn(),
   put: vi.fn(),
 }));
 
 vi.mock("@/services/api", () => ({
-  default: { post, put, get: vi.fn(), delete: vi.fn() },
+  default: { post, put, get, delete: vi.fn() },
 }));
 vi.mock("@/services/socket", () => ({
   default: { emit: vi.fn(), connected: true, connect: vi.fn() },
@@ -99,7 +101,11 @@ describe("romApi.uploadRoms", () => {
       "X-Upload-Platform": "3",
       "X-Upload-Filename": "fix.ips",
     });
-    expect(startCall().body).toEqual({ rom_id: 42, folder: "hack/v2" });
+    expect(startCall().body).toEqual({
+      filename: "fix.ips",
+      rom_id: 42,
+      folder: "hack/v2",
+    });
     expect(post).toHaveBeenCalledWith(
       "/roms/upload/u-1/complete",
       null,
@@ -107,14 +113,45 @@ describe("romApi.uploadRoms", () => {
     );
   });
 
-  it("sends no body for a platform upload", async () => {
+  it("names only the file for a platform upload", async () => {
     await romApi.uploadRoms({
       platformId: 3,
       filesToUpload: [new File(["abc"], "game.zip")],
     });
 
-    expect(startCall().body).toBeNull();
+    expect(startCall().body).toEqual({ filename: "game.zip" });
     expect(startCall().headers["X-Upload-Filename"]).toBe("game.zip");
+  });
+
+  it("keeps a name outside Latin-1 out of the header", async () => {
+    const name = "Relax \uff5c 432Hz.mp3";
+    await romApi.uploadRoms({
+      platformId: 3,
+      romId: 42,
+      filesToUpload: [new File(["abc"], name)],
+    });
+
+    expect(startCall().body).toEqual({ filename: name, rom_id: 42 });
+    expect(startCall().headers["X-Upload-Filename"]).toBe(
+      "Relax%20%EF%BD%9C%20432Hz.mp3",
+    );
+  });
+
+  it("asks the server to replace an existing file only when told to", async () => {
+    await romApi.uploadRoms({
+      platformId: 3,
+      romId: 42,
+      folder: "hack",
+      overwrite: true,
+      filesToUpload: [new File(["abc"], "fix.ips")],
+    });
+
+    expect(startCall().body).toEqual({
+      filename: "fix.ips",
+      rom_id: 42,
+      folder: "hack",
+      overwrite: true,
+    });
   });
 
   it("treats an empty folder as the rom root", async () => {
@@ -125,6 +162,57 @@ describe("romApi.uploadRoms", () => {
       filesToUpload: [new File(["abc"], "readme.txt")],
     });
 
-    expect(startCall().body).toEqual({ rom_id: 42 });
+    expect(startCall().body).toEqual({ filename: "readme.txt", rom_id: 42 });
+  });
+
+  it("completes an empty file without sending chunks", async () => {
+    const results = await romApi.uploadRoms({
+      platformId: 3,
+      filesToUpload: [new File([], "empty.nsp")],
+    });
+
+    expect(results[0].status).toBe("fulfilled");
+    expect(startCall().headers).toMatchObject({
+      "X-Upload-Total-Size": "0",
+      "X-Upload-Total-Chunks": "0",
+    });
+    expect(put).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledWith(
+      "/roms/upload/u-1/complete",
+      null,
+      expect.anything(),
+    );
+    expect(storeUpload().files[0].finished).toBe(true);
+  });
+});
+
+describe("getRoms game-length range", () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue({ data: {} });
+  });
+
+  async function sentParams(
+    params: Parameters<typeof romApi.getRoms>[0],
+  ): Promise<Record<string, unknown>> {
+    await romApi.getRoms(params);
+    return get.mock.calls[0][1].params as Record<string, unknown>;
+  }
+
+  it("sends both bounds in seconds", async () => {
+    const params = await sentParams({
+      hltbMainStoryMin: 18000,
+      hltbMainStoryMax: 72000,
+    });
+
+    expect(params.hltb_main_story_min).toBe(18000);
+    expect(params.hltb_main_story_max).toBe(72000);
+  });
+
+  it("omits an unset bound so the range stays open at that end", async () => {
+    const params = await sentParams({ hltbMainStoryMax: 36000 });
+
+    expect(params).not.toHaveProperty("hltb_main_story_min");
+    expect(params.hltb_main_story_max).toBe(36000);
   });
 });

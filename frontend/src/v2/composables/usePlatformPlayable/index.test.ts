@@ -11,12 +11,14 @@ const ejsSlugs = new Set<string>();
 const ruffleSlugs = new Set<string>();
 const dosboxSlugs = new Set<string>();
 const jsDosSlugs = new Set<string>();
+const pico8Slugs = new Set<string>();
 const streamContainers = new Map<string, { label: string; emulator: string }>();
 const streamingEnabled = { value: true };
 
 vi.mock("@/utils", () => ({
   isEJSEmulationSupported: (slug: string) => ejsSlugs.has(slug),
   isJsDosEmulationSupported: (slug: string) => jsDosSlugs.has(slug),
+  isPico8EmulationSupported: (slug: string) => pico8Slugs.has(slug),
   isRuffleEmulationSupported: (slug: string) => ruffleSlugs.has(slug),
   getSupportedEJSCores: (slug: string) =>
     dosboxSlugs.has(slug) ? ["dosbox_pure"] : ["snes9x"],
@@ -29,6 +31,17 @@ vi.mock("@/stores/heartbeat", () => ({
 }));
 vi.mock("@/stores/config", () => ({
   default: () => ({ config: { PLATFORMS_VERSIONS: {} } }),
+}));
+// Native support is a property of the machine the page is open on, so it is a
+// knob here like the others. `support` is read only to make the returned
+// function rebuild when the probe lands.
+const nativeSlugs = new Set<string>();
+vi.mock("@/stores/native", () => ({
+  useNativeStore: () => ({
+    support: {},
+    isSupportedPlatform: (slug: string | null | undefined) =>
+      Boolean(slug) && nativeSlugs.has(slug as string),
+  }),
 }));
 // A Pinia setup store unwraps its refs on the instance, so `config` here is
 // the plain object the composable reads, not a ref.
@@ -64,10 +77,12 @@ vi.mock("@/locales", () => ({
 }));
 
 beforeEach(() => {
+  nativeSlugs.clear();
   ejsSlugs.clear();
   ruffleSlugs.clear();
   dosboxSlugs.clear();
   jsDosSlugs.clear();
+  pico8Slugs.clear();
   streamContainers.clear();
   streamingEnabled.value = true;
 });
@@ -78,6 +93,13 @@ describe("usePlatformPlayable", () => {
     const { mode, playable } = usePlatformPlayable(() => "snes");
     expect(mode.value).toBe("browser");
     expect(playable.value).toBe(true);
+  });
+
+  it("resolves PICO-8 as a browser player", () => {
+    pico8Slugs.add("pico");
+    const { mode, emulator } = usePlatformPlayable(() => "pico");
+    expect(mode.value).toBe("browser");
+    expect(emulator.value).toBe("pico8");
   });
 
   it("resolves streaming-only as stream and carries the container label", () => {
@@ -116,6 +138,20 @@ describe("usePlatformPlayable", () => {
 });
 
 describe("usePlatformPlayableChecker", () => {
+  it("reports a platform the desktop shell can launch", () => {
+    // PS2 has no in-browser core and no container, and is still playable
+    // inside the shell, which is what the platform index has to sort on.
+    nativeSlugs.add("ps2");
+    const { isPlayable, isStreamable, isNativeSupported } =
+      usePlatformPlayableChecker();
+
+    expect(isPlayable.value("ps2")).toBe(false);
+    expect(isStreamable.value("ps2")).toBe(false);
+    expect(isNativeSupported.value("ps2")).toBe(true);
+    expect(isNativeSupported.value("snes")).toBe(false);
+    expect(isNativeSupported.value(null)).toBe(false);
+  });
+
   it("agrees with the reactive form for the same slug", () => {
     ejsSlugs.add("snes");
     streamContainers.set("ps2", { label: "PCSX2", emulator: "pcsx2" });
@@ -149,6 +185,9 @@ describe("playTooltip", () => {
     );
     expect(playTooltip("browser", "dosbox", null)).toBe(
       "platform.playable-browser-dosbox",
+    );
+    expect(playTooltip("browser", "pico8", null)).toBe(
+      "platform.playable-browser-pico8",
     );
     expect(playTooltip("browser", "emulatorjs", null)).toBe(
       "platform.playable-browser-emulatorjs",
