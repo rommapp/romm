@@ -250,10 +250,11 @@ function clearArtwork() {
 // ── Save ────────────────────────────────────────────────────────
 async function save() {
   if (!dirty.value || saving.value || !canEdit.value) return;
+  const target = { kind: props.kind, id: props.collection.id };
   saving.value = true;
   try {
     let saved: Collection | SmartCollection;
-    if (props.kind === "smart") {
+    if (target.kind === "smart") {
       const payload: SmartCollection = {
         ...(props.collection as SmartCollection),
         name: form.value.name.trim(),
@@ -279,14 +280,13 @@ async function save() {
       });
       saved = data;
     }
-    syncSaved(saved);
     snackbar.success(t("collection.updated", "Collection updated"), {
       icon: "mdi-check-bold",
     });
     // Re-sync from the response, not the prop — the prop hasn't been
     // updated yet (see `snapshot` note), so snapshotting it would revert
     // the form to the pre-save values and keep `dirty` true.
-    snapshot(saved);
+    if (syncSaved(saved, target)) snapshot(saved);
   } catch (err) {
     const e = err as {
       response?: { data?: { msg?: string; detail?: string } };
@@ -310,9 +310,21 @@ function discard() {
   snapshot();
 }
 
-/** Puts a saved collection in the stores and tells the parent. */
-function syncSaved(saved: Collection | SmartCollection) {
-  if (props.kind === "smart") {
+function isShowing(target: { kind: CollectionKind; id: number }): boolean {
+  return props.kind === target.kind && props.collection.id === target.id;
+}
+
+/** Puts a saved collection in the stores, and hands it to the parent while it
+ *  is still the one on screen.
+ *
+ * Returns:
+ *   Whether it still is.
+ */
+function syncSaved(
+  saved: Collection | SmartCollection,
+  target: { kind: CollectionKind; id: number },
+): boolean {
+  if (target.kind === "smart") {
     const data = saved as SmartCollection;
     collectionsStore.updateSmartCollection(data);
     if (galleryRoms.currentSmartCollection?.id === data.id) {
@@ -325,27 +337,32 @@ function syncSaved(saved: Collection | SmartCollection) {
       galleryRoms.setCurrentCollection(data);
     }
   }
+  if (!isShowing(target)) return false;
   emit("saved", saved);
+  return true;
 }
 
 // Its own route, so an unapplied name or description edit stays a draft.
 async function setVisibility(next: boolean) {
   if (!canEdit.value || savingVisibility.value) return;
+  const target = { kind: props.kind, id: props.collection.id };
   const previous = isPublic.value;
   isPublic.value = next;
   savingVisibility.value = true;
   try {
-    const { id } = props.collection;
     const { data } =
-      props.kind === "smart"
+      target.kind === "smart"
         ? await collectionApi.setSmartCollectionVisibility({
-            id,
+            id: target.id,
             isPublic: next,
           })
-        : await collectionApi.setCollectionVisibility({ id, isPublic: next });
-    syncSaved(data);
+        : await collectionApi.setCollectionVisibility({
+            id: target.id,
+            isPublic: next,
+          });
+    syncSaved(data, target);
   } catch (error) {
-    isPublic.value = previous;
+    if (isShowing(target)) isPublic.value = previous;
     snackbar.error(
       t("common.cant-update-visibility", { error: errorMessage(error) }),
       { icon: "mdi-close-circle" },

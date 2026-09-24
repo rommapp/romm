@@ -85,6 +85,23 @@ describe("CollectionSettingsTab visibility", () => {
     expect(wrapper.get(".visibility").attributes("data-on")).toBe("true");
   });
 
+  it("keeps a late answer off a collection opened since", async () => {
+    let answer!: (value: unknown) => void;
+    vi.mocked(collectionApi.setCollectionVisibility).mockReturnValue(
+      new Promise((resolve) => (answer = resolve)) as never,
+    );
+    const wrapper = mountTab();
+
+    await wrapper.get(".visibility").trigger("click");
+    await wrapper.setProps({
+      collection: collectionFixture({ id: 9, name: "Racers" }),
+    });
+    answer({ data: { ...stored, is_public: true } });
+    await flushPromises();
+
+    expect(wrapper.emitted("saved")).toBeUndefined();
+  });
+
   it("flips back when the save fails", async () => {
     vi.mocked(collectionApi.setCollectionVisibility).mockRejectedValue(
       new Error("boom"),

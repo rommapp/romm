@@ -808,6 +808,43 @@ class FSHandler:
             dest_full_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(source_full_path), str(dest_full_path))
 
+    async def copy_to_new_file(self, source_path: str, dest_path: str) -> None:
+        """
+        Copy a file to a path nothing holds yet, never replacing another file.
+
+        Args:
+            source_path: Relative path to the file to copy
+            dest_path: Relative path of the copy
+
+        Raises:
+            FileNotFoundError: If the source does not exist
+            FileExistsError: If the destination already exists
+        """
+        source_full_path = self.validate_path(source_path)
+        dest_full_path = self.validate_path(dest_path)
+        if source_full_path == dest_full_path:
+            raise FileExistsError(f"File already exists: {dest_full_path}")
+
+        source_lock = await self._get_file_lock(str(source_full_path))
+        dest_lock = await self._get_file_lock(str(dest_full_path))
+
+        async with source_lock, dest_lock:
+            if not source_full_path.is_file():
+                raise FileNotFoundError(f"File not found: {source_full_path}")
+
+            # Both a link and an exclusive create refuse a name that exists.
+            try:
+                os.link(source_full_path, dest_full_path)
+            except OSError as exc:
+                if exc.errno not in LINK_FALLBACK_ERRNOS:
+                    raise
+                with (
+                    source_full_path.open("rb") as source,
+                    dest_full_path.open("xb") as dest,
+                ):
+                    shutil.copyfileobj(source, dest)
+                shutil.copymode(source_full_path, dest_full_path)
+
     async def rename_file(self, file_path: str, new_name: str) -> None:
         """
         Rename a file within its directory, never replacing another file.

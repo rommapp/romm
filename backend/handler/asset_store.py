@@ -179,9 +179,8 @@ async def _move_asset_files(
     source = f"{thumbnail.file_path}/{thumbnail.file_name}"
     try:
         if copy_thumbnail:
-            await fs_asset_handler.copy_file(
-                fs_asset_handler.validate_path(source),
-                f"{thumbnail.file_path}/{thumbnail_name}",
+            await fs_asset_handler.copy_to_new_file(
+                source, f"{thumbnail.file_path}/{thumbnail_name}"
             )
         else:
             await fs_asset_handler.rename_file(source, thumbnail_name)
@@ -277,6 +276,13 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
     copy_thumbnail = thumbnail is not None and any(
         _binds(other, thumbnail) for other in others
     )
+    # A new name on the same stem still resolves the shared one untouched.
+    if (
+        thumbnail
+        and copy_thumbnail
+        and thumbnail_name.casefold() == thumbnail.file_name.casefold()
+    ):
+        thumbnail = None
 
     log.info(f"Renaming {hl(asset.file_name)} to {hl(new_name)}")
     moves = (asset, new_name, thumbnail, thumbnail_name, copy_thumbnail)

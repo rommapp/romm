@@ -449,6 +449,29 @@ class TestFSHandler:
 
         assert (handler.base_path / "same.srm").read_bytes() == sample_file_content
 
+    async def test_copy_to_new_file_leaves_the_source(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "shot.png")
+
+        await handler.copy_to_new_file("shot.png", "copy.png")
+
+        assert (handler.base_path / "shot.png").read_bytes() == sample_file_content
+        assert (handler.base_path / "copy.png").read_bytes() == sample_file_content
+
+    async def test_copy_to_new_file_refuses_to_replace_a_file(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "shot.png")
+        await handler.write_file(b"other", ".", "taken.png")
+
+        with pytest.raises(FileExistsError):
+            await handler.copy_to_new_file("shot.png", "taken.png")
+        with pytest.raises(FileExistsError):
+            await handler.copy_to_new_file("shot.png", "shot.png")
+
+        assert (handler.base_path / "taken.png").read_bytes() == b"other"
+
     async def test_rename_file_nonexistent(self, handler: FSHandler):
         with pytest.raises(FileNotFoundError, match="File not found"):
             await handler.rename_file("nonexistent.srm", "new.srm")

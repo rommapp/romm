@@ -889,6 +889,34 @@ class TestStateRename:
         assert (screenshots_dir / "test_state.png").read_bytes() == b"PNG"
         assert (screenshots_dir / "renamed.png").read_bytes() == b"PNG"
 
+    def test_a_shared_thumbnail_stays_when_the_stem_does(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        state: State,
+        state_file,
+        thumbnail,
+    ):
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_state.srm",
+                file_path=f"{platform.slug}/saves",
+                file_size_bytes=1,
+            )
+        )
+
+        response = self._rename(client, access_token, state.id, "test_state.st2")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["screenshot"]["id"] == thumbnail.id
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        assert sorted(p.name for p in screenshots_dir.iterdir()) == ["test_state.png"]
+
     def test_a_failed_row_update_puts_the_files_back(
         self, client, access_token: str, state: State, state_file, thumbnail
     ):
