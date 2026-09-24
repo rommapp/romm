@@ -808,6 +808,18 @@ class FSHandler:
             dest_full_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(source_full_path), str(dest_full_path))
 
+    def is_same_file(self, path: str, other_path: str) -> bool:
+        """Whether two relative paths name one file, as names differing only in
+        case do on a case-insensitive filesystem."""
+        full_path = self.validate_path(path)
+        other_full_path = self.validate_path(other_path)
+        if full_path == other_full_path:
+            return True
+        try:
+            return full_path.samefile(other_full_path)
+        except FileNotFoundError:
+            return False
+
     async def copy_to_new_file(self, source_path: str, dest_path: str) -> None:
         """
         Copy a file to a path nothing holds yet, never replacing another file.

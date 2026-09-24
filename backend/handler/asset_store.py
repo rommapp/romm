@@ -272,8 +272,16 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
     copy_thumbnail = thumbnail is not None and any(
         _binds(other, thumbnail) for other in others
     )
-    # A new name on the same stem still resolves the shared one untouched.
-    if thumbnail and copy_thumbnail and thumbnail_name == thumbnail.file_name:
+    # A name the thumbnail already answers to, by stem or by the filesystem
+    # folding case, still resolves the shared one untouched.
+    if (
+        thumbnail
+        and copy_thumbnail
+        and fs_asset_handler.is_same_file(
+            f"{thumbnail.file_path}/{thumbnail.file_name}",
+            f"{thumbnail.file_path}/{thumbnail_name}",
+        )
+    ):
         thumbnail = None
 
     log.info(f"Renaming {hl(asset.file_name)} to {hl(new_name)}")

@@ -1,5 +1,6 @@
 import asyncio
 import errno
+import os
 import shutil
 import tempfile
 from io import BytesIO
@@ -492,6 +493,19 @@ class TestFSHandler:
 
         assert not (handler.base_path / "copy.png").exists()
         assert (handler.base_path / "shot.png").read_bytes() == sample_file_content
+
+    async def test_is_same_file_follows_the_file_not_the_name(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "shot.png")
+        await handler.write_file(b"other", ".", "other.png")
+        # A second link stands in for a case-insensitive filesystem's alias.
+        os.link(handler.base_path / "shot.png", handler.base_path / "Shot.png")
+
+        assert handler.is_same_file("shot.png", "shot.png")
+        assert handler.is_same_file("shot.png", "Shot.png")
+        assert not handler.is_same_file("shot.png", "other.png")
+        assert not handler.is_same_file("shot.png", "missing.png")
 
     async def test_rename_file_nonexistent(self, handler: FSHandler):
         with pytest.raises(FileNotFoundError, match="File not found"):

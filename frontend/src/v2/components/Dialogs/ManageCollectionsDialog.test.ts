@@ -8,6 +8,7 @@ import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
+import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import ManageCollectionsDialog from "./ManageCollectionsDialog.vue";
@@ -221,7 +222,7 @@ describe("ManageCollectionsDialog create", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
-    storeAuth().setCurrentUser({ id: USER_ID } as User);
+    storeAuth().setCurrentUser(userFixture({ id: USER_ID }));
   });
 
   it("creates the collection with the visibility the form was set to", async () => {

@@ -1,3 +1,4 @@
+import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from unittest import mock
@@ -949,6 +950,41 @@ class TestStateRename:
         )
         screenshots_dir = state_file.parents[2] / "screenshots"
         assert (screenshots_dir / "Test_state.png").read_bytes() == b"PNG"
+        kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert kept is not None and kept.file_name == "test_state.png"
+
+    def test_a_case_only_rename_keeps_a_shared_thumbnail_the_filesystem_folds(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        state: State,
+        state_file,
+        thumbnail,
+    ):
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_state.srm",
+                file_path=f"{platform.slug}/saves",
+                file_size_bytes=1,
+            )
+        )
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        # A second link stands in for a case-insensitive filesystem's alias.
+        os.link(screenshots_dir / "test_state.png", screenshots_dir / "Test_state.png")
+
+        with mock.patch(
+            "handler.asset_store.db_screenshot_handler.add_screenshot"
+        ) as add:
+            response = self._rename(client, access_token, state.id, "Test_state.state")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["file_name"] == "Test_state.state"
+        add.assert_not_called()
         kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
         assert kept is not None and kept.file_name == "test_state.png"
 
