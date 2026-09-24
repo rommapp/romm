@@ -30,7 +30,12 @@ const TextViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/TextViewer.vue"),
 );
 
-const props = defineProps<{ rom: DetailedRom }>();
+const props = defineProps<{
+  rom: DetailedRom;
+  /** Drop the header Upload button when the parent renders it elsewhere
+   *  (through the exposed `openUpload`). */
+  hideUpload?: boolean;
+}>();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const { refetchRom } = useRomSync();
@@ -125,6 +130,15 @@ const manualItems = computed(() =>
 // The filled viewer is wrapped in an overlay RDropzone (drag files onto the
 // manual to add another); the header's Upload button opens its picker.
 const manualDz = ref<InstanceType<typeof RDropzone> | null>(null);
+const canUploadMore = computed(
+  () => manualEntries.value.length > 0 && canEdit.value,
+);
+
+function openUpload() {
+  manualDz.value?.open();
+}
+
+defineExpose({ canUpload: canUploadMore, openUpload });
 const redownloadingManual = ref(false);
 
 function handleManualFiles(files: File[]) {
@@ -167,10 +181,13 @@ function requestDeleteManual() {
 <template>
   <div class="r-v2-manual">
     <!-- The subtab label in the sidebar already names the section, so the
-         header skips a redundant title and just hosts the entry selector
-         (when multiple). -->
-    <header v-if="manualEntries.length > 1" class="r-v2-manual__head">
+         header skips a redundant title. -->
+    <header
+      v-if="manualEntries.length > 1 || (canUploadMore && !hideUpload)"
+      class="r-v2-manual__head"
+    >
       <RSelect
+        v-if="manualEntries.length > 1"
         v-model="selectedManualId"
         :items="manualItems"
         density="compact"
@@ -178,6 +195,16 @@ function requestDeleteManual() {
         hide-details
         class="r-v2-manual__select"
       />
+      <RBtn
+        v-if="canUploadMore && !hideUpload"
+        variant="outlined"
+        size="small"
+        prepend-icon="mdi-cloud-upload-outline"
+        class="r-v2-manual__upload"
+        @click="openUpload"
+      >
+        {{ t("common.upload") }}
+      </RBtn>
     </header>
 
     <REmptyState
@@ -256,18 +283,6 @@ function requestDeleteManual() {
         />
       </div>
     </RDropzone>
-
-    <div v-if="manualEntries.length > 0 && canEdit">
-      <RBtn
-        block
-        variant="outlined"
-        size="small"
-        prepend-icon="mdi-cloud-upload-outline"
-        @click="manualDz?.open()"
-      >
-        {{ t("common.upload") }}
-      </RBtn>
-    </div>
   </div>
 </template>
 
@@ -298,6 +313,10 @@ function requestDeleteManual() {
   max-width: 360px;
   min-width: 200px;
   flex-shrink: 1;
+}
+
+.r-v2-manual__upload {
+  margin-left: auto;
 }
 
 /* Overlay-mode RDropzone wrapping the viewer must fill the panel height so

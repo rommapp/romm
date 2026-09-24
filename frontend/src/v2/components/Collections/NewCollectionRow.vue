@@ -121,7 +121,7 @@ function onInput(e: Event) {
     <Transition name="new-row-actions">
       <div v-if="expanded" class="new-row__actions" @click.stop>
         <RBtn
-          variant="text"
+          variant="outlined"
           size="small"
           :disabled="creating"
           @click.prevent="onCancel"
@@ -243,10 +243,10 @@ function onInput(e: Event) {
   flex-shrink: 0;
 }
 
-:global(.r-v2.r-v2-light) .new-row:not(.new-row--editing):hover {
+.r-v2.r-v2-light .new-row:not(.new-row--editing):hover {
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
-:global(.r-v2.r-v2-light) .new-row__input::placeholder {
+.r-v2.r-v2-light .new-row__input::placeholder {
   color: color-mix(in srgb, var(--r-color-fg) 35%, transparent);
 }
 

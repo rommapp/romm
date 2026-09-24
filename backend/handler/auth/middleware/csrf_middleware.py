@@ -16,6 +16,11 @@ from starlette.responses import PlainTextResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
+def _session_authenticated(request: Request) -> bool:
+    """Whether the session, resolved and maybe cleared upstream, names a user."""
+    return bool((request.scope.get("session") or {}).get("sub"))
+
+
 class CSRFMiddleware:
     def __init__(
         self,
@@ -60,9 +65,10 @@ class CSRFMiddleware:
 
         request = Request(scope, receive)
 
-        # Skip CSRF check if Authorization header is present
+        # HybridAuthBackend resolves the session before this header, so a
+        # session-authenticated request runs as the cookie's owner, not the bearer's.
         auth_scheme = request.headers.get("Authorization", "").split(" ", 1)[0].lower()
-        if auth_scheme == "bearer" or auth_scheme == "basic":
+        if auth_scheme in ("bearer", "basic") and not _session_authenticated(request):
             await self.app(scope, receive, send)
             return None
 
@@ -154,7 +160,7 @@ class CSRFMiddleware:
 
         try:
             decoded_csrf_cookie = self.serializer.loads(csrf_cookie)
-        except (TypeError, BadSignature):
+        except TypeError, BadSignature:
             return False
 
         return decoded_csrf_cookie.get("user_id") == user_id
@@ -185,7 +191,7 @@ class CSRFMiddleware:
                 decoded_doc_cookie["user_id"] == user_id
                 and decoded_header_cookie["user_id"] == user_id
             )
-        except (TypeError, BadSignature):
+        except TypeError, BadSignature:
             return False
 
     def _get_error_response(self, request: Request) -> Response:

@@ -8,7 +8,7 @@ from decorators.database import begin_session
 from models.client_token import ClientToken
 from utils.datetime import to_utc
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 LAST_USED_DEBOUNCE = timedelta(minutes=5)
 
@@ -71,7 +71,7 @@ class DBClientTokensHandler(DBBaseHandler):
             stmt = stmt.where(ClientToken.user_id == user_id)
 
         result = session.execute(stmt.execution_options(synchronize_session="evaluate"))
-        return result.rowcount
+        return affected_rows(result)
 
     @begin_session
     def update_last_used(
@@ -116,7 +116,7 @@ class DBClientTokensHandler(DBBaseHandler):
             stmt = stmt.where(ClientToken.user_id == user_id)
 
         result = session.execute(stmt)
-        if result.rowcount == 0:
+        if affected_rows(result) == 0:
             return None
 
         return session.get(ClientToken, token_id)

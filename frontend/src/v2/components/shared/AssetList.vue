@@ -11,21 +11,28 @@
 //   * manage (selectable=false) — Save data subtab. Rows are static; the
 //     trailing area renders the `#actions` slot (download/delete/toggle),
 //     and `showOwner` adds an author chip for community items.
-import { RBtn, RIcon, RTooltip } from "@v2/lib";
+import { RBtn, RCheckbox, REmptyState, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
-import { formatTimestamp } from "@/utils";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
+import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
+import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
+import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
+  byFavoriteFirst,
   byUpdatedDesc,
+  dateOf,
+  newest,
   ownerOf,
   screenshotOf,
   staggerIndex,
   type Asset,
+  type AssetDateField,
   type AssetOwner,
   type AssetType,
 } from "@/v2/utils/assets";
@@ -38,8 +45,13 @@ interface SlotGroup {
   /** Null for the archive of slot-less saves and for ungrouped states. */
   slot: string | null;
   owner: AssetOwner | null;
-  /** Newest first. */
+  /** Favorites first, then newest first. */
   versions: Asset[];
+  /** Carried because a heart, not recency, decides which row leads. */
+  newest: Asset | null;
+  /** The two halves of `versions` while the band is folded. */
+  pinned: Asset[];
+  hidden: Asset[];
 }
 
 const props = withDefaults(
@@ -54,27 +66,39 @@ const props = withDefaults(
     showOwner?: boolean;
     /** Internal max-height + scroll. Off when the parent owns scrolling. */
     scrollable?: boolean;
+    /** Which timestamp the rows show. Set it to whatever the caller ordered
+     *  the list by, so the newest row is the one that reads newest. */
+    timestamp?: AssetDateField;
     /** Off for lists whose saves are not slot versions (stream archives). */
     groupBySlot?: boolean;
+    /** Manage mode: lead each row with a checkbox for bulk actions. Distinct
+     *  from `selectable`, which is the player's single-asset picker. */
+    checkable?: boolean;
+    checkedIds?: ReadonlySet<number>;
   }>(),
   {
     selectable: true,
     selectedId: null,
     showOwner: false,
     scrollable: true,
+    timestamp: "updated",
     groupBySlot: true,
+    checkable: false,
+    checkedIds: () => new Set<number>(),
   },
 );
 
 defineEmits<{
   select: [asset: Asset];
+  toggle: [asset: Asset];
 }>();
 
 defineSlots<{
   actions(props: { asset: Asset }): unknown;
 }>();
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
+const { xs } = useBreakpoint();
 
 const emptyLabel = computed(() =>
   props.type === "save"
@@ -93,7 +117,18 @@ const grouped = computed(() => props.type === "save" && props.groupBySlot);
 // list. Community lists key by owner too so two users' slots never merge.
 const groups = computed<SlotGroup[]>(() => {
   if (!grouped.value) {
-    return [{ key: "all", slot: null, owner: null, versions: props.assets }];
+    const versions = [...props.assets].sort(byFavoriteFirst);
+    return [
+      {
+        key: "all",
+        slot: null,
+        owner: null,
+        versions,
+        newest: null,
+        pinned: versions,
+        hidden: [],
+      },
+    ];
   }
   const byKey = new Map<string, SlotGroup>();
   for (const asset of props.assets) {
@@ -101,7 +136,15 @@ const groups = computed<SlotGroup[]>(() => {
     const key = `${asset.user_id}:${slot ?? ""}`;
     let group = byKey.get(key);
     if (!group) {
-      group = { key, slot, owner: ownerOf(asset), versions: [] };
+      group = {
+        key,
+        slot,
+        owner: ownerOf(asset),
+        versions: [],
+        newest: null,
+        pinned: [],
+        hidden: [],
+      };
       byKey.set(key, group);
     }
     group.versions.push(asset);
@@ -109,9 +152,19 @@ const groups = computed<SlotGroup[]>(() => {
   const rank = (group: SlotGroup) =>
     group.slot === null ? 2 : group.slot === AUTOSAVE_SLOT ? 0 : 1;
   const list = [...byKey.values()];
-  for (const group of list) group.versions.sort(byUpdatedDesc);
+  for (const group of list) {
+    group.newest = newest(group.versions);
+    group.versions.sort((a, b) => byFavoriteFirst(a, b) || byUpdatedDesc(a, b));
+    // Folding hides older versions, never the newest save nor a favorited one.
+    for (const asset of group.versions) {
+      const pinned = asset.is_favorite || asset.id === group.newest?.id;
+      (pinned ? group.pinned : group.hidden).push(asset);
+    }
+  }
+  // Bands still rank on their newest save: a heart reorders rows, not slots.
+  const newestOf = (group: SlotGroup) => group.newest ?? group.versions[0];
   return list.sort(
-    (a, b) => rank(a) - rank(b) || byUpdatedDesc(a.versions[0], b.versions[0]),
+    (a, b) => rank(a) - rank(b) || byUpdatedDesc(newestOf(a), newestOf(b)),
   );
 });
 
@@ -121,15 +174,17 @@ const fold = useGroupFold<SlotGroup>({
   keyOf: (group) => group.key,
   holdsSelection: (group) =>
     props.selectable &&
-    group.versions.slice(1).some((asset) => asset.id === props.selectedId),
+    group.hidden.some((asset) => asset.id === props.selectedId),
   defaultOpen: () => false,
   selectedId: () => props.selectedId,
 });
 function isExpanded(group: SlotGroup): boolean {
-  return !grouped.value || fold.isOpen(group);
+  // A checkable list never folds: select-all must not reach a row the user
+  // cannot see, and that holds by construction rather than by remembering.
+  return !grouped.value || props.checkable || fold.isOpen(group);
 }
 function visibleVersions(group: SlotGroup): Asset[] {
-  return isExpanded(group) ? group.versions : group.versions.slice(0, 1);
+  return isExpanded(group) ? group.versions : group.pinned;
 }
 
 const fadeIndex = computed(() =>
@@ -146,37 +201,31 @@ const fadeIndex = computed(() =>
         class="r-asset-list__group"
         :class="{ 'r-asset-list__group--slot': grouped }"
       >
-        <div v-if="grouped" class="r-asset-list__group-head">
-          <RIcon
-            :icon="
-              group.slot
-                ? 'mdi-content-save-all-outline'
-                : 'mdi-archive-outline'
-            "
-            size="14"
-            class="r-asset-list__group-icon"
-            :class="{ 'r-asset-list__group-icon--slot': group.slot }"
-          />
-          <span class="r-asset-list__group-title">
-            {{ group.slot ?? t("play.slot-none") }}
-          </span>
+        <AssetGroupHead
+          v-if="grouped"
+          :icon="
+            group.slot ? 'mdi-content-save-all-outline' : 'mdi-archive-outline'
+          "
+          :icon-tone="group.slot ? 'brand' : 'muted'"
+          :title="group.slot ?? t('play.slot-none')"
+          :count="t('play.slot-versions', group.versions.length)"
+        >
           <AssetOwnerChip
             v-if="showOwner && group.owner"
             :owner="group.owner"
           />
-          <span class="r-asset-list__group-count">
-            {{ t("play.slot-versions", group.versions.length) }}
-          </span>
-        </div>
+        </AssetGroupHead>
 
         <ul class="r-asset-list__items">
           <li
-            v-for="(asset, i) in visibleVersions(group)"
+            v-for="asset in visibleVersions(group)"
             :key="asset.id"
             class="r-asset-list__item r-v2-asset-fade"
             :class="{
               'r-asset-list__item--active':
                 selectable && asset.id === selectedId,
+              'r-asset-list__item--checked':
+                checkable && checkedIds.has(asset.id),
             }"
             :style="{ '--asset-fade-i': fadeIndex.get(asset.id) }"
           >
@@ -184,10 +233,24 @@ const fadeIndex = computed(() =>
               :is="selectable ? 'button' : 'div'"
               :type="selectable ? 'button' : undefined"
               class="r-asset-list__row"
-              :class="{ 'r-asset-list__row--static': !selectable }"
+              :class="{
+                'r-asset-list__row--static': !selectable,
+                'r-asset-list__row--checkable': checkable,
+              }"
               :aria-pressed="selectable ? asset.id === selectedId : undefined"
               @click="selectable && $emit('select', asset)"
             >
+              <span v-if="checkable" class="r-asset-list__check">
+                <RCheckbox
+                  :model-value="checkedIds.has(asset.id)"
+                  size="sm"
+                  hide-details
+                  bare
+                  :aria-label="t('rom.select-asset', { name: asset.file_name })"
+                  @update:model-value="$emit('toggle', asset)"
+                />
+              </span>
+
               <span
                 class="r-asset-list__icon"
                 :class="{ 'r-asset-list__icon--shot': screenshotOf(asset) }"
@@ -208,58 +271,51 @@ const fadeIndex = computed(() =>
               </span>
 
               <span class="r-asset-list__main">
-                <span class="r-asset-list__name">{{ asset.file_name }}</span>
-                <span class="r-asset-list__chips">
-                  <AssetOwnerChip
-                    v-if="!grouped && showOwner && ownerOf(asset)"
-                    :owner="ownerOf(asset)!"
+                <span class="r-asset-list__title">
+                  <span class="r-asset-list__name">{{ asset.file_name }}</span>
+                  <AssetFavoriteMark
+                    :favorite="selectable && asset.is_favorite"
+                    :size="13"
                   />
+                </span>
+                <span class="r-asset-list__chips">
+                  <!-- `display: contents` on desktop, so these flow in the one
+                       chip row; a phone turns it into a band of its own. -->
+                  <span class="r-asset-list__marks">
+                    <AssetOwnerChip
+                      v-if="!grouped && showOwner && ownerOf(asset)"
+                      :owner="ownerOf(asset)!"
+                    />
+                    <AssetLabels :asset="asset" />
+                  </span>
                   <AssetChips
+                    class="r-asset-list__facts"
                     :asset="asset"
-                    :latest="grouped && i === 0 && group.versions.length > 1"
+                    :show-emulator="type === 'state'"
+                    :latest="
+                      grouped &&
+                      asset.id === group.newest?.id &&
+                      group.versions.length > 1
+                    "
                   />
                 </span>
               </span>
 
-              <AssetTimestamp :date="asset.updated_at" align="end" />
+              <AssetTimestamp
+                class="r-asset-list__time"
+                :date="dateOf(asset, timestamp)"
+                :stacked="!xs"
+              />
 
-              <span
-                v-if="selectable"
-                class="r-asset-list__check"
-                aria-hidden="true"
-              >
-                <RIcon
-                  v-if="asset.id === selectedId"
-                  icon="mdi-check-circle"
-                  size="18"
-                />
-              </span>
-              <span v-else class="r-asset-list__actions">
+              <span v-if="!selectable" class="r-asset-list__actions">
                 <slot name="actions" :asset="asset" />
               </span>
-
-              <RTooltip
-                v-if="selectable"
-                activator="parent"
-                location="top"
-                :open-delay="400"
-              >
-                <div class="r-asset-list__tip">
-                  <span class="r-asset-list__tip-name">
-                    {{ asset.file_name }}
-                  </span>
-                  <span class="r-asset-list__tip-sub">
-                    {{ t("rom.updated") }}:
-                    {{ formatTimestamp(asset.updated_at, locale) }}
-                  </span>
-                </div>
-              </RTooltip>
             </component>
           </li>
         </ul>
 
         <RBtn
-          v-if="grouped && group.versions.length > 1"
+          v-if="grouped && !checkable && group.hidden.length > 0"
           class="r-asset-list__fold"
           variant="text"
           size="x-small"
@@ -272,21 +328,19 @@ const fadeIndex = computed(() =>
           {{
             isExpanded(group)
               ? t("play.hide-older-versions")
-              : t("play.show-older-versions", group.versions.length - 1)
+              : t("play.show-older-versions", group.hidden.length)
           }}
         </RBtn>
       </li>
     </ul>
 
-    <div v-else class="r-asset-list__empty">
-      <RIcon
-        :icon="
-          type === 'save' ? 'mdi-content-save-outline' : 'mdi-file-outline'
-        "
-        size="28"
-      />
-      <p>{{ emptyLabel }}</p>
-    </div>
+    <REmptyState
+      v-else
+      size="small"
+      :icon="type === 'save' ? 'mdi-content-save-outline' : 'mdi-file-outline'"
+      :icon-size="28"
+      :title="emptyLabel"
+    />
   </div>
 </template>
 
@@ -300,21 +354,19 @@ const fadeIndex = computed(() =>
 
 .r-asset-list__groups {
   margin: 0;
-  /* Top padding gives the first row breathing room and absorbs the
-     -1px lift on hover/active so it never clips against the panel
-     edge. Bottom padding keeps the same gutter at the other end. */
-  padding: 4px 0;
+  padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-height: 0;
 }
-/* Internal scroll only where the parent does not own scrolling. */
+/* Internal scroll only where the parent does not own scrolling. The
+   vertical padding absorbs the rows' -1px hover lift at the scroll edges. */
 .r-asset-list--scroll .r-asset-list__groups {
   overflow-y: auto;
   max-height: 380px;
-  padding-right: 10px;
+  padding: 4px 10px 4px 0;
 }
 
 .r-asset-list__group {
@@ -325,39 +377,13 @@ const fadeIndex = computed(() =>
 /* Each slot sits on its own neutral band, so the gaps between sections
    read as separators. */
 .r-asset-list__group--slot {
-  padding: 6px 8px 8px;
+  padding-bottom: 8px;
   border-radius: var(--r-radius-md);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
-
-.r-asset-list__group-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 2px;
-  color: var(--r-color-fg-secondary);
-}
-.r-asset-list__group-icon {
-  color: var(--r-color-fg-muted);
-}
-.r-asset-list__group-icon--slot {
-  color: var(--r-color-brand-primary);
-}
-.r-asset-list__group-title {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--r-color-fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-asset-list__group-count {
-  margin-left: auto;
-  font-size: 10px;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+.r-asset-list__group--slot > .r-asset-list__items,
+.r-asset-list__group--slot > .r-asset-list__fold {
+  margin-inline: 8px;
 }
 
 .r-asset-list__items {
@@ -379,7 +405,7 @@ const fadeIndex = computed(() =>
   background: var(--r-color-bg-elevated);
   width: 100%;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   padding: 10px 12px;
@@ -407,6 +433,7 @@ const fadeIndex = computed(() =>
 /* Manage mode: rows are static info containers, not selectable buttons.
    No pointer cursor, no hover-lift — only the action buttons react. */
 .r-asset-list__row--static {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   cursor: default;
 }
 .r-asset-list__row--static:hover {
@@ -446,6 +473,13 @@ const fadeIndex = computed(() =>
   flex-direction: column;
   gap: 4px;
 }
+.r-asset-list__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .r-asset-list__name {
   display: block;
   font-size: 13px;
@@ -455,6 +489,25 @@ const fadeIndex = computed(() =>
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.r-asset-list__row--static.r-asset-list__row--checkable {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+}
+
+.r-asset-list__check {
+  display: grid;
+  align-items: start;
+  /* Aligns the box to the filename's line box rather than the row top. */
+  min-height: 20px;
+}
+.r-asset-list__item--checked .r-asset-list__row {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 40%,
+    transparent
+  );
+}
+
 .r-asset-list__item--active .r-asset-list__name {
   color: var(--r-color-brand-primary);
 }
@@ -465,15 +518,8 @@ const fadeIndex = computed(() =>
   align-items: center;
 }
 
-.r-asset-list__check {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  color: var(--r-color-fg-faint);
-}
-.r-asset-list__item--active .r-asset-list__check {
-  color: var(--r-color-brand-primary);
+.r-asset-list__marks {
+  display: contents;
 }
 
 /* Manage mode: trailing action buttons (download / delete / toggle). */
@@ -488,40 +534,70 @@ const fadeIndex = computed(() =>
   align-self: flex-start;
 }
 
-.r-asset-list__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px 12px;
-  color: var(--r-color-fg-muted);
-  text-align: center;
-  border: 1px dashed var(--r-color-border);
-  border-radius: var(--r-radius-md);
-}
-.r-asset-list__empty p {
-  margin: 0;
-  font-size: 12px;
-}
-
-.r-asset-list__tip {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 360px;
-}
-.r-asset-list__tip-name {
-  font-size: 12px;
-  font-weight: var(--r-font-weight-semibold);
-  word-break: break-all;
-}
-.r-asset-list__tip-sub {
-  font-size: 11px;
-  opacity: 0.85;
-}
-
+/* Phones give each part its own band, which `display: contents` allows by
+   lifting the text block's children into the row grid: the name rides the
+   thumbnail, then labels, facts, the timestamp and the actions. */
 html[data-bp~="xs"] .r-asset-list__row {
-  padding: 8px 10px;
+  padding: var(--r-space-2) var(--r-space-3);
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "icon name"
+    "labels labels"
+    "facts facts"
+    "time time"
+    "actions actions";
+  gap: var(--r-space-1) var(--r-space-3);
+}
+html[data-bp~="xs"] .r-asset-list__row--checkable {
+  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-areas:
+    "check icon name"
+    "check labels labels"
+    "check facts facts"
+    "check time time"
+    "check actions actions";
+}
+html[data-bp~="xs"] .r-asset-list__check {
+  grid-area: check;
+  align-self: start;
+}
+html[data-bp~="xs"] .r-asset-list__icon {
+  grid-area: icon;
+  align-self: start;
+}
+html[data-bp~="xs"] .r-asset-list__name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+html[data-bp~="xs"] .r-asset-list__time {
+  grid-area: time;
+}
+html[data-bp~="xs"] .r-asset-list__actions {
+  grid-area: actions;
+}
+html[data-bp~="xs"] .r-asset-list__actions {
+  margin-block: calc(-1 * var(--r-space-1));
+  justify-content: flex-end;
+}
+html[data-bp~="xs"] .r-asset-list__main,
+html[data-bp~="xs"] .r-asset-list__chips {
+  display: contents;
+}
+html[data-bp~="xs"] .r-asset-list__title {
+  grid-area: name;
+}
+html[data-bp~="xs"] .r-asset-list__marks {
+  grid-area: labels;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+html[data-bp~="xs"] .r-asset-list__marks:empty {
+  display: none;
+}
+html[data-bp~="xs"] .r-asset-list__facts {
+  grid-area: facts;
 }
 </style>

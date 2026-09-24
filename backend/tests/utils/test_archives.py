@@ -143,6 +143,23 @@ def test_read_7z_archive_files_raises_when_a_member_fails_midway():
             list(chunks)
 
 
+def test_largest_member_hashing_terminates_switches_before_the_member():
+    """The hashing path builds its own 7-Zip command, so a switch-shaped member
+    name from the archive's own listing must reach it as a name too."""
+    # The size comparison has to pick "-x" for it to be the name passed on.
+    listing = MagicMock(stdout=_fake_7z_listing_sized([("game.bin", 5), ("-x", 99)]))
+    popen = _mock_popen_streaming([[b"data"]], [0])
+
+    with (
+        patch.object(archives.subprocess, "run", return_value=listing),
+        patch.object(archives.subprocess, "Popen", popen),
+    ):
+        assert archives._process_largest_7z_member(Path("/fake/game.7z"), MagicMock())
+
+    command = popen.call_args[0][0]
+    assert command[-2:] == ["--", "-x"]
+
+
 class TestExtractLargestArchiveMember:
     """Extraction of an archive's largest member to a destination directory,
     used to feed RAHasher a real ROM file instead of raw container bytes
@@ -416,6 +433,19 @@ class TestRarArchives:
             Path("/fake/game.7z"), "a.gba"
         )
         assert seven_zip_command[0] == archives.SEVEN_ZIP_PATH
+        assert seven_zip_command[-2:] == ["--", "a.gba"]
+
+    def test_extraction_command_terminates_switches_before_the_member(self):
+        """Member names come from the archive's own listing, so one shaped like
+        a switch has to reach 7-Zip as a name."""
+        for member in ("-x", "@listfile", "-so"):
+            command = archives._archive_member_command(Path("/fake/game.7z"), member)
+            assert command[-2:] == ["--", member]
+
+            rar_command = archives._archive_member_command(
+                Path("/fake/GAME.RAR"), member
+            )
+            assert rar_command[-2:] == ["--", member]
 
     def test_read_rar_archive_files_streams_members_in_ascii_order(self):
         listing = MagicMock(

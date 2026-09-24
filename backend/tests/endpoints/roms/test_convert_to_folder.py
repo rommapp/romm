@@ -22,15 +22,6 @@ def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-@pytest.fixture
-def real_library(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point fs_rom_handler at a real temp library so FS moves actually happen."""
-    lib = tmp_path / "library"
-    lib.mkdir()
-    monkeypatch.setattr(fs_rom_handler, "base_path", lib.resolve())
-    return lib
-
-
 def _single_file_rom(
     platform: Platform,
     admin_user: User,
@@ -369,7 +360,7 @@ async def test_second_upload_racing_a_promotion_keeps_the_rom_in_its_folder(
     async def gated_make_directory(path: str) -> None:
         try:
             await asyncio.wait_for(barrier.wait(), 0.5)
-        except (TimeoutError, asyncio.BrokenBarrierError):
+        except TimeoutError, asyncio.BrokenBarrierError:
             pass
         await make_directory(path)
 
@@ -420,7 +411,7 @@ async def test_promotion_racing_across_workers_does_not_destroy_the_folder(
     async def gated_make_directory(path: str) -> None:
         try:
             await asyncio.wait_for(barrier.wait(), 0.5)
-        except (TimeoutError, asyncio.BrokenBarrierError):
+        except TimeoutError, asyncio.BrokenBarrierError:
             pass
         await make_directory(path)
 

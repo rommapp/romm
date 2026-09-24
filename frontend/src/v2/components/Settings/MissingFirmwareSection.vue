@@ -1,7 +1,15 @@
 <script setup lang="ts">
 // Firmware sets are small (dozens, not tens of thousands), so fetch the whole
 // missing set once and narrow it in memory rather than refetching.
-import { RBtn, REmptyState, RIcon, RMenu, RMenuItem, RTag } from "@v2/lib";
+import {
+  RBtn,
+  REmptyState,
+  RIcon,
+  RMenu,
+  RMenuItem,
+  RSkeletonBlock,
+  RTag,
+} from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -13,6 +21,7 @@ import { formatBytes } from "@/utils";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
 import { errorMessage } from "@/v2/utils/errorMessage";
@@ -54,7 +63,11 @@ const rows = computed(() => {
     }));
 });
 
-const showEmpty = computed(() => !loading.value && rows.value.length === 0);
+// Only the first load shows a skeleton; a refetch keeps the current rows up.
+const phase = useLoadingPhase(
+  () => loading.value && missingFirmware.value.length === 0,
+  () => rows.value.length === 0,
+);
 
 const selectedPlatformsLabel = computed(() =>
   selectedPlatformIds.value
@@ -145,6 +158,7 @@ onMounted(() => {
           prepend-icon="mdi-memory"
           :text="rows.length"
           tone="neutral"
+          class="r-v2-missing-fw__count"
         />
         <RMenu location="bottom end" :offset="6" width="240px">
           <template #activator="{ props: activatorProps }">
@@ -162,53 +176,65 @@ onMounted(() => {
             :label="t('settings.cleanup-all')"
             icon="mdi-delete-outline"
             variant="danger"
-            :disabled="cleaningUp || showEmpty"
+            :disabled="cleaningUp || phase !== 'content'"
             @click="cleanupAll"
           />
         </RMenu>
       </div>
     </div>
 
-    <div class="r-v2-missing-fw__list">
-      <REmptyState
-        v-if="showEmpty"
-        data-test="missing-firmware-empty"
-        icon="mdi-memory"
-        :title="t('settings.missing-firmware-none')"
-      />
-
-      <ul v-else class="r-v2-missing-fw__rows">
-        <li
-          v-for="{ firmware, platform } in rows"
-          :key="firmware.id"
-          data-test="missing-firmware-row"
-          class="r-v2-missing-fw__row"
-        >
-          <RIcon
-            icon="mdi-file-question-outline"
-            size="16"
-            color="var(--r-color-danger-fg)"
-          />
-          <div class="r-v2-missing-fw__row-body">
-            <span class="r-v2-missing-fw__row-name">
-              {{ firmware.file_name }}
-            </span>
-            <span class="r-v2-missing-fw__row-path">
-              {{ firmware.file_path }}
-            </span>
-          </div>
-          <span v-if="platform" class="r-v2-missing-fw__row-platform">
-            <CachedPlatformIcon
-              :slug="platform.slug"
-              :name="platform.display_name"
-              :size="16"
+    <REmptyState
+      v-if="phase === 'empty'"
+      data-test="missing-firmware-empty"
+      icon="mdi-memory"
+      :title="t('settings.missing-firmware-none')"
+    />
+    <div v-else-if="phase !== 'idle'" class="r-v2-missing-fw__list">
+      <ul class="r-v2-missing-fw__rows">
+        <template v-if="phase === 'skeleton'">
+          <li v-for="n in 4" :key="n" class="r-v2-missing-fw__row">
+            <RSkeletonBlock :width="16" :height="16" />
+            <div class="r-v2-missing-fw__row-body">
+              <RSkeletonBlock :width="180" :height="10" />
+              <RSkeletonBlock :width="260" :height="8" />
+            </div>
+            <RSkeletonBlock :width="90" :height="10" />
+            <RSkeletonBlock :width="48" :height="10" />
+          </li>
+        </template>
+        <template v-else>
+          <li
+            v-for="{ firmware, platform } in rows"
+            :key="firmware.id"
+            data-test="missing-firmware-row"
+            class="r-v2-missing-fw__row r-v2-asset-fade"
+          >
+            <RIcon
+              icon="mdi-file-question-outline"
+              size="16"
+              color="var(--r-color-danger-fg)"
             />
-            {{ platform.display_name }}
-          </span>
-          <span class="r-v2-missing-fw__row-size">
-            {{ formatBytes(firmware.file_size_bytes) }}
-          </span>
-        </li>
+            <div class="r-v2-missing-fw__row-body">
+              <span class="r-v2-missing-fw__row-name">
+                {{ firmware.file_name }}
+              </span>
+              <span class="r-v2-missing-fw__row-path">
+                {{ firmware.file_path }}
+              </span>
+            </div>
+            <span v-if="platform" class="r-v2-missing-fw__row-platform">
+              <CachedPlatformIcon
+                :slug="platform.slug"
+                :name="platform.display_name"
+                :size="16"
+              />
+              {{ platform.display_name }}
+            </span>
+            <span class="r-v2-missing-fw__row-size">
+              {{ formatBytes(firmware.file_size_bytes) }}
+            </span>
+          </li>
+        </template>
       </ul>
     </div>
   </div>
@@ -235,9 +261,16 @@ onMounted(() => {
 
 .r-v2-missing-fw__actions {
   display: flex;
+  align-self: stretch;
   align-items: center;
   gap: 10px;
   margin-left: auto;
+}
+
+/* Stretched to the toolbar row and pill-shaped to pair with the kebab. */
+.r-v2-missing-fw__count {
+  align-self: stretch;
+  border-radius: var(--r-radius-pill);
 }
 
 .r-v2-missing-fw__list {

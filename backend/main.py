@@ -31,6 +31,7 @@ from config import (
     SENTRY_DSN,
 )
 from endpoints.activity import router as activity_router
+from endpoints.audit_events import router as audit_events_router
 from endpoints.auth import router as auth_router
 from endpoints.client_tokens import router as client_tokens_router
 from endpoints.collections import router as collections_router
@@ -46,6 +47,8 @@ from endpoints.memory_cards import router as memory_cards_router
 from endpoints.music import router as music_router
 from endpoints.music_playlists import router as music_playlists_router
 from endpoints.netplay import router as netplay_router
+from endpoints.notification_channels import router as notification_channels_router
+from endpoints.notifications import router as notifications_router
 from endpoints.permissions import router as permissions_router
 from endpoints.platform import router as platform_router
 from endpoints.play_sessions import router as play_sessions_router
@@ -182,8 +185,11 @@ app.middleware("http")(set_context_middleware)
 app.include_router(heartbeat_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(activity_router, prefix="/api")
+app.include_router(audit_events_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
 app.include_router(client_tokens_router, prefix="/api")
+app.include_router(notifications_router, prefix="/api")
+app.include_router(notification_channels_router, prefix="/api")
 app.include_router(device_router, prefix="/api")
 app.include_router(device_auth_router, prefix="/api")
 app.include_router(play_sessions_router, prefix="/api")

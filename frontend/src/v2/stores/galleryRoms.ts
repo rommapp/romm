@@ -44,17 +44,43 @@ export type SimpleRom = SimpleRomSchema;
  * `RomUser`, so this includes fields that aren't direct properties of
  * `SimpleRomSchema` (e.g. `first_release_date` lives on RomMetadata).
  * Keep this in sync with the columns the gallery surface exposes. */
-export type GalleryOrderKey =
-  | "name"
-  | "fs_name"
-  | "platform_id"
-  | "fs_size_bytes"
-  | "created_at"
-  | "updated_at"
-  | "first_release_date"
-  | "average_rating"
-  | "hltb_main_story"
-  | "last_played";
+const GALLERY_ORDER_KEYS = [
+  "name",
+  "fs_name",
+  "platform_id",
+  "fs_size_bytes",
+  "created_at",
+  "updated_at",
+  "first_release_date",
+  "average_rating",
+  "hltb_main_story",
+  "last_played",
+] as const;
+
+export type GalleryOrderKey = (typeof GALLERY_ORDER_KEYS)[number];
+
+export type GalleryOrderDir = "asc" | "desc";
+
+export const DEFAULT_ORDER_BY: GalleryOrderKey = "name";
+export const DEFAULT_ORDER_DIR: GalleryOrderDir = "asc";
+
+/** Narrows an untrusted string (a URL query param) to a sort key. */
+export function isGalleryOrderKey(value: string): value is GalleryOrderKey {
+  return (GALLERY_ORDER_KEYS as readonly string[]).includes(value);
+}
+
+/** The keys the backend answers with a `char_index`: it indexes first letters
+ * only for a text column. Listed rather than read off an empty `charIndex`,
+ * which is also what an unfetched gallery looks like. */
+const LEXICAL_ORDER_KEYS: ReadonlySet<string> = new Set(["name", "fs_name"]);
+
+export function orderSupportsLetters(key: GalleryOrderKey): boolean {
+  return LEXICAL_ORDER_KEYS.has(key);
+}
+
+export function isGalleryOrderDir(value: string): value is GalleryOrderDir {
+  return value === "asc" || value === "desc";
+}
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
@@ -224,7 +250,7 @@ interface State {
   // Order params — gallery-list scoped (separate from v1's localStorage
   // keys so v1/v2 don't fight over the same value).
   orderBy: GalleryOrderKey;
-  orderDir: "asc" | "desc";
+  orderDir: GalleryOrderDir;
 }
 
 const defaults = (): State => ({
@@ -243,8 +269,8 @@ const defaults = (): State => ({
   initialFetching: false,
   metadataLoaded: false,
   selectingAll: false,
-  orderBy: "name",
-  orderDir: "asc",
+  orderBy: DEFAULT_ORDER_BY,
+  orderDir: DEFAULT_ORDER_DIR,
 });
 
 function alignToWindow(offset: number): number {
@@ -289,7 +315,7 @@ export default defineStore("v2GalleryRoms", {
     setOrderBy(key: GalleryOrderKey) {
       this.orderBy = key;
     },
-    setOrderDir(dir: "asc" | "desc") {
+    setOrderDir(dir: GalleryOrderDir) {
       this.orderDir = dir;
     },
 
@@ -446,9 +472,10 @@ export default defineStore("v2GalleryRoms", {
       }
       if (sidecars.withFilterValues !== false && data.filter_values) {
         if (galleryFilter.filterPlatforms.length === 0) {
+          const platformIds = data.filter_values.platforms ?? [];
           galleryFilter.setFilterPlatforms(
             platformsStore.allPlatforms.filter((p) =>
-              data.filter_values.platforms.includes(p.id),
+              platformIds.includes(p.id),
             ),
           );
         }

@@ -15,7 +15,7 @@ from adapters.services.screenscraper import (
     SSAccountLimits,
     SSCredentialSet,
 )
-from adapters.services.screenscraper_types import SSGame
+from adapters.services.screenscraper_types import SSGame, SSGameRom
 from config.config_manager import Config, MetadataMediaType
 from handler.metadata import ss_handler
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
@@ -24,13 +24,18 @@ from handler.metadata.ss_handler import (
     SWITCH_SS_ID,
     ScreenScraperExhaustedError,
     SSHandler,
+    SSRom,
     _get_rom_type,
     _is_daily_quota_error,
     _is_notgame,
     add_ss_auth_to_url,
     build_ss_game,
+    extract_languages_from_ss_dump,
     extract_media_from_ss_game,
     extract_metadata_from_ss_rom,
+    extract_regions_from_ss_dump,
+    extract_tags_from_ss_dump,
+    find_ss_dump,
     get_preferred_languages,
     get_preferred_regions,
     get_rate_limited_rom_names,
@@ -39,7 +44,7 @@ from handler.metadata.ss_handler import (
     reset_rate_limited_roms,
 )
 from handler.redis_handler import async_cache
-from models.rom import Rom
+from models.rom import LookupHashes, Rom
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
 
 
@@ -1225,6 +1230,85 @@ class TestLookupRom:
         assert is_not_game is False
 
     @pytest.mark.asyncio
+    async def test_a_filename_match_reports_no_regions(self):
+        """A bare romnom match identifies a title, so it says nothing about the
+        dump on disk and must not tag it."""
+        config = _make_config(region_priority=["us"])
+        game = {
+            "id": "1234",
+            "noms": [{"region": "us", "text": "Adventure Island 2"}],
+            "medias": [],
+            "synopsis": [],
+            "dates": [],
+            "genres": [],
+            "familles": [],
+            "modes": [],
+            "joueurs": {},
+            "note": {},
+            "roms": [
+                {
+                    "id": 7,
+                    "rommd5": "B330314E19126D87D156D0618C4657B0",
+                    "regions": {"regions_shortname": ["jp"]},
+                }
+            ],
+        }
+        handler = SSHandler()
+        mock_file = self._make_unhashed_file("Adventure Island II.nes")
+        rom = MagicMock(platform_slug="nes", platform_id=1, id=100, regions=[])
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch.object(handler.ss_service, "get_game_info", return_value=game),
+        ):
+            result, _ = await handler.lookup_rom(rom, 3, [mock_file])
+
+        assert result["ss_id"] == 1234
+        assert "regions" not in result
+
+    @pytest.mark.asyncio
+    async def test_a_hash_match_reports_the_dumps_tags(self):
+        """A hash picks one entry out of `jeu.roms`, and that entry is the file."""
+        config = _make_config(region_priority=["us"])
+        game = {
+            "id": "1234",
+            "noms": [{"region": "us", "text": "Adventure Island 2"}],
+            "medias": [],
+            "synopsis": [],
+            "dates": [],
+            "genres": [],
+            "familles": [],
+            "modes": [],
+            "joueurs": {},
+            "note": {},
+            "roms": [
+                {
+                    "id": 7,
+                    "rommd5": "999999",
+                    "regions": {"regions_shortname": ["us"]},
+                },
+                {
+                    "id": 8,
+                    "rommd5": "ABC123",
+                    "regions": {"regions_shortname": ["jp"]},
+                    "langues": {"langues_shortname": ["ja"]},
+                },
+            ],
+        }
+        handler = SSHandler()
+        mock_file = self._make_mock_file()
+        rom = MagicMock(platform_slug="nes", platform_id=1, id=100, regions=[])
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch.object(handler.ss_service, "get_game_info", return_value=game),
+        ):
+            result, _ = await handler.lookup_rom(rom, 3, [mock_file])
+
+        assert result["regions"] == ["Japan"]
+        assert result["languages"] == ["Japanese"]
+
+    @pytest.mark.asyncio
     async def test_no_hash_no_filename_skips_lookup(self):
         """With neither a hash nor a filename there is nothing to match on, so the
         lookup is skipped without spending an API call."""
@@ -2026,3 +2110,189 @@ class TestDevCredentials:
             ),
         ):
             assert SSHandler.has_dev_credentials() is expected
+
+
+class TestExtractFromSSDump:
+    """`jeu.roms` lists every dump of a game; only ours describes the file."""
+
+    # Shaped after a real jeuInfos payload, trimmed to the keys read here.
+    ROMS = [
+        {
+            "id": 4219,
+            "romfilename": "Super Mario Bros.",
+            "rommd5": "B330314E19126D87D156D0618C4657B0",
+            "romsha1": "8EE8032491DEE422534B82F107DE0E9F5F9D44F9",
+            "romcrc": "A5C2849E",
+            "trad": 0,
+            "regions": {"regions_shortname": ["wor"], "regions_en": ["World"]},
+        },
+        {
+            "id": 154585,
+            "romfilename": "Super Mario Bros. (W) [T Fre].nes",
+            "rommd5": "811B027EAF99C2DEF7B933C5208636DE",
+            "romsha1": "",
+            "romcrc": "",
+            "trad": 1,
+            "regions": {"regions_shortname": ["us", "jp", "ss"]},
+            "langues": {"langues_shortname": ["fr"], "langues_en": ["French"]},
+        },
+    ]
+
+    def _game(self) -> SSGame:
+        # `romid` names a dump that is not ours, which is why hashes decide.
+        return cast(SSGame, {"id": 1245, "romid": "999999", "roms": self.ROMS})
+
+    def test_the_dump_is_found_by_md5_whatever_romid_says(self):
+        dump = find_ss_dump(
+            self._game(),
+            LookupHashes(crc=None, md5="811b027eaf99c2def7b933c5208636de", sha1=None),
+        )
+
+        assert dump is not None
+        assert dump["id"] == 154585
+
+    def test_the_dump_is_found_by_sha1(self):
+        dump = find_ss_dump(
+            self._game(),
+            LookupHashes(
+                crc=None, md5=None, sha1="8ee8032491dee422534b82f107de0e9f5f9d44f9"
+            ),
+        )
+
+        assert dump is not None
+        assert dump["id"] == 4219
+
+    def test_a_hash_no_dump_carries_matches_nothing(self):
+        assert (
+            find_ss_dump(self._game(), LookupHashes(crc=None, md5="0" * 32, sha1=None))
+            is None
+        )
+
+    def test_no_hashes_match_nothing(self):
+        assert (
+            find_ss_dump(self._game(), LookupHashes(crc=None, md5=None, sha1=None))
+            is None
+        )
+
+    def test_regions_come_from_the_dump(self):
+        dump = cast(SSGameRom, self.ROMS[1])
+
+        # "ss" is a ScreenScraper bucket rather than a place.
+        assert extract_regions_from_ss_dump(dump) == ["USA", "Japan"]
+
+    def test_languages_come_from_the_dump(self):
+        assert extract_languages_from_ss_dump(cast(SSGameRom, self.ROMS[1])) == [
+            "French"
+        ]
+
+    def test_a_translated_dump_is_tagged(self):
+        """ScreenScraper sends the flag as a string, not an int."""
+        assert extract_tags_from_ss_dump(SSGameRom(trad="1")) == ["Translation"]
+        assert extract_tags_from_ss_dump(SSGameRom(trad=1)) == ["Translation"]
+
+    @pytest.mark.parametrize("trad", ["0", 0, ""])
+    def test_an_untranslated_dump_is_not_tagged(self, trad: int | str):
+        assert extract_tags_from_ss_dump(SSGameRom(trad=trad)) == []
+
+    @pytest.mark.parametrize(
+        ("dump", "tag"),
+        [
+            (SSGameRom(hack="1"), "Hack"),
+            (SSGameRom(beta="1"), "Beta"),
+            (SSGameRom(demo="1"), "Demo"),
+        ],
+    )
+    def test_the_other_flags_spell_their_tag_the_way_a_filename_does(
+        self, dump: SSGameRom, tag: str
+    ):
+        assert extract_tags_from_ss_dump(dump) == [tag]
+
+    def test_a_dump_raising_several_flags_carries_each_tag(self):
+        dump = SSGameRom(trad="1", hack="1", beta="1")
+
+        assert extract_tags_from_ss_dump(dump) == ["Translation", "Hack", "Beta"]
+
+    def test_unl_is_not_a_tag(self):
+        """No filename tag answers to it, so reading it would split the facet."""
+        assert extract_tags_from_ss_dump(SSGameRom(unl="1")) == []
+
+    async def test_a_hash_match_carries_the_dump_tags(self):
+        """The primary path: lookup_rom answers a hash, so its dump is ours."""
+        handler = SSHandler()
+        rom_file = MagicMock(
+            file_size_bytes=40976,
+            is_top_level=True,
+            file_extension="nes",
+            file_name="Super Mario Bros. (W) [T Fre].nes",
+            archive_members=None,
+            md5_hash="811b027eaf99c2def7b933c5208636de",
+            sha1_hash="",
+            crc_hash="",
+        )
+        rom = MagicMock(platform_slug="nes", platform_id=1, id=100, regions=[])
+
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                new=AsyncMock(return_value=self._game()),
+            ),
+            patch(
+                "handler.metadata.ss_handler.build_ss_game",
+                side_effect=lambda *_: SSRom(ss_id=1245),
+            ),
+        ):
+            result, _ = await handler.lookup_rom(rom, 3, [rom_file])
+
+        assert result.get("tags") == ["Translation"]
+        assert result.get("languages") == ["French"]
+
+    def test_a_dump_without_tags_reports_nothing(self):
+        dump = cast(SSGameRom, {"id": 1})
+
+        assert extract_regions_from_ss_dump(dump) == []
+        assert extract_languages_from_ss_dump(dump) == []
+        assert extract_tags_from_ss_dump(dump) == []
+
+    async def test_a_refetch_by_id_keeps_our_dump_when_given_the_files(self):
+        """An UPDATE scan refetches by id, so the dump has to survive that path."""
+        handler = SSHandler()
+        rom = MagicMock(platform_slug="nes")
+        rom_file = MagicMock(
+            file_size_bytes=40976,
+            is_top_level=True,
+            file_extension="nes",
+            md5_hash="811b027eaf99c2def7b933c5208636de",
+            sha1_hash=None,
+            crc_hash=None,
+        )
+
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                new=AsyncMock(return_value=self._game()),
+            ),
+            patch(
+                "handler.metadata.ss_handler.build_ss_game",
+                side_effect=lambda *_: SSRom(ss_id=1245),
+            ),
+        ):
+            with_files = await handler.get_rom_by_id(rom, 1245, [rom_file])
+            without_files = await handler.get_rom_by_id(rom, 1245)
+
+        assert with_files.get("tags") == ["Translation"]
+        assert with_files.get("languages") == ["French"]
+
+        # A caller that only picked an id, like a manual match, says nothing
+        # about which dump is on disk.
+        assert "tags" not in without_files
+
+    def test_a_game_with_no_dumps_matches_nothing(self):
+        game = cast(SSGame, {"id": 1})
+
+        assert (
+            find_ss_dump(game, LookupHashes(crc=None, md5="a" * 32, sha1=None)) is None
+        )

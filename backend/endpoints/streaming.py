@@ -21,10 +21,14 @@ from pydantic import BaseModel, Field
 
 from decorators.auth import protected_route
 from endpoints.responses.streaming import (
+    AdminContainerSchema,
     AdminContainersResponse,
+    AdminSessionSchema,
     AdminSessionsResponse,
+    ContainerSessionSchema,
     DesktopSessionSchema,
     ForceReleaseResponse,
+    JoinableSessionSchema,
     JoinableSessionsResponse,
     JoinedSessionSchema,
     LaunchingSessionSchema,
@@ -36,7 +40,9 @@ from endpoints.responses.streaming import (
     SaveAndExitResponse,
     SaveStateResponse,
     SessionStatusSchema,
+    SlotCapabilitiesSchema,
     StreamingConfigSchema,
+    StreamingContainerSchema,
     SwapDiscResponse,
     VolumeResponse,
 )
@@ -80,6 +86,7 @@ from handler.streaming.session_store import (
     STREAMING_SESSION_TTL_SECONDS,
     StreamingSessionContended,
     claim_drain_marker,
+    claim_gate,
     clear_termination,
     get_live_session,
     get_session,
@@ -191,10 +198,15 @@ def _swappable_disc_file_ids(rom: Rom) -> set[int]:
     return {f.id for f in playlist_files(rom.files)}
 
 
-async def _session_status(platform: str, request: Request) -> dict[str, Any]:
-    """Whether the caller still holds this platform's session, and if not, why
-    it ended. Read-only, so it is safe to poll."""
-    candidates = containers_for_platform(platform)
+async def _session_status(
+    platform: str,
+    request: Request,
+    candidates: list[ResolvedContainer] | None = None,
+) -> dict[str, Any]:
+    """Whether the caller holds a session among `candidates` (the platform's first
+    pool by default), and if not, why it ended. Read-only, so it is safe to poll."""
+    if candidates is None:
+        candidates = containers_for_platform(platform)
     if not candidates:
         raise HTTPException(
             status_code=404,
@@ -245,7 +257,7 @@ async def get_config(request: Request) -> StreamingConfigSchema:
     """Return streaming configuration to the frontend"""
     # Keyed by platform: a pool is a backend concern, the frontend picks a
     # platform and the claim decides which container serves it.
-    safe_containers: dict[str, dict[str, Any]] = {}
+    safe_containers: dict[str, StreamingContainerSchema] = {}
     for c in resolve_containers():
         if c.platform in safe_containers:
             continue
@@ -253,23 +265,23 @@ async def get_config(request: Request) -> StreamingConfigSchema:
         # platform hidden from this caller must not be listed here either.
         if not access.platform_is_visible(request, c.platform):
             continue
-        safe_containers[c.platform] = {
-            "platform": c.platform,
-            "host": c.host,
-            "label": c.label,
+        safe_containers[c.platform] = StreamingContainerSchema(
+            platform=c.platform,
+            host=c.host,
+            label=c.label,
             # Ship slot capabilities so the frontend selector reads them
             # instead of keeping its own hardcoded per-platform copy.
-            "capabilities": c.capabilities,
+            capabilities=SlotCapabilitiesSchema(**c.capabilities),
             # State namespace for this container, so the frontend can
             # filter the resume picker the same way hydration filters.
-            "emulator": c.emulator,
+            emulator=c.emulator,
             # Whether this container syncs whole memory cards, so the
             # frontend only offers the card picker where it applies.
-            "supports_memory_cards": c.memory_card_sync,
+            supports_memory_cards=c.memory_card_sync,
             # Whether an older save archive still lands here, so the frontend
             # only offers the save picker where a pick means something.
-            "supports_save_picker": c.supports_save_picker,
-        }
+            supports_save_picker=c.supports_save_picker,
+        )
 
     return StreamingConfigSchema(
         enabled=streaming_enabled(), containers=list(safe_containers.values())
@@ -287,6 +299,51 @@ async def _win_container(
     Raises 409 when every one of them is held, with enough of the holder for
     the launch screen to say what the player is waiting on.
     """
+    # Reserving is atomic per container, which is not enough on a pool: two
+    # claims from one player would each read no session of their own and then
+    # win a different member, leaving the second one unreachable. The gate
+    # serializes them, so the loser reads the winner's session rather than a
+    # free container. Held only across the reserve: once the session is on the
+    # container key, a later claim's ownership check finds it.
+    async with claim_gate(platform, request.user.id) as entered:
+        if not entered:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "You already have a session on this platform",
+                    "draining": False,
+                    "rom_name": None,
+                    "claimed_at": None,
+                },
+            )
+        return await _reserve_container(request, candidates, session, platform)
+
+
+async def _reserve_container(
+    request: Request,
+    candidates: list[ResolvedContainer],
+    session: dict[str, Any],
+    platform: str,
+) -> ResolvedContainer:
+    """Walk the platform's containers and claim the first one available."""
+    # Status, heartbeat and release all resolve by platform and answer with the
+    # first match, so a second session for one user is one nothing can reach.
+    held = await access.find_session_for_user(candidates, request.user.id)
+    if held is not None:
+        holder, _, mine = held
+        if not session_is_stale(mine):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "You already have a session on this platform",
+                    "draining": False,
+                    "rom_name": access.visible_rom_name(request, mine),
+                    "claimed_at": mine.get("claimed_at"),
+                },
+            )
+        # Their own session, abandoned. Take that container back rather than
+        # rolling them onto a free one and stranding this one until its TTL.
+        candidates = [holder]
 
     async def try_claim(candidate: ResolvedContainer) -> bool:
         # SET NX is atomic: exactly one concurrent claim wins the key. The TTL
@@ -602,7 +659,7 @@ async def claim_session(
     The ROM's filesystem path is derived server-side from its database row -
     the client only supplies a ROM id, never a path.
     Returns 404 if the ROM doesn't exist or no container serves its platform.
-    Returns 409 if every container serving the platform is occupied.
+    Returns 409 if every container in the platform's first pool is occupied.
     Returns 428 if the container's pre-existing memory card needs a decision.
     """
     rom = db_rom_handler.get_rom(req.rom_id)
@@ -622,9 +679,8 @@ async def claim_session(
             detail=f"No streaming container configured for platform '{platform}'",
         )
 
-    # Pool members are interchangeable on emulator and card sync (enforced by
-    # containers_for_platform), so the pre-claim validation below holds for
-    # whichever one the walk ends up winning.
+    # Pool members are interchangeable (`ResolvedContainer.interchangeable_with`),
+    # so the pre-claim validation below holds for whichever one the walk wins.
     reference = candidates[0]
 
     # Validate the resume pick before claiming so a bad state_id cannot
@@ -887,7 +943,11 @@ async def save_and_exit_session(
 
 
 @protected_route(router.post, "/sessions/{platform}/heartbeat", [Scope.ROMS_USER_WRITE])
-async def heartbeat_session(request: Request, platform: str) -> SessionStatusSchema:
+async def heartbeat_session(
+    request: Request,
+    platform: str,
+    container_key: str | None = Query(default=None, alias="container", max_length=300),
+) -> SessionStatusSchema:
     """Refresh the session's liveness stamp and report whether it still exists.
 
     The frontend calls this every ~30s while a session is active. A session
@@ -897,28 +957,32 @@ async def heartbeat_session(request: Request, platform: str) -> SessionStatusSch
     Reports `ended` rather than raising 404 when the caller no longer holds the
     session, so a force-released player learns why on the poll they are already
     making rather than watching a dead stream.
+
+    `container` names the claim to refresh, needed for a desktop on a container
+    outside the platform's first pool.
     """
-    candidates = containers_for_platform(platform)
-    if not candidates:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No streaming container configured for platform '{platform}'",
-        )
-    found = await access.find_session_for_user(candidates, request.user.id)
+    user_id = request.user.id
+    # A named claim answers for itself: another session the caller holds on the
+    # platform is not the one this client is beating.
+    candidates = (
+        [access.named_container(platform, container_key)]
+        if container_key is not None
+        else containers_for_platform(platform)
+    )
+    found = await access.find_session_for_user(candidates, user_id)
     if found is None:
-        return SessionStatusSchema(**await _session_status(platform, request))
+        return SessionStatusSchema(
+            **await _session_status(platform, request, candidates)
+        )
     _, session_key, _ = found
 
-    # Merging rather than writing the copy read above keeps a swap that landed
-    # in between; refusing a draining session keeps a heartbeat from making a
-    # container that is already being torn down look live. Either returns None,
-    # meaning the claim is gone and reporting "active" would leave the client
-    # beating a session it no longer holds.
+    # Merging keeps a swap that landed since the read. Refusing a draining or
+    # re-claimed session returns None, so the client stops beating a dead claim.
     try:
         refreshed = await mutate_session(
             session_key,
             {"last_seen": datetime.now(timezone.utc).isoformat()},
-            require=lambda s: not s.get("draining"),
+            require=lambda s: not s.get("draining") and s.get("user_id") == user_id,
         )
     except StreamingSessionContended:
         # A key too busy to write is a key that exists, so the session is live
@@ -926,7 +990,9 @@ async def heartbeat_session(request: Request, platform: str) -> SessionStatusSch
         log.warning("heartbeat could not stamp contended session %s", session_key)
         return SessionStatusSchema(status="active", platform=platform)
     if refreshed is None:
-        return SessionStatusSchema(**await _session_status(platform, request))
+        return SessionStatusSchema(
+            **await _session_status(platform, request, candidates)
+        )
     await lifecycle.refresh_session_activity(session_key, refreshed)
     return SessionStatusSchema(status="active", platform=platform)
 
@@ -1116,8 +1182,8 @@ async def swap_disc(
     if rom_file is None or rom_file.rom_id != rom_id:
         raise HTTPException(status_code=404, detail="File does not belong to this rom")
 
-    # Loaded separately: the file comes back detached, so reaching its rom from
-    # there is a lazy load with no session behind it.
+    # The file row's own rom load is narrow, and the swap reads the playlist
+    # entries off the full rom.
     rom = db_rom_handler.get_rom(rom_id)
     if rom is None:
         raise HTTPException(status_code=404, detail="Rom not found")
@@ -1207,36 +1273,36 @@ async def list_containers(request: Request) -> AdminContainersResponse:
     if request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    containers: list[dict[str, Any]] = []
+    containers: list[AdminContainerSchema] = []
     for container_key, entries in containers_by_key().items():
         first = entries[0]
         session = await get_live_session(container_key) if container_key else None
         user_id = session.get("user_id") if session else None
         user = db_user_handler.get_user(user_id) if isinstance(user_id, int) else None
         containers.append(
-            {
-                "container": container_key,
-                "label": first.container_label or first.label,
-                "host": first.host,
-                "platforms": [e.platform for e in entries],
-                "supports_desktop": first.protocol.supports_desktop,
+            AdminContainerSchema(
+                container=container_key,
+                label=first.container_label or first.label,
+                host=first.host,
+                platforms=[e.platform for e in entries],
+                supports_desktop=first.protocol.supports_desktop,
                 # A container whose host has no scheme has an empty key and can
                 # never be claimed, so surface it rather than listing it as idle.
-                "configured": bool(container_key),
-                "session": (
-                    {
-                        "platform": session.get("platform"),
-                        "rom_id": session.get("rom_id"),
-                        "rom_name": session.get("rom_name"),
-                        "desktop": bool(session.get("desktop")),
-                        "claimed_at": session.get("claimed_at"),
-                        "user_id": user_id,
-                        "username": user.username if user else None,
-                    }
+                configured=bool(container_key),
+                session=(
+                    ContainerSessionSchema(
+                        platform=session.get("platform"),
+                        rom_id=session.get("rom_id"),
+                        rom_name=session.get("rom_name"),
+                        desktop=bool(session.get("desktop")),
+                        claimed_at=session.get("claimed_at"),
+                        user_id=user_id,
+                        username=user.username if user else None,
+                    )
                     if session
                     else None
                 ),
-            }
+            )
         )
     return AdminContainersResponse(enabled=streaming_enabled(), containers=containers)
 
@@ -1341,7 +1407,7 @@ async def list_joinable_sessions(
     """
     grouped = containers_by_key()
 
-    sessions: list[dict[str, Any]] = []
+    sessions: list[JoinableSessionSchema] = []
     async for container_key, s in iter_live_sessions():
         if not s.get("multiplayer"):
             continue
@@ -1361,22 +1427,22 @@ async def list_joinable_sessions(
         user_id = s.get("user_id")
         host = db_user_handler.get_user(user_id) if user_id is not None else None
         sessions.append(
-            {
-                "container": container_key,
-                "label": _joinable_container_label(grouped, container_key),
-                "platform": s.get("platform"),
-                "rom_id": session_rom_id,
-                "rom_name": s.get("rom_name"),
-                "host_username": host.username if host else None,
-                "claimed_at": s.get("claimed_at"),
+            JoinableSessionSchema(
+                container=container_key,
+                label=_joinable_container_label(grouped, container_key),
+                platform=s.get("platform"),
+                rom_id=session_rom_id,
+                rom_name=s.get("rom_name"),
+                host_username=host.username if host else None,
+                claimed_at=s.get("claimed_at"),
                 # Enough of the ROM to draw a cover tile without a second
                 # request per session.
-                "platform_id": rom.platform_id if rom else None,
-                "platform_display_name": rom.platform_display_name if rom else None,
-                "path_cover_small": rom.path_cover_small if rom else None,
-                "path_cover_large": rom.path_cover_large if rom else None,
-                "url_cover": rom.url_cover if rom else None,
-            }
+                platform_id=rom.platform_id if rom else None,
+                platform_display_name=rom.platform_display_name if rom else None,
+                path_cover_small=rom.path_cover_small if rom else None,
+                path_cover_large=rom.path_cover_large if rom else None,
+                url_cover=rom.url_cover if rom else None,
+            )
         )
     return JoinableSessionsResponse(sessions=sessions)
 
@@ -1393,23 +1459,23 @@ async def list_sessions(request: Request) -> AdminSessionsResponse:
 
     grouped = containers_by_key()
 
-    sessions: list[dict[str, Any]] = []
+    sessions: list[AdminSessionSchema] = []
     async for container_key, s in iter_live_sessions():
         container = container_for_session(grouped, container_key, s.get("platform"))
         user_id = s.get("user_id")
         user = db_user_handler.get_user(user_id) if user_id is not None else None
         sessions.append(
-            {
-                "container": container_key,
-                "label": container.label if container else None,
-                "platform": s.get("platform"),
-                "rom_id": s.get("rom_id"),
-                "rom_name": s.get("rom_name"),
-                "desktop": bool(s.get("desktop")),
-                "claimed_at": s.get("claimed_at"),
-                "user_id": user_id,
-                "username": user.username if user else None,
-            }
+            AdminSessionSchema(
+                container=container_key,
+                label=container.label if container else None,
+                platform=s.get("platform"),
+                rom_id=s.get("rom_id"),
+                rom_name=s.get("rom_name"),
+                desktop=bool(s.get("desktop")),
+                claimed_at=s.get("claimed_at"),
+                user_id=user_id,
+                username=user.username if user else None,
+            )
         )
     return AdminSessionsResponse(sessions=sessions)
 
@@ -1462,6 +1528,7 @@ async def force_release_all(
                     container_key,
                     ended_by=request.user.username,
                     reason=reason,
+                    ended_by_user_id=request.user.id,
                 )
         finally:
             # The sweep answered "released", so the key goes even when a step

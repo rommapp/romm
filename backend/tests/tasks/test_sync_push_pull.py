@@ -186,13 +186,12 @@ class TestNullSlotLeakInProcessRemoteSave:
         )
         ssh.upload_save = AsyncMock()
 
-        with patch(
-            "tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh
-        ), patch("tasks.sync_push_pull_task.fs_asset_handler"), patch(
-            "tasks.sync_push_pull_task.compare_save_state"
-        ) as mock_cmp, patch(
-            "tasks.sync_push_pull_task.AnyioPath"
-        ) as mock_anyio_path:
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh),
+            patch("tasks.sync_push_pull_task.fs_asset_handler"),
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+            patch("tasks.sync_push_pull_task.AnyioPath") as mock_anyio_path,
+        ):
             mock_cmp.return_value = MagicMock(action="no_op", reason=None)
             mock_anyio_path.return_value.exists = AsyncMock(return_value=False)
             await _process_remote_save(
@@ -248,9 +247,10 @@ class TestNullSlotLeakInPushMissingSaves:
             {"platform_slug": platform.fs_slug, "path": "/remote/saves"}
         ]
         # Empty remote_saves means every server save would be considered "missing".
-        with patch(
-            "tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh
-        ), patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets:
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh),
+            patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
+        ):
             mock_assets.validate_path.side_effect = lambda p: f"/server/{p}"
             pushed = await _push_missing_saves(
                 device,

@@ -15,7 +15,7 @@ const { uploadRoms, refetchRom, confirmFn, snackbar, routeQuery, grants } =
       warning: vi.fn(),
       info: vi.fn(),
     },
-    routeQuery: { subtab: undefined as string | undefined },
+    routeQuery: { tab: "files", subtab: undefined as string | undefined },
     grants: { upload: true, delete: false },
   }));
 
@@ -25,7 +25,11 @@ vi.mock("vue-i18n", () => ({
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ query: routeQuery, path: "/rom/1", params: {} }),
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  useRouter: () => ({
+    replace: vi.fn(),
+    push: vi.fn(),
+    currentRoute: { value: { query: routeQuery } },
+  }),
 }));
 vi.mock("@/services/api/rom", () => ({
   default: { uploadRoms, deleteRomFile: vi.fn() },
@@ -94,9 +98,6 @@ function mountTab(r = rom()) {
         RCheckbox: true,
         REmptyState: true,
         RIcon: true,
-        RTooltip: {
-          template: `<div><slot name="activator" :props="{}" /></div>`,
-        },
         RBtn: {
           props: ["disabled", "icon"],
           emits: ["click"],
@@ -108,10 +109,16 @@ function mountTab(r = rom()) {
   });
 }
 
+function buttonByLabel(wrapper: ReturnType<typeof mountTab>, label: string) {
+  return wrapper.findAll("button.btn").find((b) => b.text() === label);
+}
+
 function uploadButton(wrapper: ReturnType<typeof mountTab>) {
-  return wrapper
-    .findAll("button.btn")
-    .find((b) => b.text() === "common.upload");
+  return buttonByLabel(wrapper, "common.upload");
+}
+
+function uploadToFolderButton(wrapper: ReturnType<typeof mountTab>) {
+  return buttonByLabel(wrapper, "rom.upload-to-folder");
 }
 
 async function pickFile(wrapper: ReturnType<typeof mountTab>, name: string) {
@@ -140,6 +147,7 @@ describe("FilesTab uploads", () => {
     const wrapper = mountTab();
 
     expect(uploadButton(wrapper)).toBeUndefined();
+    expect(uploadToFolderButton(wrapper)).toBeUndefined();
   });
 
   it("sends files straight into the active folder", async () => {
@@ -147,6 +155,7 @@ describe("FilesTab uploads", () => {
     const click = vi.spyOn(HTMLInputElement.prototype, "click");
     const wrapper = mountTab();
 
+    expect(uploadToFolderButton(wrapper)).toBeUndefined();
     await uploadButton(wrapper)!.trigger("click");
     expect(click).toHaveBeenCalled();
     await pickFile(wrapper, "fix.ips");
@@ -179,7 +188,8 @@ describe("FilesTab uploads", () => {
   it("asks for a destination from All files", async () => {
     const wrapper = mountTab();
 
-    await uploadButton(wrapper)!.trigger("click");
+    expect(uploadButton(wrapper)).toBeUndefined();
+    await uploadToFolderButton(wrapper)!.trigger("click");
     expect(wrapper.get(".dialog").attributes("data-open")).toBe("true");
 
     const dialog = wrapper.findComponent(UploadFilesDialogStub);
@@ -262,5 +272,49 @@ describe("FilesTab on a rom missing from the filesystem", () => {
 
     const rows = wrapper.findAllComponents({ name: "FileRow" });
     expect(rows.every((r) => r.props("missing") === false)).toBe(true);
+  });
+});
+
+describe("FilesTab selection", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+    routeQuery.subtab = undefined;
+    grants.upload = true;
+  });
+
+  function selectedFlags(wrapper: ReturnType<typeof mountTab>) {
+    return wrapper
+      .findAllComponents({ name: "FileRow" })
+      .map((row) => row.props("selected"));
+  }
+
+  async function selectFirst(wrapper: ReturnType<typeof mountTab>) {
+    await flushPromises();
+    wrapper.findAllComponents({ name: "FileRow" })[0].vm.$emit("toggle");
+    await flushPromises();
+  }
+
+  // A refresh hands down a new rom object with the same id; that must not read
+  // as a different rom and drop what the user picked.
+  it("survives the rom object being replaced", async () => {
+    const wrapper = mountTab();
+    await selectFirst(wrapper);
+    expect(selectedFlags(wrapper)).toEqual([true, false]);
+
+    await wrapper.setProps({ rom: rom() });
+    await flushPromises();
+
+    expect(selectedFlags(wrapper)).toEqual([true, false]);
+  });
+
+  it("is dropped when another rom takes over the tab", async () => {
+    const wrapper = mountTab();
+    await selectFirst(wrapper);
+
+    await wrapper.setProps({ rom: rom({ id: 2 }) });
+    await flushPromises();
+
+    expect(selectedFlags(wrapper)).toEqual([false, false]);
   });
 });

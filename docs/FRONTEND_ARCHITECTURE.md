@@ -31,20 +31,20 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 
 ## 1. Overview
 
-| Property             | Value                                          |
-| -------------------- | ---------------------------------------------- |
-| **Framework**        | Vue 3.4.27 (Composition API, `<script setup>`) |
-| **Build Tool**       | Vite 6.4.2                                     |
-| **Language**         | TypeScript 5.7.3 (`noImplicitAny: true`)       |
-| **UI Library**       | Vuetify 3.9.2 (Material Design), v1 only       |
-| **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only   |
-| **State Management** | Pinia 3.0.1 (18 stores)                        |
-| **Routing**          | Vue Router 4.3.2                               |
-| **HTTP Client**      | Axios 1.15.0                                   |
-| **i18n**             | vue-i18n 11.1.10 (17 languages)                |
-| **Real-time**        | Socket.IO Client 4.7.5                         |
-| **Icons**            | Material Design Icons (MDI) 7.4.47             |
-| **Node**             | 24 (via `.nvmrc`)                              |
+| Property             | Value                                        |
+| -------------------- | -------------------------------------------- |
+| **Framework**        | Vue 3.5 (Composition API, `<script setup>`)  |
+| **Build Tool**       | Vite 6.4.2                                   |
+| **Language**         | TypeScript 5.9.3 (`noImplicitAny: true`)     |
+| **UI Library**       | Vuetify 3.9.2 (Material Design), v1 only     |
+| **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only |
+| **State Management** | Pinia 3.0.1 (18 stores)                      |
+| **Routing**          | Vue Router 4.3.2                             |
+| **HTTP Client**      | Axios 1.15.0                                 |
+| **i18n**             | vue-i18n 11.1.10 (17 languages)              |
+| **Real-time**        | Socket.IO Client 4.7.5                       |
+| **Icons**            | Material Design Icons (MDI) 7.4.47           |
+| **Node**             | 24 (via `.nvmrc`)                            |
 
 **Total:** ~216 Vue components (168 under `components/`, rest in views/console/layouts), 18 Pinia stores, 17 API service modules, 36 named routes across 3 layouts.
 
@@ -123,7 +123,8 @@ frontend/
 ├── index.html                     # HTML entry point (<div id="app">)
 ├── package.json                   # Dependencies & scripts
 ├── vite.config.js                 # Vite build config with plugins
-├── tsconfig.json                  # TypeScript configuration
+├── tsconfig.json                  # Vue app TypeScript (vue-tsc)
+├── tsconfig.node.json             # Node/Vite tooling TypeScript (tsc -p)
 ├── eslint.config.js               # ESLint flat config
 ├── .nvmrc                         # Node 24
 │
@@ -862,6 +863,19 @@ All synthesized with sine/noise blend, exponential envelopes, low-pass filter, a
 - Fullscreen support
 - Background color customization
 
+### Cross-origin isolation (v2 players)
+
+Threaded EmulatorJS cores need `SharedArrayBuffer`, which browsers expose only in a cross-origin isolated document. Nginx attaches `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` to the player URLs alone (`docker/nginx/templates/default.conf.template`), because under that policy the rest of the app cannot embed third-party images (provider covers in Match ROM).
+
+A v2 player view is reached by SPA navigation, so it is not isolated on arrival. Two composables cover that:
+
+- `useIsolatedLaunch(player, romId, isIntent)` reloads the view into an isolated document when a launch needs it. The view defines the `Intent` the reload cannot carry in the URL, calls `relaunch(intent)` when `hasSharedArrayBuffer()` is false, and boots from `intent` on mount. `relaunch()` returns false, and the view reports the context instead, when the reload would not help: outside a secure context (the headers alone never expose `SharedArrayBuffer`), where storage refused to keep the selection, or from a view that already came from such a reload.
+- `usePlayerExit(runtimeBound, settle)` leaves the view by a full navigation when the document is isolated, or when the player's runtime cannot be injected twice (EmulatorJS declares top-level classes), so the app resumes in a fresh document. Otherwise leaving is an SPA navigation. `guard` is the `onBeforeRouteLeave` form, `leave(path)` the programmatic one, and `departing` tells an unload prompt that this exit is the view's own. A full navigation aborts the route change, so the leave guards of the components below never run: `settle` is where their work goes (EmulatorJS awaits the v1 `Player`'s save flush there).
+
+To add an EmulatorJS core that needs threads, add it to `areThreadsRequiredForEJSCore` in `utils/index.ts`; nothing else changes. To add a player that needs isolation, use both composables the way `v2/views/Player/EmulatorJS.vue` does, and track `runtimeBound` from the moment the runtime is injected rather than from the global it eventually defines. js-dos needs isolation unconditionally (the DOSBox-X backend is a threaded build), so `JsDos.vue` relaunches on every launch that did not arrive isolated and carries no intent beyond a marker.
+
+The dev server and `vite preview` have no nginx in front of them, so `scripts/playerIsolationHeaders.ts` answers the same URLs with the same headers. It restates the template's patterns, since the production build runs from `frontend/` alone and cannot read that file, and its test fails when the two drift.
+
 ### Platform Detection
 
 `utils/index.ts` provides:
@@ -1086,14 +1100,15 @@ Procedural SVG generation for:
 
 ### Scripts
 
-| Script      | Command                      | Purpose                             |
-| ----------- | ---------------------------- | ----------------------------------- |
-| `dev`       | `vite --host`                | Development server                  |
-| `build`     | `vite build`                 | Production build                    |
-| `preview`   | `vite preview`               | Preview production build            |
-| `typecheck` | `vue-tsc`                    | TypeScript validation               |
-| `generate`  | `openapi-typescript-codegen` | Generate types from backend OpenAPI |
-| `lint`      | `eslint`                     | Lint `.vue`, `.js`, `.ts` files     |
+| Script              | Command                              | Purpose                                                |
+| ------------------- | ------------------------------------ | ------------------------------------------------------ |
+| `dev`               | `vite --host`                        | Development server                                     |
+| `build`             | `vite build`                         | Production build                                       |
+| `preview`           | `vite preview`                       | Preview production build                               |
+| `typecheck`         | `vue-tsc --noEmit`                   | App SFCs (`tsconfig.json`)                             |
+| `typecheck:scripts` | `tsc --noEmit -p tsconfig.node.json` | Node/Vite tooling in `scripts/` (`tsconfig.node.json`) |
+| `generate`          | `openapi-typescript-codegen`         | Generate types from backend OpenAPI                    |
+| `lint`              | `eslint`                             | Lint `.vue`, `.js`, `.ts`; import cycles               |
 
 ### OpenAPI Code Generation
 

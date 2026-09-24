@@ -11,6 +11,10 @@ import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import {
+  ROM_UPLOAD_FOLDERS,
+  useRomFileUpload,
+} from "@/v2/composables/useRomFileUpload";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -42,10 +46,16 @@ type WalkthroughEntry = {
   kind: ViewerKind;
 };
 
-const props = defineProps<{ rom: DetailedRom }>();
+const props = defineProps<{
+  rom: DetailedRom;
+  /** Drop the Upload button when the parent renders it elsewhere (through
+   *  the exposed `openUpload`). */
+  hideUpload?: boolean;
+}>();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const { refetchRom } = useRomSync();
+const { uploadFiles } = useRomFileUpload();
 const { t } = useI18n();
 
 // Adding and removing walkthroughs both ride the ROMS write grant, matching
@@ -122,24 +132,16 @@ async function confirmFolderConversionIfNeeded(): Promise<boolean> {
 
 // ---------- Upload ----------
 const walkthroughDz = ref<InstanceType<typeof RDropzone> | null>(null);
+const canUpload = computed(() => entries.value.length > 0 && canEdit.value);
+
+function openUpload() {
+  walkthroughDz.value?.open();
+}
+
+defineExpose({ canUpload, openUpload });
 
 async function handleFiles(files: File[]) {
-  if (files.length === 0) return;
-  if (!(await confirmFolderConversionIfNeeded())) return;
-  const responses = await romApi.uploadWalkthroughFiles({
-    romId: props.rom.id,
-    filesToUpload: files,
-  });
-  const ok = responses.filter((r) => r.status === "fulfilled").length;
-  if (ok > 0) {
-    await refreshRom();
-    snackbar.success(t("rom.walkthrough-added"), { icon: "mdi-check-bold" });
-  } else {
-    snackbar.error(
-      t("rom.walkthrough-add-failed", { error: t("common.unknown-error") }),
-      { icon: "mdi-close-circle" },
-    );
-  }
+  await uploadFiles(props.rom, ROM_UPLOAD_FOLDERS.walkthrough, files);
 }
 
 // ---------- Add from GameFAQs URL ----------
@@ -209,6 +211,7 @@ async function requestDelete() {
       <div v-if="canEdit" class="r-v2-wt__url">
         <RTextField
           v-model="gamefaqsUrl"
+          class="r-v2-wt__url-field"
           :placeholder="t('rom.walkthrough-url-label')"
           density="compact"
           variant="outlined"
@@ -283,13 +286,13 @@ async function requestDelete() {
       </div>
     </RDropzone>
 
-    <div v-if="entries.length > 0 && canEdit">
+    <div v-if="canUpload && !hideUpload">
       <RBtn
         block
         variant="outlined"
         size="small"
         prepend-icon="mdi-cloud-upload-outline"
-        @click="walkthroughDz?.open()"
+        @click="openUpload"
       >
         {{ t("common.upload") }}
       </RBtn>
@@ -333,6 +336,21 @@ async function requestDelete() {
   min-height: 30rem;
   display: flex;
   flex-direction: column;
+}
+/* Phones: the entry picker and the URL form each take a full row, with the
+   field shrinking so the "add from URL" button never pushes past the edge. */
+html[data-bp~="sm-and-down"] .r-v2-wt__spacer {
+  display: none;
+}
+html[data-bp~="sm-and-down"] .r-v2-wt__select,
+html[data-bp~="sm-and-down"] .r-v2-wt__url {
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: none;
+}
+html[data-bp~="sm-and-down"] .r-v2-wt__url-field {
+  flex: 1;
+  min-width: 0;
 }
 .r-v2-wt__viewer {
   flex: 1;

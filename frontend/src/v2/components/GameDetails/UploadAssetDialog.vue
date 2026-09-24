@@ -5,11 +5,13 @@ import { RBtn, RDialog, RForm, RIcon, RSelect, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema } from "@/__generated__";
-import { SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
+import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import PendingFilesDropzone from "@/v2/components/shared/PendingFilesDropzone.vue";
 import type { AssetType } from "@/v2/utils/assets";
 import {
   chosenSlot,
+  existingSlot,
+  isNewSlotChoice,
   isSlotChoice,
   slotChoiceKey,
   slotChoiceTitle,
@@ -47,15 +49,15 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-const slot = ref<UploadSlot>(NO_SLOT);
+const slot = ref<UploadSlot>(existingSlot(AUTOSAVE_SLOT));
 const newSlotName = ref("");
 const core = ref("");
 const files = ref<File[]>([]);
 const formRef = ref<InstanceType<typeof RForm> | null>(null);
 
 const slotItems = computed<UploadSlot[]>(() => [
-  NO_SLOT,
   ...slotChoices(props.saves),
+  NO_SLOT,
 ]);
 const slotTitle = (choice: UploadSlot) =>
   choice.kind === "none" ? t("play.slot-none") : slotChoiceTitle(choice);
@@ -83,7 +85,7 @@ watch(
   () => props.modelValue,
   (open) => {
     if (!open) return;
-    slot.value = NO_SLOT;
+    slot.value = existingSlot(AUTOSAVE_SLOT);
     newSlotName.value = "";
     core.value = "";
     files.value = [];
@@ -95,10 +97,6 @@ watch(
 function addFiles(picked: File[]) {
   const seen = new Set(files.value.map((f) => f.name));
   files.value = [...files.value, ...picked.filter((f) => !seen.has(f.name))];
-}
-
-function close() {
-  emit("update:modelValue", false);
 }
 
 async function submit() {
@@ -123,6 +121,7 @@ async function submit() {
     :model-value="modelValue"
     icon="mdi-cloud-upload-outline"
     width="520"
+    cancelable
     @update:model-value="emit('update:modelValue', $event)"
   >
     <template #header>
@@ -139,6 +138,7 @@ async function submit() {
           :item-title="slotTitle"
           :item-value="slotKey"
           return-object
+          :divider-after="isNewSlotChoice"
           prefix-label="inline"
           :hint="t('rom.upload-slot-hint')"
           @update:model-value="onSlot"
@@ -175,10 +175,6 @@ async function submit() {
       </RForm>
     </template>
     <template #footer>
-      <RBtn variant="text" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <div style="flex: 1" />
       <RBtn
         variant="translucent"
         color="primary"

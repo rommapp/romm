@@ -60,10 +60,8 @@ class TestCleanupOrphanedResourcesRun:
         )
         mocker.patch.object(
             mod.db_rom_handler,
-            "get_roms_scalar",
-            side_effect=lambda platform_ids: [
-                SimpleNamespace(id=rom_id) for rom_id in library[platform_ids[0]]
-            ],
+            "get_rom_ids",
+            side_effect=lambda platform_ids: library[platform_ids[0]],
         )
 
     async def test_skips_when_db_empty_and_filesystem_populated(

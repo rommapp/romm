@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SaveSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
+import { saveFixture } from "@/utils/assets.fixtures";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
@@ -76,6 +77,7 @@ vi.mock("@/v2/composables/useActivityPresence", () => ({
     start: vi.fn(),
     stopHeartbeat: vi.fn(),
     emitStop: vi.fn(),
+    stop: vi.fn(),
   }),
 }));
 
@@ -143,16 +145,15 @@ function save(
   file_name: string,
   overrides: Partial<SaveSchema> = {},
 ): SaveSchema {
-  return {
+  return saveFixture({
     id,
     file_name,
     emulator: "retroarch",
     rom_id: 3,
-    user_id: 1,
     created_at: `2026-09-14T0${id}:00:00`,
     updated_at: `2026-09-14T0${id}:00:00`,
     ...overrides,
-  } as SaveSchema;
+  });
 }
 
 // Newest first, the order the launch screen sorts into.
@@ -232,6 +233,24 @@ describe("Stream save picker", () => {
     ]);
     expect(list!.props("selectedId")).toBe(3);
     expect((preview(wrapper)!.props("asset") as SaveSchema).id).toBe(3);
+  });
+
+  it("dates the rows by the timestamp it sorted them on", async () => {
+    // A content-hash rewrite moves updated_at without touching the save, so
+    // showing it would date the second row "now" in a newest-first list.
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(1, "Pool [retroarch a].saves.zip", {
+          updated_at: "2026-09-15T12:00:00",
+        }),
+        ...ARCHIVES.slice(0, 2),
+      ],
+    });
+
+    expect((saveList(wrapper)!.props("assets") as SaveSchema[])[0].id).toBe(3);
+    expect(saveList(wrapper)!.props("timestamp")).toBe("created");
+    expect(preview(wrapper)!.props("timestamp")).toBe("created");
   });
 
   it("has no clear button: the claim always restores something", async () => {

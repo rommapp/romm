@@ -1,19 +1,10 @@
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionKey } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import { useGameActions } from "./index";
 
 // Controllable stubs shared with the mocked modules below.
 const push = vi.fn();
-const locationAssign = vi.fn();
 const confirmFn = vi.fn();
 const startScan = vi.fn(() => true);
 const snackbarInfo = vi.fn();
@@ -22,11 +13,11 @@ const canPlayEJS = { value: true };
 const canPlayJsDos = { value: false };
 const canPlayPico8 = { value: false };
 const canPlayRuffle = { value: false };
+const canPlayNative = { value: false };
 const streamContainer = { value: null as object | null };
 const joinableSession = {
   value: null as { host_username: string | null } | null,
 };
-let originalLocation: Location;
 // Granted action keys — `null` means "everything" (the default).
 const grantedActions: { value: Set<ActionKey> | null } = { value: null };
 
@@ -88,6 +79,7 @@ vi.mock("@/v2/composables/useCanPlay", () => ({
     canPlayJsDos,
     canPlayPico8,
     canPlayRuffle,
+    canPlayNative,
     canPlayStream: {
       get value() {
         return (
@@ -134,24 +126,8 @@ function makeRom(status: SimpleRom["rom_user"]["status"] = null): SimpleRom {
   } as unknown as SimpleRom;
 }
 
-beforeAll(() => {
-  originalLocation = window.location;
-  Object.defineProperty(window, "location", {
-    configurable: true,
-    value: { ...originalLocation, assign: locationAssign },
-  });
-});
-
-afterAll(() => {
-  Object.defineProperty(window, "location", {
-    configurable: true,
-    value: originalLocation,
-  });
-});
-
 beforeEach(() => {
   push.mockClear();
-  locationAssign.mockClear();
   confirmFn.mockClear();
   startScan.mockClear();
   snackbarInfo.mockClear();
@@ -160,6 +136,7 @@ beforeEach(() => {
   canPlayJsDos.value = false;
   canPlayPico8.value = false;
   canPlayRuffle.value = false;
+  canPlayNative.value = false;
   streamContainer.value = null;
   joinableSession.value = null;
   grantedActions.value = null;
@@ -259,8 +236,7 @@ describe("useGameActions.play — launch confirmation", () => {
     const actions = useGameActions(() => makeRom(null));
     await actions.play();
     expect(confirmFn).not.toHaveBeenCalled();
-    expect(locationAssign).toHaveBeenCalledWith("/rom/1/ejs");
-    expect(push).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
   });
 
   it.each(["retired", "never_playing"] as const)(
@@ -270,7 +246,6 @@ describe("useGameActions.play — launch confirmation", () => {
       const actions = useGameActions(() => makeRom(status));
       await actions.play();
       expect(confirmFn).toHaveBeenCalledTimes(1);
-      expect(locationAssign).not.toHaveBeenCalled();
       expect(push).not.toHaveBeenCalled();
     },
   );
@@ -280,8 +255,7 @@ describe("useGameActions.play — launch confirmation", () => {
     const actions = useGameActions(() => makeRom("retired"));
     await actions.play();
     expect(confirmFn).toHaveBeenCalledTimes(1);
-    expect(locationAssign).toHaveBeenCalledWith("/rom/1/ejs");
-    expect(push).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
   });
 
   it("skips the prompt when the preference is disabled", async () => {
@@ -289,8 +263,7 @@ describe("useGameActions.play — launch confirmation", () => {
     const actions = useGameActions(() => makeRom("never_playing"));
     await actions.play();
     expect(confirmFn).not.toHaveBeenCalled();
-    expect(locationAssign).toHaveBeenCalledWith("/rom/1/ejs");
-    expect(push).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
   });
 
   it("prefers streaming over EmulatorJS", async () => {
@@ -300,7 +273,6 @@ describe("useGameActions.play — launch confirmation", () => {
     await actions.play();
 
     expect(push).toHaveBeenCalledWith("/rom/1/stream");
-    expect(locationAssign).not.toHaveBeenCalled();
   });
 
   it("goes to EmulatorJS when asked for the local player, stream or not", async () => {
@@ -311,8 +283,7 @@ describe("useGameActions.play — launch confirmation", () => {
 
     await actions.play("local");
 
-    expect(locationAssign).toHaveBeenCalledWith("/rom/1/ejs");
-    expect(push).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
   });
 
   it("goes to the stream when asked for it", async () => {
@@ -322,7 +293,6 @@ describe("useGameActions.play — launch confirmation", () => {
     await actions.play("stream");
 
     expect(push).toHaveBeenCalledWith("/rom/1/stream");
-    expect(locationAssign).not.toHaveBeenCalled();
   });
 
   it("launches nothing when the asked-for player cannot run it", async () => {
@@ -331,7 +301,6 @@ describe("useGameActions.play — launch confirmation", () => {
     await actions.play("stream");
 
     expect(push).not.toHaveBeenCalled();
-    expect(locationAssign).not.toHaveBeenCalled();
   });
 
   it("still confirms a shelved game whichever player is asked for", async () => {
@@ -345,7 +314,7 @@ describe("useGameActions.play — launch confirmation", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("keeps SPA navigation for Ruffle", async () => {
+  it("goes to Ruffle for a Flash rom", async () => {
     canPlayEJS.value = false;
     canPlayRuffle.value = true;
     const actions = useGameActions(() => makeRom());
@@ -353,10 +322,9 @@ describe("useGameActions.play — launch confirmation", () => {
     await actions.play();
 
     expect(push).toHaveBeenCalledWith("/rom/1/ruffle");
-    expect(locationAssign).not.toHaveBeenCalled();
   });
 
-  it("keeps SPA navigation for PICO-8", async () => {
+  it("goes to PICO-8 for a cartridge", async () => {
     canPlayEJS.value = false;
     canPlayPico8.value = true;
     const actions = useGameActions(() => makeRom());
@@ -364,17 +332,43 @@ describe("useGameActions.play — launch confirmation", () => {
     await actions.play();
 
     expect(push).toHaveBeenCalledWith("/rom/1/pico8");
-    expect(locationAssign).not.toHaveBeenCalled();
   });
 
-  it("full-loads js-dos ahead of EmulatorJS for its platforms", async () => {
+  it("prefers js-dos over EmulatorJS for its platforms", async () => {
     canPlayJsDos.value = true;
     const actions = useGameActions(() => makeRom());
 
     await actions.play();
 
-    expect(locationAssign).toHaveBeenCalledWith("/rom/1/jsdos");
-    expect(push).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/rom/1/jsdos");
+  });
+
+  it("opens the play page for a platform only the desktop shell can run", async () => {
+    canPlayEJS.value = false;
+    canPlayNative.value = true;
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
+  });
+
+  // The shell's emulator is offered from the same page a core plays on, so
+  // where both can run the game there is still one route to open.
+  it("opens the same page when a core can run it too", async () => {
+    canPlayNative.value = true;
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
+  });
+
+  it("offers the Play button wherever either route can run the game", () => {
+    canPlayEJS.value = false;
+    expect(useGameActions(() => makeRom()).canPlayLocally.value).toBe(false);
+    canPlayNative.value = true;
+    expect(useGameActions(() => makeRom()).canPlayLocally.value).toBe(true);
   });
 
   it("offers neither streaming nor download without a file behind the rom", () => {
@@ -384,6 +378,76 @@ describe("useGameActions.play — launch confirmation", () => {
 
     expect(actions.canPlayStream.value).toBe(false);
     expect(actions.canDownload.value).toBe(false);
+  });
+});
+
+describe("useGameActions.needsLaunchConfirm", () => {
+  it.each(["retired", "never_playing"] as const)(
+    "asks before launching a %s game",
+    (status) => {
+      expect(
+        useGameActions(() => makeRom(status)).needsLaunchConfirm.value,
+      ).toBe(true);
+    },
+  );
+
+  it("asks nothing for a game that is not shelved", () => {
+    expect(useGameActions(() => makeRom()).needsLaunchConfirm.value).toBe(
+      false,
+    );
+  });
+
+  it("asks nothing when the preference is disabled", () => {
+    confirmProtectedLaunch.value = false;
+    expect(
+      useGameActions(() => makeRom("retired")).needsLaunchConfirm.value,
+    ).toBe(false);
+  });
+});
+
+describe("useGameActions.playPath", () => {
+  it("points the local launch at EmulatorJS", () => {
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.playPath("local")).toBe("/rom/1/ejs");
+    expect(actions.playPath()).toBe("/rom/1/ejs");
+  });
+
+  it("prefers the stream only when nobody asked for the local player", () => {
+    streamContainer.value = {};
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.playPath()).toBe("/rom/1/stream");
+    expect(actions.playPath("stream")).toBe("/rom/1/stream");
+    expect(actions.playPath("local")).toBe("/rom/1/ejs");
+  });
+
+  it("has nowhere to go when the asked-for player cannot run the rom", () => {
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.playPath("stream")).toBeNull();
+  });
+
+  it("orders the in-browser players the way play() launches them", () => {
+    const actions = useGameActions(() => makeRom());
+
+    canPlayJsDos.value = true;
+    expect(actions.playPath("local")).toBe("/rom/1/jsdos");
+
+    canPlayJsDos.value = false;
+    canPlayEJS.value = false;
+    canPlayPico8.value = true;
+    canPlayRuffle.value = true;
+    expect(actions.playPath("local")).toBe("/rom/1/pico8");
+
+    canPlayPico8.value = false;
+    expect(actions.playPath("local")).toBe("/rom/1/ruffle");
+  });
+
+  it("resolves nothing without a rom", () => {
+    const actions = useGameActions(() => null);
+
+    expect(actions.playPath()).toBeNull();
   });
 });
 

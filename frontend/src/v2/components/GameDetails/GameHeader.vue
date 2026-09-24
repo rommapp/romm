@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // GameHeader — right-column header for the details view.
 // Four rows, top to bottom:
-//   1. Title (+ previous / next game arrows on the right)
+//   1. Title (+ previous / next game arrows on the right, desktop only)
 //   2. Meta (year · platform-icon + platform · verified RTag)
 //   3. Tags (regions + languages + custom tags) — RTag primitive,
 //      each a `searchLocation` pivot into the filtered search
@@ -16,12 +16,15 @@ import GameActions from "@/v2/components/GameActions/GameActions.vue";
 import MainSiblingToggle from "@/v2/components/GameDetails/MainSiblingToggle.vue";
 import PrevNextNav from "@/v2/components/GameDetails/PrevNextNav.vue";
 import VersionSwitcher from "@/v2/components/GameDetails/VersionSwitcher.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGameActions } from "@/v2/composables/useGameActions";
 import { searchLocation } from "@/v2/utils/searchLocation";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+// Phones render the arrows around the cover instead (GameDetails).
+const { smAndDown } = useBreakpoint();
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -43,7 +46,7 @@ const actions = useGameActions(() => props.rom);
       <h1 class="r-v2-det-header__title">
         {{ title }}
       </h1>
-      <PrevNextNav :rom-id="rom.id" />
+      <PrevNextNav v-if="!smAndDown" :rom-id="rom.id" />
     </div>
 
     <div class="r-v2-det-header__meta">
@@ -222,13 +225,8 @@ html[data-bp~="sm-and-down"] .r-v2-det-header {
   text-align: center;
   padding-top: 4px;
 }
-/* Stack the arrows above the centred title: beside a wrapping title they'd
-   hang off the last line. */
 html[data-bp~="sm-and-down"] .r-v2-det-header__title-row {
-  flex-direction: column-reverse;
-  align-items: center;
   align-self: stretch;
-  gap: 10px;
 }
 html[data-bp~="sm-and-down"] .r-v2-det-header__meta,
 html[data-bp~="sm-and-down"] .r-v2-det-header__tags,

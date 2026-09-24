@@ -70,36 +70,35 @@ const TYPE_ORDER: Record<NonNullable<RowType> | "none", number> = {
 const mappings = computed<Row[]>(() => {
   const rows: Row[] = [];
   const folders = heartbeat.value?.FILESYSTEM?.FS_PLATFORMS || [];
-  const bindings = config.value.PLATFORMS_BINDING || {};
-  const versions = config.value.PLATFORMS_VERSIONS || {};
   const autoSlug: Record<string, string | undefined> = {};
 
   for (const p of supportedPlatforms.value) autoSlug[p.slug] = p.slug;
 
   for (const folder of folders) {
-    if (bindings[folder]) {
-      const slug = bindings[folder];
-      const platform = supportedPlatforms.value.find((p) => p.slug === slug);
+    const binding = configStore.getPlatformBinding(folder);
+    if (binding) {
+      const platform = supportedPlatforms.value.find((p) => p.slug === binding);
       rows.push({
         fsSlug: folder,
-        slug,
-        displayName: platform?.display_name || platform?.name || slug,
+        slug: binding,
+        displayName: platform?.display_name || platform?.name || binding,
         type: "alias",
       });
       continue;
     }
-    if (versions[folder]) {
-      const slug = versions[folder];
-      const platform = supportedPlatforms.value.find((p) => p.slug === slug);
+    const version = configStore.getPlatformVersion(folder);
+    if (version) {
+      const platform = supportedPlatforms.value.find((p) => p.slug === version);
       rows.push({
         fsSlug: folder,
-        slug,
-        displayName: platform?.display_name || platform?.name || slug,
+        slug: version,
+        displayName: platform?.display_name || platform?.name || version,
         type: "variant",
       });
       continue;
     }
-    const auto = autoSlug[folder];
+    // Platform slugs are lowercase; the folder on disk may not be.
+    const auto = autoSlug[folder.toLowerCase()];
     if (auto) {
       const platform = supportedPlatforms.value.find((p) => p.slug === auto);
       rows.push({
@@ -359,18 +358,14 @@ onMounted(async () => {
       row-height="44px"
       @update:sort="onSort"
     >
-      <!-- Help affordance lives next to the "Type" header label — a
-           small `?` icon that opens the mapping-types dialog. Sits
-           where the user is most likely to wonder what alias / variant
-           mean (instead of competing with the search in the toolbar). -->
+      <!-- Next to the "Type" label, where alias / variant raise the question;
+           same info button as the Scan view. -->
       <template #header.type>
         <RBtn
           variant="text"
-          size="x-small"
-          icon="mdi-help-circle-outline"
-          class="r-v2-mappings__help-icon"
+          size="small"
+          icon="mdi-information-outline"
           :aria-label="t('settings.mapping-types')"
-          :title="t('settings.mapping-types')"
           @click="helpOpen = true"
         />
       </template>
@@ -474,21 +469,6 @@ onMounted(async () => {
   flex: 1;
 }
 
-/* Help affordance inside the "Type" column header — a small, muted
-   icon that tints to fg on hover. Negative inline-end margin keeps it
-   visually attached to the label without enlarging the header gap. */
-.r-v2-mappings__help-icon {
-  color: var(--r-color-fg-faint) !important;
-  width: 22px !important;
-  height: 22px !important;
-  min-width: 0 !important;
-  margin-left: 2px !important;
-}
-.r-v2-mappings__help-icon:hover {
-  color: var(--r-color-fg) !important;
-  background: var(--r-color-surface-hover) !important;
-}
-
 .r-v2-mappings__folder {
   font-weight: var(--r-font-weight-medium);
   white-space: nowrap;
@@ -575,7 +555,7 @@ html[data-bp~="xs"]
   margin: 4px 0 0;
   padding: 10px 12px;
   display: inline-flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   border-radius: 8px;
   background: color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent);

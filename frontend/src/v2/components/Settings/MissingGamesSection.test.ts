@@ -1,9 +1,9 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { AxiosError } from "axios";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { SimpleRom } from "@/stores/roms";
+import { serverError } from "@/test-utils/serverError";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import MissingGamesSection from "./MissingGamesSection.vue";
 
@@ -22,12 +22,10 @@ vi.mock("@/services/api/task", () => ({
   default: { runTask, getTaskById },
 }));
 
-// Error messages keep their `error` parameter so the tests can see what
-// reached the snackbar.
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({
-    t: (key: string, params?: { error?: string }) =>
-      params?.error ? `${key}: ${params.error}` : key,
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key}::${JSON.stringify(params)}` : key,
   }),
 }));
 
@@ -73,7 +71,7 @@ describe("MissingGamesSection", () => {
     setActivePinia(createPinia());
     getRoms.mockReset();
     getRoms.mockResolvedValue({
-      data: { total: 0, items: [], char_index: {}, rom_id_index: [] },
+      data: { total: 1, items: [], char_index: {}, rom_id_index: [] },
     });
     runTask.mockReset();
     runTask.mockResolvedValue({ data: { task_id: "job-1" } });
@@ -118,21 +116,7 @@ describe("MissingGamesSection", () => {
 
   it("tells why the server refused the cleanup", async () => {
     confirm.mockResolvedValue(true);
-    runTask.mockRejectedValue(
-      new AxiosError(
-        "Request failed with status code 503",
-        "ERR_BAD_RESPONSE",
-        undefined,
-        undefined,
-        {
-          status: 503,
-          statusText: "Service Unavailable",
-          data: { detail: "No task worker is running" },
-          headers: {},
-          config: {} as never,
-        },
-      ),
-    );
+    runTask.mockRejectedValue(serverError("No task worker is listening"));
     const wrapper = mountSection();
     await flushPromises();
 
@@ -140,7 +124,7 @@ describe("MissingGamesSection", () => {
     await flushPromises();
 
     expect(snackbarError).toHaveBeenCalledWith(
-      "settings.couldnt-queue-cleanup: No task worker is running",
+      'settings.couldnt-queue-cleanup::{"error":"No task worker is listening"}',
     );
   });
 

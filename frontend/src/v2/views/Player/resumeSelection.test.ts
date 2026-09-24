@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SaveSchema, StateSchema } from "@/__generated__";
+import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import {
   defaultResumeSelection,
   newerThanPick,
@@ -7,9 +7,10 @@ import {
   pickState,
 } from "./resumeSelection";
 
-const save = (id: number, slot: string | null = null) =>
-  ({ id, file_name: `${id}.srm`, slot }) as SaveSchema;
-const state = (id: number) => ({ id, file_name: `${id}.state` }) as StateSchema;
+const save = (id: number, updated_at = "", slot: string | null = null) =>
+  saveFixture({ id, file_name: `${id}.srm`, updated_at, slot });
+const state = (id: number, updated_at = "") =>
+  stateFixture({ id, file_name: `${id}.state`, updated_at });
 
 describe("defaultResumeSelection", () => {
   it("starts fresh when there is nothing to resume from", () => {
@@ -17,19 +18,51 @@ describe("defaultResumeSelection", () => {
   });
 
   it("boots from the newest save when no state is compatible", () => {
-    expect(defaultResumeSelection([save(1), save(2)], [])).toEqual({
-      save: save(1),
+    const saves = [
+      save(1, "2026-09-01T10:00:00Z"),
+      save(2, "2026-09-02T10:00:00Z"),
+    ];
+
+    expect(defaultResumeSelection(saves, [])).toEqual({
+      save: saves[1],
       state: null,
     });
   });
 
-  it("arms the newest state and binds no save", () => {
-    const selection = defaultResumeSelection(
-      [save(1, "main"), save(2)],
-      [state(9), state(8)],
-    );
+  it("arms the newest state when it is the latest progress", () => {
+    const saves = [
+      save(1, "2026-09-03T10:00:00Z", "main"),
+      save(2, "2026-09-01T10:00:00Z"),
+    ];
+    const states = [
+      state(9, "2026-09-02T10:00:00Z"),
+      state(8, "2026-09-04T10:00:00Z"),
+    ];
 
-    expect(selection).toEqual({ save: null, state: state(9) });
+    expect(defaultResumeSelection(saves, states)).toEqual({
+      save: null,
+      state: states[1],
+    });
+  });
+
+  it("boots from the save when it postdates every compatible state", () => {
+    const saves = [save(1, "2026-09-05T10:00:00Z", "main")];
+    const states = [state(9, "2026-09-04T10:00:00Z")];
+
+    expect(defaultResumeSelection(saves, states)).toEqual({
+      save: saves[0],
+      state: null,
+    });
+  });
+
+  it("lets the state win a tie, since it restores the SRAM too", () => {
+    const saves = [save(1, "2026-09-05T10:00:00Z")];
+    const states = [state(9, "2026-09-05T10:00:00Z")];
+
+    expect(defaultResumeSelection(saves, states)).toEqual({
+      save: null,
+      state: states[0],
+    });
   });
 });
 
@@ -47,9 +80,9 @@ describe("pickState", () => {
 
 describe("newerThanPick", () => {
   const at = (id: number, updated_at: string) =>
-    ({ id, updated_at }) as SaveSchema;
+    saveFixture({ id, updated_at });
   const stateAt = (id: number, updated_at: string) =>
-    ({ id, updated_at }) as StateSchema;
+    stateFixture({ id, updated_at });
 
   it("points at the newest asset of either kind", () => {
     const saves = [at(1, "2026-09-03T10:00:00Z")];

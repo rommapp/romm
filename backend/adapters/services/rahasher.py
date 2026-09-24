@@ -9,6 +9,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.archives import extract_largest_archive_member
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
+from utils.m3u import first_playlist_entry
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.psp_hasher import calculate_psp_ra_hash, is_psp_native_hash_file
 from utils.rvz_hasher import (
@@ -45,7 +46,7 @@ def _pick_ra_file(folder: Path) -> Path | None:
         return None
     try:
         files = [f for f in folder.iterdir() if f.is_file()]
-    except (OSError, PermissionError):
+    except OSError, PermissionError:
         return None
     if not files:
         return None
@@ -53,7 +54,7 @@ def _pick_ra_file(folder: Path) -> Path | None:
     def _size(p: Path) -> int:
         try:
             return p.stat().st_size
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             return -1
 
     for ext in RA_DISC_DESCRIPTOR_EXTENSIONS:
@@ -64,32 +65,6 @@ def _pick_ra_file(folder: Path) -> Path | None:
 
     picked = max(files, key=_size)
     return picked if _size(picked) >= 0 else None
-
-
-def _first_m3u_entry(m3u_path: Path) -> Path | None:
-    """Resolve an ``.m3u`` playlist to the first disc file it points at.
-
-    Mirrors RAHasher's own playlist handling (rcheevos hashes the first
-    entry): the first non-empty, non-comment line is the disc path, taken
-    relative to the playlist's folder unless absolute. Returns ``None`` when
-    the playlist can't be read or that entry doesn't exist on disk.
-    """
-    try:
-        lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
-    except OSError:
-        return None
-    for line in lines:
-        entry = line.strip()
-        if not entry or entry.startswith("#"):
-            continue
-        entry_path = Path(entry)
-        if not entry_path.is_absolute():
-            entry_path = m3u_path.parent / entry
-        try:
-            return entry_path if entry_path.is_file() else None
-        except OSError:
-            return None
-    return None
 
 
 # Platforms whose hash algorithm requires an on-disk disc image
@@ -258,7 +233,7 @@ class RAHasherService:
         # resolve the playlist to that disc so the native-hash dispatch below
         # sees it (issue #3797).
         if file_path.lower().endswith(".m3u"):
-            entry = await asyncio.to_thread(_first_m3u_entry, Path(file_path))
+            entry = await asyncio.to_thread(first_playlist_entry, Path(file_path))
             if entry is not None:
                 entry_str = str(entry)
                 is_native_entry = (

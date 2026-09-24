@@ -16,7 +16,13 @@
 // between curated/computed and dynamic-grouping collections is obvious
 // at a glance. The kind filter (toolbar slider) narrows this further to
 // one group when the user wants to focus.
-import { RDivider, RLetterHeading, RSkeletonBlock, RIcon } from "@v2/lib";
+import {
+  RDivider,
+  REmptyState,
+  RLetterHeading,
+  RSkeletonBlock,
+  RIcon,
+} from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -34,11 +40,11 @@ import type { CollectionListSortKey } from "@/v2/components/Collections/collecti
 import GalleryToolbar, {
   type SegmentFilter,
 } from "@/v2/components/Gallery/GalleryToolbar.vue";
-import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import IndexShell from "@/v2/components/shared/IndexShell.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
@@ -373,6 +379,10 @@ const sortedTiles = computed<CollectionTileEntry[]>(() =>
 );
 
 const totalCount = computed(() => tiles.value.length);
+const phase = useLoadingPhase(
+  () => isLoading.value && !totalCount.value,
+  () => !totalCount.value,
+);
 const noResults = computed(
   () => !isLoading.value && totalCount.value > 0 && filtered.value.length === 0,
 );
@@ -530,7 +540,7 @@ const showListHeader = computed(
     </template>
 
     <div ref="gridRoot">
-      <div v-if="isLoading && !totalCount" class="r-v2-cidx__grid">
+      <div v-if="phase === 'skeleton'" class="r-v2-cidx__grid">
         <RSkeletonBlock
           v-for="n in 12"
           :key="`sk-${n}`"
@@ -540,15 +550,16 @@ const showListHeader = computed(
         />
       </div>
 
-      <EmptyState
-        v-else-if="!totalCount"
-        :message="t('collection.no-collections-yet-detail')"
+      <REmptyState
+        v-else-if="phase === 'empty'"
+        icon="mdi-bookmark-outline"
+        :title="t('collection.no-collections-yet-detail')"
       />
 
-      <EmptyState
+      <REmptyState
         v-else-if="emptyState"
         :icon="emptyState.icon"
-        :message="emptyState.message"
+        :title="emptyState.message"
       />
 
       <div v-else-if="layout === 'list'" class="r-v2-cidx__list">

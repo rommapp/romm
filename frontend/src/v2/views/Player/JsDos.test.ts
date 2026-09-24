@@ -15,9 +15,11 @@ import JsDos from "./JsDos.vue";
 const mocks = vi.hoisted(() => ({
   flushPlaySession: vi.fn(),
   getRom: vi.fn(),
+  loadRuntime: vi.fn(),
+  locationReload: vi.fn(),
   locationReplace: vi.fn(),
   playSessionStart: vi.fn(),
-  push: vi.fn(),
+  routerReplace: vi.fn(() => Promise.resolve()),
   confirm: vi.fn(),
   galleryRom: null as Record<string, unknown> | null,
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
@@ -36,7 +38,7 @@ vi.mock("vue-router", () => ({
     mocks.routeLeaveGuard = guard;
   },
   useRoute: () => ({ params: { rom: "1" } }),
-  useRouter: () => ({ push: mocks.push }),
+  useRouter: () => ({ replace: mocks.routerReplace }),
 }));
 
 vi.mock("@/plugins/router", () => ({
@@ -102,6 +104,12 @@ vi.mock("@/v2/stores/galleryRoms", () => ({
   default: () => ({ getRomById: () => mocks.galleryRom }),
 }));
 
+// The runtime is a document-level singleton with its own suite; here it only
+// has to say which base the emulator payloads follow.
+vi.mock("./jsDosRuntime", () => ({
+  loadJsDosRuntime: mocks.loadRuntime,
+}));
+
 const rom = {
   id: 1,
   name: "Windows Game",
@@ -111,16 +119,35 @@ const rom = {
   rom_user: { status: null },
 };
 
+// The runtime is mocked, so any base will do as long as the payloads follow it.
+const LOCAL_BASE = "/assets/jsdos";
+const CDN_BASE = "https://cdn.example/js-dos/dist";
+
 let originalLocation: Location;
+
+// The launch needs SharedArrayBuffer for the threaded DOSBox-X build, and a
+// document that has it is one the reload no longer has to produce.
+function setIsolated(isolated: boolean) {
+  Object.defineProperty(window, "crossOriginIsolated", {
+    configurable: true,
+    value: isolated,
+  });
+  Object.defineProperty(window, "SharedArrayBuffer", {
+    configurable: true,
+    value: isolated ? ArrayBuffer : undefined,
+  });
+}
 
 beforeAll(() => {
   originalLocation = window.location;
   Object.defineProperty(window, "location", {
     configurable: true,
-    value: { ...originalLocation, replace: mocks.locationReplace },
+    value: {
+      ...originalLocation,
+      reload: mocks.locationReload,
+      replace: mocks.locationReplace,
+    },
   });
-  vi.spyOn(document.body, "appendChild").mockImplementation((node) => node);
-  vi.spyOn(document.head, "appendChild").mockImplementation((node) => node);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
 
@@ -133,34 +160,11 @@ afterAll(() => {
   });
 });
 
-function stubRuntimeProbe(contentType: string, ok = true) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({
-      ok,
-      headers: { get: () => contentType },
-      clone: () => ({ text: async () => "" }),
-    }),
-  );
-}
-
-function injectedUrls(): string[] {
-  return [document.head.appendChild, document.body.appendChild].flatMap((spy) =>
-    vi
-      .mocked(spy)
-      .mock.calls.map(
-        ([node]) =>
-          (node as Element).getAttribute?.("src") ??
-          (node as Element).getAttribute?.("href") ??
-          "",
-      )
-      .filter(Boolean),
-  );
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
-  stubRuntimeProbe("text/javascript");
+  sessionStorage.clear();
+  setIsolated(true);
+  mocks.loadRuntime.mockResolvedValue(LOCAL_BASE);
   mocks.galleryRom = null;
   mocks.routeLeaveGuard = null;
   mocks.userId = 7;
@@ -174,6 +178,8 @@ function mountView(): VueWrapper {
     global: {
       stubs: {
         RBtn: {
+          name: "RBtn",
+          props: ["to"],
           emits: ["click"],
           template: "<button @click=\"$emit('click')\"><slot /></button>",
         },
@@ -185,14 +191,16 @@ function mountView(): VueWrapper {
   });
 }
 
+// The runtime script defines `Dos` once it has loaded, so the stub lands
+// after the mount has injected it.
 async function mountPlayer(handle: JsDosProps): Promise<VueWrapper> {
+  const wrapper = mountView();
+  await flushPromises();
   window.Dos = vi.fn(
     (_element: HTMLDivElement, _options: Partial<JsDosOptions>) => handle,
   );
-  const wrapper = mountView();
-  await flushPromises();
   await wrapper.get(".r-v2-player__play").trigger("click");
-  await nextTick();
+  await flushPromises();
   return wrapper;
 }
 
@@ -205,48 +213,101 @@ function makeHandle(saveResult = true) {
 }
 
 describe("JsDos runtime loading", () => {
-  const CDN = "https://cdn.jsdelivr.net/npm/js-dos@8.4.1/dist";
-
-  it("serves the runtime from the local assets when they are present", async () => {
+  it("starts loading the runtime alongside the ROM payload", async () => {
     mountView();
     await flushPromises();
 
-    expect(injectedUrls()).toEqual(
-      expect.arrayContaining([
-        "/assets/jsdos/js-dos.css",
-        "/assets/jsdos/js-dos.js",
-      ]),
-    );
-  });
-
-  // Slim images and the Vite dev server ship no local copy, and both answer a
-  // missing asset with 200 + index.html rather than a 404.
-  it("falls back to the pinned CDN when the local path serves index.html", async () => {
-    stubRuntimeProbe("text/html");
-    mountView();
-    await flushPromises();
-
-    expect(injectedUrls()).toEqual(
-      expect.arrayContaining([`${CDN}/js-dos.css`, `${CDN}/js-dos.js`]),
-    );
+    expect(mocks.loadRuntime).toHaveBeenCalled();
   });
 
   it("points the emulator payloads at whichever base served the runtime", async () => {
-    stubRuntimeProbe("text/html");
+    mocks.loadRuntime.mockResolvedValue(CDN_BASE);
     const wrapper = await mountPlayer(makeHandle());
 
     const options = vi.mocked(window.Dos!).mock.calls[0]![1];
-    expect(options.pathPrefix).toBe(`${CDN}/emulators/`);
+    expect(options.pathPrefix).toBe(`${CDN_BASE}/emulators/`);
+    wrapper.unmount();
+  });
+
+  it("reports a runtime that never arrived", async () => {
+    mocks.loadRuntime.mockRejectedValue(new Error("network"));
+    const wrapper = mountView();
+    await flushPromises();
+
+    await wrapper.get(".r-v2-player__play").trigger("click");
+    await flushPromises();
+
+    expect(mocks.snackbarError).toHaveBeenCalledWith(
+      "play.stream-error-generic",
+    );
+    expect(mocks.setPlaying).not.toHaveBeenCalledWith(true);
+    wrapper.unmount();
+  });
+});
+
+// Threaded DOSBox-X needs SharedArrayBuffer, which only a cross-origin
+// isolated document exposes, and an SPA navigation reaches the view without
+// one. See useIsolatedLaunch.
+describe("JsDos isolated launch", () => {
+  function setSecureContext(secure: boolean) {
+    Object.defineProperty(window, "isSecureContext", {
+      configurable: true,
+      value: secure,
+    });
+  }
+
+  it("reloads into an isolated document instead of booting without one", async () => {
+    setIsolated(false);
+    setSecureContext(true);
+    const wrapper = mountView();
+    await flushPromises();
+    window.Dos = vi.fn();
+
+    await wrapper.get(".r-v2-player__play").trigger("click");
+    await flushPromises();
+
+    expect(window.Dos).not.toHaveBeenCalled();
+    expect(mocks.locationReload).toHaveBeenCalledOnce();
+    expect(sessionStorage.getItem("player:1:jsdos:launch")).toBe("true");
+    wrapper.unmount();
+  });
+
+  it("boots straight away on the other side of the reload", async () => {
+    sessionStorage.setItem("player:1:jsdos:launch", "true");
+    const handle = makeHandle();
+    const factory = vi.fn(() => handle);
+    window.Dos = factory;
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(factory).toHaveBeenCalledOnce();
+    expect(mocks.playSessionStart).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+
+  it("reports the context when no reload can produce one", async () => {
+    setIsolated(false);
+    setSecureContext(false);
+    const wrapper = mountView();
+    await flushPromises();
+    window.Dos = vi.fn();
+
+    await wrapper.get(".r-v2-player__play").trigger("click");
+    await flushPromises();
+
+    expect(mocks.locationReload).not.toHaveBeenCalled();
+    expect(mocks.snackbarError).toHaveBeenCalledWith("play.https-required");
     wrapper.unmount();
   });
 });
 
 describe("JsDos player exit", () => {
-  it("reports when the runtime has not loaded", async () => {
+  it("reports when the runtime defined no factory", async () => {
     const wrapper = mountView();
     await flushPromises();
 
     await wrapper.get(".r-v2-player__play").trigger("click");
+    await flushPromises();
 
     expect(mocks.snackbarError).toHaveBeenCalledWith(
       "play.stream-error-generic",
@@ -261,22 +322,17 @@ describe("JsDos player exit", () => {
     const wrapper = mountView();
     await nextTick();
 
-    const buttons = wrapper.findAll("button");
-    await buttons[1]!.trigger("click");
-    await buttons[2]!.trigger("click");
+    const [, toRom, toPlatform] = wrapper.findAllComponents({ name: "RBtn" });
 
-    expect(mocks.push).toHaveBeenNthCalledWith(1, {
-      name: "rom",
-      params: { rom: 1 },
-    });
-    expect(mocks.push).toHaveBeenNthCalledWith(2, {
+    expect(toRom!.props("to")).toEqual({ name: "rom", params: { rom: 1 } });
+    expect(toPlatform!.props("to")).toEqual({
       name: "platform",
       params: { platform: 2 },
     });
     wrapper.unmount();
   });
 
-  it("hard-navigates after saving without awaiting stop", async () => {
+  it("replaces the document after saving without awaiting stop", async () => {
     const handle = makeHandle();
     const wrapper = await mountPlayer(handle);
 
@@ -286,10 +342,50 @@ describe("JsDos player exit", () => {
     expect(handle.save).toHaveBeenCalledOnce();
     expect(handle.stop).toHaveBeenCalledOnce();
     expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.routerReplace).not.toHaveBeenCalled();
     expect(mocks.flushPlaySession).toHaveBeenCalledOnce();
     expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
     wrapper.unmount();
     expect(handle.stop).toHaveBeenCalledOnce();
+  });
+
+  // A player document opened directly is cross-origin isolated, and the rest
+  // of the app cannot embed third-party images under that policy.
+  it("replaces an isolated document after saving", async () => {
+    setIsolated(true);
+    const handle = makeHandle();
+    const wrapper = await mountPlayer(handle);
+
+    await wrapper.get(".r-v2-player__quit").trigger("click");
+    await flushPromises();
+
+    expect(handle.save).toHaveBeenCalledOnce();
+    expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
+    expect(mocks.routerReplace).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("lets a departure from the launch view through", async () => {
+    setIsolated(false);
+    const wrapper = mountView();
+    await flushPromises();
+
+    await expect(
+      mocks.routeLeaveGuard?.({ fullPath: "/platform/2" }),
+    ).resolves.toBe(true);
+    expect(mocks.locationReplace).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("replaces an isolated document on departure from the launch view", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+
+    await expect(
+      mocks.routeLeaveGuard?.({ fullPath: "/platform/2" }),
+    ).resolves.toBe(false);
+    expect(mocks.locationReplace).toHaveBeenCalledWith("/platform/2");
+    wrapper.unmount();
   });
 
   it("keeps the player open when the final save is not confirmed", async () => {
@@ -303,6 +399,7 @@ describe("JsDos player exit", () => {
       "play.stream-save-unconfirmed",
     );
     expect(handle.stop).not.toHaveBeenCalled();
+    expect(mocks.routerReplace).not.toHaveBeenCalled();
     expect(mocks.locationReplace).not.toHaveBeenCalled();
     expect(mocks.flushPlaySession).not.toHaveBeenCalled();
     expect(mocks.setPlaying).not.toHaveBeenCalledWith(false);
@@ -384,7 +481,7 @@ describe("JsDos player exit", () => {
     wrapper.unmount();
   });
 
-  it("converts route departure into a saved hard navigation", async () => {
+  it("saves before following a route departure", async () => {
     const handle = makeHandle();
     const wrapper = await mountPlayer(handle);
 

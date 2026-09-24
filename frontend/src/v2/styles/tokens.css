@@ -125,6 +125,7 @@
   --r-focus-ring-width: 2px;
   --r-focus-ring-offset: 3px;
   --r-nav-h: 58px;
+  --r-nav-pill-h: 38px;
   --r-bottom-nav-h: 58px;
   --r-bottom-nav-max-w: 480px;
   --r-touch-target: 44px;
@@ -155,9 +156,10 @@
   --r-coll-cover-w-xs: 150px;
   --r-coll-cover-h-xs: 202px;
   --r-alpha-strip-w: 24px;
-  --r-alpha-strip-w-xs: 30px;
   --r-list-row-h: 80px;
   --r-list-header-h: 40px;
+  --r-list-select-w: 36px;
+  --r-list-row-detail-h: 226px;
   --r-z-drawer: 2300;
   --r-z-dialog: 2400;
   --r-z-menu: 2500;
@@ -174,6 +176,7 @@ html[data-input="pad"] .r-v2 {
 
 /* Dark surface palette — translucent white over the near-black base. */
 .r-v2.r-v2-dark {
+  color-scheme: dark;
   --r-color-bg: #07070f;
   --r-color-bg-elevated: rgba(255, 255, 255, 0.045);
   --r-color-surface: rgba(255, 255, 255, 0.07);
@@ -202,6 +205,7 @@ html[data-input="pad"] .r-v2 {
 
 /* Light surface palette — translucent black over the off-white base. */
 .r-v2.r-v2-light {
+  color-scheme: light;
   --r-color-bg: #f5f5fa;
   --r-color-bg-elevated: rgba(0, 0, 0, 0.025);
   --r-color-surface: rgba(0, 0, 0, 0.035);
@@ -211,6 +215,7 @@ html[data-input="pad"] .r-v2 {
   --r-color-fg-secondary: rgba(17, 17, 23, 0.82);
   --r-color-fg-muted: rgba(17, 17, 23, 0.74);
   --r-color-fg-faint: rgba(17, 17, 23, 0.58);
+  --r-color-fg-faint-hard: rgba(17, 17, 23, 0.2);
   --r-color-border: rgba(0, 0, 0, 0.1);
   --r-color-border-strong: rgba(0, 0, 0, 0.22);
   --r-color-focus: rgba(0, 0, 0, 0.45);

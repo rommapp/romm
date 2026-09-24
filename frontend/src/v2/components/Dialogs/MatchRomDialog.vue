@@ -31,6 +31,7 @@ import type {
   MatchVariant,
 } from "@/v2/components/MatchRom/types";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -206,8 +207,13 @@ const openHandler = (romToSearch: SimpleRom) => {
 emitter?.on("showMatchRomDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("showMatchRomDialog", openHandler));
 
+// Only the latest search of the open session may apply its response.
+let searchSeq = 0;
+const alive = useIsAlive();
+
 async function searchRom() {
   if (!rom.value || searching.value) return;
+  const seq = ++searchSeq;
 
   const inputElement = document.getElementById("r-v2-match-search");
   inputElement?.blur();
@@ -219,15 +225,19 @@ async function searchRom() {
       searchTerm: searchText.value,
       searchBy: searchBy.value,
     });
+    if (!alive.value || seq !== searchSeq) return;
     matchedRoms.value = response.data;
   } catch (error: unknown) {
+    if (!alive.value || seq !== searchSeq) return;
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(axiosErr.response?.data?.detail ?? t("rom.search-failed"), {
       icon: "mdi-close-circle",
     });
   } finally {
-    searching.value = false;
-    searched.value = true;
+    if (seq === searchSeq) {
+      searching.value = false;
+      searched.value = true;
+    }
   }
 }
 
@@ -286,6 +296,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
 }
 
 function closeDialog() {
+  searchSeq++;
   show.value = false;
   searching.value = false;
   searched.value = false;
@@ -296,12 +307,15 @@ function closeDialog() {
 <template>
   <RDialog
     v-model="show"
+    class="r-v2-match-dialog"
     icon="mdi-search-web"
     scroll-content
     full-height-on-mobile
     :width="lgAndUp ? 880 : '95vw'"
     height="88vh"
     :persistent="matching"
+    cancelable
+    :cancel-disabled="matching"
     @close="closeDialog"
   >
     <template #header>
@@ -312,15 +326,23 @@ function closeDialog() {
         <span v-if="rom" class="r-v2-match__header-file" :title="rom.fs_name">
           {{ rom.fs_name }}
         </span>
+        <!-- Layout switcher — grid vs list, mirroring the gallery's own
+             toggle. It lives up here because the header is the one row that
+             never reflows as the filters or the search state change. -->
+        <RSliderBtnGroup
+          :model-value="variant"
+          :items="variantItems"
+          variant="segmented"
+          :aria-label="t('rom.match-flow-variant')"
+          class="r-v2-match__variant"
+          @update:model-value="variant = $event"
+        />
       </div>
     </template>
 
     <template #toolbar>
       <div class="r-v2-match__toolbar">
-        <div class="r-v2-match__filters">
-          <span class="r-v2-match__filters-label">
-            {{ t("common.filter") }}
-          </span>
+        <div class="r-v2-match__filters r-v2-scroll-hidden">
           <MatchRomProviderFilter
             v-for="f in sourceFilters"
             :key="f.name"
@@ -331,20 +353,6 @@ function closeDialog() {
             :active="f.active"
             @toggle="toggleSourceFilter(f.name)"
           />
-
-          <!-- Layout switcher — grid vs list. Mirrors the gallery's own
-               toggle. Pushed right and always present, so the provider chips
-               stay flush left and the row never reflows on search (the
-               results count now lives in the footer). -->
-          <div class="r-v2-match__filters-end">
-            <RSliderBtnGroup
-              :model-value="variant"
-              :items="variantItems"
-              variant="segmented"
-              :aria-label="t('rom.match-flow-variant')"
-              @update:model-value="variant = $event"
-            />
-          </div>
         </div>
 
         <div class="r-v2-match__search-row">
@@ -392,38 +400,32 @@ function closeDialog() {
     </template>
 
     <template #content>
-      <div class="r-v2-match__body">
-        <component
-          :is="variantComponent"
-          :rom="rom"
-          :results="filteredMatchedRoms"
-          :searching="searching"
-          :searched="searched"
-          @confirm="onBodyConfirm"
-        />
-        <!-- Saving overlay — covers the body with a centered spinner so
-             the user sees the update is in flight. The dialog stays
-             modal (no scrim click / Escape) until closeDialog runs in
-             the `finally` of `onBodyConfirm`. -->
-        <div
-          v-if="matching"
-          class="r-v2-match__saving"
-          role="status"
-          aria-live="polite"
-        >
-          <RSpinner :size="36" />
-          <span class="r-v2-match__saving-label">
-            {{ t("rom.updating") }}
-          </span>
-        </div>
+      <component
+        :is="variantComponent"
+        :rom="rom"
+        :results="filteredMatchedRoms"
+        :searching="searching"
+        :searched="searched"
+        @confirm="onBodyConfirm"
+      />
+      <!-- Saving overlay: blurs the whole dialog body, padding included,
+           under a centered spinner so the user sees the update is in
+           flight. The dialog stays modal (no scrim click / Escape) until
+           closeDialog runs in the `finally` of `onBodyConfirm`. -->
+      <div
+        v-if="matching"
+        class="r-v2-match__saving"
+        role="status"
+        aria-live="polite"
+      >
+        <RSpinner :size="36" />
+        <span class="r-v2-match__saving-label">
+          {{ t("rom.updating") }}
+        </span>
       </div>
     </template>
 
     <template #footer>
-      <RBtn variant="text" :disabled="matching" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <div class="r-v2-match__footer-spacer" />
       <!-- Results count lives here (not the filter row) so appearing after a
            search never reflows the toolbar above. -->
       <div v-if="searched && !searching" class="r-v2-match__results">
@@ -441,9 +443,13 @@ function closeDialog() {
    single line and keeps the full name in the hover title. */
 .r-v2-match__header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   min-width: 0;
+}
+
+.r-v2-match__variant {
+  flex-shrink: 0;
 }
 .r-v2-match__header-file {
   flex: 1;
@@ -456,22 +462,8 @@ function closeDialog() {
   color: var(--r-color-fg-muted);
 }
 
-/* Saving-overlay anchor — has to pass the dialog body's column layout
-   through (`flex: 1`, `min-height: 0`, `display: flex; flex-direction:
-   column`) so the variant inside still sees the same shape it would
-   have as a direct child of `.r-dialog__body`. Without this, grid /
-   list bodies that rely on `flex: 1` to fill the dialog collapse to
-   their content size — the grid's secondary detail panel anchors to
-   the wrong rect (it's `position: absolute` against `.match-grid`),
-   and the list's two columns lose their internal scroll. */
-.r-v2-match__body {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
+/* Anchored to `.r-dialog__body` (made relative below) so the blur reaches
+   the body's padding edges instead of stopping at the variant's box. */
 .r-v2-match__saving {
   position: absolute;
   inset: 0;
@@ -480,7 +472,7 @@ function closeDialog() {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: color-mix(in srgb, var(--r-color-bg) 65%, transparent);
+  background: color-mix(in srgb, var(--r-color-bg) 30%, transparent);
   backdrop-filter: blur(4px);
   color: var(--r-color-fg);
   z-index: 1;
@@ -498,28 +490,17 @@ function closeDialog() {
   width: 100%;
 }
 
+/* One scrolling row of provider chips: on a phone the touch-sized chips fill
+   the width, and more providers extend the scroll rather than a second row. */
 .r-v2-match__filters {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
-
-.r-v2-match__filters-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--r-color-fg-muted);
-  margin-right: 4px;
-}
-
-.r-v2-match__filters-end {
-  /* Pushes the variant switcher to the right of the filter row; always
-     present, so the switcher never slides as the search state changes. */
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.r-v2-match__filters > * {
+  flex-shrink: 0;
 }
 
 .r-v2-match__results {
@@ -539,10 +520,6 @@ function closeDialog() {
   color: var(--r-color-brand-primary);
   border-radius: var(--r-radius-pill);
   font-weight: var(--r-font-weight-semibold);
-}
-
-.r-v2-match__footer-spacer {
-  flex: 1 1 auto;
 }
 
 .r-v2-match__search-row {
@@ -568,5 +545,11 @@ html[data-bp~="xs"] .r-v2-match__search-row {
 }
 html[data-bp~="xs"] .r-v2-match__search-btn {
   grid-column: 1 / -1;
+}
+</style>
+
+<style>
+.r-v2-match-dialog .r-dialog__body {
+  position: relative;
 }
 </style>

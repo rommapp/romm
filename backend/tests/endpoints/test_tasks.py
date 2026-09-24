@@ -5,29 +5,10 @@ import pytest
 from fastapi import status
 from rq.exceptions import NoSuchJobError
 
-from handler.redis_handler import low_prio_queue, redis_client, scan_queue
+from handler.redis_handler import low_prio_queue, redis_client
 from tasks.manual.cleanup_missing_firmware import CleanupMissingFirmwareStats
 from tasks.manual.cleanup_missing_roms import CleanupMissingRomsStats
 from tasks.tasks import Task, TaskType
-
-
-def _live_worker() -> Mock:
-    worker = Mock(death_date=None)
-    worker.get_state.return_value = "idle"
-    return worker
-
-
-@pytest.fixture(autouse=True)
-def task_queue_worker():
-    """A live worker on the task queue, so a run is accepted unless a test
-    takes it away."""
-    worker = _live_worker()
-
-    def workers_for(connection=None, queue=None, **_kwargs):
-        return [worker] if queue is low_prio_queue else []
-
-    with patch("endpoints.tasks.Worker.all", side_effect=workers_for) as mocked:
-        yield mocked
 
 
 def _job_with_meta(meta: dict[str, Any]) -> Mock:
@@ -42,6 +23,13 @@ def _job_with_meta(meta: dict[str, Any]) -> Mock:
     for attr in ("created_at", "enqueued_at", "started_at", "ended_at"):
         setattr(job, attr, None)
     return job
+
+
+@pytest.fixture(autouse=True)
+def task_worker_listening():
+    """A live task worker, so a run is accepted unless a test takes it away."""
+    with patch("endpoints.tasks.has_live_worker", return_value=True) as mocked:
+        yield mocked
 
 
 @pytest.fixture
@@ -257,28 +245,21 @@ class TestRunSingleTask:
     """Test suite for the run_single_task endpoint"""
 
     @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
-    @patch(
-        "endpoints.tasks.RUNNABLE_TASKS",
-        {
-            "test_task": Mock(
-                spec=Task,
-                task_type=TaskType.CLEANUP,
-                title="Test Task",
-                description="Test Description",
-                enabled=True,
-                manual_run=True,
-                can_run_manually=True,
-                timeout=300,
-                run=Mock(),
-            ),
-        },
-    )
-    def test_run_single_task_success(self, mock_enqueue, client, access_token):
+    def test_run_single_task_success(
+        self,
+        mock_enqueue,
+        client,
+        access_token,
+        admin_user,
+        mock_task,
+        task_worker_listening,
+    ):
         """Test successful running of a single task"""
-        response = client.post(
-            "/api/tasks/run/test_task",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
+        with patch("endpoints.tasks.RUNNABLE_TASKS", {"test_task": mock_task}):
+            response = client.post(
+                "/api/tasks/run/test_task",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -290,27 +271,21 @@ class TestRunSingleTask:
         assert "created_at" in data
         assert "enqueued_at" in data
 
-        mock_enqueue.assert_called_once()
+        # The worker check and the enqueue must name the same queue.
+        task_worker_listening.assert_called_once_with(low_prio_queue)
+        mock_enqueue.assert_called_once_with(
+            "test_task",
+            queue=low_prio_queue,
+            task_kwargs={},
+            run_by_user_id=admin_user.id,
+        )
 
     @patch("endpoints.tasks.enqueue_task")
-    @patch(
-        "endpoints.tasks.RUNNABLE_TASKS",
-        {
-            "test_task": Mock(
-                spec=Task,
-                task_type=TaskType.CLEANUP,
-                title="Test Task",
-                enabled=True,
-                manual_run=True,
-                can_run_manually=True,
-                run=Mock(),
-            ),
-        },
-    )
     def test_run_single_task_without_a_worker_is_refused(
-        self, mock_enqueue, client, access_token
+        self, mock_enqueue, client, access_token, mock_task, task_worker_listening
     ):
-        with patch("endpoints.tasks.Worker.all", return_value=[]):
+        task_worker_listening.return_value = False
+        with patch("endpoints.tasks.RUNNABLE_TASKS", {"test_task": mock_task}):
             response = client.post(
                 "/api/tasks/run/test_task",
                 headers={"Authorization": f"Bearer {access_token}"},
@@ -318,48 +293,6 @@ class TestRunSingleTask:
 
         assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         assert "worker" in response.json()["detail"]
-        mock_enqueue.assert_not_called()
-
-    @pytest.mark.parametrize(
-        "workers_for",
-        [
-            # A scan worker does not serve the task queue.
-            lambda connection=None, queue=None, **_: (
-                [_live_worker()] if queue is scan_queue else []
-            ),
-            # One that announced its death or was suspended does not count.
-            lambda connection=None, queue=None, **_: [Mock(death_date="gone")],
-            lambda connection=None, queue=None, **_: [
-                Mock(death_date=None, **{"get_state.return_value": "suspended"})
-            ],
-        ],
-        ids=["scan-worker-only", "dead-worker", "suspended-worker"],
-    )
-    @patch("endpoints.tasks.enqueue_task")
-    @patch(
-        "endpoints.tasks.RUNNABLE_TASKS",
-        {
-            "test_task": Mock(
-                spec=Task,
-                task_type=TaskType.CLEANUP,
-                title="Test Task",
-                enabled=True,
-                manual_run=True,
-                can_run_manually=True,
-                run=Mock(),
-            ),
-        },
-    )
-    def test_only_a_live_worker_on_the_task_queue_counts(
-        self, mock_enqueue, client, access_token, workers_for
-    ):
-        with patch("endpoints.tasks.Worker.all", side_effect=workers_for):
-            response = client.post(
-                "/api/tasks/run/test_task",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-
-        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         mock_enqueue.assert_not_called()
 
     @patch("endpoints.tasks.RUNNABLE_TASKS", {})
@@ -484,29 +417,46 @@ class TestGetTaskById:
     def test_a_finished_cleanup_reports_its_stats(
         self, mock_job_fetch, client, access_token, stats
     ):
-        mock_job = Mock()
-        for field in ("enqueued_at", "created_at", "started_at", "ended_at"):
-            setattr(mock_job, field, Mock())
-            getattr(mock_job, field).isoformat.return_value = "2023-01-01T00:00:00"
-        mock_job.get_meta.return_value = {
-            "task_key": "cleanup_missing_roms",
-            "task_type": TaskType.CLEANUP,
-            "cleanup_stats": stats.to_dict(),
-        }
-        mock_job.func_name = "tasks.tasks.run_task_by_name"
-        mock_job.kwargs = {"name": "cleanup_missing_roms"}
-        mock_job.get_status.return_value = "finished"
-        mock_job.id = "cleanup-job"
-        mock_job.result = stats.to_dict()
-        mock_job_fetch.return_value = mock_job
+        mock_job_fetch.return_value = _job_with_meta({"cleanup_stats": stats.to_dict()})
 
         response = client.get(
-            "/api/tasks/cleanup-job",
+            "/api/tasks/test-job-id-123",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["meta"]["cleanup_stats"] == stats.to_dict()
+
+    @pytest.mark.parametrize(("platform_id", "platform_ids"), [(3, [3]), (None, None)])
+    @patch("endpoints.tasks.Job.fetch")
+    def test_a_cleanup_predating_platform_ids_reports_them(
+        self, mock_job_fetch, client, access_token, platform_id, platform_ids
+    ):
+        """Stats stored by an older release name a single platform."""
+        mock_job_fetch.return_value = _job_with_meta(
+            {
+                # The shape 5.2.0 stored.
+                "cleanup_stats": {
+                    "platform_id": platform_id,
+                    "roms_found": 2,
+                    "roms_deleted": 2,
+                    "errors": 0,
+                },
+            }
+        )
+
+        response = client.get(
+            "/api/tasks/test-job-id-123",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["meta"]["cleanup_stats"] == {
+            "platform_ids": platform_ids,
+            "roms_found": 2,
+            "roms_deleted": 2,
+            "errors": 0,
+        }
 
     @patch("endpoints.tasks.Job.fetch")
     def test_get_task_by_id_success(self, mock_job_fetch, client, access_token):

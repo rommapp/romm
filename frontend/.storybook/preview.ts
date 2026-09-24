@@ -10,13 +10,20 @@ import storePermissions from "../src/stores/permissions";
 import "../src/styles/common.css";
 import "../src/styles/fonts.css";
 import { dark, light } from "../src/styles/themes";
+import { installBreakpointAttribute } from "../src/v2/composables/useBreakpoint";
+import { ChromeLabelsKey } from "../src/v2/lib/a11y/chromeLabels";
 import "../src/v2/styles/global.css";
+import { createChromeLabels } from "../src/v2/utils/chromeLabels";
+import { ROMM_STORYBOOK_VIEWPORTS } from "./rommViewports";
+
+// Mirror AppLayout/AuthLayout so html[data-bp] CSS matches useBreakpoint() in the iframe.
+installBreakpointAttribute();
 
 // Each story runs inside a Vue app with Pinia + i18n + Vuetify registered.
 // v2 primitives are Vuetify-free at runtime — Vuetify stays registered only
 // because some shared dependencies still pull it in. The visible theme for
 // v2 stories comes from the `.r-v2-dark` / `.r-v2-light` class toggled on
-// <body> by the theme switcher decorator below.
+// <html> by the theme switcher decorator below.
 //
 // permissionsStore is hydrated with admin grants so any primitive that
 // consumes `useCan(...)` renders its enabled state. Stories that need to
@@ -25,6 +32,9 @@ import "../src/v2/styles/global.css";
 setup((app) => {
   app.use(createPinia());
   app.use(i18n);
+  // Stories exercise the same injected-label path as the app, so a
+  // primitive rendering an un-translated label fails here too.
+  app.provide(ChromeLabelsKey, createChromeLabels());
   // A catch-all router so primitives that render real `<router-link>`s
   // (RBtn / RListItem / RMenuItem with `to`) resolve a proper `href`
   // instead of crashing on `router.resolve`. Any string path resolves.
@@ -52,9 +62,15 @@ setup((app) => {
 });
 
 const preview: Preview = {
+  initialGlobals: {
+    viewport: { value: "rommDesktopMd" },
+  },
   parameters: {
     layout: "centered",
     backgrounds: { disable: true },
+    viewport: {
+      options: ROMM_STORYBOOK_VIEWPORTS,
+    },
     // Accessibility gate
     a11y: {
       test: "error",
@@ -88,10 +104,11 @@ const preview: Preview = {
   decorators: [
     withThemeByClassName({
       themes: {
-        dark: "r-v2 r-v2-dark",
-        light: "r-v2 r-v2-light",
+        dark: "r-v2 r-v2-dark v-theme--dark",
+        light: "r-v2 r-v2-light v-theme--light",
       },
       defaultTheme: "dark",
+      parentSelector: "html",
     }),
   ],
 };

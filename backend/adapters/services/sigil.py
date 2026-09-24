@@ -1,14 +1,17 @@
 import asyncio
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Final
 
 from logger.logger import log
+from utils.filesystem import COMPRESSED_FILE_SUFFIXES
+from utils.m3u import first_playlist_entry
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 try:
     import sigil
 except ImportError:
-    sigil = None  # type: ignore[assignment]
+    sigil = None
 
 SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
     UPS.PSP: "psp",
@@ -70,6 +73,17 @@ class SigilService:
 
         sigil_slug = SIGIL_PLATFORM_SLUGS.get(platform_slug)
         if sigil_slug is None:
+            return None
+
+        # A playlist is identified by its first disc.
+        if file_path.lower().endswith(".m3u"):
+            entry = await asyncio.to_thread(first_playlist_entry, Path(file_path))
+            if entry is None:
+                return None
+            file_path = str(entry)
+
+        # Sigil reads a binary, never the container holding one.
+        if file_path.lower().endswith(COMPRESSED_FILE_SUFFIXES):
             return None
 
         try:

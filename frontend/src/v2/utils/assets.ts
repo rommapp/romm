@@ -8,6 +8,13 @@ import type {
 export type AssetType = "save" | "state";
 export type Asset = SaveSchema | StateSchema | UserSaveSchema | UserStateSchema;
 export type AssetOwner = UserSaveSchema | UserStateSchema;
+/** Which of an asset's two timestamps a list or preview reads. */
+export type AssetDateField = "updated" | "created";
+
+/** A rehash moves updated_at, so a list ordered on created_at must date by it. */
+export function dateOf(asset: Asset, field: AssetDateField): string {
+  return field === "created" ? asset.created_at : asset.updated_at;
+}
 
 export function ownerOf(asset: Asset): AssetOwner | null {
   return "username" in asset && asset.username ? asset : null;
@@ -17,9 +24,25 @@ export function screenshotOf(asset: Asset): string | null {
   return asset.screenshot?.download_path ?? null;
 }
 
+/** A state loads only in the core that wrote it; one naming no core is anyone's. */
+export function isCoreCompatible(
+  asset: { emulator?: string | null },
+  core: string | null | undefined,
+): boolean {
+  return !asset.emulator || asset.emulator === core;
+}
+
 /** ISO timestamps sort lexically. */
 export function byUpdatedDesc(a: Asset, b: Asset): number {
   return b.updated_at.localeCompare(a.updated_at);
+}
+
+/**
+ * Favorites lead their band, so a run worth keeping outlives its recency.
+ * Partitions only: a stable sort keeps the band's own order inside each half.
+ */
+export function byFavoriteFirst(a: Asset, b: Asset): number {
+  return Number(b.is_favorite ?? false) - Number(a.is_favorite ?? false);
 }
 
 export function newest<T extends { updated_at: string }>(

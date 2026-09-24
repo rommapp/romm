@@ -4,31 +4,39 @@
 // screen so only one "now playing" surface exists at a time.
 import {
   RBtn,
-  RChip,
+  REmptyState,
   RIcon,
   RSkeletonBlock,
-  RSlider,
   RSpinner,
   RVirtualScroller,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, defineAsyncComponent, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type { TrackMetaSchema } from "@/__generated__";
 import useMusicFavorites from "@/stores/musicFavorites";
 import useSoundtrackPlayer, {
   type PlayerMeta,
   type PlayerTrack,
 } from "@/stores/soundtrackPlayer";
-import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import AmbientArt from "@/v2/components/Soundtrack/AmbientArt.vue";
+import NowPlayingChips from "@/v2/components/Soundtrack/NowPlayingChips.vue";
+import SeekBar from "@/v2/components/Soundtrack/SeekBar.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import type { PanelTrack } from "@/v2/utils/soundtrackTracks";
+import {
+  nowPlayingCaption,
+  type PanelTrack,
+} from "@/v2/utils/soundtrackTracks";
 import { formatTrackTime } from "@/v2/utils/time";
 import TrackRow from "./TrackRow.vue";
 
-// Row height must match `.r-v2-stp__row` in TrackRow's stylesheet.
-const ROW_HEIGHT = 52;
+// RVirtualScroller needs exact row heights; TrackRow sizes itself from the
+// same numbers through `rowVars`.
+const ROW_HEIGHT = 48;
+const ROW_HEIGHT_XS = 56;
+const ROW_GAP = 4;
 
 // The shared store owns volume / muted state so the same widget can sit in
 // the mini-player too.
@@ -66,14 +74,27 @@ const { t } = useI18n();
 const snackbar = useSnackbar();
 const favorites = useMusicFavorites();
 const canEditPlaylists = useCan("playlist.edit");
+const { xs } = useBreakpoint();
+const rowHeight = computed(() => (xs.value ? ROW_HEIGHT_XS : ROW_HEIGHT));
+const rowVars = computed(() => ({
+  "--stp-row-h": `${rowHeight.value}px`,
+  "--stp-row-gap": `${ROW_GAP}px`,
+}));
+
+// Stable references: inline closures would change on every playback tick and
+// make the scroller rebuild its whole offset table.
+function getItemHeight(): number {
+  return rowHeight.value + ROW_GAP;
+}
+function getItemKey(item: unknown): number {
+  return (item as PanelTrack).id;
+}
 
 const player = useSoundtrackPlayer();
 const {
   track: activeStoreTrack,
   isPlaying,
   isBuffering,
-  currentTime,
-  duration,
   playlist,
   hasPrevious,
   hasNext,
@@ -97,6 +118,11 @@ const displayedTracks = computed(() => {
     .filter((track): track is PanelTrack => Boolean(track));
   return ordered.length === tracks.value.length ? ordered : tracks.value;
 });
+
+const queuePhase = useLoadingPhase(
+  () => Boolean(props.loading),
+  () => !displayedTracks.value.length,
+);
 
 let shouldStartShuffled = Boolean(props.startShuffled);
 
@@ -149,19 +175,32 @@ const activeTrack = computed(() =>
   tracks.value.find((track) => track.id === activeTrackId.value),
 );
 
-const activeMeta = computed<TrackMetaSchema | undefined>(
-  () => activeTrack.value?.meta,
+// Before anything plays the header previews the queue's first track, so it
+// never changes shape when playback starts.
+const headerTrack = computed(
+  () => activeTrack.value ?? displayedTracks.value[0],
 );
 
-const activeArtUrl = computed(
+const headerArtUrl = computed(
   () =>
-    activeTrack.value?.coverUrl ??
-    activeTrack.value?.gameArtworkUrl ??
+    headerTrack.value?.coverUrl ??
+    headerTrack.value?.gameArtworkUrl ??
     props.fallbackArtUrl ??
     null,
 );
 
-const activeTitle = computed(() => activeTrack.value?.title ?? "");
+// The store may still be playing a track from another queue.
+const headerPlaying = computed(
+  () => Boolean(activeTrack.value) && isPlaying.value,
+);
+
+const headerPosition = computed(() =>
+  headerTrack.value ? displayedTracks.value.indexOf(headerTrack.value) + 1 : 0,
+);
+
+const headerCaption = computed(() =>
+  nowPlayingCaption(headerTrack.value?.meta),
+);
 
 function onViewportRange(range: { first: number; last: number }) {
   emit("reached", range.last);
@@ -181,35 +220,6 @@ watch(activeTrackId, async (fileId, previousFileId) => {
     ?.querySelector<HTMLElement>(`[data-track-id="${fileId}"]`)
     ?.scrollIntoView({ block: "nearest" });
 });
-
-// Chips shown in the now-playing header. The artist is not repeated here
-// because it has its own line right above.
-type ChipItem = { icon: string; label: string; color?: string };
-
-function headerChips(meta: TrackMetaSchema | undefined): ChipItem[] {
-  if (!meta) return [];
-  const items: ChipItem[] = [];
-  if (meta.album) items.push({ icon: "mdi-album", label: meta.album });
-  if (meta.year)
-    items.push({
-      icon: "mdi-calendar",
-      label: String(meta.year),
-      color: "accent",
-    });
-  if (meta.genre)
-    items.push({ icon: "mdi-music-clef-treble", label: meta.genre });
-  if (meta.track)
-    items.push({
-      icon: "mdi-numeric",
-      label: t("rom.chip-track-n", { n: meta.track }),
-    });
-  if (meta.disc)
-    items.push({
-      icon: "mdi-disc",
-      label: t("rom.chip-disc-n", { n: meta.disc }),
-    });
-  return items;
-}
 
 const totalDurationSeconds = computed(() =>
   tracks.value.reduce(
@@ -312,25 +322,13 @@ function downloadTrack(track: PanelTrack) {
   a.click();
   a.remove();
 }
-
-function seekValueText(v: number): string {
-  return t("rom.seek-progress", {
-    current: formatTrackTime(v),
-    duration: formatTrackTime(duration.value),
-  });
-}
 </script>
 
 <template>
   <div ref="panelRoot" class="r-v2-stp-host">
     <div class="r-v2-stp" :class="{ 'r-v2-stp--wide': wide }">
       <!-- Blurred echo of the active art behind the whole surface. -->
-      <div
-        v-if="activeArtUrl"
-        class="r-v2-stp__ambient"
-        :style="{ backgroundImage: `url(${activeArtUrl})` }"
-        aria-hidden="true"
-      />
+      <AmbientArt v-if="headerArtUrl" :url="headerArtUrl" />
 
       <!-- Now playing rail (wide) / header (stacked) -->
       <aside class="r-v2-stp__hero">
@@ -339,21 +337,21 @@ function seekValueText(v: number): string {
             class="r-v2-stp__vinyl"
             :class="{
               'r-v2-stp__vinyl--out': activeTrack,
-              'r-v2-stp__vinyl--spinning': activeTrack && isPlaying,
+              'r-v2-stp__vinyl--spinning': headerPlaying,
             }"
             aria-hidden="true"
           >
             <img
-              v-if="activeArtUrl"
-              :src="activeArtUrl"
+              v-if="headerArtUrl"
+              :src="headerArtUrl"
               class="r-v2-stp__vinyl-label"
               alt=""
             />
           </div>
           <div class="r-v2-stp__art">
             <img
-              v-if="activeArtUrl"
-              :src="activeArtUrl"
+              v-if="headerArtUrl"
+              :src="headerArtUrl"
               class="r-v2-stp__art-img"
               alt=""
             />
@@ -369,39 +367,19 @@ function seekValueText(v: number): string {
         </div>
 
         <div class="r-v2-stp__now-body">
-          <div class="r-v2-stp__now-eyebrow">
-            <span v-if="loading">
-              <RSpinner :size="14" />
-              {{ t("rom.loading-metadata") }}
-            </span>
-            <span v-else-if="activeTrack" class="r-v2-stp__now-state">
-              {{ isPlaying ? t("rom.now-playing") : t("rom.paused") }}
-            </span>
-            <span v-else>
-              {{ t("rom.tracks-n", trackCount, { named: { n: trackCount } }) }}
-            </span>
-          </div>
-          <h3 class="r-v2-stp__now-title">
-            {{ activeTrack ? activeTitle : t("rom.pick-track-prompt") }}
+          <h3 class="r-v2-stp__now-title" :title="headerTrack?.title">
+            {{ headerTrack?.title }}
           </h3>
-          <div v-if="activeMeta?.artist" class="r-v2-stp__now-artist">
-            {{ activeMeta.artist }}
-          </div>
-          <div v-if="activeMeta" class="r-v2-stp__chips">
-            <RChip
-              v-for="(c, i) in headerChips(activeMeta)"
-              :key="`h-${i}`"
-              size="small"
-              variant="translucent"
-              :color="c.color"
-              :prepend-icon="c.icon"
-            >
-              {{ c.label }}
-            </RChip>
-          </div>
-          <div v-else-if="!activeTrack" class="r-v2-stp__now-hint">
-            {{ t("rom.soundtrack-placeholder-hint") }}
-          </div>
+          <p class="r-v2-stp__now-caption" :title="headerCaption">
+            {{ headerCaption }}
+          </p>
+          <!-- Keyed by track so a new track's chips start from the left. -->
+          <NowPlayingChips
+            :key="headerTrack?.id"
+            :tags="headerTrack?.meta"
+            :position="headerPosition"
+            :total="trackCount"
+          />
         </div>
 
         <!-- Transport: always rendered so the surface keeps its vocabulary
@@ -435,18 +413,21 @@ function seekValueText(v: number): string {
               @click="player.previous()"
             />
             <RBtn
-              :icon="isPlaying ? 'mdi-pause' : 'mdi-play'"
+              :icon="headerPlaying ? 'mdi-pause' : 'mdi-play'"
               variant="flat"
               color="primary"
-              class="r-v2-stp__play"
-              :disabled="!activeTrack"
+              :disabled="!headerTrack"
               :tooltip="
-                isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+                headerPlaying
+                  ? t('rom.soundtrack-pause')
+                  : t('rom.soundtrack-play')
               "
               :aria-label="
-                isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+                headerPlaying
+                  ? t('rom.soundtrack-pause')
+                  : t('rom.soundtrack-play')
               "
-              @click="player.togglePlayPause()"
+              @click="headerTrack && selectTrack(headerTrack.id)"
             />
             <RBtn
               icon="mdi-skip-next"
@@ -459,25 +440,7 @@ function seekValueText(v: number): string {
             />
             <VolumeControl size="small" />
           </div>
-          <div class="r-v2-stp__timeline">
-            <span class="r-v2-stp__time">{{
-              formatTrackTime(currentTime)
-            }}</span>
-            <RSlider
-              :model-value="currentTime"
-              :max="duration || 0"
-              :step="0.1"
-              :disabled="!activeTrack"
-              color="primary"
-              class="r-v2-stp__slider"
-              :aria-label="t('rom.soundtrack-seek')"
-              :aria-valuetext="seekValueText(currentTime)"
-              @update:model-value="(v: number) => player.seek(v)"
-            />
-            <span class="r-v2-stp__time r-v2-stp__time--right">
-              {{ formatTrackTime(duration) }}
-            </span>
-          </div>
+          <SeekBar :disabled="!activeTrack" class="r-v2-stp__timeline" />
         </div>
       </aside>
 
@@ -493,15 +456,21 @@ function seekValueText(v: number): string {
           </span>
         </header>
 
-        <div v-if="loading" class="r-v2-stp__queue-skeleton">
-          <RSkeletonBlock v-for="n in 8" :key="n" height="48px" rounded="md" />
+        <div v-if="queuePhase === 'skeleton'" class="r-v2-stp__queue-skeleton">
+          <RSkeletonBlock
+            v-for="n in 8"
+            :key="n"
+            :height="rowHeight"
+            rounded="md"
+          />
         </div>
         <RVirtualScroller
-          v-else-if="displayedTracks.length"
+          v-else-if="queuePhase === 'content'"
           class="r-v2-stp__list"
+          :style="rowVars"
           :items="displayedTracks"
-          :get-item-height="() => ROW_HEIGHT"
-          :get-item-key="(item: unknown) => (item as PanelTrack).id"
+          :get-item-height="getItemHeight"
+          :get-item-key="getItemKey"
           @update:viewport-range="onViewportRange"
         >
           <template #default="{ item, index }">
@@ -528,11 +497,10 @@ function seekValueText(v: number): string {
         </RVirtualScroller>
         <!-- Empty queue keeps the player chrome on screen; only the list
              area says there is nothing to play. -->
-        <div v-else class="r-v2-stp__queue-empty">
-          <EmptyState
-            variant="boxed"
+        <div v-else-if="queuePhase === 'empty'" class="r-v2-stp__queue-empty">
+          <REmptyState
             :icon="emptyIcon ?? 'mdi-playlist-music'"
-            :message="t('common.no-results')"
+            :title="t('common.no-results')"
           />
         </div>
       </section>
@@ -559,24 +527,7 @@ function seekValueText(v: number): string {
   isolation: isolate;
 }
 
-/* Ambient backdrop: the active art, blown up and blurred. Scaled past the
-   edges so the blur never shows a hard boundary; masked so it fades before
-   reaching the queue's lower half. */
-.r-v2-stp__ambient {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-size: cover;
-  background-position: center 30%;
-  transform: scale(1.3);
-  filter: blur(72px) saturate(1.4);
-  opacity: 0.2;
-  mask-image: linear-gradient(to bottom, black 0%, transparent 85%);
-  pointer-events: none;
-}
-
-/* Hero: stacked layout by default: art + text side by side, transport
-   strip underneath spanning the full width. */
+/* Hero: stacked by default, art + title side by side over the transport strip. */
 .r-v2-stp__hero {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -584,7 +535,7 @@ function seekValueText(v: number): string {
     "stage body"
     "controls controls";
   gap: var(--r-space-3) var(--r-space-4);
-  align-items: center;
+  align-items: start;
 }
 
 /* Stage: the square art with the vinyl tucked behind it. */
@@ -702,12 +653,17 @@ function seekValueText(v: number): string {
   }
 }
 
+/* Paused rather than removed, so a pause holds the disc at its current angle. */
+.r-v2-stp__vinyl {
+  animation: r-v2-stp-vinyl-spin 6s linear infinite paused;
+}
+
 .r-v2-stp__vinyl--spinning {
-  animation: r-v2-stp-vinyl-spin 6s linear infinite;
+  animation-play-state: running;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .r-v2-stp__vinyl--spinning {
+  .r-v2-stp__vinyl {
     animation: none;
   }
 }
@@ -723,57 +679,32 @@ function seekValueText(v: number): string {
 
 .r-v2-stp__now-body {
   grid-area: body;
+  align-self: center;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--r-space-2);
+  gap: var(--r-space-1);
 }
 
-.r-v2-stp__now-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-2);
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.r-v2-stp__now-state {
-  color: var(--r-color-brand-primary);
+/* One line each, reserved even when empty, so the header never resizes. */
+.r-v2-stp__now-title,
+.r-v2-stp__now-caption {
+  margin: 0;
+  min-height: 1lh;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .r-v2-stp__now-title {
-  margin: 0;
   font-size: var(--r-font-size-xl);
   font-weight: var(--r-font-weight-semibold);
   line-height: var(--r-line-height-tight);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
-.r-v2-stp__now-artist {
+.r-v2-stp__now-caption {
   color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-md);
-}
-
-.r-v2-stp__chips {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: var(--r-space-1);
-  margin-top: var(--r-space-1);
-  overflow: hidden;
-}
-
-.r-v2-stp__now-hint {
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-sm);
-  max-width: 420px;
 }
 
 /* Controls: one strip in the stacked layout, a column in the rail. */
@@ -790,31 +721,8 @@ function seekValueText(v: number): string {
   gap: var(--r-space-1);
 }
 
-.r-v2-stp__play {
-  border-radius: var(--r-radius-full);
-}
-
 .r-v2-stp__timeline {
   flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-2);
-}
-
-.r-v2-stp__slider {
-  flex: 1;
-}
-
-.r-v2-stp__time {
-  font-variant-numeric: tabular-nums;
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
-  min-width: 40px;
-}
-
-.r-v2-stp__time--right {
-  text-align: right;
 }
 
 /* Queue */
@@ -902,7 +810,6 @@ function seekValueText(v: number): string {
       "body"
       "controls";
     align-content: start;
-    align-items: start;
     gap: var(--r-space-5);
     min-height: 0;
     overflow: hidden auto;
@@ -926,13 +833,6 @@ function seekValueText(v: number): string {
 
   .r-v2-stp--wide .r-v2-stp__now-title {
     font-size: var(--r-font-size-2xl);
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-  }
-
-  .r-v2-stp--wide .r-v2-stp__chips {
-    flex-wrap: wrap;
-    overflow: visible;
   }
 
   .r-v2-stp--wide .r-v2-stp__controls {
@@ -962,6 +862,7 @@ html[data-bp~="xs"] .r-v2-stp__stage {
 
 html[data-bp~="xs"] .r-v2-stp__controls {
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--r-space-2);
 }
 

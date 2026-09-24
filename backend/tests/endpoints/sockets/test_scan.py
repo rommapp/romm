@@ -23,7 +23,7 @@ from endpoints.sockets.scan import (
     _should_extract_title_ids,
     _should_hash_incrementally,
     _should_reparse_tags,
-    reject_unauthorized_scan,
+    authorize_scan,
     scan_handler,
     scan_platforms,
     should_scan_rom,
@@ -31,6 +31,8 @@ from endpoints.sockets.scan import (
 )
 from exceptions.fs_exceptions import FolderStructureNotMatchException
 from exceptions.socket_exceptions import ScanStoppedException
+from handler import notification_handler
+from handler.audit_handler import SYSTEM_ACTOR
 from handler.auth.constants import Scope
 from handler.database.roms_handler import SyncedRomFiles
 from handler.filesystem.roms_handler import (
@@ -42,7 +44,9 @@ from handler.filesystem.roms_handler import (
 from handler.rom_files import RomFilesRefresh
 from handler.scan_handler import MetadataSource, ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
+from models.audit_event import AuditAction
 from models.firmware import Firmware
+from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -246,6 +250,139 @@ class TestScanFailureReporting:
 
         assert update_job_meta.call_args.args[0]["scan_stats"]["scanned_roms"] == 7
         assert patched.emit.await_args.args[0] == "scan:done_ko"
+
+
+class TestScanEndNotification:
+    """A scan leaves a notification of how it ended, except a rescan of named roms."""
+
+    @pytest.fixture
+    def notify_scan_end(self, mocker):
+        return mocker.patch.object(scan_module, "notify_scan_end", AsyncMock())
+
+    async def test_a_finished_scan_reports_its_stats(self, patched, notify_scan_end):
+        result = await scan_platforms(
+            platform_ids=[], metadata_sources=[], started_by_user_id=3
+        )
+
+        notify_scan_end.assert_awaited_once_with(3, result)
+
+    async def test_a_failed_scan_reports_the_error(
+        self, patched, notify_scan_end, mocker
+    ):
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=RuntimeError("boom")
+        )
+
+        with pytest.raises(RuntimeError):
+            await scan_platforms(
+                platform_ids=[], metadata_sources=[], started_by_user_id=3
+            )
+
+        notify_scan_end.assert_awaited_once_with(3, "boom")
+
+    async def test_a_stopped_scan_leaves_none(self, patched, notify_scan_end, mocker):
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=ScanStoppedException()
+        )
+        mocker.patch.object(scan_module, "redis_client")
+
+        await scan_platforms(platform_ids=[], metadata_sources=[], started_by_user_id=3)
+
+        notify_scan_end.assert_not_awaited()
+
+
+class TestScanAudit:
+    """A scan leaves a start and an end in the audit log, however it ends."""
+
+    @pytest.fixture
+    def record(self, mocker):
+        mocker.patch.object(scan_module, "notify_scan_end", AsyncMock())
+        return mocker.patch.object(scan_module, "record")
+
+    async def test_a_finished_scan_records_its_start_and_stats(self, patched, record):
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        start, finish = record.call_args_list
+        assert start.args[:2] == (AuditAction.SCAN_START, SYSTEM_ACTOR)
+        assert finish.args[0] == AuditAction.SCAN_FINISH
+        assert finish.kwargs["data"]["status"] == "completed"
+        assert "new_roms" in finish.kwargs["data"]
+
+    async def test_a_failed_scan_records_the_error(self, patched, record, mocker):
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=RuntimeError("boom")
+        )
+
+        with pytest.raises(RuntimeError):
+            await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        data = record.call_args.kwargs["data"]
+        assert (data["status"], data["error"]) == ("failed", "boom")
+
+    async def test_a_stopped_scan_says_so(self, patched, record, mocker):
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=ScanStoppedException()
+        )
+        mocker.patch.object(scan_module, "redis_client")
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        assert record.call_args.kwargs["data"]["status"] == "stopped"
+
+
+class TestNotifyScanEnd:
+    """Who hears about a scan's end depends on who started it."""
+
+    @pytest.fixture
+    def notify(self, mocker):
+        return mocker.patch.object(notification_handler, "notify", AsyncMock())
+
+    @pytest.fixture
+    def notify_admins(self, mocker):
+        return mocker.patch.object(notification_handler, "notify_admins", AsyncMock())
+
+    async def test_the_starter_hears_of_a_quiet_scan(self, notify, notify_admins):
+        await scan_module.notify_scan_end(3, ScanStats(scanned_roms=5))
+
+        user_id, kind, level, data = notify.await_args.args
+        assert (user_id, kind, level) == (
+            3,
+            NotificationKind.SCAN_COMPLETED,
+            NotificationLevel.SUCCESS,
+        )
+        assert data["scanned_roms"] == 5
+        notify_admins.assert_not_awaited()
+
+    async def test_the_starter_hears_of_a_failure(self, notify, notify_admins):
+        await scan_module.notify_scan_end(3, "boom")
+
+        user_id, kind, _, data = notify.await_args.args
+        assert (user_id, kind, data) == (
+            3,
+            NotificationKind.SCAN_FAILED,
+            {"error": "boom"},
+        )
+
+    async def test_an_unattended_scan_that_changed_nothing_stays_quiet(
+        self, notify, notify_admins
+    ):
+        await scan_module.notify_scan_end(None, ScanStats(scanned_roms=5))
+
+        notify.assert_not_awaited()
+        notify_admins.assert_not_awaited()
+
+    async def test_an_unattended_scan_that_found_games_tells_the_admins(
+        self, notify, notify_admins
+    ):
+        await scan_module.notify_scan_end(None, ScanStats(new_roms=2))
+
+        assert notify_admins.await_args.args[0] == NotificationKind.SCAN_COMPLETED
+        notify.assert_not_awaited()
+
+    async def test_an_unattended_failure_tells_the_admins(self, notify, notify_admins):
+        await scan_module.notify_scan_end(None, "boom")
+
+        assert notify_admins.await_args.args[0] == NotificationKind.SCAN_FAILED
 
 
 class TestScanTotals:
@@ -800,7 +937,7 @@ class TestScanAuthorization:
         mocker.patch.object(
             scan_module, "get_authenticated_user", AsyncMock(return_value=None)
         )
-        assert await reject_unauthorized_scan("sid") is True
+        assert await authorize_scan("sid") is None
         emit.assert_awaited_once()
 
     async def test_reject_user_without_tasks_run(self, mocker, emit):
@@ -809,16 +946,15 @@ class TestScanAuthorization:
             "get_authenticated_user",
             AsyncMock(return_value=self._user(Scope.ROMS_READ)),
         )
-        assert await reject_unauthorized_scan("sid") is True
+        assert await authorize_scan("sid") is None
         emit.assert_awaited_once()
 
     async def test_allow_user_with_tasks_run(self, mocker, emit):
+        user = self._user(Scope.TASKS_RUN)
         mocker.patch.object(
-            scan_module,
-            "get_authenticated_user",
-            AsyncMock(return_value=self._user(Scope.TASKS_RUN)),
+            scan_module, "get_authenticated_user", AsyncMock(return_value=user)
         )
-        assert await reject_unauthorized_scan("sid") is False
+        assert await authorize_scan("sid") is user
         emit.assert_not_awaited()
 
     async def test_scan_handler_does_not_enqueue_when_unauthorized(self, mocker, emit):
@@ -1821,12 +1957,17 @@ class TestScopedScanSkipsLibraryWork:
         async def fake_scoped(**kwargs):
             return kwargs["scan_stats"]
 
+        # Returning a real ScanStats: a bare AsyncMock's return value is another
+        # AsyncMock, whose to_dict() would leak a coroutine out of finish().
+        async def fake_identify(*, scan_stats: ScanStats, **_: object) -> ScanStats:
+            return scan_stats
+
         return {
             "scoped": mocker.patch.object(
                 scan_module, "_scan_selected_roms", side_effect=fake_scoped
             ),
             "identify_platform": mocker.patch.object(
-                scan_module, "_identify_platform", side_effect=AsyncMock()
+                scan_module, "_identify_platform", side_effect=fake_identify
             ),
             "get_platforms": mocker.patch.object(
                 scan_module.fs_platform_handler, "get_platforms", AsyncMock()
@@ -1846,6 +1987,20 @@ class TestScopedScanSkipsLibraryWork:
                 scan_module.db_collection_handler, "refresh_smart_collections_for_roms"
             ),
         }
+
+    async def test_no_notification_for_a_finished_rescan(self, patched, mocker):
+        notify_scan_end = mocker.patch.object(
+            scan_module, "notify_scan_end", AsyncMock()
+        )
+
+        await scan_platforms(
+            platform_ids=[1],
+            metadata_sources=[],
+            roms_ids=[7],
+            started_by_user_id=3,
+        )
+
+        notify_scan_end.assert_not_awaited()
 
     async def test_platform_pipeline_is_skipped(self, patched):
         result = await scan_platforms(
@@ -2061,6 +2216,7 @@ class TestScanConcurrency:
             scan_module, "get_authenticated_user", AsyncMock(return_value=user)
         )
         mocker.patch.object(scan_module, "DEV_MODE", False)
+        return user
 
     async def test_enqueues_on_the_scan_queue_when_nothing_running(self, mocker, emit):
         # The scan queue has a worker of its own, so a scan cannot sit behind a
@@ -2071,6 +2227,14 @@ class TestScanConcurrency:
         await scan_handler("sid", {"type": "quick"})
 
         enqueue.assert_called_once()
+
+    async def test_the_scan_remembers_who_started_it(self, mocker, emit, authorized):
+        patch_scan_jobs(mocker)
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        assert enqueue.call_args.kwargs["started_by_user_id"] == authorized.id
 
     async def test_refuses_when_a_scan_is_running(self, mocker, emit):
         patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
@@ -2452,6 +2616,21 @@ class TestReportScanFailure:
         self.report(JobTimeoutException, reported=True)
 
         emit.assert_not_awaited()
+
+    def test_notifies_whoever_started_the_scan(self, emit, mocker):
+        notify_scan_end = mocker.patch.object(
+            scan_module, "notify_scan_end", AsyncMock()
+        )
+        job = make_job(SCAN_PLATFORMS_FUNC)
+        job.kwargs = {"started_by_user_id": 9}
+
+        scan_module.report_scan_failure(
+            job, MagicMock(), AbandonedJobError, AbandonedJobError("boom"), None
+        )
+
+        notify_scan_end.assert_awaited_once_with(
+            9, "the worker running it stopped unexpectedly"
+        )
 
     def test_swallows_a_report_that_cannot_be_sent(self, emit):
         # RQ re-raises out of the registry sweep that calls this, which would

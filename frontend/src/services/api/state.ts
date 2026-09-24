@@ -9,6 +9,36 @@ import { buildFormInput } from "@/utils/formData";
 
 export const stateApi = api;
 
+/** States are named after the ROM and the moment the core was serialized. */
+export function sessionStateName(
+  rom: { fs_name_no_ext: string },
+  capturedAt: Date,
+): string {
+  const timestamp = capturedAt
+    .toISOString()
+    .replace(/[:.]/g, "-")
+    .replace("T", " ")
+    .replace("Z", "");
+  return `${rom.fs_name_no_ext.trim()} [${timestamp}]`;
+}
+
+/** A state and its picture, both named after the moment of the capture. */
+export function sessionStateFiles(
+  rom: { fs_name_no_ext: string },
+  capturedAt: Date,
+  stateBytes: ArrayBuffer,
+  screenshotBytes?: ArrayBuffer,
+): { stateFile: File; screenshotFile?: File } {
+  const name = sessionStateName(rom, capturedAt);
+  const type = "application/octet-stream";
+  return {
+    stateFile: new File([stateBytes], `${name}.state`, { type }),
+    screenshotFile: screenshotBytes
+      ? new File([screenshotBytes], `${name}.png`, { type })
+      : undefined,
+  };
+}
+
 type StateUploadInput = Omit<AddStateInput, "stateFile" | "screenshotFile"> & {
   stateFile: File;
   screenshotFile?: File;
@@ -27,7 +57,7 @@ async function uploadStates({
   statesToUpload,
   emulator,
 }: {
-  rom: DetailedRomSchema;
+  rom: Pick<DetailedRomSchema, "id">;
   statesToUpload: StateUploadInput[];
   emulator?: string;
 }) {
@@ -90,9 +120,33 @@ async function setStateVisibility({
   });
 }
 
+async function setStateFavorite({
+  id,
+  isFavorite,
+}: {
+  id: number;
+  isFavorite: boolean;
+}) {
+  return api.put<StateSchema>(`/states/${id}/favorite`, {
+    is_favorite: isFavorite,
+  });
+}
+
+async function setStateLabels({
+  id,
+  labels,
+}: {
+  id: number;
+  labels: string[];
+}) {
+  return api.put<StateSchema>(`/states/${id}/labels`, { labels });
+}
+
 export default {
   uploadStates,
   updateState,
   deleteStates,
   setStateVisibility,
+  setStateFavorite,
+  setStateLabels,
 };

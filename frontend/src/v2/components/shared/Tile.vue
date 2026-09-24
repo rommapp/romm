@@ -83,8 +83,7 @@ const tag = computed(() => (props.to ? "router-link" : "button"));
    previous mouse session doesn't compete with the focused tile when the
    user is driving with a gamepad. Focus-visible reads in every modality
    (subject to global.css's outline rules). */
-html[data-input="mouse"] .r-v2-tile:hover,
-html[data-input="touch"] .r-v2-tile:hover,
+html:not([data-input="pad"]) .r-v2-tile:hover,
 .r-v2-tile:focus-visible {
   background: var(--r-color-surface);
   border-color: var(--r-color-border-strong);
@@ -121,8 +120,7 @@ html[data-input="touch"] .r-v2-tile:hover,
   height: 52px;
 }
 
-html[data-input="mouse"] .r-v2-tile:hover .r-v2-tile__icon,
-html[data-input="touch"] .r-v2-tile:hover .r-v2-tile__icon,
+html:not([data-input="pad"]) .r-v2-tile:hover .r-v2-tile__icon,
 .r-v2-tile:focus-visible .r-v2-tile__icon {
   opacity: 1;
   transform: scale(1.05);

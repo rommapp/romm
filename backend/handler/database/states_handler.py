@@ -1,7 +1,7 @@
 from collections.abc import Collection, Sequence
 
-from sqlalchemy import and_, delete, desc, or_, select, update
-from sqlalchemy.orm import QueryableAttribute, Session, load_only
+from sqlalchemy import Select, and_, delete, desc, or_, select, update
+from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
 from models.assets import State
@@ -42,15 +42,12 @@ class DBStatesHandler(DBBaseHandler):
             .limit(1)
         )
 
-    @begin_session
-    def get_states(
+    def _states_query(
         self,
         user_id: int,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[State]:
+    ) -> Select[tuple[State]]:
         query = select(State).filter_by(user_id=user_id)
 
         # An empty collection is an explicit empty scope, not an absent filter.
@@ -62,10 +59,34 @@ class DBStatesHandler(DBBaseHandler):
                 Rom.platform_id == platform_id
             )
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
+        return query
 
+    @begin_session
+    def get_states(
+        self,
+        user_id: int,
+        rom_ids: Collection[int] | None = None,
+        platform_id: int | None = None,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[State]:
+        query = self._states_query(
+            user_id=user_id, rom_ids=rom_ids, platform_id=platform_id
+        )
         return session.scalars(query).all()
+
+    @begin_session
+    def get_state_ids(
+        self,
+        user_id: int,
+        rom_ids: Collection[int] | None = None,
+        platform_id: int | None = None,
+        session: Session = None,  # type: ignore
+    ) -> list[int]:
+        """Ids only, so no `State` is built and no eager rom or user join fires."""
+        query = self._states_query(
+            user_id=user_id, rom_ids=rom_ids, platform_id=platform_id
+        )
+        return list(session.scalars(query.with_only_columns(State.id)).all())
 
     @begin_session
     def get_state_by_id(
@@ -104,12 +125,20 @@ class DBStatesHandler(DBBaseHandler):
         self,
         id: int,
         data: dict,
+        touch: bool = True,
         session: Session = None,  # type: ignore
     ) -> State:
+        """Write `data` onto a state.
+
+        Args:
+            touch: False keeps `updated_at`, since annotating is not a write
+                to the bytes and device sync reads it to detect staleness.
+        """
+        values = data if touch else {**data, "updated_at": State.updated_at}
         session.execute(
             update(State)
             .where(State.id == id)
-            .values(**data)
+            .values(**values)
             .execution_options(synchronize_session="evaluate")
         )
         return session.query(State).filter_by(id=id).one()
