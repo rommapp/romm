@@ -42,10 +42,8 @@ router = APIRouter(
     tags=["sync"],
 )
 
-# Each in-flight emit holds its own Redis connection, so a wide conflict set is
-# bounded two ways: a deadline on the wait, and a cap on concurrent emits.
+# A hung broker must not pin the background task forever.
 CONFLICT_NOTIFY_TIMEOUT_S = 2.0
-CONFLICT_NOTIFY_MAX_CONCURRENCY = 8
 
 
 class ClientSaveState(BaseModel):
@@ -128,40 +126,26 @@ async def _notify_conflicts(
     session_id: int,
     conflict_ops: list[SyncOperationSchema],
 ) -> None:
-    """Emit one sync:conflict event per operation, batched and bounded."""
-    limiter = asyncio.Semaphore(CONFLICT_NOTIFY_MAX_CONCURRENCY)
-
-    async def emit_one(op: SyncOperationSchema) -> None:
-        async with limiter:
-            await emit_sync_conflict(
-                user_id=user_id,
-                device_id=device_id,
-                session_id=session_id,
-                file_name=op.file_name,
-                rom_id=op.rom_id,
-                reason=op.reason,
-            )
-
+    """Emit one sync:conflict event per operation, within one deadline."""
     try:
-        results = await asyncio.wait_for(
-            asyncio.gather(
-                *(emit_one(op) for op in conflict_ops),
-                return_exceptions=True,
-            ),
-            timeout=CONFLICT_NOTIFY_TIMEOUT_S,
-        )
-        for op, emit_result in zip(conflict_ops, results, strict=True):
-            if isinstance(emit_result, BaseException):
-                log.warning(
-                    f"Failed to emit sync:conflict for {op.file_name}: {emit_result}"
-                )
+        async with asyncio.timeout(CONFLICT_NOTIFY_TIMEOUT_S):
+            for op in conflict_ops:
+                try:
+                    await emit_sync_conflict(
+                        user_id=user_id,
+                        device_id=device_id,
+                        session_id=session_id,
+                        file_name=op.file_name,
+                        rom_id=op.rom_id,
+                        reason=op.reason,
+                    )
+                except Exception as e:  # noqa: BLE001
+                    log.warning(f"Failed to emit sync:conflict for {op.file_name}: {e}")
     except TimeoutError:
         log.warning(
             f"Gave up on {len(conflict_ops)} sync:conflict events "
             f"after {CONFLICT_NOTIFY_TIMEOUT_S}s"
         )
-    except Exception as e:  # noqa: BLE001
-        log.warning(f"Failed to emit {len(conflict_ops)} sync:conflict events: {e}")
 
 
 @protected_route(router.post, "/negotiate", [Scope.ASSETS_READ, Scope.DEVICES_READ])

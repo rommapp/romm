@@ -73,6 +73,10 @@ function conflict(overrides: Record<string, unknown> = {}) {
 describe("useSyncConflictToast", () => {
   let toasts: unknown[] = [];
 
+  function fire(overrides: Record<string, unknown> = {}) {
+    handlers.get("sync:conflict")?.(conflict(overrides));
+  }
+
   beforeEach(() => {
     handlers.clear();
     toasts = [];
@@ -82,6 +86,7 @@ describe("useSyncConflictToast", () => {
     emitter.on("snackbarShow", (payload) => {
       toasts.push(payload);
     });
+    install();
   });
 
   afterEach(() => {
@@ -90,8 +95,7 @@ describe("useSyncConflictToast", () => {
   });
 
   it("warns with the game name", () => {
-    install();
-    handlers.get("sync:conflict")?.(conflict());
+    fire();
 
     expect(toasts).toHaveLength(1);
     expect(toasts[0]).toMatchObject({
@@ -101,8 +105,7 @@ describe("useSyncConflictToast", () => {
   });
 
   it("falls back to the file name when the ROM's name is blank", () => {
-    install();
-    handlers.get("sync:conflict")?.(conflict({ rom_id: blankNameRom.id }));
+    fire({ rom_id: blankNameRom.id });
 
     expect(toasts).toHaveLength(1);
     expect(toasts[0]).toMatchObject({
@@ -111,8 +114,7 @@ describe("useSyncConflictToast", () => {
   });
 
   it("falls back to the generic string when the ROM is not cached", () => {
-    install();
-    handlers.get("sync:conflict")?.(conflict({ rom_id: 999 }));
+    fire({ rom_id: 999 });
 
     expect(toasts).toHaveLength(1);
     expect(toasts[0]).toMatchObject({
@@ -121,20 +123,16 @@ describe("useSyncConflictToast", () => {
   });
 
   it("toasts once per conflict, however often it is reported", () => {
-    install();
-    const handler = handlers.get("sync:conflict");
-    handler?.(conflict());
-    handler?.(conflict());
-    handler?.(conflict({ file_name: "another_game.sav" }));
+    fire();
+    fire();
+    fire({ file_name: "another_game.sav" });
 
     expect(toasts).toHaveLength(2);
   });
 
   it("toasts per device, so a second device's conflict is not swallowed", () => {
-    install();
-    const handler = handlers.get("sync:conflict");
-    handler?.(conflict());
-    handler?.(conflict({ device_id: "dev-2" }));
+    fire();
+    fire({ device_id: "dev-2" });
 
     expect(toasts).toHaveLength(2);
   });

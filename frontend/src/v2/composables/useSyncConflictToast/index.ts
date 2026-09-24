@@ -29,7 +29,6 @@ export function installSyncConflictToast(): void {
       galleryRomsStore.getRomById(romId) ??
       (romsStore.currentRom?.id === romId ? romsStore.currentRom : null) ??
       romsStore.recentRoms.find((recent) => recent.id === romId);
-    // `name` is nullable and can be blank, so this is a truthy fallback.
     return rom ? rom.name || rom.fs_name : null;
   }
 

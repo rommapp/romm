@@ -59,8 +59,7 @@ installPermissionsHydration();
 // route the user is on (navbar indicator + /scan view consume the same
 // store state).
 installScanLifecycle();
-// Global save-sync conflict wiring: a conflict detected by the server is
-// re-reported on every negotiation, so the toast dedupes per page session.
+// Save-sync conflicts reach the user from any route.
 installSyncConflictToast();
 // Saves and states a player could not hand over reach the server from any
 // route, so the next launch screen can offer them.
