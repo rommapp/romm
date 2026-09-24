@@ -13,7 +13,7 @@ from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummar
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from handler.asset_store import remove_asset_file, remove_screenshot
+from handler.asset_store import release_thumbnail, remove_asset_file, rename_asset
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
@@ -30,6 +30,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import SAVE_SLOT_MAX_LENGTH, Save
+from models.base import FILE_NAME_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.assets import normalize_asset_labels
@@ -109,7 +110,7 @@ async def _delete_save(save: Save) -> None:
     """Drop a save row with its file and screenshot."""
     db_save_handler.delete_save(save.id)
     await remove_asset_file(save.full_path, "Save file")
-    await remove_screenshot(save.screenshot)
+    await release_thumbnail(save.screenshot)
 
 
 async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
@@ -118,7 +119,7 @@ async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
         user_id=user_id, rom_id=rom_id, slot=slot, keep=keep
     ):
         await remove_asset_file(f"{file_path}/{file_name}", "Save file")
-        await remove_screenshot(
+        await release_thumbnail(
             db_screenshot_handler.get_screenshot(
                 rom_id=rom_id,
                 user_id=user_id,
@@ -723,7 +724,7 @@ def update_save_visibility(
     """Toggle a save's public/private visibility (owner only)."""
     save = _owned_save_or_404(id, request.user.id)
 
-    updated = db_save_handler.update_save(id, {"is_public": is_public})
+    updated = db_save_handler.update_save(id, {"is_public": is_public}, touch=False)
 
     # Keep the auto-captured thumbnail's visibility in sync so a shared save
     # still renders its preview for other users.
@@ -776,6 +777,27 @@ def update_save_labels(
             id, {"labels": normalize_asset_labels(labels)}, touch=False
         )
     )
+
+
+@protected_route(
+    router.put,
+    "/{id}/file-name",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_409_CONFLICT: {},
+    },
+)
+async def rename_save(
+    request: Request,
+    id: int,
+    file_name: Annotated[str, Body(embed=True, max_length=FILE_NAME_MAX_LENGTH)],
+) -> SaveSchema:
+    """Rename a save's file, its screenshot following along (owner only)."""
+    save = _owned_save_or_404(id, request.user.id)
+
+    return _build_save_schema(await rename_asset(save, file_name))
 
 
 @protected_route(

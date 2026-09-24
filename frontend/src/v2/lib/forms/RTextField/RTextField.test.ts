@@ -90,3 +90,20 @@ describe("RTextField required", () => {
     wrapper.unmount();
   });
 });
+
+describe("RTextField autofocus", () => {
+  // RDialog focuses `[autofocus]` on open, ahead of its own close button.
+  it("marks the native field for the surface that opens it", () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "", autofocus: true },
+    });
+    expect(wrapper.get("input").attributes("autofocus")).toBeDefined();
+    wrapper.unmount();
+  });
+
+  it("leaves the attribute off unless asked", () => {
+    const wrapper = mount(RTextField, { props: { modelValue: "" } });
+    expect(wrapper.get("input").attributes("autofocus")).toBeUndefined();
+    wrapper.unmount();
+  });
+});

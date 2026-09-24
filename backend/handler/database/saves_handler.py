@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
 from models.assets import Save
+from models.base import with_file_name_parts
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
@@ -249,6 +250,7 @@ class DBSavesHandler(DBBaseHandler):
             touch: False keeps `updated_at`, since annotating is not a write
                 to the bytes and device sync reads it to detect staleness.
         """
+        data = with_file_name_parts(data)
         values = data if touch else {**data, "updated_at": Save.updated_at}
         session.execute(
             update(Save)

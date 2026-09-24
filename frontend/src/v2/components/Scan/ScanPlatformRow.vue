@@ -5,7 +5,7 @@
 // <ul> (small platforms) and inside an RVirtualScroller slot (large
 // platforms, hundreds+ of ROMs streaming in during an initial scan).
 // Provider chip logic and cover-fallback selection live here.
-import { RImg, RTag } from "@v2/lib";
+import { RImg, RTag, RTooltip } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
@@ -120,23 +120,30 @@ function coverFor(rom: SimpleRom): string {
           :text="t('scan.not-identified')"
           class="r-v2-scan-platform__badge-pop"
         />
-        <span
+        <RTooltip
           v-for="(provider, i) in activeProviders(props.rom)"
           :key="provider.key"
-          class="r-v2-scan-platform__provider"
-          :title="provider.title"
-          :style="{
-            ...(provider.bg ? { background: provider.bg } : {}),
-            animationDelay: `${i * 70}ms`,
-          }"
+          :text="provider.title"
+          location="top"
         >
-          <img
-            :src="`/assets/scrappers/${provider.logo}`"
-            :alt="provider.title"
-            width="16"
-            height="16"
-          />
-        </span>
+          <template #activator="{ props: tip }">
+            <span
+              v-bind="tip"
+              class="r-v2-scan-platform__provider"
+              :style="{
+                ...(provider.bg ? { background: provider.bg } : {}),
+                animationDelay: `${i * 70}ms`,
+              }"
+            >
+              <img
+                :src="`/assets/scrappers/${provider.logo}`"
+                :alt="provider.title"
+                width="16"
+                height="16"
+              />
+            </span>
+          </template>
+        </RTooltip>
       </template>
     </div>
   </router-link>

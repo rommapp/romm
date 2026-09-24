@@ -49,7 +49,7 @@ def iter_directories(path: str, recursive: bool = False) -> Iterator[tuple[Path,
 # EXDEV: cross-device link. EPERM: filesystem doesn't permit/support hardlinks
 # (e.g. FAT32, exFAT, some network mounts). EOPNOTSUPP/ENOTSUP: same, on BSD/macOS.
 # EMLINK: source already has the maximum number of hardlinks for the filesystem.
-_LINK_FALLBACK_ERRNOS: frozenset[int] = frozenset(
+LINK_FALLBACK_ERRNOS: frozenset[int] = frozenset(
     e
     for e in (
         getattr(errno, "EXDEV", None),
@@ -100,7 +100,7 @@ def link_or_copy_file(source: Path, dest: Path) -> None:
         try:
             os.link(source, tmp_path)
         except OSError as exc:
-            if exc.errno not in _LINK_FALLBACK_ERRNOS:
+            if exc.errno not in LINK_FALLBACK_ERRNOS:
                 raise
             shutil.copy2(source, tmp_path)
         os.replace(tmp_path, dest)

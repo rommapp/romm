@@ -942,20 +942,22 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | GET    | `/{id}/content`    | ASSETS_READ   | Download save file                      |
 | POST   | `/{id}/downloaded` | DEVICES_WRITE | Confirm download (device sync)          |
 | PUT    | `/{id}`            | ASSETS_WRITE  | Update save                             |
+| PUT    | `/{id}/file-name`  | ASSETS_WRITE  | Rename save file and its screenshot     |
 | POST   | `/delete`          | ASSETS_WRITE  | Bulk delete                             |
 | POST   | `/{id}/track`      | DEVICES_WRITE | Re-enable sync tracking                 |
 | POST   | `/{id}/untrack`    | DEVICES_WRITE | Disable sync tracking                   |
 
 ### 6.9 States (`/api/states`)
 
-| Method | Path           | Scope        | Description   |
-| ------ | -------------- | ------------ | ------------- |
-| POST   | `/`            | ASSETS_WRITE | Upload state  |
-| GET    | `/`            | ASSETS_READ  | List states   |
-| GET    | `/identifiers` | ASSETS_READ  | Get state IDs |
-| GET    | `/{id}`        | ASSETS_READ  | Get state     |
-| PUT    | `/{id}`        | ASSETS_WRITE | Update state  |
-| POST   | `/delete`      | ASSETS_WRITE | Bulk delete   |
+| Method | Path              | Scope        | Description                          |
+| ------ | ----------------- | ------------ | ------------------------------------ |
+| POST   | `/`               | ASSETS_WRITE | Upload state                         |
+| GET    | `/`               | ASSETS_READ  | List states                          |
+| GET    | `/identifiers`    | ASSETS_READ  | Get state IDs                        |
+| GET    | `/{id}`           | ASSETS_READ  | Get state                            |
+| PUT    | `/{id}`           | ASSETS_WRITE | Update state                         |
+| PUT    | `/{id}/file-name` | ASSETS_WRITE | Rename state file and its screenshot |
+| POST   | `/delete`         | ASSETS_WRITE | Bulk delete                          |
 
 ### 6.9b RetroArch Cloud Sync (`/api/sync/retroarch`)
 
@@ -1023,16 +1025,18 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 
 ### 6.12 Collections (`/api/collections`)
 
-| Method | Path                  | Scope             | Description           |
-| ------ | --------------------- | ----------------- | --------------------- |
-| POST   | `/`                   | COLLECTIONS_WRITE | Create collection     |
-| GET    | `/`                   | COLLECTIONS_READ  | List collections      |
-| GET    | `/identifiers`        | COLLECTIONS_READ  | Get collection IDs    |
-| GET    | `/{id}`               | COLLECTIONS_READ  | Get collection        |
-| PUT    | `/{id}`               | COLLECTIONS_WRITE | Update collection     |
-| DELETE | `/{id}`               | COLLECTIONS_WRITE | Delete collection     |
-| POST   | `/{id}/roms`          | COLLECTIONS_WRITE | Add ROM to collection |
-| DELETE | `/{id}/roms/{rom_id}` | COLLECTIONS_WRITE | Remove ROM            |
+| Method | Path                     | Scope             | Description                       |
+| ------ | ------------------------ | ----------------- | --------------------------------- |
+| POST   | `/`                      | COLLECTIONS_WRITE | Create collection                 |
+| GET    | `/`                      | COLLECTIONS_READ  | List collections                  |
+| GET    | `/identifiers`           | COLLECTIONS_READ  | Get collection IDs                |
+| GET    | `/{id}`                  | COLLECTIONS_READ  | Get collection                    |
+| PUT    | `/{id}`                  | COLLECTIONS_WRITE | Update collection                 |
+| PUT    | `/{id}/visibility`       | COLLECTIONS_WRITE | Share or unshare collection       |
+| PUT    | `/smart/{id}/visibility` | COLLECTIONS_WRITE | Share or unshare smart collection |
+| DELETE | `/{id}`                  | COLLECTIONS_WRITE | Delete collection                 |
+| POST   | `/{id}/roms`             | COLLECTIONS_WRITE | Add ROM to collection             |
+| DELETE | `/{id}/roms/{rom_id}`    | COLLECTIONS_WRITE | Remove ROM                        |
 
 ### 6.13 Feeds (`/api/feeds`)
 

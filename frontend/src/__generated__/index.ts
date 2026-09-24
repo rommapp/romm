@@ -34,12 +34,15 @@ export type { Body_patch_rom_api_roms__id__patch_post } from './models/Body_patc
 export type { Body_refresh_retro_achievements_api_users__id__ra_refresh_post } from './models/Body_refresh_retro_achievements_api_users__id__ra_refresh_post';
 export type { Body_remove_hidden_entity_api_permissions_hidden_delete } from './models/Body_remove_hidden_entity_api_permissions_hidden_delete';
 export type { Body_rename_memory_card_api_memory_cards__id__put } from './models/Body_rename_memory_card_api_memory_cards__id__put';
+export type { Body_rename_save_api_saves__id__file_name_put } from './models/Body_rename_save_api_saves__id__file_name_put';
+export type { Body_rename_state_api_states__id__file_name_put } from './models/Body_rename_state_api_states__id__file_name_put';
 export type { Body_request_password_reset_api_forgot_password_post } from './models/Body_request_password_reset_api_forgot_password_post';
 export type { Body_reset_password_api_reset_password_post } from './models/Body_reset_password_api_reset_password_post';
 export type { Body_token_api_token_post } from './models/Body_token_api_token_post';
 export type { Body_track_save_api_saves__id__track_post } from './models/Body_track_save_api_saves__id__track_post';
 export type { Body_untrack_save_api_saves__id__untrack_post } from './models/Body_untrack_save_api_saves__id__untrack_post';
 export type { Body_update_collection_api_collections__id__put } from './models/Body_update_collection_api_collections__id__put';
+export type { Body_update_collection_visibility_api_collections__id__visibility_put } from './models/Body_update_collection_visibility_api_collections__id__visibility_put';
 export type { Body_update_memory_card_visibility_api_memory_cards__id__visibility_put } from './models/Body_update_memory_card_visibility_api_memory_cards__id__visibility_put';
 export type { Body_update_platform_api_platforms__id__put } from './models/Body_update_platform_api_platforms__id__put';
 export type { Body_update_rom_api_roms__id__put } from './models/Body_update_rom_api_roms__id__put';
@@ -49,6 +52,7 @@ export type { Body_update_save_labels_api_saves__id__labels_put } from './models
 export type { Body_update_save_visibility_api_saves__id__visibility_put } from './models/Body_update_save_visibility_api_saves__id__visibility_put';
 export type { Body_update_screenshot_api_screenshots__id__put } from './models/Body_update_screenshot_api_screenshots__id__put';
 export type { Body_update_smart_collection_api_collections_smart__id__put } from './models/Body_update_smart_collection_api_collections_smart__id__put';
+export type { Body_update_smart_collection_visibility_api_collections_smart__id__visibility_put } from './models/Body_update_smart_collection_visibility_api_collections_smart__id__visibility_put';
 export type { Body_update_state_api_states__id__put } from './models/Body_update_state_api_states__id__put';
 export type { Body_update_state_favorite_api_states__id__favorite_put } from './models/Body_update_state_favorite_api_states__id__favorite_put';
 export type { Body_update_state_labels_api_states__id__labels_put } from './models/Body_update_state_labels_api_states__id__labels_put';

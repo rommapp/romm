@@ -21,6 +21,7 @@ import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
 import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
+import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
@@ -64,6 +65,8 @@ const props = withDefaults(
     selectedId?: number | null;
     /** Render an author chip (avatar + username) for community items. */
     showOwner?: boolean;
+    /** Badge the thumbnails of the public ones, for lists of the user's own. */
+    markPublic?: boolean;
     /** Internal max-height + scroll. Off when the parent owns scrolling. */
     scrollable?: boolean;
     /** Which timestamp the rows show. Set it to whatever the caller ordered
@@ -80,6 +83,7 @@ const props = withDefaults(
     selectable: true,
     selectedId: null,
     showOwner: false,
+    markPublic: false,
     scrollable: true,
     timestamp: "updated",
     groupBySlot: true,
@@ -259,7 +263,6 @@ const fadeIndex = computed(() =>
                     ? { backgroundImage: toCssUrl(screenshotOf(asset)!) }
                     : undefined
                 "
-                aria-hidden="true"
               >
                 <RIcon
                   v-if="!screenshotOf(asset)"
@@ -267,6 +270,10 @@ const fadeIndex = computed(() =>
                     type === 'save' ? 'mdi-content-save' : 'mdi-file-outline'
                   "
                   size="22"
+                />
+                <PublicBadge
+                  v-if="markPublic && asset.is_public"
+                  class="r-asset-list__public"
                 />
               </span>
 
@@ -443,6 +450,7 @@ const fadeIndex = computed(() =>
 }
 
 .r-asset-list__icon {
+  position: relative;
   display: grid;
   place-items: center;
   width: 36px;
@@ -451,6 +459,12 @@ const fadeIndex = computed(() =>
   background: var(--r-color-surface);
   color: var(--r-color-fg-muted);
   flex-shrink: 0;
+}
+/* Rides the thumbnail's corner, which is too small to hold it inside. */
+.r-asset-list__public {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
 }
 /* A 16:9 thumbnail at the icon's height. */
 .r-asset-list__icon--shot {

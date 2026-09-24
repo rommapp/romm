@@ -25,6 +25,7 @@ from models.base import (
     compute_file_name_no_tags,
 )
 from utils.filesystem import (
+    LINK_FALLBACK_ERRNOS,
     SERVED_FILE_MODE,
     iter_directories,
     iter_files,
@@ -830,6 +831,106 @@ class FSHandler:
             # Create destination directory if needed
             dest_full_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(source_full_path), str(dest_full_path))
+
+    def is_same_file(self, path: str, other_path: str) -> bool:
+        """Whether two relative paths name one file, as names differing only in
+        case do on a case-insensitive filesystem."""
+        full_path = self.validate_path(path)
+        other_full_path = self.validate_path(other_path)
+        if full_path == other_full_path:
+            return True
+        try:
+            return full_path.samefile(other_full_path)
+        except FileNotFoundError:
+            return False
+
+    async def copy_to_new_file(self, source_path: str, dest_path: str) -> None:
+        """
+        Copy a file to a path nothing holds yet, never replacing another file.
+
+        Args:
+            source_path: Relative path to the file to copy
+            dest_path: Relative path of the copy
+
+        Raises:
+            FileNotFoundError: If the source does not exist
+            FileExistsError: If the destination already exists
+        """
+        source_full_path = self.validate_path(source_path)
+        dest_full_path = self.validate_path(dest_path)
+        if source_full_path == dest_full_path:
+            raise FileExistsError(f"File already exists: {dest_full_path}")
+
+        source_lock = await self._get_file_lock(str(source_full_path))
+        dest_lock = await self._get_file_lock(str(dest_full_path))
+
+        async with source_lock, dest_lock:
+            if not source_full_path.is_file():
+                raise FileNotFoundError(f"File not found: {source_full_path}")
+
+            # Both a link and an exclusive create refuse a name that exists.
+            try:
+                os.link(source_full_path, dest_full_path)
+            except OSError as exc:
+                if exc.errno not in LINK_FALLBACK_ERRNOS:
+                    raise
+                with (
+                    source_full_path.open("rb") as source,
+                    dest_full_path.open("xb") as dest,
+                ):
+                    try:
+                        shutil.copyfileobj(source, dest)
+                    except BaseException:
+                        # Only a file this copy created, never one it refused.
+                        dest_full_path.unlink()
+                        raise
+                shutil.copymode(source_full_path, dest_full_path)
+
+    async def rename_file(self, file_path: str, new_name: str) -> None:
+        """
+        Rename a file within its directory, never replacing another file.
+
+        Args:
+            file_path: Relative path to the file to rename
+            new_name: New file name
+
+        Raises:
+            FileNotFoundError: If the file does not exist
+            FileExistsError: If another file already holds the new name
+        """
+        source_full_path = self.validate_path(file_path)
+        dest_full_path = self.validate_path(
+            str(Path(file_path).with_name(self._sanitize_filename(new_name)))
+        )
+        if source_full_path == dest_full_path:
+            return
+
+        source_lock = await self._get_file_lock(str(source_full_path))
+        dest_lock = await self._get_file_lock(str(dest_full_path))
+
+        async with source_lock, dest_lock:
+            if not source_full_path.is_file():
+                raise FileNotFoundError(f"File not found: {source_full_path}")
+
+            if dest_full_path.exists():
+                # A case-only rename on a case-insensitive filesystem finds itself.
+                if not dest_full_path.samefile(source_full_path):
+                    raise FileExistsError(f"File already exists: {dest_full_path}")
+                source_full_path.rename(dest_full_path)
+                return
+
+            # A link refuses a name another worker took since the check, which
+            # a rename would silently replace.
+            try:
+                os.link(source_full_path, dest_full_path)
+            except FileExistsError as exc:
+                raise FileExistsError(f"File already exists: {dest_full_path}") from exc
+            except OSError as exc:
+                if exc.errno not in LINK_FALLBACK_ERRNOS:
+                    raise
+                source_full_path.rename(dest_full_path)
+                return
+            source_full_path.unlink()
 
     async def remove_file(self, file_path: str) -> None:
         """

@@ -16,6 +16,7 @@ import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
 import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
+import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   byFavoriteFirst,
@@ -38,6 +39,9 @@ const props = withDefaults(
     selectable?: boolean;
     selectedId?: number | null;
     showOwner?: boolean;
+    /** Badge the thumbnails of the public ones, for lists of the user's own.
+     *  The `list` layout has no thumbnail to carry it. */
+    markPublic?: boolean;
     layout?: AssetLayout;
     /** Why an asset cannot be picked here; a reason disables its tile. */
     disabledReason?: (asset: Asset) => string | null;
@@ -51,6 +55,7 @@ const props = withDefaults(
     selectable: true,
     selectedId: null,
     showOwner: false,
+    markPublic: false,
     layout: "strip",
     disabledReason: undefined,
     groupBy: undefined,
@@ -223,6 +228,10 @@ const fadeIndex = computed(() =>
                   class="r-asset-strip__fav"
                   :favorite="selectable && asset.is_favorite"
                   :size="14"
+                />
+                <PublicBadge
+                  v-if="markPublic && asset.is_public"
+                  class="r-asset-strip__public"
                 />
               </div>
               <div class="r-asset-strip__body">
@@ -520,6 +529,11 @@ const fadeIndex = computed(() =>
   top: 4px;
   left: 6px;
   filter: drop-shadow(0 1px 3px color-mix(in srgb, black 75%, transparent));
+}
+.r-asset-strip__public {
+  position: absolute;
+  top: 6px;
+  left: 6px;
 }
 .r-asset-strip__body {
   display: flex;
