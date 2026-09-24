@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// AssetLabelsDialog: names the runs behind a save or state ("100% run",
-// "Seed: 000X43LKR3"). Submitting no labels clears them.
+// AssetLabelsDialog: adds labels naming the runs ("100% run", "Seed:
+// 000X43LKR3") to every checked save or state at once.
 import { RBtn, RComboboxField, RDialog, RForm } from "@v2/lib";
 import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -8,19 +8,10 @@ import { useI18n } from "vue-i18n";
 const props = withDefaults(
   defineProps<{
     modelValue: boolean;
-    /** Prefilled with the asset's current labels. */
-    initialLabels?: string[];
     suggestions?: string[];
     busy?: boolean;
-    /** Defaults to the field's own name; a bulk edit says "Add labels". */
-    title?: string;
   }>(),
-  {
-    initialLabels: () => [],
-    suggestions: () => [],
-    busy: false,
-    title: undefined,
-  },
+  { suggestions: () => [], busy: false },
 );
 
 const emit = defineEmits<{
@@ -30,14 +21,14 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-const labels = ref<string[]>([...props.initialLabels]);
+const labels = ref<string[]>([]);
 
 // Reopening is what resets the field, so a cancelled edit does not carry into
 // the next one.
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) labels.value = [...props.initialLabels];
+    if (open) labels.value = [];
   },
 );
 
@@ -65,7 +56,7 @@ function submit(): void {
     "
   >
     <template #header>
-      <span>{{ title ?? t("rom.asset-labels") }}</span>
+      <span>{{ t("rom.add-labels") }}</span>
     </template>
 
     <template #content>

@@ -923,20 +923,22 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | GET    | `/{id}/content`    | ASSETS_READ   | Download save file                      |
 | POST   | `/{id}/downloaded` | DEVICES_WRITE | Confirm download (device sync)          |
 | PUT    | `/{id}`            | ASSETS_WRITE  | Update save                             |
+| PUT    | `/{id}/file-name`  | ASSETS_WRITE  | Rename save file and its screenshot     |
 | POST   | `/delete`          | ASSETS_WRITE  | Bulk delete                             |
 | POST   | `/{id}/track`      | DEVICES_WRITE | Re-enable sync tracking                 |
 | POST   | `/{id}/untrack`    | DEVICES_WRITE | Disable sync tracking                   |
 
 ### 6.9 States (`/api/states`)
 
-| Method | Path           | Scope        | Description   |
-| ------ | -------------- | ------------ | ------------- |
-| POST   | `/`            | ASSETS_WRITE | Upload state  |
-| GET    | `/`            | ASSETS_READ  | List states   |
-| GET    | `/identifiers` | ASSETS_READ  | Get state IDs |
-| GET    | `/{id}`        | ASSETS_READ  | Get state     |
-| PUT    | `/{id}`        | ASSETS_WRITE | Update state  |
-| POST   | `/delete`      | ASSETS_WRITE | Bulk delete   |
+| Method | Path              | Scope        | Description                          |
+| ------ | ----------------- | ------------ | ------------------------------------ |
+| POST   | `/`               | ASSETS_WRITE | Upload state                         |
+| GET    | `/`               | ASSETS_READ  | List states                          |
+| GET    | `/identifiers`    | ASSETS_READ  | Get state IDs                        |
+| GET    | `/{id}`           | ASSETS_READ  | Get state                            |
+| PUT    | `/{id}`           | ASSETS_WRITE | Update state                         |
+| PUT    | `/{id}/file-name` | ASSETS_WRITE | Rename state file and its screenshot |
+| POST   | `/delete`         | ASSETS_WRITE | Bulk delete                          |
 
 ### 6.10 Screenshots (`/api/screenshots`)
 

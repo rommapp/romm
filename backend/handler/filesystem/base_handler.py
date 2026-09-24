@@ -807,6 +807,40 @@ class FSHandler:
             dest_full_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(source_full_path), str(dest_full_path))
 
+    async def rename_file(self, file_path: str, new_name: str) -> None:
+        """
+        Rename a file within its directory, never replacing another file.
+
+        Args:
+            file_path: Relative path to the file to rename
+            new_name: New file name
+
+        Raises:
+            FileNotFoundError: If the file does not exist
+            FileExistsError: If another file already holds the new name
+        """
+        source_full_path = self.validate_path(file_path)
+        dest_full_path = self.validate_path(
+            str(Path(file_path).with_name(self._sanitize_filename(new_name)))
+        )
+        if source_full_path == dest_full_path:
+            return
+
+        source_lock = await self._get_file_lock(str(source_full_path))
+        dest_lock = await self._get_file_lock(str(dest_full_path))
+
+        async with source_lock, dest_lock:
+            if not source_full_path.is_file():
+                raise FileNotFoundError(f"File not found: {source_full_path}")
+
+            # A case-only rename on a case-insensitive filesystem finds itself.
+            if dest_full_path.exists() and not dest_full_path.samefile(
+                source_full_path
+            ):
+                raise FileExistsError(f"File already exists: {dest_full_path}")
+
+            source_full_path.rename(dest_full_path)
+
     async def remove_file(self, file_path: str) -> None:
         """
         Remove a file from the filesystem.

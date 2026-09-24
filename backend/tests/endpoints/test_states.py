@@ -674,3 +674,169 @@ class TestStateFavoritesAndLabels:
             headers=_auth(access_token),
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestStateRename:
+    """Renaming a state moves its file and keeps its screenshot bound."""
+
+    @pytest.fixture
+    def state_file(self, _isolated_assets_dir, state: State):
+        path = _isolated_assets_dir / state.full_path
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"STATE_DATA")
+        return path
+
+    @pytest.fixture
+    def thumbnail(
+        self, _isolated_assets_dir, rom: Rom, platform: Platform, admin_user: User
+    ):
+        screenshot = db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_state.png",
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=3,
+            )
+        )
+        path = _isolated_assets_dir / screenshot.file_path / screenshot.file_name
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"PNG")
+        return screenshot
+
+    def _rename(self, client, token: str, state_id: int, file_name: str):
+        return client.put(
+            f"/api/states/{state_id}/file-name",
+            json={"file_name": file_name},
+            headers=_auth(token),
+        )
+
+    def test_renaming_moves_the_file_and_its_screenshot(
+        self, client, access_token: str, state: State, state_file, thumbnail
+    ):
+        response = self._rename(client, access_token, state.id, "Before boss.state")
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["file_name"] == "Before boss.state"
+        assert body["file_name_no_ext"] == "Before boss"
+        assert body["file_extension"] == "state"
+        assert body["screenshot"]["file_name"] == "Before boss.png"
+
+        assert not state_file.exists()
+        assert (state_file.parent / "Before boss.state").read_bytes() == b"STATE_DATA"
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        assert not (screenshots_dir / "test_state.png").exists()
+        assert (screenshots_dir / "Before boss.png").read_bytes() == b"PNG"
+
+        renamed = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert renamed is not None and renamed.file_name_no_ext == "Before boss"
+
+    def test_renaming_leaves_updated_at_untouched(
+        self, client, access_token: str, state: State, state_file
+    ):
+        db_state_handler.update_state(
+            state.id, {"updated_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}
+        )
+        before = db_state_handler.get_state_by_id(state.id)
+        assert before is not None
+
+        response = self._rename(client, access_token, state.id, "renamed.state")
+        assert response.status_code == status.HTTP_200_OK
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None
+        assert refreshed.updated_at == before.updated_at
+
+    def test_name_is_sanitized(
+        self, client, access_token: str, state: State, state_file
+    ):
+        response = self._rename(
+            client, access_token, state.id, "../boss: phase 2.state"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["file_name"] == "boss- phase 2.state"
+        assert (state_file.parent / "boss- phase 2.state").exists()
+
+    def test_name_another_state_holds_is_a_conflict(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        state: State,
+        state_file,
+    ):
+        # A different emulator's folder, so only the row makes the name taken.
+        db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="Taken.state",
+                emulator="other_emulator",
+                file_path=f"{platform.slug}/states/other_emulator",
+                file_size_bytes=2,
+            )
+        )
+
+        response = self._rename(client, access_token, state.id, "taken.state")
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert state_file.exists()
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.file_name == "test_state.state"
+
+    def test_name_binding_another_screenshot_is_a_conflict(
+        self,
+        client,
+        access_token: str,
+        state: State,
+        state_file,
+        screenshot: Screenshot,
+    ):
+        # Taking the stem would show that screenshot, and delete it with the state.
+        response = self._rename(client, access_token, state.id, "test_screenshot.state")
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert state_file.exists()
+
+    def test_gallery_screenshot_sharing_the_stem_stays_put(
+        self, client, access_token: str, state: State, state_file, thumbnail
+    ):
+        db_screenshot_handler.update_screenshot(thumbnail.id, {"is_gallery": True})
+
+        response = self._rename(client, access_token, state.id, "renamed.state")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["screenshot"] is None
+        gallery = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert gallery is not None and gallery.file_name == "test_state.png"
+
+    def test_file_missing_from_disk_returns_not_found(
+        self, client, access_token: str, state: State, _isolated_assets_dir
+    ):
+        response = self._rename(client, access_token, state.id, "renamed.state")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.file_name == "test_state.state"
+
+    def test_blank_name_is_rejected(
+        self, client, access_token: str, state: State, state_file
+    ):
+        response = self._rename(client, access_token, state.id, "   ")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert state_file.exists()
+
+    def test_non_owner_cannot_rename_a_state(
+        self, client, viewer_access_token: str, state: State, state_file
+    ):
+        db_state_handler.update_state(state.id, {"is_public": True})
+
+        response = self._rename(client, viewer_access_token, state.id, "mine.state")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert state_file.exists()

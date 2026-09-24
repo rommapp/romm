@@ -33,38 +33,31 @@ describe("AssetActions", () => {
     expect(wrapper.emitted("download")).toHaveLength(1);
   });
 
-  it("adds the heart, label, visibility toggle and delete for own items", async () => {
+  it("adds edit, the heart and delete after the download for own items", async () => {
     const wrapper = actions({ own: true, type: "state" });
     const buttons = wrapper.findAll(".btn");
 
-    expect(buttons).toHaveLength(5);
-    expect(buttons[0].attributes("aria-label")).toBe("rom.add-to-favorites");
-    expect(buttons[1].attributes("aria-label")).toBe("rom.add-labels");
-    expect(buttons[2].attributes("aria-label")).toBe("rom.make-public");
-    expect(buttons[4].attributes("aria-label")).toBe("rom.delete-state");
+    expect(buttons.map((b) => b.attributes("aria-label"))).toEqual([
+      "rom.download-named",
+      "rom.edit-state",
+      "rom.add-to-favorites",
+      "rom.delete-state",
+    ]);
 
-    await buttons[0].trigger("click");
-    await buttons[1].trigger("click");
-    await buttons[2].trigger("click");
-    await buttons[4].trigger("click");
+    for (const button of buttons) await button.trigger("click");
+    expect(wrapper.emitted("download")).toHaveLength(1);
+    expect(wrapper.emitted("edit")).toHaveLength(1);
     expect(wrapper.emitted("toggleFavorite")).toHaveLength(1);
-    expect(wrapper.emitted("editLabels")).toHaveLength(1);
-    expect(wrapper.emitted("toggleVisibility")).toHaveLength(1);
     expect(wrapper.emitted("delete")).toHaveLength(1);
   });
 
-  it("reads the heart and labels buttons off the asset's own state", () => {
-    const labelled: SaveSchema = {
-      ...save,
-      is_favorite: true,
-      labels: ["100% run", "no deaths"],
-    };
-    const buttons = actions({ own: true, asset: labelled }).findAll(".btn");
+  it("reads the heart off the asset's own state", () => {
+    const favorite: SaveSchema = { ...save, is_favorite: true };
+    const buttons = actions({ own: true, asset: favorite }).findAll(".btn");
 
-    expect(buttons[0].attributes("aria-label")).toBe(
+    expect(buttons[2].attributes("aria-label")).toBe(
       "rom.remove-from-favorites",
     );
-    expect(buttons[1].attributes("aria-label")).toBe("rom.edit-labels");
   });
 
   it("forwards attributes to its wrapper", () => {

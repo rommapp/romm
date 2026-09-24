@@ -11,6 +11,7 @@ from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
     remove_asset_file,
     remove_screenshot,
+    rename_asset,
     store_screenshot,
     store_state_file,
 )
@@ -23,6 +24,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import State
+from models.base import FILE_NAME_MAX_LENGTH
 from utils.assets import normalize_asset_labels
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
@@ -335,6 +337,35 @@ def update_state_labels(
         db_state_handler.update_state(
             id, {"labels": normalize_asset_labels(labels)}, touch=False
         )
+    )
+
+
+@protected_route(
+    router.put,
+    "/{id}/file-name",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_409_CONFLICT: {},
+    },
+)
+async def rename_state(
+    request: Request,
+    id: int,
+    file_name: Annotated[str, Body(embed=True, max_length=FILE_NAME_MAX_LENGTH)],
+) -> StateSchema:
+    """Rename a state's file, its screenshot following along (owner only)."""
+    state = _owned_state_or_404(id, request.user.id)
+
+    columns = await rename_asset(
+        state,
+        file_name,
+        db_state_handler.get_states(user_id=request.user.id, rom_ids=[state.rom_id]),
+    )
+
+    return StateSchema.model_validate(
+        db_state_handler.update_state(id, columns, touch=False)
     )
 
 

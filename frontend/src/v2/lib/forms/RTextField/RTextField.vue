@@ -500,7 +500,9 @@ function onAppendInnerClick(evt: MouseEvent) {
            the same chrome (variants, density, validation, clearable,
            labels) wraps multi-line text. The other branch is left as
            the more common single-line case so the template stays
-           grep-friendly. -->
+           grep-friendly. The `autofocus` attribute is what RDialog looks
+           for on open, so it lands here rather than on the close button. -->
+      <!-- eslint-disable vuejs-accessibility/no-autofocus -- opt-in per call site -->
       <textarea
         v-if="multiline"
         ref="inputRef"
@@ -510,6 +512,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         :maxlength="maxlength"
         :name="name"
         :autocomplete="autocomplete"
+        :autofocus="autofocus || undefined"
         :disabled="disabled"
         :readonly="readonly"
         :aria-required="required || undefined"
@@ -531,6 +534,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         :maxlength="maxlength"
         :name="name"
         :autocomplete="autocomplete"
+        :autofocus="autofocus || undefined"
         :disabled="disabled"
         :readonly="readonly"
         :aria-required="required || undefined"
@@ -545,6 +549,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         @focus="onFocus"
         @blur="onBlur"
       />
+      <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
       <!-- Append-inner adornment (right of the input). Loading +
            clearable take priority over user content. Interactive when

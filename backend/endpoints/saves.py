@@ -13,7 +13,7 @@ from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummar
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from handler.asset_store import remove_asset_file, remove_screenshot
+from handler.asset_store import remove_asset_file, remove_screenshot, rename_asset
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
@@ -30,6 +30,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import SAVE_SLOT_MAX_LENGTH, Save
+from models.base import FILE_NAME_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.assets import normalize_asset_labels
@@ -776,6 +777,33 @@ def update_save_labels(
             id, {"labels": normalize_asset_labels(labels)}, touch=False
         )
     )
+
+
+@protected_route(
+    router.put,
+    "/{id}/file-name",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_409_CONFLICT: {},
+    },
+)
+async def rename_save(
+    request: Request,
+    id: int,
+    file_name: Annotated[str, Body(embed=True, max_length=FILE_NAME_MAX_LENGTH)],
+) -> SaveSchema:
+    """Rename a save's file, its screenshot following along (owner only)."""
+    save = _owned_save_or_404(id, request.user.id)
+
+    columns = await rename_asset(
+        save,
+        file_name,
+        db_save_handler.get_saves(user_id=request.user.id, rom_ids=[save.rom_id]),
+    )
+
+    return _build_save_schema(db_save_handler.update_save(id, columns, touch=False))
 
 
 @protected_route(

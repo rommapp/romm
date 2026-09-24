@@ -18,6 +18,24 @@ def client():
         yield client
 
 
+@pytest.fixture
+def _isolated_assets_dir(tmp_path, monkeypatch):
+    """Redirect the shared fs_asset_handler to a tmp dir for the test's duration.
+
+    Upload, scan, compute_content_hash, and remove_file all dispatch through
+    self.base_path; rebinding base_path to a tmp dir keeps the test from
+    leaking files into the real ROMM_BASE_PATH and lets every IO path resolve
+    consistently.
+    """
+    from pathlib import Path
+
+    from handler.filesystem import fs_asset_handler
+
+    new_base = Path(tmp_path).resolve()
+    monkeypatch.setattr(fs_asset_handler, "base_path", new_base)
+    return new_base
+
+
 @pytest.fixture(autouse=True)
 def clear_cache():
     sync_cache.flushall()

@@ -29,6 +29,8 @@ export type { Body_patch_rom_api_roms__id__patch_post } from './models/Body_patc
 export type { Body_refresh_retro_achievements_api_users__id__ra_refresh_post } from './models/Body_refresh_retro_achievements_api_users__id__ra_refresh_post';
 export type { Body_remove_hidden_entity_api_permissions_hidden_delete } from './models/Body_remove_hidden_entity_api_permissions_hidden_delete';
 export type { Body_rename_memory_card_api_memory_cards__id__put } from './models/Body_rename_memory_card_api_memory_cards__id__put';
+export type { Body_rename_save_api_saves__id__file_name_put } from './models/Body_rename_save_api_saves__id__file_name_put';
+export type { Body_rename_state_api_states__id__file_name_put } from './models/Body_rename_state_api_states__id__file_name_put';
 export type { Body_request_password_reset_api_forgot_password_post } from './models/Body_request_password_reset_api_forgot_password_post';
 export type { Body_reset_password_api_reset_password_post } from './models/Body_reset_password_api_reset_password_post';
 export type { Body_token_api_token_post } from './models/Body_token_api_token_post';

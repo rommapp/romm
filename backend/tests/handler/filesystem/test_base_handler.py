@@ -406,6 +406,53 @@ class TestFSHandler:
         with pytest.raises(FileNotFoundError, match="Source file or folder not found"):
             await handler.move_file_or_folder("nonexistent.txt", "destination.txt")
 
+    async def test_rename_file_stays_in_its_directory(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, "saves/gba", "old.srm")
+
+        await handler.rename_file("saves/gba/old.srm", "new.srm")
+
+        assert not (handler.base_path / "saves/gba/old.srm").exists()
+        assert (
+            handler.base_path / "saves/gba/new.srm"
+        ).read_bytes() == sample_file_content
+
+    async def test_rename_file_keeps_only_the_base_name(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, "saves/gba", "old.srm")
+
+        await handler.rename_file("saves/gba/old.srm", "../../escaped.srm")
+
+        assert (handler.base_path / "saves/gba/escaped.srm").exists()
+        assert not (handler.base_path / "escaped.srm").exists()
+
+    async def test_rename_file_refuses_to_replace_another_file(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "old.srm")
+        await handler.write_file(b"other", ".", "taken.srm")
+
+        with pytest.raises(FileExistsError, match="File already exists"):
+            await handler.rename_file("old.srm", "taken.srm")
+
+        assert (handler.base_path / "old.srm").read_bytes() == sample_file_content
+        assert (handler.base_path / "taken.srm").read_bytes() == b"other"
+
+    async def test_rename_file_to_its_own_name_is_a_no_op(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "same.srm")
+
+        await handler.rename_file("same.srm", "same.srm")
+
+        assert (handler.base_path / "same.srm").read_bytes() == sample_file_content
+
+    async def test_rename_file_nonexistent(self, handler: FSHandler):
+        with pytest.raises(FileNotFoundError, match="File not found"):
+            await handler.rename_file("nonexistent.srm", "new.srm")
+
     async def test_remove_file(self, handler: FSHandler, sample_file_content):
         """Test file removal"""
         # Write file first

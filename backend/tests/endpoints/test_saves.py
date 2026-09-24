@@ -14,9 +14,10 @@ from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
+    db_screenshot_handler,
 )
 from handler.database.base_handler import sync_session
-from models.assets import ASSET_LABEL_MAX_LENGTH, ASSET_LABELS_MAX, Save
+from models.assets import ASSET_LABEL_MAX_LENGTH, ASSET_LABELS_MAX, Save, Screenshot
 from models.device import Device
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
@@ -3192,24 +3193,6 @@ FIXTURE_B_HASH = "8cf6bb36a82a5ee4d7d15fc98599908d"
 FIXTURE_C_HASH = "c0c992d1f1f883f56065bb13b68dfdee"
 
 
-@pytest.fixture
-def _isolated_assets_dir(tmp_path, monkeypatch):
-    """Redirect the shared fs_asset_handler to a tmp dir for the test's duration.
-
-    Upload, scan, compute_content_hash, and remove_file all dispatch through
-    self.base_path; rebinding base_path to a tmp dir keeps the test from
-    leaking files into the real ROMM_BASE_PATH and lets every IO path resolve
-    consistently.
-    """
-    from pathlib import Path
-
-    from handler.filesystem import fs_asset_handler
-
-    new_base = Path(tmp_path).resolve()
-    monkeypatch.setattr(fs_asset_handler, "base_path", new_base)
-    return new_base
-
-
 class TestUploadHashContract:
     """Round-trip a real zip through the upload endpoint and pin the
     content_hash the server stores.
@@ -3743,3 +3726,107 @@ class TestSaveFavoritesAndLabels:
         row = next(s for s in theirs.json()["all_user_saves"] if s["id"] == save.id)
         assert row["labels"] == []
         assert row["is_favorite"] is False
+
+
+class TestSaveRename:
+    """Renaming a save moves its file and keeps its screenshot bound."""
+
+    @pytest.fixture
+    def save_file(self, _isolated_assets_dir, save: Save):
+        path = _isolated_assets_dir / save.full_path
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"SAVE_DATA")
+        return path
+
+    def _rename(self, client, token: str, save_id: int, file_name: str):
+        return client.put(
+            f"/api/saves/{save_id}/file-name",
+            json={"file_name": file_name},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    def test_renaming_moves_the_file_and_its_screenshot(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        save: Save,
+        save_file,
+        _isolated_assets_dir,
+    ):
+        thumbnail = db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_save.png",
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=3,
+            )
+        )
+        screenshots_dir = _isolated_assets_dir / thumbnail.file_path
+        screenshots_dir.mkdir(parents=True)
+        (screenshots_dir / "test_save.png").write_bytes(b"PNG")
+
+        response = self._rename(client, access_token, save.id, "100% run.srm")
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["file_name"] == "100% run.srm"
+        assert body["file_extension"] == "srm"
+        assert body["slot"] == "autosave"
+        assert body["screenshot"]["file_name"] == "100% run.png"
+
+        assert not save_file.exists()
+        assert (save_file.parent / "100% run.srm").read_bytes() == b"SAVE_DATA"
+        assert (screenshots_dir / "100% run.png").read_bytes() == b"PNG"
+
+    def test_name_a_save_in_another_slot_holds_is_a_conflict(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        save: Save,
+        save_file,
+    ):
+        # Slots share a folder on disk, so the name has to be free across them.
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="archived.sav",
+                emulator="test_emulator",
+                slot=None,
+                file_path=save.file_path,
+                file_size_bytes=1,
+            )
+        )
+
+        response = self._rename(client, access_token, save.id, "archived.sav")
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert save_file.read_bytes() == b"SAVE_DATA"
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.file_name == "test_save.sav"
+
+    def test_unchanged_name_is_a_no_op(
+        self, client, access_token: str, save: Save, save_file
+    ):
+        response = self._rename(client, access_token, save.id, "test_save.sav")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["file_name"] == "test_save.sav"
+        assert save_file.exists()
+
+    def test_non_owner_cannot_rename_a_save(
+        self, client, viewer_access_token: str, save: Save, save_file
+    ):
+        db_save_handler.update_save(save.id, {"is_public": True})
+
+        response = self._rename(client, viewer_access_token, save.id, "mine.sav")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert save_file.exists()
