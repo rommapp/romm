@@ -7,7 +7,7 @@ import { RBtn, RDialog, RForm, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
-import { required } from "@/v2/utils/validation";
+import { notBlank } from "@/v2/utils/validation";
 
 export interface MemoryCardFields {
   name: string;
@@ -45,7 +45,7 @@ const { t } = useI18n();
 const name = ref(props.initialName);
 const isPublic = ref(props.initialPublic);
 const valid = ref(true);
-const rules = [required(t("common.required"))];
+const rules = [notBlank()];
 const canSubmit = computed(
   () =>
     !!name.value.trim() &&

@@ -13,7 +13,12 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
 }));
 vi.mock("@/services/api/collection", () => ({
-  default: { updateCollection: vi.fn(), updateSmartCollection: vi.fn() },
+  default: {
+    updateCollection: vi.fn(),
+    updateSmartCollection: vi.fn(),
+    setCollectionVisibility: vi.fn(),
+    setSmartCollectionVisibility: vi.fn(),
+  },
 }));
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success: vi.fn(), error: snackbarError }),
@@ -68,8 +73,8 @@ describe("CollectionSettingsTab visibility", () => {
     } as User);
   });
 
-  it("saves as soon as it is switched, keeping a name draft out", async () => {
-    vi.mocked(collectionApi.updateCollection).mockResolvedValue({
+  it("saves on its own route as soon as it is switched", async () => {
+    vi.mocked(collectionApi.setCollectionVisibility).mockResolvedValue({
       data: { ...stored, is_public: true },
     } as never);
     const wrapper = mountTab();
@@ -78,16 +83,17 @@ describe("CollectionSettingsTab visibility", () => {
     await wrapper.get(".visibility").trigger("click");
     await flushPromises();
 
-    expect(collectionApi.updateCollection).toHaveBeenCalledTimes(1);
-    const { collection } = vi.mocked(collectionApi.updateCollection).mock
-      .calls[0][0];
-    expect(collection.is_public).toBe(true);
-    expect(collection.name).toBe("Favorites");
+    expect(collectionApi.setCollectionVisibility).toHaveBeenCalledWith({
+      id: 8,
+      isPublic: true,
+    });
+    // The name draft stays unsent, and nothing rewrites the membership.
+    expect(collectionApi.updateCollection).not.toHaveBeenCalled();
     expect(wrapper.get(".visibility").attributes("data-on")).toBe("true");
   });
 
   it("flips back when the save fails", async () => {
-    vi.mocked(collectionApi.updateCollection).mockRejectedValue(
+    vi.mocked(collectionApi.setCollectionVisibility).mockRejectedValue(
       new Error("boom"),
     );
     const wrapper = mountTab();

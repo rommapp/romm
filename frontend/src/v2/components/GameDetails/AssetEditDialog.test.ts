@@ -59,7 +59,7 @@ function mountDialog(props: Record<string, unknown> = {}) {
   return mount(AssetEditDialog, {
     props: {
       modelValue: true,
-      title: "Edit state",
+      type: "state",
       fileName: "Pokemon [2026-09-18].state",
       labels: ["100% run"],
       isPublic: false,

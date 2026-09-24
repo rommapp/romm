@@ -3,7 +3,7 @@ from datetime import datetime
 from io import BytesIO
 from typing import Annotated, TypeVar
 
-from fastapi import File, Form, HTTPException
+from fastapi import Body, File, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
 from pydantic import BaseModel as PydanticBaseModel
@@ -518,6 +518,30 @@ async def update_collection(
     return CollectionSchema.model_validate(updated_collection)
 
 
+@protected_route(
+    router.put,
+    "/{id}/visibility",
+    [Scope.COLLECTIONS_WRITE],
+    responses={status.HTTP_403_FORBIDDEN: {}, status.HTTP_404_NOT_FOUND: {}},
+)
+def update_collection_visibility(
+    request: Request,
+    id: int,
+    is_public: Annotated[bool, Body(embed=True)],
+) -> CollectionSchema:
+    """Share or unshare a collection (owner only), leaving its games and cover."""
+    collection = db_collection_handler.get_collection(id)
+    if not collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    if collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+
+    return CollectionSchema.model_validate(
+        db_collection_handler.update_collection(id, {"is_public": is_public})
+    )
+
+
 class CollectionRomsPayload(PydanticBaseModel):
     rom_ids: list[int]
 
@@ -640,6 +664,30 @@ async def update_smart_collection(
     )
 
     return SmartCollectionSchema.model_validate(smart_collection)
+
+
+@protected_route(
+    router.put,
+    "/smart/{id}/visibility",
+    [Scope.COLLECTIONS_WRITE],
+    responses={status.HTTP_403_FORBIDDEN: {}, status.HTTP_404_NOT_FOUND: {}},
+)
+def update_smart_collection_visibility(
+    request: Request,
+    id: int,
+    is_public: Annotated[bool, Body(embed=True)],
+) -> SmartCollectionSchema:
+    """Share or unshare a smart collection (owner only), leaving its filters."""
+    smart_collection = db_collection_handler.get_smart_collection(id)
+    if not smart_collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    if smart_collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+
+    return SmartCollectionSchema.model_validate(
+        db_collection_handler.update_smart_collection(id, {"is_public": is_public})
+    )
 
 
 @protected_route(

@@ -963,16 +963,18 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 
 ### 6.12 Collections (`/api/collections`)
 
-| Method | Path                  | Scope             | Description           |
-| ------ | --------------------- | ----------------- | --------------------- |
-| POST   | `/`                   | COLLECTIONS_WRITE | Create collection     |
-| GET    | `/`                   | COLLECTIONS_READ  | List collections      |
-| GET    | `/identifiers`        | COLLECTIONS_READ  | Get collection IDs    |
-| GET    | `/{id}`               | COLLECTIONS_READ  | Get collection        |
-| PUT    | `/{id}`               | COLLECTIONS_WRITE | Update collection     |
-| DELETE | `/{id}`               | COLLECTIONS_WRITE | Delete collection     |
-| POST   | `/{id}/roms`          | COLLECTIONS_WRITE | Add ROM to collection |
-| DELETE | `/{id}/roms/{rom_id}` | COLLECTIONS_WRITE | Remove ROM            |
+| Method | Path                     | Scope             | Description                       |
+| ------ | ------------------------ | ----------------- | --------------------------------- |
+| POST   | `/`                      | COLLECTIONS_WRITE | Create collection                 |
+| GET    | `/`                      | COLLECTIONS_READ  | List collections                  |
+| GET    | `/identifiers`           | COLLECTIONS_READ  | Get collection IDs                |
+| GET    | `/{id}`                  | COLLECTIONS_READ  | Get collection                    |
+| PUT    | `/{id}`                  | COLLECTIONS_WRITE | Update collection                 |
+| PUT    | `/{id}/visibility`       | COLLECTIONS_WRITE | Share or unshare collection       |
+| PUT    | `/smart/{id}/visibility` | COLLECTIONS_WRITE | Share or unshare smart collection |
+| DELETE | `/{id}`                  | COLLECTIONS_WRITE | Delete collection                 |
+| POST   | `/{id}/roms`             | COLLECTIONS_WRITE | Add ROM to collection             |
+| DELETE | `/{id}/roms/{rom_id}`    | COLLECTIONS_WRITE | Remove ROM                        |
 
 ### 6.13 Feeds (`/api/feeds`)
 

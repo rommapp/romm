@@ -58,8 +58,6 @@ const kindBadge = computed<{ icon: string; label: string } | null>(() => {
   return null;
 });
 
-const isShared = computed(() => props.kind !== "virtual" && !!props.isPublic);
-
 // Shared-element morph between the tile's CollectionMosaic and the
 // CollectionMosaic shown in the Collection view's InfoPanel cover slot.
 // The tag includes the kind so regular/virtual/smart with overlapping
@@ -115,7 +113,7 @@ const morphStyle = computed(() =>
           </span>
         </template>
       </RTooltip>
-      <PublicBadge v-if="isShared" class="coll-tile__public" />
+      <PublicBadge v-if="isPublic" class="coll-tile__public" />
     </div>
     <div class="coll-tile__name">
       {{ name }}

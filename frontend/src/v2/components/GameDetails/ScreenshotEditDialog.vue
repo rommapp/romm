@@ -2,7 +2,7 @@
 // ScreenshotEditDialog: one of the user's gallery screenshots, where its
 // visibility is set like every other shared thing's.
 import { RBtn, RDialog, RForm } from "@v2/lib";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 
@@ -23,6 +23,9 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const isPublic = ref(props.isPublic);
+const canSubmit = computed(
+  () => !props.busy && isPublic.value !== props.isPublic,
+);
 
 // Reopening is what resets the field, so a cancelled edit does not carry
 // into the next one.
@@ -39,7 +42,7 @@ function close(): void {
 }
 
 function submit(): void {
-  if (props.busy || isPublic.value === props.isPublic) return;
+  if (!canSubmit.value) return;
   emit("submit", isPublic.value);
 }
 </script>
@@ -73,7 +76,7 @@ function submit(): void {
         color="primary"
         prepend-icon="mdi-check"
         :loading="busy"
-        :disabled="busy || isPublic === props.isPublic"
+        :disabled="!canSubmit"
         @click="submit"
       >
         {{ t("common.save") }}

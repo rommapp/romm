@@ -828,9 +828,7 @@ const labelSuggestions = computed(() =>
 
     <AssetEditDialog
       :model-value="editTarget !== null"
-      :title="
-        editTarget?.type === 'state' ? t('rom.edit-state') : t('rom.edit-save')
-      "
+      :type="editTarget?.type ?? 'save'"
       :file-name="editTarget?.asset.file_name ?? ''"
       :labels="editTarget?.asset.labels ?? []"
       :is-public="!!editTarget?.asset.is_public"

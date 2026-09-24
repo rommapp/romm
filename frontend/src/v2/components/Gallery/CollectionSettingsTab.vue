@@ -328,29 +328,21 @@ function syncSaved(saved: Collection | SmartCollection) {
   emit("saved", saved);
 }
 
-// Writes the stored fields back with the new visibility, so an unapplied
-// name or description edit stays a draft.
+// Its own route, so an unapplied name or description edit stays a draft.
 async function setVisibility(next: boolean) {
   if (!canEdit.value || savingVisibility.value) return;
   const previous = isPublic.value;
   isPublic.value = next;
   savingVisibility.value = true;
   try {
+    const { id } = props.collection;
     const { data } =
       props.kind === "smart"
-        ? await collectionApi.updateSmartCollection({
-            smartCollection: {
-              ...(props.collection as SmartCollection),
-              is_public: next,
-            },
+        ? await collectionApi.setSmartCollectionVisibility({
+            id,
+            isPublic: next,
           })
-        : await collectionApi.updateCollection({
-            collection: {
-              ...(props.collection as Collection),
-              is_public: next,
-              url_cover: null,
-            },
-          });
+        : await collectionApi.setCollectionVisibility({ id, isPublic: next });
     syncSaved(data);
   } catch (error) {
     isPublic.value = previous;

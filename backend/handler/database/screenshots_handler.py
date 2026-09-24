@@ -8,6 +8,7 @@ from sqlalchemy.sql import Delete, Select, Update
 
 from decorators.database import begin_session
 from models.assets import Screenshot
+from models.base import with_file_name_parts
 
 from .base_handler import DBBaseHandler
 
@@ -119,7 +120,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         session.execute(
             update(Screenshot)
             .where(Screenshot.id == id)
-            .values(**data)
+            .values(**with_file_name_parts(data))
             .execution_options(synchronize_session="evaluate")
         )
         return session.query(Screenshot).filter_by(id=id).one()

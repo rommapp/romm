@@ -28,7 +28,7 @@ const { t } = useI18n();
   flex-shrink: 0;
   width: 22px;
   height: 22px;
-  border-radius: 999px;
+  border-radius: var(--r-radius-pill);
   background: var(--r-color-overlay-scrim-strong);
   color: var(--r-color-overlay-fg);
 }

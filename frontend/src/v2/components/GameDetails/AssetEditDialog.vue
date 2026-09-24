@@ -5,7 +5,8 @@ import { RBtn, RComboboxField, RDialog, RForm, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
-import { required } from "@/v2/utils/validation";
+import type { AssetType } from "@/v2/utils/assets";
+import { notBlank } from "@/v2/utils/validation";
 
 /** The fields the user changed; the others are left out. */
 export interface AssetEdit {
@@ -17,7 +18,7 @@ export interface AssetEdit {
 const props = withDefaults(
   defineProps<{
     modelValue: boolean;
-    title: string;
+    type: AssetType;
     fileName: string;
     labels?: string[];
     isPublic?: boolean;
@@ -47,7 +48,7 @@ const labels = ref<string[]>([...props.labels]);
 const isPublic = ref(props.isPublic);
 
 const trimmed = computed(() => name.value.trim());
-const rules = [required(t("common.required"))];
+const rules = [notBlank()];
 const nameErrors = computed(() =>
   props.takenName !== null && trimmed.value === props.takenName
     ? [t("rom.file-name-taken")]
@@ -119,7 +120,9 @@ function submit(): void {
     "
   >
     <template #header>
-      <span>{{ title }}</span>
+      <span>
+        {{ type === "save" ? t("rom.edit-save") : t("rom.edit-state") }}
+      </span>
     </template>
 
     <template #content>

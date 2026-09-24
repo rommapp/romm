@@ -76,8 +76,6 @@ const kindBadge = computed<{ icon: string; label: string }>(() => {
   return { icon: "mdi-bookmark-outline", label: t("collection.kind-standard") };
 });
 
-const isShared = computed(() => props.kind !== "virtual" && !!props.isPublic);
-
 const gridStyle = { gridTemplateColumns: COLLECTION_LIST_GRID_TEMPLATE };
 
 function onRowClick(e: MouseEvent) {
@@ -106,7 +104,7 @@ function onRowClick(e: MouseEvent) {
   >
     <div ref="coverEl" class="coll-list-row__thumb" :style="morphStyle">
       <CollectionMosaic :covers="covers" />
-      <PublicBadge v-if="isShared" class="coll-list-row__public" />
+      <PublicBadge v-if="isPublic" class="coll-list-row__public" />
     </div>
     <div class="r-list-compact__stack">
       <div class="coll-list-row__name">{{ name }}</div>
@@ -135,7 +133,7 @@ function onRowClick(e: MouseEvent) {
     <div class="coll-list-row__cell coll-list-row__title">
       <div ref="coverEl" class="coll-list-row__thumb" :style="morphStyle">
         <CollectionMosaic :covers="covers" />
-        <PublicBadge v-if="isShared" class="coll-list-row__public" />
+        <PublicBadge v-if="isPublic" class="coll-list-row__public" />
       </div>
       <div class="coll-list-row__meta">
         <div class="coll-list-row__name">{{ name }}</div>

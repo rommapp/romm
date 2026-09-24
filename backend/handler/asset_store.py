@@ -19,7 +19,7 @@ from handler.scan_handler import scan_screenshot, scan_state
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import Save, Screenshot, State
-from models.base import compute_file_name_no_ext, compute_file_name_parts
+from models.base import compute_file_name_no_ext
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import sanitize_filename
@@ -139,18 +139,6 @@ async def remove_screenshot(screenshot: Screenshot | None) -> None:
     )
 
 
-def _file_name_columns(file_name: str) -> dict[str, str]:
-    """A file name with the columns derived from it, which a bulk update() must
-    write itself since it skips the `@validates` hook."""
-    parts = compute_file_name_parts(file_name)
-    return {
-        "file_name": file_name,
-        "file_name_no_tags": parts.no_tags,
-        "file_name_no_ext": parts.no_ext,
-        "file_extension": parts.extension,
-    }
-
-
 def _name_taken(file_name: str) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
@@ -185,7 +173,7 @@ async def _move_asset_files(
 
 async def rename_asset(
     asset: Save | State, file_name: str, siblings: Iterable[Save | State]
-) -> dict[str, str]:
+) -> str:
     """Rename a save's or state's file, taking its thumbnail along.
 
     Args:
@@ -193,7 +181,7 @@ async def rename_asset(
             to update by name, so the new name must be free among them.
 
     Returns:
-        The name columns to write onto the asset's row, none when unchanged.
+        The sanitized name to write onto the asset's row.
     """
     try:
         new_name = sanitize_filename(file_name)
@@ -203,7 +191,7 @@ async def rename_asset(
             detail=f"Invalid filename: {exc}",
         ) from exc
     if new_name == asset.file_name:
-        return {}
+        return new_name
     # The thumbnail follows the stem, so a bare extension would strand it.
     new_stem = compute_file_name_no_ext(new_name)
     if not new_stem:
@@ -255,6 +243,6 @@ async def rename_asset(
 
     if thumbnail:
         db_screenshot_handler.update_screenshot(
-            thumbnail.id, _file_name_columns(thumbnail_name)
+            thumbnail.id, {"file_name": thumbnail_name}
         )
-    return _file_name_columns(new_name)
+    return new_name
