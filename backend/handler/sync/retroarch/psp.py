@@ -15,6 +15,7 @@ from collections import defaultdict
 from collections.abc import Callable, Collection, Iterable
 from contextlib import suppress
 from dataclasses import dataclass
+from functools import partial
 from io import BytesIO
 from pathlib import Path
 from typing import Literal
@@ -265,6 +266,18 @@ def _exceeds_bundle_limits(member_sizes: Collection[int]) -> bool:
     )
 
 
+def _checked_bundle_infos(zf: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
+    """The bundle's members, as declared by its central directory.
+
+    Raises:
+        zipfile.BadZipFile: The bundle exceeds the bundle limits.
+    """
+    infos = zf.infolist()
+    if _exceeds_bundle_limits([info.file_size for info in infos]):
+        raise zipfile.BadZipFile("PSP bundle exceeds the size limits")
+    return infos
+
+
 def _load_bundle_entries(
     path: Path, names: Collection[str] | None = None
 ) -> dict[str, bytes]:
@@ -275,29 +288,23 @@ def _load_bundle_entries(
         zipfile.BadZipFile: The bundle is corrupt or exceeds the bundle limits.
     """
     with zipfile.ZipFile(path) as zf:
-        infos = zf.infolist()
-        if _exceeds_bundle_limits([info.file_size for info in infos]):
-            raise zipfile.BadZipFile("PSP bundle exceeds the size limits")
-        # `read` stops at each member's declared size, so the check above holds.
+        # `read` stops at each member's declared size, so the limit check holds.
         return {
             info.filename: zf.read(info)
-            for info in infos
+            for info in _checked_bundle_infos(zf)
             if names is None or info.filename in names
         }
 
 
 def _load_bundle_member_names(path: Path) -> list[str]:
-    """The bundle's member names, read from its central directory without inflating.
+    """The bundle's member names, without inflating any member.
 
     Raises:
         FileNotFoundError: The bundle file is gone.
         zipfile.BadZipFile: The bundle is corrupt or exceeds the bundle limits.
     """
     with zipfile.ZipFile(path) as zf:
-        infos = zf.infolist()
-        if _exceeds_bundle_limits([info.file_size for info in infos]):
-            raise zipfile.BadZipFile("PSP bundle exceeds the size limits")
-        return [info.filename for info in infos]
+        return [info.filename for info in _checked_bundle_infos(zf)]
 
 
 def _write_bundle(entries: dict[str, bytes]) -> bytes:
@@ -373,7 +380,7 @@ async def _add_bundle(
     await fs_asset_handler.write_file(
         file=zip_bytes, path=bundle_path, filename=bundle_name
     )
-    added = db_save_handler.add_save(
+    bundle = db_save_handler.add_save(
         Save(
             rom_id=rom.id,
             user_id=user.id,
@@ -385,11 +392,7 @@ async def _add_bundle(
             slot=None,
         )
     )
-    # The merged instance keeps the Python-side `updated_at`, which the
-    # database may store truncated, so the cache key is built from a re-read.
-    bundle = db_save_handler.get_save(user_id=user.id, id=added.id)
-    if bundle:
-        await _prime_member_md5s(bundle, entries)
+    await _cache_member_md5s(bundle, entries)
 
 
 async def put_psp_file(
@@ -454,7 +457,7 @@ async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:
             "missing_from_fs": False,
         },
     )
-    await _prime_member_md5s(updated, entries)
+    await _cache_member_md5s(updated, entries)
 
 
 async def _read_bundle(
@@ -463,6 +466,15 @@ async def _read_bundle(
     try:
         return await _load_bundle(bundle, names)
     except (FileNotFoundError, zipfile.BadZipFile) as exc:
+        log.warning(f"Failed to read PSP bundle {hl(bundle.full_path)}: {exc}")
+        return None
+
+
+async def _read_bundle_names(bundle: Save) -> list[str] | None:
+    try:
+        path = fs_asset_handler.validate_path(bundle.full_path)
+        return await asyncio.to_thread(_load_bundle_member_names, path)
+    except (ValueError, FileNotFoundError, zipfile.BadZipFile) as exc:
         log.warning(f"Failed to read PSP bundle {hl(bundle.full_path)}: {exc}")
         return None
 
@@ -505,7 +517,7 @@ async def delete_psp_file(
 def _member_md5s_cache_key(bundle: Save) -> str:
     return (
         f"romm:retroarch_sync:psp_member_md5s:{bundle.full_path}"
-        f":{bundle.content_hash}:{bundle.updated_at.timestamp()}"
+        f":{bundle.content_hash}"
     )
 
 
@@ -516,33 +528,30 @@ def _member_md5s(members: dict[str, bytes]) -> dict[str, str]:
     }
 
 
-async def _prime_member_md5s(bundle: Save, members: dict[str, bytes]) -> None:
+async def _member_md5s_json(bundle: Save) -> str | None:
+    members = await _read_bundle(bundle)
+    if members is None:
+        return None
+    return json.dumps(await asyncio.to_thread(_member_md5s, members))
+
+
+async def _cache_member_md5s(bundle: Save, members: dict[str, bytes]) -> None:
     """Cache a just-written bundle's member MD5s, so the next manifest skips inflating it."""
+    if not bundle.content_hash:
+        return
+
+    digests = await asyncio.to_thread(_member_md5s, members)
     # Best effort: the bundle is already written, and a miss is recomputed later.
     try:
         await async_cache.set(
             _member_md5s_cache_key(bundle),
-            json.dumps(_member_md5s(members)),
+            json.dumps(digests),
             ex=sync_handler.HASH_CACHE_TTL_SECONDS,
         )
     except RedisError as exc:
         log.warning(
             f"Failed to cache PSP bundle hashes for {hl(bundle.full_path)}: {exc}"
         )
-
-
-async def _bundle_member_md5s(bundle: Save) -> dict[str, str] | None:
-    """Each member's MD5, cached so a manifest build doesn't inflate every bundle."""
-    cached = await async_cache.get(_member_md5s_cache_key(bundle))
-    if cached:
-        return json.loads(cached)
-
-    members = await _read_bundle(bundle)
-    if members is None:
-        return None
-
-    await _prime_member_md5s(bundle, members)
-    return _member_md5s(members)
 
 
 def _member_sync_path(bundle: Save, save_folder: str, member_name: str) -> str:
@@ -559,13 +568,9 @@ async def list_psp_member_paths(
     for save_folder, save in _latest_bundles_by_folder(saves, can_see).items():
         if save.missing_from_fs:
             continue
-        try:
-            path = fs_asset_handler.validate_path(save.full_path)
-            names = await asyncio.to_thread(_load_bundle_member_names, path)
-        except (ValueError, FileNotFoundError, zipfile.BadZipFile) as exc:
-            log.warning(f"Failed to read PSP bundle {hl(save.full_path)}: {exc}")
-            continue
-        paths += [_member_sync_path(save, save_folder, name) for name in names]
+        names = await _read_bundle_names(save)
+        if names is not None:
+            paths += [_member_sync_path(save, save_folder, name) for name in names]
 
     return paths
 
@@ -574,17 +579,31 @@ async def build_psp_manifest_entries(
     saves: Iterable[Save], can_see: Callable[[Rom], bool]
 ) -> list[dict[str, str]]:
     """One manifest entry per bundle member, since RetroArch diffs per file."""
-    entries: list[dict[str, str]] = []
-    for save_folder, save in _latest_bundles_by_folder(saves, can_see).items():
-        if save.missing_from_fs:
-            continue
-        digests = await _bundle_member_md5s(save)
-        if digests is None:
-            continue
+    bundles = [
+        (save_folder, save)
+        for save_folder, save in _latest_bundles_by_folder(saves, can_see).items()
+        if not save.missing_from_fs
+    ]
+    # The key is only stable while the row's content hash tracks the bytes.
+    cached = [(folder, save) for folder, save in bundles if save.content_hash]
+    uncached = [(folder, save) for folder, save in bundles if not save.content_hash]
+    results = await sync_handler.cached_md5s(
+        [
+            (_member_md5s_cache_key(save), partial(_member_md5s_json, save))
+            for _, save in cached
+        ]
+    )
+    results += [await _member_md5s_json(save) for _, save in uncached]
 
+    entries: list[dict[str, str]] = []
+    for (save_folder, save), digests_json in zip(
+        cached + uncached, results, strict=True
+    ):
+        if digests_json is None:
+            continue
         entries += [
             {"path": _member_sync_path(save, save_folder, name), "hash": digest}
-            for name, digest in digests.items()
+            for name, digest in json.loads(digests_json).items()
         ]
 
     return entries

@@ -327,7 +327,8 @@ def _rom_file_entry(
 async def _save_state_listing(
     parts: list[str], depth: int, user: User, can_see: Callable[[Rom], bool]
 ) -> list[browser.PropfindEntry] | None:
-    paths = await sync_handler.list_manifest_paths(user, can_see)
+    tree: AssetKind = "saves" if parts[0] == "saves" else "states"
+    paths = await sync_handler.list_manifest_paths(user, can_see, tree)
     clean = "/".join(parts)
 
     if clean in paths:

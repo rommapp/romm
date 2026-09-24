@@ -10,7 +10,8 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, cast
+from functools import partial
+from typing import Literal, NamedTuple, cast
 
 from handler.database import (
     db_rom_handler,
@@ -19,7 +20,6 @@ from handler.database import (
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
-from handler.filesystem.retroarch_sync_handler import BlobFile
 from handler.redis_handler import async_cache
 from handler.sync.retroarch import psp
 from handler.sync.retroarch.emulator_names import (
@@ -314,35 +314,32 @@ async def cached_md5s(
     return digests
 
 
+async def _blob_md5(disk_path: str) -> str | None:
+    try:
+        return await fs_retroarch_sync_handler.compute_file_md5(disk_path)
+    except (ValueError, OSError):
+        return None
+
+
 async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
-    blobs: list[tuple[str, str, BlobFile]] = []
+    blob_paths: list[str] = []
+    jobs: list[tuple[str, Callable[[], Awaitable[str | None]]]] = []
     for category in BLOB_CATEGORIES:
         prefix = user_blob_path(user, category)
         for blob in await fs_retroarch_sync_handler.list_blob_files(prefix):
             blob_path = f"{category}/{blob.relative_path}"
-            blobs.append((blob_path, f"{prefix}/{blob.relative_path}", blob))
-
-    def compute(disk_path: str) -> Callable[[], Awaitable[str | None]]:
-        async def md5() -> str | None:
-            try:
-                return await fs_retroarch_sync_handler.compute_file_md5(disk_path)
-            except (ValueError, OSError):
-                return None
-
-        return md5
-
-    digests = await cached_md5s(
-        [
-            (
-                f"romm:retroarch_sync:blob_md5:{user.id}:{blob_path}:{blob.size}:{blob.mtime}",
-                compute(disk_path),
+            blob_paths.append(blob_path)
+            jobs.append(
+                (
+                    f"romm:retroarch_sync:blob_md5:{user.id}:{blob_path}:{blob.size}:{blob.mtime}",
+                    partial(_blob_md5, f"{prefix}/{blob.relative_path}"),
+                )
             )
-            for blob_path, disk_path, blob in blobs
-        ]
-    )
+
+    digests = await cached_md5s(jobs)
     return [
         {"path": blob_path, "hash": digest}
-        for (blob_path, _, _), digest in zip(blobs, digests, strict=True)
+        for blob_path, digest in zip(blob_paths, digests, strict=True)
         if digest
     ]
 
@@ -378,53 +375,47 @@ def _mark_missing_from_fs(asset: Save | State | Screenshot) -> None:
         db_screenshot_handler.update_screenshot(asset.id, update)
 
 
+async def _asset_md5(asset: Save | State | Screenshot) -> str | None:
+    try:
+        return await fs_asset_handler.compute_file_md5(asset.full_path)
+    except FileNotFoundError:
+        _mark_missing_from_fs(asset)
+    except OSError as exc:
+        log.debug(f"Failed to compute MD5 for {asset.full_path}: {exc}")
+    return None
+
+
 async def asset_md5s(
     assets: Sequence[Save | State | Screenshot],
 ) -> list[str | None]:
     """Each asset's MD5, or None when unreadable; a vanished file flags its row."""
-
-    def compute(
-        asset: Save | State | Screenshot,
-    ) -> Callable[[], Awaitable[str | None]]:
-        async def md5() -> str | None:
-            try:
-                return await fs_asset_handler.compute_file_md5(asset.full_path)
-            except FileNotFoundError:
-                _mark_missing_from_fs(asset)
-            except OSError as exc:
-                log.debug(f"Failed to compute MD5 for {asset.full_path}: {exc}")
-            return None
-
-        return md5
-
     return await cached_md5s(
         [
             (
                 f"romm:retroarch_sync:md5:{asset.full_path}"
                 f":{asset.file_size_bytes}:{asset.updated_at.timestamp()}",
-                compute(asset),
+                partial(_asset_md5, asset),
             )
             for asset in assets
         ]
     )
 
 
-@dataclass(frozen=True)
-class ManifestAsset:
-    """A save, state or state screenshot as the manifest lists it."""
-
+class ManifestAsset(NamedTuple):
     path: str
     asset: Save | State | Screenshot
-    # A state screenshot is listed only alongside its state.
-    parent_path: str | None = None
 
 
 def _manifest_assets(
-    user: User, can_see: Callable[[Rom], bool]
+    user: User, can_see: Callable[[Rom], bool], tree: AssetKind | None = None
 ) -> tuple[list[ManifestAsset], list[Save]]:
-    """The manifest's saves and states, plus the unslotted saves its PSP bundles come from."""
+    """The manifest's saves and states (only `tree`'s when given), plus the unslotted saves its PSP bundles come from."""
     # Slotted saves are RomM's timestamped history, which no core would load.
-    saves = db_save_handler.get_saves(user_id=user.id, slot_is_null=True)
+    saves = (
+        db_save_handler.get_saves(user_id=user.id, slot_is_null=True)
+        if tree != "states"
+        else []
+    )
     listed_saves = [
         save
         for save in saves
@@ -432,13 +423,17 @@ def _manifest_assets(
         and can_see(save.rom)
         and not psp.is_psp_bundle_file_name(save.file_name)
     ]
-    listed_states = [
-        (emulator, canonical_state_file_name(state.rom, slot_suffix), state)
-        for (_rom_id, emulator, slot_suffix), state in group_states_by_slot(
-            db_state_handler.get_states(user_id=user.id)
-        ).items()
-        if not state.missing_from_fs and can_see(state.rom)
-    ]
+    listed_states = (
+        [
+            (emulator, canonical_state_file_name(state.rom, slot_suffix), state)
+            for (_rom_id, emulator, slot_suffix), state in group_states_by_slot(
+                db_state_handler.get_states(user_id=user.id)
+            ).items()
+            if not state.missing_from_fs and can_see(state.rom)
+        ]
+        if tree != "saves"
+        else []
+    )
 
     # A path carries no platform, so only the ROM that GET/PUT/DELETE would
     # resolve it to may claim it; a same-named ROM elsewhere would shadow it.
@@ -472,14 +467,16 @@ def _manifest_assets(
 
         screenshot = screenshots.get(state.id)
         if screenshot and not screenshot.missing_from_fs:
-            assets.append(ManifestAsset(f"{state_path}.png", screenshot, state_path))
+            assets.append(ManifestAsset(f"{state_path}.png", screenshot))
 
     return assets, saves
 
 
-async def list_manifest_paths(user: User, can_see: Callable[[Rom], bool]) -> list[str]:
-    """The manifest's save and state paths, sorted, without hashing or listing blobs."""
-    assets, saves = _manifest_assets(user, can_see)
+async def list_manifest_paths(
+    user: User, can_see: Callable[[Rom], bool], tree: AssetKind
+) -> list[str]:
+    """`tree`'s manifest paths, sorted, without hashing or listing blobs."""
+    assets, saves = _manifest_assets(user, can_see, tree)
     paths = [entry.path for entry in assets]
     paths += await psp.list_psp_member_paths(saves, can_see)
     return sorted(paths)
@@ -499,7 +496,9 @@ async def build_manifest(
     entries = [
         {"path": entry.path, "hash": digest}
         for entry, digest in hashed
-        if entry.parent_path is None or entry.parent_path in hashed_paths
+        # A state screenshot is listed only alongside its state.
+        if not isinstance(entry.asset, Screenshot)
+        or entry.path.removesuffix(".png") in hashed_paths
     ]
     entries += await build_blob_manifest_entries(user)
     entries += await psp.build_psp_manifest_entries(saves, can_see)

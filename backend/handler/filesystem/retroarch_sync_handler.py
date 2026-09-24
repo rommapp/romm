@@ -2,11 +2,12 @@
 thumbnails/ and system/."""
 
 import asyncio
-import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 
 from config import SYNC_RETROARCH_BASE_PATH
+from utils.filesystem import iter_files
 
 from .base_handler import FSHandler
 
@@ -23,27 +24,20 @@ class BlobFile:
 def _walk_files(root: Path) -> list[BlobFile]:
     """Every file under `root`, without descending into symlinked directories."""
     files: list[BlobFile] = []
-    pending = [""]
-    while pending:
-        relative_dir = pending.pop()
+    for directory, name in iter_files(str(root), recursive=True):
+        path = directory / name
         try:
-            with os.scandir(root / relative_dir) as entries:
-                for entry in entries:
-                    relative = (
-                        f"{relative_dir}/{entry.name}" if relative_dir else entry.name
-                    )
-                    try:
-                        if entry.is_dir(follow_symlinks=False):
-                            pending.append(relative)
-                        elif entry.is_file():
-                            stat = entry.stat()
-                            files.append(
-                                BlobFile(relative, stat.st_size, stat.st_mtime)
-                            )
-                    except OSError:
-                        continue
+            file_stat = path.stat()
         except OSError:
             continue
+        if stat.S_ISREG(file_stat.st_mode):
+            files.append(
+                BlobFile(
+                    path.relative_to(root).as_posix(),
+                    file_stat.st_size,
+                    file_stat.st_mtime,
+                )
+            )
 
     return files
 

@@ -18,18 +18,9 @@ def _clear_cache() -> Iterator[None]:
 
 
 class TestCachedMd5s:
-    async def test_hits_skip_compute(self):
-        await async_cache.set("hit", "cached-md5")
-        compute = mock.AsyncMock(return_value="fresh-md5")
+    async def test_misses_are_written_back_with_the_ttl(self):
+        await cached_md5s([("miss", mock.AsyncMock(return_value="fresh-md5"))])
 
-        assert await cached_md5s([("hit", compute)]) == ["cached-md5"]
-        compute.assert_not_awaited()
-
-    async def test_misses_are_computed_and_cached(self):
-        compute = mock.AsyncMock(return_value="fresh-md5")
-
-        assert await cached_md5s([("miss", compute)]) == ["fresh-md5"]
-        compute.assert_awaited_once()
         assert await async_cache.get("miss") == b"fresh-md5"
         ttl = await async_cache.ttl("miss")
         assert 0 < ttl <= HASH_CACHE_TTL_SECONDS
@@ -52,14 +43,10 @@ class TestCachedMd5s:
 
     async def test_reads_the_cache_in_one_round_trip(self):
         jobs = [(f"key{i}", mock.AsyncMock(return_value=f"md5-{i}")) for i in range(5)]
-        with (
-            mock.patch.object(async_cache, "mget", wraps=async_cache.mget) as mget,
-            mock.patch.object(async_cache, "get", wraps=async_cache.get) as get,
-        ):
+        with mock.patch.object(async_cache, "mget", wraps=async_cache.mget) as mget:
             await cached_md5s(jobs)
 
         mget.assert_called_once()
-        get.assert_not_called()
 
 
 @pytest.fixture

@@ -1052,7 +1052,8 @@ class TestRetroArchSyncPsp:
         self, uploads: int, client, admin_user: User
     ):
         members = {"PARAM.SFO": b"sfo", "SAVE.BIN": b"data"}
-        for name, data in list(members.items())[:uploads]:
+        uploaded = list(members.items())[:uploads]
+        for name, data in uploaded:
             client.put(
                 f"/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/{name}",
                 content=data,
@@ -1072,9 +1073,32 @@ class TestRetroArchSyncPsp:
                 "path": f"saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/{name}",
                 "hash": hashlib.md5(data, usedforsecurity=False).hexdigest(),
             }
-            for name, data in list(members.items())[:uploads]
+            for name, data in uploaded
         ]
         load_entries.assert_not_called()
+
+    def test_manifest_reads_bundle_hashes_without_per_bundle_gets(
+        self, client, admin_user: User
+    ):
+        client.put(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        with mock.patch.object(psp.async_cache, "get") as get:
+            response = client.get(
+                "/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == [
+            {
+                "path": "saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+                "hash": hashlib.md5(b"data", usedforsecurity=False).hexdigest(),
+            }
+        ]
+        get.assert_not_called()
 
     def test_upload_succeeds_when_priming_the_cache_fails(
         self, client, admin_user: User
@@ -1658,3 +1682,29 @@ class TestRetroArchSyncBrowsing:
         assert "/api/sync/retroarch/states/Snes9x/test_rom.state.png<" in states.text
         asset_md5s.assert_not_awaited()
         list_blob_files.assert_not_awaited()
+
+    def test_propfind_builds_only_the_requested_tree(
+        self, client, admin_user: User, synced_save: Save, synced_state: State
+    ):
+        with (
+            mock.patch.object(
+                sync_handler.db_save_handler,
+                "get_saves",
+                wraps=sync_handler.db_save_handler.get_saves,
+            ) as get_saves,
+            mock.patch.object(
+                sync_handler.db_state_handler,
+                "get_states",
+                wraps=sync_handler.db_state_handler.get_states,
+            ) as get_states,
+        ):
+            client.request(
+                "PROPFIND", "/api/sync/retroarch/states/Snes9x/", auth=ADMIN_AUTH
+            )
+            get_saves.assert_not_called()
+            get_states.reset_mock()
+
+            client.request(
+                "PROPFIND", "/api/sync/retroarch/saves/Snes9x/", auth=ADMIN_AUTH
+            )
+            get_states.assert_not_called()
