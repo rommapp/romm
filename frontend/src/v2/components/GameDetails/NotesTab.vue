@@ -1,15 +1,13 @@
 <script setup lang="ts">
 // NotesTab: per-ROM notes with a left index (own + community sections;
 // a grouped note picker on phones) and a right pane that swaps between
-// MdPreview (read) and MdEditor (edit-in-place). Public/private toggles via a
-// single icon button (no dialog), edits save inline, and the active note is
-// URL-persistent via `?note=<id>` so links deep-link straight to a specific
-// note.
+// MdPreview (read) and MdEditor (edit-in-place). Visibility is set in the
+// editor, edits save inline, and the active note is URL-persistent via
+// `?note=<id>` so links deep-link straight to a specific note.
 import {
   REmptyState,
   RAvatar,
   RBtn,
-  RIcon,
   RTextField,
   RTooltip,
   RDivider,
@@ -27,6 +25,8 @@ import type { DetailedRom } from "@/stores/roms";
 import SubtabNav, {
   type SubtabNavItem,
 } from "@/v2/components/GameDetails/SubtabNav.vue";
+import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
+import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
@@ -168,7 +168,6 @@ interface EditForm {
 
 const editForm = ref<EditForm | null>(null);
 const saving = ref(false);
-const togglingLockId = ref<number | null>(null);
 // RTextField forwards $attrs to the underlying VTextField; we focus the
 // inner <input> by reaching through .$el. Triggered when the form opens
 // (user just clicked "Add" / "Edit"), so it's never a surprise focus.
@@ -256,26 +255,6 @@ async function saveEdit() {
   }
 }
 
-async function toggleLock(note: UserNoteSchema) {
-  if (!isOwn(note)) return;
-  togglingLockId.value = note.id;
-  try {
-    await romApi.updateRomNote({
-      romId: props.rom.id,
-      noteId: note.id,
-      noteData: { is_public: !note.is_public },
-    });
-    await refreshRom();
-  } catch (err) {
-    console.error("Note visibility toggle failed:", err);
-    snackbar.error(t("rom.notes-cant-toggle-visibility"), {
-      icon: "mdi-close-circle",
-    });
-  } finally {
-    togglingLockId.value = null;
-  }
-}
-
 async function removeNote(note: UserNoteSchema) {
   if (!isOwn(note)) return;
   const ok = await confirm({
@@ -350,12 +329,7 @@ function fmtDate(iso: string): string {
             <RAvatar :image="noteAvatar(item.note)" size="18" />
             <span>{{ item.note.username }}</span>
           </span>
-          <RIcon
-            v-else-if="!item.note.is_public"
-            icon="mdi-lock"
-            size="13"
-            class="r-v2-notes__nav-lock"
-          />
+          <PublicBadge v-else-if="item.note.is_public" inline />
         </template>
         <template #actions>
           <RBtn
@@ -386,12 +360,7 @@ function fmtDate(iso: string): string {
                 @click="selectNote(n.id)"
               >
                 <span class="r-v2-notes__nav-title">{{ n.title }}</span>
-                <RIcon
-                  v-if="!n.is_public"
-                  icon="mdi-lock"
-                  size="13"
-                  class="r-v2-notes__nav-lock"
-                />
+                <PublicBadge v-if="n.is_public" inline />
               </button>
             </li>
           </ul>
@@ -448,29 +417,10 @@ function fmtDate(iso: string): string {
               :disabled="saving"
             />
             <div class="r-v2-notes__actions">
-              <RTooltip
-                :text="
-                  editForm.isPublic
-                    ? t('rom.make-private')
-                    : t('rom.make-public')
-                "
-              >
-                <template #activator="{ props: activator }">
-                  <RBtn
-                    v-bind="activator"
-                    variant="text"
-                    size="small"
-                    :icon="
-                      editForm.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'
-                    "
-                    :color="
-                      editForm.isPublic ? 'var(--r-color-fg-muted)' : 'primary'
-                    "
-                    :disabled="saving"
-                    @click="editForm.isPublic = !editForm.isPublic"
-                  />
-                </template>
-              </RTooltip>
+              <VisibilitySwitch
+                v-model="editForm.isPublic"
+                :disabled="saving"
+              />
               <RBtn
                 variant="outlined"
                 size="small"
@@ -512,6 +462,11 @@ function fmtDate(iso: string): string {
             <div class="r-v2-notes__pane-title-block">
               <h3 class="r-v2-notes__pane-title">
                 {{ selectedNote.title }}
+                <PublicBadge
+                  v-if="isSelectedOwn && selectedNote.is_public"
+                  class="r-v2-notes__title-badge"
+                  inline
+                />
               </h3>
               <div v-if="!isSelectedOwn" class="r-v2-notes__author">
                 <RAvatar :image="noteAvatar(selectedNote)" size="20" />
@@ -519,33 +474,6 @@ function fmtDate(iso: string): string {
               </div>
             </div>
             <div v-if="isSelectedOwn" class="r-v2-notes__actions">
-              <RTooltip
-                :text="
-                  selectedNote.is_public
-                    ? t('rom.make-private')
-                    : t('rom.make-public')
-                "
-              >
-                <template #activator="{ props: activator }">
-                  <RBtn
-                    v-bind="activator"
-                    variant="text"
-                    size="small"
-                    :icon="
-                      selectedNote.is_public
-                        ? 'mdi-lock-open-variant'
-                        : 'mdi-lock'
-                    "
-                    :color="
-                      selectedNote.is_public
-                        ? 'var(--r-color-fg-muted)'
-                        : 'primary'
-                    "
-                    :loading="togglingLockId === selectedNote.id"
-                    @click="toggleLock(selectedNote)"
-                  />
-                </template>
-              </RTooltip>
               <RTooltip :text="t('rom.notes-edit')">
                 <template #activator="{ props: activator }">
                   <RBtn
@@ -704,10 +632,6 @@ function fmtDate(iso: string): string {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.r-v2-notes__nav-lock {
-  color: var(--r-color-fg-faint);
-  flex-shrink: 0;
-}
 .r-v2-notes__nav-author {
   display: inline-flex;
   align-items: center;
@@ -750,6 +674,10 @@ function fmtDate(iso: string): string {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.r-v2-notes__title-badge {
+  margin-inline-start: var(--r-space-2);
+  vertical-align: middle;
 }
 .r-v2-notes__title-field {
   flex: 1;

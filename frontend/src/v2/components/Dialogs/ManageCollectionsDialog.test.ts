@@ -12,12 +12,17 @@ import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import ManageCollectionsDialog from "./ManageCollectionsDialog.vue";
 
-const { addRomsToCollection, removeRomsFromCollection, snackbarError } =
-  vi.hoisted(() => ({
-    addRomsToCollection: vi.fn(),
-    removeRomsFromCollection: vi.fn(),
-    snackbarError: vi.fn(),
-  }));
+const {
+  addRomsToCollection,
+  removeRomsFromCollection,
+  createCollection,
+  snackbarError,
+} = vi.hoisted(() => ({
+  addRomsToCollection: vi.fn(),
+  removeRomsFromCollection: vi.fn(),
+  createCollection: vi.fn(),
+  snackbarError: vi.fn(),
+}));
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -27,7 +32,7 @@ vi.mock("@/services/api/collection", () => ({
   default: {
     addRomsToCollection,
     removeRomsFromCollection,
-    createCollection: vi.fn(),
+    createCollection,
   },
 }));
 
@@ -88,7 +93,10 @@ function rowState(wrapper: VueWrapper) {
   return wrapper.get("[data-test-row]").attributes("data-state");
 }
 
-function mountDialog(emitter: Emitter<Events>): VueWrapper {
+function mountDialog(
+  emitter: Emitter<Events>,
+  stubs: Record<string, unknown> = {},
+): VueWrapper {
   return mount(ManageCollectionsDialog, {
     global: {
       provide: { emitter },
@@ -103,6 +111,7 @@ function mountDialog(emitter: Emitter<Events>): VueWrapper {
           template:
             '<button data-test-row :data-state="state" @click="$emit(\'toggle\')"></button>',
         },
+        ...stubs,
       },
     },
   });
@@ -205,5 +214,37 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
     await flushPromises();
 
     expect(rowState(wrapper)).toBe("off");
+  });
+});
+
+describe("ManageCollectionsDialog create", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+    storeAuth().setCurrentUser({ id: USER_ID } as User);
+  });
+
+  it("creates the collection with the visibility the form was set to", async () => {
+    storeCollections().setCollections([]);
+    createCollection.mockResolvedValue({ ...collection([]), is_public: true });
+    addRomsToCollection.mockResolvedValue({ data: collection([1]) });
+    const emitter = mitt<Events>();
+    const wrapper = mountDialog(emitter, {
+      NewCollectionRow: {
+        emits: ["update:name", "update:isPublic", "create"],
+        template: `<button
+          data-test-create
+          @click="$emit('update:name', 'Racers'); $emit('update:isPublic', true); $emit('create')"
+        />`,
+      },
+    });
+    await open(wrapper, emitter, [rom(1)]);
+
+    await wrapper.get("[data-test-create]").trigger("click");
+    await flushPromises();
+
+    expect(createCollection).toHaveBeenCalledWith({
+      collection: { name: "Racers", is_public: true },
+    });
   });
 });

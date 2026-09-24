@@ -5,8 +5,8 @@
 //
 // Per-item affordances are driven by the item fields + props (the parent,
 // MediaTab, performs the actions):
+//   * edit     — when `editable` and owned: opens its visibility (top-right)
 //   * delete   — when `deletable` and the item is owned (top-right, hover)
-//   * lock     — when `togglable` and owned: public/private toggle (top-right)
 //   * username — community items (others' public shots) show an owner chip
 import { RAvatar, RBtn, RCarousel } from "@v2/lib";
 import { computed, ref } from "vue";
@@ -33,12 +33,11 @@ export type ScreenshotItem = {
 const props = defineProps<{
   screenshots: ScreenshotItem[];
   deletable?: boolean;
-  togglable?: boolean;
-  togglingId?: number | null;
+  editable?: boolean;
 }>();
 const emit = defineEmits<{
+  edit: [shot: ScreenshotItem];
   delete: [id: number];
-  "toggle-visibility": [id: number, isPublic: boolean];
 }>();
 
 const { t } = useI18n();
@@ -61,8 +60,8 @@ function close() {
 function canDelete(shot: ScreenshotItem): boolean {
   return Boolean(props.deletable) && shot.id != null && shot.isOwn !== false;
 }
-function canToggle(shot: ScreenshotItem): boolean {
-  return Boolean(props.togglable) && shot.id != null && shot.isOwn === true;
+function canEdit(shot: ScreenshotItem): boolean {
+  return Boolean(props.editable) && shot.id != null && shot.isOwn === true;
 }
 </script>
 
@@ -102,31 +101,21 @@ function canToggle(shot: ScreenshotItem): boolean {
         <span>{{ shot.username }}</span>
       </div>
 
-      <!-- Persistent "shared" badge for owned public screenshots -->
       <PublicBadge
-        v-else-if="canToggle(shot) && shot.isPublic"
+        v-else-if="canEdit(shot) && shot.isPublic"
         class="r-v2-det-shots__badge"
       />
 
       <div class="r-v2-det-shots__actions">
         <RBtn
-          v-if="canToggle(shot)"
-          :icon="shot.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'"
+          v-if="canEdit(shot)"
+          icon="mdi-pencil-outline"
           size="small"
           variant="flat"
-          :color="shot.isPublic ? 'var(--r-color-fg-muted)' : 'primary'"
-          :loading="togglingId === shot.id"
-          :aria-label="
-            shot.isPublic
-              ? t('rom.screenshot-make-private')
-              : t('rom.screenshot-make-public')
-          "
-          :tooltip="
-            shot.isPublic
-              ? t('rom.screenshot-make-private')
-              : t('rom.screenshot-make-public')
-          "
-          @click="emit('toggle-visibility', shot.id!, !shot.isPublic)"
+          color="primary"
+          :aria-label="t('rom.edit-screenshot')"
+          :tooltip="t('rom.edit-screenshot')"
+          @click="emit('edit', shot)"
         />
         <RBtn
           v-if="canDelete(shot)"

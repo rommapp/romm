@@ -27,7 +27,7 @@
 //     placeholder mosaic.
 //   • Save → PUT /collections/:id with `artwork` and/or `url_cover` and
 //     `remove_cover` flag; on success patches the local store.
-import { RBtn, RChip, RIcon, RSwitch, RTag, RTextField } from "@v2/lib";
+import { RBtn, RChip, RIcon, RTag, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -46,6 +46,7 @@ import { toBrowserLocale } from "@/utils";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
 import DangerZone from "@/v2/components/shared/DangerZone.vue";
+import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -407,15 +408,7 @@ function discard() {
           </template>
         </RTextField>
         <div class="r-v2-coll-set__row">
-          <RSwitch
-            v-model="form.isPublic"
-            :disabled="!canEdit"
-            :label="
-              form.isPublic
-                ? t('collection.public', 'Public')
-                : t('collection.private', 'Private')
-            "
-          />
+          <VisibilitySwitch v-model="form.isPublic" :disabled="!canEdit" />
         </div>
         <div v-if="canEdit && dirty" class="r-v2-coll-set__form-actions">
           <RBtn variant="text" :disabled="saving" @click="discard">

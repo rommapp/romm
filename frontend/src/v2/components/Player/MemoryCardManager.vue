@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // MemoryCardManager: manages the caller's own whole memory cards for one
-// emulator. Rename, share (public toggle), delete, and browse per-card
-// version history. Shared surface, mounted two ways:
+// emulator. Edit (name and visibility), delete, and browse per-card version
+// history. Shared surface, mounted two ways:
 //   1. In an RDialog opened from MemoryCardPicker's gear (in the play flow).
 //   2. As the gated "Memory cards" tab on the platform page.
 //
@@ -9,7 +9,7 @@
 // All routes here are `me`-scoped (own cards), so no permission gating beyond
 // being signed in. Deleting a card also removes its version archives from the
 // filesystem, so delete is a typed-confirm destructive action.
-import { RBtn, RChip, REmptyState, RIcon, RSpinner, RSwitch } from "@v2/lib";
+import { RBtn, RChip, REmptyState, RIcon, RSpinner, RTooltip } from "@v2/lib";
 import { computed, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
@@ -18,7 +18,10 @@ import type {
 } from "@/__generated__";
 import memoryCardApi from "@/services/api/memory-card";
 import { formatBytes, formatRelativeDate } from "@/utils";
-import MemoryCardNameDialog from "@/v2/components/Player/MemoryCardNameDialog.vue";
+import MemoryCardDialog, {
+  type MemoryCardFields,
+} from "@/v2/components/Player/MemoryCardDialog.vue";
+import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
@@ -60,7 +63,10 @@ watch(() => props.emulator, load, { immediate: true });
 const showCreate = ref(false);
 const creating = ref(false);
 
-async function submitCreate(name: string): Promise<void> {
+async function submitCreate({
+  name,
+  isPublic,
+}: MemoryCardFields): Promise<void> {
   if (creating.value) return;
   creating.value = true;
   try {
@@ -68,6 +74,7 @@ async function submitCreate(name: string): Promise<void> {
       name,
       emulator: props.emulator,
       platform_id: props.platformId ?? null,
+      is_public: isPublic,
     });
     cards.value = [data, ...cards.value];
     showCreate.value = false;
@@ -85,60 +92,43 @@ async function submitCreate(name: string): Promise<void> {
   }
 }
 
-// ── Rename ──────────────────────────────────────────────────────────
-const renameTarget = ref<MemoryCardSchema | null>(null);
-const renaming = ref(false);
+// ── Edit ────────────────────────────────────────────────────────────
+const editTarget = ref<MemoryCardSchema | null>(null);
+const savingEdit = ref(false);
 
-async function submitRename(name: string): Promise<void> {
-  const card = renameTarget.value;
-  if (!card || renaming.value) return;
-  renaming.value = true;
+async function submitEdit({ name, isPublic }: MemoryCardFields): Promise<void> {
+  const card = editTarget.value;
+  if (!card || savingEdit.value) return;
+  savingEdit.value = true;
   try {
-    const { data } = await memoryCardApi.renameMemoryCard({
-      id: card.id,
-      name,
-    });
-    cards.value = cards.value.map((c) => (c.id === data.id ? data : c));
-    renameTarget.value = null;
+    let updated = card;
+    if (name !== card.name) {
+      ({ data: updated } = await memoryCardApi.renameMemoryCard({
+        id: card.id,
+        name,
+      }));
+    }
+    if (isPublic !== (card.is_public ?? false)) {
+      ({ data: updated } = await memoryCardApi.setMemoryCardVisibility({
+        id: card.id,
+        isPublic,
+      }));
+    }
+    cards.value = cards.value.map((c) => (c.id === updated.id ? updated : c));
+    editTarget.value = null;
     emit("changed");
-    snackbar.success(t("play.memory-card-renamed"), { icon: "mdi-check-bold" });
+    snackbar.success(t("play.memory-card-edited"), { icon: "mdi-check-bold" });
   } catch (err) {
     snackbar.error(
-      `${t("play.memory-card-rename-failed")}: ${errorMessage(err)}`,
+      `${t("play.memory-card-edit-failed")}: ${errorMessage(err)}`,
       {
         icon: "mdi-close-circle",
       },
     );
+    // The rename can land before the visibility write fails.
+    void load(props.emulator);
   } finally {
-    renaming.value = false;
-  }
-}
-
-// ── Share (public toggle) ───────────────────────────────────────────
-const sharing = reactive(new Set<number>());
-
-async function toggleShare(
-  card: MemoryCardSchema,
-  next: boolean,
-): Promise<void> {
-  if (sharing.has(card.id)) return;
-  sharing.add(card.id);
-  try {
-    const { data } = await memoryCardApi.setMemoryCardVisibility({
-      id: card.id,
-      isPublic: next,
-    });
-    cards.value = cards.value.map((c) => (c.id === data.id ? data : c));
-    emit("changed");
-  } catch (err) {
-    snackbar.error(
-      `${t("play.memory-card-share-failed")}: ${errorMessage(err)}`,
-      {
-        icon: "mdi-close-circle",
-      },
-    );
-  } finally {
-    sharing.delete(card.id);
+    savingEdit.value = false;
   }
 }
 
@@ -347,15 +337,7 @@ const hasCards = computed(() => cards.value.length > 0);
           <div class="r-mc-mgr__row-body">
             <div class="r-mc-mgr__row-name-line">
               <span class="r-mc-mgr__row-name">{{ card.name }}</span>
-              <RChip
-                v-if="card.is_public"
-                size="x-small"
-                variant="translucent"
-                color="info"
-                prepend-icon="mdi-account-group"
-              >
-                {{ t("play.memory-card-shared") }}
-              </RChip>
+              <PublicBadge v-if="card.is_public" inline />
             </div>
             <span class="r-mc-mgr__row-meta">
               {{
@@ -366,39 +348,31 @@ const hasCards = computed(() => cards.value.length > 0);
             </span>
           </div>
           <div class="r-mc-mgr__row-actions">
-            <RSwitch
-              :model-value="card.is_public ?? false"
-              :disabled="sharing.has(card.id)"
-              hide-details
-              :aria-label="t('play.memory-card-share-label')"
-              :title="t('play.memory-card-share-label')"
-              @update:model-value="(v) => toggleShare(card, v)"
-            />
             <RBtn
               variant="text"
               size="small"
               icon="mdi-download"
               :disabled="downloading.has(card.id)"
               :aria-label="t('play.download-memory-card')"
-              :title="t('play.download-memory-card')"
+              :tooltip="t('play.download-memory-card')"
               @click="downloadCard(card)"
+            />
+            <RBtn
+              variant="text"
+              size="small"
+              icon="mdi-pencil-outline"
+              :aria-label="t('play.edit-memory-card')"
+              :tooltip="t('play.edit-memory-card')"
+              @click="editTarget = card"
             />
             <RBtn
               variant="text"
               size="small"
               icon="mdi-history"
               :aria-label="t('play.memory-card-versions')"
-              :title="t('play.memory-card-versions')"
+              :tooltip="t('play.memory-card-versions')"
               :class="{ 'r-mc-mgr__toggle--on': isExpanded(card.id) }"
               @click="toggleVersions(card)"
-            />
-            <RBtn
-              variant="text"
-              size="small"
-              icon="mdi-pencil-outline"
-              :aria-label="t('play.rename-memory-card')"
-              :title="t('play.rename-memory-card')"
-              @click="renameTarget = card"
             />
             <RBtn
               variant="text"
@@ -407,7 +381,7 @@ const hasCards = computed(() => cards.value.length > 0);
               color="danger"
               :disabled="deleting.has(card.id)"
               :aria-label="t('play.delete-memory-card')"
-              :title="t('play.delete-memory-card')"
+              :tooltip="t('play.delete-memory-card')"
               @click="confirmDelete(card)"
             />
           </div>
@@ -445,10 +419,14 @@ const hasCards = computed(() => cards.value.length > 0);
                 :href="v.download_path"
                 :download="v.file_name"
                 class="r-mc-mgr__version-dl"
-                :title="t('common.download')"
                 :aria-label="t('common.download')"
               >
                 <RIcon icon="mdi-download" size="14" />
+                <RTooltip
+                  activator="parent"
+                  :text="t('common.download')"
+                  location="top"
+                />
               </a>
             </li>
           </ul>
@@ -491,7 +469,7 @@ const hasCards = computed(() => cards.value.length > 0);
       @change="onUploadPicked"
     />
 
-    <MemoryCardNameDialog
+    <MemoryCardDialog
       v-model="showCreate"
       :title="t('play.create-memory-card')"
       :confirm-label="t('common.create')"
@@ -500,19 +478,20 @@ const hasCards = computed(() => cards.value.length > 0);
       @submit="submitCreate"
     />
 
-    <MemoryCardNameDialog
-      :model-value="renameTarget !== null"
+    <MemoryCardDialog
+      :model-value="editTarget !== null"
       icon="mdi-pencil-outline"
-      :title="t('play.rename-memory-card')"
+      :title="t('play.edit-memory-card')"
       :confirm-label="t('common.save')"
-      :initial-name="renameTarget?.name ?? ''"
-      :busy="renaming"
+      :initial-name="editTarget?.name ?? ''"
+      :initial-public="editTarget?.is_public ?? false"
+      :busy="savingEdit"
       @update:model-value="
         (v) => {
-          if (!v) renameTarget = null;
+          if (!v) editTarget = null;
         }
       "
-      @submit="submitRename"
+      @submit="submitEdit"
     />
   </div>
 </template>

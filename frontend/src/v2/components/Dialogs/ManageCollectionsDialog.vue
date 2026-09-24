@@ -67,13 +67,19 @@ const optimistic = ref(new Map<number, "off" | "some" | "all">());
 const creating = ref(false);
 const createExpanded = ref(false);
 const newName = ref("");
+const newIsPublic = ref(false);
+
+function resetCreate() {
+  newName.value = "";
+  newIsPublic.value = false;
+  createExpanded.value = false;
+}
 
 const openHandler = (romsToAdd: SimpleRom[]) => {
   roms.value = romsToAdd;
   optimistic.value = new Map();
   pendingCollections.value = new Set();
-  newName.value = "";
-  createExpanded.value = false;
+  resetCreate();
   show.value = true;
 };
 emitter?.on("showManageCollectionsDialog", openHandler);
@@ -171,12 +177,11 @@ async function createNewCollection() {
   creating.value = true;
   try {
     const created = await collectionApi.createCollection({
-      collection: { name },
+      collection: { name, is_public: newIsPublic.value },
     });
     collectionsStore.addCollection(created);
     void toggle(created);
-    newName.value = "";
-    createExpanded.value = false;
+    resetCreate();
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(
@@ -186,11 +191,6 @@ async function createNewCollection() {
   } finally {
     creating.value = false;
   }
-}
-
-function cancelCreate() {
-  newName.value = "";
-  createExpanded.value = false;
 }
 
 const subtitle = computed(() => {
@@ -218,8 +218,7 @@ function closeDialog() {
   roms.value = [];
   optimistic.value = new Map();
   pendingCollections.value = new Set();
-  newName.value = "";
-  createExpanded.value = false;
+  resetCreate();
   show.value = false;
 }
 </script>
@@ -260,10 +259,11 @@ function closeDialog() {
       <NewCollectionRow
         v-model:expanded="createExpanded"
         v-model:name="newName"
+        v-model:is-public="newIsPublic"
         :creating="creating"
         :tile-size="46"
         @create="createNewCollection"
-        @cancel="cancelCreate"
+        @cancel="resetCreate"
       />
 
       <RDivider v-if="ownedCollections.length > 0" full-width />
@@ -276,6 +276,7 @@ function closeDialog() {
             :count="collection.rom_count"
             :covers="coversFor(collection)"
             :state="membershipState(collection)"
+            :is-public="collection.is_public"
             :busy="pendingCollections.has(collection.id)"
             :tile-size="46"
             @toggle="toggle(collection)"
