@@ -559,11 +559,7 @@ class HLTBHandler(MetadataHandler):
         return await self._search_and_match(search_term, platform_slug)
 
     async def _search_and_match(self, search_term: str, platform_slug: str) -> HLTBRom:
-        """Search for the term, then without its last separator, then for the part after it.
-
-        HLTB returns nothing for "pokemon: emerald version", and "007: Quantum of
-        Solace" scores 0.838 against "Quantum of Solace", under the gate.
-        """
+        """Search for the term, then without its last separator, then for the part after it."""
         rom = await self._search_and_score(search_term, platform_slug)
         if rom["hltb_id"]:
             return rom
