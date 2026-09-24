@@ -279,8 +279,7 @@ async def auth_openid(request: Request):
         UserDisabledException: Auth is disabled
 
     Returns:
-        RedirectResponse: Redirect to home page, or back to login when the
-        provider's response is rejected (e.g. a replayed, already-spent state)
+        RedirectResponse: Redirect to home, or to login if the provider rejects
     """
 
     if not OIDC_ENABLED:

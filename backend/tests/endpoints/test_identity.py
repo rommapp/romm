@@ -15,6 +15,7 @@ from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import auth_handler
 from handler.auth import base_handler as auth_handler_module
 from handler.auth import oauth_handler
+from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_notification_handler
 from handler.database.users_handler import DBUsersHandler
@@ -773,9 +774,9 @@ def test_oidc_callback_with_spent_state_keeps_existing_session(
     response = client.post(
         "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
     )
-    session_cookie = response.cookies.get("romm_session")
+    session_cookie = response.cookies.get(SESSION_COOKIE_NAME)
     assert session_cookie is not None
-    cookie_header = {"Cookie": f"romm_session={session_cookie}"}
+    cookie_header = {"Cookie": f"{SESSION_COOKIE_NAME}={session_cookie}"}
 
     response = _rejected_oidc_callback(client, headers=cookie_header)
 
