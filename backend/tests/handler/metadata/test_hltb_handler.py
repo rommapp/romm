@@ -411,12 +411,13 @@ async def test_heartbeat_sends_the_user_agent_hltb_requires(mock_ctx_httpx_clien
     assert headers["Referer"] == "https://howlongtobeat.com"
 
 
-def _game(game_id: int, name: str, *, timed: bool = True) -> dict:
+def _game(game_id: int, name: str, *, alias: str = "", timed: bool = True) -> dict:
     """A search result carrying only the fields matching depends on."""
     time = 3600 if timed else 0
     return {
         "game_id": game_id,
         "game_name": name,
+        "game_alias": alias,
         "game_image": "",
         "comp_main": time,
         "comp_plus": time,
@@ -515,6 +516,66 @@ async def test_retry_still_requires_recorded_times():
         rom = await handler.get_rom("007 - Quantum of Solace (USA).chd", "ps2")
 
     assert rom["hltb_id"] is None
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_alias_beats_a_near_miss_on_another_game_name():
+    handler = _handler()
+
+    async def search_games(_term, _platform_slug):
+        return [
+            _game(5773, "Mega Man X", alias="Rockman X"),
+            _game(59383, "Rockman EXE WS"),
+        ]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Rockman X (Japan).sfc", "snes")
+
+    assert rom["hltb_id"] == 5773
+    assert rom["name"] == "Mega Man X"
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_alias_matches_when_the_name_is_far_off():
+    handler = _handler()
+
+    async def search_games(_term, _platform_slug):
+        return [_game(9940, "Trials of Mana", alias="Seiken Densetsu 3")]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Seiken Densetsu 3 (Japan).sfc", "snes")
+
+    assert rom["hltb_id"] == 9940
+    assert rom["name"] == "Trials of Mana"
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_each_comma_separated_alias_is_scored():
+    handler = _handler()
+
+    async def search_games(_term, _platform_slug):
+        return [_game(9940, "Trials of Mana", alias="Seiken Densetsu 3, SD3")]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("SD3 (Japan).sfc", "snes")
+
+    assert rom["hltb_id"] == 9940
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_an_alias_does_not_outrank_another_game_with_that_name():
+    handler = _handler()
+
+    async def search_games(_term, _platform_slug):
+        return [
+            _game(1, "Mega Man X Collection", alias="Mega Man X"),
+            _game(5773, "Mega Man X"),
+        ]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Mega Man X (USA).sfc", "snes")
+
+    assert rom["hltb_id"] == 5773
 
 
 def _game_page(game: dict | None) -> MagicMock:

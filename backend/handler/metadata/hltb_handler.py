@@ -593,20 +593,25 @@ class HLTBHandler(MetadataHandler):
             log.debug(f"Could not find '{search_term}' on HowLongToBeat")
             return HLTBRom(hltb_id=None)
 
-        # Find the best match
-        game_names = [game["game_name"] for game in games]
+        # Aliases carry the regional titles ("Rockman X" for "Mega Man X"). Real
+        # names go in first so an alias repeating another game's name loses to it.
+        games_by_title: dict[str, HLTBGame] = {}
+        for game in games:
+            games_by_title.setdefault(game["game_name"], game)
+        for game in games:
+            for alias in game["game_alias"].split(","):
+                if alias.strip():
+                    games_by_title.setdefault(alias.strip(), game)
+
         best_match, best_score = self.find_best_match(
             search_term,
-            game_names,
+            list(games_by_title),
             min_similarity_score=self.min_similarity_score,
             split_game_name=split_game_name,
         )
 
         if best_match:
-            # Find the game data for the best match
-            best_game = next(
-                (game for game in games if game["game_name"] == best_match), None
-            )
+            best_game = games_by_title.get(best_match)
 
             if (
                 best_game
@@ -619,7 +624,7 @@ class HLTBHandler(MetadataHandler):
                 )
             ):
                 log.debug(
-                    f"Found HowLongToBeat match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
+                    f"Found HowLongToBeat match for '{search_term}' -> '{best_game['game_name']}' via '{best_match}' (score: {best_score:.3f})"
                 )
 
                 return HLTBRom(
