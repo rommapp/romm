@@ -53,6 +53,7 @@ VISIBLE_SCHEDULED_TASKS: Final[dict[str, Task]] = {
         "build_recommendations",
         "convert_images_to_webp",
         "cleanup_zip_cache",
+        "cleanup_conversion_cache",
         "cleanup_orphaned_resources",
     )
 }
