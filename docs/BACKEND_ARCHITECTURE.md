@@ -1086,7 +1086,7 @@ With a secret, the JSON format adds `X-RomM-Signature: sha256=<hex HMAC-SHA256 o
 
 Filters: `actor_id`, `action`, `category`, `target_type`/`target_id`, `since`/`until`, `search` (names and IP). Pages carry `max_id`; pass it back so later pages skip events recorded meanwhile. An admin reads everyone's only with `users.read` in the token.
 
-Events are written by `handler/audit_handler.record()` after an action succeeds, and a failure to write never fails the action. A ROM content fetch counts as a download unless the in-browser player marks it `purpose=play`, the Range starts past byte 0, or the same caller fetched it in the last 10 minutes.
+Events are written by `handler/audit_handler.record()` after an action succeeds, and a failure to write never fails the action. A ROM content fetch is a `rom.download`, or a `rom.player_load` when the in-browser player marks it `purpose=play`; a fetch whose Range starts past byte 0, or that the same caller made in the last 10 minutes, isn't recorded. A failed login keeps the attempted name only when an account has it. The client address comes from `X-Forwarded-For` only when the connection is from a proxy in `FORWARDED_ALLOW_IPS`.
 
 ### 6.18 Other Endpoints
 
@@ -1651,13 +1651,14 @@ Falls back to `FakeRedis` in test mode.
 
 #### Core
 
-| Variable         | Default          | Description          |
-| ---------------- | ---------------- | -------------------- |
-| `ROMM_BASE_PATH` | `/romm`          | Base data directory  |
-| `ROMM_BASE_URL`  | `http://0.0.0.0` | Application base URL |
-| `ROMM_PORT`      | `8080`           | Server port          |
-| `DEV_MODE`       | `false`          | Development mode     |
-| `LOGLEVEL`       | `INFO`           | Log level            |
+| Variable              | Default          | Description                                                |
+| --------------------- | ---------------- | ---------------------------------------------------------- |
+| `ROMM_BASE_PATH`      | `/romm`          | Base data directory                                        |
+| `ROMM_BASE_URL`       | `http://0.0.0.0` | Application base URL                                       |
+| `ROMM_PORT`           | `8080`           | Server port                                                |
+| `DEV_MODE`            | `false`          | Development mode                                           |
+| `LOGLEVEL`            | `INFO`           | Log level                                                  |
+| `FORWARDED_ALLOW_IPS` | private ranges   | Proxies trusted to report the client address (`*` for any) |
 
 #### Database
 

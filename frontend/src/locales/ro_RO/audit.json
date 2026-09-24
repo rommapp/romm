@@ -1,6 +1,7 @@
 {
   "action-auth-login": "S-a autentificat",
   "action-auth-login-failed": "Autentificare eșuată ca {username}",
+  "action-auth-login-failed-unknown": "Autentificare eșuată cu un nume de utilizator necunoscut",
   "action-auth-password-reset": "A resetat parola utilizatorului {target}",
   "action-auth-password-reset-request": "A solicitat resetarea parolei pentru {target}",
   "action-client-token-create": "A creat token-ul API {target}",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "A șters un fișier din {target}",
   "action-rom-match": "A asociat {target}",
   "action-rom-play": "A jucat {target}",
+  "action-rom-player-load": "A încărcat {target} pentru a juca",
   "action-rom-unmatch": "A disociat {target}",
   "action-rom-upload": "A încărcat {file} în {target}",
   "action-scan-failed": "O scanare a eșuat",

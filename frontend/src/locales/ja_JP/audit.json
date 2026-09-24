@@ -1,6 +1,7 @@
 {
   "action-auth-login": "ログインしました",
   "action-auth-login-failed": "{username}としてのログインに失敗しました",
+  "action-auth-login-failed-unknown": "不明なユーザ名でのログインに失敗しました",
   "action-auth-password-reset": "「{target}」のパスワードをリセットしました",
   "action-auth-password-reset-request": "「{target}」のパスワードリセットをリクエストしました",
   "action-client-token-create": "APIトークン「{target}」を作成しました",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "「{target}」のファイルを削除しました",
   "action-rom-match": "「{target}」をマッチしました",
   "action-rom-play": "「{target}」をプレイしました",
+  "action-rom-player-load": "「{target}」をプレイ用に読み込みました",
   "action-rom-unmatch": "「{target}」のマッチを解除しました",
   "action-rom-upload": "{file}を「{target}」にアップロードしました",
   "action-scan-failed": "スキャンが失敗しました",

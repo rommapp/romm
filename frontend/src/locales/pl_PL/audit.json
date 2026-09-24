@@ -1,6 +1,7 @@
 {
   "action-auth-login": "Zalogowano",
   "action-auth-login-failed": "Nieudane logowanie jako {username}",
+  "action-auth-login-failed-unknown": "Nieudane logowanie z nieznaną nazwą użytkownika",
   "action-auth-password-reset": "Zresetowano hasło użytkownika {target}",
   "action-auth-password-reset-request": "Poproszono o reset hasła użytkownika {target}",
   "action-client-token-create": "Utworzono token API {target}",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "Usunięto plik gry {target}",
   "action-rom-match": "Dopasowano {target}",
   "action-rom-play": "Zagrano w {target}",
+  "action-rom-player-load": "Wczytano {target} do gry",
   "action-rom-unmatch": "Usunięto dopasowanie {target}",
   "action-rom-upload": "Przesłano {file} do {target}",
   "action-scan-failed": "Skanowanie nie powiodło się",

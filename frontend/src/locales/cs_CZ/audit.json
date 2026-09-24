@@ -1,6 +1,7 @@
 {
   "action-auth-login": "Přihlášení",
   "action-auth-login-failed": "Neúspěšné přihlášení jako {username}",
+  "action-auth-login-failed-unknown": "Neúspěšné přihlášení s neznámým uživatelským jménem",
   "action-auth-password-reset": "Resetováno heslo uživatele {target}",
   "action-auth-password-reset-request": "Vyžádán reset hesla uživatele {target}",
   "action-client-token-create": "Vytvořen API token {target}",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "Smazán soubor hry {target}",
   "action-rom-match": "Spárována hra {target}",
   "action-rom-play": "Hraní hry {target}",
+  "action-rom-player-load": "Hra {target} načtena k hraní",
   "action-rom-unmatch": "Zrušeno spárování hry {target}",
   "action-rom-upload": "Nahrán soubor {file} do {target}",
   "action-scan-failed": "Skenování selhalo",

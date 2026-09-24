@@ -1,6 +1,7 @@
 {
   "action-auth-login": "登录",
   "action-auth-login-failed": "以 {username} 身份登录失败",
+  "action-auth-login-failed-unknown": "使用未知用户名登录失败",
   "action-auth-password-reset": "重置了 {target} 的密码",
   "action-auth-password-reset-request": "请求重置 {target} 的密码",
   "action-client-token-create": "创建了 API 令牌 {target}",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "删除了 {target} 的一个文件",
   "action-rom-match": "匹配了 {target}",
   "action-rom-play": "游玩了 {target}",
+  "action-rom-player-load": "加载了 {target} 以游玩",
   "action-rom-unmatch": "取消了 {target} 的匹配",
   "action-rom-upload": "将 {file} 上传到 {target}",
   "action-scan-failed": "扫描失败",

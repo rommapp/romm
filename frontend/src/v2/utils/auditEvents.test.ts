@@ -133,6 +133,25 @@ describe("describeAuditEvent", () => {
     ).toBe("danger");
   });
 
+  it("names a failed sign-in only by an account's own name", () => {
+    expect(
+      describeAuditEvent(
+        event("auth.login_failed", { data: { username: "maria" } }),
+      ).title,
+    ).toBe("Failed to sign in as maria");
+    expect(
+      describeAuditEvent(
+        event("auth.login_failed", { data: { username: null } }),
+      ).title,
+    ).toBe("Failed to sign in with an unknown username");
+  });
+
+  it("tells a player's load from a download", () => {
+    expect(describeAuditEvent(event("rom.player_load")).title).toBe(
+      "Loaded Metroid into a player",
+    );
+  });
+
   it("shows an action it doesn't know as it came", () => {
     const view = describeAuditEvent(event("rom.teleport"));
 

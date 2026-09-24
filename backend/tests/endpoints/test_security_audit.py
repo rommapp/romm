@@ -49,12 +49,12 @@ class TestLogin:
         assert event.actor_id == admin_user.id
         assert event.data["reason"] == "credentials"
 
-    def test_a_failure_for_an_unknown_name_is_anonymous(self, client: TestClient):
-        client.post("/api/login", headers=_basic("nobody", "wrong"))
+    def test_a_failure_for_an_unknown_name_keeps_no_name(self, client: TestClient):
+        client.post("/api/login", headers=_basic("hunter2", "wrong"))
 
         [event] = recorded_events()
         assert event.actor_kind == "anonymous"
-        assert event.data["username"] == "nobody"
+        assert event.data["username"] is None
 
     def test_one_address_cycling_usernames_is_capped(self, client: TestClient, mocker):
         mocker.patch.object(auth_endpoints, "LOGIN_FAILURES_PER_ADDRESS", 3)

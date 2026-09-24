@@ -1,6 +1,7 @@
 {
   "action-auth-login": "Angemeldet",
   "action-auth-login-failed": "Anmeldung als {username} fehlgeschlagen",
+  "action-auth-login-failed-unknown": "Anmeldung mit unbekanntem Benutzernamen fehlgeschlagen",
   "action-auth-password-reset": "Passwort von {target} zurückgesetzt",
   "action-auth-password-reset-request": "Zurücksetzen des Passworts von {target} angefordert",
   "action-client-token-create": "API-Token {target} erstellt",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "Eine Datei von {target} gelöscht",
   "action-rom-match": "{target} zugeordnet",
   "action-rom-play": "{target} gespielt",
+  "action-rom-player-load": "{target} zum Spielen geladen",
   "action-rom-unmatch": "Zuordnung von {target} aufgehoben",
   "action-rom-upload": "{file} zu {target} hochgeladen",
   "action-scan-failed": "Ein Scan ist fehlgeschlagen",

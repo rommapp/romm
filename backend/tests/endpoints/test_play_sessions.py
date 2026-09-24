@@ -15,7 +15,9 @@ from handler.database import (
     db_rom_handler,
 )
 from handler.database.audit_events_handler import AuditEventFilters
+from handler.database.base_handler import sync_session
 from models.device import Device
+from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomUserStatus
 from models.user import User
@@ -249,6 +251,32 @@ class TestPlaySessionAudit:
         started = datetime.fromisoformat(played["start_time"])
         # The column keeps whole seconds.
         assert abs(to_utc(event.occurred_at) - started) < timedelta(seconds=1)
+
+    def test_a_rom_hidden_from_the_player_is_not_theirs_to_log(
+        self, client, editor_user: User, editor_access_token: str, rom: Rom
+    ):
+        with sync_session.begin() as session:
+            session.add(
+                HiddenEntity(
+                    entity=PermEntity.ROMS, entity_id=rom.id, user_id=editor_user.id
+                )
+            )
+
+        response = client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {editor_access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [played] = db_play_session_handler.get_sessions(user_id=editor_user.id)
+        assert played.rom_id is None
+        assert (
+            db_audit_event_handler.get_events(AuditEventFilters(), limit=10, offset=0)[
+                1
+            ]
+            == 0
+        )
 
 
 class TestPlaySessionDedup:

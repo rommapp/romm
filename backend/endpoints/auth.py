@@ -84,16 +84,17 @@ def _record_login_failure(
     ):
         return
     user = db_user_handler.get_user_by_username(username) if username else None
-    actor = (
-        AuditActor.for_user(user, ip_address=ip_address)
-        if user
-        else AuditActor.anonymous(ip_address)
-    )
+    # A name that matches no account may be a password typed in the wrong box,
+    # so only an account's own name is kept.
     record(
         AuditAction.AUTH_LOGIN_FAILED,
-        actor,
+        (
+            AuditActor.for_user(user, ip_address=ip_address)
+            if user
+            else AuditActor.anonymous(ip_address)
+        ),
         data={
-            "username": username[:255] if username else None,
+            "username": user.username if user else None,
             "method": method,
             "reason": reason,
         },

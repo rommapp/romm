@@ -144,6 +144,11 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
       detail: null,
     };
   },
+  "rom.player_load": simple(
+    "mdi-controller",
+    "audit.action-rom-player-load",
+    (e) => joinDetails(text(e.data.file_name), size(e.data)),
+  ),
   "rom.play": simple("mdi-play-circle-outline", "audit.action-rom-play", (e) =>
     formatPlaytime(
       count(e.data.duration_ms) / 1000,
@@ -282,11 +287,12 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
   "auth.login": simple("mdi-login", "audit.action-auth-login"),
   "auth.login_failed": (event) => {
     const reason = text(event.data.reason);
+    const username = text(event.data.username);
     return {
       icon: "mdi-account-alert-outline",
-      title: t("audit.action-auth-login-failed", {
-        username: text(event.data.username) ?? "",
-      }),
+      title: username
+        ? t("audit.action-auth-login-failed", { username })
+        : t("audit.action-auth-login-failed-unknown"),
       detail: reason ? t(`audit.detail-login-${reason}`) : null,
     };
   },

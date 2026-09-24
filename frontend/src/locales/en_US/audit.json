@@ -1,6 +1,7 @@
 {
   "action-auth-login": "Signed in",
   "action-auth-login-failed": "Failed to sign in as {username}",
+  "action-auth-login-failed-unknown": "Failed to sign in with an unknown username",
   "action-auth-password-reset": "Reset the password of {target}",
   "action-auth-password-reset-request": "Requested a password reset for {target}",
   "action-client-token-create": "Created the API token {target}",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "Deleted a file of {target}",
   "action-rom-match": "Matched {target}",
   "action-rom-play": "Played {target}",
+  "action-rom-player-load": "Loaded {target} into a player",
   "action-rom-unmatch": "Unmatched {target}",
   "action-rom-upload": "Uploaded {file} to {target}",
   "action-scan-failed": "A scan failed",

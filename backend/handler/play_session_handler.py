@@ -4,6 +4,7 @@ from typing import Literal, NotRequired, TypedDict
 from pydash import compact
 
 from handler.audit_handler import AuditActor, AuditDraft, AuditTarget, record_many
+from handler.auth.permissions import ResolvedPermissions
 from handler.database import db_device_handler, db_play_session_handler, db_rom_handler
 from logger.logger import log
 from models.audit_event import AuditAction, AuditActorKind
@@ -71,15 +72,24 @@ def ingest_play_sessions(
     device_id: str | None = None,
     sync_session_id: int | None = None,
     max_future_minutes: int = 5,
+    perms: ResolvedPermissions | None = None,
 ) -> PlaySessionIngestSummary:
-    """Core play session ingestion logic shared by the standalone endpoint and sync complete."""
+    """Core play session ingestion logic shared by the standalone endpoint and sync complete.
+
+    Args:
+        perms: The caller's permissions; a rom hidden from them counts as unknown.
+    """
     max_future = datetime.now(timezone.utc) + timedelta(minutes=max_future_minutes)
     resolved_device_id = _resolve_device(device_id, user_id)
 
     # Bulk-resolve all referenced rom IDs in one query
     candidate_rom_ids = {e["rom_id"] for e in entries}
     found_roms = (
-        {r.id: r for r in db_rom_handler.get_roms_by_ids(compact(candidate_rom_ids))}
+        {
+            r.id: r
+            for r in db_rom_handler.get_roms_by_ids(compact(candidate_rom_ids))
+            if perms is None or perms.can_see_rom(r.id, r.platform_id)
+        }
         if candidate_rom_ids
         else {}
     )

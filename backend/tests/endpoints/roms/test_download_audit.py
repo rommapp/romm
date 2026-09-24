@@ -35,18 +35,22 @@ class TestRomContent:
         assert (event.target_type, event.target_id) == ("rom", str(rom.id))
         assert event.data["file_name"] == "test_rom.zip"
 
-    def test_a_players_fetch_is_not_a_download(
+    def test_a_players_fetch_is_a_player_load(
         self, client: TestClient, access_token: str, rom: Rom, rom_file: RomFile
     ):
-        response = client.get(
-            f"/api/roms/{rom.id}/content/test_rom.zip",
-            params={"purpose": "play"},
-            headers=_auth(access_token),
-            follow_redirects=False,
-        )
+        for purpose in ("play", "download"):
+            response = client.get(
+                f"/api/roms/{rom.id}/content/test_rom.zip",
+                params={"purpose": purpose},
+                headers=_auth(access_token),
+                follow_redirects=False,
+            )
+            assert response.status_code == status.HTTP_200_OK
 
-        assert response.status_code == status.HTTP_200_OK
-        assert recorded_events() == []
+        assert sorted(event.action for event in recorded_events()) == [
+            "rom.download",
+            "rom.player_load",
+        ]
 
     def test_a_resumed_transfer_is_not_a_new_download(
         self, client: TestClient, access_token: str, rom: Rom, rom_file: RomFile

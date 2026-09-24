@@ -1387,7 +1387,8 @@ async def get_rom_content(
     purpose: Annotated[
         Literal["download", "play"],
         Query(
-            description="`play` when an in-browser player fetches the rom to run it."
+            description="`play` when a player fetches the rom to run it, which is "
+            "recorded as a player load rather than a download."
         ),
     ] = "download",
 ):
@@ -1432,19 +1433,24 @@ async def get_rom_content(
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
-    if purpose == "download":
-        record_download(
-            request,
-            AuditTarget.of_rom(rom),
-            f"rom:{rom.id}:{file_ids or ''}",
-            {
-                "file_name": (
-                    files[0].file_name if len(files) == 1 else f"{file_name}.zip"
-                ),
-                "file_ids": [f.id for f in files] if file_ids else None,
-                "size_bytes": sum(f.file_size_bytes for f in files),
-            },
-        )
+    # The marker is the client's word, so a player's fetch is still recorded.
+    record_download(
+        request,
+        AuditTarget.of_rom(rom),
+        f"rom:{purpose}:{rom.id}:{file_ids or ''}",
+        {
+            "file_name": (
+                files[0].file_name if len(files) == 1 else f"{file_name}.zip"
+            ),
+            "file_ids": [f.id for f in files] if file_ids else None,
+            "size_bytes": sum(f.file_size_bytes for f in files),
+        },
+        action=(
+            AuditAction.ROM_PLAYER_LOAD
+            if purpose == "play"
+            else AuditAction.ROM_DOWNLOAD
+        ),
+    )
 
     m3u_files = playlist_files(files)
 

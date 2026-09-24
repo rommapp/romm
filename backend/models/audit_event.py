@@ -19,6 +19,7 @@ class AuditAction(enum.StrEnum):
 
     ROM_DOWNLOAD = "rom.download"
     ROM_BULK_DOWNLOAD = "rom.bulk_download"
+    ROM_PLAYER_LOAD = "rom.player_load"
     ROM_PLAY = "rom.play"
 
     ROM_UPLOAD = "rom.upload"
@@ -119,7 +120,12 @@ _CATEGORY_PREFIXES: Final[dict[str, AuditCategory]] = {
 }
 
 _CONSUMPTION_ACTIONS: Final = frozenset(
-    {AuditAction.ROM_DOWNLOAD, AuditAction.ROM_BULK_DOWNLOAD, AuditAction.ROM_PLAY}
+    {
+        AuditAction.ROM_DOWNLOAD,
+        AuditAction.ROM_BULK_DOWNLOAD,
+        AuditAction.ROM_PLAYER_LOAD,
+        AuditAction.ROM_PLAY,
+    }
 )
 
 

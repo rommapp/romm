@@ -1,6 +1,7 @@
 {
   "action-auth-login": "Fez login",
   "action-auth-login-failed": "Falha ao fazer login como {username}",
+  "action-auth-login-failed-unknown": "Falha ao fazer login com um nome de usuário desconhecido",
   "action-auth-password-reset": "Redefiniu a senha de {target}",
   "action-auth-password-reset-request": "Solicitou a redefinição da senha de {target}",
   "action-client-token-create": "Criou o token de API {target}",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "Excluiu um arquivo de {target}",
   "action-rom-match": "Vinculou {target}",
   "action-rom-play": "Jogou {target}",
+  "action-rom-player-load": "Carregou {target} para jogar",
   "action-rom-unmatch": "Desvinculou {target}",
   "action-rom-upload": "Enviou {file} para {target}",
   "action-scan-failed": "Um escaneamento falhou",

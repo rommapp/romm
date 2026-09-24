@@ -1,6 +1,7 @@
 {
   "action-auth-login": "Giriş yaptı",
   "action-auth-login-failed": "{username} olarak giriş yapılamadı",
+  "action-auth-login-failed-unknown": "Bilinmeyen bir kullanıcı adıyla giriş yapılamadı",
   "action-auth-password-reset": "{target} kullanıcısının şifresini sıfırladı",
   "action-auth-password-reset-request": "{target} için şifre sıfırlama istedi",
   "action-client-token-create": "{target} API tokenını oluşturdu",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "{target} oyununun bir dosyasını sildi",
   "action-rom-match": "{target} oyununu eşleştirdi",
   "action-rom-play": "{target} oyununu oynadı",
+  "action-rom-player-load": "{target} oyununu oynamak için yükledi",
   "action-rom-unmatch": "{target} oyununun eşleşmesini kaldırdı",
   "action-rom-upload": "{file} dosyasını şuraya yükledi: {target}",
   "action-scan-failed": "Bir tarama başarısız oldu",

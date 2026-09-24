@@ -1,6 +1,7 @@
 {
   "action-auth-login": "Вход",
   "action-auth-login-failed": "Неуспешен вход като {username}",
+  "action-auth-login-failed-unknown": "Неуспешен вход с непознато потребителско име",
   "action-auth-password-reset": "Възстановяване на паролата на {target}",
   "action-auth-password-reset-request": "Заявка за възстановяване на паролата на {target}",
   "action-client-token-create": "Създаване на API токен {target}",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "Изтриване на файл от {target}",
   "action-rom-match": "Разпознаване на {target}",
   "action-rom-play": "Игра на {target}",
+  "action-rom-player-load": "Зареждане на {target} за игра",
   "action-rom-unmatch": "Премахване на разпознаването на {target}",
   "action-rom-upload": "Качване на {file} в {target}",
   "action-scan-failed": "Неуспешно сканиране",

@@ -1,6 +1,7 @@
 {
   "action-auth-login": "로그인했습니다",
   "action-auth-login-failed": "{username}(으)로 로그인하지 못했습니다",
+  "action-auth-login-failed-unknown": "알 수 없는 아이디로 로그인하지 못했습니다",
   "action-auth-password-reset": "{target}의 비밀번호를 재설정했습니다",
   "action-auth-password-reset-request": "{target}의 비밀번호 재설정을 요청했습니다",
   "action-client-token-create": "API 토큰 {target}을(를) 생성했습니다",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "{target}의 파일을 삭제했습니다",
   "action-rom-match": "{target}을(를) DB에 대응했습니다",
   "action-rom-play": "{target}을(를) 플레이했습니다",
+  "action-rom-player-load": "플레이하려고 {target}을(를) 불러왔습니다",
   "action-rom-unmatch": "{target}의 DB 대응을 해제했습니다",
   "action-rom-upload": "{file}을(를) {target}에 업로드했습니다",
   "action-scan-failed": "스캔이 실패했습니다",

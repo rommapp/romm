@@ -17,6 +17,7 @@ from endpoints.responses.sync import (
     SyncSessionSchema,
 )
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_permissions
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
@@ -389,6 +390,7 @@ def complete_sync_session(
         summary = ingest_play_sessions(
             user_id=request.user.id,
             username=request.user.username,
+            perms=get_permissions(request),
             entries=[
                 {
                     "rom_id": s.rom_id,

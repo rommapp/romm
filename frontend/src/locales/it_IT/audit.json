@@ -1,6 +1,7 @@
 {
   "action-auth-login": "Ha effettuato l'accesso",
   "action-auth-login-failed": "Accesso come {username} non riuscito",
+  "action-auth-login-failed-unknown": "Accesso con un nome utente sconosciuto non riuscito",
   "action-auth-password-reset": "Ha reimpostato la password di {target}",
   "action-auth-password-reset-request": "Ha richiesto la reimpostazione della password di {target}",
   "action-client-token-create": "Ha creato il token API {target}",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "Ha eliminato un file di {target}",
   "action-rom-match": "Ha associato {target}",
   "action-rom-play": "Ha giocato a {target}",
+  "action-rom-player-load": "Ha caricato {target} per giocare",
   "action-rom-unmatch": "Ha rimosso l'associazione di {target}",
   "action-rom-upload": "Ha caricato {file} in {target}",
   "action-scan-failed": "Una scansione non è riuscita",

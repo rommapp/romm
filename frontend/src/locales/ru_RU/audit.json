@@ -1,6 +1,7 @@
 {
   "action-auth-login": "Выполнен вход",
   "action-auth-login-failed": "Не удалось войти как {username}",
+  "action-auth-login-failed-unknown": "Не удалось войти с неизвестным именем пользователя",
   "action-auth-password-reset": "Сброшен пароль пользователя {target}",
   "action-auth-password-reset-request": "Запрошен сброс пароля пользователя {target}",
   "action-client-token-create": "Создан API-токен {target}",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "Удалён файл игры {target}",
   "action-rom-match": "Сопоставлена игра {target}",
   "action-rom-play": "Игровая сессия: {target}",
+  "action-rom-player-load": "Игра {target} загружена для запуска",
   "action-rom-unmatch": "Отменено сопоставление игры {target}",
   "action-rom-upload": "Загружен файл {file} в {target}",
   "action-scan-failed": "Сканирование не удалось",

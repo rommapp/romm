@@ -1,6 +1,7 @@
 {
   "action-auth-login": "Bejelentkezett",
   "action-auth-login-failed": "Sikertelen bejelentkezés {username} néven",
+  "action-auth-login-failed-unknown": "Sikertelen bejelentkezés ismeretlen felhasználónévvel",
   "action-auth-password-reset": "Visszaállította {target} jelszavát",
   "action-auth-password-reset-request": "Jelszó-visszaállítást kért {target} számára",
   "action-client-token-create": "Létrehozta a(z) {target} API tokent",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "Törölt egy fájlt a(z) {target} játékból",
   "action-rom-match": "Egyeztette a(z) {target} játékot",
   "action-rom-play": "Játszott a(z) {target} játékkal",
+  "action-rom-player-load": "Játékra betöltötte a(z) {target} játékot",
   "action-rom-unmatch": "Megszüntette a(z) {target} játék egyeztetését",
   "action-rom-upload": "Feltöltötte a(z) {file} fájlt ide: {target}",
   "action-scan-failed": "Egy szkennelés sikertelen volt",

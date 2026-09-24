@@ -1,6 +1,7 @@
 {
   "action-auth-login": "Connexion",
   "action-auth-login-failed": "Échec de la connexion en tant que {username}",
+  "action-auth-login-failed-unknown": "Échec de la connexion avec un nom d'utilisateur inconnu",
   "action-auth-password-reset": "Réinitialisation du mot de passe de {target}",
   "action-auth-password-reset-request": "Demande de réinitialisation du mot de passe de {target}",
   "action-client-token-create": "Création du token d'API {target}",
@@ -30,6 +31,7 @@
   "action-rom-file-delete": "Suppression d'un fichier de {target}",
   "action-rom-match": "Association de {target}",
   "action-rom-play": "Partie de {target}",
+  "action-rom-player-load": "Chargement de {target} pour jouer",
   "action-rom-unmatch": "Dissociation de {target}",
   "action-rom-upload": "Téléversement de {file} dans {target}",
   "action-scan-failed": "Échec d'un scan",
