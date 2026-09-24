@@ -644,26 +644,6 @@ standard-no-fastapi-cloud-cli = [
 ]
 
 [[package]]
-name = "fastapi-pagination"
-version = "0.16.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "fastapi" },
-    { name = "pydantic" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8c/1c/c51ad0415be51a16b9d364d9c4b30fe108727082fa0764127bab29974772/fastapi_pagination-0.16.0.tar.gz", hash = "sha256:315824873062e1a1784877bca5f274089a4dbb29f342aeff822ca1f50bc9946a", size = 615193, upload-time = "2026-09-16T19:40:40.15Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/65/96/db309f7cea7ffb66fd8d8430fc6ae35b07f216270a2b5844b9f23d8a2eec/fastapi_pagination-0.16.0-py3-none-any.whl", hash = "sha256:7f68942d3240f6813c679559fb87beb84d345cad2840b46b95cd3dbc62f6cd99", size = 51975, upload-time = "2026-09-16T19:40:38.769Z" },
-]
-
-[package.optional-dependencies]
-sqlalchemy = [
-    { name = "sqlakeyset" },
-    { name = "sqlalchemy" },
-]
-
-[[package]]
 name = "frozenlist"
 version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2300,7 +2280,6 @@ dependencies = [
     { name = "cryptography" },
     { name = "defusedxml" },
     { name = "fastapi", extra = ["standard-no-fastapi-cloud-cli"] },
-    { name = "fastapi-pagination", extra = ["sqlalchemy"] },
     { name = "gunicorn" },
     { name = "httpx" },
     { name = "itsdangerous" },
@@ -2376,7 +2355,6 @@ requires-dist = [
     { name = "defusedxml", specifier = "~=0.7" },
     { name = "fakeredis", marker = "extra == 'test'", specifier = "~=2.21" },
     { name = "fastapi", extras = ["standard-no-fastapi-cloud-cli"], specifier = "~=0.141.1" },
-    { name = "fastapi-pagination", extras = ["sqlalchemy"], specifier = "~=0.16.0" },
     { name = "gunicorn", specifier = "~=26.0" },
     { name = "httpx", specifier = "~=0.27" },
     { name = "hypothesis", marker = "extra == 'test'", specifier = "~=6.0" },
@@ -2509,20 +2487,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e8/c4/ba2f8066cceb6f23394729afe52f3bf7adec04bf9ed2c820b39e19299111/sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88", size = 30594, upload-time = "2021-05-16T22:03:42.897Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0", size = 29575, upload-time = "2021-05-16T22:03:41.177Z" },
-]
-
-[[package]]
-name = "sqlakeyset"
-version = "2.0.1746777265"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging" },
-    { name = "python-dateutil" },
-    { name = "sqlalchemy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3b/24/f5f8f28757e697b095e5edd077a37104cf98cd799ba6ab5d902cf7eaeed6/sqlakeyset-2.0.1746777265.tar.gz", hash = "sha256:86c81292b8fed283357509a9c0fa10b057b953e8ab7ed85e290b2766d1e7ef84", size = 111128, upload-time = "2025-05-09T07:54:28.358Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d2/26/035a313c420784b705cd653e6b6305df448faf1a048cf84fe6b092b3697e/sqlakeyset-2.0.1746777265-py3-none-any.whl", hash = "sha256:ca334d593b9b1d86cbefca7fda7909cc7c37b031673e16c7349a38c48c550e8b", size = 26875, upload-time = "2025-05-09T07:54:27.327Z" },
 ]
 
 [[package]]

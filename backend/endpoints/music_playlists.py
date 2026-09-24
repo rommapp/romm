@@ -1,19 +1,18 @@
 from typing import Annotated
 
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, Response, status
-from fastapi_pagination import resolve_params
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
 from decorators.auth import protected_route
 from endpoints.music import (
-    MusicLimitOffsetParams,
     MusicPage,
     MusicTrackIdsPayload,
     resolve_track_ids,
 )
+from endpoints.responses.base import PAGE_QUERY, PageParams
 from endpoints.responses.music import MusicPlaylistSchema, MusicTrackSchema
 from exceptions.endpoint_exceptions import (
     MusicPlaylistAlreadyExistsException,
@@ -154,6 +153,7 @@ def delete_playlist(
 @protected_route(router.get, "/{id}/tracks", [Scope.PLAYLISTS_READ])
 def get_playlist_tracks(
     request: Request,
+    params: Annotated[PageParams, Depends(PAGE_QUERY)],
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
     order_by: Annotated[
         str,
@@ -167,7 +167,6 @@ def get_playlist_tracks(
     than the playlist's stored track_count."""
     playlist = _get_visible_playlist(request, id)
     perms = get_permissions(request)
-    params: MusicLimitOffsetParams = resolve_params()
     rows, total = db_rom_handler.get_music_tracks(
         hidden_platform_ids=perms.hidden_platform_ids,
         hidden_rom_ids=perms.hidden_rom_ids,
