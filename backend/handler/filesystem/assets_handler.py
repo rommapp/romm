@@ -184,28 +184,9 @@ class FSAssetsHandler(FSHandler):
             self.user_folder_path(user), "memory_cards", emulator, str(card_id)
         )
 
-    async def _compute_file_hash(self, file_path: str) -> str:
-        hash_obj = hashlib.md5(usedforsecurity=False)
-        async with await self.stream_file(file_path=file_path) as f:
-            while chunk := await f.read(8192):
-                hash_obj.update(chunk)
-        return hash_obj.hexdigest()
-
     async def _compute_zip_hash(self, zip_path: str) -> str:
         with zipfile.ZipFile(self.base_path / zip_path, "r") as zf:
             return hash_zip_contents(zf)
-
-    async def compute_file_md5(self, file_path: str) -> str | None:
-        """MD5 of the bytes on disk.
-
-        Distinct from `compute_content_hash`, which composes member hashes for
-        zips. Cloud-sync clients hash the file itself, so they need this one.
-        """
-        try:
-            return await self._compute_file_hash(file_path)
-        except OSError as e:
-            log.debug(f"Failed to compute MD5 for {file_path}: {e}")
-            return None
 
     async def compute_content_hash(self, file_path: str) -> str | None:
         try:

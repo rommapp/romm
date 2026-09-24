@@ -1,5 +1,6 @@
 import asyncio
 import fnmatch
+import hashlib
 import os
 import re
 import shutil
@@ -17,6 +18,7 @@ from anyio import open_file
 from starlette.datastructures import UploadFile
 
 from config.config_manager import config_manager as cm
+from logger.logger import log
 from models.base import (
     FILE_NAME_MAX_LENGTH,
     compute_file_extension,
@@ -417,10 +419,12 @@ class FSHandler:
 
         # Normalize path without resolving the full path yet
         base_path_obj = Path(self.base_path).resolve()
-        # Redundant with the checks below, but the normpath + startswith form
-        # is the one CodeQL recognizes as a path-injection sanitizer.
-        normalized_path = os.path.normpath(os.path.join(base_path_obj, path_path))
-        if not normalized_path.startswith(str(base_path_obj)):
+        base_path_str = str(base_path_obj)
+        normalized_path = os.path.normpath(os.path.join(base_path_str, path_path))
+        if not (
+            normalized_path == base_path_str
+            or normalized_path.startswith(base_path_str + os.sep)
+        ):
             raise ValueError(
                 f"Path {path} is outside the base directory {self.base_path}"
             )
@@ -439,12 +443,9 @@ class FSHandler:
                         has_symlink_in_path = True
                         break
 
-            if has_symlink_in_path:
-                # Validate lexically — `..` and absolute paths are already
-                # rejected above, so the symlink target is reachable only via
-                # an intentionally-configured link.
-                full_path.relative_to(base_path_obj)
-            else:
+            # A symlinked path already passed the lexical check above, so its
+            # target is reachable only via an intentionally-configured link.
+            if not has_symlink_in_path:
                 full_path.resolve().relative_to(base_path_obj)
         except ValueError as exc:
             raise ValueError(
@@ -452,6 +453,21 @@ class FSHandler:
             ) from exc
 
         return full_path
+
+    async def _compute_file_hash(self, file_path: str) -> str:
+        hash_obj = hashlib.md5(usedforsecurity=False)
+        async with await self.stream_file(file_path=file_path) as f:
+            while chunk := await f.read(8192):
+                hash_obj.update(chunk)
+        return hash_obj.hexdigest()
+
+    async def compute_file_md5(self, file_path: str) -> str | None:
+        """MD5 of the bytes on disk, unlike zip-aware `compute_content_hash`."""
+        try:
+            return await self._compute_file_hash(file_path)
+        except OSError as e:
+            log.debug(f"Failed to compute MD5 for {file_path}: {e}")
+            return None
 
     @asynccontextmanager
     async def _atomic_write(self, target_path: Path):
@@ -664,9 +680,8 @@ class FSHandler:
 
         # Validate and sanitize inputs
         sanitized_filename = self._sanitize_filename(filename)
-        target_directory = self.validate_path(path)
-
-        final_file_path = target_directory / sanitized_filename
+        final_file_path = self.validate_path(os.path.join(path, sanitized_filename))
+        target_directory = final_file_path.parent
 
         # Async thread-safe file operations
         lock = await self._get_file_lock(str(final_file_path))

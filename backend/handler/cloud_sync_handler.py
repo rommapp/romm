@@ -1,21 +1,14 @@
-"""RetroArch Cloud Sync support.
-
-RetroArch's cloud-sync driver speaks a narrow slice of WebDAV: it GETs a JSON
-manifest of ``{path, hash}`` entries from ``manifest.server``, diffs it against
-its local state, then GETs/PUTs/DELETEs individual files. It never issues
-PROPFIND, so no collection listing is involved.
-
-This module maps that flat ``<root>/<core>/<file>`` namespace onto RomM's
-per-ROM asset storage, and back again for the manifest.
-"""
+"""Maps RetroArch Cloud Sync's ``<root>/<core>/<file>`` namespace onto RomM's
+per-ROM asset storage, and back again for the ``manifest.server`` it diffs."""
 
 from __future__ import annotations
 
 import os
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
-from typing import Literal
+from datetime import datetime
+from typing import Literal, cast
 
 from handler import cloud_sync_psp
 from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
@@ -35,21 +28,18 @@ AssetKind = Literal["saves", "states"]
 
 MANIFEST_FILE_NAME = "manifest.server"
 
-ASSET_ROOTS: dict[str, AssetKind] = {"saves": "saves", "states": "states"}
+ASSET_ROOTS: tuple[AssetKind, ...] = ("saves", "states")
 
-# RetroArch's other three Cloud Sync categories (Settings -> Saving -> Cloud
-# Sync -> Sync Configuration/Thumbnails/System Files). Unlike saves/states,
-# none of these belong to a ROM, so they're kept as opaque per-user blobs
-# instead of going through the asset/ROM matching machinery below.
+# RetroArch's config/thumbnails/system sync categories belong to no ROM, so
+# they're kept as opaque per-user blobs.
 BLOB_CATEGORIES = ("config", "thumbnails", "system")
 
 # `<game>.state`, `<game>.state3`, `<game>.state.auto`: the auto suffix makes
 # this a two-segment extension, which splitext alone gets wrong.
 STATE_SUFFIX_PATTERN = re.compile(r"\.state\d*(?:\.auto)?$", re.IGNORECASE)
 
-# A sync fetches the whole manifest at once, and rehashing every state file on
-# each one would read gigabytes. Entries are keyed by size and mtime, so a
-# changed file misses the cache rather than serving a stale digest.
+# Rehashing every asset on each manifest fetch would read gigabytes. Keys carry
+# size and mtime, so a changed file misses the cache instead of going stale.
 _HASH_CACHE_TTL_SECONDS = 60 * 60 * 24
 
 
@@ -61,28 +51,31 @@ class CloudSyncPath:
     emulator: str | None
     file_name: str
 
+    @property
+    def is_state_screenshot(self) -> bool:
+        return self.kind == "states" and is_state_screenshot_path(self.file_name)
 
-def parse_cloud_sync_path(path: str) -> CloudSyncPath | None:
-    """Parse a client path, or None when it is not a supported asset path.
 
-    Accepts ``<root>/<file>`` and ``<root>/<core>/<file>``; RetroArch produces
-    the latter when "sort saves into folders by core name" is on. The core
-    segment is RetroArch's own directory casing (e.g. "Snes9x"), normalized
-    here to RomM's `emulator` convention (e.g. "snes9x") -- storing it
-    unnormalized would make the save invisible to RomM's own web player,
-    which matches saves against the lowercase libretro core id.
-    """
+def split_segments(path: str) -> list[str] | None:
+    """A client path's non-empty segments, or None if any is `.` or `..`."""
     segments = [segment for segment in path.strip("/").split("/") if segment]
-    if not 2 <= len(segments) <= 3:
-        return None
-
     if any(segment in (os.curdir, os.pardir) for segment in segments):
         return None
+    return segments
 
-    kind = ASSET_ROOTS.get(segments[0])
-    if kind is None:
+
+def parse_cloud_sync_path(path: str) -> CloudSyncPath | None:
+    """Parse a ``<root>/[<core>/]<file>`` client path, or None if unsupported."""
+    segments = split_segments(path)
+    if segments is None or not 2 <= len(segments) <= 3:
         return None
 
+    if segments[0] not in ASSET_ROOTS:
+        return None
+    kind = cast(AssetKind, segments[0])
+
+    # RomM's web player matches saves on the lowercase libretro core id, not
+    # RetroArch's display-cased folder name.
     return CloudSyncPath(
         kind=kind,
         emulator=to_romm_emulator(segments[1]) if len(segments) == 3 else None,
@@ -91,9 +84,7 @@ def parse_cloud_sync_path(path: str) -> CloudSyncPath | None:
 
 
 def is_state_screenshot_path(file_name: str) -> bool:
-    """Whether a `states/...` file is the PNG screenshot RetroArch captures
-    and syncs alongside a state (`<state file name>.png`), rather than the
-    state itself."""
+    """Whether a `states/...` file is the `<state file name>.png` RetroArch syncs."""
     return file_name.lower().endswith(".png")
 
 
@@ -114,20 +105,10 @@ def game_name_from_file_name(kind: AssetKind, file_name: str) -> str:
 
 
 def state_slot_suffix(file_name: str) -> str:
-    """The RetroArch slot suffix (``state``, ``state1``, ..., ``state.auto``)
-    a state's file name ends in -- RomM has no ``slot`` column for states
-    (unlike saves), so this is the only way to group a rom's states into the
-    numbered load slots (0-999) RetroArch's own Load State menu offers.
+    """The slot suffix (``state``, ``state1``, ``state.auto``) a state name ends in.
 
-    A state uploaded through RomM's web player instead carries a display
-    label and timestamp (e.g. ``<rom> [2026-07-24 12-04-52-733].state``);
-    that still ends in a bare ``.state``, so it lands in slot 0 alongside
-    (and competing on recency with) any RetroArch-native slot-0 state --
-    mirroring the shim's `assetHistoryKey`/`splitAssetFileName`, which
-    resolved the identical ambiguity for the same reason: without this, a
-    web-uploaded state either has no reachable slot at all, or (naively
-    keyed by its raw file name) its own permanent one-off slot that grows
-    without bound.
+    States have no ``slot`` column, so this groups them into RetroArch's load
+    slots. A web-player state (``<rom> [<timestamp>].state``) lands in slot 0.
     """
     match = STATE_SUFFIX_PATTERN.search(file_name)
     if match:
@@ -135,69 +116,37 @@ def state_slot_suffix(file_name: str) -> str:
     return os.path.splitext(file_name)[1][1:].lower()
 
 
-def latest_state_for_slot(
-    states: Iterable[State], rom_id: int, emulator: str | None, slot_suffix: str
-) -> State | None:
-    """The state RetroArch would see for a given (rom, emulator, slot) --
-    whichever matching row was updated most recently, regardless of whether
-    it came from a real RetroArch upload or RomM's own web player. Ties
-    (e.g. a bulk migration timestamp shared by several rows) break on `id`,
-    the same deterministic tiebreaker the shim's `sortByRecency` uses, so a
-    manifest build and a later GET/DELETE for the same slot always agree on
-    which row "the newest" actually is.
-    """
-    candidates = [
-        state
-        for state in states
-        if state.rom_id == rom_id
-        and state.emulator == emulator
-        and state_slot_suffix(state.file_name) == slot_suffix
-    ]
-    if not candidates:
-        return None
-
-    return max(candidates, key=lambda state: (state.updated_at, state.id))
+def recency_key(asset: Save | State) -> tuple[datetime, int]:
+    """Recency order, with `id` breaking ties on a shared timestamp."""
+    return (asset.updated_at, asset.id)
 
 
 def group_states_by_slot(
     states: Iterable[State],
 ) -> dict[tuple[int, str | None, str], State]:
-    """Every (rom, emulator, slot) bucket collapsed to its newest state --
-    the same grouping `latest_state_for_slot` performs, computed once for
-    every state instead of once per slot so `build_manifest` doesn't rescan
-    the full state list for every rom it lists."""
+    """The newest state in each (rom, emulator, slot) bucket."""
     latest: dict[tuple[int, str | None, str], State] = {}
     for state in states:
         key = (state.rom_id, state.emulator, state_slot_suffix(state.file_name))
         current = latest.get(key)
-        if current is None or (state.updated_at, state.id) > (
-            current.updated_at,
-            current.id,
-        ):
+        if current is None or recency_key(state) > recency_key(current):
             latest[key] = state
 
     return latest
 
 
 def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
-    """The file name RetroArch's own upload for this (rom, slot) would carry
-    -- what the manifest advertises, and what a GET/DELETE for this slot
-    must resolve back to the real underlying row via
-    ``resolve_state_by_slot``, regardless of that row's actual file name."""
+    """The name RetroArch gives this slot, which the manifest advertises."""
     return f"{rom.fs_name_no_ext}.{slot_suffix}"
 
 
 def resolve_state_by_slot(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> State | None:
-    """The state a GET/DELETE for `requested_file_name` resolves to -- the
-    same "newest row in this (rom, emulator, slot) bucket" `build_manifest`
-    already advertised, found by re-deriving the slot from the *requested*
-    canonical name rather than trusting any single row's own file name to
-    match it exactly (it usually won't, for a web-player-created state)."""
-    slot_suffix = state_slot_suffix(requested_file_name)
+    """The newest state in the slot a canonical name points at, whatever its name."""
     states = db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
-    return latest_state_for_slot(states, rom.id, emulator, slot_suffix)
+    key = (rom.id, emulator, state_slot_suffix(requested_file_name))
+    return group_states_by_slot(states).get(key)
 
 
 def state_screenshot(state: State) -> Screenshot | None:
@@ -223,13 +172,7 @@ def state_screenshot(state: State) -> Screenshot | None:
 def resolve_state_screenshot_by_slot(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> Screenshot | None:
-    """The screenshot a GET/DELETE for `<slot>.png` resolves to -- whatever
-    is attached to the same state ``resolve_state_by_slot`` would return for
-    that slot, since RetroArch always syncs a state's screenshot under
-    ``<state file name>.png``."""
-    if not is_state_screenshot_path(requested_file_name):
-        return None
-
+    """The screenshot of the state a ``<slot>.png`` name resolves to."""
     state = resolve_state_by_slot(
         user, rom, emulator, requested_file_name[: -len(".png")]
     )
@@ -245,15 +188,12 @@ def build_cloud_sync_path(kind: AssetKind, emulator: str | None, file_name: str)
 def build_asset_file_path(
     user: User, rom: Rom, kind: AssetKind, emulator: str | None
 ) -> str:
-    if kind == "saves":
-        return fs_asset_handler.build_saves_file_path(
-            user=user,
-            platform_fs_slug=rom.platform.fs_slug,
-            rom_id=rom.id,
-            emulator=emulator,
-        )
-
-    return fs_asset_handler.build_states_file_path(
+    build_path = (
+        fs_asset_handler.build_saves_file_path
+        if kind == "saves"
+        else fs_asset_handler.build_states_file_path
+    )
+    return build_path(
         user=user,
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom.id,
@@ -262,19 +202,12 @@ def build_asset_file_path(
 
 
 def parse_cloud_sync_blob_path(path: str) -> str | None:
-    """A client path under one of the opaque blob categories, normalized to
-    a plain ``category/...`` posix string, or None if it isn't one.
+    """A blob-category client path as ``category/...``, or None if it isn't one.
 
-    Unlike asset paths these keep arbitrary nesting: RetroArch mirrors its
-    own on-device directory tree here (e.g. thumbnail packs are organized as
-    ``thumbnails/<system>/Named_Boxarts/<game>.png``), so there's no fixed
-    segment count to enforce.
+    Nesting is arbitrary: RetroArch mirrors its on-device tree here.
     """
-    segments = [segment for segment in path.strip("/").split("/") if segment]
-    if len(segments) < 2:
-        return None
-
-    if any(segment in (os.curdir, os.pardir) for segment in segments):
+    segments = split_segments(path)
+    if segments is None or len(segments) < 2:
         return None
 
     if segments[0] not in BLOB_CATEGORIES:
@@ -284,35 +217,35 @@ def parse_cloud_sync_blob_path(path: str) -> str | None:
 
 
 def user_blob_path(user: User, blob_path: str) -> str:
-    """Where a parsed blob path lives on disk, namespaced by user so two
-    RetroArch installs syncing to the same RomM instance under different
-    accounts never see each other's config/thumbnails/system files."""
+    """Where a parsed blob path lives on disk, namespaced by user."""
     return f"{fs_asset_handler.user_folder_path(user)}/{blob_path}"
 
 
-async def blob_md5(user: User, blob_path: str) -> str | None:
-    try:
-        resolved = fs_cloud_sync_blob_handler.validate_path(
-            user_blob_path(user, blob_path)
-        )
-        stat = resolved.stat()
-    except (ValueError, OSError):
-        return None
-
-    cache_key = (
-        f"romm:cloud_sync:blob_md5:{user.id}:{blob_path}:{stat.st_size}:{stat.st_mtime}"
-    )
+async def _cached_md5(
+    cache_key: str, compute: Callable[[], Awaitable[str | None]]
+) -> str | None:
     cached = await async_cache.get(cache_key)
     if cached:
-        return cached.decode() if isinstance(cached, bytes) else str(cached)
+        return str(cached)
 
-    digest = await fs_cloud_sync_blob_handler.compute_file_md5(
-        user_blob_path(user, blob_path)
-    )
+    digest = await compute()
     if digest:
         await async_cache.set(cache_key, digest, ex=_HASH_CACHE_TTL_SECONDS)
 
     return digest
+
+
+async def blob_md5(user: User, blob_path: str) -> str | None:
+    disk_path = user_blob_path(user, blob_path)
+    try:
+        stat = fs_cloud_sync_blob_handler.validate_path(disk_path).stat()
+    except (ValueError, OSError):
+        return None
+
+    return await _cached_md5(
+        f"romm:cloud_sync:blob_md5:{user.id}:{blob_path}:{stat.st_size}:{stat.st_mtime}",
+        lambda: fs_cloud_sync_blob_handler.compute_file_md5(disk_path),
+    )
 
 
 async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
@@ -329,34 +262,37 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
     return entries
 
 
-def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
-    """The ROM a cloud-sync file belongs to, matched on file name alone.
+def resolve_roms(
+    game_names: Iterable[str], can_see: Callable[[Rom], bool]
+) -> dict[str, Rom]:
+    """The ROM each cloud-sync game name belongs to, matched on file name alone.
 
-    When several platforms hold a ROM of the same name the match is ambiguous;
-    the first candidate wins so it stays stable across syncs.
+    An ambiguous name resolves to its first visible ROM by id, so it stays
+    stable across syncs.
     """
-    for rom in db_rom_handler.get_roms_by_fs_name_no_ext(game_name):
+    names = set(game_names)
+    exact: dict[str, Rom] = {}
+    # MariaDB's default collation matches case-insensitively; PostgreSQL doesn't.
+    folded: dict[str, Rom] = {}
+    for rom in db_rom_handler.get_roms_by_fs_names_no_ext(names):
         if can_see(rom):
-            return rom
+            exact.setdefault(rom.fs_name_no_ext, rom)
+            folded.setdefault(rom.fs_name_no_ext.casefold(), rom)
 
-    return None
+    resolved = {name: exact.get(name) or folded.get(name.casefold()) for name in names}
+    return {name: rom for name, rom in resolved.items() if rom}
+
+
+def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
+    return resolve_roms([game_name], can_see).get(game_name)
 
 
 async def asset_md5(asset: Save | State | Screenshot) -> str | None:
-    cache_key = (
+    return await _cached_md5(
         f"romm:cloud_sync:md5:{asset.full_path}"
-        f":{asset.file_size_bytes}:{asset.updated_at.timestamp()}"
+        f":{asset.file_size_bytes}:{asset.updated_at.timestamp()}",
+        lambda: fs_asset_handler.compute_file_md5(asset.full_path),
     )
-
-    cached = await async_cache.get(cache_key)
-    if cached:
-        return cached.decode() if isinstance(cached, bytes) else str(cached)
-
-    digest = await fs_asset_handler.compute_file_md5(asset.full_path)
-    if digest:
-        await async_cache.set(cache_key, digest, ex=_HASH_CACHE_TTL_SECONDS)
-
-    return digest
 
 
 async def build_manifest(
@@ -364,84 +300,66 @@ async def build_manifest(
 ) -> list[dict[str, str]]:
     """The server manifest RetroArch diffs against, sorted by path.
 
-    Slotted saves are RomM's own versioned history: every revision carries a
-    datetime tag in its file name, so surfacing them would hand RetroArch a
-    growing pile of files no core would ever load. States have no such
-    `slot` column, so they're grouped into RetroArch's own numbered slots by
-    file-name suffix instead (`group_states_by_slot`) -- the newest state in
-    each (rom, emulator, slot) bucket is surfaced under the canonical name
-    RetroArch itself would use, regardless of who actually created it.
+    Slotted saves are RomM's own timestamped history, which no core would load,
+    so they're left out. Each state slot lists its newest state under
+    RetroArch's canonical name.
     """
-    entries: list[dict[str, str]] = []
+    saves = db_save_handler.get_saves(user_id=user.id, slot_is_null=True)
+    listed_saves = [
+        save
+        for save in saves
+        if not save.missing_from_fs
+        and can_see(save.rom)
+        and not cloud_sync_psp.is_psp_bundle_file_name(save.file_name)
+    ]
+    listed_states = [
+        (emulator, canonical_state_file_name(state.rom, slot_suffix), state)
+        for (_rom_id, emulator, slot_suffix), state in group_states_by_slot(
+            db_state_handler.get_states(user_id=user.id)
+        ).items()
+        if not state.missing_from_fs and can_see(state.rom)
+    ]
 
     # A path carries no platform, so only the ROM that GET/PUT/DELETE would
     # resolve it to may claim it; a same-named ROM elsewhere would shadow it.
-    resolved_rom_ids: dict[str, int | None] = {}
+    owners = resolve_roms(
+        [game_name_from_file_name("saves", save.file_name) for save in listed_saves]
+        + [game_name_from_file_name("states", name) for _, name, _ in listed_states],
+        can_see,
+    )
 
     def is_addressable(rom: Rom, kind: AssetKind, file_name: str) -> bool:
-        game_name = game_name_from_file_name(kind, file_name)
-        if game_name not in resolved_rom_ids:
-            resolved = resolve_rom(game_name, can_see)
-            resolved_rom_ids[game_name] = resolved.id if resolved else None
-        return resolved_rom_ids[game_name] == rom.id
+        owner = owners.get(game_name_from_file_name(kind, file_name))
+        return owner is not None and owner.id == rom.id
 
-    for save in db_save_handler.get_saves(user_id=user.id):
-        if (
-            save.slot is not None
-            or save.missing_from_fs
-            or not can_see(save.rom)
-            or cloud_sync_psp.is_psp_bundle_file_name(save.file_name)
-            or not is_addressable(save.rom, "saves", save.file_name)
-        ):
+    entries: list[dict[str, str]] = []
+
+    async def add(path: str, asset: Save | State | Screenshot) -> bool:
+        digest = await asset_md5(asset)
+        if digest:
+            entries.append({"path": path, "hash": digest})
+        return bool(digest)
+
+    for save in listed_saves:
+        if is_addressable(save.rom, "saves", save.file_name):
+            await add(
+                build_cloud_sync_path("saves", save.emulator, save.file_name), save
+            )
+
+    for emulator, file_name, state in listed_states:
+        if not is_addressable(state.rom, "states", file_name):
             continue
 
-        digest = await asset_md5(save)
-        if not digest:
+        state_path = build_cloud_sync_path("states", emulator, file_name)
+        if not await add(state_path, state):
             continue
-
-        entries.append(
-            {
-                "path": build_cloud_sync_path("saves", save.emulator, save.file_name),
-                "hash": digest,
-            }
-        )
-
-    states_by_slot = group_states_by_slot(db_state_handler.get_states(user_id=user.id))
-    for (_rom_id, emulator, slot_suffix), state in states_by_slot.items():
-        file_name = canonical_state_file_name(state.rom, slot_suffix)
-        if (
-            state.missing_from_fs
-            or not can_see(state.rom)
-            or not is_addressable(state.rom, "states", file_name)
-        ):
-            continue
-
-        digest = await asset_md5(state)
-        if not digest:
-            continue
-
-        entries.append(
-            {
-                "path": build_cloud_sync_path("states", emulator, file_name),
-                "hash": digest,
-            }
-        )
 
         screenshot = state_screenshot(state)
         if screenshot and not screenshot.missing_from_fs:
-            screenshot_digest = await asset_md5(screenshot)
-            if screenshot_digest:
-                entries.append(
-                    {
-                        "path": build_cloud_sync_path(
-                            "states", emulator, f"{file_name}.png"
-                        ),
-                        "hash": screenshot_digest,
-                    }
-                )
+            await add(f"{state_path}.png", screenshot)
 
     entries += await build_blob_manifest_entries(user)
-    entries += await cloud_sync_psp.build_psp_manifest_entries(user, can_see)
+    entries += await cloud_sync_psp.build_psp_manifest_entries(saves, can_see)
 
     entries.sort(key=lambda entry: entry["path"])
     return entries

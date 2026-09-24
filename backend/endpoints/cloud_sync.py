@@ -13,6 +13,8 @@ heap.
 
 import os
 import uuid
+from collections.abc import Callable
+from contextlib import suppress
 from urllib.parse import quote
 
 from fastapi import APIRouter, Request, Response, status
@@ -21,10 +23,17 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from handler import cloud_sync_handler, cloud_sync_psp, webdav_browser
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
+from handler.auth.permissions import ResolvedPermissions
 from handler.cloud_sync_handler import MANIFEST_FILE_NAME, AssetKind, CloudSyncPath
-from handler.database import db_save_handler, db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_platform_handler,
+    db_save_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from handler.filesystem import fs_asset_handler, fs_cloud_sync_blob_handler
 from handler.filesystem.assets_handler import build_asset_file_response
+from handler.filesystem.base_handler import FSHandler
 from handler.scan_handler import scan_save, scan_screenshot, scan_state
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -69,19 +78,18 @@ def _can_read_roms(request: Request) -> bool:
     return Scope.ROMS_READ in request.auth.scopes
 
 
-def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | None:
-    permissions = get_permissions(request)
-    game_name = cloud_sync_handler.game_name_from_file_name(kind, file_name)
+def _rom_visibility(permissions: ResolvedPermissions) -> Callable[[Rom], bool]:
+    return lambda rom: permissions.can_see_rom(rom.id, rom.platform_id)
 
+
+def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | None:
+    game_name = cloud_sync_handler.game_name_from_file_name(kind, file_name)
     return cloud_sync_handler.resolve_rom(
-        game_name,
-        lambda rom: permissions.can_see_rom(rom.id, rom.platform_id),
+        game_name, _rom_visibility(get_permissions(request))
     )
 
 
-def _get_asset(
-    user: User, rom: Rom, parsed: CloudSyncPath, file_name: str
-) -> Save | State | None:
+def _get_asset(user: User, rom: Rom, parsed: CloudSyncPath) -> Save | State | None:
     if parsed.kind == "saves":
         file_path = cloud_sync_handler.build_asset_file_path(
             user, rom, parsed.kind, parsed.emulator
@@ -90,18 +98,26 @@ def _get_asset(
             user_id=user.id,
             rom_id=rom.id,
             file_path=file_path,
-            file_name=file_name,
+            file_name=parsed.file_name,
         )
 
-    # States have no `slot` column to key an exact-path lookup on, and the
-    # requested `file_name` is the canonical name `build_manifest` made up
-    # (`cloud_sync_handler.canonical_state_file_name`) -- it may not match
-    # any single row's actual `file_name` (e.g. a web-player-created state).
-    # Re-derive the same (rom, emulator, slot) bucket instead of trusting an
-    # exact match.
+    # The requested name is the canonical slot name, which a web-player state's
+    # own file name won't match, so the slot is resolved instead.
     return cloud_sync_handler.resolve_state_by_slot(
-        user, rom, parsed.emulator, file_name
+        user, rom, parsed.emulator, parsed.file_name
     )
+
+
+def _serve(handler: FSHandler, path: str, filename: str) -> Response:
+    try:
+        resolved_path = handler.validate_path(path)
+    except ValueError:
+        return _empty(status.HTTP_404_NOT_FOUND)
+
+    if not resolved_path.is_file():
+        return _empty(status.HTTP_404_NOT_FOUND)
+
+    return build_asset_file_response(resolved_path, filename=filename)
 
 
 @router.api_route("/{file_path:path}", methods=["OPTIONS"], include_in_schema=False)
@@ -113,22 +129,15 @@ def cloud_sync_options(request: Request, file_path: str) -> Response:
 
     return _empty(
         status.HTTP_200_OK,
-        # Class 2 (locking) is advertised alongside the fake LOCK/UNLOCK
-        # below -- some WebDAV clients (iOS Files among them, by report)
-        # refuse to treat a server as mountable at all without it, even for
-        # read-only browsing.
+        # Some clients (reportedly iOS Files) won't mount a server without
+        # class 2 locking, even read-only.
         {"DAV": "1, 2", "Allow": ALLOWED_METHODS, "MS-Author-Via": "DAV"},
     )
 
 
 @router.api_route("/{file_path:path}", methods=["LOCK"], include_in_schema=False)
 def cloud_sync_lock(request: Request, file_path: str) -> Response:
-    """Fake, always-succeeds locking. Nothing here is actually lockable --
-    RetroArch's own Cloud Sync client never sends LOCK, and this WebDAV
-    surface has no concept of concurrent writers to guard against -- but
-    some WebDAV clients (iOS Files among them, by report) won't complete
-    "Connect to Server" without a server that at least answers LOCK/UNLOCK,
-    so this exists purely for that compatibility handshake."""
+    """Always-granted fake lock, for clients that won't mount without one."""
     denied = _authorize(request, Scope.ASSETS_READ)
     if denied:
         return denied
@@ -162,17 +171,9 @@ def cloud_sync_unlock(request: Request, file_path: str) -> Response:
 
 @router.api_route("/{file_path:path}", methods=["PROPFIND"], include_in_schema=False)
 async def cloud_sync_propfind(request: Request, file_path: str) -> Response:
-    """Read-only directory browsing for `roms/` (RomM's own library) and
-    `saves/`/`states/` (the current cloud-sync manifest), so a real WebDAV
-    client (iOS Files' "Connect to Server", Cyberduck, ...) can mount this
-    same URL and browse it like a normal file share.
+    """Read-only browsing of `roms/` and the manifest's current `saves/`/`states/`.
 
-    RetroArch's own Cloud Sync client never issues PROPFIND -- verified
-    against its source -- so none of this is on RetroArch's actual sync
-    path; it exists solely for read-only human browsing. Unlike the
-    retroarch-webdav-romm shim this mirrors, saves/states browsing here
-    only shows the manifest's *current* entries, not every historical
-    revision -- RomM's own web UI is the place to browse save history.
+    RetroArch never sends PROPFIND; this serves generic WebDAV clients.
     """
     denied = _authorize(request, Scope.ASSETS_READ)
     if denied:
@@ -180,22 +181,24 @@ async def cloud_sync_propfind(request: Request, file_path: str) -> Response:
 
     depth = 0 if request.headers.get("depth") == "0" else 1
     permissions = get_permissions(request)
-    parts = [p for p in file_path.strip("/").split("/") if p]
+    parts = cloud_sync_handler.split_segments(file_path)
+    if parts is None:
+        return _empty(status.HTTP_404_NOT_FOUND)
 
     if parts and parts[0] == "roms" and not _can_read_roms(request):
         return _empty(status.HTTP_403_FORBIDDEN)
 
     entries: list[webdav_browser.PropfindEntry] | None
     if not parts:
-        entries = [_root_entry()]
+        entries = [_collection_entry("")]
         if depth != 0:
             if _can_read_roms(request):
-                entries.append(_roms_root_entry())
-            entries += [_virtual_root_entry("saves"), _virtual_root_entry("states")]
+                entries.append(_collection_entry("roms"))
+            entries += [_collection_entry("saves"), _collection_entry("states")]
     elif parts == ["roms"]:
-        entries = [_roms_root_entry()]
+        entries = [_collection_entry("roms")]
         if depth != 0:
-            platforms = webdav_browser.list_platforms(permissions.can_see_platform)
+            platforms = webdav_browser.list_platforms(permissions)
             entries += [
                 webdav_browser.PropfindEntry(
                     href=f"roms/{p.fs_slug}/", is_collection=True, display_name=p.name
@@ -218,36 +221,26 @@ async def cloud_sync_propfind(request: Request, file_path: str) -> Response:
     return Response(
         content=body,
         status_code=207,
-        # iOS Files' WebDAV client is known to be picky about this --
-        # "text/xml" (the traditional WebDAV content type) is the safer bet
-        # over "application/xml", which some Apple WebDAV client versions
-        # have reportedly failed to parse.
+        # Some Apple WebDAV clients reportedly fail to parse application/xml.
         media_type="text/xml; charset=utf-8",
     )
 
 
-def _root_entry() -> "webdav_browser.PropfindEntry":
-    return webdav_browser.PropfindEntry(href="", is_collection=True, display_name="")
-
-
-def _roms_root_entry() -> "webdav_browser.PropfindEntry":
+def _collection_entry(name: str) -> webdav_browser.PropfindEntry:
     return webdav_browser.PropfindEntry(
-        href="roms/", is_collection=True, display_name="roms"
-    )
-
-
-def _virtual_root_entry(name: str) -> "webdav_browser.PropfindEntry":
-    return webdav_browser.PropfindEntry(
-        href=f"{name}/", is_collection=True, display_name=name
+        href=f"{name}/" if name else "", is_collection=True, display_name=name
     )
 
 
 def _platform_listing(
-    slug: str, depth: int, permissions
-) -> list["webdav_browser.PropfindEntry"] | None:
-    platforms = webdav_browser.list_platforms(permissions.can_see_platform)
-    platform = next((p for p in platforms if p.fs_slug == slug), None)
-    if not platform:
+    slug: str, depth: int, permissions: ResolvedPermissions
+) -> list[webdav_browser.PropfindEntry] | None:
+    platform = db_platform_handler.get_platform_by_fs_slug(slug)
+    if (
+        not platform
+        or platform.rom_count == 0
+        or not permissions.can_see_platform(platform.id)
+    ):
         return None
 
     self_entry = webdav_browser.PropfindEntry(
@@ -256,12 +249,7 @@ def _platform_listing(
     if depth == 0:
         return [self_entry]
 
-    files = (
-        webdav_browser.list_rom_files(
-            slug, lambda rom: permissions.can_see_rom(rom.id, rom.platform_id)
-        )
-        or []
-    )
+    files = webdav_browser.list_rom_files(platform, permissions)
     return [self_entry] + [
         webdav_browser.PropfindEntry(
             href=f"roms/{slug}/{f.display_name}",
@@ -275,11 +263,9 @@ def _platform_listing(
 
 
 def _rom_file_entry(
-    slug: str, file_name: str, permissions
-) -> list["webdav_browser.PropfindEntry"] | None:
-    file = webdav_browser.find_rom_file(
-        slug, file_name, lambda rom: permissions.can_see_rom(rom.id, rom.platform_id)
-    )
+    slug: str, file_name: str, permissions: ResolvedPermissions
+) -> list[webdav_browser.PropfindEntry] | None:
+    file = webdav_browser.find_rom_file(slug, file_name, permissions)
     if not file:
         return None
 
@@ -295,10 +281,10 @@ def _rom_file_entry(
 
 
 async def _save_state_listing(
-    parts: list[str], depth: int, user: User, permissions
-) -> list["webdav_browser.PropfindEntry"] | None:
+    parts: list[str], depth: int, user: User, permissions: ResolvedPermissions
+) -> list[webdav_browser.PropfindEntry] | None:
     manifest = await cloud_sync_handler.build_manifest(
-        user, lambda rom: permissions.can_see_rom(rom.id, rom.platform_id)
+        user, _rom_visibility(permissions)
     )
     clean = "/".join(parts)
 
@@ -344,7 +330,7 @@ async def _save_state_listing(
     )
 
 
-def _manifest_file_entry(entry: dict[str, str]) -> "webdav_browser.PropfindEntry":
+def _manifest_file_entry(entry: dict[str, str]) -> webdav_browser.PropfindEntry:
     return webdav_browser.PropfindEntry(
         href=entry["path"],
         is_collection=False,
@@ -360,27 +346,17 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
         return denied
 
     if file_path.strip("/") == MANIFEST_FILE_NAME:
-        permissions = get_permissions(request)
         manifest = await cloud_sync_handler.build_manifest(
-            request.user,
-            lambda rom: permissions.can_see_rom(rom.id, rom.platform_id),
+            request.user, _rom_visibility(get_permissions(request))
         )
         return JSONResponse(content=manifest)
 
     blob_path = cloud_sync_handler.parse_cloud_sync_blob_path(file_path)
     if blob_path:
-        try:
-            resolved_path = fs_cloud_sync_blob_handler.validate_path(
-                cloud_sync_handler.user_blob_path(request.user, blob_path)
-            )
-        except ValueError:
-            return _empty(status.HTTP_404_NOT_FOUND)
-
-        if not resolved_path.is_file():
-            return _empty(status.HTTP_404_NOT_FOUND)
-
-        return build_asset_file_response(
-            resolved_path, filename=os.path.basename(blob_path)
+        return _serve(
+            fs_cloud_sync_blob_handler,
+            cloud_sync_handler.user_blob_path(request.user, blob_path),
+            os.path.basename(blob_path),
         )
 
     psp_path = cloud_sync_psp.resolve_psp_path(file_path)
@@ -392,26 +368,19 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
             return _empty(status.HTTP_404_NOT_FOUND)
         return Response(content=data, media_type="application/octet-stream")
 
-    rom_parts = [p for p in file_path.strip("/").split("/") if p]
-    if len(rom_parts) == 3 and rom_parts[0] == "roms":
+    rom_parts = cloud_sync_handler.split_segments(file_path)
+    if rom_parts and len(rom_parts) == 3 and rom_parts[0] == "roms":
         if not _can_read_roms(request):
             return _empty(status.HTTP_403_FORBIDDEN)
 
-        permissions = get_permissions(request)
         file = webdav_browser.find_rom_file(
-            rom_parts[1],
-            rom_parts[2],
-            lambda rom: permissions.can_see_rom(rom.id, rom.platform_id),
+            rom_parts[1], rom_parts[2], get_permissions(request)
         )
         if not file:
             return _empty(status.HTTP_404_NOT_FOUND)
 
-        # RomM's own content endpoint already handles Range requests, the
-        # multi-file zip cache and (in production) nginx X-Accel-Redirect --
-        # duplicating that here would either miss the X-Accel-Redirect step
-        # (nothing would actually stream in production) or reimplement it
-        # badly. Basic Auth carries over on the redirect, so this stays a
-        # single unauthenticated-looking hop from the client's perspective.
+        # The content endpoint already handles Range, the multi-file zip cache
+        # and nginx X-Accel-Redirect. Basic Auth carries over on the redirect.
         return RedirectResponse(
             url=f"/api/roms/{file.rom_id}/content/{quote(file.display_name)}",
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
@@ -426,27 +395,17 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
         return _empty(status.HTTP_404_NOT_FOUND)
 
     asset: Save | State | Screenshot | None
-    if parsed.kind == "states" and cloud_sync_handler.is_state_screenshot_path(
-        parsed.file_name
-    ):
+    if parsed.is_state_screenshot:
         asset = cloud_sync_handler.resolve_state_screenshot_by_slot(
             request.user, rom, parsed.emulator, parsed.file_name
         )
     else:
-        asset = _get_asset(request.user, rom, parsed, parsed.file_name)
+        asset = _get_asset(request.user, rom, parsed)
 
     if not asset:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    try:
-        resolved_path = fs_asset_handler.validate_path(asset.full_path)
-    except ValueError:
-        return _empty(status.HTTP_404_NOT_FOUND)
-
-    if not resolved_path.is_file():
-        return _empty(status.HTTP_404_NOT_FOUND)
-
-    return build_asset_file_response(resolved_path, filename=asset.file_name)
+    return _serve(fs_asset_handler, asset.full_path, asset.file_name)
 
 
 @router.api_route("/{file_path:path}", methods=["PUT"], include_in_schema=False)
@@ -486,13 +445,12 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
         # PSP engine cache file (shader cache etc.), not save data.
         return _empty(status.HTTP_204_NO_CONTENT)
     if psp_path:
-        permissions = get_permissions(request)
         try:
             await cloud_sync_psp.put_psp_file(
                 request.user,
                 psp_path,
                 await request.body(),
-                lambda rom: permissions.can_see_rom(rom.id, rom.platform_id),
+                _rom_visibility(get_permissions(request)),
             )
         except (cloud_sync_psp.PspFolderUnresolved, ValueError):
             return _empty(status.HTTP_409_CONFLICT)
@@ -518,18 +476,9 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
 
     log.info(f"Cloud sync upload {hl(file_name)} for {hl(str(rom.name), color=BLUE)}")
 
-    # RetroArch syncs a state's screenshot as `<state file name>.png` --
-    # store it as a Screenshot attached to the ROM, not a State (there's no
-    # state binary here, just an image).
-    if parsed.kind == "states" and cloud_sync_handler.is_state_screenshot_path(
-        file_name
-    ):
-        # `file_name` is the canonical `<slot>.png` name -- but the state it
-        # belongs to (found the same way `resolve_state_by_slot` would) may
-        # have its own, different real file name (e.g. a web-player upload).
-        # Writing under the canonical name while an existing screenshot's
-        # row still points at that other name would create a second,
-        # untracked file on disk instead of updating the real one.
+    if parsed.is_state_screenshot:
+        # Written under the owning state's real name, which may differ from the
+        # canonical one, so an existing screenshot is updated rather than forked.
         owning_state = cloud_sync_handler.resolve_state_by_slot(
             request.user, rom, parsed.emulator, file_name[: -len(".png")]
         )
@@ -576,17 +525,9 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
         request.user, rom, parsed.kind, parsed.emulator
     )
 
-    # For states, `file_name` is the *canonical* slot name RetroArch always
-    # uses -- but `existing` (resolved by slot, not by exact path) may be a
-    # row whose own `file_name` is something else entirely (e.g. a
-    # web-player upload). Writing the new bytes under the canonical name
-    # while only patching that other row's `file_size_bytes` would leave the
-    # DB row pointing at stale, now-orphaned content on disk -- silently
-    # diverging RomM's own view of "the current state" from what's actually
-    # on disk, which resurfaces as a spurious sync conflict on every
-    # subsequent sync. Writing to the existing row's own real file name
-    # instead keeps disk and DB in agreement.
-    existing = _get_asset(request.user, rom, parsed, file_name)
+    # A state resolved by slot may have its own file name; writing to it keeps
+    # the row pointing at the fresh bytes instead of orphaning them.
+    existing = _get_asset(request.user, rom, parsed)
     write_file_name = existing.file_name if existing else file_name
 
     await fs_asset_handler.write_file(
@@ -685,9 +626,7 @@ async def cloud_sync_delete(request: Request, file_path: str) -> Response:
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    if parsed.kind == "states" and cloud_sync_handler.is_state_screenshot_path(
-        parsed.file_name
-    ):
+    if parsed.is_state_screenshot:
         screenshot = cloud_sync_handler.resolve_state_screenshot_by_slot(
             request.user, rom, parsed.emulator, parsed.file_name
         )
@@ -696,14 +635,12 @@ async def cloud_sync_delete(request: Request, file_path: str) -> Response:
 
         log.info(f"Cloud sync delete {hl(screenshot.file_name)} [{rom.platform_slug}]")
         db_screenshot_handler.delete_screenshot(screenshot.id)
-        try:
+        with suppress(FileNotFoundError):
             await fs_asset_handler.remove_file(file_path=screenshot.full_path)
-        except FileNotFoundError:
-            pass
 
         return _empty(status.HTTP_204_NO_CONTENT)
 
-    asset = _get_asset(request.user, rom, parsed, parsed.file_name)
+    asset = _get_asset(request.user, rom, parsed)
     if not asset:
         return _empty(status.HTTP_404_NOT_FOUND)
 
@@ -714,10 +651,8 @@ async def cloud_sync_delete(request: Request, file_path: str) -> Response:
     else:
         db_state_handler.delete_state(asset.id)
 
-    try:
+    with suppress(FileNotFoundError):
         await fs_asset_handler.remove_file(file_path=asset.full_path)
-    except FileNotFoundError:
-        pass
 
     return _empty(status.HTTP_204_NO_CONTENT)
 

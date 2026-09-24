@@ -6,7 +6,7 @@ import pytest
 from handler.cloud_sync_psp import (
     _BUNDLE_MAX_MEMBERS,
     PspFilePath,
-    _bundle_pattern,
+    _bundle_folder,
     _load_bundle_entries,
     _write_bundle,
     is_psp_bundle_file_name,
@@ -101,16 +101,20 @@ class TestIsPspBundleFileName:
         assert not is_psp_bundle_file_name("test_rom.srm")
 
 
-class TestBundlePattern:
-    def test_matches_the_folder_and_its_tagged_names(self):
-        pattern = _bundle_pattern("ULUS10336DATA0")
-        assert pattern.match("PSP-ULUS10336DATA0.zip")
-        assert pattern.match("PSP-ULUS10336DATA0 [2026-01-01 00-00-00].zip")
+class TestBundleFolder:
+    def test_parses_the_folder_and_its_tagged_names(self):
+        assert _bundle_folder("PSP-ULUS10336DATA0.zip") == "ULUS10336DATA0"
+        assert (
+            _bundle_folder("PSP-ULUS10336DATA0 [2026-01-01 00-00-00].zip")
+            == "ULUS10336DATA0"
+        )
 
-    def test_does_not_match_a_longer_folder_name(self):
-        pattern = _bundle_pattern("FOO")
-        assert not pattern.match("PSP-FOO-BAR.zip")
-        assert not pattern.match("PSP-FOO.BAR.zip")
+    def test_keeps_a_longer_folder_name_whole(self):
+        assert _bundle_folder("PSP-FOO-BAR.zip") == "FOO-BAR"
+        assert _bundle_folder("PSP-FOO.BAR.zip") == "FOO.BAR"
+
+    def test_rejects_non_bundles(self):
+        assert _bundle_folder("test_rom.srm") is None
 
 
 class TestLoadBundleEntries:

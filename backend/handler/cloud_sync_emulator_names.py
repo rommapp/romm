@@ -1,23 +1,8 @@
-"""Translates between RomM's `emulator` field convention (lowercase libretro
-core identifier, e.g. "snes9x") and RetroArch's actual local save/state
-directory name (its display name, e.g. "Snes9x"). These are not the same
-string, and naively round-tripping one as the other has two failure modes:
+"""Maps RomM's `emulator` values (lowercase libretro core ids, e.g. "snes9x") to
+RetroArch's save/state folder names (e.g. "Snes9x") and back.
 
-- Writing RetroArch's raw folder name straight into `emulator` stores a save
-  RomM's own web player can never select again -- `EmulatorJS.vue` filters
-  saves by an exact match against the lowercase libretro core id, and
-  `_EJS_CORES_MAP` in the frontend confirms that convention is RomM-wide, not
-  cloud-sync-specific.
-- Handing that raw value back out unchanged in the manifest can point
-  RetroArch at a folder its own local install never uses (it's case- and
-  spacing-sensitive), so the file silently never resolves as "already
-  synced" and keeps re-appearing as a diff.
-
-The table mirrors the community romm-retroarch-sync project
-(github.com/Covin90/romm-retroarch-sync), which had already solved this
-exact problem for the cores below. Anything outside the table round-trips
-unchanged on the way back out to RetroArch rather than guessing at a casing
-or spacing that hasn't been verified against a real install.
+RomM's web player matches saves on the core id, while RetroArch looks for the
+exact folder name. The table follows github.com/Covin90/romm-retroarch-sync.
 """
 
 RETROARCH_DIR_BY_ROMM_EMULATOR: dict[str, str] = {
@@ -90,13 +75,10 @@ ROMM_EMULATOR_BY_RETROARCH_DIR: dict[str, str] = {
 
 
 def to_romm_emulator(retroarch_dir_name: str) -> str:
-    """RetroArch's local directory name (e.g. "Snes9x") -> RomM's `emulator`
-    convention (e.g. "snes9x"). Unknown names are kept verbatim so
-    `to_retroarch_dir_name` can hand the exact folder back."""
+    """RomM's `emulator` for a RetroArch folder name, kept verbatim when unknown."""
     return ROMM_EMULATOR_BY_RETROARCH_DIR.get(retroarch_dir_name, retroarch_dir_name)
 
 
 def to_retroarch_dir_name(romm_emulator: str) -> str:
-    """RomM's `emulator` value -> RetroArch's local directory name. Cores
-    outside the table round-trip unchanged."""
+    """RetroArch's folder name for a RomM `emulator`, unchanged when unknown."""
     return RETROARCH_DIR_BY_ROMM_EMULATOR.get(romm_emulator, romm_emulator)

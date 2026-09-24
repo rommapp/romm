@@ -87,6 +87,7 @@ class DBSavesHandler(DBBaseHandler):
         platform_id: int | None = None,
         slot: str | None = None,
         slot_not_null: bool = False,
+        slot_is_null: bool = False,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
     ) -> Select[tuple[Save]]:
@@ -107,6 +108,9 @@ class DBSavesHandler(DBBaseHandler):
         if slot_not_null:
             query = query.filter(Save.slot.is_not(None))
 
+        if slot_is_null:
+            query = query.filter(Save.slot.is_(None))
+
         if order_by:
             order_col = getattr(Save, order_by)
             order_fn = asc if order_dir == "asc" else desc
@@ -123,6 +127,7 @@ class DBSavesHandler(DBBaseHandler):
         platform_id: int | None = None,
         slot: str | None = None,
         slot_not_null: bool = False,
+        slot_is_null: bool = False,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
         session: Session = None,  # type: ignore
@@ -133,6 +138,7 @@ class DBSavesHandler(DBBaseHandler):
             platform_id=platform_id,
             slot=slot,
             slot_not_null=slot_not_null,
+            slot_is_null=slot_is_null,
             order_by=order_by,
             order_dir=order_dir,
         )
