@@ -7,6 +7,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from authlib.integrations.base_client.errors import MismatchingStateError
 from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
@@ -718,6 +719,47 @@ async def test_logout_with_oidc_rp_initiated_logout(client, admin_user: User):
         assert "oidc_logout_url" in data
         assert data["oidc_logout_url"].startswith(end_session_url)
         assert f"id_token_hint={fake_id_token}" in data["oidc_logout_url"]
+
+
+def _replayed_oidc_callback(client, headers: dict[str, str] | None = None):
+    fake_oauth = mock.MagicMock()
+    fake_oauth.openid.authorize_access_token = mock.AsyncMock(
+        side_effect=MismatchingStateError()
+    )
+    with (
+        mock.patch("endpoints.auth.OIDC_ENABLED", True),
+        mock.patch("endpoints.auth.oauth", fake_oauth),
+    ):
+        return client.get(
+            "/api/oauth/openid?code=new&state=spent",
+            headers=headers,
+            follow_redirects=False,
+        )
+
+
+def test_oidc_callback_with_spent_state_redirects_to_login(client):
+    response = _replayed_oidc_callback(client)
+
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
+    assert response.headers["location"] == "/login"
+
+
+def test_oidc_callback_with_spent_state_keeps_existing_session(
+    client, admin_user: User
+):
+    basic_auth = base64.b64encode(b"test_admin:test_admin_password").decode("ascii")
+    response = client.post(
+        "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
+    )
+    session_cookie = response.cookies.get("romm_session")
+    assert session_cookie is not None
+
+    response = _replayed_oidc_callback(
+        client, headers={"Cookie": f"romm_session={session_cookie}"}
+    )
+
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
+    assert response.headers["location"] == "/"
 
 
 def test_update_user_with_valid_ui_settings(

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
 from urllib.parse import urlencode
 
+from authlib.integrations.starlette_client import OAuthError
 from fastapi import BackgroundTasks, Body, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic
@@ -278,7 +279,8 @@ async def auth_openid(request: Request):
         UserDisabledException: Auth is disabled
 
     Returns:
-        RedirectResponse: Redirect to home page
+        RedirectResponse: Redirect to home page, or back to login when the
+        provider's response is rejected (e.g. a replayed, already-spent state)
     """
 
     if not OIDC_ENABLED:
@@ -287,7 +289,11 @@ async def auth_openid(request: Request):
     if not oauth.openid:
         raise OIDCNotConfiguredException
 
-    token = await oauth.openid.authorize_access_token(request)
+    try:
+        token = await oauth.openid.authorize_access_token(request)
+    except OAuthError as exc:
+        log.warning(f"OIDC callback rejected: {exc.error}: {exc.description}")
+        return RedirectResponse(url="/" if request.user.is_authenticated else "/login")
     potential_user, _userinfo = (
         await oidc_handler.get_current_active_user_from_openid_token(token)
     )
