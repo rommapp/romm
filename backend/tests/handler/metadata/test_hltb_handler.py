@@ -282,6 +282,27 @@ async def test_bundled_endpoint_is_kept_when_github_and_discovery_fail(
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch(
+    "handler.metadata.hltb_handler.discover_hltb_endpoint",
+    side_effect=AttributeError("unexpected response shape"),
+)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_a_discovery_error_keeps_the_bundled_endpoint(
+    mock_ctx_httpx_client, mock_discover
+):
+    handler = HLTBHandler()
+    bundled = handler.search_url
+    mock_client = AsyncMock()
+    mock_client.get.side_effect = httpx.ConnectError("GitHub unreachable")
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    # A failed discovery must not abort the scan that initializes the handler.
+    await handler._fetch_search_endpoint()
+
+    assert handler.search_url == bundled
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
 @patch("handler.metadata.hltb_handler.ctx_httpx_client")
 async def test_debug_log_does_not_leak_session_material(mock_ctx_httpx_client):
     # Logs are downloadable via /api/logs and routinely pasted into bug reports,

@@ -34,8 +34,11 @@ class HLTBSession(NamedTuple):
         return None
 
 
-def parse_session(data: dict) -> HLTBSession | None:
+def parse_session(data: object) -> HLTBSession | None:
     """Read a session out of an /init response, or None if it did not issue one."""
+    if not isinstance(data, dict):
+        return None
+
     token = data.get("token")
     if not token:
         return None

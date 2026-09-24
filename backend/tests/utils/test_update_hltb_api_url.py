@@ -49,7 +49,7 @@ def test_turbopack_chunks_are_not_mistaken_for_the_manifest():
     assert BUILD_MANIFEST_REGEX.search(html) is None
 
 
-def _client(session: dict, search_body: dict) -> MagicMock:
+def _client(session: object, search_body: object) -> MagicMock:
     """A stand-in HLTB whose /init and search responses the test controls."""
     client = MagicMock()
     client.get.return_value = _json_response(session)
@@ -57,7 +57,7 @@ def _client(session: dict, search_body: dict) -> MagicMock:
     return client
 
 
-def _json_response(body: dict) -> MagicMock:
+def _json_response(body: object) -> MagicMock:
     response = MagicMock()
     response.json.return_value = body
     return response
@@ -83,9 +83,10 @@ def test_a_route_serving_real_games_is_accepted():
         pytest.param({"ok": True}, id="not-a-search-response"),
         pytest.param({"data": [{"userId": 1, "name": "someone"}]}, id="not-games"),
         pytest.param({"data": []}, id="no-results"),
+        pytest.param([GAME], id="not-a-json-object"),
     ],
 )
-def test_a_route_that_mints_but_does_not_serve_games_is_rejected(search_body: dict):
+def test_a_route_that_mints_but_does_not_serve_games_is_rejected(search_body: object):
     client = _client(SESSION, search_body)
 
     assert (
@@ -93,8 +94,15 @@ def test_a_route_that_mints_but_does_not_serve_games_is_rejected(search_body: di
     )
 
 
-def test_an_incomplete_session_is_rejected_before_searching():
-    client = _client({"hpKey": "ign_k", "hpVal": "v"}, {"data": [GAME]})
+@pytest.mark.parametrize(
+    "session",
+    [
+        pytest.param({"hpKey": "ign_k", "hpVal": "v"}, id="no-token"),
+        pytest.param([SESSION], id="not-a-json-object"),
+    ],
+)
+def test_an_incomplete_session_is_rejected_before_searching(session: object):
+    client = _client(session, {"data": [GAME]})
 
     assert (
         serves_game_search(client, HLTB_BASE_URL, f"{HLTB_BASE_URL}/api/search/site")

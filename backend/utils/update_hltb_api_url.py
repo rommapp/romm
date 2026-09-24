@@ -98,7 +98,10 @@ def _rejection_reason(
             timeout=30,
         )
         response.raise_for_status()
-        results = response.json().get("data")
+        body = response.json()
+        if not isinstance(body, dict):
+            return "search did not return a JSON object"
+        results = body.get("data")
     except (httpx.RequestError, httpx.HTTPStatusError, ValueError) as e:
         return str(e)
 

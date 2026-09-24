@@ -364,7 +364,12 @@ class HLTBHandler(MetadataHandler):
             log.warning("Unexpected error fetching HLTB endpoint from GitHub: %s", e)
 
         # Keeps a host that cannot reach GitHub off a stale bundled endpoint.
-        discovered = await asyncio.to_thread(discover_hltb_endpoint, self.base_url)
+        try:
+            discovered = await asyncio.to_thread(discover_hltb_endpoint, self.base_url)
+        except Exception as e:
+            log.warning("Unexpected error discovering HLTB endpoint: %s", e)
+            discovered = None
+
         if discovered:
             self._set_search_url(discovered)
         else:

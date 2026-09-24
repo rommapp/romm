@@ -27,8 +27,15 @@ def test_parse_session_needs_only_a_token():
     assert session.honeypot() is None
 
 
-def test_parse_session_without_a_token_issues_none():
-    assert parse_session({"hpKey": "ign_k", "hpVal": "v"}) is None
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param({"hpKey": "ign_k", "hpVal": "v"}, id="no-token"),
+        pytest.param([{"token": "t"}], id="not-a-json-object"),
+    ],
+)
+def test_parse_session_without_a_token_object_issues_none(data: object):
+    assert parse_session(data) is None
 
 
 def test_search_headers_carry_the_origin_a_browser_sends():
