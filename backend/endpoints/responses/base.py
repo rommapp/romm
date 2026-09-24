@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Annotated, Any, Self
+from typing import Annotated, Self
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import Field, PlainSerializer
@@ -44,11 +44,7 @@ class LimitOffsetPage[T: PydanticBaseModel](PydanticBaseModel):
         cls,
         items: Sequence[T],
         params: PageParams,
-        **kwargs: Any,
+        *,
+        total: int,
     ) -> Self:
-        return cls(
-            items=items,
-            limit=params.limit,
-            offset=params.offset,
-            **kwargs,
-        )
+        return cls(items=items, total=total, limit=params.limit, offset=params.offset)

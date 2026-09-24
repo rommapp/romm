@@ -715,10 +715,11 @@ def get_roms(
         else:
             page_items = []
 
-        return CustomLimitOffsetPage.create(
-            _transform(page_items),
-            params,
+        return CustomLimitOffsetPage(
+            items=_transform(page_items),
             total=resolve_total(),
+            limit=params.limit,
+            offset=params.offset,
             char_index=char_index_dict,
             rom_id_index=list(rom_id_index),
             filter_values=filter_values,
