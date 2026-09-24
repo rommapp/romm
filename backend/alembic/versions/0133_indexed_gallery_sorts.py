@@ -7,8 +7,8 @@ instead, plus an `idx_roms_<column>_desc` on PostgreSQL, whose descending order
 needs spelling out. Both come from `utils.roms_columns`, so they join the table
 copy every 5.3.0 revision that widens `roms` shares.
 
-Revision ID: 0129_indexed_gallery_sorts
-Revises: 0128_hltb_main_story_column
+Revision ID: 0133_indexed_gallery_sorts
+Revises: 0132_audit_events
 Create Date: 2026-09-19 00:00:00.000000
 
 """
@@ -25,8 +25,8 @@ from utils.database import (
 from utils.roms_columns import ensure_roms_columns
 
 # revision identifiers, used by Alembic.
-revision = "0129_indexed_gallery_sorts"
-down_revision = "0128_hltb_main_story_column"
+revision = "0133_indexed_gallery_sorts"
+down_revision = "0132_audit_events"
 branch_labels = None
 depends_on = None
 

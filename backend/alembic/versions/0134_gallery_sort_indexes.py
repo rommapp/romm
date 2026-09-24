@@ -5,8 +5,8 @@ had no index at all, and the composites leading with `platform_id` carry
 another column before `id`. All three are NOT NULL, so pairing each key with
 the `id` tiebreak is enough.
 
-Revision ID: 0130_gallery_sort_indexes
-Revises: 0129_indexed_gallery_sorts
+Revision ID: 0134_gallery_sort_indexes
+Revises: 0133_indexed_gallery_sorts
 Create Date: 2026-09-19 00:00:00.000000
 
 """
@@ -14,8 +14,8 @@ Create Date: 2026-09-19 00:00:00.000000
 from alembic import op  # type: ignore[attr-defined]
 
 # revision identifiers, used by Alembic.
-revision = "0130_gallery_sort_indexes"
-down_revision = "0129_indexed_gallery_sorts"
+revision = "0134_gallery_sort_indexes"
+down_revision = "0133_indexed_gallery_sorts"
 branch_labels = None
 depends_on = None
 
