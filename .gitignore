@@ -63,7 +63,7 @@ backend/romm_test/resources
 backend/romm_test/logs
 backend/romm_test/assets
 backend/romm_test/cloud_sync_blobs
-backend/romm_test/cloud_sync_psp_pending
+backend/romm_test/cache/cloud_sync
 .pytest_cache
 .hypothesis
 /romm_test
