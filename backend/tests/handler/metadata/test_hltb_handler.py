@@ -449,7 +449,30 @@ async def test_series_prefix_the_catalogue_omits_still_matches():
         rom = await handler.get_rom("007 - Quantum of Solace (USA).chd", "ps2")
 
     assert rom["hltb_id"] == 7467
-    assert searched == ["007: quantum of solace", "quantum of solace"]
+    assert searched == [
+        "007: quantum of solace",
+        "007 quantum of solace",
+        "quantum of solace",
+    ]
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_separator_the_catalogue_omits_still_matches():
+    """HowLongToBeat returns nothing for "pokemon: emerald version"."""
+    handler = _handler()
+    searched: list[str] = []
+
+    async def search_games(term, _platform_slug):
+        searched.append(term)
+        if term == "pokemon emerald version":
+            return [_game(6966, "Pokémon Emerald Version")]
+        return []
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Pokemon - Emerald Version (USA).gba", "gba")
+
+    assert rom["hltb_id"] == 6966
+    assert searched == ["pokemon: emerald version", "pokemon emerald version"]
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
