@@ -8,7 +8,12 @@ import pytest
 from fastapi import HTTPException, status
 
 from handler.metadata.hltb_handler import HLTBHandler
-from utils.hltb_search import HLTB_BASE_URL, HLTB_USER_AGENT, SESSION_MINT_SUFFIX
+from utils.hltb_search import (
+    HLTB_API_URL_FIXTURE,
+    HLTB_BASE_URL,
+    HLTB_USER_AGENT,
+    SESSION_MINT_SUFFIX,
+)
 
 SEARCH_URL = f"{HLTB_BASE_URL}/api/search/site"
 
@@ -38,6 +43,12 @@ def _response(status_code: int = 200, json_body: dict | None = None) -> MagicMoc
         )
     else:
         response.json.return_value = json_body or {}
+    return response
+
+
+def _response_with_text(text: str) -> MagicMock:
+    response = _response()
+    response.text = text
     return response
 
 
@@ -81,6 +92,27 @@ async def test_request_renews_session_and_retries_on_403(mock_ctx_httpx_client):
     assert retry_kwargs["headers"]["x-hp-val"] == "val-2"
     # The rotated honeypot key replaces the old one rather than joining it.
     assert retry_kwargs["json"] == {"a": 1, "ign_bbbb": "val-2"}
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_request_works_with_a_token_only_session(mock_ctx_httpx_client):
+    handler = _handler_without_session()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = _response(json_body={"token": "token-1"})
+    mock_client.post.return_value = _response(json_body={"data": [{"game_id": 1}]})
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    result = await handler._request(handler.search_url, {"a": 1})
+
+    assert result == {"data": [{"game_id": 1}]}
+    post_call = mock_client.post.await_args
+    assert post_call is not None
+    kwargs = post_call.kwargs
+    assert kwargs["headers"]["x-auth-token"] == "token-1"
+    assert "x-hp-key" not in kwargs["headers"]
+    assert "x-hp-val" not in kwargs["headers"]
+    assert kwargs["json"] == {"a": 1}
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
@@ -177,6 +209,97 @@ async def test_github_endpoint_fetch_is_not_rate_limited(
     await handler._fetch_search_endpoint()
 
     acquire.assert_not_awaited()
+
+
+def test_the_bundled_endpoint_is_the_default():
+    handler = HLTBHandler()
+
+    assert handler.search_url == HLTB_API_URL_FIXTURE.read_text().strip()
+    assert handler.search_init_url == f"{handler.search_url}{SESSION_MINT_SUFFIX}"
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.discover_hltb_endpoint")
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_github_endpoint_is_used_without_discovery(
+    mock_ctx_httpx_client, mock_discover
+):
+    handler = HLTBHandler()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = _response_with_text(
+        "https://howlongtobeat.com/api/rotated\n"
+    )
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    await handler._fetch_search_endpoint()
+
+    assert handler.search_url == "https://howlongtobeat.com/api/rotated"
+    mock_discover.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "github_response",
+    [
+        pytest.param(_response(status.HTTP_404_NOT_FOUND), id="github-error"),
+        pytest.param(_response_with_text("  \n"), id="github-empty"),
+    ],
+)
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.discover_hltb_endpoint")
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_endpoint_is_discovered_from_hltb_when_github_fails(
+    mock_ctx_httpx_client, mock_discover, github_response: MagicMock
+):
+    handler = HLTBHandler()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = github_response
+    mock_ctx_httpx_client.get.return_value = mock_client
+    mock_discover.return_value = "https://howlongtobeat.com/api/discovered"
+
+    await handler._fetch_search_endpoint()
+
+    mock_discover.assert_called_once_with(HLTB_BASE_URL)
+    assert handler.search_url == "https://howlongtobeat.com/api/discovered"
+    assert handler.search_init_url == "https://howlongtobeat.com/api/discovered/init"
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.discover_hltb_endpoint", return_value=None)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_bundled_endpoint_is_kept_when_github_and_discovery_fail(
+    mock_ctx_httpx_client, mock_discover
+):
+    handler = HLTBHandler()
+    bundled = handler.search_url
+    mock_client = AsyncMock()
+    mock_client.get.side_effect = httpx.ConnectError("GitHub unreachable")
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    await handler._fetch_search_endpoint()
+
+    mock_discover.assert_called_once()
+    assert handler.search_url == bundled
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch(
+    "handler.metadata.hltb_handler.discover_hltb_endpoint",
+    side_effect=AttributeError("unexpected response shape"),
+)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_a_discovery_error_keeps_the_bundled_endpoint(
+    mock_ctx_httpx_client, mock_discover
+):
+    handler = HLTBHandler()
+    bundled = handler.search_url
+    mock_client = AsyncMock()
+    mock_client.get.side_effect = httpx.ConnectError("GitHub unreachable")
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    # A failed discovery must not abort the scan that initializes the handler.
+    await handler._fetch_search_endpoint()
+
+    assert handler.search_url == bundled
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
@@ -386,12 +509,6 @@ async def test_initialize_fetches_endpoint_then_session(mock_ctx_httpx_client):
         mock_client.get.await_args_list[1].args[0]
         == "https://howlongtobeat.com/api/rotated/init"
     )
-
-
-def _response_with_text(text: str) -> MagicMock:
-    response = _response()
-    response.text = text
-    return response
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
