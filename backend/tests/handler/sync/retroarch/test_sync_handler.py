@@ -7,7 +7,7 @@ import pytest
 
 from handler.filesystem.retroarch_sync_handler import BlobFile, FSRetroArchSyncHandler
 from handler.redis_handler import async_cache, sync_cache
-from handler.sync.retroarch.sync_handler import HASH_CACHE_TTL_SECONDS, cached_md5s
+from handler.sync.retroarch.sync_handler import HASH_CACHE_TTL_SECONDS, cached_hashes
 
 
 @pytest.fixture(autouse=True)
@@ -19,7 +19,7 @@ def _clear_cache() -> Iterator[None]:
 
 class TestCachedMd5s:
     async def test_misses_are_written_back_with_the_ttl(self):
-        await cached_md5s([("miss", mock.AsyncMock(return_value="fresh-md5"))])
+        await cached_hashes([("miss", mock.AsyncMock(return_value="fresh-md5"))])
 
         assert await async_cache.get("miss") == b"fresh-md5"
         ttl = await async_cache.ttl("miss")
@@ -33,18 +33,18 @@ class TestCachedMd5s:
             ("c", mock.AsyncMock(return_value=None)),
         ]
 
-        assert await cached_md5s(jobs) == ["fresh-a", "cached-b", None]
+        assert await cached_hashes(jobs) == ["fresh-a", "cached-b", None]
         jobs[1][1].assert_not_awaited()
 
     async def test_unreadable_files_are_not_cached(self):
-        await cached_md5s([("gone", mock.AsyncMock(return_value=None))])
+        await cached_hashes([("gone", mock.AsyncMock(return_value=None))])
 
         assert await async_cache.exists("gone") == 0
 
     async def test_reads_the_cache_in_one_round_trip(self):
         jobs = [(f"key{i}", mock.AsyncMock(return_value=f"md5-{i}")) for i in range(5)]
         with mock.patch.object(async_cache, "mget", wraps=async_cache.mget) as mget:
-            await cached_md5s(jobs)
+            await cached_hashes(jobs)
 
         mget.assert_called_once()
 

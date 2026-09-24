@@ -587,7 +587,7 @@ async def build_psp_manifest_entries(
     # The key is only stable while the row's content hash tracks the bytes.
     cached = [(folder, save) for folder, save in bundles if save.content_hash]
     uncached = [(folder, save) for folder, save in bundles if not save.content_hash]
-    results = await sync_handler.cached_md5s(
+    results = await sync_handler.cached_hashes(
         [
             (_member_md5s_cache_key(save), partial(_member_md5s_json, save))
             for _, save in cached

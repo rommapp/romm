@@ -283,11 +283,10 @@ def _decoded(value: str | bytes | None) -> str | None:
     return value or None
 
 
-async def cached_md5s(
+async def cached_hashes(
     jobs: Sequence[tuple[str, Callable[[], Awaitable[str | None]]]],
 ) -> list[str | None]:
-    """Each `(cache key, compute)` job's MD5, reading the cache in one MGET and
-    writing the misses back in one pipeline."""
+    """Each `(cache key, compute)` job's hash, read in one MGET with misses written back in one pipeline."""
     if not jobs:
         return []
 
@@ -336,7 +335,7 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
                 )
             )
 
-    digests = await cached_md5s(jobs)
+    digests = await cached_hashes(jobs)
     return [
         {"path": blob_path, "hash": digest}
         for blob_path, digest in zip(blob_paths, digests, strict=True)
@@ -389,7 +388,7 @@ async def asset_md5s(
     assets: Sequence[Save | State | Screenshot],
 ) -> list[str | None]:
     """Each asset's MD5, or None when unreadable; a vanished file flags its row."""
-    return await cached_md5s(
+    return await cached_hashes(
         [
             (
                 f"romm:retroarch_sync:md5:{asset.full_path}"
