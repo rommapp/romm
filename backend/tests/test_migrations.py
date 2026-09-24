@@ -26,10 +26,14 @@ from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     POSTGRESQL_FK_INDEXES,
+    SORTABLE_NULLABLE_ROM_COLUMNS,
     full_path_digest_sql,
     has_column,
     is_mariadb,
     is_postgresql,
+    rom_desc_index_name,
+    rom_sort_index_name,
+    rom_unset_flag_column,
 )
 from utils.roms_columns import (
     FULL_PATH_HASH_COLUMN,
@@ -37,6 +41,7 @@ from utils.roms_columns import (
     ROMS_METADATA_VIEW_COLUMNS,
     STEAM_FED_COLUMNS,
     STEAM_METADATA_COLUMN,
+    drop_roms_columns,
     ensure_roms_columns,
     has_server_default,
     rebuild_generated_columns,
@@ -377,6 +382,52 @@ def test_the_roms_columns_helper_adds_every_missing_column_at_once():
 
         assert _schema_of(connection, "roms") == before
         assert len(alters) == 1
+
+
+def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
+    """PostgreSQL drops a `_sort` index with its column; MariaDB narrows it."""
+    # `roms_metadata` does not project this one, so PostgreSQL lets it go
+    # without the view being dropped first.
+    column = HLTB_MAIN_STORY_COLUMN
+    spanned = (rom_unset_flag_column(column), column, "id")
+
+    with sync_engine.begin() as connection:
+        connection.execute(sa.text(f"ALTER TABLE roms DROP COLUMN {column}"))
+        assert _schema_of(connection, "roms")[1].get(rom_sort_index_name(column)) != (
+            spanned,
+            False,
+        )
+
+        ensure_roms_columns(connection)
+        # 0128 owns the value column's own index, so its replay finishes the schema.
+        _replay(connection, "0128_hltb_main_story_column.py")
+
+        assert _schema_of(connection, "roms")[1][rom_sort_index_name(column)] == (
+            spanned,
+            False,
+        )
+
+
+def test_dropping_the_roms_columns_takes_the_sort_indexes_with_them():
+    """A descending sort index reads an inherited column, so nothing else drops it."""
+    # Those indexes are PostgreSQL's alone, and only its DDL rolls back, which
+    # is what keeps this teardown out of the schema the other tests share.
+    with sync_engine.connect() as connection:
+        if not is_postgresql(connection):
+            pytest.skip("descending sort indexes are PostgreSQL-only")
+
+        transaction = connection.begin()
+        try:
+            descending = {
+                rom_desc_index_name(column) for column in SORTABLE_NULLABLE_ROM_COLUMNS
+            }
+            assert descending <= set(_schema_of(connection, "roms")[1])
+
+            drop_roms_columns(connection)
+
+            assert descending & set(_schema_of(connection, "roms")[1]) == set()
+        finally:
+            transaction.rollback()
 
 
 def test_the_roms_columns_helper_redefines_a_column_that_predates_steam():
