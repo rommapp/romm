@@ -1,15 +1,6 @@
 <script setup lang="ts">
-// LogViewer: real-time backend log viewer, the Logs page's second tab.
-//
-// On open it backfills the last N buffered lines from `GET /logs`, then
-// streams new lines live over Socket.IO (`logs:entry`, emitted to the
-// `admin` room by the backend forwarder). State is view-scoped and
-// ephemeral (constitution §VI.D): a capped in-memory ring buffer, no
-// store, no global lifecycle — backfill covers re-open.
-//
-// The list is windowed with RVirtualScroller, which also scrolls the toolbar.
-// Rows are single-line monospace (terminal style), newest on top; the tab
-// scrolls sideways to the longest, and the full message shows on hover.
+// LogViewer: the backend log, backfilled from `GET /logs` then streamed over
+// Socket.IO (`logs:entry`) into a capped in-memory buffer, newest line on top.
 import { RBtn, RSelect, RTextField, RTooltip, RVirtualScroller } from "@v2/lib";
 import { computed, nextTick, onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -28,7 +19,7 @@ interface LogEntry {
 }
 
 interface LogRow extends LogEntry {
-  // Client-side monotonic key — the backend payload has no id, and a
+  // Client-side monotonic key: the backend payload has no id, and a
   // stable key keeps virtual-scroller rows from re-patching on front
   // eviction.
   seq: number;
@@ -39,7 +30,7 @@ interface LogRow extends LogEntry {
 
 // Cap the in-memory buffer so a long-lived view holds memory flat.
 const MAX_ENTRIES = 2000;
-// Fixed row height — single-line rows keep windowing math exact.
+// Fixed row height: single-line rows keep windowing math exact.
 const ROW_HEIGHT = 24;
 
 const LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] as const;
@@ -80,7 +71,7 @@ const levelItems = computed(() => [
   ...LEVELS.map((l) => ({ title: l, value: l })),
 ]);
 
-// Module options are data-driven — the backend has no fixed catalogue, so
+// Module options are data-driven: the backend has no fixed catalogue, so
 // they're derived from whatever modules the buffered entries carry. The
 // active selection is always kept in the list (even if its module has
 // scrolled out of the ring buffer) so the select never goes blank.

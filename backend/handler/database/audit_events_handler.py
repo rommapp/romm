@@ -6,7 +6,7 @@ from sqlalchemy import ColumnElement, Select, String, cast, delete, func, or_, s
 from sqlalchemy.orm import Session, joinedload
 
 from decorators.database import begin_session
-from models.audit_event import AuditEvent
+from models.audit_event import AuditCategory, AuditEvent, actions_in
 from models.device import Device
 from models.rom import Rom
 from models.user import User
@@ -26,6 +26,8 @@ def _with_actor():
 class AuditEventFilters:
     actor_ids: Collection[int] | None = None
     actions: Collection[str] | None = None
+    # Narrows `actions`, or stands for them when none are given.
+    categories: Collection[AuditCategory] | None = None
     target_type: str | None = None
     target_id: str | None = None
     since: datetime | None = None
@@ -72,8 +74,14 @@ class DBAuditEventsHandler(DBBaseHandler):
         clauses: list[ColumnElement[bool]] = []
         if filters.actor_ids is not None:
             clauses.append(AuditEvent.actor_id.in_(filters.actor_ids))
-        if filters.actions is not None:
-            clauses.append(AuditEvent.action.in_(filters.actions))
+        actions = set(filters.actions) if filters.actions is not None else None
+        if filters.categories:
+            in_categories: set[str] = {
+                a for c in filters.categories for a in actions_in(c)
+            }
+            actions = in_categories if actions is None else actions & in_categories
+        if actions is not None:
+            clauses.append(AuditEvent.action.in_(actions))
         if filters.target_type is not None:
             clauses.append(AuditEvent.target_type == filters.target_type)
         if filters.target_id is not None:

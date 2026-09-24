@@ -13,7 +13,7 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_audit_event_handler
 from handler.database.audit_events_handler import AuditEventFilters
-from models.audit_event import AuditCategory, actions_in
+from models.audit_event import AuditCategory
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/audit-events", tags=["audit"])
@@ -67,15 +67,11 @@ def get_audit_events(
     # An admin's token scoped below users.read must not read other users' history.
     sees_everyone = perms.is_admin and Scope.USERS_READ in request.auth.scopes
 
-    actions: set[str] | None = set(action) if action else None
-    if category:
-        in_categories: set[str] = {a for c in category for a in actions_in(c)}
-        actions = in_categories if actions is None else actions & in_categories
-
     rows, total, highest_id = db_audit_event_handler.get_events(
         AuditEventFilters(
             actor_ids=(actor_id or None) if sees_everyone else [request.user.id],
-            actions=actions,
+            actions=action or None,
+            categories=category,
             target_type=target_type,
             target_id=target_id,
             since=since,

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from handler.database import db_audit_event_handler, db_device_handler
 from handler.database.audit_events_handler import AuditEventFilters
-from models.audit_event import AuditAction, AuditActorKind, AuditEvent
+from models.audit_event import AuditAction, AuditActorKind, AuditCategory, AuditEvent
 from models.device import Device
 from models.rom import Rom
 from models.user import User
@@ -10,11 +10,13 @@ from models.user import User
 
 def _add(minutes_ago: int = 0, **overrides) -> AuditEvent:
     event = AuditEvent(
-        occurred_at=datetime.now(timezone.utc) - timedelta(minutes=minutes_ago),
-        actor_kind=AuditActorKind.SYSTEM,
-        action=AuditAction.ROM_EDIT,
-        data={},
-        **overrides,
+        **{
+            "occurred_at": datetime.now(timezone.utc) - timedelta(minutes=minutes_ago),
+            "actor_kind": AuditActorKind.SYSTEM,
+            "action": AuditAction.ROM_EDIT,
+            "data": {},
+            **overrides,
+        }
     )
     db_audit_event_handler.add_events([event])
     return event
@@ -46,6 +48,24 @@ class TestHiddenTargets:
         assert hidden_rom.id not in ids
         assert hidden_platform.id not in ids
         assert set(ids) == {visible_rom.id, no_target.id}
+
+
+class TestCategories:
+    def test_a_category_stands_for_its_actions(self):
+        login = _add(action=AuditAction.AUTH_LOGIN)
+        _add(action=AuditAction.ROM_EDIT)
+
+        assert _ids(AuditEventFilters(categories=[AuditCategory.SECURITY])) == [
+            login.id
+        ]
+
+    def test_actions_outside_the_category_match_nothing(self):
+        _add(action=AuditAction.ROM_EDIT)
+
+        filters = AuditEventFilters(
+            actions=[AuditAction.ROM_EDIT], categories=[AuditCategory.SECURITY]
+        )
+        assert _ids(filters) == []
 
 
 def test_joins_the_device_name(admin_user: User):
