@@ -25,10 +25,12 @@ from handler.auth import oauth_handler
 from handler.database import (
     db_container_adoption_handler,
     db_memory_card_handler,
+    db_notification_handler,
     db_platform_handler,
     db_play_session_handler,
     db_rom_handler,
     db_save_handler,
+    db_screenshot_handler,
     db_state_handler,
     db_user_handler,
 )
@@ -60,6 +62,7 @@ from handler.streaming.config import (
 )
 from handler.streaming.protocol import protocol_for
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
+from models.notification import NotificationKind
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile
@@ -2410,6 +2413,27 @@ def test_admin_release_leaves_termination_notice(
     assert body["termination"]["ended_by"]
 
 
+def test_admin_release_notifies_the_displaced_player(
+    client, access_token, viewer_access_token, admin_user, viewer_user, rom: Rom
+):
+    """The note expires with the claim, so the player who had no tab open when
+    an admin ended their game hears of it from a notification instead."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "maintenance window"},
+            headers=_auth(access_token),
+        )
+
+    [notification] = db_notification_handler.get_notifications(viewer_user.id)
+    assert notification.kind == NotificationKind.STREAMING_SESSION_ENDED
+    assert notification.actor_id == admin_user.id
+    assert notification.data["rom_id"] == rom.id
+    assert notification.data["reason"] == "maintenance window"
+    assert db_notification_handler.get_notifications(admin_user.id) == []
+
+
 def test_heartbeat_carries_termination_notice(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -2453,7 +2477,9 @@ def test_force_release_all_leaves_termination_notice(
     assert r.json()["termination"]["reason"] == "server restart"
 
 
-def test_self_release_leaves_no_termination_notice(client, access_token, rom: Rom):
+def test_self_release_leaves_no_termination_notice(
+    client, access_token, admin_user, rom: Rom
+):
     """A user who closed their own session already knows why it stopped. The
     player's own release path sends no reason, which is what marks it as such."""
     with _streaming(_container_for(rom)):
@@ -2467,6 +2493,7 @@ def test_self_release_leaves_no_termination_notice(client, access_token, rom: Ro
             headers=_auth(access_token),
         )
     assert r.json()["termination"] is None
+    assert db_notification_handler.get_notifications(admin_user.id) == []
 
 
 def test_admin_release_of_own_session_leaves_notice(client, access_token, rom: Rom):
@@ -3504,6 +3531,30 @@ def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User)
         "Game.20260102-000000000000.01.p2s",
         "Game.20260103-000000000000.01.p2s",
     }
+
+
+def test_prune_state_history_drops_the_pruned_thumbnail(rom: Rom, admin_user: User):
+    for day in range(1, 4):
+        _add_state_at(rom, admin_user, f"Game.2026010{day}-000000000000.01.p2s", day)
+    thumbnail = db_screenshot_handler.add_screenshot(
+        Screenshot(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="Game.20260101-000000000000.01.png",
+            file_path=f"{rom.platform_slug}/screenshots",
+            file_size_bytes=3,
+        )
+    )
+    with (
+        patch("handler.streaming.states.STREAMING_STATE_HISTORY_LIMIT", 2),
+        patch(
+            "handler.filesystem.fs_asset_handler.remove_file", new=AsyncMock()
+        ) as remove,
+    ):
+        asyncio.run(states.prune_state_history(admin_user, rom, "pcsx2"))
+
+    assert remove.await_count == 2
+    assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is None
 
 
 # _store_state_screenshot rejects anything without PNG magic, so fixtures that
@@ -5872,6 +5923,14 @@ def test_the_rom_language_is_reduced_to_an_iso_code(client, access_token, rom: R
     db_rom_handler.update_rom(rom.id, {"languages": ["fr"]})
 
     assert _activate_body(client, access_token, rom)["rom"]["language"] == "fr"
+
+
+def test_a_provider_only_language_is_reduced_too(client, access_token, rom: Rom):
+    """The languages only a provider reports ("Czech") have no filename
+    shortcode, so the broker would otherwise get nothing for them."""
+    db_rom_handler.update_rom(rom.id, {"languages": ["Czech"]})
+
+    assert _activate_body(client, access_token, rom)["rom"]["language"] == "cs"
 
 
 def test_an_unknown_rom_language_is_sent_as_none(client, access_token, rom: Rom):

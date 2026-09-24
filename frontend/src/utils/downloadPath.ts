@@ -1,16 +1,23 @@
+import type { RomFileSchema } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 
-/** Build the `/api` path that serves a ROM's content. */
+/** Build the `/api` path that serves a ROM's content.
+ *  `purpose: "play"` marks a player's fetch, which is logged as a player load. */
 export function getDownloadPath({
   rom,
   fileIDs = [],
+  purpose,
 }: {
   rom: SimpleRom;
   fileIDs?: number[];
+  purpose?: "play";
 }) {
   const queryParams = new URLSearchParams();
   if (fileIDs.length > 0) {
     queryParams.append("file_ids", fileIDs.join(","));
+  }
+  if (purpose) {
+    queryParams.append("purpose", purpose);
   }
   const queryString = queryParams.toString();
 
@@ -35,6 +42,23 @@ export function getDownloadPath({
   return `/api/roms/${rom.id}/content/${contentName}${
     queryString ? `?${queryString}` : ""
   }`;
+}
+
+/** The name the content endpoint serves a whole rom under: the sole file's own
+ *  name, or the rom's name with a zip extension, mirroring `get_rom_content`. */
+export function getDownloadFileName(rom: SimpleRom): string {
+  const files = rom.files ?? [];
+  if (files.length === 1) return files[0].file_name;
+  // Nothing to serve; callers gate on a file being on disk.
+  if (files.length === 0) return rom.fs_name;
+  return `${rom.fs_name}.zip`;
+}
+
+/** The one file this rom resolves to on disk, or null when it resolves to
+ *  several and the endpoint builds an archive instead. */
+export function getSoleRomFile(rom: SimpleRom): RomFileSchema | null {
+  const files = rom.files ?? [];
+  return files.length === 1 ? files[0] : null;
 }
 
 export function getDownloadLink({

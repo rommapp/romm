@@ -37,6 +37,20 @@ export const WithLabel: Story = {
   args: { label: "Notifications" },
 };
 
+export const LabelSlot: Story = {
+  render: () => ({
+    components: { RSwitch },
+    setup: () => ({ value: ref(false) }),
+    template: `
+      <div class="r-v2 r-v2-dark" style="padding: 32px; background: var(--r-color-bg);">
+        <RSwitch v-model="value" aria-label="Notifications">
+          <template #label><strong>Notifications</strong> (email)</template>
+        </RSwitch>
+      </div>
+    `,
+  }),
+};
+
 export const Checked: Story = {
   render: (args) => ({
     components: { RSwitch },

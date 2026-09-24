@@ -570,6 +570,7 @@ function collectionCovers(c: {
           :name="c.name"
           :rom-count="c.rom_count"
           :covers="collectionCovers(c)"
+          :is-public="c.is_public ?? false"
           variant="row"
         />
       </CardRow>

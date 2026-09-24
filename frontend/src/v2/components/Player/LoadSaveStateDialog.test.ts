@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import LoadSaveStateDialog from "./LoadSaveStateDialog.vue";
 
 const { confirm } = vi.hoisted(() => ({
@@ -38,21 +39,21 @@ const AssetStrip = {
 };
 
 function makeSave(overrides: Partial<SaveSchema> = {}): SaveSchema {
-  return {
+  return saveFixture({
     id: 1,
     file_name: "1.srm",
     slot: "autosave",
     ...overrides,
-  } as SaveSchema;
+  });
 }
 
 function makeState(overrides: Partial<StateSchema> = {}): StateSchema {
-  return {
+  return stateFixture({
     id: 2,
     file_name: "2.state",
     emulator: "mgba",
     ...overrides,
-  } as StateSchema;
+  });
 }
 
 function makeRom(overrides: Partial<DetailedRom> = {}): DetailedRom {

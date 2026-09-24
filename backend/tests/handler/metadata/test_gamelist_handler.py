@@ -67,8 +67,8 @@ def test_parse_gamelist_xml_includes_folder_entries(tmp_path: Path, platform: Pl
     folder_entry = roms_data["Subfolder"]
     assert folder_entry.get("name") == "Folder Entry"
     assert folder_entry.get("summary") == "Folder summary"
-    assert folder_entry.get("languages") == ["en", "fr"]
-    assert folder_entry.get("regions") == ["us", "eu"]
+    assert folder_entry.get("languages") == ["English", "French"]
+    assert folder_entry.get("regions") == ["USA", "Europe"]
 
 
 def test_parse_gamelist_xml_keeps_game_entries(tmp_path: Path, platform: Platform):

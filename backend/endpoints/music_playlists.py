@@ -8,11 +8,12 @@ from sqlalchemy.exc import IntegrityError
 
 from decorators.auth import protected_route
 from endpoints.music import (
+    MUSIC_PAGE_QUERY,
     MusicPage,
+    MusicPageParams,
     MusicTrackIdsPayload,
     resolve_track_ids,
 )
-from endpoints.responses.base import PAGE_QUERY, PageParams
 from endpoints.responses.music import MusicPlaylistSchema, MusicTrackSchema
 from exceptions.endpoint_exceptions import (
     MusicPlaylistAlreadyExistsException,
@@ -153,7 +154,7 @@ def delete_playlist(
 @protected_route(router.get, "/{id}/tracks", [Scope.PLAYLISTS_READ])
 def get_playlist_tracks(
     request: Request,
-    params: Annotated[PageParams, Depends(PAGE_QUERY)],
+    params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
     order_by: Annotated[
         str,

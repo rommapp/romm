@@ -72,6 +72,20 @@ def compute_file_name_parts(file_name: str) -> FileNameParts:
     )
 
 
+def with_file_name_parts(data: dict) -> dict:
+    """`data` plus the columns derived from its `file_name`, which a bulk
+    update() must write itself since it skips the `@validates` hook."""
+    if "file_name" not in data:
+        return data
+    parts = compute_file_name_parts(data["file_name"])
+    return {
+        **data,
+        "file_name_no_tags": parts.no_tags,
+        "file_name_no_ext": parts.no_ext,
+        "file_extension": parts.extension,
+    }
+
+
 class BaseModel(DeclarativeBase):
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), default=utc_now

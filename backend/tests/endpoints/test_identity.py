@@ -1,5 +1,6 @@
 import base64
 import json
+import threading
 from datetime import timedelta
 from http import HTTPStatus
 from typing import Any
@@ -9,10 +10,14 @@ import pytest
 from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from handler.auth import auth_handler
+from handler.auth import base_handler as auth_handler_module
 from handler.auth import oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.database import db_notification_handler
 from handler.database.users_handler import DBUsersHandler
 from handler.redis_handler import async_cache
+from models.notification import NotificationKind
 from models.user import Role, User
 
 
@@ -32,6 +37,25 @@ def test_login_logout(client, admin_user: User):
     response = client.post("/api/logout")
 
     assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.parametrize("known", [True, False])
+def test_forgot_password_answers_alike_and_sends_the_link_afterwards(
+    client, admin_user: User, known: bool
+):
+    with mock.patch.object(auth_handler, "send_password_reset_link") as send_link:
+        response = client.post(
+            "/api/forgot-password",
+            json={"username": admin_user.username if known else "nobody"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() is None
+    if known:
+        send_link.assert_called_once()
+        assert send_link.call_args.args[0].id == admin_user.id
+    else:
+        send_link.assert_not_called()
 
 
 def test_get_all_users(client, access_token: str):
@@ -78,6 +102,18 @@ def test_get_user_avatar(
     assert response.status_code == status.HTTP_200_OK
     assert response.content == b"PNGDATA"
     assert response.headers["content-type"].startswith("image/")
+
+
+def test_refresh_ra_for_another_user_is_forbidden(
+    client, viewer_access_token: str, admin_user: User
+):
+    # Rejected on ownership before the user is looked up, so it does not depend
+    # on the target having a RetroAchievements username set.
+    response = client.post(
+        f"/api/users/{admin_user.id}/ra/refresh",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_get_user_avatar_none_set(client, access_token: str, admin_user: User):
@@ -184,6 +220,34 @@ def test_update_user(client, access_token: str, editor_user: User):
     assert user["role"] == "user"
 
 
+def test_role_change_notifies_the_user(
+    client, access_token: str, admin_user: User, editor_user: User
+):
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"role": "admin"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    [notification] = db_notification_handler.get_notifications(editor_user.id)
+    assert notification.kind == NotificationKind.ROLE_CHANGED
+    assert notification.actor_id == admin_user.id
+    assert notification.data == {"role": "admin"}
+
+
+def test_resubmitting_the_same_role_notifies_nobody(
+    client, access_token: str, editor_user: User
+):
+    client.put(
+        f"/api/users/{editor_user.id}",
+        data={"role": "user"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert db_notification_handler.get_notifications(editor_user.id) == []
+
+
 def test_update_user_rejects_non_image_avatar(
     client, access_token: str, editor_user: User
 ):
@@ -221,6 +285,137 @@ def test_update_user_accepts_png_avatar(
     assert response.status_code == status.HTTP_200_OK
     # Server picks the extension from the detected MIME, not the user-supplied filename.
     assert response.json()["avatar_path"].endswith("avatar.png")
+
+
+def _invite_token(client, access_token: str) -> str:
+    response = client.post(
+        "/api/users/invite-link",
+        params={"role": Role.USER.value},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    return response.json()["token"]
+
+
+def test_register_with_a_bad_token_does_not_disclose_existing_accounts(
+    client, access_token: str, editor_user: User
+):
+    """The token is checked first, so the duplicate-account errors below it
+    cannot be used to enumerate accounts without a valid invite."""
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": editor_user.username,
+            "email": "someone@example.com",
+            "password": "a-good-password",
+            "token": "not-a-real-token",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert editor_user.username not in response.json()["detail"]
+
+
+def test_a_rejected_registration_leaves_the_invite_usable(
+    client, access_token: str, editor_user: User
+):
+    token = _invite_token(client, access_token)
+
+    # Rejected on the duplicate username, after the token was checked.
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": editor_user.username,
+            "email": "someone@example.com",
+            "password": "a-good-password",
+            "token": token,
+        },
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+    # The invite was verified, not spent, so it still registers an account.
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": "test_invitee",
+            "email": "invitee@example.com",
+            "password": "a-good-password",
+            "token": token,
+        },
+    )
+    assert response.status_code == HTTPStatus.CREATED
+
+    # And now it is spent.
+    response = client.post(
+        "/api/users/register",
+        json={
+            "username": "test_invitee_2",
+            "email": "invitee2@example.com",
+            "password": "a-good-password",
+            "token": token,
+        },
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_overlapping_registrations_spend_one_invite_once(client, access_token: str):
+    """Two registrations racing on one invite must not both create an account."""
+    from handler.database import db_user_handler
+
+    token = _invite_token(client, access_token)
+    # Hold each request at the token check until the other arrives, so the only
+    # thing that can keep the second out is the consume being one operation.
+    rendezvous = threading.Barrier(2)
+    live_redis = auth_handler_module.redis_client
+
+    class _RendezvousRedis:
+        def get(self, key, *args, **kwargs):
+            value = live_redis.get(key, *args, **kwargs)
+            if key.startswith("invite-jti:"):
+                rendezvous.wait(timeout=30)
+            return value
+
+        def __getattr__(self, name):
+            return getattr(live_redis, name)
+
+    responses: list = []
+
+    def register(index: int) -> None:
+        responses.append(
+            client.post(
+                "/api/users/register",
+                json={
+                    "username": f"test_racer_{index}",
+                    "email": f"racer{index}@example.com",
+                    "password": "a-good-password",
+                    "token": token,
+                },
+            )
+        )
+
+    with mock.patch.object(auth_handler_module, "redis_client", _RendezvousRedis()):
+        threads = [threading.Thread(target=register, args=(i,)) for i in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    created = [r for r in responses if r.status_code == HTTPStatus.CREATED]
+    assert len(created) == 1
+
+    rejected = [r for r in responses if r.status_code == HTTPStatus.BAD_REQUEST]
+    assert [r.json()["detail"] for r in rejected] == [
+        "Invite token has already been used or is invalid."
+    ]
+
+    # And the loser left no account behind.
+    assert (
+        sum(
+            db_user_handler.get_user_by_username(f"test_racer_{i}") is not None
+            for i in range(2)
+        )
+        == 1
+    )
 
 
 @pytest.mark.parametrize(

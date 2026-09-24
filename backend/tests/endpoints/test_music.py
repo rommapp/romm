@@ -224,6 +224,22 @@ def test_tracks_order_and_paginate(
     assert body["items"][0]["duration_seconds"] == 20.0
 
 
+@pytest.mark.parametrize(
+    ("limit", "expected"),
+    [
+        (1_000, status.HTTP_200_OK),
+        (1_001, status.HTTP_422_UNPROCESSABLE_CONTENT),
+    ],
+)
+def test_tracks_page_size_ceiling(
+    client: TestClient, access_token: str, limit: int, expected: int
+):
+    response = client.get(
+        f"/api/music/tracks?limit={limit}", headers=_auth(access_token)
+    )
+    assert response.status_code == expected
+
+
 @pytest.mark.parametrize("order_dir", ["asc", "desc"])
 def test_tracks_sort_null_keys_last(
     client: TestClient,

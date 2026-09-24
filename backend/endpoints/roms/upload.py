@@ -17,6 +17,7 @@ from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import db_platform_handler, db_rom_handler
@@ -35,6 +36,7 @@ from handler.rom_upload import (
     staging_path,
 )
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.rom import Rom, RomFile
 from utils.router import APIRouter
 
@@ -160,6 +162,27 @@ async def _commit(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         ) from exc
+
+
+def _upload_target(rom: Rom | None, platform_id: int) -> AuditTarget | None:
+    if rom is not None:
+        return AuditTarget.of_rom(rom)
+    # A platform folder upload has no rom until the next scan finds it.
+    platform = db_platform_handler.get_platform(platform_id)
+    return AuditTarget.of_platform(platform) if platform else None
+
+
+def _record_upload(request: Request, rom: Rom | None, session: dict) -> None:
+    record(
+        AuditAction.ROM_UPLOAD,
+        request,
+        lambda: _upload_target(rom, session["platform_id"]),
+        {
+            "file_name": session["filename"],
+            "size_bytes": session["total_size"],
+            "overwrite": session["overwrite"],
+        },
+    )
 
 
 async def receive_rom_file(
@@ -527,6 +550,7 @@ async def complete_chunked_upload(
     finally:
         await _cleanup_upload_state(upload_id)
 
+    _record_upload(request, destination.rom, session)
     return Response(status_code=status.HTTP_201_CREATED)
 
 

@@ -37,6 +37,14 @@ export function byUpdatedDesc(a: Asset, b: Asset): number {
   return b.updated_at.localeCompare(a.updated_at);
 }
 
+/**
+ * Favorites lead their band, so a run worth keeping outlives its recency.
+ * Partitions only: a stable sort keeps the band's own order inside each half.
+ */
+export function byFavoriteFirst(a: Asset, b: Asset): number {
+  return Number(b.is_favorite ?? false) - Number(a.is_favorite ?? false);
+}
+
 export function newest<T extends { updated_at: string }>(
   items: readonly T[],
 ): T | null {

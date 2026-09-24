@@ -72,7 +72,6 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict:
 
     from endpoints.sockets.sync import (
         emit_sync_completed,
-        emit_sync_conflict,
         emit_sync_error,
         emit_sync_progress,
         emit_sync_started,
@@ -146,16 +145,9 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict:
 
         for remote_save in remote_saves:
             try:
-                action = await _process_remote_save(device, conn, remote_save)
-                if action == "conflict":
-                    await emit_sync_conflict(
-                        user_id=device.user_id,
-                        device_id=device.id,
-                        session_id=sync_session.id,
-                        file_name=remote_save.file_name,
-                        rom_id=0,
-                        reason=f"Conflict detected for {remote_save.file_name}",
-                    )
+                action = await _process_remote_save(
+                    device, conn, remote_save, session_id=sync_session.id
+                )
                 if action != "skipped":
                     completed += 1
             except Exception:
@@ -226,8 +218,11 @@ async def _process_remote_save(
     device: Device,
     conn,
     remote_save,
+    session_id: int,
 ) -> str:
     """Process a single remote save file. Returns action taken."""
+    from endpoints.sockets.sync import emit_sync_conflict
+
     ssh_sync_handler = get_ssh_sync_handler()
     # Look up platform
     platform = db_platform_handler.get_platform_by_fs_slug(remote_save.platform_slug)
@@ -329,6 +324,15 @@ async def _process_remote_save(
             log.warning(
                 f"Push-pull: conflict for {remote_save.file_name} "
                 f"on device {device.id}: {result.reason}"
+            )
+            await emit_sync_conflict(
+                user_id=device.user_id,
+                device_id=device.id,
+                session_id=session_id,
+                file_name=remote_save.file_name,
+                rom_id=matched_save.rom_id,
+                rom_name=matched_save.rom.name or matched_save.rom.fs_name,
+                reason=result.reason,
             )
             return "conflict"
 

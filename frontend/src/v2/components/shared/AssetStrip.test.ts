@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { StateSchema } from "@/__generated__";
+import { stateFixture } from "@/utils/assets.fixtures";
 import AssetStrip from "./AssetStrip.vue";
 
 vi.mock("vue-i18n", () => ({
@@ -11,18 +12,15 @@ const RTag = {
   props: { text: { type: String, default: "" } },
   template: `<span class="tag">{{ text }}</span>`,
 };
-const stubs = { RTag, RIcon: true, RTooltip: true, RExpandTransition: false };
+const stubs = { RTag, RIcon: true, RExpandTransition: false };
 
 function state(id: number, emulator: string | null, updated_at: string) {
-  return {
+  return stateFixture({
     id,
-    user_id: 1,
     file_name: `state_${id}.state`,
-    file_size_bytes: 1024,
     updated_at,
     emulator,
-    screenshot: null,
-  } as StateSchema;
+  });
 }
 
 // Two snes9x states share a timestamp; mgba has one; one is core-less.
@@ -89,5 +87,14 @@ describe("AssetStrip grouped by core", () => {
       "mgba",
     ]);
     expect(wrapper.findAll(".r-asset-timestamp")).toHaveLength(4);
+  });
+});
+
+describe("AssetStrip timestamp", () => {
+  it("stacks the time only in the list layout's time column", () => {
+    expect(mountStrip().findAll(".r-asset-timestamp--stacked")).toHaveLength(0);
+    expect(
+      mountStrip({ layout: "list" }).findAll(".r-asset-timestamp--stacked"),
+    ).toHaveLength(4);
   });
 });

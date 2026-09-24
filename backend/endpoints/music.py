@@ -1,10 +1,10 @@
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from decorators.auth import protected_route
-from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
+from endpoints.responses.base import LimitOffsetPage, PageParams
 from endpoints.responses.music import (
     FacetValueSchema,
     MusicGameFacetSchema,
@@ -16,9 +16,17 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
 from handler.database import db_music_playlist_handler, db_rom_handler
-from utils.router import APIRouter
+from utils.router import APIRouter, as_query_dependency
 
 router = APIRouter(prefix="/music", tags=["music"])
+
+
+class MusicPageParams(PageParams):
+    # Sized to the largest page the jukebox requests (a whole soundtrack).
+    limit: int = Field(50, ge=1, le=1_000, description="Page size limit")
+
+
+MUSIC_PAGE_QUERY = as_query_dependency(MusicPageParams)
 
 
 # Its own class so the OpenAPI schema keeps the `MusicPage_*` names.
@@ -62,7 +70,7 @@ def resolve_track_ids(rom_file_ids: list[int], perms: ResolvedPermissions) -> li
 @protected_route(router.get, "/tracks", [Scope.ROMS_READ])
 def get_music_tracks(
     request: Request,
-    params: Annotated[PageParams, Depends(PAGE_QUERY)],
+    params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[
         str | None, Query(description="Substring match on title/artist/album.")
     ] = None,
@@ -128,7 +136,7 @@ def get_music_tracks(
 @protected_route(router.get, "/favorites", [Scope.PLAYLISTS_READ])
 def get_music_favorites(
     request: Request,
-    params: Annotated[PageParams, Depends(PAGE_QUERY)],
+    params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[
         str | None, Query(description="Substring match on title/artist/album.")
     ] = None,
@@ -249,7 +257,7 @@ def _facet_page(
 @protected_route(router.get, "/artists", [Scope.ROMS_READ])
 def get_music_artists(
     request: Request,
-    params: Annotated[PageParams, Depends(PAGE_QUERY)],
+    params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on artist.")] = None,
     album: Annotated[str | None, Query()] = None,
     genre: Annotated[str | None, Query()] = None,
@@ -281,7 +289,7 @@ def get_music_artists(
 @protected_route(router.get, "/albums", [Scope.ROMS_READ])
 def get_music_albums(
     request: Request,
-    params: Annotated[PageParams, Depends(PAGE_QUERY)],
+    params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on album.")] = None,
     artist: Annotated[str | None, Query()] = None,
     genre: Annotated[str | None, Query()] = None,
@@ -313,7 +321,7 @@ def get_music_albums(
 @protected_route(router.get, "/genres", [Scope.ROMS_READ])
 def get_music_genres(
     request: Request,
-    params: Annotated[PageParams, Depends(PAGE_QUERY)],
+    params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on genre.")] = None,
     artist: Annotated[str | None, Query()] = None,
     album: Annotated[str | None, Query()] = None,
@@ -345,7 +353,7 @@ def get_music_genres(
 @protected_route(router.get, "/years", [Scope.ROMS_READ])
 def get_music_years(
     request: Request,
-    params: Annotated[PageParams, Depends(PAGE_QUERY)],
+    params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on year.")] = None,
     artist: Annotated[str | None, Query()] = None,
     album: Annotated[str | None, Query()] = None,
@@ -377,7 +385,7 @@ def get_music_years(
 @protected_route(router.get, "/game-genres", [Scope.ROMS_READ])
 def get_music_game_genres(
     request: Request,
-    params: Annotated[PageParams, Depends(PAGE_QUERY)],
+    params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[
         str | None, Query(description="Typeahead on the game's genre.")
     ] = None,
@@ -423,7 +431,7 @@ def get_music_game_genres(
 @protected_route(router.get, "/platforms", [Scope.ROMS_READ])
 def get_music_platforms(
     request: Request,
-    params: Annotated[PageParams, Depends(PAGE_QUERY)],
+    params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[str | None, Query(description="Typeahead on platform.")] = None,
     artist: Annotated[str | None, Query()] = None,
     album: Annotated[str | None, Query()] = None,
@@ -464,7 +472,7 @@ def get_music_platforms(
 @protected_route(router.get, "/games", [Scope.ROMS_READ])
 def get_music_games(
     request: Request,
-    params: Annotated[PageParams, Depends(PAGE_QUERY)],
+    params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
     search: Annotated[
         str | None, Query(description="Substring match on game/title/artist/album.")
     ] = None,
