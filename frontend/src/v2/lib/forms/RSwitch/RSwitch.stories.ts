@@ -42,7 +42,7 @@ export const LabelSlot: Story = {
     components: { RSwitch },
     setup: () => ({ value: ref(false) }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+      <div class="r-v2 r-v2-dark" style="padding: 32px; background: var(--r-color-bg);">
         <RSwitch v-model="value" aria-label="Notifications">
           <template #label><strong>Notifications</strong> (email)</template>
         </RSwitch>

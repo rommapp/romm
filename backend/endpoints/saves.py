@@ -797,15 +797,7 @@ async def rename_save(
     """Rename a save's file, its screenshot following along (owner only)."""
     save = _owned_save_or_404(id, request.user.id)
 
-    new_name = await rename_asset(
-        save,
-        file_name,
-        db_save_handler.get_saves(user_id=request.user.id, rom_ids=[save.rom_id]),
-    )
-
-    return _build_save_schema(
-        db_save_handler.update_save(id, {"file_name": new_name}, touch=False)
-    )
+    return _build_save_schema(await rename_asset(save, file_name))
 
 
 @protected_route(

@@ -5,9 +5,19 @@ from unittest import mock
 import pytest
 from fastapi import status
 
-from handler.database import db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_save_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from handler.database.base_handler import sync_session
-from models.assets import ASSET_LABEL_MAX_LENGTH, ASSET_LABELS_MAX, Screenshot, State
+from models.assets import (
+    ASSET_LABEL_MAX_LENGTH,
+    ASSET_LABELS_MAX,
+    Save,
+    Screenshot,
+    State,
+)
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
@@ -846,6 +856,59 @@ class TestStateRename:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert state_file.exists()
+
+    def test_a_thumbnail_shared_with_a_save_is_copied_not_moved(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        state: State,
+        state_file,
+        thumbnail,
+    ):
+        # Same stem as the state, so both resolve `test_state.png`.
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_state.srm",
+                file_path=f"{platform.slug}/saves",
+                file_size_bytes=1,
+            )
+        )
+
+        response = self._rename(client, access_token, state.id, "renamed.state")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["screenshot"]["file_name"] == "renamed.png"
+        kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert kept is not None and kept.file_name == "test_state.png"
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        assert (screenshots_dir / "test_state.png").read_bytes() == b"PNG"
+        assert (screenshots_dir / "renamed.png").read_bytes() == b"PNG"
+
+    def test_a_failed_row_update_puts_the_files_back(
+        self, client, access_token: str, state: State, state_file, thumbnail
+    ):
+        with (
+            mock.patch(
+                "handler.asset_store.db_state_handler.update_state",
+                side_effect=RuntimeError("database gone"),
+            ),
+            pytest.raises(RuntimeError),
+        ):
+            self._rename(client, access_token, state.id, "renamed.state")
+
+        assert state_file.read_bytes() == b"STATE_DATA"
+        assert not (state_file.parent / "renamed.state").exists()
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        assert (screenshots_dir / "test_state.png").exists()
+        assert not (screenshots_dir / "renamed.png").exists()
+        # The thumbnail's row change rolled back with the state's.
+        kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert kept is not None and kept.file_name == "test_state.png"
 
     def test_non_owner_cannot_rename_a_state(
         self, client, viewer_access_token: str, state: State, state_file

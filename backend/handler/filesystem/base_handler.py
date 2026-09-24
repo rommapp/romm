@@ -24,6 +24,7 @@ from models.base import (
     compute_file_name_no_tags,
 )
 from utils.filesystem import (
+    LINK_FALLBACK_ERRNOS,
     SERVED_FILE_MODE,
     iter_directories,
     iter_files,
@@ -833,13 +834,25 @@ class FSHandler:
             if not source_full_path.is_file():
                 raise FileNotFoundError(f"File not found: {source_full_path}")
 
-            # A case-only rename on a case-insensitive filesystem finds itself.
-            if dest_full_path.exists() and not dest_full_path.samefile(
-                source_full_path
-            ):
-                raise FileExistsError(f"File already exists: {dest_full_path}")
+            if dest_full_path.exists():
+                # A case-only rename on a case-insensitive filesystem finds itself.
+                if not dest_full_path.samefile(source_full_path):
+                    raise FileExistsError(f"File already exists: {dest_full_path}")
+                source_full_path.rename(dest_full_path)
+                return
 
-            source_full_path.rename(dest_full_path)
+            # A link refuses a name another worker took since the check, which
+            # a rename would silently replace.
+            try:
+                os.link(source_full_path, dest_full_path)
+            except FileExistsError as exc:
+                raise FileExistsError(f"File already exists: {dest_full_path}") from exc
+            except OSError as exc:
+                if exc.errno not in LINK_FALLBACK_ERRNOS:
+                    raise
+                source_full_path.rename(dest_full_path)
+                return
+            source_full_path.unlink()
 
     async def remove_file(self, file_path: str) -> None:
         """

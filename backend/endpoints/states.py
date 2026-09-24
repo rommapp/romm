@@ -358,15 +358,7 @@ async def rename_state(
     """Rename a state's file, its screenshot following along (owner only)."""
     state = _owned_state_or_404(id, request.user.id)
 
-    new_name = await rename_asset(
-        state,
-        file_name,
-        db_state_handler.get_states(user_id=request.user.id, rom_ids=[state.rom_id]),
-    )
-
-    return StateSchema.model_validate(
-        db_state_handler.update_state(id, {"file_name": new_name}, touch=False)
-    )
+    return StateSchema.model_validate(await rename_asset(state, file_name))
 
 
 @protected_route(

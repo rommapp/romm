@@ -1,19 +1,24 @@
 """Filing a state or screenshot: write the bytes, scan them, upsert the row.
 
 Shared by the upload routes and the streaming sync. What differs between them
-(dedup, retention, where the bytes came from) stays with the caller. Renaming
-a save or state lives here too, since its thumbnail has to follow the name.
+(dedup, retention, where the bytes came from) stays with the caller. So does
+renaming a save or state, which takes its thumbnail along.
 """
 
 import os
-from collections.abc import Iterable
+from collections.abc import Sequence
 from io import BytesIO
 from tempfile import SpooledTemporaryFile
 from typing import Any, BinaryIO, TypeAlias
 
 from fastapi import HTTPException, UploadFile, status
 
-from handler.database import db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_save_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
+from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_screenshot, scan_state
 from logger.formatter import highlight as hl
@@ -146,21 +151,40 @@ def _name_taken(file_name: str) -> HTTPException:
     )
 
 
+def _is_same(a: Save | State, b: Save | State) -> bool:
+    return type(a) is type(b) and a.id == b.id
+
+
+def _binds(asset: Save | State, screenshot: Screenshot) -> bool:
+    """Whether `asset.screenshot` can resolve to `screenshot`, by its name match."""
+    names = {asset.file_name.casefold(), asset.file_name_no_ext.casefold()}
+    return (
+        screenshot.file_name.casefold() in names
+        or screenshot.file_name_no_ext.casefold() in names
+    )
+
+
 async def _move_asset_files(
     asset: Save | State,
     new_name: str,
     thumbnail: Screenshot | None,
     thumbnail_name: str,
+    copy_thumbnail: bool,
 ) -> None:
-    """Rename an asset's file, then its thumbnail's, undoing the first if the
-    second fails."""
+    """Rename an asset's file, then move or copy its thumbnail's, undoing the
+    first if the second fails."""
     await fs_asset_handler.rename_file(asset.full_path, new_name)
     if thumbnail is None:
         return
+    source = f"{thumbnail.file_path}/{thumbnail.file_name}"
     try:
-        await fs_asset_handler.rename_file(
-            f"{thumbnail.file_path}/{thumbnail.file_name}", thumbnail_name
-        )
+        if copy_thumbnail:
+            await fs_asset_handler.copy_file(
+                fs_asset_handler.validate_path(source),
+                f"{thumbnail.file_path}/{thumbnail_name}",
+            )
+        else:
+            await fs_asset_handler.rename_file(source, thumbnail_name)
     except FileNotFoundError:
         # Only the row is left to rename, so the asset stays bound to it.
         pass
@@ -171,17 +195,32 @@ async def _move_asset_files(
         raise
 
 
-async def rename_asset(
-    asset: Save | State, file_name: str, siblings: Iterable[Save | State]
-) -> str:
-    """Rename a save's or state's file, taking its thumbnail along.
+async def _restore_asset_files(
+    asset: Save | State,
+    new_name: str,
+    thumbnail: Screenshot | None,
+    thumbnail_name: str,
+    copy_thumbnail: bool,
+) -> None:
+    """Put the files back under the names their unchanged rows still carry."""
+    await fs_asset_handler.rename_file(f"{asset.file_path}/{new_name}", asset.file_name)
+    if thumbnail is None:
+        return
+    placed = f"{thumbnail.file_path}/{thumbnail_name}"
+    try:
+        if copy_thumbnail:
+            await fs_asset_handler.remove_file(placed)
+        else:
+            await fs_asset_handler.rename_file(placed, thumbnail.file_name)
+    except FileNotFoundError:
+        pass
 
-    Args:
-        siblings: The ROM's other assets of the same kind. Uploads find the one
-            to update by name, so the new name must be free among them.
+
+async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> AssetT:
+    """Rename a save's or state's file and row, taking its thumbnail along.
 
     Returns:
-        The sanitized name to write onto the asset's row.
+        The renamed row.
     """
     try:
         new_name = sanitize_filename(file_name)
@@ -191,7 +230,7 @@ async def rename_asset(
             detail=f"Invalid filename: {exc}",
         ) from exc
     if new_name == asset.file_name:
-        return new_name
+        return asset
     # The thumbnail follows the stem, so a bare extension would strand it.
     new_stem = compute_file_name_no_ext(new_name)
     if not new_stem:
@@ -200,10 +239,19 @@ async def rename_asset(
             detail="Invalid filename: it needs a name before the extension",
         )
 
+    saves: Sequence[Save] = db_save_handler.get_saves(
+        user_id=asset.user_id, rom_ids=[asset.rom_id]
+    )
+    states: Sequence[State] = db_state_handler.get_states(
+        user_id=asset.user_id, rom_ids=[asset.rom_id]
+    )
+    everything: list[Save | State] = [*saves, *states]
+    others = [a for a in everything if not _is_same(a, asset)]
+    # Uploads find the one to update by name, so it must be free among its kind.
     folded = new_name.casefold()
     if any(
-        other.id != asset.id and other.file_name.casefold() == folded
-        for other in siblings
+        type(other) is type(asset) and other.file_name.casefold() == folded
+        for other in others
     ):
         raise _name_taken(new_name)
 
@@ -225,10 +273,15 @@ async def rename_asset(
     thumbnail_name = (
         f"{new_stem}{os.path.splitext(thumbnail.file_name)[1]}" if thumbnail else ""
     )
+    # A save and a state of one stem share a thumbnail; the other keeps it.
+    copy_thumbnail = thumbnail is not None and any(
+        _binds(other, thumbnail) for other in others
+    )
 
     log.info(f"Renaming {hl(asset.file_name)} to {hl(new_name)}")
+    moves = (asset, new_name, thumbnail, thumbnail_name, copy_thumbnail)
     try:
-        await _move_asset_files(asset, new_name, thumbnail, thumbnail_name)
+        await _move_asset_files(*moves)
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -241,8 +294,31 @@ async def rename_asset(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename"
         ) from exc
 
-    if thumbnail:
-        db_screenshot_handler.update_screenshot(
-            thumbnail.id, {"file_name": thumbnail_name}
-        )
-    return new_name
+    try:
+        with sync_session.begin() as session:
+            if thumbnail and copy_thumbnail:
+                db_screenshot_handler.add_screenshot(
+                    Screenshot(
+                        rom_id=asset.rom_id,
+                        user_id=asset.user_id,
+                        file_name=thumbnail_name,
+                        file_path=thumbnail.file_path,
+                        file_size_bytes=thumbnail.file_size_bytes,
+                        is_public=asset.is_public,
+                    ),
+                    session=session,
+                )
+            elif thumbnail:
+                db_screenshot_handler.update_screenshot(
+                    thumbnail.id, {"file_name": thumbnail_name}, session=session
+                )
+            if isinstance(asset, Save):
+                return db_save_handler.update_save(
+                    asset.id, {"file_name": new_name}, touch=False, session=session
+                )
+            return db_state_handler.update_state(
+                asset.id, {"file_name": new_name}, touch=False, session=session
+            )
+    except Exception:
+        await _restore_asset_files(*moves)
+        raise

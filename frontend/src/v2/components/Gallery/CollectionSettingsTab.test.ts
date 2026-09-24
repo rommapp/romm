@@ -3,8 +3,8 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
-import type { Collection } from "@/stores/collections";
 import type { User } from "@/stores/users";
+import { collectionFixture } from "@/utils/collection.fixtures";
 import CollectionSettingsTab from "./CollectionSettingsTab.vue";
 
 const { snackbarError } = vi.hoisted(() => ({ snackbarError: vi.fn() }));
@@ -27,14 +27,7 @@ vi.mock("@/v2/composables/useWebpSupport", () => ({
   useWebpSupport: () => ({ toWebp: (url: string) => url }),
 }));
 
-const stored = {
-  id: 8,
-  name: "Favorites",
-  description: "",
-  user_id: 1,
-  is_public: false,
-  rom_ids: [1, 2],
-} as Collection;
+const stored = collectionFixture({ id: 8, rom_ids: [1, 2], rom_count: 2 });
 
 // Stands in for the switch: a click asks to flip it.
 const VisibilitySwitch = {

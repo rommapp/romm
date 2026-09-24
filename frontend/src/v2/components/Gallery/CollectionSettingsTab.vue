@@ -448,7 +448,7 @@ async function setVisibility(next: boolean) {
         <div class="r-v2-coll-set__row">
           <VisibilitySwitch
             :model-value="isPublic"
-            :disabled="!canEdit || savingVisibility"
+            :disabled="!canEdit || savingVisibility || saving"
             @update:model-value="setVisibility"
           />
         </div>
@@ -460,7 +460,7 @@ async function setVisibility(next: boolean) {
             variant="flat"
             color="primary"
             prepend-icon="mdi-check"
-            :disabled="!form.name.trim()"
+            :disabled="!form.name.trim() || savingVisibility"
             :loading="saving"
             @click="save"
           >
