@@ -610,9 +610,8 @@ class FSHandler:
 
         # Validate and sanitize inputs
         sanitized_filename = self._sanitize_filename(original_filename)
-        target_directory = self.validate_path(path)
-
-        final_file_path = target_directory / sanitized_filename
+        final_file_path = self.validate_path(os.path.join(path, sanitized_filename))
+        target_directory = final_file_path.parent
 
         # Async thread-safe file operations
         lock = await self._get_file_lock(str(final_file_path))
