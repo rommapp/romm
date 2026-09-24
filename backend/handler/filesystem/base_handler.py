@@ -417,7 +417,14 @@ class FSHandler:
 
         # Normalize path without resolving the full path yet
         base_path_obj = Path(self.base_path).resolve()
-        full_path = base_path_obj / path_path
+        # Redundant with the checks below, but the normpath + startswith form
+        # is the one CodeQL recognizes as a path-injection sanitizer.
+        normalized_path = os.path.normpath(os.path.join(base_path_obj, path_path))
+        if not normalized_path.startswith(str(base_path_obj)):
+            raise ValueError(
+                f"Path {path} is outside the base directory {self.base_path}"
+            )
+        full_path = Path(normalized_path)
 
         try:
             # Detect a symlink anywhere in the path, not just at the leaf —

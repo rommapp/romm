@@ -17,8 +17,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+from html import escape
 from urllib.parse import quote
-from xml.sax.saxutils import escape as xml_escape
 
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
@@ -88,10 +88,10 @@ def _response_xml(entry: PropfindEntry) -> str:
 
     return (
         "<D:response>"
-        f"<D:href>{xml_escape(_href_escape(entry.href))}</D:href>"
+        f"<D:href>{escape(_href_escape(entry.href), quote=False)}</D:href>"
         "<D:propstat><D:prop>"
         f"<D:resourcetype>{resource_type}</D:resourcetype>"
-        f"<D:displayname>{xml_escape(entry.display_name)}</D:displayname>"
+        f"<D:displayname>{escape(entry.display_name, quote=False)}</D:displayname>"
         f"{extra}{last_modified}"
         "</D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>"
         "</D:response>"
