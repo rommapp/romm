@@ -30,7 +30,7 @@ from fastapi.responses import Response
 from fastapi_pagination import resolve_params
 from fastapi_pagination.limit_offset import LimitOffsetParams
 from fastapi_pagination.types import GreaterEqualZero
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
@@ -124,6 +124,9 @@ from models.collection import VirtualCollection
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
+    PINNED_MEDIA_KEY_MAX_LENGTH,
+    PINNED_MEDIA_KEY_PATTERN,
+    PINNED_MEDIA_MAX_ITEMS,
     TITLE_ID_MAX_LENGTH,
     Rom,
     RomIdentity,
@@ -363,6 +366,22 @@ class RomUserData(BaseModel):
     )
     status: RomUserStatus | None = Field(
         default=None, description="User play status for this rom."
+    )
+    pinned_media: (
+        list[
+            Annotated[
+                str,
+                StringConstraints(
+                    max_length=PINNED_MEDIA_KEY_MAX_LENGTH,
+                    pattern=PINNED_MEDIA_KEY_PATTERN,
+                ),
+            ]
+        ]
+        | None
+    ) = Field(
+        default=None,
+        description="Ordered media keys shown on the overview; null restores the default selection.",
+        max_length=PINNED_MEDIA_MAX_ITEMS,
     )
 
 

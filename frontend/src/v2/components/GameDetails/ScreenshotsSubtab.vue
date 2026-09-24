@@ -1,6 +1,8 @@
 <script setup lang="ts">
-// ScreenshotsSubtab — the Media tab's Screenshots panel. Three sections:
+// ScreenshotsSubtab: the Media tab's Screenshots panel. Four sections, each
+// screenshot pinnable to the Overview tab:
 //
+//   * Scraped: screenshots fetched from metadata providers (read-only).
 //   * ROM        — shared library screenshots stored in the ROM's
 //                  `screenshots/` folder (RomFile, category SCREENSHOT). A
 //                  single-file ROM is promoted to a folder on upload. Public to
@@ -25,6 +27,7 @@ import ScreenshotEditDialog from "@/v2/components/GameDetails/ScreenshotEditDial
 import type { ScreenshotItem } from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { usePinnedMedia } from "@/v2/composables/usePinnedMedia";
 import {
   ROM_UPLOAD_FOLDERS,
   useRomFileUpload,
@@ -32,23 +35,13 @@ import {
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { mediaKey } from "@/v2/utils/mediaKeys";
+import { romFolderScreenshots } from "@/v2/utils/pinnedMedia";
 import { versionedRomFileUrl } from "@/v2/utils/romFiles";
 
 const ScreenshotsTab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ScreenshotsTab.vue"),
 );
-
-// Previewable image extensions for the per-ROM (RomFile) gallery. Mirrors the
-// canonical "Web Images" set.
-const IMAGE_EXTENSIONS = new Set([
-  "png",
-  "jpg",
-  "jpeg",
-  "webp",
-  "gif",
-  "bmp",
-  "avif",
-]);
 
 const props = defineProps<{ rom: DetailedRom }>();
 
@@ -65,26 +58,23 @@ const { user } = storeToRefs(authStore);
 // section writes per-user assets and stays available to everyone.
 const canEditRom = useCan("rom.edit");
 
+const { isPinned, togglePin } = usePinnedMedia(() => props.rom);
+
+const scrapedScreenshots = computed<ScreenshotItem[]>(() =>
+  (props.rom.merged_screenshots ?? []).map((url) => ({
+    url,
+    pinKey: mediaKey.scraped(url),
+  })),
+);
+
 // ---------- ROM (shared) screenshots — RomFile-backed ----------
-const romScreenshots = computed<ScreenshotItem[]>(() => {
-  const out: ScreenshotItem[] = [];
-  for (const file of props.rom.files ?? []) {
-    const rel = file.full_path
-      .replace(props.rom.full_path, "")
-      .replace(/^\//, "");
-    const firstSegment = rel.split("/")[0]?.toLowerCase();
-    if (firstSegment !== "screenshots" && firstSegment !== "screenshot") {
-      continue;
-    }
-    const ext = file.file_name.split(".").pop()?.toLowerCase() ?? "";
-    if (!IMAGE_EXTENSIONS.has(ext)) continue;
-    out.push({
-      id: file.id,
-      url: versionedRomFileUrl(file),
-    });
-  }
-  return out;
-});
+const romScreenshots = computed<ScreenshotItem[]>(() =>
+  romFolderScreenshots(props.rom).map((file) => ({
+    id: file.id,
+    url: versionedRomFileUrl(file),
+    pinKey: mediaKey.file(file.id),
+  })),
+);
 
 // ---------- Per-user screenshots — asset-backed ----------
 const allUserScreenshots = computed(() => props.rom.all_user_screenshots ?? []);
@@ -95,6 +85,7 @@ const myScreenshots = computed<ScreenshotItem[]>(() =>
     .map((s) => ({
       id: s.id,
       url: s.download_path,
+      pinKey: mediaKey.screenshot(s.id),
       isOwn: true,
       isPublic: Boolean(s.is_public),
     })),
@@ -106,6 +97,7 @@ const communityScreenshots = computed<ScreenshotItem[]>(() =>
     .map((s) => ({
       id: s.id,
       url: s.download_path,
+      pinKey: mediaKey.screenshot(s.id),
       isOwn: false,
       isPublic: true,
       username: s.username,
@@ -232,6 +224,24 @@ async function submitEdit(isPublic: boolean) {
 
 <template>
   <div class="r-v2-shots">
+    <section v-if="scrapedScreenshots.length > 0" class="r-v2-shots__section">
+      <header class="r-v2-shots__head">
+        <div class="r-v2-shots__head-text">
+          <h3 class="r-v2-shots__title">
+            {{ t("rom.screenshots-section-scraped") }}
+          </h3>
+          <p class="r-v2-shots__subtitle">
+            {{ t("rom.screenshots-section-scraped-desc") }}
+          </p>
+        </div>
+      </header>
+      <ScreenshotsTab
+        :screenshots="scrapedScreenshots"
+        :is-pinned="isPinned"
+        @toggle-pin="togglePin"
+      />
+    </section>
+
     <!-- ROM (shared) screenshots — the whole section drops away for a
          read-only user with nothing to show, since there is neither art to
          look at nor an upload they're allowed to make. -->
@@ -283,7 +293,9 @@ async function submitEdit(isPublic: boolean) {
         <ScreenshotsTab
           :screenshots="romScreenshots"
           :deletable="canEditRom"
+          :is-pinned="isPinned"
           @delete="deleteRomScreenshot"
+          @toggle-pin="togglePin"
         />
       </RDropzone>
     </section>
@@ -331,8 +343,10 @@ async function submitEdit(isPublic: boolean) {
           :screenshots="myScreenshots"
           deletable
           editable
+          :is-pinned="isPinned"
           @edit="editTarget = $event"
           @delete="deleteMyScreenshot"
+          @toggle-pin="togglePin"
         />
       </RDropzone>
     </section>
@@ -346,7 +360,11 @@ async function submitEdit(isPublic: boolean) {
           </h3>
         </div>
       </header>
-      <ScreenshotsTab :screenshots="communityScreenshots" />
+      <ScreenshotsTab
+        :screenshots="communityScreenshots"
+        :is-pinned="isPinned"
+        @toggle-pin="togglePin"
+      />
     </section>
 
     <ScreenshotEditDialog

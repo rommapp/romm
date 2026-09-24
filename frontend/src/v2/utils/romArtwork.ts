@@ -18,6 +18,7 @@
 import i18n from "@/locales";
 import type { DetailedRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { mediaKey } from "@/v2/utils/mediaKeys";
 import { versionedRomFileUrl } from "@/v2/utils/romFiles";
 
 export type RomArtworkEntry = {
@@ -159,7 +160,7 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
       if (!isVideo && !LIBRARY_IMAGE_EXTENSIONS.has(ext)) return null;
 
       return {
-        key: `file-${file.id}`,
+        key: mediaKey.file(file.id),
         label: file.file_name.replace(/\.[^.]+$/, ""),
         url: versionedRomFileUrl(file),
         isVideo,
@@ -173,7 +174,7 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
     if (!def.url || seen.has(def.url)) continue;
     seen.add(def.url);
     out.push({
-      key: def.key,
+      key: mediaKey.artwork(def.key),
       label: def.label,
       url: def.isAbsolute
         ? def.url

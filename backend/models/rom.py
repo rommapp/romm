@@ -59,6 +59,11 @@ FULL_PATH_HASH_LENGTH = 64
 AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
+# Limits on `RomUser.pinned_media`, a list of keys like `file:12` naming the
+# media shown on the user's overview.
+PINNED_MEDIA_MAX_ITEMS = 100
+PINNED_MEDIA_KEY_MAX_LENGTH = 1024
+PINNED_MEDIA_KEY_PATTERN = r"^(scraped|file|screenshot|artwork):\S"
 # Articles ignored when sorting or bucketing a title, across the languages
 # No-Intro and LaunchBox name games in. Both patterns built from this are
 # anchored on the right, so "la" preceding "las" costs nothing.
@@ -1392,6 +1397,10 @@ class RomUser(BaseModel):
     completion: Mapped[int] = mapped_column(default=0, info={"zero_is_unset": True})
     status: Mapped[RomUserStatus | None] = mapped_column(
         Enum(RomUserStatus), default=None
+    )
+    # NULL means the default selection; an empty list pins nothing.
+    pinned_media: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(), default=None, nullable=True
     )
 
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))

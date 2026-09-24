@@ -9,8 +9,8 @@
 //      lives in, rendered as bookmark-icon chip RouterLinks
 //   5. Info grid (Genres / Developers / Publishers / Companies /
 //      Franchises / Collections)
-//   6. Screenshots (also reachable via the Media tab's Screenshots subtab,
-//      which is where uploads will live)
+//   6. Media: the user's pinned screenshots, artwork and videos (see
+//      utils/pinnedMedia), pinned from the Media tab
 //   7. HLTB strip
 //   8. Related games — a single RCollapsible collapsing all of:
 //      Expansions, DLC, Remakes, Remasters, Ports, Similar games.
@@ -18,7 +18,7 @@
 // Status enum + flags (now_playing / backlogged / hidden) and personal
 // metrics (rating / difficulty / completion) live in the action ribbon
 // — see GameActionBtn (status) and MetricMenuBtn.
-import { RIcon } from "@v2/lib";
+import { RBtn, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
@@ -37,14 +37,15 @@ import AgeRatingBadges from "@/v2/components/GameDetails/AgeRatingBadges.vue";
 import HLTBStrip from "@/v2/components/GameDetails/HLTBStrip.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
 import InfoGrid from "@/v2/components/GameDetails/InfoGrid.vue";
+import MediaShelf from "@/v2/components/GameDetails/MediaShelf.vue";
 import PlayerCountBadge from "@/v2/components/GameDetails/PlayerCountBadge.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
-import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import SimilarGamesGrid from "@/v2/components/GameDetails/SimilarGamesGrid.vue";
 import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
+import { usePinnedMedia } from "@/v2/composables/usePinnedMedia";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
-import { resolveRomArtwork } from "@/v2/utils/romArtwork";
+import { resolvePinnedMedia } from "@/v2/utils/pinnedMedia";
 
 defineOptions({ inheritAttrs: false });
 
@@ -57,7 +58,6 @@ const props = defineProps<{
   hltb: RomHLTBMetadata | null | undefined;
   lastPlayed: string | null;
   revision: string | null;
-  screenshots: string[];
   expansions: IGDBRelatedGame[];
   dlcs: IGDBRelatedGame[];
   remakes: IGDBRelatedGame[];
@@ -102,11 +102,9 @@ const { t } = useI18n();
 const collectionsStore = storeCollections();
 const { supportsWebp, toWebp } = useWebpSupport();
 
-// Videos surface on the overview (the rest of the art lives in the Media tab's
-// Artwork subtab). Same resolver, filtered to videos: scraped clips plus any
-// video files in the game folder.
-const videos = computed(() =>
-  resolveRomArtwork(props.rom).filter((a) => a.isVideo),
+const pinnedMedia = computed(() => resolvePinnedMedia(props.rom));
+const { isPinned, isCustomized, togglePin, resetPins } = usePinnedMedia(
+  () => props.rom,
 );
 
 type CollectionTileEntry = {
@@ -260,34 +258,38 @@ const coverSource = computed(() => {
     <!-- 3. Info grid -->
     <InfoGrid :sections="sections" />
 
-    <!-- 4. Screenshots — scraped metadata images, read-only here. -->
-    <div v-if="screenshots.length" class="overview-tab__section">
-      <h4 class="overview-tab__section-heading">
-        <RIcon icon="mdi-image-multiple-outline" size="14" />
-        {{ t("rom.screenshots") }}
-      </h4>
-      <ScreenshotsTab :screenshots="screenshots.map((url) => ({ url }))" />
-    </div>
-
-    <!-- 4b. Videos — scraped preview clips. The rest of the art assets
-         live in the Media tab's Artwork subtab. -->
-    <div v-if="videos.length" class="overview-tab__section">
-      <h4 class="overview-tab__section-heading">
-        <RIcon icon="mdi-play-circle-outline" size="14" />
-        {{ t("rom.media-video") }}
-      </h4>
-      <div class="overview-tab__videos">
-        <!-- Scraped preview clips ship no caption track. -->
-        <!-- eslint-disable-next-line vuejs-accessibility/media-has-caption -->
-        <video
-          v-for="video in videos"
-          :key="video.key"
-          class="overview-tab__video"
-          :src="video.url"
-          controls
-          preload="metadata"
-        />
+    <!-- 4. Media. Unpinning everything keeps the heading so the reset stays
+         reachable. -->
+    <div
+      v-if="pinnedMedia.length || isCustomized"
+      class="overview-tab__section"
+    >
+      <div class="overview-tab__section-head">
+        <h4 class="overview-tab__section-heading">
+          <RIcon icon="mdi-image-multiple-outline" size="14" />
+          {{ t("rom.media") }}
+        </h4>
+        <RBtn
+          v-if="isCustomized"
+          variant="text"
+          size="x-small"
+          prepend-icon="mdi-restore"
+          @click="resetPins"
+        >
+          {{ t("rom.pinned-media-reset") }}
+        </RBtn>
       </div>
+      <MediaShelf
+        v-if="pinnedMedia.length"
+        :items="pinnedMedia"
+        compact
+        pin-on-hover
+        :is-pinned="isPinned"
+        @toggle-pin="togglePin"
+      />
+      <p v-else class="overview-tab__empty">
+        {{ t("rom.pinned-media-empty") }}
+      </p>
     </div>
 
     <!-- 5. HLTB -->
@@ -493,20 +495,16 @@ const coverSource = computed(() => {
   color: var(--r-color-fg-faint);
 }
 
-/* Scraped preview videos — a responsive grid mirroring the screenshot
-   thumbnails; clips are contained so wide/tall sources aren't cropped. */
-.overview-tab__videos {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
+.overview-tab__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
-.overview-tab__video {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: contain;
-  border-radius: var(--r-radius-md);
-  background: var(--r-color-cover-placeholder);
-  border: 1px solid var(--r-color-border);
+.overview-tab__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--r-color-fg-muted);
 }
 
 /* Attribution — a quiet, italic credits footer for the metadata and

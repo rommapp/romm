@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { IGDBRelatedGame, SimilarRomSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
+import type { MediaShelfItem } from "./MediaShelf.vue";
 import OverviewTab from "./OverviewTab.vue";
 
 vi.mock("vue-i18n", () => ({
@@ -26,9 +27,22 @@ vi.mock("@/v2/composables/useWebpSupport", () => ({
   }),
 }));
 
-// Artwork and collection mosaics belong to other sections; stubbed so this
-// stays a test of the related-games block.
-vi.mock("@/v2/utils/romArtwork", () => ({ resolveRomArtwork: () => [] }));
+const pinnedMedia = ref<MediaShelfItem[]>([]);
+const isCustomized = ref(false);
+const resetPins = vi.fn();
+
+vi.mock("@/v2/utils/pinnedMedia", () => ({
+  resolvePinnedMedia: () => pinnedMedia.value,
+}));
+
+vi.mock("@/v2/composables/usePinnedMedia", () => ({
+  usePinnedMedia: () => ({
+    isPinned: () => true,
+    isCustomized,
+    togglePin: vi.fn(),
+    resetPins,
+  }),
+}));
 
 vi.mock("@/v2/utils/collectionCovers", () => ({
   collectionCoverList: () => [],
@@ -57,7 +71,6 @@ function mount(props: Record<string, unknown> = {}) {
       hltb: null,
       lastPlayed: null,
       revision: null,
-      screenshots: [],
       expansions: [],
       dlcs: [],
       remakes: [],
@@ -66,7 +79,7 @@ function mount(props: Record<string, unknown> = {}) {
       similarRoms: [],
       ...props,
     },
-    global: { stubs: { RIcon: true } },
+    global: { stubs: { RIcon: true, RBtn: false } },
   });
 }
 
@@ -138,5 +151,36 @@ describe("OverviewTab similar games", () => {
     expect(wrapper.findComponent({ name: "RelatedGamesGrid" }).exists()).toBe(
       true,
     );
+  });
+});
+
+describe("OverviewTab media", () => {
+  const shot: MediaShelfItem = { key: "file:1", label: "Shot", url: "/a.png" };
+
+  it("shows the pinned media without a reset while on the defaults", () => {
+    pinnedMedia.value = [shot];
+    isCustomized.value = false;
+    const wrapper = mount();
+
+    const shelf = wrapper.findComponent({ name: "MediaShelf" });
+    expect(shelf.props("items")).toEqual([shot]);
+    expect(wrapper.text()).not.toContain("rom.pinned-media-reset");
+  });
+
+  it("hides the section when the defaults hold nothing", () => {
+    pinnedMedia.value = [];
+    isCustomized.value = false;
+
+    expect(mount().text()).not.toContain("rom.media");
+  });
+
+  it("keeps the reset reachable after unpinning everything", async () => {
+    pinnedMedia.value = [];
+    isCustomized.value = true;
+    const wrapper = mount();
+
+    expect(wrapper.text()).toContain("rom.pinned-media-empty");
+    await wrapper.find("button").trigger("click");
+    expect(resetPins).toHaveBeenCalled();
   });
 });
