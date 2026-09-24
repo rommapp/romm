@@ -349,12 +349,24 @@ async def build_manifest(
     """
     entries: list[dict[str, str]] = []
 
+    # A path carries no platform, so only the ROM that GET/PUT/DELETE would
+    # resolve it to may claim it; a same-named ROM elsewhere would shadow it.
+    resolved_rom_ids: dict[str, int | None] = {}
+
+    def is_addressable(rom: Rom, kind: AssetKind, file_name: str) -> bool:
+        game_name = game_name_from_file_name(kind, file_name)
+        if game_name not in resolved_rom_ids:
+            resolved = resolve_rom(game_name, can_see)
+            resolved_rom_ids[game_name] = resolved.id if resolved else None
+        return resolved_rom_ids[game_name] == rom.id
+
     for save in db_save_handler.get_saves(user_id=user.id):
         if (
             save.slot is not None
             or save.missing_from_fs
             or not can_see(save.rom)
             or cloud_sync_psp.is_psp_bundle_file_name(save.file_name)
+            or not is_addressable(save.rom, "saves", save.file_name)
         ):
             continue
 
@@ -371,14 +383,18 @@ async def build_manifest(
 
     states_by_slot = group_states_by_slot(db_state_handler.get_states(user_id=user.id))
     for (_rom_id, emulator, slot_suffix), state in states_by_slot.items():
-        if state.missing_from_fs or not can_see(state.rom):
+        file_name = canonical_state_file_name(state.rom, slot_suffix)
+        if (
+            state.missing_from_fs
+            or not can_see(state.rom)
+            or not is_addressable(state.rom, "states", file_name)
+        ):
             continue
 
         digest = await asset_md5(state)
         if not digest:
             continue
 
-        file_name = canonical_state_file_name(state.rom, slot_suffix)
         entries.append(
             {
                 "path": build_cloud_sync_path("states", emulator, file_name),

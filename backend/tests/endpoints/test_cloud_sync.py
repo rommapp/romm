@@ -5,9 +5,15 @@ from fastapi import status
 
 from handler import cloud_sync_handler, cloud_sync_psp
 from handler.cloud_sync_emulator_names import to_retroarch_dir_name, to_romm_emulator
-from handler.database import db_save_handler, db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_rom_handler,
+    db_save_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from handler.filesystem import fs_asset_handler
 from models.assets import Save, Screenshot, State
+from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 
@@ -293,7 +299,7 @@ class TestCloudSyncManifest:
         _asset_md5: mock.AsyncMock,
         client,
         admin_user: User,
-        archival_save: Save,
+        synced_save: Save,
         synced_state: State,
     ):
         response = client.get("/api/cloud-sync/manifest.server", auth=ADMIN_AUTH)
@@ -301,7 +307,7 @@ class TestCloudSyncManifest:
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == [
             {
-                "path": "saves/test_emulator/archival.sav",
+                "path": "saves/Snes9x/test_rom.srm",
                 "hash": "d41d8cd98f00b204e9800998ecf8427e",
             },
             {
@@ -415,6 +421,58 @@ class TestCloudSyncManifest:
         """`synced_save` is stored with RomM's own convention (`snes9x`,
         lowercase). The manifest must hand RetroArch back its own directory
         casing (`Snes9x`), not RomM's -- see `to_retroarch_dir_name`."""
+        response = client.get("/api/cloud-sync/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == [
+            {
+                "path": "saves/Snes9x/test_rom.srm",
+                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            }
+        ]
+
+    @mock.patch(
+        "handler.cloud_sync_handler.asset_md5",
+        new_callable=mock.AsyncMock,
+        return_value="d41d8cd98f00b204e9800998ecf8427e",
+    )
+    def test_omits_assets_of_a_shadowed_same_named_rom(
+        self,
+        _asset_md5: mock.AsyncMock,
+        client,
+        admin_user: User,
+        synced_save: Save,
+        other_platform: Platform,
+    ):
+        shadowed_rom = db_rom_handler.add_rom(
+            Rom(
+                platform_id=other_platform.id,
+                name="test_rom",
+                slug="test_rom_slug_other",
+                fs_name="test_rom.zip",
+                fs_name_no_tags="test_rom",
+                fs_name_no_ext="test_rom",
+                fs_extension="zip",
+                fs_path=f"{other_platform.slug}/roms",
+            )
+        )
+        db_save_handler.add_save(
+            Save(
+                rom_id=shadowed_rom.id,
+                user_id=admin_user.id,
+                file_name="test_rom.srm",
+                file_path=fs_asset_handler.build_saves_file_path(
+                    user=admin_user,
+                    platform_fs_slug=other_platform.fs_slug,
+                    rom_id=shadowed_rom.id,
+                    emulator="snes9x",
+                ),
+                file_size_bytes=4,
+                emulator="snes9x",
+                slot=None,
+            )
+        )
+
         response = client.get("/api/cloud-sync/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
