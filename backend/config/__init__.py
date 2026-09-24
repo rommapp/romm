@@ -330,20 +330,14 @@ SYNC_SSH_KEYS_PATH: Final[str] = _get_env(
 SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
     "SYNC_SSH_KNOWN_HOSTS_PATH", f"{SYNC_BASE_PATH}/known_hosts"
 )
-
-# WEBDAV CLOUD SYNC
 # RetroArch Cloud Sync's config/, thumbnails/ and system/ files, which no ROM owns.
-WEBDAV_CLOUD_SYNC_BLOB_BASE_PATH: Final[str] = (
-    f"{ROMM_BASE_PATH}/webdav_cloud_sync_blobs"
-)
+SYNC_RETROARCH_BLOB_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/retroarch_sync_blobs"
 # PSP save folder files buffered until the folder resolves to a rom.
-WEBDAV_CLOUD_SYNC_PSP_PENDING_PATH: Final[str] = (
-    f"{ROMM_BASE_PATH}/cache/webdav_cloud_sync"
-)
+SYNC_RETROARCH_PSP_PENDING_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/retroarch_sync"
 # JSON map of PSP serial to extensionless rom file name, for saves whose title
 # matches no rom, e.g. {"ULUS10336": "Crisis Core - Final Fantasy VII (USA)"}.
-WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP: Final[dict[str, str]] = json.loads(
-    _get_env("WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP", "{}")
+SYNC_RETROARCH_PSP_SERIAL_MAP: Final[dict[str, str]] = json.loads(
+    _get_env("SYNC_RETROARCH_PSP_SERIAL_MAP", "{}")
 )
 
 # EMULATION

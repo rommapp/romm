@@ -16,10 +16,10 @@ from handler.database import (
     db_screenshot_handler,
     db_state_handler,
 )
-from handler.filesystem import fs_asset_handler, fs_webdav_cloud_sync_blob_handler
+from handler.filesystem import fs_asset_handler, fs_retroarch_sync_blob_handler
 from handler.redis_handler import async_cache
-from handler.webdav_cloud_sync import psp
-from handler.webdav_cloud_sync.emulator_names import (
+from handler.sync.retroarch import psp
+from handler.sync.retroarch.emulator_names import (
     to_retroarch_dir_name,
     to_romm_emulator,
 )
@@ -47,7 +47,7 @@ _HASH_CACHE_TTL_SECONDS = 60 * 60 * 24
 
 
 @dataclass(frozen=True)
-class WebDAVCloudSyncPath:
+class RetroArchSyncPath:
     """A parsed client-side path, e.g. ``saves/Snes9x/Super Mario World.srm``."""
 
     kind: AssetKind
@@ -67,7 +67,7 @@ def split_segments(path: str) -> list[str] | None:
     return segments
 
 
-def parse_webdav_cloud_sync_path(path: str) -> WebDAVCloudSyncPath | None:
+def parse_retroarch_sync_path(path: str) -> RetroArchSyncPath | None:
     """Parse a ``<root>/[<core>/]<file>`` client path, or None if unsupported."""
     segments = split_segments(path)
     if segments is None or not 2 <= len(segments) <= 3:
@@ -79,7 +79,7 @@ def parse_webdav_cloud_sync_path(path: str) -> WebDAVCloudSyncPath | None:
 
     # RomM's web player matches saves on the lowercase libretro core id, not
     # RetroArch's display-cased folder name.
-    return WebDAVCloudSyncPath(
+    return RetroArchSyncPath(
         kind=kind,
         emulator=to_romm_emulator(segments[1]) if len(segments) == 3 else None,
         file_name=segments[-1],
@@ -182,7 +182,7 @@ def resolve_state_screenshot_by_slot(
     return state_screenshot(state) if state else None
 
 
-def build_webdav_cloud_sync_path(
+def build_retroarch_sync_path(
     kind: AssetKind, emulator: str | None, file_name: str
 ) -> str:
     if emulator:
@@ -206,7 +206,7 @@ def build_asset_file_path(
     )
 
 
-def parse_webdav_cloud_sync_blob_path(path: str) -> str | None:
+def parse_retroarch_sync_blob_path(path: str) -> str | None:
     """A blob-category client path as ``category/...``, or None if it isn't one.
 
     Nesting is arbitrary: RetroArch mirrors its on-device tree here.
@@ -243,13 +243,13 @@ async def _cached_md5(
 async def blob_md5(user: User, blob_path: str) -> str | None:
     disk_path = user_blob_path(user, blob_path)
     try:
-        stat = fs_webdav_cloud_sync_blob_handler.validate_path(disk_path).stat()
+        stat = fs_retroarch_sync_blob_handler.validate_path(disk_path).stat()
     except (ValueError, OSError):
         return None
 
     return await _cached_md5(
-        f"romm:webdav_cloud_sync:blob_md5:{user.id}:{blob_path}:{stat.st_size}:{stat.st_mtime}",
-        lambda: fs_webdav_cloud_sync_blob_handler.compute_file_md5(disk_path),
+        f"romm:retroarch_sync:blob_md5:{user.id}:{blob_path}:{stat.st_size}:{stat.st_mtime}",
+        lambda: fs_retroarch_sync_blob_handler.compute_file_md5(disk_path),
     )
 
 
@@ -257,7 +257,7 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
     entries: list[dict[str, str]] = []
     for category in BLOB_CATEGORIES:
         prefix = f"{fs_asset_handler.user_folder_path(user)}/{category}"
-        for relative in await fs_webdav_cloud_sync_blob_handler.list_blob_paths(prefix):
+        for relative in await fs_retroarch_sync_blob_handler.list_blob_paths(prefix):
             blob_path = f"{category}/{relative}"
             digest = await blob_md5(user, blob_path)
             if not digest:
@@ -270,7 +270,7 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
 def resolve_roms(
     game_names: Iterable[str], can_see: Callable[[Rom], bool]
 ) -> dict[str, Rom]:
-    """The ROM each webdav-cloud-sync game name belongs to, matched on file name alone.
+    """The ROM each RetroArch sync game name belongs to, matched on file name alone.
 
     An ambiguous name resolves to its first visible ROM by id, so it stays
     stable across syncs.
@@ -294,7 +294,7 @@ def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
 
 async def asset_md5(asset: Save | State | Screenshot) -> str | None:
     return await _cached_md5(
-        f"romm:webdav_cloud_sync:md5:{asset.full_path}"
+        f"romm:retroarch_sync:md5:{asset.full_path}"
         f":{asset.file_size_bytes}:{asset.updated_at.timestamp()}",
         lambda: fs_asset_handler.compute_file_md5(asset.full_path),
     )
@@ -348,7 +348,7 @@ async def build_manifest(
     for save in listed_saves:
         if is_addressable(save.rom, "saves", save.file_name):
             await add(
-                build_webdav_cloud_sync_path("saves", save.emulator, save.file_name),
+                build_retroarch_sync_path("saves", save.emulator, save.file_name),
                 save,
             )
 
@@ -356,7 +356,7 @@ async def build_manifest(
         if not is_addressable(state.rom, "states", file_name):
             continue
 
-        state_path = build_webdav_cloud_sync_path("states", emulator, file_name)
+        state_path = build_retroarch_sync_path("states", emulator, file_name)
         if not await add(state_path, state):
             continue
 

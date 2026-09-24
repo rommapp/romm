@@ -10,8 +10,8 @@ from handler.database import (
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler
-from handler.webdav_cloud_sync import psp, sync_handler
-from handler.webdav_cloud_sync.emulator_names import (
+from handler.sync.retroarch import psp, sync_handler
+from handler.sync.retroarch.emulator_names import (
     to_retroarch_dir_name,
     to_romm_emulator,
 )
@@ -35,10 +35,10 @@ def saves_path(admin_user: User, rom: Rom):
 
 @pytest.fixture
 def synced_save(admin_user: User, rom: Rom, saves_path: str):
-    """A save stored where the webdav-cloud-sync path `saves/Snes9x/test_rom.srm`
+    """A save stored where the RetroArch sync path `saves/Snes9x/test_rom.srm`
     resolves to, unlike the shared fixtures' legacy layout. `emulator` is
     RomM's own convention (lowercase), not RetroArch's directory casing --
-    see `parse_webdav_cloud_sync_path`."""
+    see `parse_retroarch_sync_path`."""
     return db_save_handler.add_save(
         Save(
             rom_id=rom.id,
@@ -106,7 +106,7 @@ def web_state(admin_user: User, rom: Rom, states_path: str):
     )
 
 
-class TestWebDAVCloudSyncEmulatorNames:
+class TestRetroArchSyncEmulatorNames:
     @pytest.mark.parametrize(
         ("retroarch_dir_name", "romm_emulator"),
         [
@@ -154,7 +154,7 @@ class TestWebDAVCloudSyncEmulatorNames:
         assert to_retroarch_dir_name(romm_emulator) == retroarch_dir_name
 
 
-class TestWebDAVCloudSyncPathParsing:
+class TestRetroArchSyncPathParsing:
     @pytest.mark.parametrize(
         ("path", "kind", "emulator", "file_name"),
         [
@@ -172,7 +172,7 @@ class TestWebDAVCloudSyncPathParsing:
         ],
     )
     def test_parses_supported_paths(self, path, kind, emulator, file_name):
-        parsed = sync_handler.parse_webdav_cloud_sync_path(path)
+        parsed = sync_handler.parse_retroarch_sync_path(path)
 
         assert parsed is not None
         assert parsed.kind == kind
@@ -192,7 +192,7 @@ class TestWebDAVCloudSyncPathParsing:
         ],
     )
     def test_rejects_unsupported_paths(self, path):
-        assert sync_handler.parse_webdav_cloud_sync_path(path) is None
+        assert sync_handler.parse_retroarch_sync_path(path) is None
 
     @pytest.mark.parametrize(
         ("kind", "file_name", "game_name"),
@@ -209,16 +209,16 @@ class TestWebDAVCloudSyncPathParsing:
         assert sync_handler.game_name_from_file_name(kind, file_name) == game_name
 
 
-class TestWebDAVCloudSyncAuth:
+class TestRetroArchSyncAuth:
     def test_options_without_credentials_challenges(self, client):
-        response = client.options("/api/webdav-cloud-sync/")
+        response = client.options("/api/sync/retroarch/")
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert response.headers["www-authenticate"].startswith("Basic")
         assert response.content == b""
 
     def test_options_with_basic_auth_advertises_dav(self, client, admin_user: User):
-        response = client.options("/api/webdav-cloud-sync/", auth=ADMIN_AUTH)
+        response = client.options("/api/sync/retroarch/", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.headers["dav"] == "1, 2"
@@ -226,19 +226,17 @@ class TestWebDAVCloudSyncAuth:
         assert "PROPFIND" in response.headers["allow"]
 
     def test_get_without_credentials_challenges(self, client):
-        response = client.get("/api/webdav-cloud-sync/manifest.server")
+        response = client.get("/api/sync/retroarch/manifest.server")
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_put_without_credentials_challenges(self, client):
-        response = client.put(
-            "/api/webdav-cloud-sync/saves/test_rom.srm", content=b"data"
-        )
+        response = client.put("/api/sync/retroarch/saves/test_rom.srm", content=b"data")
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-class TestWebDAVCloudSyncStateSlotResolution:
+class TestRetroArchSyncStateSlotResolution:
     def test_resolves_canonical_name_to_the_web_created_row(
         self, admin_user: User, rom: Rom, web_state: State
     ):
@@ -305,9 +303,9 @@ class TestWebDAVCloudSyncStateSlotResolution:
         assert resolved is None
 
 
-class TestWebDAVCloudSyncManifest:
+class TestRetroArchSyncManifest:
     @mock.patch(
-        "handler.webdav_cloud_sync.sync_handler.asset_md5",
+        "handler.sync.retroarch.sync_handler.asset_md5",
         new_callable=mock.AsyncMock,
         return_value="d41d8cd98f00b204e9800998ecf8427e",
     )
@@ -319,7 +317,7 @@ class TestWebDAVCloudSyncManifest:
         synced_save: Save,
         synced_state: State,
     ):
-        response = client.get("/api/webdav-cloud-sync/manifest.server", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == [
@@ -334,7 +332,7 @@ class TestWebDAVCloudSyncManifest:
         ]
 
     @mock.patch(
-        "handler.webdav_cloud_sync.sync_handler.asset_md5",
+        "handler.sync.retroarch.sync_handler.asset_md5",
         new_callable=mock.AsyncMock,
         return_value="d41d8cd98f00b204e9800998ecf8427e",
     )
@@ -349,7 +347,7 @@ class TestWebDAVCloudSyncManifest:
         was surfaced as-is). It still belongs to slot 0 like any other
         untagged state, so the manifest advertises it under RetroArch's own
         canonical name for that slot instead of its raw file name."""
-        response = client.get("/api/webdav-cloud-sync/manifest.server", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == [
@@ -360,7 +358,7 @@ class TestWebDAVCloudSyncManifest:
         ]
 
     @mock.patch(
-        "handler.webdav_cloud_sync.sync_handler.asset_md5",
+        "handler.sync.retroarch.sync_handler.asset_md5",
         new_callable=mock.AsyncMock,
         return_value="d41d8cd98f00b204e9800998ecf8427e",
     )
@@ -395,7 +393,7 @@ class TestWebDAVCloudSyncManifest:
         )
         assert newer.id > older.id
 
-        response = client.get("/api/webdav-cloud-sync/manifest.server", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == [
@@ -406,26 +404,26 @@ class TestWebDAVCloudSyncManifest:
         ]
 
     @mock.patch(
-        "handler.webdav_cloud_sync.sync_handler.asset_md5",
+        "handler.sync.retroarch.sync_handler.asset_md5",
         new_callable=mock.AsyncMock,
         return_value="d41d8cd98f00b204e9800998ecf8427e",
     )
     def test_excludes_slotted_saves(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, save: Save
     ):
-        response = client.get("/api/webdav-cloud-sync/manifest.server", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == []
 
     def test_empty_library_returns_empty_manifest(self, client, admin_user: User):
-        response = client.get("/api/webdav-cloud-sync/manifest.server", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == []
 
     @mock.patch(
-        "handler.webdav_cloud_sync.sync_handler.asset_md5",
+        "handler.sync.retroarch.sync_handler.asset_md5",
         new_callable=mock.AsyncMock,
         return_value="d41d8cd98f00b204e9800998ecf8427e",
     )
@@ -433,7 +431,7 @@ class TestWebDAVCloudSyncManifest:
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, synced_save: Save
     ):
         """The manifest uses RetroArch's directory casing (`Snes9x`), not RomM's."""
-        response = client.get("/api/webdav-cloud-sync/manifest.server", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == [
@@ -444,7 +442,7 @@ class TestWebDAVCloudSyncManifest:
         ]
 
     @mock.patch(
-        "handler.webdav_cloud_sync.sync_handler.asset_md5",
+        "handler.sync.retroarch.sync_handler.asset_md5",
         new_callable=mock.AsyncMock,
         return_value="d41d8cd98f00b204e9800998ecf8427e",
     )
@@ -485,7 +483,7 @@ class TestWebDAVCloudSyncManifest:
             )
         )
 
-        response = client.get("/api/webdav-cloud-sync/manifest.server", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == [
@@ -496,7 +494,7 @@ class TestWebDAVCloudSyncManifest:
         ]
 
 
-class TestWebDAVCloudSyncStateScreenshots:
+class TestRetroArchSyncStateScreenshots:
     def test_game_name_strips_png_before_state_suffix(self):
         """`test_rom.state.png` resolves to game `test_rom`, not `test_rom.state`."""
         assert (
@@ -513,7 +511,7 @@ class TestWebDAVCloudSyncStateScreenshots:
         )
 
     @mock.patch(
-        "handler.webdav_cloud_sync.sync_handler.asset_md5",
+        "handler.sync.retroarch.sync_handler.asset_md5",
         new_callable=mock.AsyncMock,
         return_value="d41d8cd98f00b204e9800998ecf8427e",
     )
@@ -525,7 +523,7 @@ class TestWebDAVCloudSyncStateScreenshots:
         synced_state: State,
         synced_state_screenshot: Screenshot,
     ):
-        response = client.get("/api/webdav-cloud-sync/manifest.server", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == [
@@ -540,12 +538,10 @@ class TestWebDAVCloudSyncStateScreenshots:
         ]
 
     @mock.patch(
-        "endpoints.webdav_cloud_sync.fs_asset_handler.write_file",
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch(
-        "endpoints.webdav_cloud_sync.scan_screenshot", new_callable=mock.AsyncMock
-    )
+    @mock.patch("endpoints.sync.retroarch.scan_screenshot", new_callable=mock.AsyncMock)
     def test_creates_screenshot_for_a_new_state(
         self,
         mock_scan_screenshot: mock.AsyncMock,
@@ -562,7 +558,7 @@ class TestWebDAVCloudSyncStateScreenshots:
         )
 
         response = client.put(
-            "/api/webdav-cloud-sync/states/Snes9x/test_rom.state.png",
+            "/api/sync/retroarch/states/Snes9x/test_rom.state.png",
             content=b"pngdata",
             auth=ADMIN_AUTH,
         )
@@ -574,12 +570,10 @@ class TestWebDAVCloudSyncStateScreenshots:
         assert screenshots is not None
 
     @mock.patch(
-        "endpoints.webdav_cloud_sync.fs_asset_handler.write_file",
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch(
-        "endpoints.webdav_cloud_sync.scan_screenshot", new_callable=mock.AsyncMock
-    )
+    @mock.patch("endpoints.sync.retroarch.scan_screenshot", new_callable=mock.AsyncMock)
     def test_overwrites_existing_screenshot_for_a_state(
         self,
         mock_scan_screenshot: mock.AsyncMock,
@@ -597,7 +591,7 @@ class TestWebDAVCloudSyncStateScreenshots:
         )
 
         response = client.put(
-            "/api/webdav-cloud-sync/states/Snes9x/test_rom.state.png",
+            "/api/sync/retroarch/states/Snes9x/test_rom.state.png",
             content=b"newpngdata",
             auth=ADMIN_AUTH,
         )
@@ -625,7 +619,7 @@ class TestWebDAVCloudSyncStateScreenshots:
 
         response = client.request(
             "DELETE",
-            "/api/webdav-cloud-sync/states/Snes9x/test_rom.state1.png",
+            "/api/sync/retroarch/states/Snes9x/test_rom.state1.png",
             auth=ADMIN_AUTH,
         )
 
@@ -637,12 +631,12 @@ class TestWebDAVCloudSyncStateScreenshots:
         )
 
 
-class TestWebDAVCloudSyncUpload:
+class TestRetroArchSyncUpload:
     @mock.patch(
-        "endpoints.webdav_cloud_sync.fs_asset_handler.write_file",
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch("endpoints.webdav_cloud_sync.scan_save", new_callable=mock.AsyncMock)
+    @mock.patch("endpoints.sync.retroarch.scan_save", new_callable=mock.AsyncMock)
     def test_creates_save_for_matching_rom(
         self,
         mock_scan_save: mock.AsyncMock,
@@ -660,7 +654,7 @@ class TestWebDAVCloudSyncUpload:
         )
 
         response = client.put(
-            "/api/webdav-cloud-sync/saves/Snes9x/test_rom.srm",
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
             content=b"data",
             auth=ADMIN_AUTH,
         )
@@ -675,10 +669,10 @@ class TestWebDAVCloudSyncUpload:
         assert saves[0].slot is None
 
     @mock.patch(
-        "endpoints.webdav_cloud_sync.fs_asset_handler.write_file",
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch("endpoints.webdav_cloud_sync.scan_save", new_callable=mock.AsyncMock)
+    @mock.patch("endpoints.sync.retroarch.scan_save", new_callable=mock.AsyncMock)
     def test_overwrites_existing_save_in_place(
         self,
         mock_scan_save: mock.AsyncMock,
@@ -695,7 +689,7 @@ class TestWebDAVCloudSyncUpload:
             content_hash="8d777f385d3dfec8815d20f7496026dc",
         )
         client.put(
-            "/api/webdav-cloud-sync/saves/Snes9x/test_rom.srm",
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
             content=b"data",
             auth=ADMIN_AUTH,
         )
@@ -707,7 +701,7 @@ class TestWebDAVCloudSyncUpload:
             content_hash="9a0364b9e99bb480dd25e1f0284c8555",
         )
         response = client.put(
-            "/api/webdav-cloud-sync/saves/Snes9x/test_rom.srm",
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
             content=b"newdata",
             auth=ADMIN_AUTH,
         )
@@ -719,10 +713,10 @@ class TestWebDAVCloudSyncUpload:
         assert saves[0].file_size_bytes == 7
 
     @mock.patch(
-        "endpoints.webdav_cloud_sync.fs_asset_handler.write_file",
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch("endpoints.webdav_cloud_sync.scan_save", new_callable=mock.AsyncMock)
+    @mock.patch("endpoints.sync.retroarch.scan_save", new_callable=mock.AsyncMock)
     def test_overwrite_clears_missing_from_fs(
         self,
         mock_scan_save: mock.AsyncMock,
@@ -741,7 +735,7 @@ class TestWebDAVCloudSyncUpload:
         )
 
         response = client.put(
-            "/api/webdav-cloud-sync/saves/Snes9x/test_rom.srm",
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
             content=b"data",
             auth=ADMIN_AUTH,
         )
@@ -755,7 +749,7 @@ class TestWebDAVCloudSyncUpload:
         self, client, admin_user: User, rom: Rom
     ):
         response = client.put(
-            "/api/webdav-cloud-sync/saves/Snes9x/test_rom%3F.srm",
+            "/api/sync/retroarch/saves/Snes9x/test_rom%3F.srm",
             content=b"data",
             auth=ADMIN_AUTH,
         )
@@ -763,10 +757,10 @@ class TestWebDAVCloudSyncUpload:
         assert response.status_code == status.HTTP_409_CONFLICT
 
     @mock.patch(
-        "endpoints.webdav_cloud_sync.fs_asset_handler.write_file",
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch("endpoints.webdav_cloud_sync.scan_state", new_callable=mock.AsyncMock)
+    @mock.patch("endpoints.sync.retroarch.scan_state", new_callable=mock.AsyncMock)
     def test_creates_state_from_auto_savestate_name(
         self,
         mock_scan_state: mock.AsyncMock,
@@ -788,7 +782,7 @@ class TestWebDAVCloudSyncUpload:
         )
 
         response = client.put(
-            "/api/webdav-cloud-sync/states/Snes9x/test_rom.state.auto",
+            "/api/sync/retroarch/states/Snes9x/test_rom.state.auto",
             content=b"statedat",
             auth=ADMIN_AUTH,
         )
@@ -801,7 +795,7 @@ class TestWebDAVCloudSyncUpload:
 
     def test_rejects_upload_with_no_matching_rom(self, client, admin_user: User):
         response = client.put(
-            "/api/webdav-cloud-sync/saves/Snes9x/not_in_library.srm",
+            "/api/sync/retroarch/saves/Snes9x/not_in_library.srm",
             content=b"data",
             auth=ADMIN_AUTH,
         )
@@ -813,7 +807,7 @@ class TestWebDAVCloudSyncUpload:
 
     def test_rejects_unsupported_sync_root(self, client, admin_user: User, rom: Rom):
         response = client.put(
-            "/api/webdav-cloud-sync/deleted/saves/test_rom.srm",
+            "/api/sync/retroarch/deleted/saves/test_rom.srm",
             content=b"data",
             auth=ADMIN_AUTH,
         )
@@ -822,25 +816,25 @@ class TestWebDAVCloudSyncUpload:
 
     def test_accepts_and_drops_client_manifest(self, client, admin_user: User):
         response = client.put(
-            "/api/webdav-cloud-sync/manifest.server", content=b"[]", auth=ADMIN_AUTH
+            "/api/sync/retroarch/manifest.server", content=b"[]", auth=ADMIN_AUTH
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
 
-class TestWebDAVCloudSyncDownload:
+class TestRetroArchSyncDownload:
     def test_missing_file_is_not_found(self, client, admin_user: User, rom: Rom):
         response = client.get(
-            "/api/webdav-cloud-sync/saves/Snes9x/test_rom.srm", auth=ADMIN_AUTH
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm", auth=ADMIN_AUTH
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.content == b""
 
 
-class TestWebDAVCloudSyncDelete:
+class TestRetroArchSyncDelete:
     @mock.patch(
-        "endpoints.webdav_cloud_sync.fs_asset_handler.remove_file",
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
         new_callable=mock.AsyncMock,
     )
     def test_delete_removes_the_save(
@@ -853,7 +847,7 @@ class TestWebDAVCloudSyncDelete:
     ):
         response = client.request(
             "DELETE",
-            "/api/webdav-cloud-sync/saves/Snes9x/test_rom.srm",
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
             auth=ADMIN_AUTH,
         )
 
@@ -862,7 +856,7 @@ class TestWebDAVCloudSyncDelete:
         assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
 
     @mock.patch(
-        "endpoints.webdav_cloud_sync.fs_asset_handler.remove_file",
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
         new_callable=mock.AsyncMock,
     )
     def test_move_is_treated_as_a_delete(
@@ -875,10 +869,8 @@ class TestWebDAVCloudSyncDelete:
     ):
         response = client.request(
             "MOVE",
-            "/api/webdav-cloud-sync/saves/Snes9x/test_rom.srm",
-            headers={
-                "Destination": "/api/webdav-cloud-sync/deleted/saves/test_rom.srm"
-            },
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
+            headers={"Destination": "/api/sync/retroarch/deleted/saves/test_rom.srm"},
             auth=ADMIN_AUTH,
         )
 
@@ -887,29 +879,29 @@ class TestWebDAVCloudSyncDelete:
 
     def test_delete_of_unknown_file_is_not_found(self, client, admin_user: User):
         response = client.request(
-            "DELETE", "/api/webdav-cloud-sync/saves/Snes9x/nope.srm", auth=ADMIN_AUTH
+            "DELETE", "/api/sync/retroarch/saves/Snes9x/nope.srm", auth=ADMIN_AUTH
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-class TestWebDAVCloudSyncPsp:
+class TestRetroArchSyncPsp:
     """PSP save-folder bundling through the endpoints and the manifest.
 
-    WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP resolves the rom, so no test depends on fulltext search.
+    SYNC_RETROARCH_PSP_SERIAL_MAP resolves the rom, so no test depends on fulltext search.
     """
 
     @pytest.fixture(autouse=True)
     def _serial_map(self, monkeypatch: pytest.MonkeyPatch, rom: Rom):
         monkeypatch.setattr(
             psp,
-            "WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP",
+            "SYNC_RETROARCH_PSP_SERIAL_MAP",
             {"TEST12345": rom.fs_name_no_ext},
         )
 
     def test_ignores_system_cache_files(self, client, admin_user: User):
         response = client.put(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SYSTEM/CACHE/shader.bin",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SYSTEM/CACHE/shader.bin",
             content=b"cache data",
             auth=ADMIN_AUTH,
         )
@@ -920,14 +912,14 @@ class TestWebDAVCloudSyncPsp:
         self, client, admin_user: User, rom: Rom
     ):
         put_sfo = client.put(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
-            content=b"not real sfo bytes, resolved via WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP instead",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            content=b"not real sfo bytes, resolved via SYNC_RETROARCH_PSP_SERIAL_MAP instead",
             auth=ADMIN_AUTH,
         )
         assert put_sfo.status_code == status.HTTP_201_CREATED
 
         put_data = client.put(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             content=b"the actual save data",
             auth=ADMIN_AUTH,
         )
@@ -938,17 +930,17 @@ class TestWebDAVCloudSyncPsp:
         assert saves[0].file_name == "PSP-TEST12345DATA0.zip"
 
         get_sfo = client.get(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
             auth=ADMIN_AUTH,
         )
         assert get_sfo.status_code == status.HTTP_200_OK
         assert (
             get_sfo.content
-            == b"not real sfo bytes, resolved via WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP instead"
+            == b"not real sfo bytes, resolved via SYNC_RETROARCH_PSP_SERIAL_MAP instead"
         )
 
         get_data = client.get(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             auth=ADMIN_AUTH,
         )
         assert get_data.status_code == status.HTTP_200_OK
@@ -958,17 +950,17 @@ class TestWebDAVCloudSyncPsp:
         self, client, admin_user: User
     ):
         client.put(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
             content=b"sfo",
             auth=ADMIN_AUTH,
         )
         client.put(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             content=b"data",
             auth=ADMIN_AUTH,
         )
 
-        response = client.get("/api/webdav-cloud-sync/manifest.server", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         paths = {entry["path"] for entry in response.json()}
@@ -1002,7 +994,7 @@ class TestWebDAVCloudSyncPsp:
         )
 
         response = client.put(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             content=b"data",
             auth=ADMIN_AUTH,
         )
@@ -1012,7 +1004,7 @@ class TestWebDAVCloudSyncPsp:
         assert [save.file_name for save in saves] == [tagged_name]
 
         get_data = client.get(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             auth=ADMIN_AUTH,
         )
         assert get_data.content == b"data"
@@ -1021,7 +1013,7 @@ class TestWebDAVCloudSyncPsp:
         self, client, admin_user: User, rom: Rom
     ):
         client.put(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             content=b"synced",
             auth=ADMIN_AUTH,
         )
@@ -1048,13 +1040,13 @@ class TestWebDAVCloudSyncPsp:
         )
 
         get_data = client.get(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             auth=ADMIN_AUTH,
         )
         assert get_data.content == b"synced"
 
         client.delete(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             auth=ADMIN_AUTH,
         )
         saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
@@ -1064,12 +1056,12 @@ class TestWebDAVCloudSyncPsp:
         self, client, admin_user: User
     ):
         client.put(
-            "/api/webdav-cloud-sync/saves/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             content=b"data",
             auth=ADMIN_AUTH,
         )
 
-        response = client.get("/api/webdav-cloud-sync/manifest.server", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert [entry["path"] for entry in response.json()] == [
             "saves/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN"
@@ -1078,10 +1070,10 @@ class TestWebDAVCloudSyncPsp:
     def test_unresolved_folder_is_buffered_and_conflicts(
         self, client, admin_user: User, monkeypatch: pytest.MonkeyPatch
     ):
-        monkeypatch.setattr(psp, "WEBDAV_CLOUD_SYNC_PSP_SERIAL_MAP", {})
+        monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
 
         response = client.put(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
             content=b"orphaned save data",
             auth=ADMIN_AUTH,
         )
@@ -1092,32 +1084,32 @@ class TestWebDAVCloudSyncPsp:
         self, client, admin_user: User, rom: Rom
     ):
         client.put(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
             content=b"sfo",
             auth=ADMIN_AUTH,
         )
         client.put(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             content=b"data",
             auth=ADMIN_AUTH,
         )
 
         response = client.request(
             "DELETE",
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             auth=ADMIN_AUTH,
         )
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
         get_sfo = client.get(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
             auth=ADMIN_AUTH,
         )
         assert get_sfo.status_code == status.HTTP_200_OK
         assert get_sfo.content == b"sfo"
 
         get_data = client.get(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             auth=ADMIN_AUTH,
         )
         assert get_data.status_code == status.HTTP_404_NOT_FOUND
@@ -1127,7 +1119,7 @@ class TestWebDAVCloudSyncPsp:
     ):
         for name in ("PARAM.SFO", "SAVE.BIN"):
             client.put(
-                f"/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/{name}",
+                f"/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/{name}",
                 content=b"data",
                 auth=ADMIN_AUTH,
             )
@@ -1135,7 +1127,7 @@ class TestWebDAVCloudSyncPsp:
         for name in ("PARAM.SFO", "SAVE.BIN"):
             response = client.request(
                 "DELETE",
-                f"/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/{name}",
+                f"/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/{name}",
                 auth=ADMIN_AUTH,
             )
             assert response.status_code == status.HTTP_204_NO_CONTENT
@@ -1143,22 +1135,22 @@ class TestWebDAVCloudSyncPsp:
         assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
 
         get_response = client.get(
-            "/api/webdav-cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
             auth=ADMIN_AUTH,
         )
         assert get_response.status_code == status.HTTP_404_NOT_FOUND
 
 
-class TestWebDAVCloudSyncMkcol:
+class TestRetroArchSyncMkcol:
     def test_mkcol_succeeds_without_creating_anything(self, client, admin_user: User):
         response = client.request(
-            "MKCOL", "/api/webdav-cloud-sync/saves/Snes9x", auth=ADMIN_AUTH
+            "MKCOL", "/api/sync/retroarch/saves/Snes9x", auth=ADMIN_AUTH
         )
 
         assert response.status_code == status.HTTP_201_CREATED
 
 
-class TestWebDAVCloudSyncBlobPathParsing:
+class TestRetroArchSyncBlobPathParsing:
     @pytest.mark.parametrize(
         ("path", "expected"),
         [
@@ -1172,7 +1164,7 @@ class TestWebDAVCloudSyncBlobPathParsing:
         ],
     )
     def test_parses_blob_paths(self, path, expected):
-        assert sync_handler.parse_webdav_cloud_sync_blob_path(path) == expected
+        assert sync_handler.parse_retroarch_sync_blob_path(path) == expected
 
     @pytest.mark.parametrize(
         "path",
@@ -1184,31 +1176,31 @@ class TestWebDAVCloudSyncBlobPathParsing:
         ],
     )
     def test_rejects_non_blob_paths(self, path):
-        assert sync_handler.parse_webdav_cloud_sync_blob_path(path) is None
+        assert sync_handler.parse_retroarch_sync_blob_path(path) is None
 
 
-class TestWebDAVCloudSyncBlobs:
+class TestRetroArchSyncBlobs:
     def test_creates_and_downloads_config_blob(self, client, admin_user: User):
         put_response = client.put(
-            "/api/webdav-cloud-sync/config/retroarch.cfg",
+            "/api/sync/retroarch/config/retroarch.cfg",
             content=b"data",
             auth=ADMIN_AUTH,
         )
         assert put_response.status_code == status.HTTP_201_CREATED
 
         get_response = client.get(
-            "/api/webdav-cloud-sync/config/retroarch.cfg", auth=ADMIN_AUTH
+            "/api/sync/retroarch/config/retroarch.cfg", auth=ADMIN_AUTH
         )
         assert get_response.status_code == status.HTTP_200_OK
         assert get_response.content == b"data"
 
     def test_overwrites_existing_blob_in_place(self, client, admin_user: User):
         client.put(
-            "/api/webdav-cloud-sync/system/bios.bin", content=b"data", auth=ADMIN_AUTH
+            "/api/sync/retroarch/system/bios.bin", content=b"data", auth=ADMIN_AUTH
         )
 
         response = client.put(
-            "/api/webdav-cloud-sync/system/bios.bin",
+            "/api/sync/retroarch/system/bios.bin",
             content=b"newdata",
             auth=ADMIN_AUTH,
         )
@@ -1216,13 +1208,13 @@ class TestWebDAVCloudSyncBlobs:
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
         get_response = client.get(
-            "/api/webdav-cloud-sync/system/bios.bin", auth=ADMIN_AUTH
+            "/api/sync/retroarch/system/bios.bin", auth=ADMIN_AUTH
         )
         assert get_response.content == b"newdata"
 
     def test_accepts_nested_thumbnail_paths(self, client, admin_user: User):
         response = client.put(
-            "/api/webdav-cloud-sync/thumbnails/Nintendo - Game Boy/Named_Boxarts/Game.png",
+            "/api/sync/retroarch/thumbnails/Nintendo - Game Boy/Named_Boxarts/Game.png",
             content=b"pngdata",
             auth=ADMIN_AUTH,
         )
@@ -1230,43 +1222,43 @@ class TestWebDAVCloudSyncBlobs:
         assert response.status_code == status.HTTP_201_CREATED
 
     def test_missing_blob_is_not_found(self, client, admin_user: User):
-        response = client.get("/api/webdav-cloud-sync/config/nope.cfg", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/config/nope.cfg", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.content == b""
 
     def test_delete_removes_the_blob(self, client, admin_user: User):
         client.put(
-            "/api/webdav-cloud-sync/config/retroarch.cfg",
+            "/api/sync/retroarch/config/retroarch.cfg",
             content=b"data",
             auth=ADMIN_AUTH,
         )
 
         response = client.request(
-            "DELETE", "/api/webdav-cloud-sync/config/retroarch.cfg", auth=ADMIN_AUTH
+            "DELETE", "/api/sync/retroarch/config/retroarch.cfg", auth=ADMIN_AUTH
         )
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
         get_response = client.get(
-            "/api/webdav-cloud-sync/config/retroarch.cfg", auth=ADMIN_AUTH
+            "/api/sync/retroarch/config/retroarch.cfg", auth=ADMIN_AUTH
         )
         assert get_response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_delete_of_unknown_blob_is_not_found(self, client, admin_user: User):
         response = client.request(
-            "DELETE", "/api/webdav-cloud-sync/config/nope.cfg", auth=ADMIN_AUTH
+            "DELETE", "/api/sync/retroarch/config/nope.cfg", auth=ADMIN_AUTH
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_manifest_includes_blobs_alongside_assets(self, client, admin_user: User):
         client.put(
-            "/api/webdav-cloud-sync/config/retroarch.cfg",
+            "/api/sync/retroarch/config/retroarch.cfg",
             content=b"data",
             auth=ADMIN_AUTH,
         )
 
-        response = client.get("/api/webdav-cloud-sync/manifest.server", auth=ADMIN_AUTH)
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == [
@@ -1277,50 +1269,46 @@ class TestWebDAVCloudSyncBlobs:
         ]
 
 
-class TestWebDAVCloudSyncBrowsing:
+class TestRetroArchSyncBrowsing:
     """Read-only WebDAV browsing (PROPFIND, LOCK, the `roms/` redirect) for generic clients."""
 
     def test_lock_succeeds(self, client, admin_user: User):
-        response = client.request(
-            "LOCK", "/api/webdav-cloud-sync/roms/", auth=ADMIN_AUTH
-        )
+        response = client.request("LOCK", "/api/sync/retroarch/roms/", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.headers["lock-token"].startswith("<opaquelocktoken:")
 
     def test_unlock_succeeds(self, client, admin_user: User):
         response = client.request(
-            "UNLOCK", "/api/webdav-cloud-sync/roms/", auth=ADMIN_AUTH
+            "UNLOCK", "/api/sync/retroarch/roms/", auth=ADMIN_AUTH
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
     def test_propfind_without_credentials_challenges(self, client):
-        response = client.request("PROPFIND", "/api/webdav-cloud-sync/")
+        response = client.request("PROPFIND", "/api/sync/retroarch/")
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_propfind_root_lists_virtual_roots(self, client, admin_user: User):
-        response = client.request(
-            "PROPFIND", "/api/webdav-cloud-sync/", auth=ADMIN_AUTH
-        )
+        response = client.request("PROPFIND", "/api/sync/retroarch/", auth=ADMIN_AUTH)
 
         assert response.status_code == 207
         body = response.text
-        assert "<D:href>/api/webdav-cloud-sync/roms/</D:href>" in body
-        assert "<D:href>/api/webdav-cloud-sync/saves/</D:href>" in body
-        assert "<D:href>/api/webdav-cloud-sync/states/</D:href>" in body
+        assert "<D:href>/api/sync/retroarch/roms/</D:href>" in body
+        assert "<D:href>/api/sync/retroarch/saves/</D:href>" in body
+        assert "<D:href>/api/sync/retroarch/states/</D:href>" in body
 
     def test_propfind_roms_lists_platforms_with_roms(
         self, client, admin_user: User, rom: Rom
     ):
         response = client.request(
-            "PROPFIND", "/api/webdav-cloud-sync/roms/", auth=ADMIN_AUTH
+            "PROPFIND", "/api/sync/retroarch/roms/", auth=ADMIN_AUTH
         )
 
         assert response.status_code == 207
         assert (
-            f"<D:href>/api/webdav-cloud-sync/roms/{rom.platform.fs_slug}/</D:href>"
+            f"<D:href>/api/sync/retroarch/roms/{rom.platform.fs_slug}/</D:href>"
             in response.text
         )
 
@@ -1329,19 +1317,19 @@ class TestWebDAVCloudSyncBrowsing:
     ):
         response = client.request(
             "PROPFIND",
-            f"/api/webdav-cloud-sync/roms/{rom.platform.fs_slug}/",
+            f"/api/sync/retroarch/roms/{rom.platform.fs_slug}/",
             auth=ADMIN_AUTH,
         )
 
         assert response.status_code == 207
         assert (
-            f"<D:href>/api/webdav-cloud-sync/roms/{rom.platform.fs_slug}/{rom.fs_name}</D:href>"
+            f"<D:href>/api/sync/retroarch/roms/{rom.platform.fs_slug}/{rom.fs_name}</D:href>"
             in response.text
         )
 
     def test_propfind_unknown_platform_is_not_found(self, client, admin_user: User):
         response = client.request(
-            "PROPFIND", "/api/webdav-cloud-sync/roms/nope/", auth=ADMIN_AUTH
+            "PROPFIND", "/api/sync/retroarch/roms/nope/", auth=ADMIN_AUTH
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -1350,7 +1338,7 @@ class TestWebDAVCloudSyncBrowsing:
         self, client, admin_user: User, rom: Rom
     ):
         response = client.get(
-            f"/api/webdav-cloud-sync/roms/{rom.platform.fs_slug}/{rom.fs_name}",
+            f"/api/sync/retroarch/roms/{rom.platform.fs_slug}/{rom.fs_name}",
             auth=ADMIN_AUTH,
             follow_redirects=False,
         )
@@ -1364,14 +1352,14 @@ class TestWebDAVCloudSyncBrowsing:
         self, client, admin_user: User, rom: Rom
     ):
         response = client.get(
-            f"/api/webdav-cloud-sync/roms/{rom.platform.fs_slug}/nope.zip",
+            f"/api/sync/retroarch/roms/{rom.platform.fs_slug}/nope.zip",
             auth=ADMIN_AUTH,
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     @mock.patch(
-        "handler.webdav_cloud_sync.sync_handler.asset_md5",
+        "handler.sync.retroarch.sync_handler.asset_md5",
         new_callable=mock.AsyncMock,
         return_value="d41d8cd98f00b204e9800998ecf8427e",
     )
@@ -1379,14 +1367,14 @@ class TestWebDAVCloudSyncBrowsing:
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, synced_save: Save
     ):
         response = client.request(
-            "PROPFIND", "/api/webdav-cloud-sync/saves/", auth=ADMIN_AUTH
+            "PROPFIND", "/api/sync/retroarch/saves/", auth=ADMIN_AUTH
         )
 
         assert response.status_code == 207
-        assert "<D:href>/api/webdav-cloud-sync/saves/Snes9x/</D:href>" in response.text
+        assert "<D:href>/api/sync/retroarch/saves/Snes9x/</D:href>" in response.text
 
     @mock.patch(
-        "handler.webdav_cloud_sync.sync_handler.asset_md5",
+        "handler.sync.retroarch.sync_handler.asset_md5",
         new_callable=mock.AsyncMock,
         return_value="d41d8cd98f00b204e9800998ecf8427e",
     )
@@ -1394,11 +1382,11 @@ class TestWebDAVCloudSyncBrowsing:
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, synced_save: Save
     ):
         response = client.request(
-            "PROPFIND", "/api/webdav-cloud-sync/saves/Snes9x/", auth=ADMIN_AUTH
+            "PROPFIND", "/api/sync/retroarch/saves/Snes9x/", auth=ADMIN_AUTH
         )
 
         assert response.status_code == 207
         assert (
-            "<D:href>/api/webdav-cloud-sync/saves/Snes9x/test_rom.srm</D:href>"
+            "<D:href>/api/sync/retroarch/saves/Snes9x/test_rom.srm</D:href>"
             in response.text
         )

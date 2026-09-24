@@ -193,7 +193,9 @@ backend/
 │   ├── search.py              # Cross-provider metadata search
 │   ├── states.py              # Save state management
 │   ├── stats.py               # Library statistics
-│   ├── sync.py                # Device sync sessions (push/pull, SSH)
+│   ├── sync/                  # Device sync
+│   │   ├── __init__.py        # Sync sessions (push/pull, SSH)
+│   │   └── retroarch.py       # RetroArch Cloud Sync WebDAV surface
 │   ├── tasks.py               # Task monitoring & triggering
 │   ├── roms/                  # ROM-specific endpoints
 │   │   ├── __init__.py        # ROM CRUD, download, bulk ops
@@ -938,12 +940,12 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | PUT    | `/{id}`        | ASSETS_WRITE | Update state  |
 | POST   | `/delete`      | ASSETS_WRITE | Bulk delete   |
 
-### 6.9b RetroArch Cloud Sync (`/api/webdav-cloud-sync`)
+### 6.9b RetroArch Cloud Sync (`/api/sync/retroarch`)
 
 A minimal WebDAV surface for RetroArch's Cloud Sync driver, which diffs a JSON
 manifest of `{path, hash}` entries instead of listing collections. PROPFIND,
 LOCK and UNLOCK exist only for read-only browsing from generic WebDAV clients,
-and listing `roms/` also needs ROMS_READ. Point RetroArch's WebDAV URL at `https://<host>/api/webdav-cloud-sync/`
+and listing `roms/` also needs ROMS_READ. Point RetroArch's WebDAV URL at `https://<host>/api/sync/retroarch/`
 (trailing slash required), enable save/state sync only, and authenticate with a
 RomM username and password over HTTP Basic.
 
@@ -963,7 +965,7 @@ RomM username and password over HTTP Basic.
 (`Super Mario World.srm` → the ROM whose `fs_name_no_ext` is `Super Mario
 World`), so a name shared across platforms resolves ambiguously. The optional
 `core` segment is RetroArch's own directory casing (e.g. `Snes9x`), translated
-through `webdav_cloud_sync.emulator_names.to_romm_emulator`/`to_retroarch_dir_name` to
+through `sync.retroarch.emulator_names.to_romm_emulator`/`to_retroarch_dir_name` to
 and from the asset's `emulator` field, which namespaces storage exactly as it
 does for uploads through `/api/saves`. Storing RetroArch's raw casing instead
 would make the save invisible to RomM's own web player, which matches saves
@@ -977,7 +979,7 @@ client mishandles large ones.
 
 RetroArch's other three Cloud Sync categories (Sync Configuration/Thumbnails/
 System Files) have no ROM to attach to, so they're stored as opaque per-user
-blobs under `WEBDAV_CLOUD_SYNC_BLOB_BASE_PATH` (`FSWebDAVCloudSyncBlobHandler`) instead of
+blobs under `SYNC_RETROARCH_BLOB_BASE_PATH` (`FSRetroArchSyncBlobHandler`) instead of
 going through the asset/ROM matching above, namespaced by user so two
 RetroArch installs syncing to the same RomM instance under different accounts
 never see each other's files. Unlike asset hashes, blob hashes are always real
@@ -1340,7 +1342,7 @@ Tracks per-user playtime events ingested from clients (web player, console mode,
 
 ### 8.7 Device Sync Sessions
 
-Coordinates save/state synchronization between devices using three sync modes (`API`, `FILE_TRANSFER`, `PUSH_PULL`). `SyncSession` tracks the lifecycle of a push/pull operation (including optional SSH-based file transfer; see `SYNC_SSH_*` env vars). Endpoints live in `endpoints/sync.py`; state is stored in the `sync_sessions` table.
+Coordinates save/state synchronization between devices using three sync modes (`API`, `FILE_TRANSFER`, `PUSH_PULL`). `SyncSession` tracks the lifecycle of a push/pull operation (including optional SSH-based file transfer; see `SYNC_SSH_*` env vars). Endpoints live in `endpoints/sync/__init__.py`; state is stored in the `sync_sessions` table.
 
 ### 8.8 Socket Handler (`handler/socket_handler.py`)
 

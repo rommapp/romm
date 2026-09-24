@@ -3,7 +3,7 @@ import zipfile
 
 import pytest
 
-from handler.webdav_cloud_sync.psp import (
+from handler.sync.retroarch.psp import (
     _BUNDLE_MAX_MEMBERS,
     PspFilePath,
     _bundle_folder,

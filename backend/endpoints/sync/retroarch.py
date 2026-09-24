@@ -3,8 +3,8 @@
 RetroArch issues OPTIONS, GET, PUT, DELETE, MKCOL and MOVE, and diffs a
 manifest instead of listing collections. PROPFIND, LOCK and UNLOCK exist only
 for read-only browsing from generic WebDAV clients. See
-`handler/webdav_cloud_sync/sync_handler.py` for how the client-side paths map onto RomM's
-asset storage.
+`handler/sync/retroarch/sync_handler.py` for how the client-side paths map onto
+RomM's asset storage.
 
 Error responses are deliberately body-less: RetroArch logs failure responses
 from a fixed-size buffer, and a large body has been observed to corrupt its
@@ -29,15 +29,15 @@ from handler.database import (
     db_screenshot_handler,
     db_state_handler,
 )
-from handler.filesystem import fs_asset_handler, fs_webdav_cloud_sync_blob_handler
+from handler.filesystem import fs_asset_handler, fs_retroarch_sync_blob_handler
 from handler.filesystem.assets_handler import build_asset_file_response
 from handler.filesystem.base_handler import FSHandler
 from handler.scan_handler import scan_save, scan_screenshot, scan_state
-from handler.webdav_cloud_sync import browser, psp, sync_handler
-from handler.webdav_cloud_sync.sync_handler import (
+from handler.sync.retroarch import browser, psp, sync_handler
+from handler.sync.retroarch.sync_handler import (
     MANIFEST_FILE_NAME,
     AssetKind,
-    WebDAVCloudSyncPath,
+    RetroArchSyncPath,
 )
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -47,7 +47,7 @@ from models.rom import Rom
 from models.user import User
 from utils.filesystem import sanitize_filename
 
-router = APIRouter(prefix="/webdav-cloud-sync", tags=["webdav-cloud-sync"])
+router = APIRouter(prefix="/retroarch")
 
 ALLOWED_METHODS = "OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, LOCK, UNLOCK"
 
@@ -93,9 +93,7 @@ def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | Non
     )
 
 
-def _get_asset(
-    user: User, rom: Rom, parsed: WebDAVCloudSyncPath
-) -> Save | State | None:
+def _get_asset(user: User, rom: Rom, parsed: RetroArchSyncPath) -> Save | State | None:
     if parsed.kind == "saves":
         file_path = sync_handler.build_asset_file_path(
             user, rom, parsed.kind, parsed.emulator
@@ -127,7 +125,7 @@ def _serve(handler: FSHandler, path: str, filename: str) -> Response:
 
 
 @router.api_route("/{file_path:path}", methods=["OPTIONS"], include_in_schema=False)
-def webdav_cloud_sync_options(request: Request, file_path: str) -> Response:
+def retroarch_sync_options(request: Request, file_path: str) -> Response:
     """Advertise DAV support. RetroArch stats the base URL before syncing."""
     denied = _authorize(request, Scope.ASSETS_READ)
     if denied:
@@ -142,7 +140,7 @@ def webdav_cloud_sync_options(request: Request, file_path: str) -> Response:
 
 
 @router.api_route("/{file_path:path}", methods=["LOCK"], include_in_schema=False)
-def webdav_cloud_sync_lock(request: Request, file_path: str) -> Response:
+def retroarch_sync_lock(request: Request, file_path: str) -> Response:
     """Always-granted fake lock, for clients that won't mount without one."""
     denied = _authorize(request, Scope.ASSETS_READ)
     if denied:
@@ -167,7 +165,7 @@ def webdav_cloud_sync_lock(request: Request, file_path: str) -> Response:
 
 
 @router.api_route("/{file_path:path}", methods=["UNLOCK"], include_in_schema=False)
-def webdav_cloud_sync_unlock(request: Request, file_path: str) -> Response:
+def retroarch_sync_unlock(request: Request, file_path: str) -> Response:
     denied = _authorize(request, Scope.ASSETS_READ)
     if denied:
         return denied
@@ -176,7 +174,7 @@ def webdav_cloud_sync_unlock(request: Request, file_path: str) -> Response:
 
 
 @router.api_route("/{file_path:path}", methods=["PROPFIND"], include_in_schema=False)
-async def webdav_cloud_sync_propfind(request: Request, file_path: str) -> Response:
+async def retroarch_sync_propfind(request: Request, file_path: str) -> Response:
     """Read-only browsing of `roms/` and the manifest's current `saves/`/`states/`.
 
     RetroArch never sends PROPFIND; this serves generic WebDAV clients.
@@ -343,7 +341,7 @@ def _manifest_file_entry(entry: dict[str, str]) -> browser.PropfindEntry:
 
 
 @router.api_route("/{file_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
-async def webdav_cloud_sync_get(request: Request, file_path: str) -> Response:
+async def retroarch_sync_get(request: Request, file_path: str) -> Response:
     """Serve the manifest, or the bytes of a single save/state."""
     denied = _authorize(request, Scope.ASSETS_READ)
     if denied:
@@ -355,10 +353,10 @@ async def webdav_cloud_sync_get(request: Request, file_path: str) -> Response:
         )
         return JSONResponse(content=manifest)
 
-    blob_path = sync_handler.parse_webdav_cloud_sync_blob_path(file_path)
+    blob_path = sync_handler.parse_retroarch_sync_blob_path(file_path)
     if blob_path:
         return _serve(
-            fs_webdav_cloud_sync_blob_handler,
+            fs_retroarch_sync_blob_handler,
             sync_handler.user_blob_path(request.user, blob_path),
             os.path.basename(blob_path),
         )
@@ -392,7 +390,7 @@ async def webdav_cloud_sync_get(request: Request, file_path: str) -> Response:
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
         )
 
-    parsed = sync_handler.parse_webdav_cloud_sync_path(file_path)
+    parsed = sync_handler.parse_retroarch_sync_path(file_path)
     if not parsed:
         return _empty(status.HTTP_404_NOT_FOUND)
 
@@ -415,7 +413,7 @@ async def webdav_cloud_sync_get(request: Request, file_path: str) -> Response:
 
 
 @router.api_route("/{file_path:path}", methods=["PUT"], include_in_schema=False)
-async def webdav_cloud_sync_put(request: Request, file_path: str) -> Response:
+async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     """Store an uploaded save/state against the ROM its file name points at."""
     denied = _authorize(request, Scope.ASSETS_WRITE)
     if denied:
@@ -428,12 +426,12 @@ async def webdav_cloud_sync_put(request: Request, file_path: str) -> Response:
 
     # config/, thumbnails/ and system/ belong to no ROM, so they're stored as
     # opaque per-user blobs.
-    blob_path = sync_handler.parse_webdav_cloud_sync_blob_path(file_path)
+    blob_path = sync_handler.parse_retroarch_sync_blob_path(file_path)
     if blob_path:
         disk_path = sync_handler.user_blob_path(request.user, blob_path)
         try:
-            existed = await fs_webdav_cloud_sync_blob_handler.file_exists(disk_path)
-            await fs_webdav_cloud_sync_blob_handler.write_file(
+            existed = await fs_retroarch_sync_blob_handler.file_exists(disk_path)
+            await fs_retroarch_sync_blob_handler.write_file(
                 file=await request.body(),
                 path=os.path.dirname(disk_path),
                 filename=os.path.basename(disk_path),
@@ -461,7 +459,7 @@ async def webdav_cloud_sync_put(request: Request, file_path: str) -> Response:
             return _empty(status.HTTP_409_CONFLICT)
         return _empty(status.HTTP_201_CREATED)
 
-    parsed = sync_handler.parse_webdav_cloud_sync_path(file_path)
+    parsed = sync_handler.parse_retroarch_sync_path(file_path)
     if not parsed:
         return _empty(status.HTTP_409_CONFLICT)
 
@@ -595,7 +593,7 @@ async def webdav_cloud_sync_put(request: Request, file_path: str) -> Response:
 @router.api_route(
     "/{file_path:path}", methods=["DELETE", "MOVE"], include_in_schema=False
 )
-async def webdav_cloud_sync_delete(request: Request, file_path: str) -> Response:
+async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     """Drop a save/state the client no longer has.
 
     MOVE lands here too. RetroArch uses it in non-destructive mode to shelve the
@@ -606,10 +604,10 @@ async def webdav_cloud_sync_delete(request: Request, file_path: str) -> Response
     if denied:
         return denied
 
-    blob_path = sync_handler.parse_webdav_cloud_sync_blob_path(file_path)
+    blob_path = sync_handler.parse_retroarch_sync_blob_path(file_path)
     if blob_path:
         try:
-            await fs_webdav_cloud_sync_blob_handler.remove_file(
+            await fs_retroarch_sync_blob_handler.remove_file(
                 file_path=sync_handler.user_blob_path(request.user, blob_path)
             )
         except FileNotFoundError:
@@ -625,7 +623,7 @@ async def webdav_cloud_sync_delete(request: Request, file_path: str) -> Response
             )
         return _empty(status.HTTP_204_NO_CONTENT)
 
-    parsed = sync_handler.parse_webdav_cloud_sync_path(file_path)
+    parsed = sync_handler.parse_retroarch_sync_path(file_path)
     if not parsed:
         return _empty(status.HTTP_404_NOT_FOUND)
 
@@ -665,7 +663,7 @@ async def webdav_cloud_sync_delete(request: Request, file_path: str) -> Response
 
 
 @router.api_route("/{file_path:path}", methods=["MKCOL"], include_in_schema=False)
-def webdav_cloud_sync_mkcol(request: Request, file_path: str) -> Response:
+def retroarch_sync_mkcol(request: Request, file_path: str) -> Response:
     """Accept directory creation. Storage layout is derived from the ROM, so
     there is nothing to create; failing here would abort the client's sync."""
     denied = _authorize(request, Scope.ASSETS_WRITE)

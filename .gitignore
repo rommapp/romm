@@ -62,8 +62,8 @@ frontend/assets/pico8
 backend/romm_test/resources
 backend/romm_test/logs
 backend/romm_test/assets
-backend/romm_test/webdav_cloud_sync_blobs
-backend/romm_test/cache/webdav_cloud_sync
+backend/romm_test/retroarch_sync_blobs
+backend/romm_test/cache/retroarch_sync
 .pytest_cache
 .hypothesis
 /romm_test

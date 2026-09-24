@@ -62,7 +62,6 @@ from endpoints.streaming import router as streaming_router
 from endpoints.sync import router as sync_router
 from endpoints.tasks import router as tasks_router
 from endpoints.user import router as user_router
-from endpoints.webdav_cloud_sync import router as webdav_cloud_sync_router
 from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
@@ -135,7 +134,7 @@ app.add_middleware(
         re.compile(r"^/api/saves"),
         re.compile(r"^/api/states"),
         re.compile(r"^/api/screenshots"),
-        re.compile(r"^/api/webdav-cloud-sync"),
+        re.compile(r"^/api/sync/retroarch"),
     ],
 )
 
@@ -202,7 +201,6 @@ app.include_router(search_router, prefix="/api")
 app.include_router(saves_router, prefix="/api")
 app.include_router(states_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
-app.include_router(webdav_cloud_sync_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
 app.include_router(feeds_router, prefix="/api")
 app.include_router(configs_router, prefix="/api")
