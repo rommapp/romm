@@ -1,5 +1,6 @@
 import asyncio
 import fnmatch
+import hashlib
 import os
 import re
 import shutil
@@ -417,7 +418,16 @@ class FSHandler:
 
         # Normalize path without resolving the full path yet
         base_path_obj = Path(self.base_path).resolve()
-        full_path = base_path_obj / path_path
+        base_path_str = str(base_path_obj)
+        normalized_path = os.path.normpath(os.path.join(base_path_str, path_path))
+        if normalized_path == base_path_str:
+            return base_path_obj
+        # A bare startswith guard, which CodeQL recognizes as a path sanitizer.
+        if not normalized_path.startswith(base_path_str + os.sep):
+            raise ValueError(
+                f"Path {path} is outside the base directory {self.base_path}"
+            )
+        full_path = Path(normalized_path)
 
         try:
             # Detect a symlink anywhere in the path, not just at the leaf —
@@ -432,12 +442,9 @@ class FSHandler:
                         has_symlink_in_path = True
                         break
 
-            if has_symlink_in_path:
-                # Validate lexically — `..` and absolute paths are already
-                # rejected above, so the symlink target is reachable only via
-                # an intentionally-configured link.
-                full_path.relative_to(base_path_obj)
-            else:
+            # A symlinked path already passed the lexical check above, so its
+            # target is reachable only via an intentionally-configured link.
+            if not has_symlink_in_path:
                 full_path.resolve().relative_to(base_path_obj)
         except ValueError as exc:
             raise ValueError(
@@ -445,6 +452,25 @@ class FSHandler:
             ) from exc
 
         return full_path
+
+    async def _compute_file_hash(self, file_path: str) -> str:
+        full_path = self.validate_path(file_path)
+
+        def digest() -> str:
+            with open(full_path, "rb") as f:
+                return hashlib.file_digest(
+                    f, lambda: hashlib.md5(usedforsecurity=False)
+                ).hexdigest()
+
+        return await asyncio.to_thread(digest)
+
+    async def compute_file_md5(self, file_path: str) -> str:
+        """MD5 of the bytes on disk, unlike zip-aware `compute_content_hash`.
+
+        Raises:
+            OSError: The file is missing or unreadable.
+        """
+        return await self._compute_file_hash(file_path)
 
     @asynccontextmanager
     async def _atomic_write(self, target_path: Path):
@@ -603,9 +629,8 @@ class FSHandler:
 
         # Validate and sanitize inputs
         sanitized_filename = self._sanitize_filename(original_filename)
-        target_directory = self.validate_path(path)
-
-        final_file_path = target_directory / sanitized_filename
+        final_file_path = self.validate_path(os.path.join(path, sanitized_filename))
+        target_directory = final_file_path.parent
 
         # Async thread-safe file operations
         lock = await self._get_file_lock(str(final_file_path))
@@ -658,9 +683,8 @@ class FSHandler:
 
         # Validate and sanitize inputs
         sanitized_filename = self._sanitize_filename(filename)
-        target_directory = self.validate_path(path)
-
-        final_file_path = target_directory / sanitized_filename
+        final_file_path = self.validate_path(os.path.join(path, sanitized_filename))
+        target_directory = final_file_path.parent
 
         # Async thread-safe file operations
         lock = await self._get_file_lock(str(final_file_path))

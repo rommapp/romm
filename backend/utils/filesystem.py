@@ -113,7 +113,7 @@ def link_or_copy_file(source: Path, dest: Path) -> None:
 
 
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")
-INVALID_CHARS_EMPTY = re.compile(r'[*?"<>+]')
+INVALID_CHARS_EMPTY = re.compile(r'[*?"<>]')
 
 # C0 controls plus DEL. Illegal on most filesystems, and a line feed in a name
 # that reaches a line-oriented protocol (the nginx mod_zip manifest) would split

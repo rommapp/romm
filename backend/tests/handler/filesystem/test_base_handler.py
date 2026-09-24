@@ -110,6 +110,22 @@ class TestFSHandler:
             result = handler.validate_path(path)
             assert result.is_relative_to(handler.base_path)
 
+    def test_validate_path_base_directory(self, handler: FSHandler):
+        base = Path(handler.base_path).resolve()
+        assert handler.validate_path("") == base
+        assert handler.validate_path(".") == base
+
+    async def test_compute_file_md5(self, handler: FSHandler):
+        await handler.write_file(b"romm", ".", "file.bin")
+        assert (
+            await handler.compute_file_md5("file.bin")
+            == "356bc0b7ad776f256d85069abcb4698c"
+        )
+
+    async def test_compute_file_md5_missing_file_raises(self, handler: FSHandler):
+        with pytest.raises(FileNotFoundError):
+            await handler.compute_file_md5("missing.bin")
+
     def test_validate_path_traversal_attack(self, handler: FSHandler):
         """Test path validation prevents directory traversal attacks"""
         malicious_paths = [

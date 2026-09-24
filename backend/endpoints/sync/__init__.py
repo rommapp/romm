@@ -37,10 +37,13 @@ from utils.datetime import to_utc
 from utils.router import APIRouter
 from utils.validation import MAX_ROM_IDS_PER_QUERY, RomIdScope
 
+from .retroarch import router as retroarch_router
+
 router = APIRouter(
     prefix="/sync",
     tags=["sync"],
 )
+router.include_router(retroarch_router)
 
 # A hung broker must not pin the background task forever.
 CONFLICT_NOTIFY_TIMEOUT_S = 2.0

@@ -2135,6 +2135,25 @@ class DBRomsHandler(DBBaseHandler):
         return {rom.full_path: rom for rom in roms}
 
     @begin_session
+    def get_roms_by_fs_names_no_ext(
+        self,
+        fs_names_no_ext: Iterable[str],
+        session: Session = None,  # type: ignore
+    ) -> list[Rom]:
+        """ROMs on any platform with one of these extensionless file names."""
+        names = list(dict.fromkeys(fs_names_no_ext))
+        roms: list[Rom] = []
+        for i in range(0, len(names), 1000):
+            roms += session.scalars(
+                select(Rom)
+                .options(selectinload(Rom.platform))
+                .where(Rom.fs_name_no_ext.in_(names[i : i + 1000]))
+            ).all()
+
+        # Id order keeps an ambiguous name resolving the same way on every sync.
+        return sorted(roms, key=lambda rom: rom.id)
+
+    @begin_session
     def update_rom(
         self,
         id: int,

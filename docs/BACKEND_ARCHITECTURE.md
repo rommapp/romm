@@ -193,7 +193,9 @@ backend/
 │   ├── search.py              # Cross-provider metadata search
 │   ├── states.py              # Save state management
 │   ├── stats.py               # Library statistics
-│   ├── sync.py                # Device sync sessions (push/pull, SSH)
+│   ├── sync/                  # Device sync
+│   │   ├── __init__.py        # Sync sessions (push/pull, SSH)
+│   │   └── retroarch.py       # RetroArch Cloud Sync WebDAV surface
 │   ├── tasks.py               # Task monitoring & triggering
 │   ├── roms/                  # ROM-specific endpoints
 │   │   ├── __init__.py        # ROM CRUD, download, bulk ops
@@ -955,6 +957,49 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | PUT    | `/{id}`        | ASSETS_WRITE | Update state  |
 | POST   | `/delete`      | ASSETS_WRITE | Bulk delete   |
 
+### 6.9b RetroArch Cloud Sync (`/api/sync/retroarch`)
+
+A minimal WebDAV surface for RetroArch's Cloud Sync driver, which diffs a JSON
+manifest of `{path, hash}` entries instead of listing collections. Point
+RetroArch's WebDAV URL at `https://<host>/api/sync/retroarch/` (trailing slash
+required) and authenticate with a RomM username and password over HTTP Basic.
+
+| Method               | Path                                 | Scope        | Description                                       |
+| -------------------- | ------------------------------------ | ------------ | ------------------------------------------------- |
+| OPTIONS              | `/{path}`                            | ASSETS_READ  | Advertise DAV support                             |
+| PROPFIND/LOCK/UNLOCK | `/{path}`                            | ASSETS_READ  | Read-only browsing (`roms/` also needs ROMS_READ) |
+| GET                  | `/manifest.server`                   | ASSETS_READ  | Manifest of the caller's saves, states and blobs  |
+| GET                  | `/{root}/[core/]{file}`              | ASSETS_READ  | Download one save/state                           |
+| PUT                  | `/{root}/[core/]{file}`              | ASSETS_WRITE | Upload one save/state                             |
+| DELETE/MOVE          | `/{root}/[core/]{file}`              | ASSETS_WRITE | Delete one save/state                             |
+| GET                  | `/{config,thumbnails,system}/{path}` | ASSETS_READ  | Download one opaque blob file                     |
+| PUT                  | `/{config,thumbnails,system}/{path}` | ASSETS_WRITE | Upload one opaque blob file                       |
+| DELETE/MOVE          | `/{config,thumbnails,system}/{path}` | ASSETS_WRITE | Delete one opaque blob file                       |
+| MKCOL                | `/{path}`                            | ASSETS_WRITE | Accepted no-op (layout is derived from the ROM)   |
+
+- **Matching:** `{root}` is `saves` or `states`. A file matches a ROM by file
+  name alone (`Super Mario World.srm` matches `fs_name_no_ext` `Super Mario
+World`), so a name shared across platforms resolves to the lowest visible ROM id.
+- **Cores:** the `core` segment is RetroArch's directory name (e.g. `Snes9x`),
+  mapped to and from the asset's `emulator` through
+  `sync.retroarch.emulator_names`, so web player saves stay visible. Unknown
+  cores round-trip unchanged.
+- **Manifest:** slotted saves are left out, since no core loads them. Assets
+  whose file is gone are flagged `missing_from_fs`. Hashes are MD5s of the
+  bytes on disk, Redis-cached by path, size and mtime.
+- **PSP:** PPSSPP's `PSP/SAVEDATA/<folder>/` files are stored as one zipped
+  `Save` per folder. A folder whose title matches no ROM is buffered under
+  `SYNC_RETROARCH_PSP_PENDING_PATH`, or mapped through `SYNC_RETROARCH_PSP_SERIAL_MAP`.
+- **Blobs:** `config/`, `thumbnails/` and `system/` belong to no ROM, so they
+  are stored per user under `SYNC_RETROARCH_BASE_PATH` (`FSRetroArchSyncHandler`).
+- **Auth:** the router gates itself so it can answer a 401 Basic challenge,
+  and sends body-less errors, which RetroArch's client needs. The kiosk guest
+  may browse `roms/` but is challenged everywhere else. Uploads are capped at
+  `MAX_ASSET_UPLOAD_SIZE_BYTES`.
+- **Device:** each manifest fetch registers or touches one RetroArch `Device`
+  per user (`client="retroarch"`, `SyncMode.API`), since RetroArch sends no
+  install identity.
+
 ### 6.10 Screenshots (`/api/screenshots`)
 
 | Method | Path           | Scope        | Description        |
@@ -1321,7 +1366,7 @@ Tracks per-user playtime events ingested from clients (web player, console mode,
 
 ### 8.7 Device Sync Sessions
 
-Coordinates save/state synchronization between devices using three sync modes (`API`, `FILE_TRANSFER`, `PUSH_PULL`). `SyncSession` tracks the lifecycle of a push/pull operation (including optional SSH-based file transfer; see `SYNC_SSH_*` env vars). Endpoints live in `endpoints/sync.py`; state is stored in the `sync_sessions` table.
+Coordinates save/state synchronization between devices using three sync modes (`API`, `FILE_TRANSFER`, `PUSH_PULL`). `SyncSession` tracks the lifecycle of a push/pull operation (including optional SSH-based file transfer; see `SYNC_SSH_*` env vars). Endpoints live in `endpoints/sync/__init__.py`; state is stored in the `sync_sessions` table.
 
 ### 8.8 Socket Handler (`handler/socket_handler.py`)
 
@@ -1759,14 +1804,15 @@ Falls back to `FakeRedis` in test mode.
 
 #### Device Sync
 
-| Variable                     | Default | Description                     |
-| ---------------------------- | ------- | ------------------------------- |
-| `ENABLE_SYNC_FOLDER_WATCHER` | `false` | Watch sync folder for new saves |
-| `SYNC_FOLDER_SCAN_DELAY`     |         | Debounce for sync folder scans  |
-| `ENABLE_SYNC_PUSH_PULL`      | `false` | Enable scheduled push/pull sync |
-| `SYNC_PUSH_PULL_CRON`        |         | Cron schedule for push/pull     |
-| `SYNC_SSH_KEYS_PATH`         |         | SSH keys path                   |
-| `SYNC_SSH_KNOWN_HOSTS_PATH`  |         | SSH known hosts path            |
+| Variable                        | Default | Description                             |
+| ------------------------------- | ------- | --------------------------------------- |
+| `ENABLE_SYNC_FOLDER_WATCHER`    | `false` | Watch sync folder for new saves         |
+| `SYNC_FOLDER_SCAN_DELAY`        |         | Debounce for sync folder scans          |
+| `ENABLE_SYNC_PUSH_PULL`         | `false` | Enable scheduled push/pull sync         |
+| `SYNC_PUSH_PULL_CRON`           |         | Cron schedule for push/pull             |
+| `SYNC_SSH_KEYS_PATH`            |         | SSH keys path                           |
+| `SYNC_SSH_KNOWN_HOSTS_PATH`     |         | SSH known hosts path                    |
+| `SYNC_RETROARCH_PSP_SERIAL_MAP` | `{}`    | JSON map of PSP serial to ROM file name |
 
 ### YAML Configuration (`config.yml`)
 
