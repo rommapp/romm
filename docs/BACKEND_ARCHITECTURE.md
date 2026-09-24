@@ -800,7 +800,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 
 **Base URL:** `/api`
 **Documentation:** Swagger UI at `/api/docs`, ReDoc at `/api/redoc`
-**Pagination:** `fastapi-pagination` with `LimitOffsetParams` (`limit`, `offset`, `total`)
+**Pagination:** `PageParams` (`limit`, `offset`) via the `PAGE_QUERY` dependency, returning a `LimitOffsetPage` (`items`, `total`, `limit`, `offset`); both live in `endpoints/responses/base.py`
 
 ### 6.1 Authentication (`/api`)
 
