@@ -274,7 +274,7 @@ async function requestDelete() {
         />
         <PdfViewer
           v-else
-          :key="`${selected.id}-${rom.updated_at}-pdf`"
+          :key="selected.url"
           :pdf-url="selected.url"
           :rom-id="rom.id"
           :file-id="selected.fileId"
