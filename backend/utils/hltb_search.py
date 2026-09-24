@@ -17,9 +17,15 @@ HLTB_SESSION_HEADERS: Final[frozenset[str]] = frozenset(
 
 class HLTBSession(NamedTuple):
     token: str
-    # HLTB no longer issues this honeypot pair, but older /init responses carried it.
+    # The honeypot pair is optional, and is echoed back only when /init issues it.
     hp_key: str | None = None
     hp_val: str | None = None
+
+    def honeypot(self) -> tuple[str, str] | None:
+        """The (key, val) pair to echo back, or None when /init did not issue both."""
+        if self.hp_key and self.hp_val:
+            return self.hp_key, self.hp_val
+        return None
 
 
 def parse_session(data: dict) -> HLTBSession | None:
@@ -28,11 +34,7 @@ def parse_session(data: dict) -> HLTBSession | None:
     if not token:
         return None
 
-    hp_key, hp_val = data.get("hpKey"), data.get("hpVal")
-    if hp_key and hp_val:
-        return HLTBSession(token, hp_key, hp_val)
-
-    return HLTBSession(token)
+    return HLTBSession(token, data.get("hpKey"), data.get("hpVal"))
 
 
 # HLTB's firewall rejects tool-style "Name/version" agents with a 403, so send a
@@ -53,18 +55,19 @@ def search_headers(base_url: str, session: HLTBSession) -> dict[str, str]:
         **base_headers(base_url),
         "x-auth-token": session.token,
     }
-    if session.hp_key and session.hp_val:
-        headers["x-hp-key"] = session.hp_key
-        headers["x-hp-val"] = session.hp_val
+    if honeypot := session.honeypot():
+        headers["x-hp-key"], headers["x-hp-val"] = honeypot
     return headers
 
 
 def search_body(payload: dict, session: HLTBSession) -> dict:
-    if not (session.hp_key and session.hp_val):
+    honeypot = session.honeypot()
+    if not honeypot:
         return payload
     # Some HLTB endpoints require the key:val in the payload. The key rotates with
     # the session, so copy the payload instead of accumulating stale keys.
-    return {**payload, session.hp_key: session.hp_val}
+    hp_key, hp_val = honeypot
+    return {**payload, hp_key: hp_val}
 
 
 def build_search_payload(search_term: str, platform_name: str) -> dict:

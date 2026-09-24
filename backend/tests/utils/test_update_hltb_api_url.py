@@ -122,7 +122,9 @@ def test_a_token_only_session_searches_without_a_honeypot_key():
         serves_game_search(client, HLTB_BASE_URL, f"{HLTB_BASE_URL}/api/search/site")
         is True
     )
-    kwargs = client.post.call_args.kwargs
+    post_call = client.post.call_args
+    assert post_call is not None
+    kwargs = post_call.kwargs
     assert kwargs["headers"]["x-auth-token"] == "t"
     assert "x-hp-key" not in kwargs["headers"]
     assert kwargs["json"] == build_search_payload(VALIDATION_SEARCH_TERM, "")

@@ -95,7 +95,9 @@ async def test_request_works_with_a_token_only_session(mock_ctx_httpx_client):
     result = await handler._request(handler.search_url, {"a": 1})
 
     assert result == {"data": [{"game_id": 1}]}
-    kwargs = mock_client.post.await_args.kwargs
+    post_call = mock_client.post.await_args
+    assert post_call is not None
+    kwargs = post_call.kwargs
     assert kwargs["headers"]["x-auth-token"] == "token-1"
     assert "x-hp-key" not in kwargs["headers"]
     assert "x-hp-val" not in kwargs["headers"]
