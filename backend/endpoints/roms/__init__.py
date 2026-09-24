@@ -27,9 +27,6 @@ from fastapi import (
     status,
 )
 from fastapi.responses import Response
-from fastapi_pagination import resolve_params
-from fastapi_pagination.limit_offset import LimitOffsetParams
-from fastapi_pagination.types import GreaterEqualZero
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
@@ -42,7 +39,7 @@ from config import (
 )
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
-from endpoints.responses.base import TypedLimitOffsetPage
+from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
 from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
     DetailedRomSchema,
@@ -407,19 +404,12 @@ def parse_raw_metadata(form_data: RomUpdateForm, form_key: str) -> dict | None:
         return None
 
 
-class CustomLimitOffsetParams(LimitOffsetParams):
-    # Temporarily increase the limit until we can implement pagination on all apps
-    limit: int = Query(50, ge=1, le=10_000, description="Page size limit")
-    offset: int = Query(0, ge=0, description="Page offset")
-
-
-class CustomLimitOffsetPage[T: BaseModel](TypedLimitOffsetPage[T]):
+class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     # Null when the caller opts out of the count with `with_total=false`.
-    total: GreaterEqualZero | None  # type: ignore[assignment]
+    total: int | None = Field(ge=0)  # type: ignore[assignment]
     char_index: dict[str, int]
     rom_id_index: list[int]
     filter_values: RomFiltersDict
-    __params_type__ = CustomLimitOffsetParams
 
 
 # Month 1-12 and day 1-31, so a match is already a calendar day.
@@ -464,6 +454,7 @@ ROM_FILTER_QUERY = as_query_dependency(RomFilterParams)
 def get_roms(
     request: Request,
     filters: Annotated[RomFilterParams, Depends(ROM_FILTER_QUERY)],
+    params: Annotated[PageParams, Depends(PAGE_QUERY)],
     with_char_index: Annotated[
         bool,
         Query(description="Whether to get the char index."),
@@ -704,7 +695,6 @@ def get_roms(
                 else None
             )
 
-        params: CustomLimitOffsetParams = resolve_params()
         if with_rom_id_index:
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
         else:
