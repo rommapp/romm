@@ -2,12 +2,13 @@ from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, delete, func, or_, select
+from sqlalchemy import ColumnElement, String, cast, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from decorators.database import begin_session
 from models.audit_event import AuditEvent
 from models.device import Device
+from models.rom import Rom
 from models.user import User
 from utils.database import LIKE_ESCAPE_CHAR, escape_like
 
@@ -61,8 +62,9 @@ class DBAuditEventsHandler(DBBaseHandler):
         limit: int,
         offset: int,
         session: Session = None,  # type: ignore
-    ) -> tuple[list[tuple[AuditEvent, str | None]], int]:
-        """A page of events, newest first, each with its device's name, and the total."""
+    ) -> tuple[list[tuple[AuditEvent, str | None]], int, int | None]:
+        """A page of events, newest first, each with its device's name, the total,
+        and the highest id among the matches for later pages to be pinned to."""
         clauses: list[ColumnElement[bool]] = []
         if filters.actor_ids is not None:
             clauses.append(AuditEvent.actor_id.in_(filters.actor_ids))
@@ -96,10 +98,23 @@ class DBAuditEventsHandler(DBBaseHandler):
             clauses.append(_not_targeting("rom", filters.hidden_rom_ids))
         if filters.hidden_platform_ids:
             clauses.append(_not_targeting("platform", filters.hidden_platform_ids))
+            # A platform's hide covers its roms too.
+            clauses.append(
+                or_(
+                    AuditEvent.target_type.is_(None),
+                    AuditEvent.target_type != "rom",
+                    AuditEvent.target_id.is_(None),
+                    AuditEvent.target_id.not_in(
+                        select(cast(Rom.id, String)).where(
+                            Rom.platform_id.in_(filters.hidden_platform_ids)
+                        )
+                    ),
+                )
+            )
 
-        total = session.scalar(
-            select(func.count()).select_from(AuditEvent).where(*clauses)
-        )
+        total, highest_id = session.execute(
+            select(func.count(), func.max(AuditEvent.id)).where(*clauses)
+        ).one()
         rows = session.execute(
             select(AuditEvent, Device.name)
             .options(_with_actor())
@@ -109,7 +124,11 @@ class DBAuditEventsHandler(DBBaseHandler):
             .limit(limit)
             .offset(offset)
         ).all()
-        return [(event, device_name) for event, device_name in rows], total or 0
+        return (
+            [(event, device_name) for event, device_name in rows],
+            total or 0,
+            highest_id,
+        )
 
     @begin_session
     def delete_batch_before(

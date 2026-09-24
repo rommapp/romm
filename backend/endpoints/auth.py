@@ -23,7 +23,14 @@ from exceptions.auth_exceptions import (
     OIDCNotConfiguredException,
     UserDisabledException,
 )
-from handler.audit_handler import AuditActor, AuditTarget, claim_once, record
+from handler.audit_handler import (
+    AuditActor,
+    AuditTarget,
+    claim_once,
+    client_ip,
+    record,
+    within_budget,
+)
 from handler.auth import auth_handler, oauth_handler, oidc_handler
 from handler.database import db_user_handler
 from logger.formatter import CYAN
@@ -41,12 +48,14 @@ router = APIRouter(
 
 # Failed sign-ins from one address for one username within this window are one attempt.
 LOGIN_FAILURE_WINDOW_SECONDS: Final = 60
+# At most this many failed sign-ins are recorded per address each window, so a
+# client cycling usernames can't flood the log.
+LOGIN_FAILURES_PER_ADDRESS: Final = 20
+LOGIN_FAILURE_ADDRESS_WINDOW_SECONDS: Final = 10 * 60
+# Repeated reset requests for one user from one address are one request.
+PASSWORD_RESET_REQUEST_WINDOW_SECONDS: Final = 10 * 60
 
 LoginMethod = Literal["password", "token", "oidc"]
-
-
-def _client_ip(request: Request) -> str | None:
-    return request.client.host if request.client else None
 
 
 def _record_login(
@@ -54,7 +63,7 @@ def _record_login(
 ) -> None:
     record(
         AuditAction.AUTH_LOGIN,
-        AuditActor.for_user(user, ip_address=_client_ip(request), device_id=device_id),
+        AuditActor.for_user(user, ip_address=client_ip(request), device_id=device_id),
         data={"method": method},
     )
 
@@ -65,9 +74,13 @@ def _record_login_failure(
     method: LoginMethod,
     reason: Literal["credentials", "disabled"],
 ) -> None:
-    ip_address = _client_ip(request)
+    ip_address = client_ip(request)
     if not claim_once(
         f"login_failed:{ip_address}:{username}", LOGIN_FAILURE_WINDOW_SECONDS
+    ) or not within_budget(
+        f"login_failed:{ip_address}",
+        LOGIN_FAILURES_PER_ADDRESS,
+        LOGIN_FAILURE_ADDRESS_WINDOW_SECONDS,
     ):
         return
     user = db_user_handler.get_user_by_username(username) if username else None
@@ -85,6 +98,18 @@ def _record_login_failure(
             "reason": reason,
         },
     )
+
+
+def _record_password_reset_request(ip_address: str | None, user: User) -> None:
+    if claim_once(
+        f"password_reset:{ip_address}:{user.id}",
+        PASSWORD_RESET_REQUEST_WINDOW_SECONDS,
+    ):
+        record(
+            AuditAction.AUTH_PASSWORD_RESET_REQUEST,
+            AuditActor(AuditActorKind.ANONYMOUS, ip_address=ip_address),
+            AuditTarget.of_user(user),
+        )
 
 
 # Session authentication endpoints
@@ -396,10 +421,8 @@ def request_password_reset(
     if user:
         # After the response, so its timing can't tell whether the user exists.
         background_tasks.add_task(auth_handler.send_password_reset_link, user)
-        record(
-            AuditAction.AUTH_PASSWORD_RESET_REQUEST,
-            AuditActor(AuditActorKind.ANONYMOUS, ip_address=_client_ip(request)),
-            AuditTarget.of_user(user),
+        background_tasks.add_task(
+            _record_password_reset_request, client_ip(request), user
         )
     else:
         log.warning(
@@ -427,7 +450,7 @@ async def reset_password(
     await auth_handler.set_user_new_password(user, new_password)
     record(
         AuditAction.AUTH_PASSWORD_RESET,
-        AuditActor.for_user(user, ip_address=_client_ip(request)),
+        AuditActor.for_user(user, ip_address=client_ip(request)),
         AuditTarget.of_user(user),
     )
 

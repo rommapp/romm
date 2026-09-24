@@ -189,23 +189,26 @@ class TestFilters:
         assert _ids(address) == [from_lan.id]
 
     def test_pages_stay_pinned_to_max_id(self, client, access_token, admin_user):
-        events = [_add(admin_user, minutes_ago=10 - i) for i in range(3)]
+        newest = _add(admin_user, minutes_ago=1)
+        # Recorded after `newest` but happened before it, like a synced play.
+        synced = _add(admin_user, AuditAction.ROM_PLAY, minutes_ago=30)
 
         first = client.get(
             "/api/audit-events",
-            params={"limit": 2},
+            params={"limit": 1},
             headers=_auth(access_token),
         )
         _add(admin_user)
         second = client.get(
             "/api/audit-events",
-            params={"limit": 2, "offset": 2, "max_id": _ids(first)[0]},
+            params={"limit": 1, "offset": 1, "max_id": first.json()["max_id"]},
             headers=_auth(access_token),
         )
 
-        assert first.json()["total"] == 3
-        assert _ids(first) == [events[2].id, events[1].id]
-        assert _ids(second) == [events[0].id]
+        assert _ids(first) == [newest.id]
+        assert first.json()["max_id"] == synced.id
+        assert _ids(second) == [synced.id]
+        assert second.json()["total"] == 2
 
 
 def test_an_event_outlives_its_actor(client, access_token, viewer_user):

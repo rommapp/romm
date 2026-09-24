@@ -64,7 +64,7 @@ function fields(value: unknown): string | null {
 function change(value: unknown): { from: string; to: string } | null {
   if (!value || typeof value !== "object") return null;
   const { from, to } = value as Record<string, unknown>;
-  return { from: String(from ?? "—"), to: String(to ?? "—") };
+  return { from: String(from ?? ""), to: String(to ?? "") };
 }
 
 function providers(data: AuditData): string | null {

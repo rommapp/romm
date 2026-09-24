@@ -10,7 +10,7 @@ from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
-from handler.audit_handler import AuditActor, AuditTarget, record
+from handler.audit_handler import AuditActor, AuditTarget, client_ip, record
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
@@ -289,9 +289,7 @@ def create_user_from_invite(
     created_user = db_user_handler.add_user(user)
     record(
         AuditAction.USER_REGISTER,
-        AuditActor.for_user(
-            created_user, ip_address=request.client.host if request.client else None
-        ),
+        AuditActor.for_user(created_user, ip_address=client_ip(request)),
         AuditTarget.of_user(created_user),
         {"role": created_user.role, "via": "invite"},
     )

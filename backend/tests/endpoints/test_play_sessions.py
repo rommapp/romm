@@ -236,7 +236,7 @@ class TestPlaySessionAudit:
                 headers={"Authorization": f"Bearer {access_token}"},
             )
 
-        rows, total = db_audit_event_handler.get_events(
+        rows, total, _ = db_audit_event_handler.get_events(
             AuditEventFilters(), limit=10, offset=0
         )
         assert total == 1

@@ -57,7 +57,9 @@ def _request(
 
 
 def _events() -> list[AuditEvent]:
-    rows, _ = db_audit_event_handler.get_events(AuditEventFilters(), limit=50, offset=0)
+    rows, _, _ = db_audit_event_handler.get_events(
+        AuditEventFilters(), limit=50, offset=0
+    )
     return [event for event, _ in rows]
 
 
@@ -179,6 +181,7 @@ class TestRecordDownload:
             ("bytes=100-", False),
             ("bytes=-500", False),
             ("not a range", True),
+            ("bytes=" + "9" * 5000 + "-", False),
         ],
     )
     def test_only_a_transfer_from_the_first_byte_counts(

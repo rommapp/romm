@@ -1,11 +1,17 @@
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from handler.database import db_audit_event_handler, db_rom_handler
+from handler.database import (
+    db_audit_event_handler,
+    db_collection_handler,
+    db_rom_handler,
+)
 from handler.database.audit_events_handler import AuditEventFilters
 from models.audit_event import AuditEvent
+from models.collection import Collection
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
+from models.user import User
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -13,7 +19,9 @@ def _auth(token: str) -> dict[str, str]:
 
 
 def _events() -> list[AuditEvent]:
-    rows, _ = db_audit_event_handler.get_events(AuditEventFilters(), limit=50, offset=0)
+    rows, _, _ = db_audit_event_handler.get_events(
+        AuditEventFilters(), limit=50, offset=0
+    )
     return [event for event, _ in rows]
 
 
@@ -144,3 +152,31 @@ def test_a_bulk_download_is_one_event_on_its_platform(
     assert event.action == "rom.bulk_download"
     assert (event.target_type, event.target_id) == ("platform", str(platform.id))
     assert event.data["count"] == 1
+
+
+def test_someone_elses_private_collection_is_kept_by_id_only(
+    client: TestClient,
+    access_token: str,
+    editor_user: User,
+    rom: Rom,
+    rom_file: RomFile,
+):
+    private = db_collection_handler.add_collection(
+        Collection(
+            name="Secret shelf",
+            description="",
+            is_public=False,
+            is_favorite=False,
+            user_id=editor_user.id,
+        )
+    )
+    db_collection_handler.add_roms_to_collection(private.id, [rom.id])
+
+    client.get(
+        "/api/roms/download",
+        params={"collection_id": private.id},
+        headers=_auth(access_token),
+    )
+
+    [event] = _events()
+    assert (event.target_id, event.target_name) == (str(private.id), None)

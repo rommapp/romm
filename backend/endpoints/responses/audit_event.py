@@ -18,7 +18,7 @@ class AuditEventSchema(BaseModel):
     action: AuditAction | str
     category: AuditCategory | None
     occurred_at: UTCDatetime
-    actor_kind: AuditActorKind
+    actor_kind: AuditActorKind | str
     # The account as it is now; null once it's deleted, when `actor_name` remains.
     actor: NotificationActorSchema | None
     actor_name: str | None
@@ -37,7 +37,7 @@ class AuditEventSchema(BaseModel):
             action=event.action,
             category=category_of(event.action),
             occurred_at=event.occurred_at,
-            actor_kind=AuditActorKind(event.actor_kind),
+            actor_kind=event.actor_kind,
             actor=(
                 NotificationActorSchema.model_validate(event.actor)
                 if event.actor

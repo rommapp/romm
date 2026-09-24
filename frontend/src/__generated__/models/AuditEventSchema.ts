@@ -11,7 +11,7 @@ export type AuditEventSchema = {
     action: (AuditAction | string);
     category: (AuditCategory | null);
     occurred_at: string;
-    actor_kind: AuditActorKind;
+    actor_kind: (AuditActorKind | string);
     actor: (NotificationActorSchema | null);
     actor_name: (string | null);
     target_type: (string | null);

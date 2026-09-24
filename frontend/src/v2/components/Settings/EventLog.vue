@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// EventLog: what every user, and RomM itself, did, newest first, grouped by
-// day. Filters live in the URL so a view of the log can be shared. The list is
-// windowed and pulls the next page in as its end scrolls into view.
+// EventLog: what users and RomM did, grouped by day, filters in the URL. The
+// list is windowed and pulls the next page in as its end scrolls into view.
 import {
   RBtn,
   RDateField,
@@ -12,6 +11,7 @@ import {
   RTextField,
   RVirtualScroller,
 } from "@v2/lib";
+import { isToday, isYesterday } from "date-fns";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -190,19 +190,17 @@ const phase = useLoadingPhase(
   () => rows.value.length === 0,
 );
 
-function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
+const timeFormat = computed(
+  () =>
+    new Intl.DateTimeFormat(toBrowserLocale(locale.value), {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+);
 
 function dayLabel(date: Date, today: Date): string {
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (sameDay(date, today)) return t("common.today");
-  if (sameDay(date, yesterday)) return t("audit.yesterday");
+  if (isToday(date)) return t("common.today");
+  if (isYesterday(date)) return t("audit.yesterday");
   return new Intl.DateTimeFormat(toBrowserLocale(locale.value), {
     weekday: "long",
     day: "numeric",
@@ -272,6 +270,8 @@ function itemKey(item: unknown): string | number {
 }
 
 function onViewportRange({ last }: { first: number; last: number }) {
+  // The scroller holds no items until the list is shown.
+  if (phase.value !== "content") return;
   if (hasMore.value && !moreFailed.value && last >= items.value.length - 20) {
     void showMore();
   }
@@ -404,6 +404,11 @@ useGridNav(listRoot, {
           :view="(item as EventItem).row.view"
           :first="(item as EventItem).first"
           :last="(item as EventItem).last"
+          :time="
+            timeFormat.format(
+              new Date((item as EventItem).row.event.occurred_at),
+            )
+          "
         />
       </template>
     </RVirtualScroller>

@@ -6,6 +6,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from endpoints import auth as auth_endpoints
+from handler.auth import auth_handler
 from handler.database import db_audit_event_handler
 from handler.database.audit_events_handler import AuditEventFilters
 from models.audit_event import AuditEvent
@@ -23,7 +25,9 @@ def _basic(username: str, password: str) -> dict[str, str]:
 
 
 def _events() -> list[AuditEvent]:
-    rows, _ = db_audit_event_handler.get_events(AuditEventFilters(), limit=50, offset=0)
+    rows, _, _ = db_audit_event_handler.get_events(
+        AuditEventFilters(), limit=50, offset=0
+    )
     return [event for event, _ in rows]
 
 
@@ -60,6 +64,26 @@ class TestLogin:
         [event] = _events()
         assert event.actor_kind == "anonymous"
         assert event.data["username"] == "nobody"
+
+    def test_one_address_cycling_usernames_is_capped(self, client: TestClient, mocker):
+        mocker.patch.object(auth_endpoints, "LOGIN_FAILURES_PER_ADDRESS", 3)
+
+        for i in range(6):
+            client.post("/api/login", headers=_basic(f"guess{i}", "wrong"))
+
+        assert len(_events()) == 3
+
+    def test_repeated_reset_requests_are_one(
+        self, client: TestClient, admin_user: User, mocker
+    ):
+        mocker.patch.object(auth_handler, "send_password_reset_link")
+
+        for _ in range(2):
+            client.post("/api/forgot-password", json={"username": "test_admin"})
+
+        [event] = _events()
+        assert event.action == "auth.password_reset_request"
+        assert (event.actor_kind, event.target_name) == ("anonymous", "test_admin")
 
     def test_a_token_grant_is_a_login(self, client: TestClient, admin_user: User):
         response = client.post(

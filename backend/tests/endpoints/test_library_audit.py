@@ -23,7 +23,9 @@ def _auth(token: str) -> dict[str, str]:
 
 
 def _events() -> list[AuditEvent]:
-    rows, _ = db_audit_event_handler.get_events(AuditEventFilters(), limit=50, offset=0)
+    rows, _, _ = db_audit_event_handler.get_events(
+        AuditEventFilters(), limit=50, offset=0
+    )
     return [event for event, _ in rows]
 
 

@@ -36,7 +36,14 @@ export function useAuditLog(pageSize = 50) {
       if (current !== generation) return;
       events.value = data.items;
       total.value = data.total;
-      maxId = data.items[0]?.id;
+      maxId = data.max_id ?? undefined;
+    } catch (error) {
+      // What's on screen was matched by the old filters, so it can't stay.
+      if (current === generation) {
+        events.value = [];
+        total.value = 0;
+      }
+      throw error;
     } finally {
       if (current === generation) loading.value = false;
     }

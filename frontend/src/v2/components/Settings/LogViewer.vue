@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// LogViewer — real-time backend log viewer, the Logs page's second tab.
+// LogViewer: real-time backend log viewer, the Logs page's second tab.
 //
 // On open it backfills the last N buffered lines from `GET /logs`, then
 // streams new lines live over Socket.IO (`logs:entry`, emitted to the

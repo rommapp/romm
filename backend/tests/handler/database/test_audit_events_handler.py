@@ -4,6 +4,7 @@ from handler.database import db_audit_event_handler, db_device_handler
 from handler.database.audit_events_handler import AuditEventFilters
 from models.audit_event import AuditAction, AuditActorKind, AuditEvent
 from models.device import Device
+from models.rom import Rom
 from models.user import User
 
 
@@ -20,11 +21,20 @@ def _add(minutes_ago: int = 0, **overrides) -> AuditEvent:
 
 
 def _ids(filters: AuditEventFilters) -> list[int]:
-    rows, _ = db_audit_event_handler.get_events(filters, limit=50, offset=0)
+    rows, _, _ = db_audit_event_handler.get_events(filters, limit=50, offset=0)
     return [event.id for event, _ in rows]
 
 
 class TestHiddenTargets:
+    def test_drops_events_on_roms_of_a_hidden_platform(self, rom: Rom):
+        on_hidden = _add(target_type="rom", target_id=str(rom.id))
+        elsewhere = _add(target_type="rom", target_id="999999")
+
+        ids = _ids(AuditEventFilters(hidden_platform_ids={rom.platform_id}))
+
+        assert on_hidden.id not in ids
+        assert elsewhere.id in ids
+
     def test_drops_events_on_hidden_roms_and_platforms_only(self):
         hidden_rom = _add(target_type="rom", target_id="7")
         visible_rom = _add(target_type="rom", target_id="8")
@@ -45,7 +55,7 @@ def test_joins_the_device_name(admin_user: User):
     _add(device_id="dev-1")
     _add(device_id="gone")
 
-    rows, total = db_audit_event_handler.get_events(
+    rows, total, _ = db_audit_event_handler.get_events(
         AuditEventFilters(), limit=50, offset=0
     )
 

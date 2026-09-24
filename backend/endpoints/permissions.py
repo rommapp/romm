@@ -99,17 +99,19 @@ def _group_target(group: PermissionGroup) -> AuditTarget:
     return AuditTarget(AuditTargetType.PERMISSION_GROUP, group.id, group.name)
 
 
-def _hidden_target(entity: PermEntity, entity_id: int) -> AuditTarget:
+def _hidden_target(entity: PermEntity, entity_id: int) -> AuditTarget | None:
     if entity == PermEntity.ROMS:
         rom = db_rom_handler.get_rom_visibility_label(entity_id)
         name = (rom.name or rom.fs_name) if rom else None
         return AuditTarget(AuditTargetType.ROM, entity_id, name)
-    platform = db_platform_handler.get_platform(entity_id)
-    return AuditTarget(
-        AuditTargetType.PLATFORM,
-        entity_id,
-        (platform.custom_name or platform.name) if platform else None,
-    )
+    if entity == PermEntity.PLATFORMS:
+        platform = db_platform_handler.get_platform(entity_id)
+        return AuditTarget(
+            AuditTargetType.PLATFORM,
+            entity_id,
+            (platform.custom_name or platform.name) if platform else None,
+        )
+    return None
 
 
 def _principal(user_id: int | None, group_id: int | None) -> dict[str, Any]:
@@ -355,7 +357,11 @@ async def add_hidden_entity(
         AuditAction.VISIBILITY_HIDE,
         AuditActor.from_request(request),
         _hidden_target(body.entity, body.entity_id),
-        {"from": _principal(body.user_id, body.group_id)},
+        {
+            "from": _principal(body.user_id, body.group_id),
+            "entity": body.entity,
+            "entity_id": body.entity_id,
+        },
     )
     await _emit_for_principal(body.user_id, body.group_id)
     return HiddenEntitySchema(entity=body.entity, entity_id=body.entity_id)
@@ -388,7 +394,11 @@ async def remove_hidden_entity(
         AuditAction.VISIBILITY_UNHIDE,
         AuditActor.from_request(request),
         _hidden_target(entity, entity_id),
-        {"from": _principal(user_id, group_id)},
+        {
+            "from": _principal(user_id, group_id),
+            "entity": entity,
+            "entity_id": entity_id,
+        },
     )
     await _emit_for_principal(user_id, group_id)
 

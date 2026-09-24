@@ -552,7 +552,9 @@ async def update_collection(
         for field in ("name", "description", "is_public")
         if cleaned_data[field] != getattr(collection, field)
     ]
-    if remove_cover or "path_cover_l" in cleaned_data:
+    new_artwork = artwork is not None and artwork.filename is not None
+    new_cover_url = url_cover is not None and url_cover != collection.url_cover
+    if remove_cover or new_artwork or new_cover_url:
         changed.append("cover")
     before_ids, after_ids = set(collection.rom_ids), set(parsed_rom_ids)
     if changed or before_ids != after_ids:

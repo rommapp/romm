@@ -5,6 +5,7 @@ Best effort: a failure to record is logged and never reaches the action.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections.abc import Sequence
@@ -49,6 +50,10 @@ def _clip_name(name: str | None) -> str | None:
     return name.replace("\x00", "")[:AUDIT_NAME_MAX_LENGTH]
 
 
+def client_ip(conn: HTTPConnection) -> str | None:
+    return conn.client.host if conn.client else None
+
+
 @dataclass(frozen=True, slots=True)
 class AuditActor:
     kind: AuditActorKind
@@ -61,7 +66,7 @@ class AuditActor:
     def from_request(cls, conn: HTTPConnection) -> AuditActor:
         """Whoever made the request, anonymous when no account is behind it."""
         user = conn.scope.get("user")
-        ip_address = conn.client.host if conn.client else None
+        ip_address = client_ip(conn)
         device_id = getattr(conn.state, "device_id", None) or (
             conn.scope.get("session") or {}
         ).get("device_id")
@@ -232,15 +237,32 @@ def record(
     record_many([AuditDraft(action, actor, target, data, occurred_at)])
 
 
+def _claim_key(key: str) -> str:
+    # Keys carry caller-supplied text (usernames, file ids), so they're hashed to
+    # a fixed size.
+    return f"{_CLAIM_KEY_PREFIX}:{hashlib.sha256(key.encode()).hexdigest()}"
+
+
 def claim_once(key: str, window_seconds: int) -> bool:
     """Whether this is the first claim on `key` within the window; True if Redis fails."""
     try:
-        return bool(
-            sync_cache.set(f"{_CLAIM_KEY_PREFIX}:{key}", 1, nx=True, ex=window_seconds)
-        )
+        return bool(sync_cache.set(_claim_key(key), 1, nx=True, ex=window_seconds))
     except Exception:  # noqa: BLE001 - better a duplicate than a gap
         log.exception(f"Failed to claim audit key {key}")
         return True
+
+
+def within_budget(key: str, limit: int, window_seconds: int) -> bool:
+    """Whether `key` has been counted at most `limit` times this window; True if Redis fails."""
+    try:
+        pipe = sync_cache.pipeline()
+        pipe.incr(_claim_key(key))
+        pipe.expire(_claim_key(key), window_seconds, nx=True)
+        count, _ = pipe.execute()
+    except Exception:  # noqa: BLE001 - better a duplicate than a gap
+        log.exception(f"Failed to count audit key {key}")
+        return True
+    return int(count) <= limit
 
 
 def _starts_a_transfer(range_header: str | None) -> bool:
@@ -253,7 +275,7 @@ def _starts_a_transfer(range_header: str | None) -> bool:
         return True
     # `bytes=-500` asks for the last 500 bytes, which is no start either.
     start = match.group(1)
-    return start != "" and int(start) == 0
+    return start != "" and start.strip("0") == ""
 
 
 def record_download(

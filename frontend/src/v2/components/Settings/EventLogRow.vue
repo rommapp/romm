@@ -6,7 +6,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { RouterLink } from "vue-router";
 import type { AuditEventSchema } from "@/__generated__";
-import { formatTimestamp, toBrowserLocale } from "@/utils";
+import { formatTimestamp } from "@/utils";
 import type { AuditEventView } from "@/v2/utils/auditEvents";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
@@ -16,16 +16,11 @@ const props = defineProps<{
   /** The day's first and last events close its panel and its rail. */
   first: boolean;
   last: boolean;
+  /** The time of day it happened, formatted by the list for all its rows. */
+  time: string;
 }>();
 
 const { t, locale } = useI18n();
-
-const time = computed(() =>
-  new Intl.DateTimeFormat(toBrowserLocale(locale.value), {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(props.event.occurred_at)),
-);
 
 const actorName = computed(() => {
   const { actor_kind, actor, actor_name } = props.event;

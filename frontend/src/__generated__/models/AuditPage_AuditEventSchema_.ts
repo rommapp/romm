@@ -8,5 +8,6 @@ export type AuditPage_AuditEventSchema_ = {
     total: number;
     limit: number;
     offset: number;
+    max_id?: (number | null);
 };
 

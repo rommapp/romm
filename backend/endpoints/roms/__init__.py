@@ -870,21 +870,36 @@ def get_random_rom(
 
 
 def _bulk_download_target(
+    user_id: int,
     platform_id: int | None,
     collection_id: int | None,
     smart_collection_id: int | None,
     virtual_collection_id: str | None,
 ) -> AuditTarget | None:
-    """What a bulk download took whole, or None for a hand-picked list of roms."""
+    """What a bulk download took whole, or None for a hand-picked list of roms.
+
+    Another user's private collection is kept by id only, so its name doesn't
+    reach the caller's own history.
+    """
     if platform_id:
         platform = db_platform_handler.get_platform(platform_id)
         return AuditTarget.of_platform(platform) if platform else None
     if collection_id:
         collection = db_collection_handler.get_collection(collection_id)
-        return AuditTarget.of_collection(collection) if collection else None
+        visible = collection and (collection.is_public or collection.user_id == user_id)
+        return AuditTarget(
+            AuditTargetType.COLLECTION,
+            collection_id,
+            collection.name if collection and visible else None,
+        )
     if smart_collection_id:
         smart = db_collection_handler.get_smart_collection(smart_collection_id)
-        return AuditTarget.of_smart_collection(smart) if smart else None
+        visible = smart and (smart.is_public or smart.user_id == user_id)
+        return AuditTarget(
+            AuditTargetType.SMART_COLLECTION,
+            smart_collection_id,
+            smart.name if smart and visible else None,
+        )
     if virtual_collection_id:
         virtual = db_collection_handler.get_virtual_collection(virtual_collection_id)
         return AuditTarget(
@@ -1002,7 +1017,11 @@ async def download_roms(
     record_download(
         request,
         _bulk_download_target(
-            platform_id, collection_id, smart_collection_id, virtual_collection_id
+            request.user.id,
+            platform_id,
+            collection_id,
+            smart_collection_id,
+            virtual_collection_id,
         ),
         f"bulk:{binascii.crc32(','.join(map(str, sorted(found_ids))).encode())}",
         {"count": len(rom_objects), "rom_ids": sorted(found_ids)},

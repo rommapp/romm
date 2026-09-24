@@ -27,6 +27,10 @@ class AuditLimitOffsetParams(LimitOffsetParams):
 class AuditPage[T: BaseModel](TypedLimitOffsetPage[T]):
     __params_type__ = AuditLimitOffsetParams
 
+    # Rows are ordered by when they happened, not by id, so later pages pin to
+    # the highest id rather than to the first row's.
+    max_id: int | None = None
+
 
 @protected_route(router.get, "", [Scope.ME_READ])
 def get_audit_events(
@@ -68,7 +72,7 @@ def get_audit_events(
         in_categories: set[str] = {a for c in category for a in actions_in(c)}
         actions = in_categories if actions is None else actions & in_categories
 
-    rows, total = db_audit_event_handler.get_events(
+    rows, total, highest_id = db_audit_event_handler.get_events(
         AuditEventFilters(
             actor_ids=(actor_id or None) if sees_everyone else [request.user.id],
             actions=actions,
@@ -90,4 +94,5 @@ def get_audit_events(
         [AuditEventSchema.from_row(event, device_name) for event, device_name in rows],
         params,
         total=total,
+        max_id=highest_id,
     )
