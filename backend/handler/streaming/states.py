@@ -29,10 +29,9 @@ from urllib.parse import quote
 from fastapi import HTTPException
 
 from config import STREAMING_STATE_HISTORY_LIMIT
-from handler.asset_store import store_screenshot, store_state_file
+from handler.asset_store import release_thumbnail, store_screenshot, store_state_file
 from handler.database import (
     db_rom_handler,
-    db_screenshot_handler,
     db_state_handler,
     db_user_handler,
 )
@@ -328,9 +327,14 @@ async def prune_state_history(
         screenshot = state.screenshot
         db_state_handler.delete_state(state.id)
         await _remove_pruned_file(f"{state.file_path}/{state.file_name}")
-        if screenshot is not None:
-            db_screenshot_handler.delete_screenshot(screenshot.id)
-            await _remove_pruned_file(f"{screenshot.file_path}/{screenshot.file_name}")
+        try:
+            await release_thumbnail(screenshot)
+        except OSError as exc:
+            log.error(
+                "could not remove the pruned screenshot of %s, leaving it orphaned: %s",
+                state.file_name,
+                exc,
+            )
     if stale:
         log.info(
             "pruned %d state(s) past the %d limit, rom=%s",

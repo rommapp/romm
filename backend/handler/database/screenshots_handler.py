@@ -2,12 +2,13 @@ from collections.abc import Collection, Sequence
 from functools import partial
 
 import pydash
-from sqlalchemy import case, delete, or_, select, update
+from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Delete, Select, Update
 
 from decorators.database import begin_session
-from models.assets import Screenshot
+from models.assets import Save, Screenshot, State
+from models.base import with_file_name_parts
 
 from .base_handler import DBBaseHandler
 
@@ -97,6 +98,54 @@ class DBScreenshotsHandler(DBBaseHandler):
         return session.get(Screenshot, id)
 
     @begin_session
+    def is_bound(
+        self,
+        screenshot: Screenshot,
+        ignoring: Save | State | None = None,
+        session: Session = None,  # type: ignore
+    ) -> bool:
+        """Whether a save or state other than `ignoring` shows the screenshot
+        as its thumbnail."""
+        names = pydash.compact([screenshot.file_name, screenshot.file_name_no_ext])
+        for model in (Save, State):
+            query = select(model.file_name, model.file_name_no_ext).filter(
+                model.rom_id == screenshot.rom_id,
+                model.user_id == screenshot.user_id,
+                or_(model.file_name.in_(names), model.file_name_no_ext.in_(names)),
+            )
+            if isinstance(ignoring, model):
+                query = query.filter(model.id != ignoring.id)
+            # A name can match several screenshots, and the asset shows only
+            # the one its lookup prefers.
+            for file_name, file_name_no_ext in session.execute(query):
+                shown = self.get_screenshot(
+                    rom_id=screenshot.rom_id,
+                    user_id=screenshot.user_id,
+                    file_name=file_name,
+                    file_name_no_ext=file_name_no_ext,
+                    session=session,
+                )
+                if shown is not None and shown.id == screenshot.id:
+                    return True
+        return False
+
+    @begin_session
+    def get_name_variants(
+        self,
+        screenshot: Screenshot,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Screenshot]:
+        """Other screenshots in the same folder whose name differs only in case."""
+        query = self.filter(
+            select(Screenshot), rom_id=screenshot.rom_id, user_id=screenshot.user_id
+        ).filter(
+            Screenshot.id != screenshot.id,
+            Screenshot.file_path == screenshot.file_path,
+            func.lower(Screenshot.file_name) == screenshot.file_name.lower(),
+        )
+        return session.scalars(query).all()
+
+    @begin_session
     def get_rom_gallery_screenshots(
         self,
         rom_id: int,
@@ -133,7 +182,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         session.execute(
             update(Screenshot)
             .where(Screenshot.id == id)
-            .values(**data)
+            .values(**with_file_name_parts(data))
             .execution_options(synchronize_session="evaluate")
         )
         return session.query(Screenshot).filter_by(id=id).one()
