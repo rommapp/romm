@@ -6,6 +6,7 @@ import { defineComponent, reactive } from "vue";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePermissions from "@/stores/permissions";
+import type { User } from "@/stores/users";
 import Logs from "./Logs.vue";
 
 const route = reactive<{ query: Record<string, string> }>({ query: {} });
@@ -52,7 +53,7 @@ function signIn({
   const permissions = storePermissions();
   permissions.isAdmin = admin;
   permissions.hydrated = true;
-  storeAuth().setCurrentUser({ oauth_scopes: ["logs.read"] } as never);
+  storeAuth().setCurrentUser({ oauth_scopes: ["logs.read"] } as User);
   storeHeartbeat().value.FRONTEND.DISABLE_LOGS_VIEWER = !viewer;
 }
 

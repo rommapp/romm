@@ -7,11 +7,9 @@
 // ephemeral (constitution §VI.D): a capped in-memory ring buffer, no
 // store, no global lifecycle — backfill covers re-open.
 //
-// The list is windowed with RVirtualScroller, which also scrolls the toolbar
-// above it. Rows are single-line monospace (terminal style) and the tab scrolls
-// sideways to the longest one; the full message is surfaced on hover via
-// RTooltip and copied on click. The newest line is on top: while the top is in view new lines show
-// up there, otherwise the view holds still and "jump to latest" goes back up.
+// The list is windowed with RVirtualScroller, which also scrolls the toolbar.
+// Rows are single-line monospace (terminal style), newest on top; the tab
+// scrolls sideways to the longest, and the full message shows on hover.
 import { RBtn, RSelect, RTextField, RTooltip, RVirtualScroller } from "@v2/lib";
 import { computed, nextTick, onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";

@@ -874,11 +874,7 @@ def _bulk_download_target(
     smart_collection_id: int | None,
     virtual_collection_id: str | None,
 ) -> AuditTarget | None:
-    """What a bulk download took whole, or None for a hand-picked list of roms.
-
-    Another user's private collection is kept by id only, so its name doesn't
-    reach the caller's own history.
-    """
+    """What a bulk download took whole, or None for a hand-picked list of roms."""
     if platform_id:
         platform = db_platform_handler.get_platform(platform_id)
         return AuditTarget.of_platform(platform) if platform else None
@@ -898,6 +894,7 @@ def _bulk_download_target(
     target = AuditTarget.of_collection(collection)
     if collection.is_public or collection.user_id == user_id:
         return target
+    # Someone else's private collection is kept by id; its name stays theirs.
     return AuditTarget(target.type, target.id, None)
 
 

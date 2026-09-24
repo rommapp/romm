@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class AuditAction(enum.StrEnum):
-    """What a user, or RomM itself, did; the client builds its sentence from `data`."""
+    """What someone, or a background job, did; the client builds its sentence from `data`."""
 
     ROM_DOWNLOAD = "rom.download"
     ROM_BULK_DOWNLOAD = "rom.bulk_download"
@@ -124,7 +124,7 @@ _CONSUMPTION_ACTIONS: Final = frozenset(
 
 
 def category_of(action: str) -> AuditCategory | None:
-    """The group an action is filtered under; None for one RomM no longer defines."""
+    """The group an action is filtered under; None for an action no longer defined."""
     if action in _CONSUMPTION_ACTIONS:
         return AuditCategory.CONSUMPTION
     return _CATEGORY_PREFIXES.get(action.partition(".")[0])

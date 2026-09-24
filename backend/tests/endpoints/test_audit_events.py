@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from fastapi import status
 
@@ -12,9 +13,9 @@ def _add(
     actor: User | None,
     action: AuditAction = AuditAction.ROM_DOWNLOAD,
     minutes_ago: int = 0,
-    **overrides,
+    **overrides: Any,
 ) -> AuditEvent:
-    fields = {
+    fields: dict[str, Any] = {
         "occurred_at": datetime.now(timezone.utc) - timedelta(minutes=minutes_ago),
         "actor_kind": AuditActorKind.USER if actor else AuditActorKind.SYSTEM,
         "actor_id": actor.id if actor else None,

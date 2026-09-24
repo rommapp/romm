@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// EventLog: what users and RomM did, grouped by day, filters in the URL. The
-// list is windowed and pulls the next page in as its end scrolls into view.
+// EventLog: the audit log grouped by day, its filters in the URL. The list is
+// windowed and pulls the next page in as its end scrolls into view.
 import {
   RBtn,
   RDateField,

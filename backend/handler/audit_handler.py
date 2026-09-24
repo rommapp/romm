@@ -1,7 +1,4 @@
-"""The audit log: what users, or RomM itself, did, recorded once it succeeded.
-
-Best effort: a failure to record is logged and never reaches the action.
-"""
+"""The audit log: what users and background jobs did, recorded best effort."""
 
 from __future__ import annotations
 
