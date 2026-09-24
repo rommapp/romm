@@ -54,6 +54,14 @@ describe("MemoryCardDialog", () => {
     );
   });
 
+  it("keeps Save off until the name or the visibility changes", async () => {
+    const wrapper = mountDialog({ initialName: "Main" });
+    expect(wrapper.get(".confirm").attributes("disabled")).toBeDefined();
+
+    await wrapper.get(".public").setValue(true);
+    expect(wrapper.get(".confirm").attributes("disabled")).toBeUndefined();
+  });
+
   it("submits the trimmed name with the visibility", async () => {
     const wrapper = mountDialog();
 

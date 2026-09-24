@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// The public/private switch every edit and create form carries, labelled with
-// the state it is in. Both labels hold the space, so flipping it never moves
-// what sits beside it.
+// The public/private switch of every edit and create form. Both labels hold
+// the space, so flipping it never moves what sits beside it.
 import { RSwitch } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";

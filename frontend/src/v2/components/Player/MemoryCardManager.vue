@@ -115,7 +115,7 @@ async function submitEdit({ name, isPublic }: MemoryCardFields): Promise<void> {
       }));
     }
     cards.value = cards.value.map((c) => (c.id === updated.id ? updated : c));
-    editTarget.value = null;
+    if (editTarget.value === card) editTarget.value = null;
     emit("changed");
     snackbar.success(t("play.memory-card-edited"), { icon: "mdi-check-bold" });
   } catch (err) {

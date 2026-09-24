@@ -5,8 +5,8 @@
 // with a visible footprint of exactly 36×20.
 //
 // Optional `label` (or the `label` slot, for richer text) renders to the
-// right of the switch (clicking the label toggles too). Without a label, only the switch paints — useful
-// inside table cells / dense rows. `SettingsToggleRow` is a separate
+// right of the switch (clicking the label toggles too). Without a label,
+// only the switch paints, which suits table cells and dense rows. `SettingsToggleRow` is a separate
 // composite that wraps RSwitch with a full-row label + description
 // click target.
 import { computed } from "vue";

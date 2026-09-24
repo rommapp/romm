@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import cached_property
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 from sqlalchemy import BigInteger, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
@@ -61,9 +62,11 @@ class BaseAsset(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        # Served by the per-type `/{id}/content` route
+        # Served by the per-type `/{id}/content` route. A rename keeps
+        # `updated_at`, so the name joins the cache key.
         return (
-            f"/api/{self.__tablename__}/{self.id}/content?timestamp={self.updated_at}"
+            f"/api/{self.__tablename__}/{self.id}/content"
+            f"?timestamp={self.updated_at}&name={quote(self.file_name)}"
         )
 
 

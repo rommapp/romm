@@ -29,7 +29,7 @@ const stored = {
   user_id: 1,
   is_public: false,
   rom_ids: [1, 2],
-} as unknown as Collection;
+} as Collection;
 
 // Stands in for the switch: a click asks to flip it.
 const VisibilitySwitch = {
@@ -65,7 +65,7 @@ describe("CollectionSettingsTab visibility", () => {
     storeAuth().setCurrentUser({
       id: 1,
       oauth_scopes: ["collections.write"],
-    } as unknown as User);
+    } as User);
   });
 
   it("saves as soon as it is switched, keeping a name draft out", async () => {

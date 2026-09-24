@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// The round globe on something the user shared: on a scrim over a thumbnail,
-// or on a faint surface of its own (`inline`) beside a title. Private things
-// carry no mark.
+// The globe on something the user shared: on a scrim over a thumbnail, or on
+// a faint surface of its own (`inline`) beside a title.
 import { RIcon, RTooltip } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 

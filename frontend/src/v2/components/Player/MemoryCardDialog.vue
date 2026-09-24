@@ -4,7 +4,7 @@
 // same fields, the same validation and the same footer, so they are one
 // dialog with a different title and confirm label.
 import { RBtn, RDialog, RForm, RTextField } from "@v2/lib";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 import { required } from "@/v2/utils/validation";
@@ -46,6 +46,13 @@ const name = ref(props.initialName);
 const isPublic = ref(props.initialPublic);
 const valid = ref(true);
 const rules = [required(t("common.required"))];
+const canSubmit = computed(
+  () =>
+    !!name.value.trim() &&
+    (name.value.trim() !== props.initialName ||
+      isPublic.value !== props.initialPublic) &&
+    !props.busy,
+);
 
 // Reopening is what resets the fields, so a cancelled edit does not carry
 // into the next one.
@@ -64,9 +71,8 @@ function close(): void {
 }
 
 function submit(): void {
-  const trimmed = name.value.trim();
-  if (!trimmed || props.busy) return;
-  emit("submit", { name: trimmed, isPublic: isPublic.value });
+  if (!canSubmit.value) return;
+  emit("submit", { name: name.value.trim(), isPublic: isPublic.value });
 }
 </script>
 
@@ -115,7 +121,7 @@ function submit(): void {
         variant="flat"
         color="primary"
         :prepend-icon="confirmIcon"
-        :disabled="!name.trim() || busy"
+        :disabled="!canSubmit"
         :loading="busy"
         @click="submit"
       >

@@ -829,6 +829,16 @@ class TestStateRename:
         refreshed = db_state_handler.get_state_by_id(state.id)
         assert refreshed is not None and refreshed.file_name == "test_state.state"
 
+    def test_name_with_nothing_before_the_extension_is_rejected(
+        self, client, access_token: str, state: State, state_file, thumbnail
+    ):
+        response = self._rename(client, access_token, state.id, ".state")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert state_file.exists()
+        kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert kept is not None and kept.file_name == "test_state.png"
+
     def test_blank_name_is_rejected(
         self, client, access_token: str, state: State, state_file
     ):

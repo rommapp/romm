@@ -4,8 +4,8 @@
 // Expanded: inline name input and visibility switch with Create / Cancel
 // actions.
 //
-// Stateless — the parent owns `expanded`, `name`, `isPublic` and `creating`. The
-// outer row + tile are persistent across both states so the background
+// Stateless: the parent owns `expanded`, `name`, `isPublic` and `creating`.
+// The outer row + tile are persistent across both states so the background
 // tint and tile-active swap transition smoothly instead of remounting;
 // only the middle (label vs input) and the trailing actions toggle.
 import { RBtn, RIcon } from "@v2/lib";

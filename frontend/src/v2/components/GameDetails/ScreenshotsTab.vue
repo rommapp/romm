@@ -5,9 +5,9 @@
 //
 // Per-item affordances are driven by the item fields + props (the parent,
 // MediaTab, performs the actions):
-//   * edit     — when `editable` and owned: opens its visibility (top-right)
-//   * delete   — when `deletable` and the item is owned (top-right, hover)
-//   * username — community items (others' public shots) show an owner chip
+//   * edit:     when `editable` and owned, opens its visibility (top-right)
+//   * delete:   when `deletable` and the item is owned (top-right, hover)
+//   * username: community items (others' public shots) show an owner chip
 import { RAvatar, RBtn, RCarousel } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";

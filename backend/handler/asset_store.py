@@ -204,6 +204,13 @@ async def rename_asset(
         ) from exc
     if new_name == asset.file_name:
         return {}
+    # The thumbnail follows the stem, so a bare extension would strand it.
+    new_stem = compute_file_name_no_ext(new_name)
+    if not new_stem:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid filename: it needs a name before the extension",
+        )
 
     folded = new_name.casefold()
     if any(
@@ -214,7 +221,6 @@ async def rename_asset(
 
     # Thumbnails bind by stem, so taking a stem another screenshot holds would
     # show that one, and delete it along with the asset.
-    new_stem = compute_file_name_no_ext(new_name)
     thumbnail = asset.screenshot
     bound = db_screenshot_handler.get_screenshot(
         rom_id=asset.rom_id,
