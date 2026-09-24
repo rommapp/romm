@@ -16,7 +16,7 @@ from handler.database import (
     db_screenshot_handler,
     db_state_handler,
 )
-from handler.filesystem import fs_asset_handler, fs_retroarch_sync_blob_handler
+from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.redis_handler import async_cache
 from handler.sync.retroarch import psp
 from handler.sync.retroarch.emulator_names import (
@@ -243,13 +243,13 @@ async def _cached_md5(
 async def blob_md5(user: User, blob_path: str) -> str | None:
     disk_path = user_blob_path(user, blob_path)
     try:
-        stat = fs_retroarch_sync_blob_handler.validate_path(disk_path).stat()
+        stat = fs_retroarch_sync_handler.validate_path(disk_path).stat()
     except (ValueError, OSError):
         return None
 
     return await _cached_md5(
         f"romm:retroarch_sync:blob_md5:{user.id}:{blob_path}:{stat.st_size}:{stat.st_mtime}",
-        lambda: fs_retroarch_sync_blob_handler.compute_file_md5(disk_path),
+        lambda: fs_retroarch_sync_handler.compute_file_md5(disk_path),
     )
 
 
@@ -257,7 +257,7 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
     entries: list[dict[str, str]] = []
     for category in BLOB_CATEGORIES:
         prefix = f"{fs_asset_handler.user_folder_path(user)}/{category}"
-        for relative in await fs_retroarch_sync_blob_handler.list_blob_paths(prefix):
+        for relative in await fs_retroarch_sync_handler.list_blob_paths(prefix):
             blob_path = f"{category}/{relative}"
             digest = await blob_md5(user, blob_path)
             if not digest:

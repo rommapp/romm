@@ -984,7 +984,7 @@ RetroArch device however many installs sync under their account.
 
 RetroArch's other three Cloud Sync categories (Sync Configuration/Thumbnails/
 System Files) have no ROM to attach to, so they're stored as opaque per-user
-blobs under `SYNC_RETROARCH_BLOB_BASE_PATH` (`FSRetroArchSyncBlobHandler`) instead of
+blobs under `SYNC_RETROARCH_BASE_PATH` (`FSRetroArchSyncHandler`) instead of
 going through the asset/ROM matching above, namespaced by user so two
 RetroArch installs syncing to the same RomM instance under different accounts
 never see each other's files. Unlike asset hashes, blob hashes are always real

@@ -1,14 +1,14 @@
 """Opaque per-user storage for the Cloud Sync categories no ROM owns: config/,
 thumbnails/ and system/."""
 
-from config import SYNC_RETROARCH_BLOB_BASE_PATH
+from config import SYNC_RETROARCH_BASE_PATH
 
 from .base_handler import FSHandler
 
 
-class FSRetroArchSyncBlobHandler(FSHandler):
+class FSRetroArchSyncHandler(FSHandler):
     def __init__(self) -> None:
-        super().__init__(base_path=SYNC_RETROARCH_BLOB_BASE_PATH)
+        super().__init__(base_path=SYNC_RETROARCH_BASE_PATH)
 
     async def list_blob_paths(self, prefix: str) -> list[str]:
         """Posix paths of every file under `prefix` (relative to the blob root),

@@ -29,7 +29,7 @@ from handler.database import (
     db_screenshot_handler,
     db_state_handler,
 )
-from handler.filesystem import fs_asset_handler, fs_retroarch_sync_blob_handler
+from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.filesystem.assets_handler import build_asset_file_response
 from handler.filesystem.base_handler import FSHandler
 from handler.scan_handler import scan_save, scan_screenshot, scan_state
@@ -358,7 +358,7 @@ async def retroarch_sync_get(request: Request, file_path: str) -> Response:
     blob_path = sync_handler.parse_retroarch_sync_blob_path(file_path)
     if blob_path:
         return _serve(
-            fs_retroarch_sync_blob_handler,
+            fs_retroarch_sync_handler,
             sync_handler.user_blob_path(request.user, blob_path),
             os.path.basename(blob_path),
         )
@@ -432,8 +432,8 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     if blob_path:
         disk_path = sync_handler.user_blob_path(request.user, blob_path)
         try:
-            existed = await fs_retroarch_sync_blob_handler.file_exists(disk_path)
-            await fs_retroarch_sync_blob_handler.write_file(
+            existed = await fs_retroarch_sync_handler.file_exists(disk_path)
+            await fs_retroarch_sync_handler.write_file(
                 file=await request.body(),
                 path=os.path.dirname(disk_path),
                 filename=os.path.basename(disk_path),
@@ -609,7 +609,7 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     blob_path = sync_handler.parse_retroarch_sync_blob_path(file_path)
     if blob_path:
         try:
-            await fs_retroarch_sync_blob_handler.remove_file(
+            await fs_retroarch_sync_handler.remove_file(
                 file_path=sync_handler.user_blob_path(request.user, blob_path)
             )
         except FileNotFoundError:
