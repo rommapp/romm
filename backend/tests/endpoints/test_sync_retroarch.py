@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from redis.exceptions import RedisError
 
 from handler.database import (
     db_device_handler,
@@ -1074,6 +1075,18 @@ class TestRetroArchSyncPsp:
             for name, data in list(members.items())[:uploads]
         ]
         load_entries.assert_not_called()
+
+    def test_upload_succeeds_when_priming_the_cache_fails(
+        self, client, admin_user: User
+    ):
+        with mock.patch.object(psp.async_cache, "set", side_effect=RedisError("down")):
+            response = client.put(
+                "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+                content=b"data",
+                auth=ADMIN_AUTH,
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
 
     def test_propfind_lists_bundle_members_without_inflating(
         self, client, admin_user: User

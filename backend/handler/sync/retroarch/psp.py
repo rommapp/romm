@@ -19,6 +19,8 @@ from io import BytesIO
 from pathlib import Path
 from typing import Literal
 
+from redis.exceptions import RedisError
+
 from config import SYNC_RETROARCH_PSP_PENDING_PATH, SYNC_RETROARCH_PSP_SERIAL_MAP
 from handler.database import db_platform_handler, db_rom_handler, db_save_handler
 from handler.filesystem import fs_asset_handler
@@ -516,11 +518,17 @@ def _member_md5s(members: dict[str, bytes]) -> dict[str, str]:
 
 async def _prime_member_md5s(bundle: Save, members: dict[str, bytes]) -> None:
     """Cache a just-written bundle's member MD5s, so the next manifest skips inflating it."""
-    await async_cache.set(
-        _member_md5s_cache_key(bundle),
-        json.dumps(_member_md5s(members)),
-        ex=sync_handler.HASH_CACHE_TTL_SECONDS,
-    )
+    # Best effort: the bundle is already written, and a miss is recomputed later.
+    try:
+        await async_cache.set(
+            _member_md5s_cache_key(bundle),
+            json.dumps(_member_md5s(members)),
+            ex=sync_handler.HASH_CACHE_TTL_SECONDS,
+        )
+    except RedisError as exc:
+        log.warning(
+            f"Failed to cache PSP bundle hashes for {hl(bundle.full_path)}: {exc}"
+        )
 
 
 async def _bundle_member_md5s(bundle: Save) -> dict[str, str] | None:
