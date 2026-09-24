@@ -4,11 +4,8 @@
 // `<button role="switch">` — focusable, keyboard- and gamepad-friendly,
 // with a visible footprint of exactly 36×20.
 //
-// Optional `label` (or the `label` slot, for richer text) renders to the
-// right of the switch (clicking the label toggles too). Without a label,
-// only the switch paints, which suits table cells and dense rows.
-// `SettingsToggleRow` is a separate composite that wraps RSwitch with a
-// full-row label + description click target.
+// The `label` prop or slot renders beside the switch; a full-row label and
+// description target is `SettingsToggleRow`.
 import { computed } from "vue";
 
 defineOptions({ inheritAttrs: false });
