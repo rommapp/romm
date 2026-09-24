@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Awaitable, Callable, Iterable
+from collections import defaultdict
+from collections.abc import Awaitable, Callable, Collection, Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, cast
@@ -23,6 +24,7 @@ from handler.sync.retroarch.emulator_names import (
     to_retroarch_dir_name,
     to_romm_emulator,
 )
+from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
@@ -85,8 +87,6 @@ def parse_retroarch_sync_path(path: str) -> RetroArchSyncPath | None:
         return None
     kind = cast(AssetKind, segments[0])
 
-    # RomM's web player matches saves on the lowercase libretro core id, not
-    # RetroArch's display-cased folder name.
     emulator = None
     if len(segments) == 3:
         emulator = emulator_from_dir_name(segments[1])
@@ -101,11 +101,16 @@ def is_state_screenshot_path(file_name: str) -> bool:
     return file_name.lower().endswith(".png")
 
 
+def state_name_of_screenshot(file_name: str) -> str:
+    """The state file name a `<state file name>.png` screenshot belongs to."""
+    return file_name[: -len(".png")]
+
+
 def game_name_from_file_name(kind: AssetKind, file_name: str) -> str:
     """The ROM file name (minus extension) an asset file belongs to."""
     if kind == "states":
         base = (
-            file_name[: -len(".png")]
+            state_name_of_screenshot(file_name)
             if is_state_screenshot_path(file_name)
             else file_name
         )
@@ -118,11 +123,7 @@ def game_name_from_file_name(kind: AssetKind, file_name: str) -> str:
 
 
 def state_slot_suffix(file_name: str) -> str:
-    """The slot suffix (``state``, ``state1``, ``state.auto``) a state name ends in.
-
-    States have no ``slot`` column, so this groups them into RetroArch's load
-    slots. A web-player state (``<rom> [<timestamp>].state``) lands in slot 0.
-    """
+    """The RetroArch load slot (``state``, ``state1``, ``state.auto``) a state name ends in."""
     match = STATE_SUFFIX_PATTERN.search(file_name)
     if match:
         return match.group(0)[1:].lower()
@@ -162,24 +163,48 @@ def resolve_state_by_slot(
     return group_states_by_slot(states).get(key)
 
 
-def state_screenshot(state: State) -> Screenshot | None:
-    """The screenshot synced alongside this exact state.
-
-    `State.screenshot` also matches on the name stem, which a RetroArch slot
-    name (`<rom>.state1`) shares with every other slot's and gallery shot.
-    """
+def _match_state_screenshot(
+    state: State, screenshots: Iterable[Screenshot]
+) -> Screenshot | None:
     exact_name = f"{state.file_name}.png"
-    screenshot = db_screenshot_handler.get_screenshot(
-        rom_id=state.rom_id, user_id=state.user_id, file_name=exact_name
-    )
-    if screenshot and screenshot.file_name == exact_name:
-        return screenshot
+    candidates = list(screenshots)
+    exact = next((s for s in candidates if s.file_name == exact_name), None)
+    if exact:
+        return exact
 
+    # `State.screenshot` matches on the name stem, which a RetroArch slot name
+    # (`<rom>.state1`) shares with every other slot's and gallery shot.
     if state.file_name_no_ext == state.rom.fs_name_no_ext:
         return None
 
-    screenshot = state.screenshot
-    return None if screenshot is None or screenshot.is_gallery else screenshot
+    names = {state.file_name, state.file_name_no_ext}
+    stem_matches = [
+        s for s in candidates if s.file_name in names or s.file_name_no_ext in names
+    ]
+    if not stem_matches:
+        return None
+    best = min(
+        stem_matches, key=lambda s: (s.file_name_no_ext != state.file_name, -s.id)
+    )
+    return None if best.is_gallery else best
+
+
+def state_screenshots(user: User, states: Collection[State]) -> dict[int, Screenshot]:
+    """The screenshot synced alongside each of these states, by state id."""
+    if not states:
+        return {}
+
+    by_rom: defaultdict[int, list[Screenshot]] = defaultdict(list)
+    for screenshot in db_screenshot_handler.get_screenshots(
+        user_id=user.id, rom_ids={state.rom_id for state in states}
+    ):
+        by_rom[screenshot.rom_id].append(screenshot)
+
+    matches = {
+        state.id: _match_state_screenshot(state, by_rom[state.rom_id])
+        for state in states
+    }
+    return {state_id: shot for state_id, shot in matches.items() if shot}
 
 
 def resolve_state_screenshot_by_slot(
@@ -187,9 +212,9 @@ def resolve_state_screenshot_by_slot(
 ) -> Screenshot | None:
     """The screenshot of the state a ``<slot>.png`` name resolves to."""
     state = resolve_state_by_slot(
-        user, rom, emulator, requested_file_name[: -len(".png")]
+        user, rom, emulator, state_name_of_screenshot(requested_file_name)
     )
-    return state_screenshot(state) if state else None
+    return state_screenshots(user, [state]).get(state.id) if state else None
 
 
 def build_retroarch_sync_path(
@@ -217,10 +242,7 @@ def build_asset_file_path(
 
 
 def parse_retroarch_sync_blob_path(path: str) -> str | None:
-    """A blob-category client path as ``category/...``, or None if it isn't one.
-
-    Nesting is arbitrary: RetroArch mirrors its on-device tree here.
-    """
+    """A blob-category client path as ``category/...``, or None if it isn't one."""
     segments = split_segments(path)
     if segments is None or len(segments) < 2:
         return None
@@ -257,16 +279,19 @@ async def blob_md5(user: User, blob_path: str) -> str | None:
     except (ValueError, OSError):
         return None
 
-    return await _cached_md5(
-        f"romm:retroarch_sync:blob_md5:{user.id}:{blob_path}:{stat.st_size}:{stat.st_mtime}",
-        lambda: fs_retroarch_sync_handler.compute_file_md5(disk_path),
-    )
+    try:
+        return await _cached_md5(
+            f"romm:retroarch_sync:blob_md5:{user.id}:{blob_path}:{stat.st_size}:{stat.st_mtime}",
+            lambda: fs_retroarch_sync_handler.compute_file_md5(disk_path),
+        )
+    except OSError:
+        return None
 
 
 async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
     entries: list[dict[str, str]] = []
     for category in BLOB_CATEGORIES:
-        prefix = f"{fs_asset_handler.user_folder_path(user)}/{category}"
+        prefix = user_blob_path(user, category)
         for relative in await fs_retroarch_sync_handler.list_blob_paths(prefix):
             blob_path = f"{category}/{relative}"
             digest = await blob_md5(user, blob_path)
@@ -280,11 +305,7 @@ async def build_blob_manifest_entries(user: User) -> list[dict[str, str]]:
 def resolve_roms(
     game_names: Iterable[str], can_see: Callable[[Rom], bool]
 ) -> dict[str, Rom]:
-    """The ROM each RetroArch sync game name belongs to, matched on file name alone.
-
-    An ambiguous name resolves to its first visible ROM by id, so it stays
-    stable across syncs.
-    """
+    """The ROM each game name belongs to, the first visible one by id when ambiguous."""
     names = set(game_names)
     exact: dict[str, Rom] = {}
     # MariaDB's default collation matches case-insensitively; PostgreSQL doesn't.
@@ -302,23 +323,37 @@ def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
     return resolve_roms([game_name], can_see).get(game_name)
 
 
+def _mark_missing_from_fs(asset: Save | State | Screenshot) -> None:
+    update = {"missing_from_fs": True}
+    if isinstance(asset, Save):
+        db_save_handler.update_save(asset.id, update)
+    elif isinstance(asset, State):
+        db_state_handler.update_state(asset.id, update)
+    else:
+        db_screenshot_handler.update_screenshot(asset.id, update)
+
+
 async def asset_md5(asset: Save | State | Screenshot) -> str | None:
-    return await _cached_md5(
-        f"romm:retroarch_sync:md5:{asset.full_path}"
-        f":{asset.file_size_bytes}:{asset.updated_at.timestamp()}",
-        lambda: fs_asset_handler.compute_file_md5(asset.full_path),
-    )
+    """The asset's MD5, or None when unreadable; a vanished file flags its row."""
+    try:
+        return await _cached_md5(
+            f"romm:retroarch_sync:md5:{asset.full_path}"
+            f":{asset.file_size_bytes}:{asset.updated_at.timestamp()}",
+            lambda: fs_asset_handler.compute_file_md5(asset.full_path),
+        )
+    except FileNotFoundError:
+        _mark_missing_from_fs(asset)
+        return None
+    except OSError as exc:
+        log.debug(f"Failed to compute MD5 for {asset.full_path}: {exc}")
+        return None
 
 
 async def build_manifest(
     user: User, can_see: Callable[[Rom], bool]
 ) -> list[dict[str, str]]:
-    """The server manifest RetroArch diffs against, sorted by path.
-
-    Slotted saves are RomM's own timestamped history, which no core would load,
-    so they're left out. Each state slot lists its newest state under
-    RetroArch's canonical name.
-    """
+    """The server manifest RetroArch diffs against, sorted by path."""
+    # Slotted saves are RomM's timestamped history, which no core would load.
     saves = db_save_handler.get_saves(user_id=user.id, slot_is_null=True)
     listed_saves = [
         save
@@ -362,15 +397,18 @@ async def build_manifest(
                 save,
             )
 
-    for emulator, file_name, state in listed_states:
-        if not is_addressable(state.rom, "states", file_name):
-            continue
-
+    addressable_states = [
+        (emulator, file_name, state)
+        for emulator, file_name, state in listed_states
+        if is_addressable(state.rom, "states", file_name)
+    ]
+    screenshots = state_screenshots(user, [state for _, _, state in addressable_states])
+    for emulator, file_name, state in addressable_states:
         state_path = build_retroarch_sync_path("states", emulator, file_name)
         if not await add(state_path, state):
             continue
 
-        screenshot = state_screenshot(state)
+        screenshot = screenshots.get(state.id)
         if screenshot and not screenshot.missing_from_fs:
             await add(f"{state_path}.png", screenshot)
 

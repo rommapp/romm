@@ -41,10 +41,7 @@ WEBDAV_MOUNT_PREFIX = "/api/sync/retroarch"
 
 
 def _href_escape(path: str) -> str:
-    full_path = f"{WEBDAV_MOUNT_PREFIX}/{path}" if path else f"{WEBDAV_MOUNT_PREFIX}/"
-    segments = full_path.strip("/").split("/")
-    escaped = "/" + "/".join(quote(segment, safe="") for segment in segments)
-    return escaped + "/" if full_path.endswith("/") else escaped
+    return quote(f"{WEBDAV_MOUNT_PREFIX}/{path}", safe="/")
 
 
 def _response_xml(entry: PropfindEntry) -> str:

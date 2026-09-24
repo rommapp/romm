@@ -1,9 +1,7 @@
-"""RetroArch Cloud Sync support for PPSSPP's PSP save-folder layout.
+"""RetroArch Cloud Sync of PPSSPP's ``saves/[<core>/]PSP/SAVEDATA/<folder>/`` layout.
 
-PPSSPP mirrors a memory stick under ``saves/[<core>/]PSP/``: each
-``SAVEDATA/<folder>/`` holds several files that only make sense as a set, so
-they're bundled into one zip stored as a single RomM ``Save``. ``SYSTEM/``
-holds engine caches only and is ignored.
+A save folder's files only make sense as a set, so each folder is bundled into
+one zip stored as a single RomM ``Save``.
 """
 
 from __future__ import annotations
@@ -19,12 +17,12 @@ from collections.abc import Callable, Collection, Iterable
 from contextlib import suppress
 from dataclasses import dataclass
 from io import BytesIO
+from pathlib import Path
 from typing import Literal
 
 from config import SYNC_RETROARCH_PSP_PENDING_PATH, SYNC_RETROARCH_PSP_SERIAL_MAP
 from handler.database import db_platform_handler, db_rom_handler, db_save_handler
 from handler.filesystem import fs_asset_handler
-from handler.filesystem.assets_handler import hash_zip_contents
 from handler.filesystem.base_handler import FSHandler
 from handler.redis_handler import async_cache
 from handler.sync.retroarch import sync_handler
@@ -33,6 +31,7 @@ from logger.logger import log
 from models.assets import Save
 from models.rom import Rom
 from models.user import User
+from utils.memory_cards import content_hash_of_bytes
 from utils.zip_cache import ensure_zipfile_writable
 
 _IGNORED_CATEGORY = "SYSTEM"
@@ -114,12 +113,11 @@ def is_psp_bundle_file_name(file_name: str) -> bool:
 def _latest_bundles_by_folder(
     saves: Iterable[Save], can_see: Callable[[Rom], bool]
 ) -> dict[str, Save]:
-    """The bundle each folder path resolves to for the manifest and GET/PUT/DELETE,
-    the newest visible unslotted one, since a folder path carries no ROM."""
+    """The newest visible bundle per folder, since a folder path carries no ROM."""
     latest: dict[str, Save] = {}
     for save in saves:
         save_folder = _bundle_folder(save.file_name)
-        if save_folder is None or save.slot is not None or not can_see(save.rom):
+        if save_folder is None or not can_see(save.rom):
             continue
         current = latest.get(save_folder)
         if current is None or sync_handler.recency_key(save) > sync_handler.recency_key(
@@ -133,7 +131,11 @@ def _latest_bundles_by_folder(
 def _find_bundle_by_folder(
     user: User, save_folder: str, can_see: Callable[[Rom], bool]
 ) -> Save | None:
-    saves = db_save_handler.get_saves(user_id=user.id, slot_is_null=True)
+    saves = db_save_handler.get_saves(
+        user_id=user.id,
+        slot_is_null=True,
+        file_name_prefix=_bundle_base_name(save_folder).removesuffix(".zip"),
+    )
     return _latest_bundles_by_folder(saves, can_see).get(save_folder)
 
 
@@ -263,14 +265,15 @@ def _exceeds_bundle_limits(member_sizes: Collection[int]) -> bool:
 
 
 def _load_bundle_entries(
-    zip_bytes: bytes, names: Collection[str] | None = None
+    path: Path, names: Collection[str] | None = None
 ) -> dict[str, bytes]:
     """The bundle's members by name, only those in `names` when given.
 
     Raises:
+        FileNotFoundError: The bundle file is gone.
         zipfile.BadZipFile: The bundle is corrupt or exceeds the bundle limits.
     """
-    with zipfile.ZipFile(BytesIO(zip_bytes)) as zf:
+    with zipfile.ZipFile(path) as zf:
         infos = zf.infolist()
         if _exceeds_bundle_limits([info.file_size for info in infos]):
             raise zipfile.BadZipFile("PSP bundle exceeds the size limits")
@@ -293,13 +296,12 @@ def _write_bundle(entries: dict[str, bytes]) -> bytes:
     return buffer.getvalue()
 
 
-def _bundle_content_hash(zip_bytes: bytes) -> str:
-    with zipfile.ZipFile(BytesIO(zip_bytes)) as zf:
-        return hash_zip_contents(zf)
-
-
-def _pending_dir(user: User, save_folder: str) -> str:
-    return f"{user.id}/{save_folder}"
+async def _load_bundle(
+    bundle: Save, names: Collection[str] | None = None
+) -> dict[str, bytes]:
+    """`_load_bundle_entries` for a bundle row, off the event loop."""
+    path = fs_asset_handler.validate_path(bundle.full_path)
+    return await asyncio.to_thread(_load_bundle_entries, path, names)
 
 
 # RomM runs a single worker, so in-process locks serialize each folder's
@@ -363,7 +365,7 @@ async def _add_bundle(
             file_name=bundle_name,
             file_path=bundle_path,
             file_size_bytes=len(zip_bytes),
-            content_hash=_bundle_content_hash(zip_bytes),
+            content_hash=content_hash_of_bytes(zip_bytes),
             emulator=info.emulator,
             slot=None,
         )
@@ -382,20 +384,17 @@ async def put_psp_file(
     # PPSSPP writes a folder as a burst of PUTs, so the bundle is rewritten in
     # place rather than keeping each partial merge as save history.
     async with _folder_locks[f"{user.id}:{info.save_folder}"]:
-        pending_dir = _pending_dir(user, info.save_folder)
+        pending_dir = f"{user.id}/{info.save_folder}"
         existing = _find_bundle_by_folder(user, info.save_folder, can_see)
 
         merged: dict[str, bytes] = {}
         if existing:
             try:
-                zip_bytes = await fs_asset_handler.read_file(existing.full_path)
+                merged = await _load_bundle(existing)
             except FileNotFoundError:
                 log.warning(f"PSP bundle {hl(existing.full_path)} is gone, rebuilding")
-            else:
-                try:
-                    merged = _load_bundle_entries(zip_bytes)
-                except zipfile.BadZipFile as exc:
-                    raise PspBundleInvalid(existing.full_path) from exc
+            except zipfile.BadZipFile as exc:
+                raise PspBundleInvalid(existing.full_path) from exc
         else:
             rom = await _resolve_folder_rom(info, content, pending_dir, can_see)
 
@@ -431,7 +430,7 @@ async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:
         bundle.id,
         {
             "file_size_bytes": len(zip_bytes),
-            "content_hash": _bundle_content_hash(zip_bytes),
+            "content_hash": content_hash_of_bytes(zip_bytes),
             "missing_from_fs": False,
         },
     )
@@ -441,9 +440,7 @@ async def _read_bundle(
     bundle: Save, names: Collection[str] | None = None
 ) -> dict[str, bytes] | None:
     try:
-        return _load_bundle_entries(
-            await fs_asset_handler.read_file(bundle.full_path), names
-        )
+        return await _load_bundle(bundle, names)
     except (FileNotFoundError, zipfile.BadZipFile) as exc:
         log.warning(f"Failed to read PSP bundle {hl(bundle.full_path)}: {exc}")
         return None
@@ -462,10 +459,7 @@ async def get_psp_file(
 async def delete_psp_file(
     user: User, info: PspFilePath, can_see: Callable[[Rom], bool]
 ) -> None:
-    """Drops one member from its folder's bundle, and the bundle once empty.
-
-    A missing bundle or member is a no-op, like every other RetroArch sync delete.
-    """
+    """Drop one member from its folder's bundle, and the bundle once empty."""
     async with _folder_locks[f"{user.id}:{info.save_folder}"]:
         bundle = _find_bundle_by_folder(user, info.save_folder, can_see)
         if not bundle:

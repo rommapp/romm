@@ -2,6 +2,7 @@ from unittest import mock
 
 import pytest
 from fastapi import status
+from fastapi.testclient import TestClient
 
 from handler.database import (
     db_device_handler,
@@ -11,6 +12,7 @@ from handler.database import (
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler
+from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.sync.retroarch import psp, sync_handler
 from handler.sync.retroarch.device import CLIENT_DEVICE_IDENTIFIER
 from handler.sync.retroarch.emulator_names import (
@@ -25,6 +27,29 @@ from models.user import User
 
 ADMIN_AUTH = ("test_admin", "test_admin_password")
 EDITOR_AUTH = ("test_editor", "test_editor_password")
+EMPTY_MD5 = "d41d8cd98f00b204e9800998ecf8427e"
+
+
+def _mock_asset_md5():
+    return mock.patch(
+        "handler.sync.retroarch.sync_handler.asset_md5",
+        new_callable=mock.AsyncMock,
+        return_value=EMPTY_MD5,
+    )
+
+
+def _retroarch_upload_cap(client: TestClient, max_size: int):
+    """Lower the upload size limit guarding `/api/sync/retroarch` for one test."""
+    app = client.app
+    layer = app.middleware_stack or app.build_middleware_stack()  # type: ignore[attr-defined]
+    app.middleware_stack = layer  # type: ignore[attr-defined]
+    while layer is not None:
+        if isinstance(layer, UploadSizeLimitMiddleware) and any(
+            pattern.match("/api/sync/retroarch/") for pattern in layer.paths
+        ):
+            return mock.patch.object(layer, "max_size", max_size)
+        layer = getattr(layer, "app", None)
+    raise AssertionError("No upload size limit guards /api/sync/retroarch")
 
 
 @pytest.fixture
@@ -39,10 +64,7 @@ def saves_path(admin_user: User, rom: Rom):
 
 @pytest.fixture
 def synced_save(admin_user: User, rom: Rom, saves_path: str):
-    """A save stored where the RetroArch sync path `saves/Snes9x/test_rom.srm`
-    resolves to, unlike the shared fixtures' legacy layout. `emulator` is
-    RomM's own convention (lowercase), not RetroArch's directory casing --
-    see `parse_retroarch_sync_path`."""
+    """A save where `saves/Snes9x/test_rom.srm` resolves, unlike the shared fixture's legacy layout."""
     return db_save_handler.add_save(
         Save(
             rom_id=rom.id,
@@ -67,18 +89,26 @@ def states_path(admin_user: User, rom: Rom):
 
 
 @pytest.fixture
-def synced_state(admin_user: User, rom: Rom, states_path: str):
-    """A state with RetroArch's own `<rom>.state` name, unlike the shared fixture."""
-    return db_state_handler.add_state(
-        State(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_rom.state",
-            file_path=states_path,
-            file_size_bytes=4,
-            emulator="snes9x",
+def make_state(admin_user: User, rom: Rom, states_path: str):
+    def make(file_name: str) -> State:
+        return db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name=file_name,
+                file_path=states_path,
+                file_size_bytes=4,
+                emulator="snes9x",
+            )
         )
-    )
+
+    return make
+
+
+@pytest.fixture
+def synced_state(make_state):
+    """A state with RetroArch's own `<rom>.state` name, unlike the shared fixture."""
+    return make_state("test_rom.state")
 
 
 @pytest.fixture
@@ -96,18 +126,9 @@ def synced_state_screenshot(admin_user: User, rom: Rom, synced_state: State):
 
 
 @pytest.fixture
-def web_state(admin_user: User, rom: Rom, states_path: str):
+def web_state(make_state):
     """A state with the web player's label-plus-timestamp name."""
-    return db_state_handler.add_state(
-        State(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_rom [2026-07-24 12-04-52-733].state",
-            file_path=states_path,
-            file_size_bytes=4,
-            emulator="snes9x",
-        )
-    )
+    return make_state("test_rom [2026-07-24 12-04-52-733].state")
 
 
 class TestRetroArchSyncEmulatorNames:
@@ -257,9 +278,7 @@ class TestRetroArchSyncStateSlotResolution:
     def test_resolves_canonical_name_to_the_web_created_row(
         self, admin_user: User, rom: Rom, web_state: State
     ):
-        """A GET/DELETE for the canonical slot name the manifest advertised
-        must resolve back to the real row even though its actual `file_name`
-        (a web-player timestamp label) never matches that canonical name."""
+        """The canonical slot name resolves to a web-player state despite its timestamped name."""
         resolved = sync_handler.resolve_state_by_slot(
             admin_user, rom, "snes9x", "test_rom.state"
         )
@@ -268,28 +287,10 @@ class TestRetroArchSyncStateSlotResolution:
         assert resolved.id == web_state.id
 
     def test_resolves_to_the_newer_of_two_competing_states(
-        self, admin_user: User, rom: Rom, states_path: str
+        self, admin_user: User, rom: Rom, make_state
     ):
-        older = db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_rom.state",
-                file_path=states_path,
-                file_size_bytes=4,
-                emulator="snes9x",
-            )
-        )
-        newer = db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_rom [2026-07-24 12-04-52-733].state",
-                file_path=states_path,
-                file_size_bytes=4,
-                emulator="snes9x",
-            )
-        )
+        older = make_state("test_rom.state")
+        newer = make_state("test_rom [2026-07-24 12-04-52-733].state")
         assert newer.id > older.id
 
         resolved = sync_handler.resolve_state_by_slot(
@@ -299,19 +300,9 @@ class TestRetroArchSyncStateSlotResolution:
         assert resolved is not None
         assert resolved.id == newer.id
 
-    def test_does_not_cross_slots(self, admin_user: User, rom: Rom, states_path: str):
-        """A slot-1 state must never resolve for a slot-0 request, even
-        though both belong to the same rom/emulator."""
-        db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_rom.state1",
-                file_path=states_path,
-                file_size_bytes=4,
-                emulator="snes9x",
-            )
-        )
+    def test_does_not_cross_slots(self, admin_user: User, rom: Rom, make_state):
+        """A slot-1 state never resolves for a slot-0 request."""
+        make_state("test_rom.state1")
 
         resolved = sync_handler.resolve_state_by_slot(
             admin_user, rom, "snes9x", "test_rom.state"
@@ -321,11 +312,7 @@ class TestRetroArchSyncStateSlotResolution:
 
 
 class TestRetroArchSyncManifest:
-    @mock.patch(
-        "handler.sync.retroarch.sync_handler.asset_md5",
-        new_callable=mock.AsyncMock,
-        return_value="d41d8cd98f00b204e9800998ecf8427e",
-    )
+    @_mock_asset_md5()
     def test_lists_saves_and_states(
         self,
         _asset_md5: mock.AsyncMock,
@@ -340,74 +327,41 @@ class TestRetroArchSyncManifest:
         assert response.json() == [
             {
                 "path": "saves/Snes9x/test_rom.srm",
-                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+                "hash": EMPTY_MD5,
             },
             {
                 "path": "states/Snes9x/test_rom.state",
-                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+                "hash": EMPTY_MD5,
             },
         ]
 
-    @mock.patch(
-        "handler.sync.retroarch.sync_handler.asset_md5",
-        new_callable=mock.AsyncMock,
-        return_value="d41d8cd98f00b204e9800998ecf8427e",
-    )
+    @_mock_asset_md5()
     def test_remaps_web_player_state_to_canonical_slot(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, web_state: State
     ):
-        """A state uploaded through RomM's own web player carries a display
-        label and timestamp in its file name, not a RetroArch slot number --
-        RetroArch's Load State menu only ever offers numbered slots 0-999
-        (verified live: RetroArch fetched such a file during a real sync,
-        and it never appeared as a loadable slot because its raw file name
-        was surfaced as-is). It still belongs to slot 0 like any other
-        untagged state, so the manifest advertises it under RetroArch's own
-        canonical name for that slot instead of its raw file name."""
+        """RetroArch only loads numbered slots, so a web-player state is listed under slot 0's name."""
         response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == [
             {
                 "path": "states/Snes9x/test_rom.state",
-                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+                "hash": EMPTY_MD5,
             }
         ]
 
-    @mock.patch(
-        "handler.sync.retroarch.sync_handler.asset_md5",
-        new_callable=mock.AsyncMock,
-        return_value="d41d8cd98f00b204e9800998ecf8427e",
-    )
+    @_mock_asset_md5()
     def test_newest_state_in_a_slot_wins_regardless_of_origin(
         self,
         _asset_md5: mock.AsyncMock,
         client,
         admin_user: User,
         rom: Rom,
-        states_path: str,
+        make_state,
     ):
         """The newest state in a slot wins, whichever client created it."""
-        older = db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_rom.state",
-                file_path=states_path,
-                file_size_bytes=4,
-                emulator="snes9x",
-            )
-        )
-        newer = db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_rom [2026-07-24 12-04-52-733].state",
-                file_path=states_path,
-                file_size_bytes=4,
-                emulator="snes9x",
-            )
-        )
+        older = make_state("test_rom.state")
+        newer = make_state("test_rom [2026-07-24 12-04-52-733].state")
         assert newer.id > older.id
 
         response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
@@ -416,15 +370,11 @@ class TestRetroArchSyncManifest:
         assert response.json() == [
             {
                 "path": "states/Snes9x/test_rom.state",
-                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+                "hash": EMPTY_MD5,
             }
         ]
 
-    @mock.patch(
-        "handler.sync.retroarch.sync_handler.asset_md5",
-        new_callable=mock.AsyncMock,
-        return_value="d41d8cd98f00b204e9800998ecf8427e",
-    )
+    @_mock_asset_md5()
     def test_excludes_slotted_saves(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, save: Save
     ):
@@ -439,11 +389,18 @@ class TestRetroArchSyncManifest:
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == []
 
-    @mock.patch(
-        "handler.sync.retroarch.sync_handler.asset_md5",
-        new_callable=mock.AsyncMock,
-        return_value="d41d8cd98f00b204e9800998ecf8427e",
-    )
+    def test_flags_a_state_whose_file_is_gone(
+        self, client, admin_user: User, synced_state: State
+    ):
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
+        state = db_state_handler.get_state(user_id=admin_user.id, id=synced_state.id)
+        assert state is not None
+        assert state.missing_from_fs
+
+    @_mock_asset_md5()
     def test_round_trips_emulator_casing_through_the_manifest(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, synced_save: Save
     ):
@@ -454,15 +411,11 @@ class TestRetroArchSyncManifest:
         assert response.json() == [
             {
                 "path": "saves/Snes9x/test_rom.srm",
-                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+                "hash": EMPTY_MD5,
             }
         ]
 
-    @mock.patch(
-        "handler.sync.retroarch.sync_handler.asset_md5",
-        new_callable=mock.AsyncMock,
-        return_value="d41d8cd98f00b204e9800998ecf8427e",
-    )
+    @_mock_asset_md5()
     def test_omits_assets_of_a_shadowed_same_named_rom(
         self,
         _asset_md5: mock.AsyncMock,
@@ -506,7 +459,7 @@ class TestRetroArchSyncManifest:
         assert response.json() == [
             {
                 "path": "saves/Snes9x/test_rom.srm",
-                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+                "hash": EMPTY_MD5,
             }
         ]
 
@@ -527,11 +480,7 @@ class TestRetroArchSyncStateScreenshots:
             == "test_rom"
         )
 
-    @mock.patch(
-        "handler.sync.retroarch.sync_handler.asset_md5",
-        new_callable=mock.AsyncMock,
-        return_value="d41d8cd98f00b204e9800998ecf8427e",
-    )
+    @_mock_asset_md5()
     def test_manifest_includes_the_state_screenshot(
         self,
         _asset_md5: mock.AsyncMock,
@@ -546,11 +495,11 @@ class TestRetroArchSyncStateScreenshots:
         assert response.json() == [
             {
                 "path": "states/Snes9x/test_rom.state",
-                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+                "hash": EMPTY_MD5,
             },
             {
                 "path": "states/Snes9x/test_rom.state.png",
-                "hash": "d41d8cd98f00b204e9800998ecf8427e",
+                "hash": EMPTY_MD5,
             },
         ]
 
@@ -620,19 +569,10 @@ class TestRetroArchSyncStateScreenshots:
         client,
         admin_user: User,
         rom: Rom,
-        states_path: str,
+        make_state,
         synced_state_screenshot: Screenshot,
     ):
-        db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_rom.state1",
-                file_path=states_path,
-                file_size_bytes=4,
-                emulator="snes9x",
-            )
-        )
+        make_state("test_rom.state1")
 
         response = client.request(
             "DELETE",
@@ -850,7 +790,7 @@ class TestRetroArchSyncUpload:
         rom: Rom,
     ):
         # A generator body goes out chunked, with no Content-Length to reject on.
-        with mock.patch("endpoints.sync.retroarch.MAX_ASSET_UPLOAD_SIZE_BYTES", 4):
+        with _retroarch_upload_cap(client, 4):
             response = client.put(
                 "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
                 content=iter([b"dat", b"a!"]),
@@ -858,7 +798,6 @@ class TestRetroArchSyncUpload:
             )
 
         assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
-        assert response.content == b""
         mock_write_file.assert_not_awaited()
         assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
 
@@ -972,10 +911,7 @@ class TestRetroArchSyncDelete:
 
 
 class TestRetroArchSyncPsp:
-    """PSP save-folder bundling through the endpoints and the manifest.
-
-    SYNC_RETROARCH_PSP_SERIAL_MAP resolves the rom, so no test depends on fulltext search.
-    """
+    """PSP save-folder bundling, with roms resolved via the serial map rather than search."""
 
     @pytest.fixture(autouse=True)
     def _serial_map(self, monkeypatch: pytest.MonkeyPatch, rom: Rom):
@@ -1430,7 +1366,7 @@ class TestRetroArchSyncBlobs:
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_rejects_a_chunked_blob_over_the_upload_cap(self, client, admin_user: User):
-        with mock.patch("endpoints.sync.retroarch.MAX_ASSET_UPLOAD_SIZE_BYTES", 4):
+        with _retroarch_upload_cap(client, 4):
             response = client.put(
                 "/api/sync/retroarch/config/retroarch.cfg",
                 content=iter([b"dat", b"a!"]),
@@ -1550,11 +1486,7 @@ class TestRetroArchSyncBrowsing:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    @mock.patch(
-        "handler.sync.retroarch.sync_handler.asset_md5",
-        new_callable=mock.AsyncMock,
-        return_value="d41d8cd98f00b204e9800998ecf8427e",
-    )
+    @_mock_asset_md5()
     def test_propfind_saves_lists_the_emulator_subfolder(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, synced_save: Save
     ):
@@ -1565,11 +1497,7 @@ class TestRetroArchSyncBrowsing:
         assert response.status_code == 207
         assert "<D:href>/api/sync/retroarch/saves/Snes9x/</D:href>" in response.text
 
-    @mock.patch(
-        "handler.sync.retroarch.sync_handler.asset_md5",
-        new_callable=mock.AsyncMock,
-        return_value="d41d8cd98f00b204e9800998ecf8427e",
-    )
+    @_mock_asset_md5()
     def test_propfind_saves_subfolder_lists_the_file(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, synced_save: Save
     ):

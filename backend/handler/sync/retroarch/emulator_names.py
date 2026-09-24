@@ -1,9 +1,6 @@
-"""Maps RomM's `emulator` values (lowercase libretro core ids, e.g. "snes9x") to
-RetroArch's save/state folder names (e.g. "Snes9x") and back.
+"""Maps the core ids RomM's web player matches saves on (e.g. "snes9x") to RetroArch's folder names (e.g. "Snes9x")."""
 
-RomM's web player matches saves on the core id, while RetroArch looks for the
-exact folder name. The table follows github.com/Covin90/romm-retroarch-sync.
-"""
+# The table follows github.com/Covin90/romm-retroarch-sync.
 
 RETROARCH_DIR_BY_ROMM_EMULATOR: dict[str, str] = {
     # SNES

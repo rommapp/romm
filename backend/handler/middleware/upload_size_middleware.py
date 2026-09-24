@@ -1,17 +1,19 @@
 from re import Pattern
 
 from starlette.datastructures import Headers
+from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
 class UploadSizeLimitMiddleware:
-    """Reject oversized uploads on the given paths from their Content-Length.
+    """Reject oversized uploads on the given paths before they are spooled.
 
     FastAPI resolves `UploadFile` parameters (spooling the whole multipart body
     to temporary storage) before the endpoint runs, so a handler-level size
-    check cannot prevent the disk usage it is meant to bound. Rejecting here,
-    before the body is read, is what actually caps it.
+    check cannot prevent the disk usage it is meant to bound. A declared
+    Content-Length is rejected up front; a chunked body is cut off once it
+    streams past the limit.
     """
 
     UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH"})
@@ -26,6 +28,9 @@ class UploadSizeLimitMiddleware:
         self.app = app
         self.max_size = max_size
         self.paths = paths
+
+    def _too_large_detail(self) -> str:
+        return f"Request body exceeds the maximum allowed size of {self.max_size} bytes"
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if (
@@ -50,15 +55,24 @@ class UploadSizeLimitMiddleware:
 
             if declared_size > self.max_size:
                 response = JSONResponse(
-                    {
-                        "detail": (
-                            f"Request body exceeds the maximum allowed size of "
-                            f"{self.max_size} bytes"
-                        )
-                    },
-                    status_code=413,
+                    {"detail": self._too_large_detail()}, status_code=413
                 )
                 await response(scope, receive, send)
                 return
 
-        await self.app(scope, receive, send)
+        received = 0
+
+        async def limited_receive() -> Message:
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                # FastAPI re-raises an HTTPException from body parsing, so the
+                # app's exception handling turns this into the 413.
+                if received > self.max_size:
+                    raise HTTPException(
+                        status_code=413, detail=self._too_large_detail()
+                    )
+            return message
+
+        await self.app(scope, limited_receive, send)

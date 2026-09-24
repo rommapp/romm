@@ -18,7 +18,6 @@ from anyio import open_file
 from starlette.datastructures import UploadFile
 
 from config.config_manager import config_manager as cm
-from logger.logger import log
 from models.base import (
     FILE_NAME_MAX_LENGTH,
     compute_file_extension,
@@ -455,22 +454,23 @@ class FSHandler:
         return full_path
 
     async def _compute_file_hash(self, file_path: str) -> str:
-        hash_obj = hashlib.md5(usedforsecurity=False)
-        async with await self.stream_file(file_path=file_path) as f:
-            while chunk := await f.read(8192):
-                hash_obj.update(chunk)
-        return hash_obj.hexdigest()
+        full_path = self.validate_path(file_path)
 
-    async def compute_file_md5(self, file_path: str) -> str | None:
-        """MD5 of the bytes on disk, unlike zip-aware `compute_content_hash`."""
-        try:
-            return await self._compute_file_hash(file_path)
-        # Expected for DB rows whose file is gone, and hit on every sync manifest.
-        except FileNotFoundError:
-            return None
-        except OSError as e:
-            log.debug(f"Failed to compute MD5 for {file_path}: {e}")
-            return None
+        def digest() -> str:
+            with open(full_path, "rb") as f:
+                return hashlib.file_digest(
+                    f, lambda: hashlib.md5(usedforsecurity=False)
+                ).hexdigest()
+
+        return await asyncio.to_thread(digest)
+
+    async def compute_file_md5(self, file_path: str) -> str:
+        """MD5 of the bytes on disk, unlike zip-aware `compute_content_hash`.
+
+        Raises:
+            OSError: The file is missing or unreadable.
+        """
+        return await self._compute_file_hash(file_path)
 
     @asynccontextmanager
     async def _atomic_write(self, target_path: Path):

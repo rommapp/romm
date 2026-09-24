@@ -1,5 +1,6 @@
 import struct
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -9,7 +10,6 @@ from handler.sync.retroarch.psp import (
     _bundle_folder,
     _load_bundle_entries,
     _write_bundle,
-    is_psp_bundle_file_name,
     parse_sfo,
     resolve_psp_path,
 )
@@ -99,14 +99,6 @@ class TestResolvePspPath:
         )
 
 
-class TestIsPspBundleFileName:
-    def test_matches_bundle_names(self):
-        assert is_psp_bundle_file_name("PSP-ULUS10336DATA0.zip")
-
-    def test_rejects_normal_saves(self):
-        assert not is_psp_bundle_file_name("test_rom.srm")
-
-
 class TestBundleFolder:
     def test_parses_the_folder_and_its_tagged_names(self):
         assert _bundle_folder("PSP-ULUS10336DATA0.zip") == "ULUS10336DATA0"
@@ -123,15 +115,25 @@ class TestBundleFolder:
         assert _bundle_folder("test_rom.srm") is None
 
 
-class TestLoadBundleEntries:
-    def test_round_trips_members(self):
-        entries = {"PARAM.SFO": b"sfo", "DATA.BIN": b"data"}
-        assert _load_bundle_entries(_write_bundle(entries)) == entries
+def _bundle_file(tmp_path: Path, entries: dict[str, bytes]) -> Path:
+    path = tmp_path / "bundle.zip"
+    path.write_bytes(_write_bundle(entries))
+    return path
 
-    def test_rejects_too_many_members(self):
+
+class TestLoadBundleEntries:
+    def test_round_trips_members(self, tmp_path: Path):
+        entries = {"PARAM.SFO": b"sfo", "DATA.BIN": b"data"}
+        assert _load_bundle_entries(_bundle_file(tmp_path, entries)) == entries
+
+    def test_reads_only_the_named_members(self, tmp_path: Path):
+        path = _bundle_file(tmp_path, {"PARAM.SFO": b"sfo", "DATA.BIN": b"data"})
+        assert _load_bundle_entries(path, {"DATA.BIN"}) == {"DATA.BIN": b"data"}
+
+    def test_rejects_too_many_members(self, tmp_path: Path):
         entries = {f"{i}.BIN": b"" for i in range(_BUNDLE_MAX_MEMBERS + 1)}
         with pytest.raises(zipfile.BadZipFile):
-            _load_bundle_entries(_write_bundle(entries))
+            _load_bundle_entries(_bundle_file(tmp_path, entries))
 
 
 class TestParseSfo:
