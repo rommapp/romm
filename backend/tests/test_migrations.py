@@ -82,10 +82,7 @@ def test_no_index_drift_between_models_and_migrations():
 
 
 def test_no_column_drift_between_models_and_migrations():
-    """Every mapped column exists in the migrated schema with the same nullability.
-
-    Autogenerate skips nullability on a generated column, so nothing else checks it.
-    """
+    """Every mapped column exists in the migrated schema with the same nullability."""
     models.load_all_models()
 
     with sync_engine.connect() as connection:
@@ -118,10 +115,7 @@ def _is_database_filled(value: object) -> bool:
 
 
 def test_database_filled_columns_declare_their_nullability():
-    """Autogenerate compares a generated column's nullability only when it is explicit.
-
-    A failure names the column: pass `nullable=` to its `mapped_column`, matching the DDL.
-    """
+    """Every database-filled column passes `nullable=`, or autogenerate never compares it."""
     models.load_all_models()
 
     undeclared = [
