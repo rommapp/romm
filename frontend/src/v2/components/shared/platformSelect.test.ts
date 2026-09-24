@@ -141,7 +141,9 @@ describe("PlatformSelect promoteFilled + search", () => {
 
   it("shows neutral rom badges only for promoted rows when partitioned", async () => {
     await openPromoteFilledMenu();
-    const badges = document.querySelectorAll(".r-v2-platsel__rom-badge");
+    const badges = Array.from(
+      document.querySelectorAll(".r-v2-platsel__rom-badge"),
+    );
     expect(badges.length).toBeGreaterThan(0);
     for (const badge of badges) {
       expect(badge.classList.contains("r-tag--neutral")).toBe(true);
