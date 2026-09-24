@@ -179,6 +179,14 @@ def collect_exit_saves(
     )
 
 
+async def start_exit_save_pull(
+    container: ResolvedContainer, session: dict[str, Any], *, settled: bool
+) -> None:
+    """Mark the exit pull pending, then start it, for a stop that is already done."""
+    mark = await mark_exit_saves_pending(container, session)
+    collect_exit_saves(container, session, mark, settled=settled)
+
+
 async def collect_exit_state(
     container: ResolvedContainer, session: dict[str, Any], state_slot: int | None
 ) -> None:

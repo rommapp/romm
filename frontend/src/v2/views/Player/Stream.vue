@@ -696,14 +696,14 @@ useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
 useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
   if (!isOurClaim(payload)) return;
   launchPhase.value = null;
-  if ((playerState.value as PlayerState) === "exited") {
+  if (playerState.value === "exited") {
     await handBackClaim(payload.platform);
     return;
   }
   if (payload.resume === false) snackbar.warning(t("play.resume-failed"));
   // A status poll can land between the launch stamp and this push and enter
   // first; entering again would force fullscreen back on.
-  if ((playerState.value as PlayerState) === "playing") return;
+  if (playerState.value === "playing") return;
   await enterStream(payload.host);
 });
 
@@ -712,7 +712,7 @@ useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   // The backend already released the claim, so there is nothing to hand back.
   forgetClaim();
   launchPhase.value = null;
-  if ((playerState.value as PlayerState) === "exited") return;
+  if (playerState.value === "exited") return;
   errorType.value = "server";
   errorMessage.value = t("play.stream-error-generic");
   errorHint.value = payload.detail;

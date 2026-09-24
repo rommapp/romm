@@ -93,6 +93,17 @@ export interface ContainerBusyDetail {
   claimed_at: string | null;
 }
 
+/** The query naming a claim by its container and the stamp it was taken at. */
+function claimParams(
+  container?: string | null,
+  claimedAt?: string | null,
+): { container?: string; claimed_at?: string } {
+  return {
+    ...(container != null ? { container } : {}),
+    ...(claimedAt != null ? { claimed_at: claimedAt } : {}),
+  };
+}
+
 // ── Requests ──────────────────────────────────────────────────────────────────
 
 async function fetchConfig() {
@@ -131,15 +142,12 @@ async function releaseSession(
 ) {
   return api.delete(`/streaming/sessions/${platform}`, {
     params: {
-      // The claim this release is for, so a tab whose claim was taken over
-      // cannot end the one that replaced it. Admin releases send none.
-      ...(claimedAt != null ? { claimed_at: claimedAt } : {}),
+      // The holder names its container and stamp so a taken-over tab cannot end
+      // the claim that replaced it. An admin names its pick and no stamp.
+      ...claimParams(container, claimedAt),
       // Sent whenever the caller supplied one, empty string included: the
       // backend treats the param's presence as "this is an admin force-release".
       ...(reason !== undefined ? { reason } : {}),
-      // Names which container to release, since a pool serves one platform
-      // from several: the holder names the one it claimed, an admin its pick.
-      ...(container != null ? { container } : {}),
       // Only the player who deliberately stopped without saving sends this.
       // Everything else leaves it off so the backend still autosaves.
       ...(save === false ? { save: false } : {}),
@@ -171,7 +179,7 @@ async function saveAndExit(
   return api.post(
     `/streaming/sessions/${platform}/save-and-exit`,
     { slot, wait },
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -183,7 +191,7 @@ async function heartbeatSession(
   return api.post<SessionStatus>(
     `/streaming/sessions/${platform}/heartbeat`,
     undefined,
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -202,7 +210,7 @@ async function setVolume(
   return api.post(
     `/streaming/sessions/${platform}/volume`,
     { level: Math.round(level) },
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -215,7 +223,7 @@ async function setMute(
   return api.post(
     `/streaming/sessions/${platform}/mute`,
     mute !== undefined ? { mute } : {},
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -228,7 +236,7 @@ async function saveState(
   return api.post(
     `/streaming/sessions/${platform}/save-state`,
     { slot },
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -241,7 +249,7 @@ async function loadState(
   return api.post(
     `/streaming/sessions/${platform}/load-state`,
     { slot },
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -254,7 +262,7 @@ async function swapDisc(
   return api.post(
     `/streaming/sessions/${platform}/swap-disc`,
     { file_id: fileId },
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -285,10 +293,11 @@ function claimQuery(
   container?: string | null,
   claimedAt?: string | null,
 ): string {
-  const params = new URLSearchParams();
-  if (container) params.set("container", container);
-  if (claimedAt) params.set("claimed_at", claimedAt);
-  const search = params.toString();
+  const search = new URLSearchParams(
+    Object.entries(claimParams(container, claimedAt)).filter(
+      ([, value]) => value,
+    ),
+  ).toString();
   return search ? `?${search}` : "";
 }
 

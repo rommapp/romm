@@ -171,11 +171,21 @@ class LoadStateRequest(BaseModel):
     slot: Annotated[int, Field(ge=1, le=MAX_SLOT)] = 1
 
 
+CONTAINER_KEY_MAX_LENGTH = 300
+CLAIMED_AT_MAX_LENGTH = 64
+
+# A claim is named by its container and the stamp it was taken at.
+ContainerQuery = Annotated[
+    str | None, Query(alias="container", max_length=CONTAINER_KEY_MAX_LENGTH)
+]
+ClaimedAtQuery = Annotated[str | None, Query(max_length=CLAIMED_AT_MAX_LENGTH)]
+
+
 class DesktopStreamingSessionRequest(BaseModel):
     # The container to open, named by the key GET /streaming/containers
     # reports. Named rather than pooled: an admin configuring a container
     # needs that one, not whichever is free.
-    container: Annotated[str, Field(min_length=1, max_length=300)]
+    container: Annotated[str, Field(min_length=1, max_length=CONTAINER_KEY_MAX_LENGTH)]
 
 
 def platform_capabilities(platform: str) -> PlatformCapabilities:
@@ -884,8 +894,8 @@ async def save_and_exit_session(
     request: Request,
     platform: str,
     req: Annotated[SaveAndExitRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> SaveAndExitResponse:
     """Save game state then release the session.
 
@@ -927,8 +937,7 @@ async def save_and_exit_session(
     await lifecycle.record_play_session(session)
     await lifecycle.clear_session_activity(session_key, session)
     # Before the key goes, so a claim that wins it next waits for the pull.
-    pull_mark = await lifecycle.mark_exit_saves_pending(container, session)
-    lifecycle.collect_exit_saves(container, session, pull_mark, settled=settled)
+    await lifecycle.start_exit_save_pull(container, session, settled=settled)
 
     # Sync the exit save to the library. With wait=false the broker save may
     # still be running; the pull blocks on the broker until it finishes.
@@ -1007,8 +1016,8 @@ async def save_and_exit_session(
 async def heartbeat_session(
     request: Request,
     platform: str,
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> SessionStatusSchema:
     """Refresh the liveness stamp the frontend beats every ~30s, without which the
     claim is abandoned after _STREAMING_SESSION_STALE_SECONDS for the next to take.
@@ -1029,7 +1038,7 @@ async def heartbeat_session(
     named = container_key is not None
     candidates = (
         [access.named_container(platform, container_key)]
-        if container_key is not None
+        if named
         else containers_for_platform(platform)
     )
     found = await access.find_session_for_user(
@@ -1072,7 +1081,7 @@ async def heartbeat_session(
 async def session_status(
     request: Request,
     platform: str,
-    claimed_at: str | None = Query(default=None, max_length=64),
+    claimed_at: ClaimedAtQuery = None,
 ) -> SessionStatusSchema:
     """Does the caller still hold this platform's session?
 
@@ -1168,8 +1177,8 @@ async def set_volume(
     request: Request,
     platform: str,
     req: Annotated[VolumeRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> VolumeResponse:
     """Set emulator audio volume (0-100)."""
     container, session_key, _ = await access.require_claim(
@@ -1189,8 +1198,8 @@ async def set_mute(
     request: Request,
     platform: str,
     req: Annotated[MuteRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> MuteResponse:
     """Toggle or explicitly set mute state. Omit body to toggle."""
     container, session_key, _ = await access.require_claim(
@@ -1212,8 +1221,8 @@ async def save_state(
     request: Request,
     platform: str,
     req: Annotated[SaveStateRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> SaveStateResponse:
     """Save game state to a slot without stopping the emulator.
 
@@ -1255,8 +1264,8 @@ async def load_state(
     request: Request,
     platform: str,
     req: Annotated[LoadStateRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> LoadStateResponse:
     """Load game state from a manual slot or the platform's autosave slot."""
     container, session_key, _ = await access.require_claim(
@@ -1277,8 +1286,8 @@ async def swap_disc(
     request: Request,
     platform: str,
     req: Annotated[SwapDiscRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> SwapDiscResponse:
     """Change the mounted disc without restarting the emulator."""
     container, session_key, session = await access.require_claim(
@@ -1325,8 +1334,8 @@ async def release_session(
     platform: str,
     background_tasks: BackgroundTasks,
     reason: str | None = Query(default=None, max_length=200),
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
     save: bool = Query(default=True),
 ) -> ReleaseSessionResponse:
     """Release a session and tell the broker to stop the emulator.
@@ -1625,11 +1634,8 @@ async def force_release_all(
                     await lifecycle.collect_exit_state(
                         container, session, stopped.state_slot
                     )
-                    pull_mark = await lifecycle.mark_exit_saves_pending(
-                        container, session
-                    )
-                    lifecycle.collect_exit_saves(
-                        container, session, pull_mark, settled=stopped.settled
+                    await lifecycle.start_exit_save_pull(
+                        container, session, settled=stopped.settled
                     )
 
             # Note who ended it before the key goes, so the player's next poll

@@ -1320,7 +1320,7 @@ def _session_raw(container: dict):
 
 
 def _drain(container: dict) -> None:
-    session = json.loads(_session_raw(container))
+    session = _load_session(session_store.session_redis_key(_key_of(container)))
     token = asyncio.run(session_store.claim_drain_marker(_key_of(container), session))
     assert token is not None
 
