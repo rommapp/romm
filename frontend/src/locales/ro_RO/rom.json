@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "Eliminarea capturii de ecran a eșuat: {error}",
   "screenshot-removed": "Captura de ecran a fost eliminată",
   "screenshot-updated": "Captura de ecran a fost actualizată",
-  "screenshot-visibility-failed": "Vizibilitatea nu a putut fi actualizată: {error}",
   "screenshots": "Capturi de ecran",
   "screenshots-empty": "Nicio captură de ecran încă",
   "screenshots-section-community": "Comunitate",

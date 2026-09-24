@@ -14,13 +14,13 @@ const RForm = { template: `<form><slot /></form>` };
 const RSwitch = {
   props: {
     modelValue: { type: Boolean, default: false },
-    label: { type: String, default: "" },
+    ariaLabel: { type: String, default: "" },
   },
   emits: ["update:modelValue"],
   template: `<input
     class="public"
     type="checkbox"
-    :data-label="label"
+    :data-label="ariaLabel"
     :checked="modelValue"
     @change="$emit('update:modelValue', $event.target.checked)"
   />`,

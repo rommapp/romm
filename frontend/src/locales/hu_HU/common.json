@@ -20,6 +20,7 @@
   "back-btn": "Vissza",
   "beta": "Béta",
   "cancel": "Mégse",
+  "cant-update-visibility": "A láthatóság nem frissíthető: {error}",
   "changelog": "Változási napló",
   "changelog-empty-hint": "A tároló még nem tett közzé kiadást.",
   "changelog-empty-title": "Még nincsenek kiadások",

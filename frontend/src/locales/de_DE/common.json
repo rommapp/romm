@@ -20,6 +20,7 @@
   "back-btn": "Zurück",
   "beta": "Beta",
   "cancel": "Abbrechen",
+  "cant-update-visibility": "Sichtbarkeit konnte nicht geändert werden: {error}",
   "changelog": "Änderungsprotokoll",
   "changelog-empty-hint": "Das Repository hat noch keine Veröffentlichungen.",
   "changelog-empty-title": "Noch keine Veröffentlichungen",

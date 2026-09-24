@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "No se pudo eliminar la captura: {error}",
   "screenshot-removed": "Captura eliminada correctamente",
   "screenshot-updated": "Captura actualizada",
-  "screenshot-visibility-failed": "No se pudo actualizar la visibilidad: {error}",
   "screenshots": "Capturas",
   "screenshots-empty": "Aún no hay capturas",
   "screenshots-section-community": "Comunidad",

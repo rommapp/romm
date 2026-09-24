@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "Failed to remove screenshot: {error}",
   "screenshot-removed": "Screenshot removed successfully",
   "screenshot-updated": "Screenshot updated",
-  "screenshot-visibility-failed": "Couldn't update visibility: {error}",
   "screenshots": "Screenshots",
   "screenshots-empty": "No screenshots yet",
   "screenshots-section-community": "Community",

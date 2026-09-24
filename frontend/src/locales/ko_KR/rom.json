@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "스크린샷 삭제에 실패했습니다: {error}",
   "screenshot-removed": "스크린샷을 삭제했습니다",
   "screenshot-updated": "스크린샷을 업데이트했습니다",
-  "screenshot-visibility-failed": "공개 설정을 변경할 수 없습니다: {error}",
   "screenshots": "스크린샷",
   "screenshots-empty": "아직 스크린샷이 없습니다",
   "screenshots-section-community": "커뮤니티",

@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "Неуспешно премахване на екранната снимка: {error}",
   "screenshot-removed": "Екранната снимка е премахната успешно",
   "screenshot-updated": "Екранната снимка е обновена",
-  "screenshot-visibility-failed": "Видимостта не може да се промени: {error}",
   "screenshots": "Екранни снимки",
   "screenshots-empty": "Все още няма екранни снимки",
   "screenshots-section-community": "Общност",

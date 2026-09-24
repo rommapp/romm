@@ -20,6 +20,7 @@
   "back-btn": "返回",
   "beta": "測試版",
   "cancel": "取消",
+  "cant-update-visibility": "無法更新可見性：{error}",
   "changelog": "更新日誌",
   "changelog-empty-hint": "此儲存庫尚未發布任何發行版。",
   "changelog-empty-title": "尚無發行版",

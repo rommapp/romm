@@ -4,8 +4,8 @@
 // `<button role="switch">` — focusable, keyboard- and gamepad-friendly,
 // with a visible footprint of exactly 36×20.
 //
-// Optional `label` renders to the right of the switch (clicking the
-// label toggles too). Without a label, only the switch paints — useful
+// Optional `label` (or the `label` slot, for richer text) renders to the
+// right of the switch (clicking the label toggles too). Without a label, only the switch paints — useful
 // inside table cells / dense rows. `SettingsToggleRow` is a separate
 // composite that wraps RSwitch with a full-row label + description
 // click target.
@@ -43,6 +43,8 @@ const emit = defineEmits<{
   (e: "update:modelValue", value: boolean): void;
 }>();
 
+const slots = defineSlots<{ label?(): unknown }>();
+
 const effectiveAriaLabel = computed(
   () => props.ariaLabel ?? props.label ?? "Toggle",
 );
@@ -77,7 +79,9 @@ function toggle() {
     <span class="r-switch__track" aria-hidden="true">
       <span class="r-switch__knob" />
     </span>
-    <span v-if="label" class="r-switch__label">{{ label }}</span>
+    <span v-if="label || slots.label" class="r-switch__label">
+      <slot name="label">{{ label }}</slot>
+    </span>
   </component>
 </template>
 

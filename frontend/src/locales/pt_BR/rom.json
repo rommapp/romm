@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "Falha ao remover a captura de tela: {error}",
   "screenshot-removed": "Captura de tela removida com sucesso",
   "screenshot-updated": "Captura de tela atualizada",
-  "screenshot-visibility-failed": "Não foi possível atualizar a visibilidade: {error}",
   "screenshots": "Capturas de tela",
   "screenshots-empty": "Nenhuma captura de tela ainda",
   "screenshots-section-community": "Comunidade",

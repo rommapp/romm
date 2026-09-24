@@ -20,6 +20,7 @@
   "back-btn": "Retour",
   "beta": "Bêta",
   "cancel": "Annuler",
+  "cant-update-visibility": "Impossible de mettre à jour la visibilité : {error}",
   "changelog": "Journal des modifications",
   "changelog-empty-hint": "Le dépôt n'a publié aucune version.",
   "changelog-empty-title": "Aucune version pour l'instant",

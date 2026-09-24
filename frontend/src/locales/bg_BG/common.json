@@ -20,6 +20,7 @@
   "back-btn": "Назад",
   "beta": "Бета",
   "cancel": "Откажи",
+  "cant-update-visibility": "Видимостта не може да се промени: {error}",
   "changelog": "Списък с промени",
   "changelog-empty-hint": "Хранилището все още не е публикувало издания.",
   "changelog-empty-title": "Все още няма издания",

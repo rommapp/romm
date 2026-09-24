@@ -20,6 +20,7 @@
   "back-btn": "Înapoi",
   "beta": "Beta",
   "cancel": "Anulează",
+  "cant-update-visibility": "Vizibilitatea nu a putut fi actualizată: {error}",
   "changelog": "Istoric modificări",
   "changelog-empty-hint": "Depozitul nu a publicat încă nicio versiune.",
   "changelog-empty-title": "Încă nu există versiuni",

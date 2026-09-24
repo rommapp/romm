@@ -223,7 +223,7 @@ async function submitEdit(isPublic: boolean) {
     snackbar.success(t("rom.screenshot-updated"), { icon: "mdi-check-bold" });
   } catch (error: unknown) {
     snackbar.error(
-      t("rom.screenshot-visibility-failed", { error: errorMessage(error) }),
+      t("common.cant-update-visibility", { error: errorMessage(error) }),
       { icon: "mdi-close-circle" },
     );
   } finally {

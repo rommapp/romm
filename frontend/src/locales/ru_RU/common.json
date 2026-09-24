@@ -20,6 +20,7 @@
   "back-btn": "Назад",
   "beta": "Бета",
   "cancel": "Отменить",
+  "cant-update-visibility": "Не удалось изменить видимость: {error}",
   "changelog": "История изменений",
   "changelog-empty-hint": "В репозитории ещё нет опубликованных релизов.",
   "changelog-empty-title": "Релизов пока нет",

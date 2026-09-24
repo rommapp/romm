@@ -20,6 +20,7 @@
   "back-btn": "Zpět",
   "beta": "Beta",
   "cancel": "Zrušit",
+  "cant-update-visibility": "Nepodařilo se změnit viditelnost: {error}",
   "changelog": "Seznam změn",
   "changelog-empty-hint": "Repozitář zatím nezveřejnil žádná vydání.",
   "changelog-empty-title": "Zatím žádná vydání",

@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "スクリーンショットの削除に失敗しました：{error}",
   "screenshot-removed": "スクリーンショットを削除しました",
   "screenshot-updated": "スクリーンショットを更新しました",
-  "screenshot-visibility-failed": "表示設定を更新できませんでした：{error}",
   "screenshots": "スクリーンショット",
   "screenshots-empty": "スクリーンショットはまだありません",
   "screenshots-section-community": "コミュニティ",

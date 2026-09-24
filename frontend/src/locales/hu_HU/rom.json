@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "A képernyőkép eltávolítása nem sikerült: {error}",
   "screenshot-removed": "Képernyőkép sikeresen eltávolítva",
   "screenshot-updated": "Képernyőkép frissítve",
-  "screenshot-visibility-failed": "A láthatóság nem frissíthető: {error}",
   "screenshots": "Képernyőképek",
   "screenshots-empty": "Még nincsenek képernyőképek",
   "screenshots-section-community": "Közösség",

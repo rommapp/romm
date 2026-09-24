@@ -20,6 +20,7 @@
   "back-btn": "Atrás",
   "beta": "Beta",
   "cancel": "Cancelar",
+  "cant-update-visibility": "No se pudo actualizar la visibilidad: {error}",
   "changelog": "Cambios",
   "changelog-empty-hint": "El repositorio aún no ha publicado ninguna versión.",
   "changelog-empty-title": "Aún no hay versiones",

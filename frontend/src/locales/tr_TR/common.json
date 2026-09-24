@@ -20,6 +20,7 @@
   "back-btn": "Geri",
   "beta": "Beta",
   "cancel": "İptal",
+  "cant-update-visibility": "Görünürlük güncellenemedi: {error}",
   "changelog": "Değişiklik günlüğü",
   "changelog-empty-hint": "Depo henüz herhangi bir sürüm yayınlamamış.",
   "changelog-empty-title": "Henüz sürüm yok",

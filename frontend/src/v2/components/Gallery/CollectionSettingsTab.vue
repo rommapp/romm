@@ -50,6 +50,7 @@ import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { errorMessage } from "@/v2/utils/errorMessage";
 import {
   summarizeSmartFilterCriteria,
   type SmartFilterCriteria,
@@ -79,15 +80,17 @@ const { allPlatforms } = storeToRefs(platformsStore);
 const { toWebp } = useWebpSupport();
 
 // ── Edit form state ─────────────────────────────────────────────
-// Mirror v1: name, description, is_public are editable. Pending cover
+// Mirror v1: name and description are editable. Pending cover
 // changes live in `pendingArtwork` (uploaded file) + `pendingUrlCover`
 // (SteamGridDB URL) + `removeCover` (flag). Only one of artwork /
-// pendingUrlCover applies on save.
+// pendingUrlCover applies on save. Visibility saves as soon as it is
+// switched, outside the form.
 const form = ref({
   name: "",
   description: "",
-  isPublic: false,
 });
+const isPublic = ref(false);
+const savingVisibility = ref(false);
 const pendingArtwork = ref<File | null>(null);
 const pendingUrlCover = ref<string | null>(null);
 const previewDataUrl = ref<string | null>(null);
@@ -114,7 +117,6 @@ const dirty = computed(() => {
   return (
     form.value.name !== c.name ||
     (form.value.description ?? "") !== (c.description ?? "") ||
-    form.value.isPublic !== c.is_public ||
     !!pendingArtwork.value ||
     !!pendingUrlCover.value ||
     removeCover.value
@@ -133,8 +135,8 @@ function snapshot(source: Collection | SmartCollection = props.collection) {
   form.value = {
     name: c.name,
     description: c.description ?? "",
-    isPublic: c.is_public ?? false,
   };
+  isPublic.value = c.is_public ?? false;
   pendingArtwork.value = null;
   pendingUrlCover.value = null;
   previewDataUrl.value = null;
@@ -256,23 +258,18 @@ async function save() {
         ...(props.collection as SmartCollection),
         name: form.value.name.trim(),
         description: form.value.description,
-        is_public: form.value.isPublic,
+        is_public: isPublic.value,
       };
       const { data } = await collectionApi.updateSmartCollection({
         smartCollection: payload,
       });
-      collectionsStore.updateSmartCollection(data);
-      if (galleryRoms.currentSmartCollection?.id === data.id) {
-        galleryRoms.setCurrentSmartCollection(data);
-      }
       saved = data;
-      emit("saved", data);
     } else {
       const payload: UpdatedCollection = {
         ...(props.collection as Collection),
         name: form.value.name.trim(),
         description: form.value.description,
-        is_public: form.value.isPublic,
+        is_public: isPublic.value,
         artwork: pendingArtwork.value ?? undefined,
         url_cover: pendingUrlCover.value,
       };
@@ -280,13 +277,9 @@ async function save() {
         collection: payload,
         removeCover: removeCover.value,
       });
-      collectionsStore.updateCollection(data);
-      if (galleryRoms.currentCollection?.id === data.id) {
-        galleryRoms.setCurrentCollection(data);
-      }
       saved = data;
-      emit("saved", data);
     }
+    syncSaved(saved);
     snackbar.success(t("collection.updated", "Collection updated"), {
       icon: "mdi-check-bold",
     });
@@ -315,6 +308,59 @@ async function save() {
 
 function discard() {
   snapshot();
+}
+
+/** Puts a saved collection in the stores and tells the parent. */
+function syncSaved(saved: Collection | SmartCollection) {
+  if (props.kind === "smart") {
+    const data = saved as SmartCollection;
+    collectionsStore.updateSmartCollection(data);
+    if (galleryRoms.currentSmartCollection?.id === data.id) {
+      galleryRoms.setCurrentSmartCollection(data);
+    }
+  } else {
+    const data = saved as Collection;
+    collectionsStore.updateCollection(data);
+    if (galleryRoms.currentCollection?.id === data.id) {
+      galleryRoms.setCurrentCollection(data);
+    }
+  }
+  emit("saved", saved);
+}
+
+// Writes the stored fields back with the new visibility, so an unapplied
+// name or description edit stays a draft.
+async function setVisibility(next: boolean) {
+  if (!canEdit.value || savingVisibility.value) return;
+  const previous = isPublic.value;
+  isPublic.value = next;
+  savingVisibility.value = true;
+  try {
+    const { data } =
+      props.kind === "smart"
+        ? await collectionApi.updateSmartCollection({
+            smartCollection: {
+              ...(props.collection as SmartCollection),
+              is_public: next,
+            },
+          })
+        : await collectionApi.updateCollection({
+            collection: {
+              ...(props.collection as Collection),
+              is_public: next,
+              url_cover: null,
+            },
+          });
+    syncSaved(data);
+  } catch (error) {
+    isPublic.value = previous;
+    snackbar.error(
+      t("common.cant-update-visibility", { error: errorMessage(error) }),
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    savingVisibility.value = false;
+  }
 }
 </script>
 
@@ -408,7 +454,11 @@ function discard() {
           </template>
         </RTextField>
         <div class="r-v2-coll-set__row">
-          <VisibilitySwitch v-model="form.isPublic" :disabled="!canEdit" />
+          <VisibilitySwitch
+            :model-value="isPublic"
+            :disabled="!canEdit || savingVisibility"
+            @update:model-value="setVisibility"
+          />
         </div>
         <div v-if="canEdit && dirty" class="r-v2-coll-set__form-actions">
           <RBtn variant="text" :disabled="saving" @click="discard">

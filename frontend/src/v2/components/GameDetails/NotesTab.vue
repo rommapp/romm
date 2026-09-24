@@ -405,7 +405,7 @@ function fmtDate(iso: string): string {
 
       <section class="r-v2-notes__pane">
         <template v-if="editForm">
-          <header class="r-v2-notes__pane-head">
+          <header class="r-v2-notes__pane-head r-v2-notes__pane-head--edit">
             <RTextField
               ref="titleFieldRef"
               v-model="editForm.title"
@@ -416,30 +416,32 @@ function fmtDate(iso: string): string {
               class="r-v2-notes__title-field"
               :disabled="saving"
             />
-            <div class="r-v2-notes__actions">
+            <div class="r-v2-notes__edit-controls">
               <VisibilitySwitch
                 v-model="editForm.isPublic"
                 :disabled="saving"
               />
-              <RBtn
-                variant="outlined"
-                size="small"
-                :disabled="saving"
-                @click="cancelEdit"
-              >
-                {{ t("common.cancel") }}
-              </RBtn>
-              <RBtn
-                variant="flat"
-                color="primary"
-                size="small"
-                prepend-icon="mdi-check"
-                :loading="saving"
-                :disabled="!canSave"
-                @click="saveEdit"
-              >
-                {{ t("common.save") }}
-              </RBtn>
+              <div class="r-v2-notes__actions">
+                <RBtn
+                  variant="outlined"
+                  size="small"
+                  :disabled="saving"
+                  @click="cancelEdit"
+                >
+                  {{ t("common.cancel") }}
+                </RBtn>
+                <RBtn
+                  variant="flat"
+                  color="primary"
+                  size="small"
+                  prepend-icon="mdi-check"
+                  :loading="saving"
+                  :disabled="!canSave"
+                  @click="saveEdit"
+                >
+                  {{ t("common.save") }}
+                </RBtn>
+              </div>
             </div>
           </header>
           <MdEditor
@@ -696,6 +698,12 @@ function fmtDate(iso: string): string {
   gap: 4px;
   flex-shrink: 0;
 }
+.r-v2-notes__edit-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--r-space-5);
+  flex-shrink: 0;
+}
 
 .r-v2-notes__pane-foot {
   font-size: var(--r-font-size-sm);
@@ -771,5 +779,19 @@ function fmtDate(iso: string): string {
 
 html[data-bp~="sm-and-down"] .r-v2-notes__body {
   grid-template-columns: 1fr;
+}
+/* Phones give the title its own row; visibility and the buttons share the
+   next one, at its two ends. */
+html[data-bp~="sm-and-down"] .r-v2-notes__pane-head--edit {
+  flex-wrap: wrap;
+}
+html[data-bp~="sm-and-down"]
+  .r-v2-notes__pane-head--edit
+  .r-v2-notes__title-field {
+  flex-basis: 100%;
+}
+html[data-bp~="sm-and-down"] .r-v2-notes__edit-controls {
+  flex: 1;
+  justify-content: space-between;
 }
 </style>

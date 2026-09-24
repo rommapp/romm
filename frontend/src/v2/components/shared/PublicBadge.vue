@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// The round globe on something the user shared with other users. Over a
-// thumbnail it sits on a scrim; `inline` tints it for plain surfaces, beside a
-// title. The caller positions it. Private things carry no mark.
+// The round globe on something the user shared: on a scrim over a thumbnail,
+// or on a faint surface of its own (`inline`) beside a title. Private things
+// carry no mark.
 import { RIcon, RTooltip } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 
@@ -36,7 +36,7 @@ const { t } = useI18n();
 .r-public-badge--inline {
   width: 20px;
   height: 20px;
-  background: color-mix(in srgb, var(--r-color-info) 16%, transparent);
-  color: var(--r-color-info);
+  background: color-mix(in srgb, var(--r-color-fg) 10%, transparent);
+  color: var(--r-color-fg-secondary);
 }
 </style>

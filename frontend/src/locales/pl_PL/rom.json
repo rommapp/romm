@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "Nie udało się usunąć zrzutu ekranu: {error}",
   "screenshot-removed": "Zrzut ekranu został usunięty",
   "screenshot-updated": "Zrzut ekranu zaktualizowany",
-  "screenshot-visibility-failed": "Nie udało się zaktualizować widoczności: {error}",
   "screenshots": "Zrzuty ekranu",
   "screenshots-empty": "Brak zrzutów ekranu",
   "screenshots-section-community": "Społeczność",

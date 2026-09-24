@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "Échec de la suppression de la capture d'écran : {error}",
   "screenshot-removed": "Capture d'écran supprimée",
   "screenshot-updated": "Capture d'écran mise à jour",
-  "screenshot-visibility-failed": "Impossible de mettre à jour la visibilité : {error}",
   "screenshots": "Captures d'écran",
   "screenshots-empty": "Aucune capture d'écran pour le moment",
   "screenshots-section-community": "Communauté",

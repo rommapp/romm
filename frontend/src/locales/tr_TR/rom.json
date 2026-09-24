@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "Ekran görüntüsü kaldırılamadı: {error}",
   "screenshot-removed": "Ekran görüntüsü başarıyla kaldırıldı",
   "screenshot-updated": "Ekran görüntüsü güncellendi",
-  "screenshot-visibility-failed": "Görünürlük güncellenemedi: {error}",
   "screenshots": "Ekran Görüntüleri",
   "screenshots-empty": "Henüz ekran görüntüsü yok",
   "screenshots-section-community": "Topluluk",

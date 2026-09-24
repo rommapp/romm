@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "移除截图失败：{error}",
   "screenshot-removed": "截图已成功移除",
   "screenshot-updated": "截图已更新",
-  "screenshot-visibility-failed": "无法更新可见性：{error}",
   "screenshots": "截图",
   "screenshots-empty": "暂无截图",
   "screenshots-section-community": "社区",

@@ -392,7 +392,6 @@
   "screenshot-remove-failed": "Nepodařilo se odstranit screenshot: {error}",
   "screenshot-removed": "Screenshot byl úspěšně odstraněn",
   "screenshot-updated": "Screenshot byl upraven",
-  "screenshot-visibility-failed": "Nepodařilo se změnit viditelnost: {error}",
   "screenshots": "Screenshoty",
   "screenshots-empty": "Zatím žádné screenshoty",
   "screenshots-section-community": "Komunita",
