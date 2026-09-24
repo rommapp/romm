@@ -61,9 +61,7 @@ def states_path(admin_user: User, rom: Rom):
 
 @pytest.fixture
 def synced_state(admin_user: User, rom: Rom, states_path: str):
-    """A state named the way RetroArch itself would name one -- `<rom>.state`
-    -- unlike the shared `state` fixture, whose file name is a test-only
-    placeholder unrelated to `rom.fs_name_no_ext`."""
+    """A state with RetroArch's own `<rom>.state` name, unlike the shared fixture."""
     return db_state_handler.add_state(
         State(
             rom_id=rom.id,
@@ -78,10 +76,7 @@ def synced_state(admin_user: User, rom: Rom, states_path: str):
 
 @pytest.fixture
 def synced_state_screenshot(admin_user: User, rom: Rom, synced_state: State):
-    """The screenshot RetroArch captures and syncs alongside a state, under
-    `<state file name>.png` -- attached to the ROM, not the state row
-    itself (there's no `screenshot_id` column on `State`; `state.screenshot`
-    finds it by matching file name stems)."""
+    """The `<state file name>.png` screenshot RetroArch syncs next to a state."""
     return db_screenshot_handler.add_screenshot(
         Screenshot(
             rom_id=rom.id,
@@ -95,9 +90,7 @@ def synced_state_screenshot(admin_user: User, rom: Rom, synced_state: State):
 
 @pytest.fixture
 def web_state(admin_user: User, rom: Rom, states_path: str):
-    """A state named the way RomM's own web player names one: a display
-    label plus a timestamp, with no relation to RetroArch's `<rom>.state[N]`
-    numbered-slot convention -- see `is_retroarch_loadable_state`."""
+    """A state with the web player's label-plus-timestamp name."""
     return db_state_handler.add_state(
         State(
             rom_id=rom.id,
@@ -374,10 +367,7 @@ class TestCloudSyncManifest:
         rom: Rom,
         states_path: str,
     ):
-        """Two states competing for the same (rom, emulator, slot) bucket --
-        an older RetroArch-native one and a newer web-player one -- resolve
-        to whichever is actually newest, same as the shim's `sortByRecency`
-        picking "the" state for a slot regardless of who created it."""
+        """The newest state in a slot wins, whichever client created it."""
         older = db_state_handler.add_state(
             State(
                 rom_id=rom.id,
@@ -437,9 +427,7 @@ class TestCloudSyncManifest:
     def test_round_trips_emulator_casing_through_the_manifest(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, synced_save: Save
     ):
-        """`synced_save` is stored with RomM's own convention (`snes9x`,
-        lowercase). The manifest must hand RetroArch back its own directory
-        casing (`Snes9x`), not RomM's -- see `to_retroarch_dir_name`."""
+        """The manifest uses RetroArch's directory casing (`Snes9x`), not RomM's."""
         response = client.get("/api/cloud-sync/manifest.server", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_200_OK
@@ -505,11 +493,7 @@ class TestCloudSyncManifest:
 
 class TestCloudSyncStateScreenshots:
     def test_game_name_strips_png_before_state_suffix(self):
-        """RetroArch syncs a state's screenshot as `<state file name>.png`
-        (e.g. `test_rom.state.png`) -- the ROM name must resolve the same
-        way it would for the state itself, not stop at the `.state` segment
-        (verified live: RetroArch's upload of this file 409'd because the
-        naive last-dot split reported the game name as `test_rom.state`)."""
+        """`test_rom.state.png` resolves to game `test_rom`, not `test_rom.state`."""
         assert (
             cloud_sync_handler.game_name_from_file_name("states", "test_rom.state.png")
             == "test_rom"
@@ -893,13 +877,9 @@ class TestCloudSyncDelete:
 
 
 class TestCloudSyncPsp:
-    """End-to-end coverage of the PPSSPP save-folder bundling wired into the
-    GET/PUT/DELETE endpoints and the manifest -- unit coverage for the pure
-    parsing/matching logic lives in tests/handler/test_cloud_sync_psp.py.
+    """PSP save-folder bundling through the endpoints and the manifest.
 
-    Uses PSP_SERIAL_MAP to resolve the rom deterministically instead of a
-    real PARAM.SFO capture + fulltext title search, which would make this
-    test depend on the DB driver's fulltext support.
+    PSP_SERIAL_MAP resolves the rom, so no test depends on fulltext search.
     """
 
     @pytest.fixture(autouse=True)
@@ -1226,10 +1206,7 @@ class TestCloudSyncBlobs:
 
 
 class TestCloudSyncWebdavBrowsing:
-    """PROPFIND/LOCK/UNLOCK + the `roms/` GET redirect -- read-only WebDAV
-    browsing layered onto the same surface, for real WebDAV clients (iOS
-    Files, Cyberduck, ...) rather than RetroArch itself (which never issues
-    PROPFIND)."""
+    """Read-only WebDAV browsing (PROPFIND, LOCK, the `roms/` redirect) for generic clients."""
 
     def test_lock_succeeds(self, client, admin_user: User):
         response = client.request("LOCK", "/api/cloud-sync/roms/", auth=ADMIN_AUTH)

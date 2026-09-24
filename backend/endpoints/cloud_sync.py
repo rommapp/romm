@@ -420,9 +420,8 @@ async def cloud_sync_put(request: Request, file_path: str) -> Response:
     if file_path.strip("/") == MANIFEST_FILE_NAME:
         return _empty(status.HTTP_204_NO_CONTENT)
 
-    # RetroArch also offers config/, thumbnails/ and system/ when those settings
-    # are on. None of these belong to a ROM, so they're stored as opaque
-    # per-user blobs instead of going through the asset/ROM matching below.
+    # config/, thumbnails/ and system/ belong to no ROM, so they're stored as
+    # opaque per-user blobs.
     blob_path = cloud_sync_handler.parse_cloud_sync_blob_path(file_path)
     if blob_path:
         disk_path = cloud_sync_handler.user_blob_path(request.user, blob_path)
