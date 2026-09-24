@@ -51,7 +51,6 @@
   "all-categories": "Alle Kategorien",
   "all-users": "Alle Benutzer",
   "anonymous": "Anonym",
-  "audit-log": "Audit-Protokoll",
   "category-collections": "Sammlungen",
   "category-consumption": "Spielsitzungen und Downloads",
   "category-library": "Bibliothek",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Rolle: {from} → {to}",
   "empty": "Bisher wurde nichts aufgezeichnet",
+  "events": "Ereignisse",
   "field-cover": "Coverbild",
   "field-custom-name": "Name",
   "field-description": "Beschreibung",
@@ -88,10 +88,10 @@
   "filter-category": "Kategorie",
   "filter-user": "Benutzer",
   "load-error": "Das Audit-Protokoll konnte nicht geladen werden",
-  "load-more": "Mehr laden",
   "no-matches": "Keine Ereignisse entsprechen diesen Filtern",
   "search-placeholder": "Ereignisse suchen",
   "since": "Von",
   "system": "RomM",
-  "until": "Bis"
+  "until": "Bis",
+  "yesterday": "Gestern"
 }

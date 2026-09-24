@@ -51,7 +51,6 @@
   "all-categories": "Всички категории",
   "all-users": "Всички потребители",
   "anonymous": "Анонимен",
-  "audit-log": "Одитен дневник",
   "category-collections": "Колекции",
   "category-consumption": "Игра и сваляния",
   "category-library": "Библиотека",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Роля: {from} → {to}",
   "empty": "Все още няма записани събития",
+  "events": "Събития",
   "field-cover": "корица",
   "field-custom-name": "име",
   "field-description": "описание",
@@ -88,10 +88,10 @@
   "filter-category": "Категория",
   "filter-user": "Потребител",
   "load-error": "Одитният дневник не можа да бъде зареден",
-  "load-more": "Зареди още",
   "no-matches": "Няма събития, отговарящи на тези филтри",
   "search-placeholder": "Търси събития",
   "since": "От",
   "system": "RomM",
-  "until": "До"
+  "until": "До",
+  "yesterday": "Вчера"
 }

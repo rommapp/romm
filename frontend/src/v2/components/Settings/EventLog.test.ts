@@ -1,11 +1,11 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { reactive } from "vue";
+import { defineComponent, reactive } from "vue";
 import type { AuditEventSchema } from "@/__generated__";
 import i18n, { loadLocale } from "@/locales";
 import auditApi from "@/services/api/audit";
-import AuditLog from "./AuditLog.vue";
+import EventLog from "./EventLog.vue";
 
 const route = reactive<{ query: Record<string, string> }>({ query: {} });
 
@@ -52,11 +52,20 @@ const EVENTS = [
   event(1, "rom.teleport", {}),
 ];
 
+// happy-dom lays nothing out, so a windowed list would render no rows.
+const WholeList = defineComponent({
+  props: { items: { type: Array, default: () => [] } },
+  template: `<div><slot name="prepend" /><div v-for="(item, index) in items" :key="index"><slot :item="item" :index="index" /></div></div>`,
+});
+
 function render() {
-  return mount(AuditLog, {
+  return mount(EventLog, {
     global: {
       plugins: [i18n],
-      stubs: { RouterLink: { template: "<a><slot /></a>" } },
+      stubs: {
+        RouterLink: { template: "<a><slot /></a>" },
+        RVirtualScroller: WholeList,
+      },
     },
   });
 }
@@ -74,7 +83,7 @@ beforeEach(() => {
   } as Awaited<ReturnType<typeof auditApi.getAuditEvents>>);
 });
 
-describe("AuditLog view", () => {
+describe("EventLog", () => {
   it("lists every event, a long play and an unknown action included", async () => {
     const wrapper = render();
     await flushPromises();

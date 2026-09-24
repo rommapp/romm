@@ -51,7 +51,6 @@
   "all-categories": "Toutes les catégories",
   "all-users": "Tous les utilisateurs",
   "anonymous": "Anonyme",
-  "audit-log": "Journal d'audit",
   "category-collections": "Collections",
   "category-consumption": "Parties et téléchargements",
   "category-library": "Bibliothèque",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Rôle : {from} → {to}",
   "empty": "Rien n'a encore été enregistré",
+  "events": "Événements",
   "field-cover": "jaquette",
   "field-custom-name": "nom",
   "field-description": "description",
@@ -88,10 +88,10 @@
   "filter-category": "Catégorie",
   "filter-user": "Utilisateur",
   "load-error": "Impossible de charger le journal d'audit",
-  "load-more": "Charger plus",
   "no-matches": "Aucun événement ne correspond à ces filtres",
   "search-placeholder": "Rechercher des événements",
   "since": "Du",
   "system": "RomM",
-  "until": "Au"
+  "until": "Au",
+  "yesterday": "Hier"
 }

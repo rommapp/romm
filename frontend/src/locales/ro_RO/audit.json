@@ -51,7 +51,6 @@
   "all-categories": "Toate categoriile",
   "all-users": "Toți utilizatorii",
   "anonymous": "Anonim",
-  "audit-log": "Jurnal de audit",
   "category-collections": "Colecții",
   "category-consumption": "Sesiuni de joc și descărcări",
   "category-library": "Bibliotecă",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Rol: {from} → {to}",
   "empty": "Nu s-a înregistrat încă nimic",
+  "events": "Evenimente",
   "field-cover": "copertă",
   "field-custom-name": "nume",
   "field-description": "descriere",
@@ -88,10 +88,10 @@
   "filter-category": "Categorie",
   "filter-user": "Utilizator",
   "load-error": "Jurnalul de audit nu a putut fi încărcat",
-  "load-more": "Încarcă mai mult",
   "no-matches": "Niciun eveniment nu corespunde acestor filtre",
   "search-placeholder": "Caută evenimente",
   "since": "De la",
   "system": "RomM",
-  "until": "Până la"
+  "until": "Până la",
+  "yesterday": "Ieri"
 }

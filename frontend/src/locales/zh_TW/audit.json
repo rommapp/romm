@@ -51,7 +51,6 @@
   "all-categories": "所有分類",
   "all-users": "所有使用者",
   "anonymous": "匿名",
-  "audit-log": "稽核日誌",
   "category-collections": "收藏庫",
   "category-consumption": "遊玩與下載",
   "category-library": "遊戲庫",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "角色：{from} → {to}",
   "empty": "尚未記錄任何內容",
+  "events": "事件",
   "field-cover": "封面",
   "field-custom-name": "名稱",
   "field-description": "描述",
@@ -88,10 +88,10 @@
   "filter-category": "分類",
   "filter-user": "使用者",
   "load-error": "無法載入稽核日誌",
-  "load-more": "載入更多",
   "no-matches": "沒有符合這些篩選條件的事件",
   "search-placeholder": "搜尋事件",
   "since": "從",
   "system": "RomM",
-  "until": "至"
+  "until": "至",
+  "yesterday": "昨天"
 }

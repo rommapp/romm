@@ -51,7 +51,6 @@
   "all-categories": "Všechny kategorie",
   "all-users": "Všichni uživatelé",
   "anonymous": "Anonymní",
-  "audit-log": "Protokol auditu",
   "category-collections": "Kolekce",
   "category-consumption": "Hraní a stahování",
   "category-library": "Knihovna",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Role: {from} → {to}",
   "empty": "Zatím nebylo nic zaznamenáno",
+  "events": "Události",
   "field-cover": "obal",
   "field-custom-name": "název",
   "field-description": "popis",
@@ -88,10 +88,10 @@
   "filter-category": "Kategorie",
   "filter-user": "Uživatel",
   "load-error": "Protokol auditu se nepodařilo načíst",
-  "load-more": "Načíst více",
   "no-matches": "Těmto filtrům neodpovídají žádné události",
   "search-placeholder": "Hledat události",
   "since": "Od",
   "system": "RomM",
-  "until": "Do"
+  "until": "Do",
+  "yesterday": "Včera"
 }

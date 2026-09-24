@@ -51,7 +51,6 @@
   "all-categories": "Minden kategória",
   "all-users": "Minden felhasználó",
   "anonymous": "Névtelen",
-  "audit-log": "Auditnapló",
   "category-collections": "Gyűjtemények",
   "category-consumption": "Játékmenetek és letöltések",
   "category-library": "Könyvtár",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Szerepkör: {from} → {to}",
   "empty": "Még nincs rögzített esemény",
+  "events": "Események",
   "field-cover": "borítókép",
   "field-custom-name": "név",
   "field-description": "leírás",
@@ -88,10 +88,10 @@
   "filter-category": "Kategória",
   "filter-user": "Felhasználó",
   "load-error": "Nem sikerült betölteni az auditnaplót",
-  "load-more": "Továbbiak betöltése",
   "no-matches": "Egy esemény sem felel meg ezeknek a szűrőknek",
   "search-placeholder": "Események keresése",
   "since": "Ettől",
   "system": "RomM",
-  "until": "Eddig"
+  "until": "Eddig",
+  "yesterday": "Tegnap"
 }

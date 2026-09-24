@@ -51,7 +51,6 @@
   "all-categories": "Все категории",
   "all-users": "Все пользователи",
   "anonymous": "Аноним",
-  "audit-log": "Журнал аудита",
   "category-collections": "Коллекции",
   "category-consumption": "Игровые сессии и скачивания",
   "category-library": "Библиотека",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Роль: {from} → {to}",
   "empty": "Пока ничего не записано",
+  "events": "События",
   "field-cover": "обложка",
   "field-custom-name": "название",
   "field-description": "описание",
@@ -88,10 +88,10 @@
   "filter-category": "Категория",
   "filter-user": "Пользователь",
   "load-error": "Не удалось загрузить журнал аудита",
-  "load-more": "Загрузить еще",
   "no-matches": "Нет событий, соответствующих этим фильтрам",
   "search-placeholder": "Поиск событий",
   "since": "С",
   "system": "RomM",
-  "until": "По"
+  "until": "По",
+  "yesterday": "Вчера"
 }

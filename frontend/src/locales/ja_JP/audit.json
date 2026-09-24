@@ -51,7 +51,6 @@
   "all-categories": "すべてのカテゴリ",
   "all-users": "すべてのユーザー",
   "anonymous": "匿名",
-  "audit-log": "監査ログ",
   "category-collections": "コレクション",
   "category-consumption": "プレイとダウンロード",
   "category-library": "ライブラリ",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "役割: {from} → {to}",
   "empty": "まだ何も記録されていません",
+  "events": "イベント",
   "field-cover": "カバーアート",
   "field-custom-name": "名前",
   "field-description": "説明",
@@ -88,10 +88,10 @@
   "filter-category": "カテゴリ",
   "filter-user": "ユーザー",
   "load-error": "監査ログを読み込めませんでした",
-  "load-more": "もっと読み込む",
   "no-matches": "条件に一致するイベントはありません",
   "search-placeholder": "イベントを検索",
   "since": "開始",
   "system": "RomM",
-  "until": "終了"
+  "until": "終了",
+  "yesterday": "昨日"
 }

@@ -51,7 +51,6 @@
   "all-categories": "Wszystkie kategorie",
   "all-users": "Wszyscy użytkownicy",
   "anonymous": "Anonim",
-  "audit-log": "Dziennik audytu",
   "category-collections": "Kolekcje",
   "category-consumption": "Granie i pobieranie",
   "category-library": "Biblioteka",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Rola: {from} → {to}",
   "empty": "Nic jeszcze nie zarejestrowano",
+  "events": "Zdarzenia",
   "field-cover": "okładka",
   "field-custom-name": "nazwa",
   "field-description": "opis",
@@ -88,10 +88,10 @@
   "filter-category": "Kategoria",
   "filter-user": "Użytkownik",
   "load-error": "Nie udało się wczytać dziennika audytu",
-  "load-more": "Załaduj więcej",
   "no-matches": "Żadne zdarzenia nie pasują do tych filtrów",
   "search-placeholder": "Szukaj zdarzeń",
   "since": "Od",
   "system": "RomM",
-  "until": "Do"
+  "until": "Do",
+  "yesterday": "Wczoraj"
 }

@@ -51,7 +51,6 @@
   "all-categories": "All categories",
   "all-users": "All users",
   "anonymous": "Anonymous",
-  "audit-log": "Audit log",
   "category-collections": "Collections",
   "category-consumption": "Plays and downloads",
   "category-library": "Library",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Role: {from} → {to}",
   "empty": "Nothing has been recorded yet",
+  "events": "Events",
   "field-cover": "cover",
   "field-custom-name": "name",
   "field-description": "description",
@@ -88,10 +88,10 @@
   "filter-category": "Category",
   "filter-user": "User",
   "load-error": "Couldn't load the audit log",
-  "load-more": "Load more",
   "no-matches": "No events match these filters",
   "search-placeholder": "Search events",
   "since": "From",
   "system": "RomM",
-  "until": "To"
+  "until": "To",
+  "yesterday": "Yesterday"
 }

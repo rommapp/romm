@@ -51,7 +51,6 @@
   "all-categories": "모든 분류",
   "all-users": "모든 사용자",
   "anonymous": "익명",
-  "audit-log": "감사 로그",
   "category-collections": "모음집",
   "category-consumption": "플레이 및 다운로드",
   "category-library": "라이브러리",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "역할: {from} → {to}",
   "empty": "아직 기록된 항목이 없습니다",
+  "events": "이벤트",
   "field-cover": "커버",
   "field-custom-name": "이름",
   "field-description": "설명",
@@ -88,10 +88,10 @@
   "filter-category": "분류",
   "filter-user": "사용자",
   "load-error": "감사 로그를 불러올 수 없습니다",
-  "load-more": "더 불러오기",
   "no-matches": "이 필터와 일치하는 이벤트가 없습니다",
   "search-placeholder": "이벤트 검색",
   "since": "시작",
   "system": "RomM",
-  "until": "종료"
+  "until": "종료",
+  "yesterday": "어제"
 }

@@ -51,7 +51,6 @@
   "all-categories": "所有分类",
   "all-users": "所有用户",
   "anonymous": "匿名",
-  "audit-log": "审计日志",
   "category-collections": "收藏",
   "category-consumption": "游玩与下载",
   "category-library": "游戏库",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "角色：{from} → {to}",
   "empty": "暂无任何记录",
+  "events": "事件",
   "field-cover": "封面",
   "field-custom-name": "名称",
   "field-description": "描述",
@@ -88,10 +88,10 @@
   "filter-category": "分类",
   "filter-user": "用户",
   "load-error": "无法加载审计日志",
-  "load-more": "加载更多",
   "no-matches": "没有符合这些筛选条件的事件",
   "search-placeholder": "搜索事件",
   "since": "从",
   "system": "RomM",
-  "until": "至"
+  "until": "至",
+  "yesterday": "昨天"
 }

@@ -51,7 +51,6 @@
   "all-categories": "Tüm kategoriler",
   "all-users": "Tüm kullanıcılar",
   "anonymous": "Anonim",
-  "audit-log": "Denetim günlüğü",
   "category-collections": "Koleksiyonlar",
   "category-consumption": "Oyun oturumları ve indirmeler",
   "category-library": "Kütüphane",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Rol: {from} → {to}",
   "empty": "Henüz hiçbir şey kaydedilmedi",
+  "events": "Olaylar",
   "field-cover": "kapak",
   "field-custom-name": "ad",
   "field-description": "açıklama",
@@ -88,10 +88,10 @@
   "filter-category": "Kategori",
   "filter-user": "Kullanıcı",
   "load-error": "Denetim günlüğü yüklenemedi",
-  "load-more": "Daha fazla yükle",
   "no-matches": "Bu filtrelerle eşleşen olay yok",
   "search-placeholder": "Olaylarda ara",
   "since": "Başlangıç",
   "system": "RomM",
-  "until": "Bitiş"
+  "until": "Bitiş",
+  "yesterday": "Dün"
 }

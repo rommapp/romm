@@ -51,7 +51,6 @@
   "all-categories": "Todas as categorias",
   "all-users": "Todos os usuários",
   "anonymous": "Anônimo",
-  "audit-log": "Registro de auditoria",
   "category-collections": "Coleções",
   "category-consumption": "Partidas e downloads",
   "category-library": "Biblioteca",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Papel: {from} → {to}",
   "empty": "Nada foi registrado ainda",
+  "events": "Eventos",
   "field-cover": "capa",
   "field-custom-name": "nome",
   "field-description": "descrição",
@@ -88,10 +88,10 @@
   "filter-category": "Categoria",
   "filter-user": "Usuário",
   "load-error": "Não foi possível carregar o registro de auditoria",
-  "load-more": "Carregar mais",
   "no-matches": "Nenhum evento corresponde a estes filtros",
   "search-placeholder": "Buscar eventos",
   "since": "De",
   "system": "RomM",
-  "until": "Até"
+  "until": "Até",
+  "yesterday": "Ontem"
 }

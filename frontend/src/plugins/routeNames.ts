@@ -31,7 +31,6 @@ export const ROUTES = {
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   LOGS: "logs",
-  AUDIT_LOG: "audit-log",
   PAIR: "pair",
   PAIR_DEVICE: "pair-device",
   APRIL_FOOLS: "april-fools",

@@ -51,7 +51,6 @@
   "all-categories": "Tutte le categorie",
   "all-users": "Tutti gli utenti",
   "anonymous": "Anonimo",
-  "audit-log": "Registro di audit",
   "category-collections": "Collezioni",
   "category-consumption": "Partite e download",
   "category-library": "Libreria",
@@ -72,6 +71,7 @@
   "detail-renamed": "{from} → {to}",
   "detail-role": "Ruolo: {from} → {to}",
   "empty": "Non è stato ancora registrato nulla",
+  "events": "Eventi",
   "field-cover": "copertina",
   "field-custom-name": "nome",
   "field-description": "descrizione",
@@ -88,10 +88,10 @@
   "filter-category": "Categoria",
   "filter-user": "Utente",
   "load-error": "Impossibile caricare il registro di audit",
-  "load-more": "Carica di più",
   "no-matches": "Nessun evento corrisponde a questi filtri",
   "search-placeholder": "Cerca eventi",
   "since": "Dal",
   "system": "RomM",
-  "until": "Al"
+  "until": "Al",
+  "yesterday": "Ieri"
 }
