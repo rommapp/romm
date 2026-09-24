@@ -90,19 +90,29 @@ class DBScreenshotsHandler(DBBaseHandler):
         ignoring: Save | State | None = None,
         session: Session = None,  # type: ignore
     ) -> bool:
-        """Whether a save or state other than `ignoring` matches the screenshot
-        by name, the way their thumbnail lookup does."""
+        """Whether a save or state other than `ignoring` shows the screenshot
+        as its thumbnail."""
         names = pydash.compact([screenshot.file_name, screenshot.file_name_no_ext])
         for model in (Save, State):
-            query = select(model.id).filter(
+            query = select(model.file_name, model.file_name_no_ext).filter(
                 model.rom_id == screenshot.rom_id,
                 model.user_id == screenshot.user_id,
                 or_(model.file_name.in_(names), model.file_name_no_ext.in_(names)),
             )
             if isinstance(ignoring, model):
                 query = query.filter(model.id != ignoring.id)
-            if session.scalar(query.limit(1)) is not None:
-                return True
+            # A name can match several screenshots, and the asset shows only
+            # the one its lookup prefers.
+            for file_name, file_name_no_ext in session.execute(query):
+                shown = self.get_screenshot(
+                    rom_id=screenshot.rom_id,
+                    user_id=screenshot.user_id,
+                    file_name=file_name,
+                    file_name_no_ext=file_name_no_ext,
+                    session=session,
+                )
+                if shown is not None and shown.id == screenshot.id:
+                    return True
         return False
 
     @begin_session

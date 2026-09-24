@@ -2,6 +2,7 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -2331,6 +2332,32 @@ class TestAutocleanupScreenshots:
 
 
 class TestSaveDeleteThumbnail:
+    """Deleting a save takes its thumbnail only when nothing else shows it."""
+
+    def _add_thumbnail(
+        self, assets_dir, rom: Rom, user: User, platform: Platform, file_name: str
+    ) -> tuple[Screenshot, Path]:
+        thumbnail = db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=user.id,
+                file_name=file_name,
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=3,
+            )
+        )
+        path = assets_dir / thumbnail.file_path / thumbnail.file_name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"PNG")
+        return thumbnail, path
+
+    def _delete(self, client, token: str, save_id: int):
+        return client.post(
+            "/api/saves/delete",
+            json={"saves": [save_id]},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
     def test_a_thumbnail_a_state_still_shows_stays(
         self,
         client,
@@ -2351,28 +2378,59 @@ class TestSaveDeleteThumbnail:
                 file_size_bytes=1,
             )
         )
-        thumbnail = db_screenshot_handler.add_screenshot(
-            Screenshot(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_save.png",
-                file_path=f"{platform.slug}/screenshots",
-                file_size_bytes=3,
-            )
+        thumbnail, path = self._add_thumbnail(
+            _isolated_assets_dir, rom, admin_user, platform, "test_save.png"
         )
-        path = _isolated_assets_dir / thumbnail.file_path / thumbnail.file_name
-        path.parent.mkdir(parents=True)
-        path.write_bytes(b"PNG")
 
-        response = client.post(
-            "/api/saves/delete",
-            json={"saves": [save.id]},
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
+        response = self._delete(client, access_token, save.id)
 
         assert response.status_code == status.HTTP_200_OK
         assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is not None
         assert path.read_bytes() == b"PNG"
+
+    def test_a_thumbnail_a_state_only_matches_by_name_goes(
+        self,
+        client,
+        access_token: str,
+        _isolated_assets_dir,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+    ):
+        save = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="Game.01.srm",
+                file_path=f"{platform.slug}/saves",
+                file_size_bytes=1,
+            )
+        )
+        db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="Game.01.p2s",
+                file_path=f"{platform.slug}/states",
+                file_size_bytes=1,
+            )
+        )
+        thumbnail, path = self._add_thumbnail(
+            _isolated_assets_dir, rom, admin_user, platform, "Game.01.png"
+        )
+        # The state matches the save's by stem, but its lookup prefers the one
+        # named after its whole file name.
+        shown, shown_path = self._add_thumbnail(
+            _isolated_assets_dir, rom, admin_user, platform, "Game.01.p2s.png"
+        )
+
+        response = self._delete(client, access_token, save.id)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is None
+        assert not path.exists()
+        assert db_screenshot_handler.get_screenshot_by_id(shown.id) is not None
+        assert shown_path.read_bytes() == b"PNG"
 
 
 class TestUploadSizeLimit:

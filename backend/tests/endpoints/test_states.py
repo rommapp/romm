@@ -801,17 +801,25 @@ class TestStateFavoritesAndLabels:
 def _exact_screenshot_names():
     """Resolve screenshots by exact name, as PostgreSQL compares them."""
 
-    def lookup(*, rom_id: int, user_id: int, file_name: str, file_name_no_ext=None):
+    def lookup(
+        *,
+        rom_id: int,
+        user_id: int,
+        file_name: str,
+        file_name_no_ext=None,
+        session=None,
+    ):
         names = {n for n in (file_name, file_name_no_ext) if n}
-        with sync_session() as session:
-            rows = session.scalars(
+        with sync_session() as db:
+            rows = db.scalars(
                 select(Screenshot)
                 .where(Screenshot.rom_id == rom_id, Screenshot.user_id == user_id)
                 .order_by(Screenshot.id.desc())
             ).all()
-        return next(
-            (r for r in rows if names & {r.file_name, r.file_name_no_ext}), None
-        )
+        matches = [r for r in rows if names & {r.file_name, r.file_name_no_ext}]
+        # The real lookup prefers a stem equal to the asset's whole name.
+        matches.sort(key=lambda r: r.file_name_no_ext != file_name)
+        return next(iter(matches), None)
 
     with mock.patch.object(db_screenshot_handler, "get_screenshot", side_effect=lookup):
         yield
