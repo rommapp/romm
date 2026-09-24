@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import mitt from "mitt";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import { installSyncConflictToast } from "./index";
 
@@ -45,9 +45,10 @@ vi.mock("@/stores/roms", () => ({
 }));
 
 const emitter = mitt();
+let host: ReturnType<typeof mount> | null = null;
 
 function install() {
-  mount(
+  host = mount(
     defineComponent({
       setup() {
         installSyncConflictToast();
@@ -81,6 +82,11 @@ describe("useSyncConflictToast", () => {
     emitter.on("snackbarShow", (payload) => {
       toasts.push(payload);
     });
+  });
+
+  afterEach(() => {
+    host?.unmount();
+    host = null;
   });
 
   it("warns with the game name", () => {

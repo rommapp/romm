@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime
 
-from fastapi import HTTPException, Request, status
+from fastapi import BackgroundTasks, HTTPException, Request, status
 from pydantic import Field, model_validator
 
 from config import TASK_TIMEOUT
@@ -42,8 +42,8 @@ router = APIRouter(
     tags=["sync"],
 )
 
-# The emitter dials Redis once per conflict, so a pathological conflict set is
-# bounded two ways: a deadline on the wait, and a cap on live connections.
+# Each in-flight emit holds its own Redis connection, so a wide conflict set is
+# bounded two ways: a deadline on the wait, and a cap on concurrent emits.
 CONFLICT_NOTIFY_TIMEOUT_S = 2.0
 CONFLICT_NOTIFY_MAX_CONCURRENCY = 8
 
@@ -155,6 +155,11 @@ async def _notify_conflicts(
                 log.warning(
                     f"Failed to emit sync:conflict for {op.file_name}: {emit_result}"
                 )
+    except TimeoutError:
+        log.warning(
+            f"Gave up on {len(conflict_ops)} sync:conflict events "
+            f"after {CONFLICT_NOTIFY_TIMEOUT_S}s"
+        )
     except Exception as e:  # noqa: BLE001
         log.warning(f"Failed to emit {len(conflict_ops)} sync:conflict events: {e}")
 
@@ -163,6 +168,7 @@ async def _notify_conflicts(
 def negotiate_sync(
     request: Request,
     payload: SyncNegotiatePayload,
+    background_tasks: BackgroundTasks,
 ) -> SyncNegotiateResponse:
     """Negotiate sync operations between a client device and the server.
 
@@ -383,17 +389,16 @@ def negotiate_sync(
         f"{total_conflict} conflicts, {total_no_op} no-ops"
     )
 
-    # The route stays sync so the negotiation's DB work keeps running in the
-    # threadpool; only the emit crosses to a loop, and it is never fatal.
+    # Sent after the response on the app's loop, so a slow broker never holds
+    # up the client and the shared socket manager stays on one loop.
     conflict_ops = [op for op in operations if op.action == "conflict"]
     if conflict_ops:
-        asyncio.run(
-            _notify_conflicts(
-                user_id=request.user.id,
-                device_id=device.id,
-                session_id=sync_session.id,
-                conflict_ops=conflict_ops,
-            )
+        background_tasks.add_task(
+            _notify_conflicts,
+            user_id=request.user.id,
+            device_id=device.id,
+            session_id=sync_session.id,
+            conflict_ops=conflict_ops,
         )
 
     return SyncNegotiateResponse(

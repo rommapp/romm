@@ -1143,7 +1143,7 @@ class TestNegotiateConflictEvents:
     def test_slow_notification_does_not_stall_the_negotiation(
         self, client, access_token: str, admin_user: User, save: Save
     ):
-        """Notification latency must not scale with the number of conflicts."""
+        """A hung broker is abandoned at the deadline, not waited out."""
         device = self._device_with_history("neg-conflict-slow", admin_user, save)
 
         async def hang(**_kwargs: Any) -> None:
@@ -1180,7 +1180,7 @@ class TestNegotiateConflictEvents:
         rom: Rom,
         platform: Platform,
     ):
-        """Each emit opens its own Redis connection, so the fan-out is capped."""
+        """Each in-flight emit holds a Redis connection, so the fan-out is capped."""
         device = db_device_handler.add_device(
             Device(id="neg-conflict-wide", user_id=admin_user.id, sync_enabled=True)
         )
