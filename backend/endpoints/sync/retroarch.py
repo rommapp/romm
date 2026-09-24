@@ -327,15 +327,14 @@ def _rom_file_entry(
 async def _save_state_listing(
     parts: list[str], depth: int, user: User, can_see: Callable[[Rom], bool]
 ) -> list[browser.PropfindEntry] | None:
-    manifest = await sync_handler.build_manifest(user, can_see)
+    paths = await sync_handler.list_manifest_paths(user, can_see)
     clean = "/".join(parts)
 
-    exact = next((e for e in manifest if e["path"] == clean), None)
-    if exact:
-        return [_manifest_file_entry(exact)]
+    if clean in paths:
+        return [_manifest_file_entry(clean)]
 
     prefix = f"{clean}/"
-    has_children = any(e["path"].startswith(prefix) for e in manifest)
+    has_children = any(path.startswith(prefix) for path in paths)
     if len(parts) > 1 and not has_children:
         return None
 
@@ -345,27 +344,27 @@ async def _save_state_listing(
 
     child_folders: set[str] = set()
     child_files = []
-    for entry in manifest:
-        if not entry["path"].startswith(prefix):
+    for path in paths:
+        if not path.startswith(prefix):
             continue
-        rest = entry["path"][len(prefix) :]
+        rest = path[len(prefix) :]
         if "/" in rest:
             child_folders.add(rest.split("/", 1)[0])
         else:
-            child_files.append(entry)
+            child_files.append(path)
 
     return (
         [self_entry]
         + [_collection_entry(f"{clean}/{folder}") for folder in sorted(child_folders)]
-        + [_manifest_file_entry(entry) for entry in child_files]
+        + [_manifest_file_entry(path) for path in child_files]
     )
 
 
-def _manifest_file_entry(entry: dict[str, str]) -> browser.PropfindEntry:
+def _manifest_file_entry(path: str) -> browser.PropfindEntry:
     return browser.PropfindEntry(
-        href=entry["path"],
+        href=path,
         is_collection=False,
-        display_name=entry["path"].rsplit("/", 1)[-1],
+        display_name=path.rsplit("/", 1)[-1],
     )
 
 

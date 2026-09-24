@@ -1,3 +1,5 @@
+import hashlib
+from collections.abc import Sequence
 from unittest import mock
 
 import pytest
@@ -31,10 +33,13 @@ EMPTY_MD5 = "d41d8cd98f00b204e9800998ecf8427e"
 
 
 def _mock_asset_md5():
+    async def md5s(assets: Sequence[Save | State | Screenshot]) -> list[str | None]:
+        return [EMPTY_MD5] * len(assets)
+
     return mock.patch(
-        "handler.sync.retroarch.sync_handler.asset_md5",
+        "handler.sync.retroarch.sync_handler.asset_md5s",
         new_callable=mock.AsyncMock,
-        return_value=EMPTY_MD5,
+        side_effect=md5s,
     )
 
 
@@ -1041,6 +1046,59 @@ class TestRetroArchSyncPsp:
             "saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
         }
 
+    @pytest.mark.parametrize("uploads", [1, 2], ids=["added", "rewritten"])
+    def test_upload_primes_the_member_hash_cache(
+        self, uploads: int, client, admin_user: User
+    ):
+        members = {"PARAM.SFO": b"sfo", "SAVE.BIN": b"data"}
+        for name, data in list(members.items())[:uploads]:
+            client.put(
+                f"/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/{name}",
+                content=data,
+                auth=ADMIN_AUTH,
+            )
+
+        with mock.patch.object(
+            psp, "_load_bundle_entries", wraps=psp._load_bundle_entries
+        ) as load_entries:
+            response = client.get(
+                "/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == [
+            {
+                "path": f"saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/{name}",
+                "hash": hashlib.md5(data, usedforsecurity=False).hexdigest(),
+            }
+            for name, data in list(members.items())[:uploads]
+        ]
+        load_entries.assert_not_called()
+
+    def test_propfind_lists_bundle_members_without_inflating(
+        self, client, admin_user: User
+    ):
+        for name in ("PARAM.SFO", "SAVE.BIN"):
+            client.put(
+                f"/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/{name}",
+                content=b"data",
+                auth=ADMIN_AUTH,
+            )
+
+        with mock.patch.object(
+            psp, "_load_bundle_entries", wraps=psp._load_bundle_entries
+        ) as load_entries:
+            response = client.request(
+                "PROPFIND",
+                "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/",
+                auth=ADMIN_AUTH,
+            )
+
+        assert response.status_code == 207
+        for name in ("PARAM.SFO", "SAVE.BIN"):
+            assert f"TEST12345DATA0/{name}</D:href>" in response.text
+        load_entries.assert_not_called()
+
     def test_updates_a_tagged_bundle_in_place(self, client, admin_user: User, rom: Rom):
         tagged_path = fs_asset_handler.build_saves_file_path(
             user=admin_user,
@@ -1536,9 +1594,8 @@ class TestRetroArchSyncBrowsing:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    @_mock_asset_md5()
     def test_propfind_saves_lists_the_emulator_subfolder(
-        self, _asset_md5: mock.AsyncMock, client, admin_user: User, synced_save: Save
+        self, client, admin_user: User, synced_save: Save
     ):
         response = client.request(
             "PROPFIND", "/api/sync/retroarch/saves/", auth=ADMIN_AUTH
@@ -1547,9 +1604,8 @@ class TestRetroArchSyncBrowsing:
         assert response.status_code == 207
         assert "<D:href>/api/sync/retroarch/saves/Snes9x/</D:href>" in response.text
 
-    @_mock_asset_md5()
     def test_propfind_saves_subfolder_lists_the_file(
-        self, _asset_md5: mock.AsyncMock, client, admin_user: User, synced_save: Save
+        self, client, admin_user: User, synced_save: Save
     ):
         response = client.request(
             "PROPFIND", "/api/sync/retroarch/saves/Snes9x/", auth=ADMIN_AUTH
@@ -1560,3 +1616,32 @@ class TestRetroArchSyncBrowsing:
             "<D:href>/api/sync/retroarch/saves/Snes9x/test_rom.srm</D:href>"
             in response.text
         )
+
+    @_mock_asset_md5()
+    @mock.patch(
+        "handler.sync.retroarch.sync_handler.fs_retroarch_sync_handler.list_blob_files",
+        new_callable=mock.AsyncMock,
+    )
+    def test_propfind_lists_without_hashing_or_walking_blobs(
+        self,
+        list_blob_files: mock.AsyncMock,
+        asset_md5s: mock.AsyncMock,
+        client,
+        admin_user: User,
+        synced_save: Save,
+        synced_state_screenshot: Screenshot,
+    ):
+        saves = client.request(
+            "PROPFIND", "/api/sync/retroarch/saves/Snes9x/", auth=ADMIN_AUTH
+        )
+        states = client.request(
+            "PROPFIND", "/api/sync/retroarch/states/Snes9x/", auth=ADMIN_AUTH
+        )
+
+        assert saves.status_code == 207
+        assert "/api/sync/retroarch/saves/Snes9x/test_rom.srm<" in saves.text
+        assert states.status_code == 207
+        assert "/api/sync/retroarch/states/Snes9x/test_rom.state<" in states.text
+        assert "/api/sync/retroarch/states/Snes9x/test_rom.state.png<" in states.text
+        asset_md5s.assert_not_awaited()
+        list_blob_files.assert_not_awaited()

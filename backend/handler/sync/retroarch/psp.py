@@ -284,6 +284,20 @@ def _load_bundle_entries(
         }
 
 
+def _load_bundle_member_names(path: Path) -> list[str]:
+    """The bundle's member names, read from its central directory without inflating.
+
+    Raises:
+        FileNotFoundError: The bundle file is gone.
+        zipfile.BadZipFile: The bundle is corrupt or exceeds the bundle limits.
+    """
+    with zipfile.ZipFile(path) as zf:
+        infos = zf.infolist()
+        if _exceeds_bundle_limits([info.file_size for info in infos]):
+            raise zipfile.BadZipFile("PSP bundle exceeds the size limits")
+        return [info.filename for info in infos]
+
+
 def _write_bundle(entries: dict[str, bytes]) -> bytes:
     # `zipfile_inflate64` is imported elsewhere for ROM archive reading, and
     # breaks `writestr()` until this runs.
@@ -353,11 +367,11 @@ async def _add_bundle(
         emulator=info.emulator,
     )
     bundle_name = _bundle_base_name(info.save_folder)
-    zip_bytes = _write_bundle(entries)
+    zip_bytes = await asyncio.to_thread(_write_bundle, entries)
     await fs_asset_handler.write_file(
         file=zip_bytes, path=bundle_path, filename=bundle_name
     )
-    db_save_handler.add_save(
+    added = db_save_handler.add_save(
         Save(
             rom_id=rom.id,
             user_id=user.id,
@@ -369,6 +383,11 @@ async def _add_bundle(
             slot=None,
         )
     )
+    # The merged instance keeps the Python-side `updated_at`, which the
+    # database may store truncated, so the cache key is built from a re-read.
+    bundle = db_save_handler.get_save(user_id=user.id, id=added.id)
+    if bundle:
+        await _prime_member_md5s(bundle, entries)
 
 
 async def put_psp_file(
@@ -421,11 +440,11 @@ async def put_psp_file(
 
 async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:
     """Write `entries` over the bundle's own file and refresh its row."""
-    zip_bytes = _write_bundle(entries)
+    zip_bytes = await asyncio.to_thread(_write_bundle, entries)
     await fs_asset_handler.write_file(
         file=zip_bytes, path=bundle.file_path, filename=bundle.file_name
     )
-    db_save_handler.update_save(
+    updated = db_save_handler.update_save(
         bundle.id,
         {
             "file_size_bytes": len(zip_bytes),
@@ -433,6 +452,7 @@ async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:
             "missing_from_fs": False,
         },
     )
+    await _prime_member_md5s(updated, entries)
 
 
 async def _read_bundle(
@@ -480,13 +500,32 @@ async def delete_psp_file(
             await fs_asset_handler.remove_file(file_path=bundle.full_path)
 
 
-async def _bundle_member_md5s(bundle: Save) -> dict[str, str] | None:
-    """Each member's MD5, cached so a manifest build doesn't inflate every bundle."""
-    cache_key = (
+def _member_md5s_cache_key(bundle: Save) -> str:
+    return (
         f"romm:retroarch_sync:psp_member_md5s:{bundle.full_path}"
         f":{bundle.content_hash}:{bundle.updated_at.timestamp()}"
     )
-    cached = await async_cache.get(cache_key)
+
+
+def _member_md5s(members: dict[str, bytes]) -> dict[str, str]:
+    return {
+        name: hashlib.md5(data, usedforsecurity=False).hexdigest()
+        for name, data in members.items()
+    }
+
+
+async def _prime_member_md5s(bundle: Save, members: dict[str, bytes]) -> None:
+    """Cache a just-written bundle's member MD5s, so the next manifest skips inflating it."""
+    await async_cache.set(
+        _member_md5s_cache_key(bundle),
+        json.dumps(_member_md5s(members)),
+        ex=sync_handler.HASH_CACHE_TTL_SECONDS,
+    )
+
+
+async def _bundle_member_md5s(bundle: Save) -> dict[str, str] | None:
+    """Each member's MD5, cached so a manifest build doesn't inflate every bundle."""
+    cached = await async_cache.get(_member_md5s_cache_key(bundle))
     if cached:
         return json.loads(cached)
 
@@ -494,14 +533,33 @@ async def _bundle_member_md5s(bundle: Save) -> dict[str, str] | None:
     if members is None:
         return None
 
-    digests = {
-        name: hashlib.md5(data, usedforsecurity=False).hexdigest()
-        for name, data in members.items()
-    }
-    await async_cache.set(
-        cache_key, json.dumps(digests), ex=sync_handler.HASH_CACHE_TTL_SECONDS
+    await _prime_member_md5s(bundle, members)
+    return _member_md5s(members)
+
+
+def _member_sync_path(bundle: Save, save_folder: str, member_name: str) -> str:
+    return sync_handler.build_retroarch_sync_path(
+        "saves", bundle.emulator, f"PSP/SAVEDATA/{save_folder}/{member_name}"
     )
-    return digests
+
+
+async def list_psp_member_paths(
+    saves: Iterable[Save], can_see: Callable[[Rom], bool]
+) -> list[str]:
+    """The manifest path of each bundle member, without inflating any bundle."""
+    paths: list[str] = []
+    for save_folder, save in _latest_bundles_by_folder(saves, can_see).items():
+        if save.missing_from_fs:
+            continue
+        try:
+            path = fs_asset_handler.validate_path(save.full_path)
+            names = await asyncio.to_thread(_load_bundle_member_names, path)
+        except (ValueError, FileNotFoundError, zipfile.BadZipFile) as exc:
+            log.warning(f"Failed to read PSP bundle {hl(save.full_path)}: {exc}")
+            continue
+        paths += [_member_sync_path(save, save_folder, name) for name in names]
+
+    return paths
 
 
 async def build_psp_manifest_entries(
@@ -516,16 +574,9 @@ async def build_psp_manifest_entries(
         if digests is None:
             continue
 
-        for member_name, digest in digests.items():
-            entries.append(
-                {
-                    "path": sync_handler.build_retroarch_sync_path(
-                        "saves",
-                        save.emulator,
-                        f"PSP/SAVEDATA/{save_folder}/{member_name}",
-                    ),
-                    "hash": digest,
-                }
-            )
+        entries += [
+            {"path": _member_sync_path(save, save_folder, name), "hash": digest}
+            for name, digest in digests.items()
+        ]
 
     return entries
