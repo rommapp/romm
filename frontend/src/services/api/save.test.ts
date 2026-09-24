@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DetailedRomSchema, SaveSchema } from "@/__generated__";
+import type { DetailedRomSchema } from "@/__generated__";
 import saveApi, { UNLOAD_SAVE_MAX_BYTES } from "@/services/api/save";
+import { saveFixture } from "@/utils/assets.fixtures";
 
 vi.mock("@/services/api", () => ({
   default: {
@@ -67,7 +68,7 @@ describe("sendSaveOnUnload", () => {
   it("updates the session's version in place", () => {
     saveApi.sendSaveOnUnload({
       rom,
-      save: { id: 3 } as SaveSchema,
+      save: saveFixture({ id: 3 }),
       saveFile: saveOf(16),
       deviceId: "dev",
     });

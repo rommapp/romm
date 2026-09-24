@@ -753,8 +753,8 @@ def _reads_steam(column: ReflectedColumn) -> bool:
     """Whether a reflected generated column already has Steam in its chain."""
     # A column the engine did not report as generated counts as not reading
     # Steam, so `ensure_roms_columns` rebuilds it rather than raising.
-    computed = column.get("computed") or {}
-    return STEAM_METADATA_COLUMN in computed.get("sqltext", "")
+    computed = column.get("computed")
+    return computed is not None and STEAM_METADATA_COLUMN in computed.get("sqltext", "")
 
 
 def has_server_default(conn: sa.Connection, column: str) -> bool:

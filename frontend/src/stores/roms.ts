@@ -207,10 +207,9 @@ export default defineStore("roms", {
 
       // Only set the list of platforms on first fetch
       if (galleryFilter.filterPlatforms.length === 0) {
+        const platformIds = filter_values?.platforms ?? [];
         galleryFilter.setFilterPlatforms(
-          platformsStore.allPlatforms.filter((p) =>
-            filter_values.platforms.includes(p.id),
-          ),
+          platformsStore.allPlatforms.filter((p) => platformIds.includes(p.id)),
         );
       }
 
@@ -322,11 +321,10 @@ export default defineStore("roms", {
       this.continuePlayingRoms = this.continuePlayingRoms.map((value) =>
         value.id === rom.id ? rom : value,
       );
-      // Keep `currentRom` in sync too — otherwise an optimistic mutation
+      // Keep `currentRom` in sync too, otherwise an optimistic mutation
       // on a SimpleRom from the gallery (status toggle from a GameCard
       // badge, favourite, …) leaves the detail view rendering stale
-      // `rom_user` data, since the rom-route `beforeEnter` skips its
-      // refetch when `currentRom.id` already matches. Spread merges the
+      // `rom_user` data until the next route entry. Spread merges the
       // SimpleRom shape over the cached DetailedRom so detailed-only
       // fields (metadatum, screenshots, related games, …) survive.
       if (this.currentRom?.id === rom.id) {

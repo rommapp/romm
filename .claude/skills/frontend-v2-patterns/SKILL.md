@@ -12,6 +12,7 @@ How v2 features behave. Each pattern has one canonical mechanism — don't inven
 ## A. Errors & snackbars
 
 - Single channel: `useSnackbar()` (`src/v2/composables/useSnackbar/`) with `success | error | warning | info` methods. It emits `snackbarShow`; `NotificationHost` stacks toasts.
+- Something the user should still find after the toast fades (a background upload finished, a long job failed) passes `{ persist: true }`, or `{ persist: { body, link } }` with an in-app path: it also lands in their notifications.
 - The **call site** decides what's significant — no global "wrap-every-promise" magic.
 - Field validation errors render **in-place**, never as a snackbar.
 - Auth (401/403) is handled by the axios interceptor; no per-call-site checks.

@@ -246,7 +246,13 @@ class TestRunSingleTask:
 
     @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
     def test_run_single_task_success(
-        self, mock_enqueue, client, access_token, mock_task, task_worker_listening
+        self,
+        mock_enqueue,
+        client,
+        access_token,
+        admin_user,
+        mock_task,
+        task_worker_listening,
     ):
         """Test successful running of a single task"""
         with patch("endpoints.tasks.RUNNABLE_TASKS", {"test_task": mock_task}):
@@ -268,7 +274,10 @@ class TestRunSingleTask:
         # The worker check and the enqueue must name the same queue.
         task_worker_listening.assert_called_once_with(low_prio_queue)
         mock_enqueue.assert_called_once_with(
-            "test_task", queue=low_prio_queue, task_kwargs={}
+            "test_task",
+            queue=low_prio_queue,
+            task_kwargs={},
+            run_by_user_id=admin_user.id,
         )
 
     @patch("endpoints.tasks.enqueue_task")

@@ -70,36 +70,35 @@ const TYPE_ORDER: Record<NonNullable<RowType> | "none", number> = {
 const mappings = computed<Row[]>(() => {
   const rows: Row[] = [];
   const folders = heartbeat.value?.FILESYSTEM?.FS_PLATFORMS || [];
-  const bindings = config.value.PLATFORMS_BINDING || {};
-  const versions = config.value.PLATFORMS_VERSIONS || {};
   const autoSlug: Record<string, string | undefined> = {};
 
   for (const p of supportedPlatforms.value) autoSlug[p.slug] = p.slug;
 
   for (const folder of folders) {
-    if (bindings[folder]) {
-      const slug = bindings[folder];
-      const platform = supportedPlatforms.value.find((p) => p.slug === slug);
+    const binding = configStore.getPlatformBinding(folder);
+    if (binding) {
+      const platform = supportedPlatforms.value.find((p) => p.slug === binding);
       rows.push({
         fsSlug: folder,
-        slug,
-        displayName: platform?.display_name || platform?.name || slug,
+        slug: binding,
+        displayName: platform?.display_name || platform?.name || binding,
         type: "alias",
       });
       continue;
     }
-    if (versions[folder]) {
-      const slug = versions[folder];
-      const platform = supportedPlatforms.value.find((p) => p.slug === slug);
+    const version = configStore.getPlatformVersion(folder);
+    if (version) {
+      const platform = supportedPlatforms.value.find((p) => p.slug === version);
       rows.push({
         fsSlug: folder,
-        slug,
-        displayName: platform?.display_name || platform?.name || slug,
+        slug: version,
+        displayName: platform?.display_name || platform?.name || version,
         type: "variant",
       });
       continue;
     }
-    const auto = autoSlug[folder];
+    // Platform slugs are lowercase; the folder on disk may not be.
+    const auto = autoSlug[folder.toLowerCase()];
     if (auto) {
       const platform = supportedPlatforms.value.find((p) => p.slug === auto);
       rows.push({

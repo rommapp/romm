@@ -143,7 +143,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
 
 // Fixed track widths (px) — kept as data so the grid template AND the row's
 // natural min-width (below) derive from the same numbers.
-const LIST_SELECT_TRACK_PX = 36;
+const LIST_SELECT_TRACK_PX = parseInt(layout.listSelectWidth, 10);
 const LIST_PLATFORM_TRACK_PX = 200;
 const LIST_METRIC_TRACKS_PX = [88, 96, 96, 56, 72, 110, 110, 88];
 /** Minimum width of the title column so it stays readable when the row is
@@ -160,6 +160,20 @@ export const LIST_TITLE_MIN_PX = 200;
 // skeleton placeholder paints at the same footprint as the real card.
 export const LIST_ROW_HEIGHT_PX = parseInt(layout.listRowHeight, 10);
 export const LIST_HEADER_HEIGHT_PX = parseInt(layout.listHeaderHeight, 10);
+/** Height a row grows by while its detail panel is open (phones and tablets).
+ *  The panel is a fixed three-row grid so this stays exact. */
+export const LIST_ROW_DETAIL_HEIGHT_PX = parseInt(
+  layout.listRowDetailHeight,
+  10,
+);
+
+/** The slot a list row needs with `detailHeight` px of its panel showing:
+ *  the panel rolls open, so this lands anywhere between the bare row and the
+ *  row plus a full panel. Every surface that virtualises `GameListRow`
+ *  reserves its rows with this. */
+export function listRowHeight(detailHeight = 0): number {
+  return LIST_ROW_HEIGHT_PX + Math.round(detailHeight);
+}
 export const LIST_COVER_WIDTH_PX = parseInt(layout.cardArtWidthXs, 10);
 export const LIST_COVER_HEIGHT_PX = parseInt(layout.cardArtHeightXs, 10);
 
@@ -190,7 +204,7 @@ export function getListGridTemplate(showPlatform: boolean): string {
 // `--r-space-3` inline padding on each side (see GameListRow / GameListHeader),
 // which add to the natural width alongside the tracks.
 const LIST_GRID_GAP_PX = 20; // --r-space-5
-const LIST_ROW_PAD_X_PX = 12; // --r-space-3 (each side)
+export const LIST_ROW_PAD_X_PX = 12; // --r-space-3 (each side)
 
 /** The row's natural (minimum) width = every fixed track + the title's floor +
  *  the inter-column gaps + the row's inline padding. The shell hands this to

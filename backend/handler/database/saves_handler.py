@@ -226,12 +226,20 @@ class DBSavesHandler(DBBaseHandler):
         self,
         id: int,
         data: dict,
+        touch: bool = True,
         session: Session = None,  # type: ignore
     ) -> Save:
+        """Write `data` onto a save.
+
+        Args:
+            touch: False keeps `updated_at`, since annotating is not a write
+                to the bytes and device sync reads it to detect staleness.
+        """
+        values = data if touch else {**data, "updated_at": Save.updated_at}
         session.execute(
             update(Save)
             .where(Save.id == id)
-            .values(**data)
+            .values(**values)
             .execution_options(synchronize_session="evaluate")
         )
         return session.query(Save).filter_by(id=id).one()

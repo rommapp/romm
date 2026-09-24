@@ -2,11 +2,14 @@
 // Preview of the asset to resume from: a screenshot stage for states, one
 // compact row for saves (thumbnail when the save has a screenshot; relabelled
 // as the write target when a state is armed).
-import { RIcon, RTag, RTooltip } from "@v2/lib";
+import { RIcon, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
-import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { formatBytes } from "@/utils";
+import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
+import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
+import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { dateOf, type AssetDateField } from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
 
@@ -40,7 +43,7 @@ defineEmits<{
   clear: [];
 }>();
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 
 const screenshotUrl = computed(() => {
   if (!props.asset) return null;
@@ -58,10 +61,6 @@ const heading = computed(() => {
     ? t("play.resume-from-save")
     : t("play.resume-from-state");
 });
-
-const timeLabel = computed(() =>
-  props.timestamp === "created" ? t("rom.created") : t("rom.updated"),
-);
 
 const emptyText = computed(() =>
   props.type === "save"
@@ -115,6 +114,13 @@ const emptyText = computed(() =>
         </p>
       </div>
 
+      <AssetFavoriteMark
+        v-if="asset"
+        class="r-asset-preview__stage-fav"
+        :favorite="asset.is_favorite"
+        :size="16"
+      />
+
       <!-- Clear button — only when something is selected. -->
       <button
         v-if="asset && clearable"
@@ -150,20 +156,15 @@ const emptyText = computed(() =>
       </div>
 
       <div v-if="asset" class="r-asset-preview__meta">
-        <p class="r-asset-preview__name">
-          {{ asset.file_name }}
-          <RTooltip activator="parent" location="top" :open-delay="400">
-            <div class="r-asset-preview__tip">
-              <span class="r-asset-preview__tip-name">
-                {{ asset.file_name }}
-              </span>
-              <span class="r-asset-preview__tip-sub">
-                {{ timeLabel }}:
-                {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
-              </span>
-            </div>
-          </RTooltip>
+        <p class="r-asset-preview__title">
+          <span class="r-asset-preview__name">{{ asset.file_name }}</span>
+          <AssetFavoriteMark
+            v-if="type === 'save'"
+            :favorite="asset.is_favorite"
+            :size="14"
+          />
         </p>
+        <AssetLabels class="r-asset-preview__labels" :asset="asset" />
         <div class="r-asset-preview__chips">
           <RTag
             v-if="'slot' in asset && asset.slot"
@@ -172,25 +173,20 @@ const emptyText = computed(() =>
             prepend-icon="mdi-content-save-all-outline"
             :text="asset.slot"
           />
-          <span class="r-asset-preview__chip">
-            <RIcon icon="mdi-clock-outline" size="12" />
-            {{ formatRelativeDate(dateOf(asset, timestamp)) }}
-          </span>
-          <span class="r-asset-preview__chip">
-            <RIcon icon="mdi-weight" size="12" />
-            {{ formatBytes(asset.file_size_bytes) }}
-          </span>
           <RTag
-            v-if="asset.emulator"
+            v-if="type === 'state' && asset.emulator"
             tone="warning"
             size="x-small"
             :text="asset.emulator"
           />
+          <span class="r-asset-preview__chip">
+            {{ formatBytes(asset.file_size_bytes) }}
+          </span>
         </div>
-        <p class="r-asset-preview__exact">
-          <RIcon icon="mdi-calendar-clock" size="11" />
-          {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
-        </p>
+        <AssetTimestamp
+          class="r-asset-preview__when"
+          :date="dateOf(asset, timestamp)"
+        />
       </div>
 
       <!-- For states this stays as an empty block: the stage already carries
@@ -371,9 +367,9 @@ const emptyText = computed(() =>
 }
 
 .r-asset-preview__clear {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+  /* Anchors the ::before hit area below; the stage variant overrides this
+     with `absolute`, which anchors it just the same. */
+  position: relative;
   appearance: none;
   border: 1px solid color-mix(in srgb, white 22%, transparent);
   background: color-mix(in srgb, black 55%, transparent);
@@ -404,7 +400,6 @@ const emptyText = computed(() =>
 /* Off the screenshot the overlay-style clear button reads too heavy
    against a light surface; switch to a tonal pill. */
 .r-asset-preview__clear--inline {
-  position: relative;
   flex-shrink: 0;
   border-color: var(--r-color-border);
   background: var(--r-color-bg-elevated);
@@ -425,13 +420,12 @@ const emptyText = computed(() =>
 .r-asset-preview__meta {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   padding: 0 2px;
   flex: 1;
   min-width: 0;
   /* Reserve the row even when content is shorter, so the strip below
-     doesn't shift between filled and empty. Worst case so far is
-     name + wrapped chips + exact = ~3 lines @ ~22px each. */
+     doesn't shift between filled and empty. */
   min-height: 70px;
 }
 .r-asset-preview__meta--empty {
@@ -445,8 +439,16 @@ const emptyText = computed(() =>
   gap: 2px;
 }
 
-.r-asset-preview__name {
+.r-asset-preview__title {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.r-asset-preview__name {
+  min-width: 0;
   font-size: 14px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg);
@@ -454,33 +456,48 @@ const emptyText = computed(() =>
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* A state's name has the stage's full width under it, so it wraps instead. */
+.r-asset-preview:not(.r-asset-preview--save) .r-asset-preview__name {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
 
 .r-asset-preview__chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
+.r-asset-preview__labels {
+  row-gap: 6px;
+}
+
+.r-asset-preview__stage .r-asset-preview__clear {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.r-asset-preview__stage-fav {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  filter: drop-shadow(0 1px 4px color-mix(in srgb, black 75%, transparent));
+}
+
+/* The size is the least telling fact here, so it sits a step below the
+   labels and the slot rather than above them. */
 .r-asset-preview__chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  padding: 1px 6px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--r-color-fg-secondary);
-}
-
-.r-asset-preview__exact {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--r-color-fg-muted);
-  font-variant-numeric: tabular-nums;
 }
 
 .r-asset-preview__empty-hint {
@@ -490,19 +507,49 @@ const emptyText = computed(() =>
   max-width: 360px;
 }
 
-.r-asset-preview__tip {
+/* Phones read the save preview like a save row: thumbnail and name together,
+   then labels, facts and the timestamp each across the full width. */
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "badge title clear"
+    "labels labels labels"
+    "facts facts facts"
+    "when when when";
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 6px;
+  min-height: 70px;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__save-badge {
+  grid-area: badge;
+  align-self: start;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__meta {
+  display: contents;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__meta--empty {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 360px;
+  grid-area: title;
 }
-.r-asset-preview__tip-name {
-  font-size: 12px;
-  font-weight: var(--r-font-weight-semibold);
-  word-break: break-all;
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__title {
+  grid-area: title;
 }
-.r-asset-preview__tip-sub {
-  font-size: 11px;
-  opacity: 0.85;
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__clear--inline {
+  grid-area: clear;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__labels {
+  grid-area: labels;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__chips {
+  grid-area: facts;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__when {
+  grid-area: when;
+}
+html[data-bp~="xs"] .r-asset-preview--save .r-asset-preview__name {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 </style>

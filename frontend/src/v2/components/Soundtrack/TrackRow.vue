@@ -340,61 +340,12 @@ html[data-bp~="md-and-up"]
   color: var(--r-color-fav);
 }
 
-/* Phones: the title takes the full width and the actions share the subtitle's
-   line; the play button subgrids the row so its text shares their tracks. */
-html[data-bp~="xs"] .r-v2-stp__row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-rows: 1fr auto auto 1fr;
-  row-gap: 0;
-}
-
-html[data-bp~="xs"] .r-v2-stp__row-btn {
-  grid-row: 1 / -1;
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: subgrid;
-  grid-template-rows: subgrid;
-  row-gap: 0;
-}
-
-html[data-bp~="xs"] .r-v2-stp__row-lead {
-  grid-row: 1 / -1;
-  grid-column: 1;
-}
-
-html[data-bp~="xs"] .r-v2-stp__row-meta {
-  display: contents;
-}
-
-html[data-bp~="xs"] .r-v2-stp__row-title {
-  grid-row: 2;
-  grid-column: 2 / -1;
-}
-
-html[data-bp~="xs"] .r-v2-stp__row-subtitle {
-  grid-area: 3 / 2;
-}
-
-html[data-bp~="xs"] .r-v2-stp__row-right {
-  grid-area: 3 / 3;
-}
-
+/* Phones drop the file size so the title keeps what width it can. */
 html[data-bp~="xs"] .r-v2-stp__row-duration {
   min-width: 0;
 }
 
 html[data-bp~="xs"] .r-v2-stp__row-size {
   display: none;
-}
-
-/* Chrome and Edge below 117 ignore subgrid, so the button's text cannot share
-   the row's tracks there; fall back to the flex row the wider layout uses. */
-@supports not (grid-template-columns: subgrid) {
-  html[data-bp~="xs"] .r-v2-stp__row,
-  html[data-bp~="xs"] .r-v2-stp__row-btn,
-  html[data-bp~="xs"] .r-v2-stp__row-meta {
-    display: flex;
-  }
 }
 </style>

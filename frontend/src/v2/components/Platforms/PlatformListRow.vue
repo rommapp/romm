@@ -9,7 +9,9 @@ import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { usePlatformPlayable } from "@/v2/composables/usePlatformPlayable";
+import { useStaggeredEntrance } from "@/v2/composables/useStaggeredEntrance";
 import {
   pendingMorphName,
   useViewTransition,
@@ -47,6 +49,12 @@ const props = withDefaults(defineProps<Props>(), {
 
 const router = useRouter();
 const { t } = useI18n();
+// Phones and tablets have no room for the columns: the row goes two-line,
+// the same shape the collections list takes.
+const { smAndDown } = useBreakpoint();
+const rowEl = ref<HTMLElement | null>(null);
+const { entranceClass, entranceStyle, endEntrance } =
+  useStaggeredEntrance(rowEl);
 const iconEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
 
@@ -85,10 +93,63 @@ function onRowClick(e: MouseEvent) {
 
 <template>
   <a
-    class="plat-list-row"
+    v-if="smAndDown"
+    ref="rowEl"
+    class="plat-list-row plat-list-row--compact r-list-compact"
+    :class="entranceClass"
+    :style="entranceStyle"
     :href="href"
     :aria-label="t('common.open-item', { name: displayName })"
     @click="onRowClick"
+    @animationend.self="endEntrance"
+  >
+    <div ref="iconEl" class="plat-list-row__thumb" :style="morphStyle">
+      <RPlatformIcon
+        :slug="slug"
+        :fs-slug="fsSlug"
+        :alt="displayName"
+        :size="40"
+        :show-tooltip="false"
+      />
+    </div>
+    <div class="r-list-compact__stack">
+      <div class="plat-list-row__name">{{ displayName }}</div>
+      <div class="r-list-compact__facts">
+        <span>{{
+          t("collection.games-count", romCount ?? 0, {
+            named: { n: romCount ?? 0 },
+          })
+        }}</span>
+        <template v-if="categoryLabel">
+          <span class="r-list-compact__dot">·</span>
+          <span>{{ categoryLabel }}</span>
+        </template>
+        <template v-if="familyName">
+          <span class="r-list-compact__dot">·</span>
+          <span>{{ familyName }}</span>
+        </template>
+      </div>
+    </div>
+    <PlayModeBadge
+      v-if="mode"
+      class="plat-list-row__playable"
+      :mode="mode"
+      :emulator="emulator"
+      :stream-label="streamLabel"
+      :size="18"
+    />
+  </a>
+
+  <a
+    v-else
+    ref="rowEl"
+    class="plat-list-row plat-list-row--columns"
+    :class="entranceClass"
+    :style="entranceStyle"
+    :href="href"
+    :aria-label="t('common.open-item', { name: displayName })"
+    @click="onRowClick"
+    @animationend.self="endEntrance"
   >
     <div class="plat-list-row__cell plat-list-row__title">
       <div ref="iconEl" class="plat-list-row__thumb" :style="morphStyle">
@@ -145,12 +206,9 @@ function onRowClick(e: MouseEvent) {
     </div>
 
     <div class="plat-list-row__cell plat-list-row__cell--end">
-      <span v-if="romCount != null">
-        {{ romCount }}
-        <span class="plat-list-row__count-unit">{{
-          romCount === 1 ? "game" : "games"
-        }}</span>
-      </span>
+      <span v-if="romCount != null">{{
+        t("collection.games-count", romCount, { named: { n: romCount } })
+      }}</span>
       <span v-else class="plat-list-row__count-unit">—</span>
     </div>
   </a>
@@ -162,11 +220,9 @@ function onRowClick(e: MouseEvent) {
    view's narrative; the row applies it via CSS so the breakpoint
    switch can override without an inline-style override fight). */
 .plat-list-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 160px 130px 110px 88px 96px;
+  /* Runs to the screen edges wherever the shell asks for it. */
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
   align-items: center;
-  gap: 0 var(--r-space-3);
-  padding: 0 var(--r-space-3);
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
   font-size: var(--r-font-size-md);
@@ -178,6 +234,19 @@ function onRowClick(e: MouseEvent) {
 
 .plat-list-row:hover {
   background: var(--r-color-bg-elevated);
+}
+
+/* Kept off the compact row, whose shared flex layout this would outrank. */
+.plat-list-row--columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px 130px 110px 88px 96px;
+  gap: 0 var(--r-space-3);
+  padding: 0 max(var(--r-space-3), var(--r-list-bleed, 0px));
+}
+
+/* Clear of the screen edge, which the row itself runs to. */
+.plat-list-row--compact .plat-list-row__playable {
+  margin-inline-end: var(--r-space-2);
 }
 
 .plat-list-row:focus-visible {
@@ -262,12 +331,5 @@ function onRowClick(e: MouseEvent) {
 
 .plat-list-row__count-unit {
   color: var(--r-color-fg-muted);
-}
-
-html[data-bp~="xs"] .plat-list-row {
-  grid-template-columns: minmax(0, 1fr) 96px;
-}
-html[data-bp~="xs"] .plat-list-row__cell--meta {
-  display: none;
 }
 </style>

@@ -8,6 +8,10 @@ from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
 
+# What `Session.get_bind()` returns; these helpers only read `.engine`, which
+# an Engine answers with itself.
+type DatabaseBind = sa.Engine | sa.Connection
+
 # Single-column foreign keys that MariaDB/MySQL index implicitly but PostgreSQL
 # does not, so 0124 creates them there only and no model declares them.
 POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
@@ -85,7 +89,7 @@ def CustomJSON(**kwargs: Any) -> sa.JSON:
 
 
 def is_db_version_compatible(
-    conn: sa.Connection,
+    conn: DatabaseBind,
     min_version: tuple[int, ...] | None = None,
 ) -> bool:
     """Check if the database server version complies with the given version constraints."""
@@ -96,20 +100,20 @@ def is_db_version_compatible(
 
 
 def is_postgresql(
-    conn: sa.Connection, min_version: tuple[int, ...] | None = None
+    conn: DatabaseBind, min_version: tuple[int, ...] | None = None
 ) -> bool:
     if conn.engine.name != "postgresql":
         return False
     return is_db_version_compatible(conn, min_version=min_version)
 
 
-def is_mysql(conn: sa.Connection, min_version: tuple[int, ...] | None = None) -> bool:
+def is_mysql(conn: DatabaseBind, min_version: tuple[int, ...] | None = None) -> bool:
     if conn.engine.name != "mysql":
         return False
     return is_db_version_compatible(conn, min_version=min_version)
 
 
-def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) -> bool:
+def is_mariadb(conn: DatabaseBind, min_version: tuple[int, ...] | None = None) -> bool:
     if conn.engine.name != "mariadb":
         return False
     return is_db_version_compatible(conn, min_version=min_version)
@@ -206,7 +210,7 @@ def json_array_contains_value(
         if isinstance(value, str):
             return sa.type_coerce(column, sa_pg.JSONB).has_key(value)
         return sa.type_coerce(column, sa_pg.JSONB).contains(
-            func.cast(value, sa_pg.JSONB)
+            func.cast(sa.literal(value, sa_pg.JSONB), sa_pg.JSONB)
         )
     elif is_mysql(conn) or is_mariadb(conn):
         # In MySQL and MariaDB, JSON_CONTAINS requires a JSON-formatted string (even if it's an int).

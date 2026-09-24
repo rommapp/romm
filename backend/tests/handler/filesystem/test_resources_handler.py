@@ -315,10 +315,11 @@ class TestFSResourcesHandler:
             handler.resize_cover_to_small(img, save_path=str(save_path))
 
         with Image.open(save_path) as small:
-            alphas = [
-                frame.convert("RGBA").getpixel((2, 2))[3]
-                for frame in ImageSequence.Iterator(small)
-            ]
+            alphas = []
+            for frame in ImageSequence.Iterator(small):
+                pixel = frame.convert("RGBA").getpixel((2, 2))
+                assert isinstance(pixel, tuple)
+                alphas.append(pixel[3])
         assert alphas == [255, 0, 0]
 
     def test_resize_cover_to_small_damaged_animation(
@@ -330,7 +331,7 @@ class TestFSResourcesHandler:
             handler.resize_cover_to_small(img, save_path=str(save_path))
 
         with Image.open(save_path) as small:
-            assert not small.is_animated
+            assert getattr(small, "n_frames", 1) == 1
             assert small.size == SMALL_FRAME_SIZE
 
     async def test_store_artwork_keeps_animation(

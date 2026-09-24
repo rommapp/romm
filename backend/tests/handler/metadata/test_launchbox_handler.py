@@ -460,7 +460,7 @@ class TestLocalSource:
             "super mario bros..nes": {"Title": "Cached Entry", "DatabaseID": "9999"}
         }
         source._cache["nes"] = cached_index
-        source._mtime["nes"] = nes_xml.stat().st_mtime_ns  # trunk-ignore(ruff/ASYNC240)
+        source._mtime["nes"] = (await AnyioPath(nes_xml).stat()).st_mtime_ns
 
         with patch(
             "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
@@ -1356,17 +1356,17 @@ class TestRemoteMatchLocalImages:
         h = LaunchboxHandler()
         h._local = MagicMock(spec=LocalSource)
         h._remote = MagicMock(spec=RemoteSource)
-        h._local.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.get_mame_entry = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.get_rom_by_file_name = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.get_rom = AsyncMock(  # type: ignore[method-assign]
+        h._local.get_rom = AsyncMock(return_value=None)
+        h._remote.get_mame_entry = AsyncMock(return_value=None)
+        h._remote.get_rom_by_file_name = AsyncMock(return_value=None)
+        h._remote.get_rom = AsyncMock(
             return_value={
                 "DatabaseID": "42",
                 "Name": "H.E.R.O.",
                 "Platform": "Atari 2600",
             }
         )
-        h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.fetch_images = AsyncMock(return_value=None)
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
         monkeypatch.setattr(
@@ -1553,12 +1553,12 @@ class TestLaunchboxHandlerGetRom:
         h = LaunchboxHandler()
         h._local = MagicMock(spec=LocalSource)
         h._remote = MagicMock(spec=RemoteSource)
-        h._local.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.get_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.get_mame_entry = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.get_rom_by_file_name = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._local.get_rom = AsyncMock(return_value=None)
+        h._remote.get_rom = AsyncMock(return_value=None)
+        h._remote.get_by_id = AsyncMock(return_value=None)
+        h._remote.get_mame_entry = AsyncMock(return_value=None)
+        h._remote.get_rom_by_file_name = AsyncMock(return_value=None)
+        h._remote.fetch_images = AsyncMock(return_value=None)
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
         monkeypatch.setattr(
@@ -1861,8 +1861,8 @@ class TestLaunchboxHandlerGetRomById:
     def handler(self, monkeypatch) -> LaunchboxHandler:
         h = LaunchboxHandler()
         h._remote = MagicMock(spec=RemoteSource)
-        h._remote.get_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_by_id = AsyncMock(return_value=None)
+        h._remote.fetch_images = AsyncMock(return_value=None)
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         return h
 
@@ -1907,12 +1907,12 @@ class TestLaunchboxHandlerSearch:
         h = LaunchboxHandler()
         h._local = MagicMock(spec=LocalSource)
         h._remote = MagicMock(spec=RemoteSource)
-        h._local.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.get_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.get_mame_entry = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.get_rom_by_file_name = AsyncMock(return_value=None)  # type: ignore[method-assign]
-        h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._local.get_rom = AsyncMock(return_value=None)
+        h._remote.get_rom = AsyncMock(return_value=None)
+        h._remote.get_by_id = AsyncMock(return_value=None)
+        h._remote.get_mame_entry = AsyncMock(return_value=None)
+        h._remote.get_rom_by_file_name = AsyncMock(return_value=None)
+        h._remote.fetch_images = AsyncMock(return_value=None)
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
         monkeypatch.setattr(

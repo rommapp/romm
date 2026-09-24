@@ -160,6 +160,14 @@ const props = withDefaults(defineProps<Props>(), {
 
 const labels = useChromeLabels();
 
+const showRequiredTip = computed(
+  () =>
+    props.required &&
+    !props.disabled &&
+    !props.readonly &&
+    String(props.modelValue ?? "") === "",
+);
+
 watchEffect(() => {
   if (props.multiline && props.popup) {
     console.error(
@@ -504,7 +512,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         :autocomplete="autocomplete"
         :disabled="disabled"
         :readonly="readonly"
-        :required="required"
+        :aria-required="required || undefined"
         :rows="rows"
         :aria-label="effectiveAriaLabel"
         :aria-invalid="hasError || undefined"
@@ -525,7 +533,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         :autocomplete="autocomplete"
         :disabled="disabled"
         :readonly="readonly"
-        :required="required"
+        :aria-required="required || undefined"
         :aria-label="effectiveAriaLabel"
         :aria-invalid="hasError || undefined"
         :aria-describedby="showDetails ? `${fieldId}-details` : undefined"
@@ -597,6 +605,15 @@ function onAppendInnerClick(evt: MouseEvent) {
           location="top"
         />
       </component>
+
+      <!-- Stands in for the browser's own "fill out this field" bubble,
+           which the form suppresses with `novalidate`. -->
+      <RTooltip
+        activator="parent"
+        :text="labels.required"
+        :disabled="!showRequiredTip"
+        location="top"
+      />
 
       <!-- Underline track — only painted for `underlined` variant.
            A child element rather than a border lets us animate the

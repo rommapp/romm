@@ -58,6 +58,7 @@ from handler.database.rom_filters import (
     ROM_FILTER_SPECS,
     FilterKind,
     RomFilterParams,
+    RomFiltersDict,
     RomFilterSpec,
 )
 from handler.redis_handler import sync_cache
@@ -102,7 +103,7 @@ from utils.database import (
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 EJS_SUPPORTED_PLATFORMS = [
     UPS._3DO,
@@ -1855,7 +1856,7 @@ class DBRomsHandler(DBBaseHandler):
     def _scoped_roms_query(
         self,
         *,
-        session: Session,  # type: ignore
+        session: Session,
         include_related: bool = True,
         **kwargs,
     ) -> Query[Rom]:
@@ -3056,14 +3057,14 @@ class DBRomsHandler(DBBaseHandler):
         row = session.execute(
             self._music_facet_joins(
                 select(
-                    func.count().label("count"),
+                    func.count().label("total"),
                     func.coalesce(func.sum(TrackMeta.duration_seconds), 0.0).label(
                         "duration"
                     ),
                 )
             ).where(*where)
         ).one()
-        return int(row.count or 0), float(row.duration or 0.0)
+        return int(row.total or 0), float(row.duration or 0.0)
 
     @begin_session
     def get_music_game_genre_facet(
@@ -3109,10 +3110,10 @@ class DBRomsHandler(DBBaseHandler):
             session=session,
         )
         per_rom = self._music_facet_joins(
-            select(Rom.id.label("rom_id"), func.count().label("count"))
+            select(Rom.id.label("rom_id"), func.count().label("total"))
         ).where(*where)
         counts_by_rom = {
-            row.rom_id: row.count
+            row.rom_id: row.total
             for row in session.execute(per_rom.group_by(Rom.id)).all()
         }
         if not counts_by_rom:
@@ -3468,7 +3469,7 @@ class DBRomsHandler(DBBaseHandler):
                 )
             )
         )
-        return result.rowcount > 0
+        return affected_rows(result) > 0
 
     @begin_session
     @with_details
@@ -3614,7 +3615,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         session: Session,
         statement: Select,
-    ) -> dict:
+    ) -> RomFiltersDict:
         genres = set()
         franchises = set()
         collections = set()
@@ -3657,21 +3658,21 @@ class DBRomsHandler(DBBaseHandler):
                 tags.update(tg)
             platforms.add(pid)
 
-        return {
-            "genres": sorted(genres),
-            "franchises": sorted(franchises),
-            "collections": sorted(collections),
-            "companies": sorted(companies),
-            "publishers": sorted(publishers),
-            "developers": sorted(developers),
-            "game_modes": sorted(game_modes),
-            "age_ratings": sorted(age_ratings),
-            "player_counts": sorted(player_counts),
-            "regions": sorted(regions),
-            "languages": sorted(languages),
-            "tags": sorted(tags),
-            "platforms": sorted(platforms),
-        }
+        return RomFiltersDict(
+            genres=sorted(genres),
+            franchises=sorted(franchises),
+            collections=sorted(collections),
+            companies=sorted(companies),
+            publishers=sorted(publishers),
+            developers=sorted(developers),
+            game_modes=sorted(game_modes),
+            age_ratings=sorted(age_ratings),
+            player_counts=sorted(player_counts),
+            regions=sorted(regions),
+            languages=sorted(languages),
+            tags=sorted(tags),
+            platforms=sorted(platforms),
+        )
 
     @begin_session
     def refresh_identity_key_statistics(
@@ -3706,7 +3707,7 @@ class DBRomsHandler(DBBaseHandler):
         *,
         cache_key: str | None = None,
         session: Session = None,  # type: ignore
-    ) -> dict:
+    ) -> RomFiltersDict:
         """
         Returns the list of filters given the current subset of ROMs in the query
         """
@@ -3732,7 +3733,7 @@ class DBRomsHandler(DBBaseHandler):
     def get_rom_filters(
         self,
         session: Session = None,  # type: ignore
-    ) -> dict:
+    ) -> RomFiltersDict:
         """
         Returns all filter values across all ROM metadata
         """

@@ -25,6 +25,7 @@ from handler.auth import oauth_handler
 from handler.database import (
     db_container_adoption_handler,
     db_memory_card_handler,
+    db_notification_handler,
     db_platform_handler,
     db_play_session_handler,
     db_rom_handler,
@@ -54,11 +55,13 @@ from handler.streaming.config import (
     ResolvedContainer,
     _derive_broker_host,
     emulator_display_label,
+    pools_for_platform,
     reset_cache,
     resolve_entry,
 )
 from handler.streaming.protocol import protocol_for
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
+from models.notification import NotificationKind
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile
@@ -216,6 +219,13 @@ def _add_rom_file(rom: Rom, file_name: str) -> RomFile:
 
 def _auth(token):
     return {"Authorization": f"Bearer {token}"}
+
+
+def _load_session(key: str) -> dict[str, Any]:
+    """The session stored at `key`, failing the test if nothing is there."""
+    raw = asyncio.run(async_cache.get(key))
+    assert raw is not None, f"no session stored at {key}"
+    return json.loads(raw)
 
 
 def _claim(client, token, rom_id, state_id=None, save_id=None):
@@ -536,7 +546,7 @@ def test_clears_stale_saves_has_no_picker_to_gate_on_a_legacy_container(caplog):
     assert "clears_stale_saves" in caplog.text
 
 
-def test_a_container_that_disagrees_on_clearing_saves_is_not_a_pool_member(caplog):
+def test_a_container_that_disagrees_on_clearing_saves_is_a_pool_of_its_own(caplog):
     """The picker is advertised from the head of the pool, so a member that
     keeps its own newer files would take the pick and silently discard it."""
     first = {
@@ -562,7 +572,7 @@ def test_a_container_that_disagrees_on_clearing_saves_is_not_a_pool_member(caplo
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert [c.clears_stale_saves for c in candidates] == [True]
-    assert "not a pool" in caplog.text
+    assert "never claimed for a game" in caplog.text
 
 
 def test_legacy_containers_still_pool_under_an_inert_clearing_flag():
@@ -1223,6 +1233,22 @@ def test_pool_409s_only_once_every_container_is_held(
     assert "2 containers" in r3.json()["detail"]["message"]
 
 
+def test_a_claim_never_lands_in_a_later_pool(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Only the first pool matches the settings a claim is validated against,
+    so a later pool stays out of reach even when it is the only one free."""
+    later = {**_pool_member(rom, 1), "emulator": "other"}
+    with _streaming(_pool_member(rom, 0), later):
+        r1 = _claim_ok(client, access_token, rom.id)
+        r2 = _claim_ok(client, viewer_access_token, rom.id)
+        assert _session_raw(later) is None
+        assert len(pools_for_platform(rom.platform_slug)) == 2
+    assert r1.status_code == 202
+    assert r1.json()["container"] == _key_of(_pool_member(rom, 0))
+    assert r2.status_code == 409
+
+
 def test_a_pool_does_not_roll_its_own_holder_onto_a_second_container(
     client, access_token, rom: Rom
 ):
@@ -1405,6 +1431,103 @@ def test_admin_release_rejects_a_container_that_serves_another_platform(
     assert r.status_code == 404
 
 
+def _in_a_later_ps2_pool() -> dict:
+    """A second webstation that disagrees with `_webstation()` on the ps2
+    emulator, so it forms a later ps2 pool."""
+    return _webstation(
+        host="http://192.168.1.11:3000",
+        broker_host="http://192.168.1.11:8000",
+        platforms={"ps2": "play", "ngc": "dolphin"},
+    )
+
+
+def test_admin_release_ends_a_session_on_a_container_in_a_later_pool(
+    client, access_token
+):
+    """A game claim never reaches a later pool, but an admin can still end a
+    session there by naming the container."""
+    later = _in_a_later_ps2_pool()
+    with _streaming(_webstation(), later):
+        key = _key_of(later)
+        assert key not in [c.key for c in streaming.containers_for_platform("ps2")]
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with patch("handler.streaming.commands.stop", return_value=None):
+            r = client.delete(
+                "/api/streaming/sessions/ps2",
+                params={"container": key},
+                headers=_auth(access_token),
+            )
+        assert r.status_code == 200
+        assert r.json()["status"] == "released"
+        assert _session_raw(later) is None
+
+
+def test_heartbeat_naming_the_container_refreshes_a_desktop_in_a_later_pool(
+    client, access_token
+):
+    """The platform's lookup only walks the first pool, so only the named key
+    keeps this desktop claim fresh."""
+    later = _in_a_later_ps2_pool()
+    with _streaming(_webstation(), later):
+        key = _key_of(later)
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        _age_session_on(later, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat",
+            params={"container": key},
+            headers=_auth(access_token),
+        )
+        session = json.loads(_session_raw(later))
+    assert r.status_code == 200
+    assert r.json()["status"] == "active"
+    assert not session_store.session_is_stale(session)
+
+
+def test_heartbeat_naming_a_released_container_reports_ended(client, access_token):
+    """A session the caller holds on another of the platform's containers must
+    not answer for the named one."""
+    later = _in_a_later_ps2_pool()
+    with _streaming(_webstation(), later):
+        key = _key_of(later)
+        assert (
+            _desktop(client, access_token, _key_of(_webstation()))[0].status_code == 200
+        )
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with patch("handler.streaming.commands.stop", return_value=None):
+            released = client.delete(
+                "/api/streaming/sessions/ps2",
+                params={"container": key},
+                headers=_auth(access_token),
+            )
+        assert released.status_code == 200
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat",
+            params={"container": key},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+
+
+def test_heartbeat_naming_a_container_leaves_another_users_session_alone(
+    client, access_token, viewer_access_token
+):
+    later = _in_a_later_ps2_pool()
+    with _streaming(_webstation(), later):
+        key = _key_of(later)
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        _age_session_on(later, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat",
+            params={"container": key},
+            headers=_auth(viewer_access_token),
+        )
+        session = json.loads(_session_raw(later))
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert session_store.session_is_stale(session)
+
+
 def test_status_finds_the_termination_on_whichever_container_held_it(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -1445,9 +1568,9 @@ def test_heartbeat_refreshes_the_session_on_the_container_that_holds_it(
     assert after > before
 
 
-def test_a_container_that_disagrees_on_the_emulator_is_not_a_pool_member(caplog):
+def test_a_container_that_disagrees_on_the_emulator_is_a_later_pool(caplog):
     """Pool members file states and cards in one place, so an entry naming a
-    different emulator is a separate setup rather than a spare container."""
+    different emulator is a pool of its own rather than a spare container."""
     first = {
         "platform": "ps2",
         "host": "http://192.168.1.10:3000",
@@ -1457,16 +1580,35 @@ def test_a_container_that_disagrees_on_the_emulator_is_not_a_pool_member(caplog)
     second = {**first, "host": "http://192.168.1.11:3000"}
     second["broker_host"] = "http://192.168.1.11:8000"
     second["emulator"] = "play"
+    third = {
+        **first,
+        "host": "http://192.168.1.12:3000",
+        "broker_host": "http://192.168.1.12:8000",
+    }
     romm_logger = logging.getLogger("romm")
     romm_logger.addHandler(caplog.handler)
     try:
-        with _streaming(first, second):
+        with _streaming(first, second, third):
             with caplog.at_level(logging.WARNING, logger="romm"):
+                pools = pools_for_platform("ps2")
                 candidates = streaming.containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
-    assert [c.emulator for c in candidates] == ["pcsx2"]
-    assert "not a pool" in caplog.text
+    assert [[c.emulator for c in pool] for pool in pools] == [
+        ["pcsx2", "pcsx2"],
+        ["play"],
+    ]
+    assert candidates == pools[0]
+    # Once per config, not once per lookup.
+    assert caplog.text.count("never claimed for a game") == 1
+    assert _key_of(second) in caplog.text
+
+
+def test_a_lone_container_is_a_pool_of_one(rom: Rom):
+    member = _pool_member(rom, 0)
+    with _streaming(member):
+        pools = pools_for_platform(rom.platform_slug)
+    assert [[c.key for c in pool] for pool in pools] == [[_key_of(member)]]
 
 
 def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog):
@@ -1498,7 +1640,7 @@ def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog
         "http://192.168.1.10:8000",
         "http://192.168.1.11:8000",
     ]
-    assert "not a pool" not in caplog.text
+    assert "never claimed for a game" not in caplog.text
 
 
 def test_a_proxied_host_disagreeing_with_its_subfolder_cannot_be_claimed(caplog):
@@ -1961,8 +2103,7 @@ def test_swap_disc_broker_has_nothing_to_call_on_a_legacy_container():
 def _age_session_on(container: dict, seconds: int) -> None:
     """Rewrite one container's stored session last_seen to `seconds` ago."""
     key = session_store.session_redis_key(_key_of(container))
-    raw = asyncio.run(async_cache.get(key))
-    session = json.loads(raw)
+    session = _load_session(key)
     session["last_seen"] = (
         datetime.now(timezone.utc) - timedelta(seconds=seconds)
     ).isoformat()
@@ -2023,11 +2164,9 @@ def test_takeover_leaves_the_displaced_owner_a_notice(
     container = _container_for(rom)
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
-        owner = json.loads(
-            asyncio.run(
-                async_cache.get(session_store.session_redis_key(_key_of(container)))
-            )
-        )["user_id"]
+        owner = _load_session(session_store.session_redis_key(_key_of(container)))[
+            "user_id"
+        ]
         _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
         with patch("handler.streaming.commands.stop", return_value=None):
             _claim_ok(client, viewer_access_token, rom.id)
@@ -2101,7 +2240,7 @@ def test_heartbeat_refreshes_last_seen(client, access_token, rom: Rom):
     assert r.status_code == 200
     assert r.json()["status"] == "active"
     key = session_store.session_redis_key(_key_of(_container_for(rom)))
-    session = json.loads(asyncio.run(async_cache.get(key)))
+    session = _load_session(key)
     assert not session_store.session_is_stale(session)
 
 
@@ -2137,7 +2276,7 @@ def test_heartbeat_does_not_revive_a_draining_session(client, access_token, rom:
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
         key = session_store.session_redis_key(_key_of(container))
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        session = _load_session(key)
         session["draining"] = True
         asyncio.run(async_cache.set(key, json.dumps(session)))
 
@@ -2171,7 +2310,7 @@ def test_heartbeat_keeps_a_disc_swap_that_landed_first(client, access_token, rom
                 f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
                 headers=_auth(access_token),
             )
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        session = _load_session(key)
 
     assert r.json()["status"] == "active"
     assert session["disc_file_id"] == 4242
@@ -2245,7 +2384,7 @@ def test_status_does_not_refresh_the_session(client, access_token, rom: Rom):
             headers=_auth(access_token),
         )
     key = session_store.session_redis_key(_key_of(_container_for(rom)))
-    session = json.loads(asyncio.run(async_cache.get(key)))
+    session = _load_session(key)
     assert session_store.session_is_stale(session)
 
 
@@ -2271,6 +2410,27 @@ def test_admin_release_leaves_termination_notice(
     assert body["status"] == "ended"
     assert body["termination"]["reason"] == "maintenance window"
     assert body["termination"]["ended_by"]
+
+
+def test_admin_release_notifies_the_displaced_player(
+    client, access_token, viewer_access_token, admin_user, viewer_user, rom: Rom
+):
+    """The note expires with the claim, so the player who had no tab open when
+    an admin ended their game hears of it from a notification instead."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "maintenance window"},
+            headers=_auth(access_token),
+        )
+
+    [notification] = db_notification_handler.get_notifications(viewer_user.id)
+    assert notification.kind == NotificationKind.STREAMING_SESSION_ENDED
+    assert notification.actor_id == admin_user.id
+    assert notification.data["rom_id"] == rom.id
+    assert notification.data["reason"] == "maintenance window"
+    assert db_notification_handler.get_notifications(admin_user.id) == []
 
 
 def test_heartbeat_carries_termination_notice(
@@ -2316,7 +2476,9 @@ def test_force_release_all_leaves_termination_notice(
     assert r.json()["termination"]["reason"] == "server restart"
 
 
-def test_self_release_leaves_no_termination_notice(client, access_token, rom: Rom):
+def test_self_release_leaves_no_termination_notice(
+    client, access_token, admin_user, rom: Rom
+):
     """A user who closed their own session already knows why it stopped. The
     player's own release path sends no reason, which is what marks it as such."""
     with _streaming(_container_for(rom)):
@@ -2330,6 +2492,7 @@ def test_self_release_leaves_no_termination_notice(client, access_token, rom: Ro
             headers=_auth(access_token),
         )
     assert r.json()["termination"] is None
+    assert db_notification_handler.get_notifications(admin_user.id) == []
 
 
 def test_admin_release_of_own_session_leaves_notice(client, access_token, rom: Rom):
@@ -2401,7 +2564,7 @@ def _unstamp_launch(container: dict) -> None:
     """Drop the launched_at stamp, leaving the record in the state a claim
     holds while its activate is still running."""
     key = session_store.session_redis_key(_key_of(container))
-    session = json.loads(asyncio.run(async_cache.get(key)))
+    session = _load_session(key)
     session.pop("launched_at", None)
     asyncio.run(async_cache.set(key, json.dumps(session)))
 
@@ -2866,7 +3029,7 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
     key = session_store.session_redis_key(_key_of(container))
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        session = _load_session(key)
         session.pop("rom_id")
         asyncio.run(
             async_cache.set(
@@ -2911,7 +3074,7 @@ def test_drain_marker_is_not_claimed_over_a_takeover():
             asyncio.run(session_store.claim_drain_marker("cas-takeover", claim)) is None
         )
         # The claim that took over is still there, untouched.
-        current = json.loads(asyncio.run(async_cache.get(key)))
+        current = _load_session(key)
         assert current["claimed_at"] == "2026-01-01T00:05:00+00:00"
         assert "draining" not in current
     finally:
@@ -3039,7 +3202,7 @@ def test_work_running_under_a_claim_keeps_it_off_the_stale_list():
             patch.object(session_store, "_HOLD_CEILING_SECONDS", 0),
         ):
             asyncio.run(session_store.hold_session_claim("cas-hold-claim", claim))
-        current = json.loads(asyncio.run(async_cache.get(key)))
+        current = _load_session(key)
         assert current["last_seen"] != "2026-01-01T00:00:00+00:00"
         assert not session_store.session_is_stale(current)
     finally:
@@ -3060,7 +3223,7 @@ def test_holding_a_claim_stops_once_it_is_somebody_else_s():
                     session_store.hold_session_claim("cas-hold-lost", claim), 5
                 )
             )
-        current = json.loads(asyncio.run(async_cache.get(key)))
+        current = _load_session(key)
         assert current["claimed_at"] == "2026-01-01T00:05:00+00:00"
         assert "last_seen" not in current
     finally:
@@ -5735,6 +5898,14 @@ def test_the_rom_language_is_reduced_to_an_iso_code(client, access_token, rom: R
     db_rom_handler.update_rom(rom.id, {"languages": ["fr"]})
 
     assert _activate_body(client, access_token, rom)["rom"]["language"] == "fr"
+
+
+def test_a_provider_only_language_is_reduced_too(client, access_token, rom: Rom):
+    """The languages only a provider reports ("Czech") have no filename
+    shortcode, so the broker would otherwise get nothing for them."""
+    db_rom_handler.update_rom(rom.id, {"languages": ["Czech"]})
+
+    assert _activate_body(client, access_token, rom)["rom"]["language"] == "cs"
 
 
 def test_an_unknown_rom_language_is_sent_as_none(client, access_token, rom: Rom):

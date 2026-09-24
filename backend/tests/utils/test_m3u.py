@@ -1,6 +1,11 @@
 from unittest.mock import MagicMock
 
-from utils.m3u import first_playlist_entry, generate_m3u_content, playlist_files
+from utils.m3u import (
+    disc_number,
+    first_playlist_entry,
+    generate_m3u_content,
+    playlist_files,
+)
 
 
 class TestFirstPlaylistEntry:
@@ -78,6 +83,7 @@ class TestFirstPlaylistEntry:
 def _make_file(name: str, extension: str, download_name: str | None = None):
     f = MagicMock()
     f.file_extension = extension
+    f.file_name = name
     f.file_name_for_download.return_value = download_name or name
     return f
 
@@ -231,3 +237,138 @@ class TestPlaylistFiles:
         # Nothing describes them, so they are all there is to play.
         tracks = [_make_file("track01.bin", "bin"), _make_file("track02.bin", "bin")]
         assert playlist_files(tracks) == tracks
+
+
+class TestDiscNumber:
+    def test_reads_the_spellings_a_dumper_uses(self):
+        for name in (
+            "G (Disc 2).chd",
+            "G (disc2).chd",
+            "G (CD 2).chd",
+            "G (Disque 2).chd",
+        ):
+            assert disc_number(_make_file(name, "chd")) == 2
+
+    def test_reads_the_tosec_of_form(self):
+        assert disc_number(_make_file("G (Disk 1 of 2).adf", "adf")) == 1
+        assert disc_number(_make_file("G (Disk 10 of 12).adf", "adf")) == 10
+
+    def test_reads_a_number_of_any_length(self):
+        # An unparsed number would sort as 0, ahead of disc 1.
+        assert disc_number(_make_file("G (Disc 100).chd", "chd")) == 100
+
+    def test_a_disc_count_is_not_a_disc_number(self):
+        # "(2 CD)" says how many the release had, not which one this is.
+        assert disc_number(_make_file("G (2 CD).pbp", "pbp")) is None
+
+    def test_reads_a_split_disc(self):
+        assert disc_number(_make_file("G (Disc 2A).chd", "chd")) == 2
+
+    def test_reads_a_lettered_disc(self):
+        assert disc_number(_make_file("G (Disc A).chd", "chd")) == 1
+        assert disc_number(_make_file("G (disc c).chd", "chd")) == 3
+        assert disc_number(_make_file("G (Disk B of 2).adf", "adf")) == 2
+
+    def test_a_letter_needs_a_space_to_be_a_disc(self):
+        # "(CDi)" names the platform, not disc I.
+        assert disc_number(_make_file("G (CDi).chd", "chd")) is None
+
+    def test_a_non_ascii_letter_is_not_a_disc(self):
+        # Case folding would let "İ" and "ſ" through as i and s.
+        assert disc_number(_make_file("G (Disc İ).chd", "chd")) is None
+        assert disc_number(_make_file("G (Disc ſ).chd", "chd")) is None
+
+    def test_a_non_breaking_space_still_separates_the_tag(self):
+        assert disc_number(_make_file("G (Disc 2).chd", "chd")) == 2
+        assert disc_number(_make_file("G (Disc B).chd", "chd")) == 2
+
+    def test_a_name_that_claims_no_disc(self):
+        assert disc_number(_make_file("G (USA).chd", "chd")) is None
+
+    def test_a_bare_word_is_not_a_disc_number(self):
+        # The parentheses are what make it a tag rather than part of a title.
+        assert disc_number(_make_file("Disc Jockey 2.chd", "chd")) is None
+
+
+class TestPlaylistOrder:
+    """The playlist, the download and the disc swapper all read this order."""
+
+    def test_the_tenth_disc_follows_the_second(self):
+        files = [
+            _make_file("G (Disc 10).chd", "chd"),
+            _make_file("G (Disc 2).chd", "chd"),
+            _make_file("G (Disc 1).chd", "chd"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == [
+            "G (Disc 1).chd",
+            "G (Disc 2).chd",
+            "G (Disc 10).chd",
+        ]
+
+    def test_a_set_that_mixes_spellings_still_orders(self):
+        files = [
+            _make_file("G (CD 2).chd", "chd"),
+            _make_file("G (Disc 1).chd", "chd"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == [
+            "G (Disc 1).chd",
+            "G (CD 2).chd",
+        ]
+
+    def test_a_tosec_disk_set_orders_past_nine(self):
+        files = [
+            _make_file("G (Disk 10 of 12).adf", "adf"),
+            _make_file("G (Disk 2 of 12).adf", "adf"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == [
+            "G (Disk 2 of 12).adf",
+            "G (Disk 10 of 12).adf",
+        ]
+
+    def test_an_unnumbered_disc_follows_the_numbered_ones(self):
+        """The first entry is what boots, so a bonus disc cannot take it."""
+        files = [
+            _make_file("Bonus Disc.chd", "chd"),
+            _make_file("G (Disc 2).chd", "chd"),
+            _make_file("G (Disc 1).chd", "chd"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == [
+            "G (Disc 1).chd",
+            "G (Disc 2).chd",
+            "Bonus Disc.chd",
+        ]
+
+    def test_a_lettered_set_boots_from_disc_a(self):
+        files = [
+            _make_file("A Making Of.chd", "chd"),
+            _make_file("G (disc b).chd", "chd"),
+            _make_file("G (Disc A).chd", "chd"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == [
+            "G (Disc A).chd",
+            "G (disc b).chd",
+            "A Making Of.chd",
+        ]
+
+    def test_an_unnumbered_set_keeps_its_name_order(self):
+        files = [
+            _make_file("beta.chd", "chd"),
+            _make_file("alpha.chd", "chd"),
+        ]
+
+        assert [f.file_name for f in playlist_files(files)] == ["alpha.chd", "beta.chd"]
+
+    def test_the_playlist_lists_the_discs_in_order(self):
+        files = [
+            _make_file("G (Disc 10).chd", "chd"),
+            _make_file("G (Disc 2).chd", "chd"),
+        ]
+
+        assert generate_m3u_content(files, hidden_folder=False) == (
+            b"G (Disc 2).chd\nG (Disc 10).chd"
+        )

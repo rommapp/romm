@@ -177,7 +177,16 @@ def _process_largest_7z_member(
         start_decompression_time = time.monotonic()
 
         with subprocess.Popen(
-            [SEVEN_ZIP_PATH, "e", str(file_path), largest_file, "-so", "-y", "-spd"],
+            [
+                SEVEN_ZIP_PATH,
+                "e",
+                str(file_path),
+                "-so",
+                "-y",
+                "-spd",
+                "--",
+                largest_file,
+            ],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
@@ -557,8 +566,9 @@ def _archive_member_command(file_path: Path, member: str) -> list[str]:
         ]
 
     # "-spd" disables wildcard matching so a member name containing "*" or "?"
-    # can't select (and concatenate) other members.
-    return [SEVEN_ZIP_PATH, "e", str(file_path), member, "-so", "-y", "-spd"]
+    # can't select other members; "--" stops switch parsing so one starting
+    # with "-" or "@" stays a member name.
+    return [SEVEN_ZIP_PATH, "e", str(file_path), "-so", "-y", "-spd", "--", member]
 
 
 def _list_archive_file_members(file_path: Path) -> list[tuple[str, int]]:
