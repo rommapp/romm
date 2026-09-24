@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 from fastapi import status
+from sqlalchemy import select
 
 from handler.database import (
     db_save_handler,
@@ -693,6 +694,26 @@ class TestStateFavoritesAndLabels:
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
+@contextmanager
+def _exact_screenshot_names():
+    """Resolve screenshots by exact name, as PostgreSQL compares them."""
+
+    def lookup(*, rom_id: int, user_id: int, file_name: str, file_name_no_ext=None):
+        names = {n for n in (file_name, file_name_no_ext) if n}
+        with sync_session() as session:
+            rows = session.scalars(
+                select(Screenshot)
+                .where(Screenshot.rom_id == rom_id, Screenshot.user_id == user_id)
+                .order_by(Screenshot.id.desc())
+            ).all()
+        return next(
+            (r for r in rows if names & {r.file_name, r.file_name_no_ext}), None
+        )
+
+    with mock.patch.object(db_screenshot_handler, "get_screenshot", side_effect=lookup):
+        yield
+
+
 class TestStateRename:
     """Renaming a state moves its file and keeps its screenshot bound."""
 
@@ -720,6 +741,19 @@ class TestStateRename:
         path.parent.mkdir(parents=True)
         path.write_bytes(b"PNG")
         return screenshot
+
+    @pytest.fixture
+    def shared_save(self, rom: Rom, platform: Platform, admin_user: User) -> Save:
+        # Same stem as the state, so both resolve `test_state.png`.
+        return db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_state.srm",
+                file_path=f"{platform.slug}/saves",
+                file_size_bytes=1,
+            )
+        )
 
     def _rename(self, client, token: str, state_id: int, file_name: str):
         return client.put(
@@ -862,24 +896,11 @@ class TestStateRename:
         self,
         client,
         access_token: str,
-        rom: Rom,
-        platform: Platform,
-        admin_user: User,
         state: State,
         state_file,
         thumbnail,
+        shared_save: Save,
     ):
-        # Same stem as the state, so both resolve `test_state.png`.
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_state.srm",
-                file_path=f"{platform.slug}/saves",
-                file_size_bytes=1,
-            )
-        )
-
         response = self._rename(client, access_token, state.id, "renamed.state")
 
         assert response.status_code == status.HTTP_200_OK
@@ -894,23 +915,11 @@ class TestStateRename:
         self,
         client,
         access_token: str,
-        rom: Rom,
-        platform: Platform,
-        admin_user: User,
         state: State,
         state_file,
         thumbnail,
+        shared_save: Save,
     ):
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_state.srm",
-                file_path=f"{platform.slug}/saves",
-                file_size_bytes=1,
-            )
-        )
-
         response = self._rename(client, access_token, state.id, "test_state.st2")
 
         assert response.status_code == status.HTTP_200_OK
@@ -918,75 +927,95 @@ class TestStateRename:
         screenshots_dir = state_file.parents[2] / "screenshots"
         assert sorted(p.name for p in screenshots_dir.iterdir()) == ["test_state.png"]
 
-    def test_a_case_only_rename_copies_a_shared_thumbnail(
+    def test_a_case_only_rename_keeps_a_preview(
         self,
         client,
         access_token: str,
-        rom: Rom,
-        platform: Platform,
-        admin_user: User,
         state: State,
         state_file,
         thumbnail,
+        shared_save: Save,
     ):
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_state.srm",
-                file_path=f"{platform.slug}/saves",
-                file_size_bytes=1,
-            )
-        )
-
         response = self._rename(client, access_token, state.id, "Test_state.state")
 
-        # Lookups compare names exactly on PostgreSQL, so the new case needs
-        # its own copy for the state to keep a preview there.
         assert response.status_code == status.HTTP_200_OK
-        assert response.json()["screenshot"]["file_name"] in (
-            "Test_state.png",
-            "test_state.png",
-        )
+        preview = response.json()["screenshot"]
+        assert preview is not None
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        assert (screenshots_dir / preview["file_name"]).read_bytes() == b"PNG"
+        kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert kept is not None and kept.file_name == "test_state.png"
+
+    def test_a_case_only_rename_copies_a_shared_thumbnail_for_exact_lookups(
+        self,
+        client,
+        access_token: str,
+        state: State,
+        state_file,
+        thumbnail,
+        shared_save: Save,
+    ):
+        with _exact_screenshot_names():
+            response = self._rename(client, access_token, state.id, "Test_state.state")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["screenshot"]["file_name"] == "Test_state.png"
         screenshots_dir = state_file.parents[2] / "screenshots"
         assert (screenshots_dir / "Test_state.png").read_bytes() == b"PNG"
         kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
         assert kept is not None and kept.file_name == "test_state.png"
 
-    def test_a_case_only_rename_keeps_a_shared_thumbnail_the_filesystem_folds(
+    def test_a_folding_filesystem_gives_the_shared_file_a_second_row(
         self,
         client,
         access_token: str,
-        rom: Rom,
-        platform: Platform,
-        admin_user: User,
         state: State,
         state_file,
         thumbnail,
+        shared_save: Save,
     ):
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_state.srm",
-                file_path=f"{platform.slug}/saves",
-                file_size_bytes=1,
-            )
-        )
         screenshots_dir = state_file.parents[2] / "screenshots"
         # A second link stands in for a case-insensitive filesystem's alias.
         os.link(screenshots_dir / "test_state.png", screenshots_dir / "Test_state.png")
 
-        with mock.patch(
-            "handler.asset_store.db_screenshot_handler.add_screenshot"
-        ) as add:
+        with _exact_screenshot_names():
             response = self._rename(client, access_token, state.id, "Test_state.state")
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json()["file_name"] == "Test_state.state"
-        add.assert_not_called()
+        assert response.json()["screenshot"]["file_name"] == "Test_state.png"
+        assert sorted(p.name for p in screenshots_dir.iterdir()) == [
+            "Test_state.png",
+            "test_state.png",
+        ]
         kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
         assert kept is not None and kept.file_name == "test_state.png"
+
+    def test_a_failed_row_update_leaves_a_folded_shared_file(
+        self,
+        client,
+        access_token: str,
+        state: State,
+        state_file,
+        thumbnail,
+        shared_save: Save,
+    ):
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        os.link(screenshots_dir / "test_state.png", screenshots_dir / "Test_state.png")
+
+        with (
+            _exact_screenshot_names(),
+            mock.patch(
+                "handler.asset_store.db_state_handler.update_state",
+                side_effect=RuntimeError("database gone"),
+            ),
+            pytest.raises(RuntimeError),
+        ):
+            self._rename(client, access_token, state.id, "Test_state.state")
+
+        assert state_file.read_bytes() == b"STATE_DATA"
+        # On a folding filesystem both names are the one file the save shows.
+        assert (screenshots_dir / "Test_state.png").read_bytes() == b"PNG"
+        assert (screenshots_dir / "test_state.png").read_bytes() == b"PNG"
 
     def test_a_failed_row_update_puts_the_files_back(
         self, client, access_token: str, state: State, state_file, thumbnail

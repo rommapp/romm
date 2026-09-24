@@ -272,8 +272,13 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
     copy_thumbnail = thumbnail is not None and any(
         _binds(other, thumbnail) for other in others
     )
-    # A name the thumbnail already answers to, by stem or by the filesystem
-    # folding case, still resolves the shared one untouched.
+    # The new name still resolves the shared one, by stem or through a
+    # collation that ignores case.
+    if thumbnail and copy_thumbnail and bound:
+        thumbnail = None
+    # A filesystem that ignores case already answers to the copy's name, so
+    # only its row is new.
+    thumbnail_file = thumbnail
     if (
         thumbnail
         and copy_thumbnail
@@ -282,10 +287,10 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
             f"{thumbnail.file_path}/{thumbnail_name}",
         )
     ):
-        thumbnail = None
+        thumbnail_file = None
 
     log.info(f"Renaming {hl(asset.file_name)} to {hl(new_name)}")
-    moves = (asset, new_name, thumbnail, thumbnail_name, copy_thumbnail)
+    moves = (asset, new_name, thumbnail_file, thumbnail_name, copy_thumbnail)
     try:
         await _move_asset_files(*moves)
     except FileNotFoundError as exc:
