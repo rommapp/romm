@@ -81,32 +81,23 @@ class TestUpdateLaunchboxMetadataTask:
         )
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.log")
-    async def test_run_when_content_is_none(self, mock_log, mock_super_run, task):
-        """Test run method when super().run() returns None"""
-        mock_super_run.return_value = None
+    async def test_a_failed_download_fails_the_run(self, mock_super_run, task):
+        mock_super_run.side_effect = RuntimeError("Could not reach the dump")
 
-        await task.run()
-
-        mock_super_run.assert_called_once()
-
-        mock_log.warning.assert_called_once_with(
-            "No content received from launchbox metadata update"
-        )
+        with pytest.raises(RuntimeError, match="Could not reach the dump"):
+            await task.run()
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.scheduled.update_launchbox_metadata.log")
     async def test_run_with_corrupt_zip_file(
-        self, mock_log, mock_super_run, task, corrupt_zip_content
+        self, mock_super_run, task, corrupt_zip_content
     ):
-        """Test run method with corrupt ZIP file"""
+        """A corrupt archive fails the run rather than finishing empty."""
         mock_super_run.return_value = corrupt_zip_content
 
-        await task.run()
-
-        mock_log.error.assert_called_once_with(
-            "Bad zip file in launchbox metadata update"
-        )
+        with pytest.raises(
+            RuntimeError, match="Could not read the LaunchBox metadata archive"
+        ):
+            await task.run()
 
     @patch.object(RemoteFilePullTask, "run")
     @patch("tasks.scheduled.update_launchbox_metadata.log")
@@ -511,6 +502,7 @@ class TestInitialImportFlag:
             patch.object(async_cache, "exists", AsyncMock(return_value=0)),
             patch.object(async_cache, "set", AsyncMock()),
             patch.object(async_cache, "delete", AsyncMock()) as mock_delete,
+            pytest.raises(RuntimeError),
         ):
             await task.run()
 

@@ -18,6 +18,7 @@ const meta: Meta<typeof RDropzone> = {
     disabled: { control: "boolean" },
     overlay: { control: "boolean" },
     compact: { control: "boolean" },
+    fill: { control: "boolean" },
   },
   args: {
     title: "Drop files here",
@@ -55,6 +56,20 @@ export const CTA: Story = {};
 // Single-row CTA for panels that sit next to other controls.
 export const Compact: Story = {
   args: { compact: true },
+};
+
+// CTA stretched to a parent with a fixed height (e.g. a full-height panel).
+export const Fill: Story = {
+  args: { fill: true },
+  render: (args) => ({
+    components: { RDropzone },
+    setup: () => ({ args }),
+    template: `
+      <div style="max-width: 520px; height: 360px">
+        <RDropzone v-bind="args" />
+      </div>
+    `,
+  }),
 };
 
 export const Disabled: Story = {

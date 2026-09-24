@@ -121,7 +121,7 @@ function onInput(e: Event) {
     <Transition name="new-row-actions">
       <div v-if="expanded" class="new-row__actions" @click.stop>
         <RBtn
-          variant="text"
+          variant="outlined"
           size="small"
           :disabled="creating"
           @click.prevent="onCancel"

@@ -437,7 +437,7 @@ const verticalListeners = computed(() =>
 .r-slider--scrubber {
   --r-scrub-thumb-opacity: 0;
 }
-html[data-input="mouse"] .r-slider--scrubber:not(.r-slider--disabled):hover,
+html:not([data-input="pad"]) .r-slider--scrubber:not(.r-slider--disabled):hover,
 html[data-input="key"] .r-slider--scrubber:focus-within,
 html[data-input="pad"] .r-slider--scrubber:focus-within,
 .r-slider--scrubber.r-slider--dragging {

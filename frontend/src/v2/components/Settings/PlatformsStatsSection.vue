@@ -12,6 +12,7 @@
 // this section sits flush in the page; only the Summary section above
 // keeps a surface.
 import {
+  REmptyState,
   RIcon,
   RPlatformIcon,
   RProgressLinear,
@@ -74,6 +75,12 @@ const orderItems = computed<SliderBtnGroupItem<OrderBy>[]>(() => [
     title: t("settings.sort-games"),
   },
 ]);
+
+const emptyState = computed(() =>
+  searchQuery.value.trim()
+    ? { icon: "mdi-magnify-close", title: t("settings.no-matching-platforms") }
+    : { icon: "mdi-folder-question", title: t("settings.no-platforms") },
+);
 
 const sortedPlatforms = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -330,14 +337,7 @@ function onRowClick(e: MouseEvent, platformId: number): void {
           class="r-v2-plat-stats__bar"
         />
       </a>
-      <div v-if="sortedPlatforms.length === 0" class="r-v2-plat-stats__empty">
-        <RIcon icon="mdi-folder-question" size="22" />
-        <span>{{
-          searchQuery.trim()
-            ? t("settings.no-matching-platforms")
-            : t("settings.no-platforms")
-        }}</span>
-      </div>
+      <REmptyState v-if="sortedPlatforms.length === 0" v-bind="emptyState" />
     </div>
   </section>
 </template>
@@ -493,14 +493,5 @@ function onRowClick(e: MouseEvent, platformId: number): void {
 
 .r-v2-plat-stats__bar {
   grid-column: 1 / -1;
-}
-
-.r-v2-plat-stats__empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px;
-  color: var(--r-color-fg-muted);
 }
 </style>

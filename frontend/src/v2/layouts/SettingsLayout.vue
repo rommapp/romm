@@ -31,9 +31,13 @@ const route = useRoute();
 // the tab / spatial-nav order.
 const { mdAndUp } = useBreakpoint();
 const isBare = computed(() => route.meta?.bare === true);
-// `fill` views (e.g. Logs) pin to the viewport height and scroll their own
-// content internally instead of growing the document.
-const isFill = computed(() => route.meta?.fill === true);
+// `fill` views (e.g. Logs) pin to the viewport height and scroll internally;
+// `fill: "desktop"` does so on md-and-up only.
+const isFill = computed(
+  () =>
+    route.meta?.fill === true ||
+    (route.meta?.fill === "desktop" && mdAndUp.value),
+);
 
 // Settings pages share the current cover-art background from wherever
 // the user came from. We don't paint over it; just no-op so a stale
@@ -145,9 +149,9 @@ html[data-bp~="sm-and-down"] .r-v2-settings--fill {
 
 /* On sm-and-down the sidebar is unmounted (see script), so the content
    column fills the row on its own — just tighten the gutters to the
-   responsive page padding. */
+   responsive page padding. The nav bar right above already separates it. */
 html[data-bp~="sm-and-down"] .r-v2-settings__content {
-  padding: 24px var(--r-row-pad) 48px;
+  padding: var(--r-space-2) var(--r-row-pad) 48px;
 }
 /* Fill views own their height and reserve the bottom bar separately, so the
    generous 48px scroll gutter above just leaves a big empty band under the

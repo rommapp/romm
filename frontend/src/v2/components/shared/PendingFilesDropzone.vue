@@ -71,8 +71,8 @@ defineExpose({ open: () => filledDz.value?.open() });
           {{ t("common.upload-files-selected", { count: modelValue.length }) }}
         </span>
         <RBtn
-          variant="text"
-          size="small"
+          variant="flat"
+          color="primary"
           prepend-icon="mdi-plus"
           @click="filledDz?.open()"
         >

@@ -372,6 +372,7 @@ function onSort({ key, dir }: RTableSortPayload) {
       icon="mdi-cancel"
       :width="540"
       scroll-content
+      cancelable
       @close="closeCreate"
     >
       <template #header>
@@ -420,10 +421,6 @@ function onSort({ key, dir }: RTableSortPayload) {
         </RTextField>
       </template>
       <template #footer>
-        <RBtn variant="text" @click="closeCreate">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <div style="flex: 1" />
         <RBtn
           variant="flat"
           color="primary"

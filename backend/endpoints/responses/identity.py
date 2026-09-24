@@ -5,13 +5,14 @@ from starlette.requests import Request
 
 from handler.metadata.ra_handler import RAUserProgression
 from models.user import Role, User
+from utils.auth import current_device_id
 from utils.urls import get_public_base_url
 
 from .base import BaseModel, UTCDatetime
 
 RAProgression = TypedDict(  # type: ignore[misc]
     "RAProgression",
-    {k: NotRequired[v] for k, v in get_type_hints(RAUserProgression).items()},  # type: ignore[misc]
+    {k: NotRequired[v] for k, v in get_type_hints(RAUserProgression).items()},
     total=False,
 )
 
@@ -45,9 +46,7 @@ class UserSchema(BaseModel):
             return None
 
         schema = cls.model_validate(db_user)
-        schema.current_device_id = getattr(
-            request.state, "device_id", None
-        ) or request.session.get("device_id")
+        schema.current_device_id = current_device_id(request)
         return schema
 
 

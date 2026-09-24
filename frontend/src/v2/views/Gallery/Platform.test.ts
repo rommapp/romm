@@ -21,10 +21,20 @@ const {
   getRoms: vi.fn(),
   getPlatform: vi.fn(),
   push: vi.fn(),
-  routeGuards: [] as ((to: {
-    name: string;
-    params: Record<string, string>;
-  }) => unknown)[],
+  routeGuards: [] as ((
+    to: {
+      name: string;
+      path: string;
+      params: Record<string, string>;
+      query?: Record<string, string>;
+    },
+    from: {
+      name: string;
+      path: string;
+      params: Record<string, string>;
+      query?: Record<string, string>;
+    },
+  ) => unknown)[],
   snackbarError: vi.fn(),
   snackbarInfo: vi.fn(),
 }));
@@ -149,12 +159,35 @@ function deferRandomRomFailure() {
 }
 
 /** Moves the view to another platform the way the router would. */
+/** A sort / filter / search change: same path, new query. */
+async function navigateQueryOnly(query: Record<string, string>) {
+  const from = {
+    name: routeState.name,
+    path: routeState.path,
+    params: { ...routeState.params },
+    query: { ...routeState.query },
+  };
+  routeState.query = query;
+  const to = { ...from, query };
+  routeGuards.forEach((guard) => guard(to, from));
+  await flushPromises();
+}
+
 async function navigateTo(platformId: number) {
+  // vue-router hands guards both sides, each with the path they compare.
+  const from = {
+    name: routeState.name,
+    path: routeState.path,
+    params: { ...routeState.params },
+  };
   routeState.params = { platform: String(platformId) };
   routeState.path = `/platform/${platformId}`;
-  routeGuards.forEach((guard) =>
-    guard({ name: "platform", params: { platform: String(platformId) } }),
-  );
+  const to = {
+    name: "platform",
+    path: routeState.path,
+    params: { platform: String(platformId) },
+  };
+  routeGuards.forEach((guard) => guard(to, from));
   await flushPromises();
 }
 
@@ -327,5 +360,19 @@ describe("Platform view random rom", () => {
     resolvePick({ data: rom(42) });
     await flushPromises();
     expect(push).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Sorting writes the URL, so it reaches this view's route guard. Reloading
+// the platform there costs a request per sort click and, on Collection, a
+// full gallery reset.
+describe("Platform view query-only navigation", () => {
+  it("does not reload the platform when only the query changes", async () => {
+    await mountView();
+    getPlatform.mockClear();
+
+    await navigateQueryOnly({ orderBy: "fs_size_bytes", orderDir: "desc" });
+
+    expect(getPlatform).not.toHaveBeenCalled();
   });
 });

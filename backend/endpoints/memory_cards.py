@@ -313,7 +313,7 @@ def _reconcile_missing(version: MemoryCardVersion) -> bool:
     try:
         path = fs_asset_handler.validate_path(version.full_path)
         missing = not path.is_file()
-    except (ValueError, OSError):
+    except ValueError, OSError:
         missing = True
 
     if missing != version.missing_from_fs:

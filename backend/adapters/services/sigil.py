@@ -11,7 +11,7 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 try:
     import sigil
 except ImportError:
-    sigil = None  # type: ignore[assignment]
+    sigil = None
 
 SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
     UPS.PSP: "psp",

@@ -1,5 +1,6 @@
 {
   "add-collection": "Aggiungi collezione",
+  "collection-deleted": "Collezione \"{name}\" eliminata",
   "cover": "Copertina",
   "create-collection": "Crea collezione",
   "create-failed": "Impossibile creare la collezione",
@@ -7,6 +8,8 @@
   "current-filters": "Filtri attuali",
   "danger-zone": "Zona pericolosa",
   "delete-collection": "Elimina collezione",
+  "delete-collection-body": "Rimuove \"{name}\" ({count} ROM nella collezione). I file ROM non verranno eliminati.",
+  "delete-collection-failed": "Impossibile eliminare la collezione: {error}",
   "delete-collection-hint": "Rimuove la collezione da RomM. I file ROM non verranno eliminati.",
   "description": "Descrizione",
   "download-collection": "Scarica collezione",
@@ -24,7 +27,6 @@
   "no-collections-search": "Nessuna collezione corrisponde a \"{query}\".",
   "no-collections-yet": "Nessuna collezione presente.",
   "no-collections-yet-detail": "Non hai ancora nessuna collezione. Aggiungi un gioco ai preferiti o creane una dalla barra delle azioni di qualsiasi ROM.",
-  "no-collections-yet-hint": "Nessuna collezione presente. Creane una qui sopra.",
   "not-found": "Collezione non trovata.",
   "owner": "Proprietario",
   "private": "Privata",

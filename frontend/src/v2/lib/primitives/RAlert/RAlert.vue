@@ -22,6 +22,7 @@
 // X emits `click:close` and flips `modelValue` to false; the leave
 // transition runs before the DOM is removed.
 import { computed, useSlots } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "../RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -41,6 +42,8 @@ interface Props {
   /** v-model visibility. */
   modelValue?: boolean;
 }
+
+const labels = useChromeLabels();
 
 const props = withDefaults(defineProps<Props>(), {
   type: undefined,
@@ -172,7 +175,7 @@ function close(evt: MouseEvent) {
         v-if="closable"
         type="button"
         class="r-alert__close"
-        :aria-label="'Close'"
+        :aria-label="labels.close"
         @click="close"
       >
         <RIcon icon="mdi-close" class="r-alert__close-icon" />

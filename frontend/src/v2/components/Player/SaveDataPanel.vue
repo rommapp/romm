@@ -9,26 +9,17 @@
 // from the game's own menu, and a slot-shaped affordance would promise a
 // jump the emulator cannot make.
 import { RIcon } from "@v2/lib";
-import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema } from "@/__generated__";
-import { formatBytes, formatRelativeDate } from "@/utils";
+import AssetChips from "@/v2/components/shared/AssetChips.vue";
+import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 
-const props = defineProps<{
+defineProps<{
   save: SaveSchema | null;
   platform: string;
 }>();
 
 const { t } = useI18n();
-
-const detail = computed(() =>
-  props.save
-    ? t("play.save-data-detail", {
-        time: formatRelativeDate(props.save.updated_at),
-        size: formatBytes(props.save.file_size_bytes),
-      })
-    : t("play.save-data-none-hint", { platform: props.platform }),
-);
 </script>
 
 <template>
@@ -47,7 +38,13 @@ const detail = computed(() =>
         <p class="r-v2-save-data__headline">
           {{ save ? t("play.save-data-synced") : t("play.save-data-none") }}
         </p>
-        <p class="r-v2-save-data__detail">{{ detail }}</p>
+        <div v-if="save" class="r-v2-save-data__facts">
+          <AssetChips :asset="save" :show-emulator="false" />
+          <AssetTimestamp :date="save.updated_at" />
+        </div>
+        <p v-else class="r-v2-save-data__detail">
+          {{ t("play.save-data-none-hint", { platform }) }}
+        </p>
       </div>
     </div>
     <p class="r-v2-save-data__note">
@@ -91,6 +88,13 @@ const detail = computed(() =>
   margin: 0;
   font-size: var(--r-font-size-md);
   color: var(--r-color-fg);
+}
+.r-v2-save-data__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 4px;
 }
 .r-v2-save-data__detail {
   margin: 2px 0 0;

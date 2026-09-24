@@ -149,19 +149,6 @@ watch(
   },
 );
 
-// When the parent tab leaves Notes, drop ?note so the param doesn't
-// leak across siblings (matches the SaveDataTab subtab pattern).
-watch(
-  () => route.query.tab,
-  (value) => {
-    if (value !== "notes" && route.query.note) {
-      const next = { ...route.query };
-      delete next.note;
-      router.replace({ path: route.path, query: next });
-    }
-  },
-);
-
 const selectedNote = computed<UserNoteSchema | null>(() => {
   if (selectedNoteId.value === null) return null;
   return allNotes.value.find((n) => n.id === selectedNoteId.value) ?? null;
@@ -485,7 +472,7 @@ function fmtDate(iso: string): string {
                 </template>
               </RTooltip>
               <RBtn
-                variant="text"
+                variant="outlined"
                 size="small"
                 :disabled="saving"
                 @click="cancelEdit"

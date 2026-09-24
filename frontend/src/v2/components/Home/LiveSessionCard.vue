@@ -181,8 +181,7 @@ async function join(): Promise<void> {
     transform var(--r-motion-fast);
 }
 
-html[data-input="mouse"] .r-live-card:hover .r-live-card__cover,
-html[data-input="touch"] .r-live-card:hover .r-live-card__cover,
+html:not([data-input="pad"]) .r-live-card:hover .r-live-card__cover,
 .r-live-card:focus-visible .r-live-card__cover {
   transform: scale(1.05);
   box-shadow:
@@ -190,8 +189,7 @@ html[data-input="touch"] .r-live-card:hover .r-live-card__cover,
     0 0 0 2px var(--r-color-danger);
 }
 
-html[data-input="mouse"] .r-live-card:hover .r-live-card__join,
-html[data-input="touch"] .r-live-card:hover .r-live-card__join,
+html:not([data-input="pad"]) .r-live-card:hover .r-live-card__join,
 .r-live-card:focus-visible .r-live-card__join {
   opacity: 1;
   transform: translateY(0);

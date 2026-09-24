@@ -26,7 +26,7 @@ import {
   type LayoutMode,
   useGalleryMode,
 } from "@/v2/composables/useGalleryMode";
-import { patchQuery } from "@/v2/utils/routeQuery";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 const VALID_GROUP_BY: readonly GroupByMode[] = [
   "letter",
@@ -67,20 +67,11 @@ export function useGalleryViewModeUrl() {
   watch(() => route.query.group, applyFromUrl);
   watch(() => route.query.layout, applyFromUrl);
 
-  function syncQuery(key: "group" | "layout", value: string | undefined) {
-    const current =
-      typeof route.query[key] === "string"
-        ? (route.query[key] as string)
-        : undefined;
-    if (value === current) return;
-    patchQuery(router, { [key]: value });
-  }
-
   // Drop the param when the value is the default — keeps URLs clean.
   watch(groupBy, (next) => {
-    syncQuery("group", next === "none" ? undefined : next);
+    syncQueryParam(router, "group", next === "none" ? undefined : next);
   });
   watch(layout, (next) => {
-    syncQuery("layout", next === "grid" ? undefined : next);
+    syncQueryParam(router, "layout", next === "grid" ? undefined : next);
   });
 }

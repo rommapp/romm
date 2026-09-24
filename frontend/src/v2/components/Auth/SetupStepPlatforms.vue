@@ -176,17 +176,19 @@ interface Group {
   items: Platform[];
 }
 
+const OTHER_GROUP = "__other";
+
 const groupedAvailable = computed<Group[]>(() => {
   const map = new Map<string, Platform[]>();
   for (const p of supportedAvailable.value) {
-    const key = p.family_name || "Other";
+    const key = p.family_name || OTHER_GROUP;
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(p);
   }
   const groups: Group[] = [];
   const keys = [...map.keys()].sort((a, b) => {
-    if (a === "Other") return 1;
-    if (b === "Other") return -1;
+    if (a === OTHER_GROUP) return 1;
+    if (b === OTHER_GROUP) return -1;
     return a.localeCompare(b);
   });
   for (const key of keys) {
@@ -197,7 +199,11 @@ const groupedAvailable = computed<Group[]>(() => {
       if (aGen !== bGen) return aGen - bGen;
       return (a.name ?? a.fs_slug).localeCompare(b.name ?? b.fs_slug);
     });
-    groups.push({ key, label: key, items });
+    groups.push({
+      key,
+      label: key === OTHER_GROUP ? t("platform.group-other") : key,
+      items,
+    });
   }
   return groups;
 });

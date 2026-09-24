@@ -1,6 +1,6 @@
 import os
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from unittest import mock
 
@@ -16,7 +16,7 @@ from handler.database import (
     db_save_handler,
 )
 from handler.database.base_handler import sync_session
-from models.assets import Save
+from models.assets import ASSET_LABEL_MAX_LENGTH, ASSET_LABELS_MAX, Save
 from models.device import Device
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
@@ -1757,7 +1757,7 @@ class TestSlotValidation:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def _seed_slot_saves(
@@ -3489,3 +3489,257 @@ class TestSaveVisibilityPropagation:
         )
         refreshed = db_screenshot_handler.get_screenshot_by_id(thumb.id)
         assert refreshed is not None and refreshed.is_public is False
+
+
+class TestSaveFavoritesAndLabels:
+    """Owner-only annotations on a save: the star and the free-text labels."""
+
+    def test_starring_and_unstarring_a_save_persists(
+        self, client, access_token: str, save: Save
+    ):
+        response = client.put(
+            f"/api/saves/{save.id}/favorite",
+            json={"is_favorite": True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["is_favorite"] is True
+
+        response = client.put(
+            f"/api/saves/{save.id}/favorite",
+            json={"is_favorite": False},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["is_favorite"] is False
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.is_favorite is False
+
+    def test_setting_save_labels_persists(self, client, access_token: str, save: Save):
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["100% run", "before the boss"]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["100% run", "before the boss"]
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None
+        assert refreshed.labels == ["100% run", "before the boss"]
+
+    def test_setting_save_labels_replaces_the_previous_set(
+        self, client, access_token: str, save: Save
+    ):
+        headers = {"Authorization": f"Bearer {access_token}"}
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["100% run", "seed 42"]},
+            headers=headers,
+        )
+
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["speedrun"]},
+            headers=headers,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["speedrun"]
+
+        response = client.put(
+            f"/api/saves/{save.id}/labels", json={"labels": []}, headers=headers
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == []
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == []
+
+    def test_save_labels_are_trimmed_and_blanks_dropped(
+        self, client, access_token: str, save: Save
+    ):
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["  100% run  ", "   ", "", "seed 42"]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["100% run", "seed 42"]
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == ["100% run", "seed 42"]
+
+    def test_save_labels_are_deduplicated_case_insensitively(
+        self, client, access_token: str, save: Save
+    ):
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["Run", "run", "RUN", "Seed"]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        # The first spelling wins, and the order the client sent survives.
+        assert response.json()["labels"] == ["Run", "Seed"]
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == ["Run", "Seed"]
+
+    def test_overlong_save_label_is_rejected(
+        self, client, access_token: str, save: Save
+    ):
+        headers = {"Authorization": f"Bearer {access_token}"}
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=headers,
+        )
+
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["ok", "x" * (ASSET_LABEL_MAX_LENGTH + 1)]},
+            headers=headers,
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+        # The request is rejected whole, so not even the valid label lands.
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == ["seed 42"]
+
+    def test_too_many_save_labels_are_rejected(
+        self, client, access_token: str, save: Save
+    ):
+        headers = {"Authorization": f"Bearer {access_token}"}
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=headers,
+        )
+
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": [f"run {i}" for i in range(ASSET_LABELS_MAX + 1)]},
+            headers=headers,
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == ["seed 42"]
+
+    def test_annotating_a_save_leaves_updated_at_untouched(
+        self, client, access_token: str, save: Save
+    ):
+        headers = {"Authorization": f"Bearer {access_token}"}
+        # Backdate the row: the column has second precision, so a stray touch
+        # would otherwise be invisible within the same second.
+        db_save_handler.update_save(
+            save.id, {"updated_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}
+        )
+        before = db_save_handler.get_save_by_id(save.id)
+        assert before is not None
+        stamp = before.updated_at
+
+        client.put(
+            f"/api/saves/{save.id}/favorite",
+            json={"is_favorite": True},
+            headers=headers,
+        )
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=headers,
+        )
+
+        # Annotating is not a write to the save's bytes, and device sync reads
+        # `updated_at` to decide whether a device is stale.
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None
+        assert refreshed.updated_at == stamp
+        assert refreshed.is_favorite is True
+        assert refreshed.labels == ["seed 42"]
+
+    def test_non_owner_cannot_star_a_save(
+        self, client, viewer_access_token: str, save: Save
+    ):
+        response = client.put(
+            f"/api/saves/{save.id}/favorite",
+            json={"is_favorite": True},
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.is_favorite is False
+
+    def test_non_owner_cannot_label_a_save(
+        self, client, access_token: str, viewer_access_token: str, save: Save
+    ):
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["mine"]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["not mine"]},
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == ["mine"]
+
+    def test_starring_a_missing_save_returns_not_found(self, client, access_token: str):
+        response = client.put(
+            "/api/saves/99999/favorite",
+            json={"is_favorite": True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_labelling_a_missing_save_returns_not_found(
+        self, client, access_token: str
+    ):
+        response = client.put(
+            "/api/saves/99999/labels",
+            json={"labels": ["ghost"]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_a_shared_save_hides_its_owners_annotations(
+        self,
+        client,
+        access_token: str,
+        viewer_access_token: str,
+        rom: Rom,
+        save: Save,
+    ):
+        owner = {"Authorization": f"Bearer {access_token}"}
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=owner,
+        )
+        client.put(
+            f"/api/saves/{save.id}/favorite", json={"is_favorite": True}, headers=owner
+        )
+        client.put(
+            f"/api/saves/{save.id}/visibility", json={"is_public": True}, headers=owner
+        )
+
+        mine = client.get(f"/api/roms/{rom.id}", headers=owner)
+        assert mine.status_code == status.HTTP_200_OK
+        row = next(s for s in mine.json()["all_user_saves"] if s["id"] == save.id)
+        assert row["labels"] == ["seed 42"]
+        assert row["is_favorite"] is True
+
+        theirs = client.get(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+        assert theirs.status_code == status.HTTP_200_OK
+        row = next(s for s in theirs.json()["all_user_saves"] if s["id"] == save.id)
+        assert row["labels"] == []
+        assert row["is_favorite"] is False

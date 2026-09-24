@@ -6,23 +6,24 @@
 // emission — v2 stacks so fast successive messages don't overwrite each
 // other. Stored colour/icon fields are preserved so existing emitters work.
 import { RIcon } from "@v2/lib";
+import { useEventListener } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeNotifications from "@/stores/notifications";
 import type { Events, SnackbarStatus } from "@/types/emitter";
+import { TONE_ICONS, type SnackbarTone } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 
-type ToastTone = "success" | "error" | "warning" | "info";
-
 type Toast = {
   id: number;
   msg: string;
   icon?: string;
-  tone: ToastTone;
+  image?: string | null;
+  tone: SnackbarTone;
   timer?: number;
 };
 
@@ -33,7 +34,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 // The existing v1 emitters pass free-form colour strings ("green", "red",
 // "primary", "orange"). Collapse down to four v2 tones for consistent
 // styling; unknown colours become `info`.
-function toneFromColor(color: string | undefined): ToastTone {
+function toneFromColor(color: string | undefined): SnackbarTone {
   if (!color) return "info";
   const c = color.toLowerCase();
   if (c.includes("green") || c === "success") return "success";
@@ -41,14 +42,6 @@ function toneFromColor(color: string | undefined): ToastTone {
   if (c.includes("orange") || c.includes("yellow") || c === "warning")
     return "warning";
   return "info";
-}
-
-function iconFor(tone: ToastTone, fallback?: string): string {
-  if (fallback) return fallback;
-  if (tone === "success") return "mdi-check-circle-outline";
-  if (tone === "error") return "mdi-alert-circle-outline";
-  if (tone === "warning") return "mdi-alert-outline";
-  return "mdi-information-outline";
 }
 
 let counter = 1;
@@ -60,7 +53,8 @@ function push(status: SnackbarStatus) {
   const toast: Toast = {
     id,
     msg: status.msg,
-    icon: iconFor(tone, status.icon),
+    icon: status.icon || TONE_ICONS[tone],
+    image: status.image,
     tone,
   };
   toasts.value = [...toasts.value, toast];
@@ -81,6 +75,17 @@ function dismiss(id: number) {
 
 const openHandler = (snackbar: SnackbarStatus) => push(snackbar);
 emitter?.on("snackbarShow", openHandler);
+
+// A fullscreen element is the only thing the browser paints, so the host moves
+// inside it: a player that took the screen still gets to show its notices.
+const fullscreenHost = ref<HTMLElement | null>(null);
+function trackFullscreen() {
+  fullscreenHost.value = document.fullscreenElement as HTMLElement | null;
+}
+useEventListener(document, "fullscreenchange", trackFullscreen);
+// A host mounted while a game already owns the screen gets no event of its own.
+trackFullscreen();
+
 onBeforeUnmount(() => {
   emitter?.off("snackbarShow", openHandler);
   toasts.value.forEach((t) => t.timer && window.clearTimeout(t.timer));
@@ -88,33 +93,42 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="r-v2-toasts" role="status" aria-live="polite">
-    <transition-group name="r-v2-toast">
-      <div
-        v-for="toast in toasts"
-        :key="toast.id"
-        class="r-v2-toast"
-        :class="[`r-v2-toast--${toast.tone}`]"
-        role="alert"
-      >
-        <RIcon
-          v-if="toast.icon"
-          :icon="toast.icon"
-          size="18"
-          class="r-v2-toast__icon"
-        />
-        <span class="r-v2-toast__msg">{{ toast.msg }}</span>
-        <button
-          type="button"
-          class="r-v2-toast__close"
-          :aria-label="t('common.dismiss')"
-          @click="dismiss(toast.id)"
+  <Teleport :to="fullscreenHost ?? 'body'" :disabled="!fullscreenHost">
+    <div class="r-v2-toasts" role="status" aria-live="polite">
+      <transition-group name="r-v2-toast">
+        <div
+          v-for="toast in toasts"
+          :key="toast.id"
+          class="r-v2-toast"
+          :class="[`r-v2-toast--${toast.tone}`]"
+          role="alert"
         >
-          <RIcon icon="mdi-close" size="14" />
-        </button>
-      </div>
-    </transition-group>
-  </div>
+          <img
+            v-if="toast.image"
+            :src="toast.image"
+            alt=""
+            class="r-v2-toast__art"
+            @error="toast.image = null"
+          />
+          <RIcon
+            v-else-if="toast.icon"
+            :icon="toast.icon"
+            size="18"
+            class="r-v2-toast__icon"
+          />
+          <span class="r-v2-toast__msg">{{ toast.msg }}</span>
+          <button
+            type="button"
+            class="r-v2-toast__close"
+            :aria-label="t('common.dismiss')"
+            @click="dismiss(toast.id)"
+          >
+            <RIcon icon="mdi-close" size="14" />
+          </button>
+        </div>
+      </transition-group>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -147,6 +161,14 @@ onBeforeUnmount(() => {
   color: var(--r-color-fg);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.r-v2-toast__art {
+  flex-shrink: 0;
+  width: 28px;
+  height: 38px;
+  border-radius: var(--r-radius-xs, 4px);
+  object-fit: cover;
 }
 
 /* Tone accents — a tinted icon + a coloured left edge. Keeps the glass

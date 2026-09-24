@@ -57,7 +57,7 @@ def test_patch_rom_passes_archive_member_and_validation_header(
         f"/api/roms/{rom_file.id}/patch",
         headers=_auth(access_token),
         data={
-            "patch_file_id": patch_file.id,
+            "patch_file_id": str(patch_file.id),
             "archive_member_name": "roms/game.sfc",
         },
     )
@@ -88,7 +88,7 @@ def test_patch_rom_returns_bad_request_for_invalid_archive(
     response = client.post(
         f"/api/roms/{rom_file.id}/patch",
         headers=_auth(access_token),
-        data={"patch_file_id": patch_file.id},
+        data={"patch_file_id": str(patch_file.id)},
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST

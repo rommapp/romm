@@ -10,11 +10,12 @@
 // RTabNav) lives INSIDE the scrolling container of whichever branch
 // is active. On Library, it rides in `GalleryShell`'s `#header` slot
 // so it scrolls away with the cards (toolbar pins below it). On
-// Settings, it sits in a plain scroll wrapper above the tab body.
+// Settings, it sits above the tab body and scrolls with the page
+// (GalleryTabShell).
 //
 // Edit + Delete moved out of the InfoPanel `#actions` kebab and into
 // the Settings tab (editable form on top, danger zone at the bottom).
-import { RDivider, type RTabNavItem } from "@v2/lib";
+import type { RTabNavItem } from "@v2/lib";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
@@ -31,6 +32,7 @@ import type { Kind as CollectionKind } from "@/v2/components/Collections/Collect
 import CollectionHead from "@/v2/components/Gallery/CollectionHead.vue";
 import CollectionSettingsTab from "@/v2/components/Gallery/CollectionSettingsTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
+import GalleryTabShell from "@/v2/components/Gallery/GalleryTabShell.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
@@ -260,7 +262,11 @@ onMounted(() => {
   loadForRoute(kindFromRoute(route.name), String(route.params.collection));
 });
 
-onBeforeRouteUpdate((to) => {
+onBeforeRouteUpdate((to, from) => {
+  // `loadForRoute` resets the gallery, so running it for a query-only
+  // change (sort, filters, search) would blank and re-bootstrap the
+  // collection already on screen.
+  if (to.path === from.path) return;
   loadForRoute(kindFromRoute(to.name), String(to.params.collection));
 });
 
@@ -351,7 +357,10 @@ async function onDelete() {
   if (!c || !editableKind.value) return;
   const ok = await confirm({
     title: t("collection.delete-collection", "Delete collection"),
-    body: `This removes "${c.name}" (${c.rom_count} ROMs in the collection). The ROM files themselves are not deleted.`,
+    body: t("collection.delete-collection-body", {
+      name: c.name,
+      count: c.rom_count,
+    }),
     confirmText: t("collection.delete-collection", "Delete collection"),
     tone: "danger",
     requireTyped: c.name,
@@ -367,7 +376,7 @@ async function onDelete() {
       await collectionApi.deleteCollection({ collection: c as Collection });
       collectionsStore.removeCollection(c as Collection);
     }
-    snackbar.success(`Collection "${c.name}" deleted`, {
+    snackbar.success(t("collection.collection-deleted", { name: c.name }), {
       icon: "mdi-check-bold",
     });
     router.push({ name: ROUTES.COLLECTIONS_INDEX });
@@ -377,12 +386,13 @@ async function onDelete() {
       message?: string;
     };
     snackbar.error(
-      `Failed to delete collection: ${
-        e?.response?.data?.msg ||
-        e?.response?.data?.detail ||
-        e?.message ||
-        "unknown error"
-      }`,
+      t("collection.delete-collection-failed", {
+        error:
+          e?.response?.data?.msg ||
+          e?.response?.data?.detail ||
+          e?.message ||
+          t("common.unknown-error"),
+      }),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -424,10 +434,9 @@ async function onDelete() {
     </template>
   </GalleryShell>
 
-  <!-- SETTINGS — plain scroll wrapper hosting the same CollectionHead
-       above the tab body. Whole page scrolls together. -->
-  <section v-else class="r-v2-coll-tabs">
-    <div class="r-v2-coll-tabs__scroll">
+  <!-- SETTINGS: the same CollectionHead above the tab body. -->
+  <GalleryTabShell v-else>
+    <template #head>
       <CollectionHead
         v-if="currentCollection"
         :collection="currentCollection"
@@ -443,64 +452,14 @@ async function onDelete() {
         @random="onRandomGame"
         @download="onDownload"
       />
-      <RDivider class="r-v2-coll-tabs__divider" />
-      <div
-        v-if="editableKind && editableCollection"
-        class="r-v2-coll-tabs__panel"
-      >
-        <CollectionSettingsTab
-          :kind="editableKind"
-          :collection="editableCollection"
-          :deleting="deleting"
-          @saved="onSaved"
-          @delete="onDelete"
-        />
-      </div>
-    </div>
-  </section>
+    </template>
+    <CollectionSettingsTab
+      v-if="editableKind && editableCollection"
+      :kind="editableKind"
+      :collection="editableCollection"
+      :deleting="deleting"
+      @saved="onSaved"
+      @delete="onDelete"
+    />
+  </GalleryTabShell>
 </template>
-
-<style scoped>
-/* Settings branch — single scroll wrapper that owns the page scroll.
-   The CollectionHead and the tab body scroll together as one surface,
-   matching the platform-view layout. */
-.r-v2-coll-tabs {
-  /* `dvh` (not `vh`) so the section matches the mobile visible viewport
-     instead of the larger address-bar-hidden one — otherwise it spills below
-     the fold and stacks a second, document-level scroll on the internal one
-     ("double scroll"). Same rationale as GalleryShell / IndexShell. */
-  height: calc(100vh - var(--r-nav-h));
-  height: calc(100dvh - var(--r-nav-h));
-  overflow: hidden;
-  position: relative;
-}
-/* On sm-and-down the layout <main> reserves the bottom tab bar's height; this
-   full-height section would otherwise sit on top of that padding and push the
-   document past one viewport. Cancel it with a matching negative margin so the
-   section extends under the (translucent) bar with a single scroll — the inner
-   scroll's bottom spacer lifts the last content (danger zone) clear of it. */
-html[data-bp~="sm-and-down"] .r-v2-coll-tabs {
-  margin-bottom: calc(
-    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
-  );
-}
-
-.r-v2-coll-tabs__scroll {
-  height: 100%;
-  overflow-y: auto;
-  padding: 32px var(--r-row-pad) 60px;
-}
-html[data-bp~="sm-and-down"] .r-v2-coll-tabs__scroll {
-  padding-bottom: calc(
-    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
-  );
-}
-
-.r-v2-coll-tabs__divider {
-  margin: 0 0 24px;
-}
-
-.r-v2-coll-tabs__panel {
-  min-height: 0;
-}
-</style>

@@ -27,6 +27,7 @@
   "selection-unfavorite": "Remove from favorites",
   "selection-unfavorite-success": "{n} removed from favorites",
   "sort-ascending": "Sort ascending",
+  "sort-by": "Sort by",
   "sort-descending": "Sort descending",
   "view-flat": "Flat view",
   "view-grid": "Grid",

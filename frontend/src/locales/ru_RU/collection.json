@@ -1,5 +1,6 @@
 {
   "add-collection": "Добавить коллекцию",
+  "collection-deleted": "Коллекция «{name}» удалена",
   "cover": "Обложка",
   "create-collection": "Создать коллекцию",
   "create-failed": "Не удалось создать коллекцию",
@@ -7,6 +8,8 @@
   "current-filters": "Текущие фильтры",
   "danger-zone": "Опасная зона",
   "delete-collection": "Удалить коллекцию",
+  "delete-collection-body": "Удаляет «{name}» ({count} ROM в коллекции). Сами файлы ROM не удаляются.",
+  "delete-collection-failed": "Не удалось удалить коллекцию: {error}",
   "delete-collection-hint": "Удаляет коллекцию из RomM. Сами файлы ROM не удаляются.",
   "description": "Описание",
   "download-collection": "Скачать коллекцию",
@@ -24,7 +27,6 @@
   "no-collections-search": "Нет коллекций, соответствующих \"{query}\".",
   "no-collections-yet": "Коллекций пока нет.",
   "no-collections-yet-detail": "У вас пока нет коллекций. Добавьте игру в избранное или создайте коллекцию на панели действий любого ROM.",
-  "no-collections-yet-hint": "Коллекций пока нет. Создайте одну выше.",
   "not-found": "Коллекция не найдена.",
   "owner": "Владелец",
   "private": "Приватный",

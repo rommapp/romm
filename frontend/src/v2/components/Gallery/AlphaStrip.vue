@@ -10,8 +10,11 @@
 //     of the grid spans several groups (A, B, C, …).
 //
 // When both are set, `visible` wins visually because it reflects the real
-// scroll position.
-import { computed } from "vue";
+// scroll position. Letters that don't fit scroll within the strip.
+//
+// `grid` lays the letters out as a wrapping grid instead of a column, for the
+// phone and tablet jump menu (AlphaJumpMenu).
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
@@ -33,6 +36,8 @@ interface Props {
   visible?: Set<string> | string[];
   /** Render order — reversed when the gallery sorts descending. */
   direction?: "asc" | "desc";
+  /** Lay the letters out as a wrapping grid instead of a column. */
+  grid?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -40,6 +45,7 @@ const props = withDefaults(defineProps<Props>(), {
   current: "",
   visible: () => new Set<string>(),
   direction: "asc",
+  grid: false,
 });
 
 const letters = computed(() =>
@@ -64,10 +70,44 @@ function isActive(letter: string): boolean {
   if (visibleSet.value.size > 0) return visibleSet.value.has(letter);
   return props.current === letter;
 }
+
+const rootEl = ref<HTMLElement | null>(null);
+const activeLetters = computed(() => letters.value.filter(isActive).join(""));
+
+// Keep the highlighted letters in view, the first one winning if they don't
+// all fit. Measured on screen: the strip's end can sit below the viewport.
+watch(
+  activeLetters,
+  (active) => {
+    const root = rootEl.value;
+    if (!active || !root || root.scrollHeight <= root.clientHeight) return;
+    const btnRect = (letter: string) =>
+      root.querySelector(`[data-letter="${letter}"]`)?.getBoundingClientRect();
+    const first = btnRect(active[0]);
+    const last = btnRect(active[active.length - 1]);
+    if (!first || !last) return;
+    const style = getComputedStyle(root);
+    const box = root.getBoundingClientRect();
+    const top = box.top + parseFloat(style.paddingTop);
+    const bottom =
+      Math.min(box.bottom, window.innerHeight) -
+      parseFloat(style.paddingBottom);
+    let delta = Math.max(0, Math.min(last.bottom - bottom, first.top - top));
+    if (first.top < top) delta = first.top - top;
+    if (delta) root.scrollBy({ top: delta, behavior: "smooth" });
+  },
+  { flush: "post" },
+);
 </script>
 
 <template>
-  <aside class="alpha-strip" :aria-label="t('gallery.jump-to-letter')">
+  <aside
+    v-bind="$attrs"
+    ref="rootEl"
+    class="alpha-strip r-v2-scroll-hidden"
+    :class="{ 'alpha-strip--grid': grid }"
+    :aria-label="t('gallery.jump-to-letter')"
+  >
     <button
       v-for="l in letters"
       :key="l"
@@ -77,8 +117,9 @@ function isActive(letter: string): boolean {
         'alpha-strip__btn--has': availableSet.has(l),
         'alpha-strip__btn--current': isActive(l),
       }"
+      :data-letter="l"
       :disabled="!availableSet.has(l)"
-      :aria-label="`Jump to ${l}`"
+      :aria-label="t('gallery.jump-to', { letter: l })"
       @click="availableSet.has(l) && $emit('pick', l)"
     >
       {{ l }}
@@ -88,15 +129,16 @@ function isActive(letter: string): boolean {
 
 <style scoped>
 .alpha-strip {
-  /* Width + edge gap come from the section (`--r-alpha-strip-*`) so the
-     stuck-toolbar overlay, which insets by the same footprint, stays in
-     lockstep with the strip at every breakpoint. */
+  /* Width + edge gap come from the section (`--r-alpha-strip-*`). */
   width: var(--r-alpha-strip-w, 24px);
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* `safe`: once the letters overflow, centring would push the first ones out
+     of reach above the scroll origin. */
+  justify-content: safe center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 8px 0;
   /* Breathe away from the viewport edge — the strip shouldn't touch the
      right border of the gallery section. */
@@ -145,24 +187,20 @@ function isActive(letter: string): boolean {
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
 
-/* On phones the gallery section extends UNDER the translucent bottom tab bar
-   (the glass effect), so centring the strip in the section drops the letters
-   low — nearer the bottom bar than the top nav. Reserve the bar's height as
-   bottom padding so the letters centre in the VISIBLE content band instead. */
-html[data-bp~="sm-and-down"] .alpha-strip {
-  padding-bottom: calc(
-    var(--r-space-2) + var(--r-bottom-nav-h) + env(safe-area-inset-bottom)
-  );
+.alpha-strip--grid {
+  width: auto;
+  display: grid;
+  grid-template-columns: repeat(7, var(--r-touch-target));
+  justify-content: center;
+  gap: var(--r-space-1);
+  overflow: visible;
+  padding: var(--r-space-2);
+  margin-right: 0;
 }
-
-/* Phones: the column width / edge gap come from the section vars (see
-   `.alpha-strip`), which are widened on `xs`. Here we just bump the letters
-   up to something more legible / tappable. Font + spacing stay capped so all
-   26 letters still fit the available height without clipping on a short screen
-   (a proper drag-scrubber is a separate redesign). */
-html[data-bp~="xs"] .alpha-strip__btn {
-  font-size: 11px;
-  padding: 2px 0;
-  margin-top: 2px;
+.alpha-strip--grid .alpha-strip__btn {
+  height: var(--r-touch-target);
+  margin-top: 0;
+  font-size: var(--r-font-size-lg);
+  border-radius: var(--r-radius-sm);
 }
 </style>

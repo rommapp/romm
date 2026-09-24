@@ -96,7 +96,7 @@ const trackStyle = computed(() => ({
   animation: r-marquee-loop var(--r-marquee-duration) linear infinite;
 }
 
-html[data-input="mouse"] .r-marquee--moving:hover .r-marquee__track,
+html:not([data-input="pad"]) .r-marquee--moving:hover .r-marquee__track,
 .r-marquee--moving:active .r-marquee__track {
   animation-play-state: paused;
 }

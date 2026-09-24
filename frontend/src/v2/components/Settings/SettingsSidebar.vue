@@ -4,7 +4,7 @@
 //
 // Groups mirror the v2 user-menu IA so the dropdown and the in-page
 // navigator share the same mental model:
-//   • Account: profile + UI prefs
+//   • Account: notifications, profile + UI prefs
 //   • Library: folder mappings, providers, paired devices
 //   • System: admin + server stats
 //   • Tools: jukebox, controller debug (developer-leaning, kept here so
@@ -17,14 +17,14 @@
 // Responsive: this sidebar is mount-gated to `md-and-up` by SettingsLayout.
 // On phones / small tablets it isn't rendered at all — the navbar UserMenu
 // mirrors the same section IA, so an in-page strip would only duplicate it.
-import { RChip, RIcon } from "@v2/lib";
+import { RBadge, RChip, RIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
-import storeHeartbeat from "@/stores/heartbeat";
 import { useCan } from "@/v2/composables/useCan";
+import storeNotificationInbox from "@/v2/stores/notificationInbox";
 
 defineOptions({ inheritAttrs: false });
 
@@ -32,11 +32,7 @@ const { t } = useI18n();
 const auth = storeAuth();
 const { user, scopes } = storeToRefs(auth);
 const isAdmin = useCan("app.admin");
-const heartbeat = storeHeartbeat();
-const logsViewerEnabled = computed(
-  () => !heartbeat.value.FRONTEND.DISABLE_LOGS_VIEWER,
-);
-
+const { unreadCount } = storeToRefs(storeNotificationInbox());
 interface Entry {
   icon: string;
   label: string;
@@ -44,6 +40,8 @@ interface Entry {
   visible: boolean;
   /** Optional trailing badge text (e.g. "Beta") shown after the label. */
   badge?: string;
+  /** Optional trailing counter, hidden at zero. */
+  count?: number;
 }
 
 interface Group {
@@ -58,6 +56,13 @@ const groups = computed<Group[]>(() => {
       key: "account",
       label: t("settings.group-account"),
       entries: [
+        {
+          icon: "mdi-bell-outline",
+          label: t("notifications.notifications"),
+          to: { name: ROUTES.NOTIFICATIONS },
+          visible: true,
+          count: unreadCount.value,
+        },
         {
           icon: "mdi-account-outline",
           label: t("common.profile"),
@@ -143,7 +148,7 @@ const groups = computed<Group[]>(() => {
           icon: "mdi-text-box-search-outline",
           label: t("common.logs"),
           to: { name: ROUTES.LOGS },
-          visible: isAdmin.value && logsViewerEnabled.value,
+          visible: isAdmin.value,
         },
       ],
     },
@@ -209,6 +214,12 @@ const groups = computed<Group[]>(() => {
             >
               {{ entry.badge }}
             </RChip>
+            <RBadge
+              v-if="entry.count !== undefined"
+              inline
+              :model-value="entry.count > 0"
+              :content="entry.count"
+            />
           </router-link>
         </li>
       </ul>

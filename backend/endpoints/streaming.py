@@ -21,10 +21,14 @@ from pydantic import BaseModel, Field
 
 from decorators.auth import protected_route
 from endpoints.responses.streaming import (
+    AdminContainerSchema,
     AdminContainersResponse,
+    AdminSessionSchema,
     AdminSessionsResponse,
+    ContainerSessionSchema,
     DesktopSessionSchema,
     ForceReleaseResponse,
+    JoinableSessionSchema,
     JoinableSessionsResponse,
     JoinedSessionSchema,
     LaunchingSessionSchema,
@@ -36,7 +40,9 @@ from endpoints.responses.streaming import (
     SaveAndExitResponse,
     SaveStateResponse,
     SessionStatusSchema,
+    SlotCapabilitiesSchema,
     StreamingConfigSchema,
+    StreamingContainerSchema,
     SwapDiscResponse,
     VolumeResponse,
 )
@@ -272,34 +278,34 @@ async def get_config(request: Request) -> StreamingConfigSchema:
     """Return streaming configuration to the frontend"""
     # One row per platform: a pool is a backend concern, the frontend picks a
     # platform and the claim decides which container serves it.
-    safe_containers: list[dict[str, Any]] = []
+    safe_containers: list[StreamingContainerSchema] = []
     for c in first_claim_targets():
         # The record carries the platform's label and capabilities, so a
         # platform hidden from this caller must not be listed here either.
         if not access.platform_is_visible(request, c.platform):
             continue
         safe_containers.append(
-            {
-                "platform": c.platform,
-                "host": c.host,
-                "label": c.label,
+            StreamingContainerSchema(
+                platform=c.platform,
+                host=c.host,
+                label=c.label,
                 # Ship slot capabilities so the frontend selector reads them
                 # instead of keeping its own hardcoded per-platform copy.
-                "capabilities": c.capabilities,
+                capabilities=SlotCapabilitiesSchema(**c.capabilities),
                 # State namespace for this container, so the frontend can
                 # filter the resume picker the same way hydration filters.
-                "emulator": c.emulator,
+                emulator=c.emulator,
                 # Whether this container syncs whole memory cards, so the
                 # frontend only offers the card picker where it applies.
-                "supports_memory_cards": c.memory_card_sync,
+                supports_memory_cards=c.memory_card_sync,
                 # Whether an older save archive still lands here, so the frontend
                 # only offers the save picker where a pick means something.
-                "supports_save_picker": c.supports_save_picker,
+                supports_save_picker=c.supports_save_picker,
                 # Whether the in-game Save and Load buttons reach a broker that
                 # honours them. An exit-state emulator keeps has_autosave for
                 # its state library but refuses both.
-                "supports_live_states": c.supports_live_states,
-            }
+                supports_live_states=c.supports_live_states,
+            )
         )
 
     return StreamingConfigSchema(
@@ -1373,7 +1379,7 @@ async def list_containers(request: Request) -> AdminContainersResponse:
     if request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    containers: list[dict[str, Any]] = []
+    containers: list[AdminContainerSchema] = []
     for container_key, entries in containers_by_key().items():
         first = entries[0]
         held = await get_session(container_key) if container_key else None
@@ -1384,30 +1390,30 @@ async def list_containers(request: Request) -> AdminContainersResponse:
         user_id = session.get("user_id") if session else None
         user = db_user_handler.get_user(user_id) if isinstance(user_id, int) else None
         containers.append(
-            {
-                "container": container_key,
-                "label": first.container_label or first.label,
-                "host": first.host,
-                "platforms": [e.platform for e in entries],
-                "supports_desktop": first.protocol.supports_desktop,
+            AdminContainerSchema(
+                container=container_key,
+                label=first.container_label or first.label,
+                host=first.host,
+                platforms=[e.platform for e in entries],
+                supports_desktop=first.protocol.supports_desktop,
                 # A container whose host has no scheme has an empty key and can
                 # never be claimed, so surface it rather than listing it as idle.
-                "configured": bool(container_key),
-                "draining": draining,
-                "session": (
-                    {
-                        "platform": session.get("platform"),
-                        "rom_id": session.get("rom_id"),
-                        "rom_name": session.get("rom_name"),
-                        "desktop": bool(session.get("desktop")),
-                        "claimed_at": session.get("claimed_at"),
-                        "user_id": user_id,
-                        "username": user.username if user else None,
-                    }
+                configured=bool(container_key),
+                draining=draining,
+                session=(
+                    ContainerSessionSchema(
+                        platform=session.get("platform"),
+                        rom_id=session.get("rom_id"),
+                        rom_name=session.get("rom_name"),
+                        desktop=bool(session.get("desktop")),
+                        claimed_at=session.get("claimed_at"),
+                        user_id=user_id,
+                        username=user.username if user else None,
+                    )
                     if session
                     else None
                 ),
-            }
+            )
         )
     return AdminContainersResponse(enabled=streaming_enabled(), containers=containers)
 
@@ -1515,7 +1521,7 @@ async def list_joinable_sessions(
     """
     grouped = containers_by_key()
 
-    sessions: list[dict[str, Any]] = []
+    sessions: list[JoinableSessionSchema] = []
     async for container_key, s in iter_live_sessions():
         if rom_id is not None and s.get("rom_id") != rom_id:
             continue
@@ -1526,22 +1532,22 @@ async def list_joinable_sessions(
         user_id = s.get("user_id")
         host = db_user_handler.get_user(user_id) if user_id is not None else None
         sessions.append(
-            {
-                "container": container_key,
-                "label": _joinable_container_label(grouped, container_key),
-                "platform": s.get("platform"),
-                "rom_id": s.get("rom_id"),
-                "rom_name": s.get("rom_name"),
-                "host_username": host.username if host else None,
-                "claimed_at": s.get("claimed_at"),
+            JoinableSessionSchema(
+                container=container_key,
+                label=_joinable_container_label(grouped, container_key),
+                platform=s.get("platform"),
+                rom_id=s.get("rom_id"),
+                rom_name=s.get("rom_name"),
+                host_username=host.username if host else None,
+                claimed_at=s.get("claimed_at"),
                 # Enough of the ROM to draw a cover tile without a second
                 # request per session.
-                "platform_id": rom.platform_id if rom else None,
-                "platform_display_name": rom.platform_display_name if rom else None,
-                "path_cover_small": rom.path_cover_small if rom else None,
-                "path_cover_large": rom.path_cover_large if rom else None,
-                "url_cover": rom.url_cover if rom else None,
-            }
+                platform_id=rom.platform_id if rom else None,
+                platform_display_name=rom.platform_display_name if rom else None,
+                path_cover_small=rom.path_cover_small if rom else None,
+                path_cover_large=rom.path_cover_large if rom else None,
+                url_cover=rom.url_cover if rom else None,
+            )
         )
     return JoinableSessionsResponse(sessions=sessions)
 
@@ -1558,23 +1564,23 @@ async def list_sessions(request: Request) -> AdminSessionsResponse:
 
     grouped = containers_by_key()
 
-    sessions: list[dict[str, Any]] = []
+    sessions: list[AdminSessionSchema] = []
     async for container_key, s in iter_live_sessions():
         container = container_for_session(grouped, container_key, s.get("platform"))
         user_id = s.get("user_id")
         user = db_user_handler.get_user(user_id) if user_id is not None else None
         sessions.append(
-            {
-                "container": container_key,
-                "label": container.label if container else None,
-                "platform": s.get("platform"),
-                "rom_id": s.get("rom_id"),
-                "rom_name": s.get("rom_name"),
-                "desktop": bool(s.get("desktop")),
-                "claimed_at": s.get("claimed_at"),
-                "user_id": user_id,
-                "username": user.username if user else None,
-            }
+            AdminSessionSchema(
+                container=container_key,
+                label=container.label if container else None,
+                platform=s.get("platform"),
+                rom_id=s.get("rom_id"),
+                rom_name=s.get("rom_name"),
+                desktop=bool(s.get("desktop")),
+                claimed_at=s.get("claimed_at"),
+                user_id=user_id,
+                username=user.username if user else None,
+            )
         )
     return AdminSessionsResponse(sessions=sessions)
 
@@ -1634,6 +1640,7 @@ async def force_release_all(
                     container_key,
                     ended_by=request.user.username,
                     reason=reason,
+                    ended_by_user_id=request.user.id,
                 )
         finally:
             # The sweep answered "released", so the key goes even when a step

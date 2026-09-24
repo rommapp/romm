@@ -18,6 +18,7 @@
 // firmware drawers when they get migrated), context-driven settings
 // flyouts, etc.
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import {
   type EscapableEntry,
@@ -62,6 +63,8 @@ const emit = defineEmits<{
 }>();
 
 const slots = useSlots();
+
+const labels = useChromeLabels();
 
 const panelRef = ref<HTMLElement | null>(null);
 // Element that had focus before the drawer opened — focus returns here
@@ -187,7 +190,7 @@ const transitionName = computed(() =>
               v-if="!hideClose"
               type="button"
               class="r-drawer__close"
-              aria-label="Close"
+              :aria-label="labels.close"
               @click="closeDrawer"
             >
               <RIcon icon="mdi-close" size="16" />
