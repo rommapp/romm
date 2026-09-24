@@ -32,6 +32,7 @@ import {
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { versionedRomFileUrl } from "@/v2/utils/romFiles";
 
 const ScreenshotsTab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ScreenshotsTab.vue"),
@@ -66,7 +67,6 @@ const canEditRom = useCan("rom.edit");
 
 // ---------- ROM (shared) screenshots — RomFile-backed ----------
 const romScreenshots = computed<ScreenshotItem[]>(() => {
-  const cacheBust = encodeURIComponent(props.rom.updated_at);
   const out: ScreenshotItem[] = [];
   for (const file of props.rom.files ?? []) {
     const rel = file.full_path
@@ -80,9 +80,7 @@ const romScreenshots = computed<ScreenshotItem[]>(() => {
     if (!IMAGE_EXTENSIONS.has(ext)) continue;
     out.push({
       id: file.id,
-      url: `/api/roms/${file.id}/files/content/${encodeURIComponent(
-        file.file_name,
-      )}?v=${cacheBust}`,
+      url: versionedRomFileUrl(file),
     });
   }
   return out;
