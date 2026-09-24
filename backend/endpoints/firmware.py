@@ -8,6 +8,13 @@ from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
+from handler.audit_handler import (
+    AuditActor,
+    AuditDraft,
+    AuditTarget,
+    record,
+    record_many,
+)
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
@@ -21,6 +28,7 @@ from handler.scan_handler import scan_firmware
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.firmware import Firmware
 from models.permission import PermAction, PermEntity
 from utils.router import APIRouter
@@ -112,6 +120,13 @@ async def add_firmware(
         db_firmware_handler.add_firmware(scanned_firmware)
         uploaded_firmware.append(scanned_firmware)
 
+    record(
+        AuditAction.FIRMWARE_UPLOAD,
+        request,
+        AuditTarget.of_platform(db_platform),
+        {"file_names": [file.filename for file in files if file.filename]},
+    )
+
     return {
         "uploaded": len(files),
         "firmware": [
@@ -164,11 +179,9 @@ def get_firmware_identifiers(
         list[int]: List of firmware IDs
     """
     perms = get_permissions(request)
-    firmware = db_firmware_handler.list_firmware(
-        only_fields=[Firmware.id],
+    return db_firmware_handler.list_firmware_ids(
         hidden_platform_ids=perms.hidden_platform_ids,
     )
-    return [f.id for f in firmware]
 
 
 @protected_route(
@@ -308,6 +321,8 @@ async def delete_firmware(
     successful_items = 0
     failed_ids = []
     errors = []
+    actor = AuditActor.from_request(request)
+    audit_drafts: list[AuditDraft] = []
 
     for id in firmware:
         fw = db_firmware_handler.get_firmware(id)
@@ -317,15 +332,18 @@ async def delete_firmware(
             errors.append(f"Firmware with ID {id} not found")
             continue
 
+        deleted = removed = False
         try:
             log.info(f"Deleting {hl(fw.file_name)} from database")
             db_firmware_handler.delete_firmware(id)
+            deleted = True
 
             if id in delete_from_fs:
                 log.info(f"Deleting {hl(fw.file_name)} from filesystem")
                 try:
                     file_path = f"{fw.file_path}/{fw.file_name}"
                     await fs_firmware_handler.remove_file(file_path=file_path)
+                    removed = True
                 except FileNotFoundError:
                     error = f"Firmware file {hl(fw.file_name)} not found for platform {hl(fw.platform.slug)}"
                     log.error(error)
@@ -337,7 +355,19 @@ async def delete_firmware(
         except Exception as e:
             failed_ids.append(id)
             errors.append(f"Failed to delete firmware {id}: {str(e)}")
+        finally:
+            # The row is gone whatever became of its file.
+            if deleted:
+                audit_drafts.append(
+                    AuditDraft(
+                        AuditAction.FIRMWARE_DELETE,
+                        actor,
+                        AuditTarget.of_firmware(fw),
+                        {"deleted_from_fs": removed},
+                    )
+                )
 
+    record_many(audit_drafts)
     return {
         "successful_items": successful_items,
         "failed_ids": failed_ids,

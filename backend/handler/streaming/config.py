@@ -3,12 +3,15 @@
 The raw YAML is loose: a container may serve one platform or a map of them, and
 may leave its broker host to be derived. Resolution is memoized until the config
 changes, so an unusable container is reported once rather than once per lookup.
+A platform's containers form pools of interchangeable members, and a game claim
+only walks the first.
 """
 
 from __future__ import annotations
 
 import json
 import secrets
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse, urlunparse
@@ -18,15 +21,25 @@ from config.config_manager import config_manager as cm
 from handler.streaming.capabilities import (
     PlatformCapabilities,
     StateTransferLimits,
+    emulator_clears_saves,
     known_to_lack_memory_card,
     slot_capabilities,
     state_transfer_limits,
 )
-from handler.streaming.protocol import BrokerProtocol, protocol_for
+from handler.streaming.protocol import (
+    BrokerProtocol,
+    WebstationProtocol,
+    protocol_for,
+)
 from logger.logger import log
 
 # Keys a `platforms:` block may override for the one platform it names.
-PLATFORM_OVERRIDE_KEYS = ("emulator", "label", "memory_card_sync")
+PLATFORM_OVERRIDE_KEYS = (
+    "emulator",
+    "label",
+    "memory_card_sync",
+    "clears_stale_saves",
+)
 
 # Play-button text per emulator, used when a platform block sets no `label`
 # of its own. Keyed by emulator name as the broker registers it (lowercase).
@@ -142,6 +155,9 @@ class ResolvedContainer:
     """The container's own label, before any per-platform override."""
     memory_card_sync: bool
     """Whole-card sync, already checked against the platform having a card."""
+    clears_stale_saves: bool
+    """Whether the broker empties the save tree before restoring, which is what
+    lets a pick older than the container's own files land."""
     broker_secret: str
     library_path: str
     """Where the container sees the ROM library, when it differs from RomM's."""
@@ -152,19 +168,24 @@ class ResolvedContainer:
     def is_webstation(self) -> bool:
         return self.protocol.name == "webstation"
 
+    @property
+    def supports_save_picker(self) -> bool:
+        """Whether the launch screen may offer a save other than the newest."""
+        return self.is_webstation and self.clears_stale_saves
+
     def interchangeable_with(self, other: ResolvedContainer) -> bool:
-        """Whether two containers serving a platform are a pool rather than two
-        different setups. The emulator names the state and card namespace, and
-        whole-card sync decides whether cards are synced at all, so a player
-        landing on either has to find their saves in the same place. The
-        protocol decides which controls exist at all (disc swap, joining), and
-        those are advertised from the head of the pool, so a member that
-        disagrees would offer a control that 502s on half the claims."""
+        """Whether two containers serving a platform are one pool: a player
+        landing on either finds the same saves and the same controls."""
         return (
             self.emulator == other.emulator
             and self.memory_card_sync == other.memory_card_sync
-            # Protocols are interned per subfolder, so identity is equality.
-            and self.protocol is other.protocol
+            # The picker is advertised from the head of the pool, so a member
+            # without it would take the pick and let its own newer files
+            # overwrite the restored archive, with no error anywhere.
+            and self.supports_save_picker == other.supports_save_picker
+            # Same-origin pool members are each proxied at their own path, so
+            # they never carry the same protocol object.
+            and self.protocol.name == other.protocol.name
         )
 
     def memory_card_route(self) -> str:
@@ -228,6 +249,51 @@ def _derive_broker_host(entry: dict[str, Any], protocol: BrokerProtocol) -> str 
     return urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000")).rstrip("/")
 
 
+def _claimable_broker_host(
+    entry: dict[str, Any], raw_host: str, protocol: BrokerProtocol, platform: str
+) -> str | None:
+    """The address this container's broker answers on, or None when the entry
+    cannot be claimed and the reason has been logged."""
+    if not parse_stream_host(raw_host):
+        log.warning(
+            "container for platform '%s' missing a scheme-bearing host or a "
+            "proxied path, it cannot be claimed: %s",
+            platform,
+            _loggable(entry),
+        )
+        return None
+
+    broker_host = _derive_broker_host(entry, protocol)
+    if not broker_host:
+        # A proxied host carries no address RomM can call, so the broker is
+        # only reachable if the operator named it.
+        log.warning(
+            "container for platform '%s' has no reachable broker, set "
+            "broker_host, it cannot be claimed: %s",
+            platform,
+            _loggable(entry),
+        )
+        return None
+
+    if isinstance(protocol, WebstationProtocol) and not protocol.host_matches_subfolder(
+        raw_host
+    ):
+        # Activate answers with an absolute room path built from the broker's
+        # own SUBFOLDER, which replaces the one `host` carries.
+        log.warning(
+            "container for platform '%s' is proxied at '%s' but declares "
+            "subfolder '%s'; both must be the container's own SUBFOLDER, "
+            "it cannot be claimed: %s",
+            platform,
+            raw_host.strip(),
+            protocol.subfolder,
+            _loggable(entry),
+        )
+        return None
+
+    return broker_host
+
+
 def _emulator_namespace(entry: dict[str, Any]) -> str:
     """Namespace for stored states, e.g. 'pcsx2'. Keeps streaming states apart
     from the EmulatorJS states of the same ROM."""
@@ -244,26 +310,8 @@ def _resolve_one(
     claimed, but the fleet view lists it so the misconfiguration is visible.
     """
     protocol = protocol_for(entry.get("protocol"), entry.get("subfolder"))
-
-    broker_host: str | None = None
-    if not parse_stream_host(str(entry.get("host", ""))):
-        log.warning(
-            "container for platform '%s' missing a scheme-bearing host or a "
-            "proxied path, it cannot be claimed: %s",
-            platform,
-            _loggable(entry),
-        )
-    else:
-        broker_host = _derive_broker_host(entry, protocol)
-        if not broker_host:
-            # A proxied host carries no address RomM can call, so the broker is
-            # only reachable if the operator named it.
-            log.warning(
-                "container for platform '%s' has no reachable broker, set "
-                "broker_host, it cannot be claimed: %s",
-                platform,
-                _loggable(entry),
-            )
+    raw_host = str(entry.get("host", ""))
+    broker_host = _claimable_broker_host(entry, raw_host, protocol, platform)
 
     emulator = _emulator_namespace(entry)
     card_sync = bool(entry.get("memory_card_sync", False))
@@ -280,6 +328,19 @@ def _resolve_one(
         )
         card_sync = False
 
+    configured_clearing = entry.get("clears_stale_saves")
+    clears_stale_saves = (
+        emulator_clears_saves(emulator)
+        if configured_clearing is None
+        else bool(configured_clearing)
+    )
+    if configured_clearing is not None and protocol.name != "webstation":
+        log.warning(
+            "container for platform '%s' sets clears_stale_saves but only a "
+            "webstation container restores a picked save, so it has no effect",
+            platform,
+        )
+
     capabilities = slot_capabilities(platform, emulator)
     if not protocol.supports_disc_swap:
         # Disc swap is keyed by platform, but only the webstation broker has a
@@ -290,7 +351,7 @@ def _resolve_one(
     label = entry.get("label")
     return ResolvedContainer(
         key=broker_host or "",
-        host=str(entry.get("host", "")),
+        host=raw_host,
         broker_host=broker_host,
         protocol=protocol,
         platform=platform,
@@ -298,6 +359,7 @@ def _resolve_one(
         label=str(label) if label else emulator_display_label(emulator, platform),
         container_label=container_label if isinstance(container_label, str) else None,
         memory_card_sync=card_sync,
+        clears_stale_saves=clears_stale_saves,
         broker_secret=STREAMING_BROKER_SECRET or str(entry.get("broker_secret", "")),
         library_path=str(entry.get("library_path") or LIBRARY_BASE_PATH).rstrip("/"),
         capabilities=capabilities,
@@ -426,7 +488,7 @@ def reset_cache() -> None:
 def _fingerprint(raw: Any) -> str:
     try:
         return json.dumps(raw, sort_keys=True, default=str)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         # Unserializable config: never matches, so it re-resolves every time
         # rather than serving a record built from something else. A fresh
         # random value rather than an object's repr, which CPython happily
@@ -458,38 +520,63 @@ def resolve_containers() -> tuple[ResolvedContainer, ...]:
         for row, platform in _platform_entries(dict(entry)):
             resolved.append(_resolve_one(row, platform, entry.get("label")))
 
+    _warn_about_later_pools(resolved)
     _cache_fingerprint = fingerprint
     _cached = tuple(resolved)
     return _cached
 
 
-def containers_for_platform(platform: str) -> list[ResolvedContainer]:
-    """Every container serving a platform, in config order.
+def _pools(containers: Iterable[ResolvedContainer]) -> list[list[ResolvedContainer]]:
+    """Group containers into pools of interchangeable members. A pool sits at its
+    first member's config position, and members keep config order."""
+    pools: list[list[ResolvedContainer]] = []
+    for container in containers:
+        pool = next((p for p in pools if p[0].interchangeable_with(container)), None)
+        if pool is None:
+            pools.append([container])
+        else:
+            pool.append(container)
+    return pools
 
-    More than one entry is a pool and the claim takes the first free one, so a
-    container that disagrees with the head on emulator or card sync is not a
-    pool member and is left out.
-    """
-    lower = platform.lower()
-    candidates: list[ResolvedContainer] = []
-    for container in resolve_containers():
-        if container.platform.lower() != lower:
-            continue
-        if not container.key:
-            # Nothing to dial, so a claim would have nowhere to go. The fleet
-            # view still lists it, which is where the operator sees why.
-            continue
-        if candidates and not candidates[0].interchangeable_with(container):
+
+def _pools_by_platform(
+    resolved: Iterable[ResolvedContainer],
+) -> dict[str, list[list[ResolvedContainer]]]:
+    """Every platform's pools, keyed by the lowercased platform."""
+    by_platform: dict[str, list[ResolvedContainer]] = {}
+    for container in resolved:
+        # Nothing to dial, so a claim would have nowhere to go. The fleet view
+        # still lists it, which is where the operator sees why.
+        if container.key:
+            by_platform.setdefault(container.platform.lower(), []).append(container)
+    return {platform: _pools(members) for platform, members in by_platform.items()}
+
+
+def _warn_about_later_pools(resolved: Sequence[ResolvedContainer]) -> None:
+    """Name every container a game claim can never reach, once per config."""
+    for pools in _pools_by_platform(resolved).values():
+        later = [c.key for pool in pools[1:] for c in pool]
+        if later:
             log.warning(
-                "container for platform '%s' disagrees with the first one on "
-                "emulator, memory card sync or protocol, so it is not a pool "
-                "member, skipping: %s",
-                platform,
-                container.key,
+                "containers for platform '%s' disagree on emulator, memory card "
+                "sync, save picker or protocol, so game claims only use the first "
+                "pool; never claimed for a game: %s",
+                pools[0][0].platform,
+                ", ".join(later),
             )
-            continue
-        candidates.append(container)
-    return candidates
+
+
+def pools_for_platform(platform: str) -> list[list[ResolvedContainer]]:
+    """Every container serving a platform, grouped into pools. A container that
+    matches no other is a pool of one."""
+    return _pools_by_platform(resolve_containers()).get(platform.lower(), [])
+
+
+def containers_for_platform(platform: str) -> list[ResolvedContainer]:
+    """The platform's first pool, which a game claim walks for the first free
+    container, in config order."""
+    pools = pools_for_platform(platform)
+    return pools[0] if pools else []
 
 
 def containers_by_key() -> dict[str, list[ResolvedContainer]]:
@@ -501,6 +588,14 @@ def containers_by_key() -> dict[str, list[ResolvedContainer]]:
     return grouped
 
 
+def entry_for_platform(
+    entries: Sequence[ResolvedContainer], platform: str
+) -> ResolvedContainer | None:
+    """The record among one container's entries that serves this platform."""
+    lower = platform.lower()
+    return next((e for e in entries if e.platform.lower() == lower), None)
+
+
 def container_for_session(
     grouped: dict[str, list[ResolvedContainer]], container_key: str, platform: Any
 ) -> ResolvedContainer | None:
@@ -510,21 +605,14 @@ def container_for_session(
     entries = grouped.get(container_key)
     if not entries:
         return None
-    if isinstance(platform, str):
-        lower = platform.lower()
-        for entry in entries:
-            if entry.platform.lower() == lower:
-                return entry
-    return entries[0]
+    entry = entry_for_platform(entries, platform) if isinstance(platform, str) else None
+    return entry or entries[0]
 
 
 def configured_emulator(platform: str) -> str:
     """The emulator a configured container serves this platform with, if any."""
-    lower = platform.lower()
-    for container in resolve_containers():
-        if container.platform.lower() == lower:
-            return container.emulator
-    return ""
+    entry = entry_for_platform(resolve_containers(), platform)
+    return entry.emulator if entry else ""
 
 
 def streaming_enabled() -> bool:

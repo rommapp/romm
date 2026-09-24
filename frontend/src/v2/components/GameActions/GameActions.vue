@@ -58,12 +58,13 @@ useGridNav(rootEl, {
 <template>
   <div ref="rootEl" class="game-actions">
     <GameActionBtn
-      v-if="actions.canPlayInBrowser.value"
+      v-if="actions.canPlayLocally.value"
       :rom="rom"
       action="play"
       :size="btnSize"
       variant="emphasized"
       with-label
+      link
     />
     <GameActionBtn
       v-if="actions.canPlayStream.value"
@@ -72,6 +73,7 @@ useGridNav(rootEl, {
       :size="btnSize"
       variant="brand"
       with-label
+      link
     />
     <!-- Only rendered while someone else is hosting an open session on this
          ROM, so it sits beside Stream rather than replacing it. -->

@@ -126,6 +126,27 @@ cd backend
 uv run python3 main.py
 ```
 
+#### - Run the task workers
+
+A manual task run is refused, and a scheduled job stays queued, until an RQ worker listens on its queue; scans have a worker of their own. Each command is a foreground process, so run them in separate terminals. `-c config` reads the Redis connection from the same `REDIS_*` settings in `.env` the backend uses.
+
+```sh
+cd backend
+uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-scheduler high default low
+```
+
+```sh
+cd backend
+uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-scheduler scans
+```
+
+`--with-scheduler` releases delayed jobs, such as the rescans the filesystem watcher waits out, so each worker needs it. The recurring schedule is registered by the RQ cron process, which the workers then execute:
+
+```sh
+cd backend
+uv run rq cron -c config tasks.cron_config
+```
+
 ### Setting up the frontend
 
 #### - Install node.js dependencies
@@ -136,12 +157,13 @@ cd frontend
 npm install
 ```
 
-#### - Create symlink to library and resources
+#### - Create symlink to resources
+
+Vite serves cover art, screenshots and manuals from `assets/romm/resources`. The link target resolves from the link's own folder, hence the three levels up:
 
 ```sh
-mkdir assets/romm
-ln -s ../romm_mock/resources assets/romm/resources
-ln -s ../romm_mock/assets assets/romm/assets
+mkdir -p assets/romm
+ln -s ../../../romm_mock/resources assets/romm/resources
 ```
 
 #### - Run the frontend
@@ -149,6 +171,17 @@ ln -s ../romm_mock/assets assets/romm/assets
 ```sh
 npm run dev
 ```
+
+#### - Storybook (v2 components)
+
+Component docs and visual QA for `frontend/src/v2/` (port 6006):
+
+```sh
+npm run storybook
+npm run storybook:test   # composeStories + play() + a11y (v2 /lib stories)
+```
+
+For responsive layouts, use the viewport toolbar presets from `.storybook/rommViewports.ts`.
 
 ## Setting up the linter
 

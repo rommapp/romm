@@ -5,6 +5,7 @@
 //   * CTA (default): renders an empty-state call-to-action — icon, title,
 //     hint, and click/keyboard to browse. The whole surface is the drop
 //     target and brightens while dragging over it.
+//     `compact` lays it out as a single row for tight panels.
 //   * Overlay (`overlay` prop): renders the default slot (the consumer's
 //     filled content — a file list, a grid, a card) and floats a "release to
 //     upload" overlay over it while dragging. Use the exposed `open()` to wire
@@ -30,6 +31,11 @@ interface Props {
   disabled?: boolean;
   /** Overlay mode: render the default slot + a drag-over overlay. */
   overlay?: boolean;
+  /** CTA mode only: one row with a small icon beside the title and hint. */
+  compact?: boolean;
+  /** Grow to fill a flex parent (either mode); the CTA stretches with it.
+   *  Works where `height: 100%` can't, e.g. a parent sized by min-height. */
+  fill?: boolean;
   // CTA copy / icons (ignored in overlay mode except `activeIcon`).
   title?: string;
   hint?: string;
@@ -45,8 +51,15 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   multiple: false,
+  accept: undefined,
+  dataTypes: undefined,
+  title: undefined,
+  hint: undefined,
   icon: "mdi-cloud-upload-outline",
   activeIcon: "mdi-cloud-upload",
+  activeTitle: undefined,
+  releaseLabel: undefined,
+  inputLabel: undefined,
 });
 
 const emit = defineEmits<{ files: [files: File[]] }>();
@@ -95,6 +108,8 @@ defineExpose({ open, isOver: isOverDropZone });
     :class="{
       'r-dropzone--active': isOverDropZone && !disabled,
       'r-dropzone--disabled': disabled,
+      'r-dropzone--compact': compact,
+      'r-dropzone--fill': fill,
     }"
   >
     <input
@@ -139,7 +154,7 @@ defineExpose({ open, isOver: isOverDropZone });
     >
       <RIcon
         :icon="isOverDropZone ? activeIcon : icon"
-        size="44"
+        :size="compact ? 24 : 44"
         color="primary"
         :class="{ 'r-dropzone__cta-icon--pulse': isOverDropZone && !disabled }"
       />
@@ -159,6 +174,10 @@ defineExpose({ open, isOver: isOverDropZone });
   flex-direction: column;
   position: relative;
   border-radius: var(--r-radius-md);
+}
+.r-dropzone--fill {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 /* Disabled dims / blocks only the CTA — in overlay mode the slotted content
    stays fully interactive (drops are no-ops, the overlay never shows). */
@@ -193,6 +212,9 @@ defineExpose({ open, isOver: isOverDropZone });
     border-color var(--r-motion-fast) var(--r-motion-ease-out),
     background var(--r-motion-fast) var(--r-motion-ease-out);
 }
+.r-dropzone--fill .r-dropzone__cta {
+  flex: 1 1 auto;
+}
 .r-dropzone__cta:hover {
   border-color: color-mix(
     in srgb,
@@ -213,6 +235,22 @@ defineExpose({ open, isOver: isOverDropZone });
   color: var(--r-color-fg-muted);
   max-width: 360px;
   line-height: 1.5;
+}
+.r-dropzone--compact .r-dropzone__cta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  justify-items: start;
+  column-gap: 12px;
+  row-gap: 2px;
+  padding: 12px 16px;
+  text-align: left;
+}
+.r-dropzone--compact .r-dropzone__cta > .r-icon {
+  grid-row: span 2;
+}
+.r-dropzone--compact .r-dropzone__cta-title {
+  font-size: 13px;
 }
 .r-dropzone__cta-icon--pulse {
   animation: r-dropzone-pulse 1.4s ease-in-out infinite;

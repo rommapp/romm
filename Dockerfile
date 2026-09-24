@@ -115,7 +115,7 @@ RUN npm install
 WORKDIR /app
 
 # Install uv for the non-root user
-COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.12.13 /uv /uvx /usr/local/bin/
 
 # Copy project files (including pyproject.toml and uv.lock)
 COPY pyproject.toml uv.lock* .python-version /app/
@@ -129,10 +129,10 @@ ENV PATH="/app/.venv/bin:${PATH}"
 # Build and install sigil (optional, for title ID extraction)
 # Placed after `uv sync` because the extension is compiled with the venv's
 # Python so the ABI matches. Keep the pin in sync with docker/Dockerfile.
-ARG SIGIL_VERSION=4b0f138fef12caf0b2ceb85e034cd5a3ba18a653
+ARG SIGIL_VERSION=8a3b0089676e07f74da2d9ad08979dedf5cae7c0
 # One layer, so the clone and the cmake tree never reach the image.
 # trunk-ignore(hadolint/DL3003)
-RUN git clone --filter=blob:none https://github.com/rommforge/argosy-sigil.git /tmp/argosy-sigil \
+RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git /tmp/argosy-sigil \
     && cd /tmp/argosy-sigil \
     && git checkout "${SIGIL_VERSION}" \
     && git submodule update --init --recursive \

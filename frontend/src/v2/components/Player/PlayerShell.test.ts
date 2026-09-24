@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import PlayerShell from "./PlayerShell.vue";
 
-const mocks = vi.hoisted(() => ({ push: vi.fn(), setStageActive: vi.fn() }));
+const mocks = vi.hoisted(() => ({ setStageActive: vi.fn() }));
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -11,10 +11,6 @@ vi.mock("vue-i18n", () => ({
 
 vi.mock("@/stores/playing", () => ({
   default: () => ({ setStageActive: mocks.setStageActive }),
-}));
-
-vi.mock("vue-router", () => ({
-  useRouter: () => ({ push: mocks.push }),
 }));
 
 vi.mock("@/plugins/router", () => ({
@@ -49,7 +45,8 @@ function mountShell(
     global: {
       stubs: {
         RBtn: {
-          props: ["disabled"],
+          name: "RBtn",
+          props: ["disabled", "to"],
           emits: ["click"],
           template:
             '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
@@ -62,9 +59,13 @@ function mountShell(
 }
 
 beforeEach(() => {
-  mocks.push.mockReset();
   mocks.setStageActive.mockReset();
 });
+
+function backLinks(wrapper: VueWrapper) {
+  const [, toRom, toPlatform] = wrapper.findAllComponents({ name: "RBtn" });
+  return { toRom: toRom!, toPlatform: toPlatform! };
+}
 
 describe("PlayerShell", () => {
   it("waits on a spinner until a hero is available", () => {
@@ -92,33 +93,24 @@ describe("PlayerShell", () => {
     expect(wrapper.emitted("play")).toHaveLength(1);
   });
 
-  it("navigates back to the game and to its platform", async () => {
-    const wrapper = mountShell();
+  it("links back to the game and to its platform", () => {
+    const { toRom, toPlatform } = backLinks(mountShell());
 
-    const buttons = wrapper.findAll("button");
-    await buttons[1]!.trigger("click");
-    await buttons[2]!.trigger("click");
-
-    expect(mocks.push).toHaveBeenNthCalledWith(1, {
-      name: "rom",
-      params: { rom: 1 },
-    });
-    expect(mocks.push).toHaveBeenNthCalledWith(2, {
+    expect(toRom.props("to")).toEqual({ name: "rom", params: { rom: 1 } });
+    expect(toPlatform.props("to")).toEqual({
       name: "platform",
       params: { platform: 2 },
     });
+    expect(toPlatform.props("disabled")).toBe(false);
   });
 
-  it("skips the gallery link when the hero carries no platform", async () => {
-    const wrapper = mountShell({
-      heroRom: { id: 1 } as unknown as SimpleRom,
-    });
-
-    await wrapper.findAll("button")[2]!.trigger("click");
-
-    expect(mocks.push).not.toHaveBeenCalledWith(
-      expect.objectContaining({ name: "platform" }),
+  it("disables the gallery link when the hero carries no platform", () => {
+    const { toPlatform } = backLinks(
+      mountShell({ heroRom: { id: 1 } as unknown as SimpleRom }),
     );
+
+    expect(toPlatform.props("to")).toBeUndefined();
+    expect(toPlatform.props("disabled")).toBe(true);
   });
 
   it("swaps the config panel for the stage while running", async () => {

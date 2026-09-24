@@ -259,8 +259,8 @@ function canToggleOverview(shot: ScreenshotItem): boolean {
 .r-v2-det-shots__cell:focus-within .r-v2-det-shots__actions {
   opacity: 1;
 }
-html[data-input="touch"] .r-v2-det-shots__actions,
-html[data-input="pad"] .r-v2-det-shots__actions {
+/* No hover to reveal them with at phone and tablet widths. */
+html[data-bp~="sm-and-down"] .r-v2-det-shots__actions {
   opacity: 1;
 }
 

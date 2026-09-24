@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
-from typing import Annotated, Any, Sequence
+from typing import Annotated, Any, Final, Literal, Sequence
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -28,7 +28,7 @@ from fastapi import (
 )
 from fastapi.responses import Response
 from fastapi_pagination import resolve_params
-from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
+from fastapi_pagination.limit_offset import LimitOffsetParams
 from fastapi_pagination.types import GreaterEqualZero
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
@@ -42,15 +42,25 @@ from config import (
 )
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
+from endpoints.responses.base import TypedLimitOffsetPage
 from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
     DetailedRomSchema,
-    RomFiltersDict,
     RomUserSchema,
     SimpleRomSchema,
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
+from handler.audit_handler import (
+    AuditActor,
+    AuditDraft,
+    AuditTarget,
+    change,
+    changed_fields,
+    record,
+    record_download,
+    record_many,
+)
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
@@ -65,7 +75,7 @@ from handler.database import (
     db_save_handler,
 )
 from handler.database.base_handler import sync_session
-from handler.database.rom_filters import RomFilterParams
+from handler.database.rom_filters import RomFilterParams, RomFiltersDict
 from handler.database.roms_handler import (
     sorts_by_rom_user_column,
     user_sibling_cache_version,
@@ -109,6 +119,8 @@ from handler.scan_handler import (
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction, AuditTargetType
+from models.collection import VirtualCollection
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
@@ -282,6 +294,47 @@ class RomUpdateForm(BaseModel):
     url_manual: str | None = None
 
 
+# The provider ids the edit form sets; changing one rematches the rom.
+MATCH_ID_FIELDS: Final = tuple(
+    f for f in RomUpdateForm.model_fields if f.endswith("_id")
+)
+# What an edit reports as changed, each read off one or more columns.
+_EDIT_AUDIT_FIELDS: Final[dict[str, tuple[str, ...]]] = {
+    "name": ("name",),
+    "fs_name": ("fs_name",),
+    "summary": ("summary",),
+    "cover": ("url_cover", "path_cover_l"),
+    "manual": ("url_manual",),
+}
+
+
+def _record_rom_update(request: Request, before: Rom, after: Rom) -> None:
+    """Record an edit as a rematch when a provider id moved, else as the fields it changed."""
+    providers = {
+        f: getattr(after, f) for f in changed_fields(before, after, MATCH_ID_FIELDS)
+    }
+    changed = [
+        label
+        for label, columns in _EDIT_AUDIT_FIELDS.items()
+        if changed_fields(before, after, columns)
+    ]
+    if not providers and not changed:
+        return
+
+    data: dict[str, Any] = {"changed": changed}
+    for field in ("name", "fs_name"):
+        if field in changed:
+            data[field] = change(before, after, field)
+    if providers:
+        data["providers"] = providers
+    record(
+        AuditAction.ROM_MATCH if providers else AuditAction.ROM_EDIT,
+        request,
+        AuditTarget.of_rom(after),
+        data,
+    )
+
+
 class RomUserData(BaseModel):
     is_main_sibling: bool | None = Field(
         default=None, description="Whether this rom is the main sibling."
@@ -413,8 +466,9 @@ class CustomLimitOffsetParams(LimitOffsetParams):
     offset: int = Query(0, ge=0, description="Page offset")
 
 
-class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
-    total: GreaterEqualZero | None
+class CustomLimitOffsetPage[T: BaseModel](TypedLimitOffsetPage[T]):
+    # Null when the caller opts out of the count with `with_total=false`.
+    total: GreaterEqualZero | None  # type: ignore[assignment]
     char_index: dict[str, int]
     rom_id_index: list[int]
     filter_values: RomFiltersDict
@@ -439,7 +493,7 @@ def parse_released_days(values: list[str] | None) -> list[tuple[int, int]]:
 
     if len(values) > MAX_RELEASED_DAYS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"At most {MAX_RELEASED_DAYS} released_days may be requested",
         )
 
@@ -448,7 +502,7 @@ def parse_released_days(values: list[str] | None) -> list[tuple[int, int]]:
         matched = RELEASED_DAY_REGEX.match(value.strip())
         if not matched:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Invalid released_days value: {value!r}, expected 'M-D'",
             )
         days.append((int(matched[1]), int(matched[2])))
@@ -557,8 +611,8 @@ def get_roms(
         order_by=order_by,
         order_dir=order_dir,
         user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
-        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
+        hidden_platform_ids=perms.hidden_platform_ids,
+        hidden_rom_ids=perms.hidden_rom_ids,
         updated_after=updated_after,
         released_days=parsed_released_days,
         released_before_year=released_before_year,
@@ -628,14 +682,12 @@ def get_roms(
         )
         # `hidden`, the only RomUser column filter values read, already
         # bumps the global version, so no per-user version is embedded.
-        query_filters = db_rom_handler.with_filter_values(
+        filter_values = db_rom_handler.with_filter_values(
             query=filter_query,
             cache_key=build_unscoped_filter_values_cache_key(
                 request.user.id, is_unscoped_scope
             ),
         )
-        # trunk-ignore(mypy/typeddict-item)
-        filter_values = RomFiltersDict(**query_filters)
 
     # The full ordered id list backs virtual scroll, so it's computed over the
     # whole result set. Callers that only need a page (e.g. the home rails) opt
@@ -705,7 +757,7 @@ def get_roms(
                 else None
             )
 
-        params = resolve_params()
+        params: CustomLimitOffsetParams = resolve_params()
         if with_rom_id_index:
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
         else:
@@ -742,14 +794,11 @@ def get_rom_identifiers(
 ) -> list[int]:
     """Retrieve rom identifiers."""
     perms = get_permissions(request)
-    db_roms = db_rom_handler.get_roms_scalar(
+    return db_rom_handler.get_rom_ids(
         user_id=request.user.id,
-        only_fields=[Rom.id],
         hidden_platform_ids=perms.hidden_platform_ids,
         hidden_rom_ids=perms.hidden_rom_ids,
     )
-
-    return [r.id for r in db_roms]
 
 
 @protected_route(router.get, "/random", [Scope.ROMS_READ])
@@ -795,8 +844,8 @@ def get_random_rom(
             smart_collection_id=smart_collection_id,
         ),
         user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,  # type: ignore
-        hidden_rom_ids=perms.hidden_rom_ids,  # type: ignore
+        hidden_platform_ids=perms.hidden_platform_ids,
+        hidden_rom_ids=perms.hidden_rom_ids,
         include_related=False,
     )
 
@@ -816,6 +865,37 @@ def get_random_rom(
         return None
 
     return SimpleRomSchema.from_orm_with_request(rom, request)
+
+
+def _bulk_download_target(
+    user_id: int,
+    platform_id: int | None,
+    collection_id: int | None,
+    smart_collection_id: int | None,
+    virtual_collection_id: str | None,
+) -> AuditTarget | None:
+    """What a bulk download took whole, or None for a hand-picked list of roms."""
+    if platform_id:
+        platform = db_platform_handler.get_platform(platform_id)
+        return AuditTarget.of_platform(platform) if platform else None
+    if virtual_collection_id:
+        name, _ = VirtualCollection.from_id(virtual_collection_id)
+        return AuditTarget(
+            AuditTargetType.VIRTUAL_COLLECTION, virtual_collection_id, name
+        )
+    if collection_id:
+        collection = db_collection_handler.get_collection(collection_id)
+    elif smart_collection_id:
+        collection = db_collection_handler.get_smart_collection(smart_collection_id)
+    else:
+        return None
+    if collection is None:
+        return None
+    target = AuditTarget.of_collection(collection)
+    if collection.is_public or collection.user_id == user_id:
+        return target
+    # Someone else's private collection is kept by id; its name stays theirs.
+    return AuditTarget(target.type, target.id, None)
 
 
 @protected_route(
@@ -868,9 +948,8 @@ async def download_roms(
 
     # Resolve the target ROM IDs
     if platform_id or collection_id or virtual_collection_id or smart_collection_id:
-        rom_rows = db_rom_handler.get_roms_scalar(
+        rom_id_list = db_rom_handler.get_rom_ids(
             user_id=request.user.id,
-            only_fields=[Rom.id],
             platform_ids=[platform_id] if platform_id else None,
             collection_id=collection_id,
             virtual_collection_id=virtual_collection_id,
@@ -879,7 +958,6 @@ async def download_roms(
             hidden_rom_ids=list(perms.hidden_rom_ids),
             **HAS_FILE_ON_DISK_FILTERS,
         )
-        rom_id_list = list(dict.fromkeys(rom.id for rom in rom_rows))
     elif rom_ids:
         try:
             rom_id_list = parse_comma_separated_ids(rom_ids, "ROM ID")
@@ -925,6 +1003,23 @@ async def download_roms(
         f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
     )
 
+    def served(response: Response) -> Response:
+        # Recorded once there's a response, so a download that failed isn't logged.
+        record_download(
+            request,
+            lambda: _bulk_download_target(
+                request.user.id,
+                platform_id,
+                collection_id,
+                smart_collection_id,
+                virtual_collection_id,
+            ),
+            f"bulk:{binascii.crc32(','.join(map(str, sorted(found_ids))).encode())}",
+            {"count": len(rom_objects), "rom_ids": sorted(found_ids)},
+            action=AuditAction.ROM_BULK_DOWNLOAD,
+        )
+        return response
+
     all_entries = []
     for rom in rom_objects:
         rom_files = sorted(rom.files, key=lambda x: x.file_name)
@@ -954,9 +1049,11 @@ async def download_roms(
             log_label=f"bulk download ({len(rom_objects)} ROMs)",
         )
         if redirect_path:
-            return FileRedirectResponse(
-                download_path=redirect_path,
-                filename=file_name,
+            return served(
+                FileRedirectResponse(
+                    download_path=redirect_path,
+                    filename=file_name,
+                )
             )
 
     content_lines = [
@@ -969,9 +1066,11 @@ async def download_roms(
         for e in all_entries
     ]
 
-    return ZipResponse(
-        content_lines=content_lines,
-        filename=quote(file_name),
+    return served(
+        ZipResponse(
+            content_lines=content_lines,
+            filename=quote(file_name),
+        )
     )
 
 
@@ -1094,9 +1193,7 @@ def get_rom_by_hash(
 async def get_rom_filters(request: Request) -> RomFiltersDict:
     from handler.database import db_rom_handler
 
-    filters = db_rom_handler.get_rom_filters()
-    # trunk-ignore(mypy/typeddict-item)
-    return RomFiltersDict(**filters)
+    return db_rom_handler.get_rom_filters()
 
 
 @protected_route(
@@ -1295,6 +1392,13 @@ async def get_rom_content(
             description="Comma-separated list of file ids to download for multi-part roms."
         ),
     ] = None,
+    purpose: Annotated[
+        Literal["download", "play"],
+        Query(
+            description="`play` when a player fetches the rom to run it, which is "
+            "recorded as a player load rather than a download."
+        ),
+    ] = "download",
 ):
     """Download a rom.
 
@@ -1338,6 +1442,28 @@ async def get_rom_content(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
 
+    def served(response: Response) -> Response:
+        # Recorded once there's a response, so a fetch that failed isn't logged.
+        # The marker is the client's word, so a player's fetch is still recorded.
+        record_download(
+            request,
+            AuditTarget.of_rom(rom),
+            f"rom:{purpose}:{rom.id}:{file_ids or ''}",
+            {
+                "file_name": (
+                    files[0].file_name if len(files) == 1 else f"{file_name}.zip"
+                ),
+                "file_ids": [f.id for f in files] if file_ids else None,
+                "size_bytes": sum(f.file_size_bytes for f in files),
+            },
+            action=(
+                AuditAction.ROM_PLAYER_LOAD
+                if purpose == "play"
+                else AuditAction.ROM_DOWNLOAD
+            ),
+        )
+        return response
+
     m3u_files = playlist_files(files)
 
     # Serve the file directly in development mode for emulatorjs
@@ -1350,14 +1476,16 @@ async def get_rom_content(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"File {file.file_name} not found on disk for ROM {id}",
                 )
-            return FileResponse(
-                path=rom_path,
-                filename=file.file_name,
-                headers={
-                    "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file.file_name)}; filename=\"{quote(file.file_name)}\"",
-                    "Content-Type": "application/octet-stream",
-                    "Content-Length": str(file.file_size_bytes),
-                },
+            return served(
+                FileResponse(
+                    path=rom_path,
+                    filename=file.file_name,
+                    headers={
+                        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file.file_name)}; filename=\"{quote(file.file_name)}\"",
+                        "Content-Type": "application/octet-stream",
+                        "Content-Length": str(file.file_size_bytes),
+                    },
+                )
             )
 
         async def build_zip_in_memory() -> bytes:
@@ -1412,18 +1540,22 @@ async def get_rom_content(
         zip_data = await build_zip_in_memory()
 
         # Streams the zip file to the client
-        return Response(
-            content=zip_data,
-            media_type="application/zip",
-            headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
-            },
+        return served(
+            Response(
+                content=zip_data,
+                media_type="application/zip",
+                headers={
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
+                },
+            )
         )
 
     # Otherwise proxy through nginx
     if len(files) == 1:
-        return FileRedirectResponse(
-            download_path=Path(f"/library/{files[0].full_path}"),
+        return served(
+            FileRedirectResponse(
+                download_path=Path(f"/library/{files[0].full_path}"),
+            )
         )
 
     # Multi-file path: serve cached ZIP for Range requests (resumable),
@@ -1440,9 +1572,11 @@ async def get_rom_content(
             log_label=f"ROM {rom.id}",
         )
         if redirect_path:
-            return FileRedirectResponse(
-                download_path=redirect_path,
-                filename=f"{file_name}.zip",
+            return served(
+                FileRedirectResponse(
+                    download_path=redirect_path,
+                    filename=f"{file_name}.zip",
+                )
             )
 
     content_lines = [
@@ -1466,9 +1600,11 @@ async def get_rom_content(
         )
         content_lines.append(m3u_line)
 
-    return ZipResponse(
-        content_lines=content_lines,
-        filename=f"{quote(file_name)}.zip",
+    return served(
+        ZipResponse(
+            content_lines=content_lines,
+            filename=f"{quote(file_name)}.zip",
+        )
     )
 
 
@@ -1519,7 +1655,7 @@ async def create_physical_rom(
 
     if not match_name:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="A name or a resolvable UPC is required",
         )
 
@@ -1583,6 +1719,12 @@ async def create_physical_rom(
 
     db_rom_handler.invalidate_filter_values_cache()
     refresh_affected_smart_collections([added_rom.id])
+    record(
+        AuditAction.ROM_CREATE,
+        request,
+        AuditTarget.of_rom(added_rom),
+        {"physical": True},
+    )
 
     return DetailedRomSchema.from_orm_with_request(added_rom, request)
 
@@ -1619,6 +1761,8 @@ async def update_rom(
     assert_rom_visible(request, rom)
 
     if unmatch_metadata:
+        unmatched = {f: getattr(rom, f) for f in MATCH_ID_FIELDS if getattr(rom, f)}
+        unmatch_target = AuditTarget.of_rom(rom)
         db_rom_handler.update_rom(
             id,
             {
@@ -1670,6 +1814,12 @@ async def update_rom(
 
         db_rom_handler.invalidate_filter_values_cache()
         refresh_affected_smart_collections([id])
+        record(
+            AuditAction.ROM_UNMATCH,
+            request,
+            unmatch_target,
+            {"providers": unmatched},
+        )
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     provided_fields = form_data.model_fields_set
@@ -2138,9 +2288,11 @@ async def update_rom(
             )
 
     # Refetch the rom from the database
+    before = rom
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+    _record_rom_update(request, before, rom)
 
     if meta_playmatch_handler.is_manual_match(form_data.model_fields_set):
         fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
@@ -2216,9 +2368,11 @@ async def delete_roms(
     deleted_ids: list[int] = []
     failed_ids = []
     errors = []
+    actor = AuditActor.from_request(request)
+    audit_drafts: list[AuditDraft] = []
 
     for id in roms:
-        rom = db_rom_handler.get_rom(id)
+        rom = db_rom_handler.get_rom_deletion_target(id)
 
         # Hidden roms are masked as not-found rather than reported deletable.
         if not rom or not perms.can_see_rom(rom.id, rom.platform_id):
@@ -2226,6 +2380,7 @@ async def delete_roms(
             errors.append(f"ROM with ID {id} not found")
             continue
 
+        removed = False
         try:
             if id in delete_from_fs:
                 log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
@@ -2234,8 +2389,10 @@ async def delete_roms(
                     full_path = fs_rom_handler.validate_path(rom_path)
                     if full_path.is_dir():
                         await fs_rom_handler.remove_directory(rom_path)
+                        removed = True
                     else:
                         await fs_rom_handler.remove_file(rom_path)
+                        removed = True
                         # Clean up empty parent directory if it becomes empty
                         parent = full_path.parent
                         if (
@@ -2260,6 +2417,18 @@ async def delete_roms(
                 f"Deleting {hl(str(rom.name or 'ROM'), color=BLUE)} [{hl(rom.fs_name)}] from database"
             )
             db_rom_handler.delete_rom(id)
+            # Recorded as soon as the row is gone, whatever becomes of its resources.
+            audit_drafts.append(
+                AuditDraft(
+                    AuditAction.ROM_DELETE,
+                    actor,
+                    AuditTarget.of_rom(rom),
+                    {
+                        "deleted_from_fs": removed,
+                        "platform": rom.platform_display_name,
+                    },
+                )
+            )
 
             try:
                 await fs_resource_handler.remove_directory(rom.fs_resources_path)
@@ -2273,6 +2442,7 @@ async def delete_roms(
             failed_ids.append(id)
             errors.append(f"Failed to delete ROM {id}: {str(e)}")
 
+    record_many(audit_drafts)
     if deleted_ids:
         db_rom_handler.invalidate_filter_values_cache()
         # Deleted ROMs would otherwise linger in the cached smart collection
@@ -2304,7 +2474,7 @@ async def update_rom_user(
     ] = False,
 ) -> RomUserSchema:
     """Update rom data associated to the current user."""
-    rom = db_rom_handler.get_rom(id)
+    rom = db_rom_handler.get_rom_visibility(id)
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)

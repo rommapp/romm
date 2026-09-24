@@ -1,5 +1,6 @@
 {
   "add-collection": "Adaugă colecție",
+  "collection-deleted": "Colecția „{name}” a fost ștearsă",
   "cover": "Copertă",
   "create-collection": "Creează colecție",
   "create-failed": "Crearea colecției a eșuat",
@@ -7,6 +8,8 @@
   "current-filters": "Filtrele actuale",
   "danger-zone": "Zonă periculoasă",
   "delete-collection": "Șterge colecția",
+  "delete-collection-body": "Elimină „{name}” ({count} ROM-uri în colecție). Fișierele ROM nu sunt șterse.",
+  "delete-collection-failed": "Ștergerea colecției a eșuat: {error}",
   "delete-collection-hint": "Elimină colecția din RomM. Fișierele ROM nu sunt șterse.",
   "description": "Descriere",
   "download-collection": "Descarcă colecția",
@@ -24,7 +27,6 @@
   "no-collections-search": "Nicio colecție nu corespunde căutării „{query}”.",
   "no-collections-yet": "Nicio colecție încă.",
   "no-collections-yet-detail": "Nu ai încă nicio colecție. Adaugă un joc la favorite sau creează una din bara de acțiuni a oricărui ROM.",
-  "no-collections-yet-hint": "Nicio colecție încă. Creează una mai sus.",
   "not-found": "Colecția nu a fost găsită.",
   "owner": "Proprietar",
   "private": "Privat",

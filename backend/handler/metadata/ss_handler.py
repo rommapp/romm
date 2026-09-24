@@ -17,7 +17,7 @@ from adapters.services.screenscraper import (
     prime_account_limits,
     reset_scan_state,
 )
-from adapters.services.screenscraper_types import SSGame, SSGameDate
+from adapters.services.screenscraper_types import SSGame, SSGameDate, SSGameRom
 from config import (
     SCREENSCRAPER_DEV_ID,
     SCREENSCRAPER_DEV_PASSWORD,
@@ -27,10 +27,15 @@ from config import (
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
-from handler.filesystem.base_handler import region_name_to_provider_shortcode
+from handler.filesystem.base_handler import (
+    TRANSLATION_TAG,
+    normalize_provider_languages,
+    normalize_provider_regions,
+    region_name_to_provider_shortcode,
+)
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom, RomFile
+from models.rom import LookupHashes, Rom, RomFile
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
@@ -228,6 +233,10 @@ ARCADES_SS_IDS: Final = [ARCADE_SS_ID, CPS1_SS_ID, CPS2_SS_ID, CPS3_SS_ID]
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
 SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
 
+
+# ScreenScraper buckets that name no place, so they must not become facet values.
+_SS_PSEUDO_REGIONS: Final = frozenset({"ss", "cus"})
+
 NOTGAME_NAME_PREFIX: Final = "ZZZ(NOTGAME)"
 
 _ISO_EXTENSIONS: Final = frozenset({"iso", "cue", "chd", "gdi", "cdi", "bin"})
@@ -329,10 +338,17 @@ class SSMetadata(SSMetadataMedia):
     game_modes: list[str]
     genres: list[str]
     player_count: str
+    # What the dump our hashes matched says of itself, kept by the scan.
+    dump_regions: NotRequired[list[str]]
+    dump_languages: NotRequired[list[str]]
+    dump_tags: NotRequired[list[str]]
 
 
 class SSRom(BaseRom):
     ss_id: int | None
+    regions: NotRequired[list[str]]
+    languages: NotRequired[list[str]]
+    tags: NotRequired[list[str]]
     ss_metadata: NotRequired[SSMetadata]
 
 
@@ -556,7 +572,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         """Normalize the score to be between 0 and 10 because for some reason Screenscraper likes to rate over 20."""
         try:
             return str(int(score) / 2)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return ""
 
     def _parse_date(date_text: str) -> int | None:
@@ -660,6 +676,110 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             **extract_media_from_ss_game(rom, game),
         }
     )
+
+
+def find_ss_dump(game: SSGame, hashes: LookupHashes) -> SSGameRom | None:
+    """The entry in `jeu.roms` our own file is, by hash, or None.
+
+    `jeu.romid` names a dump of the game that is not necessarily the one asked
+    about, so the hashes decide instead. Nothing else in the response is
+    specific to the copy on disk.
+    """
+    wanted = {
+        key: value.lower()
+        for key, value in (
+            ("rommd5", hashes.md5),
+            ("romsha1", hashes.sha1),
+            ("romcrc", hashes.crc),
+        )
+        if value
+    }
+    if not wanted:
+        return None
+
+    for dump in game.get("roms") or []:
+        if not isinstance(dump, dict):
+            continue
+        if any(
+            str(dump.get(key, "")).lower() == value for key, value in wanted.items()
+        ):
+            return dump
+
+    return None
+
+
+def extract_regions_from_ss_dump(dump: SSGameRom) -> list[str]:
+    """Regions of one dump. Its buckets name no place, so they are dropped."""
+    codes = (dump.get("regions") or {}).get("regions_shortname") or []
+    return normalize_provider_regions(
+        code
+        for code in codes
+        if isinstance(code, str) and code.strip().lower() not in _SS_PSEUDO_REGIONS
+    )
+
+
+def extract_languages_from_ss_dump(dump: SSGameRom) -> list[str]:
+    """Languages of one dump, which a translation carries its target in."""
+    codes = (dump.get("langues") or {}).get("langues_shortname") or []
+    return normalize_provider_languages(code for code in codes if isinstance(code, str))
+
+
+# The dump flags naming something parse_tags spells the same way, so a hash
+# match and a filename land on one facet value rather than two. ScreenScraper
+# also sends `unl`, left out because no filename tag answers to it.
+_SS_DUMP_FLAG_TAGS: Final = (
+    ("trad", TRANSLATION_TAG),
+    ("hack", "Hack"),
+    ("beta", "Beta"),
+    ("demo", "Demo"),
+)
+
+
+def extract_tags_from_ss_dump(dump: SSGameRom) -> list[str]:
+    """Tags of one dump, from the flags it raises."""
+    # ScreenScraper sends these flags as "1", not 1.
+    return [
+        tag
+        for key, tag in _SS_DUMP_FLAG_TAGS
+        if str(dump.get(key, "")).strip() == "1"  # type: ignore[literal-required]
+    ]
+
+
+def _apply_ss_dump(game_rom: SSRom, game: SSGame, file: RomFile | None) -> None:
+    """Attach the tags of the dump our own hashes match, if any is ours."""
+    if file is None:
+        return
+
+    dump = find_ss_dump(
+        game,
+        LookupHashes(crc=file.crc_hash, md5=file.md5_hash, sha1=file.sha1_hash),
+    )
+    if dump is None:
+        return
+
+    game_rom["regions"] = extract_regions_from_ss_dump(dump)
+    game_rom["languages"] = extract_languages_from_ss_dump(dump)
+    game_rom["tags"] = extract_tags_from_ss_dump(dump)
+
+
+def primary_lookup_file(rom: Rom, files: list[RomFile]) -> RomFile | None:
+    """The file whose hashes identify this ROM to ScreenScraper, or None.
+
+    The largest top-level file, which carries the complete digests; a platform
+    that names its own extensions is restricted to those.
+    """
+    filtered_files = [
+        file
+        for file in files
+        if file.file_size_bytes > 0
+        and file.is_top_level
+        and (
+            UPS(rom.platform_slug) not in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
+            or file.file_extension
+            in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[UPS(rom.platform_slug)]
+        )
+    ]
+    return max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
 
 
 def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
@@ -826,23 +946,7 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return SSRom(ss_id=None), False
 
-        filtered_files = [
-            file
-            for file in files
-            if file.file_size_bytes > 0
-            and file.is_top_level
-            and (
-                UPS(rom.platform_slug)
-                not in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
-                or file.file_extension
-                in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[UPS(rom.platform_slug)]
-            )
-        ]
-
-        # Select the largest file by size, as it is most likely to be the main ROM file.
-        # This increases the accuracy of metadata lookups, since the largest file is
-        # expected to have the correct and complete hash values for external services.
-        first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
+        first_file = primary_lookup_file(rom, files)
         if first_file is None:
             return SSRom(ss_id=None), False
 
@@ -893,7 +997,13 @@ class SSHandler(MetadataHandler):
             )
             return SSRom(ss_id=None), True
 
-        return build_ss_game(rom, res), False
+        # Tags describe the dump, so they are read only off the entry our own
+        # hash matched: jeuInfos also answers a bare romnom, which identifies a
+        # title the way the name search does.
+        game_rom = build_ss_game(rom, res)
+        _apply_ss_dump(game_rom, res, first_file)
+
+        return game_rom, False
 
     async def get_rom(self, rom: Rom, file_name: str, platform_ss_id: int) -> SSRom:
         from handler.filesystem import fs_rom_handler
@@ -1011,7 +1121,14 @@ class SSHandler(MetadataHandler):
 
         return build_ss_game(rom, res)
 
-    async def get_rom_by_id(self, rom: Rom, ss_id: int) -> SSRom:
+    async def get_rom_by_id(
+        self, rom: Rom, ss_id: int, files: list[RomFile] | None = None
+    ) -> SSRom:
+        """Refetch a game by its ScreenScraper id.
+
+        Args:
+            files: the ROM's files, when the dump-specific tags are wanted too.
+        """
         if not self.is_enabled():
             return SSRom(ss_id=None)
 
@@ -1024,7 +1141,11 @@ class SSHandler(MetadataHandler):
         if not res:
             return SSRom(ss_id=None)
 
-        return build_ss_game(rom, res)
+        game_rom = build_ss_game(rom, res)
+        if files is not None:
+            _apply_ss_dump(game_rom, res, primary_lookup_file(rom, files))
+
+        return game_rom
 
     async def get_matched_rom_by_id(self, rom: Rom, ss_id: int) -> SSRom | None:
         if not self.is_enabled():

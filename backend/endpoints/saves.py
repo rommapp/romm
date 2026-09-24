@@ -7,12 +7,13 @@ from typing import Annotated
 from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
-from config import MAX_AUTOCLEANUP_LIMIT
+from config import MAX_AUTOCLEANUP_LIMIT, MAX_SAVES_PER_SLOT
 from decorators.auth import protected_route
 from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummarySchema
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from handler.asset_store import remove_asset_file, remove_screenshot
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
@@ -28,9 +29,10 @@ from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import Save
+from models.assets import SAVE_SLOT_MAX_LENGTH, Save
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
+from utils.assets import normalize_asset_labels
 from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
@@ -103,6 +105,37 @@ def _syncs_for_save(
 DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
 
 
+async def _delete_save(save: Save) -> None:
+    """Drop a save row with its file and screenshot."""
+    db_save_handler.delete_save(save.id)
+    await remove_asset_file(save.full_path, "Save file")
+    await remove_screenshot(save.screenshot)
+
+
+async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
+    """Drop every version of ``slot`` past the ``keep`` newest, files included."""
+    for file_path, file_name, file_name_no_ext in db_save_handler.prune_slot(
+        user_id=user_id, rom_id=rom_id, slot=slot, keep=keep
+    ):
+        await remove_asset_file(f"{file_path}/{file_name}", "Save file")
+        await remove_screenshot(
+            db_screenshot_handler.get_screenshot(
+                rom_id=rom_id,
+                user_id=user_id,
+                file_name=file_name,
+                file_name_no_ext=file_name_no_ext,
+            )
+        )
+
+
+def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
+    """Versions to keep in a slot: the tighter of the client's ask and the server cap."""
+    limits = [MAX_SAVES_PER_SLOT] if MAX_SAVES_PER_SLOT else []
+    if autocleanup:
+        limits.append(autocleanup_limit)
+    return min(limits, default=None)
+
+
 def _apply_datetime_tag(filename: str) -> str:
     name, ext = os.path.splitext(filename)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
@@ -144,6 +177,16 @@ def _increment_session_counter(session_id: int, user_id: int) -> None:
         log.warning(f"Failed to update sync session {session_id}", exc_info=True)
 
 
+def _owned_save_or_404(id: int, user_id: int) -> Save:
+    save = db_save_handler.get_save_by_id(id)
+    if not save or save.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Save with ID {id} not found",
+        )
+    return save
+
+
 router = APIRouter(
     prefix="/saves",
     tags=["saves"],
@@ -163,7 +206,7 @@ async def add_save(
     request: Request,
     rom_id: int,
     emulator: str | None = None,
-    slot: str | None = None,
+    slot: Annotated[str | None, Query(max_length=SAVE_SLOT_MAX_LENGTH)] = None,
     device_id: str | None = None,
     session_id: int | None = None,
     overwrite: bool = False,
@@ -178,6 +221,7 @@ async def add_save(
 
     # Keep at least the save just uploaded, and cap what a client can retain
     autocleanup_limit = max(1, min(autocleanup_limit, MAX_AUTOCLEANUP_LIMIT))
+    keep = _slot_retention(autocleanup, autocleanup_limit)
 
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
@@ -273,6 +317,9 @@ async def add_save(
                 await fs_asset_handler.remove_file(f"{saves_path}/{actual_filename}")
             except FileNotFoundError:
                 pass
+            # A retry still counts as an upload to the slot, so the cap applies.
+            if keep is not None:
+                await _prune_slot(request.user.id, rom.id, slot, keep)
             return _build_save_schema(
                 existing_by_hash, _syncs_for_save(existing_by_hash.id, device), device
             )
@@ -331,20 +378,8 @@ async def add_save(
     if session_id:
         _increment_session_counter(session_id, request.user.id)
 
-    if slot and autocleanup:
-        slot_saves = db_save_handler.get_saves(
-            user_id=request.user.id,
-            rom_ids=[rom.id],
-            slot=slot,
-            order_by="updated_at",
-        )
-        if len(slot_saves) > autocleanup_limit:
-            for old_save in slot_saves[autocleanup_limit:]:
-                db_save_handler.delete_save(old_save.id)
-                try:
-                    await fs_asset_handler.remove_file(old_save.full_path)
-                except FileNotFoundError:
-                    log.warning(f"Could not delete old save file: {old_save.full_path}")
+    if slot and keep is not None:
+        await _prune_slot(request.user.id, rom.id, slot, keep)
 
     if screenshotFile and screenshotFile.filename:
         try:
@@ -354,6 +389,12 @@ async def add_save(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid screenshot filename: {str(exc)}",
             ) from exc
+        # Save.screenshot is matched by stem, so a slotted upload names the
+        # screenshot after the tagged save whatever the client called it.
+        if slot:
+            save_stem, _ = os.path.splitext(actual_filename)
+            _, screenshot_ext = os.path.splitext(sanitized_screenshot_filename)
+            sanitized_screenshot_filename = f"{save_stem}{screenshot_ext}"
 
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
@@ -444,12 +485,7 @@ def get_saves(
 @protected_route(router.get, "/identifiers", [Scope.ASSETS_READ])
 def get_save_identifiers(request: Request) -> list[int]:
     """Retrieve save identifiers."""
-    saves = db_save_handler.get_saves(
-        user_id=request.user.id,
-        only_fields=[Save.id],
-    )
-
-    return [save.id for save in saves]
+    return db_save_handler.get_save_ids(user_id=request.user.id)
 
 
 @protected_route(router.get, "/summary", [Scope.ASSETS_READ])
@@ -685,12 +721,7 @@ def update_save_visibility(
     is_public: Annotated[bool, Body(embed=True)],
 ) -> SaveSchema:
     """Toggle a save's public/private visibility (owner only)."""
-    save = db_save_handler.get_save_by_id(id)
-    if not save or save.user_id != request.user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Save with ID {id} not found",
-        )
+    save = _owned_save_or_404(id, request.user.id)
 
     updated = db_save_handler.update_save(id, {"is_public": is_public})
 
@@ -705,6 +736,46 @@ def update_save_visibility(
     refresh_affected_smart_collections([save.rom_id], membership_only=True)
 
     return _build_save_schema(updated)
+
+
+@protected_route(
+    router.put,
+    "/{id}/favorite",
+    [Scope.ASSETS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def update_save_favorite(
+    request: Request,
+    id: int,
+    is_favorite: Annotated[bool, Body(embed=True)],
+) -> SaveSchema:
+    """Favorite a save, sorting it ahead of the rest (owner only)."""
+    _owned_save_or_404(id, request.user.id)
+
+    return _build_save_schema(
+        db_save_handler.update_save(id, {"is_favorite": is_favorite}, touch=False)
+    )
+
+
+@protected_route(
+    router.put,
+    "/{id}/labels",
+    [Scope.ASSETS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def update_save_labels(
+    request: Request,
+    id: int,
+    labels: Annotated[list[str], Body(embed=True)],
+) -> SaveSchema:
+    """Replace a save's free-text labels (owner only)."""
+    _owned_save_or_404(id, request.user.id)
+
+    return _build_save_schema(
+        db_save_handler.update_save(
+            id, {"labels": normalize_asset_labels(labels)}, touch=False
+        )
+    )
 
 
 @protected_route(
@@ -742,27 +813,10 @@ async def delete_saves(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
         affected_rom_ids.add(save.rom_id)
-        db_save_handler.delete_save(save_id)
-
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
-        try:
-            file_path = f"{save.file_path}/{save.file_name}"
-            await fs_asset_handler.remove_file(file_path=file_path)
-        except FileNotFoundError:
-            error = f"Save file {hl(save.file_name)} not found for platform {hl(save.rom.platform_display_name, color=BLUE)}[{hl(save.rom.platform_slug)}]"
-            log.error(error)
-
-        if save.screenshot:
-            db_screenshot_handler.delete_screenshot(save.screenshot.id)
-
-            try:
-                file_path = f"{save.screenshot.file_path}/{save.screenshot.file_name}"
-                await fs_asset_handler.remove_file(file_path=file_path)
-            except FileNotFoundError:
-                error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
-                log.error(error)
+        await _delete_save(save)
 
     refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 

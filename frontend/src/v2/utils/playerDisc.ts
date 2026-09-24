@@ -68,11 +68,23 @@ export function resolveStoredDisc(
   }
 
   const storedDiscId = storedDisc ? parseInt(storedDisc) : null;
-  if (storedDiscId !== null && files.some((f) => f.id === storedDiscId)) {
+  const stored = files.find((f) => f.id === storedDiscId);
+  if (stored) {
+    // A playlist remembered from before it stopped being offered on its own.
+    if (isM3uFile(stored)) return { disc: defaultDisc(files), stale: true };
     return { disc: storedDiscId, stale: false };
   }
   // NaN (non-numeric storage) counts as stored garbage worth forgetting.
   return { disc: defaultDisc(files), stale: storedDiscId !== null };
+}
+
+// A playlist only names the discs it sits beside, so booting one on its own
+// hands the core a file list of one text file (issue #4306). Booting the set
+// whole is what the playlist is for, and that is the ALL_DISCS option.
+export function selectableDiscFiles<T extends DiscFile>(
+  files: readonly T[],
+): readonly T[] {
+  return bootableFiles(files).filter((f) => !isM3uFile(f));
 }
 
 // A set shipping its own .m3u is a curated multi-disc release, so boot it whole;

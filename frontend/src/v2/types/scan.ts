@@ -18,5 +18,4 @@ export interface ScanRequest {
   roms_ids?: number[];
   apis: string[];
   launchbox_remote_enabled?: boolean;
-  playmatch_enabled?: boolean;
 }

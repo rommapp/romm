@@ -15,6 +15,7 @@ export type MetadataOption = {
 const defaultHeartbeat: Heartbeat = {
   SYSTEM: {
     VERSION: "0.0.0",
+    GIT_BRANCH: null,
     SHOW_SETUP_WIZARD: false,
   },
   METADATA_SOURCES: {
@@ -57,6 +58,10 @@ const defaultHeartbeat: Heartbeat = {
     AUTOLOGIN: false,
     PROVIDER: "",
     RP_INITIATED_LOGOUT: false,
+  },
+  NOTIFICATIONS: {
+    EMAIL_ENABLED: false,
+    EMAILS_RESET_LINKS: false,
   },
   TASKS: {
     ENABLE_SCHEDULED_RESCAN: false,
@@ -186,7 +191,7 @@ export default defineStore("heartbeat", {
             : "",
         },
         {
-          name: "Flashpoint Project",
+          name: "Flashpoint",
           value: "flashpoint",
           logo_path: "/assets/scrappers/flashpoint.png",
           disabled: !this.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED

@@ -12,10 +12,7 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import type {
-  Body_add_state_api_states_post as AddStateInput,
-  FirmwareSchema,
-} from "@/__generated__";
+import type { FirmwareSchema } from "@/__generated__";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
@@ -35,7 +32,10 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
-import { buildFormInput } from "@/utils/formData";
+import {
+  buildStateFormData,
+  resolveScreenshot,
+} from "@/views/Player/EmulatorJS/utils";
 import {
   installEJSDefaultOptionsTrap,
   invalidateEmulatorJSRomCacheIfRenamed,
@@ -450,6 +450,7 @@ async function boot() {
   window.EJS_gameUrl = getDownloadPath({
     rom: rom,
     fileIDs: validDiscId ? [validDiscId] : [],
+    purpose: "play",
   });
 
   // BIOS selection persistence
@@ -530,20 +531,14 @@ async function boot() {
   // Set up EmulatorJS callbacks
   window.EJS_onSaveState = async function ({
     state: stateFile,
-    screenshot: screenshotFile,
+    screenshot: emulatorScreenshot,
   }: {
     state: ArrayBuffer;
-    screenshot: ArrayBuffer;
+    screenshot?: ArrayBuffer;
   }) {
+    const screenshotFile = await resolveScreenshot(emulatorScreenshot);
     try {
-      const formData = buildFormInput<AddStateInput>([
-        ["stateFile", new Blob([stateFile]), "state.save"],
-        [
-          "screenshotFile",
-          new Blob([screenshotFile], { type: "image/png" }),
-          "screenshot.png",
-        ],
-      ]);
+      const formData = buildStateFormData(stateFile, screenshotFile);
 
       await api.post("/states", formData, {
         headers: { "Content-Type": "multipart/form-data" },

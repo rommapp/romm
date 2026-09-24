@@ -14,7 +14,7 @@ const formValid = { value: true };
 
 const RDialog = {
   props: ["modelValue"],
-  template: `<div v-if="modelValue"><slot name="header" /><slot name="content" /><slot name="footer" /></div>`,
+  template: `<div v-if="modelValue"><slot name="header" /><slot name="content" /><slot name="footer-start" /><slot name="footer" /></div>`,
 };
 const RForm = {
   methods: {
@@ -48,12 +48,14 @@ const RBtn = {
   template: `<button class="btn" :disabled="disabled" @click="$emit('click')"><slot /></button>`,
 };
 
-function mountDialog(initialFolder = "") {
+function mountDialog() {
   return mount(UploadFilesDialog, {
     props: {
       modelValue: true,
-      folders: [{ value: "hack", label: "Hack", icon: "mdi-pencil-ruler" }],
-      initialFolder,
+      folders: [
+        { value: "", label: "Root", icon: "mdi-folder-home-outline" },
+        { value: "hack", label: "Hack", icon: "mdi-pencil-ruler" },
+      ],
     },
     global: {
       stubs: {
@@ -92,14 +94,12 @@ describe("UploadFilesDialog", () => {
     expect(payload.files.map((f) => f.name)).toEqual(["fix.ips"]);
   });
 
-  it("preselects the active folder", async () => {
-    const wrapper = mountDialog("hack");
-    await wrapper.get(".dropzone").trigger("click");
-    await uploadButton(wrapper).trigger("click");
-    await nextTick();
+  it("offers a new folder ahead of the existing destinations", () => {
+    const wrapper = mountDialog();
 
-    const [payload] = wrapper.emitted("submit")![0] as [{ folder: string }];
-    expect(payload.folder).toBe("hack");
+    expect(
+      wrapper.findAll("select.dest option").map((o) => o.attributes("value")),
+    ).toEqual(["__new__", "", "hack"]);
   });
 
   it("trims a new folder path before emitting it", async () => {
@@ -127,15 +127,16 @@ describe("UploadFilesDialog", () => {
     formValid.value = true;
   });
 
-  it("starts fresh every time it opens", async () => {
+  it("starts fresh on the root every time it opens", async () => {
     const wrapper = mountDialog();
+    await wrapper.get("select.dest").setValue("hack");
     await wrapper.get(".dropzone").trigger("click");
     await wrapper.setProps({ modelValue: false });
-    await wrapper.setProps({ modelValue: true, initialFolder: "hack" });
+    await wrapper.setProps({ modelValue: true });
 
     expect(uploadButton(wrapper).attributes("disabled")).toBeDefined();
     expect(
       (wrapper.get("select.dest").element as HTMLSelectElement).value,
-    ).toBe("hack");
+    ).toBe("");
   });
 });

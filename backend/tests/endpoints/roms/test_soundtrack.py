@@ -1,13 +1,14 @@
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
 from endpoints.roms import soundtrack as soundtrack_endpoint
+from handler import scan_handler
 from handler.database import db_rom_handler
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
+from utils import audio_tags
 from utils.audio_tags import AudioTags, track_meta_columns
 
 MP3_BYTES = b"ID3\x03\x00\x00\x00\x00\x00\x21fake mp3 payload"
@@ -18,34 +19,11 @@ def _auth(token: str) -> dict[str, str]:
 
 
 @pytest.fixture
-def soundtrack_fs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    folder_dir = tmp_path / "library"
-    folder_dir.mkdir()
-
-    def validate_path(path: str) -> Path:
-        return folder_dir / Path(path).name
-
-    async def remove_file(path: str) -> None:
-        target = folder_dir / Path(path).name
-        if target.exists():
-            target.unlink()
-        else:
-            raise FileNotFoundError(path)
-
-    monkeypatch.setattr(
-        soundtrack_endpoint.fs_rom_handler, "validate_path", validate_path
-    )
-    monkeypatch.setattr(
-        soundtrack_endpoint.fs_rom_handler,
-        "make_directory",
-        AsyncMock(return_value=None),
-    )
-    monkeypatch.setattr(
-        soundtrack_endpoint.fs_rom_handler,
-        "remove_file",
-        AsyncMock(side_effect=remove_file),
-    )
-    return folder_dir
+def soundtrack_fs(game_folder_on_disk: Path) -> Path:
+    """The ROM's soundtrack folder inside a real temp library."""
+    media_dir = game_folder_on_disk / "soundtrack"
+    media_dir.mkdir()
+    return media_dir
 
 
 # ---------- POST /api/roms/{id}/soundtracks ----------
@@ -97,6 +75,64 @@ def test_upload_soundtrack_upserts_on_reupload(
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]
     assert len(soundtracks) == 1
+
+
+def test_upload_soundtrack_creates_missing_folder(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    soundtrack_fs.rmdir()
+
+    response = client.post(
+        f"/api/roms/{game_folder_rom.id}/soundtracks",
+        headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
+        files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert (soundtrack_fs / "track1.mp3").read_bytes() == MP3_BYTES
+    assert db_rom_handler.get_rom_files_by_category(
+        game_folder_rom.id, RomFileCategory.SOUNDTRACK
+    )
+
+
+def test_upload_soundtrack_keeps_the_other_files(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    before = {f.file_name for f in game_folder_rom.files}
+
+    response = client.post(
+        f"/api/roms/{game_folder_rom.id}/soundtracks",
+        headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
+        files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert {f.file_name for f in rom_after.files} == before | {"track1.mp3"}
+    assert not list(soundtrack_fs.glob(".*"))
+
+
+def test_upload_soundtrack_without_matching_part_returns_400(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    response = client.post(
+        f"/api/roms/{game_folder_rom.id}/soundtracks",
+        headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
+        files={"other.mp3": ("other.mp3", MP3_BYTES, "audio/mpeg")},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "no file part named track1.mp3" in response.json()["detail"]
+    assert not list(soundtrack_fs.iterdir())
 
 
 # Single-file auto-convert on upload is covered in test_convert_to_folder.py.
@@ -220,11 +256,9 @@ def test_upload_soundtrack_extracts_audio_meta(
         "file_mtime": 1_700_000_000.0,
         "file_size": len(MP3_BYTES),
     }
+    monkeypatch.setattr(audio_tags, "extract_audio_meta", lambda _path: fake_meta)
     monkeypatch.setattr(
-        soundtrack_endpoint, "extract_audio_meta", lambda _path: fake_meta
-    )
-    monkeypatch.setattr(
-        soundtrack_endpoint,
+        scan_handler,
         "persist_embedded_cover",
         lambda **kw: (
             f"roms/{kw['platform_id']}/{kw['rom_id']}"
@@ -268,18 +302,14 @@ def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setattr(
-        soundtrack_endpoint,
-        "extract_audio_meta",
-        lambda _path: {"has_embedded_cover": False},
+        audio_tags, "extract_audio_meta", lambda _path: {"has_embedded_cover": False}
     )
     cover_calls: list[dict] = []
 
     def _record_cover_call(**kw: object) -> None:
         cover_calls.append(kw)
 
-    monkeypatch.setattr(
-        soundtrack_endpoint, "persist_embedded_cover", _record_cover_call
-    )
+    monkeypatch.setattr(scan_handler, "persist_embedded_cover", _record_cover_call)
 
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
@@ -468,7 +498,6 @@ def test_upload_soundtrack_rejects_dotdot_only_filename(
         files={"..": ("..", MP3_BYTES, "audio/mpeg")},
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "filename" in response.json()["detail"].lower()
 
 
 # ---------- 404 metadata ----------

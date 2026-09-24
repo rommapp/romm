@@ -40,33 +40,11 @@ def manual_fs_resources(tmp_path: Path, mocker: MockerFixture):
 
 
 @pytest.fixture
-def manual_fs_folder(tmp_path: Path, mocker: MockerFixture):
-    """Mock fs_rom_handler so /manuals/files (folder path) writes to tmp_path."""
-    folder_dir = tmp_path / "library"
-    folder_dir.mkdir()
-
-    def validate_path(path: str) -> Path:
-        return folder_dir / Path(path).name
-
-    async def remove_file(path: str) -> None:
-        target = folder_dir / Path(path).name
-        if target.exists():
-            target.unlink()
-        else:
-            raise FileNotFoundError(path)
-
-    mocker.patch.object(manual_endpoint.fs_rom_handler, "validate_path", validate_path)
-    mocker.patch.object(
-        manual_endpoint.fs_rom_handler,
-        "make_directory",
-        AsyncMock(return_value=None),
-    )
-    mocker.patch.object(
-        manual_endpoint.fs_rom_handler,
-        "remove_file",
-        AsyncMock(side_effect=remove_file),
-    )
-    return folder_dir
+def manual_fs_folder(game_folder_on_disk: Path) -> Path:
+    """The ROM's manual folder inside a real temp library."""
+    media_dir = game_folder_on_disk / "manual"
+    media_dir.mkdir()
+    return media_dir
 
 
 # ---------- POST /api/roms/{id}/manuals (resources) ----------

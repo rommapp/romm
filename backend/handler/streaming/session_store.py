@@ -17,15 +17,18 @@ import json
 import secrets
 import time
 from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any, NamedTuple
 
 from redis.exceptions import WatchError
 
+from handler.notification_handler import notify
 from handler.redis_handler import async_cache
 from handler.socket_handler import socket_handler
 from logger.logger import log
+from models.notification import NotificationKind, NotificationLevel
 
 # Sessions are stored in Redis so they are shared across uvicorn workers and
 # survive backend restarts (the emulator container keeps running either way).
@@ -79,13 +82,44 @@ def session_redis_key(session_key: str) -> str:
     return f"{SESSION_KEY_PREFIX}{session_key}"
 
 
+# A claim reads whether the player already holds a session on the platform and
+# only then reserves a container, two round trips a second claim from the same
+# player can slip between. The gate below makes the pair atomic per player and
+# platform. The TTL sits above the budget a claim may spend tearing down an
+# abandoned session inside the gate, and a backend that dies holding it locks
+# that player out of that platform for a minute, not for the length of a
+# session.
+_CLAIM_GATE_KEY_PREFIX = "romm:streaming:claiming:"
+_CLAIM_GATE_TTL_SECONDS = 60
+
+
+def _claim_gate_redis_key(platform: str, user_id: int) -> str:
+    return f"{_CLAIM_GATE_KEY_PREFIX}{platform}:{user_id}"
+
+
+@asynccontextmanager
+async def claim_gate(platform: str, user_id: int) -> AsyncIterator[bool]:
+    """Hold one player's claim on one platform against a concurrent one.
+
+    Yields False when another claim from the same player is already inside the
+    gate, in which case the caller must not reserve anything.
+    """
+    key = _claim_gate_redis_key(platform, user_id)
+    entered = bool(await async_cache.set(key, "1", nx=True, ex=_CLAIM_GATE_TTL_SECONDS))
+    try:
+        yield entered
+    finally:
+        if entered:
+            await async_cache.delete(key)
+
+
 async def get_session(session_key: str) -> dict[str, Any] | None:
     raw = await async_cache.get(session_redis_key(session_key))
     if raw is None:
         return None
     try:
         return json.loads(raw)
-    except (TypeError, json.JSONDecodeError):
+    except TypeError, json.JSONDecodeError:
         # Corrupt entry, drop it rather than wedging the container forever.
         await async_cache.delete(session_redis_key(session_key))
         return None
@@ -191,7 +225,7 @@ async def cas_session(
                 return _CasOutcome.MISSING, None
             try:
                 session = json.loads(raw)
-            except (TypeError, json.JSONDecodeError):
+            except TypeError, json.JSONDecodeError:
                 session = None
             if not isinstance(session, dict):
                 await pipe.unwatch()
@@ -521,6 +555,7 @@ async def record_termination(
     *,
     ended_by: str | None,
     reason: str | None,
+    ended_by_user_id: int | None = None,
 ) -> None:
     """Leave a note for the player whose session was taken away, and push it
     over the socket so the poll isn't the only way that tab finds out. No-op
@@ -543,6 +578,20 @@ async def record_termination(
     )
     await push_to_user(user_id, "streaming:session-ended", notice)
 
+    if ended_by_user_id is not None and ended_by_user_id != user_id:
+        await notify(
+            user_id,
+            NotificationKind.STREAMING_SESSION_ENDED,
+            NotificationLevel.WARNING,
+            {
+                "rom_id": notice["rom_id"],
+                "rom_name": notice["rom_name"],
+                "platform": notice["platform"],
+                "reason": notice["reason"],
+            },
+            actor_id=ended_by_user_id,
+        )
+
 
 async def push_to_user(user_id: Any, event: str, payload: dict[str, Any]) -> None:
     """Tell one user's open tabs something happened to their session.
@@ -550,12 +599,8 @@ async def push_to_user(user_id: Any, event: str, payload: dict[str, Any]) -> Non
     Best-effort by design: every event pushed here also has a poll behind it,
     so a dropped socket costs latency rather than correctness.
     """
-    if not isinstance(user_id, int):
-        return
-    try:
-        await socket_handler.socket_server.emit(event, payload, room=f"user:{user_id}")
-    except Exception:  # noqa: BLE001
-        log.warning("Failed to push %s", event, exc_info=True)
+    if isinstance(user_id, int):
+        await socket_handler.emit_to_user(user_id, event, payload)
 
 
 async def get_termination(session_key: str, user_id: int) -> dict[str, Any] | None:
@@ -564,7 +609,7 @@ async def get_termination(session_key: str, user_id: int) -> dict[str, Any] | No
         return None
     try:
         return json.loads(raw)
-    except (TypeError, json.JSONDecodeError):
+    except TypeError, json.JSONDecodeError:
         await async_cache.delete(_termination_redis_key(session_key, user_id))
         return None
 

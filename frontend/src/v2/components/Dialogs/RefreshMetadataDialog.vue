@@ -197,6 +197,7 @@ function closeDialog() {
     v-model="show"
     icon="mdi-magnify-scan"
     width="560"
+    cancelable
     @close="closeDialog"
   >
     <template #header>
@@ -484,10 +485,6 @@ function closeDialog() {
       </div>
     </template>
     <template #footer>
-      <RBtn variant="text" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <div style="flex: 1" />
       <RBtn
         variant="translucent"
         color="primary"

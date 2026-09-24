@@ -4,12 +4,14 @@ from typing import cast
 from unittest.mock import AsyncMock, patch
 from urllib.parse import unquote
 
+import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 
 from config.config_manager import MetadataMediaType
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_session
+from handler.database.rom_filters import RomFiltersDict
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
@@ -662,6 +664,44 @@ def test_get_roms_filter_by_tags(
     assert {item["id"] for item in body["items"]} == {rom.id}
 
 
+def assert_filter_values_are_lists(filter_values: dict[str, object]) -> None:
+    assert filter_values.keys() == RomFiltersDict.__annotations__.keys()
+    assert all(isinstance(value, list) for value in filter_values.values())
+
+
+@pytest.mark.parametrize("with_filter_values", [True, False])
+def test_get_roms_filter_values_are_never_null(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    platform: Platform,
+    with_filter_values: bool,
+) -> None:
+    # `rom` carries no metadata, so every facet column is null.
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "with_filter_values": with_filter_values},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    filter_values = response.json()["filter_values"]
+    assert_filter_values_are_lists(filter_values)
+    assert filter_values["genres"] == []
+    assert filter_values["platforms"] == ([platform.id] if with_filter_values else [])
+
+
+def test_get_rom_filters_are_never_null(
+    client: TestClient, access_token: str, rom: Rom
+) -> None:
+    response = client.get(
+        "/api/roms/filters",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert_filter_values_are_lists(response.json())
+
+
 def test_get_all_roms_with_files(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
@@ -804,6 +844,51 @@ def test_get_romfile_hidden_rom_returns_404(
         headers={"Authorization": f"Bearer {viewer_access_token}"},
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_get_romfile_returns_a_visible_file(
+    client: TestClient, access_token: str, rom: Rom, rom_file
+):
+    # Validating the schema reads `is_top_level` off a RomFile the handler has
+    # already detached, so the parent rom has to come along in the load.
+    response = client.get(
+        f"/api/roms/{rom_file.id}/files",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["rom_id"] == rom.id
+    assert body["full_path"] == rom_file.full_path
+    assert body["is_top_level"] is True
+    # No category stored, so the schema defaults a top-level file to a game file.
+    assert body["category"] == "game"
+    # Never scanned, so no mtime was recorded.
+    assert body["last_modified"] is None
+
+
+def test_get_romfile_nested_file_is_not_top_level(
+    client: TestClient, access_token: str, rom: Rom
+):
+    nested = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="manual.txt",
+            file_path=f"{rom.fs_path}/{rom.fs_name}/extras",
+            file_size_bytes=10,
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/{nested.id}/files",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["is_top_level"] is False
+    # Only a top-level file picks up the game-file default.
+    assert body["category"] is None
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")

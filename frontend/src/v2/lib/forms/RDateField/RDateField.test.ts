@@ -111,4 +111,30 @@ describe("RDateField", () => {
     await wrapper.setProps({ modelValue: picked });
     expect(wrapper.get("input").element.value).toBe("Mar 1, 2024");
   });
+  // ARIA 1.2 puts the combobox role on the focusable element.
+  it("wires the combobox role onto the input, not the wrapper", async () => {
+    const wrapper = mount(RDateField, {
+      props: { modelValue: Date.UTC(2024, 2, 15) },
+      attachTo: document.body,
+    });
+    const input = wrapper.get("input");
+
+    expect(input.attributes("role")).toBe("combobox");
+    expect(input.attributes("aria-haspopup")).toBe("dialog");
+    expect(input.attributes("aria-expanded")).toBe("false");
+    expect(wrapper.get(".r-date-field").attributes("role")).toBeUndefined();
+    // Closed, the panel is unmounted, so nothing may point at it.
+    expect(input.attributes("aria-controls")).toBeUndefined();
+
+    await input.trigger("click");
+    await wrapper.vm.$nextTick();
+
+    expect(input.attributes("aria-expanded")).toBe("true");
+    const panelId = input.attributes("aria-controls");
+    expect(panelId).toBeTruthy();
+    expect(document.getElementById(panelId as string)).toHaveProperty(
+      "role",
+      "dialog",
+    );
+  });
 });

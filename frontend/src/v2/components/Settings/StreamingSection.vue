@@ -7,8 +7,8 @@
 // Each row shows what the container is running and offers the two actions
 // an admin needs: open its desktop to configure the emulator inside it, and
 // end whatever session is holding it.
-import { RBtn, RIcon, RSpinner } from "@v2/lib";
-import { onMounted, ref } from "vue";
+import { RBtn, REmptyState, RIcon, RSpinner } from "@v2/lib";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -34,6 +34,25 @@ const enabled = ref(false);
 const loadFailed = ref(false);
 const containers = ref<AdminStreamingContainer[]>([]);
 const releasing = ref<string | null>(null);
+
+const emptyState = computed<{ icon: string; title: string } | null>(() => {
+  if (loadFailed.value) {
+    return {
+      icon: "mdi-alert-circle-outline",
+      title: t("settings.streaming-load-failed"),
+    };
+  }
+  if (!enabled.value) {
+    return { icon: "mdi-monitor-off", title: t("settings.streaming-disabled") };
+  }
+  if (containers.value.length === 0) {
+    return {
+      icon: "mdi-monitor-dashboard",
+      title: t("settings.streaming-none"),
+    };
+  }
+  return null;
+});
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -90,11 +109,21 @@ async function release(container: AdminStreamingContainer): Promise<void> {
   }
 }
 
-function sessionLabel(container: AdminStreamingContainer): string {
+function sessionState(container: AdminStreamingContainer): string {
   const session = container.session;
   if (!session) return t("settings.streaming-idle");
-  if (session.desktop) return t("settings.streaming-desktop-session");
-  return session.rom_name ?? t("settings.streaming-unknown-game");
+  return [
+    session.desktop
+      ? t("settings.streaming-desktop-session")
+      : (session.rom_name ?? t("settings.streaming-unknown-game")),
+    session.claimed_at &&
+      t("settings.streaming-since", {
+        time: formatTimestamp(session.claimed_at, locale.value),
+      }),
+    session.username && t("settings.streaming-by", { user: session.username }),
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 onMounted(load);
@@ -120,17 +149,7 @@ onMounted(load);
       <RSpinner />
     </div>
 
-    <p v-else-if="loadFailed" class="r-v2-streaming__empty">
-      {{ t("settings.streaming-load-failed") }}
-    </p>
-
-    <p v-else-if="!enabled" class="r-v2-streaming__empty">
-      {{ t("settings.streaming-disabled") }}
-    </p>
-
-    <p v-else-if="containers.length === 0" class="r-v2-streaming__empty">
-      {{ t("settings.streaming-none") }}
-    </p>
+    <REmptyState v-else-if="emptyState" size="small" v-bind="emptyState" />
 
     <template v-else>
       <div
@@ -163,59 +182,47 @@ onMounted(load);
             {{ t("settings.streaming-unusable") }}
           </span>
           <span v-else class="r-v2-streaming__state">
-            {{ sessionLabel(container) }}
-            <template v-if="container.session?.claimed_at">
-              {{
-                t("settings.streaming-since", {
-                  time: formatTimestamp(container.session.claimed_at, locale),
-                })
-              }}
-            </template>
-            <template v-if="container.session?.username">
-              {{
-                t("settings.streaming-by", { user: container.session.username })
-              }}
-            </template>
+            {{ sessionState(container) }}
           </span>
         </div>
 
-        <RBtn
-          v-if="container.supports_desktop"
-          variant="outlined"
-          density="compact"
-          prepend-icon="mdi-desktop-classic"
-          :disabled="!container.configured || !!container.session"
-          @click="openDesktop(container)"
-        >
-          {{ t("settings.streaming-open-desktop") }}
-        </RBtn>
-        <RBtn
-          variant="text"
-          density="compact"
-          color="error"
-          prepend-icon="mdi-stop"
-          :disabled="!container.session"
-          :loading="releasing === container.container"
-          @click="release(container)"
-        >
-          {{ t("settings.streaming-release") }}
-        </RBtn>
+        <div class="r-v2-streaming__actions">
+          <RBtn
+            v-if="container.supports_desktop"
+            variant="outlined"
+            density="compact"
+            prepend-icon="mdi-desktop-classic"
+            :disabled="!container.configured || !!container.session"
+            @click="openDesktop(container)"
+          >
+            {{ t("settings.streaming-open-desktop") }}
+          </RBtn>
+          <RBtn
+            variant="text"
+            density="compact"
+            color="error"
+            prepend-icon="mdi-stop"
+            :disabled="!container.session"
+            :loading="releasing === container.container"
+            @click="release(container)"
+          >
+            {{ t("settings.streaming-release") }}
+          </RBtn>
+        </div>
       </div>
     </template>
   </SettingsSection>
 </template>
 
 <style scoped>
-.r-v2-streaming__loading,
-.r-v2-streaming__empty {
+.r-v2-streaming__loading {
   padding: 16px;
   color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-sm);
-  margin: 0;
 }
 
 .r-v2-streaming__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
@@ -227,7 +234,6 @@ onMounted(load);
 
 .r-v2-streaming__icon {
   color: var(--r-color-fg-muted);
-  flex-shrink: 0;
 }
 .r-v2-streaming__icon--busy {
   color: var(--r-color-brand-primary);
@@ -237,8 +243,6 @@ onMounted(load);
   display: flex;
   flex-direction: column;
   gap: 2px;
-  flex: 1;
-  min-width: 0;
 }
 
 .r-v2-streaming__name {
@@ -250,9 +254,23 @@ onMounted(load);
 .r-v2-streaming__state {
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-muted);
+}
+.r-v2-streaming__meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.r-v2-streaming__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* On a phone the actions drop under the details instead of squeezing them out. */
+html[data-bp~="xs"] .r-v2-streaming__actions {
+  grid-column: 2 / -1;
 }
 
 .r-v2-streaming__warning {

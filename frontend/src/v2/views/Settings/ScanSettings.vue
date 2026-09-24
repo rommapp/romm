@@ -5,7 +5,7 @@
 //
 // Provider / region / language identifiers are proper nouns or codes, so
 // they stay as data constants; only descriptive prose goes through i18n.
-import { RAlert, RIcon, RSelect, RBtn, RSpinner } from "@v2/lib";
+import { RAlert, RSelect, RBtn, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -503,13 +503,10 @@ onBeforeUnmount(() =>
           searchable
           :disabled="!canEdit"
           :placeholder="t('settings.scan-media-placeholder')"
+          :info="t('settings.scan-media-note')"
           hide-details
           @update:model-value="setMedia"
         />
-        <p class="r-v2-scan-settings__note">
-          <RIcon icon="mdi-information-outline" size="13" />
-          {{ t("settings.scan-media-note") }}
-        </p>
       </div>
     </SettingsSection>
 
@@ -618,7 +615,6 @@ onBeforeUnmount(() =>
   color: var(--r-color-fg-muted);
   font-size: 13px;
   line-height: 1.5;
-  max-width: 680px;
 }
 /* When a description sits directly above a field block, drop its bottom
    padding so the field's own padding provides the gap. */
@@ -634,15 +630,6 @@ onBeforeUnmount(() =>
 }
 .r-v2-scan-settings__field--bordered {
   border-top: 1px solid var(--r-color-border);
-}
-
-.r-v2-scan-settings__note {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--r-color-fg-faint);
 }
 
 .r-v2-scan-settings__toggle-grid {

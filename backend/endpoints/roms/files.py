@@ -12,6 +12,7 @@ from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema, RomFileUserSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from handler.audit_handler import AuditTarget, record, record_download
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_can, assert_rom_visible, get_permissions
 from handler.database import db_rom_handler
@@ -19,6 +20,7 @@ from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.permission import PermAction, PermEntity
 from models.rom import DOCUMENT_CATEGORIES, RomFileCategory
 from utils.audio_tags import guess_audio_media_type
@@ -58,7 +60,7 @@ async def get_romfile(
 
     # Resolve back to the parent rom and enforce its visibility, so a file
     # belonging to a hidden rom can't be read by direct RomFile.id.
-    rom = db_rom_handler.get_rom(file.rom_id)
+    rom = db_rom_handler.get_rom_visibility(file.rom_id)
     if not rom:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -67,6 +69,11 @@ async def get_romfile(
     assert_rom_visible(request, rom, not_found_detail="File not found")
 
     return RomFileSchema.model_validate(file)
+
+
+def _rom_target(rom_id: int) -> AuditTarget | None:
+    rom = db_rom_handler.get_rom_visibility_label(rom_id)
+    return AuditTarget.of_rom(rom) if rom else None
 
 
 @protected_route(
@@ -95,7 +102,7 @@ async def get_romfile_content(
 
     # 404-mask file bytes of roms hidden from the caller: resolve the parent
     # rom and apply its visibility before serving any content.
-    rom = db_rom_handler.get_rom(file.rom_id)
+    rom = db_rom_handler.get_rom_visibility(file.rom_id)
     if not rom:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,13 +138,26 @@ async def get_romfile_content(
         media_type = "application/octet-stream"
         disposition = "attachment"
 
+    # Inline files feed the in-page viewers and players; only an attachment is
+    # someone taking the file away.
+    if disposition == "attachment":
+        record_download(
+            request,
+            lambda: _rom_target(file.rom_id),
+            f"file:{file.id}",
+            {
+                "file_name": file.file_name,
+                "file_ids": [file.id],
+                "size_bytes": file.file_size_bytes,
+            },
+        )
+
     # Inline files are served under an explicit, trusted Content-Type; nosniff
     # keeps the browser from sniffing them into anything script-capable (e.g. a
     # Markdown manual into HTML).
     headers = {"X-Content-Type-Options": "nosniff"} if disposition == "inline" else {}
-    # HTML documents are sanitized on ingest, but serve them under a sandboxing
-    # CSP anyway so a crafted document can never run scripts or reach the
-    # session origin if it is opened directly.
+    # HTML documents are stored exactly as uploaded, so this CSP is what stops a
+    # crafted one running scripts or reaching the session origin.
     if disposition == "inline" and is_html_document_file(file.file_name):
         headers["Content-Security-Policy"] = "sandbox; default-src 'none'"
 
@@ -182,7 +202,7 @@ async def delete_rom_file(
     # guard keeps them off the game files themselves.
     assert_can(get_permissions(request), PermEntity.ROMS, PermAction.DELETE)
 
-    rom = db_rom_handler.get_rom(rom_id)
+    rom = db_rom_handler.get_rom_visibility_label(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
@@ -217,6 +237,12 @@ async def delete_rom_file(
         f"Deleted file {hl(rom_file.file_name)} from "
         f"{hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
     )
+    record(
+        AuditAction.ROM_FILE_DELETE,
+        request,
+        AuditTarget.of_rom(rom),
+        {"file_id": file_id, "file_name": rom_file.file_name},
+    )
 
     return Response()
 
@@ -225,7 +251,7 @@ def _assert_document_file(
     rom_id: int, file_id: int, request: Request
 ) -> RomFileCategory:
     """Resolve a document-category file, enforcing parent-rom visibility."""
-    rom = db_rom_handler.get_rom(rom_id)
+    rom = db_rom_handler.get_rom_visibility(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
     assert_rom_visible(request, rom, not_found_detail="File not found")
@@ -240,7 +266,7 @@ def _assert_document_file(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document file not found",
         )
-    return rom_file.category  # type: ignore[return-value]
+    return rom_file.category
 
 
 @protected_route(

@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
@@ -6,7 +7,7 @@ from fastapi import status
 
 from handler.database import db_screenshot_handler, db_state_handler
 from handler.database.base_handler import sync_session
-from models.assets import Screenshot, State
+from models.assets import ASSET_LABEL_MAX_LENGTH, ASSET_LABELS_MAX, Screenshot, State
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
@@ -408,3 +409,268 @@ class TestRomIdsScope:
         response = client.get(f"/api/states?{rom_ids}", headers=_auth(access_token))
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+@mock.patch(
+    "handler.asset_store.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+)
+def test_delete_state_removes_file_and_screenshot(
+    mock_remove,
+    client,
+    access_token: str,
+    rom: Rom,
+    platform: Platform,
+    admin_user: User,
+    state: State,
+):
+    db_screenshot_handler.add_screenshot(
+        Screenshot(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="test_state.png",
+            file_name_no_tags="test_state",
+            file_name_no_ext="test_state",
+            file_extension="png",
+            file_path=f"{platform.slug}/screenshots",
+            file_size_bytes=3,
+        )
+    )
+
+    response = client.post(
+        "/api/states/delete",
+        json={"states": [state.id]},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert db_state_handler.get_state(user_id=admin_user.id, id=state.id) is None
+    assert (
+        db_screenshot_handler.get_screenshot(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="test_state.state",
+            file_name_no_ext="test_state",
+        )
+        is None
+    )
+    assert mock_remove.call_count == 2
+
+
+class TestStateFavoritesAndLabels:
+    """Owner-only annotations on a state: the star and the free-text labels."""
+
+    def test_starring_and_unstarring_a_state_persists(
+        self, client, access_token: str, state: State
+    ):
+        response = client.put(
+            f"/api/states/{state.id}/favorite",
+            json={"is_favorite": True},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["is_favorite"] is True
+
+        response = client.put(
+            f"/api/states/{state.id}/favorite",
+            json={"is_favorite": False},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["is_favorite"] is False
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.is_favorite is False
+
+    def test_setting_state_labels_persists(
+        self, client, access_token: str, state: State
+    ):
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["100% run", "before the boss"]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["100% run", "before the boss"]
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None
+        assert refreshed.labels == ["100% run", "before the boss"]
+
+    def test_setting_state_labels_replaces_the_previous_set(
+        self, client, access_token: str, state: State
+    ):
+        client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["100% run", "seed 42"]},
+            headers=_auth(access_token),
+        )
+
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["speedrun"]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["speedrun"]
+
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": []},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == []
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == []
+
+    def test_state_labels_are_trimmed_and_blanks_dropped(
+        self, client, access_token: str, state: State
+    ):
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["  100% run  ", "   ", "", "seed 42"]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["100% run", "seed 42"]
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == ["100% run", "seed 42"]
+
+    def test_state_labels_are_deduplicated_case_insensitively(
+        self, client, access_token: str, state: State
+    ):
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["Run", "run", "RUN", "Seed"]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        # The first spelling wins, and the order the client sent survives.
+        assert response.json()["labels"] == ["Run", "Seed"]
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == ["Run", "Seed"]
+
+    def test_overlong_state_label_is_rejected(
+        self, client, access_token: str, state: State
+    ):
+        client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=_auth(access_token),
+        )
+
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["ok", "x" * (ASSET_LABEL_MAX_LENGTH + 1)]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+        # The request is rejected whole, so not even the valid label lands.
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == ["seed 42"]
+
+    def test_too_many_state_labels_are_rejected(
+        self, client, access_token: str, state: State
+    ):
+        client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=_auth(access_token),
+        )
+
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": [f"run {i}" for i in range(ASSET_LABELS_MAX + 1)]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == ["seed 42"]
+
+    def test_annotating_a_state_leaves_updated_at_untouched(
+        self, client, access_token: str, state: State
+    ):
+        # Backdate the row: the column has second precision, so a stray touch
+        # would otherwise be invisible within the same second.
+        db_state_handler.update_state(
+            state.id, {"updated_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}
+        )
+        before = db_state_handler.get_state_by_id(state.id)
+        assert before is not None
+        stamp = before.updated_at
+
+        client.put(
+            f"/api/states/{state.id}/favorite",
+            json={"is_favorite": True},
+            headers=_auth(access_token),
+        )
+        client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=_auth(access_token),
+        )
+
+        # Annotating is not a write to the state's bytes, and the lists order
+        # on `updated_at`.
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None
+        assert refreshed.updated_at == stamp
+        assert refreshed.is_favorite is True
+        assert refreshed.labels == ["seed 42"]
+
+    def test_non_owner_cannot_star_a_state(
+        self, client, viewer_access_token: str, state: State
+    ):
+        response = client.put(
+            f"/api/states/{state.id}/favorite",
+            json={"is_favorite": True},
+            headers=_auth(viewer_access_token),
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.is_favorite is False
+
+    def test_non_owner_cannot_label_a_state(
+        self, client, access_token: str, viewer_access_token: str, state: State
+    ):
+        client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["mine"]},
+            headers=_auth(access_token),
+        )
+
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["not mine"]},
+            headers=_auth(viewer_access_token),
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == ["mine"]
+
+    def test_starring_a_missing_state_returns_not_found(
+        self, client, access_token: str
+    ):
+        response = client.put(
+            "/api/states/99999/favorite",
+            json={"is_favorite": True},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_labelling_a_missing_state_returns_not_found(
+        self, client, access_token: str
+    ):
+        response = client.put(
+            "/api/states/99999/labels",
+            json={"labels": ["ghost"]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND

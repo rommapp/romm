@@ -228,7 +228,7 @@ function closeDialog() {
   <RDialog
     v-model="show"
     :width="mdAndUp ? 440 : '95vw'"
-    class="r-v2-mng-coll-dialog"
+    body-padding="flush"
     @close="closeDialog"
   >
     <!-- Two-line title block replaces the single-line default so the
@@ -282,10 +282,6 @@ function closeDialog() {
           />
         </li>
       </ul>
-
-      <div v-else class="r-v2-mng-coll__empty">
-        {{ t("collection.no-collections-yet-hint") }}
-      </div>
     </template>
   </RDialog>
 </template>
@@ -325,9 +321,8 @@ function closeDialog() {
   max-width: 320px;
 }
 
-/* Row list — sits flush against the dialog edges. This dialog drops
-   the standard RDialog body padding (see the `:deep(.r-dialog__body)`
-   override below) so rows read as menu items, not as padded cards. */
+/* The dialog body is flush, so rows meet the dialog edges and read as menu
+   items rather than padded cards. */
 .r-v2-mng-coll__list {
   list-style: none;
   margin: 0;
@@ -337,25 +332,5 @@ function closeDialog() {
   gap: 0;
   max-height: 360px;
   overflow-y: auto;
-}
-
-.r-v2-mng-coll__empty {
-  padding: 24px 16px;
-  color: var(--r-color-fg-muted);
-  font-size: 13px;
-  text-align: center;
-}
-</style>
-
-<!-- Unscoped overrides — `.r-dialog__body` is rendered (and teleported)
-     by RDialog with its own data-v hash, so a scoped `:deep()` rule
-     from this component doesn't actually land on it. The unscoped
-     selector targets the body via a class we attach to RDialog's root
-     overlay (flows through `v-bind="$attrs"`), keeping the override
-     localised to this dialog. -->
-<style>
-.r-v2-mng-coll-dialog .r-dialog__body {
-  padding: 0;
-  gap: 0;
 }
 </style>

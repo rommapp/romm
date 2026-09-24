@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from typing import Final, overload
@@ -190,6 +191,19 @@ DISABLE_USERPASS_LOGIN: Final[bool] = safe_str_to_bool(
     _get_env("DISABLE_USERPASS_LOGIN")
 )
 
+# EMAIL, for notification channels and password reset links; off until a host and a sender are set
+SMTP_HOST: Final[str] = _get_env("SMTP_HOST", "")
+SMTP_PORT: Final[int] = safe_int(_get_env("SMTP_PORT"), 587)
+SMTP_USERNAME: Final[str] = _get_env("SMTP_USERNAME", "")
+SMTP_PASSWORD: Final[str] = _get_env("SMTP_PASSWORD", "")
+SMTP_FROM: Final[str] = _get_env("SMTP_FROM", "")
+# `tls` is implicit TLS, usually on port 465; any other value leaves email off.
+SMTP_SECURITY_MODES: Final = ("starttls", "tls", "none")
+SMTP_SECURITY: Final[str] = _get_env("SMTP_SECURITY", "starttls").strip().lower()
+EMAIL_ENABLED: Final[bool] = bool(
+    SMTP_HOST and SMTP_FROM and SMTP_SECURITY in SMTP_SECURITY_MODES
+)
+
 ROMM_CORS_ALLOWED_ORIGINS: Final[list[str]] = [
     o.strip()
     for o in (_get_env("ROMM_CORS_ALLOWED_ORIGINS", "*")).split(",")
@@ -297,6 +311,12 @@ SCHEDULED_BUILD_RECOMMENDATIONS_CRON: Final[str] = _get_env(
     "30 5 * * *",  # At 5:30 AM every day, after the nightly scan and metadata tasks
 )
 
+# AUDIT LOG
+# Days an audit event is kept; 0 keeps every event.
+AUDIT_LOG_RETENTION_DAYS: Final[int] = safe_int(
+    _get_env("AUDIT_LOG_RETENTION_DAYS"), 90
+)
+
 # SYNC
 SYNC_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/sync"
 ENABLE_SYNC_FOLDER_WATCHER: Final[bool] = safe_str_to_bool(
@@ -316,6 +336,15 @@ SYNC_SSH_KEYS_PATH: Final[str] = _get_env(
 SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
     "SYNC_SSH_KNOWN_HOSTS_PATH", f"{SYNC_BASE_PATH}/known_hosts"
 )
+# RetroArch Cloud Sync's config/, thumbnails/ and system/ files, which no ROM owns.
+SYNC_RETROARCH_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/retroarch_sync"
+# PSP save folder files buffered until the folder resolves to a rom.
+SYNC_RETROARCH_PSP_PENDING_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/retroarch_sync"
+# JSON map of PSP serial to extensionless rom file name, for saves whose title
+# matches no rom, e.g. {"ULUS10336": "Crisis Core - Final Fantasy VII (USA)"}.
+SYNC_RETROARCH_PSP_SERIAL_MAP: Final[dict[str, str]] = json.loads(
+    _get_env("SYNC_RETROARCH_PSP_SERIAL_MAP", "{}")
+)
 
 # EMULATION
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))
@@ -334,6 +363,8 @@ MAX_ASSET_UPLOAD_SIZE_BYTES: Final[int] = safe_int(
 MAX_AUTOCLEANUP_LIMIT: Final[int] = max(
     1, safe_int(_get_env("MAX_AUTOCLEANUP_LIMIT"), 100)
 )
+# Versions the server keeps per save slot whatever the client asks; 0 disables.
+MAX_SAVES_PER_SLOT: Final[int] = max(0, safe_int(_get_env("MAX_SAVES_PER_SLOT"), 50))
 
 # LOGGING
 LOGLEVEL: Final[str] = _get_env("LOGLEVEL", "INFO").upper()

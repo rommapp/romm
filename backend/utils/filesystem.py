@@ -12,6 +12,9 @@ COMPRESSED_FILE_EXTENSIONS: frozenset[str] = frozenset(
     (".7z", ".bz2", ".gz", ".rar", ".tar", ".zip", ".xz", ".tgz", ".tbz2", ".txz")
 )
 
+# str.endswith takes a tuple, never a set, so it is built once here.
+COMPRESSED_FILE_SUFFIXES: tuple[str, ...] = tuple(COMPRESSED_FILE_EXTENSIONS)
+
 # tempfile.mkstemp creates files 0600, too narrow for the nginx user to read.
 SERVED_FILE_MODE = 0o644
 
@@ -110,7 +113,7 @@ def link_or_copy_file(source: Path, dest: Path) -> None:
 
 
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")
-INVALID_CHARS_EMPTY = re.compile(r'[*?"<>+]')
+INVALID_CHARS_EMPTY = re.compile(r'[*?"<>]')
 
 # C0 controls plus DEL. Illegal on most filesystems, and a line feed in a name
 # that reaches a line-oriented protocol (the nginx mod_zip manifest) would split

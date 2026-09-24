@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from functools import partial
 
 import pydash
@@ -13,7 +13,7 @@ from .base_handler import DBBaseHandler
 
 
 class DBScreenshotsHandler(DBBaseHandler):
-    def filter[QueryT: Select[tuple[Screenshot]] | Update | Delete](
+    def filter[QueryT: (Select[tuple[Screenshot]], Update, Delete)](
         self,
         query: QueryT,
         *,
@@ -50,6 +50,20 @@ class DBScreenshotsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Screenshot:
         return session.merge(screenshot)
+
+    @begin_session
+    def get_screenshots(
+        self,
+        *,
+        user_id: int,
+        rom_ids: Collection[int],
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Screenshot]:
+        return session.scalars(
+            select(Screenshot).filter(
+                Screenshot.user_id == user_id, Screenshot.rom_id.in_(rom_ids)
+            )
+        ).all()
 
     @begin_session
     def get_screenshot(

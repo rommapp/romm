@@ -237,7 +237,7 @@ def _find_local_media_candidates(
                     suffix = stem_name[len(prefix) :]
                     if suffix.isdigit():
                         indexed.append((int(suffix), p))
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             return []
 
         if indexed:
@@ -510,7 +510,7 @@ def build_launchbox_metadata(
     )
     try:
         max_players = int(max_players_raw or 0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         max_players = 0
 
     release_type = (
@@ -539,7 +539,7 @@ def build_launchbox_metadata(
     )
     try:
         community_rating = float(community_rating_raw or 0.0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         community_rating = 0.0
 
     community_rating_count_raw = coalesce(
@@ -548,7 +548,7 @@ def build_launchbox_metadata(
     )
     try:
         community_rating_count = int(community_rating_count_raw or 0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         community_rating_count = 0
 
     wikipedia_url = (

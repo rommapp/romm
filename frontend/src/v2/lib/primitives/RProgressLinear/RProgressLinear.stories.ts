@@ -13,6 +13,7 @@ const meta: Meta<typeof RProgressLinear> = {
     indeterminate: { control: "boolean" },
     rounded: { control: "boolean" },
     striped: { control: "boolean" },
+    stream: { control: "boolean" },
   },
 };
 
@@ -105,6 +106,22 @@ export const Heights: Story = {
 export const Striped: Story = {
   name: "Striped (active emphasis)",
   args: { modelValue: 65, striped: true, height: 12, color: "primary" },
+  render: (args) => ({
+    components: { RProgressLinear },
+    setup: () => ({ args }),
+    template: `
+      <div style="width:360px;padding:24px">
+        <RProgressLinear v-bind="args" />
+      </div>
+    `,
+  }),
+};
+
+// ── Stream (work still running between updates) ────────────
+
+export const Stream: Story = {
+  name: "Stream (running between updates)",
+  args: { modelValue: 30, stream: true, height: 4, color: "primary" },
   render: (args) => ({
     components: { RProgressLinear },
     setup: () => ({ args }),

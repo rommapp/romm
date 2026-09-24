@@ -1,3 +1,6 @@
+import logging
+import re
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -31,6 +34,7 @@ from handler.scan_handler import (
     scan_platform,
     scan_rom,
 )
+from logger.formatter import strip_ansi
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomIdentity, SaveTargetLayout
 from utils.context import initialize_context
@@ -814,6 +818,7 @@ async def test_scan_rom_hashes_rematches_hasheous(
 
     mock_lookup.assert_called_once()
     assert result.hasheous_id == 999
+    assert result.hasheous_metadata is not None
     assert result.hasheous_metadata["nointro_match"] is True
     assert result.hasheous_metadata["ra_match"] is True
     # A rehash must not rewrite user-visible fields.
@@ -939,6 +944,174 @@ async def test_scan_rom_hashes_keeps_match_when_hasheous_unreachable(
 
     assert result.hasheous_id == 999
     assert result.hasheous_metadata == {"nointro_match": True, "ra_match": True}
+
+
+@contextmanager
+def _capture_romm_logs(caplog):
+    """The "romm" logger has propagate=False, so caplog's handler has to be
+    attached to it directly rather than to the root."""
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="romm"):
+            yield
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+
+
+def _silent_sources(log_text: str) -> list[str]:
+    """The sources the miss outcome named as unanswered, stripped of color codes."""
+    match = re.search(r"not identified, but (.+?) gave no answer", strip_ansi(log_text))
+    return match.group(1).split(", ") if match else []
+
+
+async def _scan_unmatched_rom(platform: Platform, metadata_sources: list[str]) -> Rom:
+    """Scan a rom nothing identifies, so the outcome is the miss branch."""
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="Nothing Knows This (USA).7z",
+            fs_name_no_tags="Nothing Knows This",
+            fs_name_no_ext="Nothing Knows This (USA)",
+            fs_extension="7z",
+            fs_path="n64/Nothing Knows This (USA)",
+            fs_size_bytes=1024,
+            tags=[],
+        )
+    )
+    return await scan_rom(
+        platform=platform,
+        scan_type=ScanType.UNMATCHED,
+        rom=rom,
+        fs_rom={
+            "fs_name": rom.fs_name,
+            "fs_path": rom.fs_path,
+            "flat": True,
+            "files": [],
+            "crc_hash": "crc",
+            "md5_hash": "md5",
+            "sha1_hash": "sha1",
+            "ra_hash": "",
+        },
+        metadata_sources=metadata_sources,
+        newly_added=False,
+    )
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "is_enabled", return_value=True)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_says_an_unanswered_miss_is_not_confirmed(
+    mock_lookup,
+    mock_get_igdb,
+    mock_get_ra,
+    mock_hasheous_enabled,
+    mock_playmatch_enabled,
+    caplog,
+):
+    """A provider that never answered has ruled nothing out, so the outcome
+    must not read as a coverage gap the provider confirmed."""
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    mock_lookup.return_value = (no_match, False)
+    mock_get_igdb.return_value = no_match
+    mock_get_ra.return_value = no_match
+
+    platform = db_platform_handler.add_platform(
+        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", hasheous_id=64)
+    )
+
+    async with initialize_context():
+        with _capture_romm_logs(caplog):
+            result = await _scan_unmatched_rom(platform, [MetadataSource.HASHEOUS])
+
+    assert result.hasheous_id is None
+    assert "not a confirmed miss" in caplog.text
+    assert "hasheous" in _silent_sources(caplog.text)
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_still_reports_a_confirmed_miss_plainly(
+    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled, caplog
+):
+    """Hasheous answering "I don't know these hashes" is a real coverage gap."""
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    mock_lookup.return_value = (no_match, True)
+    mock_get_igdb.return_value = no_match
+    mock_get_ra.return_value = no_match
+
+    platform = db_platform_handler.add_platform(
+        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", hasheous_id=64)
+    )
+
+    async with initialize_context():
+        with _capture_romm_logs(caplog):
+            await _scan_unmatched_rom(platform, [MetadataSource.HASHEOUS])
+
+    assert "not identified" in caplog.text
+    assert "gave no answer" not in caplog.text
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_does_not_blame_a_disabled_hasheous(
+    mock_lookup,
+    mock_get_igdb,
+    mock_get_ra,
+    mock_hasheous_enabled,
+    mock_playmatch_enabled,
+    caplog,
+):
+    """A disabled Hasheous reports the same flag as an outage, but it was never
+    consulted, so the miss is not waiting on it."""
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    mock_lookup.return_value = (no_match, False)
+    mock_get_igdb.return_value = no_match
+    mock_get_ra.return_value = no_match
+
+    platform = db_platform_handler.add_platform(
+        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", hasheous_id=64)
+    )
+
+    async with initialize_context():
+        with _capture_romm_logs(caplog):
+            await _scan_unmatched_rom(platform, [MetadataSource.HASHEOUS])
+
+    assert "not a confirmed miss" not in caplog.text
+    assert "not identified" in caplog.text
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_says_a_screenscraper_outage_is_not_confirmed(
+    mock_ss_lookup, mock_ss_get_rom, mock_playmatch_enabled, caplog
+):
+    """ScreenScraper catches its own rate limit and breaker, so the outcome sees
+    an empty match rather than the exception the generic path reports."""
+    reset_rate_limited_roms()
+    mock_ss_lookup.side_effect = ScreenScraperRateLimitError()
+
+    platform = db_platform_handler.add_platform(
+        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", ss_id=4)
+    )
+
+    async with initialize_context():
+        with _capture_romm_logs(caplog):
+            await _scan_unmatched_rom(platform, [MetadataSource.SS])
+
+    mock_ss_get_rom.assert_not_awaited()
+    assert "not a confirmed miss" in caplog.text
+    assert "ss" in _silent_sources(caplog.text)
+
+    reset_rate_limited_roms()
 
 
 def _top_level_rom_file(**kwargs) -> RomFile:

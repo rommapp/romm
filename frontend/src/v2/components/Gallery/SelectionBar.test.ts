@@ -45,6 +45,14 @@ vi.mock("vue-i18n", () => ({
   }),
 }));
 
+// Importing the real router also pulls in its lazy auth views, which can still
+// be loading when the test environment tears down.
+vi.mock("@/plugins/router", () => ({
+  default: {},
+  ROUTES: {},
+  isAuthExemptRoute: () => false,
+}));
+
 vi.mock("@/services/api/collection", () => ({
   default: {
     addRomsToCollection,
@@ -90,8 +98,9 @@ function select(...roms: SimpleRom[]) {
   roms.forEach((r, i) => selection.toggle(r, i));
 }
 
-function mountBar() {
+function mountBar(props: { hideDownload?: boolean } = {}) {
   return mount(SelectionBar, {
+    props,
     global: {
       stubs: {
         RToolbar: {
@@ -271,6 +280,33 @@ describe("SelectionBar bulk favorite", () => {
 
     expect(createCollection).toHaveBeenCalledTimes(1);
     expect(addRomsToCollection).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SelectionBar download", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+  });
+
+  it("offers the download action by default", () => {
+    select(rom(1));
+
+    expect(
+      mountBar().find('[aria-label="gallery.selection-download"]').exists(),
+    ).toBe(true);
+  });
+
+  // Hosts whose rows have no file on disk (the Missing games tab) opt out,
+  // so the bar never offers a transfer that can only fail.
+  it("drops the download action when the host hides it", () => {
+    select(rom(1));
+
+    expect(
+      mountBar({ hideDownload: true })
+        .find('[aria-label="gallery.selection-download"]')
+        .exists(),
+    ).toBe(false);
   });
 });
 

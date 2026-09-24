@@ -2,8 +2,8 @@ import functools
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import delete, or_, select, update
-from sqlalchemy.orm import Query, QueryableAttribute, Session, load_only, selectinload
+from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy.orm import Query, Session, selectinload
 
 from decorators.database import begin_session
 from models.platform import Platform
@@ -67,7 +67,6 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platforms(
         self,
         updated_after: datetime | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
         hidden_platform_ids: Sequence[int] | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
@@ -80,10 +79,21 @@ class DBPlatformsHandler(DBBaseHandler):
         if hidden_platform_ids:
             query = query.filter(Platform.id.not_in(hidden_platform_ids))
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
-
         return session.scalars(query.order_by(Platform.name.asc())).unique().all()
+
+    @begin_session
+    def get_platform_ids(
+        self,
+        hidden_platform_ids: Sequence[int] | None = None,
+        session: Session = None,  # type: ignore
+    ) -> list[int]:
+        """Ids only, deliberately off `with_firmware`: its eager load fires anyway."""
+        query = select(Platform).order_by(Platform.name.asc())
+
+        if hidden_platform_ids:
+            query = query.filter(Platform.id.not_in(hidden_platform_ids))
+
+        return list(session.scalars(query.with_only_columns(Platform.id)).all())
 
     @begin_session
     @with_firmware
@@ -93,7 +103,15 @@ class DBPlatformsHandler(DBBaseHandler):
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Platform | None:
-        return session.scalar(query.filter_by(fs_slug=fs_slug).limit(1))
+        platform = session.scalar(query.filter_by(fs_slug=fs_slug).limit(1))
+        if platform:
+            return platform
+
+        # Folder names are matched case-insensitively everywhere else, so a
+        # folder renamed only in case is the same platform, not a new one.
+        return session.scalar(
+            query.filter(func.lower(Platform.fs_slug) == fs_slug.lower()).limit(1)
+        )
 
     @begin_session
     @with_firmware
@@ -141,20 +159,25 @@ class DBPlatformsHandler(DBBaseHandler):
                         Platform.slug.is_(None),
                     )
                 )
-            )  # type: ignore[attr-defined]
+            )
             .unique()
             .all()
         )
         session.execute(
             update(Platform)
-            .where(or_(Platform.fs_slug.not_in(fs_platforms_to_keep), Platform.slug.is_(None)))  # type: ignore[attr-defined]
+            .where(
+                or_(
+                    Platform.fs_slug.not_in(fs_platforms_to_keep),
+                    Platform.slug.is_(None),
+                )
+            )
             .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="fetch")
         )
 
         session.execute(
             update(Rom)
-            .where(Rom.platform_id.in_([p.id for p in missing_platforms]))  # type: ignore[attr-defined]
+            .where(Rom.platform_id.in_([p.id for p in missing_platforms]))
             .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="fetch")
         )

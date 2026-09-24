@@ -27,6 +27,7 @@
   "selection-unfavorite": "즐겨찾기에서 제거",
   "selection-unfavorite-success": "{n}개를 즐겨찾기에서 제거했습니다",
   "sort-ascending": "오름차순 정렬",
+  "sort-by": "정렬 기준",
   "sort-descending": "내림차순 정렬",
   "view-flat": "단일 보기",
   "view-grid": "그리드",

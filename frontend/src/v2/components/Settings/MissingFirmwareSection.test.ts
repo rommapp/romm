@@ -2,27 +2,33 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storePlatforms from "@/stores/platforms";
+import { serverError } from "@/test-utils/serverError";
 import MissingFirmwareSection from "./MissingFirmwareSection.vue";
 
-const { getFirmware, runTask, getTaskById, confirm } = vi.hoisted(() => ({
-  getFirmware: vi.fn(),
-  runTask: vi.fn(),
-  getTaskById: vi.fn(),
-  confirm: vi.fn(),
-}));
+const { getFirmware, runTask, getTaskById, confirm, snackbarError } =
+  vi.hoisted(() => ({
+    getFirmware: vi.fn(),
+    runTask: vi.fn(),
+    getTaskById: vi.fn(),
+    confirm: vi.fn(),
+    snackbarError: vi.fn(),
+  }));
 
 vi.mock("@/services/api/firmware", () => ({ default: { getFirmware } }));
 vi.mock("@/services/api/task", () => ({ default: { runTask, getTaskById } }));
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key}::${JSON.stringify(params)}` : key,
+  }),
 }));
 
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirm,
 }));
 vi.mock("@/v2/composables/useSnackbar", () => ({
-  useSnackbar: () => ({ success: vi.fn(), error: vi.fn() }),
+  useSnackbar: () => ({ success: vi.fn(), error: snackbarError }),
 }));
 
 const PS1 = {
@@ -96,6 +102,7 @@ describe("MissingFirmwareSection", () => {
     getTaskById.mockResolvedValue({ data: { status: "finished" } });
     confirm.mockReset();
     confirm.mockResolvedValue(true);
+    snackbarError.mockReset();
     getFirmware.mockReset();
     getFirmware.mockResolvedValue({
       data: [firmware(10, PS1.id, "scph5501.bin")],
@@ -236,6 +243,29 @@ describe("MissingFirmwareSection", () => {
     );
     expect(wrapper.findAll("[data-test='missing-firmware-row']")).toHaveLength(
       0,
+    );
+  });
+
+  it("tells why the server refused the cleanup", async () => {
+    runTask.mockRejectedValue(serverError("No task worker is listening"));
+    const wrapper = mountSection();
+    await flushPromises();
+
+    wrapper.findComponent({ name: "RMenuItem" }).vm.$emit("click");
+    await flushPromises();
+
+    expect(snackbarError).toHaveBeenCalledWith(
+      'settings.couldnt-queue-cleanup::{"error":"No task worker is listening"}',
+    );
+  });
+
+  it("tells why the list could not be fetched", async () => {
+    getFirmware.mockRejectedValue(serverError("Database unavailable"));
+    mountSection();
+    await flushPromises();
+
+    expect(snackbarError).toHaveBeenCalledWith(
+      'settings.couldnt-fetch-missing-firmware::{"error":"Database unavailable"}',
     );
   });
 });

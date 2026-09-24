@@ -105,7 +105,7 @@ class TestAuthorize:
     def test_empty_scopes_rejected(self, client):
         payload = {**AUTHORIZE_PAYLOAD, "requested_scopes": []}
         resp = client.post("/api/auth/device/init", json=payload)
-        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_unknown_scope_rejected(self, client):
         payload = {
@@ -113,7 +113,7 @@ class TestAuthorize:
             "requested_scopes": ["roms.read", "not.a.real.scope"],
         }
         resp = client.post("/api/auth/device/init", json=payload)
-        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_oversized_scope_list_rejected(self, client):
         payload = {
@@ -121,14 +121,14 @@ class TestAuthorize:
             "requested_scopes": ["roms.read"] * (len(Scope) + 1),
         }
         resp = client.post("/api/auth/device/init", json=payload)
-        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_missing_required_fields_rejected(self, client):
         resp = client.post(
             "/api/auth/device/init",
             json={"client_device_identifier": "x"},
         )
-        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 class TestPending:
@@ -328,7 +328,7 @@ class TestApprove:
             json={"user_code": body["user_code"], "approved_scopes": []},
             headers={"Authorization": f"Bearer {access_token}"},
         )
-        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_reapprove_response_reflects_new_device_name(
         self, client: TestClient, access_token: str, admin_user: User

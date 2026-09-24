@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Plays PICO-8 carts through the FAKE-08 WebAssembly runtime.
 import { RBtn, RSpinner, RSwitch } from "@v2/lib";
-import { useEventListener, useFullscreen } from "@vueuse/core";
+import { useEventListener } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
@@ -10,9 +10,9 @@ import type { DetailedRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
-import { useInputModality } from "@/v2/composables/useInputModality";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
@@ -33,7 +33,6 @@ const playingStore = storePlaying();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const { fullscreenOnPlay } = useFullscreenPref();
-const { modality } = useInputModality();
 const alive = useIsAlive();
 
 const rom = shallowRef<DetailedRom | null>(null);
@@ -47,7 +46,7 @@ const {
   isFullscreen,
   enter: enterFullscreen,
   toggle: toggleFullscreen,
-} = useFullscreen(stage);
+} = usePlayerFullscreen(stage);
 
 let runtime: Pico8Runtime | null = null;
 let audio: Pico8Audio | null = null;
@@ -90,12 +89,6 @@ const faceControls = [
 ] as const;
 
 useUnloadGuard(gameRunning);
-
-function focusPlayButton() {
-  document.querySelector<HTMLElement>(".r-v2-player__play")?.focus({
-    preventScroll: true,
-  });
-}
 
 function onKeyDown(event: KeyboardEvent) {
   if (!gameRunning.value) return;
@@ -205,7 +198,9 @@ function showPlayError(error: unknown) {
 }
 
 async function fetchCartBytes(target: DetailedRom) {
-  const response = await fetch(getDownloadPath({ rom: target }));
+  const response = await fetch(
+    getDownloadPath({ rom: target, purpose: "play" }),
+  );
   if (!response.ok) throw new Error(`ROM request failed: ${response.status}`);
   return new Uint8Array(await response.arrayBuffer());
 }
@@ -259,7 +254,7 @@ async function onPlay() {
 
     loading.value = false;
     playSession.start(currentRom);
-    if (fullscreenOnPlay.value) void enterFullscreen().catch(() => {});
+    if (fullscreenOnPlay.value) void enterFullscreen();
     startLoop();
   } catch (error) {
     nextRuntime?.dispose();
@@ -281,11 +276,6 @@ onMounted(async () => {
   const romResponse = await romApi.getRom({ romId });
   if (!alive.value) return;
   rom.value = romResponse.data;
-  if (modality.value === "pad" || modality.value === "key") {
-    await nextTick();
-    if (!alive.value) return;
-    focusPlayButton();
-  }
 });
 
 onBeforeUnmount(releaseGame);

@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from io import BytesIO
-from typing import Annotated, TypeVar
+from typing import Annotated, Any, TypeVar
 
 from fastapi import File, Form, HTTPException
 from fastapi import Path as PathVar
@@ -20,6 +20,7 @@ from exceptions.endpoint_exceptions import (
     CollectionNotFoundInDatabaseException,
     CollectionPermissionError,
 )
+from handler.audit_handler import AuditTarget, changed_fields, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_collection_handler, db_rom_handler
@@ -29,6 +30,7 @@ from handler.filesystem.base_handler import CoverSize
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.collection import (
     Collection,
     SmartCollection,
@@ -80,6 +82,18 @@ def _hide_collection_roms(
             s.rom_ids = visible
             s.rom_count = len(visible)
     return schemas
+
+
+def _record_collection(
+    request: Request,
+    action: AuditAction,
+    collection: Collection | SmartCollection,
+    data: dict[str, Any] | None = None,
+) -> None:
+    # Every heart toggle goes through the favourites collection; that's not news.
+    if getattr(collection, "is_favorite", False):
+        return
+    record(action, request, AuditTarget.of_collection(collection), data)
 
 
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
@@ -152,6 +166,7 @@ async def add_collection(
         },
     )
 
+    _record_collection(request, AuditAction.COLLECTION_CREATE, created_collection)
     return CollectionSchema.model_validate(created_collection)
 
 
@@ -206,6 +221,7 @@ async def add_smart_collection(
         db_collection_handler.refresh_smart_collection(created_smart_collection.id)
         or created_smart_collection
     )
+    _record_collection(request, AuditAction.SMART_COLLECTION_CREATE, smart_collection)
 
     return SmartCollectionSchema.model_validate(smart_collection)
 
@@ -250,16 +266,9 @@ def get_collection_identifiers(
         list[int]: List of collection IDs
     """
 
-    collections = db_collection_handler.get_collections(
-        only_fields=[
-            Collection.id,
-            Collection.name,
-            Collection.user_id,
-            Collection.is_public,
-        ],
-    )
+    rows = db_collection_handler.get_collection_ids()
 
-    return [c.id for c in collections if c.user_id == request.user.id or c.is_public]
+    return [row.id for row in rows if row.user_id == request.user.id or row.is_public]
 
 
 @protected_route(router.get, "/virtual", [Scope.COLLECTIONS_READ])
@@ -350,12 +359,7 @@ def get_smart_collection_identifiers(
         list[int]: List of smart collection IDs
     """
 
-    smart_collections = db_collection_handler.get_smart_collections(
-        request.user.id,
-        only_fields=[SmartCollection.id],
-    )
-
-    return [s.id for s in smart_collections]
+    return db_collection_handler.get_smart_collection_ids(request.user.id)
 
 
 @protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])
@@ -526,6 +530,28 @@ async def update_collection(
     updated_collection = db_collection_handler.update_collection(
         id, cleaned_data, parsed_rom_ids
     )
+    changed = changed_fields(
+        collection, cleaned_data, ("name", "description", "is_public")
+    )
+    new_artwork = artwork is not None and artwork.filename is not None
+    if (
+        remove_cover
+        or new_artwork
+        or changed_fields(collection, cleaned_data, ["url_cover"])
+    ):
+        changed.append("cover")
+    before_ids, after_ids = set(collection.rom_ids), set(updated_collection.rom_ids)
+    if changed or before_ids != after_ids:
+        _record_collection(
+            request,
+            AuditAction.COLLECTION_EDIT,
+            updated_collection,
+            {
+                "changed": changed,
+                "added": len(after_ids - before_ids),
+                "removed": len(before_ids - after_ids),
+            },
+        )
 
     return CollectionSchema.model_validate(updated_collection)
 
@@ -557,10 +583,18 @@ async def add_roms_to_collection(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
+    before = set(collection.rom_ids)
     updated_collection = db_collection_handler.add_roms_to_collection(
         id, payload.rom_ids
     )
     refresh_affected_smart_collections(payload.rom_ids, membership_only=True)
+    if added := sorted(set(updated_collection.rom_ids) - before):
+        _record_collection(
+            request,
+            AuditAction.COLLECTION_ADD_ROMS,
+            collection,
+            {"count": len(added), "rom_ids": added},
+        )
     return CollectionSchema.model_validate(updated_collection)
 
 
@@ -587,10 +621,18 @@ async def remove_roms_from_collection(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
+    before = set(collection.rom_ids)
     updated_collection = db_collection_handler.remove_roms_from_collection(
         id, payload.rom_ids
     )
     refresh_affected_smart_collections(payload.rom_ids, membership_only=True)
+    if removed := sorted(before - set(updated_collection.rom_ids)):
+        _record_collection(
+            request,
+            AuditAction.COLLECTION_REMOVE_ROMS,
+            collection,
+            {"count": len(removed), "rom_ids": removed},
+        )
     return CollectionSchema.model_validate(updated_collection)
 
 
@@ -650,6 +692,7 @@ async def update_smart_collection(
     smart_collection = (
         db_collection_handler.refresh_smart_collection(id) or updated_smart_collection
     )
+    _record_collection(request, AuditAction.SMART_COLLECTION_EDIT, smart_collection)
 
     return SmartCollectionSchema.model_validate(smart_collection)
 
@@ -674,6 +717,7 @@ async def delete_collection(
 
     log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)
+    _record_collection(request, AuditAction.COLLECTION_DELETE, collection)
 
     try:
         await fs_resource_handler.remove_directory(collection.fs_resources_path)
@@ -703,3 +747,4 @@ async def delete_smart_collection(
 
     log.info(f"Deleting {hl(smart_collection.name, color=BLUE)} from database")
     db_collection_handler.delete_smart_collection(id)
+    _record_collection(request, AuditAction.SMART_COLLECTION_DELETE, smart_collection)

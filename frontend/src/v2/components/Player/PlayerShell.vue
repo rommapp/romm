@@ -8,6 +8,7 @@ import { RBtn, RCard, RSpinner } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import GameCover from "@/v2/components/shared/GameCover.vue";
+import { usePlayFocus } from "@/v2/composables/usePlayFocus";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useStageActive } from "@/v2/composables/useStageActive";
 
@@ -31,11 +32,16 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const { backToRom, backToPlatform } = usePlayerNav(
+const { romRoute, platformRoute } = usePlayerNav(
   props.romId,
   () => props.heroRom?.platform_id,
 );
 useStageActive(() => props.running);
+usePlayFocus(
+  ".r-v2-player__play",
+  () => props.ready,
+  () => props.running,
+);
 </script>
 
 <template>
@@ -83,7 +89,7 @@ useStageActive(() => props.running);
             variant="text"
             size="small"
             prepend-icon="mdi-arrow-left"
-            @click="backToRom"
+            :to="romRoute"
           >
             {{ t("play.back-to-game-details") }}
           </RBtn>
@@ -92,7 +98,8 @@ useStageActive(() => props.running);
             variant="text"
             size="small"
             prepend-icon="mdi-view-grid-outline"
-            @click="backToPlatform"
+            :to="platformRoute"
+            :disabled="!platformRoute"
           >
             {{ t("play.back-to-gallery") }}
           </RBtn>

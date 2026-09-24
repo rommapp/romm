@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useEventListener } from "@vueuse/core";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 
 // The surface a streaming session renders into: the container's iframe, the
 // auto-hiding control bar over it, and the focus handling the emulator needs
@@ -49,7 +50,6 @@ const frameSrc = computed(() => {
 const stageRef = ref<HTMLElement | null>(null);
 const streamFrame = ref<HTMLIFrameElement | null>(null);
 const isUIVisible = ref(true);
-const isFullscreen = ref(false);
 // Whether the frame let us listen inside it. A cross-origin container never
 // reports its pointer, so it gets the edge strip instead.
 const sameOrigin = ref(false);
@@ -139,64 +139,6 @@ function sameOriginFrames(win: Window | null, found: Window[] = []): Window[] {
     sameOriginFrames(win.frames[i], found);
   }
   return found;
-}
-
-// Selkies paints the session into a 2D canvas it creates itself, falling back
-// to a video element on the WebRTC path. Neither is tainted, so a same-origin
-// container lets the frame be read straight out of the page. This is the only
-// capture that cannot stall the emulator: asking it to grab its own framebuffer
-// is what deadlocks a GPU-rendered core.
-const STREAM_CANVAS_ID = "videoCanvas";
-const STREAM_VIDEO_ID = "stream";
-// Long edge of the captured image. It is a thumbnail, and a full-resolution
-// PNG of the stream is several megabytes per save.
-const CAPTURE_MAX_EDGE = 960;
-
-function streamSurface(): HTMLCanvasElement | HTMLVideoElement | null {
-  // Elements come from another frame's realm, where `instanceof` against this
-  // document's constructors is always false, so match on the tag instead.
-  for (const win of sameOriginFrames(
-    streamFrame.value?.contentWindow ?? null,
-  )) {
-    const el = win.document.getElementById(STREAM_CANVAS_ID);
-    if (el?.tagName === "CANVAS") {
-      const canvas = el as HTMLCanvasElement;
-      if (canvas.width > 0) return canvas;
-    }
-    const videoEl = win.document.getElementById(STREAM_VIDEO_ID);
-    if (videoEl?.tagName === "VIDEO") {
-      const video = videoEl as HTMLVideoElement;
-      if (video.videoWidth > 0) return video;
-    }
-  }
-  return null;
-}
-
-// PNG because that is what the states API stores and what the backend's
-// thumbnail guard checks the magic bytes for.
-async function captureFrame(): Promise<Blob | null> {
-  const surface = streamSurface();
-  if (!surface) return null;
-  const isVideo = surface.tagName === "VIDEO";
-  const video = surface as HTMLVideoElement;
-  const canvas = surface as HTMLCanvasElement;
-  const sw = isVideo ? video.videoWidth : canvas.width;
-  const sh = isVideo ? video.videoHeight : canvas.height;
-  if (!sw || !sh) return null;
-
-  const scale = Math.min(1, CAPTURE_MAX_EDGE / Math.max(sw, sh));
-  const out = document.createElement("canvas");
-  out.width = Math.round(sw * scale);
-  out.height = Math.round(sh * scale);
-  const ctx = out.getContext("2d");
-  if (!ctx) return null;
-  try {
-    ctx.drawImage(surface, 0, 0, out.width, out.height);
-  } catch {
-    // A surface mid-resize has no drawable frame yet.
-    return null;
-  }
-  return new Promise((resolve) => out.toBlob(resolve, "image/png"));
 }
 
 // The container's own client applies volume and mute to the gain node in front
@@ -317,40 +259,18 @@ watch(
 );
 
 // ── Fullscreen ─────────────────────────────────────────────────────
-async function enterFullscreen(): Promise<void> {
-  try {
-    await stageRef.value?.requestFullscreen();
-  } catch {
-    // Fullscreen denied (permissions policy / gesture requirement).
-  }
-}
+const {
+  isFullscreen,
+  enter: enterFullscreen,
+  exit: leaveFullscreen,
+  toggle: toggleFullscreen,
+} = usePlayerFullscreen(stageRef);
 
-// Drop out of fullscreen before showing anything teleported to <body>: a
-// fullscreened element paints over the whole page, dialogs included.
-async function leaveFullscreen(): Promise<void> {
-  if (!document.fullscreenElement) return;
-  try {
-    await document.exitFullscreen();
-  } catch (error) {
-    // Worst case the dialog opens behind fullscreen, so this is not fatal, but
-    // it is invisible from the UI and worth surfacing to anyone debugging it.
-    console.warn("Failed to exit fullscreen", error);
-  }
-}
-
-async function toggleFullscreen(): Promise<void> {
-  if (document.fullscreenElement) await leaveFullscreen();
-  else await enterFullscreen();
-}
-
-function onFullscreenChange(): void {
-  isFullscreen.value = !!document.fullscreenElement;
+const resetStageTop = () => {
   stageTop = null;
-}
-useEventListener(document, "fullscreenchange", onFullscreenChange);
-useEventListener(window, "resize", () => {
-  stageTop = null;
-});
+};
+useEventListener(document, "fullscreenchange", resetStageTop);
+useEventListener(window, "resize", resetStageTop);
 useEventListener(window, "message", onFrameAnnounce);
 
 onBeforeUnmount(() => {
@@ -363,7 +283,6 @@ onBeforeUnmount(() => {
 // parent drives imperatively is exposed here.
 defineExpose({
   focusStream,
-  captureFrame,
   postToStream,
   enterFullscreen,
   leaveFullscreen,
@@ -460,7 +379,6 @@ defineExpose({
   background: color-mix(in srgb, var(--r-color-bg) 72%, transparent);
   border-bottom: 1px solid var(--r-color-border);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   z-index: 10;
   visibility: hidden;
   opacity: 0;

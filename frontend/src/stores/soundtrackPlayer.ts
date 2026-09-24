@@ -301,6 +301,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     playlist,
     isShuffled,
     activePlaylistRomId,
+    currentIndex,
     hasPrevious,
     hasNext,
     audioRef,

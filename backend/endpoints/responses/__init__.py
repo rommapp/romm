@@ -53,13 +53,24 @@ class OrphanedResourcesCleanupStats(TypedDict):
 
 
 class MissingRomsCleanupStats(TypedDict):
-    platform_id: int | None
+    platform_ids: list[int] | None
     roms_found: int
     roms_deleted: int
     errors: int
 
 
-CleanupStats = Union[OrphanedResourcesCleanupStats, MissingRomsCleanupStats]
+class MissingFirmwareCleanupStats(TypedDict):
+    platform_ids: list[int] | None
+    firmware_found: int
+    firmware_deleted: int
+    errors: int
+
+
+CleanupStats = Union[
+    OrphanedResourcesCleanupStats,
+    MissingRomsCleanupStats,
+    MissingFirmwareCleanupStats,
+]
 
 
 class CleanupTaskMeta(TypedDict):

@@ -37,6 +37,7 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
 
@@ -84,6 +85,8 @@ const props = withDefaults(defineProps<Props>(), {
   noSuggestions: false,
   clearable: false,
 });
+
+const labels = useChromeLabels();
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: string[]): void;
@@ -360,7 +363,7 @@ const showDetails = computed(
               type="button"
               class="r-combobox-field__chip-close"
               tabindex="-1"
-              aria-label="Remove"
+              :aria-label="labels.remove"
               @mousedown.prevent
               @click.stop="removeAt(i)"
             >
@@ -394,7 +397,7 @@ const showDetails = computed(
         type="button"
         class="r-combobox-field__clear"
         tabindex="-1"
-        aria-label="Clear"
+        :aria-label="labels.clear"
         @mousedown.prevent
         @click.stop="clearAll"
       >

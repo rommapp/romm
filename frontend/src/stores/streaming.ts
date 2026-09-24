@@ -138,6 +138,8 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Pass stateId to resume from a specific save state: the backend pushes
    * its file to the broker and the emulator loads it once the game is up.
    * The response's `resume` field reports whether that succeeded.
+   * Pass saveId to restore a specific stored save archive, honoured only where
+   * `supports_save_picker` is set; without one the newest archive is restored.
    * Pass memoryCardId to hydrate a specific memory card (else the backend
    * picks the user's newest card for the emulator, or auto-creates a blank
    * one). The chosen card is wiped-then-replaced onto the container at claim.
@@ -152,6 +154,7 @@ export const useStreamingStore = defineStore("streaming", () => {
   async function claimSession(
     romId: number,
     stateId?: number,
+    saveId?: number,
     memoryCardId?: number,
     cardImport?: MemoryCardImport,
     multiplayer?: boolean,
@@ -159,6 +162,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     const { data } = await streamingApi.claimSession(
       romId,
       stateId,
+      saveId,
       memoryCardId,
       cardImport,
       multiplayer,
@@ -298,10 +302,11 @@ export const useStreamingStore = defineStore("streaming", () => {
    */
   async function heartbeatSession(
     platform: string,
+    container?: string,
   ): Promise<SessionStatus | null> {
     if (!platform) return null;
     try {
-      const { data } = await streamingApi.heartbeatSession(platform);
+      const { data } = await streamingApi.heartbeatSession(platform, container);
       return data;
     } catch (err) {
       console.warn("[streaming] Could not heartbeat session:", err);
