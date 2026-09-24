@@ -16,7 +16,8 @@ import sqlalchemy as sa
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from sqlalchemy import Table, UniqueConstraint
+from sqlalchemy import DefaultClause, FetchedValue, Table, UniqueConstraint
+from sqlalchemy.sql.schema import NULL_UNSPECIFIED
 
 import models
 from handler.database.base_handler import sync_engine
@@ -78,6 +79,58 @@ def test_no_index_drift_between_models_and_migrations():
         ]
 
     assert drift == []
+
+
+def test_no_column_drift_between_models_and_migrations():
+    """Every mapped column exists in the migrated schema with the same nullability."""
+    models.load_all_models()
+
+    with sync_engine.connect() as connection:
+        inspector = sa.inspect(connection)
+        # A view reflects every column as nullable, whatever the model says.
+        views = set(inspector.get_view_names())
+        drift = []
+        for table in BaseModel.metadata.sorted_tables:
+            if table.name in views:
+                continue
+            reflected = {
+                column["name"]: column["nullable"]
+                for column in inspector.get_columns(table.name)
+            }
+            for column in table.columns:
+                if column.name not in reflected:
+                    drift.append(f"missing: {table.name}.{column.name}")
+                elif column.nullable != reflected[column.name]:
+                    drift.append(
+                        f"nullable: {table.name}.{column.name} "
+                        f"model={column.nullable} db={reflected[column.name]}"
+                    )
+
+    assert drift == []
+
+
+def _is_database_filled(value: object) -> bool:
+    # `DefaultClause` is a literal default the ORM could write itself.
+    return isinstance(value, FetchedValue) and not isinstance(value, DefaultClause)
+
+
+def test_database_filled_columns_declare_their_nullability():
+    """Every database-filled column passes `nullable=`, or autogenerate never compares it."""
+    models.load_all_models()
+
+    undeclared = [
+        f"{table.name}.{column.name}"
+        for table in BaseModel.metadata.sorted_tables
+        for column in table.columns
+        if any(
+            _is_database_filled(value)
+            for value in (column.server_default, column.server_onupdate)
+        )
+        # The same private flag alembic's `_nullability_might_be_unset` reads.
+        and column._user_defined_nullable is NULL_UNSPECIFIED
+    ]
+
+    assert undeclared == []
 
 
 def test_postgresql_fk_indexes_cover_every_unindexed_foreign_key():
