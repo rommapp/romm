@@ -1038,7 +1038,7 @@ async def heartbeat_session(
     named = container_key is not None
     candidates = (
         [access.named_container(platform, container_key)]
-        if named
+        if container_key is not None
         else containers_for_platform(platform)
     )
     found = await access.find_session_for_user(
