@@ -9,11 +9,8 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 class UploadSizeLimitMiddleware:
     """Reject oversized uploads on the given paths before they are spooled.
 
-    FastAPI resolves `UploadFile` parameters (spooling the whole multipart body
-    to temporary storage) before the endpoint runs, so a handler-level size
-    check cannot prevent the disk usage it is meant to bound. A declared
-    Content-Length is rejected up front; a chunked body is cut off once it
-    streams past the limit.
+    FastAPI spools `UploadFile` bodies before the endpoint runs, so only a
+    check here, on Content-Length and on the streamed bytes, bounds them.
     """
 
     UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH"})

@@ -26,7 +26,7 @@ def touch_retroarch_device(user: User) -> None:
         db_device_handler.update_last_seen_debounced(device_id=existing.id)
         return
 
-    device_type = KNOWN_DEVICES["retroarch"]
+    device_type = KNOWN_DEVICES[CLIENT_DEVICE_IDENTIFIER]
     try:
         device = db_device_handler.add_device(
             Device(

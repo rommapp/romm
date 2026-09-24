@@ -1,7 +1,6 @@
 """RetroArch Cloud Sync of PPSSPP's ``saves/[<core>/]PSP/SAVEDATA/<folder>/`` layout.
 
-A save folder's files only make sense as a set, so each folder is bundled into
-one zip stored as a single RomM ``Save``.
+Each folder's files only make sense as a set, so they are stored as one zipped ``Save``.
 """
 
 from __future__ import annotations
