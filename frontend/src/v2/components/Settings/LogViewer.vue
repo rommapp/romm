@@ -8,9 +8,9 @@
 // store, no global lifecycle — backfill covers re-open.
 //
 // The list is windowed with RVirtualScroller, which also scrolls the toolbar
-// above it. Rows are single-line monospace (terminal style) and cut long
-// lines short; the full message is surfaced on hover via RTooltip and copied
-// on click. The newest line is on top: while the top is in view new lines show
+// above it. Rows are single-line monospace (terminal style) and the tab scrolls
+// sideways to the longest one; the full message is surfaced on hover via
+// RTooltip and copied on click. The newest line is on top: while the top is in view new lines show
 // up there, otherwise the view holds still and "jump to latest" goes back up.
 import { RBtn, RSelect, RTextField, RTooltip, RVirtualScroller } from "@v2/lib";
 import { computed, nextTick, onBeforeMount, ref } from "vue";
@@ -130,6 +130,17 @@ const filtered = computed<LogRow[]>(() =>
 );
 // Newest first, so the latest line sits under the toolbar.
 const shown = computed<LogRow[]>(() => [...filtered.value].reverse());
+
+// Wide enough for the longest line, counted in `ch` of the rows' monospace
+// font; the px cover the row's padding, its gaps and the level column.
+const contentWidth = computed(() => {
+  const timeChars = formatTime(Date.now()).length;
+  let chars = 0;
+  for (const e of shown.value) {
+    chars = Math.max(chars, e.module.length + e.message.length);
+  }
+  return `calc(${timeChars + chars + 2}ch + 134px)`;
+});
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 
@@ -259,6 +270,7 @@ function downloadLogs() {
       :items="shown"
       :get-item-height="getItemHeight"
       :get-item-key="getItemKey"
+      :min-content-width="contentWidth"
       @update:viewport-range="onViewportRange"
     >
       <template #prepend>
@@ -396,6 +408,13 @@ function downloadLogs() {
   min-height: 0;
 }
 
+/* Pinned to the left edge while the lines scroll sideways under it. */
+.r-v2-logs__toolbar,
+.r-v2-logs__empty {
+  position: sticky;
+  left: 0;
+}
+
 .r-v2-logs__toolbar {
   display: flex;
   align-items: center;
@@ -456,6 +475,11 @@ html[data-bp~="sm-and-down"] .r-v2-logs__spacer {
 
 .r-v2-logs__scroller {
   height: 100%;
+}
+/* The rows' font, so the `ch` in the content width measures their characters. */
+.r-v2-logs__scroller :deep(.r-virtual-scroller__inner) {
+  font-family: var(--r-font-family-mono);
+  font-size: var(--r-font-size-sm);
 }
 
 /* The lines read as one panel: the first and last round its corners. */
@@ -524,10 +548,7 @@ html[data-bp~="sm-and-down"] .r-v2-logs__spacer {
 }
 
 .r-v2-logs__message {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: pre;
   color: var(--r-color-fg);
 }
