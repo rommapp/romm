@@ -13,7 +13,7 @@ from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummar
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from handler.asset_store import remove_asset_file, remove_screenshot, rename_asset
+from handler.asset_store import release_thumbnail, remove_asset_file, rename_asset
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
@@ -110,7 +110,7 @@ async def _delete_save(save: Save) -> None:
     """Drop a save row with its file and screenshot."""
     db_save_handler.delete_save(save.id)
     await remove_asset_file(save.full_path, "Save file")
-    await remove_screenshot(save.screenshot)
+    await release_thumbnail(save.screenshot)
 
 
 async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
@@ -119,7 +119,7 @@ async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
         user_id=user_id, rom_id=rom_id, slot=slot, keep=keep
     ):
         await remove_asset_file(f"{file_path}/{file_name}", "Save file")
-        await remove_screenshot(
+        await release_thumbnail(
             db_screenshot_handler.get_screenshot(
                 rom_id=rom_id,
                 user_id=user_id,

@@ -15,9 +15,16 @@ from handler.database import (
     db_device_save_sync_handler,
     db_save_handler,
     db_screenshot_handler,
+    db_state_handler,
 )
 from handler.database.base_handler import sync_session
-from models.assets import ASSET_LABEL_MAX_LENGTH, ASSET_LABELS_MAX, Save, Screenshot
+from models.assets import (
+    ASSET_LABEL_MAX_LENGTH,
+    ASSET_LABELS_MAX,
+    Save,
+    Screenshot,
+    State,
+)
 from models.device import Device
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
@@ -2321,6 +2328,51 @@ class TestAutocleanupScreenshots:
                 file_name_no_ext=f"autosave_{i}",
             )
             assert (screenshot is None) == (i in evicted)
+
+
+class TestSaveDeleteThumbnail:
+    def test_a_thumbnail_a_state_still_shows_stays(
+        self,
+        client,
+        access_token: str,
+        _isolated_assets_dir,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        save: Save,
+    ):
+        # Same stem as the save, so both resolve `test_save.png`.
+        db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_save.state",
+                file_path=f"{platform.slug}/states",
+                file_size_bytes=1,
+            )
+        )
+        thumbnail = db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_save.png",
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=3,
+            )
+        )
+        path = _isolated_assets_dir / thumbnail.file_path / thumbnail.file_name
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"PNG")
+
+        response = client.post(
+            "/api/saves/delete",
+            json={"saves": [save.id]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is not None
+        assert path.read_bytes() == b"PNG"
 
 
 class TestUploadSizeLimit:

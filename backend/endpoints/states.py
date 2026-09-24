@@ -9,8 +9,8 @@ from endpoints.responses.assets import StateSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
+    release_thumbnail,
     remove_asset_file,
-    remove_screenshot,
     rename_asset,
     store_screenshot,
     store_state_file,
@@ -36,7 +36,7 @@ async def _delete_state(state: State) -> None:
     """Drop a state row with its file and screenshot."""
     db_state_handler.delete_state(state.id)
     await remove_asset_file(state.full_path, "State file")
-    await remove_screenshot(state.screenshot)
+    await release_thumbnail(state.screenshot)
 
 
 def _owned_state_or_404(id: int, user_id: int) -> State:

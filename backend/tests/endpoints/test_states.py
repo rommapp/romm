@@ -468,6 +468,109 @@ def test_delete_state_removes_file_and_screenshot(
     assert mock_remove.call_count == 2
 
 
+class TestStateDeleteThumbnail:
+    """Deleting a state takes its thumbnail only when nothing else shows it."""
+
+    @pytest.fixture
+    def screenshots_dir(self, _isolated_assets_dir, platform: Platform):
+        path = _isolated_assets_dir / platform.slug / "screenshots"
+        path.mkdir(parents=True)
+        return path
+
+    def _add_screenshot(
+        self, rom: Rom, user: User, platform: Platform, file_name: str, **fields
+    ) -> Screenshot:
+        return db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=user.id,
+                file_name=file_name,
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=3,
+                **fields,
+            )
+        )
+
+    def _delete(self, client, token: str, state_id: int):
+        return client.post(
+            "/api/states/delete", json={"states": [state_id]}, headers=_auth(token)
+        )
+
+    def test_a_thumbnail_a_save_still_shows_stays(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        state: State,
+        screenshots_dir,
+    ):
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_state.srm",
+                file_path=f"{platform.slug}/saves",
+                file_size_bytes=1,
+            )
+        )
+        thumbnail = self._add_screenshot(rom, admin_user, platform, "test_state.png")
+        (screenshots_dir / "test_state.png").write_bytes(b"PNG")
+
+        response = self._delete(client, access_token, state.id)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is not None
+        assert (screenshots_dir / "test_state.png").read_bytes() == b"PNG"
+
+    def test_a_gallery_screenshot_sharing_the_stem_stays(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        state: State,
+        screenshots_dir,
+    ):
+        gallery = self._add_screenshot(
+            rom, admin_user, platform, "test_state.png", is_gallery=True
+        )
+        (screenshots_dir / "test_state.png").write_bytes(b"PNG")
+
+        response = self._delete(client, access_token, state.id)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert db_screenshot_handler.get_screenshot_by_id(gallery.id) is not None
+        assert (screenshots_dir / "test_state.png").read_bytes() == b"PNG"
+
+    def test_a_file_another_row_spells_differently_stays(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        state: State,
+        screenshots_dir,
+    ):
+        variant = self._add_screenshot(rom, admin_user, platform, "Test_state.png")
+        # Newer, so the state resolves it whether or not lookups ignore case.
+        thumbnail = self._add_screenshot(rom, admin_user, platform, "test_state.png")
+        (screenshots_dir / "test_state.png").write_bytes(b"PNG")
+        # A second link stands in for a case-insensitive filesystem's alias.
+        os.link(screenshots_dir / "test_state.png", screenshots_dir / "Test_state.png")
+
+        response = self._delete(client, access_token, state.id)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is None
+        assert db_screenshot_handler.get_screenshot_by_id(variant.id) is not None
+        assert (screenshots_dir / "test_state.png").read_bytes() == b"PNG"
+        assert (screenshots_dir / "Test_state.png").read_bytes() == b"PNG"
+
+
 class TestStateFavoritesAndLabels:
     """Owner-only annotations on a state: the star and the free-text labels."""
 

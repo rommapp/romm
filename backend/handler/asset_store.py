@@ -134,14 +134,23 @@ async def remove_asset_file(file_path: str, what: str) -> None:
         log.error(f"{what} {hl(file_path)} not found on disk")
 
 
-async def remove_screenshot(screenshot: Screenshot | None) -> None:
-    """Drop a save's or state's screenshot row and file, if it has one."""
-    if not screenshot:
+async def release_thumbnail(screenshot: Screenshot | None) -> None:
+    """Drop a deleted save's or state's thumbnail, unless something still shows it."""
+    # A gallery screenshot sharing the stem is bound by chance, so it stays put.
+    if not screenshot or screenshot.is_gallery:
+        return
+    # A save and a state of one stem share a thumbnail; the other keeps it.
+    if db_screenshot_handler.is_bound(screenshot):
         return
     db_screenshot_handler.delete_screenshot(screenshot.id)
-    await remove_asset_file(
-        f"{screenshot.file_path}/{screenshot.file_name}", "Screenshot file"
-    )
+    path = f"{screenshot.file_path}/{screenshot.file_name}"
+    # A filesystem that ignores case holds another row's spelling as this file.
+    if any(
+        fs_asset_handler.is_same_file(path, f"{variant.file_path}/{variant.file_name}")
+        for variant in db_screenshot_handler.get_name_variants(screenshot)
+    ):
+        return
+    await remove_asset_file(path, "Screenshot file")
 
 
 def _name_taken(file_name: str) -> HTTPException:
@@ -153,15 +162,6 @@ def _name_taken(file_name: str) -> HTTPException:
 
 def _is_same(a: Save | State, b: Save | State) -> bool:
     return type(a) is type(b) and a.id == b.id
-
-
-def _binds(asset: Save | State, screenshot: Screenshot) -> bool:
-    """Whether `asset.screenshot` can resolve to `screenshot`, by its name match."""
-    names = {asset.file_name.casefold(), asset.file_name_no_ext.casefold()}
-    return (
-        screenshot.file_name.casefold() in names
-        or screenshot.file_name_no_ext.casefold() in names
-    )
 
 
 async def _move_asset_files(
@@ -269,8 +269,8 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
         f"{new_stem}{os.path.splitext(thumbnail.file_name)[1]}" if thumbnail else ""
     )
     # A save and a state of one stem share a thumbnail; the other keeps it.
-    copy_thumbnail = thumbnail is not None and any(
-        _binds(other, thumbnail) for other in others
+    copy_thumbnail = thumbnail is not None and db_screenshot_handler.is_bound(
+        thumbnail, ignoring=asset
     )
     # The new name still resolves the shared one, by stem or through a
     # collation that ignores case.
