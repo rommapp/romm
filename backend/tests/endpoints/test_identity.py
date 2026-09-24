@@ -6,10 +6,12 @@ from http import HTTPStatus
 from typing import Any
 from unittest import mock
 
+import httpx
 import pytest
 from authlib.integrations.base_client.errors import MismatchingStateError, OAuthError
 from authlib.jose.errors import InvalidClaimError
 from fastapi import status
+from fastapi.testclient import TestClient
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import auth_handler
@@ -724,10 +726,10 @@ async def test_logout_with_oidc_rp_initiated_logout(client, admin_user: User):
 
 
 def _rejected_oidc_callback(
-    client,
+    client: TestClient,
     error: Exception | None = None,
     headers: dict[str, str] | None = None,
-):
+) -> httpx.Response:
     fake_oauth = mock.MagicMock()
     fake_oauth.openid.authorize_access_token = mock.AsyncMock(
         side_effect=error or MismatchingStateError()
@@ -752,14 +754,18 @@ def _rejected_oidc_callback(
     ],
     ids=["spent_state", "provider_error", "invalid_id_token"],
 )
-def test_oidc_callback_rejected_redirects_to_login(client, error: Exception):
+def test_oidc_callback_rejected_redirects_to_login(
+    client: TestClient, error: Exception
+):
     response = _rejected_oidc_callback(client, error)
 
     assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
     assert response.headers["location"] == "/login?bypass_autologin=true"
 
 
-def test_oidc_callback_rejected_in_kiosk_mode_redirects_to_login(client):
+def test_oidc_callback_rejected_in_kiosk_mode_redirects_to_login(
+    client: TestClient,
+):
     with mock.patch("handler.auth.hybrid_auth.KIOSK_MODE", True):
         response = _rejected_oidc_callback(client)
 
@@ -768,7 +774,7 @@ def test_oidc_callback_rejected_in_kiosk_mode_redirects_to_login(client):
 
 
 def test_oidc_callback_with_spent_state_keeps_existing_session(
-    client, admin_user: User
+    client: TestClient, admin_user: User
 ):
     basic_auth = base64.b64encode(b"test_admin:test_admin_password").decode("ascii")
     response = client.post(
