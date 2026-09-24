@@ -8,7 +8,7 @@ HLTB_BASE_URL: Final[str] = "https://howlongtobeat.com"
 # HLTB issues a session at the search route's own /init sibling.
 SESSION_MINT_SUFFIX: Final[str] = "/init"
 
-# The session token decodes to "<issued-at>::<public IP>|<user agent>|<key>|<hmac>",
+# The session token decodes to "<issued-at>::<public IP>|<user agent>.<hmac>",
 # so logging it would put the host's public IP in any shared log or support bundle.
 HLTB_SESSION_HEADERS: Final[frozenset[str]] = frozenset(
     {"x-auth-token", "x-hp-key", "x-hp-val"}
@@ -17,17 +17,22 @@ HLTB_SESSION_HEADERS: Final[frozenset[str]] = frozenset(
 
 class HLTBSession(NamedTuple):
     token: str
-    hp_key: str
-    hp_val: str
+    # HLTB no longer issues this honeypot pair, but older /init responses carried it.
+    hp_key: str | None = None
+    hp_val: str | None = None
 
 
 def parse_session(data: dict) -> HLTBSession | None:
     """Read a session out of an /init response, or None if it did not issue one."""
-    token, hp_key, hp_val = (data.get(field) for field in ("token", "hpKey", "hpVal"))
-    if not (token and hp_key and hp_val):
+    token = data.get("token")
+    if not token:
         return None
 
-    return HLTBSession(token, hp_key, hp_val)
+    hp_key, hp_val = data.get("hpKey"), data.get("hpVal")
+    if hp_key and hp_val:
+        return HLTBSession(token, hp_key, hp_val)
+
+    return HLTBSession(token)
 
 
 # HLTB's firewall rejects tool-style "Name/version" agents with a 403, so send a
@@ -43,16 +48,20 @@ def base_headers(base_url: str) -> dict[str, str]:
 
 
 def search_headers(base_url: str, session: HLTBSession) -> dict[str, str]:
-    return {
+    headers = {
         "Content-Type": "application/json",
         **base_headers(base_url),
         "x-auth-token": session.token,
-        "x-hp-key": session.hp_key,
-        "x-hp-val": session.hp_val,
     }
+    if session.hp_key and session.hp_val:
+        headers["x-hp-key"] = session.hp_key
+        headers["x-hp-val"] = session.hp_val
+    return headers
 
 
 def search_body(payload: dict, session: HLTBSession) -> dict:
+    if not (session.hp_key and session.hp_val):
+        return payload
     # Some HLTB endpoints require the key:val in the payload. The key rotates with
     # the session, so copy the payload instead of accumulating stale keys.
     return {**payload, session.hp_key: session.hp_val}

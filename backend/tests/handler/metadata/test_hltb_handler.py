@@ -85,6 +85,25 @@ async def test_request_renews_session_and_retries_on_403(mock_ctx_httpx_client):
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
 @patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_request_works_with_a_token_only_session(mock_ctx_httpx_client):
+    handler = _handler_without_session()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = _response(json_body={"token": "token-1"})
+    mock_client.post.return_value = _response(json_body={"data": [{"game_id": 1}]})
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    result = await handler._request(handler.search_url, {"a": 1})
+
+    assert result == {"data": [{"game_id": 1}]}
+    kwargs = mock_client.post.await_args.kwargs
+    assert kwargs["headers"]["x-auth-token"] == "token-1"
+    assert "x-hp-key" not in kwargs["headers"]
+    assert "x-hp-val" not in kwargs["headers"]
+    assert kwargs["json"] == {"a": 1}
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
 async def test_request_does_not_mutate_caller_payload(mock_ctx_httpx_client):
     handler = _handler()
     mock_client = AsyncMock()

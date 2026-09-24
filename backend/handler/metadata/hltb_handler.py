@@ -317,7 +317,7 @@ class HLTBHandler(MetadataHandler):
         return base_headers(self.base_url)
 
     def _has_session(self) -> bool:
-        return bool(self.security_token and self.hp_key and self.hp_val)
+        return bool(self.security_token)
 
     async def _ensure_session(self) -> bool:
         """Mint a session if there is none, so a failed startup is not permanent."""
@@ -426,9 +426,7 @@ class HLTBHandler(MetadataHandler):
             if not self._has_session():
                 return {}
 
-            session = HLTBSession(
-                self.security_token or "", self.hp_key or "", self.hp_val or ""
-            )
+            session = HLTBSession(self.security_token or "", self.hp_key, self.hp_val)
             headers = search_headers(self.base_url, session)
             body = search_body(payload, session)
 

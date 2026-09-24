@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from utils.hltb_search import HLTB_BASE_URL
+from utils.hltb_search import HLTB_BASE_URL, build_search_payload
 from utils.update_hltb_api_url import (
     BUILD_MANIFEST_REGEX,
     VALIDATION_SEARCH_TERM,
@@ -94,7 +94,7 @@ def test_a_route_that_mints_but_does_not_serve_games_is_rejected(search_body: di
 
 
 def test_an_incomplete_session_is_rejected_before_searching():
-    client = _client({"token": "t"}, {"data": [GAME]})
+    client = _client({"hpKey": "ign_k", "hpVal": "v"}, {"data": [GAME]})
 
     assert (
         serves_game_search(client, HLTB_BASE_URL, f"{HLTB_BASE_URL}/api/search/site")
@@ -113,3 +113,16 @@ def test_the_search_carries_the_session_and_honeypot_key():
     # HLTB requires the rotating honeypot key in the body, not just the headers.
     assert kwargs["json"]["ign_k"] == "v"
     assert kwargs["json"]["searchTerms"] == [VALIDATION_SEARCH_TERM]
+
+
+def test_a_token_only_session_searches_without_a_honeypot_key():
+    client = _client({"token": "t"}, {"data": [GAME]})
+
+    assert (
+        serves_game_search(client, HLTB_BASE_URL, f"{HLTB_BASE_URL}/api/search/site")
+        is True
+    )
+    kwargs = client.post.call_args.kwargs
+    assert kwargs["headers"]["x-auth-token"] == "t"
+    assert "x-hp-key" not in kwargs["headers"]
+    assert kwargs["json"] == build_search_payload(VALIDATION_SEARCH_TERM, "")
