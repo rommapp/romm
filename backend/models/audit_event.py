@@ -52,8 +52,8 @@ class AuditAction(enum.StrEnum):
 
     AUTH_LOGIN = "auth.login"
     AUTH_LOGIN_FAILED = "auth.login_failed"
-    AUTH_PASSWORD_RESET_REQUEST = "auth.password_reset_request"
-    AUTH_PASSWORD_RESET = "auth.password_reset"
+    AUTH_PASSWORD_RESET_REQUEST = "auth.password_reset_request"  # nosec B105
+    AUTH_PASSWORD_RESET = "auth.password_reset"  # nosec B105
     USER_CREATE = "user.create"
     USER_REGISTER = "user.register"
     USER_EDIT = "user.edit"
@@ -64,9 +64,9 @@ class AuditAction(enum.StrEnum):
     PERMISSION_GROUP_DELETE = "permission_group.delete"
     VISIBILITY_HIDE = "visibility.hide"
     VISIBILITY_UNHIDE = "visibility.unhide"
-    CLIENT_TOKEN_CREATE = "client_token.create"
-    CLIENT_TOKEN_REGENERATE = "client_token.regenerate"
-    CLIENT_TOKEN_REVOKE = "client_token.revoke"
+    CLIENT_TOKEN_CREATE = "client_token.create"  # nosec B105
+    CLIENT_TOKEN_REGENERATE = "client_token.regenerate"  # nosec B105
+    CLIENT_TOKEN_REVOKE = "client_token.revoke"  # nosec B105
     DEVICE_APPROVE = "device.approve"
 
 
@@ -96,7 +96,7 @@ class AuditTargetType(enum.StrEnum):
     VIRTUAL_COLLECTION = "virtual_collection"
     USER = "user"
     PERMISSION_GROUP = "permission_group"
-    CLIENT_TOKEN = "client_token"
+    CLIENT_TOKEN = "client_token"  # nosec B105
     DEVICE = "device"
     TASK = "task"
     CONFIG = "config"
