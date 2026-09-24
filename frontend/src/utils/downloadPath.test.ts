@@ -87,6 +87,20 @@ describe("getDownloadPath", () => {
       "/api/roms/24/content/B.A.T.?file_ids=999",
     );
   });
+
+  it("marks a player's fetch after the file selection", () => {
+    const rom = makeRom({
+      id: 24,
+      fs_name: "B.A.T.",
+      files: [
+        { id: 29, file_name: "B.A.T. Disk1.adf" },
+        { id: 30, file_name: "B.A.T. Disk2.adf" },
+      ] as SimpleRom["files"],
+    });
+    expect(getDownloadPath({ rom, fileIDs: [29], purpose: "play" })).toBe(
+      "/api/roms/24/content/B.A.T.%20Disk1.adf?file_ids=29&purpose=play",
+    );
+  });
 });
 
 describe("download URL encoding", () => {

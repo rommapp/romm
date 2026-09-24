@@ -1,3 +1,4 @@
+from .audit_events_handler import DBAuditEventsHandler
 from .client_tokens_handler import DBClientTokensHandler
 from .collections_handler import DBCollectionsHandler
 from .container_adoptions_handler import DBContainerAdoptionsHandler
@@ -20,6 +21,7 @@ from .stats_handler import DBStatsHandler
 from .sync_sessions_handler import DBSyncSessionsHandler
 from .users_handler import DBUsersHandler
 
+db_audit_event_handler = DBAuditEventsHandler()
 db_client_token_handler = DBClientTokensHandler()
 db_collection_handler = DBCollectionsHandler()
 db_container_adoption_handler = DBContainerAdoptionsHandler()

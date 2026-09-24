@@ -760,6 +760,23 @@ Token format: `rmm_` + 64 hex chars (32-byte random)
 
 ---
 
+#### Audit Events
+
+**Table:** `audit_events` (what users and background jobs did, kept `AUDIT_LOG_RETENTION_DAYS`)
+
+| Column                                                  | Type       | Notes                                         |
+| ------------------------------------------------------- | ---------- | --------------------------------------------- |
+| `id`                                                    | Integer    | PK                                            |
+| `occurred_at`                                           | Timestamp  | For a synced play, when it started            |
+| `actor_kind`                                            | String(16) | `user`, `anonymous` or `system`               |
+| `actor_id`                                              | FK → users | `SET NULL` on delete                          |
+| `action`                                                | String(64) | `AuditAction`, e.g. `rom.download`            |
+| `actor_name`, `target_type`, `target_id`, `target_name` | String     | Snapshots, so an event outlives what it names |
+| `ip_address`, `device_id`                               | String     | No FK                                         |
+| `data`                                                  | JSON       | What the client builds the sentence from      |
+
+---
+
 #### Firmware
 
 **Table:** `firmware`
@@ -1061,7 +1078,17 @@ A webhook's `format` is `json` (RomM's payload below), `discord` (an embed that 
 
 With a secret, the JSON format adds `X-RomM-Signature: sha256=<hex HMAC-SHA256 of the body>`. Email needs `SMTP_HOST` and `SMTP_FROM` (see `env.template`); the heartbeat's `NOTIFICATIONS.EMAIL_ENABLED` says whether it's set up. Channel configs are sealed with a key derived from `ROMM_AUTH_SECRET_KEY`, so rotating it means entering their URLs again.
 
-### 6.17 Other Endpoints
+### 6.17 Audit Events (`/api/audit-events`)
+
+| Method | Path | Scope   | Description                                                     |
+| ------ | ---- | ------- | --------------------------------------------------------------- |
+| GET    | `/`  | ME_READ | Events newest first: everyone's for an admin, else the caller's |
+
+Filters: `actor_id`, `action`, `category`, `target_type`/`target_id`, `since`/`until`, `search` (names and IP). Pages carry `max_id`; pass it back so later pages skip events recorded meanwhile. An admin reads everyone's only with `users.read` in the token.
+
+Events are written by `handler/audit_handler.record()` after an action succeeds, and a failure to write never fails the action. A ROM content fetch is a `rom.download`, or a `rom.player_load` when the in-browser player marks it `purpose=play`; a fetch whose Range starts past byte 0, or that the same caller made in the last 10 minutes, isn't recorded. A failed login keeps the attempted name only when an account has it. The client address comes from `X-Forwarded-For` only when the connection is from a proxy in `FORWARDED_ALLOW_IPS`.
+
+### 6.18 Other Endpoints
 
 | Router        | Path                                   | Description                            |
 | ------------- | -------------------------------------- | -------------------------------------- |
@@ -1490,6 +1517,7 @@ Toggled via environment variables:
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
 | `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
 | `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
+| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)    | `30 4 * * *`       | Prune old audit events |
 
 ### Manual Tasks
 
@@ -1623,13 +1651,14 @@ Falls back to `FakeRedis` in test mode.
 
 #### Core
 
-| Variable         | Default          | Description          |
-| ---------------- | ---------------- | -------------------- |
-| `ROMM_BASE_PATH` | `/romm`          | Base data directory  |
-| `ROMM_BASE_URL`  | `http://0.0.0.0` | Application base URL |
-| `ROMM_PORT`      | `8080`           | Server port          |
-| `DEV_MODE`       | `false`          | Development mode     |
-| `LOGLEVEL`       | `INFO`           | Log level            |
+| Variable              | Default          | Description                                                |
+| --------------------- | ---------------- | ---------------------------------------------------------- |
+| `ROMM_BASE_PATH`      | `/romm`          | Base data directory                                        |
+| `ROMM_BASE_URL`       | `http://0.0.0.0` | Application base URL                                       |
+| `ROMM_PORT`           | `8080`           | Server port                                                |
+| `DEV_MODE`            | `false`          | Development mode                                           |
+| `LOGLEVEL`            | `INFO`           | Log level                                                  |
+| `FORWARDED_ALLOW_IPS` | private ranges   | Proxies trusted to report the client address (`*` for any) |
 
 #### Database
 
