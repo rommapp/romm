@@ -390,7 +390,6 @@
   "screenshot-num-delete": "Excluir captura de tela {n}",
   "screenshot-num-open": "Abrir captura de tela {n}",
   "screenshot-num-thumb": "Miniatura da captura de tela {n}",
-  "screenshot-public": "Pública",
   "screenshot-remove-failed": "Falha ao remover a captura de tela: {error}",
   "screenshot-removed": "Captura de tela removida com sucesso",
   "screenshot-visibility-failed": "Não foi possível atualizar a visibilidade: {error}",

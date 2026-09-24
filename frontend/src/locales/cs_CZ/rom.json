@@ -390,7 +390,6 @@
   "screenshot-num-delete": "Smazat screenshot {n}",
   "screenshot-num-open": "Otevřít screenshot {n}",
   "screenshot-num-thumb": "Náhled screenshotu {n}",
-  "screenshot-public": "Veřejné",
   "screenshot-remove-failed": "Nepodařilo se odstranit screenshot: {error}",
   "screenshot-removed": "Screenshot byl úspěšně odstraněn",
   "screenshot-visibility-failed": "Nepodařilo se změnit viditelnost: {error}",

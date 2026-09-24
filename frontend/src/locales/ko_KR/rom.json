@@ -390,7 +390,6 @@
   "screenshot-num-delete": "스크린샷 {n} 삭제",
   "screenshot-num-open": "스크린샷 {n} 열기",
   "screenshot-num-thumb": "스크린샷 {n} 썸네일",
-  "screenshot-public": "공개",
   "screenshot-remove-failed": "스크린샷 삭제에 실패했습니다: {error}",
   "screenshot-removed": "스크린샷을 삭제했습니다",
   "screenshot-visibility-failed": "공개 설정을 변경할 수 없습니다: {error}",

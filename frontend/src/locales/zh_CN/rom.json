@@ -390,7 +390,6 @@
   "screenshot-num-delete": "删除截图 {n}",
   "screenshot-num-open": "打开截图 {n}",
   "screenshot-num-thumb": "截图 {n} 缩略图",
-  "screenshot-public": "公开",
   "screenshot-remove-failed": "移除截图失败：{error}",
   "screenshot-removed": "截图已成功移除",
   "screenshot-visibility-failed": "无法更新可见性：{error}",

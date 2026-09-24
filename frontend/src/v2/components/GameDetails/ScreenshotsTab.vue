@@ -8,9 +8,10 @@
 //   * delete   — when `deletable` and the item is owned (top-right, hover)
 //   * lock     — when `togglable` and owned: public/private toggle (top-right)
 //   * username — community items (others' public shots) show an owner chip
-import { RAvatar, RBtn, RCarousel, RIcon } from "@v2/lib";
+import { RAvatar, RBtn, RCarousel } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
@@ -102,13 +103,10 @@ function canToggle(shot: ScreenshotItem): boolean {
       </div>
 
       <!-- Persistent "shared" badge for owned public screenshots -->
-      <div
+      <PublicBadge
         v-else-if="canToggle(shot) && shot.isPublic"
         class="r-v2-det-shots__badge"
-        :title="t('rom.screenshot-public')"
-      >
-        <RIcon icon="mdi-earth" size="13" />
-      </div>
+      />
 
       <div class="r-v2-det-shots__actions">
         <RBtn
@@ -123,7 +121,7 @@ function canToggle(shot: ScreenshotItem): boolean {
               ? t('rom.screenshot-make-private')
               : t('rom.screenshot-make-public')
           "
-          :title="
+          :tooltip="
             shot.isPublic
               ? t('rom.screenshot-make-private')
               : t('rom.screenshot-make-public')
@@ -137,6 +135,7 @@ function canToggle(shot: ScreenshotItem): boolean {
           variant="flat"
           color="romm-red"
           :aria-label="t('rom.screenshot-num-delete', { n: i + 1 })"
+          :tooltip="t('common.delete')"
           @click="emit('delete', shot.id!)"
         />
       </div>
@@ -252,12 +251,5 @@ html[data-bp~="sm-and-down"] .r-v2-det-shots__actions {
   position: absolute;
   top: 6px;
   left: 6px;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--r-color-overlay-scrim-strong);
-  color: var(--r-color-overlay-fg);
 }
 </style>

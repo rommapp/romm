@@ -390,7 +390,6 @@
   "screenshot-num-delete": "Изтрий екранна снимка {n}",
   "screenshot-num-open": "Отвори екранна снимка {n}",
   "screenshot-num-thumb": "Миниатюра на екранна снимка {n}",
-  "screenshot-public": "Публична",
   "screenshot-remove-failed": "Неуспешно премахване на екранната снимка: {error}",
   "screenshot-removed": "Екранната снимка е премахната успешно",
   "screenshot-visibility-failed": "Видимостта не може да се промени: {error}",

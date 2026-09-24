@@ -390,7 +390,6 @@
   "screenshot-num-delete": "Screenshot {n} löschen",
   "screenshot-num-open": "Screenshot {n} öffnen",
   "screenshot-num-thumb": "Screenshot {n} Vorschau",
-  "screenshot-public": "Öffentlich",
   "screenshot-remove-failed": "Screenshot konnte nicht entfernt werden: {error}",
   "screenshot-removed": "Screenshot erfolgreich entfernt",
   "screenshot-visibility-failed": "Sichtbarkeit konnte nicht geändert werden: {error}",

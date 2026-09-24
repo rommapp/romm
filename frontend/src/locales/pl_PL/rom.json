@@ -390,7 +390,6 @@
   "screenshot-num-delete": "Usuń zrzut ekranu {n}",
   "screenshot-num-open": "Otwórz zrzut ekranu {n}",
   "screenshot-num-thumb": "Miniatura zrzutu ekranu {n}",
-  "screenshot-public": "Publiczne",
   "screenshot-remove-failed": "Nie udało się usunąć zrzutu ekranu: {error}",
   "screenshot-removed": "Zrzut ekranu został usunięty",
   "screenshot-visibility-failed": "Nie udało się zaktualizować widoczności: {error}",

@@ -390,7 +390,6 @@
   "screenshot-num-delete": "Удалить скриншот {n}",
   "screenshot-num-open": "Открыть скриншот {n}",
   "screenshot-num-thumb": "Миниатюра скриншота {n}",
-  "screenshot-public": "Публичная",
   "screenshot-remove-failed": "Не удалось удалить скриншот: {error}",
   "screenshot-removed": "Скриншот успешно удалён",
   "screenshot-visibility-failed": "Не удалось изменить видимость: {error}",

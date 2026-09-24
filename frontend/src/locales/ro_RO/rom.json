@@ -390,7 +390,6 @@
   "screenshot-num-delete": "Șterge captura {n}",
   "screenshot-num-open": "Deschide captura {n}",
   "screenshot-num-thumb": "Miniatura capturii {n}",
-  "screenshot-public": "Publică",
   "screenshot-remove-failed": "Eliminarea capturii de ecran a eșuat: {error}",
   "screenshot-removed": "Captura de ecran a fost eliminată",
   "screenshot-visibility-failed": "Vizibilitatea nu a putut fi actualizată: {error}",

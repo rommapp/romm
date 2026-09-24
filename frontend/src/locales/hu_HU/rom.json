@@ -390,7 +390,6 @@
   "screenshot-num-delete": "{n}. képernyőkép törlése",
   "screenshot-num-open": "{n}. képernyőkép megnyitása",
   "screenshot-num-thumb": "{n}. képernyőkép bélyegképe",
-  "screenshot-public": "Nyilvános",
   "screenshot-remove-failed": "A képernyőkép eltávolítása nem sikerült: {error}",
   "screenshot-removed": "Képernyőkép sikeresen eltávolítva",
   "screenshot-visibility-failed": "A láthatóság nem frissíthető: {error}",

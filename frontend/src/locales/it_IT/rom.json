@@ -390,7 +390,6 @@
   "screenshot-num-delete": "Elimina screenshot {n}",
   "screenshot-num-open": "Apri screenshot {n}",
   "screenshot-num-thumb": "Miniatura screenshot {n}",
-  "screenshot-public": "Pubblico",
   "screenshot-remove-failed": "Impossibile rimuovere lo screenshot: {error}",
   "screenshot-removed": "Screenshot rimosso correttamente",
   "screenshot-visibility-failed": "Impossibile aggiornare la visibilità: {error}",

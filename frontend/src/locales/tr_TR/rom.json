@@ -390,7 +390,6 @@
   "screenshot-num-delete": "{n}. ekran görüntüsünü sil",
   "screenshot-num-open": "{n}. ekran görüntüsünü aç",
   "screenshot-num-thumb": "{n}. ekran görüntüsü küçük resmi",
-  "screenshot-public": "Herkese açık",
   "screenshot-remove-failed": "Ekran görüntüsü kaldırılamadı: {error}",
   "screenshot-removed": "Ekran görüntüsü başarıyla kaldırıldı",
   "screenshot-visibility-failed": "Görünürlük güncellenemedi: {error}",

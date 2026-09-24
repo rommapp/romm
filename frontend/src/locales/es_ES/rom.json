@@ -390,7 +390,6 @@
   "screenshot-num-delete": "Eliminar captura {n}",
   "screenshot-num-open": "Abrir captura {n}",
   "screenshot-num-thumb": "Miniatura de captura {n}",
-  "screenshot-public": "Pública",
   "screenshot-remove-failed": "No se pudo eliminar la captura: {error}",
   "screenshot-removed": "Captura eliminada correctamente",
   "screenshot-visibility-failed": "No se pudo actualizar la visibilidad: {error}",

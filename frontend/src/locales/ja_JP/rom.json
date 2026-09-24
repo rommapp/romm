@@ -390,7 +390,6 @@
   "screenshot-num-delete": "スクリーンショット{n}を削除",
   "screenshot-num-open": "スクリーンショット{n}を開く",
   "screenshot-num-thumb": "スクリーンショット{n}のサムネイル",
-  "screenshot-public": "公開",
   "screenshot-remove-failed": "スクリーンショットの削除に失敗しました：{error}",
   "screenshot-removed": "スクリーンショットを削除しました",
   "screenshot-visibility-failed": "表示設定を更新できませんでした：{error}",
