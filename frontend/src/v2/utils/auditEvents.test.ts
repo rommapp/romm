@@ -125,12 +125,12 @@ describe("describeAuditEvent", () => {
   it("colors a failure apart from its category", () => {
     expect(
       describeAuditEvent(event("rom.play", { category: "consumption" })).tone,
-    ).toBe("primary");
+    ).toBe("var(--r-color-brand-primary)");
     expect(
       describeAuditEvent(
         event("auth.login_failed", { category: "security", data: {} }),
       ).tone,
-    ).toBe("danger");
+    ).toBe("var(--r-color-danger)");
   });
 
   it("names a failed sign-in only by an account's own name", () => {

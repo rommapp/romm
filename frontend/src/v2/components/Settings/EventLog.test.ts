@@ -90,23 +90,36 @@ describe("EventLog", () => {
     expect(text).toContain("Steam Deck");
   });
 
-  it("searches when asked, not on every keystroke", async () => {
-    const wrapper = render();
-    await flushPromises();
-    getAuditEvents.mockClear();
+  it("searches once typing pauses, or straight away on Enter", async () => {
+    // lodash's debounce reads the clock; setImmediate stays real for flushPromises.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      const wrapper = render();
+      await flushPromises();
+      getAuditEvents.mockClear();
+      const input = wrapper.find('input[placeholder="Search events"]');
 
-    await wrapper
-      .find('input[placeholder="Search events"]')
-      .setValue("192.168");
-    await flushPromises();
-    expect(getAuditEvents).not.toHaveBeenCalled();
+      await input.setValue("192");
+      await input.setValue("192.168");
+      await flushPromises();
+      expect(getAuditEvents).not.toHaveBeenCalled();
 
-    const button = wrapper.findAll("button").find((b) => b.text() === "Search");
-    await button?.trigger("click");
-    await flushPromises();
+      vi.advanceTimersByTime(300);
+      await flushPromises();
+      expect(getAuditEvents).toHaveBeenCalledOnce();
+      expect(getAuditEvents).toHaveBeenCalledWith(
+        expect.objectContaining({ search: "192.168" }),
+      );
 
-    expect(getAuditEvents).toHaveBeenCalledWith(
-      expect.objectContaining({ search: "192.168" }),
-    );
+      getAuditEvents.mockClear();
+      await input.setValue("steam");
+      await input.trigger("keyup", { key: "Enter" });
+      await flushPromises();
+      expect(getAuditEvents).toHaveBeenCalledWith(
+        expect.objectContaining({ search: "steam" }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

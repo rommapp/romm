@@ -1,12 +1,13 @@
 <script setup lang="ts">
-// EventLogRow: one event on the event log's timeline, a fixed height so the
-// list can window it.
+// EventLogRow: one event on the event log's timeline, at the height the list
+// windows it at.
 import { RAvatar, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { RouterLink } from "vue-router";
 import type { AuditEventSchema } from "@/__generated__";
 import { formatTimestamp } from "@/utils";
+import { PHONE_EVENT_ROW } from "@/v2/components/Settings/eventLogLayout";
 import type { AuditEventView } from "@/v2/utils/auditEvents";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
@@ -18,7 +19,17 @@ const props = defineProps<{
   last: boolean;
   /** The time of day it happened, formatted by the list for all its rows. */
   time: string;
+  height: number;
 }>();
+
+const PHONE_GEOMETRY = {
+  "--r-audit-phone-pad": `${PHONE_EVENT_ROW.paddingBlock}px`,
+  "--r-audit-title-offset": `${PHONE_EVENT_ROW.titleOffset}px`,
+  "--r-audit-title-line": `${PHONE_EVENT_ROW.titleLine}px`,
+  "--r-audit-meta-line": `${PHONE_EVENT_ROW.metaLine}px`,
+  "--r-audit-gap": `${PHONE_EVENT_ROW.gap}px`,
+  "--r-audit-max-lines": PHONE_EVENT_ROW.maxLines,
+};
 
 const { t, locale } = useI18n();
 
@@ -54,6 +65,7 @@ const actorAvatar = computed(() => {
       'r-v2-audit-event--first': first,
       'r-v2-audit-event--last': last,
     }"
+    :style="{ height: `${height}px`, ...PHONE_GEOMETRY }"
   >
     <time
       class="r-v2-audit-event__time"
@@ -63,13 +75,12 @@ const actorAvatar = computed(() => {
       {{ time }}
     </time>
     <span class="r-v2-audit-event__rail">
-      <RAvatar
-        :icon="view.icon"
-        :color="view.tone"
-        variant="translucent"
-        size="28"
+      <span
         class="r-v2-audit-event__dot"
-      />
+        :style="{ '--r-audit-tone': view.tone }"
+      >
+        <RIcon :icon="view.icon" size="16" />
+      </span>
     </span>
     <span class="r-v2-audit-event__body">
       <component
@@ -80,25 +91,31 @@ const actorAvatar = computed(() => {
         {{ view.title }}
       </component>
       <span class="r-v2-audit-event__meta">
-        <span class="r-v2-audit-event__meta-item">
+        <span class="r-v2-audit-event__item r-v2-audit-event__actor">
           <RAvatar
             :image="actorAvatar"
             :icon="actorIcon"
             variant="translucent"
             size="16"
           />
-          {{ actorName }}
+          <span class="r-v2-audit-event__text">{{ actorName }}</span>
         </span>
-        <span v-if="view.detail" class="r-v2-audit-event__meta-item">
-          {{ view.detail }}
+        <span
+          v-if="view.detail"
+          class="r-v2-audit-event__item r-v2-audit-event__detail"
+        >
+          <span class="r-v2-audit-event__text">{{ view.detail }}</span>
         </span>
-        <span v-if="event.device_name" class="r-v2-audit-event__meta-item">
+        <span
+          v-if="event.device_name"
+          class="r-v2-audit-event__item r-v2-audit-event__device"
+        >
           <RIcon icon="mdi-devices" size="14" />
-          {{ event.device_name }}
+          <span class="r-v2-audit-event__text">{{ event.device_name }}</span>
         </span>
         <span
           v-if="event.ip_address"
-          class="r-v2-audit-event__meta-item r-v2-audit-event__ip"
+          class="r-v2-audit-event__item r-v2-audit-event__ip"
         >
           <RIcon icon="mdi-ip-network-outline" size="14" />
           {{ event.ip_address }}
@@ -112,12 +129,12 @@ const actorAvatar = computed(() => {
 /* Each day reads as one panel: its first and last rows round the corners. */
 .r-v2-audit-event {
   --r-audit-dot: 28px;
+  --r-audit-pad-block: var(--r-space-2);
   display: grid;
   grid-template-columns: 3.25rem var(--r-audit-dot) minmax(0, 1fr);
   column-gap: var(--r-space-3);
   box-sizing: border-box;
-  height: 62px;
-  padding: var(--r-space-2) var(--r-space-4);
+  padding: var(--r-audit-pad-block) var(--r-space-4);
   background: var(--r-color-surface);
   border-inline: 1px solid var(--r-color-border);
 }
@@ -149,8 +166,8 @@ const actorAvatar = computed(() => {
 .r-v2-audit-event__rail::before {
   content: "";
   position: absolute;
-  top: calc(-1 * var(--r-space-2));
-  bottom: calc(-1 * var(--r-space-2));
+  top: calc(-1 * var(--r-audit-pad-block));
+  bottom: calc(-1 * var(--r-audit-pad-block));
   left: 50%;
   width: 2px;
   transform: translateX(-50%);
@@ -163,11 +180,17 @@ const actorAvatar = computed(() => {
   bottom: calc(100% - var(--r-audit-dot) / 2);
 }
 
-/* An opaque disc under the translucent icon keeps the rail from showing through. */
+/* The page's own background is the one color that reads on every tone. */
 .r-v2-audit-event__dot {
   position: relative;
-  box-shadow: 0 0 0 3px var(--r-color-surface);
-  background-color: var(--r-color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--r-audit-dot);
+  height: var(--r-audit-dot);
+  border-radius: 50%;
+  background: var(--r-audit-tone);
+  color: var(--r-color-bg);
 }
 
 .r-v2-audit-event__body {
@@ -192,23 +215,32 @@ a.r-v2-audit-event__title:hover {
   text-decoration: underline;
 }
 
-/* One line, so every row keeps the height the windowing counts on. */
+/* Who, what, and where from, on one line; long names shorten rather than
+   push what follows off the end. */
 .r-v2-audit-event__meta {
+  display: flex;
+  gap: var(--r-space-3);
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--r-font-size-sm);
   color: var(--r-color-fg-secondary);
 }
 
-.r-v2-audit-event__meta-item {
+.r-v2-audit-event__item {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  vertical-align: middle;
+  min-width: 0;
 }
-.r-v2-audit-event__meta-item + .r-v2-audit-event__meta-item {
-  margin-inline-start: var(--r-space-3);
+.r-v2-audit-event__actor,
+.r-v2-audit-event__ip {
+  flex-shrink: 0;
+}
+
+.r-v2-audit-event__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .r-v2-audit-event__ip {
@@ -219,5 +251,44 @@ html[data-bp~="xs"] .r-v2-audit-event {
   grid-template-columns: 2.75rem var(--r-audit-dot) minmax(0, 1fr);
   column-gap: var(--r-space-2);
   padding-inline: var(--r-space-3);
+}
+/* A phone stacks the title, the detail, who, and where from, in that order
+   on every row; the list sizes each row for how its title and detail wrap. */
+html[data-bp~="xs"] .r-v2-audit-event {
+  --r-audit-pad-block: var(--r-audit-phone-pad);
+}
+html[data-bp~="xs"] .r-v2-audit-event__body {
+  gap: var(--r-audit-gap);
+  padding-top: var(--r-audit-title-offset);
+}
+html[data-bp~="xs"] .r-v2-audit-event__title,
+html[data-bp~="xs"] .r-v2-audit-event__detail .r-v2-audit-event__text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--r-audit-max-lines);
+  line-clamp: var(--r-audit-max-lines);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+html[data-bp~="xs"] .r-v2-audit-event__title {
+  line-height: var(--r-audit-title-line);
+}
+html[data-bp~="xs"] .r-v2-audit-event__meta {
+  flex-wrap: wrap;
+  gap: var(--r-audit-gap) var(--r-space-3);
+  line-height: var(--r-audit-meta-line);
+}
+html[data-bp~="xs"] .r-v2-audit-event__actor,
+html[data-bp~="xs"] .r-v2-audit-event__detail {
+  flex: 0 0 100%;
+}
+html[data-bp~="xs"] .r-v2-audit-event__detail {
+  order: -1;
+}
+/* No basis, so a long device name shortens beside the address instead of
+   wrapping it onto a line of its own. */
+html[data-bp~="xs"] .r-v2-audit-event__device {
+  flex: 1 1 0;
+  max-width: max-content;
 }
 </style>

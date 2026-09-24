@@ -16,7 +16,7 @@ import { formatPlaytime } from "@/v2/utils/time";
 
 export interface AuditEventView {
   icon: string;
-  /** An RAvatar color: the category's, or danger for something that failed. */
+  /** A color token: the category's, or danger for something that failed. */
   tone: string;
   title: string;
   detail: string | null;
@@ -374,18 +374,20 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
 };
 
 const CATEGORY_TONES: Record<AuditCategory, string> = {
-  consumption: "primary",
-  library: "info",
-  collections: "accent",
-  operations: "secondary",
-  security: "warning",
+  consumption: "var(--r-color-brand-primary)",
+  library: "var(--r-color-info)",
+  collections: "var(--r-color-brand-accent)",
+  operations: "var(--r-color-brand-secondary)",
+  security: "var(--r-color-warning)",
 };
 
 function toneOf(event: AuditEventSchema): string {
   if (event.action === "auth.login_failed" || event.data.status === "failed") {
-    return "danger";
+    return "var(--r-color-danger)";
   }
-  return event.category ? CATEGORY_TONES[event.category] : "secondary";
+  return event.category
+    ? CATEGORY_TONES[event.category]
+    : CATEGORY_TONES.operations;
 }
 
 function targetRoute(event: AuditEventSchema): RouteLocationRaw | null {
@@ -411,7 +413,7 @@ function targetRoute(event: AuditEventSchema): RouteLocationRaw | null {
 function fallback(event: AuditEventSchema, target: string): AuditEventView {
   return {
     icon: "mdi-help-circle-outline",
-    tone: "secondary",
+    tone: CATEGORY_TONES.operations,
     title: [event.action, target].filter(Boolean).join(" "),
     detail: null,
     to: null,

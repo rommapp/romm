@@ -12,15 +12,29 @@ import {
   RVirtualScroller,
 } from "@v2/lib";
 import { isToday, isYesterday } from "date-fns";
+import { debounce } from "lodash";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { AuditCategory, AuditEventSchema } from "@/__generated__";
 import storeUsers from "@/stores/users";
 import { toBrowserLocale } from "@/utils";
 import EventLogRow from "@/v2/components/Settings/EventLogRow.vue";
+import {
+  EVENT_ROW_HEIGHT,
+  PHONE_EVENT_ROW,
+  phoneEventRowHeight,
+} from "@/v2/components/Settings/eventLogLayout";
 import { useAuditLog } from "@/v2/composables/useAuditLog";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGridNav } from "@/v2/composables/useGridNav";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -30,6 +44,7 @@ import {
   type AuditEventView,
 } from "@/v2/utils/auditEvents";
 import { syncQueryParam } from "@/v2/utils/routeQuery";
+import { canvasMeasure, wrappedLineCount } from "@/v2/utils/textLines";
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -98,10 +113,12 @@ const untilDate = computed({
   set: (date) => (until.value = dateToDay(date)),
 });
 
-// Emptying the box shows everything again; anything else waits for a search.
-watch(search, (value) => {
-  if (!value.trim()) appliedSearch.value = "";
-});
+// Typing searches once it pauses, as the gallery's search does.
+const applySearch = debounce(() => {
+  appliedSearch.value = search.value.trim();
+}, 300);
+watch(search, applySearch);
+onBeforeUnmount(() => applySearch.cancel());
 
 const hasFilters = computed(
   () =>
@@ -135,7 +152,8 @@ async function refresh() {
   }
 }
 
-function submitSearch() {
+function searchNow() {
+  applySearch.cancel();
   const next = search.value.trim();
   // Searching the same text again reloads, picking up newer events.
   if (next === appliedSearch.value) void refresh();
@@ -227,6 +245,7 @@ interface EventItem {
   view: AuditEventView;
   first: boolean;
   last: boolean;
+  height: number;
 }
 
 interface DayItem {
@@ -237,12 +256,79 @@ interface DayItem {
 
 type Item = DayItem | EventItem | { kind: "more"; key: "more" };
 
-// Kept in step with EventLogRow and the day and "more" rows below.
-const ITEM_HEIGHTS: Record<Item["kind"], number> = {
-  day: 44,
-  event: 62,
-  more: 56,
-};
+// Kept in step with the day and "more" rows below.
+const ROW_HEIGHTS = { day: 44, more: 56 } as const;
+
+// A phone wraps each event's title and detail, so its row's height depends on
+// how they wrap in the fonts and width of a row already on screen.
+interface TextMetrics {
+  width: number;
+  fonts: string;
+  title: (run: string) => number;
+  detail: (run: string) => number;
+}
+
+const listRoot = ref<HTMLElement | null>(null);
+const { xs } = useBreakpoint();
+const textMetrics = shallowRef<TextMetrics | null>(null);
+
+function readTextMetrics(force = false) {
+  if (!xs.value) return;
+  const body = listRoot.value?.querySelector<HTMLElement>(
+    ".r-v2-audit-event__body",
+  );
+  const title = body?.querySelector<HTMLElement>(".r-v2-audit-event__title");
+  const meta = body?.querySelector<HTMLElement>(".r-v2-audit-event__meta");
+  if (!body || !title || !meta) return;
+  const titleFont = getComputedStyle(title).font;
+  const metaFont = getComputedStyle(meta).font;
+  const fonts = `${titleFont}|${metaFont}`;
+  const width = body.clientWidth;
+  const current = textMetrics.value;
+  if (!force && current?.width === width && current.fonts === fonts) return;
+  const measureTitle = canvasMeasure(titleFont);
+  const measureDetail = canvasMeasure(metaFont);
+  if (!measureTitle || !measureDetail) return;
+  textMetrics.value = {
+    width,
+    fonts,
+    title: measureTitle,
+    detail: measureDetail,
+  };
+}
+
+function phoneLines(text: string, measure?: (run: string) => number): number {
+  const width = textMetrics.value?.width;
+  if (!width || !measure) return 1;
+  // Measured a little short, so a line that only just fits counts as wrapped:
+  // a spare line is better than one cut off.
+  return Math.min(
+    PHONE_EVENT_ROW.maxLines,
+    wrappedLineCount(text, width - 2, measure),
+  );
+}
+
+// Like the sentences, heights are kept until the fonts or the width change.
+const heights = computed(() => {
+  void xs.value;
+  void textMetrics.value;
+  return new WeakMap<AuditEventView, number>();
+});
+
+function eventHeight(event: AuditEventSchema, view: AuditEventView): number {
+  if (!xs.value) return EVENT_ROW_HEIGHT;
+  let height = heights.value.get(view);
+  if (height === undefined) {
+    const metrics = textMetrics.value;
+    height = phoneEventRowHeight({
+      title: phoneLines(view.title, metrics?.title),
+      detail: view.detail ? phoneLines(view.detail, metrics?.detail) : 0,
+      where: !!(event.device_name || event.ip_address),
+    });
+    heights.value.set(view, height);
+  }
+  return height;
+}
 
 // Events arrive newest first, so each local day is one run of them. Nothing is
 // handed to the scroller until the list is shown.
@@ -261,13 +347,15 @@ const items = computed<Item[]>(() => {
       dayKey = key;
       out.push({ kind: "day", key: `day-${key}`, label: dayLabel(date, year) });
     }
+    const view = describe(event);
     previous = {
       kind: "event",
       key: event.id,
       event,
-      view: describe(event),
+      view,
       first: startsDay,
       last: false,
+      height: eventHeight(event, view),
     };
     out.push(previous);
   }
@@ -277,7 +365,8 @@ const items = computed<Item[]>(() => {
 });
 
 function itemHeight(item: unknown): number {
-  return ITEM_HEIGHTS[(item as Item).kind];
+  const row = item as Item;
+  return row.kind === "event" ? row.height : ROW_HEIGHTS[row.kind];
 }
 
 function itemKey(item: unknown): string | number {
@@ -290,11 +379,20 @@ function onViewportRange({ last }: { first: number; last: number }) {
   }
 }
 
-const listRoot = ref<HTMLElement | null>(null);
 useGridNav(listRoot, {
   rowSelector: ".r-v2-audit-event",
   getCells: (row) => Array.from(row.querySelectorAll<HTMLElement>("a")),
 });
+
+watch(items, () => readTextMetrics(), { flush: "post" });
+let listObserver: ResizeObserver | null = null;
+onMounted(() => {
+  listObserver = new ResizeObserver(() => readTextMetrics());
+  if (listRoot.value) listObserver.observe(listRoot.value);
+  // A web font that arrives late measures differently under the same name.
+  void document.fonts?.ready.then(() => readTextMetrics(true));
+});
+onBeforeUnmount(() => listObserver?.disconnect());
 </script>
 
 <template>
@@ -364,17 +462,8 @@ useGridNav(listRoot, {
             prepend-inner-icon="mdi-magnify"
             :placeholder="t('audit.search-placeholder')"
             :aria-label="t('audit.search-placeholder')"
-            @keyup.enter="submitSearch"
+            @keyup.enter="searchNow"
           />
-          <RBtn
-            variant="flat"
-            color="primary"
-            prepend-icon="mdi-magnify"
-            :loading="loading"
-            @click="submitSearch"
-          >
-            {{ t("common.search") }}
-          </RBtn>
         </div>
 
         <div v-if="phase === 'skeleton'" class="r-v2-audit__skeleton">
@@ -417,6 +506,7 @@ useGridNav(listRoot, {
           :view="(item as EventItem).view"
           :first="(item as EventItem).first"
           :last="(item as EventItem).last"
+          :height="(item as EventItem).height"
           :time="
             timeFormat.format(new Date((item as EventItem).event.occurred_at))
           "
