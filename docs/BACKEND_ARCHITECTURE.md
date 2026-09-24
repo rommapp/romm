@@ -977,6 +977,11 @@ the rest of the API this router gates itself, so it can answer a 401 challenge
 rather than a 403, and it sends body-less error responses because RetroArch's
 client mishandles large ones.
 
+Each `manifest.server` fetch registers the caller's RetroArch install as a
+`Device` (`client="retroarch"`, `SyncMode.API`) on first sync and bumps its
+`last_seen` afterwards. RetroArch sends no install identity, so a user has one
+RetroArch device however many installs sync under their account.
+
 RetroArch's other three Cloud Sync categories (Sync Configuration/Thumbnails/
 System Files) have no ROM to attach to, so they're stored as opaque per-user
 blobs under `SYNC_RETROARCH_BLOB_BASE_PATH` (`FSRetroArchSyncBlobHandler`) instead of

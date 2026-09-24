@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 
 from handler.database import (
+    db_device_handler,
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
@@ -11,16 +12,19 @@ from handler.database import (
 )
 from handler.filesystem import fs_asset_handler
 from handler.sync.retroarch import psp, sync_handler
+from handler.sync.retroarch.device import CLIENT_DEVICE_IDENTIFIER
 from handler.sync.retroarch.emulator_names import (
     to_retroarch_dir_name,
     to_romm_emulator,
 )
 from models.assets import Save, Screenshot, State
+from models.device import SyncMode
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 
 ADMIN_AUTH = ("test_admin", "test_admin_password")
+EDITOR_AUTH = ("test_editor", "test_editor_password")
 
 
 @pytest.fixture
@@ -1139,6 +1143,39 @@ class TestRetroArchSyncPsp:
             auth=ADMIN_AUTH,
         )
         assert get_response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestRetroArchSyncDevice:
+    def test_first_manifest_fetch_registers_a_device(self, client, admin_user: User):
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        devices = db_device_handler.get_devices(user_id=admin_user.id)
+        assert len(devices) == 1
+        assert devices[0].client == "retroarch"
+        assert devices[0].client_device_identifier == CLIENT_DEVICE_IDENTIFIER
+        assert devices[0].sync_mode == SyncMode.API
+        assert devices[0].last_seen is not None
+
+    def test_later_fetches_reuse_the_device(self, client, admin_user: User):
+        client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+        client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert len(db_device_handler.get_devices(user_id=admin_user.id)) == 1
+
+    def test_each_user_gets_their_own_device(
+        self, client, admin_user: User, editor_user: User
+    ):
+        client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+        client.get("/api/sync/retroarch/manifest.server", auth=EDITOR_AUTH)
+
+        assert len(db_device_handler.get_devices(user_id=admin_user.id)) == 1
+        assert len(db_device_handler.get_devices(user_id=editor_user.id)) == 1
+
+    def test_browsing_does_not_register_a_device(self, client, admin_user: User):
+        client.request("PROPFIND", "/api/sync/retroarch/", auth=ADMIN_AUTH)
+
+        assert db_device_handler.get_devices(user_id=admin_user.id) == []
 
 
 class TestRetroArchSyncMkcol:

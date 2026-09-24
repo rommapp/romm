@@ -34,6 +34,7 @@ from handler.filesystem.assets_handler import build_asset_file_response
 from handler.filesystem.base_handler import FSHandler
 from handler.scan_handler import scan_save, scan_screenshot, scan_state
 from handler.sync.retroarch import browser, psp, sync_handler
+from handler.sync.retroarch.device import touch_retroarch_device
 from handler.sync.retroarch.sync_handler import (
     MANIFEST_FILE_NAME,
     AssetKind,
@@ -348,6 +349,7 @@ async def retroarch_sync_get(request: Request, file_path: str) -> Response:
         return denied
 
     if file_path.strip("/") == MANIFEST_FILE_NAME:
+        touch_retroarch_device(request.user)
         manifest = await sync_handler.build_manifest(
             request.user, _rom_visibility(get_permissions(request))
         )
