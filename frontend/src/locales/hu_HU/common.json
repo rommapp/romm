@@ -33,7 +33,7 @@
   "clipboard-copied": "{label} a vágólapra másolva",
   "clipboard-copy-failed": "Nem sikerült a vágólapra másolni. Ehhez biztonságos (HTTPS) kapcsolat szükséges.",
   "clipboard-unavailable": "A vágólap ebben a környezetben nem érhető el. A link kézi másolásához válaszd ki az alábbi linket.",
-  "clipboard-write-failed": "Couldn't copy to clipboard",
+  "clipboard-write-failed": "Nem sikerült a vágólapra másolni",
   "close": "Bezárás",
   "cloud": "Felhő",
   "collapse": "Összecsukás",

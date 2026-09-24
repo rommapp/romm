@@ -33,7 +33,7 @@
   "clipboard-copied": "{label} скопировано в буфер обмена",
   "clipboard-copy-failed": "Не удалось скопировать в буфер обмена. Требуется защищённое (HTTPS) соединение.",
   "clipboard-unavailable": "Буфер обмена недоступен в этом контексте. Выделите ссылку ниже, чтобы скопировать её вручную.",
-  "clipboard-write-failed": "Couldn't copy to clipboard",
+  "clipboard-write-failed": "Не удалось скопировать в буфер обмена",
   "close": "Закрыть",
   "cloud": "Облако",
   "collapse": "Свернуть",

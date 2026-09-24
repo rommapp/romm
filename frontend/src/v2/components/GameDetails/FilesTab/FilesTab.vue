@@ -366,8 +366,7 @@ const showUpload = computed(() => filteredCount.value > 0 && canUpload.value);
 
 // ---------- Clipboard helper ----------
 // Used by the per-subtab + per-selection copy-link buttons; per-file
-// hash copying lives in HashChip itself. Without a usable Clipboard API
-// (insecure context, denied permission) the link opens in a dialog instead.
+// hash copying lives in HashChip itself.
 async function copyDownloadLink(url: string) {
   const copied =
     !!navigator.clipboard &&

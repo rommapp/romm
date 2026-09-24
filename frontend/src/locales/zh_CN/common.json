@@ -33,7 +33,7 @@
   "clipboard-copied": "{label} 已复制到剪贴板",
   "clipboard-copy-failed": "无法复制到剪贴板。这需要安全 (HTTPS) 连接。",
   "clipboard-unavailable": "当前环境下剪贴板不可用。请选择下方的链接手动复制。",
-  "clipboard-write-failed": "Couldn't copy to clipboard",
+  "clipboard-write-failed": "无法复制到剪贴板",
   "close": "关闭",
   "cloud": "云端",
   "collapse": "折叠",

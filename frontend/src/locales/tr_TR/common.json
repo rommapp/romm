@@ -33,7 +33,7 @@
   "clipboard-copied": "{label} panoya kopyalandı",
   "clipboard-copy-failed": "Panoya kopyalanamadı. Bu, güvenli (HTTPS) bağlantı gerektirir.",
   "clipboard-unavailable": "Pano bu bağlamda kullanılamıyor. Aşağıdaki bağlantıyı elle kopyalayın.",
-  "clipboard-write-failed": "Couldn't copy to clipboard",
+  "clipboard-write-failed": "Panoya kopyalanamadı",
   "close": "Kapat",
   "cloud": "Bulut",
   "collapse": "Daralt",
