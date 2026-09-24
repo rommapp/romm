@@ -265,13 +265,28 @@ class TestRetroArchSyncAuth:
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_kiosk_guest_is_challenged(self, client):
+    def test_kiosk_guest_is_challenged_outside_the_game_library(self, client):
         with mock.patch("handler.auth.hybrid_auth.KIOSK_MODE", True):
             options = client.options("/api/sync/retroarch/")
             manifest = client.get("/api/sync/retroarch/manifest.server")
+            saves = client.request("PROPFIND", "/api/sync/retroarch/saves/")
+            blob = client.get("/api/sync/retroarch/config/retroarch.cfg")
 
-        assert options.status_code == status.HTTP_401_UNAUTHORIZED
-        assert manifest.status_code == status.HTTP_401_UNAUTHORIZED
+        for response in (options, manifest, saves, blob):
+            assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_kiosk_guest_can_browse_the_game_library(self, client, rom: Rom):
+        with mock.patch("handler.auth.hybrid_auth.KIOSK_MODE", True):
+            root = client.request("PROPFIND", "/api/sync/retroarch/")
+            platform = client.request(
+                "PROPFIND", f"/api/sync/retroarch/roms/{rom.platform.fs_slug}/"
+            )
+
+        assert root.status_code == status.HTTP_207_MULTI_STATUS
+        assert "<D:href>/api/sync/retroarch/roms/</D:href>" in root.text
+        assert "/api/sync/retroarch/saves/" not in root.text
+        assert platform.status_code == status.HTTP_207_MULTI_STATUS
+        assert rom.fs_name in platform.text
 
 
 class TestRetroArchSyncStateSlotResolution:

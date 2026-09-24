@@ -57,6 +57,13 @@ def _empty(status_code: int, headers: dict[str, str] | None = None) -> Response:
     return Response(status_code=status_code, headers=headers)
 
 
+def _is_game_library_path(file_path: str, include_root: bool = False) -> bool:
+    parts = sync_handler.split_segments(file_path)
+    if parts is None:
+        return False
+    return parts[:1] == ["roms"] or (include_root and not parts)
+
+
 def _unauthorized() -> Response:
     return _empty(
         status.HTTP_401_UNAUTHORIZED,
@@ -64,11 +71,15 @@ def _unauthorized() -> Response:
     )
 
 
-def _authorize(request: Request, scope: Scope) -> Response | None:
+def _authorize(
+    request: Request, scope: Scope, kiosk_allowed: bool = False
+) -> Response | None:
     """The 401 challenge or 403 to send instead, which WebDAV clients need over `@protected_route`'s."""
-    # The kiosk guest is anonymous, and RetroArch only sends credentials once
-    # challenged.
-    if not request.user.is_authenticated or request.user.is_kiosk_guest:
+    # RetroArch only sends credentials once challenged, so the anonymous kiosk
+    # guest is challenged everywhere outside the game library.
+    if not request.user.is_authenticated or (
+        request.user.is_kiosk_guest and not kiosk_allowed
+    ):
         return _unauthorized()
 
     if scope not in request.auth.scopes:
@@ -210,7 +221,11 @@ def retroarch_sync_unlock(request: Request, file_path: str) -> Response:
 @router.api_route("/{file_path:path}", methods=["PROPFIND"], include_in_schema=False)
 async def retroarch_sync_propfind(request: Request, file_path: str) -> Response:
     """Read-only browsing of `roms/` and the manifest's `saves/` and `states/`, for generic clients."""
-    denied = _authorize(request, Scope.ASSETS_READ)
+    denied = _authorize(
+        request,
+        Scope.ASSETS_READ,
+        kiosk_allowed=_is_game_library_path(file_path, include_root=True),
+    )
     if denied:
         return denied
 
@@ -229,7 +244,8 @@ async def retroarch_sync_propfind(request: Request, file_path: str) -> Response:
         if depth != 0:
             if _can_read_roms(request):
                 entries.append(_collection_entry("roms"))
-            entries += [_collection_entry("saves"), _collection_entry("states")]
+            if not request.user.is_kiosk_guest:
+                entries += [_collection_entry("saves"), _collection_entry("states")]
     elif parts == ["roms"]:
         entries = [_collection_entry("roms")]
         if depth != 0:
@@ -356,7 +372,9 @@ def _manifest_file_entry(entry: dict[str, str]) -> browser.PropfindEntry:
 @router.api_route("/{file_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
 async def retroarch_sync_get(request: Request, file_path: str) -> Response:
     """Serve the manifest, or the bytes of a single save/state."""
-    denied = _authorize(request, Scope.ASSETS_READ)
+    denied = _authorize(
+        request, Scope.ASSETS_READ, kiosk_allowed=_is_game_library_path(file_path)
+    )
     if denied:
         return denied
 

@@ -976,8 +976,9 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 - **Blobs:** `config/`, `thumbnails/` and `system/` belong to no ROM, so they
   are stored per user under `SYNC_RETROARCH_BASE_PATH` (`FSRetroArchSyncHandler`).
 - **Auth:** the router gates itself so it can answer a 401 Basic challenge,
-  including to the kiosk guest, and sends body-less errors, which RetroArch's
-  client needs. Uploads are capped at `MAX_ASSET_UPLOAD_SIZE_BYTES`.
+  and sends body-less errors, which RetroArch's client needs. The kiosk guest
+  may browse `roms/` but is challenged everywhere else. Uploads are capped at
+  `MAX_ASSET_UPLOAD_SIZE_BYTES`.
 - **Device:** each manifest fetch registers or touches one RetroArch `Device`
   per user (`client="retroarch"`, `SyncMode.API`), since RetroArch sends no
   install identity.
