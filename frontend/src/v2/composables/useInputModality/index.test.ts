@@ -56,4 +56,13 @@ describe("useInputModality", () => {
 
     expect(modality.value).toBe("pad");
   });
+
+  it("leaves script-dispatched keys to whoever dispatched them", async () => {
+    const { modality, setModality } = await loadFresh();
+
+    setModality("pad");
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+
+    expect(modality.value).toBe("pad");
+  });
 });

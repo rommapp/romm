@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from decorators.database import begin_session
 from models.sync_session import SyncSession, SyncSessionStatus
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 # What a session nobody ever closed is recorded as. Sessions are opened by
 # clients and by the server's own workers alike, so this names neither.
@@ -209,7 +209,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
-        return result.rowcount
+        return affected_rows(result)
 
     @begin_session
     def get_sessions(

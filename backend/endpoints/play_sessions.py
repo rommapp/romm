@@ -10,6 +10,7 @@ from endpoints.responses.play_session import (
     PlaySessionSchema,
 )
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_permissions
 from handler.database import db_play_session_handler
 from handler.play_session_handler import ingest_play_sessions as _ingest
 from logger.logger import log
@@ -67,6 +68,7 @@ def ingest_play_sessions(
     summary = _ingest(
         user_id=request.user.id,
         username=request.user.username,
+        perms=get_permissions(request),
         entries=[
             {
                 "rom_id": s.rom_id,

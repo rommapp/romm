@@ -27,6 +27,10 @@ defineSlots<{
 .gallery-tab-shell {
   padding: 32px var(--r-row-pad) 24px;
 }
+/* GalleryShell's phone header gap, so the head holds still across tabs. */
+html[data-bp~="xs"] .gallery-tab-shell {
+  padding-top: 16px;
+}
 
 .gallery-tab-shell__divider {
   margin: 0 0 24px;

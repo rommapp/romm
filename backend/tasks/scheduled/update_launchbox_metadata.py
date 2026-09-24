@@ -129,9 +129,6 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
             return update_stats.to_dict()
 
         content = await super().run()
-        if content is None:
-            log.warning("No content received from launchbox metadata update")
-            return update_stats.to_dict()
 
         # A refresh keeps serving the previous dump, but a first import only
         # holds the batches committed so far, so flag it to keep the provider
@@ -318,9 +315,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                 processed_files += 1
                                 update_stats.update(processed=processed_files)
 
-        except zipfile.BadZipFile, RuntimeError, OSError:
-            log.error("Bad zip file in launchbox metadata update")
-            return update_stats.to_dict()
+        except (zipfile.BadZipFile, RuntimeError, OSError) as exc:
+            raise RuntimeError("Could not read the LaunchBox metadata archive") from exc
 
         await stamp_cache_schema(async_cache, LAUNCHBOX_METADATA_STORE)
 

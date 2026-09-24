@@ -1,48 +1,46 @@
 <script setup lang="ts">
-// The per-item buttons of the Save data tab: visibility toggle and delete
-// for the user's own saves and states, download for everything.
+// The per-item buttons of the Save data tab: download for everything, then
+// edit, favorite and delete for own saves and states.
 import { RBtn } from "@v2/lib";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Asset, AssetType } from "@/v2/utils/assets";
 
 defineOptions({ inheritAttrs: false });
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     asset: Asset;
     type: AssetType;
-    /** Own items also get the visibility toggle and delete. */
+    /** Own items also get edit, the heart and delete. */
     own?: boolean;
-    toggling?: boolean;
+    favoriting?: boolean;
   }>(),
-  { own: false, toggling: false },
+  { own: false, favoriting: false },
 );
 
 const emit = defineEmits<{
-  toggleVisibility: [];
   download: [];
+  edit: [];
+  toggleFavorite: [];
   delete: [];
 }>();
 
 const { t } = useI18n();
+
+const favoriteLabel = computed(() =>
+  props.asset.is_favorite
+    ? t("rom.remove-from-favorites")
+    : t("rom.add-to-favorites"),
+);
+const editLabel = computed(() =>
+  props.type === "save" ? t("rom.edit-save") : t("rom.edit-state"),
+);
 </script>
 
 <template>
   <!-- `display: contents`, so the buttons stay flex children of the slot. -->
   <span class="r-asset-actions" v-bind="$attrs">
-    <RBtn
-      v-if="own"
-      :icon="asset.is_public ? 'mdi-lock-open-variant' : 'mdi-lock'"
-      variant="text"
-      size="small"
-      :color="asset.is_public ? 'var(--r-color-fg-muted)' : 'primary'"
-      :loading="toggling"
-      :tooltip="asset.is_public ? t('rom.make-private') : t('rom.make-public')"
-      :aria-label="
-        asset.is_public ? t('rom.make-private') : t('rom.make-public')
-      "
-      @click="emit('toggleVisibility')"
-    />
     <RBtn
       icon="mdi-download-outline"
       variant="text"
@@ -50,6 +48,27 @@ const { t } = useI18n();
       :tooltip="t('common.download')"
       :aria-label="t('rom.download-named', { name: asset.file_name })"
       @click="emit('download')"
+    />
+    <RBtn
+      v-if="own"
+      icon="mdi-pencil-outline"
+      variant="text"
+      size="small"
+      :tooltip="editLabel"
+      :aria-label="editLabel"
+      @click="emit('edit')"
+    />
+    <RBtn
+      v-if="own"
+      :icon="asset.is_favorite ? 'mdi-heart' : 'mdi-heart-outline'"
+      variant="text"
+      size="small"
+      :color="asset.is_favorite ? 'primary' : undefined"
+      :loading="favoriting"
+      :tooltip="favoriteLabel"
+      :aria-label="favoriteLabel"
+      :aria-pressed="!!asset.is_favorite"
+      @click="emit('toggleFavorite')"
     />
     <RBtn
       v-if="own"

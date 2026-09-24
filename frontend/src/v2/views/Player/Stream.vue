@@ -74,6 +74,7 @@ import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useMultiplayerPref } from "@/v2/composables/useMultiplayerPref";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
+import { usePlayFocus } from "@/v2/composables/usePlayFocus";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -457,10 +458,10 @@ const emulatorLabel = computed(
   () => container.value?.label ?? platformLabel.value,
 );
 
-function focusPlayButton() {
-  const btn = document.querySelector<HTMLElement>(".r-v2-stream__play");
-  btn?.focus({ preventScroll: true });
-}
+const playReady = computed(
+  () => !!rom.value && playerState.value !== "loading",
+);
+usePlayFocus(".r-v2-stream__play", playReady, gameRunning);
 
 // ── Live activity ("now playing") ──────────────────────────────────
 // Each beat also refreshes the backend claim's liveness stamp: a session whose
@@ -653,10 +654,7 @@ watch(gameRunning, (running, prev) => {
     presence.start();
     nextTick(focusStream);
   }
-  if (prev && !running) {
-    presence.stop();
-    nextTick(focusPlayButton);
-  }
+  if (prev && !running) presence.stop();
 });
 
 // ── Stage ──────────────────────────────────────────────────────────
@@ -1228,13 +1226,6 @@ onMounted(async () => {
     void onPlay();
     return;
   }
-
-  // Autofocus the Play CTA so gamepad/keyboard users land on the
-  // primary action without an extra Tab.
-  if (modality.value === "pad" || modality.value === "key") {
-    await nextTick();
-    focusPlayButton();
-  }
 });
 
 onBeforeUnmount(() => {
@@ -1302,7 +1293,7 @@ onBeforeUnmount(() => {
           :prepend-icon="playerState === 'loading' ? 'mdi-loading' : 'mdi-play'"
           class="r-v2-stream__play"
           :class="{ 'r-v2-stream__play--launching': playerState === 'loading' }"
-          :disabled="!rom || playerState === 'loading'"
+          :disabled="!playReady"
           @click="onPlay()"
         >
           {{

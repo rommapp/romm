@@ -13,6 +13,7 @@
 // both flavours stay visually identical.
 import { RSkeletonBlock } from "@v2/lib";
 import { computed } from "vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import {
   getListColumns,
   getListGridTemplate,
@@ -40,10 +41,34 @@ const gridStyle = computed(() => ({
   gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
 }));
 const titleGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
+
+// Phones and tablets render the compact two-line row, so the placeholder
+// follows it instead of the columns.
+const { smAndDown } = useBreakpoint();
 </script>
 
 <template>
-  <div class="r-glr-skel" :style="gridStyle">
+  <div v-if="smAndDown" class="r-glr-skel r-glr-skel--compact r-list-compact">
+    <!-- Stands in for the compact row's tick column, or the cover would start
+         further left here than in the row this replaces. -->
+    <div class="r-glr-skel__select" />
+    <div class="r-glr-skel__cell r-glr-skel__cover">
+      <RSkeletonBlock
+        :width="LIST_COVER_WIDTH_PX"
+        :height="LIST_COVER_HEIGHT_PX"
+      />
+    </div>
+    <div class="r-list-compact__stack" :style="titleGapStyle">
+      <RSkeletonBlock
+        v-for="(bar, i) in LIST_TITLE_SKELETON_BARS"
+        :key="i"
+        :width="bar.width"
+        :height="bar.height"
+      />
+    </div>
+  </div>
+
+  <div v-else class="r-glr-skel r-glr-skel--columns" :style="gridStyle">
     <template v-for="col in columns" :key="String(col.key)">
       <div v-if="col.key === 'select'" class="r-glr-skel__cell" />
       <div
@@ -106,12 +131,23 @@ const titleGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
 
 <style scoped>
 .r-glr-skel {
+  /* Bleeds with the row it stands in for (see GameListRow). */
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
   display: grid;
   align-items: center;
   gap: 0 var(--r-space-5);
   padding: 0 var(--r-space-3);
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
+}
+.r-glr-skel--columns {
+  margin-inline-start: calc(-1 * var(--r-list-bleed-start, 0px));
+  padding-inline-start: max(var(--r-space-3), var(--r-list-bleed-start, 0px));
+}
+
+.r-glr-skel--compact > .r-glr-skel__select {
+  flex: none;
+  width: var(--r-list-select-w);
 }
 
 .r-glr-skel__cell {

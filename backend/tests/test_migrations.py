@@ -16,7 +16,8 @@ import sqlalchemy as sa
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from sqlalchemy import Table, UniqueConstraint
+from sqlalchemy import DefaultClause, FetchedValue, Table, UniqueConstraint
+from sqlalchemy.sql.schema import NULL_UNSPECIFIED
 
 import models
 from handler.database.base_handler import sync_engine
@@ -25,10 +26,14 @@ from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     POSTGRESQL_FK_INDEXES,
+    SORTABLE_NULLABLE_ROM_COLUMNS,
     full_path_digest_sql,
     has_column,
     is_mariadb,
     is_postgresql,
+    rom_desc_index_name,
+    rom_sort_index_name,
+    rom_unset_flag_column,
 )
 from utils.roms_columns import (
     FULL_PATH_HASH_COLUMN,
@@ -36,6 +41,7 @@ from utils.roms_columns import (
     ROMS_METADATA_VIEW_COLUMNS,
     STEAM_FED_COLUMNS,
     STEAM_METADATA_COLUMN,
+    drop_roms_columns,
     ensure_roms_columns,
     has_server_default,
     rebuild_generated_columns,
@@ -78,6 +84,58 @@ def test_no_index_drift_between_models_and_migrations():
         ]
 
     assert drift == []
+
+
+def test_no_column_drift_between_models_and_migrations():
+    """Every mapped column exists in the migrated schema with the same nullability."""
+    models.load_all_models()
+
+    with sync_engine.connect() as connection:
+        inspector = sa.inspect(connection)
+        # A view reflects every column as nullable, whatever the model says.
+        views = set(inspector.get_view_names())
+        drift = []
+        for table in BaseModel.metadata.sorted_tables:
+            if table.name in views:
+                continue
+            reflected = {
+                column["name"]: column["nullable"]
+                for column in inspector.get_columns(table.name)
+            }
+            for column in table.columns:
+                if column.name not in reflected:
+                    drift.append(f"missing: {table.name}.{column.name}")
+                elif column.nullable != reflected[column.name]:
+                    drift.append(
+                        f"nullable: {table.name}.{column.name} "
+                        f"model={column.nullable} db={reflected[column.name]}"
+                    )
+
+    assert drift == []
+
+
+def _is_database_filled(value: object) -> bool:
+    # `DefaultClause` is a literal default the ORM could write itself.
+    return isinstance(value, FetchedValue) and not isinstance(value, DefaultClause)
+
+
+def test_database_filled_columns_declare_their_nullability():
+    """Every database-filled column passes `nullable=`, or autogenerate never compares it."""
+    models.load_all_models()
+
+    undeclared = [
+        f"{table.name}.{column.name}"
+        for table in BaseModel.metadata.sorted_tables
+        for column in table.columns
+        if any(
+            _is_database_filled(value)
+            for value in (column.server_default, column.server_onupdate)
+        )
+        # The same private flag alembic's `_nullability_might_be_unset` reads.
+        and column._user_defined_nullable is NULL_UNSPECIFIED
+    ]
+
+    assert undeclared == []
 
 
 def test_postgresql_fk_indexes_cover_every_unindexed_foreign_key():
@@ -172,7 +230,10 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0123_recommendation_metadata.py", "roms"),
         ("0126_unique_rom_full_path.py", "roms"),
         ("0128_hltb_main_story_column.py", "roms"),
-        ("0129_drop_play_session_sync_link.py", "play_sessions"),
+        ("0130_notifications.py", "notifications"),
+        ("0131_notification_channels.py", "notification_channels"),
+        ("0132_audit_events.py", "audit_events"),
+        ("0135_drop_play_session_sync_link.py", "play_sessions"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -186,13 +247,13 @@ def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
 
 
 def test_the_play_session_sync_link_revision_reverses_and_replays():
-    """0129 drops a column whose constraint each dialect handles differently.
+    """0135 drops a column whose constraint each dialect handles differently.
 
     MariaDB and MySQL index the foreign key themselves and refuse to drop the
     column while it stands; PostgreSQL takes both with the column and needs the
     index 0124 made. Each step is guarded, so both directions replay.
     """
-    migration = _load_migration("0129_drop_play_session_sync_link.py")
+    migration = _load_migration("0135_drop_play_session_sync_link.py")
 
     with sync_engine.begin() as connection:
         before = _schema_of(connection, "play_sessions")
@@ -345,6 +406,52 @@ def test_the_roms_columns_helper_adds_every_missing_column_at_once():
 
         assert _schema_of(connection, "roms") == before
         assert len(alters) == 1
+
+
+def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
+    """PostgreSQL drops a `_sort` index with its column; MariaDB narrows it."""
+    # `roms_metadata` does not project this one, so PostgreSQL lets it go
+    # without the view being dropped first.
+    column = HLTB_MAIN_STORY_COLUMN
+    spanned = (rom_unset_flag_column(column), column, "id")
+
+    with sync_engine.begin() as connection:
+        connection.execute(sa.text(f"ALTER TABLE roms DROP COLUMN {column}"))
+        assert _schema_of(connection, "roms")[1].get(rom_sort_index_name(column)) != (
+            spanned,
+            False,
+        )
+
+        ensure_roms_columns(connection)
+        # 0128 owns the value column's own index, so its replay finishes the schema.
+        _replay(connection, "0128_hltb_main_story_column.py")
+
+        assert _schema_of(connection, "roms")[1][rom_sort_index_name(column)] == (
+            spanned,
+            False,
+        )
+
+
+def test_dropping_the_roms_columns_takes_the_sort_indexes_with_them():
+    """A descending sort index reads an inherited column, so nothing else drops it."""
+    # Those indexes are PostgreSQL's alone, and only its DDL rolls back, which
+    # is what keeps this teardown out of the schema the other tests share.
+    with sync_engine.connect() as connection:
+        if not is_postgresql(connection):
+            pytest.skip("descending sort indexes are PostgreSQL-only")
+
+        transaction = connection.begin()
+        try:
+            descending = {
+                rom_desc_index_name(column) for column in SORTABLE_NULLABLE_ROM_COLUMNS
+            }
+            assert descending <= set(_schema_of(connection, "roms")[1])
+
+            drop_roms_columns(connection)
+
+            assert descending & set(_schema_of(connection, "roms")[1]) == set()
+        finally:
+            transaction.rollback()
 
 
 def test_the_roms_columns_helper_redefines_a_column_that_predates_steam():

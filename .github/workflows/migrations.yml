@@ -9,14 +9,12 @@ on:
       - uv.lock
       - .python-version
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   migrate-postgres:
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      pull-requests: write
     services:
       postgres:
         image: postgres:18
@@ -34,6 +32,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install mariadb connectors
         run: |
@@ -41,7 +41,7 @@ jobs:
           sudo apt-get install -y libmariadb3 libmariadb-dev
 
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Install python
         run: uv python install
@@ -68,19 +68,16 @@ jobs:
     # migration SQL that a default utf8mb4 server accepts (issue #4350).
     name: migrate-mariadb (${{ matrix.mariadb }}, ${{ matrix.collation }})
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
         include:
           # renovate: datasource=docker depName=mariadb
-          - mariadb: "12.3.3"
+          - mariadb: "13.0.2"
             charset: utf8mb4
             collation: utf8mb4_general_ci
           # renovate: datasource=docker depName=mariadb
-          - mariadb: "12.3.3"
+          - mariadb: "13.0.2"
             charset: utf8mb3
             collation: utf8mb3_unicode_ci
           # Oldest supported LTS, and the only leg still on the pre-uca1400
@@ -91,6 +88,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install mariadb connectors
         run: |
@@ -98,7 +97,7 @@ jobs:
           sudo apt-get install -y libmariadb3 libmariadb-dev
 
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Install python
         run: uv python install
