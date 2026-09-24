@@ -15,6 +15,7 @@ from tasks.manual.recompute_save_content_hashes import (
 )
 from tasks.manual.sync_folder_scan import sync_folder_scan_task
 from tasks.scheduled.build_recommendations import build_recommendations_task
+from tasks.scheduled.cleanup_audit_log import cleanup_audit_log_task
 from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
 from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
@@ -43,6 +44,7 @@ SCHEDULED_TASKS: Final[dict[str, PeriodicTask]] = {
     "cleanup_orphaned_resources": cleanup_orphaned_resources_task,
     "cleanup_netplay": cleanup_netplay_task,
     "cleanup_upload_tmp": cleanup_upload_tmp_task,
+    "cleanup_audit_log": cleanup_audit_log_task,
     "sync_retroachievements_progress": sync_retroachievements_progress_task,
     "sync_push_pull": sync_push_pull_task,
 }

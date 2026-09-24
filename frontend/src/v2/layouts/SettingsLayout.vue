@@ -149,9 +149,9 @@ html[data-bp~="sm-and-down"] .r-v2-settings--fill {
 
 /* On sm-and-down the sidebar is unmounted (see script), so the content
    column fills the row on its own — just tighten the gutters to the
-   responsive page padding. */
+   responsive page padding. The nav bar right above already separates it. */
 html[data-bp~="sm-and-down"] .r-v2-settings__content {
-  padding: 24px var(--r-row-pad) 48px;
+  padding: var(--r-space-2) var(--r-row-pad) 48px;
 }
 /* Fill views own their height and reserve the bottom bar separately, so the
    generous 48px scroll gutter above just leaves a big empty band under the

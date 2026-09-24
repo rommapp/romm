@@ -290,6 +290,8 @@ async def record_play_session(session: dict[str, Any]) -> None:
                     "duration_ms": duration_ms,
                 }
             ],
+            # The rom was checked against the user when the stream was claimed.
+            perms=None,
         )
     except Exception:
         log.exception("failed to record play session")

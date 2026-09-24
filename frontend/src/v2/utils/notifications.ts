@@ -5,6 +5,7 @@ import type { NotificationKind, NotificationSchema } from "@/__generated__";
 import i18n from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
 import { TONE_ICONS } from "@/v2/composables/useSnackbar";
+import { count, text } from "@/v2/utils/eventData";
 
 interface NotificationView {
   icon: string;
@@ -18,14 +19,6 @@ interface NotificationView {
 type NotificationData = NotificationSchema["data"];
 
 const t = i18n.global.t;
-
-function text(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function count(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
 
 // Mirror the columns in backend/models/notification.py.
 export const NOTIFICATION_TITLE_MAX_LENGTH = 255;

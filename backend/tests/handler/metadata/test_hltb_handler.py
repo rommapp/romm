@@ -8,7 +8,12 @@ import pytest
 from fastapi import HTTPException, status
 
 from handler.metadata.hltb_handler import HLTBHandler
-from utils.hltb_search import HLTB_BASE_URL, HLTB_USER_AGENT, SESSION_MINT_SUFFIX
+from utils.hltb_search import (
+    HLTB_API_URL_FIXTURE,
+    HLTB_BASE_URL,
+    HLTB_USER_AGENT,
+    SESSION_MINT_SUFFIX,
+)
 
 SEARCH_URL = f"{HLTB_BASE_URL}/api/search/site"
 
@@ -38,6 +43,12 @@ def _response(status_code: int = 200, json_body: dict | None = None) -> MagicMoc
         )
     else:
         response.json.return_value = json_body or {}
+    return response
+
+
+def _response_with_text(text: str) -> MagicMock:
+    response = _response()
+    response.text = text
     return response
 
 
@@ -81,6 +92,27 @@ async def test_request_renews_session_and_retries_on_403(mock_ctx_httpx_client):
     assert retry_kwargs["headers"]["x-hp-val"] == "val-2"
     # The rotated honeypot key replaces the old one rather than joining it.
     assert retry_kwargs["json"] == {"a": 1, "ign_bbbb": "val-2"}
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_request_works_with_a_token_only_session(mock_ctx_httpx_client):
+    handler = _handler_without_session()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = _response(json_body={"token": "token-1"})
+    mock_client.post.return_value = _response(json_body={"data": [{"game_id": 1}]})
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    result = await handler._request(handler.search_url, {"a": 1})
+
+    assert result == {"data": [{"game_id": 1}]}
+    post_call = mock_client.post.await_args
+    assert post_call is not None
+    kwargs = post_call.kwargs
+    assert kwargs["headers"]["x-auth-token"] == "token-1"
+    assert "x-hp-key" not in kwargs["headers"]
+    assert "x-hp-val" not in kwargs["headers"]
+    assert kwargs["json"] == {"a": 1}
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
@@ -177,6 +209,97 @@ async def test_github_endpoint_fetch_is_not_rate_limited(
     await handler._fetch_search_endpoint()
 
     acquire.assert_not_awaited()
+
+
+def test_the_bundled_endpoint_is_the_default():
+    handler = HLTBHandler()
+
+    assert handler.search_url == HLTB_API_URL_FIXTURE.read_text().strip()
+    assert handler.search_init_url == f"{handler.search_url}{SESSION_MINT_SUFFIX}"
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.discover_hltb_endpoint")
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_github_endpoint_is_used_without_discovery(
+    mock_ctx_httpx_client, mock_discover
+):
+    handler = HLTBHandler()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = _response_with_text(
+        "https://howlongtobeat.com/api/rotated\n"
+    )
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    await handler._fetch_search_endpoint()
+
+    assert handler.search_url == "https://howlongtobeat.com/api/rotated"
+    mock_discover.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "github_response",
+    [
+        pytest.param(_response(status.HTTP_404_NOT_FOUND), id="github-error"),
+        pytest.param(_response_with_text("  \n"), id="github-empty"),
+    ],
+)
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.discover_hltb_endpoint")
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_endpoint_is_discovered_from_hltb_when_github_fails(
+    mock_ctx_httpx_client, mock_discover, github_response: MagicMock
+):
+    handler = HLTBHandler()
+    mock_client = AsyncMock()
+    mock_client.get.return_value = github_response
+    mock_ctx_httpx_client.get.return_value = mock_client
+    mock_discover.return_value = "https://howlongtobeat.com/api/discovered"
+
+    await handler._fetch_search_endpoint()
+
+    mock_discover.assert_called_once_with(HLTB_BASE_URL)
+    assert handler.search_url == "https://howlongtobeat.com/api/discovered"
+    assert handler.search_init_url == "https://howlongtobeat.com/api/discovered/init"
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch("handler.metadata.hltb_handler.discover_hltb_endpoint", return_value=None)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_bundled_endpoint_is_kept_when_github_and_discovery_fail(
+    mock_ctx_httpx_client, mock_discover
+):
+    handler = HLTBHandler()
+    bundled = handler.search_url
+    mock_client = AsyncMock()
+    mock_client.get.side_effect = httpx.ConnectError("GitHub unreachable")
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    await handler._fetch_search_endpoint()
+
+    mock_discover.assert_called_once()
+    assert handler.search_url == bundled
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+@patch(
+    "handler.metadata.hltb_handler.discover_hltb_endpoint",
+    side_effect=AttributeError("unexpected response shape"),
+)
+@patch("handler.metadata.hltb_handler.ctx_httpx_client")
+async def test_a_discovery_error_keeps_the_bundled_endpoint(
+    mock_ctx_httpx_client, mock_discover
+):
+    handler = HLTBHandler()
+    bundled = handler.search_url
+    mock_client = AsyncMock()
+    mock_client.get.side_effect = httpx.ConnectError("GitHub unreachable")
+    mock_ctx_httpx_client.get.return_value = mock_client
+
+    # A failed discovery must not abort the scan that initializes the handler.
+    await handler._fetch_search_endpoint()
+
+    assert handler.search_url == bundled
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
@@ -388,12 +511,6 @@ async def test_initialize_fetches_endpoint_then_session(mock_ctx_httpx_client):
     )
 
 
-def _response_with_text(text: str) -> MagicMock:
-    response = _response()
-    response.text = text
-    return response
-
-
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
 @patch("handler.metadata.hltb_handler.ctx_httpx_client")
 async def test_heartbeat_sends_the_user_agent_hltb_requires(mock_ctx_httpx_client):
@@ -411,12 +528,13 @@ async def test_heartbeat_sends_the_user_agent_hltb_requires(mock_ctx_httpx_clien
     assert headers["Referer"] == "https://howlongtobeat.com"
 
 
-def _game(game_id: int, name: str, *, timed: bool = True) -> dict:
+def _game(game_id: int, name: str, *, alias: str = "", timed: bool = True) -> dict:
     """A search result carrying only the fields matching depends on."""
     time = 3600 if timed else 0
     return {
         "game_id": game_id,
         "game_name": name,
+        "game_alias": alias,
         "game_image": "",
         "comp_main": time,
         "comp_plus": time,
@@ -441,7 +559,7 @@ async def test_series_prefix_the_catalogue_omits_still_matches():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term, _platform_slug):
+    async def search_games(term: str, _platform_slug: str) -> list[dict]:
         searched.append(term)
         return [_game(7467, "Quantum of Solace")]
 
@@ -449,7 +567,30 @@ async def test_series_prefix_the_catalogue_omits_still_matches():
         rom = await handler.get_rom("007 - Quantum of Solace (USA).chd", "ps2")
 
     assert rom["hltb_id"] == 7467
-    assert searched == ["007: quantum of solace", "quantum of solace"]
+    assert searched == [
+        "007: quantum of solace",
+        "007 quantum of solace",
+        "quantum of solace",
+    ]
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_separator_the_catalogue_omits_still_matches():
+    """HowLongToBeat returns nothing for "pokemon: emerald version"."""
+    handler = _handler()
+    searched: list[str] = []
+
+    async def search_games(term: str, _platform_slug: str) -> list[dict]:
+        searched.append(term)
+        if term == "pokemon emerald version":
+            return [_game(6966, "Pokémon Emerald Version")]
+        return []
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Pokemon - Emerald Version (USA).gba", "gba")
+
+    assert rom["hltb_id"] == 6966
+    assert searched == ["pokemon: emerald version", "pokemon emerald version"]
 
 
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
@@ -457,7 +598,7 @@ async def test_full_term_match_does_not_trigger_a_second_search():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term, _platform_slug):
+    async def search_games(term: str, _platform_slug: str) -> list[dict]:
         searched.append(term)
         return [_game(4806, "James Bond 007: Agent Under Fire")]
 
@@ -475,7 +616,7 @@ async def test_term_without_a_separator_is_not_searched_twice():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term, _platform_slug):
+    async def search_games(term: str, _platform_slug: str) -> list[dict]:
         searched.append(term)
         return []
 
@@ -492,7 +633,7 @@ async def test_hyphen_inside_a_word_does_not_trigger_a_retry():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term, _platform_slug):
+    async def search_games(term: str, _platform_slug: str) -> list[dict]:
         searched.append(term)
         return []
 
@@ -508,13 +649,73 @@ async def test_retry_still_requires_recorded_times():
     """A catalogue entry nobody has submitted a time for is not a match."""
     handler = _handler()
 
-    async def search_games(_term, _platform_slug):
+    async def search_games(_term: str, _platform_slug: str) -> list[dict]:
         return [_game(7467, "Quantum of Solace", timed=False)]
 
     with patch.object(handler, "search_games", side_effect=search_games):
         rom = await handler.get_rom("007 - Quantum of Solace (USA).chd", "ps2")
 
     assert rom["hltb_id"] is None
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_alias_beats_a_near_miss_on_another_game_name():
+    handler = _handler()
+
+    async def search_games(_term, _platform_slug):
+        return [
+            _game(5773, "Mega Man X", alias="Rockman X"),
+            _game(59383, "Rockman EXE WS"),
+        ]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Rockman X (Japan).sfc", "snes")
+
+    assert rom["hltb_id"] == 5773
+    assert rom["name"] == "Mega Man X"
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_alias_matches_when_the_name_is_far_off():
+    handler = _handler()
+
+    async def search_games(_term, _platform_slug):
+        return [_game(9940, "Trials of Mana", alias="Seiken Densetsu 3")]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Seiken Densetsu 3 (Japan).sfc", "snes")
+
+    assert rom["hltb_id"] == 9940
+    assert rom["name"] == "Trials of Mana"
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_each_comma_separated_alias_is_scored():
+    handler = _handler()
+
+    async def search_games(_term, _platform_slug):
+        return [_game(9940, "Trials of Mana", alias="Seiken Densetsu 3, SD3")]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("SD3 (Japan).sfc", "snes")
+
+    assert rom["hltb_id"] == 9940
+
+
+@patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)
+async def test_an_alias_does_not_outrank_another_game_with_that_name():
+    handler = _handler()
+
+    async def search_games(_term, _platform_slug):
+        return [
+            _game(1, "Mega Man X Collection", alias="Mega Man X"),
+            _game(5773, "Mega Man X"),
+        ]
+
+    with patch.object(handler, "search_games", side_effect=search_games):
+        rom = await handler.get_rom("Mega Man X (USA).sfc", "snes")
+
+    assert rom["hltb_id"] == 5773
 
 
 def _game_page(game: dict | None) -> MagicMock:
