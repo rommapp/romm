@@ -72,12 +72,13 @@ def ingest_play_sessions(
     device_id: str | None = None,
     sync_session_id: int | None = None,
     max_future_minutes: int = 5,
-    perms: ResolvedPermissions | None = None,
+    perms: ResolvedPermissions | None,
 ) -> PlaySessionIngestSummary:
     """Core play session ingestion logic shared by the standalone endpoint and sync complete.
 
     Args:
-        perms: The caller's permissions; a rom hidden from them counts as unknown.
+        perms: The caller's permissions, a rom hidden from them counting as
+            unknown; None when its roms were already checked.
     """
     max_future = datetime.now(timezone.utc) + timedelta(minutes=max_future_minutes)
     resolved_device_id = _resolve_device(device_id, user_id)

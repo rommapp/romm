@@ -385,14 +385,22 @@ useGridNav(listRoot, {
 });
 
 watch(items, () => readTextMetrics(), { flush: "post" });
+// A web font loaded after a measure changes the widths under the same name.
+const remeasure = () => readTextMetrics(true);
 let listObserver: ResizeObserver | null = null;
 onMounted(() => {
   listObserver = new ResizeObserver(() => readTextMetrics());
-  if (listRoot.value) listObserver.observe(listRoot.value);
-  // A web font that arrives late measures differently under the same name.
-  void document.fonts?.ready.then(() => readTextMetrics(true));
+  // The rows' box, which narrows when a scrollbar appears.
+  const rows =
+    listRoot.value?.querySelector(".r-virtual-scroller__inner") ??
+    listRoot.value;
+  if (rows) listObserver.observe(rows);
+  document.fonts?.addEventListener("loadingdone", remeasure);
 });
-onBeforeUnmount(() => listObserver?.disconnect());
+onBeforeUnmount(() => {
+  listObserver?.disconnect();
+  document.fonts?.removeEventListener("loadingdone", remeasure);
+});
 </script>
 
 <template>

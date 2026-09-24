@@ -279,7 +279,8 @@ def claim_once(key: str, window_seconds: int) -> bool:
     try:
         return bool(sync_cache.set(_claim_key(key), 1, nx=True, ex=window_seconds))
     except Exception:  # noqa: BLE001 - better a duplicate than a gap
-        log.exception(f"Failed to claim audit key {key}")
+        # The key may hold a failed sign-in's text, so only its kind is logged.
+        log.exception(f"Failed to claim a {key.split(':', 1)[0]} audit key")
         return True
 
 
@@ -288,7 +289,7 @@ def within_budget(key: str, limit: int, window_seconds: int) -> bool:
     try:
         return count_in_window(_claim_key(key), window_seconds) <= limit
     except Exception:  # noqa: BLE001 - better a duplicate than a gap
-        log.exception(f"Failed to count audit key {key}")
+        log.exception(f"Failed to count a {key.split(':', 1)[0]} audit key")
         return True
 
 
