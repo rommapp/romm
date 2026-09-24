@@ -1,3 +1,4 @@
+import dataclasses
 import enum
 import functools
 import glob
@@ -13,6 +14,7 @@ import yaml
 from sqlalchemy import URL
 from yaml.loader import SafeLoader
 
+from adapters.services.rom_converto import TARGETS_BY_PLATFORM
 from config import (
     DB_HOST,
     DB_NAME,
@@ -400,6 +402,14 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
 VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 
 
+@dataclasses.dataclass
+class ConvertoConfig:
+    download_conversion_enabled: bool = False
+    scan_metadata: bool = True
+    cache_ttl_hours: int = 24
+    platform_formats: dict[str, str] = dataclasses.field(default_factory=dict)
+
+
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
     _1: dict[int, EjsControlsButton]
@@ -494,6 +504,7 @@ class Config:
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
     STREAMING_ENABLED: bool
     STREAMING_CONTAINERS: list[StreamingContainer]
+    CONVERTO: ConvertoConfig
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -865,6 +876,20 @@ class ConfigManager:
             STREAMING_ENABLED=pydash.get(self._raw_config, "streaming.enabled", False),
             STREAMING_CONTAINERS=pydash.get(
                 self._raw_config, "streaming.containers", []
+            ),
+            CONVERTO=ConvertoConfig(
+                download_conversion_enabled=pydash.get(
+                    self._raw_config, "converto.download_conversion_enabled", False
+                ),
+                scan_metadata=pydash.get(
+                    self._raw_config, "converto.scan_metadata", True
+                ),
+                cache_ttl_hours=pydash.get(
+                    self._raw_config, "converto.cache_ttl_hours", 24
+                ),
+                platform_formats=pydash.get(
+                    self._raw_config, "converto.platform_formats", {}
+                ),
             ),
             STRUCTURE_TEMPLATES=pydash.get(
                 self._raw_config, "filesystem.structure", {}
@@ -1302,6 +1327,51 @@ class ConfigManager:
                 len(legacy_containers),
             )
 
+        if not isinstance(self.config.CONVERTO.download_conversion_enabled, bool):
+            log.critical(
+                "Invalid config.yml: converto.download_conversion_enabled must be a boolean"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.CONVERTO.scan_metadata, bool):
+            log.critical("Invalid config.yml: converto.scan_metadata must be a boolean")
+            sys.exit(3)
+
+        if (
+            not isinstance(self.config.CONVERTO.cache_ttl_hours, int)
+            or self.config.CONVERTO.cache_ttl_hours < 1
+        ):
+            log.critical(
+                "Invalid config.yml: converto.cache_ttl_hours must be an integer >= 1"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.CONVERTO.platform_formats, dict):
+            log.critical(
+                "Invalid config.yml: converto.platform_formats must be a dictionary"
+            )
+            sys.exit(3)
+
+        self.config.CONVERTO.platform_formats = {
+            str(slug).lower(): str(target).lower()
+            for slug, target in self.config.CONVERTO.platform_formats.items()
+        }
+        for slug, target in self.config.CONVERTO.platform_formats.items():
+            targets = TARGETS_BY_PLATFORM.get(slug)
+            if targets is None:
+                log.critical(
+                    f"Invalid config.yml: converto.platform_formats.{slug}: "
+                    f"rom-converto has no conversions for this platform. "
+                    f"Supported: {sorted(TARGETS_BY_PLATFORM)}."
+                )
+                sys.exit(3)
+            if target not in targets:
+                log.critical(
+                    f"Invalid config.yml: converto.platform_formats.{slug} has an "
+                    f"invalid target {target!r}. Valid options: {sorted(targets)}."
+                )
+                sys.exit(3)
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
@@ -1386,6 +1456,12 @@ class ConfigManager:
                 "pegasus": {
                     "export": self.config.PEGASUS_AUTO_EXPORT_ON_SCAN,
                 },
+            },
+            "converto": {
+                "download_conversion_enabled": self.config.CONVERTO.download_conversion_enabled,
+                "scan_metadata": self.config.CONVERTO.scan_metadata,
+                "cache_ttl_hours": self.config.CONVERTO.cache_ttl_hours,
+                "platform_formats": self.config.CONVERTO.platform_formats,
             },
         }
 
@@ -1515,6 +1591,23 @@ class ConfigManager:
         self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType(gamelist_thumbnail)
         self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType(gamelist_image)
         self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
+        self._update_config_file()
+
+    def update_converto_settings(
+        self,
+        *,
+        download_conversion_enabled: bool,
+        scan_metadata: bool,
+        cache_ttl_hours: int,
+        platform_formats: dict[str, str],
+    ) -> None:
+        """Replace the whole converto.* section and persist it to config.yml."""
+        self.config.CONVERTO = ConvertoConfig(
+            download_conversion_enabled=download_conversion_enabled,
+            scan_metadata=scan_metadata,
+            cache_ttl_hours=cache_ttl_hours,
+            platform_formats=platform_formats,
+        )
         self._update_config_file()
 
 

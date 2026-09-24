@@ -1,5 +1,6 @@
 import type { AxiosResponse } from "axios";
 import type {
+  ConvertoSettingsPayload,
   ExclusionPayload,
   PlatformBindingPayload,
   ScanSettingsPayload,
@@ -77,6 +78,13 @@ async function updateScanSettings(payload: ScanSettingsPayload) {
   );
 }
 
+async function updateConvertoSettings(payload: ConvertoSettingsPayload) {
+  return api.put<void, AxiosResponse<void>, ConvertoSettingsPayload>(
+    "/config/converto_settings",
+    payload,
+  );
+}
+
 export default {
   addPlatformBindConfig,
   deletePlatformBindConfig,
@@ -85,4 +93,5 @@ export default {
   addExclusion,
   deleteExclusion,
   updateScanSettings,
+  updateConvertoSettings,
 };

@@ -17,6 +17,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
     LIBRARY_BASE_PATH,
     Config,
+    ConvertoConfig,
 )
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
@@ -1879,6 +1880,7 @@ def sigil_config(monkeypatch):
             "default": "{platform}/roms/{game}",
             "firmware": "{platform}/bios",
         },
+        CONVERTO=ConvertoConfig(),
     )
     monkeypatch.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
     return cnfg
@@ -3178,6 +3180,7 @@ class TestIncrementalRomFiles:
                 "default": "{platform}/roms/{game}",
                 "firmware": "{platform}/bios",
             },
+            CONVERTO=ConvertoConfig(),
         )
         mocker.patch(
             "handler.filesystem.roms_handler.cm.get_config", return_value=config
