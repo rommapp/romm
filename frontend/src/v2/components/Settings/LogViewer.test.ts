@@ -49,8 +49,6 @@ beforeEach(() => {
 });
 
 describe("LogViewer", () => {
-  // Going through the composable is what applies the secure-context guard:
-  // over plain HTTP `navigator.clipboard` is undefined and a direct call throws.
   it("copies every shown line, oldest first, through the clipboard composable", async () => {
     const wrapper = await render();
 

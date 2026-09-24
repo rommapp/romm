@@ -33,6 +33,7 @@
   "clipboard-copied": "{label} をクリップボードにコピーしました",
   "clipboard-copy-failed": "クリップボードにコピーできませんでした。セキュアな (HTTPS) 接続が必要です。",
   "clipboard-unavailable": "この環境ではクリップボードが利用できません。下のリンクを選択して手動でコピーしてください。",
+  "clipboard-write-failed": "Couldn't copy to clipboard",
   "close": "閉じる",
   "cloud": "クラウド",
   "collapse": "折りたたむ",

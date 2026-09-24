@@ -33,6 +33,7 @@
   "clipboard-copied": "{label} copied to clipboard",
   "clipboard-copy-failed": "Couldn't copy to clipboard. This requires a secure (HTTPS) connection.",
   "clipboard-unavailable": "Clipboard is not available in this context. Select the link below to copy it manually.",
+  "clipboard-write-failed": "Couldn't copy to clipboard",
   "close": "Close",
   "cloud": "Cloud",
   "collapse": "Collapse",

@@ -33,6 +33,7 @@
   "clipboard-copied": "{label} skopiowano do schowka",
   "clipboard-copy-failed": "Nie udało się skopiować do schowka. Wymaga to bezpiecznego połączenia (HTTPS).",
   "clipboard-unavailable": "Schowek jest niedostępny w tym kontekście. Wybierz link poniżej, aby skopiować go ręcznie.",
+  "clipboard-write-failed": "Couldn't copy to clipboard",
   "close": "Zamknij",
   "cloud": "Chmura",
   "collapse": "Zwiń",

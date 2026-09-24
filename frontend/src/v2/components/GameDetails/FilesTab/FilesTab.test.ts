@@ -374,8 +374,6 @@ describe("FilesTab copy link", () => {
     expect(emitter.emit).not.toHaveBeenCalled();
   });
 
-  // Over plain HTTP `navigator.clipboard` is undefined, so the link is shown
-  // for manual copying instead of failing.
   it("opens the link dialog when the context is not secure", async () => {
     setClipboard(null, false);
 
@@ -386,6 +384,23 @@ describe("FilesTab copy link", () => {
       expect.stringContaining("file_ids=1"),
     );
     expect(snackbar.error).not.toHaveBeenCalled();
+  });
+
+  it("opens the dialog with every selected file from the toolbar", async () => {
+    setClipboard(null, false);
+    const wrapper = mountTab();
+    for (const row of wrapper.findAllComponents({ name: "FileRow" })) {
+      row.vm.$emit("toggle");
+    }
+    await flushPromises();
+
+    await wrapper.get('button[data-icon="mdi-link-variant"]').trigger("click");
+    await flushPromises();
+
+    expect(emitter.emit).toHaveBeenCalledWith(
+      "showCopyDownloadLinkDialog",
+      expect.stringContaining(`file_ids=${encodeURIComponent("1,2")}`),
+    );
   });
 
   it("opens the link dialog when the clipboard write is rejected", async () => {

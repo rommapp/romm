@@ -33,6 +33,7 @@
   "clipboard-copied": "{label} copiado al portapapeles",
   "clipboard-copy-failed": "No se pudo copiar al portapapeles. Requiere una conexión segura (HTTPS).",
   "clipboard-unavailable": "El portapapeles no está disponible. Selecciona el enlace para copiarlo manualmente.",
+  "clipboard-write-failed": "Couldn't copy to clipboard",
   "close": "Cerrar",
   "cloud": "Nube",
   "collapse": "Contraer",

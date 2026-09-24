@@ -369,18 +369,18 @@ const showUpload = computed(() => filteredCount.value > 0 && canUpload.value);
 // hash copying lives in HashChip itself. Without a usable Clipboard API
 // (insecure context, denied permission) the link opens in a dialog instead.
 async function copyDownloadLink(url: string) {
-  if (navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(url);
-      snackbar.success(t("rom.download-link-copied"), {
-        icon: "mdi-check-bold",
-      });
-      return;
-    } catch {
-      // fall through to the dialog
-    }
+  const copied =
+    !!navigator.clipboard &&
+    window.isSecureContext &&
+    (await navigator.clipboard.writeText(url).then(
+      () => true,
+      () => false,
+    ));
+  if (!copied) {
+    emitter?.emit("showCopyDownloadLinkDialog", url);
+    return;
   }
-  emitter?.emit("showCopyDownloadLinkDialog", url);
+  snackbar.success(t("rom.download-link-copied"), { icon: "mdi-check-bold" });
 }
 
 // ---------- Actions ----------

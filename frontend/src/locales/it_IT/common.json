@@ -33,6 +33,7 @@
   "clipboard-copied": "{label} copiato negli appunti",
   "clipboard-copy-failed": "Impossibile copiare negli appunti. Richiede una connessione sicura (HTTPS).",
   "clipboard-unavailable": "Gli appunti non sono disponibili in questo contesto. Seleziona il link qui sotto per copiarlo manualmente.",
+  "clipboard-write-failed": "Couldn't copy to clipboard",
   "close": "Chiudi",
   "cloud": "Cloud",
   "collapse": "Comprimi",
