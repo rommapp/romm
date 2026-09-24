@@ -112,6 +112,11 @@ def test_no_column_drift_between_models_and_migrations():
     assert drift == []
 
 
+def _is_database_filled(value: object) -> bool:
+    # `DefaultClause` is a literal default the ORM could write itself.
+    return isinstance(value, FetchedValue) and not isinstance(value, DefaultClause)
+
+
 def test_database_filled_columns_declare_their_nullability():
     """Autogenerate compares a generated column's nullability only when it is explicit.
 
@@ -123,9 +128,10 @@ def test_database_filled_columns_declare_their_nullability():
         f"{table.name}.{column.name}"
         for table in BaseModel.metadata.sorted_tables
         for column in table.columns
-        # `DefaultClause` is a literal default the ORM could write itself.
-        if isinstance(column.server_default, FetchedValue)
-        and not isinstance(column.server_default, DefaultClause)
+        if any(
+            _is_database_filled(value)
+            for value in (column.server_default, column.server_onupdate)
+        )
         # The same private flag alembic's `_nullability_might_be_unset` reads.
         and column._user_defined_nullable is NULL_UNSPECIFIED
     ]
