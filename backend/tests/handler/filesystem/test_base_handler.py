@@ -110,6 +110,11 @@ class TestFSHandler:
             result = handler.validate_path(path)
             assert result.is_relative_to(handler.base_path)
 
+    def test_validate_path_base_directory(self, handler: FSHandler):
+        base = Path(handler.base_path).resolve()
+        assert handler.validate_path("") == base
+        assert handler.validate_path(".") == base
+
     def test_validate_path_traversal_attack(self, handler: FSHandler):
         """Test path validation prevents directory traversal attacks"""
         malicious_paths = [

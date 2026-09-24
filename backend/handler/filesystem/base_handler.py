@@ -421,10 +421,10 @@ class FSHandler:
         base_path_obj = Path(self.base_path).resolve()
         base_path_str = str(base_path_obj)
         normalized_path = os.path.normpath(os.path.join(base_path_str, path_path))
-        if not (
-            normalized_path == base_path_str
-            or normalized_path.startswith(base_path_str + os.sep)
-        ):
+        if normalized_path == base_path_str:
+            return base_path_obj
+        # A bare startswith guard, which CodeQL recognizes as a path sanitizer.
+        if not normalized_path.startswith(base_path_str + os.sep):
             raise ValueError(
                 f"Path {path} is outside the base directory {self.base_path}"
             )

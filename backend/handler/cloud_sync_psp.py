@@ -104,11 +104,15 @@ def is_psp_bundle_file_name(file_name: str) -> bool:
     return _bundle_folder(file_name) is not None
 
 
-def _latest_bundles_by_folder(saves: Iterable[Save]) -> dict[str, Save]:
+def _latest_bundles_by_folder(
+    saves: Iterable[Save], can_see: Callable[[Rom], bool]
+) -> dict[str, Save]:
+    """The bundle each folder path resolves to for the manifest and GET/PUT/DELETE,
+    the newest visible unslotted one, since a folder path carries no ROM."""
     latest: dict[str, Save] = {}
     for save in saves:
         save_folder = _bundle_folder(save.file_name)
-        if save_folder is None:
+        if save_folder is None or save.slot is not None or not can_see(save.rom):
             continue
         current = latest.get(save_folder)
         if current is None or cloud_sync_handler.recency_key(
@@ -119,10 +123,11 @@ def _latest_bundles_by_folder(saves: Iterable[Save]) -> dict[str, Save]:
     return latest
 
 
-def _find_bundle_by_folder(user: User, save_folder: str) -> Save | None:
-    """The current bundle for a folder, whose name is unique per game and slot."""
-    saves = db_save_handler.get_saves(user_id=user.id)
-    return _latest_bundles_by_folder(saves).get(save_folder)
+def _find_bundle_by_folder(
+    user: User, save_folder: str, can_see: Callable[[Rom], bool]
+) -> Save | None:
+    saves = db_save_handler.get_saves(user_id=user.id, slot_is_null=True)
+    return _latest_bundles_by_folder(saves, can_see).get(save_folder)
 
 
 def _derive_serial(save_folder: str) -> str:
@@ -365,7 +370,7 @@ async def put_psp_file(
     # place rather than keeping each partial merge as save history.
     async with _folder_locks[f"{user.id}:{info.save_folder}"]:
         pending_dir = _pending_dir(user, info.save_folder)
-        existing = _find_bundle_by_folder(user, info.save_folder)
+        existing = _find_bundle_by_folder(user, info.save_folder, can_see)
 
         merged: dict[str, bytes] = {}
         if existing:
@@ -426,21 +431,25 @@ async def _read_bundle(
         return None
 
 
-async def get_psp_file(user: User, info: PspFilePath) -> bytes | None:
-    bundle = _find_bundle_by_folder(user, info.save_folder)
+async def get_psp_file(
+    user: User, info: PspFilePath, can_see: Callable[[Rom], bool]
+) -> bytes | None:
+    bundle = _find_bundle_by_folder(user, info.save_folder, can_see)
     if not bundle:
         return None
     entries = await _read_bundle(bundle, {info.file_name})
     return entries.get(info.file_name) if entries else None
 
 
-async def delete_psp_file(user: User, info: PspFilePath) -> None:
+async def delete_psp_file(
+    user: User, info: PspFilePath, can_see: Callable[[Rom], bool]
+) -> None:
     """Drops one member from its folder's bundle, and the bundle once empty.
 
     A missing bundle or member is a no-op, like every other cloud-sync delete.
     """
     async with _folder_locks[f"{user.id}:{info.save_folder}"]:
-        bundle = _find_bundle_by_folder(user, info.save_folder)
+        bundle = _find_bundle_by_folder(user, info.save_folder, can_see)
         if not bundle:
             return
 
@@ -462,10 +471,10 @@ async def build_psp_manifest_entries(
     saves: Iterable[Save], can_see: Callable[[Rom], bool]
 ) -> list[dict[str, str]]:
     """One manifest entry per bundle member, since RetroArch diffs per file."""
-    visible = [save for save in saves if not save.missing_from_fs and can_see(save.rom)]
-
     entries: list[dict[str, str]] = []
-    for save_folder, save in _latest_bundles_by_folder(visible).items():
+    for save_folder, save in _latest_bundles_by_folder(saves, can_see).items():
+        if save.missing_from_fs:
+            continue
         members = await _read_bundle(save)
         if members is None:
             continue

@@ -998,6 +998,49 @@ class TestCloudSyncPsp:
         )
         assert get_data.content == b"data"
 
+    def test_slotted_bundle_does_not_shadow_the_manifest_bundle(
+        self, client, admin_user: User, rom: Rom
+    ):
+        client.put(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            content=b"synced",
+            auth=ADMIN_AUTH,
+        )
+        slotted_path = fs_asset_handler.build_saves_file_path(
+            user=admin_user,
+            platform_fs_slug="test_platform_slug",
+            rom_id=rom.id,
+            emulator="ppsspp",
+        )
+        slotted_name = "PSP-TEST12345DATA0 [2026-01-01 00-00-00].zip"
+        zip_bytes = cloud_sync_psp._write_bundle({"SAVE.BIN": b"history"})
+        disk_path = fs_asset_handler.validate_path(f"{slotted_path}/{slotted_name}")
+        disk_path.write_bytes(zip_bytes)
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name=slotted_name,
+                file_path=slotted_path,
+                file_size_bytes=len(zip_bytes),
+                emulator="ppsspp",
+                slot="Slot 1",
+            )
+        )
+
+        get_data = client.get(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert get_data.content == b"synced"
+
+        client.delete(
+            "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        assert [save.file_name for save in saves] == [slotted_name]
+
     def test_bundles_a_folder_synced_without_core_sorting(
         self, client, admin_user: User
     ):

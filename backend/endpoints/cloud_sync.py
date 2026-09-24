@@ -363,7 +363,9 @@ async def cloud_sync_get(request: Request, file_path: str) -> Response:
     if psp_path == "ignore":
         return _empty(status.HTTP_404_NOT_FOUND)
     if psp_path:
-        data = await cloud_sync_psp.get_psp_file(request.user, psp_path)
+        data = await cloud_sync_psp.get_psp_file(
+            request.user, psp_path, _rom_visibility(get_permissions(request))
+        )
         if data is None:
             return _empty(status.HTTP_404_NOT_FOUND)
         return Response(content=data, media_type="application/octet-stream")
@@ -614,7 +616,9 @@ async def cloud_sync_delete(request: Request, file_path: str) -> Response:
     psp_path = cloud_sync_psp.resolve_psp_path(file_path)
     if psp_path:
         if psp_path != "ignore":
-            await cloud_sync_psp.delete_psp_file(request.user, psp_path)
+            await cloud_sync_psp.delete_psp_file(
+                request.user, psp_path, _rom_visibility(get_permissions(request))
+            )
         return _empty(status.HTTP_204_NO_CONTENT)
 
     parsed = cloud_sync_handler.parse_cloud_sync_path(file_path)
