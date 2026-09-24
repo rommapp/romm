@@ -372,6 +372,7 @@
   "results-found": "検索結果",
   "revision": "Revision",
   "rom-updated-successfully": "ROMを正常に更新しました！",
+  "save-conflict-detected": "{game} のセーブで競合が検出されました。",
   "save-data": "セーブデータ",
   "save-deleted": "セーブを削除しました。",
   "save-target": "Save File/Folder Target",

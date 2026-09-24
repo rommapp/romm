@@ -303,6 +303,7 @@ def _process_incoming_file(
                     session_id=session_id,
                     file_name=filename,
                     rom_id=matched_save.rom_id,
+                    rom_name=matched_save.rom.name or matched_save.rom.fs_name,
                     reason=result.reason,
                 )
             )

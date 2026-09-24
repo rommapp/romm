@@ -372,6 +372,7 @@
   "results-found": "Sonuçlar bulundu",
   "revision": "Revision",
   "rom-updated-successfully": "ROM başarıyla güncellendi!",
+  "save-conflict-detected": "{game} için kayıt çakışması algılandı.",
   "save-data": "Kayıt verisi",
   "save-deleted": "Kayıt silindi.",
   "save-target": "Save File/Folder Target",

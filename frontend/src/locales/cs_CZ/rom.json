@@ -372,6 +372,7 @@
   "results-found": "Nalezené výsledky",
   "revision": "Revision",
   "rom-updated-successfully": "ROM úspěšně aktualizována!",
+  "save-conflict-detected": "Zjištěn konflikt uložené pozice pro {game}.",
   "save-data": "Uložená data",
   "save-deleted": "Uložená pozice smazána.",
   "save-target": "Save File/Folder Target",

@@ -372,6 +372,7 @@
   "results-found": "Намерени резултати",
   "revision": "Revision",
   "rom-updated-successfully": "ROM-ът е обновен успешно!",
+  "save-conflict-detected": "Открит е конфликт в записа за {game}.",
   "save-data": "Данни от записи",
   "save-deleted": "Записът е изтрит.",
   "save-target": "Save File/Folder Target",
