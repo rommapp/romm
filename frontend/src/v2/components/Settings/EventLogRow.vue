@@ -1,13 +1,12 @@
 <script setup lang="ts">
 // EventLogRow: one event on the event log's timeline, at the height the list
-// windows it at.
+// windows it at and in the geometry the list sets (EVENT_ROW_VARS).
 import { RAvatar, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { RouterLink } from "vue-router";
 import type { AuditEventSchema } from "@/__generated__";
 import { formatTimestamp } from "@/utils";
-import { PHONE_EVENT_ROW } from "@/v2/components/Settings/eventLogLayout";
 import type { AuditEventView } from "@/v2/utils/auditEvents";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
@@ -21,15 +20,6 @@ const props = defineProps<{
   time: string;
   height: number;
 }>();
-
-const PHONE_GEOMETRY = {
-  "--r-audit-phone-pad": `${PHONE_EVENT_ROW.paddingBlock}px`,
-  "--r-audit-title-offset": `${PHONE_EVENT_ROW.titleOffset}px`,
-  "--r-audit-title-line": `${PHONE_EVENT_ROW.titleLine}px`,
-  "--r-audit-meta-line": `${PHONE_EVENT_ROW.metaLine}px`,
-  "--r-audit-gap": `${PHONE_EVENT_ROW.gap}px`,
-  "--r-audit-max-lines": PHONE_EVENT_ROW.maxLines,
-};
 
 const { t, locale } = useI18n();
 
@@ -65,7 +55,7 @@ const actorAvatar = computed(() => {
       'r-v2-audit-event--first': first,
       'r-v2-audit-event--last': last,
     }"
-    :style="{ height: `${height}px`, ...PHONE_GEOMETRY }"
+    :style="{ height: `${height}px` }"
   >
     <time
       class="r-v2-audit-event__time"
@@ -129,7 +119,6 @@ const actorAvatar = computed(() => {
 /* Each day reads as one panel: its first and last rows round the corners. */
 .r-v2-audit-event {
   --r-audit-dot: 28px;
-  --r-audit-pad-block: var(--r-space-2);
   display: grid;
   grid-template-columns: 3.25rem var(--r-audit-dot) minmax(0, 1fr);
   column-gap: var(--r-space-3);
@@ -196,7 +185,7 @@ const actorAvatar = computed(() => {
 .r-v2-audit-event__body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--r-audit-gap);
   min-width: 0;
   padding-top: 3px;
 }
@@ -220,7 +209,6 @@ a.r-v2-audit-event__title:hover {
 .r-v2-audit-event__meta {
   display: flex;
   gap: var(--r-space-3);
-  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   font-size: var(--r-font-size-sm);
@@ -254,11 +242,7 @@ html[data-bp~="xs"] .r-v2-audit-event {
 }
 /* A phone stacks the title, the detail, who, and where from, in that order
    on every row; the list sizes each row for how its title and detail wrap. */
-html[data-bp~="xs"] .r-v2-audit-event {
-  --r-audit-pad-block: var(--r-audit-phone-pad);
-}
 html[data-bp~="xs"] .r-v2-audit-event__body {
-  gap: var(--r-audit-gap);
   padding-top: var(--r-audit-title-offset);
 }
 html[data-bp~="xs"] .r-v2-audit-event__title,

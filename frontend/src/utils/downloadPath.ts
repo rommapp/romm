@@ -2,7 +2,7 @@ import type { RomFileSchema } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 
 /** Build the `/api` path that serves a ROM's content.
- *  `purpose: "play"` marks an in-browser player's fetch so it isn't logged as a download. */
+ *  `purpose: "play"` marks a player's fetch, which is logged as a player load. */
 export function getDownloadPath({
   rom,
   fileIDs = [],

@@ -130,9 +130,14 @@ function edited(icon: string, key: string): Describer {
 const deletedFromDisk = (event: AuditEventSchema) =>
   event.data.deleted_from_fs ? t("audit.detail-deleted-from-disk") : null;
 
+const fileAndSize = (event: AuditEventSchema) =>
+  joinDetails(text(event.data.file_name), size(event.data));
+
 const DESCRIBERS: Record<AuditAction, Describer> = {
-  "rom.download": simple("mdi-download", "audit.action-rom-download", (e) =>
-    joinDetails(text(e.data.file_name), size(e.data)),
+  "rom.download": simple(
+    "mdi-download",
+    "audit.action-rom-download",
+    fileAndSize,
   ),
   "rom.bulk_download": (event, target) => {
     const n = count(event.data.count);
@@ -147,7 +152,7 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
   "rom.player_load": simple(
     "mdi-controller",
     "audit.action-rom-player-load",
-    (e) => joinDetails(text(e.data.file_name), size(e.data)),
+    fileAndSize,
   ),
   "rom.play": simple("mdi-play-circle-outline", "audit.action-rom-play", (e) =>
     formatPlaytime(
@@ -385,9 +390,7 @@ function toneOf(event: AuditEventSchema): string {
   if (event.action === "auth.login_failed" || event.data.status === "failed") {
     return "var(--r-color-danger)";
   }
-  return event.category
-    ? CATEGORY_TONES[event.category]
-    : CATEGORY_TONES.operations;
+  return CATEGORY_TONES[event.category ?? "operations"];
 }
 
 function targetRoute(event: AuditEventSchema): RouteLocationRaw | null {

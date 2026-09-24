@@ -5,6 +5,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
+from tests.audit_events import recorded_events
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
@@ -271,12 +272,7 @@ class TestPlaySessionAudit:
         assert response.status_code == status.HTTP_201_CREATED
         [played] = db_play_session_handler.get_sessions(user_id=editor_user.id)
         assert played.rom_id is None
-        assert (
-            db_audit_event_handler.get_events(AuditEventFilters(), limit=10, offset=0)[
-                1
-            ]
-            == 0
-        )
+        assert recorded_events() == []
 
 
 class TestPlaySessionDedup:

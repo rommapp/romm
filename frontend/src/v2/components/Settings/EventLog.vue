@@ -11,6 +11,7 @@ import {
   RTextField,
   RVirtualScroller,
 } from "@v2/lib";
+import { useEventListener, useResizeObserver } from "@vueuse/core";
 import { isToday, isYesterday } from "date-fns";
 import { debounce } from "lodash";
 import { storeToRefs } from "pinia";
@@ -29,8 +30,9 @@ import storeUsers from "@/stores/users";
 import { toBrowserLocale } from "@/utils";
 import EventLogRow from "@/v2/components/Settings/EventLogRow.vue";
 import {
+  EVENT_ROW,
   EVENT_ROW_HEIGHT,
-  PHONE_EVENT_ROW,
+  EVENT_ROW_VARS,
   phoneEventRowHeight,
 } from "@/v2/components/Settings/eventLogLayout";
 import { useAuditLog } from "@/v2/composables/useAuditLog";
@@ -269,6 +271,7 @@ interface TextMetrics {
 }
 
 const listRoot = ref<HTMLElement | null>(null);
+const scroller = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 const { xs } = useBreakpoint();
 const textMetrics = shallowRef<TextMetrics | null>(null);
 
@@ -280,12 +283,17 @@ function readTextMetrics(force = false) {
   const title = body?.querySelector<HTMLElement>(".r-v2-audit-event__title");
   const meta = body?.querySelector<HTMLElement>(".r-v2-audit-event__meta");
   if (!body || !title || !meta) return;
+  const width = body.clientWidth;
+  const current = textMetrics.value;
+  if (!force && current?.width === width) return;
   const titleFont = getComputedStyle(title).font;
   const metaFont = getComputedStyle(meta).font;
   const fonts = `${titleFont}|${metaFont}`;
-  const width = body.clientWidth;
-  const current = textMetrics.value;
-  if (!force && current?.width === width && current.fonts === fonts) return;
+  // Measurers remember word widths, so they're kept while the fonts are.
+  if (!force && current?.fonts === fonts) {
+    textMetrics.value = { ...current, width };
+    return;
+  }
   const measureTitle = canvasMeasure(titleFont);
   const measureDetail = canvasMeasure(metaFont);
   if (!measureTitle || !measureDetail) return;
@@ -297,20 +305,21 @@ function readTextMetrics(force = false) {
   };
 }
 
-function phoneLines(text: string, measure?: (run: string) => number): number {
-  const width = textMetrics.value?.width;
-  if (!width || !measure) return 1;
+function phoneLines(text: string, font: "title" | "detail"): number {
+  const metrics = textMetrics.value;
+  if (!metrics) return 1;
   // Measured a little short, so a line that only just fits counts as wrapped:
   // a spare line is better than one cut off.
-  return Math.min(
-    PHONE_EVENT_ROW.maxLines,
-    wrappedLineCount(text, width - 2, measure),
+  return wrappedLineCount(
+    text,
+    metrics.width - 2,
+    metrics[font],
+    EVENT_ROW.maxLines,
   );
 }
 
 // Like the sentences, heights are kept until the fonts or the width change.
 const heights = computed(() => {
-  void xs.value;
   void textMetrics.value;
   return new WeakMap<AuditEventView, number>();
 });
@@ -319,10 +328,9 @@ function eventHeight(event: AuditEventSchema, view: AuditEventView): number {
   if (!xs.value) return EVENT_ROW_HEIGHT;
   let height = heights.value.get(view);
   if (height === undefined) {
-    const metrics = textMetrics.value;
     height = phoneEventRowHeight({
-      title: phoneLines(view.title, metrics?.title),
-      detail: view.detail ? phoneLines(view.detail, metrics?.detail) : 0,
+      title: phoneLines(view.title, "title"),
+      detail: view.detail ? phoneLines(view.detail, "detail") : 0,
       where: !!(event.device_name || event.ip_address),
     });
     heights.value.set(view, height);
@@ -385,27 +393,28 @@ useGridNav(listRoot, {
 });
 
 watch(items, () => readTextMetrics(), { flush: "post" });
+// The scroller's content box leaves out its scrollbar, so it narrows with one.
+useResizeObserver(
+  () => scroller.value?.containerEl,
+  () => readTextMetrics(),
+);
 // A web font loaded after a measure changes the widths under the same name.
-const remeasure = () => readTextMetrics(true);
-let listObserver: ResizeObserver | null = null;
-onMounted(() => {
-  listObserver = new ResizeObserver(() => readTextMetrics());
-  // The rows' box, which narrows when a scrollbar appears.
-  const rows =
-    listRoot.value?.querySelector(".r-virtual-scroller__inner") ??
-    listRoot.value;
-  if (rows) listObserver.observe(rows);
-  document.fonts?.addEventListener("loadingdone", remeasure);
-});
-onBeforeUnmount(() => {
-  listObserver?.disconnect();
-  document.fonts?.removeEventListener("loadingdone", remeasure);
+useEventListener(document.fonts, "loadingdone", (event) => {
+  const fonts = textMetrics.value?.fonts;
+  const loaded = (event as FontFaceSetLoadEvent).fontfaces;
+  if (
+    fonts &&
+    loaded.some((f) => fonts.includes(f.family.replace(/["']/g, "")))
+  ) {
+    readTextMetrics(true);
+  }
 });
 </script>
 
 <template>
-  <div ref="listRoot" class="r-v2-audit">
+  <div ref="listRoot" class="r-v2-audit" :style="EVENT_ROW_VARS">
     <RVirtualScroller
+      ref="scroller"
       class="r-v2-audit__scroller"
       :items="items"
       :get-item-height="itemHeight"

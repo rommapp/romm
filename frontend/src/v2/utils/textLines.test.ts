@@ -22,6 +22,11 @@ describe("wrappedLineCount", () => {
     expect(wrappedLineCount("go aaaaaaaaaaaa", 50, measure)).toBe(4);
   });
 
+  it("stops counting at the most lines shown", () => {
+    expect(wrappedLineCount("aaaa bbbb cccc dddd", 80, measure, 2)).toBe(2);
+    expect(wrappedLineCount("go aaaaaaaaaaaa", 50, measure, 3)).toBe(3);
+  });
+
   it("counts one line for no text or no room", () => {
     expect(wrappedLineCount("", 100, measure)).toBe(1);
     expect(wrappedLineCount("Signed in", 0, measure)).toBe(1);
