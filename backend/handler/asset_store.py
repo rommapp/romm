@@ -216,11 +216,7 @@ async def _restore_asset_files(
 
 
 async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> AssetT:
-    """Rename a save's or state's file and row, taking its thumbnail along.
-
-    Returns:
-        The renamed row.
-    """
+    """Rename a save's or state's file and row, taking its thumbnail along."""
     try:
         new_name = sanitize_filename(file_name)
     except ValueError as exc:
@@ -277,11 +273,7 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
         _binds(other, thumbnail) for other in others
     )
     # A new name on the same stem still resolves the shared one untouched.
-    if (
-        thumbnail
-        and copy_thumbnail
-        and thumbnail_name.casefold() == thumbnail.file_name.casefold()
-    ):
+    if thumbnail and copy_thumbnail and thumbnail_name == thumbnail.file_name:
         thumbnail = None
 
     log.info(f"Renaming {hl(asset.file_name)} to {hl(new_name)}")

@@ -842,7 +842,12 @@ class FSHandler:
                     source_full_path.open("rb") as source,
                     dest_full_path.open("xb") as dest,
                 ):
-                    shutil.copyfileobj(source, dest)
+                    try:
+                        shutil.copyfileobj(source, dest)
+                    except BaseException:
+                        # Only a file this copy created, never one it refused.
+                        dest_full_path.unlink()
+                        raise
                 shutil.copymode(source_full_path, dest_full_path)
 
     async def rename_file(self, file_path: str, new_name: str) -> None:

@@ -472,6 +472,27 @@ class TestFSHandler:
 
         assert (handler.base_path / "taken.png").read_bytes() == b"other"
 
+    async def test_copy_to_new_file_leaves_nothing_when_the_copy_fails(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "shot.png")
+
+        with (
+            patch(
+                "handler.filesystem.base_handler.os.link",
+                side_effect=OSError(errno.EXDEV, "cross-device link"),
+            ),
+            patch(
+                "handler.filesystem.base_handler.shutil.copyfileobj",
+                side_effect=OSError(errno.ENOSPC, "no space left"),
+            ),
+            pytest.raises(OSError, match="no space left"),
+        ):
+            await handler.copy_to_new_file("shot.png", "copy.png")
+
+        assert not (handler.base_path / "copy.png").exists()
+        assert (handler.base_path / "shot.png").read_bytes() == sample_file_content
+
     async def test_rename_file_nonexistent(self, handler: FSHandler):
         with pytest.raises(FileNotFoundError, match="File not found"):
             await handler.rename_file("nonexistent.srm", "new.srm")
