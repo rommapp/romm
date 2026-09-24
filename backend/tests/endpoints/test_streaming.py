@@ -6013,6 +6013,32 @@ def test_an_exit_state_resume_is_the_activate_slot_alone(
     assert hydrate.call_args.kwargs["resume_pushed"] is True
 
 
+def test_an_exit_state_resume_with_no_archive_reports_the_resume_lost(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The archive is the whole resume on these brokers, so without one the slot
+    would load whatever the container last held and the player would not be told."""
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "SLUS-00594_resume.sav", "duckstation")
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    with _streaming({**_webstation_for(rom), "emulator": "duckstation"}):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value=None),
+            ),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id, state_id=state.id)
+    assert r.status_code == 202
+    assert activate.call_args.kwargs["resume_slot"] is None
+    assert _launch_ready(sent)["resume"] is False
+
+
 def test_webstation_claim_without_a_state_boots_clean(client, access_token, rom: Rom):
     """A restored archive puts in-game saves back, nothing more: no picked
     state means no resume_slot, even though the archive carries the exit

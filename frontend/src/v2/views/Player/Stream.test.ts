@@ -834,6 +834,25 @@ describe("Stream launch recovery", () => {
     );
   });
 
+  it("leaves a stream the poll entered alone when launch-ready follows", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.fetchSessionStatus.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: "http://webstation-dev:8080/room/x",
+    });
+    await pollStatus();
+
+    await launchReady({ host: "http://webstation-dev:8080/room/other" });
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("playing");
+    expect(vmOf(wrapper).containerHost).toBe(
+      "http://webstation-dev:8080/room/x",
+    );
+  });
+
   it("keeps waiting when the launch-ready is for a claim that replaced its own", async () => {
     // Tab A missed its launch-failed, and tab B re-claimed the same container.
     const wrapper = await launch({ picker: false });

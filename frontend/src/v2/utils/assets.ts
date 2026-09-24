@@ -29,7 +29,7 @@ export function isCoreCompatible(
   asset: { emulator?: string | null },
   core: string | null | undefined,
 ): boolean {
-  return !asset.emulator || asset.emulator === core;
+  return !asset.emulator || emulatorKey(asset.emulator) === emulatorKey(core);
 }
 
 /** ISO timestamps sort lexically. */

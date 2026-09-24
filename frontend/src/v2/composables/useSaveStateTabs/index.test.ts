@@ -64,6 +64,17 @@ describe("useSaveStateTabs", () => {
     expect(stateDisabledReason(makeState("bsnes"))).toBeNull();
   });
 
+  it("loads a state its core wrote under another case", () => {
+    const { stateDisabledReason, allStatesCompatible } = useSaveStateTabs(
+      [],
+      [makeState("SNES9x")],
+      "snes9x",
+    );
+
+    expect(stateDisabledReason(makeState("SNES9x"))).toBeNull();
+    expect(allStatesCompatible.value).toBe(true);
+  });
+
   it("names another emulator's state the way the backend labels it", () => {
     const { stateDisabledReason } = useSaveStateTabs([], [], "snes9x");
 

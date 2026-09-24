@@ -701,6 +701,9 @@ useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
     return;
   }
   if (payload.resume === false) snackbar.warning(t("play.resume-failed"));
+  // A status poll can land between the launch stamp and this push and enter
+  // first; entering again would force fullscreen back on.
+  if ((playerState.value as PlayerState) === "playing") return;
   await enterStream(payload.host);
 });
 

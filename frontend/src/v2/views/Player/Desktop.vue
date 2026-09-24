@@ -139,7 +139,8 @@ useIntervalFn(async () => {
     containerKey.value,
     claimedAt.value,
   );
-  if (status?.status !== "ended") return;
+  // A release that landed while this beat was in flight already said how it ended.
+  if (!holdsClaim.value || status?.status !== "ended") return;
   noteSessionEnded(status.termination);
 }, HEARTBEAT_MS);
 

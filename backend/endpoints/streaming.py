@@ -100,6 +100,7 @@ from handler.streaming.session_store import (
     release_own_session,
     same_claim,
     session_disc_id,
+    session_is_desktop,
     session_is_stale,
     session_platform_matches,
     session_redis_key,
@@ -250,7 +251,7 @@ async def _session_status(
     termination = None
     for candidate in candidates:
         notice = await get_termination(candidate.key, request.user.id)
-        if notice is not None and access.notice_in_scope(
+        if notice is not None and access.session_in_scope(
             notice, platform, include_desktop, claimed_at
         ):
             termination = notice
@@ -302,8 +303,7 @@ async def get_config(request: Request) -> StreamingConfigSchema:
                 # only offers the save picker where a pick means something.
                 supports_save_picker=c.supports_save_picker,
                 # Whether the in-game Save and Load buttons reach a broker that
-                # honours them. An exit-state emulator keeps has_autosave for
-                # its state library but refuses both.
+                # honours them, which an exit-state emulator's does not.
                 supports_live_states=c.supports_live_states,
             )
         )
@@ -1405,7 +1405,7 @@ async def list_containers(request: Request) -> AdminContainersResponse:
                         platform=session.get("platform"),
                         rom_id=session.get("rom_id"),
                         rom_name=session.get("rom_name"),
-                        desktop=bool(session.get("desktop")),
+                        desktop=session_is_desktop(session),
                         claimed_at=session.get("claimed_at"),
                         user_id=user_id,
                         username=user.username if user else None,
@@ -1576,7 +1576,7 @@ async def list_sessions(request: Request) -> AdminSessionsResponse:
                 platform=s.get("platform"),
                 rom_id=s.get("rom_id"),
                 rom_name=s.get("rom_name"),
-                desktop=bool(s.get("desktop")),
+                desktop=session_is_desktop(s),
                 claimed_at=s.get("claimed_at"),
                 user_id=user_id,
                 username=user.username if user else None,

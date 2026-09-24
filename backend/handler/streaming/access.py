@@ -114,25 +114,13 @@ def session_in_scope(
     include_desktop: bool,
     claimed_at: str | None = None,
 ) -> bool:
-    """Whether a stored session is the one a route asked about, which its owner
-    alone cannot say: same platform, a desktop only if named, the given claim."""
+    """Whether a stored session, or the notice it left, is the one a route asked
+    about: same platform, a desktop only if named, the given claim."""
     if not include_desktop and session_is_desktop(session):
         return False
     if claimed_at is not None and session.get("claimed_at") != claimed_at:
         return False
     return session_platform_matches(session, platform)
-
-
-def notice_in_scope(
-    notice: dict[str, Any],
-    platform: str,
-    include_desktop: bool,
-    claimed_at: str | None = None,
-) -> bool:
-    """Whether a notice answers for the claim a route asked about: it records the
-    ended claim's platform, kind and stamp, so a session's scope holds for its
-    tombstone."""
-    return session_in_scope(notice, platform, include_desktop, claimed_at)
 
 
 async def find_session_for_user(
