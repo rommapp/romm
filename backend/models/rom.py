@@ -815,19 +815,29 @@ class Rom(BaseModel):
 
     # Read-only slice of the stored generated columns from the `roms_metadata` view
     generated_first_release_date: Mapped[int | None] = mapped_column(
-        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+        BigInteger(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
     generated_average_rating: Mapped[float | None] = mapped_column(
-        Float(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+        Float(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
     generated_player_count: Mapped[str | None] = mapped_column(
         String(length=100),
+        nullable=True,
         server_default=FetchedValue(),
         server_onupdate=FetchedValue(),
     )
     # Seconds, as HowLongToBeat reports them.
     generated_hltb_main_story: Mapped[int | None] = mapped_column(
-        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+        BigInteger(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
 
     # The ascending gallery sort leads with these so unset metadata lands last
@@ -885,6 +895,7 @@ class Rom(BaseModel):
     # so the dedup window can rank regions without reading the JSON.
     generated_primary_region: Mapped[str | None] = mapped_column(
         String(length=50),
+        nullable=True,
         server_default=FetchedValue(),
         server_onupdate=FetchedValue(),
     )
