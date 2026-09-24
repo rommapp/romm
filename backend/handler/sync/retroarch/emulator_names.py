@@ -15,12 +15,12 @@ RETROARCH_DIR_BY_ROMM_EMULATOR: dict[str, str] = {
     "fceumm": "FCEUmm",
     "mesen": "Mesen",
     # PlayStation
+    "mednafen_psx": "Beetle PSX",
+    "mednafen_psx_hw": "Beetle PSX HW",
     "beetle_psx": "Beetle PSX",
     "beetle_psx_hw": "Beetle PSX HW",
     "pcsx_rearmed": "PCSX-ReARMed",
     "swanstation": "SwanStation",
-    "mednafen_psx": "Beetle PSX",
-    "mednafen_psx_hw": "Beetle PSX HW",
     # Game Boy
     "gambatte": "Gambatte",
     "sameboy": "SameBoy",
@@ -36,9 +36,9 @@ RETROARCH_DIR_BY_ROMM_EMULATOR: dict[str, str] = {
     "mupen64plus_next": "Mupen64Plus-Next",
     "parallel_n64": "ParaLLEl N64",
     # Saturn
+    "mednafen_saturn": "Beetle Saturn",
     "beetle_saturn": "Beetle Saturn",
     "kronos": "Kronos",
-    "mednafen_saturn": "Beetle Saturn",
     # Arcade / Neo Geo
     "mame": "MAME",
     "fbneo": "FBNeo",
@@ -53,10 +53,10 @@ RETROARCH_DIR_BY_ROMM_EMULATOR: dict[str, str] = {
     # Atari
     "stella": "Stella",
     # PC Engine
-    "beetle_pce": "Beetle PCE",
-    "beetle_pce_fast": "Beetle PCE Fast",
     "mednafen_pce": "Beetle PCE",
     "mednafen_pce_fast": "Beetle PCE Fast",
+    "beetle_pce": "Beetle PCE",
+    "beetle_pce_fast": "Beetle PCE Fast",
     # Other common cores
     "dosbox_pure": "DOSBox-Pure",
     "scummvm": "ScummVM",
@@ -67,7 +67,8 @@ RETROARCH_DIR_BY_ROMM_EMULATOR: dict[str, str] = {
 }
 
 
-# Reversed so the first core listed for a shared folder (e.g. "Beetle PSX") wins.
+# Reversed so the first core listed for a shared folder wins, which is the
+# `mednafen_*` id the web player (EmulatorJS) stores for the Beetle cores.
 ROMM_EMULATOR_BY_RETROARCH_DIR: dict[str, str] = {
     dir_name: emulator
     for emulator, dir_name in reversed(RETROARCH_DIR_BY_ROMM_EMULATOR.items())

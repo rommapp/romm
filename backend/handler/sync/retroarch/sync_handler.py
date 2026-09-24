@@ -23,7 +23,7 @@ from handler.sync.retroarch.emulator_names import (
     to_retroarch_dir_name,
     to_romm_emulator,
 )
-from models.assets import Save, Screenshot, State
+from models.assets import EMULATOR_MAX_LENGTH, Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
 
@@ -43,7 +43,7 @@ STATE_SUFFIX_PATTERN = re.compile(r"\.state\d*(?:\.auto)?$", re.IGNORECASE)
 
 # Rehashing every asset on each manifest fetch would read gigabytes. Keys carry
 # size and mtime, so a changed file misses the cache instead of going stale.
-_HASH_CACHE_TTL_SECONDS = 60 * 60 * 24
+HASH_CACHE_TTL_SECONDS = 60 * 60 * 24
 
 
 @dataclass(frozen=True)
@@ -60,11 +60,19 @@ class RetroArchSyncPath:
 
 
 def split_segments(path: str) -> list[str] | None:
-    """A client path's non-empty segments, or None if any is `.` or `..`."""
+    """A client path's non-empty segments, or None if any is `.`, `..` or holds a NUL."""
     segments = [segment for segment in path.strip("/").split("/") if segment]
-    if any(segment in (os.curdir, os.pardir) for segment in segments):
+    if any(
+        segment in (os.curdir, os.pardir) or "\x00" in segment for segment in segments
+    ):
         return None
     return segments
+
+
+def emulator_from_dir_name(dir_name: str) -> str | None:
+    """RomM's `emulator` for a core folder name, or None if too long to store."""
+    emulator = to_romm_emulator(dir_name)
+    return emulator if len(emulator) <= EMULATOR_MAX_LENGTH else None
 
 
 def parse_retroarch_sync_path(path: str) -> RetroArchSyncPath | None:
@@ -79,11 +87,13 @@ def parse_retroarch_sync_path(path: str) -> RetroArchSyncPath | None:
 
     # RomM's web player matches saves on the lowercase libretro core id, not
     # RetroArch's display-cased folder name.
-    return RetroArchSyncPath(
-        kind=kind,
-        emulator=to_romm_emulator(segments[1]) if len(segments) == 3 else None,
-        file_name=segments[-1],
-    )
+    emulator = None
+    if len(segments) == 3:
+        emulator = emulator_from_dir_name(segments[1])
+        if emulator is None:
+            return None
+
+    return RetroArchSyncPath(kind=kind, emulator=emulator, file_name=segments[-1])
 
 
 def is_state_screenshot_path(file_name: str) -> bool:
@@ -235,7 +245,7 @@ async def _cached_md5(
 
     digest = await compute()
     if digest:
-        await async_cache.set(cache_key, digest, ex=_HASH_CACHE_TTL_SECONDS)
+        await async_cache.set(cache_key, digest, ex=HASH_CACHE_TTL_SECONDS)
 
     return digest
 

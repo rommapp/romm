@@ -92,6 +92,12 @@ class TestResolvePspPath:
     def test_unrelated_category_is_none(self):
         assert resolve_psp_path("saves/PPSSPP/PSP/OTHER/foo") is None
 
+    def test_core_folder_too_long_to_store_is_none(self):
+        assert (
+            resolve_psp_path(f"saves/{'x' * 51}/PSP/SAVEDATA/ULUS10336DATA0/PARAM.SFO")
+            is None
+        )
+
 
 class TestIsPspBundleFileName:
     def test_matches_bundle_names(self):

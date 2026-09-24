@@ -117,7 +117,10 @@ class TestRetroArchSyncEmulatorNames:
             ("Snes9x", "snes9x"),
             ("Genesis Plus GX", "genesis_plus_gx"),
             ("PCSX-ReARMed", "pcsx_rearmed"),
-            ("Beetle PSX", "beetle_psx"),
+            # The web player stores the Beetle cores under their mednafen ids.
+            ("Beetle PSX", "mednafen_psx"),
+            ("Beetle PSX HW", "mednafen_psx_hw"),
+            ("Beetle PCE", "mednafen_pce"),
             ("RetroArduous", "RetroArduous"),
             ("Beetle VB", "Beetle VB"),
         ],
@@ -193,6 +196,8 @@ class TestRetroArchSyncPathParsing:
             "saves",
             "saves/Snes9x/nested/test_rom.srm",
             "saves/../../etc/passwd",
+            "saves/Snes9x/test\x00rom.srm",
+            f"saves/{'x' * 51}/test_rom.srm",
         ],
     )
     def test_rejects_unsupported_paths(self, path):
@@ -238,6 +243,14 @@ class TestRetroArchSyncAuth:
         response = client.put("/api/sync/retroarch/saves/test_rom.srm", content=b"data")
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_kiosk_guest_is_challenged(self, client):
+        with mock.patch("handler.auth.hybrid_auth.KIOSK_MODE", True):
+            options = client.options("/api/sync/retroarch/")
+            manifest = client.get("/api/sync/retroarch/manifest.server")
+
+        assert options.status_code == status.HTTP_401_UNAUTHORIZED
+        assert manifest.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestRetroArchSyncStateSlotResolution:
@@ -825,6 +838,75 @@ class TestRetroArchSyncUpload:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_rejects_a_chunked_body_over_the_upload_cap(
+        self,
+        mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+    ):
+        # A generator body goes out chunked, with no Content-Length to reject on.
+        with mock.patch("endpoints.sync.retroarch.MAX_ASSET_UPLOAD_SIZE_BYTES", 4):
+            response = client.put(
+                "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
+                content=iter([b"dat", b"a!"]),
+                auth=ADMIN_AUTH,
+            )
+
+        assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
+        assert response.content == b""
+        mock_write_file.assert_not_awaited()
+        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch("endpoints.sync.retroarch.scan_state", new_callable=mock.AsyncMock)
+    def test_state_filed_elsewhere_moves_with_the_upload(
+        self,
+        mock_scan_state: mock.AsyncMock,
+        _mock_write_file: mock.AsyncMock,
+        mock_remove_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        states_path: str,
+    ):
+        legacy_state = db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_rom.state",
+                file_path="legacy/states/snes9x",
+                file_size_bytes=4,
+                emulator="snes9x",
+            )
+        )
+        mock_scan_state.return_value = State(
+            file_name="test_rom.state", file_path=states_path, file_size_bytes=8
+        )
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            content=b"statedat",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        state = db_state_handler.get_state(user_id=admin_user.id, id=legacy_state.id)
+        assert state is not None
+        assert state.file_path == states_path
+        mock_remove_file.assert_awaited_once_with(file_path=legacy_state.full_path)
+
 
 class TestRetroArchSyncDownload:
     def test_missing_file_is_not_found(self, client, admin_user: User, rom: Rom):
@@ -1144,6 +1226,58 @@ class TestRetroArchSyncPsp:
         )
         assert get_response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_upload_past_the_bundle_limits_conflicts(
+        self, client, admin_user: User, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(psp, "_BUNDLE_MAX_MEMBERS", 1)
+        client.put(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            content=b"sfo",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.put(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        get_sfo = client.get(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            auth=ADMIN_AUTH,
+        )
+        assert get_sfo.content == b"sfo"
+
+    def test_unreadable_bundle_survives_a_member_delete(
+        self, client, admin_user: User, rom: Rom
+    ):
+        client.put(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            content=b"sfo",
+            auth=ADMIN_AUTH,
+        )
+        [bundle] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        bundle_file = fs_asset_handler.validate_path(bundle.full_path)
+        bundle_file.write_bytes(b"not a zip")
+
+        response = client.request(
+            "DELETE",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert db_save_handler.get_save(user_id=admin_user.id, id=bundle.id)
+        assert bundle_file.is_file()
+
+        put_response = client.put(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+        assert put_response.status_code == status.HTTP_409_CONFLICT
+
 
 class TestRetroArchSyncDevice:
     def test_first_manifest_fetch_registers_a_device(self, client, admin_user: User):
@@ -1287,6 +1421,27 @@ class TestRetroArchSyncBlobs:
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_of_a_nul_blob_path_is_not_found(self, client, admin_user: User):
+        response = client.request(
+            "DELETE", "/api/sync/retroarch/config/a%00b.cfg", auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_rejects_a_chunked_blob_over_the_upload_cap(self, client, admin_user: User):
+        with mock.patch("endpoints.sync.retroarch.MAX_ASSET_UPLOAD_SIZE_BYTES", 4):
+            response = client.put(
+                "/api/sync/retroarch/config/retroarch.cfg",
+                content=iter([b"dat", b"a!"]),
+                auth=ADMIN_AUTH,
+            )
+
+        assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
+        get_response = client.get(
+            "/api/sync/retroarch/config/retroarch.cfg", auth=ADMIN_AUTH
+        )
+        assert get_response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_manifest_includes_blobs_alongside_assets(self, client, admin_user: User):
         client.put(

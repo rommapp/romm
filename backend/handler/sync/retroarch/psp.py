@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import re
 import struct
 import zipfile
@@ -25,8 +26,8 @@ from handler.database import db_platform_handler, db_rom_handler, db_save_handle
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import hash_zip_contents
 from handler.filesystem.base_handler import FSHandler
+from handler.redis_handler import async_cache
 from handler.sync.retroarch import sync_handler
-from handler.sync.retroarch.emulator_names import to_romm_emulator
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import Save
@@ -40,7 +41,7 @@ _SAVEDATA_CATEGORY = "SAVEDATA"
 # Real PSP save folders hold a handful of small files; anything past these is
 # not one, and inflating it on every manifest build would exhaust memory.
 _BUNDLE_MAX_MEMBERS = 64
-_BUNDLE_MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
+BUNDLE_MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
 
 _BUNDLE_FOLDER_PATTERN = re.compile(r"^PSP-(.+?)(?: \[.*])?\.zip$")
 
@@ -49,6 +50,10 @@ fs_psp_pending_handler = FSHandler(base_path=SYNC_RETROARCH_PSP_PENDING_PATH)
 
 class PspFolderUnresolved(Exception):
     """A save folder no ROM matches yet; its files wait on disk until one does."""
+
+
+class PspBundleInvalid(Exception):
+    """The folder's bundle is unreadable, or the upload would push it past the limits."""
 
 
 @dataclass(frozen=True)
@@ -71,7 +76,9 @@ def resolve_psp_path(file_path: str) -> PspFilePath | Literal["ignore"] | None:
     if segments[1].upper() == "PSP" and segments[2].upper() in categories:
         emulator, rest = None, segments[2:]
     elif len(segments) >= 4 and segments[2].upper() == "PSP":
-        emulator, rest = to_romm_emulator(segments[1]), segments[3:]
+        emulator, rest = sync_handler.emulator_from_dir_name(segments[1]), segments[3:]
+        if emulator is None:
+            return None
     else:
         return None
 
@@ -248,6 +255,13 @@ def _resolve_rom(
     return None
 
 
+def _exceeds_bundle_limits(member_sizes: Collection[int]) -> bool:
+    return (
+        len(member_sizes) > _BUNDLE_MAX_MEMBERS
+        or sum(member_sizes) > BUNDLE_MAX_UNCOMPRESSED_BYTES
+    )
+
+
 def _load_bundle_entries(
     zip_bytes: bytes, names: Collection[str] | None = None
 ) -> dict[str, bytes]:
@@ -258,9 +272,7 @@ def _load_bundle_entries(
     """
     with zipfile.ZipFile(BytesIO(zip_bytes)) as zf:
         infos = zf.infolist()
-        if len(infos) > _BUNDLE_MAX_MEMBERS or (
-            sum(info.file_size for info in infos) > _BUNDLE_MAX_UNCOMPRESSED_BYTES
-        ):
+        if _exceeds_bundle_limits([info.file_size for info in infos]):
             raise zipfile.BadZipFile("PSP bundle exceeds the size limits")
         # `read` stops at each member's declared size, so the check above holds.
         return {
@@ -365,6 +377,7 @@ async def put_psp_file(
 
     Raises:
         PspFolderUnresolved: No ROM matches the folder yet; the file is buffered.
+        PspBundleInvalid: The bundle is unreadable or would exceed the limits.
     """
     # PPSSPP writes a folder as a burst of PUTs, so the bundle is rewritten in
     # place rather than keeping each partial merge as save history.
@@ -379,7 +392,10 @@ async def put_psp_file(
             except FileNotFoundError:
                 log.warning(f"PSP bundle {hl(existing.full_path)} is gone, rebuilding")
             else:
-                merged = _load_bundle_entries(zip_bytes)
+                try:
+                    merged = _load_bundle_entries(zip_bytes)
+                except zipfile.BadZipFile as exc:
+                    raise PspBundleInvalid(existing.full_path) from exc
         else:
             rom = await _resolve_folder_rom(info, content, pending_dir, can_see)
 
@@ -392,6 +408,8 @@ async def put_psp_file(
                 f"{pending_dir}/{name}"
             )
         merged[info.file_name] = content
+        if _exceeds_bundle_limits([len(data) for data in merged.values()]):
+            raise PspBundleInvalid(info.save_folder)
 
         if existing:
             await _rewrite_bundle(existing, merged)
@@ -453,11 +471,13 @@ async def delete_psp_file(
         if not bundle:
             return
 
-        entries = await _read_bundle(bundle) or {}
-        if entries and info.file_name not in entries:
+        # An unreadable bundle is kept rather than dropped along with every
+        # other member it holds.
+        entries = await _read_bundle(bundle)
+        if entries is None or info.file_name not in entries:
             return
 
-        entries.pop(info.file_name, None)
+        del entries[info.file_name]
         if entries:
             await _rewrite_bundle(bundle, entries)
             return
@@ -465,6 +485,30 @@ async def delete_psp_file(
         db_save_handler.delete_save(bundle.id)
         with suppress(FileNotFoundError):
             await fs_asset_handler.remove_file(file_path=bundle.full_path)
+
+
+async def _bundle_member_md5s(bundle: Save) -> dict[str, str] | None:
+    """Each member's MD5, cached so a manifest build doesn't inflate every bundle."""
+    cache_key = (
+        f"romm:retroarch_sync:psp_member_md5s:{bundle.full_path}"
+        f":{bundle.content_hash}:{bundle.updated_at.timestamp()}"
+    )
+    cached = await async_cache.get(cache_key)
+    if cached:
+        return json.loads(cached)
+
+    members = await _read_bundle(bundle)
+    if members is None:
+        return None
+
+    digests = {
+        name: hashlib.md5(data, usedforsecurity=False).hexdigest()
+        for name, data in members.items()
+    }
+    await async_cache.set(
+        cache_key, json.dumps(digests), ex=sync_handler.HASH_CACHE_TTL_SECONDS
+    )
+    return digests
 
 
 async def build_psp_manifest_entries(
@@ -475,11 +519,11 @@ async def build_psp_manifest_entries(
     for save_folder, save in _latest_bundles_by_folder(saves, can_see).items():
         if save.missing_from_fs:
             continue
-        members = await _read_bundle(save)
-        if members is None:
+        digests = await _bundle_member_md5s(save)
+        if digests is None:
             continue
 
-        for member_name, data in members.items():
+        for member_name, digest in digests.items():
             entries.append(
                 {
                     "path": sync_handler.build_retroarch_sync_path(
@@ -487,7 +531,7 @@ async def build_psp_manifest_entries(
                         save.emulator,
                         f"PSP/SAVEDATA/{save_folder}/{member_name}",
                     ),
-                    "hash": hashlib.md5(data, usedforsecurity=False).hexdigest(),
+                    "hash": digest,
                 }
             )
 

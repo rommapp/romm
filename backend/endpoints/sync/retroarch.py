@@ -13,13 +13,15 @@ heap.
 
 import os
 import uuid
-from collections.abc import Callable
-from contextlib import suppress
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager, suppress
+from tempfile import SpooledTemporaryFile
 from urllib.parse import quote
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Request, Response, UploadFile, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
+from config import MAX_ASSET_UPLOAD_SIZE_BYTES
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
@@ -52,6 +54,9 @@ router = APIRouter(prefix="/retroarch")
 
 ALLOWED_METHODS = "OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, LOCK, UNLOCK"
 
+# Starlette's own threshold for spooling a multipart upload to disk.
+_BODY_MEMORY_MAX_BYTES = 1024 * 1024
+
 
 def _empty(status_code: int, headers: dict[str, str] | None = None) -> Response:
     return Response(status_code=status_code, headers=headers)
@@ -70,13 +75,44 @@ def _authorize(request: Request, scope: Scope) -> Response | None:
     WebDAV clients expect a 401 challenge rather than the 403 that
     `@protected_route` produces, so this endpoint gates itself.
     """
-    if not request.user.is_authenticated:
+    # The kiosk guest is anonymous, and RetroArch only sends credentials once
+    # challenged.
+    if not request.user.is_authenticated or request.user.is_kiosk_guest:
         return _unauthorized()
 
     if scope not in request.auth.scopes:
         return _empty(status.HTTP_403_FORBIDDEN)
 
     return None
+
+
+@asynccontextmanager
+async def _request_body(
+    request: Request, max_size: int = 0
+) -> AsyncIterator[UploadFile | None]:
+    """The request body spooled to disk past 1 MiB, or None once over the cap.
+
+    Args:
+        max_size: A cap tighter than MAX_ASSET_UPLOAD_SIZE_BYTES, if any.
+    """
+    # UploadSizeLimitMiddleware only reads Content-Length, which a chunked body lacks.
+    limit = min(filter(None, (MAX_ASSET_UPLOAD_SIZE_BYTES, max_size)), default=0)
+    body = UploadFile(
+        SpooledTemporaryFile(max_size=_BODY_MEMORY_MAX_BYTES)  # type: ignore[arg-type]
+    )
+    try:
+        size = 0
+        async for chunk in request.stream():
+            size += len(chunk)
+            if limit and size > limit:
+                yield None
+                return
+            await body.write(chunk)
+
+        await body.seek(0)
+        yield body
+    finally:
+        await body.close()
 
 
 def _can_read_roms(request: Request) -> bool:
@@ -431,15 +467,18 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     blob_path = sync_handler.parse_retroarch_sync_blob_path(file_path)
     if blob_path:
         disk_path = sync_handler.user_blob_path(request.user, blob_path)
-        try:
-            existed = await fs_retroarch_sync_handler.file_exists(disk_path)
-            await fs_retroarch_sync_handler.write_file(
-                file=await request.body(),
-                path=os.path.dirname(disk_path),
-                filename=os.path.basename(disk_path),
-            )
-        except ValueError:
-            return _empty(status.HTTP_409_CONFLICT)
+        async with _request_body(request) as body:
+            if body is None:
+                return _empty(status.HTTP_413_CONTENT_TOO_LARGE)
+            try:
+                existed = await fs_retroarch_sync_handler.file_exists(disk_path)
+                await fs_retroarch_sync_handler.write_file(
+                    file=body,
+                    path=os.path.dirname(disk_path),
+                    filename=os.path.basename(disk_path),
+                )
+            except ValueError:
+                return _empty(status.HTTP_409_CONFLICT)
 
         return _empty(
             status.HTTP_204_NO_CONTENT if existed else status.HTTP_201_CREATED
@@ -450,14 +489,20 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         # PSP engine cache file (shader cache etc.), not save data.
         return _empty(status.HTTP_204_NO_CONTENT)
     if psp_path:
+        # Bundle members are merged in memory, so the bundle limit caps the body.
+        async with _request_body(request, psp.BUNDLE_MAX_UNCOMPRESSED_BYTES) as body:
+            if body is None:
+                return _empty(status.HTTP_413_CONTENT_TOO_LARGE)
+            content = await body.read()
+
         try:
             await psp.put_psp_file(
                 request.user,
                 psp_path,
-                await request.body(),
+                content,
                 _rom_visibility(get_permissions(request)),
             )
-        except (psp.PspFolderUnresolved, ValueError):
+        except (psp.PspFolderUnresolved, psp.PspBundleInvalid, ValueError):
             return _empty(status.HTTP_409_CONFLICT)
         return _empty(status.HTTP_201_CREATED)
 
@@ -496,11 +541,12 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             platform_fs_slug=rom.platform.fs_slug,
             rom_id=rom.id,
         )
-        await fs_asset_handler.write_file(
-            file=await request.body(),
-            path=screenshot_path,
-            filename=screenshot_file_name,
-        )
+        async with _request_body(request) as body:
+            if body is None:
+                return _empty(status.HTTP_413_CONTENT_TOO_LARGE)
+            await fs_asset_handler.write_file(
+                file=body, path=screenshot_path, filename=screenshot_file_name
+            )
 
         scanned_screenshot = await scan_screenshot(
             file_name=screenshot_file_name,
@@ -535,13 +581,16 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     existing = _get_asset(request.user, rom, parsed)
     write_file_name = existing.file_name if existing else file_name
 
-    await fs_asset_handler.write_file(
-        file=await request.body(), path=asset_path, filename=write_file_name
-    )
+    async with _request_body(request) as body:
+        if body is None:
+            return _empty(status.HTTP_413_CONTENT_TOO_LARGE)
+        await fs_asset_handler.write_file(
+            file=body, path=asset_path, filename=write_file_name
+        )
 
     if parsed.kind == "saves":
         scanned_save = await scan_save(
-            file_name=file_name,
+            file_name=write_file_name,
             user=request.user,
             platform_fs_slug=rom.platform.fs_slug,
             rom_id=rom.id,
@@ -570,13 +619,19 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             emulator=parsed.emulator,
         )
         if existing:
+            # The row moves with the bytes when it was filed elsewhere, e.g.
+            # under the ROM's previous platform folder.
             db_state_handler.update_state(
                 existing.id,
                 {
                     "file_size_bytes": scanned_state.file_size_bytes,
+                    "file_path": scanned_state.file_path,
                     "missing_from_fs": False,
                 },
             )
+            if existing.file_path != scanned_state.file_path:
+                with suppress(FileNotFoundError):
+                    await fs_asset_handler.remove_file(file_path=existing.full_path)
         else:
             scanned_state.rom_id = rom.id
             scanned_state.user_id = request.user.id
