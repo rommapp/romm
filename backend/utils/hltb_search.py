@@ -1,9 +1,15 @@
 """The HowLongToBeat search wire contract, shared by the handler and the endpoint
 discovery script."""
 
+from pathlib import Path
 from typing import Final, NamedTuple
 
 HLTB_BASE_URL: Final[str] = "https://howlongtobeat.com"
+
+# The last discovered search URL, written by update_hltb_api_url and bundled.
+HLTB_API_URL_FIXTURE: Final[Path] = (
+    Path(__file__).parent.parent / "handler" / "metadata" / "fixtures" / "hltb_api_url"
+)
 
 # HLTB issues a session at the search route's own /init sibling.
 SESSION_MINT_SUFFIX: Final[str] = "/init"
@@ -53,6 +59,8 @@ def search_headers(base_url: str, session: HLTBSession) -> dict[str, str]:
     headers = {
         "Content-Type": "application/json",
         **base_headers(base_url),
+        # HLTB's own search is a same-origin POST, which browsers send with an Origin.
+        "Origin": base_url,
         "x-auth-token": session.token,
     }
     if honeypot := session.honeypot():

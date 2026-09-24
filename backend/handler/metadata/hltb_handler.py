@@ -12,6 +12,7 @@ from config import HLTB_API_ENABLED
 from logger.logger import log
 from utils.context import ctx_httpx_client
 from utils.hltb_search import (
+    HLTB_API_URL_FIXTURE,
     HLTB_BASE_URL,
     HLTB_SESSION_HEADERS,
     SESSION_MINT_SUFFIX,
@@ -24,6 +25,7 @@ from utils.hltb_search import (
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
+from utils.update_hltb_api_url import discover_hltb_endpoint
 
 from .base_handler import BaseRom, MetadataHandler, unavailable
 
@@ -293,7 +295,7 @@ class HLTBHandler(MetadataHandler):
         self.stats_endpoint: str = (
             f"{self.base_url}/api/stats/games?platform=1&year=2000"
         )
-        self.search_url: str = f"{self.base_url}/api/find"
+        self.search_url: str = HLTB_API_URL_FIXTURE.read_text().strip()
         self.search_init_url: str = f"{self.search_url}{SESSION_MINT_SUFFIX}"
         self.security_token: str | None = None
         self.hp_key: str | None = None
@@ -340,8 +342,12 @@ class HLTBHandler(MetadataHandler):
 
         return self._has_session()
 
+    def _set_search_url(self, search_url: str) -> None:
+        self.search_url = search_url
+        self.search_init_url = f"{search_url}{SESSION_MINT_SUFFIX}"
+
     async def _fetch_search_endpoint(self) -> None:
-        """Fetch the API endpoint URL from Github."""
+        """Fetch the API endpoint URL from GitHub, else discover it from HLTB itself."""
         if not HLTB_API_ENABLED:
             return
 
@@ -350,10 +356,19 @@ class HLTBHandler(MetadataHandler):
         try:
             response = await httpx_client.get(GITHUB_FILE_URL, timeout=10)
             response.raise_for_status()
-            self.search_url = response.text.strip()
-            self.search_init_url = f"{self.search_url}{SESSION_MINT_SUFFIX}"
+            if search_url := response.text.strip():
+                self._set_search_url(search_url)
+                return
+            log.warning("HLTB endpoint fetched from GitHub was empty")
         except Exception as e:
             log.warning("Unexpected error fetching HLTB endpoint from GitHub: %s", e)
+
+        # Keeps a host that cannot reach GitHub off a stale bundled endpoint.
+        discovered = await asyncio.to_thread(discover_hltb_endpoint, self.base_url)
+        if discovered:
+            self._set_search_url(discovered)
+        else:
+            log.warning("Using the bundled HLTB endpoint %s", self.search_url)
 
     async def _fetch_security_token(self) -> None:
         if not HLTB_API_ENABLED:

@@ -1,6 +1,6 @@
 import pytest
 
-from utils.hltb_search import HLTBSession, parse_session
+from utils.hltb_search import HLTB_BASE_URL, HLTBSession, parse_session, search_headers
 
 
 def test_a_session_with_both_honeypot_fields_echoes_the_pair():
@@ -29,3 +29,10 @@ def test_parse_session_needs_only_a_token():
 
 def test_parse_session_without_a_token_issues_none():
     assert parse_session({"hpKey": "ign_k", "hpVal": "v"}) is None
+
+
+def test_search_headers_carry_the_origin_a_browser_sends():
+    headers = search_headers(HLTB_BASE_URL, HLTBSession("t"))
+
+    assert headers["Origin"] == HLTB_BASE_URL
+    assert headers["Referer"] == HLTB_BASE_URL
