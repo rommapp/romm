@@ -34,10 +34,7 @@ export function wrappedLineCount(
 
 let context: CanvasRenderingContext2D | null | undefined;
 
-/**
- * Measures text in a CSS `font`, or null where there's no canvas to do it.
- * Each word is measured once, since names and verbs repeat down a list.
- */
+/** Measures text in a CSS `font`, each run only once, or null without a canvas. */
 export function canvasMeasure(font: string): ((run: string) => number) | null {
   context ??= document.createElement("canvas").getContext("2d");
   const shared = context;

@@ -115,7 +115,7 @@ const untilDate = computed({
   set: (date) => (until.value = dateToDay(date)),
 });
 
-// Typing searches once it pauses, as the gallery's search does.
+// Typing searches once it pauses.
 const applySearch = debounce(() => {
   appliedSearch.value = search.value.trim();
 }, 300);
