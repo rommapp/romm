@@ -879,13 +879,15 @@ class TestCloudSyncDelete:
 class TestCloudSyncPsp:
     """PSP save-folder bundling through the endpoints and the manifest.
 
-    PSP_SERIAL_MAP resolves the rom, so no test depends on fulltext search.
+    CLOUD_SYNC_PSP_SERIAL_MAP resolves the rom, so no test depends on fulltext search.
     """
 
     @pytest.fixture(autouse=True)
     def _serial_map(self, monkeypatch: pytest.MonkeyPatch, rom: Rom):
         monkeypatch.setattr(
-            cloud_sync_psp, "PSP_SERIAL_MAP", {"TEST12345": rom.fs_name_no_ext}
+            cloud_sync_psp,
+            "CLOUD_SYNC_PSP_SERIAL_MAP",
+            {"TEST12345": rom.fs_name_no_ext},
         )
 
     def test_ignores_system_cache_files(self, client, admin_user: User):
@@ -902,7 +904,7 @@ class TestCloudSyncPsp:
     ):
         put_sfo = client.put(
             "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
-            content=b"not real sfo bytes, resolved via PSP_SERIAL_MAP instead",
+            content=b"not real sfo bytes, resolved via CLOUD_SYNC_PSP_SERIAL_MAP instead",
             auth=ADMIN_AUTH,
         )
         assert put_sfo.status_code == status.HTTP_201_CREATED
@@ -925,7 +927,7 @@ class TestCloudSyncPsp:
         assert get_sfo.status_code == status.HTTP_200_OK
         assert (
             get_sfo.content
-            == b"not real sfo bytes, resolved via PSP_SERIAL_MAP instead"
+            == b"not real sfo bytes, resolved via CLOUD_SYNC_PSP_SERIAL_MAP instead"
         )
 
         get_data = client.get(
@@ -1059,7 +1061,7 @@ class TestCloudSyncPsp:
     def test_unresolved_folder_is_buffered_and_conflicts(
         self, client, admin_user: User, monkeypatch: pytest.MonkeyPatch
     ):
-        monkeypatch.setattr(cloud_sync_psp, "PSP_SERIAL_MAP", {})
+        monkeypatch.setattr(cloud_sync_psp, "CLOUD_SYNC_PSP_SERIAL_MAP", {})
 
         response = client.put(
             "/api/cloud-sync/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",

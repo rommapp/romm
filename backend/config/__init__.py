@@ -338,7 +338,9 @@ CLOUD_SYNC_BLOB_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cloud_sync_blobs"
 CLOUD_SYNC_PSP_PENDING_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/cloud_sync"
 # JSON map of PSP serial to extensionless rom file name, for saves whose title
 # matches no rom, e.g. {"ULUS10336": "Crisis Core - Final Fantasy VII (USA)"}.
-PSP_SERIAL_MAP: Final[dict[str, str]] = json.loads(_get_env("PSP_SERIAL_MAP", "{}"))
+CLOUD_SYNC_PSP_SERIAL_MAP: Final[dict[str, str]] = json.loads(
+    _get_env("CLOUD_SYNC_PSP_SERIAL_MAP", "{}")
+)
 
 # EMULATION
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))

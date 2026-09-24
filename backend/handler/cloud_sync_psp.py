@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import Literal
 
-from config import CLOUD_SYNC_PSP_PENDING_PATH, PSP_SERIAL_MAP
+from config import CLOUD_SYNC_PSP_PENDING_PATH, CLOUD_SYNC_PSP_SERIAL_MAP
 from handler import cloud_sync_handler
 from handler.cloud_sync_emulator_names import to_romm_emulator
 from handler.database import db_platform_handler, db_rom_handler, db_save_handler
@@ -219,15 +219,15 @@ def _match_by_normalized_title(
 def _resolve_rom(
     save_folder: str, sfo_title: str | None, can_see: Callable[[Rom], bool]
 ) -> Rom | None:
-    """The ROM a save folder belongs to, via PSP_SERIAL_MAP, else its PARAM.SFO title."""
+    """The ROM a save folder belongs to, via CLOUD_SYNC_PSP_SERIAL_MAP, else its PARAM.SFO title."""
     serial = _derive_serial(save_folder)
-    mapped_title = PSP_SERIAL_MAP.get(serial)
+    mapped_title = CLOUD_SYNC_PSP_SERIAL_MAP.get(serial)
     if mapped_title:
         rom = cloud_sync_handler.resolve_rom(mapped_title, can_see)
         if rom:
             return rom
         log.warning(
-            f"PSP_SERIAL_MAP entry for {hl(serial)} ({hl(mapped_title)}) "
+            f"CLOUD_SYNC_PSP_SERIAL_MAP entry for {hl(serial)} ({hl(mapped_title)}) "
             "didn't match any rom in the library"
         )
 
@@ -242,7 +242,7 @@ def _resolve_rom(
         log.warning(
             f"Couldn't auto-match PARAM.SFO title {hl(sfo_title)} for PSP save "
             f"folder {hl(save_folder)}; add serial {hl(serial)} to "
-            "PSP_SERIAL_MAP if this keeps happening"
+            "CLOUD_SYNC_PSP_SERIAL_MAP if this keeps happening"
         )
 
     return None
