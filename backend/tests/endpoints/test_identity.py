@@ -7,7 +7,8 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from authlib.integrations.base_client.errors import MismatchingStateError
+from authlib.integrations.base_client.errors import MismatchingStateError, OAuthError
+from authlib.jose.errors import InvalidClaimError
 from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
@@ -721,10 +722,14 @@ async def test_logout_with_oidc_rp_initiated_logout(client, admin_user: User):
         assert f"id_token_hint={fake_id_token}" in data["oidc_logout_url"]
 
 
-def _replayed_oidc_callback(client, headers: dict[str, str] | None = None):
+def _rejected_oidc_callback(
+    client,
+    error: Exception | None = None,
+    headers: dict[str, str] | None = None,
+):
     fake_oauth = mock.MagicMock()
     fake_oauth.openid.authorize_access_token = mock.AsyncMock(
-        side_effect=MismatchingStateError()
+        side_effect=error or MismatchingStateError()
     )
     with (
         mock.patch("endpoints.auth.OIDC_ENABLED", True),
@@ -737,11 +742,28 @@ def _replayed_oidc_callback(client, headers: dict[str, str] | None = None):
         )
 
 
-def test_oidc_callback_with_spent_state_redirects_to_login(client):
-    response = _replayed_oidc_callback(client)
+@pytest.mark.parametrize(
+    "error",
+    [
+        MismatchingStateError(),
+        OAuthError(error="access_denied"),
+        InvalidClaimError("nonce"),
+    ],
+    ids=["spent_state", "provider_error", "invalid_id_token"],
+)
+def test_oidc_callback_rejected_redirects_to_login(client, error: Exception):
+    response = _rejected_oidc_callback(client, error)
 
     assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
-    assert response.headers["location"] == "/login"
+    assert response.headers["location"] == "/login?bypass_autologin=true"
+
+
+def test_oidc_callback_rejected_in_kiosk_mode_redirects_to_login(client):
+    with mock.patch("handler.auth.hybrid_auth.KIOSK_MODE", True):
+        response = _rejected_oidc_callback(client)
+
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
+    assert response.headers["location"] == "/login?bypass_autologin=true"
 
 
 def test_oidc_callback_with_spent_state_keeps_existing_session(
@@ -753,13 +775,15 @@ def test_oidc_callback_with_spent_state_keeps_existing_session(
     )
     session_cookie = response.cookies.get("romm_session")
     assert session_cookie is not None
+    cookie_header = {"Cookie": f"romm_session={session_cookie}"}
 
-    response = _replayed_oidc_callback(
-        client, headers={"Cookie": f"romm_session={session_cookie}"}
-    )
+    response = _rejected_oidc_callback(client, headers=cookie_header)
 
     assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
     assert response.headers["location"] == "/"
+    assert client.get("/api/users/me", headers=cookie_header).status_code == (
+        status.HTTP_200_OK
+    )
 
 
 def test_update_user_with_valid_ui_settings(
