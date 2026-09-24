@@ -90,3 +90,27 @@ def test_env_template_documents_the_same_keepalive_default() -> None:
 
 def test_init_script_records_the_rq_worker_pid_at_launch() -> None:
     assert 'echo "$!" >"/tmp/${name}.pid"' in INIT_SCRIPT.read_text()
+
+
+def _init_script_trusted_proxies() -> str:
+    match = re.search(
+        r'--forwarded-allow-ips="\$\{FORWARDED_ALLOW_IPS:-([^}]+)\}"',
+        INIT_SCRIPT.read_text(),
+    )
+    assert match, "could not read the gunicorn --forwarded-allow-ips default"
+    return match.group(1)
+
+
+def test_client_addresses_are_trusted_only_from_private_proxies() -> None:
+    """A client can't choose its own address by sending X-Forwarded-For."""
+    trusted = _init_script_trusted_proxies().split(",")
+
+    assert "*" not in trusted
+    assert "127.0.0.1" in trusted
+
+
+def test_env_template_documents_the_same_trusted_proxies() -> None:
+    assert (
+        f"FORWARDED_ALLOW_IPS={_init_script_trusted_proxies()} "
+        in ENV_TEMPLATE.read_text()
+    )

@@ -528,7 +528,9 @@ class OAuthHandler:
 
 class OpenIDHandler:
     async def get_current_active_user_from_openid_token(self, token: Any):
+        from handler.audit_handler import SYSTEM_ACTOR, AuditActor, AuditTarget, record
         from handler.database import db_user_handler
+        from models.audit_event import AuditAction
         from models.user import Role, User
 
         if not OIDC_ENABLED:
@@ -620,8 +622,25 @@ class OpenIDHandler:
                 role=role,
             )
             user = db_user_handler.add_user(new_user)
+            record(
+                AuditAction.USER_REGISTER,
+                AuditActor.for_user(user),
+                AuditTarget.of_user(user),
+                {"role": user.role, "via": "oidc"},
+            )
         elif claims_provided and user.role != role:
+            previous_role = user.role
             user = db_user_handler.update_user(user.id, {"role": role})
+            record(
+                AuditAction.USER_EDIT,
+                SYSTEM_ACTOR,
+                AuditTarget.of_user(user),
+                {
+                    "changed": ["role"],
+                    "role": {"from": previous_role, "to": role},
+                    "via": "oidc",
+                },
+            )
 
         if not user.enabled:
             raise UserDisabledException

@@ -1,5 +1,5 @@
 import json
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Final, cast
 
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
@@ -10,6 +10,14 @@ from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
+from handler.audit_handler import (
+    AuditActor,
+    AuditTarget,
+    change,
+    changed_fields,
+    client_ip,
+    record,
+)
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
@@ -22,6 +30,7 @@ from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.notification import NotificationKind, NotificationLevel
 from models.user import Role, User
 from utils.router import APIRouter
@@ -36,6 +45,33 @@ router = APIRouter(
     prefix="/users",
     tags=["users"],
 )
+
+
+# What a user edit reports; ui_settings and avatars change too often to be news.
+_USER_EDIT_AUDIT_FIELDS: Final = (
+    "username",
+    "email",
+    "hashed_password",
+    "role",
+    "enabled",
+)
+
+
+def _record_user_edit(
+    request: Request, before: User, after: User, cleaned_data: dict[str, Any]
+) -> None:
+    changed = changed_fields(
+        before, after, [f for f in _USER_EDIT_AUDIT_FIELDS if f in cleaned_data]
+    )
+    if not changed:
+        return
+    data: dict[str, Any] = {
+        "changed": ["password" if f == "hashed_password" else f for f in changed]
+    }
+    for field in ("username", "role", "enabled"):
+        if field in changed:
+            data[field] = change(before, after, field)
+    record(AuditAction.USER_EDIT, request, AuditTarget.of_user(after), data)
 
 
 @protected_route(
@@ -119,7 +155,15 @@ def add_user(
         role=coerced_role,
     )
 
-    return UserSchema.model_validate(db_user_handler.add_user(user))
+    created_user = db_user_handler.add_user(user)
+    record(
+        AuditAction.USER_CREATE,
+        request,
+        AuditTarget.of_user(created_user),
+        {"role": created_user.role},
+    )
+
+    return UserSchema.model_validate(created_user)
 
 
 @protected_route(
@@ -186,6 +230,7 @@ def create_invite_link(
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def create_user_from_invite(
+    request: Request,
     username: str = Body(..., embed=True),
     email: str = Body(..., embed=True),
     password: str = Body(..., embed=True),
@@ -242,6 +287,12 @@ def create_user_from_invite(
     )
 
     created_user = db_user_handler.add_user(user)
+    record(
+        AuditAction.USER_REGISTER,
+        AuditActor.for_user(created_user, ip_address=client_ip(request)),
+        AuditTarget.of_user(created_user),
+        {"role": created_user.role, "via": "invite"},
+    )
 
     return UserSchema.model_validate(created_user)
 
@@ -505,11 +556,13 @@ async def update_user(
                     actor_id=request.user.id,
                 )
 
+    before = db_user
     db_user = db_user_handler.get_user(id)
     if not db_user:
         msg = f"Username with id {id} not found"
         log.error(msg)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    _record_user_edit(request, before, db_user, cleaned_data)
 
     return UserSchema.model_validate(db_user)
 
@@ -550,6 +603,12 @@ async def delete_user(
         )
 
     db_user_handler.delete_user(id)
+    record(
+        AuditAction.USER_DELETE,
+        request,
+        AuditTarget.of_user(user),
+        {"role": user.role},
+    )
 
     # Remove the user's folder
     user_avatar_path = fs_asset_handler.build_avatar_path(user=user)

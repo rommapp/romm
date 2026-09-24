@@ -32,6 +32,7 @@ from endpoints.sockets.scan import (
 from exceptions.fs_exceptions import FolderStructureNotMatchException
 from exceptions.socket_exceptions import ScanStoppedException
 from handler import notification_handler
+from handler.audit_handler import SYSTEM_ACTOR
 from handler.auth.constants import Scope
 from handler.database.roms_handler import SyncedRomFiles
 from handler.filesystem.roms_handler import (
@@ -43,6 +44,7 @@ from handler.filesystem.roms_handler import (
 from handler.rom_files import RomFilesRefresh
 from handler.scan_handler import MetadataSource, ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
+from models.audit_event import AuditAction
 from models.firmware import Firmware
 from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
@@ -287,6 +289,45 @@ class TestScanEndNotification:
         await scan_platforms(platform_ids=[], metadata_sources=[], started_by_user_id=3)
 
         notify_scan_end.assert_not_awaited()
+
+
+class TestScanAudit:
+    """A scan leaves a start and an end in the audit log, however it ends."""
+
+    @pytest.fixture
+    def record(self, mocker):
+        mocker.patch.object(scan_module, "notify_scan_end", AsyncMock())
+        return mocker.patch.object(scan_module, "record")
+
+    async def test_a_finished_scan_records_its_start_and_stats(self, patched, record):
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        start, finish = record.call_args_list
+        assert start.args[:2] == (AuditAction.SCAN_START, SYSTEM_ACTOR)
+        assert finish.args[0] == AuditAction.SCAN_FINISH
+        assert finish.kwargs["data"]["status"] == "completed"
+        assert "new_roms" in finish.kwargs["data"]
+
+    async def test_a_failed_scan_records_the_error(self, patched, record, mocker):
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=RuntimeError("boom")
+        )
+
+        with pytest.raises(RuntimeError):
+            await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        data = record.call_args.kwargs["data"]
+        assert (data["status"], data["error"]) == ("failed", "boom")
+
+    async def test_a_stopped_scan_says_so(self, patched, record, mocker):
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=ScanStoppedException()
+        )
+        mocker.patch.object(scan_module, "redis_client")
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        assert record.call_args.kwargs["data"]["status"] == "stopped"
 
 
 class TestNotifyScanEnd:
