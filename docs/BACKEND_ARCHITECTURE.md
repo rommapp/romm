@@ -311,7 +311,8 @@ backend/
 │   │   ├── update_switch_titledb.py           # Refresh Switch TitleDB
 │   │   ├── update_launchbox_metadata.py       # Refresh LaunchBox data
 │   │   ├── convert_images_to_webp.py          # Artwork WebP conversion
-│   │   └── cleanup_netplay.py                 # Prune stale netplay rooms
+│   │   ├── cleanup_netplay.py                 # Prune stale netplay rooms
+│   │   └── reap_streaming_sessions.py         # Stop abandoned streaming sessions
 │   └── manual/                # On-demand tasks
 │       ├── cleanup_missing_roms.py       # Drop DB entries for missing files
 │       ├── cleanup_orphaned_resources.py # Remove unreferenced artwork
@@ -1096,19 +1097,29 @@ curl -X POST "$ROMM/api/notifications" -H "Authorization: Bearer $TOKEN" \
 
 #### Notification channels (`/api/notification-channels`)
 
-Each user forwards their own notifications to webhooks and email addresses. A channel filters by minimum level and by topic (`scans`, `tasks`, `streaming`, `account`, `custom`); every stored notification that passes goes out in its own RQ job, retried at 30 s, 2 min and 10 min. A channel that fails 10 deliveries in a row turns itself off and tells its owner.
+Each user forwards their own notifications to other services. A channel is one of three types:
 
-| Method | Path                | Scope    | Description                                            |
-| ------ | ------------------- | -------- | ------------------------------------------------------ |
-| GET    | `/`                 | ME_READ  | Caller's channels, secrets masked                      |
-| POST   | `/`                 | ME_WRITE | Add a webhook, or an email address that gets a code    |
-| PATCH  | `/{id}`             | ME_WRITE | Change it; a blank URL or secret keeps the current one |
-| DELETE | `/{id}`             | ME_WRITE | Delete it                                              |
-| POST   | `/{id}/test`        | ME_WRITE | Send a sample notification now                         |
-| POST   | `/{id}/confirm`     | ME_WRITE | Confirm an email address with its code                 |
-| POST   | `/{id}/resend-code` | ME_WRITE | Email a new code (once a minute)                       |
+- `apprise`: any of the 100+ services [Apprise](https://github.com/caronc/apprise#supported-notifications) reaches (Discord, Telegram, ntfy, Slack, Gotify…), set up through that service's own fields. **Admins only**, since Apprise opens its own connections, past the SSRF guard. The owner's role is checked again at every delivery, so a demoted admin's channel fails until it turns off.
+- `webhook`: RomM's own JSON payload (below), POSTed to an http(s) URL.
+- `email`: a plain-text email over the server's SMTP, to an address confirmed with a 6-digit code first.
 
-A webhook's `format` is `json` (RomM's payload below), `discord` (an embed that mentions nobody) or `ntfy` (JSON publishing to the topic's server, with the secret as its access token). Only an admin's webhooks may reach private addresses; everyone else's go through the SSRF guard. A kept secret doesn't follow a channel to another origin or format; it has to be given again. A delivery gets 15 s in all, and only the start of a refusal's body is read. Text for RomM's own kinds is English until outbound messages are translated. Links are absolute only when `ROMM_BASE_URL` is shareable.
+A channel filters by minimum level and by topic (`scans`, `tasks`, `streaming`, `account`, `custom`); every stored notification that passes goes out in its own RQ job, retried at 30 s, 2 min and 10 min. A channel that fails 10 deliveries in a row turns itself off and tells its owner.
+
+| Method | Path                      | Scope    | Description                                                                                    |
+| ------ | ------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| GET    | `/`                       | ME_READ  | Caller's channels, secrets masked                                                              |
+| GET    | `/apprise-services`       | ME_READ  | Every Apprise service and its fields (admins only, else 403)                                   |
+| POST   | `/apprise-services/parse` | ME_READ  | Read a pasted URL (Discord's own, or an Apprise one) into its service and fields (admins only) |
+| POST   | `/`                       | ME_WRITE | Add a channel; an email address gets a code                                                    |
+| PATCH  | `/{id}`                   | ME_WRITE | Change it; an omitted URL or secret stays, an empty secret is dropped                          |
+| DELETE | `/{id}`                   | ME_WRITE | Delete it                                                                                      |
+| POST   | `/{id}/test`              | ME_WRITE | Send a sample notification now                                                                 |
+| POST   | `/{id}/confirm`           | ME_WRITE | Confirm an email address with its code                                                         |
+| POST   | `/{id}/resend-code`       | ME_WRITE | Email a new code (once a minute)                                                               |
+
+The Apprise catalog comes from Apprise's own plugin details: URL tokens become fields, options become advanced fields, and a field is required only when every URL template of its service needs it. A token is a secret when Apprise marks it so or its name is a credential's (`token`, `key`, `webhook`…). A channel stores its service and fields, sealed, and each delivery builds the URL from the template those fields fill. Not offered: schemas that act on the host (`syslog`, `dbus`, `windows`…), FCM (it opens its key file itself), the options Apprise reads from a local file (`template`, `keyfile`, `subfile`, `pgp*`) and the ones RomM sets. Apprise follows no redirects and doesn't retry, its timeouts are capped at 10 s to connect and 15 s to read, a list takes at most 20 items, and `@everyone`, `@here` and `<@…>` ping nobody. A failure's error carries Apprise's warning and the start of the service's reply. Each service links its setup guide on Apprise's wiki. A pasted URL is read back into fields by matching the URL Apprise writes for it against the service's templates. The API returns the fields that aren't secret and names the secrets; on edit, a secret left out stays and an empty one goes, but a kept secret never follows the channel to another destination, as Apprise's `url_identifier` tells them apart. A test gets 60 s, like a queued delivery.
+
+Only an admin's webhooks may reach private addresses; everyone else's go through the SSRF guard. A kept webhook secret doesn't follow the channel to another origin. A webhook delivery gets 15 s in all, and only the start of a refusal's body is read. Text for RomM's own kinds is English until outbound messages are translated. Links are absolute only when `ROMM_BASE_URL` is shareable.
 
 ```json
 {
@@ -1125,7 +1136,7 @@ A webhook's `format` is `json` (RomM's payload below), `discord` (an embed that 
 }
 ```
 
-With a secret, the JSON format adds `X-RomM-Signature: sha256=<hex HMAC-SHA256 of the body>`. Email needs `SMTP_HOST` and `SMTP_FROM` (see `env.template`); the heartbeat's `NOTIFICATIONS.EMAIL_ENABLED` says whether it's set up. Channel configs are sealed with a key derived from `ROMM_AUTH_SECRET_KEY`, so rotating it means entering their URLs again.
+With a secret, a webhook adds `X-RomM-Signature: sha256=<hex HMAC-SHA256 of the body>`. Email needs `SMTP_HOST` and `SMTP_FROM` (see `env.template`); the heartbeat's `NOTIFICATIONS.EMAIL_ENABLED` says whether it's set up. Channel configs are sealed with a key derived from `ROMM_AUTH_SECRET_KEY`, so rotating it means entering their URLs and secrets again.
 
 ### 6.17 Audit Events (`/api/audit-events`)
 
@@ -1542,6 +1553,7 @@ Redis-backed for horizontal scaling across multiple server instances.
 | `default_queue`   | Standard background work                       |
 | `low_prio_queue`  | Cleanups, conversions, metadata refreshes      |
 | `scan_queue`      | Library scans, consumed by a worker of its own |
+| `streaming_queue` | Session reaper and exit save pulls, own worker |
 
 ### Scheduled Tasks
 
@@ -1566,6 +1578,7 @@ Toggled via environment variables:
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
 | `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
 | `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
+| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup     | `* * * * *`        | Stop abandoned streams |
 | `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)    | `30 4 * * *`       | Prune old audit events |
 
 ### Manual Tasks

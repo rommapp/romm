@@ -194,6 +194,7 @@
   "virtual-collections": "Otomatik oluşturulan koleksiyonlar",
   "visibility": "Görünürlük",
   "warning": "UYARI:",
+  "websocket-unreachable-retrying": "WebSocket bağlantısı kullanılamıyor, yeniden deneniyor…",
   "whats-new": "Yeniliklere göz at",
   "zoom-in": "Yakınlaştır",
   "zoom-out": "Uzaklaştır"

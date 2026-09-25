@@ -128,7 +128,7 @@ uv run python3 main.py
 
 #### - Run the task workers
 
-A manual task run is refused, and a scheduled job stays queued, until an RQ worker listens on its queue; scans have a worker of their own. Each command is a foreground process, so run them in separate terminals. `-c config` reads the Redis connection from the same `REDIS_*` settings in `.env` the backend uses.
+A manual task run is refused, and a scheduled job stays queued, until an RQ worker listens on its queue; scans and streaming teardowns each have a worker of their own. Each command is a foreground process, so run them in separate terminals. `-c config` reads the Redis connection from the same `REDIS_*` settings in `.env` the backend uses.
 
 ```sh
 cd backend
@@ -138,6 +138,11 @@ uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-sc
 ```sh
 cd backend
 uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-scheduler scans
+```
+
+```sh
+cd backend
+uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-scheduler streaming
 ```
 
 `--with-scheduler` releases delayed jobs, such as the rescans the filesystem watcher waits out, so each worker needs it. The recurring schedule is registered by the RQ cron process, which the workers then execute:

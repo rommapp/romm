@@ -2,7 +2,11 @@
 
 from datetime import datetime, timezone
 
-from handler.sync.comparison import SyncComparisonResult, compare_save_state
+from handler.sync.comparison import (
+    SyncComparisonResult,
+    compare_missing_server_save,
+    compare_save_state,
+)
 
 
 class TestCompareIdenticalHashes:
@@ -263,3 +267,20 @@ class TestCompareReturnType:
         assert isinstance(result, SyncComparisonResult)
         assert isinstance(result.action, str)
         assert isinstance(result.reason, str)
+
+
+class TestCompareMissingServerSave:
+    def test_a_version_the_slot_lost_is_deleted(self):
+        result = compare_missing_server_save("abc123", ["def456", "abc123"])
+        assert result.action == "delete"
+
+    def test_bytes_nobody_deleted_are_uploaded(self):
+        # Offering it back costs a deletion that misses that device; deleting
+        # it would cost the save.
+        assert compare_missing_server_save("fresh", ["abc123"]).action == "upload"
+
+    def test_a_client_that_reports_no_digest_is_uploaded(self):
+        assert compare_missing_server_save(None, ["abc123"]).action == "upload"
+
+    def test_a_slot_that_lost_nothing_is_uploaded(self):
+        assert compare_missing_server_save("abc123", ()).action == "upload"

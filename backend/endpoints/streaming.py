@@ -90,9 +90,11 @@ from handler.streaming.session_store import (
     claim_drain_marker,
     claim_gate,
     clear_termination,
+    get_abandoned_session,
     get_live_session,
     get_session,
     get_termination,
+    hold_session_claim,
     iter_live_sessions,
     iter_session_keys,
     mutate_session,
@@ -414,12 +416,8 @@ async def _reserve_container(
     # backend doing it is what refreshes it.
     deadline = time.monotonic() + lifecycle.ABANDONED_TEARDOWN_WAIT
     for candidate in candidates:
-        existing = await get_session(candidate.key)
-        if (
-            existing is None
-            or existing.get("draining")
-            or not session_is_stale(existing)
-        ):
+        existing = await get_abandoned_session(candidate.key)
+        if existing is None:
             continue
         log.warning(
             "taking over stale session, platform=%s user_id=%s",
@@ -821,42 +819,48 @@ async def claim_session(
     library_base = container.library_path
     rom_path = f"{library_base}/{rom.full_path}"
 
-    probe = await _probe_container_card(container, session, req.card_import)
+    # Nothing beats for the player until the stream is up, and on a slow
+    # container these steps can outlast the window after which a claim is stale.
+    claim_hold = asyncio.create_task(hold_session_claim(session_key, session))
+    try:
+        probe = await _probe_container_card(container, session, req.card_import)
 
-    # The player is back in a session, so any note about their previous one
-    # being force-released has served its purpose. Cleared across the whole
-    # pool, not just the container just won: the notice is keyed by container,
-    # and one left on a sibling would be reported as the reason this session
-    # ended when it finally does.
-    for candidate in candidates:
-        await clear_termination(candidate.key, request.user.id)
+        # The player is back in a session, so any note about their previous one
+        # being force-released has served its purpose. Cleared across the whole
+        # pool, not just the container just won: the notice is keyed by container,
+        # and one left on a sibling would be reported as the reason this session
+        # ended when it finally does.
+        for candidate in candidates:
+            await clear_termination(candidate.key, request.user.id)
 
-    memory_card, created_blank_card_id = await _settle_memory_card(
-        request, container, session, memory_card, rom, probe
-    )
+        memory_card, created_blank_card_id = await _settle_memory_card(
+            request, container, session, memory_card, rom, probe
+        )
 
-    # Push the resume state before launch so its file is in place when the
-    # broker's deferred slot load fires. Best-effort: a failed push falls
-    # back to a fresh launch, reported through `resume` in the response.
-    # The webstation broker only takes a state while a session is up, and its
-    # session starts at activate, so that push has to happen after launch.
-    resume_pushed = False
-    resume_after_launch = container.is_webstation and resume_state is not None
-    if resume_state is not None and not resume_after_launch:
-        resume_pushed = await states.push_resume_state(container, resume_state)
+        # Push the resume state before launch so its file is in place when the
+        # broker's deferred slot load fires. Best-effort: a failed push falls
+        # back to a fresh launch, reported through `resume` in the response.
+        # The webstation broker only takes a state while a session is up, and its
+        # session starts at activate, so that push has to happen after launch.
+        resume_pushed = False
+        resume_after_launch = container.is_webstation and resume_state is not None
+        if resume_state is not None and not resume_after_launch:
+            resume_pushed = await states.push_resume_state(container, resume_state)
 
-    # The last exit's detached save pull may still be filing the archive to hydrate.
-    await saves.wait_for_save_pull(request.user.id, rom.id)
+        # The last exit's detached save pull may still be filing the archive to hydrate.
+        await saves.wait_for_save_pull(request.user.id, rom.id)
 
-    archive_path = await _hydrate_saves(
-        request,
-        container,
-        session,
-        rom,
-        memory_card,
-        created_blank_card_id,
-        picked_save,
-    )
+        archive_path = await _hydrate_saves(
+            request,
+            container,
+            session,
+            rom,
+            memory_card,
+            created_blank_card_id,
+            picked_save,
+        )
+    finally:
+        claim_hold.cancel()
 
     # Detached because an activate blocks through pkg and archive extraction,
     # minutes on a large title, which no player can cancel out of.

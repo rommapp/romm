@@ -1,11 +1,14 @@
 from collections.abc import Awaitable
+from functools import cache
 from typing import TypeVar
 
 from fastapi import HTTPException, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.notification_channel import (
-    EmailChannelCreatePayload,
+    AppriseServiceSchema,
+    AppriseUrlFieldsSchema,
+    AppriseUrlPayload,
     NotificationChannelCodePayload,
     NotificationChannelCreatePayload,
     NotificationChannelSchema,
@@ -13,9 +16,10 @@ from endpoints.responses.notification_channel import (
     NotificationChannelUpdatePayload,
 )
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_admin
 from handler.database import db_notification_channel_handler
 from handler.email_handler import EmailError
-from handler.notification_channels import channels
+from handler.notification_channels import apprise_channel, channels
 from handler.notification_channels.channels import ChannelError
 from handler.notification_channels.confirmation import CodeCooldownError
 from models.notification_channel import NotificationChannel, NotificationChannelType
@@ -67,31 +71,48 @@ def get_notification_channels(request: Request) -> list[NotificationChannelSchem
     ]
 
 
+@protected_route(router.get, "/apprise-services", [Scope.ME_READ])
+def get_apprise_services(request: Request) -> list[AppriseServiceSchema]:
+    """Every service an admin's Apprise channel can go out on, with its fields."""
+    assert_admin(request)
+    return _apprise_catalog()
+
+
+@protected_route(router.post, "/apprise-services/parse", [Scope.ME_READ])
+def parse_apprise_url(
+    request: Request, payload: AppriseUrlPayload
+) -> AppriseUrlFieldsSchema:
+    """Read a service's own URL (a Discord webhook's) or an Apprise URL into its fields."""
+    assert_admin(request)
+    try:
+        service, fields = apprise_channel.fields_from_url(payload.url)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    return AppriseUrlFieldsSchema(service=service.id, fields=fields)
+
+
+@cache
+def _apprise_catalog() -> list[AppriseServiceSchema]:
+    return [AppriseServiceSchema.from_service(s) for s in apprise_channel.services()]
+
+
 @protected_route(router.post, "", [Scope.ME_WRITE], status_code=status.HTTP_201_CREATED)
 async def create_notification_channel(
     request: Request, payload: NotificationChannelCreatePayload
 ) -> NotificationChannelSchema:
     """Add a channel; an email address gets a code to confirm it with first."""
-    if isinstance(payload, EmailChannelCreatePayload):
-        created = channels.create_channel(
-            request.user,
-            NotificationChannelType.EMAIL,
-            payload.name,
-            payload.min_level,
-            payload.topics,
-            address=payload.address,
-        )
-    else:
-        created = channels.create_channel(
-            request.user,
-            NotificationChannelType.WEBHOOK,
-            payload.name,
-            payload.min_level,
-            payload.topics,
-            url=payload.url,
-            format=payload.format,
-            secret=payload.secret,
-        )
+    # What each type sends it to: a URL and secret, an address, or a service's fields.
+    target = payload.model_dump(exclude={"type", "name", "min_level", "topics"})
+    created = channels.create_channel(
+        request.user,
+        NotificationChannelType(payload.type),
+        payload.name,
+        payload.min_level,
+        payload.topics,
+        **target,
+    )
     return NotificationChannelSchema.from_channel(await _as_http(created))
 
 
@@ -116,10 +137,10 @@ async def update_notification_channel(
             request.user,
             changes,
             url=payload.url,
-            format=payload.format,
             secret=payload.secret,
             secret_given="secret" in payload.model_fields_set,
             address=payload.address,
+            fields=payload.fields,
         )
     )
     return NotificationChannelSchema.from_channel(updated)

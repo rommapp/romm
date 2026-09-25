@@ -264,8 +264,9 @@ async def test_a_newly_read_identity_is_persisted(platform, admin_user, library)
         "get_rom_files",
         AsyncMock(return_value=_unchanged_parse(rom, identity)),
     ):
-        await refresh_rom_files(rom)
+        result = await refresh_rom_files(rom)
 
+    assert result.changed
     refreshed = db_rom_handler.get_rom(rom.id)
     assert refreshed.title_id == "0100ABCD12340000"
     assert refreshed.save_target == "0100ABCD12340000"
@@ -287,3 +288,21 @@ async def test_a_stored_identity_survives_a_parse_that_read_none(
         await refresh_rom_files(rom)
 
     assert db_rom_handler.get_rom(rom.id).title_id == "ULUS-10041"
+
+
+async def test_a_category_settled_on_a_reused_row_is_persisted(
+    platform, admin_user, library
+):
+    """Extraction settles a Switch file's category on the row it reused."""
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+
+    async def settle_category(*_args, **_kwargs) -> ParsedRomFiles:
+        parsed = _unchanged_parse(rom, RomIdentity())
+        parsed.rom_files[0].category = RomFileCategory.DLC
+        return parsed
+
+    with patch.object(fs_rom_handler, "get_rom_files", settle_category):
+        result = await refresh_rom_files(rom)
+
+    assert result.updated_files == 1
+    assert _files_by_name(rom.id)["game.bin"].category == RomFileCategory.DLC

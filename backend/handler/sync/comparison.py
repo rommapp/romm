@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Collection
 from datetime import datetime
 from typing import Literal, NamedTuple
 
 from utils.datetime import to_utc
 
-SyncAction = Literal["upload", "download", "conflict", "no_op"]
+SyncAction = Literal["upload", "download", "conflict", "no_op", "delete"]
 
 
 class SyncComparisonResult(NamedTuple):
@@ -85,3 +86,20 @@ def compare_save_state(
         return SyncComparisonResult("conflict", "Same timestamp but different content")
 
     return SyncComparisonResult("no_op", "Saves appear identical")
+
+
+def compare_missing_server_save(
+    client_hash: str | None, deleted_hashes: Collection[str]
+) -> SyncComparisonResult:
+    """Decide a client save whose slot has no server save, matched by identity.
+
+    Args:
+        client_hash: The digest the client reported, when it reported one.
+        deleted_hashes: What the slot is known to have lost.
+
+    Returns:
+        `delete` when the client holds a version the slot lost, else `upload`.
+    """
+    if client_hash in deleted_hashes:
+        return SyncComparisonResult("delete", "Save was deleted on the server")
+    return SyncComparisonResult("upload", "Save exists on client but not on server")

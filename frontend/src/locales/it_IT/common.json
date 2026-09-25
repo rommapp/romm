@@ -194,6 +194,7 @@
   "virtual-collections": "Collezioni generate automaticamente",
   "visibility": "Visibilità",
   "warning": "AVVISO:",
+  "websocket-unreachable-retrying": "Connessione WebSocket non disponibile, nuovo tentativo…",
   "whats-new": "Scopri le novità",
   "zoom-in": "Aumenta zoom",
   "zoom-out": "Diminuisci zoom"

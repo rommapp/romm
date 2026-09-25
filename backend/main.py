@@ -28,6 +28,7 @@ from config import (
     ROMM_CORS_ALLOWED_ORIGINS,
     ROMM_SESSION_SECURE_COOKIE,
     SENTRY_DSN,
+    cors_allow_credentials,
 )
 from endpoints.activity import router as activity_router
 from endpoints.audit_events import router as audit_events_router
@@ -69,6 +70,7 @@ from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.socket_handler import netplay_socket_handler, socket_handler
+from handler.streaming.session_store import start_restart_grace
 from logger.formatter import LOGGING_CONFIG
 from utils import get_version
 from utils.context import (
@@ -88,6 +90,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     async with initialize_context():
         app.state.aiohttp_session = ctx_aiohttp_session.get()
         app.state.httpx_client = ctx_httpx_client.get()
+        await start_restart_grace()
 
         # Relay backend log lines to admin Socket.IO clients in real time.
         log_forwarder_task: asyncio.Task[None] | None = None
@@ -123,7 +126,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ROMM_CORS_ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=cors_allow_credentials(ROMM_CORS_ALLOWED_ORIGINS),
     allow_methods=["*"],
     allow_headers=["*"],
 )

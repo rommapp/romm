@@ -8,9 +8,11 @@ from io import BytesIO
 from typing import Any
 from unittest import mock
 
+import pytest
 from fastapi import status
 
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_play_session_handler,
@@ -22,6 +24,7 @@ from models.assets import Save
 from models.device import Device, SyncMode
 from models.platform import Platform
 from models.rom import Rom
+from models.sync_session import SyncSessionStatus
 from models.user import User
 from utils.validation import MAX_ROM_IDS_PER_QUERY
 
@@ -55,6 +58,54 @@ class TestSyncNegotiate:
         data = response.json()
         assert data["total_upload"] == 1
         assert data["operations"][0]["action"] == "upload"
+
+    @pytest.mark.parametrize(
+        "content_hash,expected_action",
+        [("deadbeef", "delete"), ("f00d", "upload")],
+        ids=["the-deleted-version", "bytes-the-deletion-never-covered"],
+    )
+    def test_negotiate_a_slot_the_owner_deleted(
+        self,
+        client,
+        access_token: str,
+        admin_user: User,
+        rom: Rom,
+        content_hash: str,
+        expected_action: str,
+    ):
+        """Server emptied the slot: only the bytes it lost are dropped."""
+        device = db_device_handler.add_device(
+            Device(
+                id=f"neg-dev-deleted-{content_hash}",
+                user_id=admin_user.id,
+                sync_enabled=True,
+            )
+        )
+        db_deleted_asset_handler.record_deletion(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="autosave",
+            content_hash="deadbeef",
+        )
+
+        data = _negotiate(
+            client,
+            access_token,
+            device.id,
+            [
+                {
+                    "rom_id": rom.id,
+                    "file_name": "test_save.sav",
+                    "slot": "autosave",
+                    "content_hash": content_hash,
+                    "updated_at": "2026-01-09T00:00:00Z",
+                    "file_size_bytes": 1024,
+                }
+            ],
+        )
+
+        assert data[f"total_{expected_action}"] == 1
+        assert data["operations"][0]["action"] == expected_action
 
     def test_negotiate_server_has_save_client_doesnt(
         self, client, access_token: str, admin_user: User, save: Save
@@ -297,6 +348,56 @@ class TestNegotiateRomIdsScope:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
+class TestConcurrentNegotiations:
+    """A session belongs to a launch, and a device can have two games open."""
+
+    def _negotiate(self, client, access_token: str, device_id: str) -> int:
+        response = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device_id, "saves": []},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        return int(response.json()["session_id"])
+
+    def test_a_second_negotiation_leaves_the_first_session_open(
+        self, client, access_token: str, admin_user: User
+    ):
+        device = db_device_handler.add_device(
+            Device(id="concurrent-dev-1", user_id=admin_user.id)
+        )
+
+        first = self._negotiate(client, access_token, device.id)
+        second = self._negotiate(client, access_token, device.id)
+        assert first != second
+
+        still_open = db_sync_session_handler.get_session(first, admin_user.id)
+        assert still_open is not None
+        assert still_open.status == SyncSessionStatus.IN_PROGRESS
+
+    def test_the_first_launch_can_still_complete_its_own_session(
+        self, client, access_token: str, admin_user: User
+    ):
+        # The push after an exit takes seconds, and pressing Play again inside
+        # them used to cancel the session it was about to close.
+        device = db_device_handler.add_device(
+            Device(id="concurrent-dev-2", user_id=admin_user.id)
+        )
+
+        first = self._negotiate(client, access_token, device.id)
+        self._negotiate(client, access_token, device.id)
+
+        response = client.post(
+            f"/api/sync/sessions/{first}/complete",
+            json={"operations_completed": 1, "operations_failed": 0},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["session"]["status"] == "COMPLETED"
+        assert response.json()["session"]["operations_completed"] == 1
+
+
 class TestSyncSessions:
     def test_complete_session(self, client, access_token: str, admin_user: User):
         device = db_device_handler.add_device(
@@ -344,6 +445,31 @@ class TestSyncSessions:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_complete_a_session_the_cleanup_gave_up_on(
+        self, client, access_token: str, admin_user: User
+    ):
+        # A game open past the cutoff, or a client asleep and back again: the
+        # counts it returns with are the record, not the cleanup's guess.
+        device = db_device_handler.add_device(
+            Device(id="session-dev-stale", user_id=admin_user.id)
+        )
+        sync_session = db_sync_session_handler.create_session(
+            device_id=device.id, user_id=admin_user.id
+        )
+        db_sync_session_handler.fail_stale_sessions(
+            older_than=datetime.now(timezone.utc) + timedelta(minutes=1)
+        )
+
+        response = client.post(
+            f"/api/sync/sessions/{sync_session.id}/complete",
+            json={"operations_completed": 2, "operations_failed": 0},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["session"]["status"] == "COMPLETED"
+        assert response.json()["session"]["operations_completed"] == 2
 
     def test_list_sessions(self, client, access_token: str, admin_user: User):
         device = db_device_handler.add_device(
@@ -891,15 +1017,14 @@ class TestNegotiateAdvanced:
         device = db_device_handler.add_device(
             Device(id="sess-cancel-dev", user_id=admin_user.id)
         )
-        db_sync_session_handler.create_session(
+        created = db_sync_session_handler.create_session(
             device_id=device.id, user_id=admin_user.id
         )
-        db_sync_session_handler.cancel_active_sessions(device.id, admin_user.id)
-
-        sessions = db_sync_session_handler.get_sessions(
-            admin_user.id, device_id=device.id
+        # Nothing cancels a session any more, but a row left in that state by a
+        # server that once did is still one this endpoint has to refuse.
+        cancelled = db_sync_session_handler.update_session(
+            created.id, {"status": SyncSessionStatus.CANCELLED}
         )
-        cancelled = sessions[0]
 
         response = client.post(
             f"/api/sync/sessions/{cancelled.id}/complete",
@@ -951,35 +1076,6 @@ class TestSyncCompleteWithPlaySessions:
         assert data["play_session_ingest"] is not None
         assert data["play_session_ingest"]["created_count"] == 2
         assert data["play_session_ingest"]["skipped_count"] == 0
-
-    def test_play_sessions_have_sync_session_id(
-        self, client, access_token: str, admin_user: User, rom: Rom
-    ):
-        device = db_device_handler.add_device(
-            Device(id="sync-ps-dev-2", user_id=admin_user.id)
-        )
-        sync_session = db_sync_session_handler.create_session(
-            device_id=device.id, user_id=admin_user.id
-        )
-
-        client.post(
-            f"/api/sync/sessions/{sync_session.id}/complete",
-            json={
-                "operations_completed": 0,
-                "operations_failed": 0,
-                "play_sessions": [
-                    _play_session(rom_id=rom.id, start_offset_hours=-3),
-                ],
-            },
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-
-        sessions = db_play_session_handler.get_sessions(
-            user_id=admin_user.id, rom_id=rom.id
-        )
-        assert len(sessions) >= 1
-        linked = [s for s in sessions if s.sync_session_id == sync_session.id]
-        assert len(linked) == 1
 
     def test_play_sessions_use_device_from_sync_session(
         self, client, access_token: str, admin_user: User, rom: Rom

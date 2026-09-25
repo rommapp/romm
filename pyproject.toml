@@ -18,6 +18,7 @@ dependencies = [
   "asyncssh ~= 2.23",
   "alembic ~= 1.16",
   "anyio ~= 4.4",
+  "apprise ~= 1.13",
   "authlib ~= 1.6.12",
   "colorama ~= 0.4",
   "cryptography>=49,<51",
