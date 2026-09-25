@@ -140,15 +140,26 @@ class SteamService:
         url = self.url.joinpath("appdetails").with_query(query)
         response = await self._request(str(url))
         envelope = response.get(str(app_id))
-        # Steam sometimes keys the envelope by another ID (e.g. one of the
-        # app's DLC), but only one app was requested.
         if envelope is None and len(response) == 1:
-            envelope = next(iter(response.values()))
+            envelope = self._envelope_keyed_by_another_id(response, app_id)
         envelope = cast(SteamAppDetailsEnvelope | None, envelope)
         if not envelope or not envelope.get("success"):
             return None
 
         return envelope.get("data")
+
+    @staticmethod
+    def _envelope_keyed_by_another_id(response: dict, app_id: int) -> dict | None:
+        """Steam keys some apps' envelope by another ID, e.g. one of their DLC."""
+        envelope = next(iter(response.values()))
+        if not isinstance(envelope, dict):
+            return None
+
+        data = envelope.get("data")
+        if not isinstance(data, dict) or data.get("steam_appid") != app_id:
+            return None
+
+        return envelope
 
     async def get_library_capsule_url(self, app_id: int) -> str | None:
         """The portrait capsule URL when the CDN serves one, else None."""
