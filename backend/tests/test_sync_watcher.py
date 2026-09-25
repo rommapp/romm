@@ -571,12 +571,14 @@ class TestProcessIncomingFileBaseline:
         server_zip = Path(temp_dir) / "server.zip"
         write_zip(server_zip, zipfile.ZIP_DEFLATED)
         assert Path(incoming_file).read_bytes() != server_zip.read_bytes()
+        server_hash = hash_save_file(server_zip)
+        assert server_hash is not None
 
         save = self._save(
             admin_user,
             rom,
             platform,
-            hash_save_file(server_zip),
+            server_hash,
             updated_at=datetime(2026, 1, 10, tzinfo=timezone.utc),
         )
         db_device_save_sync_handler.upsert_sync(
