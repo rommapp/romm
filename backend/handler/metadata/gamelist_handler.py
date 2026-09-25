@@ -13,6 +13,10 @@ from defusedxml import ElementTree as ET
 from config.config_manager import PLATFORM_MEDIA_DIRS, MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_platform_handler, fs_resource_handler
+from handler.filesystem.base_handler import (
+    normalize_provider_languages,
+    normalize_provider_regions,
+)
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom, compute_name_sort_key
@@ -179,8 +183,7 @@ def extract_media_from_gamelist_rom(
     for media_key, xml_tag in XML_TAG_MAP.items():
         elem = game.find(xml_tag)
         if elem is not None and elem.text:
-            # trunk-ignore(mypy/literal-required)
-            gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)
+            gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)  # type: ignore[literal-required]
 
     # Fallback to searching media folders by ROM basename
     path_elem = game.find("path")
@@ -188,16 +191,14 @@ def extract_media_from_gamelist_rom(
         rom_stem = os.path.splitext(os.path.basename(path_elem.text))[0]
 
         for media_key, folder_name in ESDE_MEDIA_MAP.items():
-            # trunk-ignore(mypy/literal-required)
-            if gamelist_media[media_key]:
+            if gamelist_media[media_key]:  # type: ignore[literal-required]
                 continue
 
             search_pattern = os.path.join(platform_dir, folder_name, f"{rom_stem}.*")
             search_path = fs_platform_handler.validate_path(search_pattern)
             found_files = glob.glob(str(search_path))
             if found_files:
-                # trunk-ignore(mypy/literal-required)
-                gamelist_media[media_key] = (
+                gamelist_media[media_key] = (  # type: ignore[literal-required]
                     f"file://{str(Path(found_files[0]).relative_to(fs_platform_handler.base_path))}"
                 )
 
@@ -463,15 +464,15 @@ class GamelistHandler(MetadataHandler):
                 summary = (
                     desc_elem.text if desc_elem is not None and desc_elem.text else ""
                 )
-                regions = (
-                    _split_comma_separated_values(region_elem.text)
-                    if region_elem is not None
-                    else []
+                regions = normalize_provider_regions(
+                    _split_comma_separated_values(
+                        region_elem.text if region_elem is not None else None
+                    )
                 )
-                languages = (
-                    _split_comma_separated_values(lang_elem.text)
-                    if lang_elem is not None
-                    else []
+                languages = normalize_provider_languages(
+                    _split_comma_separated_values(
+                        lang_elem.text if lang_elem is not None else None
+                    )
                 )
 
                 # Build ROM data

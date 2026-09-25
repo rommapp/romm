@@ -4,12 +4,14 @@ from typing import cast
 from unittest.mock import AsyncMock, patch
 from urllib.parse import unquote
 
+import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 
 from config.config_manager import MetadataMediaType
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_session
+from handler.database.rom_filters import RomFiltersDict
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
@@ -660,6 +662,44 @@ def test_get_roms_filter_by_tags(
 
     body = response.json()
     assert {item["id"] for item in body["items"]} == {rom.id}
+
+
+def assert_filter_values_are_lists(filter_values: dict[str, object]) -> None:
+    assert filter_values.keys() == RomFiltersDict.__annotations__.keys()
+    assert all(isinstance(value, list) for value in filter_values.values())
+
+
+@pytest.mark.parametrize("with_filter_values", [True, False])
+def test_get_roms_filter_values_are_never_null(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    platform: Platform,
+    with_filter_values: bool,
+) -> None:
+    # `rom` carries no metadata, so every facet column is null.
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "with_filter_values": with_filter_values},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    filter_values = response.json()["filter_values"]
+    assert_filter_values_are_lists(filter_values)
+    assert filter_values["genres"] == []
+    assert filter_values["platforms"] == ([platform.id] if with_filter_values else [])
+
+
+def test_get_rom_filters_are_never_null(
+    client: TestClient, access_token: str, rom: Rom
+) -> None:
+    response = client.get(
+        "/api/roms/filters",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert_filter_values_are_lists(response.json())
 
 
 def test_get_all_roms_with_files(

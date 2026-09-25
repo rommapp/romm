@@ -29,12 +29,20 @@ export function isCoreCompatible(
   asset: { emulator?: string | null },
   core: string | null | undefined,
 ): boolean {
-  return !asset.emulator || asset.emulator === core;
+  return !asset.emulator || emulatorKey(asset.emulator) === emulatorKey(core);
 }
 
 /** ISO timestamps sort lexically. */
 export function byUpdatedDesc(a: Asset, b: Asset): number {
   return b.updated_at.localeCompare(a.updated_at);
+}
+
+/**
+ * Favorites lead their band, so a run worth keeping outlives its recency.
+ * Partitions only: a stable sort keeps the band's own order inside each half.
+ */
+export function byFavoriteFirst(a: Asset, b: Asset): number {
+  return Number(b.is_favorite ?? false) - Number(a.is_favorite ?? false);
 }
 
 export function newest<T extends { updated_at: string }>(
@@ -55,4 +63,19 @@ export function staggerIndex(
     for (const asset of assets) order.set(asset.id, order.size);
   }
   return order;
+}
+
+/** Emulator ids match case-insensitively, as the backend matches them. */
+export function emulatorKey(emulator: string | null | undefined): string {
+  return (emulator ?? "").toLowerCase();
+}
+
+/** The label a map gives an emulator id, else the id as it stands. */
+export function emulatorLabelFrom(
+  labels: Record<string, string>,
+  emulator: string | null | undefined,
+): string {
+  if (!emulator) return "";
+  const key = emulatorKey(emulator);
+  return Object.hasOwn(labels, key) ? labels[key] : emulator;
 }

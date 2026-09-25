@@ -329,6 +329,19 @@ const routes = [
             },
           },
           {
+            path: "notifications",
+            name: ROUTES.NOTIFICATIONS,
+            meta: {
+              title: "notifications.notifications",
+              bare: true,
+            },
+            components: {
+              // v2-only view, like Activity.
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.NOTIFICATIONS),
+            },
+          },
+          {
             path: "user/:user",
             name: ROUTES.USER_PROFILE,
             meta: { bare: true },
@@ -595,13 +608,21 @@ function checkRoutePermissions(route: string, user: User | null): boolean {
 // `meta.title` holds an i18n key, translated per navigation rather than when
 // the route table is built. Messages load asynchronously and aren't there yet
 // at module-eval time.
-function applyRouteTitle(route: RouteLocationNormalized) {
-  document.title = route.meta.title
-    ? i18n.global.t(route.meta.title as string)
-    : "RomM";
+export function applyRouteTitle(
+  route: RouteLocationNormalized,
+  from?: RouteLocationNormalized,
+) {
+  if (route.meta.title) {
+    document.title = i18n.global.t(route.meta.title as string);
+    return;
+  }
+  // A query/hash-only navigation leaves the view mounted, so `usePageTitle`
+  // won't refire and the fallback would drop the title it already set.
+  if (from && route.path === from.path) return;
+  document.title = "RomM";
 }
 
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to, from, next) => {
   const heartbeat = storeHeartbeat();
   const auth = storeAuth();
   const { user } = storeToRefs(auth);
@@ -614,7 +635,7 @@ router.beforeEach(async (to, _from, next) => {
     // allows; the offline notice explains it and the connection layer
     // re-routes correctly once the backend answers again.
     if (!heartbeat.connected) {
-      applyRouteTitle(to);
+      applyRouteTitle(to, from);
       return next();
     }
 
@@ -651,16 +672,17 @@ router.beforeEach(async (to, _from, next) => {
       return next({ name: ROUTES.NOT_FOUND });
     }
 
-    // The logs viewer can be turned off entirely via DISABLE_LOGS_VIEWER; the
-    // backend endpoint/stream are then gone, so direct navigation must 404 too.
+    // DISABLE_LOGS_VIEWER takes the log tab away; an admin still has the
+    // event log there, anyone else has nothing left on the page.
     if (
       currentRoute === ROUTES.LOGS &&
-      heartbeat.value.FRONTEND.DISABLE_LOGS_VIEWER
+      heartbeat.value.FRONTEND.DISABLE_LOGS_VIEWER &&
+      user.value?.role !== "admin"
     ) {
       return next({ name: ROUTES.NOT_FOUND });
     }
 
-    applyRouteTitle(to);
+    applyRouteTitle(to, from);
     next();
   } catch (error) {
     console.error("Navigation guard error:", error);

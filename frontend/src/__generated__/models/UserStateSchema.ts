@@ -8,6 +8,8 @@ import type { ScreenshotSchema } from './ScreenshotSchema';
  * Community) view. Mirrors UserScreenshotSchema.
  */
 export type UserStateSchema = {
+    is_favorite?: boolean;
+    labels?: Array<string>;
     id: number;
     rom_id: number;
     user_id: number;

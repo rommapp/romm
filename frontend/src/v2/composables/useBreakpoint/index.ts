@@ -10,7 +10,7 @@
 // Module-level singletons — the media query listeners attach once and
 // every consumer shares them. Composable returns the refs by name.
 //
-// `installBreakpointAttribute()` (called once from the root layout)
+// `installBreakpointAttribute()` (called from the root layouts)
 // mirrors the active breakpoints onto `data-bp` on `<html>` as a
 // space-separated list — e.g. `data-bp="sm-and-up md-and-up"` at a
 // 1024px viewport. CSS consumes the attribute with `~=` selectors:

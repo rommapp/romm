@@ -1,6 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", ":semanticCommitTypeAll(chore)"],
+  "description": "Updates wait out a week before Renovate proposes them, so a compromised release has time to be pulled before it reaches a PR here.",
+  "minimumReleaseAge": "7 days",
   "enabledManagers": ["github-actions", "docker-compose", "custom.regex"],
   "ignorePaths": ["examples/**"],
   "packageRules": [

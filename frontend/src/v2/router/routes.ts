@@ -23,6 +23,7 @@ export const notFoundComponent: V2Route = () =>
 export const v2RouteComponents: Partial<Record<RouteName, V2Route>> = {
   [ROUTES.HOME]: () => import("@/v2/views/Home.vue"),
   [ROUTES.ACTIVITY]: () => import("@/v2/views/Activity.vue"),
+  [ROUTES.NOTIFICATIONS]: () => import("@/v2/views/Notifications.vue"),
   // Wave 1 — Auth flows
   [ROUTES.LOGIN]: () => import("@/v2/views/Auth/Login.vue"),
   [ROUTES.RESET_PASSWORD]: () => import("@/v2/views/Auth/ResetPassword.vue"),

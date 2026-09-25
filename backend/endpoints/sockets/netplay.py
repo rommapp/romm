@@ -98,7 +98,7 @@ def _may_play(user: User | None, game_id: str | None) -> bool:
     return resolve_permissions(user).can_see_rom(rom.id, rom.platform_id)
 
 
-@netplay_socket_handler.socket_server.on("connect")  # type: ignore
+@netplay_socket_handler.socket_server.on("connect")
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     """Never refuses, since the guest path needs ``join-room``, and stores identity from the session rather than the payload."""
     try:
@@ -119,7 +119,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
         log.exception("Failed to resolve user on netplay connect")
 
 
-@netplay_socket_handler.socket_server.on("open-room")  # type: ignore
+@netplay_socket_handler.socket_server.on("open-room")
 async def open_room(sid: str, data: RoomData):
     extra_data = data["extra"]
 
@@ -164,7 +164,7 @@ async def open_room(sid: str, data: RoomData):
     )
 
 
-@netplay_socket_handler.socket_server.on("join-room")  # type: ignore
+@netplay_socket_handler.socket_server.on("join-room")
 async def join_room(sid: str, data: RoomData):
     extra_data = data["extra"]
 
@@ -252,7 +252,7 @@ async def _handle_leave(sid: str, session_id: str, player_id: str):
     )
 
 
-@netplay_socket_handler.socket_server.on("leave-room")  # type: ignore
+@netplay_socket_handler.socket_server.on("leave-room")
 async def leave_room(sid: str):
     stored_session = await _get_session(sid)
     session_id = stored_session.get(ROOM_SESSION_KEY)
@@ -264,7 +264,7 @@ async def leave_room(sid: str):
         await _clear_room_session(sid)
 
 
-@netplay_socket_handler.socket_server.on("webrtc-signal")  # type: ignore
+@netplay_socket_handler.socket_server.on("webrtc-signal")
 async def webrtc_signal(sid: str, data: WebRTCSignalData):
     target = data.get("target")
     if not target:
@@ -295,12 +295,12 @@ async def webrtc_signal(sid: str, data: WebRTCSignalData):
         )
 
 
-@netplay_socket_handler.socket_server.on("webrtc-signal-error")  # type: ignore
+@netplay_socket_handler.socket_server.on("webrtc-signal-error")
 async def webrtc_signal_error(_sid: str, _error: str, _data: Any):
     pass
 
 
-@netplay_socket_handler.socket_server.on("disconnect")  # type: ignore
+@netplay_socket_handler.socket_server.on("disconnect")
 async def disconnect(sid: str):
     stored_session = await _get_session(sid)
     session_id = stored_session.get(ROOM_SESSION_KEY)
@@ -318,16 +318,16 @@ async def _broadcast_to_room(sid: str, event: str, data: Any):
         )
 
 
-@netplay_socket_handler.socket_server.on("data-message")  # type: ignore
+@netplay_socket_handler.socket_server.on("data-message")
 async def data_message(sid: str, data: Any):
     await _broadcast_to_room(sid, "data-message", data)
 
 
-@netplay_socket_handler.socket_server.on("snapshot")  # type: ignore
+@netplay_socket_handler.socket_server.on("snapshot")
 async def snapshot(sid: str, data: Any):
     await _broadcast_to_room(sid, "snapshot", data)
 
 
-@netplay_socket_handler.socket_server.on("input")  # type: ignore
+@netplay_socket_handler.socket_server.on("input")
 async def input(sid: str, data: Any):
     await _broadcast_to_room(sid, "input", data)

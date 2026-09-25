@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       mariadb:
-        image: mariadb:12.3.3
+        image: mariadb:13.0.2
         ports:
           - 3306
         env:
@@ -62,6 +62,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install mariadb connectors
         run: |
@@ -97,6 +99,9 @@ jobs:
       # assets/ under it), so copy the fixture library out of the repo rather
       # than scanning it in place.
       - name: Stage the library fixture
+        env:
+          MARIADB_PORT: ${{ job.services.mariadb.ports['3306'] }}
+          VALKEY_PORT: ${{ job.services.valkey.ports['6379'] }}
         run: |
           mkdir -p "$RUNNER_TEMP/romm/resources" "$RUNNER_TEMP/romm/assets"
           cp -R backend/romm_test/library "$RUNNER_TEMP/romm/library"
@@ -104,8 +109,8 @@ jobs:
           # config.yml declares.
           cp -R backend/romm_test/config "$RUNNER_TEMP/romm/config"
           echo "ROMM_BASE_PATH=$RUNNER_TEMP/romm" >> "$GITHUB_ENV"
-          echo "DB_PORT=${{ job.services.mariadb.ports['3306'] }}" >> "$GITHUB_ENV"
-          echo "REDIS_PORT=${{ job.services.valkey.ports['6379'] }}" >> "$GITHUB_ENV"
+          echo "DB_PORT=$MARIADB_PORT" >> "$GITHUB_ENV"
+          echo "REDIS_PORT=$VALKEY_PORT" >> "$GITHUB_ENV"
 
       # A migration failure is its own red step rather than a confusing server-start failure.
       - name: Apply migrations

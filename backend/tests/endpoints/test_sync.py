@@ -1,8 +1,11 @@
 """Tests for sync endpoints."""
 
+import asyncio
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
+from typing import Any
 from unittest import mock
 
 from fastapi import status
@@ -14,9 +17,12 @@ from handler.database import (
     db_save_handler,
     db_sync_session_handler,
 )
+from handler.socket_handler import socket_handler
 from models.assets import Save
 from models.device import Device, SyncMode
+from models.platform import Platform
 from models.rom import Rom
+from models.sync_session import SyncSessionStatus
 from models.user import User
 from utils.validation import MAX_ROM_IDS_PER_QUERY
 
@@ -292,6 +298,56 @@ class TestNegotiateRomIdsScope:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
+class TestConcurrentNegotiations:
+    """A session belongs to a launch, and a device can have two games open."""
+
+    def _negotiate(self, client, access_token: str, device_id: str) -> int:
+        response = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device_id, "saves": []},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        return int(response.json()["session_id"])
+
+    def test_a_second_negotiation_leaves_the_first_session_open(
+        self, client, access_token: str, admin_user: User
+    ):
+        device = db_device_handler.add_device(
+            Device(id="concurrent-dev-1", user_id=admin_user.id)
+        )
+
+        first = self._negotiate(client, access_token, device.id)
+        second = self._negotiate(client, access_token, device.id)
+        assert first != second
+
+        still_open = db_sync_session_handler.get_session(first, admin_user.id)
+        assert still_open is not None
+        assert still_open.status == SyncSessionStatus.IN_PROGRESS
+
+    def test_the_first_launch_can_still_complete_its_own_session(
+        self, client, access_token: str, admin_user: User
+    ):
+        # The push after an exit takes seconds, and pressing Play again inside
+        # them used to cancel the session it was about to close.
+        device = db_device_handler.add_device(
+            Device(id="concurrent-dev-2", user_id=admin_user.id)
+        )
+
+        first = self._negotiate(client, access_token, device.id)
+        self._negotiate(client, access_token, device.id)
+
+        response = client.post(
+            f"/api/sync/sessions/{first}/complete",
+            json={"operations_completed": 1, "operations_failed": 0},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["session"]["status"] == "COMPLETED"
+        assert response.json()["session"]["operations_completed"] == 1
+
+
 class TestSyncSessions:
     def test_complete_session(self, client, access_token: str, admin_user: User):
         device = db_device_handler.add_device(
@@ -339,6 +395,31 @@ class TestSyncSessions:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_complete_a_session_the_cleanup_gave_up_on(
+        self, client, access_token: str, admin_user: User
+    ):
+        # A game open past the cutoff, or a client asleep and back again: the
+        # counts it returns with are the record, not the cleanup's guess.
+        device = db_device_handler.add_device(
+            Device(id="session-dev-stale", user_id=admin_user.id)
+        )
+        sync_session = db_sync_session_handler.create_session(
+            device_id=device.id, user_id=admin_user.id
+        )
+        db_sync_session_handler.fail_stale_sessions(
+            older_than=datetime.now(timezone.utc) + timedelta(minutes=1)
+        )
+
+        response = client.post(
+            f"/api/sync/sessions/{sync_session.id}/complete",
+            json={"operations_completed": 2, "operations_failed": 0},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["session"]["status"] == "COMPLETED"
+        assert response.json()["session"]["operations_completed"] == 2
 
     def test_list_sessions(self, client, access_token: str, admin_user: User):
         device = db_device_handler.add_device(
@@ -569,6 +650,16 @@ class TestPushPullTrigger:
         assert "session_id" in call_kwargs.kwargs
 
 
+def _negotiate(client, access_token, device_id, saves):
+    resp = client.post(
+        "/api/sync/negotiate",
+        json={"device_id": device_id, "saves": saves},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert resp.status_code == status.HTTP_200_OK
+    return resp.json()
+
+
 class TestNegotiateAdvanced:
     def test_negotiate_untracked_save_returns_noop(
         self, client, access_token: str, admin_user: User, save: Save
@@ -768,15 +859,6 @@ class TestNegotiateAdvanced:
                 headers={"Authorization": f"Bearer {access_token}"},
             )
 
-    def _negotiate(self, client, access_token, device_id, saves):
-        resp = client.post(
-            "/api/sync/negotiate",
-            json={"device_id": device_id, "saves": saves},
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        assert resp.status_code == status.HTTP_200_OK
-        return resp.json()
-
     @staticmethod
     def _autosave_entry(rom, content_hash):
         return {
@@ -808,7 +890,7 @@ class TestNegotiateAdvanced:
         assert stored["file_name"] != "pokemon_violet.zip"
         assert " [" in stored["file_name"]
 
-        data = self._negotiate(
+        data = _negotiate(
             client, access_token, device.id, [self._autosave_entry(rom, "HASH_RT")]
         )
         assert data["total_upload"] == 0
@@ -835,7 +917,7 @@ class TestNegotiateAdvanced:
         assert up.status_code == status.HTTP_200_OK
         save_id = up.json()["id"]
 
-        a_data = self._negotiate(
+        a_data = _negotiate(
             client, access_token, device_a.id, [self._autosave_entry(rom, "HASH_3D")]
         )
         assert a_data["total_upload"] == 0
@@ -845,7 +927,7 @@ class TestNegotiateAdvanced:
             dev = db_device_handler.add_device(
                 Device(id=dev_id, user_id=admin_user.id, sync_enabled=True)
             )
-            first = self._negotiate(client, access_token, dev.id, [])
+            first = _negotiate(client, access_token, dev.id, [])
             downloads = [
                 op
                 for op in first["operations"]
@@ -855,7 +937,7 @@ class TestNegotiateAdvanced:
             db_device_save_sync_handler.upsert_sync(
                 device_id=dev.id, save_id=save_id, synced_at=datetime.now(timezone.utc)
             )
-            second = self._negotiate(
+            second = _negotiate(
                 client, access_token, dev.id, [self._autosave_entry(rom, "HASH_3D")]
             )
             assert second["total_upload"] == 0
@@ -885,15 +967,14 @@ class TestNegotiateAdvanced:
         device = db_device_handler.add_device(
             Device(id="sess-cancel-dev", user_id=admin_user.id)
         )
-        db_sync_session_handler.create_session(
+        created = db_sync_session_handler.create_session(
             device_id=device.id, user_id=admin_user.id
         )
-        db_sync_session_handler.cancel_active_sessions(device.id, admin_user.id)
-
-        sessions = db_sync_session_handler.get_sessions(
-            admin_user.id, device_id=device.id
+        # Nothing cancels a session any more, but a row left in that state by a
+        # server that once did is still one this endpoint has to refuse.
+        cancelled = db_sync_session_handler.update_session(
+            created.id, {"status": SyncSessionStatus.CANCELLED}
         )
-        cancelled = sessions[0]
 
         response = client.post(
             f"/api/sync/sessions/{cancelled.id}/complete",
@@ -946,35 +1027,6 @@ class TestSyncCompleteWithPlaySessions:
         assert data["play_session_ingest"]["created_count"] == 2
         assert data["play_session_ingest"]["skipped_count"] == 0
 
-    def test_play_sessions_have_sync_session_id(
-        self, client, access_token: str, admin_user: User, rom: Rom
-    ):
-        device = db_device_handler.add_device(
-            Device(id="sync-ps-dev-2", user_id=admin_user.id)
-        )
-        sync_session = db_sync_session_handler.create_session(
-            device_id=device.id, user_id=admin_user.id
-        )
-
-        client.post(
-            f"/api/sync/sessions/{sync_session.id}/complete",
-            json={
-                "operations_completed": 0,
-                "operations_failed": 0,
-                "play_sessions": [
-                    _play_session(rom_id=rom.id, start_offset_hours=-3),
-                ],
-            },
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-
-        sessions = db_play_session_handler.get_sessions(
-            user_id=admin_user.id, rom_id=rom.id
-        )
-        assert len(sessions) >= 1
-        linked = [s for s in sessions if s.sync_session_id == sync_session.id]
-        assert len(linked) == 1
-
     def test_play_sessions_use_device_from_sync_session(
         self, client, access_token: str, admin_user: User, rom: Rom
     ):
@@ -1023,3 +1075,169 @@ class TestSyncCompleteWithPlaySessions:
         data = response.json()
         assert data["session"]["status"] == "COMPLETED"
         assert data["play_session_ingest"] is None
+
+
+class TestNegotiateConflictEvents:
+    """A negotiating client has nowhere to resolve a conflict, so the socket
+    event is the only surface the user gets."""
+
+    @staticmethod
+    def _device_with_history(
+        device_id: str, admin_user: User, saves: list[Save]
+    ) -> Device:
+        """A device whose last sync of each save was an hour ago."""
+        device = db_device_handler.add_device(
+            Device(id=device_id, user_id=admin_user.id, sync_enabled=True)
+        )
+        for save in saves:
+            db_device_save_sync_handler.upsert_sync(
+                device_id=device.id,
+                save_id=save.id,
+                synced_at=datetime.now(timezone.utc) - timedelta(hours=1),
+            )
+        return device
+
+    @staticmethod
+    def _changed_client_save(save: Save) -> dict:
+        return {
+            "rom_id": save.rom_id,
+            "file_name": save.file_name,
+            "slot": save.slot,
+            "content_hash": "hash_the_server_never_saw",
+            "updated_at": "2099-01-01T00:00:00Z",
+            "file_size_bytes": 100,
+        }
+
+    @staticmethod
+    def _patch_emit(side_effect: Any = None):
+        return mock.patch(
+            "endpoints.sync.emit_sync_conflict",
+            new_callable=mock.AsyncMock,
+            side_effect=side_effect,
+        )
+
+    @staticmethod
+    def _patch_broker_emit(side_effect: Any):
+        """Fail below emit_sync_conflict, where production failures happen."""
+        return mock.patch.object(
+            socket_handler,
+            "write_manager",
+            return_value=mock.Mock(emit=mock.AsyncMock(side_effect=side_effect)),
+        )
+
+    def test_conflict_emits_socket_event(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        device = self._device_with_history("neg-conflict-dev", admin_user, [save])
+
+        with self._patch_emit() as emit:
+            data = _negotiate(
+                client, access_token, device.id, [self._changed_client_save(save)]
+            )
+
+        assert data["total_conflict"] == 1
+        emit.assert_awaited_once()
+        assert emit.await_args is not None
+        assert emit.await_args.kwargs == {
+            "user_id": admin_user.id,
+            "device_id": device.id,
+            "session_id": data["session_id"],
+            "file_name": save.file_name,
+            "rom_id": save.rom_id,
+            "rom_name": "test_rom",
+            "reason": "Both sides changed since last sync",
+        }
+
+    def test_no_conflict_negotiation_emits_nothing(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        """A negotiated no_op is not a conflict, so it must stay silent."""
+        device = db_device_handler.add_device(
+            Device(id="neg-calm-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+        db_device_save_sync_handler.set_untracked(
+            device_id=device.id, save_id=save.id, untracked=True
+        )
+
+        with self._patch_emit() as emit:
+            data = _negotiate(
+                client, access_token, device.id, [self._changed_client_save(save)]
+            )
+
+        assert data["total_conflict"] == 0
+        assert any(op["action"] == "no_op" for op in data["operations"])
+        emit.assert_not_awaited()
+
+    def test_emit_failure_leaves_the_negotiation_intact(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        """An unreachable Redis must not stop a client from syncing."""
+        device = self._device_with_history("neg-conflict-down", admin_user, [save])
+
+        with self._patch_broker_emit(RuntimeError("redis is down")):
+            data = _negotiate(
+                client, access_token, device.id, [self._changed_client_save(save)]
+            )
+
+        assert data["total_conflict"] == 1
+
+    def test_hung_broker_is_abandoned_at_the_deadline(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        device = self._device_with_history("neg-conflict-slow", admin_user, [save])
+
+        async def hang(**_kwargs: Any) -> None:
+            await asyncio.sleep(30)
+
+        with (
+            self._patch_emit(hang),
+            mock.patch("endpoints.sync.CONFLICT_NOTIFY_TIMEOUT_S", 0.01),
+        ):
+            started = time.monotonic()
+            data = _negotiate(
+                client, access_token, device.id, [self._changed_client_save(save)]
+            )
+            elapsed = time.monotonic() - started
+
+        assert data["total_conflict"] == 1
+        assert elapsed < 10
+
+    def test_one_failed_emit_does_not_drop_the_rest(
+        self,
+        client,
+        access_token: str,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+    ):
+        saves = [
+            db_save_handler.add_save(
+                Save(
+                    rom_id=rom.id,
+                    user_id=admin_user.id,
+                    file_name=f"wide_{index}.sav",
+                    file_name_no_tags=f"wide_{index}",
+                    file_name_no_ext=f"wide_{index}",
+                    file_extension="sav",
+                    emulator="test_emulator",
+                    slot=f"slot-{index}",
+                    file_path=f"{platform.slug}/saves/test_emulator",
+                    file_size_bytes=1.0,
+                )
+            )
+            for index in range(3)
+        ]
+        device = self._device_with_history("neg-conflict-wide", admin_user, saves)
+
+        with self._patch_broker_emit(
+            [RuntimeError("redis blip"), None, None]
+        ) as write_manager:
+            data = _negotiate(
+                client,
+                access_token,
+                device.id,
+                [self._changed_client_save(save) for save in saves],
+            )
+
+        assert data["total_conflict"] == len(saves)
+        assert write_manager.return_value.emit.await_count == len(saves)

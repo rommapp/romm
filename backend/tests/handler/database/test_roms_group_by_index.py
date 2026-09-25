@@ -22,8 +22,9 @@ it, and the gallery quietly returns to full scans.
 """
 
 import re
+from typing import cast
 
-from sqlalchemy import inspect
+from sqlalchemy import Table, inspect
 from sqlalchemy.dialects import mysql
 from sqlalchemy.sql import Subquery
 from sqlalchemy.sql.expression import Select
@@ -39,7 +40,7 @@ INDEX_COLUMNS = [
     column.name
     for column in next(
         index
-        for index in Rom.__table__.indexes
+        for index in cast(Table, Rom.__table__).indexes
         if index.name == "idx_roms_sibling_cover"
     ).columns
 ]

@@ -39,7 +39,7 @@ from models.collection import (
 from models.rom import Rom
 from utils.database import json_array_contains_value
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 MAX_VIRTUAL_COLLECTION_COVERS = 5
 
@@ -250,7 +250,7 @@ class DBCollectionsHandler(DBBaseHandler):
                     CollectionRom.rom_id.in_(rom_ids),
                 )
             )
-            if result.rowcount > 0:
+            if affected_rows(result) > 0:
                 session.execute(
                     update(Collection)
                     .where(Collection.id == id)

@@ -10,6 +10,7 @@ export type AdminContainerSchema = {
     platforms: Array<string>;
     supports_desktop: boolean;
     configured: boolean;
+    draining?: boolean;
     session?: (ContainerSessionSchema | null);
 };
 
