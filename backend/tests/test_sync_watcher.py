@@ -2,17 +2,20 @@ import hashlib
 import os
 import shutil
 import tempfile
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from tests._zipfile_shim import reload_zipfile
 
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
 )
+from handler.filesystem.assets_handler import hash_save_file
 from handler.filesystem.sync_handler import FSSyncHandler
 from models.assets import Save
 from models.device import Device, SyncMode
@@ -546,3 +549,49 @@ class TestProcessIncomingFileBaseline:
         assert sync is not None
         assert sync.last_sync_hash is None
         assert sync.last_sync_server_hash == "server_new"
+
+    def test_a_repacked_zip_with_the_same_entries_is_already_in_sync(
+        self,
+        temp_dir,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        incoming_file: str,
+    ):
+        """Device and server zips differing only in packing must match by content."""
+        from sync_watcher import _process_incoming_file
+
+        def write_zip(path: str | Path, compression: int) -> None:
+            reload_zipfile()
+            with zipfile.ZipFile(path, "w", compression=compression) as zf:
+                zf.writestr("card/save.bin", b"identical save contents" * 64)
+
+        write_zip(incoming_file, zipfile.ZIP_STORED)
+        server_zip = Path(temp_dir) / "server.zip"
+        write_zip(server_zip, zipfile.ZIP_DEFLATED)
+        assert Path(incoming_file).read_bytes() != server_zip.read_bytes()
+
+        save = self._save(
+            admin_user,
+            rom,
+            platform,
+            hash_save_file(server_zip),
+            updated_at=datetime(2026, 1, 10, tzinfo=timezone.utc),
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device.id, save.id, synced_at=datetime(2026, 1, 5, tzinfo=timezone.utc)
+        )
+
+        with patch("endpoints.sockets.sync.emit_sync_conflict") as mock_emit:
+            _process_incoming_file(
+                device=device,
+                session_id=1,
+                platform_slug=platform.fs_slug,
+                filename="baseline.sav",
+                full_path=incoming_file,
+            )
+
+        mock_emit.assert_not_called()
+        assert not os.path.exists(incoming_file)
+        assert not (Path(temp_dir) / device.id / "outgoing").exists()

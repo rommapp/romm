@@ -11,8 +11,8 @@ device's sync_config.
 
 from __future__ import annotations
 
+import asyncio
 import functools
-import hashlib
 import os
 import tempfile
 from dataclasses import dataclass
@@ -22,9 +22,9 @@ from typing import Any
 
 import asyncssh
 from anyio import Path as AnyioPath
-from anyio import open_file
 
 from config import SYNC_SSH_KEYS_PATH, SYNC_SSH_KNOWN_HOSTS_PATH
+from handler.filesystem.assets_handler import hash_save_file
 from logger.logger import log
 
 
@@ -195,13 +195,7 @@ class SSHSyncHandler:
         async with conn.start_sftp_client() as sftp:
             await sftp.get(remote_path, local_path)
 
-        # Compute hash
-        hash_obj = hashlib.md5(usedforsecurity=False)
-        async with await open_file(local_path, "rb") as f:
-            while chunk := await f.read(8192):
-                hash_obj.update(chunk)
-
-        return local_path, hash_obj.hexdigest()
+        return local_path, await asyncio.to_thread(hash_save_file, local_path)
 
     async def upload_save(
         self,

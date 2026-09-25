@@ -1,11 +1,11 @@
 import functools
-import hashlib
 import os
 from pathlib import Path
 
 from config import SYNC_BASE_PATH
 from logger.logger import log
 
+from .assets_handler import hash_save_file
 from .base_handler import FSHandler
 
 
@@ -80,12 +80,8 @@ class FSSyncHandler(FSHandler):
         return results
 
     def compute_file_hash(self, file_path: str) -> str:
-        """Compute MD5 hash of a file synchronously (for watcher context)."""
-        hash_obj = hashlib.md5(usedforsecurity=False)
-        with open(file_path, "rb") as f:
-            while chunk := f.read(8192):
-                hash_obj.update(chunk)
-        return hash_obj.hexdigest()
+        """Hash a device file synchronously (for watcher context)."""
+        return hash_save_file(file_path)
 
     def write_outgoing_file(
         self, device_id: str, platform_slug: str, file_name: str, data: bytes

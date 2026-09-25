@@ -9,7 +9,12 @@ from unittest.mock import Mock
 import pytest
 from tests._zipfile_shim import reload_zipfile
 
-from handler.filesystem.assets_handler import ASSETS_BASE_PATH, FSAssetsHandler
+from handler.filesystem import assets_handler
+from handler.filesystem.assets_handler import (
+    ASSETS_BASE_PATH,
+    FSAssetsHandler,
+    hash_save_file,
+)
 from models.user import User
 
 
@@ -500,3 +505,60 @@ class TestComputeContentHash:
         assert (
             result == pinned
         ), f"nested-switch-shape zip-hash drifted: got={result} want={pinned}"
+
+
+class TestHashSaveFile:
+    """Sync paths hash device files with hash_save_file, so it must agree with the server."""
+
+    @pytest.fixture
+    def temp_base(self):
+        path = tempfile.mkdtemp()
+        yield Path(path).resolve()
+        shutil.rmtree(path, ignore_errors=True)
+
+    @staticmethod
+    def _write_zip(path: Path, compression: int) -> None:
+        reload_zipfile()
+        with zipfile.ZipFile(path, "w", compression=compression) as zf:
+            zf.writestr("card/a.bin", b"alpha bytes" * 64)
+            zf.writestr("card/b.bin", b"\x00\x01\x02\x03" * 64)
+
+    @pytest.mark.asyncio
+    async def test_zip_matches_compute_content_hash(self, temp_base: Path):
+        self._write_zip(temp_base / "save.zip", zipfile.ZIP_DEFLATED)
+        handler = FSAssetsHandler()
+        handler.base_path = temp_base
+
+        assert hash_save_file(temp_base / "save.zip") == (
+            await handler.compute_content_hash("save.zip")
+        )
+
+    def test_repacked_zip_with_the_same_entries_hashes_the_same(self, temp_base: Path):
+        stored = temp_base / "stored.zip"
+        deflated = temp_base / "deflated.zip"
+        self._write_zip(stored, zipfile.ZIP_STORED)
+        self._write_zip(deflated, zipfile.ZIP_DEFLATED)
+        assert stored.read_bytes() != deflated.read_bytes()
+
+        assert hash_save_file(stored) == hash_save_file(deflated)
+
+    def test_non_zip_is_the_md5_of_its_bytes(self, temp_base: Path):
+        path = temp_base / "save.srm"
+        path.write_bytes(b"raw save data \x00\x01\xff")
+
+        assert (
+            hash_save_file(path)
+            == hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
+        )
+
+    def test_unreadable_zip_falls_back_to_the_md5_of_its_bytes(
+        self, temp_base: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        path = temp_base / "save.zip"
+        self._write_zip(path, zipfile.ZIP_DEFLATED)
+        monkeypatch.setattr(assets_handler, "MAX_DECOMPRESSED_ENTRY_BYTES", 8)
+
+        assert (
+            hash_save_file(path)
+            == hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
+        )
