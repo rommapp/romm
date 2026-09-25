@@ -191,8 +191,8 @@
   "virtual-collections": "Automaticky vytvořené kolekce",
   "visibility": "Viditelnost",
   "warning": "VAROVÁNÍ:",
-  "whats-new": "Co je nového",
   "websocket-unreachable-retrying": "Připojení WebSocket není k dispozici, opakuji pokus…",
+  "whats-new": "Co je nového",
   "zoom-in": "Přiblížit",
   "zoom-out": "Oddálit"
 }

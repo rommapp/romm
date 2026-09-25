@@ -191,8 +191,8 @@
   "virtual-collections": "自动生成的集合",
   "visibility": "可见性",
   "warning": "警告：",
-  "whats-new": "查看新功能",
   "websocket-unreachable-retrying": "WebSocket 连接不可用，正在重试…",
+  "whats-new": "查看新功能",
   "zoom-in": "放大",
   "zoom-out": "缩小"
 }

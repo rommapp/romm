@@ -191,8 +191,8 @@
   "virtual-collections": "Collections autogénérées",
   "visibility": "Visibilité",
   "warning": "ATTENTION :",
-  "whats-new": "Voir les nouveautés",
   "websocket-unreachable-retrying": "Connexion WebSocket indisponible, nouvelle tentative…",
+  "whats-new": "Voir les nouveautés",
   "zoom-in": "Zoom avant",
   "zoom-out": "Zoom arrière"
 }

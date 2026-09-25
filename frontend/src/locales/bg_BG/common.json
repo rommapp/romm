@@ -191,8 +191,8 @@
   "virtual-collections": "Автогенерирани колекции",
   "visibility": "Видимост",
   "warning": "ВНИМАНИЕ:",
-  "whats-new": "Виж какво е новото",
   "websocket-unreachable-retrying": "Връзката с WebSocket е недостъпна, опит за повторение…",
+  "whats-new": "Виж какво е новото",
   "zoom-in": "Увеличи",
   "zoom-out": "Намали"
 }

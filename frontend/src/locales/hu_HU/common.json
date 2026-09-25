@@ -191,8 +191,8 @@
   "virtual-collections": "Automatikusan generált gyűjtemények",
   "visibility": "Láthatóság",
   "warning": "FIGYELMEZTETÉS:",
-  "whats-new": "Mi újság",
   "websocket-unreachable-retrying": "A WebSocket kapcsolat nem érhető el, újrapróbálkozás…",
+  "whats-new": "Mi újság",
   "zoom-in": "Nagyítás",
   "zoom-out": "Kicsinyítés"
 }
