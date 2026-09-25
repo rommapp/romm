@@ -230,6 +230,8 @@ class ContainerSessionSchema(BaseModel):
 
 class AdminContainerSchema(BaseModel):
     container: str
+    name: str = ""
+    """What URLs call this container: its own label when unique, else the key."""
     label: str | None = None
     host: str
     platforms: list[str]

@@ -11,6 +11,7 @@ from handler.streaming.config import (
     containers_by_key,
     containers_for_platform,
     entry_for_platform,
+    key_for_name,
 )
 from handler.streaming.session_store import (
     get_live_session,
@@ -306,17 +307,16 @@ async def require_claim(
     return target
 
 
-def container_by_key(container_key: str) -> tuple[ResolvedContainer, str]:
-    """A configured container named by its key, plus the platform to file its
-    sessions under.
+def container_by_name(name: str) -> tuple[ResolvedContainer, str]:
+    """A configured container named by its name or key, plus the platform to
+    file its sessions under.
 
     The session routes are platform-keyed, so a container serving several gets
     the first, which `container_for_session` resolves back to this entry.
-    Raises 404 when the key names no container.
+    Raises 404 when the name matches no container.
     """
-    entries = containers_by_key().get(container_key) if container_key else None
+    key = key_for_name(name) if name else None
+    entries = containers_by_key().get(key) if key else None
     if not entries:
-        raise HTTPException(
-            status_code=404, detail=f"No streaming container '{container_key}'"
-        )
+        raise HTTPException(status_code=404, detail=f"No streaming container '{name}'")
     return entries[0], entries[0].platform
