@@ -1552,7 +1552,6 @@ def main() -> int:
                 "user_id": uid,
                 "device_id": dev,
                 "rom_id": rng.choice(rom_id_list),
-                "sync_session_id": None,
                 "save_slot": rng.choice(["1", "2", "auto", None]),
                 "start_time": start,
                 "end_time": start + timedelta(milliseconds=dur),

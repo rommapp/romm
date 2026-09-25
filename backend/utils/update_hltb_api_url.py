@@ -6,12 +6,13 @@ Utility script to update HowLongToBeat API URL by discovering the dynamic endpoi
 import re
 import sys
 import time
-from pathlib import Path
 
 import httpx
 
+from logger.logger import log
 from utils.context import create_httpx_client
 from utils.hltb_search import (
+    HLTB_API_URL_FIXTURE,
     HLTB_BASE_URL,
     SESSION_MINT_SUFFIX,
     HLTBSession,
@@ -38,19 +39,19 @@ def fetch_build_manifest(client: httpx.Client, base_url: str) -> str | None:
     homepage_url = f"{base_url}/"
     response = client.get(homepage_url, headers=headers, timeout=15)
     response.raise_for_status()
-    print(f"Fetched homepage: {homepage_url}")
+    log.info("Fetched homepage: %s", homepage_url)
 
     match = BUILD_MANIFEST_REGEX.search(response.text)
     if not match:
-        print("Could not locate the Next.js build manifest.", file=sys.stderr)
+        log.warning("Could not locate the Next.js build manifest")
         return None
 
     manifest_url = str(httpx.URL(homepage_url).join(match.group("path")))
-    print(f"Located build manifest: {manifest_url}")
+    log.info("Located build manifest: %s", manifest_url)
 
     response = client.get(manifest_url, headers=headers, timeout=15)
     response.raise_for_status()
-    print(f"Downloaded build manifest (size: {len(response.text)} chars)")
+    log.info("Downloaded build manifest (%d chars)", len(response.text))
 
     return response.text
 
@@ -97,7 +98,10 @@ def _rejection_reason(
             timeout=30,
         )
         response.raise_for_status()
-        results = response.json().get("data")
+        body = response.json()
+        if not isinstance(body, dict):
+            return "search did not return a JSON object"
+        results = body.get("data")
     except (httpx.RequestError, httpx.HTTPStatusError, ValueError) as e:
         return str(e)
 
@@ -118,10 +122,10 @@ def serves_game_search(client: httpx.Client, base_url: str, search_url: str) -> 
     """Check the candidate answers the search HLTBHandler sends, not just /init."""
     reason = _rejection_reason(client, base_url, search_url)
     if reason:
-        print(f"Rejected {search_url}: {reason}")
+        log.info("Rejected %s: %s", search_url, reason)
         return False
 
-    print(f"Confirmed {search_url} serves game search")
+    log.info("Confirmed %s serves game search", search_url)
     return True
 
 
@@ -136,20 +140,20 @@ def discover_hltb_endpoint(base_url: str = HLTB_BASE_URL) -> str | None:
 
             candidates = candidate_search_routes(manifest)
             if not candidates:
-                print("No API route offers a session mint.", file=sys.stderr)
+                log.warning("No HLTB API route offers a session mint")
                 return None
-            print(f"Candidate search routes: {', '.join(candidates)}")
+            log.info("Candidate search routes: %s", ", ".join(candidates))
 
             for route in candidates:
                 search_url = f"{base_url}{route}"
                 if serves_game_search(client, base_url, search_url):
-                    print(f"Resolved HLTB search endpoint: {search_url}")
+                    log.info("Resolved HLTB search endpoint: %s", search_url)
                     return search_url
 
-            print("No candidate route served game search.", file=sys.stderr)
+            log.warning("No candidate HLTB route served game search")
             return None
     except (httpx.RequestError, httpx.HTTPStatusError) as e:
-        print(f"Error discovering HLTB endpoint: {e}", file=sys.stderr)
+        log.warning("Error discovering HLTB endpoint: %s", e)
         return None
 
 
@@ -163,20 +167,11 @@ def main():
         print("Failed to discover HLTB API URL")
         sys.exit(1)
 
-    # Write to the expected location
-    fixture_path = (
-        Path(__file__).parent.parent
-        / "handler"
-        / "metadata"
-        / "fixtures"
-        / "hltb_api_url"
-    )
-
     try:
-        with open(fixture_path, "w") as f:
+        with open(HLTB_API_URL_FIXTURE, "w") as f:
             f.write(f"{search_url}\n")
         print(f"Successfully updated HLTB API URL to: {search_url}")
-        print(f"Written to: {fixture_path}")
+        print(f"Written to: {HLTB_API_URL_FIXTURE}")
     except OSError as e:
         print(f"Error writing to fixture file: {e}")
         sys.exit(1)

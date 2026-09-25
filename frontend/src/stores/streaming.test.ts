@@ -4,7 +4,11 @@ import streamingApi, { type JoinableSession } from "@/services/api/streaming";
 import { useStreamingStore } from "@/stores/streaming";
 
 vi.mock("@/services/api/streaming", () => ({
-  default: { listJoinableSessions: vi.fn() },
+  default: {
+    listJoinableSessions: vi.fn(),
+    saveAndExit: vi.fn(),
+    saveAndExitKeepalive: vi.fn(),
+  },
 }));
 
 describe("platformCapabilities disc flags", () => {
@@ -14,6 +18,7 @@ describe("platformCapabilities disc flags", () => {
     const store = useStreamingStore();
     store.config = {
       enabled: true,
+      emulator_labels: {},
       containers: [
         {
           platform: "dc",
@@ -22,6 +27,7 @@ describe("platformCapabilities disc flags", () => {
           emulator: "retroarch",
           supports_memory_cards: false,
           supports_save_picker: false,
+          supports_live_states: true,
           capabilities: {
             max_slots: 0,
             has_autosave: true,
@@ -40,6 +46,41 @@ describe("platformCapabilities disc flags", () => {
   it("reports no disc swap for an unconfigured platform", () => {
     const store = useStreamingStore();
     expect(store.platformCapabilities("dc").supportsDiscSwap).toBe(false);
+  });
+});
+
+describe("emulator labels", () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  it("names an emulator by the label the backend ships", () => {
+    const store = useStreamingStore();
+    store.config = {
+      enabled: true,
+      containers: [],
+      emulator_labels: { play: "Play!" },
+    };
+    expect(store.emulatorLabel("play")).toBe("Play!");
+  });
+
+  it("names an emulator configured in another case", () => {
+    const store = useStreamingStore();
+    store.config = {
+      enabled: true,
+      containers: [],
+      emulator_labels: { play: "Play!" },
+    };
+    expect(store.emulatorLabel("Play")).toBe("Play!");
+  });
+
+  it("falls back to the id for an emulator it was told nothing about", () => {
+    const store = useStreamingStore();
+    expect(store.emulatorLabel("snes9x")).toBe("snes9x");
+  });
+
+  it("falls back to the id for one named like an object's own members", () => {
+    const store = useStreamingStore();
+    expect(store.emulatorLabel("constructor")).toBe("constructor");
+    expect(store.emulatorLabel("__proto__")).toBe("__proto__");
   });
 });
 
@@ -114,5 +155,55 @@ describe("joinable sessions", () => {
     await store.fetchJoinableSessions(true);
 
     expect(store.joinableForRom(7)?.host_username).toBe("ana");
+  });
+});
+
+describe("save-and-exit", () => {
+  const saveAndExit = streamingApi.saveAndExit as unknown as Mock;
+  const saveAndExitKeepalive =
+    streamingApi.saveAndExitKeepalive as unknown as Mock;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    saveAndExit.mockReset();
+    saveAndExitKeepalive.mockReset();
+  });
+
+  it("names the claim it saves", async () => {
+    saveAndExit.mockResolvedValue({ data: { released: true, saved: true } });
+
+    await useStreamingStore().saveAndExit(
+      "ps2",
+      0,
+      false,
+      "ps2-1",
+      "2026-01-01T00:00:00Z",
+    );
+
+    expect(saveAndExit).toHaveBeenCalledWith(
+      "ps2",
+      0,
+      false,
+      "ps2-1",
+      "2026-01-01T00:00:00Z",
+    );
+  });
+
+  it("names the claim it saves on unload", () => {
+    saveAndExitKeepalive.mockResolvedValue(new Response());
+
+    useStreamingStore().saveAndExitKeepalive(
+      "ps2",
+      0,
+      "ps2-1",
+      "2026-01-01T00:00:00Z",
+    );
+
+    expect(saveAndExitKeepalive).toHaveBeenCalledWith(
+      "ps2",
+      0,
+      "ps2-1",
+      "2026-01-01T00:00:00Z",
+    );
   });
 });

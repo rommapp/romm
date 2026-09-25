@@ -78,7 +78,7 @@
     "@types/qrcode": "^1.5.5",
     "@types/semver": "^7.7.0",
     "@vitejs/plugin-vue": "^6.0.7",
-    "@vitest/ui": "^4.1.5",
+    "@vitest/ui": "^5.0.1",
     "@vue/test-utils": "^2.4.9",
     "@vue/tsconfig": "^0.9.1",
     "axe-core": "^4.12.1",
@@ -99,7 +99,7 @@
     "vite-plugin-mkcert": "^1.17.8",
     "vite-plugin-pwa": "^1.3.0",
     "vite-plugin-vuetify": "^2.0.4",
-    "vitest": "^4.1.11",
+    "vitest": "^5.0.1",
     "vue-tsc": "^3.3.11"
   },
   "overrides": {

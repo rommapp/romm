@@ -777,7 +777,11 @@ function onRowPointerDown(e: PointerEvent) {
   display: grid;
   align-items: center;
   gap: 0 var(--r-space-5);
+  /* Runs to the leading screen edge wherever the shell asks, keeping that
+     gutter as padding so the first column lines up with the toolbar. */
+  margin-inline-start: calc(-1 * var(--r-list-bleed-start, 0px));
   padding: 0 var(--r-space-3);
+  padding-inline-start: max(var(--r-space-3), var(--r-list-bleed-start, 0px));
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
 }
@@ -899,6 +903,15 @@ function onRowPointerDown(e: PointerEvent) {
 }
 .game-list-row--selected.game-list-row--clickable:hover {
   background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
+}
+
+/* The scroller clips an outline past the row's screen edge, so key and pad
+   focus paint inside the row. */
+html:not([data-input]) .game-list-row:focus-visible,
+html[data-input="key"] .game-list-row:focus-visible,
+html[data-input="pad"] .game-list-row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 var(--r-focus-ring-width) var(--r-color-focus);
 }
 
 /* Select cell — checkbox column. Empty when the row is in skeleton

@@ -16,10 +16,12 @@ from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.filesystem import fs_platform_handler
 from logger.logger import log
+from models.audit_event import AuditAction, AuditTargetType
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -183,6 +185,15 @@ async def _reject_ambiguous_folder(fs_slug: str) -> None:
         )
 
 
+def _record_config(request: Request, setting: str, op: str, **values: str) -> None:
+    record(
+        AuditAction.CONFIG_UPDATE,
+        request,
+        AuditTarget(AuditTargetType.CONFIG, setting, None),
+        {"setting": setting, "op": op, **values},
+    )
+
+
 @protected_route(router.post, "/system/platforms", [Scope.PLATFORMS_WRITE])
 async def add_platform_binding(
     request: Request, payload: PlatformBindingPayload
@@ -200,6 +211,7 @@ async def add_platform_binding(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_binding", "add", fs_slug=fs_slug, slug=slug)
 
 
 @protected_route(router.delete, "/system/platforms/{fs_slug}", [Scope.PLATFORMS_WRITE])
@@ -213,6 +225,7 @@ async def delete_platform_binding(request: Request, fs_slug: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_binding", "remove", fs_slug=fs_slug)
 
 
 @protected_route(router.post, "/system/versions", [Scope.PLATFORMS_WRITE])
@@ -232,6 +245,7 @@ async def add_platform_version(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_version", "add", fs_slug=fs_slug, slug=slug)
 
 
 @protected_route(router.delete, "/system/versions/{fs_slug}", [Scope.PLATFORMS_WRITE])
@@ -245,6 +259,7 @@ async def delete_platform_version(request: Request, fs_slug: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_version", "remove", fs_slug=fs_slug)
 
 
 @protected_route(router.post, "/exclude", [Scope.PLATFORMS_WRITE])
@@ -260,6 +275,9 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(
+        request, "exclusion", "add", type=exclusion_type, value=exclusion_value
+    )
 
 
 @protected_route(
@@ -279,6 +297,9 @@ async def delete_exclusion(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(
+        request, "exclusion", "remove", type=exclusion_type, value=exclusion_value
+    )
 
 
 @protected_route(router.put, "/scan", [Scope.PLATFORMS_WRITE])
@@ -311,6 +332,7 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "scan_settings", "update")
 
     # Region priority picks the primary rom of each sibling group, so every
     # cached gallery sidecar is stale the moment the order changes.

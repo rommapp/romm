@@ -10,9 +10,14 @@ import storePermissions from "../src/stores/permissions";
 import "../src/styles/common.css";
 import "../src/styles/fonts.css";
 import { dark, light } from "../src/styles/themes";
+import { installBreakpointAttribute } from "../src/v2/composables/useBreakpoint";
 import { ChromeLabelsKey } from "../src/v2/lib/a11y/chromeLabels";
 import "../src/v2/styles/global.css";
 import { createChromeLabels } from "../src/v2/utils/chromeLabels";
+import { ROMM_STORYBOOK_VIEWPORTS } from "./rommViewports";
+
+// Mirror AppLayout/AuthLayout so html[data-bp] CSS matches useBreakpoint() in the iframe.
+installBreakpointAttribute();
 
 // Each story runs inside a Vue app with Pinia + i18n + Vuetify registered.
 // Static files (platform icons, story fixtures) are mounted only via staticDirs
@@ -59,9 +64,15 @@ setup((app) => {
 });
 
 const preview: Preview = {
+  initialGlobals: {
+    viewport: { value: "rommDesktopMd" },
+  },
   parameters: {
     layout: "centered",
     backgrounds: { disable: true },
+    viewport: {
+      options: ROMM_STORYBOOK_VIEWPORTS,
+    },
     // Accessibility gate
     a11y: {
       test: "error",

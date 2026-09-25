@@ -241,7 +241,7 @@ function onRowClick(e: MouseEvent) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 160px 130px 110px 88px 96px;
   gap: 0 var(--r-space-3);
-  padding: 0 var(--r-space-3);
+  padding: 0 max(var(--r-space-3), var(--r-list-bleed, 0px));
 }
 
 /* Clear of the screen edge, which the row itself runs to. */

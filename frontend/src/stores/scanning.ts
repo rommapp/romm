@@ -15,6 +15,8 @@ export interface ScanningPlatform extends Pick<
 export default defineStore("scanning", {
   state: () => ({
     scanning: false,
+    /** Whether the running scan was started from this tab, which toasts its end. */
+    startedInThisTab: false,
     scanningPlatforms: [] as ScanningPlatform[],
     scanStats: {} as ScanStats,
   }),
@@ -22,12 +24,14 @@ export default defineStore("scanning", {
   actions: {
     setScanning(scanning: boolean) {
       this.scanning = scanning;
+      if (!scanning) this.startedInThisTab = false;
     },
     setScanStats(stats: ScanStats) {
       this.scanStats = stats;
     },
     reset() {
       this.scanning = false;
+      this.startedInThisTab = false;
       this.scanningPlatforms = [] as ScanningPlatform[];
       this.scanStats = {
         total_platforms: 0,

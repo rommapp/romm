@@ -130,6 +130,54 @@ SCENE_METADATA_SOURCES = frozenset(
     {MetadataSource.DEMOZOO, MetadataSource.POUET, MetadataSource.CSDB}
 )
 
+# Sources that report the dump a hash matched rather than the title. Their tags
+# fill an empty slot only: a filename and a gamelist.xml are curated with the
+# library, so they own these fields and the locale pickers read them back.
+HASH_MATCHED_TAG_SOURCES = frozenset({MetadataSource.SS, MetadataSource.HASHEOUS})
+PROVIDER_TAG_FIELDS = ("regions", "languages")
+# Tags merge rather than fill: being a translation says nothing about being a
+# revision, so a dump's tags join the filename's instead of replacing them.
+PROVIDER_MERGED_TAG_FIELDS = ("tags",)
+PROVIDER_ALL_TAG_FIELDS = PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
+# Where a hash source's blob keeps each tag field its dump gave.
+DUMP_TAG_KEYS = {field: f"dump_{field}" for field in PROVIDER_ALL_TAG_FIELDS}
+
+
+def hash_source_tags(
+    fields: dict[str, Any], rom_attrs: dict[str, Any]
+) -> tuple[dict[str, list[str]], bool]:
+    """The tags a hash-matched source vouches for, and whether it said so this scan.
+
+    Args:
+        fields: The source's entry in the scan's handler table, its blob already
+            holding this scan's dump tags.
+        rom_attrs: The ROM's attributes, still holding its stored ids and blobs.
+
+    Returns:
+        Each tag field's values, empty when the source doesn't cover the ROM, and
+        whether they are this scan's answer rather than the stored one.
+    """
+    handler = fields["handler"]
+    answered = bool(handler.get(fields["id_field"]))
+    if answered:
+        blob = handler.get(fields["metadata_field"]) or {}
+    elif rom_attrs.get(fields["id_field"]):
+        blob = rom_attrs.get(fields["metadata_field"]) or {}
+    else:
+        blob = {}
+    # A hand edit of the raw metadata can store any JSON; only lists of strings count.
+    if not isinstance(blob, dict):
+        blob = {}
+    claims = {}
+    for field in PROVIDER_ALL_TAG_FIELDS:
+        value = blob.get(DUMP_TAG_KEYS[field])
+        claims[field] = (
+            [tag for tag in value if isinstance(tag, str)]
+            if isinstance(value, list)
+            else []
+        )
+    return claims, answered
+
 
 def scene_apply_sources(
     available_sources: list[MetadataSource],
@@ -983,7 +1031,11 @@ async def scan_rom(
             try:
                 # Use the ID to refetch metadata
                 if scan_type == ScanType.UPDATE and rom.ss_id:
-                    return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
+                    # With the files, the refetch still finds our own dump among
+                    # the game's, so a rescan keeps the tags the hash earned.
+                    return await meta_ss_handler.get_rom_by_id(
+                        rom, rom.ss_id, get_match_files()
+                    )
 
                 # Use Playmatch's hash-based id when available
                 if playmatch_rom["ss_id"] is not None:
@@ -993,7 +1045,7 @@ async def scan_rom(
                         extra=LOGGER_MODULE_NAME,
                     )
                     return await meta_ss_handler.get_rom_by_id(
-                        rom, playmatch_rom["ss_id"]
+                        rom, playmatch_rom["ss_id"], get_match_files()
                     )
 
                 # Use the file hashes for lookup
@@ -1402,15 +1454,95 @@ async def scan_rom(
             extra=LOGGER_MODULE_NAME,
         )
 
+    # A rehash that no longer matches must drop the previous Hasheous match, or
+    # the ROM keeps showing verification flags earned by hashes it no longer has.
+    # Only a conclusive lookup clears them, so an unreachable Hasheous can't
+    # silently de-verify a library.
+    if (
+        scan_type == ScanType.HASHES
+        and hasheous_lookup_conclusive
+        and not hasheous_hash_match.get("hasheous_id")
+    ):
+        rom_attrs["hasheous_id"] = None
+        rom_attrs["hasheous_metadata"] = {}
+
+    # A skipped source's tags can't be told apart on the row, so each hash source
+    # keeps the ones its dump gave in its own blob.
+    for source_name in HASH_MATCHED_TAG_SOURCES:
+        fields = metadata_handlers[source_name]
+        handler = fields["handler"]
+        if handler.get(fields["id_field"]):
+            dump_tags = {
+                DUMP_TAG_KEYS[field]: list(handler.get(field) or [])
+                for field in PROVIDER_ALL_TAG_FIELDS
+            }
+            blob = {**(handler.get(fields["metadata_field"]) or {}), **dump_tags}
+            fields["handler"] = {**handler, fields["metadata_field"]: blob}
+
+    # One ordering pass for both lists, since each one rereads config.yml.
+    hash_sources = [] if scene_locked else list(HASH_MATCHED_TAG_SOURCES)
+    ordered = get_priority_ordered_metadata_sources(
+        list(dict.fromkeys([*apply_sources, *hash_sources])), "metadata"
+    )
+    priority_ordered = [source for source in ordered if source in apply_sources]
+    hash_claims = [
+        hash_source_tags(metadata_handlers[source], rom_attrs)
+        for source in ordered
+        if source in hash_sources
+    ]
+
     # Apply metadata priority order
-    priority_ordered = get_priority_ordered_metadata_sources(apply_sources, "metadata")
     # Reverse priority order to apply highest priority last
     for source_name in reversed(priority_ordered):
         handler_data = metadata_handlers[source_name]["handler"]
         # Only update fields that have valid values
         for key, field_value in handler_data.items():
+            if (
+                key in PROVIDER_ALL_TAG_FIELDS
+                and source_name in HASH_MATCHED_TAG_SOURCES
+            ):
+                continue
             if field_value:
                 rom_attrs[key] = field_value
+
+    # Re-read rather than taken off the row, which cannot say whether its value
+    # is a tag the user wrote or what a provider left there on an earlier scan.
+    filename_tags = fs_rom_handler.parse_tags(rom_attrs["fs_name"])
+    local_tags = {
+        "regions": filename_tags.regions,
+        "languages": filename_tags.languages,
+        "tags": filename_tags.other_tags,
+    }
+    for field in PROVIDER_TAG_FIELDS:
+        if local_tags[field] or any(
+            metadata_handlers[source_name]["handler"].get(field)
+            for source_name in priority_ordered
+            if source_name not in HASH_MATCHED_TAG_SOURCES
+        ):
+            continue
+        for claims, answered in hash_claims:
+            # What a source said on an earlier scan fills only an empty slot: the
+            # row's value may come from a source this scan didn't ask either.
+            if claims[field] and (answered or not rom_attrs.get(field)):
+                rom_attrs[field] = claims[field]
+                break
+
+    for field in PROVIDER_MERGED_TAG_FIELDS:
+        # The base is what a local source says now, never the stored list: a
+        # dump that stops being a translation has to lose the tag again.
+        merged_tags = list(local_tags[field])
+        for source_name in priority_ordered:
+            if source_name in HASH_MATCHED_TAG_SOURCES:
+                continue
+            claimed = metadata_handlers[source_name]["handler"].get(field)
+            if claimed:
+                merged_tags = list(claimed)
+                break
+        for claims, _ in hash_claims:
+            for tag in claims[field]:
+                if tag not in merged_tags:
+                    merged_tags.append(tag)
+        rom_attrs[field] = merged_tags
 
     # Artwork sources are prioritized separately, and each field can carry its
     # own override on top of the shared artwork priority.
@@ -1459,18 +1591,6 @@ async def scan_rom(
                 "url_screenshots": rom_attrs.get("url_screenshots") or [],
             }
         )
-
-    # A rehash that no longer matches must drop the previous Hasheous match, or
-    # the ROM keeps showing verification flags earned by hashes it no longer has.
-    # Only a conclusive lookup clears them, so an unreachable Hasheous can't
-    # silently de-verify a library.
-    if (
-        scan_type == ScanType.HASHES
-        and hasheous_lookup_conclusive
-        and not hasheous_hash_match.get("hasheous_id")
-    ):
-        rom_attrs["hasheous_id"] = None
-        rom_attrs["hasheous_metadata"] = {}
 
     # Use PICO-8 cartridge PNG as cover art if no cover is set.
     # PICO-8 .p8.png files are valid PNG images whose visual content is the
@@ -1770,9 +1890,10 @@ async def scan_screenshot(
     user: User,
     platform_fs_slug: str,
     rom_id: int,
+    emulator: str | None = None,
 ) -> Screenshot:
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
-        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id
+        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
     scanned_asset = await _scan_asset(file_name, screenshots_path)
     return Screenshot(**scanned_asset)

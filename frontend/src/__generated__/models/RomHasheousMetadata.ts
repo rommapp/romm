@@ -13,5 +13,8 @@ export type RomHasheousMetadata = {
     ra_match?: boolean;
     fbneo_match?: boolean;
     puredos_match?: boolean;
+    dump_regions?: Array<string>;
+    dump_languages?: Array<string>;
+    dump_tags?: Array<string>;
 };
 

@@ -97,7 +97,7 @@ function handleClick(col: PlatformColumn) {
   grid-template-columns: minmax(0, 1fr) 160px 130px 110px 88px 96px;
   align-items: center;
   gap: 0 var(--r-space-3);
-  padding: 0 var(--r-space-3);
+  padding: 0 max(var(--r-space-3), var(--r-list-bleed, 0px));
   height: var(--r-list-header-h);
   /* Overridable so a pinned header can run it edge to edge (r-pinned-list-header). */
   border-bottom: var(--r-list-header-border, 1px solid var(--r-color-border));
