@@ -21,7 +21,7 @@ from endpoints.sockets.sync import emit_sync_conflict
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import (
-    db_deleted_save_handler,
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
@@ -32,7 +32,7 @@ from handler.redis_handler import high_prio_queue
 from handler.sync.comparison import compare_save_state, deleted_slot_covers
 from logger.logger import log
 from models.assets import Save
-from models.deleted_save import DeletedSave
+from models.deleted_asset import DeletedAsset
 from models.device import SyncMode
 from models.sync_session import SyncSessionStatus
 from utils.datetime import to_utc
@@ -232,9 +232,9 @@ def negotiate_sync(
 
     # Read only when a slot has no row left, so a slot refilled since keeps
     # its record harmlessly.
-    deleted_map: dict[tuple[int, str | None], DeletedSave] = {
+    deleted_map: dict[tuple[int, str | None], DeletedAsset] = {
         (record.rom_id, record.slot): record
-        for record in db_deleted_save_handler.get_deletions(
+        for record in db_deleted_asset_handler.get_deletions(
             user_id=request.user.id, rom_ids=rom_id_scope
         )
     }

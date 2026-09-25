@@ -17,7 +17,7 @@ from handler.asset_store import release_thumbnail, remove_asset_file, rename_ass
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
-    db_deleted_save_handler,
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_rom_handler,
@@ -843,7 +843,7 @@ async def delete_saves(
         # a save still present is never read, while a deletion with no record
         # offers the save back to every device holding it.
         if save.slot:
-            db_deleted_save_handler.record_deletion(
+            db_deleted_asset_handler.record_deletion(
                 user_id=request.user.id,
                 rom_id=save.rom_id,
                 slot=save.slot,

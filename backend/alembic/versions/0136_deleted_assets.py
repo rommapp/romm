@@ -1,6 +1,6 @@
-"""Add deleted_saves table
+"""Add deleted_assets table
 
-Revision ID: 0136_deleted_saves
+Revision ID: 0136_deleted_assets
 Revises: 0135_drop_play_session_sync_link
 Create Date: 2026-09-21 00:00:00.000000
 
@@ -10,18 +10,18 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0136_deleted_saves"
+revision = "0136_deleted_assets"
 down_revision = "0135_drop_play_session_sync_link"
 branch_labels = None
 depends_on = None
 
-INDEX_NAME = "ix_deleted_saves_user_rom_slot"
-ROM_INDEX_NAME = "ix_deleted_saves_rom_id"
+INDEX_NAME = "ix_deleted_assets_user_rom_slot"
+ROM_INDEX_NAME = "ix_deleted_assets_rom_id"
 
 
 def upgrade() -> None:
     op.create_table(
-        "deleted_saves",
+        "deleted_assets",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("rom_id", sa.Integer(), nullable=False),
@@ -47,15 +47,15 @@ def upgrade() -> None:
     )
     op.create_index(
         INDEX_NAME,
-        "deleted_saves",
+        "deleted_assets",
         ["user_id", "rom_id", "slot"],
         unique=True,
         if_not_exists=True,
     )
     op.create_index(
-        ROM_INDEX_NAME, "deleted_saves", ["rom_id"], unique=False, if_not_exists=True
+        ROM_INDEX_NAME, "deleted_assets", ["rom_id"], unique=False, if_not_exists=True
     )
 
 
 def downgrade() -> None:
-    op.drop_table("deleted_saves", if_exists=True)
+    op.drop_table("deleted_assets", if_exists=True)

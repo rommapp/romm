@@ -2,7 +2,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from handler.database import (
-    db_deleted_save_handler,
+    db_deleted_asset_handler,
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
@@ -27,7 +27,7 @@ def test_delete_saves(client, access_token, save):
     # The row and its device pairings go together, so what the user did is only
     # recoverable from this: without it a device still holding the save offers
     # it back and the deletion undoes itself.
-    deletions = db_deleted_save_handler.get_deletions(
+    deletions = db_deleted_asset_handler.get_deletions(
         user_id=save.user_id, rom_ids=[save.rom_id]
     )
     assert [record.slot for record in deletions] == [save.slot]

@@ -9,15 +9,15 @@ from models.assets import SAVE_SLOT_MAX_LENGTH
 from models.base import BaseModel
 
 
-class DeletedSave(BaseModel):
+class DeletedAsset(BaseModel):
     """A slot emptied by its owner, so a device still holding it can be told."""
 
-    __tablename__ = "deleted_saves"
+    __tablename__ = "deleted_assets"
     __table_args__ = (
         # One row per slot: a slot can be emptied, refilled and emptied again,
         # and only the last time decides anything.
         Index(
-            "ix_deleted_saves_user_rom_slot", "user_id", "rom_id", "slot", unique=True
+            "ix_deleted_assets_user_rom_slot", "user_id", "rom_id", "slot", unique=True
         ),
         {"extend_existing": True},
     )

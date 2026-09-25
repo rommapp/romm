@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
-from models.deleted_save import DeletedSave
+from models.deleted_asset import DeletedAsset
 from utils.datetime import to_utc
 
 from .base_handler import DBBaseHandler
@@ -16,7 +16,7 @@ from .base_handler import DBBaseHandler
 MAX_REMEMBERED_HASHES = 100
 
 
-class DBDeletedSavesHandler(DBBaseHandler):
+class DBDeletedAssetsHandler(DBBaseHandler):
     @begin_session
     def record_deletion(
         self,
@@ -26,7 +26,7 @@ class DBDeletedSavesHandler(DBBaseHandler):
         content_hash: str | None,
         deleted_at: datetime,
         session: Session = None,  # type: ignore
-    ) -> DeletedSave:
+    ) -> DeletedAsset:
         """Remember a version this slot lost, keeping one row per slot.
 
         Args:
@@ -43,7 +43,7 @@ class DBDeletedSavesHandler(DBBaseHandler):
         if existing:
             return self._merge(existing, content_hash, deleted_at, session)
 
-        record = DeletedSave(
+        record = DeletedAsset(
             user_id=user_id,
             rom_id=rom_id,
             slot=slot,
@@ -65,21 +65,21 @@ class DBDeletedSavesHandler(DBBaseHandler):
 
     def _locked(
         self, session: Session, user_id: int, rom_id: int, slot: str
-    ) -> DeletedSave | None:
+    ) -> DeletedAsset | None:
         """This slot's record, held against a concurrent deletion of the same."""
         return session.scalar(
-            select(DeletedSave)
+            select(DeletedAsset)
             .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
             .with_for_update()
         )
 
     def _merge(
         self,
-        record: DeletedSave,
+        record: DeletedAsset,
         content_hash: str | None,
         deleted_at: datetime,
         session: Session,
-    ) -> DeletedSave:
+    ) -> DeletedAsset:
         """Add this version to what the slot is known to have lost."""
         hashes = list(record.content_hashes or [])
         if content_hash and content_hash not in hashes:
@@ -97,11 +97,11 @@ class DBDeletedSavesHandler(DBBaseHandler):
         user_id: int,
         rom_ids: list[int] | None = None,
         session: Session = None,  # type: ignore
-    ) -> Sequence[DeletedSave]:
+    ) -> Sequence[DeletedAsset]:
         """Every slot this user emptied, optionally scoped to some ROMs."""
-        query = select(DeletedSave).filter_by(user_id=user_id)
+        query = select(DeletedAsset).filter_by(user_id=user_id)
         if rom_ids is not None:
             if not rom_ids:
                 return []
-            query = query.filter(DeletedSave.rom_id.in_(rom_ids))
+            query = query.filter(DeletedAsset.rom_id.in_(rom_ids))
         return session.scalars(query).all()

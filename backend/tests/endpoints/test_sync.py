@@ -11,7 +11,7 @@ from unittest import mock
 from fastapi import status
 
 from handler.database import (
-    db_deleted_save_handler,
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_play_session_handler,
@@ -65,7 +65,7 @@ class TestSyncNegotiate:
         device = db_device_handler.add_device(
             Device(id="neg-dev-deleted", user_id=admin_user.id, sync_enabled=True)
         )
-        db_deleted_save_handler.record_deletion(
+        db_deleted_asset_handler.record_deletion(
             user_id=admin_user.id,
             rom_id=rom.id,
             slot="autosave",
@@ -104,7 +104,7 @@ class TestSyncNegotiate:
         device = db_device_handler.add_device(
             Device(id="neg-dev-deleted-2", user_id=admin_user.id, sync_enabled=True)
         )
-        db_deleted_save_handler.record_deletion(
+        db_deleted_asset_handler.record_deletion(
             user_id=admin_user.id,
             rom_id=rom.id,
             slot="autosave",

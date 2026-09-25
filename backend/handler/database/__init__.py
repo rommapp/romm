@@ -2,7 +2,7 @@ from .audit_events_handler import DBAuditEventsHandler
 from .client_tokens_handler import DBClientTokensHandler
 from .collections_handler import DBCollectionsHandler
 from .container_adoptions_handler import DBContainerAdoptionsHandler
-from .deleted_saves_handler import DBDeletedSavesHandler
+from .deleted_assets_handler import DBDeletedAssetsHandler
 from .device_save_sync_handler import DBDeviceSaveSyncHandler
 from .devices_handler import DBDevicesHandler
 from .firmware_handler import DBFirmwareHandler
@@ -26,7 +26,7 @@ db_audit_event_handler = DBAuditEventsHandler()
 db_client_token_handler = DBClientTokensHandler()
 db_collection_handler = DBCollectionsHandler()
 db_container_adoption_handler = DBContainerAdoptionsHandler()
-db_deleted_save_handler = DBDeletedSavesHandler()
+db_deleted_asset_handler = DBDeletedAssetsHandler()
 db_device_handler = DBDevicesHandler()
 db_device_save_sync_handler = DBDeviceSaveSyncHandler()
 db_firmware_handler = DBFirmwareHandler()
