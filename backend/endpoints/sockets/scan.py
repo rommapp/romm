@@ -15,7 +15,11 @@ from rq.job import Job, JobStatus
 from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
-from adapters.services.sigil import SIGIL_PLATFORM_SLUGS, SWITCH_PLATFORM_SLUGS
+from adapters.services.sigil import (
+    SIGIL_PLATFORM_SLUGS,
+    SWITCH_PLATFORM_SLUGS,
+    SigilService,
+)
 from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -1554,6 +1558,14 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     platform_fs_slugs = options.get("platform_fs_slugs", [])
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
+
+    # The option is hidden in that case, so only a stale client or a direct
+    # socket call lands here, and the scan would refresh nothing.
+    if scan_type == ScanType.TITLE_IDS and not SigilService.extraction_enabled():
+        message = "Title ID extraction is disabled on this server"
+        log.info(f"{emoji.EMOJI_STOP_SIGN} {message}, ignoring request")
+        await socket_handler.socket_server.emit("scan:done_ko", message, to=sid)
+        return
 
     # Pressing scan again after losing the progress socket would queue a second
     # pass over the library; a scan of named roms is not that, so it may queue.

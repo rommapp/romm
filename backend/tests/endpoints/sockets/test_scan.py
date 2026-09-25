@@ -2274,6 +2274,23 @@ class TestScanConcurrency:
         emit.assert_awaited_once()
         assert emit.await_args.args[0] == "scan:done_ko"
 
+    @pytest.mark.parametrize("enabled", [True, False])
+    async def test_a_title_ids_scan_needs_extraction_enabled(
+        self, mocker, emit, enabled: bool
+    ):
+        patch_scan_jobs(mocker)
+        mocker.patch.object(
+            scan_module.SigilService, "extraction_enabled", return_value=enabled
+        )
+        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "title_ids"})
+
+        assert enqueue.called is enabled
+        if not enabled:
+            assert emit.await_args is not None
+            assert emit.await_args.args[0] == "scan:done_ko"
+
     async def test_refuses_when_a_scan_is_queued(self, mocker, emit):
         patch_scan_jobs(mocker, scan_queued=[make_job(SCAN_PLATFORMS_FUNC)])
         enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
