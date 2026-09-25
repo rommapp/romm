@@ -77,6 +77,7 @@ from handler.streaming.config import (
     ResolvedContainer,
     configured_emulator,
     container_for_session,
+    container_names,
     containers_by_key,
     containers_for_platform,
     emulator_labels,
@@ -186,7 +187,7 @@ ClaimedAtQuery = Annotated[str | None, Query(max_length=CLAIMED_AT_MAX_LENGTH)]
 
 
 class DesktopStreamingSessionRequest(BaseModel):
-    # The container to open, named by the key GET /streaming/containers
+    # The container to open, by the name or key GET /streaming/containers
     # reports. Named rather than pooled: an admin configuring a container
     # needs that one, not whichever is free.
     container: Annotated[str, Field(min_length=1, max_length=CONTAINER_KEY_MAX_LENGTH)]
@@ -1501,6 +1502,7 @@ async def list_containers(request: Request) -> AdminContainersResponse:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     containers: list[AdminContainerSchema] = []
+    names = container_names()
     for container_key, entries in containers_by_key().items():
         first = entries[0]
         held = await get_session(container_key) if container_key else None
@@ -1513,6 +1515,7 @@ async def list_containers(request: Request) -> AdminContainersResponse:
         containers.append(
             AdminContainerSchema(
                 container=container_key,
+                name=names.get(container_key, ""),
                 label=first.container_label or first.label,
                 host=first.host,
                 platforms=[e.platform for e in entries],
@@ -1561,7 +1564,7 @@ async def claim_desktop_session(
     if request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    container, platform = access.container_by_key(req.container)
+    container, platform = access.container_by_name(req.container)
     if not container.protocol.supports_desktop:
         raise HTTPException(
             status_code=400,

@@ -60,7 +60,9 @@ from handler.streaming.config import (
     ResolvedContainer,
     _derive_broker_host,
     configured_emulator,
+    container_names,
     emulator_display_label,
+    key_for_name,
     pools_for_platform,
     reset_cache,
     resolve_containers,
@@ -2207,6 +2209,88 @@ def test_the_session_platform_picks_the_config_entry_for_its_container():
     assert streaming.container_for_session(grouped, "http://nope:8000", "ps2") is None
 
 
+# ── Container names ───────────────────────────────────────────────────────────
+
+
+def _labelled(label, index):
+    """A webstation container on its own host, with the given label."""
+    return {
+        "host": f"http://192.168.1.{index}:3000",
+        "broker_host": f"http://192.168.1.{index}:8000",
+        "protocol": "webstation",
+        "platforms": {"ps2": "pcsx2"},
+        **({"label": label} if label is not None else {}),
+    }
+
+
+def test_a_labelled_container_is_named_by_its_label():
+    entry = _labelled("WEBSTATION-DEV", 10)
+    with _streaming(entry):
+        names = container_names()
+        key = key_for_name("WEBSTATION-DEV")
+    assert names == {_key_of(entry): "WEBSTATION-DEV"}
+    assert key == _key_of(entry)
+
+
+def test_an_unlabelled_container_is_named_by_its_key():
+    entry = _labelled(None, 10)
+    with _streaming(entry):
+        assert container_names() == {_key_of(entry): _key_of(entry)}
+
+
+def test_a_name_matches_its_label_in_any_case():
+    entry = _labelled("Emulation station", 10)
+    with _streaming(entry):
+        assert key_for_name("emulation STATION") == _key_of(entry)
+
+
+def test_a_key_still_names_a_labelled_container():
+    """Links from before names existed carry the key."""
+    entry = _labelled("WEBSTATION-DEV", 10)
+    with _streaming(entry):
+        assert key_for_name(_key_of(entry)) == _key_of(entry)
+
+
+def test_an_unknown_name_matches_nothing():
+    with _streaming(_labelled("WEBSTATION-DEV", 10)):
+        assert key_for_name("WEBSTATION-OTHER") is None
+
+
+def test_a_shared_label_names_neither_container(caplog):
+    first = _labelled("Webstation", 10)
+    second = _labelled("webstation", 11)
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(first, second):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                names = container_names()
+                key = key_for_name("Webstation")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert names == {_key_of(first): _key_of(first), _key_of(second): _key_of(second)}
+    assert key is None
+    assert "share the label" in caplog.text
+
+
+def test_a_label_cannot_take_another_containers_key():
+    """A label spelled like another container's key must not redirect it."""
+    target = _labelled("Target", 10)
+    impostor = _labelled(_key_of(target), 11)
+    with _streaming(target, impostor):
+        names = container_names()
+        key = key_for_name(_key_of(target))
+    assert names[_key_of(impostor)] == _key_of(impostor)
+    assert key == _key_of(target)
+
+
+def test_an_unclaimable_container_has_no_name():
+    broken = _labelled("Broken", 10) | {"host": "192.168.1.10:3000", "broker_host": ""}
+    with _streaming(broken):
+        assert container_names() == {}
+        assert key_for_name("Broken") is None
+
+
 # ── Desktop sessions ──────────────────────────────────────────────────────────
 
 
@@ -2314,6 +2398,43 @@ def test_containers_shows_what_is_running(client, access_token):
     assert session["rom_name"] == ps2_rom.name
     assert session["desktop"] is False
     assert session["username"] == "test_admin"
+
+
+def test_containers_reports_each_containers_name(client, access_token):
+    labelled = _webstation(label="WEBSTATION-DEV")
+    unlabelled = _webstation(
+        label=None,
+        host="http://192.168.1.11:3000",
+        broker_host="http://192.168.1.11:8000",
+    )
+    with _streaming(labelled, unlabelled):
+        rows = _containers(client, access_token).json()["containers"]
+    assert [row["name"] for row in rows] == ["WEBSTATION-DEV", _key_of(unlabelled)]
+    assert rows[0]["container"] == _key_of(labelled)
+
+
+def test_desktop_opens_by_label(client, access_token):
+    container = _webstation(label="Emulation station")
+    with _streaming(container):
+        response, activate = _desktop(client, access_token, "emulation station")
+    assert response.status_code == 200
+    assert response.json()["container"] == _key_of(container)
+    activate.assert_called_once()
+
+
+def test_desktop_still_opens_by_key(client, access_token):
+    container = _webstation(label="WEBSTATION-DEV")
+    with _streaming(container):
+        response, _ = _desktop(client, access_token, _key_of(container))
+    assert response.status_code == 200
+    assert response.json()["container"] == _key_of(container)
+
+
+def test_desktop_refuses_an_unknown_name(client, access_token):
+    with _streaming(_webstation(label="WEBSTATION-DEV")):
+        response, activate = _desktop(client, access_token, "WEBSTATION-OTHER")
+    assert response.status_code == 404
+    activate.assert_not_called()
 
 
 def test_containers_is_admin_only(client, viewer_access_token):
