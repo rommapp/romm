@@ -199,14 +199,9 @@ def negotiate_sync(
             detail="Sync is disabled for this device",
         )
 
-    # Cancel any existing active sessions for this device
-    cancelled = db_sync_session_handler.cancel_active_sessions(
-        device_id=device.id, user_id=request.user.id
-    )
-    if cancelled:
-        log.info(f"Cancelled {cancelled} active sync session(s) for device {device.id}")
-
-    # Create a new sync session
+    # A session belongs to the launch that negotiated it, not to the device,
+    # which can have two games open at once. One nobody closes is left to the
+    # scheduled cleanup rather than to the next negotiation.
     sync_session = db_sync_session_handler.create_session(
         device_id=device.id, user_id=request.user.id
     )
@@ -417,20 +412,19 @@ def complete_sync_session(
             detail=f"Sync session with ID {session_id} not found",
         )
 
-    if sync_session.status not in (
-        SyncSessionStatus.PENDING,
-        SyncSessionStatus.IN_PROGRESS,
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Session is already {sync_session.status}",
-        )
-
+    # A session the cleanup expired can still be completed: its counts and the
+    # play sessions the client carries are worth more than the guess that
+    # nobody would ever report them. One closed on purpose is refused.
     completed = db_sync_session_handler.complete_session(
         session_id=session_id,
         operations_completed=payload.operations_completed,
         operations_failed=payload.operations_failed,
     )
+    if completed is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Session is already {sync_session.status}",
+        )
 
     log.info(
         f"Sync session {session_id} completed: "
@@ -454,7 +448,6 @@ def complete_sync_session(
                 for s in payload.play_sessions
             ],
             device_id=sync_session.device_id,
-            sync_session_id=session_id,
         )
         play_session_ingest = PlaySessionIngestResponse(
             results=[
