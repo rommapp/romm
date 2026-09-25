@@ -30,6 +30,7 @@ from handler.database import (
     db_play_session_handler,
     db_rom_handler,
     db_save_handler,
+    db_screenshot_handler,
     db_state_handler,
     db_user_handler,
 )
@@ -4515,6 +4516,30 @@ def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User)
         "Game.20260102-000000000000.01.p2s",
         "Game.20260103-000000000000.01.p2s",
     }
+
+
+def test_prune_state_history_drops_the_pruned_thumbnail(rom: Rom, admin_user: User):
+    for day in range(1, 4):
+        _add_state_at(rom, admin_user, f"Game.2026010{day}-000000000000.01.p2s", day)
+    thumbnail = db_screenshot_handler.add_screenshot(
+        Screenshot(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="Game.20260101-000000000000.01.png",
+            file_path=f"{rom.platform_slug}/screenshots",
+            file_size_bytes=3,
+        )
+    )
+    with (
+        patch("handler.streaming.states.STREAMING_STATE_HISTORY_LIMIT", 2),
+        patch(
+            "handler.filesystem.fs_asset_handler.remove_file", new=AsyncMock()
+        ) as remove,
+    ):
+        asyncio.run(states.prune_state_history(admin_user, rom, "pcsx2"))
+
+    assert remove.await_count == 2
+    assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is None
 
 
 # _store_state_screenshot rejects anything without PNG magic, so fixtures that

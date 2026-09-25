@@ -4,14 +4,15 @@
 // on phones), and each "Mine" section header carries Upload once it has
 // items; empty sections promote the dropzone CTA instead.
 //
-// Each list is split into a "Mine" section (own saves/states, with a
-// per-item public/private toggle + delete) and a read-only "Community"
-// section (other users' public saves/states, with an author chip and
-// download only). Mirrors ScreenshotsSubtab's My / Community model.
+// Each list is split into a "Mine" section (own saves/states, the public ones
+// badged, each with edit, favorite and delete) and a read-only
+// "Community" section (other users' public saves/states, with an author chip
+// and download only). Mirrors ScreenshotsSubtab's My / Community model.
 //
 // URL-persistent subtab selection via `?subtab=` so deep-linking
 // into a specific list works.
 import { RBtn, RDropzone } from "@v2/lib";
+import { isAxiosError } from "axios";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -28,6 +29,9 @@ import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import { getSupportedEJSCores } from "@/utils";
 import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
+import AssetEditDialog, {
+  type AssetEdit,
+} from "@/v2/components/GameDetails/AssetEditDialog.vue";
 import AssetLabelsDialog from "@/v2/components/GameDetails/AssetLabelsDialog.vue";
 import AssetSelectionToolbar from "@/v2/components/GameDetails/AssetSelectionToolbar.vue";
 import SubtabNav, {
@@ -295,45 +299,6 @@ async function deleteState(state: StateSchema) {
   }
 }
 
-// ---------- Visibility toggle (own items only) ----------
-const togglingSaveId = ref<number | null>(null);
-const togglingStateId = ref<number | null>(null);
-
-async function toggleSaveVisibility(save: SaveSchema) {
-  if (togglingSaveId.value != null) return;
-  togglingSaveId.value = save.id;
-  try {
-    await saveApi.setSaveVisibility({ id: save.id, isPublic: !save.is_public });
-    await refreshRom();
-  } catch (error) {
-    snackbar.error(
-      t("rom.cant-toggle-visibility", { error: errorMessage(error) }),
-      { icon: "mdi-close-circle" },
-    );
-  } finally {
-    togglingSaveId.value = null;
-  }
-}
-
-async function toggleStateVisibility(state: StateSchema) {
-  if (togglingStateId.value != null) return;
-  togglingStateId.value = state.id;
-  try {
-    await stateApi.setStateVisibility({
-      id: state.id,
-      isPublic: !state.is_public,
-    });
-    await refreshRom();
-  } catch (error) {
-    snackbar.error(
-      t("rom.cant-toggle-visibility", { error: errorMessage(error) }),
-      { icon: "mdi-close-circle" },
-    );
-  } finally {
-    togglingStateId.value = null;
-  }
-}
-
 // ---------- Bulk selection (own items only) ----------
 // A save and a state can share an id and both panels stay mounted, so each
 // kind gets its own selection rather than one keyed by id alone.
@@ -453,14 +418,9 @@ async function deleteChecked(type: AssetType) {
   }
 }
 
-// ---------- Favorite and labels (own items only) ----------
+// ---------- Favorite (own items only) ----------
 // Keyed by type too: a save and a state can share an id.
 const favoritingKey = ref<string | null>(null);
-// One asset replaces its labels; a null asset means the whole selection, and
-// that adds to each, so a bulk edit can never wipe a label it did not show.
-type LabelEdit = { type: AssetType; asset: AssetSlot | null };
-const labelTarget = ref<LabelEdit | null>(null);
-const savingLabels = ref(false);
 
 function isFavoriting(type: AssetType, asset: AssetSlot): boolean {
   return favoritingKey.value === `${type}:${asset.id}`;
@@ -495,42 +455,100 @@ function writeLabels(type: AssetType, id: number, labels: string[]) {
     : stateApi.setStateLabels({ id, labels });
 }
 
-async function submitLabels(labels: string[]) {
-  const target = labelTarget.value;
+function writeVisibility(type: AssetType, id: number, isPublic: boolean) {
+  return type === "save"
+    ? saveApi.setSaveVisibility({ id, isPublic })
+    : stateApi.setStateVisibility({ id, isPublic });
+}
+
+function writeFileName(type: AssetType, id: number, fileName: string) {
+  return type === "save"
+    ? saveApi.renameSave({ id, fileName })
+    : stateApi.renameState({ id, fileName });
+}
+
+// ---------- Bulk labels (own items only) ----------
+// A bulk edit adds to each asset's labels, so it can never wipe one it did not
+// show.
+const bulkLabels = ref<{ type: AssetType } | null>(null);
+const savingLabels = ref(false);
+
+async function submitBulkLabels(labels: string[]) {
+  const target = bulkLabels.value;
   if (!target || savingLabels.value) return;
   savingLabels.value = true;
   try {
-    if (target.asset) {
-      await writeLabels(target.type, target.asset.id, labels);
-      await refreshRom();
-      snackbar.success(t("rom.labels-updated"), { icon: "mdi-check-bold" });
-    } else {
-      const assets = selectionFor(target.type).selected.value;
-      const results = await Promise.allSettled(
-        assets.map((asset) =>
-          writeLabels(target.type, asset.id, [
-            ...new Set([...(asset.labels ?? []), ...labels]),
-          ]),
-        ),
-      );
-      await reportAndRefreshBulk(
-        results,
-        "rom.labels-applied-n",
-        "rom.cant-update-labels",
-      );
-    }
-    // Escape closes the dialog mid-save, so a slow write must not shut the
-    // editor the user has since opened on another asset.
-    if (labelTarget.value === target) labelTarget.value = null;
-  } catch (error) {
-    snackbar.error(
-      t("rom.cant-update-labels", { error: errorMessage(error) }),
-      {
-        icon: "mdi-close-circle",
-      },
+    const assets = selectionFor(target.type).selected.value;
+    const results = await Promise.allSettled(
+      assets.map((asset) =>
+        writeLabels(target.type, asset.id, [
+          ...new Set([...(asset.labels ?? []), ...labels]),
+        ]),
+      ),
     );
+    await reportAndRefreshBulk(
+      results,
+      "rom.labels-applied-n",
+      "rom.cant-update-labels",
+    );
+    // Escape closes the dialog mid-save, so a slow write must not shut the
+    // one the user has since opened.
+    if (bulkLabels.value === target) bulkLabels.value = null;
   } finally {
     savingLabels.value = false;
+  }
+}
+
+// ---------- Edit: name, labels and visibility (own items only) ----------
+const editTarget = ref<{ type: AssetType; asset: AssetSlot } | null>(null);
+const savingEdit = ref(false);
+const takenName = ref<string | null>(null);
+
+function openEdit(type: AssetType, asset: AssetSlot) {
+  takenName.value = null;
+  editTarget.value = { type, asset };
+}
+
+async function submitEdit({ fileName, labels, isPublic }: AssetEdit) {
+  const target = editTarget.value;
+  if (!target || savingEdit.value) return;
+  const { type, asset } = target;
+  savingEdit.value = true;
+  try {
+    // The name goes first: it is the change the server can refuse, and a
+    // refusal is the field's error to show, with nothing else sent yet.
+    if (fileName !== undefined) {
+      try {
+        await writeFileName(type, asset.id, fileName);
+      } catch (error) {
+        if (isAxiosError(error) && error.response?.status === 409) {
+          takenName.value = fileName;
+          return;
+        }
+        throw error;
+      }
+    }
+    await Promise.all([
+      labels && writeLabels(type, asset.id, labels),
+      isPublic !== undefined && writeVisibility(type, asset.id, isPublic),
+    ]);
+    await refreshRom();
+    if (editTarget.value === target) editTarget.value = null;
+    snackbar.success(
+      t(type === "save" ? "rom.save-updated" : "rom.state-updated"),
+      { icon: "mdi-check-bold" },
+    );
+  } catch (error) {
+    snackbar.error(
+      t(type === "save" ? "rom.cant-update-save" : "rom.cant-update-state", {
+        error: errorMessage(error),
+      }),
+      { icon: "mdi-close-circle" },
+    );
+    // The rename can land before a later write fails.
+    await refreshRom();
+  } finally {
+    savingEdit.value = false;
   }
 }
 
@@ -624,7 +642,7 @@ const labelSuggestions = computed(() =>
               :all-favorite="allCheckedFavorite('save')"
               @toggle-all="saveSelection.toggleAll()"
               @toggle-favorite="toggleCheckedFavorite('save')"
-              @edit-labels="labelTarget = { type: 'save', asset: null }"
+              @edit-labels="bulkLabels = { type: 'save' }"
               @delete="deleteChecked('save')"
               @clear="saveSelection.clear()"
             />
@@ -634,6 +652,7 @@ const labelSuggestions = computed(() =>
               :selectable="false"
               :scrollable="false"
               checkable
+              mark-public
               :checked-ids="saveSelection.selectedIds.value"
               @toggle="saveSelection.toggle($event.id)"
             >
@@ -642,12 +661,10 @@ const labelSuggestions = computed(() =>
                   :asset="asset"
                   type="save"
                   own
-                  :toggling="togglingSaveId === asset.id"
                   :favoriting="isFavoriting('save', asset)"
-                  @toggle-favorite="toggleFavorite('save', asset)"
-                  @edit-labels="labelTarget = { type: 'save', asset }"
-                  @toggle-visibility="toggleSaveVisibility(asSave(asset))"
                   @download="downloadAsset(asset)"
+                  @edit="openEdit('save', asset)"
+                  @toggle-favorite="toggleFavorite('save', asset)"
                   @delete="deleteSave(asSave(asset))"
                 />
               </template>
@@ -733,7 +750,7 @@ const labelSuggestions = computed(() =>
               :all-favorite="allCheckedFavorite('state')"
               @toggle-all="stateSelection.toggleAll()"
               @toggle-favorite="toggleCheckedFavorite('state')"
-              @edit-labels="labelTarget = { type: 'state', asset: null }"
+              @edit-labels="bulkLabels = { type: 'state' }"
               @delete="deleteChecked('state')"
               @clear="stateSelection.clear()"
             />
@@ -742,6 +759,7 @@ const labelSuggestions = computed(() =>
               type="state"
               :selectable="false"
               checkable
+              mark-public
               :checked-ids="stateSelection.selectedIds.value"
               layout="flow"
               group-by="emulator"
@@ -752,12 +770,10 @@ const labelSuggestions = computed(() =>
                   :asset="asset"
                   type="state"
                   own
-                  :toggling="togglingStateId === asset.id"
                   :favoriting="isFavoriting('state', asset)"
-                  @toggle-favorite="toggleFavorite('state', asset)"
-                  @edit-labels="labelTarget = { type: 'state', asset }"
-                  @toggle-visibility="toggleStateVisibility(asState(asset))"
                   @download="downloadAsset(asset)"
+                  @edit="openEdit('state', asset)"
+                  @toggle-favorite="toggleFavorite('state', asset)"
                   @delete="deleteState(asState(asset))"
                 />
               </template>
@@ -805,15 +821,24 @@ const labelSuggestions = computed(() =>
     />
 
     <AssetLabelsDialog
-      :model-value="labelTarget !== null"
-      :initial-labels="labelTarget?.asset?.labels ?? []"
-      :title="
-        labelTarget && !labelTarget.asset ? t('rom.add-labels') : undefined
-      "
+      :model-value="bulkLabels !== null"
       :suggestions="labelSuggestions"
       :busy="savingLabels"
-      @update:model-value="!$event && (labelTarget = null)"
-      @submit="submitLabels"
+      @update:model-value="!$event && (bulkLabels = null)"
+      @submit="submitBulkLabels"
+    />
+
+    <AssetEditDialog
+      :model-value="editTarget !== null"
+      :type="editTarget?.type ?? 'save'"
+      :file-name="editTarget?.asset.file_name ?? ''"
+      :labels="editTarget?.asset.labels ?? []"
+      :is-public="!!editTarget?.asset.is_public"
+      :suggestions="labelSuggestions"
+      :busy="savingEdit"
+      :taken-name="takenName"
+      @update:model-value="!$event && (editTarget = null)"
+      @submit="submitEdit"
     />
   </div>
 </template>

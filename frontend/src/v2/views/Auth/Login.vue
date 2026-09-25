@@ -5,6 +5,7 @@
 // "forgot password".
 import { RDivider, RExpandTransition } from "@v2/lib";
 import { onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
 import storeHeartbeat from "@/stores/heartbeat";
 import LoginForm from "@/v2/components/Auth/LoginForm.vue";
 import OIDCButton from "@/v2/components/Auth/OIDCButton.vue";
@@ -12,6 +13,7 @@ import ResetForm from "@/v2/components/Auth/ResetForm.vue";
 import AuthCard from "@/v2/components/shared/AuthCard.vue";
 
 const heartbeatStore = storeHeartbeat();
+const route = useRoute();
 
 const {
   OIDC: {
@@ -27,7 +29,8 @@ const loginFormRef = ref<InstanceType<typeof LoginForm> | null>(null);
 const oidcButtonRef = ref<InstanceType<typeof OIDCButton> | null>(null);
 
 onMounted(() => {
-  if (oidcEnabled && oidcAutologin) {
+  const bypassAutologin = route.query.bypass_autologin === "true";
+  if (oidcEnabled && oidcAutologin && !bypassAutologin) {
     oidcButtonRef.value?.login();
   }
 });

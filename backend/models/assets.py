@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import cached_property
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 from sqlalchemy import BigInteger, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
 
 
 SAVE_SLOT_MAX_LENGTH = 255
+EMULATOR_MAX_LENGTH = 50
 ASSET_LABEL_MAX_LENGTH = 255
 ASSET_LABELS_MAX = 20
 
@@ -61,9 +63,11 @@ class BaseAsset(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        # Served by the per-type `/{id}/content` route
+        # Served by the per-type `/{id}/content` route. A rename keeps
+        # `updated_at`, so the name joins the cache key.
         return (
-            f"/api/{self.__tablename__}/{self.id}/content?timestamp={self.updated_at}"
+            f"/api/{self.__tablename__}/{self.id}/content"
+            f"?timestamp={self.updated_at}&name={quote(self.file_name)}"
         )
 
 
@@ -103,7 +107,7 @@ class Save(RomAsset):
         {"extend_existing": True},
     )
 
-    emulator: Mapped[str | None] = mapped_column(String(length=50))
+    emulator: Mapped[str | None] = mapped_column(String(length=EMULATOR_MAX_LENGTH))
     slot: Mapped[str | None] = mapped_column(
         String(length=SAVE_SLOT_MAX_LENGTH), index=True
     )
@@ -150,7 +154,7 @@ class State(RomAsset):
         {"extend_existing": True},
     )
 
-    emulator: Mapped[str | None] = mapped_column(String(length=50))
+    emulator: Mapped[str | None] = mapped_column(String(length=EMULATOR_MAX_LENGTH))
     # `is_public` mirrors Screenshot/RomNote — lets other users browse and
     # download a user's public states (community). Defaults false (private).
     is_public: Mapped[bool] = mapped_column(default=False)
@@ -202,7 +206,7 @@ class MemoryCard(BaseModel):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     # `emulator` is the hard scoping key: a card is looked up by (user, emulator)
     # at session claim, so one Dolphin card serves both GameCube and Wii roms.
-    emulator: Mapped[str] = mapped_column(String(length=50))
+    emulator: Mapped[str] = mapped_column(String(length=EMULATOR_MAX_LENGTH))
     # `platform_id` is a loose, nullable hint (which platform the card was
     # created under) for display/filtering only. It never scopes the lookup, so
     # a card stays visible across every platform its emulator drives.

@@ -1890,9 +1890,10 @@ async def scan_screenshot(
     user: User,
     platform_fs_slug: str,
     rom_id: int,
+    emulator: str | None = None,
 ) -> Screenshot:
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
-        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id
+        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
     scanned_asset = await _scan_asset(file_name, screenshots_path)
     return Screenshot(**scanned_asset)
