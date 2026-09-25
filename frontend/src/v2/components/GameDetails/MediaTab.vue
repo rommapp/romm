@@ -9,7 +9,7 @@
 //   * The panel doubles as a drag-and-drop target (same affordance as the
 //     Upload / Patcher views): drop files anywhere over it to upload
 //   * Upload goes through `useRomFileUpload`, into the soundtrack/ folder
-//   * A disc with a cue sheet can extract its CD audio tracks there too
+//   * A disc (cue sheet or CHD) can extract its CD audio tracks there too
 //
 // The soundtrack player is reused from v1 for now.
 import { RBtn, RDropzone, REmptyState } from "@v2/lib";
@@ -32,7 +32,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSoundtrackActions } from "@/v2/composables/useSoundtrackActions";
 import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
 import { errorMessage } from "@/v2/utils/errorMessage";
-import { hasCueSheet } from "@/v2/utils/romFiles";
+import { hasDiscImage } from "@/v2/utils/romFiles";
 
 const ManualSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ManualSubtab.vue"),
@@ -123,7 +123,7 @@ const canUploadSoundtrack = computed(
   () => props.rom.has_soundtrack && canEdit.value,
 );
 const canExtractCdAudio = computed(
-  () => canEdit.value && hasCueSheet(props.rom),
+  () => canEdit.value && hasDiscImage(props.rom),
 );
 const extractingCdAudio = ref(false);
 

@@ -5,6 +5,7 @@
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
 #   - rahasher-build: Build RAHasher
 #   - sigil-build: Build sigil Python bindings (title ID extraction)
+#   - libchdr-build: Build libchdr (CD audio from CHD images)
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
@@ -140,6 +141,27 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
     cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
 
 
+# LIBCHDR (BSD-3-Clause) FOR CD AUDIO IN CHD IMAGES
+# Keep this pin in sync with the dev image's LIBCHDR_COMMIT in ../Dockerfile.
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS libchdr-build
+# trunk-ignore(hadolint/DL3018)
+RUN apk add --no-cache \
+    cmake \
+    g++ \
+    git \
+    make \
+    musl-dev
+
+ARG LIBCHDR_COMMIT=8e7b8bd32bc676b7e5c6b42fe7d2daca986c4a0d
+
+RUN git clone --filter=blob:none https://github.com/rtissera/libchdr.git ./libchdr-src && \
+    git -C ./libchdr-src checkout "${LIBCHDR_COMMIT}" && \
+    cmake -S ./libchdr-src -B ./libchdr-src/build -DCMAKE_BUILD_TYPE=Release -DCHDR_WANT_TESTS=OFF && \
+    cmake --build ./libchdr-src/build --target chdr && \
+    mkdir /libchdr && \
+    cp -P ./libchdr-src/build/libchdr.so* /libchdr/
+
+
 # FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08
 # Keep the pins below in sync with the dev image's copies in ../Dockerfile.
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
@@ -254,6 +276,7 @@ COPY --from=python-runtime /usr/local/lib/libpython* /usr/local/lib/
 COPY --from=python-runtime /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
+COPY --from=libchdr-build /libchdr/ /usr/lib/
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 COPY --from=backend-node-build /backend-node/rom_patcher/node_modules/rom-patcher/rom-patcher-js /backend/utils/rom_patcher/rom-patcher-js

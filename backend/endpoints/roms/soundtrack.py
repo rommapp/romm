@@ -13,6 +13,7 @@ from endpoints.responses.rom import (
 )
 from endpoints.roms.upload import receive_rom_file
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.cd_audio import (
@@ -116,7 +117,8 @@ async def extract_rom_cd_audio(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
 ) -> CdAudioExtractionSchema:
-    """Extract the audio tracks of a ROM's cue sheets into its soundtrack/ subfolder."""
+    """Extract the audio tracks of a ROM's cue sheets and CHD images into its
+    soundtrack/ subfolder."""
 
     rom = db_rom_handler.get_rom(id)
     if not rom:
@@ -130,7 +132,7 @@ async def extract_rom_cd_audio(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc
-    except CdAudioNeedsFolderException as exc:
+    except (CdAudioNeedsFolderException, RomAlreadyExistsException) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from exc

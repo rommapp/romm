@@ -146,6 +146,17 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git /tm
     && mkdir -p "${SITE_PACKAGES}/sigil" \
     && cp ./sigil/*.py ./sigil/_sigil.*.so "${SITE_PACKAGES}/sigil/" \
     && rm -rf /tmp/argosy-sigil
+
+# Build and install libchdr (optional, for CD audio in CHD images).
+# Keep the pin in sync with docker/Dockerfile.
+ARG LIBCHDR_COMMIT=8e7b8bd32bc676b7e5c6b42fe7d2daca986c4a0d
+RUN git clone --filter=blob:none https://github.com/rtissera/libchdr.git /tmp/libchdr \
+    && git -C /tmp/libchdr checkout "${LIBCHDR_COMMIT}" \
+    && cmake -S /tmp/libchdr -B /tmp/libchdr/build -DCMAKE_BUILD_TYPE=Release -DCHDR_WANT_TESTS=OFF \
+    && cmake --build /tmp/libchdr/build --target chdr \
+    && cp -P /tmp/libchdr/build/libchdr.so* /usr/local/lib/ \
+    && ldconfig \
+    && rm -rf /tmp/libchdr
 WORKDIR /app
 
 # Copy entrypoint script

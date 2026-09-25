@@ -11,14 +11,15 @@ export function versionedRomFileUrl(file: RomFileSchema): string {
   return `${romFileUrl(file.id, file.file_name)}?v=${encodeURIComponent(file.updated_at)}`;
 }
 
-/** Whether the ROM is a disc in its own folder with a cue sheet to read tracks from. */
-export function hasCueSheet(rom: DetailedRom): boolean {
-  return (
-    !rom.has_simple_single_file &&
-    (rom.files ?? []).some(
-      (file) =>
-        (file.category == null || file.category === "game") &&
-        file.file_name.toLowerCase().endsWith(".cue"),
-    )
-  );
+/** Whether the ROM has a disc image to read CD audio tracks from: a CHD, or a
+ * cue sheet in a folder of its own (a lone one would lose its tracks). */
+export function hasDiscImage(rom: DetailedRom): boolean {
+  return (rom.files ?? []).some((file) => {
+    if (file.category != null && file.category !== "game") return false;
+    const name = file.file_name.toLowerCase();
+    return (
+      name.endsWith(".chd") ||
+      (name.endsWith(".cue") && !rom.has_simple_single_file)
+    );
+  });
 }
