@@ -1,19 +1,26 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, field_validator
+from pydantic import Field, StrictBool, field_validator
 
+from handler.notification_channels import apprise_channel
+from handler.notification_channels.apprise_channel import (
+    AppriseField,
+    AppriseService,
+    FieldType,
+)
 from handler.notification_channels.config import masked_url, read_config
 from models.notification import NotificationTopic
 from models.notification_channel import (
     NOTIFICATION_CHANNEL_ADDRESS_MAX_LENGTH,
     NOTIFICATION_CHANNEL_CODE_MAX_LENGTH,
+    NOTIFICATION_CHANNEL_MAX_FIELDS,
     NOTIFICATION_CHANNEL_NAME_MAX_LENGTH,
     NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH,
+    NOTIFICATION_CHANNEL_SERVICE_MAX_LENGTH,
     NOTIFICATION_CHANNEL_URL_MAX_LENGTH,
     NotificationChannel,
     NotificationChannelMinLevel,
     NotificationChannelType,
-    WebhookFormat,
 )
 from utils.validation import EMAIL_PATTERN
 
@@ -22,11 +29,19 @@ from .base import BaseModel, UTCDatetime
 ChannelName = Annotated[
     str, Field(min_length=1, max_length=NOTIFICATION_CHANNEL_NAME_MAX_LENGTH)
 ]
-WebhookUrl = Annotated[
+ChannelUrl = Annotated[
     str, Field(min_length=1, max_length=NOTIFICATION_CHANNEL_URL_MAX_LENGTH)
 ]
 ChannelSecret = Annotated[str, Field(max_length=NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH)]
 EmailAddress = Annotated[str, Field(max_length=NOTIFICATION_CHANNEL_ADDRESS_MAX_LENGTH)]
+AppriseServiceId = Annotated[
+    str, Field(min_length=1, max_length=NOTIFICATION_CHANNEL_SERVICE_MAX_LENGTH)
+]
+_FieldText = Annotated[str, Field(max_length=NOTIFICATION_CHANNEL_URL_MAX_LENGTH)]
+AppriseFieldValue = StrictBool | int | float | _FieldText | list[_FieldText]
+AppriseFields = Annotated[
+    dict[str, AppriseFieldValue], Field(max_length=NOTIFICATION_CHANNEL_MAX_FIELDS)
+]
 
 
 def _check_address(address: str | None) -> str | None:
@@ -43,9 +58,12 @@ class NotificationChannelSchema(BaseModel):
     min_level: NotificationChannelMinLevel
     # None forwards every topic.
     topics: list[NotificationTopic] | None
-    # A webhook's URL with its token hidden, or an email address.
+    # The URL with its secrets hidden, or an email address.
     target: str
-    format: WebhookFormat | None
+    # An Apprise channel's service, its name, and the fields that aren't secrets.
+    service: str | None
+    service_name: str | None
+    fields: dict[str, AppriseFieldValue] | None
     has_secret: bool
     confirmed: bool
     last_delivered_at: UTCDatetime | None
@@ -56,7 +74,17 @@ class NotificationChannelSchema(BaseModel):
     @classmethod
     def from_channel(cls, channel: NotificationChannel) -> Self:
         config = read_config(channel.config)
-        is_webhook = channel.type == NotificationChannelType.WEBHOOK
+        service = config.get("service")
+        stored_fields = config.get("fields", {})
+        service_name, fields = None, None
+        match channel.type:
+            case NotificationChannelType.APPRISE if service:
+                service_name, target = apprise_channel.describe(service, stored_fields)
+                fields = apprise_channel.public_fields(service, stored_fields)
+            case NotificationChannelType.WEBHOOK if config.get("url"):
+                target = masked_url(config["url"])
+            case _:
+                target = config.get("address", "")
         return cls(
             id=channel.id,
             type=NotificationChannelType(channel.type),
@@ -68,12 +96,10 @@ class NotificationChannelSchema(BaseModel):
                 if channel.topics is not None
                 else None
             ),
-            target=(
-                masked_url(config["url"])
-                if is_webhook and "url" in config
-                else config.get("address", "")
-            ),
-            format=config.get("format") if is_webhook else None,
+            target=target,
+            service=service,
+            service_name=service_name,
+            fields=fields,
             has_secret=bool(config.get("secret")),
             confirmed=channel.confirmed_at is not None,
             last_delivered_at=channel.last_delivered_at,
@@ -88,12 +114,18 @@ class _ChannelFilters(BaseModel):
     topics: list[NotificationTopic] | None = None
 
 
+class AppriseChannelCreatePayload(_ChannelFilters):
+    type: Literal["apprise"]
+    name: ChannelName
+    service: AppriseServiceId
+    fields: AppriseFields
+
+
 class WebhookChannelCreatePayload(_ChannelFilters):
     type: Literal["webhook"]
     name: ChannelName
-    url: WebhookUrl
-    format: WebhookFormat = WebhookFormat.JSON
-    # The HMAC key of a JSON webhook, or an ntfy access token.
+    url: ChannelUrl
+    # The key the payload is signed with.
     secret: ChannelSecret | None = None
 
 
@@ -106,7 +138,9 @@ class EmailChannelCreatePayload(_ChannelFilters):
 
 
 NotificationChannelCreatePayload = Annotated[
-    WebhookChannelCreatePayload | EmailChannelCreatePayload,
+    AppriseChannelCreatePayload
+    | WebhookChannelCreatePayload
+    | EmailChannelCreatePayload,
     Field(discriminator="type"),
 ]
 
@@ -118,16 +152,63 @@ class NotificationChannelUpdatePayload(BaseModel):
     enabled: bool | None = None
     min_level: NotificationChannelMinLevel | None = None
     topics: list[NotificationTopic] | None = None
-    url: WebhookUrl | None = None
-    format: WebhookFormat | None = None
+    url: ChannelUrl | None = None
     secret: ChannelSecret | None = None
     address: EmailAddress | None = None
+    # An Apprise channel's fields; a secret left out keeps its current value.
+    fields: AppriseFields | None = None
 
     check_address = field_validator("address")(_check_address)
 
 
 class NotificationChannelCodePayload(BaseModel):
     code: str = Field(min_length=1, max_length=NOTIFICATION_CHANNEL_CODE_MAX_LENGTH)
+
+
+class AppriseFieldSchema(BaseModel):
+    key: str
+    label: str
+    type: FieldType
+    required: bool
+    private: bool
+    # Sent as an option rather than as part of the address.
+    advanced: bool
+    default: AppriseFieldValue | None
+    # A choice's values, as text: that is how they sit in the URL.
+    values: list[str] | None
+    min: float | None
+    max: float | None
+
+    @classmethod
+    def from_field(cls, field: AppriseField) -> Self:
+        return cls(
+            key=field.key,
+            label=field.label,
+            type=field.type,
+            required=field.required,
+            private=field.private,
+            advanced=field.advanced,
+            default=field.default,
+            values=[str(value) for value in field.values] if field.values else None,
+            min=field.min,
+            max=field.max,
+        )
+
+
+class AppriseServiceSchema(BaseModel):
+    id: str
+    name: str
+    setup_url: str | None
+    fields: list[AppriseFieldSchema]
+
+    @classmethod
+    def from_service(cls, service: AppriseService) -> Self:
+        return cls(
+            id=service.id,
+            name=service.name,
+            setup_url=service.setup_url,
+            fields=[AppriseFieldSchema.from_field(field) for field in service.fields],
+        )
 
 
 class NotificationChannelTestResult(BaseModel):

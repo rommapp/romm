@@ -23,6 +23,18 @@ def _webhook(url: str = "https://hooks.example.com/romm/token", **fields) -> dic
     return {"type": "webhook", "name": "Hook", "url": url, **fields}
 
 
+_DISCORD = {"webhook_id": "1234567890", "webhook_token": "abcdefghijklmnop"}
+
+
+def _apprise(service: str = "discord", **fields) -> dict:
+    return {
+        "type": "apprise",
+        "name": "Discord",
+        "service": service,
+        "fields": fields or _DISCORD,
+    }
+
+
 @pytest.fixture
 def emailed(mocker):
     mocker.patch.object(channels, "EMAIL_ENABLED", True)
@@ -37,7 +49,7 @@ def sent(mocker):
 class TestCreate:
     def test_a_webhook_hides_its_token(self, client, access_token):
         response = client.post(
-            API, json=_webhook(secret="k", format="json"), headers=_auth(access_token)
+            API, json=_webhook(secret="k"), headers=_auth(access_token)
         )
 
         assert response.status_code == status.HTTP_201_CREATED
@@ -64,6 +76,37 @@ class TestCreate:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_an_admin_forwards_through_apprise(self, client, access_token):
+        response = client.post(
+            API, json=_apprise(**_DISCORD, botname="RomM"), headers=_auth(access_token)
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        body = response.json()
+        assert (body["type"], body["service"], body["service_name"]) == (
+            "apprise",
+            "discord",
+            "Discord",
+        )
+        assert body["target"] == "discord://RomM@1...0/a...p/"
+        assert body["fields"] == {"botname": "RomM"}
+        assert "abcdefghijklmnop" not in response.text
+
+    def test_a_user_may_not_use_apprise(self, client, viewer_access_token):
+        response = client.post(API, json=_apprise(), headers=_auth(viewer_access_token))
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json()["detail"] == "Only admins can use Apprise channels"
+
+    @pytest.mark.parametrize(
+        "payload",
+        [_apprise("syslog", host="localhost"), _apprise(webhook_id="1234567890")],
+    )
+    def test_fields_apprise_cannot_use_are_refused(self, client, access_token, payload):
+        response = client.post(API, json=payload, headers=_auth(access_token))
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
     def test_a_user_has_at_most_so_many(self, client, access_token):
         for n in range(MAX_NOTIFICATION_CHANNELS_PER_USER):
             created = client.post(
@@ -83,6 +126,7 @@ class TestCreate:
         [
             {"type": "sms", "name": "x", "url": "https://example.com"},
             {"type": "email", "name": "x", "address": "not-an-address"},
+            {"type": "apprise", "name": "x", "service": "discord"},
             _webhook(topics=["everything"]),
             _webhook(name=""),
         ],
@@ -116,6 +160,28 @@ class TestCreate:
 
         assert response.status_code == status.HTTP_502_BAD_GATEWAY
         assert db_notification_channel_handler.get_channels(admin_user.id) == []
+
+
+class TestAppriseServices:
+    def test_an_admin_gets_each_service_with_its_fields(self, client, access_token):
+        response = client.get(f"{API}/apprise-services", headers=_auth(access_token))
+
+        assert response.status_code == status.HTTP_200_OK
+        discord = next(s for s in response.json() if s["id"] == "discord")
+        token = next(f for f in discord["fields"] if f["key"] == "webhook_token")
+        assert discord["name"] == "Discord"
+        assert (token["required"], token["private"], token["advanced"]) == (
+            True,
+            True,
+            False,
+        )
+
+    def test_a_user_gets_none(self, client, viewer_access_token):
+        response = client.get(
+            f"{API}/apprise-services", headers=_auth(viewer_access_token)
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 class TestEmailConfirmation:
@@ -214,6 +280,22 @@ class TestUpdate:
         assert body["topics"] == ["scans", "tasks"]
         assert body["has_secret"] is False
         assert body["enabled"] is False
+
+    def test_apprise_secrets_stay_until_given_again(self, client, access_token):
+        created = client.post(API, json=_apprise(), headers=_auth(access_token)).json()
+        path = f"{API}/{created['id']}"
+
+        renamed = client.patch(
+            path, json={"name": "Phone"}, headers=_auth(access_token)
+        )
+        retitled = client.patch(
+            path,
+            json={"fields": {"webhook_id": "1234567890", "botname": "Bot"}},
+            headers=_auth(access_token),
+        )
+
+        assert renamed.json()["target"] == created["target"]
+        assert retitled.json()["target"] == "discord://Bot@1...0/a...p/"
 
     def test_null_topics_forwards_everything_again(self, client, access_token):
         created = client.post(

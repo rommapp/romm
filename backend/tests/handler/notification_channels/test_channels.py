@@ -18,12 +18,12 @@ from handler.notification_channels.confirmation import CodeCooldownError
 from models.notification_channel import (
     NotificationChannelMinLevel,
     NotificationChannelType,
-    WebhookFormat,
 )
 from models.user import Role
 
 ADMIN = MagicMock(id=1, role=Role.ADMIN)
 USER = MagicMock(id=2, role=Role.USER)
+DISCORD = {"webhook_id": "1234567890", "webhook_token": "abcdefghijklmnop"}
 
 
 @pytest.fixture
@@ -62,33 +62,60 @@ class TestCreate:
         channel = await create_channel(
             USER,
             NotificationChannelType.WEBHOOK,
-            "Discord",
+            "Hooks",
             NotificationChannelMinLevel.WARNING,
             None,
-            url="https://discord.com/api/webhooks/1/t",
-            format=WebhookFormat.DISCORD,
+            url="https://hooks.example.com/romm",
         )
 
         assert channel.confirmed_at is not None
         assert read_config(channel.config) == {
-            "url": "https://discord.com/api/webhooks/1/t",
-            "format": "discord",
+            "url": "https://hooks.example.com/romm",
             "secret": None,
         }
 
-    async def test_a_discord_webhook_keeps_no_secret(self, db):
+    async def test_an_admin_forwards_through_apprise(self, db):
         channel = await create_channel(
-            USER,
-            NotificationChannelType.WEBHOOK,
-            "Discord",
+            ADMIN,
+            NotificationChannelType.APPRISE,
+            "Phone",
             NotificationChannelMinLevel.INFO,
             None,
-            url="https://discord.com/api/webhooks/1/t",
-            format=WebhookFormat.DISCORD,
-            secret="unused",
+            service="ntfy",
+            fields={"targets": ["romm"]},
         )
 
-        assert read_config(channel.config)["secret"] is None
+        assert channel.confirmed_at is not None
+        assert read_config(channel.config) == {
+            "service": "ntfy",
+            "fields": {"targets": ["romm"]},
+        }
+
+    async def test_a_user_may_not_use_apprise(self, db):
+        with pytest.raises(ChannelError, match="Only admins"):
+            await create_channel(
+                USER,
+                NotificationChannelType.APPRISE,
+                "Phone",
+                NotificationChannelMinLevel.INFO,
+                None,
+                service="ntfy",
+                fields={"targets": ["romm"]},
+            )
+
+        db.add_channel.assert_not_called()
+
+    async def test_fields_apprise_cannot_use_are_refused(self, db):
+        with pytest.raises(ChannelError, match="needs Webhook Token"):
+            await create_channel(
+                ADMIN,
+                NotificationChannelType.APPRISE,
+                "Discord",
+                NotificationChannelMinLevel.INFO,
+                None,
+                service="discord",
+                fields={"webhook_id": "1234567890"},
+            )
 
     async def test_a_user_stays_off_the_local_network(self, db):
         with pytest.raises(ChannelError):
@@ -171,7 +198,7 @@ class TestCreate:
 
 class TestUpdate:
     async def test_keeps_the_secret_unless_given(self, db):
-        stored = _stored(url="https://hooks.example.com/a", format="json", secret="k")
+        stored = _stored(url="https://hooks.example.com/a", secret="k")
 
         updated = await update_channel(
             stored, USER, {}, url="https://hooks.example.com/b"
@@ -179,41 +206,22 @@ class TestUpdate:
 
         assert read_config(updated.config) == {
             "url": "https://hooks.example.com/b",
-            "format": "json",
             "secret": "k",
         }
 
     @pytest.mark.parametrize(
-        "change",
-        [
-            {"url": "https://elsewhere.example.com/a"},
-            {"url": "https://hooks.example.com:8443/a"},
-            {"format": WebhookFormat.NTFY},
-        ],
+        "url", ["https://elsewhere.example.com/a", "https://hooks.example.com:8443/a"]
     )
-    async def test_a_kept_secret_does_not_follow_it_elsewhere(self, db, change):
-        stored = _stored(url="https://hooks.example.com/a", format="json", secret="k")
+    async def test_a_kept_secret_does_not_follow_it_elsewhere(self, db, url):
+        stored = _stored(url="https://hooks.example.com/a", secret="k")
 
         with pytest.raises(ChannelError, match="secret again"):
-            await update_channel(stored, USER, {}, **change)
+            await update_channel(stored, USER, {}, url=url)
 
         db.update_channel.assert_not_called()
 
-    async def test_moving_to_discord_drops_the_secret_it_never_sends(self, db):
-        stored = _stored(url="https://hooks.example.com/a", format="json", secret="k")
-
-        updated = await update_channel(
-            stored,
-            USER,
-            {},
-            url="https://discord.com/api/webhooks/1/t",
-            format=WebhookFormat.DISCORD,
-        )
-
-        assert read_config(updated.config)["secret"] is None
-
     async def test_a_secret_given_again_goes_to_the_new_url(self, db):
-        stored = _stored(url="https://hooks.example.com/a", format="json", secret="k")
+        stored = _stored(url="https://hooks.example.com/a", secret="k")
 
         updated = await update_channel(
             stored,
@@ -227,14 +235,57 @@ class TestUpdate:
         assert read_config(updated.config)["secret"] == "k2"
 
     async def test_an_empty_secret_drops_it(self, db):
-        stored = _stored(url="https://hooks.example.com/a", format="json", secret="k")
+        stored = _stored(url="https://hooks.example.com/a", secret="k")
 
         updated = await update_channel(stored, USER, {}, secret="", secret_given=True)
 
         assert read_config(updated.config)["secret"] is None
 
+    async def test_apprise_fields_left_out_stay(self, db):
+        stored = _stored(
+            NotificationChannelType.APPRISE, service="discord", fields=DISCORD
+        )
+
+        await update_channel(stored, ADMIN, {"name": "Phone"})
+
+        db.update_channel.assert_called_once_with(4, ADMIN.id, {"name": "Phone"})
+
+    async def test_an_apprise_secret_left_blank_stays(self, db):
+        stored = _stored(
+            NotificationChannelType.APPRISE, service="discord", fields=DISCORD
+        )
+
+        updated = await update_channel(
+            stored, ADMIN, {}, fields={"webhook_id": "987654321", "botname": "RomM"}
+        )
+
+        assert read_config(updated.config)["fields"] == {
+            "webhook_id": "987654321",
+            "webhook_token": DISCORD["webhook_token"],
+            "botname": "RomM",
+        }
+
+    async def test_new_apprise_fields_are_checked(self, db):
+        stored = _stored(
+            NotificationChannelType.APPRISE, service="ntfy", fields={"targets": ["a"]}
+        )
+
+        with pytest.raises(ChannelError, match="ntfy needs Targets"):
+            await update_channel(stored, ADMIN, {}, fields={"targets": []})
+
+        db.update_channel.assert_not_called()
+
+    async def test_a_demoted_admin_can_rename_but_not_repoint_it(self, db):
+        stored = _stored(
+            NotificationChannelType.APPRISE, service="discord", fields=DISCORD
+        )
+
+        await update_channel(stored, USER, {"name": "Old phone"})
+        with pytest.raises(ChannelError, match="Only admins"):
+            await update_channel(stored, USER, {}, fields=DISCORD)
+
     async def test_turning_it_back_on_forgets_past_failures(self, db):
-        stored = _stored(url="https://hooks.example.com/a", format="json")
+        stored = _stored(url="https://hooks.example.com/a")
         stored.enabled = False
 
         updated = await update_channel(stored, USER, {"enabled": True})

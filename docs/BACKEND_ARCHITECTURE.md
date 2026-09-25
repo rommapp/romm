@@ -1096,19 +1096,26 @@ curl -X POST "$ROMM/api/notifications" -H "Authorization: Bearer $TOKEN" \
 
 #### Notification channels (`/api/notification-channels`)
 
-Each user forwards their own notifications to webhooks and email addresses. A channel filters by minimum level and by topic (`scans`, `tasks`, `streaming`, `account`, `custom`); every stored notification that passes goes out in its own RQ job, retried at 30 s, 2 min and 10 min. A channel that fails 10 deliveries in a row turns itself off and tells its owner.
+Each user forwards their own notifications to other services. A channel is one of three types:
 
-| Method | Path                | Scope    | Description                                            |
-| ------ | ------------------- | -------- | ------------------------------------------------------ |
-| GET    | `/`                 | ME_READ  | Caller's channels, secrets masked                      |
-| POST   | `/`                 | ME_WRITE | Add a webhook, or an email address that gets a code    |
-| PATCH  | `/{id}`             | ME_WRITE | Change it; a blank URL or secret keeps the current one |
-| DELETE | `/{id}`             | ME_WRITE | Delete it                                              |
-| POST   | `/{id}/test`        | ME_WRITE | Send a sample notification now                         |
-| POST   | `/{id}/confirm`     | ME_WRITE | Confirm an email address with its code                 |
-| POST   | `/{id}/resend-code` | ME_WRITE | Email a new code (once a minute)                       |
+- `apprise`: any of the 100+ services [Apprise](https://github.com/caronc/apprise#supported-notifications) reaches (Discord, Telegram, ntfy, Slack, Gotify…), set up through that service's own fields. **Admins only**, since Apprise opens its own connections, past the SSRF guard. The owner's role is checked again at every delivery, so a demoted admin's channel fails until it turns off.
+- `webhook`: RomM's own JSON payload (below), POSTed to an http(s) URL.
+- `email`: a plain-text email over the server's SMTP, to an address confirmed with a 6-digit code first.
 
-A webhook's `format` is `json` (RomM's payload below), `discord` (an embed that mentions nobody) or `ntfy` (JSON publishing to the topic's server, with the secret as its access token). Only an admin's webhooks may reach private addresses; everyone else's go through the SSRF guard. A kept secret doesn't follow a channel to another origin or format; it has to be given again. A delivery gets 15 s in all, and only the start of a refusal's body is read. Text for RomM's own kinds is English until outbound messages are translated. Links are absolute only when `ROMM_BASE_URL` is shareable.
+A channel filters by minimum level and by topic (`scans`, `tasks`, `streaming`, `account`, `custom`); every stored notification that passes goes out in its own RQ job, retried at 30 s, 2 min and 10 min. A channel that fails 10 deliveries in a row turns itself off and tells its owner.
+
+| Method | Path                | Scope    | Description                                                           |
+| ------ | ------------------- | -------- | --------------------------------------------------------------------- |
+| GET    | `/`                 | ME_READ  | Caller's channels, secrets masked                                     |
+| GET    | `/apprise-services` | ME_READ  | Every Apprise service and its fields (admins only, else 403)          |
+| POST   | `/`                 | ME_WRITE | Add a channel; an email address gets a code                           |
+| PATCH  | `/{id}`             | ME_WRITE | Change it; an omitted URL or secret stays, an empty secret is dropped |
+| DELETE | `/{id}`             | ME_WRITE | Delete it                                                             |
+| POST   | `/{id}/test`        | ME_WRITE | Send a sample notification now                                        |
+| POST   | `/{id}/confirm`     | ME_WRITE | Confirm an email address with its code                                |
+| POST   | `/{id}/resend-code` | ME_WRITE | Email a new code (once a minute)                                      |
+
+The service catalog comes from Apprise's own description of each plugin: its URL tokens become the main fields (a field is required only when every URL template needs it, since alternative credentials are each "required" in Apprise's eyes), and its options become advanced fields. A channel stores the service and the fields it was given, sealed, and the backend builds the Apprise URL from the template those fields fill completely, at each delivery. Schemas that act on the host (`syslog`, `dbus`, `windows` and the like) aren't offered, nor are the options Apprise reads from a local file (`template`, `keyfile`, `subfile`, `pgppub`, `pgpkey`, `pgpprv`) or the ones RomM sets itself (timeouts, retries, redirects). Apprise follows no redirects, doesn't retry on its own, and its timeouts are capped at 10 s to connect and 15 s to read. The API returns a channel's service, the fields that aren't secret (a secret left blank on edit keeps its value), and its URL through Apprise's own masking, without the query. Only an admin's webhooks may reach private addresses; everyone else's go through the SSRF guard. A kept webhook secret doesn't follow the channel to another origin; it has to be given again. A webhook delivery gets 15 s in all, and only the start of a refusal's body is read. Text for RomM's own kinds is English until outbound messages are translated. Links are absolute only when `ROMM_BASE_URL` is shareable.
 
 ```json
 {
@@ -1125,7 +1132,7 @@ A webhook's `format` is `json` (RomM's payload below), `discord` (an embed that 
 }
 ```
 
-With a secret, the JSON format adds `X-RomM-Signature: sha256=<hex HMAC-SHA256 of the body>`. Email needs `SMTP_HOST` and `SMTP_FROM` (see `env.template`); the heartbeat's `NOTIFICATIONS.EMAIL_ENABLED` says whether it's set up. Channel configs are sealed with a key derived from `ROMM_AUTH_SECRET_KEY`, so rotating it means entering their URLs again.
+With a secret, a webhook adds `X-RomM-Signature: sha256=<hex HMAC-SHA256 of the body>`. Email needs `SMTP_HOST` and `SMTP_FROM` (see `env.template`); the heartbeat's `NOTIFICATIONS.EMAIL_ENABLED` says whether it's set up. Channel configs are sealed with a key derived from `ROMM_AUTH_SECRET_KEY`, so rotating it means entering their URLs again.
 
 ### 6.17 Audit Events (`/api/audit-events`)
 

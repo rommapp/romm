@@ -1,12 +1,21 @@
+import { RComboboxField, RSelect } from "@v2/lib";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
-import { makeChannel } from "@/v2/utils/notificationChannels.fixtures";
+import storePermissions from "@/stores/permissions";
+import {
+  makeAppriseService,
+  makeChannel,
+} from "@/v2/utils/notificationChannels.fixtures";
 import NotificationChannelDialog from "./NotificationChannelDialog.vue";
 
-const api = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn() }));
+const api = vi.hoisted(() => ({
+  create: vi.fn(),
+  update: vi.fn(),
+  getAppriseServices: vi.fn(),
+}));
 
 vi.mock("@/services/api/notificationChannel", () => ({ default: api }));
 vi.mock("vue-i18n", () => ({
@@ -18,16 +27,27 @@ function channel(
 ): NotificationChannelSchema {
   return makeChannel({
     id: 4,
+    type: "webhook",
     name: "Hook",
     topics: ["scans"],
     target: "https://hooks.example.com/…oken",
-    format: "json",
+    service: null,
+    service_name: null,
+    fields: null,
     has_secret: true,
     ...overrides,
   });
 }
 
-async function open(existing: NotificationChannelSchema | null = null) {
+const WEBHOOK_PLACEHOLDER = '[placeholder="https://example.com/hooks/romm"]';
+
+async function open(
+  existing: NotificationChannelSchema | null = null,
+  { admin = false } = {},
+) {
+  const permissions = storePermissions();
+  permissions.isAdmin = admin;
+  permissions.hydrated = true;
   const wrapper = mount(NotificationChannelDialog, {
     props: { modelValue: false, channel: existing },
     attachTo: document.body,
@@ -41,7 +61,7 @@ async function open(existing: NotificationChannelSchema | null = null) {
     },
   });
   await wrapper.setProps({ modelValue: true });
-  await nextTick();
+  await flushPromises();
   return wrapper;
 }
 
@@ -49,6 +69,18 @@ type Wrapper = Awaited<ReturnType<typeof open>>;
 
 function input(wrapper: Wrapper, selector: string) {
   return wrapper.find<HTMLInputElement>(`input${selector}`);
+}
+
+async function pick(wrapper: Wrapper, kind: string) {
+  wrapper.findAllComponents(RSelect)[0].vm.$emit("update:modelValue", kind);
+  await nextTick();
+}
+
+function textField(wrapper: Wrapper, label: string) {
+  return wrapper
+    .findAll(".r-text-field")
+    .find((field) => field.text().includes(label))
+    ?.find<HTMLInputElement>("input");
 }
 
 async function save(wrapper: Wrapper) {
@@ -63,17 +95,17 @@ describe("NotificationChannelDialog", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.resetAllMocks();
+    api.getAppriseServices.mockResolvedValue({ data: [makeAppriseService()] });
   });
 
-  it("creates a JSON webhook that forwards every topic", async () => {
+  it("creates a webhook that forwards every topic", async () => {
     api.create.mockResolvedValue({ data: channel() });
     const wrapper = await open();
 
     await wrapper.findAll("input.r-text-field__input")[0].setValue(" Hook ");
-    await input(
-      wrapper,
-      '[placeholder="https://example.com/hooks/romm"]',
-    ).setValue(" https://hooks.example.com/romm ");
+    await input(wrapper, WEBHOOK_PLACEHOLDER).setValue(
+      " https://hooks.example.com/romm ",
+    );
     await input(wrapper, '[type="password"]').setValue("s3cret");
     await save(wrapper);
 
@@ -81,7 +113,6 @@ describe("NotificationChannelDialog", () => {
       type: "webhook",
       name: "Hook",
       url: "https://hooks.example.com/romm",
-      format: "json",
       secret: "s3cret",
       min_level: "info",
       topics: null,
@@ -95,14 +126,66 @@ describe("NotificationChannelDialog", () => {
     const wrapper = await open();
 
     await wrapper.findAll("input.r-text-field__input")[0].setValue("Hook");
-    await input(
-      wrapper,
-      '[placeholder="https://example.com/hooks/romm"]',
-    ).setValue("ftp://example.com");
+    await input(wrapper, WEBHOOK_PLACEHOLDER).setValue("ftp://example.com");
     await save(wrapper);
 
     expect(api.create).not.toHaveBeenCalled();
     wrapper.unmount();
+  });
+
+  it("builds an admin's Apprise channel from the service's fields", async () => {
+    api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:ntfy");
+    await wrapper.findAll("input.r-text-field__input")[0].setValue("Phone");
+    await textField(wrapper, "notifications.channel-field-host")?.setValue(
+      "ntfy.example.com",
+    );
+    wrapper
+      .findComponent(RComboboxField)
+      .vm.$emit("update:modelValue", ["romm"]);
+    await save(wrapper);
+
+    // The service's defaults (schema, image, priority) stay out of it.
+    expect(api.create).toHaveBeenCalledWith({
+      type: "apprise",
+      name: "Phone",
+      service: "ntfy",
+      fields: { host: "ntfy.example.com", targets: ["romm"] },
+      min_level: "info",
+      topics: null,
+    });
+    wrapper.unmount();
+  });
+
+  it("asks for a required list before saving", async () => {
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:ntfy");
+    await wrapper.findAll("input.r-text-field__input")[0].setValue("Phone");
+    await save(wrapper);
+
+    expect(api.create).not.toHaveBeenCalled();
+    expect(wrapper.findComponent(RComboboxField).props("errorMessages")).toBe(
+      "common.required",
+    );
+    wrapper.unmount();
+  });
+
+  it("offers Apprise's services to admins only", async () => {
+    const kinds = async (admin: boolean) => {
+      const wrapper = await open(null, { admin });
+      const items = wrapper.findAllComponents(RSelect)[0].props("items") as {
+        value: string;
+      }[];
+      wrapper.unmount();
+      return items.map((item) => item.value);
+    };
+
+    expect(await kinds(false)).toEqual(["webhook", "email"]);
+    expect(await kinds(true)).toEqual(["webhook", "email", "apprise:ntfy"]);
+    expect(api.getAppriseServices).toHaveBeenCalledOnce();
   });
 
   it("keeps the URL and secret an edit leaves blank", async () => {
@@ -115,7 +198,35 @@ describe("NotificationChannelDialog", () => {
       name: "Hook",
       min_level: "info",
       topics: ["scans"],
-      format: "json",
+    });
+    wrapper.unmount();
+  });
+
+  it("keeps the Apprise secrets an edit leaves blank", async () => {
+    api.update.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(
+      channel({
+        type: "apprise",
+        service: "ntfy",
+        service_name: "ntfy",
+        fields: { host: "ntfy.example.com", targets: ["romm"] },
+        has_secret: false,
+      }),
+      { admin: true },
+    );
+
+    expect(
+      textField(wrapper, "notifications.channel-field-token")?.attributes(
+        "type",
+      ),
+    ).toBe("password");
+    await save(wrapper);
+
+    expect(api.update).toHaveBeenCalledWith(4, {
+      name: "Hook",
+      min_level: "info",
+      topics: ["scans"],
+      fields: { host: "ntfy.example.com", targets: ["romm"] },
     });
     wrapper.unmount();
   });
@@ -136,7 +247,6 @@ describe("NotificationChannelDialog", () => {
     const wrapper = await open(
       channel({
         type: "email",
-        format: null,
         target: "a@example.com",
         has_secret: false,
       }),

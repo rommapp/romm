@@ -60,17 +60,18 @@ describe("NotificationChannelsSection", () => {
     expect(wrapper.text()).toContain("notifications.channels-empty");
   });
 
-  it("lists each channel with its filters and last error", async () => {
+  it("lists each channel with its service, filters and last error", async () => {
     const wrapper = await mountWith([
       channel({
         min_level: "warning",
         topics: ["scans", "tasks"],
-        last_error: "discord.com answered 404",
+        last_error: "Failed to send Discord notification: error=404.",
       }),
     ]);
 
     const text = wrapper.find(".r-v2-channel").text();
-    expect(text).toContain("https://discord.com/…oken");
+    expect(wrapper.find(".r-v2-channel .r-tag").text()).toBe("Discord");
+    expect(text).toContain("discord://1...0/a...p/");
     expect(text).toContain(
       "notifications.channel-level-warning · notifications.topic-scans, notifications.topic-tasks",
     );
@@ -80,7 +81,7 @@ describe("NotificationChannelsSection", () => {
   it("says a code went out only for an address new to the channel", async () => {
     const waiting = channel({
       type: "email",
-      format: null,
+      service: null,
       target: "a@example.com",
       confirmed: false,
     });
@@ -164,7 +165,7 @@ describe("NotificationChannelsSection", () => {
       data: channel({ type: "email", confirmed: true }),
     });
     const wrapper = await mountWith([
-      channel({ type: "email", format: null, confirmed: false }),
+      channel({ type: "email", service: null, confirmed: false }),
     ]);
 
     await wrapper.find(".r-v2-channel__code input").setValue(" 123456 ");

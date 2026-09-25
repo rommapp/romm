@@ -12,14 +12,11 @@ from utils.database import CustomJSON
 
 
 class NotificationChannelType(enum.StrEnum):
+    # Any service Apprise speaks to, from one URL.
+    APPRISE = "apprise"
+    # RomM's own JSON payload, signed when the channel has a secret.
     WEBHOOK = "webhook"
     EMAIL = "email"
-
-
-class WebhookFormat(enum.StrEnum):
-    JSON = "json"
-    DISCORD = "discord"
-    NTFY = "ntfy"
 
 
 class NotificationChannelMinLevel(enum.StrEnum):
@@ -36,6 +33,9 @@ NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH: Final = 255
 NOTIFICATION_CHANNEL_ERROR_MAX_LENGTH: Final = 1000
 NOTIFICATION_CHANNEL_ADDRESS_MAX_LENGTH: Final = 320
 NOTIFICATION_CHANNEL_CODE_MAX_LENGTH: Final = 16
+NOTIFICATION_CHANNEL_SERVICE_MAX_LENGTH: Final = 32
+# An Apprise service's fields: the most any has, with room to spare.
+NOTIFICATION_CHANNEL_MAX_FIELDS: Final = 64
 MAX_NOTIFICATION_CHANNELS_PER_USER: Final = 20
 # A channel that fails this many deliveries in a row turns itself off.
 MAX_CONSECUTIVE_DELIVERY_FAILURES: Final = 10
@@ -51,7 +51,7 @@ class NotificationChannel(BaseModel):
     )
     type: Mapped[str] = mapped_column(String(16))
     name: Mapped[str] = mapped_column(String(NOTIFICATION_CHANNEL_NAME_MAX_LENGTH))
-    # Sealed with `utils.secret_box`: a webhook URL can carry its own token.
+    # Sealed with `utils.secret_box`: a URL can carry its own token.
     config: Mapped[str] = mapped_column(Text)
     min_level: Mapped[str] = mapped_column(String(16), default="info")
     # None forwards every topic.

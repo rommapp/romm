@@ -18,7 +18,8 @@ from models.notification_channel import NotificationChannel, NotificationChannel
 from models.user import Role
 from utils.secret_box import unseal
 
-from . import webhook
+from . import apprise_channel, webhook
+from .apprise_channel import AppriseError
 from .config import WebhookConfig
 from .messages import OutboundMessage, render
 
@@ -89,26 +90,31 @@ async def send_to_channel(
 
     Raises:
         UnsealError: ROMM_AUTH_SECRET_KEY changed since the channel was saved.
-        WebhookError, EmailError: The delivery failed.
+        AppriseError, WebhookError, EmailError: The delivery failed.
     """
     config = unseal(channel.config)
-    if channel.type == NotificationChannelType.EMAIL:
-        text = "\n\n".join(part for part in (message.body, message.url) if part)
-        await asyncio.to_thread(
-            send_email,
-            config["address"],
-            f"[RomM] {message.title}",
-            text or message.title,
-        )
-    else:
-        await webhook.send(
-            WebhookConfig(
-                url=config["url"], format=config["format"], secret=config.get("secret")
-            ),
-            message,
-            allow_private=allow_private,
-            channel_name=channel.name,
-        )
+    match channel.type:
+        case NotificationChannelType.APPRISE:
+            # Apprise opens its own connections, past the SSRF guard.
+            if not allow_private:
+                raise AppriseError(apprise_channel.ADMINS_ONLY)
+            await asyncio.to_thread(
+                apprise_channel.send, config["service"], config["fields"], message
+            )
+        case NotificationChannelType.EMAIL:
+            text = "\n\n".join(part for part in (message.body, message.url) if part)
+            await asyncio.to_thread(
+                send_email,
+                config["address"],
+                f"[RomM] {message.title}",
+                text or message.title,
+            )
+        case _:
+            await webhook.send(
+                WebhookConfig(url=config["url"], secret=config.get("secret")),
+                message,
+                allow_private=allow_private,
+            )
 
 
 def sample_message() -> OutboundMessage:
