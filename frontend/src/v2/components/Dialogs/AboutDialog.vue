@@ -95,7 +95,9 @@ const links = computed<Link[]>(() => [
           </div>
           <div class="r-v2-about__meta">
             <span class="r-v2-about__label">{{ link.label }}</span>
-            <span class="r-v2-about__value">{{ link.value }}</span>
+            <span class="r-v2-about__value" :title="link.value">
+              {{ link.value }}
+            </span>
           </div>
           <RIcon icon="mdi-open-in-new" size="14" class="r-v2-about__chev" />
         </a>
@@ -107,7 +109,9 @@ const links = computed<Link[]>(() => [
 <style scoped>
 .r-v2-about {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* A 0 minimum, so a long value (a branch name) truncates instead of
+     widening its column past the dialog. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -174,6 +178,6 @@ const links = computed<Link[]>(() => [
 }
 
 html[data-bp~="xs"] .r-v2-about {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 </style>
