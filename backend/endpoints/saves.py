@@ -223,8 +223,7 @@ async def add_save(
     emulator: str | None = None,
     slot: Annotated[str | None, Query(max_length=SAVE_SLOT_MAX_LENGTH)] = None,
     device_id: str | None = None,
-    # No max_length: an over-long hash is dropped at the sync boundary, so a
-    # client using a wider scheme keeps uploading instead of failing validation.
+    # Over-long hashes are stored as unknown by upsert_sync.
     content_hash: Annotated[str | None, Query()] = None,
     session_id: int | None = None,
     overwrite: bool = False,

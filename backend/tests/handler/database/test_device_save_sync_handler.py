@@ -324,6 +324,21 @@ class TestRecordIdenticalContent:
         assert stored is not None
         assert to_utc(stored.last_synced_at) == synced_at
 
+    def test_an_untracked_save_stays_untracked(
+        self, admin_user: User, rom: Rom, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="identical-dev-4", user_id=admin_user.id)
+        )
+        db_device_save_sync_handler.set_untracked(device.id, save.id, untracked=True)
+
+        db_device_save_sync_handler.record_identical_content(device.id, save.id, "same")
+
+        stored = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert stored is not None
+        assert stored.is_untracked
+        assert stored.last_sync_hash is None
+
     @pytest.mark.parametrize("content_hash", [None, "", "0" * 33])
     def test_an_unusable_hash_records_nothing(
         self, admin_user: User, rom: Rom, save: Save, content_hash: str | None
