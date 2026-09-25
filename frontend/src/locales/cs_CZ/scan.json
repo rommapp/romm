@@ -33,7 +33,7 @@
   "info-full-docs": "Úplná dokumentace",
   "info-hashes-desc": "Přepočítá hashe pro všechny soubory na vybraných platformách.",
   "info-new-platforms-desc": "Bude hledat pouze platformy, které ještě nejsou v RomM.",
-  "info-quick-scan-desc": "Skenuje hry, které ještě nejsou v knihovně, a zachytí soubory přidané do složek her, které v ní už jsou, v jakékoli úrovni zanoření. Znovu také načte ID titulů her, které už v knihovně jsou.",
+  "info-quick-scan-desc": "Skenuje hry, které ještě nejsou v knihovně, zachytí soubory přidané do složek her, které v ní už jsou, v jakékoli úrovni zanoření, a znovu načte ID titulů her, které v ní už jsou.",
   "info-unmatched-games-desc": "Pokusí se spárovat hry, které nejsou spárovány s vybranými zdroji metadat.\n\nNapříklad výběr IGDB a ScreenScraper naskenuje hry, které nejsou spárovány s IGDB nebo ScreenScraper.",
   "info-update-metadata-desc": "Aktualizuje metadata pro hry, které byly spárovány s vybranými zdroji metadat pomocí externího ID (např. IGDB ID).\n\nNapříklad výběr IGDB a ScreenScraper aktualizuje metadata pro hry spárové s IGDB nebo ScreenScraper a použije igdb_id a/nebo ssfr_id k opakovanému získání metadat od příslušných poskytovatelů.",
   "live-progress": "Průběh v reálném čase",

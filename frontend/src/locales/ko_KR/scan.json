@@ -33,7 +33,7 @@
   "info-full-docs": "전체 문서",
   "info-hashes-desc": "선택한 플랫폼의 모든 파일에 대해 해시를 재계산합니다.",
   "info-new-platforms-desc": "RomM에 아직 없는 플랫폼만 찾습니다.",
-  "info-quick-scan-desc": "아직 라이브러리에 없는 게임을 스캔하고, 이미 라이브러리에 있는 게임의 폴더에 추가된 파일을 깊이에 상관없이 찾아냅니다. 이미 라이브러리에 있는 게임의 타이틀 ID도 다시 읽습니다.",
+  "info-quick-scan-desc": "아직 라이브러리에 없는 게임을 스캔하고, 이미 라이브러리에 있는 게임의 폴더에 추가된 파일을 깊이에 상관없이 찾아내며, 이미 라이브러리에 있는 게임의 타이틀 ID를 다시 읽습니다.",
   "info-unmatched-games-desc": "선택한 메타데이터 소스와 일치하지 않는 게임을 일치시키려고 시도합니다.\n\n예를 들어, IGDB와 ScreenScraper를 선택하면 IGDB나 ScreenScraper와 일치하지 않는 게임을 스캔합니다.",
   "info-update-metadata-desc": "외부 ID (예: IGDB ID)를 사용하여 선택한 메타데이터 소스와 일치한 게임의 메타데이터를 업데이트합니다.\n\n예를 들어, IGDB와 ScreenScraper를 선택하면 IGDB나 ScreenScraper와 일치한 게임의 메타데이터를 업데이트하고, igdb_id 및/또는 ssfr_id를 사용하여 해당 제공자로부터 메타데이터를 다시 가져옵니다.",
   "live-progress": "실시간 진행 상황",
