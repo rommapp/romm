@@ -47,11 +47,11 @@ async def run_task_by_name(
 
     try:
         result = await task.run(**(task_kwargs or {}))
-        await _notify_task_end(name, task, run_by_user_id)
-        return result
     finally:
         # RQ runs the job on a loop that never runs again once it returns.
         await wait_for_background_tasks()
+    await _notify_task_end(name, task, run_by_user_id)
+    return result
 
 
 def report_task_failure(

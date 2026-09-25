@@ -1567,7 +1567,7 @@ Toggled via environment variables:
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
 | `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
 | `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
-| `reap_streaming_sessions`         | Streaming enabled in config                        | `* * * * *`        | Stop abandoned streams |
+| `reap_streaming_sessions`         | Always enabled, idle without streaming             | `* * * * *`        | Stop abandoned streams |
 | `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)    | `30 4 * * *`       | Prune old audit events |
 
 ### Manual Tasks

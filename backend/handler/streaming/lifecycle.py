@@ -438,10 +438,12 @@ async def teardown_abandoned_session(
     quiescent, evacuate and wipe it, credit the owner's playtime, then drop
     the claim.
 
-    `claimed_by` is the user whose claim found the session, None for the reaper.
-    Returns False when the session stopped looking abandoned before any of that
-    started, meaning the owner came back or another request got here first, or
-    when a step before the stop failed and the session was put back for a retry.
+    Args:
+        claimed_by: the user whose claim found the session, None for the reaper.
+
+    Returns:
+        Whether the emulator was stopped: False when the session stopped looking
+        abandoned first, or a step before the stop failed and it was put back.
     """
     # Claim the teardown before touching the broker. The work below runs for
     # seconds, and the staleness check that led here is older still, so without

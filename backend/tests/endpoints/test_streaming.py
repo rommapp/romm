@@ -964,6 +964,27 @@ def test_claim_derives_rom_path_server_side(client, access_token, rom: Rom):
     assert rom_path == f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
 
+def test_a_slow_claim_setup_keeps_its_claim_fresh(client, access_token, rom: Rom):
+    """Nothing beats for the player until the stream is up, so a setup step
+    outlasting the stale window would hand the container to the reaper."""
+
+    async def slow_save_pull(*args: Any, **kwargs: Any) -> bool:
+        await asyncio.sleep(0.05)
+        return True
+
+    with (
+        _streaming(_container_for(rom)),
+        patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0),
+        patch("handler.streaming.saves.wait_for_save_pull", new=slow_save_pull),
+        patch("handler.streaming.launch.run_launch", new=AsyncMock()),
+    ):
+        r = _claim(client, access_token, rom.id)
+
+    assert r.status_code == 202
+    stored = _load_session(session_store.session_redis_key(r.json()["container"]))
+    assert stored["last_seen"] != r.json()["claimed_at"]
+
+
 def test_claim_honors_container_library_path(client, access_token, rom: Rom):
     """`library_path` on the container entry replaces LIBRARY_BASE_PATH so the
     broker gets a path valid inside a container with a different mount."""

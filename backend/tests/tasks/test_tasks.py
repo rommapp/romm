@@ -243,6 +243,29 @@ class TestRunTaskByNameNotifications:
         assert data == {"task": "cleanup_missing_roms", "title": "Cleanup Missing ROMs"}
         notify_admins.assert_not_awaited()
 
+    async def test_reports_success_only_once_spawned_work_is_done(self, mocker, notify):
+        """Spawned work that then overran the job timeout would read as both a
+        success and a failure."""
+        finished = asyncio.Event()
+
+        async def later() -> None:
+            await asyncio.sleep(0.05)
+            finished.set()
+
+        async def run() -> None:
+            fire_and_forget(later())
+
+        task = _task(mocker)
+        task.run = run
+        finished_when_notified: list[bool] = []
+        notify.side_effect = lambda *args: finished_when_notified.append(
+            finished.is_set()
+        )
+
+        await run_task_by_name("cleanup_missing_roms", run_by_user_id=4)
+
+        assert finished_when_notified == [True]
+
     async def test_a_scheduled_success_stays_quiet(self, mocker, notify, notify_admins):
         _task(mocker, return_value=None)
 

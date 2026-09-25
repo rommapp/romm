@@ -333,6 +333,11 @@ def drain_marker(token: str) -> str:
     return json.dumps({"draining": True, "drain_token": token})
 
 
+def _holds_marker(token: str) -> Callable[[dict[str, Any]], bool]:
+    """Whether a session key still holds the drain marker `token` wrote."""
+    return lambda current: current.get("drain_token") == token
+
+
 async def claim_drain_marker(
     session_key: str, claim: dict[str, Any], ttl: int = DRAIN_MARKER_TTL
 ) -> str | None:
@@ -373,7 +378,7 @@ async def hold_drain_marker(session_key: str, token: str) -> None:
         try:
             held = await replace_session_if(
                 session_key,
-                lambda current: current.get("drain_token") == token,
+                _holds_marker(token),
                 marker,
                 DRAIN_MARKER_TTL,
             )
@@ -467,7 +472,7 @@ async def drop_drain_marker(session_key: str, token: str) -> None:
     try:
         await replace_session_if(
             session_key,
-            lambda current: current.get("drain_token") == token,
+            _holds_marker(token),
             None,
         )
     except StreamingSessionContended:
@@ -481,7 +486,7 @@ async def restore_drained_session(
     try:
         await replace_session_if(
             session_key,
-            lambda current: current.get("drain_token") == token,
+            _holds_marker(token),
             json.dumps(session),
             STREAMING_SESSION_TTL_SECONDS,
         )
