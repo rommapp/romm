@@ -197,6 +197,92 @@ class TestUpsertSync:
         )
         assert result.last_synced_at == ts
 
+    def test_stores_baselines_on_a_new_row(
+        self, admin_user: User, rom: Rom, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="upsert-dev-5", user_id=admin_user.id)
+        )
+        result = db_device_save_sync_handler.upsert_sync(
+            device.id,
+            save.id,
+            last_sync_hash="client_hash",
+            last_sync_server_hash="server_hash",
+        )
+
+        assert result.last_sync_hash == "client_hash"
+        assert result.last_sync_server_hash == "server_hash"
+        stored = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert stored is not None
+        assert stored.last_sync_hash == "client_hash"
+        assert stored.last_sync_server_hash == "server_hash"
+
+    def test_overwrites_baselines_on_an_existing_row(
+        self, admin_user: User, rom: Rom, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="upsert-dev-6", user_id=admin_user.id)
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device.id, save.id, last_sync_hash="old", last_sync_server_hash="old"
+        )
+
+        result = db_device_save_sync_handler.upsert_sync(
+            device.id, save.id, last_sync_hash="new", last_sync_server_hash="new"
+        )
+
+        assert result.last_sync_hash == "new"
+        assert result.last_sync_server_hash == "new"
+
+    def test_omitting_baselines_clears_them(
+        self, admin_user: User, rom: Rom, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="upsert-dev-7", user_id=admin_user.id)
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device.id, save.id, last_sync_hash="old", last_sync_server_hash="old"
+        )
+
+        result = db_device_save_sync_handler.upsert_sync(device.id, save.id)
+
+        assert result.last_sync_hash is None
+        assert result.last_sync_server_hash is None
+        stored = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert stored is not None
+        assert stored.last_sync_hash is None
+        assert stored.last_sync_server_hash is None
+
+    def test_blank_and_over_long_hashes_store_as_none(
+        self, admin_user: User, rom: Rom, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="upsert-dev-8", user_id=admin_user.id)
+        )
+        result = db_device_save_sync_handler.upsert_sync(
+            device.id,
+            save.id,
+            last_sync_hash="",
+            last_sync_server_hash="0" * 33,
+        )
+
+        assert result.last_sync_hash is None
+        assert result.last_sync_server_hash is None
+
+    def test_hash_of_exactly_the_column_width_is_kept(
+        self, admin_user: User, rom: Rom, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="upsert-dev-9", user_id=admin_user.id)
+        )
+        md5 = "0123456789abcdef0123456789abcdef"
+        result = db_device_save_sync_handler.upsert_sync(
+            device.id, save.id, last_sync_hash=md5, last_sync_server_hash=md5
+        )
+
+        assert result.last_sync_hash == md5
+        assert result.last_sync_server_hash == md5
+
 
 class TestSetUntracked:
     def test_set_untracked_on_existing(self, admin_user: User, rom: Rom, save: Save):
@@ -237,6 +323,41 @@ class TestSetUntracked:
         )
         result = db_device_save_sync_handler.set_untracked(device.id, 999999, False)
         assert result is None
+
+    def test_untracking_clears_the_baseline(
+        self, admin_user: User, rom: Rom, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="untrack-dev-5", user_id=admin_user.id)
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device.id, save.id, last_sync_hash="client", last_sync_server_hash="server"
+        )
+
+        result = db_device_save_sync_handler.set_untracked(device.id, save.id, True)
+
+        assert result is not None
+        assert result.last_sync_hash is None
+        assert result.last_sync_server_hash is None
+
+    def test_retracking_leaves_the_baseline_empty(
+        self, admin_user: User, rom: Rom, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="untrack-dev-6", user_id=admin_user.id)
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device.id, save.id, last_sync_hash="client", last_sync_server_hash="server"
+        )
+        db_device_save_sync_handler.set_untracked(device.id, save.id, True)
+
+        db_device_save_sync_handler.set_untracked(device.id, save.id, False)
+
+        stored = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert stored is not None
+        assert stored.is_untracked is False
+        assert stored.last_sync_hash is None
+        assert stored.last_sync_server_hash is None
 
 
 class TestDeleteSyncsForDevice:

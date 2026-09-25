@@ -286,6 +286,10 @@ def negotiate_sync(
             server_hash=server_save.content_hash,
             server_updated_at=server_save.updated_at,
             device_last_synced_at=device_sync.last_synced_at if device_sync else None,
+            device_last_sync_hash=device_sync.last_sync_hash if device_sync else None,
+            device_last_sync_server_hash=(
+                device_sync.last_sync_server_hash if device_sync else None
+            ),
         )
 
         operations.append(

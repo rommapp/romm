@@ -27,6 +27,7 @@ from models.assets import (
     State,
 )
 from models.device import Device
+from models.device_save_sync import DeviceSaveSync
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
@@ -3946,3 +3947,207 @@ class TestSaveRename:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert save_file.exists()
+
+
+class TestSyncBaselineWriteSites:
+    """Device-facing save paths record what each side held at the boundary."""
+
+    @staticmethod
+    def _baseline(device: Device, save_id: int) -> DeviceSaveSync:
+        sync = db_device_save_sync_handler.get_sync(
+            device_id=device.id, save_id=save_id
+        )
+        assert sync is not None
+        return sync
+
+    @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
+    def test_optimistic_download_records_only_the_server_hash(
+        self,
+        mock_validate_path,
+        client,
+        access_token: str,
+        save: Save,
+        device: Device,
+        tmp_path,
+    ):
+        db_save_handler.update_save(save.id, {"content_hash": "server_hash"})
+        test_file = tmp_path / "test.sav"
+        test_file.write_bytes(b"save file content")
+        mock_validate_path.return_value = test_file
+
+        response = client.get(
+            f"/api/saves/{save.id}/content?device_id={device.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        sync = self._baseline(device, save.id)
+        assert sync.last_sync_hash is None
+        assert sync.last_sync_server_hash == "server_hash"
+
+    def test_confirm_download_records_the_client_hash(
+        self, client, access_token: str, save: Save, device: Device
+    ):
+        db_save_handler.update_save(save.id, {"content_hash": "server_hash"})
+
+        response = client.post(
+            f"/api/saves/{save.id}/downloaded",
+            json={"device_id": device.id, "content_hash": "client_hash"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        sync = self._baseline(device, save.id)
+        assert sync.last_sync_hash == "client_hash"
+        assert sync.last_sync_server_hash == "server_hash"
+
+    def test_confirm_download_without_a_client_hash(
+        self, client, access_token: str, save: Save, device: Device
+    ):
+        db_save_handler.update_save(save.id, {"content_hash": "server_hash"})
+
+        response = client.post(
+            f"/api/saves/{save.id}/downloaded",
+            json={"device_id": device.id},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        sync = self._baseline(device, save.id)
+        assert sync.last_sync_hash is None
+        assert sync.last_sync_server_hash == "server_hash"
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_upload_records_the_client_hash(
+        self,
+        mock_scan,
+        _mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        device: Device,
+    ):
+        mock_scan.return_value = Save(
+            file_name="baseline.sav",
+            file_name_no_tags="baseline",
+            file_name_no_ext="baseline",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            content_hash="server_hash",
+            rom_id=rom.id,
+            user_id=admin_user.id,
+        )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&device_id={device.id}"
+            f"&content_hash=client_hash",
+            files={
+                "saveFile": (
+                    "baseline.sav",
+                    BytesIO(b"save data"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        sync = self._baseline(device, response.json()["id"])
+        assert sync.last_sync_hash == "client_hash"
+        assert sync.last_sync_server_hash == "server_hash"
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_upload_with_an_empty_hash_records_only_the_server_hash(
+        self,
+        mock_scan,
+        _mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        device: Device,
+    ):
+        mock_scan.return_value = Save(
+            file_name="blank_hash.sav",
+            file_name_no_tags="blank_hash",
+            file_name_no_ext="blank_hash",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            content_hash="server_hash",
+            rom_id=rom.id,
+            user_id=admin_user.id,
+        )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&device_id={device.id}&content_hash=",
+            files={
+                "saveFile": (
+                    "blank_hash.sav",
+                    BytesIO(b"save data"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        sync = self._baseline(device, response.json()["id"])
+        assert sync.last_sync_hash is None
+        assert sync.last_sync_server_hash == "server_hash"
+
+    def test_update_save_records_the_client_hash(
+        self, client, access_token: str, save: Save, device: Device
+    ):
+        db_save_handler.update_save(save.id, {"content_hash": "server_hash"})
+
+        response = client.put(
+            f"/api/saves/{save.id}?device_id={device.id}&content_hash=client_hash",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        sync = self._baseline(device, save.id)
+        assert sync.last_sync_hash == "client_hash"
+        assert sync.last_sync_server_hash == "server_hash"
+
+    def test_untrack_clears_the_baseline_and_retrack_leaves_it_empty(
+        self, client, access_token: str, save: Save, device: Device
+    ):
+        db_device_save_sync_handler.upsert_sync(
+            device_id=device.id,
+            save_id=save.id,
+            last_sync_hash="client_hash",
+            last_sync_server_hash="server_hash",
+        )
+
+        untrack = client.post(
+            f"/api/saves/{save.id}/untrack",
+            json={"device_id": device.id},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert untrack.status_code == status.HTTP_200_OK
+        sync = self._baseline(device, save.id)
+        assert sync.last_sync_hash is None
+        assert sync.last_sync_server_hash is None
+
+        track = client.post(
+            f"/api/saves/{save.id}/track",
+            json={"device_id": device.id},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert track.status_code == status.HTTP_200_OK
+        sync = self._baseline(device, save.id)
+        assert sync.is_untracked is False
+        assert sync.last_sync_hash is None
+        assert sync.last_sync_server_hash is None

@@ -5,10 +5,18 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
+from models.assets import CONTENT_HASH_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 
 from .base_handler import DBBaseHandler
+
+
+def _clean_hash(value: str | None) -> str | None:
+    """Absent, empty and over-long hashes all mean unknown."""
+    if not value or len(value) > CONTENT_HASH_MAX_LENGTH:
+        return None
+    return value
 
 
 class DBDeviceSaveSyncHandler(DBBaseHandler):
@@ -72,9 +80,13 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
         device_id: str,
         save_id: int,
         synced_at: datetime | None = None,
+        last_sync_hash: str | None = None,
+        last_sync_server_hash: str | None = None,
         session: Session = None,  # type: ignore
     ) -> DeviceSaveSync:
         now = synced_at or datetime.now(timezone.utc)
+        client_hash = _clean_hash(last_sync_hash)
+        server_hash = _clean_hash(last_sync_server_hash)
         existing = session.scalar(
             select(DeviceSaveSync)
             .filter_by(device_id=device_id, save_id=save_id)
@@ -87,11 +99,18 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
                     DeviceSaveSync.device_id == device_id,
                     DeviceSaveSync.save_id == save_id,
                 )
-                .values(last_synced_at=now, is_untracked=False)
+                .values(
+                    last_synced_at=now,
+                    is_untracked=False,
+                    last_sync_hash=client_hash,
+                    last_sync_server_hash=server_hash,
+                )
                 .execution_options(synchronize_session="evaluate")
             )
             existing.last_synced_at = now
             existing.is_untracked = False
+            existing.last_sync_hash = client_hash
+            existing.last_sync_server_hash = server_hash
             return existing
         else:
             sync = DeviceSaveSync(
@@ -99,6 +118,8 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
                 save_id=save_id,
                 last_synced_at=now,
                 is_untracked=False,
+                last_sync_hash=client_hash,
+                last_sync_server_hash=server_hash,
             )
             session.add(sync)
             session.flush()
@@ -118,16 +139,24 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
             .limit(1)
         )
         if existing:
+            # While a save is untracked both sides can move, so the boundary
+            # recorded before it is no longer a statement about either side.
             session.execute(
                 update(DeviceSaveSync)
                 .where(
                     DeviceSaveSync.device_id == device_id,
                     DeviceSaveSync.save_id == save_id,
                 )
-                .values(is_untracked=untracked)
+                .values(
+                    is_untracked=untracked,
+                    last_sync_hash=None,
+                    last_sync_server_hash=None,
+                )
                 .execution_options(synchronize_session="evaluate")
             )
             existing.is_untracked = untracked
+            existing.last_sync_hash = None
+            existing.last_sync_server_hash = None
             return existing
         elif untracked:
             now = datetime.now(timezone.utc)

@@ -20,6 +20,8 @@ def compare_save_state(
     server_hash: str | None,
     server_updated_at: datetime,
     device_last_synced_at: datetime | None,
+    device_last_sync_hash: str | None = None,
+    device_last_sync_server_hash: str | None = None,
 ) -> SyncComparisonResult:
     """Compare client and server save state to determine the sync action.
 
@@ -39,8 +41,20 @@ def compare_save_state(
     # If we have a last sync timestamp, use it to determine which side changed
     if device_last_synced_at:
         synced_ts = to_utc(device_last_synced_at)
-        client_changed = client_ts > synced_ts
-        server_changed = server_ts > synced_ts
+        # A baseline match proves a side is unchanged; a mismatch proves nothing,
+        # so baselines can only ever remove a conflict, never create one.
+        client_unchanged = bool(
+            client_hash
+            and device_last_sync_hash
+            and client_hash == device_last_sync_hash
+        )
+        server_unchanged = bool(
+            server_hash
+            and device_last_sync_server_hash
+            and server_hash == device_last_sync_server_hash
+        )
+        client_changed = client_ts > synced_ts and not client_unchanged
+        server_changed = server_ts > synced_ts and not server_unchanged
 
         if client_changed and server_changed:
             return SyncComparisonResult(

@@ -27,6 +27,7 @@ SAVE_SLOT_MAX_LENGTH = 255
 EMULATOR_MAX_LENGTH = 50
 ASSET_LABEL_MAX_LENGTH = 255
 ASSET_LABELS_MAX = 20
+CONTENT_HASH_MAX_LENGTH = 32
 
 
 class BaseAsset(BaseModel):
@@ -111,7 +112,9 @@ class Save(RomAsset):
     slot: Mapped[str | None] = mapped_column(
         String(length=SAVE_SLOT_MAX_LENGTH), index=True
     )
-    content_hash: Mapped[str | None] = mapped_column(String(length=32))
+    content_hash: Mapped[str | None] = mapped_column(
+        String(length=CONTENT_HASH_MAX_LENGTH)
+    )
     origin_device_id: Mapped[str | None] = mapped_column(
         String(length=255),
         ForeignKey("devices.id", ondelete="SET NULL"),
@@ -248,7 +251,9 @@ class MemoryCardVersion(BaseAsset):
     memory_card_id: Mapped[int] = mapped_column(
         ForeignKey("memory_cards.id", ondelete="CASCADE")
     )
-    content_hash: Mapped[str | None] = mapped_column(String(length=32))
+    content_hash: Mapped[str | None] = mapped_column(
+        String(length=CONTENT_HASH_MAX_LENGTH)
+    )
 
     memory_card: Mapped[MemoryCard] = relationship(
         lazy="joined", back_populates="versions"

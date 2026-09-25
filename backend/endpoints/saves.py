@@ -209,6 +209,9 @@ async def add_save(
     emulator: str | None = None,
     slot: Annotated[str | None, Query(max_length=SAVE_SLOT_MAX_LENGTH)] = None,
     device_id: str | None = None,
+    # No max_length: an over-long hash is dropped at the sync boundary, so a
+    # client using a wider scheme keeps uploading instead of failing validation.
+    content_hash: Annotated[str | None, Query()] = None,
     session_id: int | None = None,
     overwrite: bool = False,
     autocleanup: bool = False,
@@ -372,7 +375,11 @@ async def add_save(
 
     if device:
         db_device_save_sync_handler.upsert_sync(
-            device_id=device.id, save_id=db_save.id, synced_at=db_save.updated_at
+            device_id=device.id,
+            save_id=db_save.id,
+            synced_at=db_save.updated_at,
+            last_sync_hash=content_hash,
+            last_sync_server_hash=db_save.content_hash,
         )
         db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
 
@@ -570,10 +577,13 @@ def download_save(
 
     # Sync bookkeeping only makes sense for the owner's own saves.
     if device and optimistic and is_owner:
+        # The device has no bytes yet, so only the server half is known.
         db_device_save_sync_handler.upsert_sync(
             device_id=device.id,
             save_id=save.id,
             synced_at=save.updated_at,
+            last_sync_hash=None,
+            last_sync_server_hash=save.content_hash,
         )
         db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
 
@@ -588,6 +598,7 @@ def confirm_download(
     request: Request,
     id: int,
     device_id: str = Body(..., embed=True),
+    content_hash: str | None = Body(default=None, embed=True),
 ) -> SaveSchema:
     """Confirm a save was downloaded successfully."""
     save = db_save_handler.get_save(user_id=request.user.id, id=id)
@@ -602,6 +613,8 @@ def confirm_download(
         device_id=device_id,
         save_id=save.id,
         synced_at=save.updated_at,
+        last_sync_hash=content_hash,
+        last_sync_server_hash=save.content_hash,
     )
     db_device_handler.update_last_seen(device_id=device_id, user_id=request.user.id)
 
@@ -613,6 +626,7 @@ async def update_save(
     request: Request,
     id: int,
     device_id: str | None = None,
+    content_hash: Annotated[str | None, Query()] = None,
     saveFile: UploadFile | None = SAVE_FILE_UPDATE,
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPDATE,
 ) -> SaveSchema:
@@ -703,7 +717,11 @@ async def update_save(
 
     if device:
         db_device_save_sync_handler.upsert_sync(
-            device_id=device.id, save_id=db_save.id, synced_at=db_save.updated_at
+            device_id=device.id,
+            save_id=db_save.id,
+            synced_at=db_save.updated_at,
+            last_sync_hash=content_hash,
+            last_sync_server_hash=db_save.content_hash,
         )
         db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
 

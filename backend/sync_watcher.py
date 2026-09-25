@@ -249,6 +249,10 @@ def _process_incoming_file(
             server_hash=matched_save.content_hash,
             server_updated_at=matched_save.updated_at,
             device_last_synced_at=device_sync.last_synced_at if device_sync else None,
+            device_last_sync_hash=device_sync.last_sync_hash if device_sync else None,
+            device_last_sync_server_hash=(
+                device_sync.last_sync_server_hash if device_sync else None
+            ),
         )
 
         if result.action == "no_op":
@@ -277,10 +281,13 @@ def _process_incoming_file(
                     "content_hash": file_hash,
                 },
             )
+            # This path hashes the device's file itself, so both sides hold file_hash.
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
                 synced_at=datetime.now(timezone.utc),
+                last_sync_hash=file_hash,
+                last_sync_server_hash=file_hash,
             )
             fs_sync_handler.remove_incoming_file(full_path)
 
@@ -324,10 +331,13 @@ def _process_incoming_file(
                 file_name=filename,
                 data=server_data,
             )
+            # The device has no bytes yet, so only the server half is known.
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
                 synced_at=datetime.now(timezone.utc),
+                last_sync_hash=None,
+                last_sync_server_hash=matched_save.content_hash,
             )
             fs_sync_handler.remove_incoming_file(full_path)
     else:

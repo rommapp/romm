@@ -1,12 +1,18 @@
+import hashlib
 import os
 import shutil
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from handler.database import db_device_handler, db_save_handler
+from handler.database import (
+    db_device_handler,
+    db_device_save_sync_handler,
+    db_save_handler,
+)
 from handler.filesystem.sync_handler import FSSyncHandler
 from models.assets import Save
 from models.device import Device, SyncMode
@@ -281,3 +287,258 @@ class TestProcessIncomingFileFilenameOnlyMatching:
         assert (
             slotted_after.content_hash != "slotted_old_hash"
         ), "slotted save should have been updated, but the bug picked archival"
+
+
+class TestProcessIncomingFileBaseline:
+    """The watcher must record the boundary it proves and consult it next time."""
+
+    @pytest.fixture
+    def temp_dir(self):
+        d = tempfile.mkdtemp()
+        yield d
+        shutil.rmtree(d, ignore_errors=True)
+
+    @pytest.fixture(autouse=True)
+    def patch_fs_sync_handler(self, temp_dir):
+        handler = FSSyncHandler.__new__(FSSyncHandler)
+        handler.base_path = Path(temp_dir)
+        with patch("sync_watcher.get_fs_sync_handler", return_value=handler):
+            yield handler
+
+    @pytest.fixture
+    def device(self, admin_user: User) -> Device:
+        return db_device_handler.add_device(
+            Device(
+                id="watcher-baseline-dev",
+                user_id=admin_user.id,
+                sync_mode=SyncMode.FILE_TRANSFER,
+                sync_enabled=True,
+            )
+        )
+
+    @pytest.fixture
+    def incoming_bytes(self) -> bytes:
+        return b"device save bytes, unchanged since the last sync"
+
+    @pytest.fixture
+    def incoming_file(
+        self, temp_dir, device: Device, platform: Platform, incoming_bytes
+    ):
+        incoming_dir = Path(temp_dir) / device.id / "incoming" / platform.fs_slug
+        incoming_dir.mkdir(parents=True, exist_ok=True)
+        path = incoming_dir / "baseline.sav"
+        path.write_bytes(incoming_bytes)
+        return str(path)
+
+    @staticmethod
+    def _save(
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        content_hash: str,
+        updated_at: datetime | None = None,
+    ) -> Save:
+        return db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="baseline.sav",
+                file_name_no_tags="baseline",
+                file_name_no_ext="baseline",
+                file_extension="sav",
+                emulator="test_emulator",
+                slot="autosave",
+                file_path=f"{platform.slug}/saves/test_emulator",
+                file_size_bytes=100,
+                content_hash=content_hash,
+                updated_at=updated_at or datetime(2026, 1, 1, tzinfo=timezone.utc),
+            )
+        )
+
+    def test_comparison_receives_the_recorded_baseline(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        incoming_file: str,
+    ):
+        from sync_watcher import _process_incoming_file
+
+        save = self._save(admin_user, rom, platform, "server_old")
+        db_device_save_sync_handler.upsert_sync(
+            device.id,
+            save.id,
+            synced_at=datetime(2026, 1, 5, tzinfo=timezone.utc),
+            last_sync_hash="client_at_boundary",
+            last_sync_server_hash="server_at_boundary",
+        )
+
+        with patch("sync_watcher.compare_save_state") as mock_cmp:
+            mock_cmp.return_value = MagicMock(action="no_op", reason=None)
+            _process_incoming_file(
+                device=device,
+                session_id=1,
+                platform_slug=platform.fs_slug,
+                filename="baseline.sav",
+                full_path=incoming_file,
+            )
+
+        kwargs = mock_cmp.call_args.kwargs
+        assert kwargs["device_last_sync_hash"] == "client_at_boundary"
+        assert kwargs["device_last_sync_server_hash"] == "server_at_boundary"
+
+    def test_upload_records_both_halves_from_the_device_file(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        incoming_file: str,
+        incoming_bytes: bytes,
+    ):
+        from sync_watcher import _process_incoming_file
+
+        save = self._save(admin_user, rom, platform, "server_old")
+
+        with patch("sync_watcher.compare_save_state") as mock_cmp, patch(
+            "sync_watcher.fs_asset_handler"
+        ), patch("sync_watcher.asyncio") as mock_asyncio:
+            mock_cmp.return_value = MagicMock(action="upload", reason=None)
+            mock_asyncio.run = MagicMock()
+            _process_incoming_file(
+                device=device,
+                session_id=1,
+                platform_slug=platform.fs_slug,
+                filename="baseline.sav",
+                full_path=incoming_file,
+            )
+
+        digest = hashlib.md5(incoming_bytes, usedforsecurity=False).hexdigest()
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash == digest
+        assert sync.last_sync_server_hash == digest
+
+    def test_download_records_only_the_server_half(
+        self,
+        temp_dir,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        incoming_file: str,
+    ):
+        from sync_watcher import _process_incoming_file
+
+        save = self._save(admin_user, rom, platform, "server_new")
+        server_file = Path(temp_dir) / "server_baseline.sav"
+        server_file.write_bytes(b"server bytes")
+
+        with patch("sync_watcher.compare_save_state") as mock_cmp, patch(
+            "sync_watcher.fs_asset_handler"
+        ) as mock_assets:
+            mock_cmp.return_value = MagicMock(action="download", reason=None)
+            mock_assets.validate_path.return_value = server_file
+            _process_incoming_file(
+                device=device,
+                session_id=1,
+                platform_slug=platform.fs_slug,
+                filename="baseline.sav",
+                full_path=incoming_file,
+            )
+
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash is None
+        assert sync.last_sync_server_hash == "server_new"
+
+    def test_no_op_leaves_the_baseline_untouched(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        incoming_file: str,
+    ):
+        from sync_watcher import _process_incoming_file
+
+        save = self._save(admin_user, rom, platform, "server_old")
+        db_device_save_sync_handler.upsert_sync(
+            device.id,
+            save.id,
+            synced_at=datetime(2026, 1, 5, tzinfo=timezone.utc),
+            last_sync_hash="client_at_boundary",
+            last_sync_server_hash="server_at_boundary",
+        )
+
+        with patch("sync_watcher.compare_save_state") as mock_cmp:
+            mock_cmp.return_value = MagicMock(action="no_op", reason=None)
+            _process_incoming_file(
+                device=device,
+                session_id=1,
+                platform_slug=platform.fs_slug,
+                filename="baseline.sav",
+                full_path=incoming_file,
+            )
+
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash == "client_at_boundary"
+        assert sync.last_sync_server_hash == "server_at_boundary"
+        assert not os.path.exists(incoming_file)
+
+    def test_an_unchanged_device_file_downloads_instead_of_conflicting(
+        self,
+        temp_dir,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        incoming_file: str,
+        incoming_bytes: bytes,
+    ):
+        """A rewritten-but-identical device file must not be read as a change."""
+        from sync_watcher import _process_incoming_file
+
+        server_file = Path(temp_dir) / "server_baseline.sav"
+        server_file.write_bytes(b"server bytes")
+        save = self._save(
+            admin_user,
+            rom,
+            platform,
+            "server_new",
+            updated_at=datetime(2026, 1, 10, tzinfo=timezone.utc),
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device.id,
+            save.id,
+            synced_at=datetime(2026, 1, 5, tzinfo=timezone.utc),
+            last_sync_hash=hashlib.md5(
+                incoming_bytes, usedforsecurity=False
+            ).hexdigest(),
+            last_sync_server_hash="server_old",
+        )
+
+        with patch("sync_watcher.fs_asset_handler") as mock_assets, patch(
+            "endpoints.sockets.sync.emit_sync_conflict"
+        ) as mock_emit:
+            mock_assets.validate_path.return_value = server_file
+            _process_incoming_file(
+                device=device,
+                session_id=1,
+                platform_slug=platform.fs_slug,
+                filename="baseline.sav",
+                full_path=incoming_file,
+            )
+
+        mock_emit.assert_not_called()
+        assert not os.path.exists(incoming_file)
+        outgoing = (
+            Path(temp_dir) / device.id / "outgoing" / platform.fs_slug / "baseline.sav"
+        )
+        assert outgoing.read_bytes() == b"server bytes"
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash is None
+        assert sync.last_sync_server_hash == "server_new"
