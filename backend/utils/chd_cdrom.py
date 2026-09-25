@@ -21,9 +21,8 @@ def _tag(name: str) -> int:
     return int.from_bytes(name.encode("ascii"), "big")
 
 
-# Current and legacy CD track metadata. GD-ROM ('CHGD') pads tracks
-# differently and isn't read.
-TRACK_METADATA_TAGS = (_tag("CHT2"), _tag("CHTR"))
+# Current and legacy CD track metadata, then Dreamcast GD-ROM.
+TRACK_METADATA_TAGS = (_tag("CHT2"), _tag("CHTR"), _tag("CHGD"))
 
 
 @dataclass(frozen=True)
@@ -33,6 +32,8 @@ class ChdTrack:
     frames: int
     pregap: int
     pregap_stored: bool
+    # GD-ROM counts a track to where the next starts and pads the rest.
+    pad: int = 0
 
 
 @dataclass(frozen=True)
@@ -45,7 +46,7 @@ class ChdAudioTrack:
 
 
 def parse_track_metadata(text: str) -> ChdTrack | None:
-    """Read one CHT2/CHTR track entry, or None when it's malformed."""
+    """Read one CHT2, CHTR or CHGD track entry, or None when it's malformed."""
     fields = dict(
         token.split(":", 1) for token in text.strip("\0 ").split() if ":" in token
     )
@@ -58,24 +59,27 @@ def parse_track_metadata(text: str) -> ChdTrack | None:
             pregap=pregap,
             # A 'V' pregap type means the pregap's frames are in the image.
             pregap_stored=fields.get("PGTYPE", "").upper().startswith("V"),
+            pad=int(fields.get("PAD", "0")),
         )
     except KeyError, ValueError:
         return None
 
 
 def audio_tracks(tracks: list[ChdTrack]) -> list[ChdAudioTrack]:
-    """Locate each audio track's frames, skipping any pregap stored ahead of it."""
+    """Locate each audio track's frames, skipping any pregap stored ahead of it
+    and any GD-ROM padding after it."""
     located: list[ChdAudioTrack] = []
     frame = 0
     for track in sorted(tracks, key=lambda t: t.number):
         if track.type == "AUDIO":
             skip = track.pregap if track.pregap_stored else 0
-            if track.frames > skip:
+            count = track.frames - track.pad - skip
+            if count > 0:
                 located.append(
                     ChdAudioTrack(
                         number=track.number,
                         first_frame=frame + skip,
-                        frame_count=track.frames - skip,
+                        frame_count=count,
                     )
                 )
         frame += -(-track.frames // TRACK_PADDING) * TRACK_PADDING

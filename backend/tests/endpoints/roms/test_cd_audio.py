@@ -64,6 +64,25 @@ def write_cue_disc(folder: Path) -> dict[str, bytes]:
     return contents
 
 
+def write_gdi_disc(folder: Path) -> dict[str, bytes]:
+    """Write a Dreamcast data track and two audio tracks as a .gdi set."""
+    folder.mkdir(parents=True, exist_ok=True)
+    # 150-sector gaps between tracks, as on a real disc.
+    third_lba = 154 + TRACK_2_SECTORS + 150
+    contents = {
+        "disc.gdi": (
+            f"3\n1 0 4 2352 track01.bin 0\n2 154 0 2352 track02.raw 0\n"
+            f"3 {third_lba} 0 2352 track03.raw 0\n"
+        ).encode(),
+        "track01.bin": b"\x01" * AUDIO_SECTOR * 4,
+        "track02.raw": _tone(TRACK_2_SECTORS),
+        "track03.raw": _tone(TRACK_3_SECTORS),
+    }
+    for name, data in contents.items():
+        (folder / name).write_bytes(data)
+    return contents
+
+
 def _add_disc_rom(
     admin_user: User,
     platform: Platform,
@@ -130,6 +149,34 @@ def _create_chd(source: Path, output: Path) -> None:
         [chdman, "createcd", "-i", str(source), "-o", str(output)],
         check=True,
         capture_output=True,
+    )
+
+
+@pytest.fixture
+def gdi_rom(admin_user: User, platform: Platform, real_library: Path) -> Rom:
+    fs_path = f"{platform.slug}/roms/Disc Game"
+    contents = write_gdi_disc(real_library / fs_path)
+    return _add_disc_rom(
+        admin_user,
+        platform,
+        "Disc Game",
+        {name: len(data) for name, data in contents.items()},
+        fs_path,
+    )
+
+
+@pytest.fixture
+def gdrom_chd_rom(
+    admin_user: User, platform: Platform, real_library: Path, tmp_path: Path
+) -> Rom:
+    """The Dreamcast disc compressed to a GD-ROM CHD."""
+    fs_path = f"{platform.slug}/roms/Disc Game"
+    (real_library / fs_path).mkdir(parents=True)
+    chd = real_library / fs_path / "disc.chd"
+    write_gdi_disc(tmp_path / "source")
+    _create_chd(tmp_path / "source" / "disc.gdi", chd)
+    return _add_disc_rom(
+        admin_user, platform, "Disc Game", {"disc.chd": chd.stat().st_size}, fs_path
     )
 
 
@@ -212,6 +259,150 @@ def test_extracts_the_audio_tracks_of_a_chd(
     )
 
 
+@pytest.mark.parametrize("fixture", ["gdi_rom", "gdrom_chd_rom"])
+def test_extracts_the_audio_tracks_of_a_dreamcast_disc(
+    client: TestClient,
+    access_token: str,
+    fixture: str,
+    request: pytest.FixtureRequest,
+):
+    rom: Rom = request.getfixturevalue(fixture)
+
+    response = client.post(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "extracted": ["disc - Track 02.flac", "disc - Track 03.flac"],
+        "skipped": [],
+    }
+    metas = _soundtrack_metas(rom.id)
+    second = metas["disc - Track 02.flac"]
+    assert second is not None
+    assert second.title == "Track 02"
+    assert second.duration_seconds == pytest.approx(
+        TRACK_2_SECTORS / SECTORS_PER_SECOND, abs=0.01
+    )
+    third = metas["disc - Track 03.flac"]
+    assert third is not None
+    # The gap to where the next track would start isn't audio.
+    assert third.duration_seconds == pytest.approx(
+        TRACK_3_SECTORS / SECTORS_PER_SECOND, abs=0.01
+    )
+
+
+def test_names_the_tracks_of_discs_that_share_a_sheet_name(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+):
+    fs_path = f"{platform.slug}/roms/Disc Game"
+    rom = _add_disc_rom(admin_user, platform, "Disc Game", {}, fs_path)
+    for disc in ("Disc 1", "Disc 2"):
+        for name, data in write_gdi_disc(real_library / fs_path / disc).items():
+            db_rom_handler.add_rom_file(
+                RomFile(
+                    rom_id=rom.id,
+                    file_name=name,
+                    file_path=f"{fs_path}/{disc}",
+                    file_size_bytes=len(data),
+                    category=RomFileCategory.GAME,
+                )
+            )
+    rom = db_rom_handler.get_rom(rom.id)
+    assert rom is not None
+
+    response = client.post(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert sorted(response.json()["extracted"]) == [
+        "Disc 1 - disc - Track 02.flac",
+        "Disc 1 - disc - Track 03.flac",
+        "Disc 2 - disc - Track 02.flac",
+        "Disc 2 - disc - Track 03.flac",
+    ]
+    # The folder order numbers the discs when their names don't.
+    second_disc = _soundtrack_metas(rom.id)["Disc 2 - disc - Track 02.flac"]
+    assert second_disc is not None
+    assert second_disc.title == "Track 02 (Disc 2)"
+    assert second_disc.disc == 2
+
+
+def test_extracts_every_disc_of_a_set(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+    tmp_path: Path,
+):
+    fs_path = f"{platform.slug}/roms/Disc Game"
+    folder = real_library / fs_path
+    folder.mkdir(parents=True)
+    write_cue_disc(tmp_path / "source")
+    discs = ["Disc Game (Disc 1).chd", "Disc Game (Disc 2).chd"]
+    for disc in discs:
+        _create_chd(tmp_path / "source" / "Disc.cue", folder / disc)
+    (folder / "Disc Game.m3u").write_text("\n".join(discs))
+    rom = _add_disc_rom(
+        admin_user,
+        platform,
+        "Disc Game",
+        {name: (folder / name).stat().st_size for name in [*discs, "Disc Game.m3u"]},
+        fs_path,
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert sorted(response.json()["extracted"]) == [
+        "Disc Game (Disc 1) - Track 02.flac",
+        "Disc Game (Disc 1) - Track 03.flac",
+        "Disc Game (Disc 2) - Track 02.flac",
+        "Disc Game (Disc 2) - Track 03.flac",
+    ]
+    first_disc = _soundtrack_metas(rom.id)["Disc Game (Disc 1) - Track 03.flac"]
+    assert first_disc is not None
+    assert first_disc.title == "Track 03 (Disc 1)"
+    assert first_disc.disc == 1
+
+
+def test_refuses_to_move_a_lone_disc_a_playlist_lists(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+    tmp_path: Path,
+):
+    fs_path = f"{platform.slug}/roms"
+    (real_library / fs_path).mkdir(parents=True)
+    write_cue_disc(tmp_path / "source")
+    chd = real_library / fs_path / "Disc Game (Disc 1).chd"
+    _create_chd(tmp_path / "source" / "Disc.cue", chd)
+    (real_library / fs_path / "Disc Game.m3u").write_text(
+        "Disc Game (Disc 1).chd\nDisc Game (Disc 2).chd\n"
+    )
+    rom = _add_disc_rom(
+        admin_user, platform, chd.name, {chd.name: chd.stat().st_size}, fs_path
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert "Disc Game.m3u" in response.json()["detail"]
+    assert chd.is_file()
+
+
 def test_moves_a_lone_chd_into_its_own_folder(
     client: TestClient,
     access_token: str,
@@ -289,31 +480,16 @@ def test_extracts_nothing_without_a_cue_sheet(
     assert response.json() == {"extracted": [], "skipped": []}
 
 
+@pytest.mark.parametrize("sheet", ["Loose.cue", "Loose.gdi"])
 def test_refuses_a_sheet_loose_in_the_platform_folder(
-    client: TestClient, access_token: str, admin_user: User, platform: Platform
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    sheet: str,
 ):
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="Loose",
-            slug="loose",
-            fs_name="Loose.cue",
-            fs_name_no_tags="Loose",
-            fs_name_no_ext="Loose",
-            fs_extension="cue",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
-    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="Loose.cue",
-            file_path=rom.fs_path,
-            file_size_bytes=10,
-            category=RomFileCategory.GAME,
-        )
-    )
+    fs_path = f"{platform.slug}/roms"
+    rom = _add_disc_rom(admin_user, platform, sheet, {sheet: 10}, fs_path)
 
     response = client.post(
         f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)

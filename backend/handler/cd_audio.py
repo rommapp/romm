@@ -1,7 +1,9 @@
 import asyncio
 import ctypes
+import dataclasses
 import functools
 import shutil
+from collections import Counter
 from collections.abc import Callable, Generator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,13 +30,16 @@ from utils.chd_cdrom import (
     audio_tracks,
     load_libchdr,
 )
-from utils.cue_sheet import audio_track_ranges, parse_cue_sheet
+from utils.cue_sheet import AudioTrackRange, audio_track_ranges, parse_cue_sheet
+from utils.gdi_sheet import gdi_audio_ranges, parse_gdi_sheet
+from utils.m3u import disc_number
 
 FLAC_BINARY = "flac"
 READ_CHUNK_BYTES = 1024 * 1024
 # A 74-minute disc encodes in well under a minute; this only catches a hang.
 ENCODE_TIMEOUT_SECONDS = 600
-DISC_IMAGE_EXTENSIONS = (".cue", ".chd")
+# Sheets (.cue, Dreamcast .gdi) point at separate track files; a CHD holds them.
+DISC_IMAGE_EXTENSIONS = (".cue", ".gdi", ".chd")
 
 PcmChunks = Generator[bytes, None, None]
 
@@ -66,11 +71,42 @@ class AudioSource:
     title: str | None
     performer: str | None
     pcm: Callable[[], PcmChunks]
+    # Set only when the ROM holds more than one disc.
+    disc: int | None = None
 
 
-def track_file_name(image_stem: str, number: int) -> str:
-    """Name the track after its image, so each disc of a set keeps its own."""
-    return f"{image_stem} - Track {number:02d}.flac"
+def track_file_name(prefix: str, number: int) -> str:
+    return f"{prefix} - Track {number:02d}.flac"
+
+
+def track_prefixes(images: list[Path]) -> dict[Path, str]:
+    """Name each disc's tracks after its image, adding the image's folder when
+    another disc of the set shares its name (Dreamcast sets often use disc.gdi)."""
+    counts = Counter(image.stem.casefold() for image in images)
+    return {
+        image: (
+            image.stem
+            if counts[image.stem.casefold()] == 1
+            else f"{image.parent.name} - {image.stem}"
+        )
+        for image in images
+    }
+
+
+def _listing_playlist(disc: Path) -> str | None:
+    """The .m3u beside a lone disc that lists it, which moving the disc would break."""
+    for entry in disc.parent.iterdir():
+        if entry.suffix.lower() != ".m3u" or not entry.is_file():
+            continue
+        try:
+            lines = entry.read_text(encoding="utf-8-sig", errors="replace")
+        except OSError:
+            continue
+        for line in lines.splitlines():
+            listed = line.strip().replace("\\", "/").rsplit("/", 1)[-1]
+            if listed.casefold() == disc.name.casefold():
+                return entry.name
+    return None
 
 
 def _read_sheet(path: Path) -> str:
@@ -120,10 +156,21 @@ def _chd_pcm(lib: ctypes.CDLL, path: Path, track: ChdAudioTrack) -> PcmChunks:
         yield b"".join(pending)
 
 
+def _file_sizes(files: dict[str, Path]) -> dict[str, int]:
+    return {name: path.stat().st_size for name, path in files.items()}
+
+
 def _sheet_sources(sheet_path: Path) -> list[AudioSource]:
-    tracks = parse_cue_sheet(_read_sheet(sheet_path))
-    located = _locate_files(sheet_path.parent, {track.file_name for track in tracks})
-    sizes = {name: path.stat().st_size for name, path in located.items()}
+    text = _read_sheet(sheet_path)
+    ranges: list[AudioTrackRange]
+    if sheet_path.suffix.lower() == ".gdi":
+        gdi_tracks = parse_gdi_sheet(text)
+        located = _locate_files(sheet_path.parent, {t.file_name for t in gdi_tracks})
+        ranges = gdi_audio_ranges(gdi_tracks, _file_sizes(located))
+    else:
+        cue_tracks = parse_cue_sheet(text)
+        located = _locate_files(sheet_path.parent, {t.file_name for t in cue_tracks})
+        ranges = audio_track_ranges(cue_tracks, _file_sizes(located))
     return [
         AudioSource(
             number=track.number,
@@ -134,7 +181,7 @@ def _sheet_sources(sheet_path: Path) -> list[AudioSource]:
                 _bin_pcm, located[track.file_name], track.offset, track.length
             ),
         )
-        for track in audio_track_ranges(tracks, sizes)
+        for track in ranges
     ]
 
 
@@ -155,9 +202,13 @@ def _chd_sources(lib: ctypes.CDLL, chd_path: Path) -> list[AudioSource]:
 
 
 def _encode_args(source: AudioSource, album: str | None, output: Path) -> list[str]:
+    title = f"Track {source.number:02d}"
+    if source.disc:
+        title += f" (Disc {source.disc})"
     tags = {
-        "TITLE": source.title or f"Track {source.number:02d}",
+        "TITLE": source.title or title,
         "TRACKNUMBER": str(source.number),
+        "DISCNUMBER": str(source.disc) if source.disc else None,
         "ALBUM": album,
         "ARTIST": source.performer,
     }
@@ -236,14 +287,15 @@ def _disc_images(rom: Rom) -> list[RomFile]:
 
 
 async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
-    """Write the audio tracks of a ROM's cue sheets and CHD images into its
+    """Write the audio tracks of a ROM's disc images (.cue, .gdi, .chd) into its
     soundtrack folder.
 
     Tracks already extracted are left as they are, so the call can be repeated.
 
     Raises:
         CdAudioUnavailableException: flac, or libchdr for a CHD, isn't installed.
-        CdAudioNeedsFolderException: A cue sheet sits loose in the platform folder.
+        CdAudioNeedsFolderException: A sheet, or a disc an .m3u lists, sits loose
+            in the platform folder.
         CdAudioEncodeException: A track couldn't be encoded.
     """
     if shutil.which(FLAC_BINARY) is None:
@@ -262,17 +314,40 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
 
     if rom.has_simple_single_file:
         # A CHD is self-contained, but a lone sheet would leave its tracks behind.
-        if images[0].file_name.lower().endswith(".cue"):
+        if not images[0].file_name.lower().endswith(".chd"):
             raise CdAudioNeedsFolderException(
                 "Move the disc into a folder of its own to extract its audio"
+            )
+        disc = fs_rom_handler.validate_path(images[0].full_path)
+        playlist = await asyncio.to_thread(_listing_playlist, disc)
+        if playlist:
+            raise CdAudioNeedsFolderException(
+                f"{playlist} lists this disc, so moving it would break the "
+                "playlist. Move the set into a folder of its own to extract "
+                "its audio"
             )
         rom = await promote_single_file_to_folder(rom)
         images = _disc_images(rom)
 
     folder = CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK]
+    # Numbered discs first and in order, then the rest by path.
+    images.sort(
+        key=lambda f: (disc_number(f) is None, disc_number(f) or 0, f.full_path)
+    )
+    paths = [fs_rom_handler.validate_path(image.full_path) for image in images]
+    prefixes = track_prefixes(paths)
+    discs = (
+        {
+            path: disc_number(image) or position
+            for position, (image, path) in enumerate(
+                zip(images, paths, strict=True), start=1
+            )
+        }
+        if len(images) > 1
+        else {}
+    )
     try:
-        for image in images:
-            path = fs_rom_handler.validate_path(image.full_path)
+        for path in paths:
             try:
                 if path.suffix.lower() == ".chd":
                     assert lib is not None
@@ -282,7 +357,8 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
             except (ChdError, OSError) as exc:
                 raise CdAudioEncodeException(f"Could not read {path.name}") from exc
             for source in sources:
-                name = track_file_name(path.stem, source.number)
+                source = dataclasses.replace(source, disc=discs.get(path))
+                name = track_file_name(prefixes[path], source.number)
                 try:
                     destination = await prepare_upload_destination(rom, folder, name)
                 except UploadConflictException:

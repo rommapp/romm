@@ -117,7 +117,7 @@ async def extract_rom_cd_audio(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
 ) -> CdAudioExtractionSchema:
-    """Extract the audio tracks of a ROM's cue sheets and CHD images into its
+    """Extract the audio tracks of a ROM's disc images (.cue, .gdi, .chd) into its
     soundtrack/ subfolder."""
 
     rom = db_rom_handler.get_rom(id)

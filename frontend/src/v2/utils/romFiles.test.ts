@@ -69,6 +69,15 @@ describe("hasDiscImage", () => {
     ).toBe(true);
   });
 
+  it("finds a Dreamcast .gdi sheet in a disc folder", () => {
+    expect(
+      hasDiscImage(disc([{ file_name: "disc.gdi", category: "game" }])),
+    ).toBe(true);
+    expect(
+      hasDiscImage(disc([{ file_name: "disc.gdi", category: "game" }], true)),
+    ).toBe(false);
+  });
+
   it("finds a CHD, even alone in the platform folder", () => {
     expect(
       hasDiscImage(disc([{ file_name: "Game.chd", category: "game" }], true)),
