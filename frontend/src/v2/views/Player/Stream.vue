@@ -303,7 +303,7 @@ const selectedState = ref<UserStateSchema | null>(null);
 
 // Every save, whichever emulator wrote it, newest capture first: created_at,
 // since the updated_at user_saves arrives on moves with a rehash.
-const pickableSaves = computed<SaveSchema[]>(() => {
+const allSaves = computed<SaveSchema[]>(() => {
   if (!rom.value) return [];
   return [...(rom.value.user_saves ?? [])].sort(
     (a, b) =>
@@ -316,10 +316,17 @@ const pickableSaves = computed<SaveSchema[]>(() => {
 const nativeRestorableSaves = computed<SaveSchema[]>(() => {
   const emulator = emulatorKey(container.value?.emulator);
   if (!emulator) return [];
-  return pickableSaves.value.filter(
+  return allSaves.value.filter(
     (s) => emulatorKey(s.emulator) === emulator && s.file_name.endsWith(".zip"),
   );
 });
+
+// A foreign save is only on offer where the broker declares it can import one.
+const pickableSaves = computed<SaveSchema[]>(() =>
+  container.value?.import_kinds.includes("save")
+    ? allSaves.value
+    : nativeRestorableSaves.value,
+);
 
 // The one the broker restores before boot when the claim names none: this
 // emulator's own, so the fallback restore always succeeds.
@@ -353,11 +360,14 @@ const nativeStreamStates = computed<UserStateSchema[]>(() => {
   );
 });
 
-// Every state regardless of which emulator wrote it, so the picker can offer
-// a foreign pick; the broker routes one through the declared-import path.
-const pickableStates = computed<UserStateSchema[]>(() =>
-  rom.value ? (rom.value.all_user_states ?? []) : [],
-);
+// Every state regardless of which emulator wrote it where the broker declares
+// it can import one, which routes a foreign pick through the import path.
+const pickableStates = computed<UserStateSchema[]>(() => {
+  if (!rom.value) return [];
+  return container.value?.import_kinds.includes("state")
+    ? (rom.value.all_user_states ?? [])
+    : nativeStreamStates.value;
+});
 
 // Every capture is kept, so a heavy save-stater ends up with a history the
 // horizontal strip buries. Grid and list trade thumbnail size for how many

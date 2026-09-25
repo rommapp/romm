@@ -293,12 +293,22 @@ async def get_config(request: Request) -> StreamingConfigSchema:
     """Return streaming configuration to the frontend"""
     # One row per platform: a pool is a backend concern, the frontend picks a
     # platform and the claim decides which container serves it.
+    # The record carries the platform's label and capabilities, so a
+    # platform hidden from this caller must not be listed here either.
+    visible = [
+        c
+        for c in first_claim_targets()
+        if access.platform_is_visible(request, c.platform)
+    ]
+    # Concurrently, so one unreachable broker costs one timeout, not one each.
+    specs = await asyncio.gather(
+        *(
+            asyncio.to_thread(webstation.import_spec, c, c.emulator, c.platform)
+            for c in visible
+        )
+    )
     safe_containers: list[StreamingContainerSchema] = []
-    for c in first_claim_targets():
-        # The record carries the platform's label and capabilities, so a
-        # platform hidden from this caller must not be listed here either.
-        if not access.platform_is_visible(request, c.platform):
-            continue
+    for c, spec in zip(visible, specs, strict=True):
         safe_containers.append(
             StreamingContainerSchema(
                 platform=c.platform,
@@ -319,6 +329,8 @@ async def get_config(request: Request) -> StreamingConfigSchema:
                 # Whether the in-game Save and Load buttons reach a broker that
                 # honours them, which an exit-state emulator's does not.
                 supports_live_states=c.supports_live_states,
+                # So the picker only offers a foreign pick the claim will take.
+                import_kinds=spec.pickable_kinds() if spec is not None else [],
             )
         )
 
@@ -842,9 +854,10 @@ async def claim_session(
     container = await _win_container(request, candidates, session, platform)
     session_key = container.key
 
-    # A save archive only carries the newest exit state, so an older native
-    # pick on an archive-resume container (DuckStation, RPCS3) needs importing.
-    older_exit_state = False
+    # On an archive-resume container (DuckStation, RPCS3) the save archive
+    # carries its own exit state, and only the newest archive carries the newest
+    # capture, so any other state and save pairing needs the state imported.
+    state_off_archive = False
     if (
         resume_state is not None
         and not resume_foreign
@@ -853,12 +866,22 @@ async def claim_session(
         newest_states = await asyncio.to_thread(
             states.user_states_for_emulator, request.user.id, rom.id, container.emulator
         )
-        older_exit_state = not newest_states or newest_states[0].id != resume_state.id
+        state_off_archive = not newest_states or newest_states[0].id != resume_state.id
+        if not state_off_archive and picked_save is not None:
+            newest_save = None
+            if not save_foreign:
+                newest_save = await asyncio.to_thread(
+                    saves.newest_restorable,
+                    request.user.id,
+                    rom.id,
+                    container.emulator,
+                )
+            state_off_archive = newest_save is None or newest_save.id != picked_save.id
 
     # The pre-win checks asked the pool's reference; the won container's own
     # import-spec is what decides, and one answer covers both picks.
     spec = None
-    if resume_foreign or older_exit_state or save_foreign:
+    if resume_foreign or state_off_archive or save_foreign:
         spec = await asyncio.to_thread(
             webstation.import_spec, container, container.emulator, container.platform
         )
@@ -876,7 +899,7 @@ async def claim_session(
             status_code=400, detail="This container cannot restore the picked save"
         )
     resume_via_import = (
-        (resume_foreign or older_exit_state)
+        (resume_foreign or state_off_archive)
         and spec is not None
         and spec.accepts("state")
         and spec.state_channel == "archive"
@@ -938,6 +961,9 @@ async def claim_session(
     resume_import: launch.ResumeImport = "none"
     if resume_via_import:
         resume_import = "imported" if state_imported else "lost"
+    elif state_off_archive:
+        # The archive would resume a state the player did not pick.
+        resume_import = "lost"
 
     # Detached because an activate blocks through pkg and archive extraction,
     # minutes on a large title, which no player can cancel out of.

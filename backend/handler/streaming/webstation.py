@@ -26,7 +26,7 @@ import math
 import time
 import urllib.error
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote
 
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
@@ -53,6 +53,15 @@ class ImportSpec:
         if self.accepts("state") and self.state_channel != "none":
             return self.state_slot
         return None
+
+    def pickable_kinds(self) -> list[Literal["save", "state"]]:
+        """The launch picks a foreign save or state can resume through here."""
+        kinds: list[Literal["save", "state"]] = []
+        if self.accepts("save"):
+            kinds.append("save")
+        if self.resume_slot() is not None:
+            kinds.append("state")
+        return kinds
 
 
 # Per container, so one broker's answer never speaks for another. A 404 or 422

@@ -31,6 +31,9 @@ class StreamingContainerSchema(BaseModel):
     supports_memory_cards: bool
     supports_save_picker: bool
     supports_live_states: bool
+    import_kinds: list[Literal["save", "state"]]
+    """Which foreign-emulator picks the broker declares it can import, empty
+    when it declares none or cannot be asked."""
 
 
 class StreamingConfigSchema(BaseModel):

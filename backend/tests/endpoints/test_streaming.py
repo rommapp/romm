@@ -509,6 +509,47 @@ def test_get_config_reports_save_picker_support(client, access_token, rom: Rom):
     assert supported["gba"] is False
 
 
+def test_get_config_reports_the_foreign_picks_each_broker_imports(
+    client, access_token, rom: Rom
+):
+    """The picker only offers a foreign pick the claim would take, so a broker
+    that declares no imports, or cannot be asked, reports none."""
+    importing = {**_webstation_for(rom), "emulator": "duckstation"}
+    silent = {**_webstation_for(rom), "platform": "ps2", "emulator": "pcsx2"}
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"save", "state"}), state_channel="archive", state_slot=0
+    )
+
+    def answer(container, _emulator, _platform):
+        return spec if container.platform == rom.platform_slug else None
+
+    with _streaming(importing, silent):
+        with patch("handler.streaming.webstation.import_spec", side_effect=answer):
+            response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    kinds = {c["platform"]: c["import_kinds"] for c in response.json()["containers"]}
+    assert kinds[rom.platform_slug] == ["save", "state"]
+    assert kinds["ps2"] == []
+
+
+@pytest.mark.parametrize(
+    ("kinds", "channel", "slot", "expected"),
+    [
+        ({"save", "state"}, "archive", 0, ["save", "state"]),
+        ({"state"}, "none", 0, []),
+        ({"state"}, "push", None, []),
+        ({"save", "memcard"}, "none", None, ["save"]),
+    ],
+)
+def test_import_spec_pickable_kinds_match_what_the_claim_accepts(
+    kinds, channel, slot, expected
+):
+    spec = webstation.ImportSpec(
+        kinds=frozenset(kinds), state_channel=channel, state_slot=slot
+    )
+    assert spec.pickable_kinds() == expected
+
+
 def test_clears_stale_saves_overrides_the_emulator_default(client, access_token, rom):
     """The default mirrors a flag that lives in the broker's repo, so an
     operator on a fork or a newer broker can say what theirs actually does."""
@@ -7192,7 +7233,8 @@ def test_an_older_exit_state_stays_off_the_import_path_without_broker_support(
     client, access_token, rom: Rom, admin_user: User
 ):
     """A broker that predates imports would never place an `.import/` member,
-    so the archive and its own exit state go out untouched instead."""
+    so the archive goes out untouched and the resume is reported lost rather
+    than claiming the archive's own exit state was the pick."""
     older = db_state_handler.add_state(
         _state_for(
             rom,
@@ -7224,8 +7266,114 @@ def test_an_older_exit_state_stays_off_the_import_path_without_broker_support(
             r = _claim(client, access_token, rom.id, state_id=older.id)
     assert r.status_code == 202
     hydrate_import.assert_not_called()
-    assert run_launch_mock.call_args.kwargs["resume_import"] == "none"
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "lost"
     assert run_launch_mock.call_args.kwargs["archive_path"] == "/romm/saves/archive.zip"
+
+
+def _duckstation_pairing(rom: Rom, user: User) -> tuple[Save, Save, State]:
+    """An older and a newer DuckStation archive, plus the newest capture."""
+    older, newer = (
+        db_save_handler.add_save(
+            _save_for(
+                rom, user, f"Game [duckstation {tag}].saves.zip", "duckstation", tag
+            )
+        )
+        for tag in ("a", "b")
+    )
+    state = db_state_handler.add_state(
+        _state_for(rom, user, "SLUS-00594_resume.sav", "duckstation")
+    )
+    return older, newer, state
+
+
+def _clearing_duckstation(rom: Rom) -> dict:
+    return {
+        **_webstation_for(rom),
+        "emulator": "duckstation",
+        "clears_stale_saves": True,
+    }
+
+
+def test_an_older_save_with_the_newest_state_imports_the_picked_state(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The older archive only carries its own exit state, so the picked state
+    rides the import archive on top of it instead of being silently swapped."""
+    older, _, state = _duckstation_pairing(rom, admin_user)
+    activate = MagicMock(return_value={"url": "/room/x"})
+    upload = MagicMock(return_value="rom-1.zip")
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"state"}), state_channel="archive", state_slot=0
+    )
+    with _streaming(_clearing_duckstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.imports.fs_asset_handler.read_file",
+                new=AsyncMock(side_effect=lambda path: path.encode()),
+            ),
+            patch("handler.streaming.imports.webstation.upload_archive", upload),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            with _pushes() as sent:
+                r = _claim(
+                    client, access_token, rom.id, state_id=state.id, save_id=older.id
+                )
+    assert r.status_code == 202
+    with zipfile.ZipFile(io.BytesIO(upload.call_args.args[2])) as zf:
+        assert any(name.startswith(".import/state/") for name in zf.namelist())
+    assert _launch_ready(sent)["resume"] is True
+
+
+def test_an_older_save_with_the_newest_state_reports_the_resume_lost_without_imports(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """Without an import channel the older archive's own exit state would load,
+    so the launch must not report the picked state as resumed."""
+    older, _, state = _duckstation_pairing(rom, admin_user)
+    run_launch_mock = AsyncMock()
+    with _streaming(_clearing_duckstation(rom)):
+        with (
+            patch("handler.streaming.webstation.import_spec", return_value=None),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.zip"),
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(
+                client, access_token, rom.id, state_id=state.id, save_id=older.id
+            )
+    assert r.status_code == 202
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "lost"
+
+
+def test_the_newest_save_with_the_newest_state_resumes_from_the_archive(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """Naming the newest archive explicitly is the default pairing, so the
+    archive's own exit state is the pick and nothing is imported."""
+    _, newer, state = _duckstation_pairing(rom, admin_user)
+    hydrate_import = AsyncMock()
+    run_launch_mock = AsyncMock()
+    with _streaming(_clearing_duckstation(rom)):
+        with (
+            patch("handler.streaming.webstation.import_spec") as spec,
+            patch("handler.streaming.imports.hydrate_import_archive", hydrate_import),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.zip"),
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(
+                client, access_token, rom.id, state_id=state.id, save_id=newer.id
+            )
+    assert r.status_code == 202
+    spec.assert_not_called()
+    hydrate_import.assert_not_called()
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "none"
 
 
 def test_an_exit_state_resume_with_no_archive_reports_the_resume_lost(

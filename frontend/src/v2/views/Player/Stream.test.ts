@@ -2,9 +2,9 @@ import { RBtn } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, type Slots, type VNodeChild } from "vue";
-import type { SaveSchema } from "@/__generated__";
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
-import { saveFixture } from "@/utils/assets.fixtures";
+import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
@@ -211,7 +211,7 @@ const ARCHIVES = [
   save(1, "Pool [retroarch 2026-09-14 00-20-28].saves.zip"),
 ];
 
-function romWith(saves: SaveSchema[]): DetailedRom {
+function romWith(saves: SaveSchema[], states: StateSchema[] = []): DetailedRom {
   return {
     id: 3,
     name: "Archer Maclean's 3D Pool (USA)",
@@ -221,7 +221,7 @@ function romWith(saves: SaveSchema[]): DetailedRom {
     fs_name: "Archer Maclean's 3D Pool (USA).gba",
     files: [],
     user_saves: saves,
-    all_user_states: [],
+    all_user_states: states,
     user_screenshots: [],
     metadatum: {},
   } as unknown as DetailedRom;
@@ -240,7 +240,9 @@ afterEach(() => {
 async function launch(opts: {
   picker: boolean;
   saves?: SaveSchema[];
+  states?: StateSchema[];
   liveStates?: boolean;
+  imports?: ("save" | "state")[];
 }): Promise<VueWrapper> {
   mocks.container = {
     name: "WEBSTATION-DEV",
@@ -248,10 +250,13 @@ async function launch(opts: {
     protocol: "webstation",
     supports_save_picker: opts.picker,
     supports_live_states: opts.liveStates ?? true,
+    import_kinds: opts.imports ?? [],
     supports_memory_cards: false,
     supports_multiplayer: false,
   };
-  mocks.getRom.mockResolvedValue({ data: romWith(opts.saves ?? ARCHIVES) });
+  mocks.getRom.mockResolvedValue({
+    data: romWith(opts.saves ?? ARCHIVES, opts.states),
+  });
   const wrapper = mount(Stream, {
     shallow: true,
     global: {
@@ -347,10 +352,11 @@ describe("Stream save picker", () => {
     expect(mocks.claimSession.mock.calls[0][2]).toBe(1);
   });
 
-  it("includes bare (non-archive) save files in the picker", async () => {
+  it("includes bare (non-archive) save files where the broker imports saves", async () => {
     const wrapper = await launch({
       picker: true,
       saves: [save(9, "Pool.srm"), ...ARCHIVES],
+      imports: ["save"],
     });
 
     expect(
@@ -370,12 +376,27 @@ describe("Stream save picker", () => {
         }),
         ...ARCHIVES,
       ],
+      imports: ["save"],
     });
 
     expect(
       (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
     ).toEqual([3, 2, 1, 9]);
     expect(saveList(wrapper)!.props("selectedId")).toBe(3);
+  });
+
+  it("hides another emulator's archives where the broker declares no save import", async () => {
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(9, "Pool [pcsx2 a].saves.zip", { emulator: "pcsx2" }),
+        ...ARCHIVES,
+      ],
+    });
+
+    expect(
+      (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
+    ).toEqual([3, 2, 1]);
   });
 
   it("sends a foreign-emulator pick on the claim", async () => {
@@ -389,6 +410,7 @@ describe("Stream save picker", () => {
         }),
         ...ARCHIVES,
       ],
+      imports: ["save"],
     });
 
     await saveList(wrapper)!.vm.$emit(
@@ -1053,5 +1075,39 @@ describe("Stream join", () => {
     await flushPromises();
 
     expect(mocks.joinSession).toHaveBeenCalledWith("gba", undefined);
+  });
+});
+
+describe("Stream state picker", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.claimSession.mockResolvedValue(CLAIM);
+  });
+
+  const STATES = [
+    stateFixture({ id: 5, emulator: "retroarch" }),
+    stateFixture({ id: 6, emulator: "duckstation" }),
+  ];
+
+  function pickableStateIds(wrapper: VueWrapper): number[] {
+    return (
+      wrapper.vm as unknown as { pickableStates: StateSchema[] }
+    ).pickableStates.map((s) => s.id);
+  }
+
+  it("offers only this emulator's states where the broker declares no state import", async () => {
+    const wrapper = await launch({ picker: false, states: STATES });
+
+    expect(pickableStateIds(wrapper)).toEqual([5]);
+  });
+
+  it("offers another emulator's states where the broker imports them", async () => {
+    const wrapper = await launch({
+      picker: false,
+      states: STATES,
+      imports: ["state"],
+    });
+
+    expect(pickableStateIds(wrapper)).toEqual([5, 6]);
   });
 });
