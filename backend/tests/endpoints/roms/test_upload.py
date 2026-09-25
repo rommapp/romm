@@ -755,6 +755,26 @@ def test_start_into_single_file_rom_rejects_its_own_name(
     assert db_rom_handler.get_rom(rom.id).fs_name == "solo.zip"
 
 
+def test_start_into_a_file_a_playlist_lists_returns_400(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+):
+    rom = _single_file_rom(platform, admin_user, rom_upload_fs)
+    _write(rom_upload_fs, f"{rom.fs_path}/solo.m3u", b"solo.zip\n")
+
+    response = _start_into_rom(
+        client, access_token, rom, filename="notes.txt", folder=None, total_size=5
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "solo.m3u" in response.json()["detail"]
+    assert not upload_endpoint.ROM_UPLOAD_TMP_BASE.exists()
+    assert (rom_upload_fs / rom.fs_path / "solo.zip").read_bytes() == b"romdata"
+
+
 def test_complete_collision_does_not_promote_a_single_file_rom(
     client: TestClient,
     access_token: str,

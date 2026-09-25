@@ -1,10 +1,12 @@
 import asyncio
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from endpoints.roms import walkthrough as walkthrough_endpoint
 from handler import rom_conversion
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
@@ -335,6 +337,120 @@ def test_screenshot_upload_auto_converts_single_file_rom(
     after = db_rom_handler.get_rom(rom.id)
     assert after.fs_name == "test_rom"
     assert any(f.category == RomFileCategory.SCREENSHOT for f in after.files)
+
+
+DISC_1 = "Game (Disc 1).chd"
+
+
+def _lone_disc(platform: Platform, admin_user: User, lib: Path) -> Rom:
+    """Disc 1 of a flat set, its own single-file ROM beside disc 2."""
+    rom = _single_file_rom(
+        platform,
+        admin_user,
+        lib,
+        fs_name=DISC_1,
+        fs_name_no_ext="Game (Disc 1)",
+        fs_extension="chd",
+    )
+    (lib / rom.fs_path / "Game (Disc 2).chd").write_bytes(b"disc2")
+    return rom
+
+
+MEDIA_UPLOADS = [
+    pytest.param(
+        "manuals/files", "manual.pdf", PDF_BYTES, "application/pdf", id="manual"
+    ),
+    pytest.param("soundtracks", "track1.mp3", MP3_BYTES, "audio/mpeg", id="soundtrack"),
+]
+
+
+@pytest.mark.parametrize("route,filename,data,mime", MEDIA_UPLOADS)
+def test_upload_to_a_disc_a_playlist_lists_returns_400(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+    route: str,
+    filename: str,
+    data: bytes,
+    mime: str,
+):
+    rom = _lone_disc(platform, admin_user, real_library)
+    roms_dir = real_library / rom.fs_path
+    # Windows tools write backslashed paths, often in another case.
+    (roms_dir / "Game.m3u").write_text(
+        "#EXTM3U\r\n.\\GAME (DISC 1).CHD\r\nGame (Disc 2).chd\r\n"
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/{route}",
+        headers={**_auth(access_token), "x-upload-filename": filename},
+        files={filename: (filename, data, mime)},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Game.m3u" in response.json()["detail"]
+    assert (roms_dir / DISC_1).read_bytes() == b"romdata"
+    assert not (roms_dir / "Game (Disc 1)").exists()
+    after = db_rom_handler.get_rom(rom.id)
+    assert after.fs_name == DISC_1
+    assert [f.file_name for f in after.files] == [DISC_1]
+
+
+@pytest.mark.parametrize("route,filename,data,mime", MEDIA_UPLOADS)
+def test_upload_to_a_lone_disc_no_playlist_lists_promotes_it(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+    route: str,
+    filename: str,
+    data: bytes,
+    mime: str,
+):
+    rom = _lone_disc(platform, admin_user, real_library)
+    roms_dir = real_library / rom.fs_path
+    (roms_dir / "Other.m3u").write_text("Other (Disc 1).chd\nOther (Disc 2).chd\n")
+
+    response = client.post(
+        f"/api/roms/{rom.id}/{route}",
+        headers={**_auth(access_token), "x-upload-filename": filename},
+        files={filename: (filename, data, mime)},
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert (roms_dir / "Game (Disc 1)" / DISC_1).read_bytes() == b"romdata"
+    assert not (roms_dir / DISC_1).exists()
+    assert db_rom_handler.get_rom(rom.id).fs_name == "Game (Disc 1)"
+
+
+def test_gamefaqs_import_to_a_disc_a_playlist_lists_returns_400(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    rom = _lone_disc(platform, admin_user, real_library)
+    roms_dir = real_library / rom.fs_path
+    (roms_dir / "Game.m3u").write_text(f"{DISC_1}\nGame (Disc 2).chd\n")
+    fetch = AsyncMock()
+    monkeypatch.setattr(walkthrough_endpoint, "fetch_gamefaqs_guide", fetch)
+
+    response = client.post(
+        f"/api/roms/{rom.id}/walkthroughs/gamefaqs",
+        headers=_auth(access_token),
+        json={"url": "https://gamefaqs.gamespot.com/ps/196821-game/faqs/1"},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Game.m3u" in response.json()["detail"]
+    fetch.assert_not_called()
+    assert (roms_dir / DISC_1).exists()
+    assert db_rom_handler.get_rom(rom.id).fs_name == DISC_1
 
 
 async def test_second_upload_racing_a_promotion_keeps_the_rom_in_its_folder(

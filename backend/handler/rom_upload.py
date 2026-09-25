@@ -16,6 +16,7 @@ from handler.rom_files import refresh_rom_files
 from logger.logger import log
 from models.rom import DocSource, Rom, RomFile, RomFileCategory
 from utils.audio_tags import ALLOWED_AUDIO_EXTENSIONS
+from utils.m3u import listing_playlist
 from utils.media_types import ALLOWED_DOCUMENT_EXTENSIONS, ALLOWED_IMAGE_EXTENSIONS
 
 # The folder each media route uploads into. The scanner maps these names back to
@@ -108,6 +109,24 @@ def assert_allowed_in_folder(folder: str, filename: str) -> None:
         )
 
 
+def assert_promotable(rom: Rom) -> None:
+    """Refuse to move a lone file into a folder when a playlist beside it lists it.
+
+    Raises:
+        UploadRejectedException: An .m3u in the file's folder lists it.
+    """
+    try:
+        disc = fs_rom_handler.validate_path(rom.full_path)
+    except ValueError as exc:
+        raise UploadRejectedException(str(exc)) from exc
+    playlist = listing_playlist(disc)
+    if playlist:
+        raise UploadRejectedException(
+            f"{playlist} lists this disc, so moving it into a folder would break "
+            "the playlist. Move the set into a folder of its own first"
+        )
+
+
 def resolve_upload_destination(
     rom: Rom, folder: str, filename: str, *, overwrite: bool = False
 ) -> tuple[str, Path]:
@@ -116,7 +135,8 @@ def resolve_upload_destination(
 
     Raises:
         UploadRejectedException: The destination is unusable, the folder's
-            category cannot hold the file, or the scanner would never register it.
+            category cannot hold the file, the scanner would never register it,
+            or a playlist lists the lone file that would be promoted.
         UploadConflictException: A file of that name is already there (or will
             be, once promoted), unless `overwrite` allows replacing it.
     """
@@ -141,6 +161,8 @@ def resolve_upload_destination(
         raise UploadRejectedException(
             "Upload destination must be inside the game folder"
         )
+    if rom.has_simple_single_file:
+        assert_promotable(rom)
 
     promoted_over_itself = (
         rom.has_simple_single_file and not folder and filename == rom.fs_name
