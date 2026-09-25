@@ -3435,6 +3435,40 @@ class TestSlotScopedDedupeMatrix:
         assert second.status_code == status.HTTP_200_OK
         assert second.json()["id"] == first.json()["id"]
 
+    def test_a_deduplicated_device_upload_records_the_device_sync(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        device: Device,
+        _isolated_assets_dir,
+    ):
+        payload = _build_fixture_a_zip()
+
+        def upload(client_hash: str):
+            return client.post(
+                f"/api/saves?rom_id={rom.id}&slot=slot1&emulator=test_emulator"
+                f"&device_id={device.id}&content_hash={client_hash}",
+                files={
+                    "saveFile": (
+                        "matrix.zip",
+                        BytesIO(payload),
+                        "application/octet-stream",
+                    )
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        first = upload("first_hash")
+        second = upload("retry_hash")
+
+        assert second.status_code == status.HTTP_200_OK
+        assert second.json()["id"] == first.json()["id"]
+        sync = db_device_save_sync_handler.get_sync(device.id, first.json()["id"])
+        assert sync is not None
+        assert sync.last_sync_hash == "retry_hash"
+        assert sync.last_sync_server_hash == first.json()["content_hash"]
+
     def test_same_bytes_different_slots_creates_distinct_records(
         self,
         client,

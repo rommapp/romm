@@ -323,10 +323,11 @@ async def _process_remote_save(
             await ssh_sync_handler.upload_save(
                 conn, str(server_full_path), remote_save.path
             )
-            # The device holds no bytes yet, so only the server half is known.
+            # The device now holds the server file, so both halves are its hash.
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
+                last_sync_hash=matched_save.content_hash,
                 last_sync_server_hash=matched_save.content_hash,
             )
             return "pushed"
@@ -414,6 +415,8 @@ async def _push_missing_saves(
                     db_device_save_sync_handler.upsert_sync(
                         device_id=device.id,
                         save_id=save.id,
+                        last_sync_hash=save.content_hash,
+                        last_sync_server_hash=save.content_hash,
                     )
                     pushed += 1
                     log.info(

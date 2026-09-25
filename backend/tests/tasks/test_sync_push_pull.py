@@ -482,7 +482,7 @@ class TestBaselineInProcessRemoteSave:
         assert sync.last_sync_hash == "remote_now"
         assert sync.last_sync_server_hash == "remote_now"
 
-    async def test_download_records_only_the_server_half(
+    async def test_download_records_the_pushed_file_as_both_halves(
         self,
         device: Device,
         admin_user: User,
@@ -508,7 +508,7 @@ class TestBaselineInProcessRemoteSave:
 
         sync = db_device_save_sync_handler.get_sync(device.id, save.id)
         assert sync is not None
-        assert sync.last_sync_hash is None
+        assert sync.last_sync_hash == "server_new"
         assert sync.last_sync_server_hash == "server_new"
 
     async def test_conflict_records_nothing(
@@ -547,14 +547,13 @@ class TestBaselineInProcessRemoteSave:
         assert sync.last_sync_hash == "client_at_boundary"
         assert sync.last_sync_server_hash == "server_at_boundary"
 
-    async def test_push_missing_saves_records_no_baseline(
+    async def test_push_missing_saves_records_the_pushed_file_as_both_halves(
         self,
         device: Device,
         admin_user: User,
         rom: Rom,
         platform: Platform,
     ):
-        """A device that never had the file cannot have a device half."""
         save = self._save(admin_user, rom, platform, "server_hash")
 
         with (
@@ -576,5 +575,5 @@ class TestBaselineInProcessRemoteSave:
 
         sync = db_device_save_sync_handler.get_sync(device.id, save.id)
         assert sync is not None
-        assert sync.last_sync_hash is None
-        assert sync.last_sync_server_hash is None
+        assert sync.last_sync_hash == "server_hash"
+        assert sync.last_sync_server_hash == "server_hash"

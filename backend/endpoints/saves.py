@@ -337,6 +337,10 @@ async def add_save(
             # A retry still counts as an upload to the slot, so the cap applies.
             if keep is not None:
                 await _prune_slot(request.user.id, rom.id, slot, keep)
+            if device:
+                _record_device_sync(
+                    device.id, existing_by_hash, request.user.id, content_hash
+                )
             return _build_save_schema(
                 existing_by_hash, _syncs_for_save(existing_by_hash.id, device), device
             )
