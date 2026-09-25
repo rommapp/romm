@@ -36,6 +36,9 @@ KNOWN_DEVICES: dict[str, DeviceType] = {
     "argosy-launcher": DeviceType(
         platform="Android", client="argosy-launcher", sync_mode=SyncMode.API
     ),
+    "retroarch": DeviceType(
+        platform="RetroArch", client="retroarch", sync_mode=SyncMode.API
+    ),
 }
 
 

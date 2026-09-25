@@ -17,8 +17,10 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { MemoryCardSchema } from "@/__generated__";
 import memoryCardApi from "@/services/api/memory-card";
+import MemoryCardDialog, {
+  type MemoryCardFields,
+} from "@/v2/components/Player/MemoryCardDialog.vue";
 import MemoryCardManager from "@/v2/components/Player/MemoryCardManager.vue";
-import MemoryCardNameDialog from "@/v2/components/Player/MemoryCardNameDialog.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
@@ -97,7 +99,10 @@ function onManaged(): void {
   void loadCards(props.emulator);
 }
 
-async function submitCreate(name: string): Promise<void> {
+async function submitCreate({
+  name,
+  isPublic,
+}: MemoryCardFields): Promise<void> {
   if (creating.value) return;
   creating.value = true;
   try {
@@ -105,6 +110,7 @@ async function submitCreate(name: string): Promise<void> {
       name,
       emulator: props.emulator,
       platform_id: props.platformId ?? null,
+      is_public: isPublic,
     });
     // Newest-first, so the fresh card leads the list and becomes the choice.
     cards.value = [data, ...cards.value];
@@ -160,7 +166,7 @@ async function submitCreate(name: string): Promise<void> {
       />
     </div>
 
-    <MemoryCardNameDialog
+    <MemoryCardDialog
       v-model="showCreate"
       :title="t('play.create-memory-card')"
       :confirm-label="t('common.create')"

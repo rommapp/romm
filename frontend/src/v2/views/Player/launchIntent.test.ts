@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import { existingSlot, NEW_SLOT_CHOICE } from "@/v2/utils/saveSlots";
 import {
   isLaunchIntent,
@@ -12,21 +13,21 @@ import {
 import type { ResumeSelection } from "./resumeSelection";
 
 function makeSave(overrides: Partial<SaveSchema> = {}): SaveSchema {
-  return {
+  return saveFixture({
     id: 3,
     file_name: "3.srm",
     slot: "slot-2",
     ...overrides,
-  } as SaveSchema;
+  });
 }
 
 function makeState(overrides: Partial<StateSchema> = {}): StateSchema {
-  return {
+  return stateFixture({
     id: 5,
     file_name: "5.state",
     emulator: "snes9x",
     ...overrides,
-  } as StateSchema;
+  });
 }
 
 function makeFirmware(overrides: Partial<FirmwareSchema> = {}): FirmwareSchema {

@@ -93,7 +93,7 @@ describe("useClipboard", () => {
     });
   });
 
-  it("errors when writeText rejects", async () => {
+  it("errors without the HTTPS hint when writeText rejects", async () => {
     const writeText = vi.fn().mockRejectedValue(new Error("denied"));
     setSecureContext(true);
     setClipboard(writeText);
@@ -103,7 +103,7 @@ describe("useClipboard", () => {
 
     expect(ok).toBe(false);
     expect(success).not.toHaveBeenCalled();
-    expect(error).toHaveBeenCalledWith("common.clipboard-copy-failed", {
+    expect(error).toHaveBeenCalledWith("common.clipboard-write-failed", {
       icon: "mdi-close-circle",
     });
   });

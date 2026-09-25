@@ -789,3 +789,65 @@ class TestSmartCollectionEndpoints:
         refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
         assert refreshed is not None
         assert refreshed.rom_ids == [rom.id]
+
+
+class TestCollectionVisibility:
+    """Sharing is a flag of its own: it must not rewrite what a collection holds."""
+
+    def test_sharing_keeps_the_collection_games(
+        self, client, access_token: str, collection: Collection, rom: Rom
+    ):
+        db_collection_handler.update_collection(
+            collection.id, {"description": "kept"}, [rom.id]
+        )
+
+        response = client.put(
+            f"/api/collections/{collection.id}/visibility",
+            json={"is_public": True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["is_public"] is True
+        assert body["rom_ids"] == [rom.id]
+        assert body["description"] == "kept"
+
+    def test_only_the_owner_can_share(
+        self, client, other_user_token: str, collection: Collection
+    ):
+        response = client.put(
+            f"/api/collections/{collection.id}/visibility",
+            json={"is_public": True},
+            headers={"Authorization": f"Bearer {other_user_token}"},
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        refreshed = db_collection_handler.get_collection(collection.id)
+        assert refreshed is not None and refreshed.is_public is False
+
+    def test_sharing_a_smart_collection_keeps_its_filters(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        criteria = {"platform_ids": [rom.platform_id]}
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="All roms",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria=criteria,
+            )
+        )
+
+        response = client.put(
+            f"/api/collections/smart/{smart_collection.id}/visibility",
+            json={"is_public": True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["is_public"] is True
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.is_public is True
+        assert refreshed.filter_criteria == criteria

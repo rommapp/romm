@@ -59,7 +59,11 @@ const { toolbarHeight, pinned, bindToolbar, bindSentinel } = usePinnedToolbar();
       <slot name="toolbar" />
     </div>
 
-    <div v-if="listMode" class="r-v2-idx-shell__list-header">
+    <div
+      v-if="listMode"
+      class="r-v2-idx-shell__list-header"
+      :class="{ 'r-pinned-list-header': pinned }"
+    >
       <slot name="listHeader" />
     </div>
 
@@ -83,5 +87,20 @@ html[data-bp~="xs"] .r-v2-idx-shell {
   position: sticky;
   top: calc(var(--r-nav-h) + var(--r-v2-idx-shell-toolbar-h));
   z-index: 3;
+}
+
+/* List mode: the column header and the rows run to the screen edges and keep
+   the shell's gutter as padding, so only the separators and row fill move. */
+.r-v2-idx-shell {
+  --r-list-bleed: var(--r-row-pad);
+}
+.r-v2-idx-shell__list-header {
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
+}
+/* The header already reaches both edges by the margin above, so the pinned
+   glass must not add the gutter a second time: the page has no horizontal
+   clip, and the surplus on the right would scroll the document sideways. */
+.r-v2-idx-shell__list-header.r-pinned-list-header::before {
+  inset: 0;
 }
 </style>

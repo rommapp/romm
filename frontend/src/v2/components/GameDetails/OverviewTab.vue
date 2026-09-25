@@ -117,6 +117,7 @@ type CollectionTileEntry = {
   covers: string[];
   link: string;
   kind: Kind;
+  isPublic: boolean;
 };
 
 const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
@@ -133,6 +134,7 @@ const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
       covers: full ? collectionCoverList(full, toWebp) : [],
       link: c.is_smart ? `/collection/smart/${c.id}` : `/collection/${c.id}`,
       kind: c.is_smart ? "smart" : "regular",
+      isPublic: full?.is_public ?? false,
     };
   }),
 );
@@ -248,6 +250,7 @@ const coverSource = computed(() => {
             :rom-count="c.rom_count"
             :covers="c.covers"
             :kind="c.kind"
+            :is-public="c.isPublic"
             variant="row"
           />
         </div>

@@ -10,8 +10,14 @@ from handler.streaming.config import (
     ResolvedContainer,
     containers_by_key,
     containers_for_platform,
+    entry_for_platform,
 )
-from handler.streaming.session_store import get_live_session
+from handler.streaming.session_store import (
+    get_live_session,
+    session_is_desktop,
+    session_platform_matches,
+)
+from logger.logger import log
 from models.rom import Rom
 from models.user import Role
 
@@ -49,26 +55,40 @@ def rom_is_visible(request: Request, rom: Rom | None) -> bool:
     return get_permissions(request).can_see_rom(rom.id, rom.platform_id)
 
 
-def _session_rom_is_visible(request: Request, session: dict[str, Any]) -> bool:
-    """Can the caller see the ROM a session is running?"""
+def session_rom(session: dict[str, Any]) -> Rom | None:
+    """The ROM a session is running, None for a desktop or a deleted entry."""
     rom_id = session.get("rom_id")
-    if rom_id is None:
-        return True
-    return rom_is_visible(request, db_rom_handler.get_rom_simple(rom_id))
+    return db_rom_handler.get_rom_simple(rom_id) if rom_id is not None else None
+
+
+def session_rom_is_visible(request: Request, session: dict[str, Any]) -> bool:
+    """Can the caller see the ROM a session is running?"""
+    return rom_is_visible(request, session_rom(session))
+
+
+def joinable_session_rom(
+    request: Request, session: dict[str, Any]
+) -> tuple[bool, Rom | None]:
+    """Whether a live session is one this caller may ask to join (its host opted
+    into multiplayer, it is somebody else's, its ROM is not hidden), with that ROM."""
+    if not session.get("multiplayer") or session.get("user_id") == request.user.id:
+        return False, None
+    rom = session_rom(session)
+    return rom_is_visible(request, rom), rom
 
 
 def assert_session_rom_visible(
     request: Request, session: dict[str, Any], *, not_found_detail: str
 ) -> None:
     """Raise 404 when the session's ROM is hidden from the caller."""
-    if not _session_rom_is_visible(request, session):
+    if not session_rom_is_visible(request, session):
         raise HTTPException(status_code=404, detail=not_found_detail)
 
 
 def visible_rom_name(request: Request, session: dict[str, Any]) -> str | None:
     """The name of the ROM a session is running, blanked when the caller cannot
     see that ROM. "Busy" is safe to report to anyone; what is running is not."""
-    if not session or not _session_rom_is_visible(request, session):
+    if not session or not session_rom_is_visible(request, session):
         return None
     name = session.get("rom_name")
     return str(name) if name else None
@@ -88,48 +108,81 @@ def platform_is_visible(request: Request, platform_slug: str) -> bool:
     return get_permissions(request).can_see_platform(platform.id)
 
 
+def session_in_scope(
+    session: dict[str, Any],
+    platform: str,
+    include_desktop: bool,
+    claimed_at: str | None = None,
+) -> bool:
+    """Whether a stored session, or the notice it left, is the one a route asked
+    about: same platform, a desktop only if named, the given claim."""
+    if not include_desktop and session_is_desktop(session):
+        return False
+    if claimed_at is not None and session.get("claimed_at") != claimed_at:
+        return False
+    return session_platform_matches(session, platform)
+
+
 async def find_session_for_user(
-    candidates: list[ResolvedContainer], user_id: int
+    candidates: list[ResolvedContainer],
+    user_id: int,
+    *,
+    platform: str,
+    include_desktop: bool = False,
+    claimed_at: str | None = None,
 ) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
     """The candidate holding this user's session, as (container, key, session).
 
-    With a pool the platform no longer identifies the container, the session
-    does.
+    With a pool the platform no longer identifies the container, the session does.
+
+    Args:
+        platform: only sessions claimed for it match.
+        include_desktop: whether a desktop matches, only when its container is named.
+        claimed_at: only the one claim the caller was given matches.
     """
     for candidate in candidates:
         session_key = candidate.key
         session = await get_live_session(session_key)
         if session is None:
             continue
+        if not session_in_scope(session, platform, include_desktop, claimed_at):
+            continue
         if session.get("user_id") == user_id:
             return candidate, session_key, session
     return None
 
 
+def named_container(platform: str, container_key: str) -> ResolvedContainer:
+    """A container serving a platform, found by key so one in a later pool stays
+    reachable. Raises 404 when the key names no such container."""
+    candidate = entry_for_platform(containers_by_key().get(container_key, []), platform)
+    if candidate is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No streaming container '{container_key}' for platform '{platform}'",
+        )
+    return candidate
+
+
 async def resolve_named_container(
     platform: str, container_key: str
 ) -> tuple[ResolvedContainer, str, dict[str, Any] | None]:
-    """One named container serving a platform, plus whatever session it holds.
+    """A named container plus whatever session it holds.
 
     Returns (container, session_key, session), the session being None when the
-    container is free or draining. Raises 404 when the key names no container
-    serving this platform.
+    container is free or draining.
     """
-    for candidate in containers_for_platform(platform):
-        session_key = candidate.key
-        if session_key != container_key:
-            continue
-        return candidate, session_key, await get_live_session(session_key)
-    raise HTTPException(
-        status_code=404,
-        detail=f"No streaming container '{container_key}' for platform '{platform}'",
+    return (
+        named_container(platform, container_key),
+        container_key,
+        await get_live_session(container_key),
     )
 
 
 async def resolve_owned_session(
     platform: str, request: Request
 ) -> tuple[ResolvedContainer, str, dict[str, Any]]:
-    """Find the caller's session among the platform's containers.
+    """Find the caller's session for this platform in its first pool.
 
     Returns (container, session_key, session). Raises 404 when the platform has
     no configured container or nothing is active, 403 when every active session
@@ -147,6 +200,9 @@ async def resolve_owned_session(
         session_key = candidate.key
         session = await get_live_session(session_key)
         if session is None:
+            continue
+        # These routes act on a game; a desktop is reached by naming it.
+        if not session_in_scope(session, platform, include_desktop=False):
             continue
         if session.get("user_id") == request.user.id:
             return candidate, session_key, session
@@ -172,6 +228,70 @@ async def resolve_owned_session(
             ),
         )
     return others[0]
+
+
+async def resolve_claim(
+    platform: str,
+    request: Request,
+    container_key: str | None,
+    claimed_at: str | None,
+    *,
+    game_only: bool,
+) -> tuple[ResolvedContainer, str, dict[str, Any]] | None:
+    """The session a route acting on a claim reaches, or None when that claim is gone.
+
+    Args:
+        container_key: the container the caller named, if any.
+        claimed_at: the stamp of the one claim the caller was given.
+        game_only: only a game of this platform matches a named container, while
+            a release ends whatever it holds.
+    """
+    if container_key is not None:
+        container, session_key, session = await resolve_named_container(
+            platform, container_key
+        )
+        if session is None:
+            return None
+        if game_only and not session_in_scope(session, platform, include_desktop=False):
+            return None
+    else:
+        try:
+            container, session_key, session = await resolve_owned_session(
+                platform, request
+            )
+        except HTTPException as exc:
+            # Nothing of the caller's is active, so a stamped claim is gone and a
+            # repeated call from the same tab finds nothing: both are a no-op.
+            if exc.status_code != 404 and claimed_at is None:
+                raise
+            return None
+
+    # A tab whose claim was replaced (a takeover, or Play pressed again elsewhere)
+    # must not act on the claim that took its place.
+    if claimed_at is not None and session.get("claimed_at") != claimed_at:
+        log.info("%s ignored for a replaced claim", request.url.path)
+        return None
+    # After the stamp check, so another player's takeover reads as a gone claim.
+    if container_key is not None:
+        assert_session_owner(session, request)
+    return container, session_key, session
+
+
+async def require_claim(
+    platform: str,
+    request: Request,
+    container_key: str | None,
+    claimed_at: str | None,
+) -> tuple[ResolvedContainer, str, dict[str, Any]]:
+    """The game a control route drives, raising 404 once the caller's claim is gone."""
+    target = await resolve_claim(
+        platform, request, container_key, claimed_at, game_only=True
+    )
+    if target is None:
+        raise HTTPException(
+            status_code=404, detail=f"No active session for platform '{platform}'"
+        )
+    return target
 
 
 def container_by_key(container_key: str) -> tuple[ResolvedContainer, str]:

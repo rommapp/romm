@@ -3,22 +3,30 @@
 The raw YAML is loose: a container may serve one platform or a map of them, and
 may leave its broker host to be derived. Resolution is memoized until the config
 changes, so an unusable container is reported once rather than once per lookup.
+A platform's containers form pools of interchangeable members, and a game claim
+only walks the first.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import secrets
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
+from redis.exceptions import RedisError
+
 from config import LIBRARY_BASE_PATH, STREAMING_BROKER_SECRET
 from config.config_manager import config_manager as cm
+from handler.redis_handler import sync_cache
 from handler.streaming.capabilities import (
     PlatformCapabilities,
     StateTransferLimits,
     emulator_clears_saves,
+    emulator_resumes_from_archive,
     known_to_lack_memory_card,
     slot_capabilities,
     state_transfer_limits,
@@ -49,7 +57,10 @@ _EMULATOR_DISPLAY_NAMES: dict[str, str] = {
     "eden": "Eden",
     "flycast": "Flycast",
     "pcsx2": "PCSX2",
+    "play": "Play!",
     "ppsspp": "PPSSPP",
+    # Platform-less name; emulator_display_label names the core instead.
+    "retroarch": "RetroArch",
     "rpcs3": "RPCS3",
     "shadps4": "shadPS4",
     "xemu": "xemu",
@@ -118,6 +129,12 @@ _RETROARCH_CORE_NAMES: dict[str, str] = {
 }
 
 
+def emulator_labels() -> dict[str, str]:
+    """Display name per emulator id, for surfaces that label an id they were
+    handed rather than one they resolved (a save's `emulator`, say)."""
+    return dict(_EMULATOR_DISPLAY_NAMES)
+
+
 def emulator_display_label(emulator: str, platform: str) -> str:
     """Play-button text for an emulator serving a platform, e.g. "PCSX2" or
     "RA PPSSPP". Unknown emulators fall back to their configured name."""
@@ -169,6 +186,17 @@ class ResolvedContainer:
     def supports_save_picker(self) -> bool:
         """Whether the launch screen may offer a save other than the newest."""
         return self.is_webstation and self.clears_stale_saves
+
+    @property
+    def resumes_from_archive(self) -> bool:
+        """Whether a resume rides the save archive, with no state file to push."""
+        return self.is_webstation and emulator_resumes_from_archive(self.emulator)
+
+    @property
+    def supports_live_states(self) -> bool:
+        """Whether the player may save or load a state while the game runs. An
+        exit-state broker refuses both, though its slot still backs the library."""
+        return self.capabilities["has_autosave"] and not self.resumes_from_archive
 
     def interchangeable_with(self, other: ResolvedContainer) -> bool:
         """Whether two containers serving a platform are one pool: a player
@@ -517,38 +545,96 @@ def resolve_containers() -> tuple[ResolvedContainer, ...]:
         for row, platform in _platform_entries(dict(entry)):
             resolved.append(_resolve_one(row, platform, entry.get("label")))
 
+    _warn_about_later_pools(resolved, fingerprint)
     _cache_fingerprint = fingerprint
     _cached = tuple(resolved)
     return _cached
 
 
-def containers_for_platform(platform: str) -> list[ResolvedContainer]:
-    """Every container serving a platform, in config order.
+def _pools(containers: Iterable[ResolvedContainer]) -> list[list[ResolvedContainer]]:
+    """Group containers into pools of interchangeable members. A pool sits at its
+    first member's config position, and members keep config order."""
+    pools: list[list[ResolvedContainer]] = []
+    for container in containers:
+        pool = next((p for p in pools if p[0].interchangeable_with(container)), None)
+        if pool is None:
+            pools.append([container])
+        else:
+            pool.append(container)
+    return pools
 
-    More than one entry is a pool and the claim takes the first free one, so a
-    container that disagrees with the head on emulator or card sync is not a
-    pool member and is left out.
-    """
-    lower = platform.lower()
-    candidates: list[ResolvedContainer] = []
-    for container in resolve_containers():
-        if container.platform.lower() != lower:
-            continue
-        if not container.key:
-            # Nothing to dial, so a claim would have nowhere to go. The fleet
-            # view still lists it, which is where the operator sees why.
-            continue
-        if candidates and not candidates[0].interchangeable_with(container):
-            log.warning(
-                "container for platform '%s' disagrees with the first one on "
-                "emulator, memory card sync or protocol, so it is not a pool "
-                "member, skipping: %s",
-                platform,
-                container.key,
+
+def _pools_by_platform(
+    resolved: Iterable[ResolvedContainer],
+) -> dict[str, list[list[ResolvedContainer]]]:
+    """Every platform's pools, keyed by the lowercased platform."""
+    by_platform: dict[str, list[ResolvedContainer]] = {}
+    for container in resolved:
+        # Nothing to dial, so a claim would have nowhere to go. The fleet view
+        # still lists it, which is where the operator sees why.
+        if container.key:
+            by_platform.setdefault(container.platform.lower(), []).append(container)
+    return {platform: _pools(members) for platform, members in by_platform.items()}
+
+
+# Each RQ job runs in a fresh process, so "once" has to outlive the process.
+_POOL_WARNING_KEY_PREFIX = "romm:streaming:pool-warning:"
+_POOL_WARNING_TTL_SECONDS = 24 * 60 * 60
+
+
+def _first_to_warn(fingerprint: str) -> bool:
+    digest = hashlib.sha256(fingerprint.encode()).hexdigest()
+    try:
+        return bool(
+            sync_cache.set(
+                f"{_POOL_WARNING_KEY_PREFIX}{digest}",
+                "1",
+                nx=True,
+                ex=_POOL_WARNING_TTL_SECONDS,
             )
-            continue
-        candidates.append(container)
-    return candidates
+        )
+    except RedisError:
+        return True
+
+
+def _warn_about_later_pools(
+    resolved: Sequence[ResolvedContainer], fingerprint: str
+) -> None:
+    """Name every container a game claim can never reach, once a day per config."""
+    pools_by_platform = _pools_by_platform(resolved)
+    if not any(len(pools) > 1 for pools in pools_by_platform.values()):
+        return
+    if not _first_to_warn(fingerprint):
+        return
+    for pools in pools_by_platform.values():
+        later = [c.key for pool in pools[1:] for c in pool]
+        if later:
+            log.warning(
+                "containers for platform '%s' disagree on emulator, memory card "
+                "sync, save picker or protocol, so game claims only use the first "
+                "pool; never claimed for a game: %s",
+                pools[0][0].platform,
+                ", ".join(later),
+            )
+
+
+def pools_for_platform(platform: str) -> list[list[ResolvedContainer]]:
+    """Every container serving a platform, grouped into pools. A container that
+    matches no other is a pool of one."""
+    return _pools_by_platform(resolve_containers()).get(platform.lower(), [])
+
+
+def containers_for_platform(platform: str) -> list[ResolvedContainer]:
+    """The platform's first pool, which a game claim walks for the first free
+    container, in config order."""
+    pools = pools_for_platform(platform)
+    return pools[0] if pools else []
+
+
+def first_claim_targets() -> list[ResolvedContainer]:
+    """The first container a game claim tries, one per platform, in config
+    order."""
+    return [pools[0][0] for pools in _pools_by_platform(resolve_containers()).values()]
 
 
 def containers_by_key() -> dict[str, list[ResolvedContainer]]:
@@ -560,6 +646,14 @@ def containers_by_key() -> dict[str, list[ResolvedContainer]]:
     return grouped
 
 
+def entry_for_platform(
+    entries: Sequence[ResolvedContainer], platform: str
+) -> ResolvedContainer | None:
+    """The record among one container's entries that serves this platform."""
+    lower = platform.lower()
+    return next((e for e in entries if e.platform.lower() == lower), None)
+
+
 def container_for_session(
     grouped: dict[str, list[ResolvedContainer]], container_key: str, platform: Any
 ) -> ResolvedContainer | None:
@@ -569,21 +663,15 @@ def container_for_session(
     entries = grouped.get(container_key)
     if not entries:
         return None
-    if isinstance(platform, str):
-        lower = platform.lower()
-        for entry in entries:
-            if entry.platform.lower() == lower:
-                return entry
-    return entries[0]
+    entry = entry_for_platform(entries, platform) if isinstance(platform, str) else None
+    return entry or entries[0]
 
 
 def configured_emulator(platform: str) -> str:
-    """The emulator a configured container serves this platform with, if any."""
-    lower = platform.lower()
-    for container in resolve_containers():
-        if container.platform.lower() == lower:
-            return container.emulator
-    return ""
+    """The emulator a claim's container serves this platform with, empty when none
+    can be claimed, taken from the pool a claim walks since slot ceilings read it."""
+    pool = containers_for_platform(platform)
+    return pool[0].emulator if pool else ""
 
 
 def streaming_enabled() -> bool:
