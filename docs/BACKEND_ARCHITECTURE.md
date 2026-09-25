@@ -1529,11 +1529,12 @@ Sent to the user's own `user:{id}` room:
 Rooms are authorized per ROM. A socket is identified once, at `connect`, from its
 session cookie, and is closed when that login session is revoked. The identity is
 reloaded on every gated event so a disabled account loses access without waiting
-for a reconnect. `open-room` requires a
-logged-in user with `roms.read` who can see the ROM being played; `join-room`
-requires either that same access or the password the room owner set (sent as
-`password` beside `extra`), which is the guest invite path. `GET /api/netplay/list` requires `roms.read` and 404s for a ROM
-the caller cannot see, through the same guard the other ROM endpoints use. WebRTC
+for a reconnect. `open-room` requires a logged-in user with `roms.read` who can
+see the ROM being played. `join-room` into a room with a password requires that
+password (sent as `password` beside `extra`), which is the guest invite path; a
+room without one requires the same access as `open-room`. `GET /api/netplay/list`
+requires `roms.read` and 404s for a ROM the caller cannot see, through the same
+guard the other ROM endpoints use. WebRTC
 signals relay only between peers of the same room, and leaving the room ends that
 relay.
 

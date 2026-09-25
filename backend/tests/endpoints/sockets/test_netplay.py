@@ -136,15 +136,8 @@ def _open(
     return data
 
 
-def _join(
-    *,
-    room_password: str | None = None,
-    password: str | None = None,
-    player_id: str = "guest",
-) -> RoomData:
+def _join(*, password: str | None = None, player_id: str = "guest") -> RoomData:
     extra = RoomDataExtra(sessionid="room-1", userid=player_id, playerId=None)
-    if room_password is not None:
-        extra["room_password"] = room_password
     data = RoomData(extra=extra)
     if password is not None:
         data["password"] = password
@@ -288,7 +281,7 @@ class TestJoinRoomAuthorization:
             netplay_module, "_authenticated_user", AsyncMock(return_value=None)
         )
 
-        result = await join_room("sid", _join(room_password="guess"))
+        result = await join_room("sid", _join(password="guess"))
 
         assert result == "Incorrect password"
         server.enter_room.assert_not_awaited()
@@ -299,7 +292,7 @@ class TestJoinRoomAuthorization:
             netplay_module, "_authenticated_user", AsyncMock(return_value=None)
         )
 
-        assert await join_room("sid", _join(room_password="s3cret")) is not None
+        assert await join_room("sid", _join(password="s3cret")) is not None
 
         server.enter_room.assert_awaited_once_with("sid", ROOM_1)
 
@@ -329,7 +322,7 @@ class TestJoinRoomAuthorization:
             AsyncMock(return_value=_user()),
         )
 
-        assert await join_room("sid", _join(room_password="s3cret")) is not None
+        assert await join_room("sid", _join(password="s3cret")) is not None
 
         server.enter_room.assert_awaited_once_with("sid", ROOM_1)
 
@@ -503,29 +496,6 @@ class TestRoomIsolation:
 class TestLoginSessionBinding:
     """Revoking a login session must close the netplay sockets it opened."""
 
-    async def test_connect_ties_the_socket_to_its_login_session(self, mocker, server):
-        mocker.patch.object(
-            netplay_module,
-            "get_session_from_environ",
-            AsyncMock(
-                return_value={"iss": "romm:auth", "sub": "sam", "session_id": "s1"}
-            ),
-        )
-        mocker.patch.object(
-            netplay_module.db_user_handler,
-            "get_user_by_username",
-            return_value=_user(Scope.ROMS_READ),
-        )
-        bind = mocker.patch.object(
-            netplay_module.netplay_socket_handler,
-            "bind_to_login_session",
-            AsyncMock(),
-        )
-
-        await connect("sid", {})
-
-        bind.assert_awaited_once_with("sid", "s1")
-
     async def test_disconnect_forgets_the_binding(self, mocker, server, rooms):
         unbind = mocker.patch.object(
             netplay_module.netplay_socket_handler,
@@ -551,37 +521,31 @@ class TestEventWiring:
 
 
 class TestConnectIdentity:
-    async def test_stores_identity_for_an_authenticated_session(self, mocker, server):
-        mocker.patch.object(
-            netplay_module,
-            "get_session_from_environ",
-            AsyncMock(return_value={"iss": "romm:auth", "sub": "sam"}),
+    @pytest.fixture
+    def authenticate(self, mocker) -> AsyncMock:
+        return mocker.patch.object(
+            netplay_module.netplay_socket_handler, "authenticate", AsyncMock()
         )
+
+    async def test_stores_identity_for_an_authenticated_session(
+        self, server, authenticate
+    ):
         user = _user(Scope.ROMS_READ)
-        mocker.patch.object(
-            netplay_module.db_user_handler, "get_user_by_username", return_value=user
-        )
+        authenticate.return_value = user
 
-        await connect("sid", {})
+        await connect("sid", {"HTTP_COOKIE": "c"})
 
+        authenticate.assert_awaited_once_with("sid", {"HTTP_COOKIE": "c"})
         assert server.sessions["sid"][AUTH_USER_SESSION_KEY] == user.id
 
-    async def test_leaves_an_anonymous_socket_unidentified(self, mocker, server):
-        mocker.patch.object(
-            netplay_module,
-            "get_session_from_environ",
-            AsyncMock(return_value={}),
-        )
+    async def test_leaves_an_anonymous_socket_unidentified(self, server, authenticate):
+        authenticate.return_value = None
 
         await connect("sid", {})
 
         assert AUTH_USER_SESSION_KEY not in server.sessions.get("sid", {})
 
-    async def test_never_refuses_the_connection(self, mocker, server):
-        mocker.patch.object(
-            netplay_module,
-            "get_session_from_environ",
-            AsyncMock(side_effect=RuntimeError("redis down")),
-        )
+    async def test_never_refuses_the_connection(self, server, authenticate):
+        authenticate.side_effect = RuntimeError("redis down")
 
         assert await connect("sid", {}) is None
