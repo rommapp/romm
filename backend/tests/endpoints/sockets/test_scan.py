@@ -507,6 +507,15 @@ class TestScreenScraperScanReporting:
         summary.assert_not_called()
 
 
+def _rom_on(platform_slug: str, title_id: str | None = None) -> Rom:
+    # Built untyped and cast, since `platform_slug` is a read-only property.
+    rom = Mock(spec=Rom)
+    rom.id = 1
+    rom.title_id = title_id
+    rom.platform_slug = platform_slug
+    return cast(Rom, rom)
+
+
 class TestShouldScanRom:
     def test_new_platforms_scan_with_no_rom(self):
         """NEW_PLATFORMS should scan when rom is None"""
@@ -551,15 +560,20 @@ class TestShouldScanRom:
         assert should_scan_rom(ScanType.HASHES, rom, [rom.id + 99], ["igdb"]) is False
         assert should_scan_rom(ScanType.HASHES, rom, [rom.id], ["igdb"]) is True
 
-    def test_title_ids_scan_only_touches_existing_roms(self, rom: Rom):
+    def test_title_ids_scan_only_touches_existing_roms(self):
         """It refreshes ids without rehashing, and importing a file with no
         entry yet would cost the full hash of that file."""
+        rom = _rom_on("psp")
+
         assert should_scan_rom(ScanType.TITLE_IDS, None, [], ["igdb"]) is False
         assert should_scan_rom(ScanType.TITLE_IDS, rom, [], ["igdb"]) is True
         assert (
             should_scan_rom(ScanType.TITLE_IDS, rom, [rom.id + 99], ["igdb"]) is False
         )
         assert should_scan_rom(ScanType.TITLE_IDS, rom, [rom.id], ["igdb"]) is True
+
+    def test_title_ids_scan_skips_platforms_sigil_cannot_read(self):
+        assert should_scan_rom(ScanType.TITLE_IDS, _rom_on("snes"), [], []) is False
 
     # Test UNMATCHED scan type
     def test_unmatched_scan_with_no_rom(self):
@@ -686,7 +700,7 @@ class TestShouldScanRom:
         expected,
     ):
         """Test comprehensive scenarios with different combinations"""
-        rom: Rom = Mock(spec=Rom)
+        rom: Rom = Mock(spec=Rom, platform_slug="psp")
         roms_ids = []
 
         if rom_exists:
@@ -746,24 +760,14 @@ class TestShouldReparseTags:
 class TestShouldExtractTitleIds:
     """Which rescans pay for another native parse of a rom's binaries."""
 
-    @staticmethod
-    def _rom(platform_slug: str, title_id: str | None) -> Rom:
-        # Built untyped and cast, since `platform_slug` is a read-only property.
-        rom = Mock(spec=Rom)
-        rom.title_id = title_id
-        rom.platform_slug = platform_slug
-        return cast(Rom, rom)
-
     def test_a_stored_id_is_not_re_read(self):
-        rom = self._rom("psp", "ULUS-10041")
+        rom = _rom_on("psp", "ULUS-10041")
 
         assert _should_extract_title_ids(ScanType.UPDATE, rom) is False
         assert _should_extract_title_ids(ScanType.UNMATCHED, rom) is False
 
     def test_a_rom_without_an_id_is_read(self):
-        assert (
-            _should_extract_title_ids(ScanType.UPDATE, self._rom("psp", None)) is True
-        )
+        assert _should_extract_title_ids(ScanType.UPDATE, _rom_on("psp", None)) is True
 
     @pytest.mark.parametrize("scan_type", [ScanType.COMPLETE, ScanType.HASHES])
     def test_a_rescan_that_re_reads_the_bytes_re_reads_the_id(
@@ -771,7 +775,7 @@ class TestShouldExtractTitleIds:
     ):
         """Replacing a file in place would otherwise leave the old id beside the
         hashes of the new bytes."""
-        rom = self._rom("psp", "ULUS-10041")
+        rom = _rom_on("psp", "ULUS-10041")
 
         assert _should_extract_title_ids(scan_type, rom) is True
 
@@ -779,14 +783,14 @@ class TestShouldExtractTitleIds:
     def test_switch_always_re_reads(self, platform_slug: str):
         """The same parse settles the per-file categories, which a rebuild would
         otherwise take from the folder names instead."""
-        rom = self._rom(platform_slug, "0100ABCD12340000")
+        rom = _rom_on(platform_slug, "0100ABCD12340000")
 
         assert _should_extract_title_ids(ScanType.UPDATE, rom) is True
 
     def test_a_title_ids_scan_re_reads_a_stored_id(self):
         """Refreshing the id is the whole point, so a stored one is no reason
         to skip the rom."""
-        rom = self._rom("ngc", "47414645")
+        rom = _rom_on("ngc", "47414645")
 
         assert _should_extract_title_ids(ScanType.TITLE_IDS, rom) is True
 
@@ -2810,6 +2814,7 @@ def identify_harness(mocker):
         roms_ids: list[int],
         socket_manager: AsyncMock | None = None,
         scan_stats: AsyncMock | None = None,
+        scanned_rom_ids: set[int] | None = None,
     ) -> None:
         fs_rom: FSRom = {
             "fs_name": "Game",
@@ -2833,7 +2838,7 @@ def identify_harness(mocker):
             launchbox_remote_enabled=False,
             socket_manager=socket_manager or AsyncMock(),
             scan_stats=scan_stats or AsyncMock(),
-            scanned_rom_ids=set(),
+            scanned_rom_ids=set() if scanned_rom_ids is None else scanned_rom_ids,
         )
 
     return SimpleNamespace(
@@ -2926,6 +2931,28 @@ class TestIdentifyRomIncrementalHashing:
         assert kwargs["existing_files"] is None
 
 
+class TestIdentifyRomSimilarityTopUp:
+    """Only scans that can change a rom's metadata queue it for similar games."""
+
+    @pytest.mark.parametrize(
+        "scan_type,queued",
+        [(ScanType.HASHES, True), (ScanType.TITLE_IDS, False)],
+    )
+    async def test_a_title_ids_scan_queues_nothing(
+        self, identify_harness, scan_type: ScanType, queued: bool
+    ):
+        scanned_rom_ids: set[int] = set()
+
+        await identify_harness.run(
+            identify_harness.existing_rom(),
+            scan_type,
+            [],
+            scanned_rom_ids=scanned_rom_ids,
+        )
+
+        assert bool(scanned_rom_ids) is queued
+
+
 class TestIdentifyPlatformLoadsFileRows:
     """A quick or title-ids scan reads every existing rom's files, so their rows
     are loaded with the batch lookup instead of one query per rom."""
@@ -2951,6 +2978,7 @@ class TestIdentifyPlatformLoadsFileRows:
             "model_validate",
             return_value=Mock(model_dump=Mock(return_value={})),
         )
+        self.platform = platform
         self.get_firmware = AsyncMock(return_value=[])
         mocker.patch.object(
             scan_module.fs_firmware_handler, "get_firmware", self.get_firmware
@@ -2972,6 +3000,7 @@ class TestIdentifyPlatformLoadsFileRows:
 
         rom = Rom(fs_name="Game", platform_id=platform.id)
         rom.id = 42
+        rom.platform = platform
         db_rom = mocker.patch.object(scan_module, "db_rom_handler")
         db_rom.get_roms_by_fs_name.return_value = {"test/roms/Game": rom}
         db_rom.get_missing_rom_ids.return_value = set()
@@ -2982,16 +3011,19 @@ class TestIdentifyPlatformLoadsFileRows:
         return db_rom
 
     @pytest.mark.parametrize(
-        "scan_type,with_files",
+        "scan_type,platform_slug,with_files",
         [
-            (ScanType.QUICK, True),
-            (ScanType.TITLE_IDS, True),
-            (ScanType.COMPLETE, False),
+            (ScanType.QUICK, "test", True),
+            (ScanType.TITLE_IDS, "psp", True),
+            (ScanType.TITLE_IDS, "test", False),
+            (ScanType.COMPLETE, "test", False),
         ],
     )
     async def test_rows_are_loaded_only_for_the_scans_that_read_them(
-        self, patched, scan_type, with_files
+        self, patched, scan_type, platform_slug, with_files
     ):
+        self.platform.slug = platform_slug
+
         await scan_module._identify_platform(
             platform_slug="test",
             scan_type=scan_type,

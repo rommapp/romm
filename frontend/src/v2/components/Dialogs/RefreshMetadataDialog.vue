@@ -129,12 +129,11 @@ const scanOptions = computed<ScanOption[]>(() => [
 ]);
 const scanType = ref<ScanType>("update");
 
-// Reset scan type back to the safe default if the current selection
-// becomes disabled (e.g. user toggles SKIP_HASH_CALCULATION while the
-// dialog is open and `hashes` was selected).
+// Fall back to the safe default when the selection is disabled or no longer
+// offered (hashing turned off, or the server stopped reading title ids).
 watch(scanOptions, (options) => {
   const current = options.find((o) => o.value === scanType.value);
-  if (current?.disabled) scanType.value = "update";
+  if (!current || current.disabled) scanType.value = "update";
 });
 
 const openSingle = (payload: SimpleRom) => {

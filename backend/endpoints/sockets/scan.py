@@ -15,7 +15,7 @@ from rq.job import Job, JobStatus
 from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
-from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
+from adapters.services.sigil import SIGIL_PLATFORM_SLUGS, SWITCH_PLATFORM_SLUGS
 from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -408,8 +408,13 @@ def should_scan_rom(
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
-        # Importing a new file costs the full hash a title-ids scan skips
-        or (scan_type == ScanType.TITLE_IDS and rom is not None)
+        # Importing a new file costs the full hash a title-ids scan skips, and
+        # a platform sigil cannot read has no id to refresh
+        or (
+            scan_type == ScanType.TITLE_IDS
+            and rom is not None
+            and rom.platform_slug in SIGIL_PLATFORM_SLUGS
+        )
         or (
             rom
             and (
@@ -507,7 +512,7 @@ def _should_hash_incrementally(
     rom: Rom | None,
     roms_ids: list[int],
 ) -> bool:
-    """Decide if a selected rom's unchanged files may keep their stored hashes
+    """Decide if a rom's unchanged files may keep their stored hashes
 
     Only COMPLETE and HASHES promise to re-read every byte. A quick scan does
     not reach here: it reconciles an existing rom through `refresh_rom_files`.
@@ -810,7 +815,9 @@ async def _identify_rom(
     )
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
-    scanned_rom_ids.add(_added_rom.id)
+    # Similar games key on metadata, which a title-ids scan leaves alone.
+    if scan_type != ScanType.TITLE_IDS:
+        scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:
         await _emit_scanning_rom(socket_manager, _added_rom)
@@ -1060,7 +1067,11 @@ async def _identify_platform(
         roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
-            with_files=scan_type in (ScanType.QUICK, ScanType.TITLE_IDS),
+            with_files=scan_type == ScanType.QUICK
+            or (
+                scan_type == ScanType.TITLE_IDS
+                and platform.slug in SIGIL_PLATFORM_SLUGS
+            ),
         )
 
         # Separate skipped ROMs from those that need scanning

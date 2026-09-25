@@ -34,7 +34,7 @@
   "info-hashes-desc": "Seçili platformlardaki tüm dosyalar için hash değerlerini yeniden hesaplar.",
   "info-new-platforms-desc": "Yalnızca RomM'de henüz bulunmayan platformları arar.",
   "info-quick-scan-desc": "Kütüphanede henüz olmayan oyunları tarar ve kütüphanede bulunan oyunların klasörlerine eklenen dosyaları, herhangi bir derinlikte algılar.",
-  "info-title-ids-desc": "Seçili platformlardaki her oyunun başlık kimliğini ve kayıt konumunu doğrudan oyun dosyalarından yeniden okur.\n\nKarma değerleri değişmez ve hiçbir meta veri kaynağına bağlanılmaz. Yalnızca konsola özgü kimliği olan platformlar etkilenir: PlayStation, 3DS, Wii, Wii U, GameCube, Dreamcast ve Xbox.",
+  "info-title-ids-desc": "Seçili platformlardaki her oyunun başlık kimliğini ve kayıt konumunu doğrudan oyun dosyalarından yeniden okur.\n\nKarma değerleri değişmez ve hiçbir meta veri kaynağına bağlanılmaz. Yalnızca konsola özgü kimliği olan platformlar etkilenir: PlayStation, Switch, 3DS, Wii, Wii U, GameCube, Dreamcast ve Xbox.",
   "info-unmatched-games-desc": "Seçili meta veri kaynaklarıyla eşleştirilmemiş oyunları eşleştirmeye çalışır.\n\nÖrneğin IGDB ve ScreenScraper seçmek, bu kaynaklardan biriyle eşleştirilmemiş oyunları tarar.",
   "info-update-metadata-desc": "Seçili meta veri kaynaklarıyla eşleştirilmiş oyunların meta verilerini harici ID'yi (ör. IGDB ID) kullanarak günceller.\n\nÖrneğin IGDB ve ScreenScraper seçmek, bu kaynaklarla eşleştirilmiş oyunların meta verilerini günceller ve meta verileri ilgili sağlayıcılardan yeniden çekmek için igdb_id ve/veya ssfr_id kullanır.",
   "live-progress": "Canlı ilerleme",

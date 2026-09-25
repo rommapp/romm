@@ -34,7 +34,7 @@
   "info-hashes-desc": "为选定平台中的所有文件重新计算哈希值。",
   "info-new-platforms-desc": "仅查找尚未在 RomM 中的平台。",
   "info-quick-scan-desc": "扫描尚未在游戏库中的游戏，并识别已在游戏库中的游戏文件夹内任意层级新增的文件。",
-  "info-title-ids-desc": "直接从游戏文件中重新读取所选平台内每个游戏的标题 ID 和存档位置。\n\n哈希值保持不变，也不会访问任何元数据来源。仅影响具有主机原生 ID 的平台：PlayStation、3DS、Wii、Wii U、GameCube、Dreamcast 和 Xbox。",
+  "info-title-ids-desc": "直接从游戏文件中重新读取所选平台内每个游戏的标题 ID 和存档位置。\n\n哈希值保持不变，也不会访问任何元数据来源。仅影响具有主机原生 ID 的平台：PlayStation、Switch、3DS、Wii、Wii U、GameCube、Dreamcast 和 Xbox。",
   "info-unmatched-games-desc": "尝试匹配与所选元数据源未匹配的游戏。\n\n例如，选择 IGDB 和 ScreenScraper 将扫描与 IGDB 或 ScreenScraper 未匹配的游戏。",
   "info-update-metadata-desc": "使用外部 ID（如 IGDB ID）为已与所选元数据源匹配的游戏更新元数据。\n\n例如，选择 IGDB 和 ScreenScraper 将为与 IGDB 或 ScreenScraper 匹配的游戏更新元数据，并使用 igdb_id 和/或 ssfr_id 从相应提供者重新获取元数据。",
   "live-progress": "实时进度",

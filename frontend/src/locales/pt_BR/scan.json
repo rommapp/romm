@@ -34,7 +34,7 @@
   "info-hashes-desc": "Recalcula hashes para todos os arquivos nas plataformas selecionadas.",
   "info-new-platforms-desc": "Procurará apenas plataformas que ainda não estão no RomM.",
   "info-quick-scan-desc": "Varre jogos que ainda não estão na biblioteca e detecta arquivos adicionados às pastas de jogos já presentes, em qualquer nível.",
-  "info-title-ids-desc": "Relê o ID de título e o local de salvamento de cada jogo nas plataformas selecionadas, direto dos arquivos do jogo.\n\nOs hashes não são alterados e nenhuma fonte de metadados é consultada. Apenas plataformas com um ID nativo do console são afetadas: PlayStation, 3DS, Wii, Wii U, GameCube, Dreamcast e Xbox.",
+  "info-title-ids-desc": "Relê o ID de título e o local de salvamento de cada jogo nas plataformas selecionadas, direto dos arquivos do jogo.\n\nOs hashes não são alterados e nenhuma fonte de metadados é consultada. Apenas plataformas com um ID nativo do console são afetadas: PlayStation, Switch, 3DS, Wii, Wii U, GameCube, Dreamcast e Xbox.",
   "info-unmatched-games-desc": "Tenta corresponder jogos que não estão correspondendo com as fontes de metadados selecionadas.\n\nPor exemplo, selecionar IGDB e ScreenScraper varrará jogos que não estão correspondendo com IGDB ou ScreenScraper.",
   "info-update-metadata-desc": "Atualiza os metadados para jogos que foram correspondidos com fontes de metadados selecionadas usando o ID externo (ex. IGDB ID).\n\nPor exemplo, selecionar IGDB e ScreenScraper atualizará os metadados para jogos correspondidos com IGDB ou ScreenScraper, e usará igdb_id e/ou ssfr_id para buscar novamente os metadados dos respectivos provedores.",
   "live-progress": "Progresso ao vivo",
