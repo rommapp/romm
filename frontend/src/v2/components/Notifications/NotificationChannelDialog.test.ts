@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   create: vi.fn(),
   update: vi.fn(),
   getAppriseServices: vi.fn(),
+  parseAppriseUrl: vi.fn(),
 }));
 
 vi.mock("@/services/api/notificationChannel", () => ({ default: api }));
@@ -180,6 +181,105 @@ describe("NotificationChannelDialog", () => {
     wrapper.unmount();
   });
 
+  const ntfyChannel = () =>
+    channel({
+      type: "apprise",
+      service: "ntfy",
+      service_name: "ntfy",
+      fields: { host: "ntfy.example.com", targets: ["romm"] },
+      stored_secrets: ["token"],
+      has_secret: false,
+    });
+  async function paste(wrapper: Wrapper, url: string) {
+    await textField(wrapper, "notifications.channel-paste-url")?.setValue(url);
+    // Past the field's debounce.
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    await flushPromises();
+  }
+
+  it("fills the fields in as soon as a URL is pasted", async () => {
+    api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    api.parseAppriseUrl.mockResolvedValue({
+      data: {
+        service: "ntfy",
+        fields: { host: "ntfy.example.com", port: 8080, targets: ["romm"] },
+      },
+    });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:ntfy");
+    await wrapper.findAll("input.r-text-field__input")[0].setValue("Phone");
+    await paste(wrapper, "ntfys://ntfy.example.com:8080/romm");
+    await save(wrapper);
+
+    expect(api.parseAppriseUrl).toHaveBeenCalledWith(
+      "ntfys://ntfy.example.com:8080/romm",
+    );
+    expect(api.create.mock.calls[0][0].fields).toMatchObject({
+      host: "ntfy.example.com",
+      port: 8080,
+      targets: ["romm"],
+    });
+    wrapper.unmount();
+  });
+
+  it("says why it can't read a pasted URL", async () => {
+    api.parseAppriseUrl.mockRejectedValue({
+      isAxiosError: true,
+      response: { data: { detail: "Apprise can't read this URL" } },
+    });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:ntfy");
+    await paste(wrapper, "nowhere://romm");
+
+    expect(wrapper.text()).toContain("Apprise can't read this URL");
+    wrapper.unmount();
+  });
+
+  it("moves a new channel to the service a pasted URL is for", async () => {
+    const discord = makeAppriseService({
+      id: "discord",
+      name: "Discord",
+      fields: [],
+    });
+    api.getAppriseServices.mockResolvedValue({
+      data: [makeAppriseService(), discord],
+    });
+    api.parseAppriseUrl.mockResolvedValue({
+      data: { service: "discord", fields: {} },
+    });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:ntfy");
+    await paste(wrapper, "https://discord.com/api/webhooks/1/token");
+
+    expect(wrapper.findAllComponents(RSelect)[0].props("modelValue")).toBe(
+      "apprise:discord",
+    );
+    wrapper.unmount();
+  });
+
+  it("keeps an edited channel on its service whatever URL is pasted", async () => {
+    api.parseAppriseUrl.mockResolvedValue({
+      data: { service: "discord", fields: {} },
+    });
+    api.getAppriseServices.mockResolvedValue({
+      data: [
+        makeAppriseService(),
+        makeAppriseService({ id: "discord", name: "Discord", fields: [] }),
+      ],
+    });
+    const wrapper = await open(ntfyChannel(), { admin: true });
+
+    await paste(wrapper, "https://discord.com/api/webhooks/1/token");
+
+    expect(wrapper.text()).toContain(
+      "notifications.channel-paste-other-service",
+    );
+    wrapper.unmount();
+  });
+
   it("offers Apprise's services to admins only", async () => {
     const kinds = async (admin: boolean) => {
       const wrapper = await open(null, { admin });
@@ -208,16 +308,6 @@ describe("NotificationChannelDialog", () => {
     });
     wrapper.unmount();
   });
-
-  const ntfyChannel = () =>
-    channel({
-      type: "apprise",
-      service: "ntfy",
-      service_name: "ntfy",
-      fields: { host: "ntfy.example.com", targets: ["romm"] },
-      stored_secrets: ["token"],
-      has_secret: false,
-    });
 
   it("keeps the Apprise secrets an edit leaves blank", async () => {
     api.update.mockResolvedValue({ data: channel({ type: "apprise" }) });

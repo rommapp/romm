@@ -11,6 +11,7 @@ from handler.notification_channels.apprise_channel import (
     build_url,
     checked_fields,
     describe,
+    fields_from_url,
     find_service,
     merge_fields,
     send,
@@ -18,6 +19,7 @@ from handler.notification_channels.apprise_channel import (
     split_fields,
 )
 from handler.notification_channels.messages import OutboundMessage
+from handler.notification_channels.webhook import ERROR_DETAIL_CHARS
 from models.notification import NotificationLevel
 
 from .fixtures import make_notification
@@ -83,6 +85,11 @@ class TestCatalog:
 
     def test_json_takes_a_path_after_its_host(self):
         assert "path" in _keys("json")
+
+    def test_points_at_the_setup_guide_on_apprises_wiki(self):
+        assert find_service("discord").setup_url == (
+            "https://github.com/caronc/apprise/wiki/Notify_discord"
+        )
 
     @pytest.mark.parametrize(
         "service,key", [("mastodon", "token"), ("rocket", "webhook"), ("json", "path")]
@@ -206,6 +213,63 @@ class TestFields:
     def test_a_refusal_hides_the_secret_it_quotes(self):
         with pytest.raises(ValueError, match=r"Token \(\*\*\*\*\)"):
             checked_fields("slack", {"access_token": "nope-abc"})
+
+
+class TestFieldsFromUrl:
+    @pytest.mark.parametrize(
+        "url,service,fields",
+        [
+            (
+                "https://discord.com/api/webhooks/1234567890/abcdefghijklmnop",
+                "discord",
+                _DISCORD,
+            ),
+            (
+                "discord://RomM@1234567890/abcdefghijklmnop?image=yes&cto=99",
+                "discord",
+                {"botname": "RomM", **_DISCORD, "image": True},
+            ),
+            (
+                "ntfy://me:p%40ss@192.168.1.5:8080/a/b",
+                "ntfy",
+                {
+                    "schema": "ntfy",
+                    "user": "me",
+                    "password": "p@ss",
+                    "host": "192.168.1.5",
+                    "port": 8080,
+                    "targets": ["a", "b"],
+                },
+            ),
+            (
+                "jsons://hooks.example.com/api/romm",
+                "json",
+                {"host": "hooks.example.com", "path": "api/romm"},
+            ),
+        ],
+    )
+    def test_reads_a_url_back_into_its_service_and_fields(self, url, service, fields):
+        found, read = fields_from_url(url)
+
+        assert (found.id, read) == (service, fields)
+        checked_fields(service, read)
+
+    @pytest.mark.parametrize(
+        "url,reason",
+        [
+            ("syslog://", "doesn't offer"),
+            ("fcm://project/device", "doesn't offer|can't read"),
+            (
+                "discord://1234567890/abcdefghijklmnop?template=/etc/passwd",
+                "local files",
+            ),
+            ("nowhere://romm", "can't read"),
+            ("https://discord.com/api/webhooks/1 2", "without spaces"),
+        ],
+    )
+    def test_says_why_it_cant_read_a_url(self, url, reason):
+        with pytest.raises(ValueError, match=reason):
+            fields_from_url(url)
 
 
 class TestMergeFields:
@@ -335,18 +399,26 @@ class TestSend:
         assert plugin.socket_connect_timeout == apprise_channel.CONNECT_TIMEOUT_SECONDS
         assert (plugin.retry, plugin.redirects) == (0, False)
 
-    def test_a_refusal_says_what_apprise_warned_but_not_the_reply(self, notify):
+    def test_a_refusal_says_what_apprise_warned_and_the_start_of_the_reply(
+        self, notify
+    ):
+        reply = b'{"message": "Invalid Form Body", "code": 50035}' + b"x" * 500
+
         def log():
             logger = logging.getLogger("apprise")
-            logger.warning("Failed to send JSON POST notification: error=500.")
-            logger.debug("Response Details: internal secret")
+            logger.warning("Failed to send Discord notification: error=400.")
+            logger.debug("Response Details:\r\n%r", reply)
+            logger.debug("Sent nothing else worth keeping")
 
         notify(result=False, log=log)
 
         with pytest.raises(AppriseError) as caught:
             send("json", _JSON, _message())
 
-        assert str(caught.value) == "Failed to send JSON POST notification: error=500."
+        warning, answered = str(caught.value).split(" Reply: ")
+        assert warning == "Failed to send Discord notification: error=400."
+        assert answered.startswith('{"message": "Invalid Form Body", "code": 50035}')
+        assert len(answered) == ERROR_DETAIL_CHARS
 
     def test_keeps_no_warning_logged_outside_a_send(self, notify):
         logging.getLogger("apprise").warning("Something from another send")

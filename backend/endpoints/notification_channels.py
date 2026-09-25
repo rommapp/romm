@@ -7,6 +7,8 @@ from fastapi import HTTPException, Request, status
 from decorators.auth import protected_route
 from endpoints.responses.notification_channel import (
     AppriseServiceSchema,
+    AppriseUrlFieldsSchema,
+    AppriseUrlPayload,
     NotificationChannelCodePayload,
     NotificationChannelCreatePayload,
     NotificationChannelSchema,
@@ -74,6 +76,21 @@ def get_apprise_services(request: Request) -> list[AppriseServiceSchema]:
     """Every service an admin's Apprise channel can go out on, with its fields."""
     assert_admin(request)
     return _apprise_catalog()
+
+
+@protected_route(router.post, "/apprise-services/parse", [Scope.ME_READ])
+def parse_apprise_url(
+    request: Request, payload: AppriseUrlPayload
+) -> AppriseUrlFieldsSchema:
+    """Read a service's own URL (a Discord webhook's) or an Apprise URL into its fields."""
+    assert_admin(request)
+    try:
+        service, fields = apprise_channel.fields_from_url(payload.url)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    return AppriseUrlFieldsSchema(service=service.id, fields=fields)
 
 
 @cache

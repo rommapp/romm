@@ -13,6 +13,8 @@ export type { AdminSessionsResponse } from './models/AdminSessionsResponse';
 export type { AppriseChannelCreatePayload } from './models/AppriseChannelCreatePayload';
 export type { AppriseFieldSchema } from './models/AppriseFieldSchema';
 export type { AppriseServiceSchema } from './models/AppriseServiceSchema';
+export type { AppriseUrlFieldsSchema } from './models/AppriseUrlFieldsSchema';
+export type { AppriseUrlPayload } from './models/AppriseUrlPayload';
 export type { AuditAction } from './models/AuditAction';
 export type { AuditActorKind } from './models/AuditActorKind';
 export type { AuditCategory } from './models/AuditCategory';

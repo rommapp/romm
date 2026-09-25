@@ -1104,18 +1104,19 @@ Each user forwards their own notifications to other services. A channel is one o
 
 A channel filters by minimum level and by topic (`scans`, `tasks`, `streaming`, `account`, `custom`); every stored notification that passes goes out in its own RQ job, retried at 30 s, 2 min and 10 min. A channel that fails 10 deliveries in a row turns itself off and tells its owner.
 
-| Method | Path                | Scope    | Description                                                           |
-| ------ | ------------------- | -------- | --------------------------------------------------------------------- |
-| GET    | `/`                 | ME_READ  | Caller's channels, secrets masked                                     |
-| GET    | `/apprise-services` | ME_READ  | Every Apprise service and its fields (admins only, else 403)          |
-| POST   | `/`                 | ME_WRITE | Add a channel; an email address gets a code                           |
-| PATCH  | `/{id}`             | ME_WRITE | Change it; an omitted URL or secret stays, an empty secret is dropped |
-| DELETE | `/{id}`             | ME_WRITE | Delete it                                                             |
-| POST   | `/{id}/test`        | ME_WRITE | Send a sample notification now                                        |
-| POST   | `/{id}/confirm`     | ME_WRITE | Confirm an email address with its code                                |
-| POST   | `/{id}/resend-code` | ME_WRITE | Email a new code (once a minute)                                      |
+| Method | Path                      | Scope    | Description                                                                                    |
+| ------ | ------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| GET    | `/`                       | ME_READ  | Caller's channels, secrets masked                                                              |
+| GET    | `/apprise-services`       | ME_READ  | Every Apprise service and its fields (admins only, else 403)                                   |
+| POST   | `/apprise-services/parse` | ME_READ  | Read a pasted URL (Discord's own, or an Apprise one) into its service and fields (admins only) |
+| POST   | `/`                       | ME_WRITE | Add a channel; an email address gets a code                                                    |
+| PATCH  | `/{id}`                   | ME_WRITE | Change it; an omitted URL or secret stays, an empty secret is dropped                          |
+| DELETE | `/{id}`                   | ME_WRITE | Delete it                                                                                      |
+| POST   | `/{id}/test`              | ME_WRITE | Send a sample notification now                                                                 |
+| POST   | `/{id}/confirm`           | ME_WRITE | Confirm an email address with its code                                                         |
+| POST   | `/{id}/resend-code`       | ME_WRITE | Email a new code (once a minute)                                                               |
 
-The Apprise catalog comes from Apprise's own plugin details: URL tokens become fields, options become advanced fields, and a field is required only when every URL template of its service needs it. A token is a secret when Apprise marks it so or its name is a credential's (`token`, `key`, `webhook`…). A channel stores its service and fields, sealed, and each delivery builds the URL from the template those fields fill. Not offered: schemas that act on the host (`syslog`, `dbus`, `windows`…), FCM (it opens its key file itself), the options Apprise reads from a local file (`template`, `keyfile`, `subfile`, `pgp*`) and the ones RomM sets. Apprise follows no redirects and doesn't retry, its timeouts are capped at 10 s to connect and 15 s to read, a list takes at most 20 items, and `@everyone`, `@here` and `<@…>` ping nobody. The API returns the fields that aren't secret and names the secrets; on edit, a secret left out stays and an empty one goes, but a kept secret never follows the channel to another destination, as Apprise's `url_identifier` tells them apart. A test gets 60 s, like a queued delivery.
+The Apprise catalog comes from Apprise's own plugin details: URL tokens become fields, options become advanced fields, and a field is required only when every URL template of its service needs it. A token is a secret when Apprise marks it so or its name is a credential's (`token`, `key`, `webhook`…). A channel stores its service and fields, sealed, and each delivery builds the URL from the template those fields fill. Not offered: schemas that act on the host (`syslog`, `dbus`, `windows`…), FCM (it opens its key file itself), the options Apprise reads from a local file (`template`, `keyfile`, `subfile`, `pgp*`) and the ones RomM sets. Apprise follows no redirects and doesn't retry, its timeouts are capped at 10 s to connect and 15 s to read, a list takes at most 20 items, and `@everyone`, `@here` and `<@…>` ping nobody. A failure's error carries Apprise's warning and the start of the service's reply. Each service links its setup guide on Apprise's wiki. A pasted URL is read back into fields by matching the URL Apprise writes for it against the service's templates. The API returns the fields that aren't secret and names the secrets; on edit, a secret left out stays and an empty one goes, but a kept secret never follows the channel to another destination, as Apprise's `url_identifier` tells them apart. A test gets 60 s, like a queued delivery.
 
 Only an admin's webhooks may reach private addresses; everyone else's go through the SSRF guard. A kept webhook secret doesn't follow the channel to another origin. A webhook delivery gets 15 s in all, and only the start of a refusal's body is read. Text for RomM's own kinds is English until outbound messages are translated. Links are absolute only when `ROMM_BASE_URL` is shareable.
 

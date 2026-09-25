@@ -11,7 +11,8 @@ import {
   RSelect,
   RTextField,
 } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { watchDebounced } from "@vueuse/core";
+import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   AppriseServiceSchema,
@@ -70,6 +71,9 @@ const services = ref<AppriseServiceSchema[] | null>(null);
 const loadingServices = ref(false);
 const appriseValues = ref<Record<string, AppriseFieldValue>>({});
 const removedSecrets = ref<string[]>([]);
+const pastedUrl = ref("");
+const pasteError = ref<string | null>(null);
+const filling = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
 
@@ -148,6 +152,8 @@ function resetAppriseValues() {
     ? initialAppriseValues(service.value, props.channel?.fields ?? null)
     : {};
   removedSecrets.value = [];
+  pastedUrl.value = "";
+  pasteError.value = null;
 }
 
 watch(service, resetAppriseValues);
@@ -172,6 +178,50 @@ watch(show, (open) => {
   formRef.value?.resetValidation();
   void loadServices();
 });
+
+// A pasted URL, the service's own (a Discord webhook's) or an Apprise one, fills
+// the form in; only the latest paste counts.
+let pasteRequest = 0;
+
+async function fillFromUrl(url: string) {
+  const request = ++pasteRequest;
+  filling.value = true;
+  pasteError.value = null;
+  try {
+    const { data } = await notificationChannelApi.parseAppriseUrl(url);
+    if (request !== pasteRequest) return;
+    const found = services.value?.find((s) => s.id === data.service);
+    if (!found) throw new Error(data.service);
+    if (editing.value && found.id !== service.value?.id) {
+      pasteError.value = t("notifications.channel-paste-other-service", {
+        service: found.name,
+      });
+      return;
+    }
+    kind.value = `${APPRISE_PREFIX}${found.id}`;
+    // Lets the service watcher start the form afresh before it's filled in.
+    await nextTick();
+    appriseValues.value = initialAppriseValues(found, data.fields);
+    pastedUrl.value = "";
+  } catch (err) {
+    if (request !== pasteRequest) return;
+    pasteError.value = errorMessage(
+      err,
+      t("notifications.channel-paste-failed"),
+    );
+  } finally {
+    if (request === pasteRequest) filling.value = false;
+  }
+}
+
+watchDebounced(
+  pastedUrl,
+  (url) => {
+    if (url.trim()) void fillFromUrl(url.trim());
+    else pasteError.value = null;
+  },
+  { debounce: 400 },
+);
 
 function targetChanges(): NotificationChannelUpdatePayload {
   switch (type.value) {
@@ -352,6 +402,22 @@ async function save() {
 
         <template v-else-if="type === 'apprise'">
           <template v-if="service">
+            <RTextField
+              v-model="pastedUrl"
+              :label="t('notifications.channel-paste-url')"
+              :hint="
+                t('notifications.channel-paste-url-hint', {
+                  service: service.name,
+                })
+              "
+              :error-messages="pasteError ?? undefined"
+              :maxlength="NOTIFICATION_CHANNEL_URL_MAX_LENGTH"
+              :loading="filling"
+              autocomplete="off"
+              prefix-label="stacked"
+              mono
+              @keydown.enter.prevent.stop
+            />
             <AppriseServiceFields
               v-model="appriseValues"
               v-model:removed="removedSecrets"

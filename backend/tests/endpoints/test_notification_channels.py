@@ -177,12 +177,39 @@ class TestAppriseServices:
             False,
         )
 
-    def test_a_user_gets_none(self, client, viewer_access_token):
-        response = client.get(
-            f"{API}/apprise-services", headers=_auth(viewer_access_token)
+    def test_an_admin_pastes_a_discord_webhook(self, client, access_token):
+        response = client.post(
+            f"{API}/apprise-services/parse",
+            json={
+                "url": "https://discord.com/api/webhooks/1234567890/abcdefghijklmnop"
+            },
+            headers=_auth(access_token),
         )
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {"service": "discord", "fields": _DISCORD}
+
+    def test_a_url_it_cant_read_is_refused(self, client, access_token):
+        response = client.post(
+            f"{API}/apprise-services/parse",
+            json={"url": "nowhere://romm"},
+            headers=_auth(access_token),
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_a_user_gets_none(self, client, viewer_access_token):
+        listed = client.get(
+            f"{API}/apprise-services", headers=_auth(viewer_access_token)
+        )
+        parsed = client.post(
+            f"{API}/apprise-services/parse",
+            json={"url": "ntfys://ntfy.sh/romm"},
+            headers=_auth(viewer_access_token),
+        )
+
+        assert listed.status_code == status.HTTP_403_FORBIDDEN
+        assert parsed.status_code == status.HTTP_403_FORBIDDEN
 
 
 class TestEmailConfirmation:

@@ -8,13 +8,14 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import cache, cached_property
 from typing import Any, Final, Literal, get_args
-from urllib.parse import quote, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit
 
 from apprise import Apprise, AppriseAsset, NotifyBase, NotifyFormat, NotifyType
 
 from models.notification import NotificationLevel
 
 from .messages import OutboundMessage
+from .webhook import ERROR_DETAIL_CHARS
 
 ADMINS_ONLY: Final = "Only admins can use Apprise channels"
 
@@ -58,6 +59,8 @@ MANAGED_OPTIONS: Final = frozenset(
         "tz",
     }
 )
+# Where Apprise's setup guides live, one page per service.
+WIKI_PAGE: Final = "https://github.com/caronc/apprise/wiki/Notify_{}"
 # Services that post to any path on their host, which no token names.
 FREE_PATH_SERVICES: Final = frozenset({"json", "xml", "form"})
 # Tokens Apprise doesn't mark private although they are credentials.
@@ -93,19 +96,34 @@ _PATH_TOKEN: Final = "path"
 FieldType = Literal["string", "int", "float", "bool", "choice", "list"]
 FieldValue = str | int | float | bool | list[str]
 
-# The warnings Apprise logs during the send running in this context.
-_warnings: ContextVar[list[str] | None] = ContextVar("apprise_warnings", default=None)
+# What Apprise logs about the send running in this context: its warnings, and
+# the start of a refusal's reply, which says why (Discord's "Invalid Form Body").
+_collected: ContextVar[list[str] | None] = ContextVar("apprise_log", default=None)
+_REPLY: Final = "Response Details:"
 
 
-class _WarningCollector(logging.Handler):
+class _Collector(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
-        collected = _warnings.get()
-        if collected is not None:
-            collected.append(record.getMessage())
+        collected = _collected.get()
+        if collected is None:
+            return
+        message = record.getMessage()
+        if record.levelno >= logging.WARNING:
+            collected.append(message)
+        elif message.startswith(_REPLY):
+            reply = message.removeprefix(_REPLY).strip()
+            # Apprise logs the body as a bytes repr, b'...'.
+            if reply[:2] in ("b'", 'b"'):
+                reply = reply[2:-1]
+            collected.append(f"Reply: {reply[:ERROR_DETAIL_CHARS]}")
 
 
-# Warnings and up only: debug records carry the remote end's response body.
-logging.getLogger("apprise").addHandler(_WarningCollector(logging.WARNING))
+_apprise_log = logging.getLogger("apprise")
+# Down to debug, where the replies are, and kept out of the server log: a
+# failure is logged once, as the delivery's error.
+_apprise_log.setLevel(logging.DEBUG)
+_apprise_log.propagate = False
+_apprise_log.addHandler(_Collector())
 
 
 class AppriseError(RuntimeError):
@@ -156,6 +174,15 @@ class AppriseService:
 
     def field(self, key: str) -> AppriseField | None:
         return self._by_key.get(key)
+
+
+def _setup_url(url: str | None) -> str | None:
+    """The service's guide on Apprise's wiki, when Apprise points at appriseit.com."""
+    parts = urlsplit(url or "")
+    if parts.hostname != "appriseit.com":
+        return url
+    slug = parts.path.rstrip("/").rsplit("/", 1)[-1]
+    return WIKI_PAGE.format(slug) if slug else None
 
 
 def _field(
@@ -255,7 +282,7 @@ def _service(entry: dict[str, Any]) -> AppriseService | None:
     return AppriseService(
         id=protocols[0],
         name=entry.get("service_name") or protocols[0],
-        setup_url=entry.get("setup_url"),
+        setup_url=_setup_url(entry.get("setup_url")),
         schemas=tuple(protocols),
         default_schema=default_schema,
         templates=templates,
@@ -475,6 +502,104 @@ def split_fields(
     return public, [key for key in kept if key in service.secrets]
 
 
+def _token_pattern(service: AppriseService, key: str) -> str:
+    """What a template token matches in the URL Apprise writes."""
+    field = service.field(key)
+    if key == "schema":
+        return r"[a-z0-9+.-]+"
+    if key == "host":
+        return r"\[[^\]]+\]|[^/:@?#]+"
+    if key == "port":
+        return r"\d+"
+    if key == "user":
+        return r"[^/:@?#]+"
+    if key == _PATH_TOKEN:
+        return r"/(?:[^?#]*/)?"
+    if field is not None and field.type == "list":
+        return r".+"
+    return r"[^/@?#]+"
+
+
+def _template_pattern(service: AppriseService, template: str) -> re.Pattern[str]:
+    template = template.rstrip("/")
+    pattern, end = "", 0
+    for match in _PLACEHOLDER.finditer(template):
+        key = match.group(1)
+        pattern += re.escape(template[end : match.start()])
+        pattern += f"(?P<{key}>{_token_pattern(service, key)})"
+        end = match.end()
+    return re.compile(pattern + re.escape(template[end:]))
+
+
+def _read(field: AppriseField, text: str, quoted: bool) -> FieldValue | None:
+    """A value as it sits in the URL, back in the field's type."""
+    if field.type == "list":
+        items = re.split(rf"[{re.escape(field.delimiter)},\s]+", text)
+        return [unquote(item) if quoted else item for item in items if item]
+    text = unquote(text) if quoted else text
+    if field.type == "bool":
+        return text.lower() in ("yes", "true", "1", "on")
+    if field.type in ("int", "float"):
+        try:
+            return int(text) if field.type == "int" else float(text)
+        except ValueError:
+            return None
+    return text
+
+
+def fields_from_url(url: str) -> tuple[AppriseService, dict[str, FieldValue]]:
+    """The service and fields behind an Apprise URL or a service's own, such as
+    a Discord webhook's.
+
+    Raises:
+        ValueError: With a reason fit to show the user.
+    """
+    url = url.strip()
+    if not url or any(char.isspace() for char in url):
+        raise ValueError("Paste one URL, without spaces")
+    if {key.lower() for key, _ in parse_qsl(urlsplit(url).query)} & FILE_OPTIONS:
+        raise ValueError("RomM doesn't take the options that read local files")
+    try:
+        plugin = Apprise.instantiate(url, asset=_ASSET, suppress_exceptions=False)
+    except Exception as exc:  # noqa: BLE001 - a plugin says why it refused the URL
+        raise ValueError(str(exc) or "Apprise can't read this URL") from exc
+    if plugin is None:
+        raise ValueError("Apprise can't read this URL")
+
+    parts = urlsplit(plugin.url(privacy=False))
+    service = next((s for s in services() if parts.scheme in s.schemas), None)
+    if service is None:
+        raise ValueError("RomM doesn't offer that service")
+
+    fields: dict[str, FieldValue] = {}
+    base = f"{parts.scheme}://{parts.netloc}{parts.path}".rstrip("/")
+    if service.id in FREE_PATH_SERVICES:
+        fields[_PATH_TOKEN] = unquote(parts.path.strip("/"))
+        base = f"{parts.scheme}://{parts.netloc}"
+    templates = sorted(
+        service.templates, key=lambda t: len(_PLACEHOLDER.findall(t)), reverse=True
+    )
+    match = next(
+        (m for t in templates if (m := _template_pattern(service, t).fullmatch(base))),
+        None,
+    )
+    if match is None:
+        raise ValueError(f"RomM can't read the {service.name} fields from this URL")
+
+    for key, text in match.groupdict().items():
+        field = service.owners.get(key) or service.field(key)
+        if field is not None and key != "schema" and text:
+            fields[field.key] = _read(field, text, quoted=True)  # type: ignore[assignment]
+    for key, text in parse_qsl(parts.query, keep_blank_values=True):
+        field = service.field(key)
+        if field is not None and field.advanced:
+            if (value := _read(field, text, quoted=False)) is not None:
+                fields[key] = value
+    if len(service.schemas) > 1:
+        fields["schema"] = parts.scheme
+    return service, known_fields(service, fields)
+
+
 def _destination(service: AppriseService, fields: Mapping[str, FieldValue]) -> Any:
     """Where the fields send to, as Apprise tells its URLs apart, or None."""
     try:
@@ -553,7 +678,7 @@ def send(
     apprise.add(plugin)
 
     collected: list[str] = []
-    token = _warnings.set(collected)
+    token = _collected.set(collected)
     try:
         sent = apprise.notify(
             body=_defuse_mentions(message.text),
@@ -562,7 +687,7 @@ def send(
             body_format=NotifyFormat.TEXT,
         )
     finally:
-        _warnings.reset(token)
+        _collected.reset(token)
 
     if not sent:
         reason = " ".join(dict.fromkeys(collected))

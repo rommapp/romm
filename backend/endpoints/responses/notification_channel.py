@@ -30,7 +30,7 @@ from .base import BaseModel, UTCDatetime
 ChannelName = Annotated[
     str, Field(min_length=1, max_length=NOTIFICATION_CHANNEL_NAME_MAX_LENGTH)
 ]
-WebhookUrl = Annotated[
+ChannelUrl = Annotated[
     str, Field(min_length=1, max_length=NOTIFICATION_CHANNEL_URL_MAX_LENGTH)
 ]
 ChannelSecret = Annotated[str, Field(max_length=NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH)]
@@ -132,7 +132,7 @@ class AppriseChannelCreatePayload(_ChannelFilters):
 class WebhookChannelCreatePayload(_ChannelFilters):
     type: Literal["webhook"]
     name: ChannelName
-    url: WebhookUrl
+    url: ChannelUrl
     # The key the payload is signed with.
     secret: ChannelSecret | None = None
 
@@ -160,7 +160,7 @@ class NotificationChannelUpdatePayload(BaseModel):
     enabled: bool | None = None
     min_level: NotificationChannelMinLevel | None = None
     topics: list[NotificationTopic] | None = None
-    url: WebhookUrl | None = None
+    url: ChannelUrl | None = None
     secret: ChannelSecret | None = None
     address: EmailAddress | None = None
     # An Apprise channel's fields; a secret left out keeps its value, an empty one goes.
@@ -217,6 +217,17 @@ class AppriseServiceSchema(BaseModel):
             setup_url=service.setup_url,
             fields=[AppriseFieldSchema.from_field(field) for field in service.fields],
         )
+
+
+class AppriseUrlPayload(BaseModel):
+    url: ChannelUrl
+
+
+class AppriseUrlFieldsSchema(BaseModel):
+    """The service a pasted URL is for, and the fields it fills in."""
+
+    service: str
+    fields: dict[str, AppriseFieldValue]
 
 
 class NotificationChannelTestResult(BaseModel):
