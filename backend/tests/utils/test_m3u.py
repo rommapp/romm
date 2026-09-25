@@ -64,6 +64,25 @@ class TestListingPlaylist:
 
         assert listing_playlist(disc) is None
 
+    def test_none_when_the_playlist_names_a_symlinked_discs_target(self, tmp_path):
+        target = tmp_path / "store" / "Game (Disc 1).chd"
+        target.parent.mkdir()
+        target.write_bytes(b"x")
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.symlink_to(target)
+        (tmp_path / "Game.m3u").write_text("store/Game (Disc 1).chd\n")
+
+        assert listing_playlist(disc) is None
+
+    def test_tolerates_an_entry_through_a_symlink_loop(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "a").symlink_to(tmp_path / "b")
+        (tmp_path / "b").symlink_to(tmp_path / "a")
+        (tmp_path / "Other.m3u").write_text("a/Other.chd\n")
+
+        assert listing_playlist(disc) is None
+
     def test_ignores_comment_lines(self, tmp_path):
         disc = tmp_path / "Game (Disc 1).chd"
         disc.write_bytes(b"x")

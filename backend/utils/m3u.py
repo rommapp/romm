@@ -84,7 +84,8 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
 
 
 def _path_key(path: Path) -> str:
-    return os.path.normcase(str(path.resolve())).casefold()
+    # Only the folders resolve: promotion moves a symlinked disc, not its target.
+    return os.path.normcase(str(path.parent.resolve() / path.name)).casefold()
 
 
 def listing_playlist(disc: Path) -> str | None:
