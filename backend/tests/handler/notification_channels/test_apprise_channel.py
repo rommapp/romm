@@ -13,9 +13,9 @@ from handler.notification_channels.apprise_channel import (
     describe,
     find_service,
     merge_fields,
-    public_fields,
     send,
     services,
+    split_fields,
 )
 from handler.notification_channels.messages import OutboundMessage
 from models.notification import NotificationLevel
@@ -45,7 +45,8 @@ class TestCatalog:
         ids = [service.id for service in services()]
 
         assert {"discord", "ntfy", "tgram", "json"} <= set(ids)
-        assert "syslog" not in ids
+        # Local schemas, and FCM whose key file Apprise opens itself.
+        assert not {"syslog", "fcm"} & set(ids)
         names = [service.name.lower() for service in services()]
         assert names == sorted(names)
 
@@ -82,6 +83,15 @@ class TestCatalog:
 
     def test_json_takes_a_path_after_its_host(self):
         assert "path" in _keys("json")
+
+    @pytest.mark.parametrize(
+        "service,key", [("mastodon", "token"), ("rocket", "webhook"), ("json", "path")]
+    )
+    def test_treats_credentials_as_secrets_even_unflagged(self, service, key):
+        field = find_service(service).field(key)
+
+        assert field is not None
+        assert field.private
 
 
 class TestBuildUrl:
@@ -143,9 +153,18 @@ class TestBuildUrl:
         with pytest.raises(ValueError, match="can't take these fields together"):
             build_url("ntfy", {**fields, "password": "p"})
 
-    def test_a_host_is_only_a_host(self):
+    @pytest.mark.parametrize(
+        "host", ["example.com/hook?x=1", "{port}.example.com", "example.com:8080"]
+    )
+    def test_a_host_is_only_a_host(self, host):
         with pytest.raises(ValueError, match="isn't a hostname"):
-            build_url("json", {"host": "example.com/hook?x=1"})
+            build_url("json", {"host": host, "port": 80})
+
+    @pytest.mark.parametrize("host", ["ntfy.example.com", "192.168.1.5", "[::1]"])
+    def test_takes_names_and_addresses_as_hosts(self, host):
+        assert build_url("ntfy", {"host": host, "targets": ["romm"]}).startswith(
+            f"ntfys://{host}/"
+        )
 
     def test_ignores_fields_the_form_never_offered(self):
         url = build_url("discord", {**_DISCORD, "template": "/etc/passwd"})
@@ -165,17 +184,74 @@ class TestFields:
     def test_describes_fields_it_can_no_longer_use_as_nothing(self):
         assert describe("discord", {}) == (None, "")
 
-    def test_keeps_the_secrets_out_of_what_the_form_gets_back(self):
-        assert public_fields("discord", {**_DISCORD, "botname": "RomM"}) == {
-            "botname": "RomM"
-        }
+    def test_hides_secrets_apprise_would_show(self):
+        _, target = describe("json", {"host": "hooks.example.com", "path": "t0ken"})
 
-    def test_an_edit_keeps_the_secrets_it_leaves_blank(self):
-        stored = {**_DISCORD, "botname": "RomM"}
+        assert target == "jsons://hooks.example.com/****"
 
-        merged = merge_fields("discord", stored, {"webhook_token": "", "botname": ""})
+    def test_hands_the_form_what_isnt_secret_and_names_the_secrets(self):
+        assert split_fields("discord", {**_DISCORD, "botname": "RomM"}) == (
+            {"botname": "RomM"},
+            ["webhook_id", "webhook_token"],
+        )
+
+    def test_check_keeps_only_the_fields_the_service_takes(self):
+        assert check("discord", {**_DISCORD, "junk": "x", "botname": ""}) == _DISCORD
+
+    def test_a_refusal_hides_the_secret_it_quotes(self):
+        with pytest.raises(ValueError, match=r"Token \(\*\*\*\*\)"):
+            check("slack", {"access_token": "nope-abc"})
+
+
+class TestMergeFields:
+    _NTFY: dict[str, FieldValue] = {
+        "host": "ntfy.example.com",
+        "targets": ["romm"],
+        "token": "tk_1",
+    }
+
+    def test_a_secret_left_out_stays(self):
+        merged = merge_fields("discord", _DISCORD, {"webhook_id": "1234567890"})
 
         assert merged == _DISCORD
+
+    def test_an_empty_secret_goes(self):
+        given: dict[str, FieldValue] = {
+            **self._NTFY,
+            "token": "",
+            "user": "me",
+            "password": "pw",
+        }
+
+        assert merge_fields("ntfy", self._NTFY, given) == {
+            "host": "ntfy.example.com",
+            "targets": ["romm"],
+            "user": "me",
+            "password": "pw",
+        }
+
+    @pytest.mark.parametrize(
+        "change",
+        [{"host": "elsewhere.example.com"}, {"port": 8443}, {"schema": "ntfy"}],
+    )
+    def test_a_kept_secret_does_not_follow_the_channel_elsewhere(self, change):
+        given: dict[str, FieldValue] = {
+            "host": "ntfy.example.com",
+            "targets": ["romm"],
+            **change,
+        }
+
+        with pytest.raises(ValueError, match="Enter Token again"):
+            merge_fields("ntfy", self._NTFY, given)
+
+    def test_a_secret_given_again_goes_to_the_new_address(self):
+        given: dict[str, FieldValue] = {
+            "host": "elsewhere.example.com",
+            "targets": ["romm"],
+            "token": "tk_2",
+        }
+
+        assert merge_fields("ntfy", self._NTFY, given) == given
 
 
 class TestSend:
@@ -208,6 +284,15 @@ class TestSend:
             "notify_type": NotifyType.INFO,
             "body_format": NotifyFormat.TEXT,
         }
+
+    def test_mentions_ping_nobody(self, notify):
+        calls = notify()
+
+        send("json", _JSON, _message(title="@everyone look", body="<@123> and @here"))
+
+        [(_, kwargs)] = calls
+        assert kwargs["title"] == "@\u200beveryone look"
+        assert kwargs["body"].startswith("<\u200b@123> and @\u200bhere")
 
     def test_a_title_alone_is_also_the_body(self, notify):
         calls = notify()

@@ -31,7 +31,8 @@ _LEVEL_RANK: Final[dict[str, int]] = {
     NotificationLevel.ERROR: 2,
 }
 _RETRY: Final = Retry(max=3, interval=[30, 120, 600])
-_JOB_TIMEOUT_SECONDS: Final = 60
+# A delivery, queued or tried from the channel's test button, gets this long.
+DELIVERY_TIMEOUT_SECONDS: Final = 60
 
 
 def may_reach_private_network(role: str) -> bool:
@@ -75,7 +76,7 @@ def enqueue_channel_deliveries(
                     deliver_to_channel,
                     kwargs={"channel_id": channel.id, "notification": payload},
                     retry=_RETRY,
-                    job_timeout=_JOB_TIMEOUT_SECONDS,
+                    job_timeout=DELIVERY_TIMEOUT_SECONDS,
                     result_ttl=0,
                     meta={"task_name": "Notification delivery"},
                 )

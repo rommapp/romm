@@ -36,6 +36,8 @@ NOTIFICATION_CHANNEL_CODE_MAX_LENGTH: Final = 16
 NOTIFICATION_CHANNEL_SERVICE_MAX_LENGTH: Final = 32
 # An Apprise service's fields: the most any has, with room to spare.
 NOTIFICATION_CHANNEL_MAX_FIELDS: Final = 64
+# Each target of a list is its own request to the service.
+NOTIFICATION_CHANNEL_MAX_LIST_ITEMS: Final = 20
 MAX_NOTIFICATION_CHANNELS_PER_USER: Final = 20
 # A channel that fails this many deliveries in a row turns itself off.
 MAX_CONSECUTIVE_DELIVERY_FAILURES: Final = 10

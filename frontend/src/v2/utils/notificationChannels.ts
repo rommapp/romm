@@ -79,14 +79,22 @@ export function initialAppriseValues(
   );
 }
 
-/** What the backend gets: filled-in fields, numbers as numbers, defaults left out. */
+/**
+ * What the backend gets: filled-in fields, numbers as numbers, options left at
+ * their default out. A secret left out keeps its value; an empty one removes it.
+ */
 export function appriseFieldsPayload(
   service: AppriseServiceSchema,
   values: Record<string, AppriseFieldValue>,
+  removed: string[] = [],
 ): Record<string, AppriseFieldValue> {
   const payload: Record<string, AppriseFieldValue> = {};
   for (const field of service.fields) {
     const value = values[field.key];
+    if (removed.includes(field.key)) {
+      payload[field.key] = "";
+      continue;
+    }
     if (isBlank(value)) continue;
     if (field.type === "bool" && value === (field.default === true)) continue;
     if (field.type === "choice" && value === String(field.default ?? "")) {
@@ -98,13 +106,17 @@ export function appriseFieldsPayload(
   return payload;
 }
 
-/** Required lists the form left empty; the combobox has no rules of its own. */
+/**
+ * Required lists the form left empty; the combobox has no rules of its own.
+ * A secret list the channel already has stays when left empty.
+ */
 export function missingAppriseLists(
   service: AppriseServiceSchema,
   values: Record<string, AppriseFieldValue>,
+  kept: string[] = [],
 ): string[] {
   return service.fields
     .filter((field) => field.type === "list" && field.required)
-    .filter((field) => isBlank(values[field.key]))
+    .filter((field) => isBlank(values[field.key]) && !kept.includes(field.key))
     .map((field) => field.key);
 }

@@ -71,6 +71,7 @@ const topics = ref<NotificationTopic[]>([]);
 const services = ref<AppriseServiceSchema[] | null>(null);
 const loadingServices = ref(false);
 const appriseValues = ref<Record<string, AppriseFieldValue>>({});
+const removedSecrets = ref<string[]>([]);
 const missingLists = ref<string[]>([]);
 const saving = ref(false);
 const error = ref<string | null>(null);
@@ -80,6 +81,7 @@ const emailEnabled = computed(
   () => heartbeat.value.NOTIFICATIONS.EMAIL_ENABLED,
 );
 const keepsSecret = computed(() => !!props.channel?.has_secret);
+const storedSecrets = computed(() => props.channel?.stored_secrets ?? []);
 const type = computed<NotificationChannelType>(() =>
   kind.value.startsWith(APPRISE_PREFIX)
     ? "apprise"
@@ -147,6 +149,7 @@ function resetAppriseValues() {
   appriseValues.value = service.value
     ? initialAppriseValues(service.value, props.channel?.fields ?? null)
     : {};
+  removedSecrets.value = [];
   missingLists.value = [];
 }
 
@@ -179,7 +182,13 @@ function targetChanges(): NotificationChannelUpdatePayload {
       return { address: address.value.trim() };
     case "apprise":
       return service.value
-        ? { fields: appriseFieldsPayload(service.value, appriseValues.value) }
+        ? {
+            fields: appriseFieldsPayload(
+              service.value,
+              appriseValues.value,
+              removedSecrets.value,
+            ),
+          }
         : {};
   }
   const changes: NotificationChannelUpdatePayload = {};
@@ -229,7 +238,13 @@ async function request() {
 async function save() {
   const result = await formRef.value?.validate();
   missingLists.value = service.value
-    ? missingAppriseLists(service.value, appriseValues.value)
+    ? missingAppriseLists(
+        service.value,
+        appriseValues.value,
+        storedSecrets.value.filter(
+          (key) => !removedSecrets.value.includes(key),
+        ),
+      )
     : [];
   if (!result?.valid || missingLists.value.length > 0) return;
   saving.value = true;
@@ -351,8 +366,9 @@ async function save() {
           <template v-if="service">
             <AppriseServiceFields
               v-model="appriseValues"
+              v-model:removed="removedSecrets"
               :service="service"
-              :editing="editing"
+              :stored="storedSecrets"
               :missing="missingLists"
             />
             <a

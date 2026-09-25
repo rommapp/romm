@@ -14,6 +14,7 @@ from models.notification_channel import (
     NOTIFICATION_CHANNEL_ADDRESS_MAX_LENGTH,
     NOTIFICATION_CHANNEL_CODE_MAX_LENGTH,
     NOTIFICATION_CHANNEL_MAX_FIELDS,
+    NOTIFICATION_CHANNEL_MAX_LIST_ITEMS,
     NOTIFICATION_CHANNEL_NAME_MAX_LENGTH,
     NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH,
     NOTIFICATION_CHANNEL_SERVICE_MAX_LENGTH,
@@ -38,7 +39,13 @@ AppriseServiceId = Annotated[
     str, Field(min_length=1, max_length=NOTIFICATION_CHANNEL_SERVICE_MAX_LENGTH)
 ]
 _FieldText = Annotated[str, Field(max_length=NOTIFICATION_CHANNEL_URL_MAX_LENGTH)]
-AppriseFieldValue = StrictBool | int | float | _FieldText | list[_FieldText]
+AppriseFieldValue = (
+    StrictBool
+    | int
+    | float
+    | _FieldText
+    | Annotated[list[_FieldText], Field(max_length=NOTIFICATION_CHANNEL_MAX_LIST_ITEMS)]
+)
 AppriseFields = Annotated[
     dict[str, AppriseFieldValue], Field(max_length=NOTIFICATION_CHANNEL_MAX_FIELDS)
 ]
@@ -60,10 +67,12 @@ class NotificationChannelSchema(BaseModel):
     topics: list[NotificationTopic] | None
     # The URL with its secrets hidden, or an email address.
     target: str
-    # An Apprise channel's service, its name, and the fields that aren't secrets.
+    # An Apprise channel's service, its name, the fields that aren't secrets,
+    # and which secrets it has.
     service: str | None
     service_name: str | None
     fields: dict[str, AppriseFieldValue] | None
+    stored_secrets: list[str] | None
     has_secret: bool
     confirmed: bool
     last_delivered_at: UTCDatetime | None
@@ -76,11 +85,13 @@ class NotificationChannelSchema(BaseModel):
         config = read_config(channel.config)
         service = config.get("service")
         stored_fields = config.get("fields", {})
-        service_name, fields = None, None
+        service_name, fields, stored_secrets = None, None, None
         match channel.type:
             case NotificationChannelType.APPRISE if service:
                 service_name, target = apprise_channel.describe(service, stored_fields)
-                fields = apprise_channel.public_fields(service, stored_fields)
+                fields, stored_secrets = apprise_channel.split_fields(
+                    service, stored_fields
+                )
             case NotificationChannelType.WEBHOOK if config.get("url"):
                 target = masked_url(config["url"])
             case _:
@@ -100,6 +111,7 @@ class NotificationChannelSchema(BaseModel):
             service=service,
             service_name=service_name,
             fields=fields,
+            stored_secrets=stored_secrets,
             has_secret=bool(config.get("secret")),
             confirmed=channel.confirmed_at is not None,
             last_delivered_at=channel.last_delivered_at,
@@ -155,7 +167,7 @@ class NotificationChannelUpdatePayload(BaseModel):
     url: ChannelUrl | None = None
     secret: ChannelSecret | None = None
     address: EmailAddress | None = None
-    # An Apprise channel's fields; a secret left out keeps its current value.
+    # An Apprise channel's fields; a secret left out keeps its value, an empty one goes.
     fields: AppriseFields | None = None
 
     check_address = field_validator("address")(_check_address)

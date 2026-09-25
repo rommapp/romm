@@ -90,6 +90,7 @@ class TestCreate:
         )
         assert body["target"] == "discord://RomM@1...0/a...p/"
         assert body["fields"] == {"botname": "RomM"}
+        assert body["stored_secrets"] == ["webhook_id", "webhook_token"]
         assert "abcdefghijklmnop" not in response.text
 
     def test_a_user_may_not_use_apprise(self, client, viewer_access_token):

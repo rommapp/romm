@@ -1,4 +1,4 @@
-import { RComboboxField, RSelect } from "@v2/lib";
+import { RCheckbox, RComboboxField, RSelect } from "@v2/lib";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -34,6 +34,7 @@ function channel(
     service: null,
     service_name: null,
     fields: null,
+    stored_secrets: null,
     has_secret: true,
     ...overrides,
   });
@@ -202,18 +203,19 @@ describe("NotificationChannelDialog", () => {
     wrapper.unmount();
   });
 
+  const ntfyChannel = () =>
+    channel({
+      type: "apprise",
+      service: "ntfy",
+      service_name: "ntfy",
+      fields: { host: "ntfy.example.com", targets: ["romm"] },
+      stored_secrets: ["token"],
+      has_secret: false,
+    });
+
   it("keeps the Apprise secrets an edit leaves blank", async () => {
     api.update.mockResolvedValue({ data: channel({ type: "apprise" }) });
-    const wrapper = await open(
-      channel({
-        type: "apprise",
-        service: "ntfy",
-        service_name: "ntfy",
-        fields: { host: "ntfy.example.com", targets: ["romm"] },
-        has_secret: false,
-      }),
-      { admin: true },
-    );
+    const wrapper = await open(ntfyChannel(), { admin: true });
 
     expect(
       textField(wrapper, "notifications.channel-field-token")?.attributes(
@@ -227,6 +229,26 @@ describe("NotificationChannelDialog", () => {
       min_level: "info",
       topics: ["scans"],
       fields: { host: "ntfy.example.com", targets: ["romm"] },
+    });
+    wrapper.unmount();
+  });
+
+  it("removes a stored Apprise secret when asked to", async () => {
+    api.update.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(ntfyChannel(), { admin: true });
+
+    wrapper
+      .findAllComponents(RCheckbox)
+      .find(
+        (box) => box.props("label") === "notifications.channel-secret-remove",
+      )
+      ?.vm.$emit("update:modelValue", true);
+    await save(wrapper);
+
+    expect(api.update.mock.calls[0][1].fields).toEqual({
+      host: "ntfy.example.com",
+      targets: ["romm"],
+      token: "",
     });
     wrapper.unmount();
   });

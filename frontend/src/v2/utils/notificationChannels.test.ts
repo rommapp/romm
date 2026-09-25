@@ -46,6 +46,14 @@ describe("appriseFieldsPayload", () => {
     });
   });
 
+  it("sends a secret the form removes as empty", () => {
+    const values = initialAppriseValues(service);
+
+    expect(appriseFieldsPayload(service, values, ["token"])).toEqual({
+      token: "",
+    });
+  });
+
   it("keeps a switch turned away from its default", () => {
     const values = { ...initialAppriseValues(service), image: false };
 
@@ -61,5 +69,11 @@ describe("missingAppriseLists", () => {
     expect(
       missingAppriseLists(service, { ...values, targets: ["romm"] }),
     ).toEqual([]);
+  });
+
+  it("lets a secret list the channel already has stay empty", () => {
+    const values = initialAppriseValues(service);
+
+    expect(missingAppriseLists(service, values, ["targets"])).toEqual([]);
   });
 });

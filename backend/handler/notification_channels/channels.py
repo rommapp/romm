@@ -1,5 +1,6 @@
 """Adding, changing, testing and confirming a user's notification channels."""
 
+import asyncio
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any
@@ -16,7 +17,7 @@ from models.notification_channel import (
 from models.user import User
 
 from . import apprise_channel
-from .apprise_channel import AppriseService, FieldValue
+from .apprise_channel import FieldValue
 from .config import (
     AppriseConfig,
     EmailConfig,
@@ -27,6 +28,7 @@ from .config import (
 )
 from .confirmation import check_code, issue_code
 from .delivery import (
+    DELIVERY_TIMEOUT_SECONDS,
     describe_error,
     may_reach_private_network,
     sample_message,
@@ -39,7 +41,10 @@ class ChannelError(ValueError):
     """A change the channel can't take, worded for the user."""
 
 
-def _require_apprise(user: User) -> None:
+def require_apprise(user: User) -> None:
+    """Raises:
+    ChannelError: The user isn't an admin.
+    """
     if not may_reach_private_network(user.role):
         raise ChannelError(apprise_channel.ADMINS_ONLY)
 
@@ -48,22 +53,12 @@ def _apprise_config(
     service: str, fields: Mapping[str, FieldValue], user: User
 ) -> AppriseConfig:
     """An Apprise channel's config once its owner and fields check out."""
-    _require_apprise(user)
+    require_apprise(user)
     try:
-        apprise_channel.check(service, fields)
+        kept = apprise_channel.check(service, fields)
     except ValueError as exc:
         raise ChannelError(str(exc)) from exc
-    return AppriseConfig(service=service, fields=dict(fields))
-
-
-def apprise_services(user: User) -> tuple[AppriseService, ...]:
-    """The services an Apprise channel can go out on.
-
-    Raises:
-        ChannelError: The user isn't an admin.
-    """
-    _require_apprise(user)
-    return apprise_channel.services()
+    return AppriseConfig(service=service, fields=kept)
 
 
 def _webhook_config(url: str, secret: str | None, user: User) -> WebhookConfig:
@@ -225,13 +220,18 @@ async def send_sample(channel: NotificationChannel, user: User) -> str | None:
     if channel.confirmed_at is None:
         raise ChannelError("Confirm the email address first")
     try:
-        await send_to_channel(
-            channel,
-            sample_message(),
-            allow_private=may_reach_private_network(user.role),
-        )
+        async with asyncio.timeout(DELIVERY_TIMEOUT_SECONDS):
+            await send_to_channel(
+                channel,
+                sample_message(),
+                allow_private=may_reach_private_network(user.role),
+            )
     except Exception as exc:  # noqa: BLE001 - the error goes back to the user
-        error = describe_error(exc)
+        error = (
+            f"No answer within {DELIVERY_TIMEOUT_SECONDS} seconds"
+            if isinstance(exc, TimeoutError)
+            else describe_error(exc)
+        )
         db_notification_channel_handler.record_failure(channel.id, error, counts=False)
         return error
     db_notification_channel_handler.record_delivery(channel.id)

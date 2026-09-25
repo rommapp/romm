@@ -275,6 +275,20 @@ class TestUpdate:
 
         db.update_channel.assert_not_called()
 
+    async def test_a_kept_apprise_secret_does_not_follow_a_new_host(self, db):
+        stored = _stored(
+            NotificationChannelType.APPRISE,
+            service="ntfy",
+            fields={"host": "ntfy.example.com", "targets": ["a"], "token": "tk_1"},
+        )
+
+        with pytest.raises(ChannelError, match="Enter Token again"):
+            await update_channel(
+                stored, ADMIN, {}, fields={"host": "evil.example.com", "targets": ["a"]}
+            )
+
+        db.update_channel.assert_not_called()
+
     async def test_a_demoted_admin_can_rename_but_not_repoint_it(self, db):
         stored = _stored(
             NotificationChannelType.APPRISE, service="discord", fields=DISCORD

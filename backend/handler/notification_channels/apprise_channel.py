@@ -63,6 +63,14 @@ MANAGED_OPTIONS: Final = frozenset(
 )
 # Services that post to any path on their host, which no token names.
 FREE_PATH_SERVICES: Final = frozenset({"json", "xml", "form"})
+# FCM reads its service account key from a path or URL it opens itself.
+EXCLUDED_SERVICES: Final = frozenset({"fcm"})
+# Fields that decide where a channel's secrets are sent.
+DESTINATION_FIELDS: Final = frozenset({"schema", "host", "port", "smtp", "mode"})
+# Tokens Apprise doesn't mark private although they are credentials.
+_SECRET_NAME: Final = re.compile(r"token|key|secret|pass|webhook|auth|sid", re.I)
+# Chat services turn these into pings of a whole server or a role.
+_MENTIONS: Final = re.compile(r"@(everyone|here)\b|<[@!]")
 
 NOTIFY_TYPES: Final[dict[str, NotifyType]] = {
     NotificationLevel.INFO: NotifyType.INFO,
@@ -86,6 +94,8 @@ _ASSET: Final = AppriseAsset(
 NotificationManager().disable(*LOCAL_SCHEMAS)
 
 _PLACEHOLDER: Final = re.compile(r"{(\w+)}")
+# A hostname, an IPv4 address or a bracketed IPv6 one.
+_HOST: Final = re.compile(r"\[[0-9a-f:.]+\]|[\w.-]+", re.I)
 # A token that is a URL path, which Apprise wants between slashes.
 _PATH_TOKEN: Final = "path"
 
@@ -166,12 +176,15 @@ def _field(
     if field_type is None:
         return None
     values = meta.get("values")
+    private = bool(meta.get("private")) or (
+        not advanced and field_type == "string" and bool(_SECRET_NAME.search(key))
+    )
     return AppriseField(
         key=key,
         label=meta.get("name") or key,
         type=field_type,
         required=required,
-        private=bool(meta.get("private")),
+        private=private,
         advanced=advanced,
         default=meta.get("default"),
         values=tuple(values) if values else None,
@@ -191,7 +204,7 @@ def _service(entry: dict[str, Any]) -> AppriseService | None:
         *(entry.get("protocols") or []),
         *(entry.get("secure_protocols") or []),
     ]
-    if not protocols or not templates:
+    if not protocols or not templates or protocols[0] in EXCLUDED_SERVICES:
         return None
 
     secure = entry.get("secure_protocols") or []
@@ -223,13 +236,14 @@ def _service(entry: dict[str, Any]) -> AppriseService | None:
             fields.append(field)
 
     if protocols[0] in FREE_PATH_SERVICES:
+        # A webhook's path often carries its token.
         fields.append(
             AppriseField(
                 key=_PATH_TOKEN,
                 label="Path",
                 type="string",
                 required=False,
-                private=False,
+                private=True,
                 advanced=False,
             )
         )
@@ -285,6 +299,30 @@ def _blank(value: object) -> bool:
     return value is None or value == "" or value == []
 
 
+def known_fields(
+    service: AppriseService, fields: Mapping[str, FieldValue]
+) -> dict[str, FieldValue]:
+    """The fields the service takes that were filled in."""
+    return {
+        key: value
+        for key, value in fields.items()
+        if service.field(key) is not None and not _blank(value)
+    }
+
+
+def _scrub(text: str, service: AppriseService, fields: Mapping[str, FieldValue]) -> str:
+    """The text with the channel's secrets hidden, as Apprise may quote them."""
+    for field in service.fields:
+        value = fields.get(field.key)
+        if not field.private or _blank(value):
+            continue
+        for secret in value if isinstance(value, list) else [value]:
+            secret = str(secret)
+            for form in {secret, quote(secret, safe="")}:
+                text = text.replace(form, "****")
+    return text
+
+
 def _text(field: AppriseField, value: FieldValue) -> str:
     if isinstance(value, bool):
         return "yes" if value else "no"
@@ -297,7 +335,7 @@ def _segment(key: str, value: FieldValue, field: AppriseField | None) -> str:
     """A token's value as it sits in the URL."""
     if key == "host":
         text = str(value).strip()
-        if not text or re.search(r"[/@?#\s]", text):
+        if not _HOST.fullmatch(text):
             raise ValueError(f"{field.label if field else key} isn't a hostname")
         return text
     if key == _PATH_TOKEN:
@@ -396,13 +434,26 @@ def _plugin(url: str) -> NotifyBase:
     return plugin
 
 
-def check(service_id: str, fields: Mapping[str, FieldValue]) -> None:
-    """Refuse fields Apprise can't deliver with.
+def _checked_plugin(service: AppriseService, fields: Mapping[str, FieldValue]):
+    """Raises:
+    ValueError: With a reason fit to show the user, secrets hidden.
+    """
+    try:
+        return _plugin(build_url(service.id, fields))
+    except ValueError as exc:
+        raise ValueError(_scrub(str(exc), service, fields)) from exc
+
+
+def check(service_id: str, fields: Mapping[str, FieldValue]) -> dict[str, FieldValue]:
+    """The fields to keep, once Apprise can deliver with them.
 
     Raises:
         ValueError: With a reason fit to show the user.
     """
-    _plugin(build_url(service_id, fields))
+    service = find_service(service_id)
+    kept = known_fields(service, fields)
+    _checked_plugin(service, kept)
+    return kept
 
 
 def describe(
@@ -411,26 +462,33 @@ def describe(
     """The service's name, and its URL with the secrets and options hidden."""
     try:
         service = find_service(service_id)
-        plugin = _plugin(build_url(service_id, fields))
+        plugin = _checked_plugin(service, fields)
     except ValueError:
         return None, ""
     scheme, netloc, path, _, _ = urlsplit(plugin.url(privacy=True))
-    return service.name, urlunsplit((scheme, netloc, path, "", ""))
+    target = urlunsplit((scheme, netloc, path, "", ""))
+    return service.name, _scrub(target, service, fields)
 
 
-def public_fields(
+def split_fields(
     service_id: str, fields: Mapping[str, FieldValue]
-) -> dict[str, FieldValue]:
-    """The fields that aren't secrets, for the owner's form."""
+) -> tuple[dict[str, FieldValue], list[str]]:
+    """The fields that aren't secrets, for the owner's form, and which secrets are set."""
     try:
         service = find_service(service_id)
     except ValueError:
-        return {}
-    return {
-        key: value
-        for key, value in fields.items()
-        if (field := service.field(key)) is not None and not field.private
-    }
+        return {}, []
+    public: dict[str, FieldValue] = {}
+    secrets: list[str] = []
+    for field in service.fields:
+        value = fields.get(field.key)
+        if value is None or _blank(value):
+            continue
+        if field.private:
+            secrets.append(field.key)
+        else:
+            public[field.key] = value
+    return public, secrets
 
 
 def merge_fields(
@@ -438,13 +496,32 @@ def merge_fields(
     stored: Mapping[str, FieldValue],
     given: Mapping[str, FieldValue],
 ) -> dict[str, FieldValue]:
-    """The fields after an edit, where a secret left blank keeps the stored one."""
+    """The fields after an edit: a secret left out keeps its value, an empty one goes.
+
+    Raises:
+        ValueError: A secret would stay while the address it goes to changes.
+    """
     service = find_service(service_id)
-    merged = {key: value for key, value in given.items() if not _blank(value)}
-    for field in service.fields:
-        if field.private and field.key not in merged and field.key in stored:
-            merged[field.key] = stored[field.key]
+    merged = known_fields(service, given)
+    kept = [
+        field
+        for field in service.fields
+        if field.private and field.key not in given and field.key in stored
+    ]
+    moved = any(stored.get(key) != merged.get(key) for key in DESTINATION_FIELDS)
+    if kept and moved:
+        labels = ", ".join(field.label for field in kept)
+        raise ValueError(
+            f"Enter {labels} again for the new address, "
+            f"or remove {'it' if len(kept) == 1 else 'them'}"
+        )
+    merged.update({field.key: stored[field.key] for field in kept})
     return merged
+
+
+def _quiet(text: str) -> str:
+    """The text with its mentions broken by a zero-width space, so they ping nobody."""
+    return _MENTIONS.sub(lambda m: m.group(0)[0] + "\u200b" + m.group(0)[1:], text)
 
 
 def _bounded(plugin: NotifyBase) -> NotifyBase:
@@ -470,7 +547,8 @@ def send(
         ValueError: The fields no longer make a URL Apprise can use.
         AppriseError: The service refused it, or could not be reached.
     """
-    plugin = _bounded(_plugin(build_url(service_id, fields)))
+    service = find_service(service_id)
+    plugin = _bounded(_checked_plugin(service, fields))
     apprise = Apprise(asset=_ASSET)
     apprise.add(plugin)
     body = "\n\n".join(part for part in (message.body, message.url) if part)
@@ -479,8 +557,8 @@ def send(
     token = _warnings.set(collected)
     try:
         sent = apprise.notify(
-            body=body or message.title,
-            title=message.title,
+            body=_quiet(body or message.title),
+            title=_quiet(message.title),
             notify_type=NOTIFY_TYPES.get(message.notification.level, NotifyType.INFO),
             body_format=NotifyFormat.TEXT,
         )
@@ -488,7 +566,8 @@ def send(
         _warnings.reset(token)
 
     if not sent:
+        reason = " ".join(dict.fromkeys(collected))
         raise AppriseError(
-            " ".join(dict.fromkeys(collected))
+            _scrub(reason, service, fields)
             or f"{plugin.service_name} did not take the notification"
         )

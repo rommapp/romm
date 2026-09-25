@@ -1,4 +1,5 @@
 from collections.abc import Awaitable
+from functools import cache
 from typing import TypeVar
 
 from fastapi import HTTPException, Request, status
@@ -17,7 +18,7 @@ from endpoints.responses.notification_channel import (
 from handler.auth.constants import Scope
 from handler.database import db_notification_channel_handler
 from handler.email_handler import EmailError
-from handler.notification_channels import channels
+from handler.notification_channels import apprise_channel, channels
 from handler.notification_channels.channels import ChannelError
 from handler.notification_channels.confirmation import CodeCooldownError
 from models.notification_channel import NotificationChannel, NotificationChannelType
@@ -73,12 +74,17 @@ def get_notification_channels(request: Request) -> list[NotificationChannelSchem
 def get_apprise_services(request: Request) -> list[AppriseServiceSchema]:
     """Every service an admin's Apprise channel can go out on, with its fields."""
     try:
-        found = channels.apprise_services(request.user)
+        channels.require_apprise(request.user)
     except ChannelError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)
         ) from exc
-    return [AppriseServiceSchema.from_service(service) for service in found]
+    return _apprise_catalog()
+
+
+@cache
+def _apprise_catalog() -> list[AppriseServiceSchema]:
+    return [AppriseServiceSchema.from_service(s) for s in apprise_channel.services()]
 
 
 @protected_route(router.post, "", [Scope.ME_WRITE], status_code=status.HTTP_201_CREATED)

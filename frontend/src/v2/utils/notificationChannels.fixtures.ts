@@ -17,6 +17,7 @@ export function makeChannel(
     service: "discord",
     service_name: "Discord",
     fields: {},
+    stored_secrets: ["webhook_id", "webhook_token"],
     has_secret: false,
     confirmed: true,
     last_delivered_at: null,
