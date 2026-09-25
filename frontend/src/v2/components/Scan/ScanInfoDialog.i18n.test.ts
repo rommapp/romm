@@ -19,7 +19,6 @@ const SINGLE_PARAGRAPH = [
 const TWO_PARAGRAPHS = [
   "info-unmatched-games-desc",
   "info-update-metadata-desc",
-  "info-title-ids-desc",
   "info-complete-rescan-desc",
 ] as const;
 

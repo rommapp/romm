@@ -90,7 +90,9 @@ async def heartbeat() -> HeartbeatResponse:
     Returns:
         HeartbeatReturn: TypedDict structure with all the defined values in the HeartbeatReturn class.
     """
-    title_id_extraction_enabled = SigilService.extraction_enabled()
+    title_id_extraction_enabled = (
+        SigilService.is_enabled() and not cm.get_config().SKIP_TITLE_ID_EXTRACTION
+    )
 
     igdb_enabled = meta_igdb_handler.is_enabled()
     flashpoint_enabled = meta_flashpoint_handler.is_enabled()

@@ -97,7 +97,6 @@ class ScanType(enum.StrEnum):
     UNMATCHED = "unmatched"
     COMPLETE = "complete"
     HASHES = "hashes"
-    TITLE_IDS = "title_ids"
 
 
 @enum.unique

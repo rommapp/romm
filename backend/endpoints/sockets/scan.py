@@ -15,11 +15,7 @@ from rq.job import Job, JobStatus
 from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
-from adapters.services.sigil import (
-    SIGIL_PLATFORM_SLUGS,
-    SWITCH_PLATFORM_SLUGS,
-    SigilService,
-)
+from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -103,14 +99,10 @@ from utils.pegasus_exporter import PegasusExporter
 STOP_SCAN_FLAG: Final = "scan:stop"
 
 
-_SCAN_TYPE_LABELS: Final[dict[ScanType, str]] = {ScanType.TITLE_IDS: "Title IDs"}
-
-
 def scan_job_meta(scan_type: ScanType) -> dict[str, Any]:
     """What a scan job carries so a client can tell which scan is running."""
-    label = _SCAN_TYPE_LABELS.get(scan_type, scan_type.value.replace("_", " ").title())
     return {
-        "task_name": f"{label} Scan",
+        "task_name": f"{scan_type.value.replace('_', ' ').title()} Scan",
         "task_type": TaskType.SCAN.value,
     }
 
@@ -412,8 +404,6 @@ def should_scan_rom(
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
-        # Importing a new file costs the full hash a title-ids scan skips
-        or (scan_type == ScanType.TITLE_IDS and rom is not None)
         or (
             rom
             and (
@@ -611,14 +601,10 @@ async def _identify_rom(
     if redis_client.get(STOP_SCAN_FLAG):
         return
 
-    # Quick and title-ids scans only reconcile an existing entry's files with
-    # disk, so they need none of the metadata prelude below.
-    if rom is not None and scan_type in (ScanType.QUICK, ScanType.TITLE_IDS):
-        refreshed = await refresh_rom_files(
-            rom,
-            embed_title_ids=scan_type == ScanType.TITLE_IDS
-            and cm.get_config().EMBED_SWITCH_TITLE_IDS,
-        )
+    # A quick scan only reconciles an existing entry's files with disk, so it
+    # needs none of the metadata prelude below.
+    if rom is not None and scan_type == ScanType.QUICK:
+        refreshed = await refresh_rom_files(rom)
         await scan_stats.increment(
             socket_manager=socket_manager,
             scanned_roms=1,
@@ -947,12 +933,6 @@ async def _identify_platform(
     if platform and scan_type == ScanType.NEW_PLATFORMS:
         return scan_stats
 
-    # A title-ids scan refreshes known roms, on the platforms sigil can read.
-    if scan_type == ScanType.TITLE_IDS and (
-        not platform or platform.slug not in SIGIL_PLATFORM_SLUGS
-    ):
-        return scan_stats
-
     scanned_platform = await scan_platform(platform_slug, fs_platforms)
     if platform:
         scanned_platform.id = platform.id
@@ -970,29 +950,26 @@ async def _identify_platform(
     if MetadataSource.GAMELIST in metadata_sources:
         await meta_gamelist_handler.populate_cache(platform)
 
+    # Scanning firmware
+    try:
+        fs_firmware = await fs_firmware_handler.get_firmware(platform.fs_slug)
+    except FirmwareNotFoundException:
+        fs_firmware = []
+
+    if len(fs_firmware) == 0:
+        log.warning(
+            f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No firmware found for {hl(platform.custom_name or platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
+        )
+    else:
+        log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
+
     new_firmware = 0
-    fs_firmware: list[str] = []
-    # Firmware carries no title id, and hashing one is the full read a
-    # title-ids scan skips.
-    if scan_type != ScanType.TITLE_IDS:
-        try:
-            fs_firmware = await fs_firmware_handler.get_firmware(platform.fs_slug)
-        except FirmwareNotFoundException:
-            pass
-
-        if len(fs_firmware) == 0:
-            log.warning(
-                f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No firmware found for {hl(platform.custom_name or platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
-            )
-        else:
-            log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
-
-        for fs_fw in fs_firmware:
-            new_firmware += await _identify_firmware(
-                platform=platform,
-                fs_fw=fs_fw,
-                scan_type=scan_type,
-            )
+    for fs_fw in fs_firmware:
+        new_firmware += await _identify_firmware(
+            platform=platform,
+            fs_fw=fs_fw,
+            scan_type=scan_type,
+        )
 
     # `new_firmware_count` is scoped to this scan: the client reports what the
     # scan discovered, not the platform's total firmware library.
@@ -1070,7 +1047,7 @@ async def _identify_platform(
         roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
-            with_files=scan_type in (ScanType.QUICK, ScanType.TITLE_IDS),
+            with_files=scan_type == ScanType.QUICK,
         )
 
         # Separate skipped ROMs from those that need scanning
@@ -1148,13 +1125,8 @@ async def _identify_platform(
             else:
                 log.warning(f" - {r.fs_name}")
 
-    # A scan that never walked the firmware folder cannot say what is missing.
-    missing_firmware = (
-        []
-        if scan_type == ScanType.TITLE_IDS
-        else db_firmware_handler.mark_missing_firmware(
-            platform.id, [fw for fw in fs_firmware]
-        )
+    missing_firmware = db_firmware_handler.mark_missing_firmware(
+        platform.id, [fw for fw in fs_firmware]
     )
     if len(missing_firmware) > 0:
         log.warning(f"{hl('Missing')} firmware from filesystem:")
@@ -1204,10 +1176,6 @@ async def scan_platforms(
 
     if not platform_fs_slugs:
         platform_fs_slugs = []
-
-    # A title-ids scan reads the binaries and asks no provider anything.
-    if scan_type == ScanType.TITLE_IDS:
-        metadata_sources = []
 
     audit_actor = AuditActor.for_user_id(started_by_user_id)
     record(
@@ -1556,14 +1524,6 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     platform_fs_slugs = options.get("platform_fs_slugs", [])
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
-
-    # The option is hidden in that case, so only a stale client or a direct
-    # socket call lands here, and the scan would refresh nothing.
-    if scan_type == ScanType.TITLE_IDS and not SigilService.extraction_enabled():
-        message = "Title ID extraction is disabled on this server"
-        log.info(f"{emoji.EMOJI_STOP_SIGN} {message}, ignoring request")
-        await socket_handler.socket_server.emit("scan:done_ko", message, to=sid)
-        return
 
     # Pressing scan again after losing the progress socket would queue a second
     # pass over the library; a scan of named roms is not that, so it may queue.

@@ -25,10 +25,7 @@ import type { Platform } from "@/stores/platforms";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import {
-  scanNeedsMetadataSource,
-  type ScanType as SharedScanType,
-} from "@/v2/types/scan";
+import { type ScanType as SharedScanType } from "@/v2/types/scan";
 
 defineOptions({ inheritAttrs: false });
 
@@ -47,7 +44,6 @@ const { startScan } = useScanTrigger();
 
 const {
   calculateHashes,
-  extractTitleIds,
   generalProviders,
   specificProviders,
   metadataSources,
@@ -91,15 +87,6 @@ const scanOptions = computed<
     subtitle: t("scan.hashes-desc"),
     value: "hashes",
   },
-  ...(extractTitleIds.value
-    ? [
-        {
-          title: t("scan.title-ids"),
-          subtitle: t("scan.title-ids-desc"),
-          value: "title_ids" as const,
-        },
-      ]
-    : []),
   {
     title: t("scan.complete-rescan"),
     subtitle: t("scan.complete-rescan-desc"),
@@ -417,8 +404,7 @@ function onScan() {
         color="primary"
         prepend-icon="mdi-magnify-scan"
         :disabled="
-          effectiveMetadataSources.length === 0 &&
-          scanNeedsMetadataSource(scanType)
+          effectiveMetadataSources.length === 0 && scanType !== 'quick'
         "
         @click="onScan"
       >

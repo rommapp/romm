@@ -93,7 +93,6 @@ const sortedPlatforms = computed(() =>
 
 const {
   calculateHashes,
-  extractTitleIds,
   generalProviders,
   specificProviders,
   metadataSources,
@@ -141,9 +140,7 @@ function onScroll(e: Event) {
   userScrolledDown = el.scrollTop > 1;
 }
 
-const scanOptions = computed<
-  { title: string; subtitle: string; value: ScanType }[]
->(() => [
+const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
   {
     title: t("scan.new-platforms"),
     subtitle: t("scan.new-platforms-desc"),
@@ -169,21 +166,12 @@ const scanOptions = computed<
     subtitle: t("scan.hashes-desc"),
     value: "hashes",
   },
-  ...(extractTitleIds.value
-    ? [
-        {
-          title: t("scan.title-ids"),
-          subtitle: t("scan.title-ids-desc"),
-          value: "title_ids" as const,
-        },
-      ]
-    : []),
   {
     title: t("scan.complete-rescan"),
     subtitle: t("scan.complete-rescan-desc"),
     value: "complete",
   },
-]);
+];
 const scanType = ref<ScanType>("quick");
 
 const needsMetadataSource = computed(() =>

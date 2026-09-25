@@ -306,34 +306,3 @@ async def test_a_category_settled_on_a_reused_row_is_persisted(
 
     assert result.updated_files == 1
     assert _files_by_name(rom.id)["game.bin"].category == RomFileCategory.DLC
-
-
-async def test_embedding_renames_the_rows_and_the_rom(platform, admin_user, library):
-    rom = _folder_rom(platform, admin_user, library, {"game.nsp": b"game"})
-    renamed = "game [0100ABCD12340000][v0].nsp"
-
-    async def rename(parsed: ParsedRomFiles) -> str:
-        parsed.rom_files[0].file_name = renamed
-        return renamed
-
-    with (
-        patch.object(
-            fs_rom_handler,
-            "get_rom_files",
-            AsyncMock(return_value=_unchanged_parse(rom, RomIdentity())),
-        ),
-        patch.object(fs_rom_handler, "embed_switch_title_ids", rename),
-    ):
-        await refresh_rom_files(rom, embed_title_ids=True)
-
-    assert set(_files_by_name(rom.id)) == {renamed}
-    assert db_rom_handler.get_rom(rom.id).fs_name == renamed
-
-
-async def test_embedding_is_opt_in(platform, admin_user, library, mocker):
-    rom = _folder_rom(platform, admin_user, library, {"game.nsp": b"game"})
-    embed = mocker.patch.object(fs_rom_handler, "embed_switch_title_ids")
-
-    await refresh_rom_files(rom)
-
-    embed.assert_not_called()

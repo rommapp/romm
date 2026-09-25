@@ -35,26 +35,6 @@ def make_result(
     )
 
 
-class TestExtractionEnabled:
-    @pytest.mark.parametrize(
-        "binding,skip,expected",
-        [(True, False, True), (True, True, False), (False, False, False)],
-    )
-    def test_needs_the_binding_and_the_setting(
-        self, monkeypatch, binding: bool, skip: bool, expected: bool
-    ):
-        monkeypatch.setattr(
-            sigil_adapter, "sigil", make_fake_sigil(Mock()) if binding else None
-        )
-        monkeypatch.setattr(
-            sigil_adapter.cm,
-            "get_config",
-            Mock(return_value=Mock(SKIP_TITLE_ID_EXTRACTION=skip)),
-        )
-
-        assert SigilService.extraction_enabled() is expected
-
-
 class TestSigilService:
     @pytest.fixture
     def service(self):

@@ -53,7 +53,6 @@ export interface ScanPayload {
 
 export interface UseScanProviders {
   calculateHashes: ComputedRef<boolean>;
-  extractTitleIds: ComputedRef<boolean>;
   generalProviders: ComputedRef<MetadataOption[]>;
   specificProviders: ComputedRef<MetadataOption[]>;
   /** Explicit picks, shared as the v-model of both provider selects. */
@@ -79,9 +78,6 @@ export function useScanProviders(): UseScanProviders {
   const { config } = storeToRefs(configStore);
 
   const calculateHashes = computed(() => !config.value.SKIP_HASH_CALCULATION);
-  const extractTitleIds = computed(
-    () => heartbeat.value.FILESYSTEM.TITLE_ID_EXTRACTION_ENABLED,
-  );
 
   // Catalog options: main metadata sources, minus the hash matchers.
   const metadataOptions = computed(() =>
@@ -260,7 +256,6 @@ export function useScanProviders(): UseScanProviders {
 
   return {
     calculateHashes,
-    extractTitleIds,
     generalProviders,
     specificProviders,
     metadataSources,

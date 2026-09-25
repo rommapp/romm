@@ -1261,7 +1261,6 @@ The core of RomM. Orchestrates library scanning and metadata enrichment.
 | `UNMATCHED`     | Rescan ROMs without metadata                                                              |
 | `COMPLETE`      | Full rescan of everything                                                                 |
 | `HASHES`        | Recalculate all file hashes                                                               |
-| `TITLE_IDS`     | Re-read console-native title ids from existing ROMs, keeping their stored hashes          |
 
 **Scan Flow:**
 

@@ -43,7 +43,6 @@ const { startScan } = useScanTrigger();
 
 const {
   calculateHashes,
-  extractTitleIds,
   generalProviders,
   specificProviders,
   metadataSources,
@@ -64,17 +63,8 @@ const {
 // quick scan does for a ROM that already exists.
 type ScanType = Extract<
   SharedScanType,
-  "update" | "hashes" | "title_ids" | "quick" | "complete"
+  "update" | "hashes" | "quick" | "complete"
 >;
-
-const PROGRESS_MESSAGES: Partial<Record<ScanType, string>> = {
-  quick: "rom.refreshing-files",
-  title_ids: "rom.refreshing-title-ids",
-};
-
-const BULK_PROGRESS_MESSAGES: Partial<Record<ScanType, string>> = {
-  title_ids: "rom.refreshing-title-ids-bulk",
-};
 
 const isBulk = computed(() => roms.value.length > 1);
 
@@ -103,17 +93,6 @@ const scanOptions = computed<ScanOption[]>(() => [
       ? undefined
       : t("scan.hash-calculation-disabled"),
   },
-  ...(extractTitleIds.value
-    ? [
-        {
-          title: t("scan.title-ids"),
-          subtitle: isBulk.value
-            ? t("rom.refresh-title-ids-desc-bulk")
-            : t("rom.refresh-title-ids-desc"),
-          value: "title_ids" as const,
-        },
-      ]
-    : []),
   {
     title: t("rom.refresh-files"),
     subtitle: isBulk.value
@@ -129,11 +108,12 @@ const scanOptions = computed<ScanOption[]>(() => [
 ]);
 const scanType = ref<ScanType>("update");
 
-// Fall back to the safe default when the selection is disabled or no longer
-// offered (hashing turned off, or the server stopped reading title ids).
+// Reset scan type back to the safe default if the current selection
+// becomes disabled (e.g. user toggles SKIP_HASH_CALCULATION while the
+// dialog is open and `hashes` was selected).
 watch(scanOptions, (options) => {
   const current = options.find((o) => o.value === scanType.value);
-  if (!current || current.disabled) scanType.value = "update";
+  if (current?.disabled) scanType.value = "update";
 });
 
 const openSingle = (payload: SimpleRom) => {
@@ -190,18 +170,15 @@ function onScan() {
   persistSelection();
 
   if (isBulk.value) {
-    snackbar.info(
-      t(BULK_PROGRESS_MESSAGES[scanType.value] ?? "rom.refresh-metadata-bulk", {
-        n: roms.value.length,
-      }),
-      { icon: "mdi-loading mdi-spin" },
-    );
+    snackbar.info(t("rom.refresh-metadata-bulk", { n: roms.value.length }), {
+      icon: "mdi-loading mdi-spin",
+    });
   } else {
     const name = singleRomTitle.value;
     snackbar.info(
-      t(PROGRESS_MESSAGES[scanType.value] ?? "rom.refreshing-metadata", {
-        name,
-      }),
+      scanType.value === "quick"
+        ? t("rom.refreshing-files", { name })
+        : t("rom.refreshing-metadata", { name }),
       { icon: "mdi-loading mdi-spin" },
     );
   }

@@ -1,18 +1,12 @@
 // Mirrors `ScanType` in backend/handler/scan_handler.py: scans start over
 // Socket.IO, so the enum never reaches the OpenAPI schema.
 export type ScanType =
-  | "new_platforms"
-  | "quick"
-  | "unmatched"
-  | "update"
-  | "hashes"
-  | "title_ids"
-  | "complete";
+  "new_platforms" | "quick" | "unmatched" | "update" | "hashes" | "complete";
 
-/** Whether a scan type is worth starting with no metadata source picked. Quick
- *  and title-ids scans do their work from the files alone. */
+/** Whether a scan type is worth starting with no metadata source picked. A
+ *  quick scan reconciles files and registers new entries on its own. */
 export function scanNeedsMetadataSource(scanType: ScanType): boolean {
-  return scanType !== "quick" && scanType !== "title_ids";
+  return scanType !== "quick";
 }
 
 /** One `scan` socket event. The provider flags are optional because a

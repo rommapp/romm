@@ -25,7 +25,6 @@ from endpoints.sockets.scan import (
     _should_reparse_tags,
     authorize_scan,
     scan_handler,
-    scan_job_meta,
     scan_platforms,
     should_scan_rom,
     stop_scan_handler,
@@ -551,16 +550,6 @@ class TestShouldScanRom:
         assert should_scan_rom(ScanType.HASHES, rom, [rom.id + 99], ["igdb"]) is False
         assert should_scan_rom(ScanType.HASHES, rom, [rom.id], ["igdb"]) is True
 
-    def test_title_ids_scan_only_touches_existing_roms(self, rom: Rom):
-        """It refreshes ids without rehashing, and importing a file with no
-        entry yet would cost the full hash of that file."""
-        assert should_scan_rom(ScanType.TITLE_IDS, None, [], ["igdb"]) is False
-        assert should_scan_rom(ScanType.TITLE_IDS, rom, [], ["igdb"]) is True
-        assert (
-            should_scan_rom(ScanType.TITLE_IDS, rom, [rom.id + 99], ["igdb"]) is False
-        )
-        assert should_scan_rom(ScanType.TITLE_IDS, rom, [rom.id], ["igdb"]) is True
-
     # Test UNMATCHED scan type
     def test_unmatched_scan_with_no_rom(self):
         """UNMATCHED should not scan when rom is None"""
@@ -671,7 +660,6 @@ class TestShouldScanRom:
             (ScanType.COMPLETE, True, False, False, True),
             (ScanType.HASHES, False, None, False, True),
             (ScanType.HASHES, True, False, False, True),
-            (ScanType.TITLE_IDS, True, False, False, True),
             (ScanType.UNMATCHED, True, False, False, True),
             (ScanType.UNMATCHED, True, True, False, False),
             (ScanType.UPDATE, True, True, False, True),
@@ -2258,23 +2246,6 @@ class TestScanConcurrency:
         emit.assert_awaited_once()
         assert emit.await_args.args[0] == "scan:done_ko"
 
-    @pytest.mark.parametrize("enabled", [True, False])
-    async def test_a_title_ids_scan_needs_extraction_enabled(
-        self, mocker, emit, enabled: bool
-    ):
-        patch_scan_jobs(mocker)
-        mocker.patch.object(
-            scan_module.SigilService, "extraction_enabled", return_value=enabled
-        )
-        enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
-
-        await scan_handler("sid", {"type": "title_ids"})
-
-        assert enqueue.called is enabled
-        if not enabled:
-            assert emit.await_args is not None
-            assert emit.await_args.args[0] == "scan:done_ko"
-
     async def test_refuses_when_a_scan_is_queued(self, mocker, emit):
         patch_scan_jobs(mocker, scan_queued=[make_job(SCAN_PLATFORMS_FUNC)])
         enqueue = mocker.patch.object(scan_module.scan_queue, "enqueue")
@@ -2689,21 +2660,6 @@ class TestQuickScanCoversRomFiles:
         assert should_scan_rom(ScanType.QUICK, rom, [rom.id], []) is True
 
 
-class TestScanJobMeta:
-    """The task name reaches the tasks history verbatim, so it is user copy."""
-
-    @pytest.mark.parametrize(
-        "scan_type,expected",
-        [
-            (ScanType.QUICK, "Quick Scan"),
-            (ScanType.NEW_PLATFORMS, "New Platforms Scan"),
-            (ScanType.TITLE_IDS, "Title IDs Scan"),
-        ],
-    )
-    def test_the_task_name_matches_the_ui(self, scan_type: ScanType, expected: str):
-        assert scan_job_meta(scan_type)["task_name"] == expected
-
-
 class TestShouldHashIncrementally:
     def test_selected_metadata_scans_are_incremental(self, rom: Rom):
         assert _should_hash_incrementally(ScanType.UPDATE, rom, [rom.id]) is True
@@ -2812,7 +2768,6 @@ def identify_harness(mocker):
         )
 
     return SimpleNamespace(
-        config=config,
         db=db,
         scan_rom=scan_rom,
         get_rom_files=get_rom_files,
@@ -2827,21 +2782,6 @@ class TestIdentifyRomFiles:
     """A quick scan hands an existing rom to `refresh_rom_files` and skips the
     metadata pipeline; a rom not yet in the database goes the regular way."""
 
-    @pytest.mark.parametrize(
-        "scan_type,embed",
-        [(ScanType.QUICK, False), (ScanType.TITLE_IDS, True)],
-    )
-    async def test_only_a_title_ids_scan_embeds_title_ids(
-        self, identify_harness, scan_type: ScanType, embed: bool
-    ):
-        identify_harness.config.EMBED_SWITCH_TITLE_IDS = True
-        rom = identify_harness.existing_rom()
-
-        await identify_harness.run(rom, scan_type, [])
-
-        identify_harness.refresh.assert_awaited_once_with(rom, embed_title_ids=embed)
-        identify_harness.scan_rom.assert_not_called()
-
     async def test_existing_rom_only_refreshes_its_files(self, identify_harness):
         rom = identify_harness.existing_rom()
         socket_manager = AsyncMock()
@@ -2855,7 +2795,7 @@ class TestIdentifyRomFiles:
             scan_stats=scan_stats,
         )
 
-        identify_harness.refresh.assert_awaited_once_with(rom, embed_title_ids=False)
+        identify_harness.refresh.assert_awaited_once_with(rom)
         identify_harness.scan_rom.assert_not_called()
         identify_harness.db.add_rom.assert_not_called()
         scan_stats.increment.assert_awaited_once_with(
@@ -2917,9 +2857,9 @@ class TestIdentifyRomIncrementalHashing:
         assert kwargs["existing_files"] is None
 
 
-class TestIdentifyPlatformLoadsFileRows:
-    """A quick or title-ids scan reads every existing rom's files, so their rows
-    are loaded with the batch lookup instead of one query per rom."""
+class TestIdentifyPlatformLoadsFilesForQuickScan:
+    """A quick scan reconciles every existing rom's files, so their rows are
+    loaded with the batch lookup instead of one query per rom."""
 
     @pytest.fixture
     def patched(self, mocker):
@@ -2927,7 +2867,7 @@ class TestIdentifyPlatformLoadsFileRows:
             scan_module, "redis_client", Mock(get=Mock(return_value=None))
         )
 
-        platform = Platform(name="Test", slug="psp", fs_slug="test")
+        platform = Platform(name="Test", slug="test", fs_slug="test")
         platform.id = 1
         platform.missing_from_fs = False
         db_platform = mocker.patch.object(scan_module, "db_platform_handler")
@@ -2942,10 +2882,10 @@ class TestIdentifyPlatformLoadsFileRows:
             "model_validate",
             return_value=Mock(model_dump=Mock(return_value={})),
         )
-        self.platform = platform
-        self.get_firmware = AsyncMock(return_value=[])
         mocker.patch.object(
-            scan_module.fs_firmware_handler, "get_firmware", self.get_firmware
+            scan_module.fs_firmware_handler,
+            "get_firmware",
+            AsyncMock(return_value=[]),
         )
         fs_rom: FSRom = {
             "fs_name": "Game",
@@ -2970,18 +2910,12 @@ class TestIdentifyPlatformLoadsFileRows:
         db_rom.mark_missing_roms.return_value = []
         db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
         db_firmware.mark_missing_firmware.return_value = []
-        self.db_firmware = db_firmware
         return db_rom
 
     @pytest.mark.parametrize(
-        "scan_type,with_files",
-        [
-            (ScanType.QUICK, True),
-            (ScanType.TITLE_IDS, True),
-            (ScanType.COMPLETE, False),
-        ],
+        "scan_type,with_files", [(ScanType.QUICK, True), (ScanType.COMPLETE, False)]
     )
-    async def test_rows_are_loaded_only_for_the_scans_that_read_them(
+    async def test_rows_are_loaded_only_for_quick_scans(
         self, patched, scan_type, with_files
     ):
         await scan_module._identify_platform(
@@ -2997,44 +2931,3 @@ class TestIdentifyPlatformLoadsFileRows:
         )
 
         assert patched.get_roms_by_fs_name.call_args.kwargs["with_files"] is with_files
-
-    async def test_a_title_ids_scan_skips_a_platform_sigil_cannot_read(self, patched):
-        self.platform.slug = "snes"
-
-        await scan_module._identify_platform(
-            platform_slug="test",
-            scan_type=ScanType.TITLE_IDS,
-            fs_platforms=["test"],
-            roms_ids=[],
-            metadata_sources=[],
-            launchbox_remote_enabled=False,
-            socket_manager=AsyncMock(),
-            scan_stats=AsyncMock(),
-            scanned_rom_ids=set(),
-        )
-
-        patched.get_roms_by_fs_name.assert_not_called()
-
-    @pytest.mark.parametrize(
-        "scan_type,walks_firmware",
-        [(ScanType.QUICK, True), (ScanType.TITLE_IDS, False)],
-    )
-    async def test_firmware_is_left_alone_by_a_title_ids_scan(
-        self, patched, scan_type, walks_firmware
-    ):
-        """Hashing firmware is the full read the scan skips, and a folder it
-        never walked cannot say which entries went missing."""
-        await scan_module._identify_platform(
-            platform_slug="test",
-            scan_type=scan_type,
-            fs_platforms=["test"],
-            roms_ids=[],
-            metadata_sources=[],
-            launchbox_remote_enabled=False,
-            socket_manager=AsyncMock(),
-            scan_stats=AsyncMock(),
-            scanned_rom_ids=set(),
-        )
-
-        assert self.get_firmware.called is walks_firmware
-        assert self.db_firmware.mark_missing_firmware.called is walks_firmware

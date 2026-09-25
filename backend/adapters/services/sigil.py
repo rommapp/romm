@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from config.config_manager import config_manager as cm
 from logger.logger import log
 from utils.filesystem import COMPRESSED_FILE_SUFFIXES
 from utils.m3u import first_playlist_entry
@@ -63,11 +62,6 @@ class SigilService:
         no title id.
         """
         return sigil is not None
-
-    @classmethod
-    def extraction_enabled(cls) -> bool:
-        """Whether a scan reads title ids: the binding is present and not switched off."""
-        return cls.is_enabled() and not cm.get_config().SKIP_TITLE_ID_EXTRACTION
 
     async def extract_title_id(
         self,

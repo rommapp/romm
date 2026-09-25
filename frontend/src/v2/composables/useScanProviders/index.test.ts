@@ -19,9 +19,6 @@ const heartbeat = {
       HASHEOUS_API_ENABLED: true,
       PLAYMATCH_API_ENABLED: true,
     },
-    FILESYSTEM: {
-      TITLE_ID_EXTRACTION_ENABLED: true,
-    },
   },
   getMetadataOptionsByPriority: () => OPTIONS,
 };
@@ -39,16 +36,6 @@ vi.mock("@/stores/heartbeat", () => ({ default: () => heartbeat }));
 beforeEach(() => {
   localStorage.clear();
   config.value.SKIP_HASH_CALCULATION = false;
-  heartbeat.value.FILESYSTEM.TITLE_ID_EXTRACTION_ENABLED = true;
-});
-
-describe("useScanProviders title id extraction", () => {
-  it("reports what the server says", () => {
-    expect(useScanProviders().extractTitleIds.value).toBe(true);
-
-    heartbeat.value.FILESYSTEM.TITLE_ID_EXTRACTION_ENABLED = false;
-    expect(useScanProviders().extractTitleIds.value).toBe(false);
-  });
 });
 
 describe("useScanProviders effective sources", () => {
