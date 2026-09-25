@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from redis.exceptions import RedisError
 
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_rom_handler,
     db_save_handler,
@@ -935,6 +936,46 @@ class TestRetroArchSyncDelete:
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_remove_file.assert_awaited_once()
         assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_deleting_a_slotted_save_records_the_deletion(
+        self,
+        _mock_remove_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        saves_path: str,
+    ):
+        """A device still holding the save must be told it was deleted, not asked for it."""
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_rom.srm",
+                file_path=saves_path,
+                file_size_bytes=4,
+                emulator="snes9x",
+                slot="autosave",
+                content_hash="0123456789abcdef0123456789abcdef",
+            )
+        )
+
+        response = client.request(
+            "DELETE",
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        deletions = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        assert [(d.slot, d.content_hashes) for d in deletions] == [
+            ("autosave", ["0123456789abcdef0123456789abcdef"])
+        ]
 
     @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.remove_file",

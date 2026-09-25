@@ -14,6 +14,7 @@ from typing import Any, BinaryIO, TypeAlias
 from fastapi import HTTPException, UploadFile, status
 
 from handler.database import (
+    db_deleted_asset_handler,
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
@@ -124,6 +125,22 @@ async def store_screenshot(
     return db_screenshot_handler.update_screenshot(
         existing.id, {"file_size_bytes": scanned.file_size_bytes}
     )
+
+
+async def record_save_deletion(save: Save) -> None:
+    """Remember a slotted save's content so a device still holding it is told it was deleted."""
+    if not save.slot:
+        return
+    content_hash = save.content_hash or (
+        await fs_asset_handler.compute_content_hash(save.full_path)
+    )
+    if content_hash:
+        db_deleted_asset_handler.record_deletion(
+            user_id=save.user_id,
+            rom_id=save.rom_id,
+            slot=save.slot,
+            content_hash=content_hash,
+        )
 
 
 async def remove_asset_file(file_path: str, what: str) -> None:
