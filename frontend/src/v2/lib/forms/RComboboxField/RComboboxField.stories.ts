@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { RBtn, RForm } from "@v2/lib";
 import { expect, userEvent } from "storybook/test";
 import { ref } from "vue";
-import { RBtn, RForm } from "@v2/lib";
 import RComboboxField from "./RComboboxField.vue";
 
 const meta: Meta<typeof RComboboxField> = {
