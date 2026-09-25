@@ -7,7 +7,6 @@ one off is a restart rather than an unschedule.
 from rq import cron
 
 from config import TASK_TIMEOUT
-from handler.redis_handler import QueuePrio
 from logger.logger import log
 from tasks.registry import SCHEDULED_TASKS, enqueue_scheduled_scan
 from tasks.tasks import TaskType, run_task_by_name
@@ -24,7 +23,7 @@ for name, task in SCHEDULED_TASKS.items():
     # share one cron identity and one job history.
     cron.register(
         enqueue_scheduled_scan if is_scan else run_task_by_name,
-        QueuePrio.LOW.value,
+        task.queue_name,
         name=name,
         kwargs={"name": name},
         cron=task.cron_string,

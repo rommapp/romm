@@ -1537,12 +1537,13 @@ Redis-backed for horizontal scaling across multiple server instances.
 
 **Priority Queues:**
 
-| Queue             | Use Case                                       |
-| ----------------- | ---------------------------------------------- |
-| `high_prio_queue` | Urgent operations                              |
-| `default_queue`   | Standard background work                       |
-| `low_prio_queue`  | Cleanups, conversions, metadata refreshes      |
-| `scan_queue`      | Library scans, consumed by a worker of its own |
+| Queue             | Use Case                                         |
+| ----------------- | ------------------------------------------------ |
+| `high_prio_queue` | Urgent operations                                |
+| `default_queue`   | Standard background work                         |
+| `low_prio_queue`  | Cleanups, conversions, metadata refreshes        |
+| `scan_queue`      | Library scans, consumed by a worker of its own   |
+| `streaming_queue` | Streaming session reaper, on a worker of its own |
 
 ### Scheduled Tasks
 

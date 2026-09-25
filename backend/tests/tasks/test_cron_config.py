@@ -28,6 +28,7 @@ def _task(mocker, *, enabled=True, cron_string="0 4 * * *", task_type=TaskType.C
     task.cron_string = cron_string
     task.timeout = 100
     task.result_ttl = TASK_RESULT_TTL
+    task.queue_name = QueuePrio.LOW.value
     task.title = "Test Task"
     task.description = "test task"
     task.task_type = task_type
@@ -72,6 +73,13 @@ class TestCronConfig:
         for tasks in ({"cleanup": _task(mocker)}, {"scan": _scan_task(mocker)}):
             register = registered(tasks)
             assert register.call_args.args[1] == QueuePrio.LOW.value
+
+    def test_a_task_can_name_its_own_queue(self, mocker, registered):
+        task = _task(mocker)
+        task.queue_name = "streaming"
+        register = registered({"reaper": task})
+
+        assert register.call_args.args[1] == "streaming"
 
     def test_history_outlives_rq_s_own_result_ttl(self, mocker, registered):
         # `register()` defaults this, and a default is written onto the job, so

@@ -23,6 +23,8 @@ class QueuePrio(Enum):
 # Scans have a queue and a worker of their own: a library scan runs for hours,
 # and one worker on one queue keeps two of them from ever running at once.
 SCAN_QUEUE_NAME: Final = "scans"
+# Streaming teardowns get one too: a sick broker can hold one for minutes.
+STREAMING_QUEUE_NAME: Final = "streaming"
 
 redis_client = Redis.from_url(REDIS_URL)
 
@@ -30,8 +32,15 @@ high_prio_queue = Queue(name=QueuePrio.HIGH.value, connection=redis_client)
 default_queue = Queue(name=QueuePrio.DEFAULT.value, connection=redis_client)
 low_prio_queue = Queue(name=QueuePrio.LOW.value, connection=redis_client)
 scan_queue = Queue(name=SCAN_QUEUE_NAME, connection=redis_client)
+streaming_queue = Queue(name=STREAMING_QUEUE_NAME, connection=redis_client)
 
-ALL_QUEUES: Final = (scan_queue, high_prio_queue, default_queue, low_prio_queue)
+ALL_QUEUES: Final = (
+    scan_queue,
+    streaming_queue,
+    high_prio_queue,
+    default_queue,
+    low_prio_queue,
+)
 
 
 def __get_fake_server() -> Any:

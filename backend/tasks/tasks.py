@@ -11,6 +11,7 @@ from rq.timeouts import JobTimeoutException
 
 from config import TASK_RESULT_TTL, TASK_TIMEOUT
 from exceptions.task_exceptions import TaskNotFoundException
+from handler.redis_handler import QueuePrio
 from logger.logger import log
 from utils.background_tasks import wait_for_background_tasks
 from utils.context import ctx_httpx_client
@@ -155,6 +156,7 @@ class Task(ABC):
     task_type: TaskType
     timeout: int
     result_ttl: int
+    queue_name: str
 
     def __init__(
         self,
@@ -166,6 +168,7 @@ class Task(ABC):
         cron_string: str | None = None,
         timeout: int = TASK_TIMEOUT,
         result_ttl: int = TASK_RESULT_TTL,
+        queue_name: str = QueuePrio.LOW.value,
     ):
         self.title = title
         self.description = description or title
@@ -175,6 +178,7 @@ class Task(ABC):
         self.cron_string = cron_string
         self.timeout = timeout
         self.result_ttl = result_ttl
+        self.queue_name = queue_name
 
     @property
     def can_run_manually(self) -> bool:

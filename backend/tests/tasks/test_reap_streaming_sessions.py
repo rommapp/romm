@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from handler.redis_handler import async_cache
+from handler.redis_handler import STREAMING_QUEUE_NAME, async_cache
 from handler.streaming import commands, saves, session_store
 from handler.streaming.config import ResolvedContainer, reset_cache, resolve_entry
 from tasks.registry import SCHEDULED_TASKS
@@ -105,6 +105,12 @@ def test_the_job_outlives_a_slow_teardown_and_its_save_pull():
         reap_streaming_sessions_task.timeout
         >= session_store.HOLD_CEILING_SECONDS + saves.SAVE_PULL_TTL_SECONDS
     )
+
+
+def test_the_reaper_has_a_worker_of_its_own():
+    """A teardown can hold its job for minutes, and the shared worker would
+    make every other task wait behind it."""
+    assert reap_streaming_sessions_task.queue_name == STREAMING_QUEUE_NAME
 
 
 def test_a_run_keeps_no_job_history():

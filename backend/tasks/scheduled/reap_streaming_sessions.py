@@ -1,5 +1,6 @@
 import asyncio
 
+from handler.redis_handler import STREAMING_QUEUE_NAME
 from handler.streaming.config import (
     ResolvedContainer,
     container_for_session,
@@ -53,6 +54,7 @@ class ReapStreamingSessionsTask(PeriodicTask):
             # its marker to the ceiling plus the exit save pull it then waits out.
             timeout=HOLD_CEILING_SECONDS + SAVE_PULL_TTL_SECONDS,
             result_ttl=0,
+            queue_name=STREAMING_QUEUE_NAME,
         )
 
     async def run(self) -> None:
