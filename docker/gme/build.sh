@@ -25,7 +25,7 @@ mkdir -p "${out_dir}"
 emcc -O3 -fno-exceptions -fno-rtti \
 	-I "${src_dir}" \
 	"${shim_dir}/romm_gme.cpp" \
-	"$(find "${build_dir}" -name 'libgme.a' -print -quit)" \
+	"${build_dir}/gme/libgme.a" \
 	-sSTANDALONE_WASM \
 	-sALLOW_MEMORY_GROWTH \
 	-sFILESYSTEM=0 \
