@@ -28,7 +28,8 @@ ARG NGINX_SHA256=a5f2157a0302eb0c5e300415effb63a9e70ed1eb9c107283819bf6d149ab607
 ARG UV_VERSION=0.12.13
 ARG UV_SHA256=eb47c391d3a252d9d912270dd2b5e234af5493e92039fedb483f1dd1cb5659ce
 ARG EMSDK_VERSION=4.0.12
-ARG EMSDK_SHA256=744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6
+ARG EMSDK_AMD64_SHA256=744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6
+ARG EMSDK_ARM64_SHA256=369a4cb655aa1066e6e450dde774243c502d999b1d93fb4890a9d1428daa9280
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
@@ -144,9 +145,14 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
 
 
 # LIBGME (LGPL-2.1+) FOR CHIPTUNE SOUNDTRACKS
-# The WebAssembly output is the same on every platform, so it builds once on the host.
+# The WebAssembly output is the same on every platform, so it builds with the
+# builder's own emsdk, which ships as a separate image per architecture.
 # Keep the pins below in sync with the dev image's copies in ../Dockerfile.
-FROM --platform=$BUILDPLATFORM emscripten/emsdk:${EMSDK_VERSION}@sha256:${EMSDK_SHA256} AS gme-build
+FROM emscripten/emsdk:${EMSDK_VERSION}@sha256:${EMSDK_AMD64_SHA256} AS emsdk-amd64
+FROM emscripten/emsdk:${EMSDK_VERSION}-arm64@sha256:${EMSDK_ARM64_SHA256} AS emsdk-arm64
+
+# trunk-ignore(hadolint/DL3006,checkov/CKV_DOCKER_7)
+FROM emsdk-${BUILDARCH} AS gme-build
 
 ARG GME_VERSION=0.6.5
 ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
