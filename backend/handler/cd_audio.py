@@ -32,7 +32,7 @@ from utils.chd_cdrom import (
 )
 from utils.cue_sheet import AudioTrackRange, audio_track_ranges, parse_cue_sheet
 from utils.gdi_sheet import gdi_audio_ranges, parse_gdi_sheet
-from utils.m3u import disc_number
+from utils.m3u import disc_number, listing_playlist
 
 FLAC_BINARY = "flac"
 READ_CHUNK_BYTES = 1024 * 1024
@@ -91,22 +91,6 @@ def track_prefixes(images: list[Path]) -> dict[Path, str]:
         )
         for image in images
     }
-
-
-def _listing_playlist(disc: Path) -> str | None:
-    """The .m3u beside a lone disc that lists it, which moving the disc would break."""
-    for entry in disc.parent.iterdir():
-        if entry.suffix.lower() != ".m3u" or not entry.is_file():
-            continue
-        try:
-            lines = entry.read_text(encoding="utf-8-sig", errors="replace")
-        except OSError:
-            continue
-        for line in lines.splitlines():
-            listed = line.strip().replace("\\", "/").rsplit("/", 1)[-1]
-            if listed.casefold() == disc.name.casefold():
-                return entry.name
-    return None
 
 
 def _read_sheet(path: Path) -> str:
@@ -395,7 +379,7 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
                 "Move the disc into a folder of its own to extract its audio"
             )
         disc = fs_rom_handler.validate_path(images[0].full_path)
-        playlist = await asyncio.to_thread(_listing_playlist, disc)
+        playlist = await asyncio.to_thread(listing_playlist, disc)
         if playlist:
             raise CdAudioNeedsFolderException(
                 f"{playlist} lists this disc, so moving it would break the "
