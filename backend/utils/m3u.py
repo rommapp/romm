@@ -47,13 +47,8 @@ def _disc_order(file: RomFile) -> tuple[bool, int, str]:
 
 
 def _playlist_entries(m3u_path: Path) -> list[list[Path]] | None:
-    """Each disc line of a playlist as the paths it may name, or None when the
-    playlist can't be read.
-
-    Paths are relative to the playlist's folder unless absolute. Playlists
-    written on Windows separate folders with backslashes, which a POSIX file
-    name may also contain, so the literal path comes first.
-    """
+    """Each disc line's possible paths, literal first since a POSIX name may
+    hold the backslashes Windows playlists separate folders with."""
     try:
         lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
     except OSError:
@@ -88,11 +83,15 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
     return next((path for path in entries[0] if path.is_file()), None)
 
 
+def _path_key(path: Path) -> str:
+    return os.path.normcase(str(path.resolve())).casefold()
+
+
 def listing_playlist(disc: Path) -> str | None:
     """The name of an .m3u beside a lone disc that lists it, which moving the
     disc would break, or None. Names match ignoring case, as Windows-authored
     playlists often differ in case from the files."""
-    target = os.path.normcase(os.path.normpath(disc)).casefold()
+    target = _path_key(disc)
     try:
         playlists = [
             entry
@@ -103,10 +102,10 @@ def listing_playlist(disc: Path) -> str | None:
         return None
     for playlist in playlists:
         for candidates in _playlist_entries(playlist) or []:
-            if any(
-                os.path.normcase(os.path.normpath(path)).casefold() == target
-                for path in candidates
-            ):
+            # The path an emulator would open, as first_playlist_entry picks it.
+            on_disk = next((path for path in candidates if path.is_file()), None)
+            named = [on_disk] if on_disk else candidates
+            if any(_path_key(path) == target for path in named):
                 return playlist.name
     return None
 
