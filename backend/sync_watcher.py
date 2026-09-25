@@ -285,7 +285,6 @@ def _process_incoming_file(
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
                 last_sync_hash=file_hash,
                 last_sync_server_hash=file_hash,
             )
@@ -335,8 +334,6 @@ def _process_incoming_file(
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
-                last_sync_hash=None,
                 last_sync_server_hash=matched_save.content_hash,
             )
             fs_sync_handler.remove_incoming_file(full_path)

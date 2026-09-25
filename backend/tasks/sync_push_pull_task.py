@@ -5,7 +5,6 @@ and performs bidirectional sync operations.
 """
 
 import os
-from datetime import datetime, timezone
 from typing import Any
 
 from anyio import Path as AnyioPath
@@ -278,7 +277,6 @@ async def _process_remote_save(
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
                 last_sync_hash=remote_hash,
                 last_sync_server_hash=matched_save.content_hash,
             )
@@ -307,7 +305,6 @@ async def _process_remote_save(
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
                 last_sync_hash=remote_hash,
                 last_sync_server_hash=remote_hash,
             )
@@ -327,8 +324,6 @@ async def _process_remote_save(
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
-                last_sync_hash=None,
                 last_sync_server_hash=matched_save.content_hash,
             )
             return "pushed"
@@ -413,13 +408,9 @@ async def _push_missing_saves(
                     await ssh_sync_handler.upload_save(
                         conn, str(server_full_path), remote_path
                     )
-                    # The device has no bytes for this save yet, so there is no device half.
                     db_device_save_sync_handler.upsert_sync(
                         device_id=device.id,
                         save_id=save.id,
-                        synced_at=datetime.now(timezone.utc),
-                        last_sync_hash=None,
-                        last_sync_server_hash=None,
                     )
                     pushed += 1
                     log.info(

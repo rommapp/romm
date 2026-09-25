@@ -168,6 +168,20 @@ def _resolve_device(
     return device
 
 
+def _record_device_sync(
+    device_id: str, save: Save, user_id: int, client_hash: str | None = None
+) -> None:
+    """Mark the device as synced to the save's current version."""
+    db_device_save_sync_handler.upsert_sync(
+        device_id=device_id,
+        save_id=save.id,
+        synced_at=save.updated_at,
+        last_sync_hash=client_hash,
+        last_sync_server_hash=save.content_hash,
+    )
+    db_device_handler.update_last_seen(device_id=device_id, user_id=user_id)
+
+
 def _increment_session_counter(session_id: int, user_id: int) -> None:
     try:
         db_sync_session_handler.increment_operations_completed(
@@ -374,14 +388,7 @@ async def add_save(
         db_save = db_save_handler.add_save(save=scanned_save)
 
     if device:
-        db_device_save_sync_handler.upsert_sync(
-            device_id=device.id,
-            save_id=db_save.id,
-            synced_at=db_save.updated_at,
-            last_sync_hash=content_hash,
-            last_sync_server_hash=db_save.content_hash,
-        )
-        db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
+        _record_device_sync(device.id, db_save, request.user.id, content_hash)
 
     if session_id:
         _increment_session_counter(session_id, request.user.id)
@@ -578,14 +585,7 @@ def download_save(
     # Sync bookkeeping only makes sense for the owner's own saves.
     if device and optimistic and is_owner:
         # The device has no bytes yet, so only the server half is known.
-        db_device_save_sync_handler.upsert_sync(
-            device_id=device.id,
-            save_id=save.id,
-            synced_at=save.updated_at,
-            last_sync_hash=None,
-            last_sync_server_hash=save.content_hash,
-        )
-        db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
+        _record_device_sync(device.id, save, request.user.id)
 
     if session_id:
         _increment_session_counter(session_id, request.user.id)
@@ -609,14 +609,7 @@ def confirm_download(
         )
 
     device = _resolve_device(device_id, request.user.id)
-    db_device_save_sync_handler.upsert_sync(
-        device_id=device_id,
-        save_id=save.id,
-        synced_at=save.updated_at,
-        last_sync_hash=content_hash,
-        last_sync_server_hash=save.content_hash,
-    )
-    db_device_handler.update_last_seen(device_id=device_id, user_id=request.user.id)
+    _record_device_sync(device_id, save, request.user.id, content_hash)
 
     return _build_save_schema(save, _syncs_for_save(save.id, device), device)
 
@@ -716,14 +709,7 @@ async def update_save(
     )
 
     if device:
-        db_device_save_sync_handler.upsert_sync(
-            device_id=device.id,
-            save_id=db_save.id,
-            synced_at=db_save.updated_at,
-            last_sync_hash=content_hash,
-            last_sync_server_hash=db_save.content_hash,
-        )
-        db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
+        _record_device_sync(device.id, db_save, request.user.id, content_hash)
 
     return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
 
