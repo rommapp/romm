@@ -101,10 +101,14 @@ RUN apk add --no-cache \
     zlib-dev \
     bash
 
-ARG RALIBRETRO_VERSION=1.8.3
+# Tag 1.8.3. Pinned by commit because a tag can be moved.
+# Keep this pin in sync with the dev image's RALIBRETRO_COMMIT in ../Dockerfile.
+ARG RALIBRETRO_COMMIT=8ab61f745ab753a70b5482f2a0ccb6a4ced5193f
 
-RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
+RUN git clone --filter=blob:none https://github.com/RetroAchievements/RALibretro.git && \
     cd ./RALibretro && \
+    git checkout "${RALIBRETRO_COMMIT}" && \
+    git submodule update --init --recursive && \
     sed -i '22a #include <ctime>' ./src/Util.h && \
     sed -i '6a #include <unistd.h>' \
         ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
@@ -142,54 +146,56 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
 
 # FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08
 # Keep the pins below in sync with the dev image's copies in ../Dockerfile.
+# checkov:skip=CKV_DOCKER_4:every ADD below is a remote URL pinned by --checksum
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
 
 RUN apk add --no-cache \
-    7zip \
-    wget \
-    ca-certificates
+    7zip
 
 ARG EMULATORJS_VERSION=4.2.3
 ARG EMULATORJS_SHA256=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b
 
-RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
-    echo "${EMULATORJS_SHA256}  ${EMULATORJS_VERSION}.7z" | sha256sum -c - && \
-    7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
-    rm -f "${EMULATORJS_VERSION}.7z"
+ADD --checksum=sha256:${EMULATORJS_SHA256} \
+    "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" \
+    /downloads/emulatorjs.7z
+RUN 7z x -y /downloads/emulatorjs.7z -o/emulatorjs
 
 ARG RUFFLE_VERSION=nightly-2025-08-14
 ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
 ARG RUFFLE_SHA256=178870c5e7dd825a8df35920dfc5328d83e53f3c4d5d95f70b1ea9cd13494151
 
-RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
-    echo "${RUFFLE_SHA256}  ${RUFFLE_FILE}" | sha256sum -c - && \
-    unzip -o "${RUFFLE_FILE}" -d /ruffle && \
-    rm -f "${RUFFLE_FILE}"
+ADD --checksum=sha256:${RUFFLE_SHA256} \
+    "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" \
+    /downloads/ruffle.zip
+RUN unzip -o /downloads/ruffle.zip -d /ruffle
 
 ARG JSDOS_VERSION=8.4.1
 ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
 
+ADD --checksum=sha256:${JSDOS_SHA256} \
+    "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" \
+    /downloads/jsdos.zip
 # The bundled index.html is a js-dos demo page that would be served unauthenticated;
 # source maps, Emscripten symbol files and type declarations are unused at runtime.
-RUN wget "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" -O jsdos.zip && \
-    echo "${JSDOS_SHA256}  jsdos.zip" | sha256sum -c - && \
-    unzip -o jsdos.zip -d /jsdos && \
-    rm -f jsdos.zip && \
+RUN unzip -o /downloads/jsdos.zip -d /jsdos && \
     rm -rf /jsdos/dist/index.html /jsdos/dist/emulators/types && \
     find /jsdos/dist \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
 
 ARG FAKE08_P3A_COMMIT=6519efd9dd1ca853e5c66f7ae9146ace0b7073dc
 ARG FAKE08_JS_SHA256=fd2cd4677956037e41a91dbd40fc1a9c4f5979355d55ce3f9312400e11da463e
 ARG FAKE08_WASM_SHA256=4339a77e0aa5aa6f4a5bce9fd8286053eedf7f23f2d853db7f4900f6fff4c93a
-ARG FAKE08_P3A_RAW=https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8
 
 # FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
 # which compiled them. Pinned by commit and checksum: that tree has no tags.
-RUN mkdir -p /fake08 && \
-    wget "${FAKE08_P3A_RAW}/fake08.js" -O /fake08/fake08.js && \
-    wget "${FAKE08_P3A_RAW}/fake08.wasm" -O /fake08/fake08.wasm && \
-    echo "${FAKE08_JS_SHA256}  /fake08/fake08.js" | sha256sum -c - && \
-    echo "${FAKE08_WASM_SHA256}  /fake08/fake08.wasm" | sha256sum -c -
+# Remote ADD writes 0600, which nginx could not read, and --chmod would also
+# apply to a parent directory it creates, so the directory is made first.
+RUN mkdir /fake08
+ADD --checksum=sha256:${FAKE08_JS_SHA256} --chmod=644 \
+    "https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8/fake08.js" \
+    /fake08/fake08.js
+ADD --checksum=sha256:${FAKE08_WASM_SHA256} --chmod=644 \
+    "https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8/fake08.wasm" \
+    /fake08/fake08.wasm
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP

@@ -46,7 +46,11 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | b
 ENV PATH="$NVM_DIR/versions/node/v24.16.0/bin:$PATH"
 
 # Build and install RAHasher (optional for RA hashes)
-RUN git clone --recursive --branch 1.8.3 --depth 1 https://github.com/RetroAchievements/RALibretro.git /tmp/RALibretro
+# Tag 1.8.3. Keep the pin in sync with docker/Dockerfile.
+ARG RALIBRETRO_COMMIT=8ab61f745ab753a70b5482f2a0ccb6a4ced5193f
+RUN git clone --filter=blob:none https://github.com/RetroAchievements/RALibretro.git /tmp/RALibretro \
+    && git -C /tmp/RALibretro checkout "${RALIBRETRO_COMMIT}" \
+    && git -C /tmp/RALibretro submodule update --init --recursive
 WORKDIR /tmp/RALibretro
 RUN make HAVE_CHD=1 -f ./Makefile.RAHasher \
     && cp ./bin64/RAHasher /usr/bin/RAHasher
