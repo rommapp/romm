@@ -22,6 +22,7 @@ import SubtabNav, {
 } from "@/v2/components/GameDetails/SubtabNav.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import {
   ROM_UPLOAD_FOLDERS,
   useRomFileUpload,
@@ -132,6 +133,7 @@ const cdAudioProbeKey = computed(() =>
     : null,
 );
 const pendingCdAudioTracks = ref(0);
+const alive = useIsAlive();
 watch(
   cdAudioProbeKey,
   async (key) => {
@@ -139,7 +141,7 @@ watch(
     if (!key) return;
     try {
       const { data } = await romApi.getCdAudioStatus({ romId: props.rom.id });
-      if (cdAudioProbeKey.value === key) {
+      if (alive.value && cdAudioProbeKey.value === key) {
         pendingCdAudioTracks.value = data.tracks - data.extracted;
       }
     } catch {
