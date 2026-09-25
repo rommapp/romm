@@ -9,9 +9,11 @@ from joserfc import jwt
 from joserfc.errors import BadSignatureError, DecodeError
 from joserfc.jwk import OctKey
 from passlib.context import CryptContext
+from redis.exceptions import RedisError
 from starlette.requests import HTTPConnection
 
 from config import (
+    EMAIL_ENABLED,
     INVITE_TOKEN_EXPIRY_SECONDS,
     OIDC_ALLOW_REGISTRATION,
     OIDC_CLAIM_ROLES,
@@ -27,12 +29,23 @@ from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.email_handler import EmailError, send_email
 from handler.redis_handler import redis_client
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.urls import get_public_base_url
 
 oct_key = OctKey.import_key(ROMM_AUTH_SECRET_KEY)
+
+# Anyone who knows a username can ask for its reset link, so its inbox gets at
+# most one a minute.
+RESET_EMAIL_COOLDOWN_SECONDS = 60
+
+
+def reset_link_base_url() -> str | None:
+    """Where an emailed reset link points; None when links can't be emailed."""
+    return get_public_base_url() if EMAIL_ENABLED else None
 
 
 def _romm_username(provided: str, fallback: str) -> str:
@@ -74,6 +87,15 @@ def _romm_username(provided: str, fallback: str) -> str:
     return username
 
 
+def _invite_token_spent() -> HTTPException:
+    """The one response for a spent or unusable invite, so neither caller
+    distinguishes them."""
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invite token has already been used or is invalid.",
+    )
+
+
 class AuthHandler:
     def __init__(self) -> None:
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -88,7 +110,12 @@ class AuthHandler:
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def verify_password(self, plain_password, hashed_password):
-        return self.pwd_context.verify(plain_password, hashed_password)
+        try:
+            return self.pwd_context.verify(plain_password, hashed_password)
+        except ValueError:
+            # OIDC-provisioned accounts hold a placeholder, not a bcrypt hash,
+            # and passlib raises on one it cannot identify.
+            return False
 
     def get_password_hash(self, password):
         return self.pwd_context.hash(password)
@@ -129,7 +156,8 @@ class AuthHandler:
 
         return user
 
-    def generate_password_reset_token(self, user: Any) -> None:
+    def generate_password_reset_token(self, user: Any) -> str:
+        """A single-use reset token for the user, valid for a few minutes."""
         now = datetime.now(timezone.utc)
 
         jti = str(uuid.uuid4())
@@ -151,11 +179,51 @@ class AuthHandler:
             to_encode,
             oct_key,
         )
-        log.info(
-            f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}"
-        )
         redis_client.setex(
             f"reset-jti:{jti}", self.reset_passwd_token_expires_in_minutes * 60, "valid"
+        )
+        return token
+
+    def send_password_reset_link(self, user: Any) -> None:
+        """Email the user a reset link, or log it for an admin to pass on."""
+        # ROMM_BASE_URL alone, so a forged Host header can't point it elsewhere.
+        base_url = reset_link_base_url()
+        if not (base_url and user.email):
+            self._log_password_reset_link(
+                user, self.generate_password_reset_token(user)
+            )
+            return
+
+        if not redis_client.set(
+            f"reset-email:{user.id}", "1", ex=RESET_EMAIL_COOLDOWN_SECONDS, nx=True
+        ):
+            log.info(
+                f"A reset link went to {hl(user.username, color=CYAN)} less than a minute ago, not sending another"
+            )
+            return
+
+        token = self.generate_password_reset_token(user)
+        try:
+            send_email(
+                user.email,
+                "Reset your RomM password",
+                f"Someone asked to reset the password of your RomM account, "
+                f"{user.username}.\n\nChoose a new one within "
+                f"{self.reset_passwd_token_expires_in_minutes} minutes here:\n"
+                f"{base_url}/reset-password?token={token}\n\n"
+                "If it wasn't you, ignore this email and your password stays as it is.",
+            )
+        except EmailError as exc:
+            log.error(
+                f"Could not email the reset link to {hl(user.username, color=CYAN)}: {exc}"
+            )
+            self._log_password_reset_link(user, token)
+            return
+        log.info(f"Reset password link emailed to {hl(user.username, color=CYAN)}")
+
+    def _log_password_reset_link(self, user: Any, token: str) -> None:
+        log.info(
+            f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}"
         )
 
     def verify_password_reset_token(self, token: str) -> Any:
@@ -205,6 +273,43 @@ class AuthHandler:
 
         return user
 
+    async def apply_user_update(
+        self,
+        user_id: int,
+        data: dict[str, Any],
+        revoke_sessions_for: str | None = None,
+    ) -> None:
+        """
+        Write an update to a user, revoking that account's sessions around it.
+        Args:
+            user_id (int): The user the update applies to.
+            data (dict[str, Any]): The fields to write.
+            revoke_sessions_for (str | None): Username the sessions are keyed by,
+                or None to write without revoking.
+        """
+        from handler.database import db_user_handler
+
+        if revoke_sessions_for:
+            # Ahead of the write: an unreachable Redis then aborts the change
+            # rather than committing it with the account's sessions left live.
+            await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
+
+        db_user_handler.update_user(user_id, data)
+
+        if revoke_sessions_for:
+            # After it, for a login the old password was still good for. The
+            # write has committed, so a failure here is logged, not raised.
+            try:
+                await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
+            except RedisError, OSError:
+                log.error(
+                    "Credentials for '%s' changed, but revoking its sessions "
+                    "afterwards failed; a session created during the update may "
+                    "still be live",
+                    hl(revoke_sessions_for, color=CYAN),
+                    exc_info=True,
+                )
+
     async def set_user_new_password(self, user: Any, new_password: str) -> None:
         """
         Set the new password for the user.
@@ -212,12 +317,11 @@ class AuthHandler:
             user (Any): The user object.
             new_password (str): The new password to set.
         """
-        from handler.database import db_user_handler
-
-        db_user_handler.update_user(
-            user.id, {"hashed_password": self.get_password_hash(new_password)}
+        await self.apply_user_update(
+            user.id,
+            {"hashed_password": self.get_password_hash(new_password)},
+            revoke_sessions_for=user.username,
         )
-        await RedisSessionMiddleware.clear_user_sessions(user.username)
 
     def generate_invite_link_token(
         self, user: Any, role: str, expiration: int | None = None
@@ -252,12 +356,23 @@ class AuthHandler:
             to_encode,
             oct_key,
         )
-        invite_link = f"{ROMM_BASE_URL}/register?token={token}"
+        # The link is already in the response; the token registers an account on
+        # its own, so the log gets only its id.
         log.info(
-            f"Invite link created by {hl(user.username, color=CYAN)}: {hl(invite_link)}"
+            f"Invite link created by {hl(user.username, color=CYAN)} (jti: {hl(jti)})"
         )
         redis_client.setex(f"invite-jti:{jti}", expires_in, "valid")
         return token
+
+    def assert_invite_link_token_valid(self, token: str) -> None:
+        """Raise unless the invite link token is valid, leaving it unspent.
+
+        Args:
+            token (str): The token to check.
+        """
+        jti, _ = self._decode_invite_link_token(token)
+        if redis_client.get(f"invite-jti:{jti}") != b"valid":
+            raise _invite_token_spent()
 
     def consume_invite_link_token(self, token: str) -> str:
         """
@@ -269,6 +384,17 @@ class AuthHandler:
         Returns:
             str: The role associated with the token.
         """
+        jti, role = self._decode_invite_link_token(token)
+
+        # Read and invalidate in one operation, so two registrations racing on
+        # one invite cannot both see it as valid and both create an account.
+        if redis_client.getdel(f"invite-jti:{jti}") != b"valid":
+            raise _invite_token_spent()
+
+        return role
+
+    def _decode_invite_link_token(self, token: str) -> tuple[str, str]:
+        """Decode an invite link token and return its `(jti, role)`."""
         try:
             payload = jwt.decode(token, oct_key, algorithms=[ALGORITHM])
         except (BadSignatureError, DecodeError, ValueError) as exc:
@@ -282,16 +408,10 @@ class AuthHandler:
 
         jti = payload.claims.get("jti")
         role = payload.claims.get("role", "USER").upper()
-        if not jti or redis_client.get(f"invite-jti:{jti}") != b"valid":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invite token has already been used or is invalid.",
-            )
+        if not jti:
+            raise _invite_token_spent()
 
-        # Invalidate the token as soon as it's read
-        redis_client.delete(f"invite-jti:{jti}")
-
-        return role
+        return jti, role
 
 
 class OAuthHandler:
@@ -408,7 +528,9 @@ class OAuthHandler:
 
 class OpenIDHandler:
     async def get_current_active_user_from_openid_token(self, token: Any):
+        from handler.audit_handler import SYSTEM_ACTOR, AuditActor, AuditTarget, record
         from handler.database import db_user_handler
+        from models.audit_event import AuditAction
         from models.user import Role, User
 
         if not OIDC_ENABLED:
@@ -430,7 +552,7 @@ class OpenIDHandler:
                 detail="Email is missing from token.",
             )
 
-        metadata = await oauth.openid.load_server_metadata()  # type: ignore
+        metadata = await oauth.openid.load_server_metadata()
         claims_supported = metadata.get("claims_supported")
         is_email_verified = userinfo.get("email_verified", None)
 
@@ -500,8 +622,25 @@ class OpenIDHandler:
                 role=role,
             )
             user = db_user_handler.add_user(new_user)
+            record(
+                AuditAction.USER_REGISTER,
+                AuditActor.for_user(user),
+                AuditTarget.of_user(user),
+                {"role": user.role, "via": "oidc"},
+            )
         elif claims_provided and user.role != role:
+            previous_role = user.role
             user = db_user_handler.update_user(user.id, {"role": role})
+            record(
+                AuditAction.USER_EDIT,
+                SYSTEM_ACTOR,
+                AuditTarget.of_user(user),
+                {
+                    "changed": ["role"],
+                    "role": {"from": previous_role, "to": role},
+                    "via": "oidc",
+                },
+            )
 
         if not user.enabled:
             raise UserDisabledException

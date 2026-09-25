@@ -11,6 +11,7 @@ from typing import Any, Literal, NamedTuple
 
 from redis.exceptions import WatchError
 from sqlalchemy import (
+    ColumnExpressionArgument,
     DateTime,
     Enum,
     Integer,
@@ -57,6 +58,7 @@ from handler.database.rom_filters import (
     ROM_FILTER_SPECS,
     FilterKind,
     RomFilterParams,
+    RomFiltersDict,
     RomFilterSpec,
 )
 from handler.redis_handler import sync_cache
@@ -89,6 +91,7 @@ from models.rom import (
 from utils import get_version
 from utils.database import (
     LIKE_ESCAPE_CHAR,
+    SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
     escape_like,
     is_postgresql,
@@ -96,10 +99,11 @@ from utils.database import (
     json_array_contains_any,
     json_array_contains_value,
     release_day_ranges,
+    rom_unset_flag_column,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 EJS_SUPPORTED_PLATFORMS = [
     UPS._3DO,
@@ -197,22 +201,39 @@ ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute] = {
     "hltb_main_story": Rom.generated_hltb_main_story,
 }
 
+# Keyed by the column each flag stands in for. `idx_roms_<column>_sort` spans
+# the flag, the value and the `id` tiebreak, so the ascending sort reads the
+# whole ordering out of an index.
+ROM_UNSET_SORT_FLAGS: dict[str, QueryableAttribute] = {
+    column: getattr(Rom, rom_unset_flag_column(column))
+    for column in SORTABLE_NULLABLE_ROM_COLUMNS
+}
+
 
 def _nulls_last_ordering(
     sort_key: Any, descending: bool
-) -> tuple[ColumnElement[bool] | None, ColumnElement[Any]]:
+) -> tuple[ColumnExpressionArgument[bool] | None, ColumnElement[Any]]:
     """NULL sort keys land last on every engine.
 
     Returns:
-        A leading IS NULL term (or None) and the directed sort clause.
+        A leading unset term (or None) and the directed sort clause.
     """
-    # PostgreSQL says it natively; the other engines place NULLs last on
-    # DESC already, so only their ascending case needs the emulation term.
     order_clause = sort_key.desc() if descending else sort_key.asc()
+    if descending:
+        # MariaDB and MySQL place NULLs last on DESC already; PostgreSQL
+        # sorts them first, and `idx_roms_<column>_desc` matches the spelling
+        # that corrects it.
+        if ROMM_DB_DRIVER == "postgresql":
+            return None, order_clause.nulls_last()
+        return None, order_clause
+
+    flag = ROM_UNSET_SORT_FLAGS.get(getattr(sort_key, "key", ""))
+    if flag is not None:
+        return flag, order_clause
+    # A key with no materialized flag (rom_user, the view, a grouped
+    # aggregate) still has to emulate it, which costs a sort.
     if ROMM_DB_DRIVER == "postgresql":
         return None, order_clause.nulls_last()
-    if descending:
-        return None, order_clause
     return sort_key.is_(None), order_clause
 
 
@@ -1835,7 +1856,7 @@ class DBRomsHandler(DBBaseHandler):
     def _scoped_roms_query(
         self,
         *,
-        session: Session,  # type: ignore
+        session: Session,
         include_related: bool = True,
         **kwargs,
     ) -> Query[Rom]:
@@ -2112,6 +2133,25 @@ class DBRomsHandler(DBBaseHandler):
         )
 
         return {rom.full_path: rom for rom in roms}
+
+    @begin_session
+    def get_roms_by_fs_names_no_ext(
+        self,
+        fs_names_no_ext: Iterable[str],
+        session: Session = None,  # type: ignore
+    ) -> list[Rom]:
+        """ROMs on any platform with one of these extensionless file names."""
+        names = list(dict.fromkeys(fs_names_no_ext))
+        roms: list[Rom] = []
+        for i in range(0, len(names), 1000):
+            roms += session.scalars(
+                select(Rom)
+                .options(selectinload(Rom.platform))
+                .where(Rom.fs_name_no_ext.in_(names[i : i + 1000]))
+            ).all()
+
+        # Id order keeps an ambiguous name resolving the same way on every sync.
+        return sorted(roms, key=lambda rom: rom.id)
 
     @begin_session
     def update_rom(
@@ -3036,14 +3076,14 @@ class DBRomsHandler(DBBaseHandler):
         row = session.execute(
             self._music_facet_joins(
                 select(
-                    func.count().label("count"),
+                    func.count().label("total"),
                     func.coalesce(func.sum(TrackMeta.duration_seconds), 0.0).label(
                         "duration"
                     ),
                 )
             ).where(*where)
         ).one()
-        return int(row.count or 0), float(row.duration or 0.0)
+        return int(row.total or 0), float(row.duration or 0.0)
 
     @begin_session
     def get_music_game_genre_facet(
@@ -3089,10 +3129,10 @@ class DBRomsHandler(DBBaseHandler):
             session=session,
         )
         per_rom = self._music_facet_joins(
-            select(Rom.id.label("rom_id"), func.count().label("count"))
+            select(Rom.id.label("rom_id"), func.count().label("total"))
         ).where(*where)
         counts_by_rom = {
-            row.rom_id: row.count
+            row.rom_id: row.total
             for row in session.execute(per_rom.group_by(Rom.id)).all()
         }
         if not counts_by_rom:
@@ -3448,7 +3488,7 @@ class DBRomsHandler(DBBaseHandler):
                 )
             )
         )
-        return result.rowcount > 0
+        return affected_rows(result) > 0
 
     @begin_session
     @with_details
@@ -3594,7 +3634,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         session: Session,
         statement: Select,
-    ) -> dict:
+    ) -> RomFiltersDict:
         genres = set()
         franchises = set()
         collections = set()
@@ -3637,21 +3677,21 @@ class DBRomsHandler(DBBaseHandler):
                 tags.update(tg)
             platforms.add(pid)
 
-        return {
-            "genres": sorted(genres),
-            "franchises": sorted(franchises),
-            "collections": sorted(collections),
-            "companies": sorted(companies),
-            "publishers": sorted(publishers),
-            "developers": sorted(developers),
-            "game_modes": sorted(game_modes),
-            "age_ratings": sorted(age_ratings),
-            "player_counts": sorted(player_counts),
-            "regions": sorted(regions),
-            "languages": sorted(languages),
-            "tags": sorted(tags),
-            "platforms": sorted(platforms),
-        }
+        return RomFiltersDict(
+            genres=sorted(genres),
+            franchises=sorted(franchises),
+            collections=sorted(collections),
+            companies=sorted(companies),
+            publishers=sorted(publishers),
+            developers=sorted(developers),
+            game_modes=sorted(game_modes),
+            age_ratings=sorted(age_ratings),
+            player_counts=sorted(player_counts),
+            regions=sorted(regions),
+            languages=sorted(languages),
+            tags=sorted(tags),
+            platforms=sorted(platforms),
+        )
 
     @begin_session
     def refresh_identity_key_statistics(
@@ -3686,7 +3726,7 @@ class DBRomsHandler(DBBaseHandler):
         *,
         cache_key: str | None = None,
         session: Session = None,  # type: ignore
-    ) -> dict:
+    ) -> RomFiltersDict:
         """
         Returns the list of filters given the current subset of ROMs in the query
         """
@@ -3712,7 +3752,7 @@ class DBRomsHandler(DBBaseHandler):
     def get_rom_filters(
         self,
         session: Session = None,  # type: ignore
-    ) -> dict:
+    ) -> RomFiltersDict:
         """
         Returns all filter values across all ROM metadata
         """

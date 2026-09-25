@@ -46,7 +46,7 @@ def _pick_ra_file(folder: Path) -> Path | None:
         return None
     try:
         files = [f for f in folder.iterdir() if f.is_file()]
-    except (OSError, PermissionError):
+    except OSError, PermissionError:
         return None
     if not files:
         return None
@@ -54,7 +54,7 @@ def _pick_ra_file(folder: Path) -> Path | None:
     def _size(p: Path) -> int:
         try:
             return p.stat().st_size
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             return -1
 
     for ext in RA_DISC_DESCRIPTOR_EXTENSIONS:

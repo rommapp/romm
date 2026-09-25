@@ -27,7 +27,9 @@ import {
   useAttrs,
   useSlots,
   watch,
+  watchEffect,
 } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
 import RTooltip from "../../structural/RTooltip/RTooltip.vue";
@@ -106,6 +108,17 @@ interface Props {
    *  pairs with the field's value. The `#subtitle` slot wins over the
    *  prop when both are provided; use the slot to drop in an icon. */
   subtitle?: string;
+  /** Wires the native input as a combobox owning a popup, putting the role
+   *  on the input rather than the outer element (a `<label>` when this field
+   *  owns its visible label). Single-line only: `role="combobox"` is not
+   *  valid on a `<textarea>`. */
+  popup?: {
+    /** `id` of the popup element. Omit while it is unmounted, so
+     *  `aria-controls` never points at an element that is not there. */
+    controls?: string;
+    expanded: boolean;
+    kind: "dialog" | "listbox" | "grid";
+  };
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -142,6 +155,25 @@ const props = withDefaults(defineProps<Props>(), {
   rows: 4,
   mono: false,
   subtitle: undefined,
+  popup: undefined,
+});
+
+const labels = useChromeLabels();
+
+const showRequiredTip = computed(
+  () =>
+    props.required &&
+    !props.disabled &&
+    !props.readonly &&
+    String(props.modelValue ?? "") === "",
+);
+
+watchEffect(() => {
+  if (props.multiline && props.popup) {
+    console.error(
+      "[RTextField] `popup` is ignored when `multiline` is set: role=combobox is not valid on a <textarea>.",
+    );
+  }
 });
 
 const emit = defineEmits<{
@@ -160,9 +192,8 @@ const emit = defineEmits<{
 const slots = useSlots();
 const attrs = useAttrs();
 const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
-// Stable id for `aria-describedby` — Vue 3.5 ships `useId`, but we're
-// on 3.4 still. The instance uid is unique per mounted component, which
-// is plenty for aria wiring.
+// Stable id for `aria-describedby`. The instance uid is unique per mounted
+// component, which is plenty for aria wiring.
 const fieldId = `r-tf-${getCurrentInstance()?.uid ?? Math.random().toString(36).slice(2)}`;
 
 // ── Tone resolver — same vocabulary as the rest of the lib ─────
@@ -469,7 +500,9 @@ function onAppendInnerClick(evt: MouseEvent) {
            the same chrome (variants, density, validation, clearable,
            labels) wraps multi-line text. The other branch is left as
            the more common single-line case so the template stays
-           grep-friendly. -->
+           grep-friendly. The `autofocus` attribute is what RDialog looks
+           for on open, so it lands here rather than on the close button. -->
+      <!-- eslint-disable vuejs-accessibility/no-autofocus -- opt-in per call site -->
       <textarea
         v-if="multiline"
         ref="inputRef"
@@ -479,9 +512,10 @@ function onAppendInnerClick(evt: MouseEvent) {
         :maxlength="maxlength"
         :name="name"
         :autocomplete="autocomplete"
+        :autofocus="autofocus || undefined"
         :disabled="disabled"
         :readonly="readonly"
-        :required="required"
+        :aria-required="required || undefined"
         :rows="rows"
         :aria-label="effectiveAriaLabel"
         :aria-invalid="hasError || undefined"
@@ -500,16 +534,22 @@ function onAppendInnerClick(evt: MouseEvent) {
         :maxlength="maxlength"
         :name="name"
         :autocomplete="autocomplete"
+        :autofocus="autofocus || undefined"
         :disabled="disabled"
         :readonly="readonly"
-        :required="required"
+        :aria-required="required || undefined"
         :aria-label="effectiveAriaLabel"
         :aria-invalid="hasError || undefined"
         :aria-describedby="showDetails ? `${fieldId}-details` : undefined"
+        :role="popup ? 'combobox' : undefined"
+        :aria-haspopup="popup?.kind"
+        :aria-expanded="popup ? popup.expanded : undefined"
+        :aria-controls="popup?.controls"
         @input="onInput"
         @focus="onFocus"
         @blur="onBlur"
       />
+      <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
       <!-- Append-inner adornment (right of the input). Loading +
            clearable take priority over user content. Interactive when
@@ -550,7 +590,7 @@ function onAppendInnerClick(evt: MouseEvent) {
           type="button"
           class="r-text-field__clear"
           tabindex="-1"
-          aria-label="Clear"
+          :aria-label="labels.clear"
           @mousedown.prevent
           @click.stop="clear"
         >
@@ -570,6 +610,15 @@ function onAppendInnerClick(evt: MouseEvent) {
           location="top"
         />
       </component>
+
+      <!-- Stands in for the browser's own "fill out this field" bubble,
+           which the form suppresses with `novalidate`. -->
+      <RTooltip
+        activator="parent"
+        :text="labels.required"
+        :disabled="!showRequiredTip"
+        location="top"
+      />
 
       <!-- Underline track — only painted for `underlined` variant.
            A child element rather than a border lets us animate the

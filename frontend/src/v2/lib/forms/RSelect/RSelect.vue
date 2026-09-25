@@ -37,6 +37,7 @@ import {
   watch,
 } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
@@ -151,6 +152,7 @@ const props = withDefaults(defineProps<Props>(), {
   density: "comfortable",
   itemTitle: "title",
   itemValue: "value",
+  allOptionLabel: undefined,
   multiple: false,
   returnObject: false,
   chips: false,
@@ -177,10 +179,13 @@ const props = withDefaults(defineProps<Props>(), {
   maxVisibleChips: Number.POSITIVE_INFINITY,
   chipTone: "brand",
   showAllOption: false,
-  allOptionLabel: "All",
   dividerAfter: undefined,
   info: undefined,
 });
+
+const labels = useChromeLabels();
+
+const allText = computed(() => props.allOptionLabel ?? labels.all);
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: unknown): void;
@@ -1009,13 +1014,13 @@ const describedBy = computed(() => {
           :tone="chipTone"
           size="small"
         >
-          {{ allOptionLabel }}
+          {{ allText }}
           <template v-if="closableChips" #append>
             <button
               type="button"
               class="r-select__chip-close"
               tabindex="-1"
-              aria-label="Remove"
+              :aria-label="labels.remove"
               @mousedown.prevent
               @click.stop="isAllSelected = false"
             >
@@ -1052,7 +1057,7 @@ const describedBy = computed(() => {
                 type="button"
                 class="r-select__chip-close"
                 tabindex="-1"
-                aria-label="Remove"
+                :aria-label="labels.remove"
                 @mousedown.prevent
                 @click.stop="removeSelection(item.value)"
               >
@@ -1109,7 +1114,7 @@ const describedBy = computed(() => {
           type="button"
           class="r-select__clear"
           tabindex="-1"
-          aria-label="Clear"
+          :aria-label="labels.clear"
           @mousedown.prevent
           @click.stop="clear"
         >
@@ -1216,7 +1221,7 @@ const describedBy = computed(() => {
                 @click="toggleAllItems"
                 @mouseenter="activeIndex = -1"
               >
-                <span class="r-select__item-title">{{ allOptionLabel }}</span>
+                <span class="r-select__item-title">{{ allText }}</span>
                 <RIcon
                   v-if="isAllSelected"
                   icon="mdi-check"
@@ -1777,9 +1782,8 @@ html[data-input="pad"] .r-select__field:focus {
   white-space: nowrap;
 }
 /* Column wrapper for two-row items (title + subtitle). Pair with the
-   single-line `.r-select__item-title` and `.r-select__item-subtitle`
-   classes inside it — the wrapper takes the flex slot the bare title
-   would have used. */
+   `.r-select__item-title` and `.r-select__item-subtitle` classes inside
+   it — the wrapper takes the flex slot the bare title would have used. */
 .r-select__item-stack {
   flex: 1;
   min-width: 0;
@@ -1792,13 +1796,12 @@ html[data-input="pad"] .r-select__field:focus {
      `flex: 1` — let it size to its line height. */
   flex: 0 0 auto;
 }
+/* A description never widens the menu past the activator; it wraps instead. */
 .r-select__item-subtitle {
+  contain: inline-size;
   font-size: 11px;
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .r-select__item-check {
   color: var(--r-color-brand-primary);

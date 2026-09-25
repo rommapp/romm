@@ -17,6 +17,7 @@
   "reset-link-failed": "Sıfırlama bağlantısı gönderilemedi",
   "reset-password": "Şifre sıfırla",
   "reset-sent": "Sıfırlama bağlantısı gönderildi. Yöneticinizle iletişime geçin.",
+  "reset-sent-email": "Hesabın bir e-posta adresi varsa sıfırlama bağlantısı yolda. Yoksa yöneticinize sorun.",
   "send-reset-link": "Sıfırlama bağlantısı gönder",
   "setup-wizard": "Kurulum sihirbazı",
   "unable-to-login": "Giriş yapılamadı: {error}",

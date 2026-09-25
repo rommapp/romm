@@ -298,15 +298,18 @@ class TestRecomputeSaveContentHashesTask:
         original_file_hash = fs_asset_handler._compute_file_hash
         original_zip_hash = fs_asset_handler._compute_zip_hash
 
-        with patch.object(
-            fs_asset_handler,
-            "_compute_file_hash",
-            wraps=original_file_hash,
-        ) as spy_file, patch.object(
-            fs_asset_handler,
-            "_compute_zip_hash",
-            wraps=original_zip_hash,
-        ) as spy_zip:
+        with (
+            patch.object(
+                fs_asset_handler,
+                "_compute_file_hash",
+                wraps=original_file_hash,
+            ) as spy_file,
+            patch.object(
+                fs_asset_handler,
+                "_compute_zip_hash",
+                wraps=original_zip_hash,
+            ) as spy_zip,
+        ):
             await task.run()
 
         assert spy_file.call_count == 1

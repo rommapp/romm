@@ -77,3 +77,22 @@ class FSPlatformsHandler(FSHandler):
         platforms = self._exclude_platforms(platforms)
 
         return platforms
+
+    async def find_ambiguous_folders(self, fs_slug: str) -> list[str]:
+        """The folders a single config mapping would cover, when it covers several.
+
+        Folder names key the config case-insensitively, so siblings differing
+        only by case (which only a case-sensitive filesystem allows) share one
+        entry and cannot be mapped apart.
+
+        Args:
+            fs_slug: The folder name a mapping is being written for.
+
+        Returns:
+            The matching folders, sorted, or empty when the name is unambiguous.
+        """
+        folded = fs_slug.lower()
+        matches = sorted(
+            folder for folder in await self.get_platforms() if folder.lower() == folded
+        )
+        return matches if len(matches) > 1 else []

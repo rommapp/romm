@@ -17,16 +17,7 @@
 // Serialization + summary live in `@/v2/utils/smartCollectionCriteria`
 // so the read-only display inside CollectionSettingsDrawer renders from
 // the same rules.
-import {
-  RBtn,
-  RChip,
-  RDialog,
-  RForm,
-  RIcon,
-  RSwitch,
-  RTextField,
-  RTag,
-} from "@v2/lib";
+import { RBtn, RChip, RDialog, RForm, RIcon, RTextField, RTag } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
@@ -39,6 +30,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import { toBrowserLocale } from "@/utils";
+import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -238,6 +230,8 @@ async function submit() {
     v-model="show"
     icon="mdi-playlist-plus"
     :width="mdAndUp ? 640 : '95vw'"
+    cancelable
+    :cancel-disabled="submitting"
     @close="close"
   >
     <template #header>
@@ -277,12 +271,7 @@ async function submit() {
               </template>
             </RTextField>
 
-            <RSwitch
-              v-model="isPublic"
-              :label="
-                isPublic ? t('collection.public') : t('collection.private')
-              "
-            />
+            <VisibilitySwitch v-model="isPublic" />
           </div>
 
           <!-- Right column: criteria preview -->
@@ -327,9 +316,6 @@ async function submit() {
     </template>
 
     <template #footer>
-      <RBtn variant="text" :disabled="submitting" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
       <RBtn
         variant="flat"
         color="primary"

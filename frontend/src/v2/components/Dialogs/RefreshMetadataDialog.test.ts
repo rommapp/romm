@@ -55,7 +55,7 @@ vi.mock("@/v2/composables/useScanProviders", async () => {
 
 const RDialog = {
   props: ["modelValue"],
-  template: `<div v-if="modelValue"><slot name="header" /><slot name="content" /><slot name="footer" /></div>`,
+  template: `<div v-if="modelValue"><slot name="header" /><slot name="content" /><slot name="footer-start" /><slot name="footer" /></div>`,
 };
 const RSelect = {
   props: ["modelValue", "items"],

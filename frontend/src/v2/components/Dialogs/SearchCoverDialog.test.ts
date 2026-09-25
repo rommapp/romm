@@ -1,7 +1,11 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SearchCoverSchema, SearchRomSchema } from "@/__generated__";
+import type {
+  CoverResource,
+  SearchCoverSchema,
+  SearchRomSchema,
+} from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import SearchCoverDialog from "./SearchCoverDialog.vue";
@@ -30,37 +34,43 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 const RDialog = {
-  props: ["modelValue"],
-  template: `<div v-if="modelValue"><slot name="header" /><slot name="content" /></div>`,
+  props: { modelValue: { type: Boolean, default: false } },
+  template: `<div v-if="modelValue"><slot name="header" /><slot name="toolbar" /><slot name="content" /></div>`,
 };
 const RCollapsible = {
-  props: ["title"],
+  props: { title: { type: String, default: "" } },
   template: `<section class="group" :data-title="title"><slot /></section>`,
 };
+const RMenu = {
+  template: `<div><slot name="activator" :props="{}" /><slot /></div>`,
+};
+const RMenuItem = {
+  props: { label: { type: String, default: "" } },
+  emits: ["click"],
+  template: `<button type="button" class="menu-item" @click="$emit('click')">{{ label }}</button>`,
+};
+
+function resource(url: string, score = 0): CoverResource {
+  return {
+    thumb: url,
+    url,
+    type: "static",
+    width: 600,
+    height: 900,
+    style: "",
+    author: "",
+    score,
+    nsfw: false,
+    humor: false,
+    epilepsy: false,
+  };
+}
 
 function cover(
   provider: SearchCoverSchema["provider"],
   url: string,
 ): SearchCoverSchema {
-  return {
-    provider,
-    name: "Blur",
-    resources: [
-      {
-        thumb: url,
-        url,
-        type: "static",
-        width: 600,
-        height: 900,
-        style: "",
-        author: "",
-        score: 0,
-        nsfw: false,
-        humor: false,
-        epilepsy: false,
-      },
-    ],
-  };
+  return { provider, name: "Blur", resources: [resource(url)] };
 }
 
 const rom = {
@@ -80,6 +90,8 @@ async function openDialog(withRom = false) {
       stubs: {
         RDialog,
         RCollapsible,
+        RMenu,
+        RMenuItem,
         RTextField: true,
         RSelect: true,
         RSwitch: true,
@@ -96,7 +108,7 @@ async function openDialog(withRom = false) {
     rom: withRom ? rom : undefined,
   });
   await flushPromises();
-  return { wrapper, picked };
+  return { wrapper, picked, emitter };
 }
 
 function gridGroups(
@@ -105,6 +117,14 @@ function gridGroups(
   return wrapper
     .findAll("section.group")
     .map((g) => g.attributes("data-title"));
+}
+
+function gridThumbs(
+  wrapper: Awaited<ReturnType<typeof openDialog>>["wrapper"],
+) {
+  return wrapper
+    .findAll("section.group .r-v2-sgdb__cover-img")
+    .map((img) => img.attributes("src"));
 }
 
 describe("SearchCoverDialog", () => {
@@ -149,6 +169,60 @@ describe("SearchCoverDialog", () => {
     const second = await openDialog();
     await second.wrapper.findAll("section.group button")[1].trigger("click");
     expect(second.picked).toHaveBeenLastCalledWith("https://steam/thumb.jpg");
+  });
+
+  it("re-sorts the grid by votes from the sort menu", async () => {
+    searchCover.mockResolvedValue({
+      data: [
+        {
+          provider: "sgdb",
+          name: "Blur",
+          resources: [
+            resource("https://sgdb/thumb/a.png", 1),
+            resource("https://sgdb/thumb/b.png", 5),
+          ],
+        },
+      ],
+    });
+    const { wrapper } = await openDialog();
+
+    expect(gridThumbs(wrapper)).toEqual([
+      "https://sgdb/thumb/a.png",
+      "https://sgdb/thumb/b.png",
+    ]);
+
+    const byVotes = wrapper
+      .findAll("button.menu-item")
+      .find((item) => item.text() === "rom.cover-sort-votes");
+    if (!byVotes) throw new Error("votes sort item not rendered");
+    await byVotes.trigger("click");
+    expect(gridThumbs(wrapper)).toEqual([
+      "https://sgdb/thumb/b.png",
+      "https://sgdb/thumb/a.png",
+    ]);
+  });
+
+  it("searches again on reopen and drops the search left running on close", async () => {
+    let finishStale: (value: { data: SearchCoverSchema[] }) => void = () => {};
+    searchCover
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishStale = resolve;
+        }),
+      )
+      .mockResolvedValueOnce({
+        data: [cover("steam", "https://steam/doom.jpg")],
+      });
+    const { wrapper, emitter } = await openDialog();
+
+    wrapper.findComponent(RDialog).vm.$emit("close");
+    emitter.emit("showSearchCoverDialog", { term: "Doom" });
+    await flushPromises();
+    finishStale({ data: [cover("sgdb", "https://sgdb/thumb/blur.png")] });
+    await flushPromises();
+
+    expect(searchCover).toHaveBeenLastCalledWith({ searchTerm: "Doom" });
+    expect(gridThumbs(wrapper)).toEqual(["https://steam/doom.jpg"]);
   });
 
   it("keeps a provider's match cover in the row when its grid came back empty", async () => {

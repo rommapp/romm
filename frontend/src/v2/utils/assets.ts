@@ -24,9 +24,25 @@ export function screenshotOf(asset: Asset): string | null {
   return asset.screenshot?.download_path ?? null;
 }
 
+/** A state loads only in the core that wrote it; one naming no core is anyone's. */
+export function isCoreCompatible(
+  asset: { emulator?: string | null },
+  core: string | null | undefined,
+): boolean {
+  return !asset.emulator || emulatorKey(asset.emulator) === emulatorKey(core);
+}
+
 /** ISO timestamps sort lexically. */
 export function byUpdatedDesc(a: Asset, b: Asset): number {
   return b.updated_at.localeCompare(a.updated_at);
+}
+
+/**
+ * Favorites lead their band, so a run worth keeping outlives its recency.
+ * Partitions only: a stable sort keeps the band's own order inside each half.
+ */
+export function byFavoriteFirst(a: Asset, b: Asset): number {
+  return Number(b.is_favorite ?? false) - Number(a.is_favorite ?? false);
 }
 
 export function newest<T extends { updated_at: string }>(

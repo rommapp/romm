@@ -76,6 +76,7 @@ import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useMultiplayerPref } from "@/v2/composables/useMultiplayerPref";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
+import { usePlayFocus } from "@/v2/composables/usePlayFocus";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -484,10 +485,10 @@ const emulatorLabel = computed(
   () => container.value?.label ?? platformLabel.value,
 );
 
-function focusPlayButton() {
-  const btn = document.querySelector<HTMLElement>(".r-v2-stream__play");
-  btn?.focus({ preventScroll: true });
-}
+const playReady = computed(
+  () => !!rom.value && playerState.value !== "loading",
+);
+usePlayFocus(".r-v2-stream__play", playReady, gameRunning);
 
 // ── Live activity ("now playing") ──────────────────────────────────
 // Each beat also refreshes the backend claim's liveness stamp: a session whose
@@ -707,17 +708,20 @@ async function handBackClaim(platform: string): Promise<void> {
 
 useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
   if (!isOurClaim(payload) || playerState.value !== "loading") return;
-  launchPhase.value = payload.phase;
+  launchPhase.value = payload.phase ?? null;
 });
 
 useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
   if (!isOurClaim(payload)) return;
   launchPhase.value = null;
-  if ((playerState.value as PlayerState) === "exited") {
+  if (playerState.value === "exited") {
     await handBackClaim(payload.platform);
     return;
   }
   if (payload.resume === false) snackbar.warning(t("play.resume-failed"));
+  // A status poll can land between the launch stamp and this push and enter
+  // first; entering again would force fullscreen back on.
+  if (playerState.value === "playing") return;
   await enterStream(payload.host);
 });
 
@@ -726,7 +730,7 @@ useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   // The backend already released the claim, so there is nothing to hand back.
   forgetClaim();
   launchPhase.value = null;
-  if ((playerState.value as PlayerState) === "exited") return;
+  if (playerState.value === "exited") return;
   errorType.value = "server";
   if (payload.refusals?.length) {
     errorMessage.value = t("play.stream-error-import-refused");
@@ -757,10 +761,7 @@ watch(gameRunning, (running, prev) => {
     presence.start();
     nextTick(focusStream);
   }
-  if (prev && !running) {
-    presence.stop();
-    nextTick(focusPlayButton);
-  }
+  if (prev && !running) presence.stop();
 });
 
 // ── Stage ──────────────────────────────────────────────────────────
@@ -1373,13 +1374,6 @@ onMounted(async () => {
     void onPlay();
     return;
   }
-
-  // Autofocus the Play CTA so gamepad/keyboard users land on the
-  // primary action without an extra Tab.
-  if (modality.value === "pad" || modality.value === "key") {
-    await nextTick();
-    focusPlayButton();
-  }
 });
 
 onBeforeUnmount(() => {
@@ -1454,7 +1448,7 @@ onBeforeUnmount(() => {
           :prepend-icon="playerState === 'loading' ? 'mdi-loading' : 'mdi-play'"
           class="r-v2-stream__play"
           :class="{ 'r-v2-stream__play--launching': playerState === 'loading' }"
-          :disabled="!rom || playerState === 'loading'"
+          :disabled="!playReady"
           @click="onPlay()"
         >
           {{
@@ -1914,7 +1908,12 @@ onBeforeUnmount(() => {
       </template>
     </RDialog>
 
-    <RDialog v-model="showDiscSwap" width="440">
+    <RDialog
+      v-model="showDiscSwap"
+      width="440"
+      cancelable
+      :cancel-disabled="isSwappingDisc"
+    >
       <template #header>
         <span>{{ t("play.swap-disc-title") }}</span>
       </template>
@@ -1931,13 +1930,6 @@ onBeforeUnmount(() => {
         />
       </template>
       <template #footer>
-        <RBtn
-          variant="text"
-          :disabled="isSwappingDisc"
-          @click="showDiscSwap = false"
-        >
-          {{ t("common.cancel") }}
-        </RBtn>
         <RBtn
           color="primary"
           variant="flat"
@@ -1986,7 +1978,6 @@ onBeforeUnmount(() => {
   border: 1px solid var(--r-color-border) !important;
   border-radius: var(--r-radius-lg) !important;
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   display: flex !important;
   flex-direction: column;
   overflow: hidden;

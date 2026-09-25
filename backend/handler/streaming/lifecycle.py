@@ -179,6 +179,14 @@ def collect_exit_saves(
     )
 
 
+async def start_exit_save_pull(
+    container: ResolvedContainer, session: dict[str, Any], *, settled: bool
+) -> None:
+    """Mark the exit pull pending, then start it, for a stop that is already done."""
+    mark = await mark_exit_saves_pending(container, session)
+    collect_exit_saves(container, session, mark, settled=settled)
+
+
 async def collect_exit_state(
     container: ResolvedContainer, session: dict[str, Any], state_slot: int | None
 ) -> None:
@@ -322,6 +330,8 @@ async def record_play_session(session: dict[str, Any]) -> None:
                     "duration_ms": duration_ms,
                 }
             ],
+            # The rom was checked against the user when the stream was claimed.
+            perms=None,
         )
     except Exception:
         log.exception("failed to record play session")
@@ -372,7 +382,11 @@ async def teardown_released_session(
         # which only the admin panel sends. Before the quiesce, so a poll finds it.
         if session.get("user_id") != acting_user_id or reason is not None:
             await record_termination(
-                session, session_key, ended_by=acting_username, reason=reason
+                session,
+                session_key,
+                ended_by=acting_username,
+                reason=reason,
+                ended_by_user_id=acting_user_id,
             )
             log.info(
                 "session force-released, platform=%s by=%s user_id=%s reason=%s",

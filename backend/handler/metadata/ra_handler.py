@@ -96,7 +96,7 @@ def extract_metadata_from_rom_details(
             # Extract date part (assuming format: "YYYY-MM-DD [additional info]")
             parsed_date = datetime.strptime(release_date_str.split()[0], "%Y-%m-%d")
             return int(parsed_date.timestamp())
-        except (AttributeError, ValueError, IndexError):
+        except AttributeError, ValueError, IndexError:
             return None
 
     publishers = pydash.compact([rom_details.get("Publisher", None)])

@@ -15,21 +15,27 @@
 import {
   RCheckbox,
   RChip,
+  RIcon,
+  RMarquee,
   RPlatformIcon,
   RSkeletonBlock,
   RTooltip,
 } from "@v2/lib";
-import { formatPlaytime, formatReleaseDate } from "@v2/utils/time";
-import { computed } from "vue";
+import { formatPlaytime, formatReleaseDate, releaseYear } from "@v2/utils/time";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, toBrowserLocale } from "@/utils";
+import ProviderBadges from "@/v2/components/Gallery/ProviderBadges.vue";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
+import { useStaggeredEntrance } from "@/v2/composables/useStaggeredEntrance";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 import { toWebpUrl } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, { type SimpleRom } from "@/v2/stores/galleryRoms";
@@ -38,8 +44,11 @@ import { activeProviders } from "@/v2/utils/metadataProviders";
 import {
   getListColumns,
   getListGridTemplate,
+  type ListColumn,
   LIST_COVER_HEIGHT_PX,
   LIST_COVER_WIDTH_PX,
+  LIST_TITLE_SKELETON_BARS,
+  LIST_TITLE_SKELETON_GAP_PX,
 } from "./listColumns";
 
 defineOptions({ inheritAttrs: false });
@@ -66,9 +75,13 @@ interface Props {
   /** Include the `platform` column. Mirrors `GameListHeader` so the row
    * stays aligned with the column header above it. */
   showPlatformColumn?: boolean;
-  /** Cover column width (px) — shared with the header so the title column
-   * aligns. Set by the shell from the gallery's widest cover. */
-  coverWidth?: number;
+  /** Offer the chevron that opens the detail panel (phones and tablets).
+   * Only for surfaces whose virtualiser reserves the taller row. */
+  expandable?: boolean;
+  /** Whether this row's detail panel is open. */
+  expanded?: boolean;
+  /** Px of that panel currently showing; it rolls open and shut. */
+  detailHeight?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -76,13 +89,17 @@ const props = withDefaults(defineProps<Props>(), {
   rom: undefined,
   webp: false,
   showPlatformColumn: true,
-  coverWidth: 48,
+  expandable: false,
+  expanded: false,
+  detailHeight: 0,
 });
 
 const emit = defineEmits<{
-  /** Forwards the cover's measured natural ratio so the shell can size the
-   *  cover column to the gallery's widest cover. */
+  /** Forwards the cover's measured natural ratio so the shell's flow-packer
+   *  can pack the grid by true cover shape. */
   (e: "ratio", payload: { romId: number; ratio: number }): void;
+  /** Chevron pressed; the parent owns which row is open. */
+  (e: "toggle-expand"): void;
 }>();
 
 const router = useRouter();
@@ -90,9 +107,10 @@ const galleryRoms = storeGalleryRoms();
 const selection = storeGallerySelection();
 const selectionInput = useGallerySelectionInput();
 const platformsStore = storePlatforms();
+const collectionsStore = storeCollections();
 const { morphTransition } = useViewTransition();
 const setBgArt = useBackgroundArt();
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const listSkeletonColumns = columns;
@@ -123,11 +141,70 @@ function onCheckboxClick(e: MouseEvent) {
 }
 
 const gridStyle = computed(() => ({
-  gridTemplateColumns: getListGridTemplate(
-    props.showPlatformColumn,
-    props.coverWidth,
-  ),
+  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
 }));
+const titleSkeletonGapStyle = { gap: `${LIST_TITLE_SKELETON_GAP_PX}px` };
+
+/** The panel's fields after the file name, in the order it lays them out:
+ *  the size beside the name, then two rows of three. */
+const detailFields = computed(() => {
+  const item = rom.value;
+  if (!item) return [];
+  return [
+    { label: labelOf("fs_size_bytes"), value: formatBytes(item.fs_size_bytes) },
+    { label: labelOf("created_at"), value: formatDate(item.created_at) },
+    { label: labelOf("first_release_date"), value: releaseDate(item) },
+    { label: labelOf("hltb_main_story"), value: lengthValue(item) },
+    { label: labelOf("average_rating"), value: ratingValue(item) },
+    { label: labelOf("languages"), value: listValue(item.languages) },
+    { label: labelOf("regions"), value: listValue(item.regions) },
+  ];
+});
+
+/** Alignment / figure modifiers for a cell, read off the column config so
+ *  the body cannot drift from the header above it. */
+function cellModifiers(key: ListColumn["key"]) {
+  const column = columns.value.find((col) => col.key === key);
+  return {
+    "game-list-row__cell--end": column?.align === "end",
+    "game-list-row__cell--num": column?.numeric === true,
+  };
+}
+
+// Phones and tablets have no room for the columns: the row collapses to a
+// title plus the facts line, and the rest moves into the detail panel.
+const { smAndDown } = useBreakpoint();
+
+const rowEl = ref<HTMLElement | null>(null);
+const { entranceClass, entranceStyle, endEntrance } = useStaggeredEntrance(
+  rowEl,
+  () => rom.value != null,
+);
+
+/** Column header label, so the detail panel's captions and the desktop
+ *  column titles can't drift apart. */
+function labelOf(key: ListColumn["key"]): string {
+  return columns.value.find((col) => col.key === key)?.label ?? "";
+}
+
+function listValue(values: string[] | null | undefined): string {
+  return values && values.length > 0 ? values.join(", ") : "—";
+}
+
+/** Leads the facts line wherever the list mixes platforms. */
+const platformName = computed(() => {
+  const item = rom.value;
+  if (!item || !props.showPlatformColumn) return null;
+  return item.platform_custom_name || item.platform_display_name;
+});
+
+const year = computed(() =>
+  releaseYear(rom.value?.metadatum?.first_release_date),
+);
+
+const isFavorited = computed(() =>
+  rom.value ? collectionsStore.isFavorite(rom.value) : false,
+);
 
 const platformMeta = computed(() => {
   const item = rom.value;
@@ -244,28 +321,32 @@ function onRowHighlight() {
 function onRowPointerDown(e: PointerEvent) {
   const item = rom.value;
   if (!item || isStatic.value || props.position === undefined) return;
+  // Reading the open panel is not a press on the row.
+  if ((e.target as Element | null)?.closest(".game-list-row__detail")) return;
   selectionInput.handlePointerDown(item, props.position, e);
-}
-function onRowPointerMove(e: PointerEvent) {
-  if (isStatic.value) return;
-  selectionInput.handlePointerMove(e);
-}
-function onRowPointerEnd() {
-  if (isStatic.value) return;
-  selectionInput.handlePointerEnd();
 }
 </script>
 
 <template>
   <a
+    ref="rowEl"
     class="game-list-row"
-    :class="{
-      'game-list-row--clickable': !!rom,
-      'game-list-row--selected': isSelected,
-    }"
-    :style="gridStyle"
+    :class="[
+      {
+        'game-list-row--columns': !smAndDown,
+        'game-list-row--clickable': !!rom,
+        'game-list-row--selected': isSelected,
+        'game-list-row--expanded': expanded,
+      },
+      entranceClass,
+    ]"
+    :style="[smAndDown ? undefined : gridStyle, entranceStyle]"
     :href="rom ? `/rom/${rom.id}` : undefined"
-    :aria-label="rom ? `Open ${rom.name ?? rom.fs_name_no_ext}` : undefined"
+    :aria-label="
+      rom
+        ? t('common.open-item', { name: rom.name ?? rom.fs_name_no_ext })
+        : undefined
+    "
     :data-rom-position="position"
     :data-rom-id="rom?.id"
     :data-focus-key="rom ? `rom-${rom.id}` : undefined"
@@ -273,50 +354,72 @@ function onRowPointerEnd() {
     @mouseenter="onRowHighlight"
     @focus="onRowHighlight"
     @pointerdown="onRowPointerDown"
-    @pointermove="onRowPointerMove"
-    @pointerup="onRowPointerEnd"
-    @pointercancel="onRowPointerEnd"
+    @contextmenu="selectionInput.handleContextMenu"
+    @animationend.self="endEntrance"
   >
     <template v-if="rom">
-      <!-- Selection cell — leftmost column. Click toggles this row;
-           shift-click extends the range from the last toggled position.
-           Hidden at rest; reveals on row hover / focus or whenever the
-           row is selected so the user always knows which rows are
-           picked. RCheckbox provides the box / fill / draw animations
-           — same animation language as the GameCard checkbox in grid
-           mode. -->
-      <div class="game-list-row__cell game-list-row__select">
-        <RCheckbox
-          v-if="!isStatic"
-          class="game-list-row__check"
-          :model-value="isSelected"
-          shape="circle"
-          size="sm"
-          color="primary"
-          bare
-          hide-details
-          tabindex="-1"
-          @click="onCheckboxClick"
-        />
-      </div>
+      <!-- COMPACT (phones / tablets): two lines plus the chevron; the
+           columns move into the detail panel below. -->
+      <template v-if="smAndDown">
+        <div class="game-list-row__compact r-list-compact">
+          <div class="game-list-row__select">
+            <RCheckbox
+              v-if="!isStatic"
+              class="game-list-row__check"
+              :model-value="isSelected"
+              shape="circle"
+              size="sm"
+              color="primary"
+              bare
+              hide-details
+              tabindex="-1"
+              @click="onCheckboxClick"
+            />
+          </div>
 
-      <div class="game-list-row__cell game-list-row__cover">
-        <GameCard
-          :rom="rom"
-          size="xs"
-          :webp="webp"
-          decorative
-          :show-title="false"
-          :show-platform-icon="false"
-          @ratio="emit('ratio', $event)"
-        />
-      </div>
+          <div class="game-list-row__cover">
+            <GameCard
+              :rom="rom"
+              size="xs"
+              :webp="webp"
+              decorative
+              :show-title="false"
+              :show-platform-icon="showPlatformColumn"
+              @ratio="emit('ratio', $event)"
+            />
+          </div>
 
-      <div class="game-list-row__cell game-list-row__title">
-        <div class="game-list-row__meta">
-          <div class="game-list-row__name-row">
+          <div class="r-list-compact__stack">
             <div class="game-list-row__name">
               {{ rom.name ?? rom.fs_name_no_ext }}
+            </div>
+            <div class="r-list-compact__facts">
+              <template v-if="platformName">
+                <RPlatformIcon
+                  class="game-list-row__facts-icon"
+                  :slug="rom.platform_slug"
+                  :fs-slug="rom.platform_fs_slug"
+                  :alt="platformName"
+                  :size="14"
+                  :show-tooltip="false"
+                />
+                <span>{{ platformName }}</span>
+              </template>
+              <span v-if="platformName && year" class="r-list-compact__dot"
+                >·</span
+              >
+              <span v-if="year">{{ year }}</span>
+              <template v-if="isFavorited">
+                <span v-if="platformName || year" class="r-list-compact__dot"
+                  >·</span
+                >
+                <RIcon
+                  icon="mdi-heart"
+                  size="11"
+                  class="game-list-row__fav"
+                  :aria-label="t('rom.favorite')"
+                />
+              </template>
             </div>
             <div class="game-list-row__badges" @click.stop>
               <GameActionBtn
@@ -324,178 +427,331 @@ function onRowPointerEnd() {
                 :rom="rom"
                 action="status"
                 size="x-small"
+                variant="surface"
                 orientation="horizontal"
               />
               <SiblingBadge :rom="rom" orientation="horizontal" />
             </div>
           </div>
-          <div class="game-list-row__filename">{{ rom.fs_name }}</div>
-          <div
-            v-if="providers.length > 0"
-            class="game-list-row__providers"
-            @click.stop
-          >
-            <span
-              v-for="provider in providers"
-              :key="provider.key"
-              class="game-list-row__provider"
-              :style="provider.bg ? { background: provider.bg } : undefined"
+
+          <div class="game-list-row__actions" @click.stop>
+            <GameActionBtn
+              :rom="rom"
+              action="more"
+              size="small"
+              variant="bare"
+            />
+            <button
+              v-if="expandable"
+              type="button"
+              class="game-list-row__chevron"
+              :class="{ 'game-list-row__chevron--open': expanded }"
+              :aria-expanded="expanded"
+              :aria-label="t('common.details')"
+              @click.stop.prevent="emit('toggle-expand')"
             >
-              <img
-                :src="`/assets/scrappers/${provider.logo}`"
-                :alt="provider.title"
-                width="14"
-                height="14"
-              />
-              <RTooltip
-                activator="parent"
-                :text="provider.title"
-                location="top"
-              />
-            </span>
+              <RIcon icon="mdi-chevron-down" size="18" />
+            </button>
           </div>
         </div>
-      </div>
 
-      <div
-        v-if="showPlatformColumn"
-        class="game-list-row__cell game-list-row__platform"
-      >
-        <RPlatformIcon
-          v-if="platformMeta?.slug"
-          :slug="platformMeta.slug"
-          :size="24"
-        />
-        <span class="game-list-row__platform-name">
-          {{ platformMeta?.name ?? "—" }}
-        </span>
-      </div>
-
-      <div class="game-list-row__cell">
-        {{ rom.fs_size_bytes ? formatBytes(rom.fs_size_bytes) : "—" }}
-      </div>
-      <div class="game-list-row__cell">{{ formatDate(rom.created_at) }}</div>
-      <div class="game-list-row__cell">{{ releaseDate(rom) }}</div>
-      <div class="game-list-row__cell">{{ ratingValue(rom) }}</div>
-      <div class="game-list-row__cell">{{ lengthValue(rom) }}</div>
-
-      <div class="game-list-row__cell game-list-row__cell--pills">
-        <div class="game-list-row__pills">
-          <RChip
-            v-for="l in (rom.languages ?? []).slice(0, PILLS_VISIBLE)"
-            :key="`lang-${l}`"
-            size="x-small"
-            variant="translucent"
-          >
-            {{ l }}
-          </RChip>
-          <RChip
-            v-if="(rom.languages?.length ?? 0) > PILLS_VISIBLE"
-            size="x-small"
-            variant="translucent"
-          >
-            +{{ (rom.languages?.length ?? 0) - PILLS_VISIBLE }}
-          </RChip>
+        <div
+          v-if="expanded"
+          class="game-list-row__detail"
+          :style="{ height: `${detailHeight}px` }"
+          @click.stop
+        >
+          <div class="game-list-row__detail-inner">
+            <div class="game-list-row__field game-list-row__field--filename">
+              <span class="game-list-row__field-label">{{
+                t("rom.filename")
+              }}</span>
+              <RMarquee class="game-list-row__field-value">{{
+                rom.fs_name
+              }}</RMarquee>
+            </div>
+            <div
+              v-for="field in detailFields"
+              :key="field.label"
+              class="game-list-row__field"
+            >
+              <span class="game-list-row__field-label">{{ field.label }}</span>
+              <span class="game-list-row__field-value">{{ field.value }}</span>
+            </div>
+            <div class="game-list-row__field game-list-row__field--wide">
+              <span class="game-list-row__field-label">{{
+                t("scan.metadata-sources")
+              }}</span>
+              <ProviderBadges
+                v-if="providers.length > 0"
+                :providers="providers"
+              />
+              <span v-else class="game-list-row__field-value">—</span>
+            </div>
+          </div>
         </div>
-        <RTooltip
-          v-if="(rom.languages?.length ?? 0) > PILLS_VISIBLE"
-          activator="parent"
-          :text="rom.languages?.join(', ')"
-          location="top"
-        />
-      </div>
-      <div class="game-list-row__cell game-list-row__cell--pills">
-        <div class="game-list-row__pills">
-          <RChip
-            v-for="r in (rom.regions ?? []).slice(0, PILLS_VISIBLE)"
-            :key="`reg-${r}`"
-            size="x-small"
-            variant="translucent"
-          >
-            {{ r }}
-          </RChip>
-          <RChip
-            v-if="(rom.regions?.length ?? 0) > PILLS_VISIBLE"
-            size="x-small"
-            variant="translucent"
-          >
-            +{{ (rom.regions?.length ?? 0) - PILLS_VISIBLE }}
-          </RChip>
-        </div>
-        <RTooltip
-          v-if="(rom.regions?.length ?? 0) > PILLS_VISIBLE"
-          activator="parent"
-          :text="rom.regions?.join(', ')"
-          location="top"
-        />
-      </div>
+      </template>
 
-      <div class="game-list-row__cell game-list-row__cell--end">
-        <div class="game-list-row__actions" @click.stop>
-          <GameActionBtn
-            :rom="rom"
-            action="favorite"
-            size="small"
-            variant="bare"
+      <template v-else>
+        <!-- Selection cell, leftmost column. Click toggles this row;
+           shift-click extends the range from the last toggled position.
+           Hidden at rest; reveals on row hover / focus or whenever the
+           row is selected so the user always knows which rows are
+           picked. RCheckbox provides the box / fill / draw animations
+           (same animation language as the GameCard checkbox in grid
+           mode). -->
+        <div class="game-list-row__cell game-list-row__select">
+          <RCheckbox
+            v-if="!isStatic"
+            class="game-list-row__check"
+            :model-value="isSelected"
+            shape="circle"
+            size="sm"
+            color="primary"
+            bare
+            hide-details
+            tabindex="-1"
+            @click="onCheckboxClick"
           />
-          <GameActionBtn :rom="rom" action="more" size="small" variant="bare" />
         </div>
-      </div>
+
+        <div class="game-list-row__cell game-list-row__cover">
+          <GameCard
+            :rom="rom"
+            size="xs"
+            :webp="webp"
+            decorative
+            :show-title="false"
+            :show-platform-icon="false"
+            @ratio="emit('ratio', $event)"
+          />
+        </div>
+
+        <div class="game-list-row__cell game-list-row__title">
+          <div class="game-list-row__meta">
+            <div class="game-list-row__name-row">
+              <div class="game-list-row__name">
+                {{ rom.name ?? rom.fs_name_no_ext }}
+              </div>
+              <div class="game-list-row__badges" @click.stop>
+                <GameActionBtn
+                  v-if="hasStatus"
+                  :rom="rom"
+                  action="status"
+                  size="x-small"
+                  orientation="horizontal"
+                />
+                <SiblingBadge :rom="rom" orientation="horizontal" />
+              </div>
+            </div>
+            <div class="game-list-row__filename">{{ rom.fs_name }}</div>
+            <ProviderBadges
+              v-if="providers.length > 0"
+              class="game-list-row__providers"
+              :providers="providers"
+              @click.stop
+            />
+          </div>
+        </div>
+
+        <div
+          v-if="showPlatformColumn"
+          class="game-list-row__cell game-list-row__platform"
+        >
+          <RPlatformIcon
+            v-if="platformMeta?.slug"
+            :slug="platformMeta.slug"
+            :size="24"
+          />
+          <span class="game-list-row__platform-name">
+            {{ platformMeta?.name ?? "—" }}
+          </span>
+        </div>
+
+        <div
+          class="game-list-row__cell"
+          :class="cellModifiers('fs_size_bytes')"
+        >
+          {{ formatBytes(rom.fs_size_bytes) }}
+        </div>
+        <div class="game-list-row__cell" :class="cellModifiers('created_at')">
+          {{ formatDate(rom.created_at) }}
+        </div>
+        <div
+          class="game-list-row__cell"
+          :class="cellModifiers('first_release_date')"
+        >
+          {{ releaseDate(rom) }}
+        </div>
+        <div
+          class="game-list-row__cell"
+          :class="cellModifiers('average_rating')"
+        >
+          {{ ratingValue(rom) }}
+        </div>
+        <div
+          class="game-list-row__cell"
+          :class="cellModifiers('hltb_main_story')"
+        >
+          {{ lengthValue(rom) }}
+        </div>
+
+        <div class="game-list-row__cell game-list-row__cell--pills">
+          <div class="game-list-row__pills">
+            <RChip
+              v-for="l in (rom.languages ?? []).slice(0, PILLS_VISIBLE)"
+              :key="`lang-${l}`"
+              size="x-small"
+              variant="translucent"
+            >
+              {{ l }}
+            </RChip>
+            <RChip
+              v-if="(rom.languages?.length ?? 0) > PILLS_VISIBLE"
+              size="x-small"
+              variant="translucent"
+            >
+              +{{ (rom.languages?.length ?? 0) - PILLS_VISIBLE }}
+            </RChip>
+          </div>
+          <RTooltip
+            v-if="(rom.languages?.length ?? 0) > PILLS_VISIBLE"
+            activator="parent"
+            :text="rom.languages?.join(', ')"
+            location="top"
+          />
+        </div>
+        <div class="game-list-row__cell game-list-row__cell--pills">
+          <div class="game-list-row__pills">
+            <RChip
+              v-for="r in (rom.regions ?? []).slice(0, PILLS_VISIBLE)"
+              :key="`reg-${r}`"
+              size="x-small"
+              variant="translucent"
+            >
+              {{ r }}
+            </RChip>
+            <RChip
+              v-if="(rom.regions?.length ?? 0) > PILLS_VISIBLE"
+              size="x-small"
+              variant="translucent"
+            >
+              +{{ (rom.regions?.length ?? 0) - PILLS_VISIBLE }}
+            </RChip>
+          </div>
+          <RTooltip
+            v-if="(rom.regions?.length ?? 0) > PILLS_VISIBLE"
+            activator="parent"
+            :text="rom.regions?.join(', ')"
+            location="top"
+          />
+        </div>
+
+        <div class="game-list-row__cell" :class="cellModifiers('actions')">
+          <div class="game-list-row__actions" @click.stop>
+            <GameActionBtn
+              :rom="rom"
+              action="favorite"
+              size="small"
+              variant="bare"
+            />
+            <GameActionBtn
+              :rom="rom"
+              action="more"
+              size="small"
+              variant="bare"
+            />
+          </div>
+        </div>
+      </template>
     </template>
 
     <template v-else>
-      <!-- Column-driven, so the per-cell shapes stay in step with
-           `GameListSkeletonRow` and the row does not reflow on data arrival. -->
-      <template v-for="col in listSkeletonColumns" :key="String(col.key)">
-        <div
-          v-if="col.key === 'select'"
-          class="game-list-row__cell game-list-row__select"
-        >
-          <!-- Empty cell during skeleton phase — no placeholder so the
-               selection chrome only appears once a real row exists. -->
-        </div>
-        <div
-          v-else-if="col.key === 'cover'"
-          class="game-list-row__cell game-list-row__cover"
-        >
+      <!-- Compact skeleton, same two-line shape as the compact row. -->
+      <div v-if="smAndDown" class="game-list-row__compact r-list-compact">
+        <div class="game-list-row__select" />
+        <div class="game-list-row__cover">
           <RSkeletonBlock
             :width="LIST_COVER_WIDTH_PX"
             :height="LIST_COVER_HEIGHT_PX"
           />
         </div>
-        <div
-          v-else-if="col.key === 'name'"
-          class="game-list-row__cell game-list-row__title"
-        >
-          <div class="game-list-row__meta">
-            <RSkeletonBlock width="60%" :height="12" />
-            <RSkeletonBlock width="40%" :height="10" />
+        <div class="r-list-compact__stack" :style="titleSkeletonGapStyle">
+          <RSkeletonBlock
+            v-for="(bar, i) in LIST_TITLE_SKELETON_BARS"
+            :key="i"
+            :width="bar.width"
+            :height="bar.height"
+          />
+        </div>
+      </div>
+
+      <!-- Column-driven, so the per-cell shapes stay in step with
+           `GameListSkeletonRow` and the row does not reflow on data arrival. -->
+      <template v-else>
+        <template v-for="col in listSkeletonColumns" :key="String(col.key)">
+          <div
+            v-if="col.key === 'select'"
+            class="game-list-row__cell game-list-row__select"
+          >
+            <!-- Empty cell during skeleton phase, no placeholder so the
+               selection chrome only appears once a real row exists. -->
           </div>
-        </div>
-        <div v-else-if="col.key === 'platform_id'" class="game-list-row__cell">
-          <div class="game-list-row__platform">
-            <RSkeletonBlock :width="24" :height="24" circle />
-            <RSkeletonBlock :width="100" :height="10" />
+          <div
+            v-else-if="col.key === 'cover'"
+            class="game-list-row__cell game-list-row__cover"
+          >
+            <RSkeletonBlock
+              :width="LIST_COVER_WIDTH_PX"
+              :height="LIST_COVER_HEIGHT_PX"
+            />
           </div>
-        </div>
-        <div
-          v-else-if="col.key === 'languages' || col.key === 'regions'"
-          class="game-list-row__cell"
-        >
-          <div class="game-list-row__pills">
-            <RSkeletonBlock :width="28" :height="16" rounded="pill" />
-            <RSkeletonBlock :width="28" :height="16" rounded="pill" />
+          <div
+            v-else-if="col.key === 'name'"
+            class="game-list-row__cell game-list-row__title"
+          >
+            <div class="game-list-row__meta" :style="titleSkeletonGapStyle">
+              <RSkeletonBlock
+                v-for="(bar, i) in LIST_TITLE_SKELETON_BARS"
+                :key="i"
+                :width="bar.width"
+                :height="bar.height"
+              />
+            </div>
           </div>
-        </div>
-        <div
-          v-else-if="col.key === 'actions'"
-          class="game-list-row__cell game-list-row__cell--end"
-        >
-          <RSkeletonBlock :width="18" :height="18" circle />
-        </div>
-        <div v-else class="game-list-row__cell">
-          <RSkeletonBlock :width="col.skeletonWidth ?? 60" :height="10" />
-        </div>
+          <div
+            v-else-if="col.key === 'platform_id'"
+            class="game-list-row__cell"
+          >
+            <div class="game-list-row__platform">
+              <RSkeletonBlock :width="24" :height="24" circle />
+              <RSkeletonBlock :width="100" :height="10" />
+            </div>
+          </div>
+          <div
+            v-else-if="col.key === 'languages' || col.key === 'regions'"
+            class="game-list-row__cell"
+          >
+            <div class="game-list-row__pills">
+              <RSkeletonBlock :width="28" :height="16" rounded="pill" />
+              <RSkeletonBlock :width="28" :height="16" rounded="pill" />
+            </div>
+          </div>
+          <div
+            v-else-if="col.key === 'actions'"
+            class="game-list-row__cell"
+            :class="cellModifiers('actions')"
+          >
+            <RSkeletonBlock :width="18" :height="18" circle />
+          </div>
+          <div
+            v-else
+            class="game-list-row__cell"
+            :class="{ 'game-list-row__cell--end': col.align === 'end' }"
+          >
+            <RSkeletonBlock :width="col.skeletonWidth ?? 60" :height="10" />
+          </div>
+        </template>
       </template>
     </template>
   </a>
@@ -503,16 +759,132 @@ function onRowPointerEnd() {
 
 <style scoped>
 .game-list-row {
-  display: grid;
-  align-items: center;
-  gap: 0 var(--r-space-3);
-  padding: 0 var(--r-space-3);
-  height: var(--r-list-row-h);
-  border-bottom: 1px solid var(--r-color-border);
+  /* An inline <a> would shrink-wrap its content and swallow the bleed. */
+  display: block;
+  /* The long press selects the row; iOS would offer its link callout too. */
+  -webkit-touch-callout: none;
+  /* Runs to the screen edges wherever the shell asks for it. */
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
   font-size: var(--r-font-size-md);
   color: var(--r-color-fg-secondary);
   cursor: default;
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
+}
+
+/* Column layout, for the viewports that still have columns. The compact
+   branch is plain flow, so it needs nothing cancelled. */
+.game-list-row--columns {
+  display: grid;
+  align-items: center;
+  gap: 0 var(--r-space-5);
+  /* Runs to the leading screen edge wherever the shell asks, keeping that
+     gutter as padding so the first column lines up with the toolbar. */
+  margin-inline-start: calc(-1 * var(--r-list-bleed-start, 0px));
+  padding: 0 var(--r-space-3);
+  padding-inline-start: max(var(--r-space-3), var(--r-list-bleed-start, 0px));
+  height: var(--r-list-row-h);
+  border-bottom: 1px solid var(--r-color-border);
+}
+
+/* ── Compact layout (phones / tablets) ───────────────────────────────
+   No columns: a two-line block, and a detail panel whose fixed height the
+   virtualiser mirrors (`LIST_ROW_DETAIL_HEIGHT_PX`) so the rows below an
+   open row sit clear of it. */
+.game-list-row__compact {
+  height: var(--r-list-row-h);
+  border-bottom: 1px solid var(--r-color-border);
+}
+.game-list-row--expanded .game-list-row__compact {
+  border-bottom-color: transparent;
+}
+.game-list-row__compact > .game-list-row__select {
+  flex: none;
+  width: var(--r-list-select-w);
+}
+/* Two lines of title: most names fit whole, and the row keeps its height
+   (cover 64 + two lines + the facts line still sit inside it). */
+.game-list-row__compact .game-list-row__name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  line-height: 1.25;
+}
+.game-list-row__facts-icon,
+.game-list-row__fav {
+  flex-shrink: 0;
+}
+.game-list-row__fav {
+  color: var(--r-color-brand-primary);
+}
+
+.game-list-row__chevron {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--r-color-fg-muted);
+  cursor: pointer;
+  transition: transform var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.game-list-row__chevron--open {
+  transform: rotate(180deg);
+  color: var(--r-color-fg);
+}
+/* Rolls open and shut: the height comes from `useListExpansion`, which the
+   virtualiser reads too, so the panel and the slot it sits in move together.
+   The inner block keeps its full height and is clipped meanwhile. */
+.game-list-row__detail {
+  overflow: hidden;
+  border-bottom: 1px solid var(--r-color-border);
+  background: var(--r-color-bg-elevated);
+  cursor: default;
+}
+.game-list-row__detail-inner {
+  height: var(--r-list-row-detail-h);
+  padding: var(--r-space-4) var(--r-row-pad);
+  display: grid;
+  /* Three equal columns across the full width, so the fields land in the
+     same place whatever the title or the file name measure. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--r-space-4);
+  align-content: start;
+}
+.game-list-row__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+/* One line, always: the panel's height is fixed (`--r-list-row-detail-h`) for
+   the virtualiser, so a caption that wraps in another locale would push the
+   last field out of the clipped box. */
+.game-list-row__field-label {
+  font-size: var(--r-font-size-xs);
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game-list-row__field--wide {
+  grid-column: 1 / -1;
+}
+/* Loops sideways when it overflows, so a long name reads whole in one line. */
+.game-list-row__field--filename {
+  grid-column: span 2;
+}
+.game-list-row__field-value {
+  font-size: var(--r-font-size-md);
+  color: var(--r-color-fg-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .game-list-row--clickable {
@@ -531,6 +903,15 @@ function onRowPointerEnd() {
 }
 .game-list-row--selected.game-list-row--clickable:hover {
   background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
+}
+
+/* The scroller clips an outline past the row's screen edge, so key and pad
+   focus paint inside the row. */
+html:not([data-input]) .game-list-row:focus-visible,
+html[data-input="key"] .game-list-row:focus-visible,
+html[data-input="pad"] .game-list-row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 var(--r-focus-ring-width) var(--r-color-focus);
 }
 
 /* Select cell — checkbox column. Empty when the row is in skeleton
@@ -565,9 +946,16 @@ function onRowPointerEnd() {
   text-overflow: ellipsis;
 }
 
+/* Quantities and dates pin to the column's right edge, so the digits line up
+   down the column instead of stepping with the unit or month width. */
 .game-list-row__cell--end {
-  display: flex;
-  justify-content: flex-end;
+  text-align: end;
+}
+
+/* Tabular figures for the digit columns: proportional digits make the
+   column ragged even at a fixed width. */
+.game-list-row__cell--num {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Cover sits in its own fixed-width column (centred) so the title/meta
@@ -644,28 +1032,10 @@ function onRowPointerEnd() {
   text-overflow: ellipsis;
 }
 
+/* The badges own their look; the column layout only adds the gap under the
+   file name above them. */
 .game-list-row__providers {
-  display: flex;
-  align-items: center;
-  gap: 3px;
   margin-top: 4px;
-  overflow: hidden;
-}
-
-.game-list-row__provider {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  background: var(--r-color-surface);
-  flex-shrink: 0;
-}
-
-.game-list-row__provider img {
-  display: block;
-  object-fit: contain;
 }
 
 /* Pills cell — chips wrap to multiple lines inside the cell when they

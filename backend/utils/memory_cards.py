@@ -113,7 +113,7 @@ def assert_card_archive_safe(content: bytes) -> None:
     # Encrypted entries and unsupported compression raise on the read rather
     # than on the open, and an archive this cannot look inside is one the broker
     # must not be handed either.
-    except (zipfile.BadZipFile, NotImplementedError, RuntimeError):
+    except zipfile.BadZipFile, NotImplementedError, RuntimeError:
         raise UnsafeCardArchive("not a readable zip archive") from None
 
 

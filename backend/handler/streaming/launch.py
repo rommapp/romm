@@ -72,6 +72,11 @@ async def run_launch(
     phase_watch = asyncio.create_task(
         _watch_launch_phase(container, session_key, session, platform)
     )
+    # An exit-state broker resumes from the state its archive restores, so with
+    # no archive uploaded there is nothing of this player's to resume.
+    resume_on_activate = (resume_pushed or resume_after_launch) and not (
+        container.resumes_from_archive and archive_path is None
+    )
     try:
         # Wrapped in asyncio.to_thread because urllib is synchronous.
         if container.is_webstation:
@@ -93,9 +98,7 @@ async def run_launch(
                 },
                 gui_language=gui_language,
                 archive_path=archive_path,
-                resume_slot=(
-                    resume_slot if resume_pushed or resume_after_launch else None
-                ),
+                resume_slot=resume_slot if resume_on_activate else None,
                 memory_card_synced=memory_card_synced,
                 multiplayer=multiplayer,
             )
@@ -160,7 +163,7 @@ async def run_launch(
         elif container.resumes_from_archive:
             # No import was needed at all: this pick is the newest capture,
             # already the exit state the save archive naturally carries.
-            resume_pushed = True
+            resume_pushed = resume_on_activate
         else:
             resume_pushed = await states.push_resume_state(container, resume_state)
 

@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, TypeVar
 
 from fastapi import HTTPException, Request, status
@@ -20,7 +20,7 @@ from handler.metadata import (
     meta_ss_handler,
     meta_steam_handler,
 )
-from handler.metadata.base_handler import CoverResult
+from handler.metadata.base_handler import CoverResult, MetadataHandler
 from handler.metadata.demozoo_handler import DemozooRom
 from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
@@ -236,7 +236,9 @@ async def search_rom(
 
     merged_dict: dict[str, dict] = {}
 
-    source_configs = {
+    source_configs: dict[
+        MetadataSource, tuple[Sequence[Mapping[str, Any]], MetadataHandler, str, str]
+    ] = {
         MetadataSource.IGDB: (
             igdb_matched_roms,
             meta_igdb_handler,
@@ -284,7 +286,7 @@ async def search_rom(
         source_matched_roms, meta_handler, id_key, cover_key = source_configs[
             meta_source
         ]
-        for source_rom in source_matched_roms:  # trunk-ignore(mypy/attr-defined)
+        for source_rom in source_matched_roms:
             if source_rom[id_key]:
                 normalized_name = meta_handler.normalize_search_term(
                     source_rom.get("name", ""),

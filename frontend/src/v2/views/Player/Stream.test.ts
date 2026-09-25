@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, type Slots, type VNodeChild } from "vue";
 import type { SaveSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
+import { saveFixture } from "@/utils/assets.fixtures";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
@@ -190,16 +191,15 @@ function save(
   file_name: string,
   overrides: Partial<SaveSchema> = {},
 ): SaveSchema {
-  return {
+  return saveFixture({
     id,
     file_name,
     emulator: "retroarch",
     rom_id: 3,
-    user_id: 1,
     created_at: `2026-09-14T0${id}:00:00`,
     updated_at: `2026-09-14T0${id}:00:00`,
     ...overrides,
-  } as SaveSchema;
+  });
 }
 
 // Newest first, the order the launch screen sorts into.
@@ -871,6 +871,25 @@ describe("Stream launch recovery", () => {
       "gba",
       CLAIM.claimed_at,
     );
+    expect(vmOf(wrapper).playerState).toBe("playing");
+    expect(vmOf(wrapper).containerHost).toBe(
+      "http://webstation-dev:8080/room/x",
+    );
+  });
+
+  it("leaves a stream the poll entered alone when launch-ready follows", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.fetchSessionStatus.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: "http://webstation-dev:8080/room/x",
+    });
+    await pollStatus();
+
+    await launchReady({ host: "http://webstation-dev:8080/room/other" });
+    await flushPromises();
+
     expect(vmOf(wrapper).playerState).toBe("playing");
     expect(vmOf(wrapper).containerHost).toBe(
       "http://webstation-dev:8080/room/x",

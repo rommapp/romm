@@ -122,6 +122,8 @@ async function submit() {
     v-model="show"
     icon="mdi-cube-outline"
     :width="mdAndUp ? 520 : '95vw'"
+    cancelable
+    :cancel-disabled="submitting"
     @close="close"
   >
     <template #header>
@@ -169,9 +171,6 @@ async function submit() {
     </template>
 
     <template #footer>
-      <RBtn variant="text" :disabled="submitting" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
       <RBtn
         variant="flat"
         color="primary"

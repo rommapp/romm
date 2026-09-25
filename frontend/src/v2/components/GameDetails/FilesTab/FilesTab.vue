@@ -38,7 +38,8 @@
 // `rom.delete` permission. Each file is removed from disk and the DB
 // row is dropped via `DELETE /roms/{rom_id}/files/{file_id}`.
 import { RBtn, RCheckbox, REmptyState } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import type { Emitter } from "mitt";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type {
@@ -48,6 +49,7 @@ import type {
 } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 import { getDownloadLink } from "@/utils";
 import SubtabNav, {
   type SubtabNavItem,
@@ -55,10 +57,12 @@ import SubtabNav, {
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIdSelection } from "@/v2/composables/useIdSelection";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useRomFileUpload } from "@/v2/composables/useRomFileUpload";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
 import { errorMessage } from "@/v2/utils/errorMessage";
 import FileRow from "./FileRow.vue";
 import FilesSummary from "./FilesSummary.vue";
@@ -72,6 +76,7 @@ const props = defineProps<{ rom: DetailedRomSchema }>();
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
+const emitter = inject<Emitter<Events>>("emitter");
 const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
@@ -298,15 +303,11 @@ const validSubtabIds = computed(
 );
 
 // ---------- Subtab state (URL-persisted via `?subtab=`) ----------
-function readSubtabFromRoute(): Subtab {
-  const raw = route.query.subtab;
-  if (typeof raw === "string" && validSubtabIds.value.has(raw as Subtab)) {
-    return raw as Subtab;
-  }
-  return "all";
-}
-
-const subTab = ref<Subtab>(readSubtabFromRoute());
+const subTab = useSubtabQuery<Subtab>(
+  "files",
+  (value) => validSubtabIds.value.has(value),
+  "all",
+);
 
 // If the currently-selected subtab no longer has files (e.g. after a
 // rom refresh dropped that category), snap back to "all" so the user
@@ -317,41 +318,6 @@ watch(
     if (!ids.has(subTab.value)) subTab.value = "all";
   },
   { flush: "post" },
-);
-
-watch(subTab, (value) => {
-  if (route.query.subtab !== value) {
-    router.replace({
-      path: route.path,
-      query: { ...route.query, subtab: value },
-    });
-  }
-});
-
-watch(
-  () => route.query.subtab,
-  (value) => {
-    if (
-      typeof value === "string" &&
-      validSubtabIds.value.has(value as Subtab) &&
-      value !== subTab.value
-    ) {
-      subTab.value = value as Subtab;
-    }
-  },
-);
-
-// When the user navigates away from the Files tab, drop the subtab
-// param so it doesn't leak onto sibling tabs (mirrors MediaTab).
-watch(
-  () => route.query.tab,
-  (value) => {
-    if (value !== "files" && route.query.subtab) {
-      const rest = { ...route.query };
-      delete rest.subtab;
-      router.replace({ path: route.path, query: rest });
-    }
-  },
 );
 
 // ---------- Filtered file list (driven by the active subtab) ----------
@@ -376,78 +342,44 @@ const filteredFiles = computed<RomFileSchema[]>(() => {
 });
 
 // ---------- Selection ----------
-const selectedIds = ref<Set<number>>(new Set());
+// Destructured so the template sees plain refs; a nested one is not unwrapped.
+const {
+  selected: selectedFiles,
+  count: selectedCount,
+  allSelected: visibleAllSelected,
+  someSelected: visibleSomeSelected,
+  isSelected,
+  toggle: toggleFile,
+  toggleAll: toggleVisible,
+  clear: clearSelection,
+} = useIdSelection(() => filteredFiles.value);
 
 // Reset selection whenever the active subtab or the rom changes —
 // keeping selections across categories would let the user "Download
 // selected" with files invisible to them, which is surprising.
-watch([subTab, () => props.rom.id], () => {
-  selectedIds.value = new Set();
-});
-
-const selectedCount = computed(() => {
-  // Only count selections that are still in the filtered view —
-  // protects against stale ids if the underlying rom file list
-  // changes mid-selection (uploads, deletions in other tabs).
-  let n = 0;
-  for (const f of filteredFiles.value) if (selectedIds.value.has(f.id)) n++;
-  return n;
-});
+// Getters, not the refs: `subTab` is a shallowRef, and a shallow source makes
+// Vue fire the watcher on every dependency trigger, refresh included.
+watch([() => subTab.value, () => props.rom.id], clearSelection);
 
 const filteredCount = computed(() => filteredFiles.value.length);
 const showUpload = computed(() => filteredCount.value > 0 && canUpload.value);
-
-const visibleAllSelected = computed(
-  () => filteredCount.value > 0 && selectedCount.value === filteredCount.value,
-);
-
-const visibleSomeSelected = computed(
-  () => selectedCount.value > 0 && !visibleAllSelected.value,
-);
-
-function isSelected(file: RomFileSchema): boolean {
-  return selectedIds.value.has(file.id);
-}
-
-function toggleFile(file: RomFileSchema) {
-  const next = new Set(selectedIds.value);
-  if (next.has(file.id)) next.delete(file.id);
-  else next.add(file.id);
-  selectedIds.value = next;
-}
-
-function toggleVisible() {
-  const next = new Set(selectedIds.value);
-  if (visibleAllSelected.value) {
-    for (const f of filteredFiles.value) next.delete(f.id);
-  } else {
-    for (const f of filteredFiles.value) next.add(f.id);
-  }
-  selectedIds.value = next;
-}
-
-function clearSelection() {
-  selectedIds.value = new Set();
-}
-
-const selectedFiles = computed<RomFileSchema[]>(() =>
-  filteredFiles.value.filter((f) => selectedIds.value.has(f.id)),
-);
 
 // ---------- Clipboard helper ----------
 // Used by the per-subtab + per-selection copy-link buttons; per-file
 // hash copying lives in HashChip itself.
 async function copyDownloadLink(url: string) {
-  try {
-    await navigator.clipboard.writeText(url);
-    snackbar.success(t("rom.download-link-copied"), {
-      icon: "mdi-check-bold",
-    });
-  } catch {
-    snackbar.error(t("rom.download-link-copy-failed"), {
-      icon: "mdi-close-circle",
-    });
+  const copied =
+    !!navigator.clipboard &&
+    window.isSecureContext &&
+    (await navigator.clipboard.writeText(url).then(
+      () => true,
+      () => false,
+    ));
+  if (!copied) {
+    emitter?.emit("showCopyDownloadLinkDialog", url);
+    return;
   }
+  snackbar.success(t("rom.download-link-copied"), { icon: "mdi-check-bold" });
 }
 
 // ---------- Actions ----------
@@ -674,7 +606,7 @@ async function refreshRom() {
           <span class="r-v2-files__toolbar-status">
             <template v-if="selectedCount > 0">
               {{
-                t("rom.files-selected-of", {
+                t("rom.selected-of", {
                   selected: selectedCount,
                   total: filteredCount,
                 })
@@ -747,12 +679,12 @@ async function refreshRom() {
           :file="file"
           :display-path="displayPath(file)"
           :relative-path="relativePath(file)"
-          :selected="isSelected(file)"
+          :selected="isSelected(file.id)"
           :show-row-icon="subTab === 'all'"
           :show-category-badge="subTab === 'all'"
           :can-delete="canDelete"
           :missing="rom.missing_from_fs"
-          @toggle="toggleFile(file)"
+          @toggle="toggleFile(file.id)"
           @download="downloadFile(file)"
           @copy-link="copyFileLink(file)"
           @delete="deleteFiles([file])"

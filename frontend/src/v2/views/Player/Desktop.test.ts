@@ -228,6 +228,24 @@ describe("Desktop heartbeats", () => {
     expect(mocks.releaseSessionKeepalive).not.toHaveBeenCalled();
   });
 
+  it("keeps the exit a release made while a beat was in flight", async () => {
+    const wrapper = await openDesktop();
+    mocks.releaseSession.mockResolvedValue({});
+    let answer = (_: unknown) => {};
+    mocks.heartbeatSession.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+
+    const beat = mocks.heartbeatTick?.();
+    expect(await mocks.routeLeave?.()).toBe(true);
+    answer({ status: "ended" });
+    await beat;
+
+    expect(vmOf(wrapper).state).toBe("exited");
+  });
+
   it("leaves the view without a release once the beat ended the claim", async () => {
     await openDesktop();
     mocks.heartbeatSession.mockResolvedValue({ status: "ended" });

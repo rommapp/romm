@@ -1,5 +1,6 @@
 {
   "add-collection": "添加收藏",
+  "collection-deleted": "已删除收藏“{name}”",
   "cover": "封面图",
   "create-collection": "创建收藏",
   "create-failed": "创建收藏失败",
@@ -7,6 +8,8 @@
   "current-filters": "当前过滤器",
   "danger-zone": "危险区",
   "delete-collection": "删除收藏",
+  "delete-collection-body": "将移除“{name}”（收藏中有 {count} 个 ROM）。ROM 文件本身不会被删除。",
+  "delete-collection-failed": "删除收藏失败：{error}",
   "delete-collection-hint": "从 RomM 中移除该收藏。ROM 文件本身不会被删除。",
   "description": "描述",
   "download-collection": "下载收藏",
@@ -24,7 +27,6 @@
   "no-collections-search": "没有符合 \"{query}\" 的收藏。",
   "no-collections-yet": "暂无收藏。",
   "no-collections-yet-detail": "您还没有任何收藏。将游戏添加到喜好，或从任意 ROM 的操作栏中创建一个。",
-  "no-collections-yet-hint": "暂无收藏。请在上方创建一个。",
   "not-found": "未找到该收藏。",
   "owner": "创建者",
   "private": "私有",

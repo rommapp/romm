@@ -1,7 +1,8 @@
 import logging
 import time
+from typing import Any, cast
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import CursorResult, Result, create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from config import DB_POOL_RECYCLE_SECONDS, DEV_SQL_ECHO
@@ -40,3 +41,9 @@ if DEV_SQL_ECHO:
 
 
 class DBBaseHandler: ...
+
+
+def affected_rows(result: Result[Any]) -> int:
+    """How many rows an UPDATE or DELETE run through `Session.execute` matched."""
+    # Session.execute is typed to return Result, but DML gets a CursorResult.
+    return cast(CursorResult[Any], result).rowcount

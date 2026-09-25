@@ -73,7 +73,7 @@ def extract_flashpoint_metadata(game: FlashpointGame) -> FlashpointMetadata:
         try:
             date_obj = datetime.datetime.strptime(game["release_date"], "%Y-%m-%d")
             first_release_date = str(int(date_obj.timestamp()))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             first_release_date = ""
 
     publishers = pydash.compact([game["publisher"]])

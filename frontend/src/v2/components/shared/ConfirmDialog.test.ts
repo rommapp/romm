@@ -21,7 +21,7 @@ function mountDialog(emitter: Emitter<Events>): VueWrapper {
         RDialog: {
           props: { modelValue: { type: Boolean, default: false } },
           template:
-            "<div v-if='modelValue'><slot name='content' /><slot name='footer' /></div>",
+            "<div v-if='modelValue'><slot name='content' /><slot name='footer-start' /><slot name='footer' /></div>",
         },
         RBtn: RBtnStub,
         RTextField: {

@@ -18,6 +18,11 @@ NGINX_UPSTREAM_IDLE_TIMEOUT = 60
 # pool is off entirely and the timeout invariant stops meaning anything.
 NGINX_UPSTREAM_KEEPALIVE_SINCE = (1, 29, 7)
 
+# njs 0.9.7 dropped the "js vm init njs" notice it logged on every start. nginx
+# 1.30.0 also shipped builds bundling njs 0.9.6, so 1.30.1 is the first release
+# that never logs it.
+NJS_QUIET_STARTUP_SINCE = (1, 30, 1)
+
 REQUIRED_GZIP_TYPES = [
     "application/wasm",  # EmulatorJS, js-dos and FAKE-08 cores
     "image/svg+xml",  # player logos and favicons
@@ -47,13 +52,29 @@ def test_compressible_types_are_gzipped(gzip_types: set[str], media_type: str) -
     assert media_type in gzip_types, f"{media_type} would be served uncompressed"
 
 
-def test_nginx_defaults_upstream_keepalive_on() -> None:
+def _format(version: tuple[int, ...]) -> str:
+    return ".".join(str(part) for part in version)
+
+
+def _nginx_version() -> tuple[int, ...]:
     match = re.search(r"^ARG NGINX_VERSION=(\S+)", DOCKERFILE.read_text(), re.M)
     assert match, "docker/Dockerfile is missing an ARG NGINX_VERSION pin"
-    version = tuple(int(part) for part in match.group(1).split("."))
+    return tuple(int(part) for part in match.group(1).split("."))
+
+
+def test_nginx_defaults_upstream_keepalive_on() -> None:
+    version = _nginx_version()
     assert version >= NGINX_UPSTREAM_KEEPALIVE_SINCE, (
-        f"nginx {match.group(1)} does not pool upstream connections by default, "
+        f"nginx {_format(version)} does not pool upstream connections by default, "
         f"so every API request opens a new one"
+    )
+
+
+def test_nginx_starts_without_the_njs_notice() -> None:
+    version = _nginx_version()
+    assert version >= NJS_QUIET_STARTUP_SINCE, (
+        f"nginx {_format(version)} bundles an njs that logs a 'js vm init njs' "
+        f"notice on every start, because the config imports a VM at the http level"
     )
 
 
@@ -65,3 +86,31 @@ def test_env_template_documents_the_same_keepalive_default() -> None:
     match = re.search(r"^WEB_SERVER_KEEPALIVE=(\d+)", ENV_TEMPLATE.read_text(), re.M)
     assert match, "env.template is missing WEB_SERVER_KEEPALIVE"
     assert int(match.group(1)) == _init_script_keepalive()
+
+
+def test_init_script_records_the_rq_worker_pid_at_launch() -> None:
+    assert 'echo "$!" >"/tmp/${name}.pid"' in INIT_SCRIPT.read_text()
+
+
+def _init_script_trusted_proxies() -> str:
+    match = re.search(
+        r'--forwarded-allow-ips="\$\{FORWARDED_ALLOW_IPS:-([^}]+)\}"',
+        INIT_SCRIPT.read_text(),
+    )
+    assert match, "could not read the gunicorn --forwarded-allow-ips default"
+    return match.group(1)
+
+
+def test_client_addresses_are_trusted_only_from_private_proxies() -> None:
+    """A client can't choose its own address by sending X-Forwarded-For."""
+    trusted = _init_script_trusted_proxies().split(",")
+
+    assert "*" not in trusted
+    assert "127.0.0.1" in trusted
+
+
+def test_env_template_documents_the_same_trusted_proxies() -> None:
+    assert (
+        f"FORWARDED_ALLOW_IPS={_init_script_trusted_proxies()} "
+        in ENV_TEMPLATE.read_text()
+    )

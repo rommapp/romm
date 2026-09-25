@@ -5,12 +5,13 @@
 //
 // Per-item affordances are driven by the item fields + props (the parent,
 // MediaTab, performs the actions):
-//   * delete   — when `deletable` and the item is owned (top-right, hover)
-//   * lock     — when `togglable` and owned: public/private toggle (top-right)
-//   * username — community items (others' public shots) show an owner chip
-import { RAvatar, RBtn, RCarousel, RIcon } from "@v2/lib";
+//   * edit:     when `editable` and owned, opens its visibility (top-right)
+//   * delete:   when `deletable` and the item is owned (top-right, hover)
+//   * username: community items (others' public shots) show an owner chip
+import { RAvatar, RBtn, RCarousel } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
@@ -32,12 +33,11 @@ export type ScreenshotItem = {
 const props = defineProps<{
   screenshots: ScreenshotItem[];
   deletable?: boolean;
-  togglable?: boolean;
-  togglingId?: number | null;
+  editable?: boolean;
 }>();
 const emit = defineEmits<{
+  edit: [shot: ScreenshotItem];
   delete: [id: number];
-  "toggle-visibility": [id: number, isPublic: boolean];
 }>();
 
 const { t } = useI18n();
@@ -60,8 +60,8 @@ function close() {
 function canDelete(shot: ScreenshotItem): boolean {
   return Boolean(props.deletable) && shot.id != null && shot.isOwn !== false;
 }
-function canToggle(shot: ScreenshotItem): boolean {
-  return Boolean(props.togglable) && shot.id != null && shot.isOwn === true;
+function canEdit(shot: ScreenshotItem): boolean {
+  return Boolean(props.editable) && shot.id != null && shot.isOwn === true;
 }
 </script>
 
@@ -101,34 +101,21 @@ function canToggle(shot: ScreenshotItem): boolean {
         <span>{{ shot.username }}</span>
       </div>
 
-      <!-- Persistent "shared" badge for owned public screenshots -->
-      <div
-        v-else-if="canToggle(shot) && shot.isPublic"
+      <PublicBadge
+        v-else-if="canEdit(shot) && shot.isPublic"
         class="r-v2-det-shots__badge"
-        :title="t('rom.screenshot-public')"
-      >
-        <RIcon icon="mdi-earth" size="13" />
-      </div>
+      />
 
       <div class="r-v2-det-shots__actions">
         <RBtn
-          v-if="canToggle(shot)"
-          :icon="shot.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'"
+          v-if="canEdit(shot)"
+          icon="mdi-pencil-outline"
           size="small"
           variant="flat"
-          :color="shot.isPublic ? 'var(--r-color-fg-muted)' : 'primary'"
-          :loading="togglingId === shot.id"
-          :aria-label="
-            shot.isPublic
-              ? t('rom.screenshot-make-private')
-              : t('rom.screenshot-make-public')
-          "
-          :title="
-            shot.isPublic
-              ? t('rom.screenshot-make-private')
-              : t('rom.screenshot-make-public')
-          "
-          @click="emit('toggle-visibility', shot.id!, !shot.isPublic)"
+          color="primary"
+          :aria-label="t('rom.edit-screenshot')"
+          :tooltip="t('rom.edit-screenshot')"
+          @click="emit('edit', shot)"
         />
         <RBtn
           v-if="canDelete(shot)"
@@ -137,6 +124,7 @@ function canToggle(shot: ScreenshotItem): boolean {
           variant="flat"
           color="romm-red"
           :aria-label="t('rom.screenshot-num-delete', { n: i + 1 })"
+          :tooltip="t('common.delete')"
           @click="emit('delete', shot.id!)"
         />
       </div>
@@ -220,8 +208,8 @@ function canToggle(shot: ScreenshotItem): boolean {
 .r-v2-det-shots__cell:focus-within .r-v2-det-shots__actions {
   opacity: 1;
 }
-html[data-input="touch"] .r-v2-det-shots__actions,
-html[data-input="pad"] .r-v2-det-shots__actions {
+/* No hover to reveal them with at phone and tablet widths. */
+html[data-bp~="sm-and-down"] .r-v2-det-shots__actions {
   opacity: 1;
 }
 
@@ -252,12 +240,5 @@ html[data-input="pad"] .r-v2-det-shots__actions {
   position: absolute;
   top: 6px;
   left: 6px;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--r-color-overlay-scrim-strong);
-  color: var(--r-color-overlay-fg);
 }
 </style>

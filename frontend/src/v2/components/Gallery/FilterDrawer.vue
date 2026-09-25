@@ -529,7 +529,7 @@ function saveAsSmartCollection() {
       <div style="flex: 1" />
       <RBtn
         size="small"
-        variant="text"
+        variant="outlined"
         color="primary"
         prepend-icon="mdi-playlist-plus"
         :disabled="activeCount === 0"
@@ -574,6 +574,7 @@ function saveAsSmartCollection() {
         multiple
         clearable
         hide-details
+        promote-filled
         prefix-label="stacked"
         :placeholder="t('common.all-platforms')"
       >
@@ -665,8 +666,7 @@ function saveAsSmartCollection() {
 
     <template #footer>
       <RBtn
-        variant="text"
-        color="danger"
+        variant="outlined"
         prepend-icon="mdi-restore"
         :disabled="activeCount === 0"
         @click="resetAll"
@@ -718,7 +718,9 @@ function saveAsSmartCollection() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 4px;
+  /* The negative margin widens the "on" highlight without moving the content. */
+  margin-inline: -8px;
+  padding: 8px 12px;
   border-radius: 8px;
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
@@ -755,7 +757,8 @@ function saveAsSmartCollection() {
 /* ── Game length ─────────────────────────────────────────────── */
 .r-v2-fd__length-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* `minmax(0, …)`: a number input's intrinsic width would floor a bare `1fr`. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 .r-v2-fd__length-note {

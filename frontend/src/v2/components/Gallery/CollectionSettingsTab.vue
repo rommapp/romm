@@ -27,7 +27,7 @@
 //     placeholder mosaic.
 //   • Save → PUT /collections/:id with `artwork` and/or `url_cover` and
 //     `remove_cover` flag; on success patches the local store.
-import { RBtn, RChip, RIcon, RSwitch, RTag, RTextField } from "@v2/lib";
+import { RBtn, RChip, RIcon, RTag, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -45,9 +45,12 @@ import type { Events } from "@/types/emitter";
 import { toBrowserLocale } from "@/utils";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
+import DangerZone from "@/v2/components/shared/DangerZone.vue";
+import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { errorMessage } from "@/v2/utils/errorMessage";
 import {
   summarizeSmartFilterCriteria,
   type SmartFilterCriteria,
@@ -77,15 +80,17 @@ const { allPlatforms } = storeToRefs(platformsStore);
 const { toWebp } = useWebpSupport();
 
 // ── Edit form state ─────────────────────────────────────────────
-// Mirror v1: name, description, is_public are editable. Pending cover
+// Mirror v1: name and description are editable. Pending cover
 // changes live in `pendingArtwork` (uploaded file) + `pendingUrlCover`
 // (SteamGridDB URL) + `removeCover` (flag). Only one of artwork /
-// pendingUrlCover applies on save.
+// pendingUrlCover applies on save. Visibility saves as soon as it is
+// switched, outside the form.
 const form = ref({
   name: "",
   description: "",
-  isPublic: false,
 });
+const isPublic = ref(false);
+const savingVisibility = ref(false);
 const pendingArtwork = ref<File | null>(null);
 const pendingUrlCover = ref<string | null>(null);
 const previewDataUrl = ref<string | null>(null);
@@ -112,7 +117,6 @@ const dirty = computed(() => {
   return (
     form.value.name !== c.name ||
     (form.value.description ?? "") !== (c.description ?? "") ||
-    form.value.isPublic !== c.is_public ||
     !!pendingArtwork.value ||
     !!pendingUrlCover.value ||
     removeCover.value
@@ -131,8 +135,8 @@ function snapshot(source: Collection | SmartCollection = props.collection) {
   form.value = {
     name: c.name,
     description: c.description ?? "",
-    isPublic: c.is_public ?? false,
   };
+  isPublic.value = c.is_public ?? false;
   pendingArtwork.value = null;
   pendingUrlCover.value = null;
   previewDataUrl.value = null;
@@ -246,31 +250,27 @@ function clearArtwork() {
 // ── Save ────────────────────────────────────────────────────────
 async function save() {
   if (!dirty.value || saving.value || !canEdit.value) return;
+  const target = { kind: props.kind, id: props.collection.id };
   saving.value = true;
   try {
     let saved: Collection | SmartCollection;
-    if (props.kind === "smart") {
+    if (target.kind === "smart") {
       const payload: SmartCollection = {
         ...(props.collection as SmartCollection),
         name: form.value.name.trim(),
         description: form.value.description,
-        is_public: form.value.isPublic,
+        is_public: isPublic.value,
       };
       const { data } = await collectionApi.updateSmartCollection({
         smartCollection: payload,
       });
-      collectionsStore.updateSmartCollection(data);
-      if (galleryRoms.currentSmartCollection?.id === data.id) {
-        galleryRoms.setCurrentSmartCollection(data);
-      }
       saved = data;
-      emit("saved", data);
     } else {
       const payload: UpdatedCollection = {
         ...(props.collection as Collection),
         name: form.value.name.trim(),
         description: form.value.description,
-        is_public: form.value.isPublic,
+        is_public: isPublic.value,
         artwork: pendingArtwork.value ?? undefined,
         url_cover: pendingUrlCover.value,
       };
@@ -278,12 +278,7 @@ async function save() {
         collection: payload,
         removeCover: removeCover.value,
       });
-      collectionsStore.updateCollection(data);
-      if (galleryRoms.currentCollection?.id === data.id) {
-        galleryRoms.setCurrentCollection(data);
-      }
       saved = data;
-      emit("saved", data);
     }
     snackbar.success(t("collection.updated", "Collection updated"), {
       icon: "mdi-check-bold",
@@ -291,7 +286,7 @@ async function save() {
     // Re-sync from the response, not the prop — the prop hasn't been
     // updated yet (see `snapshot` note), so snapshotting it would revert
     // the form to the pre-save values and keep `dirty` true.
-    snapshot(saved);
+    if (syncSaved(saved, target)) snapshot(saved);
   } catch (err) {
     const e = err as {
       response?: { data?: { msg?: string; detail?: string } };
@@ -314,15 +309,77 @@ async function save() {
 function discard() {
   snapshot();
 }
+
+function isShowing(target: { kind: CollectionKind; id: number }): boolean {
+  return props.kind === target.kind && props.collection.id === target.id;
+}
+
+/** Puts a saved collection in the stores, and hands it to the parent while it
+ *  is still the one on screen.
+ *
+ * Returns:
+ *   Whether it still is.
+ */
+function syncSaved(
+  saved: Collection | SmartCollection,
+  target: { kind: CollectionKind; id: number },
+): boolean {
+  if (target.kind === "smart") {
+    const data = saved as SmartCollection;
+    collectionsStore.updateSmartCollection(data);
+    if (galleryRoms.currentSmartCollection?.id === data.id) {
+      galleryRoms.setCurrentSmartCollection(data);
+    }
+  } else {
+    const data = saved as Collection;
+    collectionsStore.updateCollection(data);
+    if (galleryRoms.currentCollection?.id === data.id) {
+      galleryRoms.setCurrentCollection(data);
+    }
+  }
+  if (!isShowing(target)) return false;
+  emit("saved", saved);
+  return true;
+}
+
+// Its own route, so an unapplied name or description edit stays a draft.
+async function setVisibility(next: boolean) {
+  if (!canEdit.value || savingVisibility.value) return;
+  const target = { kind: props.kind, id: props.collection.id };
+  const previous = isPublic.value;
+  isPublic.value = next;
+  savingVisibility.value = true;
+  try {
+    const { data } =
+      target.kind === "smart"
+        ? await collectionApi.setSmartCollectionVisibility({
+            id: target.id,
+            isPublic: next,
+          })
+        : await collectionApi.setCollectionVisibility({
+            id: target.id,
+            isPublic: next,
+          });
+    syncSaved(data, target);
+  } catch (error) {
+    if (isShowing(target)) isPublic.value = previous;
+    snackbar.error(
+      t("common.cant-update-visibility", { error: errorMessage(error) }),
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    savingVisibility.value = false;
+  }
+}
 </script>
 
 <template>
-  <div class="r-v2-coll-set">
+  <div class="r-settings-column">
     <!-- Cover artwork — regular collections only. Smart collections
          derive their cover from the contained ROMs at runtime, so an
          upload UI here would be misleading. -->
     <section v-if="kind === 'regular'" class="r-v2-coll-set__section">
-      <header class="r-v2-coll-set__section-head">
+      <header class="r-section-head">
         <RIcon icon="mdi-image-outline" size="14" />
         <span>{{ t("collection.cover", "Cover artwork") }}</span>
       </header>
@@ -377,8 +434,8 @@ function discard() {
 
     <!-- Details (edit form) — both kinds. -->
     <section class="r-v2-coll-set__section">
-      <header class="r-v2-coll-set__section-head">
-        <RIcon icon="mdi-pencil-outline" size="14" />
+      <header class="r-section-head">
+        <RIcon icon="mdi-information-outline" size="14" />
         <span>{{ t("common.details", "Details") }}</span>
       </header>
       <div class="r-v2-coll-set__form">
@@ -406,14 +463,10 @@ function discard() {
           </template>
         </RTextField>
         <div class="r-v2-coll-set__row">
-          <RSwitch
-            v-model="form.isPublic"
-            :disabled="!canEdit"
-            :label="
-              form.isPublic
-                ? t('collection.public', 'Public')
-                : t('collection.private', 'Private')
-            "
+          <VisibilitySwitch
+            :model-value="isPublic"
+            :disabled="!canEdit || savingVisibility || saving"
+            @update:model-value="setVisibility"
           />
         </div>
         <div v-if="canEdit && dirty" class="r-v2-coll-set__form-actions">
@@ -424,7 +477,7 @@ function discard() {
             variant="flat"
             color="primary"
             prepend-icon="mdi-check"
-            :disabled="!form.name.trim()"
+            :disabled="!form.name.trim() || savingVisibility"
             :loading="saving"
             @click="save"
           >
@@ -439,7 +492,7 @@ function discard() {
       v-if="kind === 'smart' && filterSummary.length > 0"
       class="r-v2-coll-set__section"
     >
-      <header class="r-v2-coll-set__section-head">
+      <header class="r-section-head">
         <RIcon icon="mdi-filter-variant" size="14" />
         <span>{{ t("collection.filters", "Filters") }}</span>
       </header>
@@ -475,66 +528,33 @@ function discard() {
       </ul>
     </section>
 
-    <!-- Danger zone — destructive actions kept visually separated.
-         Delete itself routes through the parent (confirm dialog +
-         navigation lives in Collection.vue). -->
-    <section
+    <!-- Delete routes through the parent (confirm dialog + navigation
+         lives in Collection.vue). -->
+    <DangerZone
       v-if="canDelete"
-      class="r-v2-coll-set__section r-v2-coll-set__danger"
+      :title="t('collection.delete-collection', 'Delete collection')"
+      :hint="
+        t(
+          'collection.delete-collection-hint',
+          'Removes the collection from RomM. The ROM files themselves are not deleted.',
+        )
+      "
     >
-      <header class="r-v2-coll-set__section-head r-v2-coll-set__danger-head">
-        <RIcon icon="mdi-alert-outline" size="14" />
-        <span>{{ t("collection.danger-zone", "Danger zone") }}</span>
-      </header>
-      <div class="r-v2-coll-set__danger-row">
-        <div class="r-v2-coll-set__danger-copy">
-          <p class="r-v2-coll-set__danger-title">
-            {{ t("collection.delete-collection", "Delete collection") }}
-          </p>
-          <p class="r-v2-coll-set__danger-hint">
-            {{
-              t(
-                "collection.delete-collection-hint",
-                "Removes the collection from RomM. The ROM files themselves are not deleted.",
-              )
-            }}
-          </p>
-        </div>
-        <RBtn
-          variant="outlined"
-          color="danger"
-          prepend-icon="mdi-delete-outline"
-          :loading="deleting"
-          :disabled="deleting"
-          @click="emit('delete')"
-        >
-          {{ t("common.delete", "Delete") }}
-        </RBtn>
-      </div>
-    </section>
+      <RBtn
+        variant="outlined"
+        color="danger"
+        prepend-icon="mdi-delete-outline"
+        :loading="deleting"
+        :disabled="deleting"
+        @click="emit('delete')"
+      >
+        {{ t("common.delete", "Delete") }}
+      </RBtn>
+    </DangerZone>
   </div>
 </template>
 
 <style scoped>
-.r-v2-coll-set {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 720px;
-}
-
-.r-v2-coll-set__section-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
-}
-
 /* ── Cover ──────────────────────────────────────────────────────── */
 .r-v2-coll-set__cover {
   display: flex;
@@ -620,43 +640,5 @@ function discard() {
   flex-wrap: wrap;
   gap: 4px;
   padding-left: 20px;
-}
-
-/* ── Danger zone ───────────────────────────────────────────────── */
-.r-v2-coll-set__danger {
-  padding: 14px;
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 6%,
-    transparent
-  );
-  border: 1px solid
-    color-mix(in srgb, var(--r-color-status-base-danger) 35%, transparent);
-  border-radius: var(--r-radius-md);
-}
-.r-v2-coll-set__danger-head {
-  color: var(--r-color-status-base-danger);
-}
-.r-v2-coll-set__danger-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.r-v2-coll-set__danger-copy {
-  flex: 1;
-  min-width: 0;
-}
-.r-v2-coll-set__danger-title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg);
-}
-.r-v2-coll-set__danger-hint {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: var(--r-color-fg-muted);
-  line-height: 1.4;
 }
 </style>

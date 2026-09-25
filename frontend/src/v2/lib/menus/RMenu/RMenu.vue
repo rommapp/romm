@@ -87,6 +87,10 @@ interface Props {
   width?: string | number;
   /** Cap the panel height — body scrolls beyond it. */
   maxHeight?: string | number;
+  /** Selectors for what to focus when the panel opens from a keyboard or a
+   *  pad, tried in order. Defaults to the first menu item, which is wrong for
+   *  a panel whose content is not `RMenuItem`s. */
+  initialFocus?: string | readonly string[];
   /** Render a sticky search input at the top. */
   searchable?: boolean;
   /** v-model:search — current query string. */
@@ -116,6 +120,7 @@ const props = withDefaults(defineProps<Props>(), {
   offset: 8,
   width: undefined,
   maxHeight: undefined,
+  initialFocus: undefined,
   searchable: false,
   search: "",
   searchPlaceholder: "",
@@ -320,6 +325,14 @@ function onDocPointerDown(evt: PointerEvent) {
 // reaching into the DOM. LIFO ordering means nested menus close one
 // at a time (the inner-most first), matching the previous per-instance
 // `document.keydown` behaviour.
+// `disabled` only blocks opening, so a menu disabled while open closes too.
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) close();
+  },
+);
+
 const escEntry: EscapableEntry = {
   close: () => close(),
   persistent: false,
@@ -391,6 +404,21 @@ const mergedContentClass = computed(() =>
 // natively focusable, but the panel itself doesn't react to ArrowUp /
 // ArrowDown. Add a panel-level handler so D-pad / left-stick (mapped to
 // arrows by `useGamepad`) cycle through the items.
+/** First match of `initialFocus`, in the order the caller listed them. */
+function initialFocusTarget(): HTMLElement | null {
+  const panel = panelRef.value;
+  if (!panel || !props.initialFocus) return null;
+  const selectors =
+    typeof props.initialFocus === "string"
+      ? [props.initialFocus]
+      : props.initialFocus;
+  for (const selector of selectors) {
+    const match = panel.querySelector<HTMLElement>(selector);
+    if (match) return match;
+  }
+  return null;
+}
+
 function focusableMenuItems(): HTMLElement[] {
   const panel = panelRef.value;
   if (!panel) return [];
@@ -441,8 +469,7 @@ watch(
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
     );
-    const items = focusableMenuItems();
-    items[0]?.focus();
+    (initialFocusTarget() ?? focusableMenuItems()[0])?.focus();
   },
 );
 </script>

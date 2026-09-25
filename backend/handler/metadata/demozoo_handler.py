@@ -370,7 +370,7 @@ def production_to_rom(data: dict[str, Any]) -> DemozooRom:
         if party_id is None and raw_party_id is not None:
             try:
                 party_id = int(raw_party_id)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 party_id = None
         line = party_name
         comp_name = str(comp.get("name") or "")
@@ -633,7 +633,7 @@ class DemozooHandler(MetadataHandler):
         for hit in hits:
             try:
                 out.append(production_to_rom(hit))
-            except (KeyError, TypeError, ValueError):
+            except KeyError, TypeError, ValueError:
                 continue
         return out
 

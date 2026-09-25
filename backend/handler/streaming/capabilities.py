@@ -172,9 +172,8 @@ _SAVE_PICKER_EMULATORS = frozenset(
     {"eden", "retroarch", "rpcs3", "shadps4", "xemu", "xenia"}
 )
 
-# Emulators whose webstation broker writes a state only as the game exits and
-# refuses one pushed in while it runs. The save archive carries that exit state
-# back, so a resume is just the slot on the activate.
+# Emulators whose webstation broker writes a state only on exit and refuses one
+# pushed in, so a resume is the slot on the activate plus the save archive.
 _EXIT_STATE_EMULATORS = frozenset({"duckstation", "rpcs3"})
 
 

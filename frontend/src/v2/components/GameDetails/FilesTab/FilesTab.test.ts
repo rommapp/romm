@@ -1,23 +1,31 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
 import FilesTab from "./FilesTab.vue";
 
-const { uploadRoms, refetchRom, confirmFn, snackbar, routeQuery, grants } =
-  vi.hoisted(() => ({
-    uploadRoms: vi.fn(),
-    refetchRom: vi.fn(),
-    confirmFn: vi.fn(),
-    snackbar: {
-      success: vi.fn(),
-      error: vi.fn(),
-      warning: vi.fn(),
-      info: vi.fn(),
-    },
-    routeQuery: { subtab: undefined as string | undefined },
-    grants: { upload: true, delete: false },
-  }));
+const {
+  uploadRoms,
+  refetchRom,
+  confirmFn,
+  snackbar,
+  emitter,
+  routeQuery,
+  grants,
+} = vi.hoisted(() => ({
+  uploadRoms: vi.fn(),
+  refetchRom: vi.fn(),
+  confirmFn: vi.fn(),
+  snackbar: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+  emitter: { emit: vi.fn() },
+  routeQuery: { tab: "files", subtab: undefined as string | undefined },
+  grants: { upload: true, delete: false },
+}));
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -25,7 +33,11 @@ vi.mock("vue-i18n", () => ({
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ query: routeQuery, path: "/rom/1", params: {} }),
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  useRouter: () => ({
+    replace: vi.fn(),
+    push: vi.fn(),
+    currentRoute: { value: { query: routeQuery } },
+  }),
 }));
 vi.mock("@/services/api/rom", () => ({
   default: { uploadRoms, deleteRomFile: vi.fn() },
@@ -88,6 +100,7 @@ function mountTab(r = rom()) {
   return mount(FilesTab, {
     props: { rom: r },
     global: {
+      provide: { emitter },
       stubs: {
         FileRow: true,
         FilesSummary: true,
@@ -268,5 +281,137 @@ describe("FilesTab on a rom missing from the filesystem", () => {
 
     const rows = wrapper.findAllComponents({ name: "FileRow" });
     expect(rows.every((r) => r.props("missing") === false)).toBe(true);
+  });
+});
+
+describe("FilesTab selection", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+    routeQuery.subtab = undefined;
+    grants.upload = true;
+  });
+
+  function selectedFlags(wrapper: ReturnType<typeof mountTab>) {
+    return wrapper
+      .findAllComponents({ name: "FileRow" })
+      .map((row) => row.props("selected"));
+  }
+
+  async function selectFirst(wrapper: ReturnType<typeof mountTab>) {
+    await flushPromises();
+    wrapper.findAllComponents({ name: "FileRow" })[0].vm.$emit("toggle");
+    await flushPromises();
+  }
+
+  // A refresh hands down a new rom object with the same id; that must not read
+  // as a different rom and drop what the user picked.
+  it("survives the rom object being replaced", async () => {
+    const wrapper = mountTab();
+    await selectFirst(wrapper);
+    expect(selectedFlags(wrapper)).toEqual([true, false]);
+
+    await wrapper.setProps({ rom: rom() });
+    await flushPromises();
+
+    expect(selectedFlags(wrapper)).toEqual([true, false]);
+  });
+
+  it("is dropped when another rom takes over the tab", async () => {
+    const wrapper = mountTab();
+    await selectFirst(wrapper);
+
+    await wrapper.setProps({ rom: rom({ id: 2 }) });
+    await flushPromises();
+
+    expect(selectedFlags(wrapper)).toEqual([false, false]);
+  });
+});
+
+describe("FilesTab copy link", () => {
+  function setClipboard(
+    writeText: ((text: string) => Promise<void>) | null,
+    secure = true,
+  ) {
+    Object.defineProperty(window, "isSecureContext", {
+      configurable: true,
+      value: secure,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: writeText ? { writeText } : undefined,
+    });
+  }
+
+  async function copyFirstFileLink() {
+    const wrapper = mountTab();
+    wrapper.findComponent({ name: "FileRow" }).vm.$emit("copy-link");
+    await flushPromises();
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    routeQuery.subtab = undefined;
+    snackbar.success.mockReset();
+    snackbar.error.mockReset();
+    emitter.emit.mockReset();
+  });
+
+  afterEach(() => {
+    setClipboard(null);
+  });
+
+  it("writes the link to the clipboard in a secure context", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setClipboard(writeText);
+
+    await copyFirstFileLink();
+
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining("file_ids=1"),
+    );
+    expect(snackbar.success).toHaveBeenCalled();
+    expect(emitter.emit).not.toHaveBeenCalled();
+  });
+
+  it("opens the link dialog when the context is not secure", async () => {
+    setClipboard(null, false);
+
+    await copyFirstFileLink();
+
+    expect(emitter.emit).toHaveBeenCalledWith(
+      "showCopyDownloadLinkDialog",
+      expect.stringContaining("file_ids=1"),
+    );
+    expect(snackbar.error).not.toHaveBeenCalled();
+  });
+
+  it("opens the dialog with every selected file from the toolbar", async () => {
+    setClipboard(null, false);
+    const wrapper = mountTab();
+    for (const row of wrapper.findAllComponents({ name: "FileRow" })) {
+      row.vm.$emit("toggle");
+    }
+    await flushPromises();
+
+    await wrapper.get('button[data-icon="mdi-link-variant"]').trigger("click");
+    await flushPromises();
+
+    expect(emitter.emit).toHaveBeenCalledWith(
+      "showCopyDownloadLinkDialog",
+      expect.stringContaining(`file_ids=${encodeURIComponent("1,2")}`),
+    );
+  });
+
+  it("opens the link dialog when the clipboard write is rejected", async () => {
+    setClipboard(vi.fn().mockRejectedValue(new Error("denied")));
+
+    await copyFirstFileLink();
+
+    expect(emitter.emit).toHaveBeenCalledWith(
+      "showCopyDownloadLinkDialog",
+      expect.stringContaining("file_ids=1"),
+    );
+    expect(snackbar.success).not.toHaveBeenCalled();
   });
 });

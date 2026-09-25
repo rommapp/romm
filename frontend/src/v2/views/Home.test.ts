@@ -2,7 +2,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, nextTick, ref } from "vue";
+import { defineComponent, ref } from "vue";
 import {
   RECENT_PLAYED_ROMS_LIMIT,
   RECENT_ROMS_LIMIT,
@@ -12,6 +12,7 @@ import storeCollections, { type Collection } from "@/stores/collections";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { useStreamingStore, type JoinableSession } from "@/stores/streaming";
+import { SKELETON_DELAY_MS } from "@/v2/composables/useLoadingPhase";
 import Home from "./Home.vue";
 
 vi.mock("vue-i18n", () => ({
@@ -226,6 +227,19 @@ function mountHome() {
   });
 }
 
+/** Mounts with every row still loading, past the delay before skeletons show. */
+async function mountLoadingHome() {
+  holdRowsLoading();
+  vi.useFakeTimers();
+  try {
+    const wrapper = mountHome();
+    await vi.advanceTimersByTimeAsync(SKELETON_DELAY_MS);
+    return wrapper;
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 /** The section a card row renders into, located by its heading. */
 function findRow(wrapper: ReturnType<typeof mountHome>, title: string) {
   return wrapper.findAll("section").find((s) => s.text().startsWith(title));
@@ -265,6 +279,24 @@ describe("Home", () => {
 
     expect(getLibraryInfo).toHaveBeenCalledTimes(1);
     expect(wrapper.text()).toContain("home.empty-headline");
+  });
+
+  it("paints neither the sections nor the empty library while a load is still quick", async () => {
+    holdRowsLoading();
+    vi.useFakeTimers();
+    try {
+      const wrapper = mountHome();
+      await vi.advanceTimersByTimeAsync(SKELETON_DELAY_MS - 1);
+
+      expect(findRow(wrapper, "home.recently-added")).toBeUndefined();
+      expect(wrapper.text()).not.toContain("home.empty-headline");
+
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(findRow(wrapper, "home.recently-added")).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("renders the recommendations row with its per-card reason", async () => {
@@ -313,10 +345,7 @@ describe("Home", () => {
     ["recommendations.for-you", RECOMMENDED_ROMS_LIMIT],
     ["home.recently-added", RECENT_ROMS_LIMIT],
   ])("paints one skeleton per requested slot in %s", async (title, limit) => {
-    holdRowsLoading();
-
-    const wrapper = mountHome();
-    await nextTick();
+    const wrapper = await mountLoadingHome();
 
     const row = findRow(wrapper, title);
 
@@ -330,10 +359,7 @@ describe("Home", () => {
     "common.platforms",
     "common.collections",
   ])("withholds %s's count until its list lands", async (title) => {
-    holdRowsLoading();
-
-    const wrapper = mountHome();
-    await nextTick();
+    const wrapper = await mountLoadingHome();
 
     // The list has not resolved, so the count is unknown: a 0 here would be a
     // number the row is about to replace.
@@ -343,10 +369,7 @@ describe("Home", () => {
   });
 
   it("reserves the reason caption under every recommended placeholder", async () => {
-    holdRowsLoading();
-
-    const wrapper = mountHome();
-    await nextTick();
+    const wrapper = await mountLoadingHome();
 
     const units = findRow(wrapper, "recommendations.for-you")?.findAll(
       ".r-v2-home__rec",

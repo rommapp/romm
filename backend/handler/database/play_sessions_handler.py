@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from decorators.database import begin_session
 from models.play_session import PlaySession
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 
 class DBPlaySessionsHandler(DBBaseHandler):
@@ -121,4 +121,4 @@ class DBPlaySessionsHandler(DBBaseHandler):
             .where(PlaySession.id == session_id, PlaySession.user_id == user_id)
             .execution_options(synchronize_session="evaluate")
         )
-        return result.rowcount > 0
+        return affected_rows(result) > 0

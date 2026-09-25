@@ -34,7 +34,7 @@ import {
 } from "@/utils";
 import {
   buildStateFormData,
-  resolveStateScreenshot,
+  resolveScreenshot,
 } from "@/views/Player/EmulatorJS/utils";
 import {
   installEJSDefaultOptionsTrap,
@@ -450,6 +450,7 @@ async function boot() {
   window.EJS_gameUrl = getDownloadPath({
     rom: rom,
     fileIDs: validDiscId ? [validDiscId] : [],
+    purpose: "play",
   });
 
   // BIOS selection persistence
@@ -535,7 +536,7 @@ async function boot() {
     state: ArrayBuffer;
     screenshot?: ArrayBuffer;
   }) {
-    const screenshotFile = await resolveStateScreenshot(emulatorScreenshot);
+    const screenshotFile = await resolveScreenshot(emulatorScreenshot);
     try {
       const formData = buildStateFormData(stateFile, screenshotFile);
 
