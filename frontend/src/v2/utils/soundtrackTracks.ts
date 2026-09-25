@@ -137,9 +137,9 @@ export function nowPlayingCaption(tags: NowPlayingTags | undefined): string {
 /** The mini player's cover: the track's own art, then the ROM's. */
 export function playerCoverUrl(meta: PlayerMeta): string {
   return (
-    meta.coverUrl ??
-    meta.folderCoverUrl ??
-    meta.gameArtworkUrl ??
+    meta.coverUrl ||
+    meta.folderCoverUrl ||
+    meta.gameArtworkUrl ||
     "/assets/default/album_cover.jpg"
   );
 }
