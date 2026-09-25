@@ -20,7 +20,7 @@ const api = vi.hoisted(() => ({
 
 vi.mock("@/services/api/notificationChannel", () => ({ default: api }));
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
 }));
 
 function channel(
@@ -282,6 +282,82 @@ describe("NotificationChannelDialog", () => {
     expect(wrapper.text()).toContain(
       "notifications.channel-paste-other-service",
     );
+    wrapper.unmount();
+  });
+
+  const discord = () => {
+    const secret = {
+      type: "string" as const,
+      required: true,
+      private: true,
+      advanced: false,
+      default: null,
+      values: null,
+      min: null,
+      max: null,
+    };
+    return makeAppriseService({
+      id: "discord",
+      name: "Discord",
+      url_fields: ["webhook_id", "webhook_token"],
+      fields: [
+        {
+          ...secret,
+          key: "botname",
+          label: "Bot Name",
+          required: false,
+          private: false,
+        },
+        { ...secret, key: "webhook_id", label: "Webhook ID" },
+        { ...secret, key: "webhook_token", label: "Webhook Token" },
+      ],
+    });
+  };
+
+  it("sets a service with its own URL up from that URL alone", async () => {
+    api.getAppriseServices.mockResolvedValue({
+      data: [makeAppriseService(), discord()],
+    });
+    api.parseAppriseUrl.mockResolvedValue({
+      data: {
+        service: "discord",
+        fields: { webhook_id: "1", webhook_token: "t" },
+      },
+    });
+    api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:discord");
+    expect(textField(wrapper, "Webhook ID")).toBeUndefined();
+    await wrapper.findAll("input.r-text-field__input")[0].setValue("Alerts");
+    await textField(wrapper, "notifications.channel-field-botname")?.setValue(
+      "RomM",
+    );
+    // Saved before the pause that would read it.
+    await textField(wrapper, "notifications.channel-service-url")?.setValue(
+      "https://discord.com/api/webhooks/1/t",
+    );
+    await save(wrapper);
+
+    expect(api.parseAppriseUrl).toHaveBeenCalledWith(
+      "https://discord.com/api/webhooks/1/t",
+    );
+    expect(api.create.mock.calls[0][0]).toMatchObject({
+      service: "discord",
+      fields: { botname: "RomM", webhook_id: "1", webhook_token: "t" },
+    });
+    wrapper.unmount();
+  });
+
+  it("needs the URL of a service set up from one", async () => {
+    api.getAppriseServices.mockResolvedValue({ data: [discord()] });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:discord");
+    await wrapper.findAll("input.r-text-field__input")[0].setValue("Alerts");
+    await save(wrapper);
+
+    expect(api.create).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 

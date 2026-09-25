@@ -12,7 +12,7 @@ import {
   RTextField,
 } from "@v2/lib";
 import { watchDebounced } from "@vueuse/core";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   AppriseServiceSchema,
@@ -30,6 +30,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import AppriseServiceFields from "@/v2/components/Notifications/AppriseServiceFields.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { joinNames } from "@/v2/utils/lists";
 import {
   type AppriseFieldValue,
   CHANNEL_ICONS,
@@ -54,7 +55,7 @@ const emit = defineEmits<{
 // The picker holds "webhook", "email", or an Apprise service as "apprise:<id>".
 const APPRISE_PREFIX = "apprise:";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const auth = storeAuth();
 const heartbeat = storeHeartbeat();
 const isAdmin = useCan("app.admin");
@@ -141,6 +142,8 @@ async function loadServices() {
   try {
     const { data } = await notificationChannelApi.getAppriseServices();
     services.value = data;
+    // An Apprise channel being edited gets its fields once its service is known.
+    resetAppriseValues();
   } catch (err) {
     console.error("Could not load the Apprise services:", err);
     error.value = errorMessage(err, t("notifications.channel-services-failed"));
@@ -155,10 +158,29 @@ function resetAppriseValues() {
     ? initialAppriseValues(service.value, props.channel?.fields ?? null)
     : {};
   removedSecrets.value = [];
+}
+
+// A pasted URL, the service's own (a Discord webhook's) or an Apprise one, fills
+// the form in; only the latest paste counts.
+let pasteRequest = 0;
+const parsedUrl = ref("");
+const URL_LIKE = /^[a-z][\w+.-]*:\/\/\S+$/i;
+
+function clearPaste() {
+  pasteRequest++;
+  pastedUrl.value = "";
+  parsedUrl.value = "";
+  pasteError.value = null;
+  filling.value = false;
   filledFields.value = [];
 }
 
-watch(service, resetAppriseValues);
+// Picking another service by hand starts its form afresh.
+function pickKind(value: string) {
+  kind.value = value;
+  resetAppriseValues();
+  clearPaste();
+}
 
 watch(show, (open) => {
   if (!open) return;
@@ -182,36 +204,37 @@ watch(show, (open) => {
   void loadServices();
 });
 
+const nativeUrl = computed(() => !!service.value?.url_fields.length);
+
+const pasteLabel = computed(() =>
+  nativeUrl.value && service.value
+    ? t("notifications.channel-service-url", { service: service.value.name })
+    : t("notifications.channel-paste-url"),
+);
+
 const pasteHint = computed(() => {
   if (!service.value) return undefined;
   const filled = service.value.fields.filter((f) =>
     filledFields.value.includes(f.key),
   );
-  return filled.length > 0
-    ? t("notifications.channel-paste-filled", {
-        fields: filled.map((field) => appriseFieldLabel(field, t)).join(", "),
-      })
-    : t("notifications.channel-paste-url-hint", {
+  if (filled.length > 0) {
+    const names = filled.map((field) => appriseFieldLabel(field, t));
+    return t("notifications.channel-paste-filled", {
+      fields: joinNames(names, locale.value),
+    });
+  }
+  if (!nativeUrl.value) return t("notifications.channel-paste-url-hint");
+  return editing.value
+    ? t("notifications.channel-secret-keep")
+    : t("notifications.channel-service-url-hint", {
         service: service.value.name,
       });
 });
 
-// A pasted URL, the service's own (a Discord webhook's) or an Apprise one, fills
-// the form in; only the latest paste counts.
-let pasteRequest = 0;
-
-function clearPaste() {
-  pasteRequest++;
-  pastedUrl.value = "";
-  pasteError.value = null;
-  filling.value = false;
-}
-
-// Picking another service by hand leaves any pasted URL behind.
-function pickKind(value: string) {
-  kind.value = value;
-  clearPaste();
-}
+// A service set up from its own URL needs one when it's added.
+const pasteRules = computed(() =>
+  nativeUrl.value && !editing.value ? [notBlank()] : [],
+);
 
 async function fillFromUrl(url: string) {
   const request = ++pasteRequest;
@@ -232,13 +255,23 @@ async function fillFromUrl(url: string) {
       });
       return;
     }
+    // What's typed beside a service's own URL (a Discord bot name) stays.
+    const typed =
+      found.id === service.value?.id && found.url_fields.length > 0
+        ? Object.fromEntries(
+            Object.entries(appriseValues.value).filter(
+              ([key]) => !found.url_fields.includes(key),
+            ),
+          )
+        : {};
     kind.value = `${APPRISE_PREFIX}${found.id}`;
-    // Lets the service watcher start the form afresh before it's filled in.
-    await nextTick();
-    appriseValues.value = initialAppriseValues(found, data.fields);
-    filledFields.value = found.fields
-      .map((field) => field.key)
-      .filter((key) => key in data.fields);
+    appriseValues.value = initialAppriseValues(found, {
+      ...typed,
+      ...data.fields,
+    });
+    removedSecrets.value = [];
+    filledFields.value = Object.keys(data.fields);
+    parsedUrl.value = url;
   } catch (err) {
     if (request !== pasteRequest) return;
     pasteError.value = errorMessage(
@@ -253,10 +286,10 @@ async function fillFromUrl(url: string) {
 watchDebounced(
   pastedUrl,
   (url) => {
-    if (url.trim()) void fillFromUrl(url.trim());
-    else {
-      pasteError.value = null;
-      filledFields.value = [];
+    const pasted = url.trim();
+    if (!pasted) clearPaste();
+    else if (URL_LIKE.test(pasted) && pasted !== parsedUrl.value) {
+      void fillFromUrl(pasted);
     }
   },
   { debounce: 400 },
@@ -322,8 +355,13 @@ async function request() {
 }
 
 async function save() {
+  // A URL typed without a pause to read it is read now.
+  const pasted = pastedUrl.value.trim();
+  if (service.value && pasted && pasted !== parsedUrl.value) {
+    await fillFromUrl(pasted);
+  }
   const result = await formRef.value?.validate();
-  if (!result?.valid) return;
+  if (!result?.valid || pasteError.value) return;
   saving.value = true;
   error.value = null;
   try {
@@ -444,8 +482,11 @@ async function save() {
           <template v-if="service">
             <RTextField
               v-model="pastedUrl"
-              :label="t('notifications.channel-paste-url')"
+              :label="pasteLabel"
               :hint="pasteHint"
+              :placeholder="nativeUrl && editing ? channel?.target : undefined"
+              :rules="pasteRules"
+              :required="nativeUrl && !editing"
               :error-messages="pasteError ?? undefined"
               :maxlength="NOTIFICATION_CHANNEL_URL_MAX_LENGTH"
               :loading="filling"

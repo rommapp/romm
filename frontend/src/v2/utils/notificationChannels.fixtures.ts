@@ -44,6 +44,7 @@ export function makeAppriseService(
     id: "ntfy",
     name: "ntfy",
     setup_url: "https://github.com/caronc/apprise/wiki/Notify_ntfy",
+    url_fields: [],
     fields: [
       {
         ...field,

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 // AppriseServiceFields: the fields an Apprise service takes, as the backend
 // lists them, with its options folded under "Advanced options".
-import { RCollapsible } from "@v2/lib";
-import { computed } from "vue";
+import { RBtn, RCollapsible } from "@v2/lib";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { AppriseServiceSchema } from "@/__generated__";
+import type { AppriseFieldSchema, AppriseServiceSchema } from "@/__generated__";
 import AppriseFieldInput from "@/v2/components/Notifications/AppriseFieldInput.vue";
 import type { AppriseFieldValue } from "@/v2/utils/notificationChannels";
 
@@ -23,11 +23,27 @@ const removed = defineModel<string[]>("removed", { default: () => [] });
 
 const { t } = useI18n();
 
-const basic = computed(() => props.service.fields.filter((f) => !f.advanced));
+// A service set up from its own URL shows only what that URL lacks.
+const basic = computed(() =>
+  props.service.fields.filter(
+    (f) => !f.advanced && !props.service.url_fields.includes(f.key),
+  ),
+);
 const advanced = computed(() => props.service.fields.filter((f) => f.advanced));
+const showAdvanced = ref(false);
 
 function set(key: string, value: AppriseFieldValue) {
   values.value = { ...values.value, [key]: value };
+}
+
+function inputProps(field: AppriseFieldSchema) {
+  return {
+    field,
+    modelValue: values.value[field.key],
+    stored: props.stored.includes(field.key),
+    highlight: props.highlighted.includes(field.key),
+    removed: removed.value.includes(field.key),
+  };
 }
 
 function setRemoved(key: string, drop: boolean) {
@@ -38,38 +54,38 @@ function setRemoved(key: string, drop: boolean) {
 </script>
 
 <template>
-  <div class="r-v2-apprise-fields">
+  <div v-if="basic.length > 0" class="r-v2-apprise-fields">
     <AppriseFieldInput
       v-for="field in basic"
       :key="field.key"
-      :model-value="values[field.key]"
-      :field="field"
-      :stored="stored.includes(field.key)"
-      :highlight="highlighted.includes(field.key)"
-      :removed="removed.includes(field.key)"
+      v-bind="inputProps(field)"
       @update:model-value="set(field.key, $event)"
       @update:removed="setRemoved(field.key, $event)"
     />
   </div>
-  <RCollapsible
-    v-if="advanced.length > 0"
-    :title="t('notifications.channel-advanced')"
-    icon="mdi-tune-variant"
-  >
-    <div class="r-v2-apprise-fields r-v2-apprise-fields--inset">
-      <AppriseFieldInput
-        v-for="field in advanced"
-        :key="field.key"
-        :model-value="values[field.key]"
-        :field="field"
-        :stored="stored.includes(field.key)"
-        :highlight="highlighted.includes(field.key)"
-        :removed="removed.includes(field.key)"
-        @update:model-value="set(field.key, $event)"
-        @update:removed="setRemoved(field.key, $event)"
-      />
-    </div>
-  </RCollapsible>
+  <template v-if="advanced.length > 0">
+    <RBtn
+      class="r-v2-apprise-fields__toggle"
+      variant="text"
+      size="small"
+      :prepend-icon="showAdvanced ? 'mdi-chevron-down' : 'mdi-chevron-right'"
+      :aria-expanded="showAdvanced"
+      @click="showAdvanced = !showAdvanced"
+    >
+      {{ t("notifications.channel-advanced") }}
+    </RBtn>
+    <RCollapsible v-model="showAdvanced">
+      <div class="r-v2-apprise-fields r-v2-apprise-fields--inset">
+        <AppriseFieldInput
+          v-for="field in advanced"
+          :key="field.key"
+          v-bind="inputProps(field)"
+          @update:model-value="set(field.key, $event)"
+          @update:removed="setRemoved(field.key, $event)"
+        />
+      </div>
+    </RCollapsible>
+  </template>
 </template>
 
 <style scoped>
@@ -78,6 +94,10 @@ function setRemoved(key: string, drop: boolean) {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: var(--r-space-3);
+}
+
+.r-v2-apprise-fields__toggle {
+  align-self: flex-start;
 }
 
 .r-v2-apprise-fields--inset {

@@ -38,8 +38,9 @@ export const CHANNEL_ICONS: Record<NotificationChannelType, string> = {
 export type AppriseFieldValue = AppriseChannelCreatePayload["fields"][string];
 
 // Fields most services share, labelled by RomM; the rest keep Apprise's label.
-export const APPRISE_FIELD_LABELS: Record<string, string> = {
+const APPRISE_FIELD_LABELS: Record<string, string> = {
   schema: "notifications.channel-field-schema",
+  botname: "notifications.channel-field-botname",
   host: "notifications.channel-field-host",
   port: "notifications.channel-field-port",
   user: "settings.username",

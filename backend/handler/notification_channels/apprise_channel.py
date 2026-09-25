@@ -10,7 +10,15 @@ from functools import cache, cached_property
 from typing import Any, Final, Literal, get_args
 from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit
 
-from apprise import Apprise, AppriseAsset, NotifyBase, NotifyFormat, NotifyType
+from apprise import (
+    Apprise,
+    AppriseAsset,
+    NotificationManager,
+    NotifyBase,
+    NotifyFormat,
+    NotifyType,
+)
+from apprise.utils.parse import parse_bool
 
 from logger.logger import log
 from models.notification import NotificationLevel
@@ -62,6 +70,13 @@ MANAGED_OPTIONS: Final = frozenset(
 )
 # Where Apprise's setup guides live, one page per service.
 WIKI_PAGE: Final = "https://github.com/caronc/apprise/wiki/Notify_{}"
+# Services Apprise reads a URL of their own for (a Discord webhook's), whose
+# native URL only covers a corner of what they do, so they keep their fields.
+FIELD_SERVICES: Final = frozenset({"matrix", "lametric", "46elks", "wechat"})
+# Where a URL points and whom it signs in as.
+_URL_PARTS: Final = frozenset(
+    {"schema", "host", "port", "user", "password", "path", "fullpath"}
+)
 # Services that post to any path on their host, which no token names.
 FREE_PATH_SERVICES: Final = frozenset({"json", "xml", "form"})
 # Tokens Apprise doesn't mark private although they are credentials.
@@ -115,16 +130,14 @@ _REPLY: Final = "Response Details:"
 class _Collector(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         collected = _collected.get()
-        message = record.getMessage()
-        if collected is None:
-            # No send reports it, so it goes to the server log.
-            if record.levelno >= logging.WARNING:
-                log.warning(f"Apprise: {message}")
-            return
         if record.levelno >= logging.WARNING:
-            collected.append(message)
-        elif message.startswith(_REPLY):
-            reply = message.removeprefix(_REPLY).strip()
+            if collected is None:
+                # No send reports it, so it goes to the server log.
+                log.warning(f"Apprise: {record.getMessage()}")
+            else:
+                collected.append(record.getMessage())
+        elif collected is not None and str(record.msg).startswith(_REPLY):
+            reply = record.getMessage().removeprefix(_REPLY).strip()
             # Apprise logs the body as a bytes repr, b'...'.
             if reply[:2] in ("b'", 'b"'):
                 reply = reply[2:-1]
@@ -172,6 +185,9 @@ class AppriseService:
     default_schema: str
     templates: tuple[str, ...]
     fields: tuple[AppriseField, ...]
+    # The fields the URL a service gives out (a Discord webhook's) fills in,
+    # when it's set up from that URL; empty for a service without one.
+    url_fields: tuple[str, ...] = ()
 
     @cached_property
     def _by_key(self) -> dict[str, AppriseField]:
@@ -181,6 +197,14 @@ class AppriseService:
     def owners(self) -> dict[str, AppriseField]:
         """The list each singular token belongs to."""
         return {member: field for field in self.fields for member in field.members}
+
+    @cached_property
+    def patterns(self) -> tuple[re.Pattern[str], ...]:
+        """Each template as a pattern for the URL Apprise writes, fullest first."""
+        ordered = sorted(
+            self.templates, key=lambda t: len(_PLACEHOLDER.findall(t)), reverse=True
+        )
+        return tuple(_template_pattern(self, template) for template in ordered)
 
     @cached_property
     def secrets(self) -> frozenset[str]:
@@ -293,7 +317,22 @@ def _service(entry: dict[str, Any]) -> AppriseService | None:
         if field:
             fields.append(field)
 
+    plugin = NotificationManager()[protocols[0]]
+    native = (
+        protocols[0] not in FIELD_SERVICES
+        and plugin.parse_native_url is not NotifyBase.parse_native_url
+    )
+    # Such a URL holds what the service needs, where and whom it signs in as;
+    # what it lacks (a Discord bot name) stays a field.
+    url_fields = tuple(
+        field.key
+        for field in fields
+        if native
+        and not field.advanced
+        and (field.required or field.private or field.key in _URL_PARTS)
+    )
     return AppriseService(
+        url_fields=url_fields,
         id=protocols[0],
         name=entry.get("service_name") or protocols[0],
         setup_url=_setup_url(entry.get("setup_url")),
@@ -516,22 +555,21 @@ def split_fields(
     return public, [key for key in kept if key in service.secrets]
 
 
+# What each kind of template token matches in the URL Apprise writes.
+_TOKEN_PATTERNS: Final = {
+    "schema": r"[a-z0-9+.-]+",
+    "host": _HOST.pattern,
+    "port": r"\d+",
+    "user": r"[^/:@?#]+",
+    _PATH_TOKEN: r"/(?:[^?#]*/)?",
+}
+
+
 def _token_pattern(service: AppriseService, key: str) -> str:
-    """What a template token matches in the URL Apprise writes."""
+    if key in _TOKEN_PATTERNS:
+        return _TOKEN_PATTERNS[key]
     field = service.field(key)
-    if key == "schema":
-        return r"[a-z0-9+.-]+"
-    if key == "host":
-        return r"\[[^\]]+\]|[^/:@?#]+"
-    if key == "port":
-        return r"\d+"
-    if key == "user":
-        return r"[^/:@?#]+"
-    if key == _PATH_TOKEN:
-        return r"/(?:[^?#]*/)?"
-    if field is not None and field.type == "list":
-        return r".+"
-    return r"[^/@?#]+"
+    return r".+" if field is not None and field.type == "list" else r"[^/@?#]+"
 
 
 def _template_pattern(service: AppriseService, template: str) -> re.Pattern[str]:
@@ -542,7 +580,7 @@ def _template_pattern(service: AppriseService, template: str) -> re.Pattern[str]
         pattern += re.escape(template[end : match.start()])
         pattern += f"(?P<{key}>{_token_pattern(service, key)})"
         end = match.end()
-    return re.compile(pattern + re.escape(template[end:]))
+    return re.compile(pattern + re.escape(template[end:]), re.I)
 
 
 def _read(field: AppriseField, text: str, quoted: bool) -> FieldValue | None:
@@ -552,7 +590,7 @@ def _read(field: AppriseField, text: str, quoted: bool) -> FieldValue | None:
         return [unquote(item) if quoted else item for item in items if item]
     text = unquote(text) if quoted else text
     if field.type == "bool":
-        return text.lower() in ("yes", "true", "1", "on")
+        return parse_bool(text)
     if field.type in ("int", "float"):
         try:
             return int(text) if field.type == "int" else float(text)
@@ -593,31 +631,37 @@ def fields_from_url(url: str) -> tuple[AppriseService, dict[str, FieldValue]]:
     if service.id in FREE_PATH_SERVICES:
         fields[_PATH_TOKEN] = unquote(parts.path.strip("/"))
         base = f"{parts.scheme}://{parts.netloc}"
-    templates = sorted(
-        service.templates, key=lambda t: len(_PLACEHOLDER.findall(t)), reverse=True
-    )
-    match = next(
-        (m for t in templates if (m := _template_pattern(service, t).fullmatch(base))),
-        None,
-    )
+    match = next((m for p in service.patterns if (m := p.fullmatch(base))), None)
     if match is None:
         raise ValueError(f"RomM can't read the {service.name} fields from this URL")
 
-    read = [
-        (service.owners.get(key) or service.field(key), text, True)
-        for key, text in match.groupdict().items()
-        if key != "schema" and text
-    ] + [
-        (field, text, False)
-        for key, text in parse_qsl(parts.query, keep_blank_values=True)
-        if (field := service.field(key)) is not None and field.advanced
-    ]
-    for field, text, quoted in read:
-        if field is not None and (value := _read(field, text, quoted)) is not None:
+    for key, text in match.groupdict().items():
+        field = service.owners.get(key) or service.field(key)
+        if field is None or key == "schema" or not text:
+            continue
+        if (value := _read(field, text, quoted=True)) is not None:
             fields[field.key] = value
+    for key, text in parse_qsl(parts.query, keep_blank_values=True):
+        field = service.field(key)
+        if field is None or not field.advanced:
+            continue
+        if (value := _read(field, text, quoted=False)) is not None:
+            fields[key] = value
     if len(service.schemas) > 1:
         fields["schema"] = parts.scheme
-    return service, known_fields(service, fields)
+    fields = known_fields(service, fields)
+    # The fields must make the same URL again, or a token was misread.
+    if _address(_plugin(service, fields).url(privacy=False)) != _address(
+        plugin.url(privacy=False)
+    ):
+        raise ValueError(f"RomM can't read the {service.name} fields from this URL")
+    return service, fields
+
+
+def _address(url: str) -> tuple[str, str, str]:
+    """A URL's scheme, authority and path, as Apprise writes it."""
+    parts = urlsplit(url)
+    return parts.scheme.lower(), parts.netloc, unquote(parts.path).rstrip("/")
 
 
 def _destination(service: AppriseService, fields: Mapping[str, FieldValue]) -> Any:

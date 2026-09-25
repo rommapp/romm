@@ -5,7 +5,7 @@
 import { RDialog, RIcon, RImg, RTooltip } from "@v2/lib";
 import { useResizeObserver } from "@vueuse/core";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, reactive, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 import { useVersionDisplay } from "@/v2/composables/useVersionDisplay";
@@ -62,19 +62,16 @@ const links = computed<Link[]>(() => [
   },
 ]);
 
-// Values cut off by their tile's width, whose tile then shows them in full.
-// Measured whenever the grid lays out, so a tooltip knows before it's hovered.
+// Which tiles cut their value off, and then show it in full. Measured whenever
+// the grid lays out, as RTooltip decides on the pointer's arrival.
 const grid = ref<HTMLElement | null>(null);
-const truncated = reactive(new Set<string>());
+const truncated = ref<boolean[]>([]);
 
 useResizeObserver(grid, () => {
-  const values = grid.value?.querySelectorAll(".r-v2-about__value") ?? [];
-  links.value.forEach((link, index) => {
-    const value = values[index];
-    if (value && value.scrollWidth > value.clientWidth)
-      truncated.add(link.label);
-    else truncated.delete(link.label);
-  });
+  truncated.value = Array.from(
+    grid.value?.querySelectorAll(".r-v2-about__value") ?? [],
+    (value) => value.scrollWidth > value.clientWidth,
+  );
 });
 </script>
 
@@ -91,7 +88,7 @@ useResizeObserver(grid, () => {
     <template #content>
       <div ref="grid" class="r-v2-about">
         <a
-          v-for="link in links"
+          v-for="(link, index) in links"
           :key="link.label"
           :href="link.href"
           target="_blank"
@@ -117,7 +114,7 @@ useResizeObserver(grid, () => {
           <RTooltip
             activator="parent"
             :text="link.value"
-            :disabled="!truncated.has(link.label)"
+            :disabled="!truncated[index]"
           />
         </a>
       </div>

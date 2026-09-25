@@ -7,6 +7,7 @@ export type AppriseServiceSchema = {
     id: string;
     name: string;
     setup_url: (string | null);
+    url_fields: Array<string>;
     fields: Array<AppriseFieldSchema>;
 };
 

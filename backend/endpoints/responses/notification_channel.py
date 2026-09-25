@@ -207,6 +207,8 @@ class AppriseServiceSchema(BaseModel):
     id: str
     name: str
     setup_url: str | None
+    # The fields the URL a service gives out fills in; empty without one.
+    url_fields: list[str]
     fields: list[AppriseFieldSchema]
 
     @classmethod
@@ -215,6 +217,7 @@ class AppriseServiceSchema(BaseModel):
             id=service.id,
             name=service.name,
             setup_url=service.setup_url,
+            url_fields=list(service.url_fields),
             fields=[AppriseFieldSchema.from_field(field) for field in service.fields],
         )
 

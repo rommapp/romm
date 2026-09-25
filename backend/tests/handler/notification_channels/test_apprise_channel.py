@@ -86,6 +86,21 @@ class TestCatalog:
     def test_json_takes_a_path_after_its_host(self):
         assert "path" in _keys("json")
 
+    @pytest.mark.parametrize(
+        "service,url_fields",
+        [
+            ("discord", ("webhook_id", "webhook_token")),
+            (
+                "ntfy",
+                ("schema", "host", "port", "user", "password", "token", "targets"),
+            ),
+            ("pover", ()),
+            ("matrix", ()),
+        ],
+    )
+    def test_knows_what_a_services_own_url_fills_in(self, service, url_fields):
+        assert find_service(service).url_fields == url_fields
+
     def test_points_at_the_setup_guide_on_apprises_wiki(self):
         assert find_service("discord").setup_url == (
             "https://github.com/caronc/apprise/wiki/Notify_discord"
