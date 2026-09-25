@@ -417,15 +417,22 @@ class TestBaselineInProcessRemoteSave:
         assert kwargs["device_last_sync_hash"] == "client_at_boundary"
         assert kwargs["device_last_sync_server_hash"] == "server_at_boundary"
 
-    async def test_no_op_records_both_halves(
+    @pytest.mark.parametrize(
+        "server_hash,recorded",
+        [("remote_now", "remote_now"), ("server_hash", None)],
+    )
+    async def test_no_op_records_a_baseline_only_for_identical_content(
         self,
         device: Device,
         admin_user: User,
         rom: Rom,
         platform: Platform,
         local_save_file: str,
+        server_hash: str,
+        recorded: str | None,
     ):
-        save = self._save(admin_user, rom, platform, "server_hash")
+        """A timestamp-only no-op must not record two different saves as in sync."""
+        save = self._save(admin_user, rom, platform, server_hash)
 
         with (
             patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
@@ -442,8 +449,8 @@ class TestBaselineInProcessRemoteSave:
 
         sync = db_device_save_sync_handler.get_sync(device.id, save.id)
         assert sync is not None
-        assert sync.last_sync_hash == "remote_now"
-        assert sync.last_sync_server_hash == "server_hash"
+        assert sync.last_sync_hash == recorded
+        assert sync.last_sync_server_hash == recorded
 
     async def test_upload_records_both_halves_as_the_remote_hash(
         self,

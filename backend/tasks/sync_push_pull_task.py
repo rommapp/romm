@@ -272,13 +272,16 @@ async def _process_remote_save(
         )
 
         if result.action == "no_op":
-            # Update sync tracking even for no-ops
-            # Both values are the server's own hash of each side on this path.
+            # A timestamp-only no-op can leave the two sides different, so only
+            # identical content is recorded as the baseline.
+            identical = (
+                remote_hash if remote_hash == matched_save.content_hash else None
+            )
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                last_sync_hash=remote_hash,
-                last_sync_server_hash=matched_save.content_hash,
+                last_sync_hash=identical,
+                last_sync_server_hash=identical,
             )
             return "no_op"
 
