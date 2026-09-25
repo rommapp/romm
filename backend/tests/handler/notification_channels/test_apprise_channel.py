@@ -135,12 +135,12 @@ class TestBuildUrl:
         ],
     )
     def test_fills_in_the_template_the_fields_make_up(self, service, fields, url):
-        assert build_url(service, fields) == url
+        assert build_url(find_service(service), fields) == url
         check(service, fields)
 
     def test_says_what_is_missing(self):
         with pytest.raises(ValueError, match="^Discord needs Webhook Token$"):
-            build_url("discord", {"webhook_id": "1234567890"})
+            build_url(find_service("discord"), {"webhook_id": "1234567890"})
 
     def test_refuses_fields_no_template_takes_together(self):
         fields: dict[str, FieldValue] = {
@@ -151,30 +151,32 @@ class TestBuildUrl:
         }
 
         with pytest.raises(ValueError, match="can't take these fields together"):
-            build_url("ntfy", {**fields, "password": "p"})
+            build_url(find_service("ntfy"), {**fields, "password": "p"})
 
     @pytest.mark.parametrize(
         "host", ["example.com/hook?x=1", "{port}.example.com", "example.com:8080"]
     )
     def test_a_host_is_only_a_host(self, host):
         with pytest.raises(ValueError, match="isn't a hostname"):
-            build_url("json", {"host": host, "port": 80})
+            build_url(find_service("json"), {"host": host, "port": 80})
 
     @pytest.mark.parametrize("host", ["ntfy.example.com", "192.168.1.5", "[::1]"])
     def test_takes_names_and_addresses_as_hosts(self, host):
-        assert build_url("ntfy", {"host": host, "targets": ["romm"]}).startswith(
-            f"ntfys://{host}/"
-        )
+        assert build_url(
+            find_service("ntfy"), {"host": host, "targets": ["romm"]}
+        ).startswith(f"ntfys://{host}/")
 
     def test_ignores_fields_the_form_never_offered(self):
-        url = build_url("discord", {**_DISCORD, "template": "/etc/passwd"})
+        url = build_url(
+            find_service("discord"), {**_DISCORD, "template": "/etc/passwd"}
+        )
 
         assert "template" not in url
 
-    @pytest.mark.parametrize("service", ["syslog", "nowhere"])
+    @pytest.mark.parametrize("service", ["syslog", "fcm", "nowhere"])
     def test_knows_only_the_services_it_lists(self, service):
         with pytest.raises(ValueError, match="no such service"):
-            build_url(service, {})
+            find_service(service)
 
 
 class TestFields:

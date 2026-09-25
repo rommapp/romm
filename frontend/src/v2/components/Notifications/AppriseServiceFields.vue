@@ -12,8 +12,6 @@ const props = defineProps<{
   service: AppriseServiceSchema;
   // The secrets the channel already has.
   stored: string[];
-  // Required lists left empty since the last save attempt.
-  missing: string[];
 }>();
 const values = defineModel<Record<string, AppriseFieldValue>>({
   required: true,
@@ -46,7 +44,6 @@ function setRemoved(key: string, drop: boolean) {
       :field="field"
       :stored="stored.includes(field.key)"
       :removed="removed.includes(field.key)"
-      :missing="missing.includes(field.key)"
       @update:model-value="set(field.key, $event)"
       @update:removed="setRemoved(field.key, $event)"
     />
@@ -64,7 +61,6 @@ function setRemoved(key: string, drop: boolean) {
         :field="field"
         :stored="stored.includes(field.key)"
         :removed="removed.includes(field.key)"
-        :missing="false"
         @update:model-value="set(field.key, $event)"
         @update:removed="setRemoved(field.key, $event)"
       />

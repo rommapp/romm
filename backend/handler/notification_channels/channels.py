@@ -41,10 +41,7 @@ class ChannelError(ValueError):
     """A change the channel can't take, worded for the user."""
 
 
-def require_apprise(user: User) -> None:
-    """Raises:
-    ChannelError: The user isn't an admin.
-    """
+def _require_apprise(user: User) -> None:
     if not may_reach_private_network(user.role):
         raise ChannelError(apprise_channel.ADMINS_ONLY)
 
@@ -53,7 +50,7 @@ def _apprise_config(
     service: str, fields: Mapping[str, FieldValue], user: User
 ) -> AppriseConfig:
     """An Apprise channel's config once its owner and fields check out."""
-    require_apprise(user)
+    _require_apprise(user)
     try:
         kept = apprise_channel.check(service, fields)
     except ValueError as exc:
@@ -227,11 +224,7 @@ async def send_sample(channel: NotificationChannel, user: User) -> str | None:
                 allow_private=may_reach_private_network(user.role),
             )
     except Exception as exc:  # noqa: BLE001 - the error goes back to the user
-        error = (
-            f"No answer within {DELIVERY_TIMEOUT_SECONDS} seconds"
-            if isinstance(exc, TimeoutError)
-            else describe_error(exc)
-        )
+        error = describe_error(exc)
         db_notification_channel_handler.record_failure(channel.id, error, counts=False)
         return error
     db_notification_channel_handler.record_delivery(channel.id)

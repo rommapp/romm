@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   appriseFieldsPayload,
   initialAppriseValues,
-  missingAppriseLists,
 } from "./notificationChannels";
 import { makeAppriseService } from "./notificationChannels.fixtures";
 
@@ -29,51 +28,29 @@ describe("initialAppriseValues", () => {
 });
 
 describe("appriseFieldsPayload", () => {
-  it("sends what was filled in, numbers as numbers, defaults left out", () => {
+  it("sends what was filled in, numbers as numbers", () => {
     const values = {
       ...initialAppriseValues(service),
       host: "ntfy.example.com",
       port: "8080",
       targets: ["romm"],
-      priority: "high",
     };
 
     expect(appriseFieldsPayload(service, values)).toEqual({
+      schema: "ntfys",
       host: "ntfy.example.com",
       port: 8080,
       targets: ["romm"],
-      priority: "high",
+      image: true,
+      priority: "default",
     });
   });
 
   it("sends a secret the form removes as empty", () => {
     const values = initialAppriseValues(service);
 
-    expect(appriseFieldsPayload(service, values, ["token"])).toEqual({
+    expect(appriseFieldsPayload(service, values, ["token"])).toMatchObject({
       token: "",
     });
-  });
-
-  it("keeps a switch turned away from its default", () => {
-    const values = { ...initialAppriseValues(service), image: false };
-
-    expect(appriseFieldsPayload(service, values)).toEqual({ image: false });
-  });
-});
-
-describe("missingAppriseLists", () => {
-  it("names the required lists left empty", () => {
-    const values = initialAppriseValues(service);
-
-    expect(missingAppriseLists(service, values)).toEqual(["targets"]);
-    expect(
-      missingAppriseLists(service, { ...values, targets: ["romm"] }),
-    ).toEqual([]);
-  });
-
-  it("lets a secret list the channel already has stay empty", () => {
-    const values = initialAppriseValues(service);
-
-    expect(missingAppriseLists(service, values, ["targets"])).toEqual([]);
   });
 });

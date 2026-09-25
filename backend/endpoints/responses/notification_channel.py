@@ -30,7 +30,7 @@ from .base import BaseModel, UTCDatetime
 ChannelName = Annotated[
     str, Field(min_length=1, max_length=NOTIFICATION_CHANNEL_NAME_MAX_LENGTH)
 ]
-ChannelUrl = Annotated[
+WebhookUrl = Annotated[
     str, Field(min_length=1, max_length=NOTIFICATION_CHANNEL_URL_MAX_LENGTH)
 ]
 ChannelSecret = Annotated[str, Field(max_length=NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH)]
@@ -136,7 +136,7 @@ class AppriseChannelCreatePayload(_ChannelFilters):
 class WebhookChannelCreatePayload(_ChannelFilters):
     type: Literal["webhook"]
     name: ChannelName
-    url: ChannelUrl
+    url: WebhookUrl
     # The key the payload is signed with.
     secret: ChannelSecret | None = None
 
@@ -164,7 +164,7 @@ class NotificationChannelUpdatePayload(BaseModel):
     enabled: bool | None = None
     min_level: NotificationChannelMinLevel | None = None
     topics: list[NotificationTopic] | None = None
-    url: ChannelUrl | None = None
+    url: WebhookUrl | None = None
     secret: ChannelSecret | None = None
     address: EmailAddress | None = None
     # An Apprise channel's fields; a secret left out keeps its value, an empty one goes.

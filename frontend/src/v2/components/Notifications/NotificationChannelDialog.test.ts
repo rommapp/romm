@@ -146,14 +146,20 @@ describe("NotificationChannelDialog", () => {
     wrapper
       .findComponent(RComboboxField)
       .vm.$emit("update:modelValue", ["romm"]);
+    await nextTick();
     await save(wrapper);
 
-    // The service's defaults (schema, image, priority) stay out of it.
     expect(api.create).toHaveBeenCalledWith({
       type: "apprise",
       name: "Phone",
       service: "ntfy",
-      fields: { host: "ntfy.example.com", targets: ["romm"] },
+      fields: {
+        schema: "ntfys",
+        host: "ntfy.example.com",
+        targets: ["romm"],
+        image: true,
+        priority: "default",
+      },
       min_level: "info",
       topics: null,
     });
@@ -168,7 +174,7 @@ describe("NotificationChannelDialog", () => {
     await save(wrapper);
 
     expect(api.create).not.toHaveBeenCalled();
-    expect(wrapper.findComponent(RComboboxField).props("errorMessages")).toBe(
+    expect(wrapper.find(".r-combobox-field").text()).toContain(
       "common.required",
     );
     wrapper.unmount();
@@ -224,11 +230,18 @@ describe("NotificationChannelDialog", () => {
     ).toBe("password");
     await save(wrapper);
 
+    // The token is left out, so the channel keeps it.
     expect(api.update).toHaveBeenCalledWith(4, {
       name: "Hook",
       min_level: "info",
       topics: ["scans"],
-      fields: { host: "ntfy.example.com", targets: ["romm"] },
+      fields: {
+        schema: "ntfys",
+        host: "ntfy.example.com",
+        targets: ["romm"],
+        image: true,
+        priority: "default",
+      },
     });
     wrapper.unmount();
   });
@@ -245,11 +258,7 @@ describe("NotificationChannelDialog", () => {
       ?.vm.$emit("update:modelValue", true);
     await save(wrapper);
 
-    expect(api.update.mock.calls[0][1].fields).toEqual({
-      host: "ntfy.example.com",
-      targets: ["romm"],
-      token: "",
-    });
+    expect(api.update.mock.calls[0][1].fields).toMatchObject({ token: "" });
     wrapper.unmount();
   });
 

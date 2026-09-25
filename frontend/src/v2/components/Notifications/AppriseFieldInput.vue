@@ -6,9 +6,9 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { AppriseFieldSchema } from "@/__generated__";
 import {
+  APPRISE_FIELD_LABELS,
   type AppriseFieldValue,
   NOTIFICATION_CHANNEL_URL_MAX_LENGTH,
-  TRANSLATED_APPRISE_FIELDS,
 } from "@/v2/utils/notificationChannels";
 import { notBlank } from "@/v2/utils/validation";
 
@@ -16,19 +16,16 @@ const props = defineProps<{
   field: AppriseFieldSchema;
   // A secret the channel already has, which stays when left empty.
   stored: boolean;
-  // A required list left empty, which the combobox can't flag by itself.
-  missing: boolean;
 }>();
 const value = defineModel<AppriseFieldValue>({ required: true });
 const removed = defineModel<boolean>("removed", { default: false });
 
 const { t } = useI18n();
 
-const label = computed(() =>
-  TRANSLATED_APPRISE_FIELDS.has(props.field.key)
-    ? t(`notifications.channel-field-${props.field.key}`)
-    : props.field.label,
-);
+const label = computed(() => {
+  const key = APPRISE_FIELD_LABELS[props.field.key];
+  return key ? t(key) : props.field.label;
+});
 const required = computed(() => props.field.required && !props.stored);
 const hint = computed(() =>
   props.stored ? t("notifications.channel-secret-keep") : undefined,
@@ -59,6 +56,11 @@ const rules = computed(() => [
   ...(required.value ? [notBlank()] : []),
   ...(isNumber.value ? [inRange] : []),
 ]);
+const listRules = computed(() =>
+  required.value
+    ? [(items: string[]) => items.length > 0 || t("common.required")]
+    : [],
+);
 </script>
 
 <template>
@@ -83,7 +85,7 @@ const rules = computed(() => [
       :model-value="Array.isArray(value) ? value : []"
       :label="label"
       :hint="hint ?? t('notifications.channel-field-list-hint')"
-      :error-messages="missing ? t('common.required') : undefined"
+      :rules="listRules"
       :disabled="removed"
       prefix-label="stacked"
       no-suggestions

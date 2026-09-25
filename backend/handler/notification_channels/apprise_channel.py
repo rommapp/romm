@@ -6,18 +6,11 @@ import re
 from collections.abc import Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass
-from functools import cache
-from typing import Any, Final, Literal
+from functools import cache, cached_property
+from typing import Any, Final, Literal, get_args
 from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
-from apprise import (
-    Apprise,
-    AppriseAsset,
-    NotificationManager,
-    NotifyBase,
-    NotifyFormat,
-    NotifyType,
-)
+from apprise import Apprise, AppriseAsset, NotifyBase, NotifyFormat, NotifyType
 
 from models.notification import NotificationLevel
 
@@ -29,17 +22,21 @@ ADMINS_ONLY: Final = "Only admins can use Apprise channels"
 CONNECT_TIMEOUT_SECONDS: Final = 10.0
 READ_TIMEOUT_SECONDS: Final = 15.0
 
-# Schemas that act on the machine running RomM instead of reaching a service.
-LOCAL_SCHEMAS: Final = (
-    "syslog",
-    "windows",
-    "macosx",
-    "dbus",
-    "gnome",
-    "kde",
-    "qt",
-    "glib",
-    "blink1",
+# Schemas that act on the machine running RomM instead of reaching a service,
+# and FCM, which opens its key file from a path or URL itself.
+EXCLUDED_SCHEMAS: Final = frozenset(
+    {
+        "syslog",
+        "windows",
+        "macosx",
+        "dbus",
+        "gnome",
+        "kde",
+        "qt",
+        "glib",
+        "blink1",
+        "fcm",
+    }
 )
 # Options Apprise loads as a local file or a URL it fetches.
 FILE_OPTIONS: Final = frozenset(
@@ -63,10 +60,6 @@ MANAGED_OPTIONS: Final = frozenset(
 )
 # Services that post to any path on their host, which no token names.
 FREE_PATH_SERVICES: Final = frozenset({"json", "xml", "form"})
-# FCM reads its service account key from a path or URL it opens itself.
-EXCLUDED_SERVICES: Final = frozenset({"fcm"})
-# Fields that decide where a channel's secrets are sent.
-DESTINATION_FIELDS: Final = frozenset({"schema", "host", "port", "smtp", "mode"})
 # Tokens Apprise doesn't mark private although they are credentials.
 _SECRET_NAME: Final = re.compile(r"token|key|secret|pass|webhook|auth|sid", re.I)
 # Chat services turn these into pings of a whole server or a role.
@@ -90,8 +83,6 @@ _ASSET: Final = AppriseAsset(
     http_redirects=False,
     secure_logging=True,
 )
-
-NotificationManager().disable(*LOCAL_SCHEMAS)
 
 _PLACEHOLDER: Final = re.compile(r"{(\w+)}")
 # A hostname, an IPv4 address or a bracketed IPv6 one.
@@ -150,39 +141,38 @@ class AppriseService:
     templates: tuple[str, ...]
     fields: tuple[AppriseField, ...]
 
+    @cached_property
+    def _by_key(self) -> dict[str, AppriseField]:
+        return {field.key: field for field in self.fields}
+
+    @cached_property
+    def owners(self) -> dict[str, AppriseField]:
+        """The list each singular token belongs to."""
+        return {member: field for field in self.fields for member in field.members}
+
+    @cached_property
+    def secrets(self) -> frozenset[str]:
+        return frozenset(field.key for field in self.fields if field.private)
+
     def field(self, key: str) -> AppriseField | None:
-        return next((field for field in self.fields if field.key == key), None)
-
-
-_FIELD_TYPES: Final[dict[str, FieldType]] = {
-    "string": "string",
-    "int": "int",
-    "float": "float",
-    "bool": "bool",
-    "choice": "choice",
-    "list": "list",
-}
-
-
-def _field_type(kind: str) -> FieldType | None:
-    """Apprise's `choice:string` or `list:int` by the form control it needs."""
-    return _FIELD_TYPES.get(kind.split(":", 1)[0])
+        return self._by_key.get(key)
 
 
 def _field(
     key: str, meta: dict[str, Any], *, advanced: bool, required: bool = False
 ) -> AppriseField | None:
-    field_type = _field_type(meta.get("type", "string"))
-    if field_type is None:
+    # Apprise's `choice:string` or `list:int`, by the form control it needs.
+    kind = meta.get("type", "string").split(":", 1)[0]
+    if kind not in get_args(FieldType):
         return None
     values = meta.get("values")
     private = bool(meta.get("private")) or (
-        not advanced and field_type == "string" and bool(_SECRET_NAME.search(key))
+        not advanced and kind == "string" and bool(_SECRET_NAME.search(key))
     )
     return AppriseField(
         key=key,
         label=meta.get("name") or key,
-        type=field_type,
+        type=kind,
         required=required,
         private=private,
         advanced=advanced,
@@ -204,7 +194,7 @@ def _service(entry: dict[str, Any]) -> AppriseService | None:
         *(entry.get("protocols") or []),
         *(entry.get("secure_protocols") or []),
     ]
-    if not protocols or not templates or protocols[0] in EXCLUDED_SERVICES:
+    if not protocols or not templates or EXCLUDED_SCHEMAS & set(protocols):
         return None
 
     secure = entry.get("secure_protocols") or []
@@ -285,14 +275,19 @@ def services() -> tuple[AppriseService, ...]:
     return tuple(sorted((s for s in found if s), key=lambda s: s.name.lower()))
 
 
+@cache
+def _services_by_id() -> dict[str, AppriseService]:
+    return {service.id: service for service in services()}
+
+
 def find_service(service_id: str) -> AppriseService:
     """Raises:
     ValueError: RomM has no such Apprise service.
     """
-    for service in services():
-        if service.id == service_id:
-            return service
-    raise ValueError("Apprise has no such service")
+    service = _services_by_id().get(service_id)
+    if service is None:
+        raise ValueError("Apprise has no such service")
+    return service
 
 
 def _blank(value: object) -> bool:
@@ -302,23 +297,24 @@ def _blank(value: object) -> bool:
 def known_fields(
     service: AppriseService, fields: Mapping[str, FieldValue]
 ) -> dict[str, FieldValue]:
-    """The fields the service takes that were filled in."""
+    """The fields the service takes that were filled in, defaults left out."""
     return {
         key: value
         for key, value in fields.items()
-        if service.field(key) is not None and not _blank(value)
+        if (field := service.field(key)) is not None
+        and not _blank(value)
+        and value != field.default
     }
 
 
 def _scrub(text: str, service: AppriseService, fields: Mapping[str, FieldValue]) -> str:
     """The text with the channel's secrets hidden, as Apprise may quote them."""
-    for field in service.fields:
-        value = fields.get(field.key)
-        if not field.private or _blank(value):
+    for key in service.secrets:
+        value = fields.get(key)
+        if value is None or _blank(value):
             continue
         for secret in value if isinstance(value, list) else [value]:
-            secret = str(secret)
-            for form in {secret, quote(secret, safe="")}:
+            for form in {str(secret), quote(str(secret), safe="")}:
                 text = text.replace(form, "****")
     return text
 
@@ -331,20 +327,19 @@ def _text(field: AppriseField, value: FieldValue) -> str:
     return str(value)
 
 
-def _segment(key: str, value: FieldValue, field: AppriseField | None) -> str:
+def _segment(field: AppriseField, value: FieldValue) -> str:
     """A token's value as it sits in the URL."""
-    if key == "host":
+    if field.key == "host":
         text = str(value).strip()
         if not _HOST.fullmatch(text):
-            raise ValueError(f"{field.label if field else key} isn't a hostname")
+            raise ValueError(f"{field.label} isn't a hostname")
         return text
-    if key == _PATH_TOKEN:
+    if field.key == _PATH_TOKEN:
         # Gotify's {host}{path}{token} needs the path between slashes.
         path = str(value).strip("/")
         return f"/{quote(path)}/" if path else "/"
     if isinstance(value, list):
-        delimiter = field.delimiter if field else "/"
-        return delimiter.join(quote(str(item), safe="") for item in value)
+        return field.delimiter.join(quote(str(item), safe="") for item in value)
     return quote(str(value), safe="")
 
 
@@ -353,38 +348,38 @@ def _fill(
 ) -> tuple[str, set[str]] | None:
     """The template with its tokens filled in and the tokens it took, or None
     when it needs one that wasn't given."""
-    owners = {member: f.key for f in service.fields for member in f.members}
     filled, used = template, set()
     for key in _PLACEHOLDER.findall(template):
-        if key == "schema":
-            continue
-        if key in tokens:
-            text = _segment(key, tokens[key], service.field(key))
+        field = service.field(key)
+        if field is not None and key in tokens:
+            text = _segment(field, tokens[key])
             used.add(key)
-        else:
+        elif (owner := service.owners.get(key)) is not None:
             # A singular token can come from its list when that holds one item.
-            owner = owners.get(key)
-            items = tokens.get(owner) if owner else None
-            if owner is None or not isinstance(items, list) or len(items) != 1:
+            items = tokens.get(owner.key)
+            if not isinstance(items, list) or len(items) != 1:
                 return None
-            text = _segment(key, items[0], None)
-            used.add(owner)
+            text = quote(str(items[0]), safe="")
+            used.add(owner.key)
+        elif key == "schema":
+            continue
+        else:
+            return None
         filled = filled.replace(f"{{{key}}}", text, 1)
     return filled, used
 
 
-def build_url(service_id: str, fields: Mapping[str, FieldValue]) -> str:
+def build_url(service: AppriseService, fields: Mapping[str, FieldValue]) -> str:
     """The Apprise URL for a service's fields.
 
     Raises:
         ValueError: With a reason fit to show the user.
     """
-    service = find_service(service_id)
     tokens: dict[str, FieldValue] = {}
     options: dict[str, str] = {}
-    for key, value in fields.items():
+    for key, value in known_fields(service, fields).items():
         field = service.field(key)
-        if field is None or key == "schema" or _blank(value):
+        if field is None or key == "schema":
             continue
         if field.advanced:
             options[key] = _text(field, value)
@@ -397,13 +392,15 @@ def build_url(service_id: str, fields: Mapping[str, FieldValue]) -> str:
     extra_path = (
         tokens.pop(_PATH_TOKEN, None) if service.id in FREE_PATH_SERVICES else None
     )
-
-    fits = [
-        filled
-        for template in service.templates
-        if (filled := _fill(service, template, tokens)) and filled[1] == set(tokens)
-    ]
-    if not fits:
+    fit = next(
+        (
+            filled
+            for template in service.templates
+            if (filled := _fill(service, template, tokens)) and filled[1] == set(tokens)
+        ),
+        None,
+    )
+    if fit is None:
         missing = [
             f.label
             for f in service.fields
@@ -415,33 +412,26 @@ def build_url(service_id: str, fields: Mapping[str, FieldValue]) -> str:
             else f"{service.name} can't take these fields together"
         )
 
-    url = fits[0][0].replace("{schema}", schema, 1)
+    url = fit[0].replace("{schema}", schema, 1)
     if extra_path:
         url += "/" + quote(str(extra_path).lstrip("/"))
     return f"{url}?{urlencode(options)}" if options else url
 
 
-def _plugin(url: str) -> NotifyBase:
-    """Raises:
-    ValueError: With a reason fit to show the user.
-    """
-    try:
-        plugin = Apprise.instantiate(url, asset=_ASSET, suppress_exceptions=False)
-    except Exception as exc:  # noqa: BLE001 - a plugin says why it refused the URL
-        raise ValueError(str(exc) or "Apprise can't use these fields") from exc
-    if plugin is None:
-        raise ValueError("Apprise can't use these fields")
-    return plugin
-
-
-def _checked_plugin(service: AppriseService, fields: Mapping[str, FieldValue]):
+def _plugin(service: AppriseService, fields: Mapping[str, FieldValue]) -> NotifyBase:
     """Raises:
     ValueError: With a reason fit to show the user, secrets hidden.
     """
     try:
-        return _plugin(build_url(service.id, fields))
-    except ValueError as exc:
-        raise ValueError(_scrub(str(exc), service, fields)) from exc
+        plugin = Apprise.instantiate(
+            build_url(service, fields), asset=_ASSET, suppress_exceptions=False
+        )
+    except Exception as exc:  # noqa: BLE001 - a plugin says why it refused the URL
+        reason = str(exc) or "Apprise can't use these fields"
+        raise ValueError(_scrub(reason, service, fields)) from exc
+    if plugin is None:
+        raise ValueError("Apprise can't use these fields")
+    return plugin
 
 
 def check(service_id: str, fields: Mapping[str, FieldValue]) -> dict[str, FieldValue]:
@@ -452,7 +442,7 @@ def check(service_id: str, fields: Mapping[str, FieldValue]) -> dict[str, FieldV
     """
     service = find_service(service_id)
     kept = known_fields(service, fields)
-    _checked_plugin(service, kept)
+    _plugin(service, kept)
     return kept
 
 
@@ -462,7 +452,7 @@ def describe(
     """The service's name, and its URL with the secrets and options hidden."""
     try:
         service = find_service(service_id)
-        plugin = _checked_plugin(service, fields)
+        plugin = _plugin(service, fields)
     except ValueError:
         return None, ""
     scheme, netloc, path, _, _ = urlsplit(plugin.url(privacy=True))
@@ -478,17 +468,17 @@ def split_fields(
         service = find_service(service_id)
     except ValueError:
         return {}, []
-    public: dict[str, FieldValue] = {}
-    secrets: list[str] = []
-    for field in service.fields:
-        value = fields.get(field.key)
-        if value is None or _blank(value):
-            continue
-        if field.private:
-            secrets.append(field.key)
-        else:
-            public[field.key] = value
-    return public, secrets
+    kept = known_fields(service, fields)
+    public = {k: v for k, v in kept.items() if k not in service.secrets}
+    return public, [key for key in kept if key in service.secrets]
+
+
+def _destination(service: AppriseService, fields: Mapping[str, FieldValue]) -> Any:
+    """Where the fields send to, as Apprise tells its URLs apart, or None."""
+    try:
+        return _plugin(service, fields).url_identifier or None
+    except ValueError:
+        return None
 
 
 def merge_fields(
@@ -503,20 +493,28 @@ def merge_fields(
     """
     service = find_service(service_id)
     merged = known_fields(service, given)
-    kept = [
-        field
-        for field in service.fields
-        if field.private and field.key not in given and field.key in stored
-    ]
-    moved = any(stored.get(key) != merged.get(key) for key in DESTINATION_FIELDS)
-    if kept and moved:
-        labels = ", ".join(field.label for field in kept)
-        raise ValueError(
-            f"Enter {labels} again for the new address, "
-            f"or remove {'it' if len(kept) == 1 else 'them'}"
-        )
-    merged.update({field.key: stored[field.key] for field in kept})
-    return merged
+    kept = {
+        key: value
+        for key, value in stored.items()
+        if key in service.secrets and key not in given
+    }
+    if kept:
+        secrets = {k: v for k, v in stored.items() if k in service.secrets}
+        before = {k: v for k, v in stored.items() if k not in service.secrets}
+        after = {k: v for k, v in merged.items() if k not in service.secrets}
+        # The same secrets on both sides, so only a new address counts.
+        was = _destination(service, {**before, **secrets})
+        now = _destination(service, {**after, **secrets})
+        moved = was != now if was is not None and now is not None else before != after
+        if moved:
+            labels = ", ".join(
+                field.label for field in service.fields if field.key in kept
+            )
+            raise ValueError(
+                f"Enter {labels} again for the new address, "
+                f"or remove {'it' if len(kept) == 1 else 'them'}"
+            )
+    return {**merged, **kept}
 
 
 def _quiet(text: str) -> str:
@@ -548,16 +546,15 @@ def send(
         AppriseError: The service refused it, or could not be reached.
     """
     service = find_service(service_id)
-    plugin = _bounded(_checked_plugin(service, fields))
+    plugin = _bounded(_plugin(service, fields))
     apprise = Apprise(asset=_ASSET)
     apprise.add(plugin)
-    body = "\n\n".join(part for part in (message.body, message.url) if part)
 
     collected: list[str] = []
     token = _warnings.set(collected)
     try:
         sent = apprise.notify(
-            body=_quiet(body or message.title),
+            body=_quiet(message.text),
             title=_quiet(message.title),
             notify_type=NOTIFY_TYPES.get(message.notification.level, NotifyType.INFO),
             body_format=NotifyFormat.TEXT,

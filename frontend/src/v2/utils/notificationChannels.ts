@@ -38,17 +38,17 @@ export const CHANNEL_ICONS: Record<NotificationChannelType, string> = {
 export type AppriseFieldValue = AppriseChannelCreatePayload["fields"][string];
 
 // Fields most services share, labelled by RomM; the rest keep Apprise's label.
-export const TRANSLATED_APPRISE_FIELDS = new Set([
-  "schema",
-  "host",
-  "port",
-  "user",
-  "password",
-  "token",
-  "targets",
-  "path",
-  "verify",
-]);
+export const APPRISE_FIELD_LABELS: Record<string, string> = {
+  schema: "notifications.channel-field-schema",
+  host: "notifications.channel-field-host",
+  port: "notifications.channel-field-port",
+  user: "settings.username",
+  password: "settings.password",
+  token: "notifications.channel-field-token",
+  targets: "notifications.channel-field-targets",
+  path: "notifications.channel-field-path",
+  verify: "notifications.channel-field-verify",
+};
 
 function isBlank(value: AppriseFieldValue | undefined): boolean {
   return (
@@ -80,8 +80,8 @@ export function initialAppriseValues(
 }
 
 /**
- * What the backend gets: filled-in fields, numbers as numbers, options left at
- * their default out. A secret left out keeps its value; an empty one removes it.
+ * What the backend gets: the filled-in fields, numbers as numbers. A secret
+ * left out keeps its value; an empty one removes it.
  */
 export function appriseFieldsPayload(
   service: AppriseServiceSchema,
@@ -91,32 +91,11 @@ export function appriseFieldsPayload(
   const payload: Record<string, AppriseFieldValue> = {};
   for (const field of service.fields) {
     const value = values[field.key];
-    if (removed.includes(field.key)) {
-      payload[field.key] = "";
-      continue;
-    }
-    if (isBlank(value)) continue;
-    if (field.type === "bool" && value === (field.default === true)) continue;
-    if (field.type === "choice" && value === String(field.default ?? "")) {
-      continue;
-    }
-    payload[field.key] =
-      field.type === "int" || field.type === "float" ? Number(value) : value;
+    if (removed.includes(field.key)) payload[field.key] = "";
+    else if (isBlank(value)) continue;
+    else if (field.type === "int" || field.type === "float") {
+      payload[field.key] = Number(value);
+    } else payload[field.key] = value;
   }
   return payload;
-}
-
-/**
- * Required lists the form left empty; the combobox has no rules of its own.
- * A secret list the channel already has stays when left empty.
- */
-export function missingAppriseLists(
-  service: AppriseServiceSchema,
-  values: Record<string, AppriseFieldValue>,
-  kept: string[] = [],
-): string[] {
-  return service.fields
-    .filter((field) => field.type === "list" && field.required)
-    .filter((field) => isBlank(values[field.key]) && !kept.includes(field.key))
-    .map((field) => field.key);
 }

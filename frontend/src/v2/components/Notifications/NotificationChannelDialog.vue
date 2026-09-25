@@ -41,7 +41,6 @@ import {
   NOTIFICATION_CHANNEL_URL_MAX_LENGTH,
   appriseFieldsPayload,
   initialAppriseValues,
-  missingAppriseLists,
 } from "@/v2/utils/notificationChannels";
 import { email as emailRule, notBlank } from "@/v2/utils/validation";
 
@@ -72,7 +71,6 @@ const services = ref<AppriseServiceSchema[] | null>(null);
 const loadingServices = ref(false);
 const appriseValues = ref<Record<string, AppriseFieldValue>>({});
 const removedSecrets = ref<string[]>([]);
-const missingLists = ref<string[]>([]);
 const saving = ref(false);
 const error = ref<string | null>(null);
 
@@ -132,6 +130,7 @@ const addressRules = [notBlank(), emailRule];
 
 async function loadServices() {
   if (!isAdmin.value || services.value || loadingServices.value) return;
+  if (props.channel && props.channel.type !== "apprise") return;
   loadingServices.value = true;
   try {
     const { data } = await notificationChannelApi.getAppriseServices();
@@ -150,7 +149,6 @@ function resetAppriseValues() {
     ? initialAppriseValues(service.value, props.channel?.fields ?? null)
     : {};
   removedSecrets.value = [];
-  missingLists.value = [];
 }
 
 watch(service, resetAppriseValues);
@@ -237,16 +235,7 @@ async function request() {
 
 async function save() {
   const result = await formRef.value?.validate();
-  missingLists.value = service.value
-    ? missingAppriseLists(
-        service.value,
-        appriseValues.value,
-        storedSecrets.value.filter(
-          (key) => !removedSecrets.value.includes(key),
-        ),
-      )
-    : [];
-  if (!result?.valid || missingLists.value.length > 0) return;
+  if (!result?.valid) return;
   saving.value = true;
   error.value = null;
   try {
@@ -369,22 +358,23 @@ async function save() {
               v-model:removed="removedSecrets"
               :service="service"
               :stored="storedSecrets"
-              :missing="missingLists"
             />
-            <a
+            <RBtn
               v-if="service.setup_url"
+              class="r-v2-channel-dialog__guide"
+              variant="text"
+              size="small"
+              prepend-icon="mdi-open-in-new"
               :href="service.setup_url"
               target="_blank"
               rel="noopener noreferrer"
-              class="r-v2-channel-dialog__docs"
             >
               {{
                 t("notifications.channel-setup-guide", {
                   service: service.name,
                 })
               }}
-              <RIcon icon="mdi-open-in-new" size="12" />
-            </a>
+            </RBtn>
           </template>
         </template>
 
@@ -467,21 +457,7 @@ html[data-bp~="xs"] .r-v2-channel-dialog__pair {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.r-v2-channel-dialog__docs {
-  display: inline-flex;
-  align-items: center;
+.r-v2-channel-dialog__guide {
   align-self: flex-start;
-  gap: 6px;
-  margin-top: calc(-1 * var(--r-space-2));
-  font-size: 12px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-brand-primary);
-  text-decoration: none;
-  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-
-.r-v2-channel-dialog__docs:hover {
-  color: var(--r-color-fg);
-  text-decoration: underline;
 }
 </style>

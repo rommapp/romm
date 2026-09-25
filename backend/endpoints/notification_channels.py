@@ -6,9 +6,7 @@ from fastapi import HTTPException, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.notification_channel import (
-    AppriseChannelCreatePayload,
     AppriseServiceSchema,
-    EmailChannelCreatePayload,
     NotificationChannelCodePayload,
     NotificationChannelCreatePayload,
     NotificationChannelSchema,
@@ -16,6 +14,7 @@ from endpoints.responses.notification_channel import (
     NotificationChannelUpdatePayload,
 )
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_admin
 from handler.database import db_notification_channel_handler
 from handler.email_handler import EmailError
 from handler.notification_channels import apprise_channel, channels
@@ -73,12 +72,7 @@ def get_notification_channels(request: Request) -> list[NotificationChannelSchem
 @protected_route(router.get, "/apprise-services", [Scope.ME_READ])
 def get_apprise_services(request: Request) -> list[AppriseServiceSchema]:
     """Every service an admin's Apprise channel can go out on, with its fields."""
-    try:
-        channels.require_apprise(request.user)
-    except ChannelError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)
-        ) from exc
+    assert_admin(request)
     return _apprise_catalog()
 
 
@@ -92,36 +86,16 @@ async def create_notification_channel(
     request: Request, payload: NotificationChannelCreatePayload
 ) -> NotificationChannelSchema:
     """Add a channel; an email address gets a code to confirm it with first."""
-    match payload:
-        case EmailChannelCreatePayload():
-            created = channels.create_channel(
-                request.user,
-                NotificationChannelType.EMAIL,
-                payload.name,
-                payload.min_level,
-                payload.topics,
-                address=payload.address,
-            )
-        case AppriseChannelCreatePayload():
-            created = channels.create_channel(
-                request.user,
-                NotificationChannelType.APPRISE,
-                payload.name,
-                payload.min_level,
-                payload.topics,
-                service=payload.service,
-                fields=payload.fields,
-            )
-        case _:
-            created = channels.create_channel(
-                request.user,
-                NotificationChannelType.WEBHOOK,
-                payload.name,
-                payload.min_level,
-                payload.topics,
-                url=payload.url,
-                secret=payload.secret,
-            )
+    # What each type sends it to: a URL and secret, an address, or a service's fields.
+    target = payload.model_dump(exclude={"type", "name", "min_level", "topics"})
+    created = channels.create_channel(
+        request.user,
+        NotificationChannelType(payload.type),
+        payload.name,
+        payload.min_level,
+        payload.topics,
+        **target,
+    )
     return NotificationChannelSchema.from_channel(await _as_http(created))
 
 

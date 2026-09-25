@@ -18,8 +18,7 @@ from models.notification_channel import NotificationChannel, NotificationChannel
 from models.user import Role
 from utils.secret_box import unseal
 
-from . import apprise_channel, webhook
-from .apprise_channel import AppriseError
+from . import webhook
 from .config import WebhookConfig
 from .messages import OutboundMessage, render
 
@@ -41,6 +40,8 @@ def may_reach_private_network(role: str) -> bool:
 
 
 def describe_error(exc: Exception) -> str:
+    if isinstance(exc, TimeoutError):
+        return f"No answer within {DELIVERY_TIMEOUT_SECONDS} seconds"
     return str(exc) or type(exc).__name__
 
 
@@ -96,19 +97,18 @@ async def send_to_channel(
     config = unseal(channel.config)
     match channel.type:
         case NotificationChannelType.APPRISE:
+            # Here, so jobs for other channels don't load Apprise's plugins.
+            from . import apprise_channel
+
             # Apprise opens its own connections, past the SSRF guard.
             if not allow_private:
-                raise AppriseError(apprise_channel.ADMINS_ONLY)
+                raise apprise_channel.AppriseError(apprise_channel.ADMINS_ONLY)
             await asyncio.to_thread(
                 apprise_channel.send, config["service"], config["fields"], message
             )
         case NotificationChannelType.EMAIL:
-            text = "\n\n".join(part for part in (message.body, message.url) if part)
             await asyncio.to_thread(
-                send_email,
-                config["address"],
-                f"[RomM] {message.title}",
-                text or message.title,
+                send_email, config["address"], f"[RomM] {message.title}", message.text
             )
         case _:
             await webhook.send(

@@ -1,5 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent } from "storybook/test";
 import { ref } from "vue";
+import RBtn from "../../primitives/RBtn/RBtn.vue";
+import RForm from "../RForm/RForm.vue";
 import RComboboxField from "./RComboboxField.vue";
 
 const meta: Meta<typeof RComboboxField> = {
@@ -147,6 +150,54 @@ export const WithError: Story = {
       </div>
     `,
   }),
+};
+
+// ── Rules, checked through an enclosing RForm ─────────────────
+
+export const Required: Story = {
+  name: "Required (rules in a form)",
+  render: () => ({
+    components: { RComboboxField, RForm, RBtn },
+    setup() {
+      const value = ref<string[]>([]);
+      const formRef = ref<{ validate: () => Promise<unknown> } | null>(null);
+      const rules = [
+        (items: string[]) => items.length > 0 || "Add at least one tag.",
+      ];
+      return { value, formRef, rules };
+    },
+    template: `
+      <RForm ref="formRef" style="width:320px;padding:24px;display:flex;flex-direction:column;gap:12px">
+        <RComboboxField
+          v-model="value"
+          label="Tags"
+          prefix-label="stacked"
+          :rules="rules"
+          no-suggestions
+        />
+        <RBtn @click="formRef?.validate()">Validate</RBtn>
+      </RForm>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const input = canvasElement.querySelector(
+      ".r-combobox-field input",
+    ) as HTMLInputElement;
+    const validate = canvasElement.querySelector("button") as HTMLElement;
+
+    await step("an empty list fails", async () => {
+      await userEvent.click(validate);
+      await expect(canvasElement.textContent).toContain(
+        "Add at least one tag.",
+      );
+    });
+    await step("a committed chip clears the error", async () => {
+      await userEvent.type(input, "rpg{enter}");
+      await expect(canvasElement.textContent).not.toContain(
+        "Add at least one tag.",
+      );
+    });
+  },
 };
 
 // ── Disabled ─────────────────────────────────────────────────
