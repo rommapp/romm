@@ -61,6 +61,11 @@ async def run_launch(
     phase_watch = asyncio.create_task(
         _watch_launch_phase(container, session_key, session, platform)
     )
+    # An exit-state broker resumes from the state its archive restores, so with
+    # no archive uploaded there is nothing of this player's to resume.
+    resume_on_activate = (resume_pushed or resume_after_launch) and not (
+        container.resumes_from_archive and archive_path is None
+    )
     try:
         # Wrapped in asyncio.to_thread because urllib is synchronous.
         if container.is_webstation:
@@ -79,9 +84,7 @@ async def run_launch(
                 },
                 gui_language=gui_language,
                 archive_path=archive_path,
-                resume_slot=(
-                    resume_slot if resume_pushed or resume_after_launch else None
-                ),
+                resume_slot=resume_slot if resume_on_activate else None,
                 memory_card_synced=memory_card_synced,
                 multiplayer=multiplayer,
             )
@@ -102,6 +105,7 @@ async def run_launch(
             LaunchFailedPayload(
                 platform=platform,
                 container=session_key,
+                claimed_at=session["claimed_at"],
                 detail=_failure_detail(exc),
             ).model_dump(),
         )
@@ -111,14 +115,19 @@ async def run_launch(
         claim_hold.cancel()
 
     log.info("session claimed, platform=%s rom=%s", platform, rom_name)
-    await stamp_launched(session_key, session)
+    host = container.protocol.stream_url(container.host, launch_result)
+    await stamp_launched(session_key, session, host=host)
     await lifecycle.publish_session_activity(session_key, session)
 
     # The webstation broker's deferred load waits for its emulator to report
     # the game running, and holds off further until the state file is there, so
     # this push lands ahead of it even though it runs after activate.
     if resume_after_launch and resume_state is not None:
-        resume_pushed = await states.push_resume_state(container, resume_state)
+        if container.resumes_from_archive:
+            # The activate's slot already handed this broker the whole resume.
+            resume_pushed = resume_on_activate
+        else:
+            resume_pushed = await states.push_resume_state(container, resume_state)
 
     await push_to_user(
         session.get("user_id"),
@@ -126,7 +135,8 @@ async def run_launch(
         LaunchReadyPayload(
             platform=platform,
             container=session_key,
-            host=container.protocol.stream_url(container.host, launch_result),
+            claimed_at=session["claimed_at"],
+            host=host,
             resume=resume_pushed if resume_state is not None else None,
         ).model_dump(),
     )
@@ -191,6 +201,9 @@ async def _watch_launch_phase(
             session.get("user_id"),
             "streaming:launch-phase",
             LaunchPhasePayload(
-                platform=platform, container=session_key, phase=phase
+                platform=platform,
+                container=session_key,
+                claimed_at=session["claimed_at"],
+                phase=phase,
             ).model_dump(),
         )

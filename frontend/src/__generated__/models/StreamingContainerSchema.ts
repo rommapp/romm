@@ -14,5 +14,6 @@ export type StreamingContainerSchema = {
     emulator: string;
     supports_memory_cards: boolean;
     supports_save_picker: boolean;
+    supports_live_states: boolean;
 };
 

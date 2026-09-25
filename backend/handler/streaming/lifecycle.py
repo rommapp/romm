@@ -107,30 +107,44 @@ async def release_after_state_pull(
 
 async def quiesce_container(
     container: ResolvedContainer, session: dict[str, Any], *, save: bool = True
-) -> int | None:
+) -> commands.StopOutcome:
     """Stop the emulator, then evacuate and wipe its memory card.
 
     Every teardown path opens this way, and the order is load-bearing: stopping
     first is what makes the card quiescent, and the wipe runs only where the
-    evacuation captured the card. Returns the slot the stop wrote an exit state
-    to, if any.
+    evacuation captured the card. Returns what the stop left to collect.
     """
-    state_slot = await asyncio.to_thread(commands.stop, container, save)
+    stopped = await asyncio.to_thread(commands.stop, container, save)
     if await memory_cards.evacuate_session_card(session, container):
         await memory_cards.wipe_session_card(container)
-    return state_slot
+    return stopped
 
 
-def collect_exit_saves(container: ResolvedContainer, session: dict[str, Any]) -> None:
-    """Start pulling the in-game save archive a stopped session left behind.
+async def _pull_exit_saves(
+    container: ResolvedContainer,
+    mark: saves.SavePullMark,
+    broker_session: str | None,
+    settled: bool,
+) -> None:
+    """The spawned half of `collect_exit_saves`, which lets the next claim
+    through however the pull ended."""
+    try:
+        await saves.pull_saves_to_library(
+            mark.user_id, mark.rom_id, container, broker_session, settled=settled
+        )
+    finally:
+        await saves.clear_save_pull_pending(mark)
 
-    Fire and forget: the broker keeps the archive after the emulator dies, so
-    no teardown has to wait on it. Whole-card sync containers evacuate the card
-    instead and have no archive, and a session that ran no ROM (the admin
-    desktop) has nowhere to file one, so neither schedules anything.
 
-    One home for the rule: every teardown path files a session's saves the same
-    way, and under the session's owner rather than whoever ended it.
+async def mark_exit_saves_pending(
+    container: ResolvedContainer, session: dict[str, Any]
+) -> saves.SavePullMark | None:
+    """Hold the owner's next claim on this ROM until the exit pull has filed.
+
+    Returns:
+        The mark for `collect_exit_saves`, or None when no pull will run: a
+        whole-card sync container evacuates the card instead, and a desktop ran
+        no ROM to file one under.
     """
     rom_id = session.get("rom_id")
     user_id = session.get("user_id")
@@ -139,12 +153,38 @@ def collect_exit_saves(container: ResolvedContainer, session: dict[str, Any]) ->
         or not isinstance(rom_id, int)
         or not isinstance(user_id, int)
     ):
+        return None
+    return await saves.mark_save_pull_pending(user_id, rom_id)
+
+
+def collect_exit_saves(
+    container: ResolvedContainer,
+    session: dict[str, Any],
+    mark: saves.SavePullMark | None,
+    *,
+    settled: bool,
+) -> None:
+    """Pull a stopped session's save archive in the background, since the broker
+    keeps it after the emulator dies, filing it under the owner whoever ended it.
+
+    Args:
+        mark: cleared by the pull however it ends.
+        settled: the broker confirmed the emulator is done writing, so the first
+            answer is final.
+    """
+    if mark is None:
         return
     background.spawn_sync_task(
-        saves.pull_saves_to_library(
-            user_id, rom_id, container, broker_session_id(session)
-        )
+        _pull_exit_saves(container, mark, broker_session_id(session), settled)
     )
+
+
+async def start_exit_save_pull(
+    container: ResolvedContainer, session: dict[str, Any], *, settled: bool
+) -> None:
+    """Mark the exit pull pending, then start it, for a stop that is already done."""
+    mark = await mark_exit_saves_pending(container, session)
+    collect_exit_saves(container, session, mark, settled=settled)
 
 
 async def collect_exit_state(
@@ -332,15 +372,14 @@ async def teardown_released_session(
             return
 
     keepalive = _hold_reservation(session_key, token, session)
+    pull_mark: saves.SavePullMark | None = None
     try:
-        # The marker, or the claim it could not replace, holds the container
-        # throughout, so no concurrent claim can interleave.
-        state_slot = await quiesce_container(container, session, save=save)
+        # Before anything slow: on a pool the player's next claim can land on a
+        # free sibling while this container drains.
+        pull_mark = await mark_exit_saves_pending(container, session)
 
-        # Leave a note when this is a force-release rather than a player closing
-        # their own game. A different user is the obvious case; a reason covers
-        # the rest, since only the admin panel sends one and an admin can be
-        # logged in as the same account that is playing in another tab.
+        # A force-release rather than the player quitting: another user, or a reason,
+        # which only the admin panel sends. Before the quiesce, so a poll finds it.
         if session.get("user_id") != acting_user_id or reason is not None:
             await record_termination(
                 session,
@@ -357,12 +396,18 @@ async def teardown_released_session(
                 reason or "-",
             )
 
+        # The marker, or the claim it could not replace, holds the container
+        # throughout, so no concurrent claim can interleave.
+        stopped = await quiesce_container(container, session, save=save)
+
         await record_play_session(session)
         await clear_session_activity(session_key, session)
 
         # Awaited, not spawned: the claim is released below.
-        await collect_exit_state(container, session, state_slot)
-        collect_exit_saves(container, session)
+        await collect_exit_state(container, session, stopped.state_slot)
+        collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
+        # The pull clears it from here.
+        pull_mark = None
 
         log.info("session released, platform=%s", platform)
     except Exception:
@@ -375,10 +420,17 @@ async def teardown_released_session(
         # whatever is still on the container; a phantom claim is not.
         keepalive.cancel()
         await _drop_reservation(session_key, token, session)
+        if pull_mark is not None:
+            # No pull is coming, so a claim has nothing to wait for.
+            await saves.clear_save_pull_pending(pull_mark)
 
 
 async def _teardown_abandoned_session(
-    container: ResolvedContainer, session_key: str, session: dict[str, Any]
+    container: ResolvedContainer,
+    session_key: str,
+    session: dict[str, Any],
+    *,
+    claimed_by: int,
 ) -> bool:
     """Free a container whose owner vanished without releasing (heartbeat went
     stale). Same order as an owner release: stop the emulator so the card is
@@ -411,17 +463,22 @@ async def _teardown_abandoned_session(
         return False
 
     keepalive = asyncio.ensure_future(hold_drain_marker(session_key, token))
+    pull_mark: saves.SavePullMark | None = None
     try:
-        state_slot = await quiesce_container(container, session)
+        # Before anything slow, as a release does.
+        pull_mark = await mark_exit_saves_pending(container, session)
+        # That tab may still be showing the stream, so leave a force-release's note,
+        # but not for the owner coming back, whose new tab it would end.
+        if session.get("user_id") != claimed_by:
+            await record_termination(
+                session, session_key, ended_by=None, reason="abandoned"
+            )
+        stopped = await quiesce_container(container, session)
         await record_play_session(session)
         await clear_session_activity(session_key, session)
-        # That tab may still be showing the stream, so leave the same note an
-        # admin force-release does rather than letting the picture simply stop.
-        await record_termination(
-            session, session_key, ended_by=None, reason="abandoned"
-        )
-        await collect_exit_state(container, session, state_slot)
-        collect_exit_saves(container, session)
+        await collect_exit_state(container, session, stopped.state_slot)
+        collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
+        pull_mark = None
     except Exception:
         log.exception("abandoned session teardown failed, key=%s", session_key)
     finally:
@@ -431,6 +488,8 @@ async def _teardown_abandoned_session(
         # goes, never a claim that replaced it in the meantime.
         keepalive.cancel()
         await drop_drain_marker(session_key, token)
+        if pull_mark is not None:
+            await saves.clear_save_pull_pending(pull_mark)
     return True
 
 
@@ -447,6 +506,8 @@ async def await_teardown_within_budget(
     session_key: str,
     session: dict[str, Any],
     budget: float,
+    *,
+    claimed_by: int,
 ) -> bool:
     """Tear down an abandoned session, but only wait `budget` seconds for it.
 
@@ -456,7 +517,9 @@ async def await_teardown_within_budget(
     this leaves behind blocks a claim until the teardown drops it.
     """
     task = background.spawn_sync_task(
-        _teardown_abandoned_session(container, session_key, session)
+        _teardown_abandoned_session(
+            container, session_key, session, claimed_by=claimed_by
+        )
     )
     try:
         return await asyncio.wait_for(asyncio.shield(task), timeout=budget)

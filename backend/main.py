@@ -52,6 +52,7 @@ from endpoints.permissions import router as permissions_router
 from endpoints.platform import router as platform_router
 from endpoints.play_sessions import router as play_sessions_router
 from endpoints.recommendations import router as recommendations_router
+from endpoints.responses.streaming import SOCKET_PAYLOADS as STREAMING_SOCKET_PAYLOADS
 from endpoints.roms import router as rom_router
 from endpoints.saves import router as saves_router
 from endpoints.screenshots import router as screenshots_router
@@ -77,6 +78,7 @@ from utils.context import (
     set_context_middleware,
 )
 from utils.memory_cards import MEMORY_CARD_MAX_BYTES
+from utils.openapi import publish_socket_payloads
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -218,6 +220,8 @@ app.include_router(streaming_router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 app.mount("/netplay", netplay_socket_handler.socket_app)
+
+publish_socket_payloads(app, STREAMING_SOCKET_PAYLOADS)
 
 
 # NOTE: This code is only executed when running the application directly,

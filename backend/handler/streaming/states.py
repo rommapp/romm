@@ -57,13 +57,16 @@ _SLOT_PATTERNS = {
     # RetroArch leaves the number off its default slot: "GAME.state" is slot 0
     # and "GAME.state3" is slot 3.
     "retroarch": re.compile(r"\.state(\d{0,2})$"),
+    # DuckStation and RPCS3 write one exit state per game with no slot in the
+    # name, so the empty group reads as the working slot 0.
+    "duckstation": re.compile(r"()\.sav$"),
+    "rpcs3": re.compile(r"()\.SAVESTAT(?:\.zst|\.gz)?$"),
 }
 
 
-# Lowest slot each emulator's broker will actually address. Everything but
-# RetroArch counts from 1, so a "0" in one of their names is a filename that
-# happens to look like a state, not a slot they could load.
-_MIN_SLOT = {"retroarch": 0}
+# Lowest slot each emulator's broker addresses. The rest count from 1, so a "0"
+# in one of their names is a filename that looks like a state, not a slot.
+_MIN_SLOT = {"duckstation": 0, "retroarch": 0, "rpcs3": 0}
 
 
 def slot_from_state_filename(emulator: str, filename: str) -> int | None:
@@ -482,9 +485,10 @@ async def hydrate_states_to_broker(
 
     For the same reason, a resume pick already sent at claim time means there is
     nothing to add here: any push would overwrite it before the broker's
-    deferred load fires.
+    deferred load fires. A container that resumes from its save archive takes no
+    state file at all, and the archive already carries the newest exit state.
     """
-    if resume_pushed:
+    if resume_pushed or container.resumes_from_archive:
         return 0
 
     user = db_user_handler.get_user(user_id)

@@ -66,6 +66,7 @@ vi.mock("@/stores/playing", async () => {
   const { ref } = await import("vue");
   return { default: () => ({ playing: ref(false) }) };
 });
+vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 vi.mock("@/stores/native", async () => {
   const { reactive } = await import("vue");

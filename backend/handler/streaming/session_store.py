@@ -278,6 +278,20 @@ async def mutate_session(
     return session if outcome is _CasOutcome.WROTE else None
 
 
+def session_platform_matches(session: dict[str, Any], platform: str) -> bool:
+    """Whether a session was claimed for this platform, a record from before the
+    field existed matching anything so an upgrade cannot strand one."""
+    stored = session.get("platform")
+    if not isinstance(stored, str) or not stored:
+        return True
+    return stored.lower() == platform.lower()
+
+
+def session_is_desktop(session: dict[str, Any]) -> bool:
+    """Whether a session is an admin desktop rather than a game."""
+    return bool(session.get("desktop"))
+
+
 def same_claim(session: dict[str, Any], claim: dict[str, Any]) -> bool:
     """Whether a session read back is still the one a route resolved. Identity is
     the holder plus the moment they took it, so a re-claim by the same user does
@@ -413,7 +427,9 @@ async def hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
             return
 
 
-async def stamp_launched(session_key: str, claim: dict[str, Any]) -> None:
+async def stamp_launched(
+    session_key: str, claim: dict[str, Any], host: str | None
+) -> None:
     """Record that the activate returned, so the status poll stops asking the
     broker for an extraction phase.
 
@@ -424,11 +440,18 @@ async def stamp_launched(session_key: str, claim: dict[str, Any]) -> None:
 
     Best-effort: a stamp that never lands only costs a few redundant broker
     round trips, and failing a session that is already up would be worse.
+
+    Args:
+        host: a game's room URL, for the status poll to hand a tab that missed
+            the push; None for a desktop, whose POST is the only reader.
     """
     try:
         await mutate_session(
             session_key,
-            {"launched_at": datetime.now(timezone.utc).isoformat()},
+            {
+                "launched_at": datetime.now(timezone.utc).isoformat(),
+                **({"host": host} if host else {}),
+            },
             require=lambda current: same_claim(current, claim),
         )
     except StreamingSessionContended:
@@ -570,6 +593,12 @@ async def record_termination(
         "platform": session.get("platform"),
         "rom_id": session.get("rom_id"),
         "rom_name": session.get("rom_name"),
+        # Which claim ended: a user can hold one per container, plus a desktop,
+        # and only the tab that holds this one should act on the notice.
+        "container": session_key,
+        # A re-claim of the container keeps its key, so the stamp names the claim.
+        "claimed_at": session.get("claimed_at"),
+        "desktop": session_is_desktop(session),
     }
     await async_cache.set(
         _termination_redis_key(session_key, user_id),

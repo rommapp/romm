@@ -14,6 +14,7 @@ const { confirm } = vi.hoisted(() => ({
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
+vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirm,
 }));
