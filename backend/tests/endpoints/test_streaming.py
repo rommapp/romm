@@ -1938,6 +1938,33 @@ def test_a_container_that_disagrees_on_the_emulator_is_a_later_pool(caplog):
     assert _key_of(second) in caplog.text
 
 
+def test_a_fresh_process_does_not_repeat_the_later_pool_warning(caplog):
+    """Every reaper run is a new RQ job process with nothing memoized."""
+    first = {
+        "platform": "ps2",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "emulator": "pcsx2",
+    }
+    second = {
+        **first,
+        "host": "http://192.168.1.11:3000",
+        "broker_host": "http://192.168.1.11:8000",
+        "emulator": "play",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="romm"):
+            with _streaming(first, second):
+                streaming.containers_for_platform("ps2")
+            with _streaming(first, second):
+                streaming.containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert caplog.text.count("never claimed for a game") == 1
+
+
 def test_a_lone_container_is_a_pool_of_one(rom: Rom):
     member = _pool_member(rom, 0)
     with _streaming(member):

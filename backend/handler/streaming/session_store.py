@@ -577,6 +577,19 @@ def session_is_stale(session: dict[str, Any]) -> bool:
     return age > _STREAMING_SESSION_STALE_SECONDS
 
 
+# Heartbeats fail while the backend is down, but the stream runs straight from
+# the container, so a restart gives every tab one stale window to beat again.
+_RESTART_GRACE_KEY = "romm:streaming:restart-grace"
+
+
+async def start_restart_grace() -> None:
+    await async_cache.set(_RESTART_GRACE_KEY, "1", ex=_STREAMING_SESSION_STALE_SECONDS)
+
+
+async def in_restart_grace() -> bool:
+    return bool(await async_cache.exists(_RESTART_GRACE_KEY))
+
+
 async def get_abandoned_session(session_key: str) -> dict[str, Any] | None:
     """The claim on `session_key` when its heartbeat went stale, never a drain marker."""
     session = await get_live_session(session_key)

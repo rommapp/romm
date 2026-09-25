@@ -4,10 +4,15 @@ from handler.streaming.config import (
     ResolvedContainer,
     container_for_session,
     containers_by_key,
+    streaming_enabled,
 )
 from handler.streaming.lifecycle import teardown_abandoned_session
 from handler.streaming.saves import SAVE_PULL_TTL_SECONDS
-from handler.streaming.session_store import HOLD_CEILING_SECONDS, get_abandoned_session
+from handler.streaming.session_store import (
+    HOLD_CEILING_SECONDS,
+    get_abandoned_session,
+    in_restart_grace,
+)
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
 
@@ -40,7 +45,8 @@ class ReapStreamingSessionsTask(PeriodicTask):
             title="Scheduled streaming session reaper",
             description="Stops streaming sessions whose player stopped sending heartbeats",
             task_type=TaskType.CLEANUP,
-            enabled=True,
+            # Read once, as cron registers only enabled tasks when it starts.
+            enabled=streaming_enabled(),
             manual_run=False,
             cron_string="* * * * *",  # Every minute
             # RQ kills a job at its timeout, so it has to cover a teardown holding
@@ -50,10 +56,10 @@ class ReapStreamingSessionsTask(PeriodicTask):
         )
 
     async def run(self) -> None:
-        if not self.enabled:
+        if not self.enabled or await in_restart_grace():
             return
 
-        # Empty while streaming is disabled, so a disabled install reaps nothing.
+        # Empty once streaming is disabled, so a disabled install reaps nothing.
         grouped = containers_by_key()
         # Concurrent, so one sick broker cannot hold up every other container.
         await asyncio.gather(*(_reap(grouped, key) for key in grouped))

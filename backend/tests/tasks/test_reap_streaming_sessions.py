@@ -89,8 +89,13 @@ STALE = session_store._STREAMING_SESSION_STALE_SECONDS + 60
 
 def test_the_reaper_runs_every_minute():
     assert SCHEDULED_TASKS["reap_streaming_sessions"] is reap_streaming_sessions_task
-    assert reap_streaming_sessions_task.enabled is True
     assert reap_streaming_sessions_task.cron_string == "* * * * *"
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_the_reaper_is_scheduled_only_with_streaming_on(enabled: bool):
+    with _streaming(N64, enabled=enabled):
+        assert ReapStreamingSessionsTask().enabled is enabled
 
 
 def test_the_job_outlives_a_slow_teardown_and_its_save_pull():
@@ -179,6 +184,35 @@ async def test_nothing_runs_while_streaming_is_disabled():
     teardown.assert_not_awaited()
 
 
+async def test_nothing_is_reaped_right_after_a_backend_restart():
+    """No heartbeat lands while the backend is down, though the stream plays on."""
+    with _streaming(N64):
+        await _hold(N64, idle_seconds=STALE)
+        await session_store.start_restart_grace()
+        with _stub_teardown() as teardown:
+            await ReapStreamingSessionsTask().run()
+
+    teardown.assert_not_awaited()
+
+
+async def test_reaping_resumes_once_the_restart_grace_lapses():
+    with _streaming(N64):
+        await _hold(N64, idle_seconds=STALE)
+        await session_store.start_restart_grace()
+        await async_cache.delete(session_store._RESTART_GRACE_KEY)
+        with _stub_teardown() as teardown:
+            await ReapStreamingSessionsTask().run()
+
+    teardown.assert_awaited_once()
+
+
+async def test_the_restart_grace_lasts_one_stale_window():
+    await session_store.start_restart_grace()
+
+    ttl = await async_cache.ttl(session_store._RESTART_GRACE_KEY)
+    assert 0 < ttl <= session_store._STREAMING_SESSION_STALE_SECONDS
+
+
 async def test_a_reaped_session_frees_its_container_and_leaves_a_notice():
     with _streaming(N64):
         session = await _hold(N64, idle_seconds=STALE)
@@ -242,6 +276,8 @@ async def test_the_job_waits_for_the_exit_save_pull_it_spawned():
             ),
             patch("handler.streaming.lifecycle.record_play_session"),
             patch("handler.streaming.saves.pull_saves_to_library", new=pull),
+            # The registry's instance read the config at import, with streaming off.
+            patch.object(reap_streaming_sessions_task, "enabled", True),
         ):
             await run_task_by_name("reap_streaming_sessions")
 
