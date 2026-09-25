@@ -8,9 +8,11 @@ from io import BytesIO
 from typing import Any
 from unittest import mock
 
+import pytest
 from fastapi import status
 
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_play_session_handler,
@@ -56,6 +58,54 @@ class TestSyncNegotiate:
         data = response.json()
         assert data["total_upload"] == 1
         assert data["operations"][0]["action"] == "upload"
+
+    @pytest.mark.parametrize(
+        "content_hash,expected_action",
+        [("deadbeef", "delete"), ("f00d", "upload")],
+        ids=["the-deleted-version", "bytes-the-deletion-never-covered"],
+    )
+    def test_negotiate_a_slot_the_owner_deleted(
+        self,
+        client,
+        access_token: str,
+        admin_user: User,
+        rom: Rom,
+        content_hash: str,
+        expected_action: str,
+    ):
+        """Server emptied the slot: only the bytes it lost are dropped."""
+        device = db_device_handler.add_device(
+            Device(
+                id=f"neg-dev-deleted-{content_hash}",
+                user_id=admin_user.id,
+                sync_enabled=True,
+            )
+        )
+        db_deleted_asset_handler.record_deletion(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="autosave",
+            content_hash="deadbeef",
+        )
+
+        data = _negotiate(
+            client,
+            access_token,
+            device.id,
+            [
+                {
+                    "rom_id": rom.id,
+                    "file_name": "test_save.sav",
+                    "slot": "autosave",
+                    "content_hash": content_hash,
+                    "updated_at": "2026-01-09T00:00:00Z",
+                    "file_size_bytes": 1024,
+                }
+            ],
+        )
+
+        assert data[f"total_{expected_action}"] == 1
+        assert data["operations"][0]["action"] == expected_action
 
     def test_negotiate_server_has_save_client_doesnt(
         self, client, access_token: str, admin_user: User, save: Save

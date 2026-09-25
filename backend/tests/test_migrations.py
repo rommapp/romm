@@ -234,6 +234,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0131_notification_channels.py", "notification_channels"),
         ("0132_audit_events.py", "audit_events"),
         ("0135_drop_play_session_sync_link.py", "play_sessions"),
+        ("0136_deleted_assets.py", "deleted_assets"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
