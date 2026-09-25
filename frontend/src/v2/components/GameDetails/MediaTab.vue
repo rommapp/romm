@@ -185,6 +185,8 @@ async function handleSoundtrackFiles(files: File[]) {
 }
 
 async function extractCdAudio() {
+  // RBtn's loading state doesn't disable it, so a double click would re-run.
+  if (extractingCdAudio.value) return;
   const romId = props.rom.id;
   extractingCdAudio.value = true;
   try {
