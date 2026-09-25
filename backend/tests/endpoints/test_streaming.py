@@ -54,7 +54,9 @@ from handler.streaming.config import (
     ResolvedContainer,
     _derive_broker_host,
     configured_emulator,
+    container_names,
     emulator_display_label,
+    key_for_name,
     pools_for_platform,
     reset_cache,
     resolve_containers,
@@ -2089,6 +2091,88 @@ def test_the_session_platform_picks_the_config_entry_for_its_container():
     # A session predating the platform field still resolves to a real entry.
     assert streaming.container_for_session(grouped, key, None) is not None
     assert streaming.container_for_session(grouped, "http://nope:8000", "ps2") is None
+
+
+# ── Container names ───────────────────────────────────────────────────────────
+
+
+def _labelled(label, index):
+    """A webstation container on its own host, with the given label."""
+    return {
+        "host": f"http://192.168.1.{index}:3000",
+        "broker_host": f"http://192.168.1.{index}:8000",
+        "protocol": "webstation",
+        "platforms": {"ps2": "pcsx2"},
+        **({"label": label} if label is not None else {}),
+    }
+
+
+def test_a_labelled_container_is_named_by_its_label():
+    entry = _labelled("WEBSTATION-DEV", 10)
+    with _streaming(entry):
+        names = container_names()
+        key = key_for_name("WEBSTATION-DEV")
+    assert names == {_key_of(entry): "WEBSTATION-DEV"}
+    assert key == _key_of(entry)
+
+
+def test_an_unlabelled_container_is_named_by_its_key():
+    entry = _labelled(None, 10)
+    with _streaming(entry):
+        assert container_names() == {_key_of(entry): _key_of(entry)}
+
+
+def test_a_name_matches_its_label_in_any_case():
+    entry = _labelled("Emulation station", 10)
+    with _streaming(entry):
+        assert key_for_name("emulation STATION") == _key_of(entry)
+
+
+def test_a_key_still_names_a_labelled_container():
+    """Links from before names existed carry the key."""
+    entry = _labelled("WEBSTATION-DEV", 10)
+    with _streaming(entry):
+        assert key_for_name(_key_of(entry)) == _key_of(entry)
+
+
+def test_an_unknown_name_matches_nothing():
+    with _streaming(_labelled("WEBSTATION-DEV", 10)):
+        assert key_for_name("WEBSTATION-OTHER") is None
+
+
+def test_a_shared_label_names_neither_container(caplog):
+    first = _labelled("Webstation", 10)
+    second = _labelled("webstation", 11)
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(first, second):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                names = container_names()
+                key = key_for_name("Webstation")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert names == {_key_of(first): _key_of(first), _key_of(second): _key_of(second)}
+    assert key is None
+    assert "share the label" in caplog.text
+
+
+def test_a_label_cannot_take_another_containers_key():
+    """A label spelled like another container's key must not redirect it."""
+    target = _labelled("Target", 10)
+    impostor = _labelled(_key_of(target), 11)
+    with _streaming(target, impostor):
+        names = container_names()
+        key = key_for_name(_key_of(target))
+    assert names[_key_of(impostor)] == _key_of(impostor)
+    assert key == _key_of(target)
+
+
+def test_an_unclaimable_container_has_no_name():
+    broken = _labelled("Broken", 10) | {"host": "192.168.1.10:3000", "broker_host": ""}
+    with _streaming(broken):
+        assert container_names() == {}
+        assert key_for_name("Broken") is None
 
 
 # ── Desktop sessions ──────────────────────────────────────────────────────────

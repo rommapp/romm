@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import secrets
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -542,6 +543,7 @@ def resolve_containers() -> tuple[ResolvedContainer, ...]:
             resolved.append(_resolve_one(row, platform, entry.get("label")))
 
     _warn_about_later_pools(resolved)
+    _warn_about_shared_labels(resolved)
     _cache_fingerprint = fingerprint
     _cached = tuple(resolved)
     return _cached
@@ -587,6 +589,44 @@ def _warn_about_later_pools(resolved: Sequence[ResolvedContainer]) -> None:
             )
 
 
+def _container_labels(resolved: Iterable[ResolvedContainer]) -> dict[str, str]:
+    """Each claimable container's key to its own label, when it sets one."""
+    labels: dict[str, str] = {}
+    for container in resolved:
+        label = (container.container_label or "").strip()
+        if container.key and label:
+            labels.setdefault(container.key, label)
+    return labels
+
+
+def _unique_labels(resolved: Sequence[ResolvedContainer]) -> dict[str, str]:
+    """The labels that name exactly one container and are not another's key."""
+    labels = _container_labels(resolved)
+    counts = Counter(label.casefold() for label in labels.values())
+    keys = {container.key for container in resolved if container.key}
+    return {
+        key: label
+        for key, label in labels.items()
+        if counts[label.casefold()] == 1 and label not in keys
+    }
+
+
+def _warn_about_shared_labels(resolved: Sequence[ResolvedContainer]) -> None:
+    """Name every label a URL cannot use because it names several containers."""
+    labels = _container_labels(resolved)
+    by_label: dict[str, list[str]] = {}
+    for key, label in labels.items():
+        by_label.setdefault(label.casefold(), []).append(key)
+    for keys in by_label.values():
+        if len(keys) > 1:
+            log.warning(
+                "containers %s share the label '%s', so URLs name each by its "
+                "broker host instead",
+                ", ".join(keys),
+                labels[keys[0]],
+            )
+
+
 def pools_for_platform(platform: str) -> list[list[ResolvedContainer]]:
     """Every container serving a platform, grouped into pools. A container that
     matches no other is a pool of one."""
@@ -613,6 +653,27 @@ def containers_by_key() -> dict[str, list[ResolvedContainer]]:
     for container in resolve_containers():
         grouped.setdefault(container.key, []).append(container)
     return grouped
+
+
+def container_names() -> dict[str, str]:
+    """Each claimable container's key to the name URLs use for it: its own
+    label when that names it alone, else the key."""
+    resolved = resolve_containers()
+    unique = _unique_labels(resolved)
+    return {c.key: unique.get(c.key, c.key) for c in resolved if c.key}
+
+
+def key_for_name(name: str) -> str | None:
+    """The key a URL's container name means. A key names itself, which keeps
+    links from before names resolving."""
+    names = container_names()
+    if name in names:
+        return name
+    folded = name.strip().casefold()
+    return next(
+        (key for key, n in names.items() if n != key and n.casefold() == folded),
+        None,
+    )
 
 
 def entry_for_platform(
