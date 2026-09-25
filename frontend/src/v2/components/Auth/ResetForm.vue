@@ -5,6 +5,7 @@ import { RBtn, RTextField } from "@v2/lib";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import identityApi from "@/services/api/identity";
+import storeHeartbeat from "@/stores/heartbeat";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -16,6 +17,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
+const heartbeat = storeHeartbeat();
 
 const forgotUser = ref("");
 const sending = ref(false);
@@ -25,7 +27,14 @@ async function submit() {
   sending.value = true;
   try {
     await identityApi.requestPasswordReset(forgotUser.value);
-    snackbar.success(t("login.reset-sent"), { icon: "mdi-check-circle" });
+    snackbar.success(
+      t(
+        heartbeat.value.NOTIFICATIONS.EMAILS_RESET_LINKS
+          ? "login.reset-sent-email"
+          : "login.reset-sent",
+      ),
+      { icon: "mdi-check-circle" },
+    );
     forgotUser.value = "";
     emit("done");
   } catch (error) {

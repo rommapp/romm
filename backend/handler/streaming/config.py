@@ -22,6 +22,7 @@ from handler.streaming.capabilities import (
     PlatformCapabilities,
     StateTransferLimits,
     emulator_clears_saves,
+    emulator_resumes_from_archive,
     known_to_lack_memory_card,
     slot_capabilities,
     state_transfer_limits,
@@ -52,7 +53,10 @@ _EMULATOR_DISPLAY_NAMES: dict[str, str] = {
     "eden": "Eden",
     "flycast": "Flycast",
     "pcsx2": "PCSX2",
+    "play": "Play!",
     "ppsspp": "PPSSPP",
+    # Platform-less name; emulator_display_label names the core instead.
+    "retroarch": "RetroArch",
     "rpcs3": "RPCS3",
     "shadps4": "shadPS4",
     "xemu": "xemu",
@@ -121,6 +125,12 @@ _RETROARCH_CORE_NAMES: dict[str, str] = {
 }
 
 
+def emulator_labels() -> dict[str, str]:
+    """Display name per emulator id, for surfaces that label an id they were
+    handed rather than one they resolved (a save's `emulator`, say)."""
+    return dict(_EMULATOR_DISPLAY_NAMES)
+
+
 def emulator_display_label(emulator: str, platform: str) -> str:
     """Play-button text for an emulator serving a platform, e.g. "PCSX2" or
     "RA PPSSPP". Unknown emulators fall back to their configured name."""
@@ -172,6 +182,17 @@ class ResolvedContainer:
     def supports_save_picker(self) -> bool:
         """Whether the launch screen may offer a save other than the newest."""
         return self.is_webstation and self.clears_stale_saves
+
+    @property
+    def resumes_from_archive(self) -> bool:
+        """Whether a resume rides the save archive, with no state file to push."""
+        return self.is_webstation and emulator_resumes_from_archive(self.emulator)
+
+    @property
+    def supports_live_states(self) -> bool:
+        """Whether the player may save or load a state while the game runs. An
+        exit-state broker refuses both, though its slot still backs the library."""
+        return self.capabilities["has_autosave"] and not self.resumes_from_archive
 
     def interchangeable_with(self, other: ResolvedContainer) -> bool:
         """Whether two containers serving a platform are one pool: a player
@@ -579,6 +600,12 @@ def containers_for_platform(platform: str) -> list[ResolvedContainer]:
     return pools[0] if pools else []
 
 
+def first_claim_targets() -> list[ResolvedContainer]:
+    """The first container a game claim tries, one per platform, in config
+    order."""
+    return [pools[0][0] for pools in _pools_by_platform(resolve_containers()).values()]
+
+
 def containers_by_key() -> dict[str, list[ResolvedContainer]]:
     """Configured containers grouped by key. A container serving several
     platforms has one record per platform, all sharing one key."""
@@ -610,9 +637,10 @@ def container_for_session(
 
 
 def configured_emulator(platform: str) -> str:
-    """The emulator a configured container serves this platform with, if any."""
-    entry = entry_for_platform(resolve_containers(), platform)
-    return entry.emulator if entry else ""
+    """The emulator a claim's container serves this platform with, empty when none
+    can be claimed, taken from the pool a claim walks since slot ceilings read it."""
+    pool = containers_for_platform(platform)
+    return pool[0].emulator if pool else ""
 
 
 def streaming_enabled() -> bool:

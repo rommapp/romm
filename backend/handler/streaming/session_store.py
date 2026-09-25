@@ -24,9 +24,11 @@ from typing import Any, NamedTuple
 
 from redis.exceptions import WatchError
 
+from handler.notification_handler import notify
 from handler.redis_handler import async_cache
 from handler.socket_handler import socket_handler
 from logger.logger import log
+from models.notification import NotificationKind, NotificationLevel
 
 # Sessions are stored in Redis so they are shared across uvicorn workers and
 # survive backend restarts (the emulator container keeps running either way).
@@ -276,6 +278,20 @@ async def mutate_session(
     return session if outcome is _CasOutcome.WROTE else None
 
 
+def session_platform_matches(session: dict[str, Any], platform: str) -> bool:
+    """Whether a session was claimed for this platform, a record from before the
+    field existed matching anything so an upgrade cannot strand one."""
+    stored = session.get("platform")
+    if not isinstance(stored, str) or not stored:
+        return True
+    return stored.lower() == platform.lower()
+
+
+def session_is_desktop(session: dict[str, Any]) -> bool:
+    """Whether a session is an admin desktop rather than a game."""
+    return bool(session.get("desktop"))
+
+
 def same_claim(session: dict[str, Any], claim: dict[str, Any]) -> bool:
     """Whether a session read back is still the one a route resolved. Identity is
     the holder plus the moment they took it, so a re-claim by the same user does
@@ -411,7 +427,9 @@ async def hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
             return
 
 
-async def stamp_launched(session_key: str, claim: dict[str, Any]) -> None:
+async def stamp_launched(
+    session_key: str, claim: dict[str, Any], host: str | None
+) -> None:
     """Record that the activate returned, so the status poll stops asking the
     broker for an extraction phase.
 
@@ -422,11 +440,18 @@ async def stamp_launched(session_key: str, claim: dict[str, Any]) -> None:
 
     Best-effort: a stamp that never lands only costs a few redundant broker
     round trips, and failing a session that is already up would be worse.
+
+    Args:
+        host: a game's room URL, for the status poll to hand a tab that missed
+            the push; None for a desktop, whose POST is the only reader.
     """
     try:
         await mutate_session(
             session_key,
-            {"launched_at": datetime.now(timezone.utc).isoformat()},
+            {
+                "launched_at": datetime.now(timezone.utc).isoformat(),
+                **({"host": host} if host else {}),
+            },
             require=lambda current: same_claim(current, claim),
         )
     except StreamingSessionContended:
@@ -553,6 +578,7 @@ async def record_termination(
     *,
     ended_by: str | None,
     reason: str | None,
+    ended_by_user_id: int | None = None,
 ) -> None:
     """Leave a note for the player whose session was taken away, and push it
     over the socket so the poll isn't the only way that tab finds out. No-op
@@ -567,6 +593,12 @@ async def record_termination(
         "platform": session.get("platform"),
         "rom_id": session.get("rom_id"),
         "rom_name": session.get("rom_name"),
+        # Which claim ended: a user can hold one per container, plus a desktop,
+        # and only the tab that holds this one should act on the notice.
+        "container": session_key,
+        # A re-claim of the container keeps its key, so the stamp names the claim.
+        "claimed_at": session.get("claimed_at"),
+        "desktop": session_is_desktop(session),
     }
     await async_cache.set(
         _termination_redis_key(session_key, user_id),
@@ -575,6 +607,20 @@ async def record_termination(
     )
     await push_to_user(user_id, "streaming:session-ended", notice)
 
+    if ended_by_user_id is not None and ended_by_user_id != user_id:
+        await notify(
+            user_id,
+            NotificationKind.STREAMING_SESSION_ENDED,
+            NotificationLevel.WARNING,
+            {
+                "rom_id": notice["rom_id"],
+                "rom_name": notice["rom_name"],
+                "platform": notice["platform"],
+                "reason": notice["reason"],
+            },
+            actor_id=ended_by_user_id,
+        )
+
 
 async def push_to_user(user_id: Any, event: str, payload: dict[str, Any]) -> None:
     """Tell one user's open tabs something happened to their session.
@@ -582,12 +628,8 @@ async def push_to_user(user_id: Any, event: str, payload: dict[str, Any]) -> Non
     Best-effort by design: every event pushed here also has a poll behind it,
     so a dropped socket costs latency rather than correctness.
     """
-    if not isinstance(user_id, int):
-        return
-    try:
-        await socket_handler.socket_server.emit(event, payload, room=f"user:{user_id}")
-    except Exception:  # noqa: BLE001
-        log.warning("Failed to push %s", event, exc_info=True)
+    if isinstance(user_id, int):
+        await socket_handler.emit_to_user(user_id, event, payload)
 
 
 async def get_termination(session_key: str, user_id: int) -> dict[str, Any] | None:

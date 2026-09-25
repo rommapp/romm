@@ -118,7 +118,8 @@ const locationClass = computed(
         v-if="modelValue"
         class="r-badge"
         :class="[
-          locationClass,
+          // An anchor's transform would shift an inline badge off its line.
+          inline ? null : locationClass,
           {
             'r-badge--dot': dot,
             'r-badge--bordered': bordered,
@@ -192,12 +193,6 @@ const locationClass = computed(
        anchors (avatars). ─────────────────────────────────────────── */
 .r-badge--bordered {
   box-shadow: 0 0 0 2px var(--r-color-bg);
-}
-
-/* ── Inline — no absolute positioning, sits next to the anchor ─── */
-.r-badge--inline {
-  position: static;
-  transform: none;
 }
 
 /* ── Floating positioning ─────────────────────────────────────── */

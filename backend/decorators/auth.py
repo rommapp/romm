@@ -36,11 +36,16 @@ from handler.auth.constants import (
 oauth2_password_bearer = OAuth2PasswordBearer(
     tokenUrl="/token",
     auto_error=False,
+    # The maps are keyed by Scope, which is a StrEnum; FastAPI wants plain str.
     scopes={
-        **READ_SCOPES_MAP,
-        **WRITE_SCOPES_MAP,
-        **EDIT_SCOPES_MAP,
-        **FULL_SCOPES_MAP,
+        str(scope): description
+        for scope_map in (
+            READ_SCOPES_MAP,
+            WRITE_SCOPES_MAP,
+            EDIT_SCOPES_MAP,
+            FULL_SCOPES_MAP,
+        )
+        for scope, description in scope_map.items()
     },
 )
 

@@ -256,7 +256,7 @@ def extract_audio_meta(full_path: str) -> AudioTags | None:
 
     common = _extract_common_tags(audio)
     for key in ("title", "artist", "album", "year", "genre", "track", "disc"):
-        meta[key] = common.get(key)  # type: ignore[literal-required]
+        meta[key] = common.get(key)
 
     info = getattr(audio, "info", None)
     duration = getattr(info, "length", None) if info is not None else None
@@ -270,7 +270,9 @@ def extract_audio_meta(full_path: str) -> AudioTags | None:
 def _extract_picture_from_id3(tags: ID3) -> tuple[bytes, str] | None:
     for frame in tags.values():
         if isinstance(frame, APIC):
-            return frame.data, _allowed_mime_types(frame.data)
+            # mutagen builds frame attributes from `_framespec` at runtime.
+            data: bytes = frame.data  # type: ignore[attr-defined]
+            return data, _allowed_mime_types(data)
     return None
 
 

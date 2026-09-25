@@ -21,7 +21,7 @@ class RoomData(TypedDict):
     maxPlayers: NotRequired[int]
 
 
-@netplay_socket_handler.socket_server.on("open-room")  # type: ignore
+@netplay_socket_handler.socket_server.on("open-room")
 async def open_room(sid: str, data: RoomData):
     extra_data = data["extra"]
 
@@ -66,7 +66,7 @@ async def open_room(sid: str, data: RoomData):
     )
 
 
-@netplay_socket_handler.socket_server.on("join-room")  # type: ignore
+@netplay_socket_handler.socket_server.on("join-room")
 async def join_room(sid: str, data: RoomData):
     extra_data = data["extra"]
 
@@ -138,7 +138,7 @@ async def _handle_leave(sid: str, session_id: str, player_id: str):
     )
 
 
-@netplay_socket_handler.socket_server.on("leave-room")  # type: ignore
+@netplay_socket_handler.socket_server.on("leave-room")
 async def leave_room(sid: str):
     stored_session = await netplay_socket_handler.socket_server.get_session(sid)
     session_id = stored_session.get("session_id")
@@ -157,7 +157,7 @@ class WebRTCSignalData(TypedDict, total=False):
     requestRenegotiate: bool
 
 
-@netplay_socket_handler.socket_server.on("webrtc-signal")  # type: ignore
+@netplay_socket_handler.socket_server.on("webrtc-signal")
 async def webrtc_signal(sid: str, data: WebRTCSignalData):
     target = data.get("target")
     request_renegotiate = data.get("requestRenegotiate", False)
@@ -185,12 +185,12 @@ async def webrtc_signal(sid: str, data: WebRTCSignalData):
         )
 
 
-@netplay_socket_handler.socket_server.on("webrtc-signal-error")  # type: ignore
+@netplay_socket_handler.socket_server.on("webrtc-signal-error")
 async def webrtc_signal_error(_sid: str, _error: str, _data: Any):
     pass
 
 
-@netplay_socket_handler.socket_server.on("disconnect")  # type: ignore
+@netplay_socket_handler.socket_server.on("disconnect")
 async def disconnect(sid: str):
     stored_session = await netplay_socket_handler.socket_server.get_session(sid)
     session_id = stored_session.get("session_id")
@@ -209,16 +209,16 @@ async def _broadcast_to_room(sid: str, event: str, data: Any):
         )
 
 
-@netplay_socket_handler.socket_server.on("data-message")  # type: ignore
+@netplay_socket_handler.socket_server.on("data-message")
 async def data_message(sid: str, data: Any):
     await _broadcast_to_room(sid, "data-message", data)
 
 
-@netplay_socket_handler.socket_server.on("snapshot")  # type: ignore
+@netplay_socket_handler.socket_server.on("snapshot")
 async def snapshot(sid: str, data: Any):
     await _broadcast_to_room(sid, "snapshot", data)
 
 
-@netplay_socket_handler.socket_server.on("input")  # type: ignore
+@netplay_socket_handler.socket_server.on("input")
 async def input(sid: str, data: Any):
     await _broadcast_to_room(sid, "input", data)

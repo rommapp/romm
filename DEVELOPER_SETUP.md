@@ -172,6 +172,21 @@ ln -s ../../../romm_mock/resources assets/romm/resources
 npm run dev
 ```
 
+#### - Storybook (v2 components)
+
+Component docs and visual QA for `frontend/src/v2/` (port 6006):
+
+```sh
+npm run storybook
+npm run storybook:test   # composeStories + play() + a11y (v2 /lib stories)
+```
+
+For responsive layouts, use the viewport toolbar presets from `.storybook/rommViewports.ts`.
+
+#### - Optional: local frontend against a remote RomM
+
+To run `npm run dev` or `npm run preview` against another RomM instance (for example a home server with a full library), set `DEV_PROXY_TARGET` in the repo-root `.env` to its origin, such as `https://romm.example.com`. Vite then proxies `/api`, `/ws` and `/assets/romm` there instead of the local backend. Leave it empty to keep the default `http://127.0.0.1:${DEV_PORT}`. The remote's TLS certificate must be valid. Sign in with a username and password: OIDC login does not work through the proxy, because the identity provider redirects to the remote's `OIDC_REDIRECT_URI`, so the session never reaches localhost.
+
 ## Setting up the linter
 
 We use [Trunk](https://trunk.io) for linting, which combines multiple linters and formatters with sensible defaults and a single configuration file. You'll need to install the Trunk CLI to use it.

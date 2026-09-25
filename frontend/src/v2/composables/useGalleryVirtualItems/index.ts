@@ -38,7 +38,10 @@ import {
   type MaybeRefOrGetter,
   type Ref,
 } from "vue";
-import { LIST_ROW_HEIGHT_PX } from "@/v2/components/Gallery/listColumns";
+import {
+  LIST_ROW_HEIGHT_PX,
+  listRowHeight,
+} from "@/v2/components/Gallery/listColumns";
 import type { GroupByMode, LayoutMode } from "../useGalleryMode";
 import type { GalleryItem } from "./types";
 
@@ -62,7 +65,6 @@ const DEFAULT_COVER_RATIO = 2 / 3;
 //   * list-row / skeleton-list-row: token-derived `LIST_ROW_HEIGHT_PX`.
 const FIXED_HEIGHT_BY_KIND: Partial<Record<GalleryItem["kind"], number>> = {
   "letter-header": 56,
-  "list-row": LIST_ROW_HEIGHT_PX,
   "skeleton-list-row": LIST_ROW_HEIGHT_PX,
   "load-more": 80,
   empty: 240,
@@ -152,6 +154,10 @@ interface Options {
   fallbackRatio?: MaybeRefOrGetter<number>;
   /** Bump to force a re-pack when measured ratios change (Vue tracks it). */
   ratioVersion?: Ref<number> | ComputedRef<number>;
+  /** Px of detail panel the list row at `position` settles at (0 for the
+   *  rest), so the rows below an open one sit clear of it. The frames on the
+   *  way there are the scroller's `offsetShift`, not a height change. */
+  listSettledDetail?: (position: number) => number;
 }
 
 const ALPHABET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ@".split("");
@@ -250,9 +256,11 @@ export function useGalleryVirtualItems(opts: Options) {
   // `unknown` matches RVirtualScroller's generic prop. Row / skeleton-row
   // share the uniform height; every other kind is fixed.
   function getItemHeight(item: unknown): number {
-    const { kind } = item as GalleryItem;
+    const entry = item as GalleryItem;
+    const { kind } = entry;
     if (kind === "row" || kind === "skeleton-row") return rowHeightPx.value;
-    return FIXED_HEIGHT_BY_KIND[kind] ?? 0;
+    if (kind !== "list-row") return FIXED_HEIGHT_BY_KIND[kind] ?? 0;
+    return listRowHeight(opts.listSettledDetail?.(entry.position) ?? 0);
   }
 
   // ── Structural sharing across re-packs ────────────────────────────────

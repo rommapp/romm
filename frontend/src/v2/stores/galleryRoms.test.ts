@@ -5,7 +5,9 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 // Import after the mock so the store binds to the mocked rom API.
 import storeGalleryRoms, {
+  orderSupportsLetters,
   SELECT_ALL_PAGE_SIZE,
+  type GalleryOrderKey,
 } from "@/v2/stores/galleryRoms";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
@@ -472,5 +474,27 @@ describe("galleryRoms length filter", () => {
 
     expect(getRoms.mock.calls[0][0].hltbMainStoryMin).toBeNull();
     expect(getRoms.mock.calls[0][0].hltbMainStoryMax).toBe(10 * 3600);
+  });
+});
+
+describe("orderSupportsLetters", () => {
+  // The backend indexes first letters off a text column only, so every other
+  // order answers with an empty char_index. Spelling out every key means a new
+  // sort key fails here until someone says which kind it is.
+  const EXPECTED: Record<GalleryOrderKey, boolean> = {
+    name: true,
+    fs_name: true,
+    platform_id: false,
+    fs_size_bytes: false,
+    created_at: false,
+    updated_at: false,
+    first_release_date: false,
+    average_rating: false,
+    hltb_main_story: false,
+    last_played: false,
+  };
+
+  it.each(Object.entries(EXPECTED))("answers for %s", (key, expected) => {
+    expect(orderSupportsLetters(key as GalleryOrderKey)).toBe(expected);
   });
 });

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
-import { getDownloadLink, getDownloadPath } from "./downloadPath";
+import {
+  getDownloadFileName,
+  getDownloadLink,
+  getDownloadPath,
+  getSoleRomFile,
+} from "./downloadPath";
 import { makeRom } from "./rom.fixtures";
 
 describe("getDownloadPath", () => {
@@ -82,6 +87,20 @@ describe("getDownloadPath", () => {
       "/api/roms/24/content/B.A.T.?file_ids=999",
     );
   });
+
+  it("marks a player's fetch after the file selection", () => {
+    const rom = makeRom({
+      id: 24,
+      fs_name: "B.A.T.",
+      files: [
+        { id: 29, file_name: "B.A.T. Disk1.adf" },
+        { id: 30, file_name: "B.A.T. Disk2.adf" },
+      ] as SimpleRom["files"],
+    });
+    expect(getDownloadPath({ rom, fileIDs: [29], purpose: "play" })).toBe(
+      "/api/roms/24/content/B.A.T.%20Disk1.adf?file_ids=29&purpose=play",
+    );
+  });
 });
 
 describe("download URL encoding", () => {
@@ -128,5 +147,69 @@ describe("download URL encoding", () => {
     expect(getDownloadLink({ rom })).toBe(
       `${window.location.origin}${getDownloadPath({ rom })}`,
     );
+  });
+});
+
+describe("getDownloadFileName", () => {
+  it("names a flat single-file rom by its file", () => {
+    const rom = makeRom({
+      fs_name: "Maniac Mansion (1989).adf",
+      files: [
+        { id: 19, file_name: "Maniac Mansion (1989).adf" },
+      ] as SimpleRom["files"],
+    });
+    expect(getDownloadFileName(rom)).toBe("Maniac Mansion (1989).adf");
+  });
+
+  // The endpoint serves the sole file under its own name, so the folder's
+  // name would save the payload as something the emulator cannot open.
+  it("names a nested single-file rom by the file inside it", () => {
+    const rom = makeRom({
+      fs_name: "Art Of Fighting",
+      has_nested_single_file: true,
+      files: [{ id: 21, file_name: "aof.zip" }] as SimpleRom["files"],
+    });
+    expect(getDownloadFileName(rom)).toBe("aof.zip");
+  });
+
+  // Several files come back as an archive the endpoint builds, named for the
+  // rom, so the extension has to be there or nothing will open it.
+  it("names a multi-file rom as the archive it is served as", () => {
+    const rom = makeRom({
+      fs_name: "Final Fantasy VII",
+      has_multiple_files: true,
+      files: [
+        { id: 1, file_name: "disc1.chd" },
+        { id: 2, file_name: "disc2.chd" },
+      ] as SimpleRom["files"],
+    });
+    expect(getDownloadFileName(rom)).toBe("Final Fantasy VII.zip");
+  });
+
+  it("falls back to the rom name when nothing is on disk", () => {
+    expect(getDownloadFileName(makeRom({ fs_name: "Ghost" }))).toBe("Ghost");
+  });
+});
+
+describe("getSoleRomFile", () => {
+  it("returns the one file a rom resolves to", () => {
+    const rom = makeRom({
+      files: [
+        { id: 7, file_name: "game.sfc", full_path: "snes/game.sfc" },
+      ] as SimpleRom["files"],
+    });
+    expect(getSoleRomFile(rom)?.full_path).toBe("snes/game.sfc");
+  });
+
+  // There is no single path to a payload the endpoint assembles per request.
+  it("returns nothing for a rom served as a built archive", () => {
+    const rom = makeRom({
+      files: [
+        { id: 1, file_name: "disc1.chd" },
+        { id: 2, file_name: "disc2.chd" },
+      ] as SimpleRom["files"],
+    });
+    expect(getSoleRomFile(rom)).toBeNull();
+    expect(getSoleRomFile(makeRom({}))).toBeNull();
   });
 });

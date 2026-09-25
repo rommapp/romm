@@ -6,5 +6,6 @@ import type { StreamingContainerSchema } from './StreamingContainerSchema';
 export type StreamingConfigSchema = {
     enabled: boolean;
     containers: Array<StreamingContainerSchema>;
+    emulator_labels: Record<string, string>;
 };
 

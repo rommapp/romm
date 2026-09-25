@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
 from models.assets import Save
+from models.base import with_file_name_parts
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
@@ -87,6 +88,8 @@ class DBSavesHandler(DBBaseHandler):
         platform_id: int | None = None,
         slot: str | None = None,
         slot_not_null: bool = False,
+        slot_is_null: bool = False,
+        file_name_prefix: str | None = None,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
     ) -> Select[tuple[Save]]:
@@ -107,6 +110,14 @@ class DBSavesHandler(DBBaseHandler):
         if slot_not_null:
             query = query.filter(Save.slot.is_not(None))
 
+        if slot_is_null:
+            query = query.filter(Save.slot.is_(None))
+
+        if file_name_prefix:
+            query = query.filter(
+                Save.file_name.startswith(file_name_prefix, autoescape=True)
+            )
+
         if order_by:
             order_col = getattr(Save, order_by)
             order_fn = asc if order_dir == "asc" else desc
@@ -123,6 +134,8 @@ class DBSavesHandler(DBBaseHandler):
         platform_id: int | None = None,
         slot: str | None = None,
         slot_not_null: bool = False,
+        slot_is_null: bool = False,
+        file_name_prefix: str | None = None,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
         session: Session = None,  # type: ignore
@@ -133,6 +146,8 @@ class DBSavesHandler(DBBaseHandler):
             platform_id=platform_id,
             slot=slot,
             slot_not_null=slot_not_null,
+            slot_is_null=slot_is_null,
+            file_name_prefix=file_name_prefix,
             order_by=order_by,
             order_dir=order_dir,
         )
@@ -226,12 +241,21 @@ class DBSavesHandler(DBBaseHandler):
         self,
         id: int,
         data: dict,
+        touch: bool = True,
         session: Session = None,  # type: ignore
     ) -> Save:
+        """Write `data` onto a save.
+
+        Args:
+            touch: False keeps `updated_at`, since annotating is not a write
+                to the bytes and device sync reads it to detect staleness.
+        """
+        data = with_file_name_parts(data)
+        values = data if touch else {**data, "updated_at": Save.updated_at}
         session.execute(
             update(Save)
             .where(Save.id == id)
-            .values(**data)
+            .values(**values)
             .execution_options(synchronize_session="evaluate")
         )
         return session.query(Save).filter_by(id=id).one()

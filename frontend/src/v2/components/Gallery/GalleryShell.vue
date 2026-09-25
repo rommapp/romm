@@ -25,6 +25,7 @@ import {
   RLetterHeading,
   RVirtualScroller,
 } from "@v2/lib";
+import { useIntersectionObserver } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -39,6 +40,7 @@ import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 import { useUISettings } from "@/composables/useUISettings";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import AlphaJumpMenu from "@/v2/components/Gallery/AlphaJumpMenu.vue";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
 import FilterDrawer from "@/v2/components/Gallery/FilterDrawer.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
@@ -51,6 +53,7 @@ import {
   getSortOptions,
   isListSortKey,
   LIST_HEADER_HEIGHT_PX,
+  LIST_ROW_PAD_X_PX,
   type ListSortKey,
 } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
@@ -62,19 +65,24 @@ import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryOrderUrl } from "@/v2/composables/useGalleryOrderUrl";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
+import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import {
   useGalleryVirtualItems,
   type GalleryItem,
 } from "@/v2/composables/useGalleryVirtualItems";
 import { useGridNav } from "@/v2/composables/useGridNav";
+import { useListExpansion } from "@/v2/composables/useListExpansion";
 import { usePinnedToolbar } from "@/v2/composables/usePinnedToolbar";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, {
+  orderSupportsLetters,
+} from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import storeScrollRestoration from "@/v2/stores/scrollRestoration";
+import { layout as layoutTokens, space } from "@/v2/tokens";
 
 interface Props {
   /** Whether the header slot has content to render. False suppresses
@@ -135,6 +143,7 @@ const route = useRoute();
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
 const gallerySelection = storeGallerySelection();
+const selectionInput = useGallerySelectionInput();
 const scrollRestoration = storeScrollRestoration();
 const {
   searchTerm,
@@ -292,13 +301,23 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 // Responsive columns — measure the section to chunk roms into rows.
 // Card width and inset track the breakpoint so phones pack more, smaller
 // cards instead of one stretched card per row:
-//   inset  = scroller padding (--r-row-pad × 2) + AlphaStrip column (36)
-//            → xs 14·2+36=64, sm 20·2+36=76, default 36·2+36=108
+//   inset  = scroller padding (--r-row-pad × 2), plus the AlphaStrip column
+//            (`--r-alpha-strip-w` + its gap) wherever the strip renders
 //   card   = matches the `--r-card-art-w` the shell sets per breakpoint
 //            (108 on xs, 158 otherwise) so the JS row-chunking and the
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
+// A jump to "M" means nothing when the gallery is sorted by size or date, so
+// the letter affordances go away with the letters themselves.
+const lettersSupported = computed(() => orderSupportsLetters(orderBy.value));
+const stripVisible = computed(() => !smAndDown.value && lettersSupported.value);
+const jumpMenuVisible = computed(
+  () => smAndDown.value && lettersSupported.value,
+);
+// The strip's footprint: its letter column plus `--r-alpha-strip-gap`.
+const STRIP_INSET_PX =
+  parseInt(layoutTokens.alphaStripWidth, 10) + parseInt(space[3], 10);
 // Card-art width reference (matches GameCard's `--r-card-art-w`); sets the
 // fixed card HEIGHT (a 2/3 cover at this width). Real width follows the ratio.
 const CARD_GAP_PX = 12;
@@ -307,7 +326,9 @@ const cardHeight = () => Math.round(cardWidth() / (2 / 3));
 const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
   cardWidth,
   gap: CARD_GAP_PX,
-  inset: () => (xs.value ? 64 : smAndDown.value ? 76 : 108),
+  inset: () =>
+    (xs.value ? 28 : smAndDown.value ? 40 : 72) +
+    (stripVisible.value ? STRIP_INSET_PX : 0),
 });
 
 // Fallback cover ratio (boxart style) — the per-card `--r-cover-ratio` seed
@@ -331,7 +352,24 @@ const { ratioVersion, ratioAt, onCardRatio } = useGalleryCoverRatios();
 // to the virtual scroller as `minContentWidth` in list mode so a viewport
 // narrower than the columns scrolls the list HORIZONTALLY instead of clipping
 // them. Also drives the sticky column header's width so it scrolls in step.
-const listMinWidth = computed(() => getListMinWidth(props.showPlatformColumn));
+// Less the rows' leading padding, which sits in the gutter they bleed into.
+const listMinWidth = computed(
+  () => getListMinWidth(props.showPlatformColumn) - LIST_ROW_PAD_X_PX,
+);
+
+// Compact list rows (phones / tablets) open one detail panel at a time; the
+// virtualiser reads the same position to give that row its taller slot.
+const listExpansion = useListExpansion();
+watch(
+  [
+    layout,
+    smAndDown,
+    () => galleryRoms.total,
+    () => galleryRoms.orderBy,
+    () => galleryRoms.orderDir,
+  ],
+  listExpansion.collapse,
+);
 
 // 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
 //   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
@@ -384,15 +422,51 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     gap: CARD_GAP_PX,
     ratioAt,
     ratioVersion,
+    listSettledDetail: listExpansion.settledPanelHeight,
     fallbackRatio: coverAspectRatio,
   });
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 
+// Where the open row sits in the packed list. Recomputed when a row opens or
+// the list re-packs, never on the animation's frames.
+const expandedIndex = computed(() => {
+  const position = listExpansion.expandedPosition.value;
+  if (position == null) return -1;
+  return virtualItems.value.findIndex(
+    (item) => item.kind === "list-row" && item.position === position,
+  );
+});
+const listOffsetShift = computed(() =>
+  expandedIndex.value < 0
+    ? undefined
+    : { fromIndex: expandedIndex.value, px: listExpansion.shiftPx.value },
+);
+
 // ── Toolbar ─────────────────────────────────────────────────────────
 const scrollTopNow = computed(() => scrollerRef.value?.scrollTop ?? 0);
 const { toolbarHeight, pinDistance, pinned, bindToolbar, bindSentinel } =
   usePinnedToolbar(scrollTopNow);
+// The floating dock leaves no toolbar to pin, so a sentinel above the column
+// header marks when that header reaches the top bar.
+const listHeaderSentinel = ref<HTMLElement | null>(null);
+const listHeaderAtTop = ref(false);
+useIntersectionObserver(
+  listHeaderSentinel,
+  ([entry]) => {
+    listHeaderAtTop.value =
+      !!entry?.rootBounds &&
+      !entry.isIntersecting &&
+      entry.boundingClientRect.top < entry.rootBounds.top;
+  },
+  {
+    root: computed(() => scrollerRef.value?.containerEl ?? null),
+    rootMargin: `-${layoutTokens.navHeight} 0px 0px 0px`,
+  },
+);
+const listHeaderPinned = computed(() =>
+  toolbarPosition.value === "floating" ? listHeaderAtTop.value : pinned.value,
+);
 // The AlphaStrip follows the toolbar down until it pins: a scroll-driven
 // animation (hence `timeline-scope`), else a style write on the strip alone.
 const supportsScrollTimeline =
@@ -584,7 +658,14 @@ watch(virtualItems, () => {
   syncFetches(viewportRange.value);
 });
 
-function scrollToLetter(letter: string) {
+// A jump holds its letter under the toolbar until the user scrolls again, so
+// a slow landing window still ends up anchored. The cap covers the viewer who
+// walks away mid-jump.
+const LETTER_JUMP_MAX_MS = 15000;
+const jumpLetter = ref<string | null>(null);
+let jumpDeadline = 0;
+
+function anchorLetter(letter: string, smooth: boolean) {
   const idx = letterToIndex.value.get(letter);
   if (idx == null) return;
   // The section runs under the top bar, so rows land below it in either dock.
@@ -596,12 +677,55 @@ function scrollToLetter(letter: string) {
     navHeight +
     toolbarHeight.value +
     (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0);
-  scrollerRef.value?.scrollToIndex(idx, { smooth: true, stickyOffset });
+  scrollerRef.value?.scrollToIndex(idx, { smooth, stickyOffset });
+}
+
+function scrollToLetter(letter: string) {
+  jumpLetter.value = letter;
+  jumpDeadline = Date.now() + LETTER_JUMP_MAX_MS;
+  anchorLetter(letter, true);
   // The viewport-driven fetch sync handles the destination — once the
   // smooth scroll settles, `update:viewportRange` fires and the windows at
   // the landing zone start loading via `syncFetches` (both layouts). No
   // manual prefetch needed.
 }
+
+/** Gives the scroll back to the user, whatever a jump was still correcting. */
+function endLetterJump() {
+  jumpLetter.value = null;
+}
+
+/** The letter still worth correcting towards, or null once the cap is up. */
+function pendingJumpLetter(): string | null {
+  const letter = jumpLetter.value;
+  if (!letter) return null;
+  if (Date.now() > jumpDeadline) {
+    endLetterJump();
+    return null;
+  }
+  return letter;
+}
+
+// The smooth scroll animates towards the target the jump computed; anything
+// that moved meanwhile (a re-pack, the header rendering) leaves it short, so
+// settle onto the letter once the animation stops.
+function reanchorToJump() {
+  const letter = pendingJumpLetter();
+  if (letter) anchorLetter(letter, false);
+}
+
+// Three things move a letter out from under the toolbar after a jump: the
+// landing window arriving, the covers re-packing the rows, and the view header
+// rendering late. Re-anchor on each. Watching the packed items rather than
+// `letterToIndex` keeps that map lazy, built only when a jump needs it.
+watch(
+  [
+    virtualItems,
+    () => scrollerRef.value?.innerOffsetTop ?? 0,
+    () => galleryRoms.loadedWindows.size,
+  ],
+  reanchorToJump,
+);
 
 // ── Search filter (debounced) ───────────────────────────────────────
 const searchInput = ref(searchTerm.value ?? "");
@@ -723,6 +847,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onShellKey);
+  // A press still in flight would otherwise fire its timer into whatever
+  // replaces this gallery.
+  selectionInput.cancel();
   // Selection is gallery-scoped: leaving the shell drops it so a
   // navigation back to a non-gallery view (Home, Settings) doesn't
   // keep stale picks alive.
@@ -794,6 +921,7 @@ defineExpose({
     :class="{
       'r-v2-shell--list': layout === 'list',
       'r-v2-shell--floating': toolbarPosition === 'floating',
+      'r-v2-shell--no-strip': !stripVisible,
     }"
     :style="{
       '--r-v2-shell-toolbar-h': `${toolbarHeight}px`,
@@ -807,10 +935,17 @@ defineExpose({
       :items="virtualItems"
       :get-item-height="getItemHeight"
       :get-item-key="galleryItemKey"
+      :offset-shift="listOffsetShift"
       :overscan="virtualOverscan"
-      :min-content-width="layout === 'list' ? listMinWidth : undefined"
+      :min-content-width="
+        layout === 'list' && !smAndDown ? listMinWidth : undefined
+      "
       class="r-v2-shell__scroller r-v2-scroll-hidden"
       :tabindex="-1"
+      @wheel.passive="endLetterJump"
+      @pointerdown.passive="endLetterJump"
+      @keydown="endLetterJump"
+      @scrollend="reanchorToJump"
       @update:viewport-range="onViewportRangeChange"
     >
       <!-- HEADER (Section 1) + TOOLBAR (Section 2). Both live in the
@@ -851,7 +986,17 @@ defineExpose({
               @update:sort-key="galleryRoms.setOrderBy"
               @update:search="setSearch"
               @click:filter="filterDrawerOpen = true"
-            />
+            >
+              <template #actions>
+                <AlphaJumpMenu
+                  v-if="jumpMenuVisible"
+                  :available="availableLetters"
+                  :current="currentLetter"
+                  :direction="orderDir"
+                  @pick="scrollToLetter"
+                />
+              </template>
+            </GalleryToolbar>
           </div>
         </template>
 
@@ -859,14 +1004,21 @@ defineExpose({
              Shares `LIST_GRID_TEMPLATE` with every GameListRow underneath
              so columns align. Header click cycles asc/desc into the
              store's orderBy/orderDir. -->
-        <GameListHeader
-          v-if="layout === 'list'"
-          class="r-v2-shell__list-header"
-          :sort-key="listSortKey"
-          :sort-dir="orderDir"
-          :show-platform-column="showPlatformColumn"
-          @sort="onListSort"
-        />
+        <template v-if="layout === 'list'">
+          <div
+            v-if="toolbarPosition === 'floating'"
+            ref="listHeaderSentinel"
+            aria-hidden="true"
+          />
+          <GameListHeader
+            class="r-v2-shell__list-header"
+            :class="{ 'r-pinned-list-header': listHeaderPinned }"
+            :sort-key="listSortKey"
+            :sort-dir="orderDir"
+            :show-platform-column="showPlatformColumn"
+            @sort="onListSort"
+          />
+        </template>
       </template>
 
       <!-- GRID / TABLE (Section 3) — letter-headers + rows of cards in
@@ -909,7 +1061,17 @@ defineExpose({
             :position="asListRow(item as GalleryItem).position"
             :webp="supportsWebp"
             :show-platform-column="showPlatformColumn"
+            expandable
+            :expanded="
+              listExpansion.isExpanded(asListRow(item as GalleryItem).position)
+            "
+            :detail-height="
+              listExpansion.panelHeight(asListRow(item as GalleryItem).position)
+            "
             @ratio="onCardRatio"
+            @toggle-expand="
+              listExpansion.toggle(asListRow(item as GalleryItem).position)
+            "
           />
 
           <GameListSkeletonRow
@@ -940,8 +1102,10 @@ defineExpose({
       </template>
     </RVirtualScroller>
 
-    <!-- ALPHASTRIP — A-Z jump column on the right edge of the section. -->
+    <!-- ALPHASTRIP: A-Z jump column on the right edge of the section.
+         Phones and tablets jump from the toolbar instead (AlphaJumpMenu). -->
     <AlphaStrip
+      v-if="stripVisible"
       ref="stripRef"
       class="r-v2-shell__strip"
       :available="availableLetters"
@@ -970,7 +1134,17 @@ defineExpose({
       @update:sort-dir="galleryRoms.setOrderDir"
       @update:sort-key="galleryRoms.setOrderBy"
       @click:filter="filterDrawerOpen = true"
-    />
+    >
+      <template #actions>
+        <AlphaJumpMenu
+          v-if="jumpMenuVisible"
+          :available="availableLetters"
+          :current="currentLetter"
+          :direction="orderDir"
+          @pick="scrollToLetter"
+        />
+      </template>
+    </GalleryToolbar>
 
     <!-- FILTER DRAWER — owned by the shell so every gallery view gets
          it for free. Forwards `showPlatformsInFilter` from the view so
@@ -1030,10 +1204,34 @@ html[data-bp~="sm-and-down"] .r-v2-shell {
     -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
   );
 }
-/* Phones: a wider letter column (bigger, more tappable letters). */
-html[data-bp~="xs"] .r-v2-shell {
-  --r-alpha-strip-w: var(--r-alpha-strip-w-xs);
-  --r-alpha-strip-gap: var(--r-space-2);
+/* No strip to leave room for: phones and tablets jump from the toolbar, and
+   a sort the letters can't address has no jump at all. */
+.r-v2-shell--no-strip {
+  --r-v2-shell-strip: 0px;
+}
+
+/* Compact list mode: the rows and their column header run to the screen
+   edges, out of the scroller's gutter. Each keeps that gutter as its own
+   padding, so only the separators and the row fill reach the edge. The shell
+   publishes how far to bleed and the rows apply it themselves, so no row's
+   class name is load-bearing in here. */
+html[data-bp~="sm-and-down"] .r-v2-shell {
+  --r-list-bleed: var(--r-row-pad);
+}
+html[data-bp~="sm-and-down"] .r-v2-shell__list-header {
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
+}
+/* Desktop list mode: the column rows and their header run out to the left
+   screen edge the same way. The right gutter stays, under the AlphaStrip. */
+html[data-bp~="md-and-up"] .r-v2-shell {
+  --r-list-bleed-start: var(--r-row-pad);
+}
+html[data-bp~="md-and-up"] .r-v2-shell__list-header {
+  margin-inline-start: calc(-1 * var(--r-list-bleed-start));
+  padding-inline-start: max(var(--r-space-3), var(--r-list-bleed-start));
+  /* Match the rows' natural width so the column header scrolls horizontally
+     in step with them when the list is wider than the viewport. */
+  min-width: calc(var(--r-list-min-w) + var(--r-list-bleed-start));
 }
 
 /* The horizontal pads live here so all in-flow content (header, toolbar,
@@ -1117,9 +1315,10 @@ html[data-bp~="xs"] .r-v2-shell {
   position: sticky;
   top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h));
   z-index: 3;
-  /* Match the rows' natural width so the column header scrolls horizontally in
-     step with them when the list is wider than the viewport. */
-  min-width: var(--r-list-min-w);
+}
+/* Its pinned glass also runs under the strip column, out to the right edge. */
+.r-v2-shell__list-header::before {
+  right: calc(-1 * (var(--r-row-pad) + var(--r-v2-shell-strip)));
 }
 
 /* The strip overlays the scroller's right gutter from the pinned toolbar's
@@ -1132,6 +1331,12 @@ html[data-bp~="xs"] .r-v2-shell {
   z-index: 5;
   justify-content: flex-start;
   transform: translateY(var(--r-v2-shell-strip-shift, 0px));
+}
+/* The column header's glass spans the strip column, so the letters start below it. */
+.r-v2-shell--list .r-v2-shell__strip {
+  top: calc(
+    var(--r-nav-h) + var(--r-v2-shell-toolbar-h) + var(--r-list-header-h)
+  );
 }
 /* The floating dock sits over the strip's top; centre the letters clear of it. */
 .r-v2-shell--floating .r-v2-shell__strip {
