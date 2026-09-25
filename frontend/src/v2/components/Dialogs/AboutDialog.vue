@@ -2,9 +2,9 @@
 // v2 AboutDialog — emitter-driven. Replaces the v1 AboutDialog in the v2
 // GlobalDialogs stack so the "About" entry in UserMenu renders the v2 glass
 // panel instead of the legacy card.
-import { RDialog, RIcon, RImg } from "@v2/lib";
+import { RDialog, RIcon, RImg, RTooltip } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, onBeforeUnmount, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 import { useVersionDisplay } from "@/v2/composables/useVersionDisplay";
@@ -24,6 +24,17 @@ onBeforeUnmount(() => emitter?.off("showAboutDialog", openHandler));
 
 function closeDialog() {
   show.value = false;
+}
+
+// Values cut off by their tile's width, whose tile then shows them in full.
+const truncated = reactive(new Set<string>());
+
+function measure(label: string, event: Event) {
+  const value = (event.currentTarget as HTMLElement).querySelector(
+    ".r-v2-about__value",
+  );
+  if (value && value.scrollWidth > value.clientWidth) truncated.add(label);
+  else truncated.delete(label);
 }
 
 type Link = {
@@ -81,6 +92,8 @@ const links = computed<Link[]>(() => [
           target="_blank"
           rel="noopener noreferrer"
           class="r-v2-about__tile"
+          @mouseenter="measure(link.label, $event)"
+          @focusin="measure(link.label, $event)"
         >
           <div class="r-v2-about__icon">
             <RImg
@@ -95,11 +108,14 @@ const links = computed<Link[]>(() => [
           </div>
           <div class="r-v2-about__meta">
             <span class="r-v2-about__label">{{ link.label }}</span>
-            <span class="r-v2-about__value" :title="link.value">
-              {{ link.value }}
-            </span>
+            <span class="r-v2-about__value">{{ link.value }}</span>
           </div>
           <RIcon icon="mdi-open-in-new" size="14" class="r-v2-about__chev" />
+          <RTooltip
+            activator="parent"
+            :text="link.value"
+            :disabled="!truncated.has(link.label)"
+          />
         </a>
       </div>
     </template>
