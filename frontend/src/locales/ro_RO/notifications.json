@@ -34,6 +34,7 @@
   "channel-name": "Nume",
   "channel-new": "Canal nou",
   "channel-paste-failed": "URL-ul nu a putut fi citit",
+  "channel-paste-filled": "Completat din URL: {fields}",
   "channel-paste-other-service": "Acest URL este pentru {service}",
   "channel-paste-url": "Lipește un URL",
   "channel-paste-url-hint": "Un URL {service} sau Apprise completează câmpurile",

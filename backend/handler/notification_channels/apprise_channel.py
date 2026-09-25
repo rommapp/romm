@@ -75,10 +75,19 @@ NOTIFY_TYPES: Final[dict[str, NotifyType]] = {
     NotificationLevel.ERROR: NotifyType.FAILURE,
 }
 
+# What a service shows as the sender's picture, such as Discord's avatar; it
+# fetches it itself, so it has to be public.
+ROMM_ICON_URL: Final = (
+    "https://raw.githubusercontent.com/rommapp/romm/master/"
+    "frontend/public/android-chrome-512x512.png"
+)
+
 _ASSET: Final = AppriseAsset(
     app_id="RomM",
     app_desc="RomM",
     app_url="https://romm.app",
+    image_url_mask=ROMM_ICON_URL,
+    image_url_logo=ROMM_ICON_URL,
     # Nothing a plugin keeps (tokens, generated keys) is written to disk.
     storage_mode="memory",
     pgp_autogen=False,

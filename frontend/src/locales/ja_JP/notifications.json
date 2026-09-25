@@ -34,6 +34,7 @@
   "channel-name": "名前",
   "channel-new": "新しいチャンネル",
   "channel-paste-failed": "その URL を読み取れませんでした",
+  "channel-paste-filled": "URL から入力しました: {fields}",
   "channel-paste-other-service": "その URL は {service} のものです",
   "channel-paste-url": "URL を貼り付け",
   "channel-paste-url-hint": "{service} の URL か Apprise の URL で各項目を入力できます",

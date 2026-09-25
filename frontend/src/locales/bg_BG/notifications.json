@@ -34,6 +34,7 @@
   "channel-name": "Име",
   "channel-new": "Нов канал",
   "channel-paste-failed": "Този URL адрес не можа да се прочете",
+  "channel-paste-filled": "Попълнено от URL адреса: {fields}",
   "channel-paste-other-service": "Този URL адрес е за {service}",
   "channel-paste-url": "Поставете URL адрес",
   "channel-paste-url-hint": "URL адрес на {service} или на Apprise попълва полетата",

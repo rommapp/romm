@@ -12,6 +12,8 @@ const props = defineProps<{
   service: AppriseServiceSchema;
   // The secrets the channel already has.
   stored: string[];
+  // The fields a pasted URL just filled in.
+  highlighted: string[];
 }>();
 const values = defineModel<Record<string, AppriseFieldValue>>({
   required: true,
@@ -43,6 +45,7 @@ function setRemoved(key: string, drop: boolean) {
       :model-value="values[field.key]"
       :field="field"
       :stored="stored.includes(field.key)"
+      :highlight="highlighted.includes(field.key)"
       :removed="removed.includes(field.key)"
       @update:model-value="set(field.key, $event)"
       @update:removed="setRemoved(field.key, $event)"
@@ -60,6 +63,7 @@ function setRemoved(key: string, drop: boolean) {
         :model-value="values[field.key]"
         :field="field"
         :stored="stored.includes(field.key)"
+        :highlight="highlighted.includes(field.key)"
         :removed="removed.includes(field.key)"
         @update:model-value="set(field.key, $event)"
         @update:removed="setRemoved(field.key, $event)"

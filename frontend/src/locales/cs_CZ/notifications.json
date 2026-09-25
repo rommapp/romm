@@ -34,6 +34,7 @@
   "channel-name": "Název",
   "channel-new": "Nový kanál",
   "channel-paste-failed": "Tuto URL se nepodařilo přečíst",
+  "channel-paste-filled": "Vyplněno z URL: {fields}",
   "channel-paste-other-service": "Tato URL patří službě {service}",
   "channel-paste-url": "Vložit URL",
   "channel-paste-url-hint": "URL adresa {service} nebo Apprise vyplní pole",

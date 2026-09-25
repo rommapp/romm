@@ -34,6 +34,7 @@
   "channel-name": "Ad",
   "channel-new": "Yeni kanal",
   "channel-paste-failed": "Bu URL okunamadı",
+  "channel-paste-filled": "URL'den dolduruldu: {fields}",
   "channel-paste-other-service": "Bu URL {service} için",
   "channel-paste-url": "URL yapıştır",
   "channel-paste-url-hint": "Bir {service} URL'si veya Apprise URL'si alanları doldurur",

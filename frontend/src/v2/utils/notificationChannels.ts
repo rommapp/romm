@@ -50,6 +50,15 @@ export const APPRISE_FIELD_LABELS: Record<string, string> = {
   verify: "notifications.channel-field-verify",
 };
 
+/** A field's label: RomM's for the ones most services share, Apprise's otherwise. */
+export function appriseFieldLabel(
+  field: AppriseFieldSchema,
+  t: (key: string) => string,
+): string {
+  const key = APPRISE_FIELD_LABELS[field.key];
+  return key ? t(key) : field.label;
+}
+
 function isBlank(value: AppriseFieldValue | undefined): boolean {
   return (
     value === undefined ||

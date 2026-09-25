@@ -34,6 +34,7 @@
   "channel-name": "Név",
   "channel-new": "Új csatorna",
   "channel-paste-failed": "Ezt az URL-t nem sikerült beolvasni",
+  "channel-paste-filled": "Kitöltve az URL-ből: {fields}",
   "channel-paste-other-service": "Ez az URL a(z) {service} szolgáltatáshoz tartozik",
   "channel-paste-url": "URL beillesztése",
   "channel-paste-url-hint": "Egy {service}- vagy Apprise-URL kitölti a mezőket",

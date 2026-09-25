@@ -34,6 +34,7 @@
   "channel-name": "이름",
   "channel-new": "새 채널",
   "channel-paste-failed": "URL을 읽을 수 없습니다",
+  "channel-paste-filled": "URL에서 채웠습니다: {fields}",
   "channel-paste-other-service": "이 URL은 {service}용입니다",
   "channel-paste-url": "URL 붙여넣기",
   "channel-paste-url-hint": "{service} URL 또는 Apprise URL로 항목을 채웁니다",

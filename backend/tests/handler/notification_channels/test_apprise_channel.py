@@ -388,6 +388,16 @@ class TestSend:
         [(_, kwargs)] = calls
         assert kwargs["notify_type"] == notify_type
 
+    def test_sends_as_romm_with_its_icon(self, notify):
+        calls = notify()
+
+        send("discord", _DISCORD, _message())
+
+        [(apprise, _)] = calls
+        plugin = apprise[0]
+        assert plugin.app_id == "RomM"
+        assert plugin.image_url(NotifyType.INFO) == apprise_channel.ROMM_ICON_URL
+
     def test_holds_a_service_to_its_own_limits(self, notify):
         calls = notify()
 

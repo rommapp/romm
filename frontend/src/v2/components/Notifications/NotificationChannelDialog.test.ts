@@ -210,6 +210,11 @@ describe("NotificationChannelDialog", () => {
     await pick(wrapper, "apprise:ntfy");
     await wrapper.findAll("input.r-text-field__input")[0].setValue("Phone");
     await paste(wrapper, "ntfys://ntfy.example.com:8080/romm");
+
+    const pasted = textField(wrapper, "notifications.channel-paste-url");
+    expect(pasted?.element.value).toBe("ntfys://ntfy.example.com:8080/romm");
+    expect(wrapper.text()).toContain("notifications.channel-paste-filled");
+    expect(wrapper.findAll(".r-v2-apprise-field--filled")).toHaveLength(3);
     await save(wrapper);
 
     expect(api.parseAppriseUrl).toHaveBeenCalledWith(

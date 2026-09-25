@@ -34,6 +34,7 @@
   "channel-name": "Name",
   "channel-new": "Neuer Kanal",
   "channel-paste-failed": "Diese URL konnte nicht gelesen werden",
+  "channel-paste-filled": "Aus der URL ausgefüllt: {fields}",
   "channel-paste-other-service": "Diese URL gehört zu {service}",
   "channel-paste-url": "URL einfügen",
   "channel-paste-url-hint": "Eine {service}- oder Apprise-URL füllt die Felder aus",

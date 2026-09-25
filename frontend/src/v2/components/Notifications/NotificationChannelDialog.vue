@@ -39,6 +39,7 @@ import {
   NOTIFICATION_CHANNEL_NAME_MAX_LENGTH,
   NOTIFICATION_CHANNEL_SECRET_MAX_LENGTH,
   NOTIFICATION_CHANNEL_URL_MAX_LENGTH,
+  appriseFieldLabel,
   appriseFieldsPayload,
   initialAppriseValues,
 } from "@/v2/utils/notificationChannels";
@@ -74,6 +75,8 @@ const removedSecrets = ref<string[]>([]);
 const pastedUrl = ref("");
 const pasteError = ref<string | null>(null);
 const filling = ref(false);
+// The fields the last pasted URL filled in, so the form can show it did.
+const filledFields = ref<string[]>([]);
 const saving = ref(false);
 const error = ref<string | null>(null);
 
@@ -152,8 +155,7 @@ function resetAppriseValues() {
     ? initialAppriseValues(service.value, props.channel?.fields ?? null)
     : {};
   removedSecrets.value = [];
-  pastedUrl.value = "";
-  pasteError.value = null;
+  filledFields.value = [];
 }
 
 watch(service, resetAppriseValues);
@@ -175,18 +177,47 @@ watch(show, (open) => {
   topics.value = channel?.topics ? [...channel.topics] : [];
   error.value = null;
   resetAppriseValues();
+  clearPaste();
   formRef.value?.resetValidation();
   void loadServices();
+});
+
+const pasteHint = computed(() => {
+  if (!service.value) return undefined;
+  const filled = service.value.fields.filter((f) =>
+    filledFields.value.includes(f.key),
+  );
+  return filled.length > 0
+    ? t("notifications.channel-paste-filled", {
+        fields: filled.map((field) => appriseFieldLabel(field, t)).join(", "),
+      })
+    : t("notifications.channel-paste-url-hint", {
+        service: service.value.name,
+      });
 });
 
 // A pasted URL, the service's own (a Discord webhook's) or an Apprise one, fills
 // the form in; only the latest paste counts.
 let pasteRequest = 0;
 
+function clearPaste() {
+  pasteRequest++;
+  pastedUrl.value = "";
+  pasteError.value = null;
+  filling.value = false;
+}
+
+// Picking another service by hand leaves any pasted URL behind.
+function pickKind(value: string) {
+  kind.value = value;
+  clearPaste();
+}
+
 async function fillFromUrl(url: string) {
   const request = ++pasteRequest;
   filling.value = true;
   pasteError.value = null;
+  filledFields.value = [];
   try {
     const { data } = await notificationChannelApi.parseAppriseUrl(url);
     if (request !== pasteRequest) return;
@@ -202,7 +233,9 @@ async function fillFromUrl(url: string) {
     // Lets the service watcher start the form afresh before it's filled in.
     await nextTick();
     appriseValues.value = initialAppriseValues(found, data.fields);
-    pastedUrl.value = "";
+    filledFields.value = found.fields
+      .map((field) => field.key)
+      .filter((key) => key in data.fields);
   } catch (err) {
     if (request !== pasteRequest) return;
     pasteError.value = errorMessage(
@@ -218,7 +251,10 @@ watchDebounced(
   pastedUrl,
   (url) => {
     if (url.trim()) void fillFromUrl(url.trim());
-    else pasteError.value = null;
+    else {
+      pasteError.value = null;
+      filledFields.value = [];
+    }
   },
   { debounce: 400 },
 );
@@ -326,7 +362,7 @@ async function save() {
         <div :class="{ 'r-v2-channel-dialog__pair': !editing }">
           <RSelect
             v-if="!editing"
-            v-model="kind"
+            :model-value="kind"
             :items="typeItems"
             :prepend-inner-icon="CHANNEL_ICONS[type]"
             :loading="loadingServices"
@@ -338,6 +374,7 @@ async function save() {
                 : t('notifications.channel-email-unavailable')
             "
             prefix-label="stacked"
+            @update:model-value="pickKind(String($event))"
           >
             <template #prefix-label>
               <RIcon icon="mdi-shape-outline" size="14" />
@@ -405,11 +442,7 @@ async function save() {
             <RTextField
               v-model="pastedUrl"
               :label="t('notifications.channel-paste-url')"
-              :hint="
-                t('notifications.channel-paste-url-hint', {
-                  service: service.name,
-                })
-              "
+              :hint="pasteHint"
               :error-messages="pasteError ?? undefined"
               :maxlength="NOTIFICATION_CHANNEL_URL_MAX_LENGTH"
               :loading="filling"
@@ -423,6 +456,7 @@ async function save() {
               v-model:removed="removedSecrets"
               :service="service"
               :stored="storedSecrets"
+              :highlighted="filledFields"
             />
             <RBtn
               v-if="service.setup_url"

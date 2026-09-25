@@ -34,6 +34,7 @@
   "channel-name": "Name",
   "channel-new": "New channel",
   "channel-paste-failed": "Could not read that URL",
+  "channel-paste-filled": "Filled in from the URL: {fields}",
   "channel-paste-other-service": "That URL is for {service}",
   "channel-paste-url": "Paste a URL",
   "channel-paste-url-hint": "A {service} URL or an Apprise URL fills in the fields",
