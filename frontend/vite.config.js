@@ -72,7 +72,11 @@ export default defineConfig(({ mode }) => {
 
   const proxyTarget = env.DEV_PROXY_TARGET || `http://127.0.0.1:${backendPort}`;
   const remote = Boolean(env.DEV_PROXY_TARGET);
-  const upstream = { target: proxyTarget, changeOrigin: remote, secure: false };
+  const upstream = {
+    target: proxyTarget,
+    changeOrigin: remote,
+    secure: remote,
+  };
   const proxy = {
     "/api": upstream,
     "^/(?:ws|netplay)": { ...upstream, ws: true },
