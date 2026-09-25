@@ -66,6 +66,36 @@ async def test_get_app_details_unwraps_envelope(session):
     assert details == {"type": "game", "name": "Portal"}
 
 
+async def test_get_app_details_unwraps_envelope_keyed_by_another_id(session):
+    """Steam keys some apps' details by a DLC ID instead of the requested one."""
+    session.get.return_value = _response(
+        {
+            "662290": {
+                "success": True,
+                "data": {"type": "game", "name": "140", "steam_appid": 242820},
+            }
+        }
+    )
+
+    details = await SteamService().get_app_details(242820)
+
+    assert details == {"type": "game", "name": "140", "steam_appid": 242820}
+
+
+async def test_get_app_details_rejects_envelope_for_another_app(session):
+    session.get.return_value = _response(
+        {"662290": {"success": True, "data": {"type": "dlc", "steam_appid": 662290}}}
+    )
+
+    assert await SteamService().get_app_details(242820) is None
+
+
+async def test_get_app_details_rejects_a_sole_value_that_is_not_an_envelope(session):
+    session.get.return_value = _response({"error": "unavailable"})
+
+    assert await SteamService().get_app_details(242820) is None
+
+
 async def test_get_app_details_returns_none_on_unsuccessful_envelope(session):
     """Steam reports an unknown or region-locked app as success: false."""
     session.get.return_value = _response({"400": {"success": False}})
