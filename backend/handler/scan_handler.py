@@ -1558,12 +1558,11 @@ async def scan_rom(
             if field_value:
                 rom_attrs[field] = field_value
 
-    # Don't overwrite existing base fields on a partial rescan
+    # Don't overwrite existing base fields on update, unmatched and hashes scans
     if not newly_added and scan_type in (
         ScanType.UNMATCHED,
         ScanType.UPDATE,
         ScanType.HASHES,
-        ScanType.TITLE_IDS,
     ):
         # A ROM's name defaults to a filename-derived placeholder when first
         # created. Treat that placeholder as "no name" so a freshly matched provider

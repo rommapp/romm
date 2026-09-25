@@ -53,10 +53,16 @@ class RomFilesRefresh:
     new_files: int
     updated_files: int
     removed_files: int
+    identity_changed: bool = False
 
     @property
     def changed(self) -> bool:
-        return bool(self.new_files or self.updated_files or self.removed_files)
+        return bool(
+            self.new_files
+            or self.updated_files
+            or self.removed_files
+            or self.identity_changed
+        )
 
 
 def loaded_rom_files(rom: Rom) -> list[RomFile]:
@@ -66,21 +72,25 @@ def loaded_rom_files(rom: Rom) -> list[RomFile]:
     return db_rom_handler.rom_files_for_rom_id(rom.id)
 
 
-async def refresh_rom_files(rom: Rom) -> RomFilesRefresh:
+async def refresh_rom_files(rom: Rom, embed_title_ids: bool = False) -> RomFilesRefresh:
     """Reconcile a ROM's file rows with what is on disk, keeping the stored
     hashes of files whose size and mtime are unchanged.
 
     Args:
         rom: A persisted ROM whose folder or file exists on disk.
+        embed_title_ids: Rename Switch files to carry the title id read from them.
     Returns:
         What changed, so callers can report it.
     """
     async with _refresh_lock(rom.id):
-        return await _refresh(rom)
+        return await _refresh(rom, embed_title_ids)
 
 
-async def _refresh(rom: Rom) -> RomFilesRefresh:
+async def _refresh(rom: Rom, embed_title_ids: bool) -> RomFilesRefresh:
     existing = loaded_rom_files(rom)
+    # Extraction can settle a reused row's category and embedding can rename it,
+    # both in place, so a reused row is compared against what it was loaded as.
+    loaded_as = {id(f): (f.file_name, f.category) for f in existing}
     cnfg = cm.get_config()
     calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
     parsed = await fs_rom_handler.get_rom_files(
@@ -97,12 +107,15 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
         )
         return RomFilesRefresh(0, 0, 0)
 
+    renamed_fs_name = (
+        await fs_rom_handler.embed_switch_title_ids(parsed) if embed_title_ids else None
+    )
+
     existing_keys = {rom_file_key(f) for f in existing}
-    reused_ids = {id(f) for f in existing}
     new_keys: set[RomFileKey] = set()
     updated_keys: set[RomFileKey] = set()
     for scanned in parsed.rom_files:
-        if id(scanned) in reused_ids:
+        if loaded_as.get(id(scanned)) == (scanned.file_name, scanned.category):
             continue
         key = rom_file_key(scanned)
         (updated_keys if key in existing_keys else new_keys).add(key)
@@ -128,10 +141,15 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
             if value != (getattr(rom, column) or ""):
                 rom_updates[column] = value
     # Only written when the parse actually read an id, so a refresh that read
-    # none (extraction disabled, or every file unchanged) leaves the stored
-    # triple alone rather than blanking it.
-    if parsed.identity.title_id and parsed.identity != RomIdentity.from_rom(rom):
+    # none (extraction disabled, or no readable file) leaves the stored triple
+    # alone rather than blanking it.
+    identity_changed = bool(
+        parsed.identity.title_id and parsed.identity != RomIdentity.from_rom(rom)
+    )
+    if identity_changed:
         rom_updates.update(parsed.identity.as_rom_attrs())
+    if renamed_fs_name:
+        rom_updates["fs_name"] = renamed_fs_name
     if rom.missing_from_fs:
         rom_updates["missing_from_fs"] = False
     if rom_updates:
@@ -141,4 +159,5 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
         new_files=len(new_keys),
         updated_files=len(updated_keys),
         removed_files=len(removed_keys),
+        identity_changed=identity_changed,
     )

@@ -458,7 +458,8 @@ def _should_get_rom_files(
 
     return bool(
         newly_added
-        or scan_type in (ScanType.COMPLETE, ScanType.HASHES, ScanType.TITLE_IDS)
+        or (scan_type == ScanType.COMPLETE)
+        or (scan_type == ScanType.HASHES)
         or (rom and rom.id in roms_ids)
     )
 
@@ -478,7 +479,7 @@ def _should_extract_title_ids(scan_type: ScanType, rom: Rom) -> bool:
     """
 
     return bool(
-        scan_type in (ScanType.COMPLETE, ScanType.HASHES, ScanType.TITLE_IDS)
+        scan_type in (ScanType.COMPLETE, ScanType.HASHES)
         or not rom.title_id
         or rom.platform_slug in SWITCH_PLATFORM_SLUGS
     )
@@ -511,11 +512,10 @@ def _should_hash_incrementally(
     rom: Rom | None,
     roms_ids: list[int],
 ) -> bool:
-    """Decide if a rom's unchanged files may keep their stored hashes
+    """Decide if a selected rom's unchanged files may keep their stored hashes
 
     Only COMPLETE and HASHES promise to re-read every byte. A quick scan does
     not reach here: it reconciles an existing rom through `refresh_rom_files`.
-    A row with no stored hash is re-read either way.
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
@@ -524,14 +524,9 @@ def _should_hash_incrementally(
     """
 
     return bool(
-        rom
-        and (
-            scan_type == ScanType.TITLE_IDS
-            or (
-                scan_type in (ScanType.UPDATE, ScanType.UNMATCHED)
-                and rom.id in roms_ids
-            )
-        )
+        scan_type in (ScanType.UPDATE, ScanType.UNMATCHED)
+        and rom
+        and rom.id in roms_ids
     )
 
 
@@ -616,10 +611,14 @@ async def _identify_rom(
     if redis_client.get(STOP_SCAN_FLAG):
         return
 
-    # A quick scan only reconciles an existing entry's files with disk, so it
-    # needs none of the metadata prelude below.
-    if rom is not None and scan_type == ScanType.QUICK:
-        refreshed = await refresh_rom_files(rom)
+    # Quick and title-ids scans only reconcile an existing entry's files with
+    # disk, so they need none of the metadata prelude below.
+    if rom is not None and scan_type in (ScanType.QUICK, ScanType.TITLE_IDS):
+        refreshed = await refresh_rom_files(
+            rom,
+            embed_title_ids=scan_type == ScanType.TITLE_IDS
+            and cm.get_config().EMBED_SWITCH_TITLE_IDS,
+        )
         await scan_stats.increment(
             socket_manager=socket_manager,
             scanned_roms=1,
@@ -829,7 +828,8 @@ async def _identify_rom(
         for saved in synced.files:
             persist_soundtrack_cover(saved, _added_rom)
 
-    if scan_type in (ScanType.HASHES, ScanType.TITLE_IDS):
+    # Short circuit if the scan type is hashes
+    if scan_type == ScanType.HASHES:
         return
 
     await download_rom_resources(
@@ -1455,12 +1455,10 @@ async def scan_platforms(
 
         # Otherwise the games scanned today have an empty "Similar games"
         # section until the nightly build. Threaded: the scoring is CPU-bound.
-        # A title-ids scan leaves the metadata similar games key on alone.
-        if scan_type != ScanType.TITLE_IDS:
-            try:
-                await asyncio.to_thread(top_up_similarity, scanned_rom_ids)
-            except Exception as e:
-                log.error(f"Couldn't update recommendations after the scan: {e}")
+        try:
+            await asyncio.to_thread(top_up_similarity, scanned_rom_ids)
+        except Exception as e:
+            log.error(f"Couldn't update recommendations after the scan: {e}")
 
         # Export metadata files if enabled in config
         config = cm.get_config()

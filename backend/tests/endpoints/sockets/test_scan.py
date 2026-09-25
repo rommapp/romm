@@ -507,15 +507,6 @@ class TestScreenScraperScanReporting:
         summary.assert_not_called()
 
 
-def _rom_on(platform_slug: str, title_id: str | None = None) -> Rom:
-    # Built untyped and cast, since `platform_slug` is a read-only property.
-    rom = Mock(spec=Rom)
-    rom.id = 1
-    rom.title_id = title_id
-    rom.platform_slug = platform_slug
-    return cast(Rom, rom)
-
-
 class TestShouldScanRom:
     def test_new_platforms_scan_with_no_rom(self):
         """NEW_PLATFORMS should scan when rom is None"""
@@ -755,14 +746,24 @@ class TestShouldReparseTags:
 class TestShouldExtractTitleIds:
     """Which rescans pay for another native parse of a rom's binaries."""
 
+    @staticmethod
+    def _rom(platform_slug: str, title_id: str | None) -> Rom:
+        # Built untyped and cast, since `platform_slug` is a read-only property.
+        rom = Mock(spec=Rom)
+        rom.title_id = title_id
+        rom.platform_slug = platform_slug
+        return cast(Rom, rom)
+
     def test_a_stored_id_is_not_re_read(self):
-        rom = _rom_on("psp", "ULUS-10041")
+        rom = self._rom("psp", "ULUS-10041")
 
         assert _should_extract_title_ids(ScanType.UPDATE, rom) is False
         assert _should_extract_title_ids(ScanType.UNMATCHED, rom) is False
 
     def test_a_rom_without_an_id_is_read(self):
-        assert _should_extract_title_ids(ScanType.UPDATE, _rom_on("psp", None)) is True
+        assert (
+            _should_extract_title_ids(ScanType.UPDATE, self._rom("psp", None)) is True
+        )
 
     @pytest.mark.parametrize("scan_type", [ScanType.COMPLETE, ScanType.HASHES])
     def test_a_rescan_that_re_reads_the_bytes_re_reads_the_id(
@@ -770,7 +771,7 @@ class TestShouldExtractTitleIds:
     ):
         """Replacing a file in place would otherwise leave the old id beside the
         hashes of the new bytes."""
-        rom = _rom_on("psp", "ULUS-10041")
+        rom = self._rom("psp", "ULUS-10041")
 
         assert _should_extract_title_ids(scan_type, rom) is True
 
@@ -778,16 +779,9 @@ class TestShouldExtractTitleIds:
     def test_switch_always_re_reads(self, platform_slug: str):
         """The same parse settles the per-file categories, which a rebuild would
         otherwise take from the folder names instead."""
-        rom = _rom_on(platform_slug, "0100ABCD12340000")
+        rom = self._rom(platform_slug, "0100ABCD12340000")
 
         assert _should_extract_title_ids(ScanType.UPDATE, rom) is True
-
-    def test_a_title_ids_scan_re_reads_a_stored_id(self):
-        """Refreshing the id is the whole point, so a stored one is no reason
-        to skip the rom."""
-        rom = _rom_on("ngc", "47414645")
-
-        assert _should_extract_title_ids(ScanType.TITLE_IDS, rom) is True
 
 
 class TestIdentifyRomTagReparse:
@@ -2119,16 +2113,6 @@ class TestPostScanRecommendations:
 
         top_up.assert_called_once_with(set())
 
-    async def test_a_title_ids_scan_skips_the_top_up(self, patched, mocker):
-        """Similar games key on metadata, which a title-ids scan leaves alone."""
-        top_up = mocker.patch.object(scan_module, "top_up_similarity")
-
-        await scan_platforms(
-            platform_ids=[], metadata_sources=[], scan_type=ScanType.TITLE_IDS
-        )
-
-        top_up.assert_not_called()
-
     async def test_a_failure_to_index_does_not_fail_the_scan(self, patched, mocker):
         mocker.patch.object(
             scan_module, "top_up_similarity", side_effect=RuntimeError("boom")
@@ -2720,32 +2704,6 @@ class TestScanJobMeta:
         assert scan_job_meta(scan_type)["task_name"] == expected
 
 
-class TestShouldGetRomFiles:
-    def test_a_title_ids_scan_rebuilds_every_rom(self, rom: Rom):
-        """Extraction reads the files, so the rows have to be walked even for a
-        rom no selection names."""
-        assert (
-            scan_module._should_get_rom_files(
-                scan_type=ScanType.TITLE_IDS,
-                rom=rom,
-                newly_added=False,
-                roms_ids=[],
-            )
-            is True
-        )
-
-    def test_a_metadata_scan_leaves_an_unselected_rom_alone(self, rom: Rom):
-        assert (
-            scan_module._should_get_rom_files(
-                scan_type=ScanType.UPDATE,
-                rom=rom,
-                newly_added=False,
-                roms_ids=[],
-            )
-            is False
-        )
-
-
 class TestShouldHashIncrementally:
     def test_selected_metadata_scans_are_incremental(self, rom: Rom):
         assert _should_hash_incrementally(ScanType.UPDATE, rom, [rom.id]) is True
@@ -2756,15 +2714,6 @@ class TestShouldHashIncrementally:
     @pytest.mark.parametrize("scan_type", [ScanType.COMPLETE, ScanType.HASHES])
     def test_full_rescans_read_every_file(self, rom: Rom, scan_type: ScanType):
         assert _should_hash_incrementally(scan_type, rom, [rom.id]) is False
-
-    def test_a_title_ids_scan_keeps_hashes_without_a_selection(self, rom: Rom):
-        """It reads headers, so re-hashing a library it never looks at the
-        bytes of would be the bulk of its cost."""
-        assert _should_hash_incrementally(ScanType.TITLE_IDS, rom, []) is True
-        assert _should_hash_incrementally(ScanType.TITLE_IDS, rom, [rom.id]) is True
-
-    def test_a_missing_rom_is_never_incremental(self):
-        assert _should_hash_incrementally(ScanType.TITLE_IDS, None, []) is False
 
 
 @pytest.fixture
@@ -2863,6 +2812,7 @@ def identify_harness(mocker):
         )
 
     return SimpleNamespace(
+        config=config,
         db=db,
         scan_rom=scan_rom,
         get_rom_files=get_rom_files,
@@ -2877,6 +2827,21 @@ class TestIdentifyRomFiles:
     """A quick scan hands an existing rom to `refresh_rom_files` and skips the
     metadata pipeline; a rom not yet in the database goes the regular way."""
 
+    @pytest.mark.parametrize(
+        "scan_type,embed",
+        [(ScanType.QUICK, False), (ScanType.TITLE_IDS, True)],
+    )
+    async def test_only_a_title_ids_scan_embeds_title_ids(
+        self, identify_harness, scan_type: ScanType, embed: bool
+    ):
+        identify_harness.config.EMBED_SWITCH_TITLE_IDS = True
+        rom = identify_harness.existing_rom()
+
+        await identify_harness.run(rom, scan_type, [])
+
+        identify_harness.refresh.assert_awaited_once_with(rom, embed_title_ids=embed)
+        identify_harness.scan_rom.assert_not_called()
+
     async def test_existing_rom_only_refreshes_its_files(self, identify_harness):
         rom = identify_harness.existing_rom()
         socket_manager = AsyncMock()
@@ -2890,7 +2855,7 @@ class TestIdentifyRomFiles:
             scan_stats=scan_stats,
         )
 
-        identify_harness.refresh.assert_awaited_once_with(rom)
+        identify_harness.refresh.assert_awaited_once_with(rom, embed_title_ids=False)
         identify_harness.scan_rom.assert_not_called()
         identify_harness.db.add_rom.assert_not_called()
         scan_stats.increment.assert_awaited_once_with(
