@@ -11,8 +11,8 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from handler.auth.constants import SESSION_COOKIE_NAME
+from handler.auth.middleware import redis_session_middleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
-from handler.socket_handler import socket_handler
 
 USERNAME = "user_1"
 
@@ -81,7 +81,9 @@ class TestRedisSessionMiddleware:
 class TestRevokedSessionsCloseTheirSockets:
     @pytest.fixture
     def close_login_sessions(self, mocker):
-        return mocker.patch.object(socket_handler, "close_login_sessions", AsyncMock())
+        return mocker.patch.object(
+            redis_session_middleware, "close_login_session_sockets", AsyncMock()
+        )
 
     def test_logging_out_closes_that_sessions_sockets(
         self, close_login_sessions

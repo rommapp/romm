@@ -7,6 +7,7 @@ from handler import socket_handler as socket_handler_module
 from handler.socket_handler import (
     LOGIN_SESSION_ID_KEY,
     SocketHandler,
+    close_login_session_sockets,
     netplay_socket_handler,
     socket_handler,
 )
@@ -89,7 +90,7 @@ class TestLoginSessionSockets:
 
         await handler.bind_to_login_session("sid-1", "s1")
 
-        cache.sadd.assert_awaited_once_with("session_sockets:s1", "sid-1")
+        cache.sadd.assert_awaited_once_with("session_sockets:socketio:s1", "sid-1")
         cache.expire.assert_awaited_once()
         assert socket_session == {LOGIN_SESSION_ID_KEY: "s1"}
 
@@ -103,7 +104,7 @@ class TestLoginSessionSockets:
 
         await handler.unbind_from_login_session("sid-1")
 
-        cache.srem.assert_awaited_once_with("session_sockets:s1", "sid-1")
+        cache.srem.assert_awaited_once_with("session_sockets:socketio:s1", "sid-1")
 
     async def test_unbinding_an_anonymous_socket_touches_nothing(self, mocker, cache):
         handler = SocketHandler(path="/test")
@@ -124,7 +125,7 @@ class TestLoginSessionSockets:
 
         await handler.close_login_sessions(["s1"])
 
-        cache.delete.assert_awaited_once_with("session_sockets:s1")
+        cache.delete.assert_awaited_once_with("session_sockets:socketio:s1")
         disconnect.assert_awaited_once_with("sid-1")
 
     async def test_a_broker_failure_moves_on_to_the_next_session(self, mocker, cache):
@@ -139,3 +140,28 @@ class TestLoginSessionSockets:
         await handler.close_login_sessions(["s1", "s2"])
 
         assert disconnect.await_count == 2
+
+    async def test_each_server_keeps_its_own_sockets(self, mocker, cache):
+        handler = SocketHandler(path="/test", channel="netplay")
+
+        @asynccontextmanager
+        async def session(sid: str):
+            yield {}
+
+        mocker.patch.object(handler.socket_server, "session", session)
+
+        await handler.bind_to_login_session("sid-1", "s1")
+
+        cache.sadd.assert_awaited_once_with("session_sockets:netplay:s1", "sid-1")
+
+
+async def test_revoking_a_session_closes_its_sockets_on_every_server(mocker):
+    main = mocker.patch.object(socket_handler, "close_login_sessions", AsyncMock())
+    netplay = mocker.patch.object(
+        netplay_socket_handler, "close_login_sessions", AsyncMock()
+    )
+
+    await close_login_session_sockets(["s1"])
+
+    main.assert_awaited_once_with(["s1"])
+    netplay.assert_awaited_once_with(["s1"])

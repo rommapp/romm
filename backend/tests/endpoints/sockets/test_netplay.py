@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from endpoints.netplay import DEFAULT_MAX_PLAYERS
 from endpoints.sockets import netplay as netplay_module
 from endpoints.sockets.netplay import (
     AUTH_USER_SESSION_KEY,
@@ -12,6 +13,7 @@ from endpoints.sockets.netplay import (
     RoomDataExtra,
     connect,
     data_message,
+    disconnect,
     join_room,
     leave_room,
     open_room,
@@ -23,6 +25,7 @@ from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom
 ROM_ID = 42
 PLATFORM_ID = 7
 VISIBLE_ROM = Mock(id=ROM_ID, platform_id=PLATFORM_ID)
+ROOM_1 = netplay_module._socket_room("room-1")
 
 
 def _user(*scopes: Scope) -> Mock:
@@ -118,18 +121,43 @@ def rooms(mocker) -> Mock:
     return Mock(store=store, handler=handler, permissions=permissions)
 
 
-def _open(*, game_id: str | None = str(ROM_ID)) -> RoomData:
-    extra = RoomDataExtra(sessionid="room-1", userid="me", playerId=None)
+def _open(
+    *,
+    game_id: str | None = str(ROM_ID),
+    session_id: str = "room-1",
+    password: str | None = None,
+) -> RoomData:
+    extra = RoomDataExtra(sessionid=session_id, userid="me", playerId=None)
     if game_id is not None:
         extra["game_id"] = game_id
-    return RoomData(extra=extra)
+    data = RoomData(extra=extra)
+    if password is not None:
+        data["password"] = password
+    return data
 
 
-def _join(*, room_password: str | None = None) -> RoomData:
-    extra = RoomDataExtra(sessionid="room-1", userid="me", playerId=None)
+def _join(
+    *,
+    room_password: str | None = None,
+    password: str | None = None,
+    player_id: str = "guest",
+) -> RoomData:
+    extra = RoomDataExtra(sessionid="room-1", userid=player_id, playerId=None)
     if room_password is not None:
         extra["room_password"] = room_password
-    return RoomData(extra=extra)
+    data = RoomData(extra=extra)
+    if password is not None:
+        data["password"] = password
+    return data
+
+
+@pytest.fixture
+def authorized(mocker) -> None:
+    mocker.patch.object(
+        netplay_module,
+        "_authenticated_user",
+        AsyncMock(return_value=_user(Scope.ROMS_READ)),
+    )
 
 
 class TestOpenRoomAuthorization:
@@ -222,7 +250,7 @@ class TestOpenRoomAuthorization:
         assert await open_room("sid", _open()) is None
 
         assert "room-1" in rooms.store
-        server.enter_room.assert_awaited_once_with("sid", "room-1")
+        server.enter_room.assert_awaited_once_with("sid", ROOM_1)
         server.emit.assert_awaited_once()
 
     async def test_keeps_the_connect_identity_in_the_room_session(
@@ -273,7 +301,7 @@ class TestJoinRoomAuthorization:
 
         assert await join_room("sid", _join(room_password="s3cret")) is not None
 
-        server.enter_room.assert_awaited_once_with("sid", "room-1")
+        server.enter_room.assert_awaited_once_with("sid", ROOM_1)
 
     async def test_rejects_user_who_cannot_see_the_rom(self, mocker, server, rooms):
         rooms.store["room-1"] = _room()
@@ -303,7 +331,7 @@ class TestJoinRoomAuthorization:
 
         assert await join_room("sid", _join(room_password="s3cret")) is not None
 
-        server.enter_room.assert_awaited_once_with("sid", "room-1")
+        server.enter_room.assert_awaited_once_with("sid", ROOM_1)
 
     async def test_allows_user_who_can_see_the_rom(self, mocker, server, rooms):
         rooms.store["room-1"] = _room()
@@ -316,7 +344,7 @@ class TestJoinRoomAuthorization:
         joined = await join_room("sid", _join())
 
         assert joined is not None
-        server.enter_room.assert_awaited_once_with("sid", "room-1")
+        server.enter_room.assert_awaited_once_with("sid", ROOM_1)
 
 
 class TestWebRtcSignalRelay:
@@ -390,6 +418,126 @@ class TestLeaveRoom:
         server.emit.assert_not_awaited()
 
 
+class TestRoomPassword:
+    """EmulatorJS sends the password beside ``extra``, not inside it."""
+
+    async def test_open_room_stores_the_password(self, server, rooms, authorized):
+        await open_room("sid", _open(password="s3cret"))
+
+        assert rooms.store["room-1"]["password"] == "s3cret"
+
+    async def test_join_accepts_the_password(self, mocker, server, rooms):
+        rooms.store["room-1"] = _room(password="s3cret")
+        mocker.patch.object(
+            netplay_module, "_authenticated_user", AsyncMock(return_value=None)
+        )
+
+        assert await join_room("sid", _join(password="s3cret")) is not None
+
+        server.enter_room.assert_awaited_once_with("sid", ROOM_1)
+
+    async def test_join_without_the_password_is_refused_even_with_rom_access(
+        self, server, rooms, authorized
+    ):
+        rooms.store["room-1"] = _room(password="s3cret")
+
+        assert await join_room("sid", _join()) == "Incorrect password"
+
+        server.enter_room.assert_not_awaited()
+
+
+class TestRoomIsolation:
+    async def test_a_room_id_cannot_name_another_sockets_own_room(
+        self, server, rooms, authorized
+    ):
+        await open_room("sid", _open(session_id="sid-victim"))
+
+        server.enter_room.assert_awaited_once_with(
+            "sid", netplay_module._socket_room("sid-victim")
+        )
+
+    async def test_join_refuses_a_player_id_already_seated(
+        self, server, rooms, authorized
+    ):
+        rooms.store["room-1"] = _room()
+
+        assert await join_room("sid-2", _join(player_id="owner")) == (
+            "Player already in room"
+        )
+
+        assert rooms.store["room-1"]["players"]["owner"]["socketId"] == "sid-owner"
+        server.enter_room.assert_not_awaited()
+
+    async def test_joining_another_room_leaves_the_current_one(
+        self, server, rooms, authorized
+    ):
+        rooms.store["room-0"] = _room()
+        rooms.store["room-1"] = _room(
+            players={"owner": _player("sid-owner", "Owner", "owner")}
+        )
+        server.sessions["sid"] = {"session_id": "room-0", "player_id": "me"}
+
+        assert await join_room("sid", _join()) is not None
+
+        assert "me" not in rooms.store["room-0"]["players"]
+        server.leave_room.assert_awaited_once_with(
+            "sid", netplay_module._socket_room("room-0")
+        )
+
+    async def test_a_malformed_max_players_falls_back_to_the_default(
+        self, server, rooms, authorized
+    ):
+        data: Any = _open()
+        data["maxPlayers"] = "lots"
+
+        await open_room("sid", data)
+
+        assert rooms.store["room-1"]["max_players"] == DEFAULT_MAX_PLAYERS
+
+    async def test_stores_the_rom_id_the_gate_resolved(self, server, rooms, authorized):
+        await open_room("sid", _open(game_id=f" {ROM_ID}"))
+
+        assert rooms.store["room-1"]["game_id"] == str(ROM_ID)
+
+
+class TestLoginSessionBinding:
+    """Revoking a login session must close the netplay sockets it opened."""
+
+    async def test_connect_ties_the_socket_to_its_login_session(self, mocker, server):
+        mocker.patch.object(
+            netplay_module,
+            "get_session_from_environ",
+            AsyncMock(
+                return_value={"iss": "romm:auth", "sub": "sam", "session_id": "s1"}
+            ),
+        )
+        mocker.patch.object(
+            netplay_module.db_user_handler,
+            "get_user_by_username",
+            return_value=_user(Scope.ROMS_READ),
+        )
+        bind = mocker.patch.object(
+            netplay_module.netplay_socket_handler,
+            "bind_to_login_session",
+            AsyncMock(),
+        )
+
+        await connect("sid", {})
+
+        bind.assert_awaited_once_with("sid", "s1")
+
+    async def test_disconnect_forgets_the_binding(self, mocker, server, rooms):
+        unbind = mocker.patch.object(
+            netplay_module.netplay_socket_handler,
+            "unbind_from_login_session",
+            AsyncMock(),
+        )
+
+        await disconnect("sid")
+
+        unbind.assert_awaited_once_with("sid")
+
+
 class TestEventWiring:
     """The gates only hold if they are attached to the netplay server, not `/ws`."""
 
@@ -397,6 +545,7 @@ class TestEventWiring:
         handlers = netplay_module.netplay_socket_handler.socket_server.handlers["/"]
 
         assert handlers["connect"] is connect
+        assert handlers["disconnect"] is disconnect
         for event in ("open-room", "join-room", "webrtc-signal"):
             assert event in handlers
 

@@ -13,10 +13,6 @@ from utils import json_module
 LOGIN_SESSION_ID_KEY: Final = "login_session_id"
 
 
-def _login_session_sockets_key(session_id: str) -> str:
-    return f"session_sockets:{session_id}"
-
-
 class SocketHandler:
     def __init__(self, path: str, channel: str = "socketio") -> None:
         self.channel = channel
@@ -37,6 +33,10 @@ class SocketHandler:
 
         self._write_manager: socketio.AsyncRedisManager | None = None
         self._write_manager_loop: asyncio.AbstractEventLoop | None = None
+
+    def _login_session_sockets_key(self, session_id: str) -> str:
+        # Per channel, since a sid only means something to the server that issued it.
+        return f"session_sockets:{self.channel}:{session_id}"
 
     def write_manager(self) -> socketio.AsyncRedisManager:
         """A publish-only manager on this server's channel, usable from an RQ worker."""
@@ -62,7 +62,7 @@ class SocketHandler:
 
     async def bind_to_login_session(self, sid: str, session_id: str) -> None:
         """Record which login session opened a socket, so revoking it closes the socket."""
-        key = _login_session_sockets_key(session_id)
+        key = self._login_session_sockets_key(session_id)
         await async_cache.sadd(key, sid)
         await async_cache.expire(key, SESSION_MAX_AGE_SECONDS)
         async with self.socket_server.session(sid) as session:
@@ -74,7 +74,7 @@ class SocketHandler:
             session = await self.socket_server.get_session(sid)
             session_id = session.get(LOGIN_SESSION_ID_KEY)
             if session_id:
-                await async_cache.srem(_login_session_sockets_key(session_id), sid)
+                await async_cache.srem(self._login_session_sockets_key(session_id), sid)
         except Exception:  # noqa: BLE001
             log.warning(f"Failed to unbind socket {sid}", exc_info=True)
 
@@ -85,7 +85,7 @@ class SocketHandler:
         session would otherwise go on receiving its user's and the admins' events.
         """
         for session_id in session_ids:
-            key = _login_session_sockets_key(session_id)
+            key = self._login_session_sockets_key(session_id)
             try:
                 sids = await async_cache.smembers(key)
                 await async_cache.delete(key)
@@ -105,3 +105,10 @@ socket_handler = SocketHandler(path="/ws/socket.io")
 # Netplay clients are unauthenticated and name their own rooms, so they must not
 # share a channel where `user:{id}` and `admin` rooms are addressed.
 netplay_socket_handler = SocketHandler(path="/netplay/socket.io", channel="netplay")
+
+
+async def close_login_session_sockets(session_ids: Iterable[str]) -> None:
+    """Disconnect the sockets the given login sessions opened, on every server."""
+    ids = list(session_ids)
+    for handler in (socket_handler, netplay_socket_handler):
+        await handler.close_login_sessions(ids)

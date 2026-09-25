@@ -1239,10 +1239,10 @@ tasks.run                    : Task execution
 
 ### Session Management
 
-- Redis keys: `session:{session_id}`, `user_sessions:{username}`, `session_sockets:{session_id}`
+- Redis keys: `session:{session_id}`, `user_sessions:{username}`, `session_sockets:{channel}:{session_id}`
 - Cookie: `romm_session` (httponly, samesite=lax/strict)
 - `clear_user_sessions(user_id)` on password change clears all sessions
-- Removing a session (logout, revoke) disconnects the sockets it opened, which would otherwise keep their `user:{id}` and `admin` rooms
+- Removing a session (logout, revoke) disconnects the sockets it opened on both `/ws` and `/netplay`, which would otherwise keep their `user:{id}` and `admin` rooms or their netplay access
 
 ---
 
@@ -1527,11 +1527,12 @@ Sent to the user's own `user:{id}` room:
 ### Netplay (`/netplay`)
 
 Rooms are authorized per ROM. A socket is identified once, at `connect`, from its
-session cookie, and that identity is reloaded on every gated event so a disabled
-account loses access without waiting for a reconnect. `open-room` requires a
+session cookie, and is closed when that login session is revoked. The identity is
+reloaded on every gated event so a disabled account loses access without waiting
+for a reconnect. `open-room` requires a
 logged-in user with `roms.read` who can see the ROM being played; `join-room`
-requires either that same access or the password the room owner set, which is the
-guest invite path. `GET /api/netplay/list` requires `roms.read` and 404s for a ROM
+requires either that same access or the password the room owner set (sent as
+`password` beside `extra`), which is the guest invite path. `GET /api/netplay/list` requires `roms.read` and 404s for a ROM
 the caller cannot see, through the same guard the other ROM endpoints use. WebRTC
 signals relay only between peers of the same room, and leaving the room ends that
 relay.
@@ -1698,7 +1699,7 @@ Falls back to `FakeRedis` in test mode.
 | --------------------------------- | --------------- | ----------------------------------- |
 | `session:{id}`                    | 14 days         | Session JSON                        |
 | `user_sessions:{username}`        | 14 days         | Set of session IDs                  |
-| `session_sockets:{id}`            | 14 days         | Socket IDs a session opened         |
+| `session_sockets:{channel}:{id}`  | 14 days         | Socket IDs a session opened         |
 | `notification-channel:{id}:code`  | 30 min          | Hash of an email confirmation code  |
 | `notification-channel-cooldown:*` | 1 min           | A user's and an address's last code |
 | `reset-email:{user_id}`           | 1 min           | A user's last emailed reset link    |
