@@ -17,8 +17,7 @@ class DeletedAsset(BaseModel):
 
     __tablename__ = "deleted_assets"
     __table_args__ = (
-        # One row per slot: a slot can be emptied, refilled and emptied again,
-        # and only the last time decides anything.
+        # One row per slot, however often it is emptied and refilled.
         Index(
             "ix_deleted_assets_user_rom_slot", "user_id", "rom_id", "slot", unique=True
         ),
