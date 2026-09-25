@@ -26,11 +26,13 @@ def test_delete_saves(client, access_token, save):
     body = response.json()
     assert len(body) == 1
 
-    # Without this record a device still holding the save offers it back.
-    deletions = db_deleted_asset_handler.get_deletions(
-        user_id=save.user_id, rom_ids=[save.rom_id]
+    # No hash and no file to take one from, so nothing a device could match.
+    assert (
+        db_deleted_asset_handler.get_deletions(
+            user_id=save.user_id, rom_ids=[save.rom_id]
+        )
+        == []
     )
-    assert [record.slot for record in deletions] == [save.slot]
 
 
 def test_delete_saves_hashes_a_save_that_never_recorded_one(

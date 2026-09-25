@@ -109,6 +109,19 @@ DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
 
 async def _delete_save(save: Save) -> None:
     """Drop a save row with its file and screenshot."""
+    # Recorded first: a record for a save still present is never read, while
+    # a deletion with no record lets every device holding it offer it back.
+    if save.slot:
+        content_hash = save.content_hash or (
+            await fs_asset_handler.compute_content_hash(save.full_path)
+        )
+        if content_hash:
+            db_deleted_asset_handler.record_deletion(
+                user_id=save.user_id,
+                rom_id=save.rom_id,
+                slot=save.slot,
+                content_hash=content_hash,
+            )
     db_save_handler.delete_save(save.id)
     await remove_asset_file(save.full_path, "Save file")
     await release_thumbnail(save.screenshot)
@@ -839,17 +852,6 @@ async def delete_saves(
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
-        # Recorded first: a record for a save still present is never read, while
-        # a deletion with no record lets every device holding it offer it back.
-        if save.slot:
-            db_deleted_asset_handler.record_deletion(
-                user_id=request.user.id,
-                rom_id=save.rom_id,
-                slot=save.slot,
-                content_hash=save.content_hash
-                or await fs_asset_handler.compute_content_hash(save.full_path),
-                deleted_at=datetime.now(timezone.utc),
-            )
         await _delete_save(save)
 
     refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)

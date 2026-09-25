@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
-
-from sqlalchemy import TIMESTAMP, ForeignKey, Index, String
+from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.assets import SAVE_SLOT_MAX_LENGTH
@@ -36,5 +34,3 @@ class DeletedAsset(BaseModel):
     # Every version the slot lost, matched by identity rather than by time:
     # a device's clock is not the server's.
     content_hashes: Mapped[list[str]] = mapped_column(CustomJSON(), default=list)
-    # For reading a row, not for deciding anything.
-    deleted_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))

@@ -8,6 +8,7 @@ from io import BytesIO
 from typing import Any
 from unittest import mock
 
+import pytest
 from fastapi import status
 
 from handler.database import (
@@ -58,84 +59,53 @@ class TestSyncNegotiate:
         assert data["total_upload"] == 1
         assert data["operations"][0]["action"] == "upload"
 
-    def test_negotiate_slot_the_owner_deleted(
-        self, client, access_token: str, admin_user: User, rom: Rom
+    @pytest.mark.parametrize(
+        "content_hash,expected_action",
+        [("deadbeef", "delete"), ("f00d", "upload")],
+        ids=["the-deleted-version", "bytes-the-deletion-never-covered"],
+    )
+    def test_negotiate_a_slot_the_owner_deleted(
+        self,
+        client,
+        access_token: str,
+        admin_user: User,
+        rom: Rom,
+        content_hash: str,
+        expected_action: str,
     ):
-        """Server emptied the slot the client still holds -> delete."""
+        """Server emptied the slot: only the bytes it lost are dropped."""
         device = db_device_handler.add_device(
-            Device(id="neg-dev-deleted", user_id=admin_user.id, sync_enabled=True)
+            Device(
+                id=f"neg-dev-deleted-{content_hash}",
+                user_id=admin_user.id,
+                sync_enabled=True,
+            )
         )
         db_deleted_asset_handler.record_deletion(
             user_id=admin_user.id,
             rom_id=rom.id,
             slot="autosave",
             content_hash="deadbeef",
-            deleted_at=datetime(2026, 1, 10, tzinfo=timezone.utc),
         )
 
-        response = client.post(
-            "/api/sync/negotiate",
-            json={
-                "device_id": device.id,
-                "saves": [
-                    {
-                        "rom_id": rom.id,
-                        "file_name": "test_save.sav",
-                        "slot": "autosave",
-                        "content_hash": "deadbeef",
-                        "updated_at": "2026-01-09T00:00:00Z",
-                        "file_size_bytes": 1024,
-                    }
-                ],
-            },
-            headers={"Authorization": f"Bearer {access_token}"},
+        data = _negotiate(
+            client,
+            access_token,
+            device.id,
+            [
+                {
+                    "rom_id": rom.id,
+                    "file_name": "test_save.sav",
+                    "slot": "autosave",
+                    "content_hash": content_hash,
+                    "updated_at": "2026-01-09T00:00:00Z",
+                    "file_size_bytes": 1024,
+                }
+            ],
         )
 
-        assert response.status_code == status.HTTP_200_OK
-        data = response.json()
-        assert data["total_delete"] == 1
-        assert data["total_upload"] == 0
-        assert data["operations"][0]["action"] == "delete"
-
-    def test_negotiate_bytes_the_deletion_never_covered(
-        self, client, access_token: str, admin_user: User, rom: Rom
-    ):
-        """Progress the server never held -> upload, whatever the clocks say."""
-        device = db_device_handler.add_device(
-            Device(id="neg-dev-deleted-2", user_id=admin_user.id, sync_enabled=True)
-        )
-        db_deleted_asset_handler.record_deletion(
-            user_id=admin_user.id,
-            rom_id=rom.id,
-            slot="autosave",
-            content_hash="deadbeef",
-            deleted_at=datetime(2026, 1, 10, tzinfo=timezone.utc),
-        )
-
-        response = client.post(
-            "/api/sync/negotiate",
-            json={
-                "device_id": device.id,
-                "saves": [
-                    {
-                        "rom_id": rom.id,
-                        "file_name": "test_save.sav",
-                        "slot": "autosave",
-                        "content_hash": "f00d",
-                        # Older than the deletion, which decides nothing:
-                        # these bytes are not among the ones that went.
-                        "updated_at": "2026-01-09T00:00:00Z",
-                        "file_size_bytes": 1024,
-                    }
-                ],
-            },
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        data = response.json()
-        assert data["total_delete"] == 0
-        assert data["operations"][0]["action"] == "upload"
+        assert data[f"total_{expected_action}"] == 1
+        assert data["operations"][0]["action"] == expected_action
 
     def test_negotiate_server_has_save_client_doesnt(
         self, client, access_token: str, admin_user: User, save: Save

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection
 from datetime import datetime
 from typing import Literal, NamedTuple
 
@@ -74,14 +74,18 @@ def compare_save_state(
     return SyncComparisonResult("no_op", "Saves appear identical")
 
 
-def deleted_slot_covers(client_hash: str | None, deleted_hashes: Sequence[str]) -> bool:
-    """Whether a client's copy is a version the slot lost, matched by identity.
+def compare_missing_server_save(
+    client_hash: str | None, deleted_hashes: Collection[str]
+) -> SyncComparisonResult:
+    """Decide a client save whose slot has no server save, matched by identity.
 
     Args:
         client_hash: The digest the client reported, when it reported one.
         deleted_hashes: What the slot is known to have lost.
 
     Returns:
-        True when the client should drop its copy rather than offer it back.
+        `delete` when the client holds a version the slot lost, else `upload`.
     """
-    return bool(client_hash) and client_hash in deleted_hashes
+    if client_hash in deleted_hashes:
+        return SyncComparisonResult("delete", "Save was deleted on the server")
+    return SyncComparisonResult("upload", "Save exists on client but not on server")

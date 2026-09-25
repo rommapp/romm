@@ -29,7 +29,6 @@ def upgrade() -> None:
         sa.Column("rom_id", sa.Integer(), nullable=False),
         sa.Column("slot", sa.String(length=255), nullable=False),
         sa.Column("content_hashes", CustomJSON(), nullable=False),
-        sa.Column("deleted_at", sa.TIMESTAMP(timezone=True), nullable=False),
         sa.Column(
             "created_at",
             sa.TIMESTAMP(timezone=True),

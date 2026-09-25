@@ -1,4 +1,5 @@
 import asyncio
+from collections import Counter
 from datetime import datetime
 
 from fastapi import BackgroundTasks, HTTPException, Request, status
@@ -29,10 +30,9 @@ from handler.database import (
 )
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import high_prio_queue
-from handler.sync.comparison import compare_save_state, deleted_slot_covers
+from handler.sync.comparison import compare_missing_server_save, compare_save_state
 from logger.logger import log
 from models.assets import Save
-from models.deleted_asset import DeletedAsset
 from models.device import SyncMode
 from models.sync_session import SyncSessionStatus
 from utils.datetime import to_utc
@@ -237,10 +237,10 @@ def negotiate_sync(
         for s in payload.saves
         if s.slot and (s.rom_id, s.slot) not in server_save_map
     }
-    deleted_map: dict[tuple[int, str | None], DeletedAsset] = {
+    deleted_map = {
         (record.rom_id, record.slot): record
         for record in db_deleted_asset_handler.get_deletions(
-            user_id=request.user.id, rom_ids=sorted(emptied_rom_ids)
+            user_id=request.user.id, rom_ids=emptied_rom_ids
         )
     }
 
@@ -263,22 +263,18 @@ def negotiate_sync(
             # Without this the client offers the save back and the deletion
             # undoes itself.
             deletion = deleted_map.get(key)
-            deleted = deletion is not None and deleted_slot_covers(
-                client_save.content_hash, deletion.content_hashes or []
+            result = compare_missing_server_save(
+                client_save.content_hash, deletion.content_hashes if deletion else ()
             )
             operations.append(
                 SyncOperationSchema(
-                    action="delete" if deleted else "upload",
+                    action=result.action,
                     rom_id=client_save.rom_id,
                     save_id=None,
                     file_name=client_save.file_name,
                     slot=client_save.slot,
                     emulator=client_save.emulator,
-                    reason=(
-                        "Save was deleted on the server"
-                        if deleted
-                        else "Save exists on client but not on server"
-                    ),
+                    reason=result.reason,
                 )
             )
             continue
@@ -374,19 +370,13 @@ def negotiate_sync(
             )
 
     # Update session with operation counts
-    total_upload = sum(1 for op in operations if op.action == "upload")
-    total_download = sum(1 for op in operations if op.action == "download")
-    total_conflict = sum(1 for op in operations if op.action == "conflict")
-    total_no_op = sum(1 for op in operations if op.action == "no_op")
-    total_delete = sum(1 for op in operations if op.action == "delete")
+    counts = Counter(op.action for op in operations)
 
     db_sync_session_handler.update_session(
         session_id=sync_session.id,
         data={
             "status": SyncSessionStatus.IN_PROGRESS,
-            "operations_planned": (
-                total_upload + total_download + total_conflict + total_delete
-            ),
+            "operations_planned": len(operations) - counts["no_op"],
         },
     )
 
@@ -395,9 +385,9 @@ def negotiate_sync(
 
     log.info(
         f"Sync negotiation for device {device.id}: "
-        f"{total_upload} uploads, {total_download} downloads, "
-        f"{total_conflict} conflicts, {total_delete} deletions, "
-        f"{total_no_op} no-ops"
+        f"{counts['upload']} uploads, {counts['download']} downloads, "
+        f"{counts['conflict']} conflicts, {counts['delete']} deletions, "
+        f"{counts['no_op']} no-ops"
     )
 
     # Sent after the response on the app's loop, so a slow broker never holds
@@ -419,11 +409,11 @@ def negotiate_sync(
     return SyncNegotiateResponse(
         session_id=sync_session.id,
         operations=operations,
-        total_upload=total_upload,
-        total_download=total_download,
-        total_conflict=total_conflict,
-        total_no_op=total_no_op,
-        total_delete=total_delete,
+        total_upload=counts["upload"],
+        total_download=counts["download"],
+        total_conflict=counts["conflict"],
+        total_no_op=counts["no_op"],
+        total_delete=counts["delete"],
     )
 
 
