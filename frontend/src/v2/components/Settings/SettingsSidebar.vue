@@ -4,7 +4,7 @@
 //
 // Groups mirror the v2 user-menu IA so the dropdown and the in-page
 // navigator share the same mental model:
-//   • Account: notifications, profile + UI prefs
+//   • Account: profile, UI prefs, notifications
 //   • Library: folder mappings, providers, paired devices
 //   • System: admin + server stats
 //   • Tools: jukebox, controller debug (developer-leaning, kept here so
@@ -57,13 +57,6 @@ const groups = computed<Group[]>(() => {
       label: t("settings.group-account"),
       entries: [
         {
-          icon: "mdi-bell-outline",
-          label: t("notifications.notifications"),
-          to: { name: ROUTES.NOTIFICATIONS },
-          visible: true,
-          count: unreadCount.value,
-        },
-        {
           icon: "mdi-account-outline",
           label: t("common.profile"),
           to: {
@@ -77,6 +70,13 @@ const groups = computed<Group[]>(() => {
           label: t("common.user-interface"),
           to: { name: ROUTES.USER_INTERFACE },
           visible: true,
+        },
+        {
+          icon: "mdi-bell-outline",
+          label: t("notifications.notifications"),
+          to: { name: ROUTES.NOTIFICATIONS },
+          visible: true,
+          count: unreadCount.value,
         },
       ],
     },

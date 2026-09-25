@@ -177,6 +177,19 @@ async function onLogout() {
         {{ t("settings.group-account") }}
       </div>
       <RMenuItem
+        v-if="canSeeProfile"
+        :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
+        icon="mdi-account-outline"
+        :label="t('common.profile')"
+        @click="open = false"
+      />
+      <RMenuItem
+        :to="{ name: ROUTES.USER_INTERFACE }"
+        icon="mdi-palette-outline"
+        :label="t('common.user-interface')"
+        @click="open = false"
+      />
+      <RMenuItem
         :to="{ name: ROUTES.NOTIFICATIONS }"
         icon="mdi-bell-outline"
         :label="t('notifications.notifications')"
@@ -190,19 +203,6 @@ async function onLogout() {
           />
         </template>
       </RMenuItem>
-      <RMenuItem
-        v-if="canSeeProfile"
-        :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
-        icon="mdi-account-outline"
-        :label="t('common.profile')"
-        @click="open = false"
-      />
-      <RMenuItem
-        :to="{ name: ROUTES.USER_INTERFACE }"
-        icon="mdi-palette-outline"
-        :label="t('common.user-interface')"
-        @click="open = false"
-      />
     </div>
 
     <!-- Library -->
