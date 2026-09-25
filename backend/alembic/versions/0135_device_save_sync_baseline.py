@@ -1,9 +1,6 @@
 """Record what each side held at the last sync boundary on device_save_sync.
 
-``last_sync_hash`` is the hash the device produced at the boundary (or, in
-file-transfer and SSH mode, the hash the server computed of the device's file)
-and ``last_sync_server_hash`` is the server save's content_hash at the same
-moment. Both stay NULL for existing rows, which is the previous behaviour.
+Existing rows keep NULL, meaning unknown.
 
 Revision ID: 0135_device_save_sync_baseline
 Revises: 0134_gallery_sort_indexes
