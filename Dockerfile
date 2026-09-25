@@ -2,9 +2,7 @@
 # trunk-ignore-all(checkov)
 # trunk-ignore-all(hadolint/DL4006)
 
-# Browser player runtimes, fetched in their own stage so the archives never
-# reach the image and a pin bump does not invalidate the dependency layers below.
-# Keep the pins in sync with the emulator stage of docker/Dockerfile.
+# Browser player runtimes. Keep the pins in sync with the emulator stage of docker/Dockerfile.
 FROM ubuntu:22.04 AS emulator-download
 
 # trunk-ignore(hadolint/DL3008)
@@ -43,14 +41,13 @@ RUN 7zz x -y /downloads/jsdos.zip -o/tmp/jsdos \
     && rm -rf /emulators/jsdos/index.html /emulators/jsdos/emulators/types \
     && find /emulators/jsdos \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
 
+# FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
+# which compiled them. Pinned by commit and checksum: that tree has no tags.
 ARG FAKE08_P3A_COMMIT=6519efd9dd1ca853e5c66f7ae9146ace0b7073dc
 ARG FAKE08_JS_SHA256=fd2cd4677956037e41a91dbd40fc1a9c4f5979355d55ce3f9312400e11da463e
 ARG FAKE08_WASM_SHA256=4339a77e0aa5aa6f4a5bce9fd8286053eedf7f23f2d853db7f4900f6fff4c93a
 
-# FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
-# which compiled them. Pinned by commit and checksum: that tree has no tags.
-# Remote ADD writes 0600, and --chmod would also apply to a parent directory
-# it creates, so the directory is made first.
+# Created first, or ADD --chmod would also apply to the directory it creates.
 RUN mkdir -p /emulators/pico8
 ADD --checksum=sha256:${FAKE08_JS_SHA256} --chmod=644 \
     "https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8/fake08.js" \
