@@ -25,6 +25,7 @@ from endpoints.responses.streaming import (
     AdminContainersResponse,
     AdminSessionSchema,
     AdminSessionsResponse,
+    ContainerBusyDetail,
     ContainerSessionSchema,
     DesktopSessionSchema,
     ForceReleaseResponse,
@@ -346,12 +347,12 @@ async def _win_container(
         if not entered:
             raise HTTPException(
                 status_code=409,
-                detail={
-                    "message": "You already have a session on this platform",
-                    "draining": False,
-                    "rom_name": None,
-                    "claimed_at": None,
-                },
+                detail=ContainerBusyDetail(
+                    message="You already have a session on this platform",
+                    draining=False,
+                    rom_name=None,
+                    claimed_at=None,
+                ).model_dump(),
             )
         return await _reserve_container(request, candidates, session, platform)
 
@@ -373,12 +374,12 @@ async def _reserve_container(
         if not session_is_stale(mine):
             raise HTTPException(
                 status_code=409,
-                detail={
-                    "message": "You already have a session on this platform",
-                    "draining": False,
-                    "rom_name": access.visible_rom_name(request, mine),
-                    "claimed_at": mine.get("claimed_at"),
-                },
+                detail=ContainerBusyDetail(
+                    message="You already have a session on this platform",
+                    draining=False,
+                    rom_name=access.visible_rom_name(request, mine),
+                    claimed_at=mine.get("claimed_at"),
+                ).model_dump(),
             )
         # Their own session, abandoned. Take that container back rather than
         # rolling them onto a free one and stranding this one until its TTL.
@@ -469,12 +470,12 @@ async def _reserve_container(
         message = f"All {len(candidates)} containers for this platform are in use"
     raise HTTPException(
         status_code=409,
-        detail={
-            "message": message,
-            "draining": draining,
-            "rom_name": access.visible_rom_name(request, holder),
-            "claimed_at": holder.get("claimed_at"),
-        },
+        detail=ContainerBusyDetail(
+            message=message,
+            draining=draining,
+            rom_name=access.visible_rom_name(request, holder),
+            claimed_at=holder.get("claimed_at"),
+        ).model_dump(),
     )
 
 
@@ -693,7 +694,10 @@ async def _hydrate_saves(
     [Scope.ROMS_USER_WRITE],
     # The prompt for a card the container still holds is a real body the client
     # parses, so it is declared rather than left as an undocumented `detail`.
-    responses={428: {"model": MemoryCardImportRequired}},
+    responses={
+        409: {"model": ContainerBusyDetail},
+        428: {"model": MemoryCardImportRequired},
+    },
     status_code=202,
 )
 async def claim_session(
@@ -1427,7 +1431,12 @@ async def list_containers(request: Request) -> AdminContainersResponse:
     return AdminContainersResponse(enabled=streaming_enabled(), containers=containers)
 
 
-@protected_route(router.post, "/desktop", [Scope.ROMS_USER_WRITE])
+@protected_route(
+    router.post,
+    "/desktop",
+    [Scope.ROMS_USER_WRITE],
+    responses={409: {"model": ContainerBusyDetail}},
+)
 async def claim_desktop_session(
     request: Request, req: Annotated[DesktopStreamingSessionRequest, Body()]
 ) -> DesktopSessionSchema:
@@ -1480,14 +1489,14 @@ async def claim_desktop_session(
         existing = await get_session(session_key) or {}
         raise HTTPException(
             status_code=409,
-            detail={
-                "message": "Container in use",
-                # Same shape as a game claim's 409: a drain marker means the
-                # previous session is still shutting down, not that anyone holds it.
-                "draining": bool(existing.get("draining")),
-                "rom_name": access.visible_rom_name(request, existing),
-                "claimed_at": existing.get("claimed_at"),
-            },
+            detail=ContainerBusyDetail(
+                message="Container in use",
+                # A drain marker means the previous session is still shutting
+                # down, not that anyone holds it.
+                draining=bool(existing.get("draining")),
+                rom_name=access.visible_rom_name(request, existing),
+                claimed_at=existing.get("claimed_at"),
+            ).model_dump(),
         )
 
     try:

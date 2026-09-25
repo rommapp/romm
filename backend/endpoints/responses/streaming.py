@@ -114,6 +114,24 @@ class LaunchPhasePayload(BaseModel):
     phase: str | None = None
 
 
+class ContainerBusyDetail(BaseModel):
+    """The 409 body when a claim finds its container held."""
+
+    message: str
+    draining: bool
+    """A previous session is still shutting down, rather than anyone holding it."""
+    rom_name: str | None
+    """The game holding it, None when the caller may not see which."""
+    claimed_at: str | None
+
+
+SOCKET_PAYLOADS: tuple[type[BaseModel], ...] = (
+    LaunchReadyPayload,
+    LaunchFailedPayload,
+    LaunchPhasePayload,
+)
+
+
 class DesktopSessionSchema(BaseModel):
     container: str
     platform: str

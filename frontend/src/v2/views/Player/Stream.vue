@@ -690,7 +690,7 @@ async function handBackClaim(platform: string): Promise<void> {
 
 useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
   if (!isOurClaim(payload) || playerState.value !== "loading") return;
-  launchPhase.value = payload.phase;
+  launchPhase.value = payload.phase ?? null;
 });
 
 useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
