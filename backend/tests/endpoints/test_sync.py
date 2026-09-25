@@ -1262,6 +1262,25 @@ class TestNegotiateBaseline:
         assert ops[0]["reason"] == "Server save is newer than last sync"
         emit.assert_not_awaited()
 
+    def test_identical_content_records_a_boundary(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        db_save_handler.update_save(save.id, {"content_hash": "same_hash"})
+        device = self._device_with_baseline(
+            "neg-baseline-identical", admin_user, save, "old_client", "old_server"
+        )
+
+        data = _negotiate(
+            client, access_token, device.id, [self._client_save(save, "same_hash")]
+        )
+
+        ops = [op for op in data["operations"] if op["save_id"] == save.id]
+        assert ops[0]["action"] == "no_op"
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash == "same_hash"
+        assert sync.last_sync_server_hash == "same_hash"
+
     def test_matching_baselines_negotiate_a_no_op(
         self, client, access_token: str, admin_user: User, save: Save
     ):

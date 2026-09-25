@@ -595,3 +595,7 @@ class TestProcessIncomingFileBaseline:
         mock_emit.assert_not_called()
         assert not os.path.exists(incoming_file)
         assert not (Path(temp_dir) / device.id / "outgoing").exists()
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash == save.content_hash
+        assert sync.last_sync_server_hash == save.content_hash

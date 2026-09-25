@@ -183,7 +183,7 @@ class SSHSyncHandler:
         conn: asyncssh.SSHClientConnection,
         remote_path: str,
         local_path: str | None = None,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str | None]:
         """Download a save file from a remote device.
 
         Returns (local_temp_path, content_hash).

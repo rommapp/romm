@@ -291,6 +291,16 @@ def negotiate_sync(
                 device_sync.last_sync_server_hash if device_sync else None
             ),
         )
+        if (
+            result.action == "no_op"
+            and client_save.content_hash == server_save.content_hash
+        ):
+            db_device_save_sync_handler.record_identical_content(
+                device.id,
+                server_save.id,
+                server_save.content_hash,
+                synced_at=server_save.updated_at,
+            )
 
         operations.append(
             SyncOperationSchema(

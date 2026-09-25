@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+import pytest
+
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
@@ -9,6 +11,7 @@ from models.assets import Save
 from models.device import Device
 from models.rom import Rom
 from models.user import User
+from utils.datetime import to_utc
 
 
 class TestGetSync:
@@ -282,6 +285,58 @@ class TestUpsertSync:
 
         assert result.last_sync_hash == md5
         assert result.last_sync_server_hash == md5
+
+
+class TestRecordIdenticalContent:
+    def test_records_both_halves(self, admin_user: User, rom: Rom, save: Save):
+        device = db_device_handler.add_device(
+            Device(id="identical-dev-1", user_id=admin_user.id)
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device.id, save.id, last_sync_hash="old", last_sync_server_hash="old"
+        )
+
+        db_device_save_sync_handler.record_identical_content(device.id, save.id, "same")
+
+        stored = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert stored is not None
+        assert stored.last_sync_hash == "same"
+        assert stored.last_sync_server_hash == "same"
+
+    def test_an_already_recorded_boundary_is_not_rewritten(
+        self, admin_user: User, rom: Rom, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="identical-dev-2", user_id=admin_user.id)
+        )
+        synced_at = datetime(2026, 1, 5, tzinfo=timezone.utc)
+        db_device_save_sync_handler.upsert_sync(
+            device.id,
+            save.id,
+            synced_at=synced_at,
+            last_sync_hash="same",
+            last_sync_server_hash="same",
+        )
+
+        db_device_save_sync_handler.record_identical_content(device.id, save.id, "same")
+
+        stored = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert stored is not None
+        assert to_utc(stored.last_synced_at) == synced_at
+
+    @pytest.mark.parametrize("content_hash", [None, "", "0" * 33])
+    def test_an_unusable_hash_records_nothing(
+        self, admin_user: User, rom: Rom, save: Save, content_hash: str | None
+    ):
+        device = db_device_handler.add_device(
+            Device(id="identical-dev-3", user_id=admin_user.id)
+        )
+
+        db_device_save_sync_handler.record_identical_content(
+            device.id, save.id, content_hash
+        )
+
+        assert db_device_save_sync_handler.get_sync(device.id, save.id) is None
 
 
 class TestSetUntracked:

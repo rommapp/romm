@@ -551,20 +551,20 @@ class TestHashSaveFile:
             == hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
         )
 
-    def test_unreadable_zip_falls_back_to_the_md5_of_its_bytes(
+    @pytest.mark.asyncio
+    async def test_an_unreadable_zip_is_unknown_like_compute_content_hash(
         self, temp_base: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        path = temp_base / "save.zip"
-        self._write_zip(path, zipfile.ZIP_DEFLATED)
+        self._write_zip(temp_base / "save.zip", zipfile.ZIP_DEFLATED)
         monkeypatch.setattr(assets_handler, "MAX_DECOMPRESSED_ENTRY_BYTES", 8)
+        handler = FSAssetsHandler()
+        handler.base_path = temp_base
 
-        assert (
-            hash_save_file(path)
-            == hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
-        )
+        assert hash_save_file(temp_base / "save.zip") is None
+        assert await handler.compute_content_hash("save.zip") is None
 
     @pytest.mark.parametrize("error", [RuntimeError, NotImplementedError])
-    def test_an_entry_that_cannot_be_opened_falls_back_to_the_md5_of_its_bytes(
+    def test_an_entry_that_cannot_be_opened_is_unknown(
         self, temp_base: Path, monkeypatch: pytest.MonkeyPatch, error: type[Exception]
     ):
         """Encrypted entries and unsupported compression must not stop a sync."""
@@ -576,7 +576,4 @@ class TestHashSaveFile:
 
         monkeypatch.setattr(assets_handler, "hash_zip_contents", fail)
 
-        assert (
-            hash_save_file(path)
-            == hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
-        )
+        assert hash_save_file(path) is None

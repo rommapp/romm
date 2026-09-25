@@ -257,6 +257,10 @@ def _process_incoming_file(
 
         if result.action == "no_op":
             log.debug(f"Sync watcher: {filename} is already in sync, skipping")
+            if file_hash == matched_save.content_hash:
+                db_device_save_sync_handler.record_identical_content(
+                    device.id, matched_save.id, file_hash
+                )
             fs_sync_handler.remove_incoming_file(full_path)
             return
 

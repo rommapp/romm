@@ -126,6 +126,35 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
             return sync
 
     @begin_session
+    def record_identical_content(
+        self,
+        device_id: str,
+        save_id: int,
+        content_hash: str | None,
+        synced_at: datetime | None = None,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        """Record a boundary where both sides hold ``content_hash``, unless already recorded."""
+        content_hash = _clean_hash(content_hash)
+        if not content_hash:
+            return
+        existing = self.get_sync(device_id, save_id, session=session)
+        if (
+            existing
+            and existing.last_sync_hash == content_hash
+            and existing.last_sync_server_hash == content_hash
+        ):
+            return
+        self.upsert_sync(
+            device_id,
+            save_id,
+            synced_at=synced_at,
+            last_sync_hash=content_hash,
+            last_sync_server_hash=content_hash,
+            session=session,
+        )
+
+    @begin_session
     def set_untracked(
         self,
         device_id: str,

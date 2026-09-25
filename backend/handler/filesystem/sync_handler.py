@@ -79,7 +79,7 @@ class FSSyncHandler(FSHandler):
 
         return results
 
-    def compute_file_hash(self, file_path: str) -> str:
+    def compute_file_hash(self, file_path: str) -> str | None:
         """Hash a device file synchronously (for watcher context)."""
         return hash_save_file(file_path)
 

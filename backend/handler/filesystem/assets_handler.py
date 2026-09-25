@@ -57,18 +57,19 @@ def hash_zip_contents(zf: zipfile.ZipFile) -> str:
     return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
 
 
-def hash_save_file(path: str | os.PathLike[str]) -> str:
-    """Hash a save on disk like ``Save.content_hash``, falling back to plain md5."""
-    if zipfile.is_zipfile(path):
-        try:
+def hash_save_file(path: str | os.PathLike[str]) -> str | None:
+    """Hash a save on disk like ``Save.content_hash``, or None if it cannot be read."""
+    try:
+        if zipfile.is_zipfile(path):
             with zipfile.ZipFile(path, "r") as zf:
                 return hash_zip_contents(zf)
-        except Exception as e:
-            log.debug(f"Falling back to a plain hash for {path}: {e}")
-    with open(path, "rb") as f:
-        return hashlib.file_digest(
-            f, lambda: hashlib.md5(usedforsecurity=False)
-        ).hexdigest()
+        with open(path, "rb") as f:
+            return hashlib.file_digest(
+                f, lambda: hashlib.md5(usedforsecurity=False)
+            ).hexdigest()
+    except Exception as e:
+        log.debug(f"Could not hash save {path}: {e}")
+        return None
 
 
 def validate_image_upload(upload: UploadFile, *, label: str = "Image") -> str:
