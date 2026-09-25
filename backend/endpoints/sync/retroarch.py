@@ -483,7 +483,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             await psp.put_psp_file(
                 request.user, psp_path, content, _rom_visibility(request)
             )
-        except (psp.PspFolderUnresolved, psp.PspBundleInvalid, ValueError):
+        except psp.PspFolderUnresolved, psp.PspBundleInvalid, ValueError:
             return _empty(status.HTTP_409_CONFLICT)
         return _empty(status.HTTP_201_CREATED)
 
