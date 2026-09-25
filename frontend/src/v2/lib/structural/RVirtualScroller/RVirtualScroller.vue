@@ -51,6 +51,11 @@ interface Props {
    * are cached in an offset table; if a height value depends on dynamic
    * state, bump items by reference to force a recompute. */
   getItemHeight: (item: unknown, index: number) => number;
+  /** A pixel shift applied to every item after `fromIndex`, on top of the
+   * offset table. For a row animating towards a height `getItemHeight`
+   * already reports settled: the table stays structural and only this scalar
+   * changes per frame, instead of an O(n) rebuild on each one. */
+  offsetShift?: { fromIndex: number; px: number };
   /** Returns a stable key for an item. Defaults to the array index, which
    * re-patches every row in place when items are inserted at the front —
    * pass a content-stable key (e.g. an id) so insertions only mount the
@@ -73,6 +78,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   overscan: 25,
   height: undefined,
+  offsetShift: undefined,
   getItemKey: undefined,
   minContentWidth: undefined,
 });
@@ -110,9 +116,17 @@ const offsets = computed<number[]>(() => {
   return out;
 });
 
+/** Top-y of item `i`, with the transient shift folded in. The shift never
+ *  reorders the table: it only ever pulls the rows below a growing item back
+ *  towards it, by less than that item has already grown. */
+function offsetAt(offs: number[], i: number): number {
+  const shift = props.offsetShift;
+  return offs[i] + (shift && i > shift.fromIndex ? shift.px : 0);
+}
+
 const totalHeight = computed(() => {
   const offs = offsets.value;
-  return offs[offs.length - 1] ?? 0;
+  return offsetAt(offs, offs.length - 1);
 });
 
 // `innerOffsetTop` — distance from the scroller's content top to the
@@ -129,7 +143,7 @@ function findFirstVisible(offs: number[], top: number): number {
   if (hi < 0) return 0;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
-    if (offs[mid + 1] > top) hi = mid;
+    if (offsetAt(offs, mid + 1) > top) hi = mid;
     else lo = mid + 1;
   }
   return lo;
@@ -141,7 +155,7 @@ function findLastVisible(offs: number[], bottom: number): number {
   if (hi < 0) return -1;
   while (lo < hi) {
     const mid = (lo + hi + 1) >> 1; // bias up to terminate
-    if (offs[mid] < bottom) lo = mid;
+    if (offsetAt(offs, mid) < bottom) lo = mid;
     else hi = mid - 1;
   }
   return lo;
@@ -190,7 +204,7 @@ const renderedItems = computed<RenderedEntry[]>(() => {
     out.push({
       item: items[i],
       index: i,
-      top: offs[i],
+      top: offsetAt(offs, i),
       key: props.getItemKey ? props.getItemKey(items[i], i) : i,
     });
   }
@@ -279,7 +293,7 @@ function scrollToIndex(index: number, options: ScrollToIndexOptions = {}) {
   if (!root) return;
   const offs = offsets.value;
   if (index < 0 || index >= offs.length - 1) return;
-  const itemTop = offs[index];
+  const itemTop = offsetAt(offs, index);
   if (!Number.isFinite(itemTop)) return;
   const stickyOffset = options.stickyOffset ?? 0;
   // The item's flow top in the scroller is `innerOffsetTop + itemTop`.
@@ -292,7 +306,7 @@ function scrollToIndex(index: number, options: ScrollToIndexOptions = {}) {
   }
 }
 
-defineExpose({ scrollToIndex, containerEl, scrollTop });
+defineExpose({ scrollToIndex, containerEl, scrollTop, innerOffsetTop });
 
 const minContentWidthCss = computed(() => {
   const w = props.minContentWidth;

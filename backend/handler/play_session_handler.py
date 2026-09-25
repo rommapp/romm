@@ -3,8 +3,11 @@ from typing import Literal, NotRequired, TypedDict
 
 from pydash import compact
 
+from handler.audit_handler import AuditActor, AuditDraft, AuditTarget, record_many
+from handler.auth.permissions import ResolvedPermissions
 from handler.database import db_device_handler, db_play_session_handler, db_rom_handler
 from logger.logger import log
+from models.audit_event import AuditAction, AuditActorKind
 from models.play_session import PlaySession
 from models.rom import RomUserStatus
 from utils.datetime import to_utc
@@ -67,19 +70,30 @@ def ingest_play_sessions(
     username: str,
     entries: list[PlaySessionEntry],
     device_id: str | None = None,
-    sync_session_id: int | None = None,
     max_future_minutes: int = 5,
+    perms: ResolvedPermissions | None,
 ) -> PlaySessionIngestSummary:
-    """Core play session ingestion logic shared by the standalone endpoint and sync complete."""
+    """Core play session ingestion logic shared by the standalone endpoint and sync complete.
+
+    Args:
+        perms: The caller's permissions, a rom hidden from them counting as
+            unknown; None when its roms were already checked.
+    """
     max_future = datetime.now(timezone.utc) + timedelta(minutes=max_future_minutes)
     resolved_device_id = _resolve_device(device_id, user_id)
 
     # Bulk-resolve all referenced rom IDs in one query
     candidate_rom_ids = {e["rom_id"] for e in entries}
-    valid_rom_ids: set[int] = set()
-    if candidate_rom_ids:
-        found_roms = db_rom_handler.get_roms_by_ids(compact(candidate_rom_ids))
-        valid_rom_ids = {r.id for r in found_roms}
+    found_roms = (
+        {
+            r.id: r
+            for r in db_rom_handler.get_roms_by_ids(compact(candidate_rom_ids))
+            if perms is None or perms.can_see_rom(r.id, r.platform_id)
+        }
+        if candidate_rom_ids
+        else {}
+    )
+    valid_rom_ids = set(found_roms)
 
     # Phase 1: Validate and resolve each entry
     results: list[PlaySessionIngestResult] = []
@@ -125,7 +139,6 @@ def ingest_play_sessions(
                     user_id=user_id,
                     device_id=resolved_device_id,
                     rom_id=resolved_rom_id,
-                    sync_session_id=sync_session_id,
                     save_slot=item.get("save_slot"),
                     start_time=item["start_time"],
                     end_time=item["end_time"],
@@ -148,6 +161,26 @@ def ingest_play_sessions(
 
     # Phase 4: Side effects
     _apply_play_to_rom_user(rom_user_updates, user_id)
+
+    actor = AuditActor(
+        AuditActorKind.USER,
+        user_id=user_id,
+        name=username,
+        device_id=resolved_device_id,
+    )
+    record_many(
+        [
+            AuditDraft(
+                AuditAction.ROM_PLAY,
+                actor,
+                AuditTarget.of_rom(found_roms[ps.rom_id]),
+                {"duration_ms": ps.duration_ms, "save_slot": ps.save_slot},
+                occurred_at=to_utc(ps.start_time),
+            )
+            for _, _, ps in to_insert
+            if ps.rom_id is not None
+        ]
+    )
 
     if resolved_device_id is not None:
         db_device_handler.update_last_seen(

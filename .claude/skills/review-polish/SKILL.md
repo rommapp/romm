@@ -174,6 +174,7 @@ With `uiVersion = "v2"`:
 - New primitive → mandatory story with controls + at least one variant per theme; interactive ones get a `play()`.
 - Modified primitive → existing story still renders and interactions still pass.
 - Don't duplicate coverage between Vitest (pure logic) and Storybook `play()` (components).
+- Responsive composites: sweep the Storybook viewport presets (see `frontend-v2-input`).
 
 ### Backend (`backend/`)
 

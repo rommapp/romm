@@ -260,7 +260,7 @@ class MetadataHandler(abc.ABC):
         index_entry = await async_cache.hget(PS2_OPL_KEY, serial_code)
         if index_entry:
             index_entry = json.loads(index_entry)
-            search_term = index_entry["Name"]  # type: ignore
+            search_term = index_entry["Name"]
 
         return search_term
 

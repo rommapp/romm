@@ -99,7 +99,7 @@ def _extract_payload(data: object) -> tuple[str | None, int | None]:
     return device_id, rom_id
 
 
-@socket_handler.socket_server.on("activity:start")  # type: ignore
+@socket_handler.socket_server.on("activity:start")
 async def activity_start(sid: str, data: ActivityEventPayload) -> None:
     user_id = await _authenticated_user_id(sid)
     device_id, rom_id = _extract_payload(data)
@@ -120,7 +120,7 @@ async def activity_start(sid: str, data: ActivityEventPayload) -> None:
     await activity_handler.publish_active(entry)
 
 
-@socket_handler.socket_server.on("activity:heartbeat")  # type: ignore
+@socket_handler.socket_server.on("activity:heartbeat")
 async def activity_heartbeat(sid: str, data: ActivityEventPayload) -> None:
     user_id = await _authenticated_user_id(sid)
     device_id, rom_id = _extract_payload(data)
@@ -140,7 +140,7 @@ async def activity_heartbeat(sid: str, data: ActivityEventPayload) -> None:
     await activity_handler.publish_active(entry)
 
 
-@socket_handler.socket_server.on("activity:stop")  # type: ignore
+@socket_handler.socket_server.on("activity:stop")
 async def activity_stop(sid: str, data: ActivityEventPayload | None = None) -> None:
     user_id = await _authenticated_user_id(sid)
 
@@ -158,9 +158,11 @@ async def activity_stop(sid: str, data: ActivityEventPayload | None = None) -> N
     await activity_handler.publish_clear(int(user_id), device_id)
 
 
-@socket_handler.socket_server.on("disconnect")  # type: ignore
 async def activity_on_disconnect(sid: str) -> None:
-    """Safety net: clear any activity tied to a disconnecting socket."""
+    """Safety net: clear any activity tied to a disconnecting socket.
+
+    Called from the server's one ``disconnect`` handler, in ``endpoints.sockets.logs``.
+    """
     session = await _session(sid)
     user_id = session.get("activity_user_id")
     device_id = session.get("activity_device_id")

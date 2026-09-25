@@ -13,9 +13,10 @@ const canPlayEJS = { value: true };
 const canPlayJsDos = { value: false };
 const canPlayPico8 = { value: false };
 const canPlayRuffle = { value: false };
+const canPlayNative = { value: false };
 const streamContainer = { value: null as object | null };
 const joinableSession = {
-  value: null as { host_username: string | null } | null,
+  value: null as { host_username: string | null; container?: string } | null,
 };
 // Granted action keys — `null` means "everything" (the default).
 const grantedActions: { value: Set<ActionKey> | null } = { value: null };
@@ -78,6 +79,7 @@ vi.mock("@/v2/composables/useCanPlay", () => ({
     canPlayJsDos,
     canPlayPico8,
     canPlayRuffle,
+    canPlayNative,
     canPlayStream: {
       get value() {
         return (
@@ -134,6 +136,7 @@ beforeEach(() => {
   canPlayJsDos.value = false;
   canPlayPico8.value = false;
   canPlayRuffle.value = false;
+  canPlayNative.value = false;
   streamContainer.value = null;
   joinableSession.value = null;
   grantedActions.value = null;
@@ -142,7 +145,10 @@ beforeEach(() => {
 describe("useGameActions.joinStream", () => {
   beforeEach(() => {
     streamContainer.value = { host: "http://stream" };
-    joinableSession.value = { host_username: "ada" };
+    joinableSession.value = {
+      host_username: "ada",
+      container: "http://box:8000",
+    };
   });
 
   it("does not navigate until the user confirms", async () => {
@@ -161,7 +167,11 @@ describe("useGameActions.joinStream", () => {
 
     await actions.joinStream();
 
-    expect(push).toHaveBeenCalledWith("/rom/1/stream?join=1");
+    // The joinable row names the container, and a pool needs it: the stream
+    // view would otherwise walk the pool and could land on another session.
+    expect(push).toHaveBeenCalledWith(
+      "/rom/1/stream?join=1&container=http%3A%2F%2Fbox%3A8000",
+    );
   });
 
   it("names the host in the confirmation", async () => {
@@ -338,6 +348,34 @@ describe("useGameActions.play — launch confirmation", () => {
     await actions.play();
 
     expect(push).toHaveBeenCalledWith("/rom/1/jsdos");
+  });
+
+  it("opens the play page for a platform only the desktop shell can run", async () => {
+    canPlayEJS.value = false;
+    canPlayNative.value = true;
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
+  });
+
+  // The shell's emulator is offered from the same page a core plays on, so
+  // where both can run the game there is still one route to open.
+  it("opens the same page when a core can run it too", async () => {
+    canPlayNative.value = true;
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(push).toHaveBeenCalledWith("/rom/1/ejs");
+  });
+
+  it("offers the Play button wherever either route can run the game", () => {
+    canPlayEJS.value = false;
+    expect(useGameActions(() => makeRom()).canPlayLocally.value).toBe(false);
+    canPlayNative.value = true;
+    expect(useGameActions(() => makeRom()).canPlayLocally.value).toBe(true);
   });
 
   it("offers neither streaming nor download without a file behind the rom", () => {

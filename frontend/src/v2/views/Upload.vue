@@ -209,6 +209,7 @@ async function upload() {
         class="r-v2-upload__platform"
         :items="supportedPlatforms"
         item-key="slug"
+        promote-filled
         :placeholder="t('common.select-platform')"
         density="comfortable"
         prefix-label="stacked"

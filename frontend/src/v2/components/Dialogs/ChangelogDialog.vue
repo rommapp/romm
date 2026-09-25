@@ -12,6 +12,7 @@ import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
+import { shortenGithubLinks } from "@/v2/utils/githubLinks";
 
 defineOptions({ inheritAttrs: false });
 
@@ -25,9 +26,9 @@ type Release = {
   draft: boolean;
 };
 
-const RELEASES_URL =
-  "https://api.github.com/repos/rommapp/romm/releases?per_page=10";
-const RELEASES_PAGE_URL = "https://github.com/rommapp/romm/releases";
+const REPO = "rommapp/romm";
+const RELEASES_URL = `https://api.github.com/repos/${REPO}/releases?per_page=10`;
+const RELEASES_PAGE_URL = `https://github.com/${REPO}/releases`;
 
 const { t, locale } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -69,7 +70,9 @@ async function fetchReleases() {
     });
     if (!res.ok) throw new Error(`GitHub ${res.status}`);
     const data: Release[] = await res.json();
-    releases.value = data.filter((r) => !r.draft && !r.prerelease);
+    releases.value = data
+      .filter((r) => !r.draft && !r.prerelease)
+      .map((r) => ({ ...r, body: shortenGithubLinks(r.body ?? "", REPO) }));
   } catch (e) {
     console.error("Changelog fetch failed", e);
     error.value = true;
@@ -162,7 +165,7 @@ function closeDialog() {
             no-highlight
             no-katex
             no-mermaid
-            :model-value="r.body || ''"
+            :model-value="r.body"
             :theme="mdTheme"
             language="en-US"
             preview-theme="vuepress"

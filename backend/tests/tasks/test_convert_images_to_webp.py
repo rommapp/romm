@@ -57,7 +57,7 @@ class TestImageConverter:
         assert converter.convert_to_webp(source)
 
         with Image.open(tmp_path / "big.webp") as img:
-            assert not img.is_animated
+            assert getattr(img, "n_frames", 1) == 1
 
     # Providers serve WebP under any name, and covers are stored as big.png
     @pytest.mark.parametrize("name", ["big.png", "big.webp"])

@@ -37,6 +37,7 @@ describe("useScanTrigger", () => {
 
     expect(started).toBe(true);
     expect(storeScanning().scanning).toBe(true);
+    expect(storeScanning().startedInThisTab).toBe(true);
     expect(connect).toHaveBeenCalledOnce();
     expect(emit).toHaveBeenCalledTimes(2);
     expect(emit).toHaveBeenCalledWith("scan", {
@@ -54,6 +55,7 @@ describe("useScanTrigger", () => {
     const started = startScan([{ type: "quick", roms_ids: [5], apis: [] }]);
 
     expect(started).toBe(false);
+    expect(storeScanning().startedInThisTab).toBe(false);
     expect(emit).not.toHaveBeenCalled();
     expect(warning).toHaveBeenCalledWith(
       "scan.scan-in-progress",

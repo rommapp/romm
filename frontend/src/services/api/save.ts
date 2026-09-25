@@ -190,10 +190,35 @@ async function setSaveVisibility({
   });
 }
 
+async function setSaveFavorite({
+  id,
+  isFavorite,
+}: {
+  id: number;
+  isFavorite: boolean;
+}) {
+  return api.put<SaveSchema>(`/saves/${id}/favorite`, {
+    is_favorite: isFavorite,
+  });
+}
+
+async function setSaveLabels({ id, labels }: { id: number; labels: string[] }) {
+  return api.put<SaveSchema>(`/saves/${id}/labels`, { labels });
+}
+
+async function renameSave({ id, fileName }: { id: number; fileName: string }) {
+  return api.put<SaveSchema>(`/saves/${id}/file-name`, {
+    file_name: fileName,
+  });
+}
+
 export default {
   uploadSaves,
   updateSave,
   sendSaveOnUnload,
   deleteSaves,
   setSaveVisibility,
+  setSaveFavorite,
+  setSaveLabels,
+  renameSave,
 };

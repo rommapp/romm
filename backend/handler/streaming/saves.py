@@ -7,12 +7,17 @@ a .zip extension so the whole card set travels as a unit.
 """
 
 import asyncio
+import secrets
+import time
 from datetime import datetime, timezone
+from typing import NamedTuple
 
 from fastapi import HTTPException
+from redis.exceptions import WatchError
 
 from handler.database import db_rom_handler, db_save_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
+from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save
 from handler.streaming import broker, webstation
 from handler.streaming.config import ResolvedContainer
@@ -21,6 +26,78 @@ from models.assets import Save
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import sanitize_filename
+
+# An exit files its archive in the background, so a claim landing behind it would
+# hydrate from the archive before last. The exit leaves a marker a claim waits out.
+SAVE_PULL_WAIT_SECONDS = 20.0
+_SAVE_PULL_KEY_PREFIX = "romm:streaming:save-pull:"
+# Backstop for a backend that dies mid-pull: a marker nobody clears would cost
+# every later claim on that ROM the full wait.
+SAVE_PULL_TTL_SECONDS = 10 * 60
+_SAVE_PULL_POLL_SECONDS = 0.25
+
+
+def _save_pull_redis_key(user_id: int, rom_id: int) -> str:
+    return f"{_SAVE_PULL_KEY_PREFIX}{user_id}:{rom_id}"
+
+
+class SavePullMark(NamedTuple):
+    """One exit's pending pull, whose token lets only that pull clear it."""
+
+    user_id: int
+    rom_id: int
+    token: str
+
+
+async def mark_save_pull_pending(user_id: int, rom_id: int) -> SavePullMark:
+    """Hold this user's claims on this ROM until the returned mark is cleared, a
+    later mark taking over so an earlier pull finishing cannot let a claim past it."""
+    token = secrets.token_hex(8)
+    await async_cache.set(
+        _save_pull_redis_key(user_id, rom_id), token, ex=SAVE_PULL_TTL_SECONDS
+    )
+    return SavePullMark(user_id, rom_id, token)
+
+
+async def clear_save_pull_pending(mark: SavePullMark) -> None:
+    """Drop the marker, while it is still the one `mark` set."""
+    key = _save_pull_redis_key(mark.user_id, mark.rom_id)
+    async with async_cache.pipeline() as pipe:
+        await pipe.watch(key)
+        current = await pipe.get(key)
+        if isinstance(current, bytes):
+            current = current.decode()
+        if current != mark.token:
+            await pipe.unwatch()
+            return
+        pipe.multi()
+        await pipe.delete(key)
+        try:
+            await pipe.execute()
+        except WatchError:
+            # Only a later mark or the TTL moves the key, and neither is ours.
+            pass
+
+
+async def wait_for_save_pull(
+    user_id: int, rom_id: int, budget: float = SAVE_PULL_WAIT_SECONDS
+) -> bool:
+    """Wait for a pull of this user's saves for this ROM to finish filing.
+
+    Returns:
+        Whether nothing is pending any more, False once `budget` runs out, since a
+        claim is interactive and must not hang on a wedged pull.
+    """
+    key = _save_pull_redis_key(user_id, rom_id)
+    deadline = time.monotonic() + budget
+    while await async_cache.exists(key):
+        if time.monotonic() >= deadline:
+            log.warning(
+                "gave up waiting for the previous session's saves, rom_id=%d", rom_id
+            )
+            return False
+        await asyncio.sleep(_SAVE_PULL_POLL_SECONDS)
+    return True
 
 
 def fetch_save_archive(
@@ -117,11 +194,17 @@ async def pull_saves_to_library(
     rom_id: int,
     container: ResolvedContainer,
     broker_session_id: str | None = None,
+    *,
+    settled: bool = False,
 ) -> bool:
     """Background task: pull in-game saves from the broker and store them.
 
     Best-effort by design, a sync failure must never surface to the player,
     the save still exists inside the container.
+
+    Args:
+        settled: the emulator is done writing, so one attempt is final where the
+            retries would wait out one still writing.
     """
     user = db_user_handler.get_user(user_id)
     rom = db_rom_handler.get_rom(rom_id)
@@ -129,7 +212,7 @@ async def pull_saves_to_library(
         return False
     emulator = container.emulator
 
-    for attempt in range(broker.PULL_ATTEMPTS):
+    for attempt in range(1 if settled else broker.PULL_ATTEMPTS):
         if attempt > 0:
             await asyncio.sleep(broker.PULL_RETRY_DELAY)
         content = await asyncio.to_thread(

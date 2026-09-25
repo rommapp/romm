@@ -160,6 +160,14 @@ const props = withDefaults(defineProps<Props>(), {
 
 const labels = useChromeLabels();
 
+const showRequiredTip = computed(
+  () =>
+    props.required &&
+    !props.disabled &&
+    !props.readonly &&
+    String(props.modelValue ?? "") === "",
+);
+
 watchEffect(() => {
   if (props.multiline && props.popup) {
     console.error(
@@ -492,7 +500,9 @@ function onAppendInnerClick(evt: MouseEvent) {
            the same chrome (variants, density, validation, clearable,
            labels) wraps multi-line text. The other branch is left as
            the more common single-line case so the template stays
-           grep-friendly. -->
+           grep-friendly. The `autofocus` attribute is what RDialog looks
+           for on open, so it lands here rather than on the close button. -->
+      <!-- eslint-disable vuejs-accessibility/no-autofocus -- opt-in per call site -->
       <textarea
         v-if="multiline"
         ref="inputRef"
@@ -502,9 +512,10 @@ function onAppendInnerClick(evt: MouseEvent) {
         :maxlength="maxlength"
         :name="name"
         :autocomplete="autocomplete"
+        :autofocus="autofocus || undefined"
         :disabled="disabled"
         :readonly="readonly"
-        :required="required"
+        :aria-required="required || undefined"
         :rows="rows"
         :aria-label="effectiveAriaLabel"
         :aria-invalid="hasError || undefined"
@@ -523,9 +534,10 @@ function onAppendInnerClick(evt: MouseEvent) {
         :maxlength="maxlength"
         :name="name"
         :autocomplete="autocomplete"
+        :autofocus="autofocus || undefined"
         :disabled="disabled"
         :readonly="readonly"
-        :required="required"
+        :aria-required="required || undefined"
         :aria-label="effectiveAriaLabel"
         :aria-invalid="hasError || undefined"
         :aria-describedby="showDetails ? `${fieldId}-details` : undefined"
@@ -537,6 +549,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         @focus="onFocus"
         @blur="onBlur"
       />
+      <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
       <!-- Append-inner adornment (right of the input). Loading +
            clearable take priority over user content. Interactive when
@@ -597,6 +610,15 @@ function onAppendInnerClick(evt: MouseEvent) {
           location="top"
         />
       </component>
+
+      <!-- Stands in for the browser's own "fill out this field" bubble,
+           which the form suppresses with `novalidate`. -->
+      <RTooltip
+        activator="parent"
+        :text="labels.required"
+        :disabled="!showRequiredTip"
+        location="top"
+      />
 
       <!-- Underline track — only painted for `underlined` variant.
            A child element rather than a border lets us animate the

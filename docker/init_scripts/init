@@ -135,12 +135,10 @@ start_bin_gunicorn() {
 
 	local -a wrap=()
 	otel_prefix wrap api
-	# Trust only this container's own nginx by default: anything further left in
-	# X-Forwarded-For was supplied by the caller.
 	"${wrap[@]}" gunicorn \
 		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
 		--pid=/tmp/gunicorn.pid \
-		--forwarded-allow-ips="${FORWARDED_ALLOW_IPS:-127.0.0.1}" \
+		--forwarded-allow-ips="${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,fc00::/7}" \
 		--worker-class uvicorn_worker.UvicornWorker \
 		--workers "${WEB_SERVER_CONCURRENCY:-4}" \
 		--timeout "${WEB_SERVER_TIMEOUT:-300}" \
@@ -274,6 +272,12 @@ start_bin_rq_scan_worker() {
 	start_rq_worker rq_scan_worker scans
 }
 
+# Streaming teardowns get a worker of their own, see STREAMING_QUEUE_NAME.
+start_bin_rq_streaming_worker() {
+	info_log "Starting RQ streaming worker"
+	start_rq_worker rq_streaming_worker streaming
+}
+
 # Set PYTHONPATH so RQ can find the tasks module.
 # Use a worker class that drops the noisy per-sweep "cleaning registries for
 # queue" log line. The maintenance interval keeps its default (~10 min) so
@@ -292,11 +296,12 @@ start_rq_worker() {
 		rq worker \
 		--path /backend \
 		--worker-class handler.rq_worker.RomMWorker \
-		--pid "/tmp/${name}.pid" \
 		--results-ttl "${TASK_RESULT_TTL:-86400}" \
 		--logging_level "${LOGLEVEL}" \
 		--with-scheduler \
 		"$@" &
+	# RQ writes --pid only after importing the worker class, too late for the watchdog.
+	echo "$!" >"/tmp/${name}.pid"
 }
 
 start_bin_watcher() {
@@ -357,6 +362,7 @@ shutdown() {
 	# shutdown in reverse order
 	stop_process_pid rq_worker
 	stop_process_pid rq_scan_worker
+	stop_process_pid rq_streaming_worker
 	stop_process_pid rq_cron
 	stop_process_pid sync_watcher
 	stop_process_pid watcher
@@ -418,6 +424,8 @@ while ! ((exited)); do
 	watchdog_process_pid rq_worker
 
 	watchdog_process_pid rq_scan_worker
+
+	watchdog_process_pid rq_streaming_worker
 
 	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then

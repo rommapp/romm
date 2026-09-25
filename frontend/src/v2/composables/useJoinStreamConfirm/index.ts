@@ -11,6 +11,9 @@ export interface JoinStreamTarget {
   romId: number;
   romName: string;
   hostUsername: string | null;
+  // A pool holds a session per container, so the one being joined has to be
+  // named rather than left to the backend to pick.
+  container: string | null;
 }
 
 interface JoinStreamDeps {
@@ -35,7 +38,9 @@ export async function confirmJoinStream(
     confirmText: t("rom.join-session"),
   });
   if (!ok) return;
-  void router.push(`/rom/${target.romId}/stream?join=1`);
+  const query = new URLSearchParams({ join: "1" });
+  if (target.container) query.set("container", target.container);
+  void router.push(`/rom/${target.romId}/stream?${query}`);
 }
 
 export function useJoinStreamConfirm() {

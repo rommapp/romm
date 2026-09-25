@@ -16,6 +16,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import app
+from tests.streaming_stubs import exit_pulls_spawned_inline
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import streaming
@@ -25,10 +26,12 @@ from handler.auth import oauth_handler
 from handler.database import (
     db_container_adoption_handler,
     db_memory_card_handler,
+    db_notification_handler,
     db_platform_handler,
     db_play_session_handler,
     db_rom_handler,
     db_save_handler,
+    db_screenshot_handler,
     db_state_handler,
     db_user_handler,
 )
@@ -53,13 +56,16 @@ from handler.streaming.capabilities import (
 from handler.streaming.config import (
     ResolvedContainer,
     _derive_broker_host,
+    configured_emulator,
     emulator_display_label,
     pools_for_platform,
     reset_cache,
+    resolve_containers,
     resolve_entry,
 )
 from handler.streaming.protocol import protocol_for
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
+from models.notification import NotificationKind
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile
@@ -99,6 +105,12 @@ def clear_streaming_sessions():
     """Streaming sessions live in Redis (fakeredis under pytest), start clean."""
     asyncio.run(async_cache.flushall())
     yield
+
+
+@pytest.fixture(autouse=True)
+def exit_pull_queue():
+    with exit_pulls_spawned_inline() as queue:
+        yield queue
 
 
 @pytest.fixture(autouse=True)
@@ -219,6 +231,13 @@ def _auth(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _load_session(key: str) -> dict[str, Any]:
+    """The session stored at `key`, failing the test if nothing is there."""
+    raw = asyncio.run(async_cache.get(key))
+    assert raw is not None, f"no session stored at {key}"
+    return json.loads(raw)
+
+
 def _claim(client, token, rom_id, state_id=None, save_id=None):
     body = {"rom_id": rom_id}
     if state_id is not None:
@@ -317,6 +336,18 @@ def test_get_config_ships_platform_capabilities(client, access_token):
         "supports_disc_swap": False,
         "has_manual_disc_swap": True,
     }
+
+
+def test_get_config_ships_the_emulator_labels(client, access_token):
+    """Saves and states are tagged with the emulator that wrote them, so the
+    display names ride along rather than being copied into the frontend."""
+    with _streaming({"platform": "ps2", "host": "http://192.168.1.10:3000"}):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    labels = r.json()["emulator_labels"]
+    assert labels["pcsx2"] == "PCSX2"
+    assert labels["play"] == "Play!"
+    # The id a save carries, with no platform to pick a core from.
+    assert labels["retroarch"] == "RetroArch"
 
 
 def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_token):
@@ -537,6 +568,59 @@ def test_clears_stale_saves_has_no_picker_to_gate_on_a_legacy_container(caplog):
     assert "clears_stale_saves" in caplog.text
 
 
+def test_only_a_webstation_exit_state_emulator_resumes_from_its_archive():
+    """Only the webstation broker takes an archive to restore, so on any other
+    protocol the resume state still has to be pushed as a file."""
+    base = {
+        "platform": "psx",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+    }
+    webstation = {**base, "protocol": "webstation"}
+    assert _resolved({**webstation, "emulator": "duckstation"}).resumes_from_archive
+    assert _resolved({**webstation, "emulator": "rpcs3"}).resumes_from_archive
+    assert not _resolved({**webstation, "emulator": "pcsx2"}).resumes_from_archive
+    assert not _resolved({**base, "emulator": "duckstation"}).resumes_from_archive
+
+
+def test_an_exit_state_emulator_offers_no_live_states():
+    """DuckStation and RPCS3 brokers answer a mid-session save or load with a
+    400, so the player must not offer one. psx is one platform entry whichever
+    emulator serves it, so RetroArch on psx keeps its controls."""
+    webstation = {
+        "platform": "psx",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "protocol": "webstation",
+    }
+    assert not _resolved({**webstation, "emulator": "duckstation"}).supports_live_states
+    assert not _resolved(
+        {**webstation, "platform": "ps3", "emulator": "rpcs3"}
+    ).supports_live_states
+    assert _resolved({**webstation, "emulator": "retroarch"}).supports_live_states
+    # No states at all is no live states either.
+    assert not _resolved(
+        {**webstation, "platform": "xbox", "emulator": "xemu"}
+    ).supports_live_states
+
+
+def test_get_config_ships_whether_a_container_takes_live_states(client, access_token):
+    """The exit-state library still needs has_autosave, so the Save and Load
+    buttons read their own flag rather than switching the slot off."""
+    container = {
+        "host": "http://box:3010",
+        "protocol": "webstation",
+        "platforms": {"psx": "duckstation", "gba": "retroarch"},
+    }
+    with _streaming(container):
+        r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+    by_platform = {c["platform"]: c for c in r.json()["containers"]}
+    assert by_platform["psx"]["supports_live_states"] is False
+    assert by_platform["psx"]["capabilities"]["has_autosave"] is True
+    assert by_platform["gba"]["supports_live_states"] is True
+
+
 def test_a_container_that_disagrees_on_clearing_saves_is_a_pool_of_its_own(caplog):
     """The picker is advertised from the head of the pool, so a member that
     keeps its own newer files would take the pick and silently discard it."""
@@ -680,6 +764,47 @@ def test_get_config_offers_disc_swap_only_on_a_webstation_container(
 
     assert legacy_caps["supports_disc_swap"] is False
     assert ws_caps["supports_disc_swap"] is True
+
+
+def test_get_config_leaves_out_a_container_no_claim_can_reach(client, access_token):
+    """A host with no scheme resolves to no key, so every claim on it fails and
+    listing it would put a Play button on a platform that can never stream."""
+    with _streaming({"platform": "ps2", "host": "192.168.1.10:3000"}):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    assert response.json()["containers"] == []
+
+
+def test_get_config_lists_a_platform_once_whatever_the_case(client, access_token):
+    """Platforms are matched case-insensitively everywhere else, so two records
+    naming one platform in different case are one platform to every claim."""
+    with _streaming(
+        {"platform": "PS2", "host": "http://box-a:3000"},
+        {"platform": "ps2", "host": "http://box-b:3000"},
+    ):
+        response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    assert len(response.json()["containers"]) == 1
+
+
+def test_configured_emulator_names_the_container_a_claim_wins(client):
+    """Slot ceilings are read off this emulator, so it has to be the one on the
+    container a claim lands on, not the first record in the file."""
+    with _streaming(
+        {"platform": "ps2", "host": "192.168.1.10:3000", "emulator": "retroarch"},
+        {
+            "platform": "ps2",
+            "host": "http://box:3000",
+            "broker_host": "http://box:8000",
+            "emulator": "pcsx2",
+        },
+    ):
+        assert configured_emulator("ps2") == "pcsx2"
+
+
+def test_configured_emulator_is_empty_without_a_claimable_container(client):
+    with _streaming({"platform": "ps2", "host": "192.168.1.10:3000"}):
+        assert configured_emulator("ps2") == ""
 
 
 # ── Nested platform config ────────────────────────────────────────────────────
@@ -846,6 +971,27 @@ def test_claim_derives_rom_path_server_side(client, access_token, rom: Rom):
     assert rom_path == f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
 
+def test_a_slow_claim_setup_keeps_its_claim_fresh(client, access_token, rom: Rom):
+    """Nothing beats for the player until the stream is up, so a setup step
+    outlasting the stale window would hand the container to the reaper."""
+
+    async def slow_save_pull(*args: Any, **kwargs: Any) -> bool:
+        await asyncio.sleep(0.05)
+        return True
+
+    with (
+        _streaming(_container_for(rom)),
+        patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0),
+        patch("handler.streaming.saves.wait_for_save_pull", new=slow_save_pull),
+        patch("handler.streaming.launch.run_launch", new=AsyncMock()),
+    ):
+        r = _claim(client, access_token, rom.id)
+
+    assert r.status_code == 202
+    stored = _load_session(session_store.session_redis_key(r.json()["container"]))
+    assert stored["last_seen"] != r.json()["claimed_at"]
+
+
 def test_claim_honors_container_library_path(client, access_token, rom: Rom):
     """`library_path` on the container entry replaces LIBRARY_BASE_PATH so the
     broker gets a path valid inside a container with a different mount."""
@@ -935,6 +1081,8 @@ def test_claim_answers_before_the_launch_and_pushes_the_room_url(
     assert "host" not in body
     assert [event for event, _ in sent] == ["streaming:launch-ready"]
     assert _launch_ready(sent)["host"] == "http://192.168.1.10:3000"
+    # A re-claim of the same container is only told apart by its stamp.
+    assert _launch_ready(sent)["claimed_at"] == body["claimed_at"]
 
 
 def test_a_failed_launch_pushes_the_reason_and_frees_the_container(
@@ -953,6 +1101,7 @@ def test_a_failed_launch_pushes_the_reason_and_frees_the_container(
     assert event == "streaming:launch-failed"
     assert payload["detail"] == "broker said no"
     assert payload["container"] == _key_of(_container_for(rom))
+    assert payload["claimed_at"] == r.json()["claimed_at"]
     assert _session_raw(_container_for(rom)) is None
 
 
@@ -985,9 +1134,10 @@ def test_launch_phase_is_pushed_while_a_webstation_unpacks(
                 r = _claim(client, access_token, rom.id)
 
     assert r.status_code == 202
-    pushed = [p["phase"] for event, p in sent if event == "streaming:launch-phase"]
+    phases_sent = [p for event, p in sent if event == "streaming:launch-phase"]
     # Only changes are pushed, so a repeated phase is not re-sent.
-    assert pushed == ["unpacking", "installing"]
+    assert [p["phase"] for p in phases_sent] == ["unpacking", "installing"]
+    assert {p["claimed_at"] for p in phases_sent} == {r.json()["claimed_at"]}
     assert sent[-1][0] == "streaming:launch-ready"
 
 
@@ -1184,10 +1334,11 @@ def _pool_member(rom: Rom, index: int) -> dict:
     }
 
 
-def _volume(client, token, platform: str, level: int = 42):
+def _volume(client, token, platform: str, level: int = 42, params=None):
     return client.post(
         f"/api/streaming/sessions/{platform}/volume",
         json={"level": level},
+        params=params,
         headers=_auth(token),
     )
 
@@ -1195,6 +1346,16 @@ def _volume(client, token, platform: str, level: int = 42):
 def _session_raw(container: dict):
     key = session_store.session_redis_key(_key_of(container))
     return asyncio.run(async_cache.get(key))
+
+
+def _drain(container: dict) -> None:
+    session = _load_session(session_store.session_redis_key(_key_of(container)))
+    token = asyncio.run(session_store.claim_drain_marker(_key_of(container), session))
+    assert token is not None
+
+
+def _stub_stop():
+    return patch("handler.streaming.commands.stop", return_value=commands.StopOutcome())
 
 
 def test_pool_claim_falls_through_to_a_free_container(
@@ -1222,6 +1383,48 @@ def test_pool_409s_only_once_every_container_is_held(
         r3 = _claim_ok(client, editor_access_token, rom.id)
     assert r3.status_code == 409
     assert "2 containers" in r3.json()["detail"]["message"]
+
+
+def test_a_busy_pool_names_the_holder_while_a_member_drains(
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
+):
+    """A drain marker names nobody, so reading only the head of the pool told
+    the waiting player the platform was saving while another member played on."""
+    head, tail = _pool_member(rom, 0), _pool_member(rom, 1)
+    with _streaming(head, tail):
+        _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, viewer_access_token, rom.id)
+        holder = json.loads(_session_raw(tail))
+        _drain(head)
+        r = _claim_ok(client, editor_access_token, rom.id)
+
+    assert r.status_code == 409
+    detail = r.json()["detail"]
+    # One member is about to come free, which is what "try again shortly" says.
+    assert detail["draining"] is True
+    assert detail["rom_name"] == rom.name
+    assert detail["claimed_at"] == holder["claimed_at"]
+
+
+def test_a_busy_pool_reports_a_drain_on_any_member(
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
+):
+    """The container about to come free is the one the waiting player is told to
+    wait for, wherever in the pool it sits."""
+    head, tail = _pool_member(rom, 0), _pool_member(rom, 1)
+    with _streaming(head, tail):
+        _claim_ok(client, access_token, rom.id)
+        _claim_ok(client, viewer_access_token, rom.id)
+        holder = json.loads(_session_raw(head))
+        _drain(tail)
+        r = _claim_ok(client, editor_access_token, rom.id)
+
+    assert r.status_code == 409
+    detail = r.json()["detail"]
+    assert detail["draining"] is True
+    assert "shutting down" in detail["message"]
+    assert detail["rom_name"] == rom.name
+    assert detail["claimed_at"] == holder["claimed_at"]
 
 
 def test_a_claim_never_lands_in_a_later_pool(
@@ -1253,6 +1456,37 @@ def test_a_pool_does_not_roll_its_own_holder_onto_a_second_container(
     assert r2.json()["detail"]["rom_name"] == rom.name
     # The second container stayed free for a player who actually needs one.
     assert free is None
+
+
+def test_a_session_on_one_platform_does_not_block_a_claim_on_another(
+    client, access_token
+):
+    """The caller's ps2 session sits on a key the ngc walk visits too, and only
+    occupies that container rather than counting as the player's ngc session."""
+    ps2_rom = _rom_on("ps2")
+    ngc_rom = _rom_on("ngc")
+    second = _nested(
+        host="http://192.168.1.11:3000", broker_host="http://192.168.1.11:8000"
+    )
+    with _streaming(_nested(), second):
+        r1 = _claim_ok(client, access_token, ps2_rom.id)
+        r2 = _claim_ok(client, access_token, ngc_rom.id)
+    assert [r1.status_code, r2.status_code] == [202, 202]
+    assert r1.json()["container"] == _key_of(_nested())
+    assert r2.json()["container"] == _key_of(second)
+
+
+def test_status_does_not_report_a_session_on_another_platform(client, access_token):
+    """The ps2 claim shares its key with the container's ngc row, and a poll for
+    ngc must not read that as a session the caller holds there."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_nested()):
+        assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
+        r = client.get(
+            "/api/streaming/sessions/ngc/status", headers=_auth(access_token)
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
 
 
 @contextmanager
@@ -1296,7 +1530,7 @@ def test_a_pool_hands_the_owner_of_a_stale_session_their_own_container_back(
         _age_session_on(
             _pool_member(rom, 0), session_store._STREAMING_SESSION_STALE_SECONDS + 60
         )
-        with patch("handler.streaming.commands.stop", return_value=None):
+        with _stub_stop():
             r2 = _claim_ok(client, access_token, rom.id)
         free = asyncio.run(session_store.get_session(_key_of(_pool_member(rom, 1))))
     assert r2.status_code == 202
@@ -1314,7 +1548,7 @@ def test_pool_never_evicts_a_stale_session_while_a_container_is_free(
         _age_session_on(
             _pool_member(rom, 0), session_store._STREAMING_SESSION_STALE_SECONDS + 60
         )
-        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
+        with _stub_stop() as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert r2.status_code == 202
     assert r2.json()["container"] == _key_of(_pool_member(rom, 1))
@@ -1331,7 +1565,7 @@ def test_pool_takes_over_a_stale_session_once_every_container_is_held(
         _age_session_on(
             _pool_member(rom, 1), session_store._STREAMING_SESSION_STALE_SECONDS + 60
         )
-        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
+        with _stub_stop() as stop_broker:
             r3 = _claim_ok(client, viewer_access_token, rom.id)
     assert r3.status_code == 202
     assert r3.json()["container"] == _key_of(_pool_member(rom, 1))
@@ -1390,6 +1624,52 @@ def test_an_admin_cannot_guess_which_of_two_sessions_to_control(
     assert r.status_code == 409
 
 
+def test_an_admin_names_which_of_two_sessions_to_control(
+    client, access_token, viewer_access_token, editor_access_token, rom: Rom
+):
+    with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        _claim_ok(client, editor_access_token, rom.id)
+        with patch(
+            "handler.streaming.commands.set_volume", return_value=True
+        ) as volume:
+            r = _volume(
+                client,
+                access_token,
+                rom.platform_slug,
+                params={"container": _key_of(_pool_member(rom, 1))},
+            )
+    assert r.status_code == 200
+    assert volume.call_args[0][0].host == "http://192.168.1.11:3000"
+
+
+@pytest.mark.parametrize(
+    "route, body, command",
+    [
+        ("volume", {"level": 42}, "set_volume"),
+        ("mute", {"mute": True}, "set_mute"),
+        ("save-state", {"slot": 1}, "save_state"),
+        ("load-state", {"slot": 1}, "load_state"),
+        ("swap-disc", {"file_id": 1}, "swap_disc"),
+    ],
+)
+def test_a_control_for_a_replaced_claim_never_reaches_the_broker(
+    client, access_token, rom: Rom, route, body, command
+):
+    """A tab that missed its takeover must not drive the claim that replaced it."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch(f"handler.streaming.commands.{command}") as broker:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/{route}",
+                json=body,
+                params={"claimed_at": "2020-01-01T00:00:00+00:00"},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 404
+    broker.assert_not_called()
+
+
 def test_admin_release_names_the_container(
     client, access_token, viewer_access_token, editor_access_token, rom: Rom
 ):
@@ -1398,7 +1678,7 @@ def test_admin_release_names_the_container(
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, viewer_access_token, rom.id)
         _claim_ok(client, editor_access_token, rom.id)
-        with patch("handler.streaming.commands.stop", return_value=None):
+        with _stub_stop():
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 params={"container": _key_of(_pool_member(rom, 1))},
@@ -1442,7 +1722,7 @@ def test_admin_release_ends_a_session_on_a_container_in_a_later_pool(
         key = _key_of(later)
         assert key not in [c.key for c in streaming.containers_for_platform("ps2")]
         assert _desktop(client, access_token, key)[0].status_code == 200
-        with patch("handler.streaming.commands.stop", return_value=None):
+        with _stub_stop():
             r = client.delete(
                 "/api/streaming/sessions/ps2",
                 params={"container": key},
@@ -1484,7 +1764,7 @@ def test_heartbeat_naming_a_released_container_reports_ended(client, access_toke
             _desktop(client, access_token, _key_of(_webstation()))[0].status_code == 200
         )
         assert _desktop(client, access_token, key)[0].status_code == 200
-        with patch("handler.streaming.commands.stop", return_value=None):
+        with _stub_stop():
             released = client.delete(
                 "/api/streaming/sessions/ps2",
                 params={"container": key},
@@ -1527,7 +1807,7 @@ def test_status_finds_the_termination_on_whichever_container_held_it(
     with _streaming(_pool_member(rom, 0), _pool_member(rom, 1)):
         _claim_ok(client, access_token, rom.id)
         _claim_ok(client, viewer_access_token, rom.id)
-        with patch("handler.streaming.commands.stop", return_value=None):
+        with _stub_stop():
             client.delete(
                 "/api/streaming/sessions",
                 params={"reason": "maintenance"},
@@ -1540,6 +1820,76 @@ def test_status_finds_the_termination_on_whichever_container_held_it(
     assert r.status_code == 200
     assert r.json()["status"] == "ended"
     assert r.json()["termination"]["reason"] == "maintenance"
+
+
+def test_status_does_not_report_a_desktop_notice_to_a_game_poll(client, access_token):
+    """One tombstone per container and one room per user, so the poll has to
+    scope the notice the same way it scopes the session it looked for."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_webstation()):
+        key = _key_of(_webstation())
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with _stub_stop():
+            ended = client.delete(
+                "/api/streaming/sessions/ps2",
+                params={"container": key, "reason": "patching the host"},
+                headers=_auth(access_token),
+            )
+        assert ended.status_code == 200
+        r = client.get(
+            f"/api/streaming/sessions/{ps2_rom.platform_slug}/status",
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert r.json()["termination"] is None
+
+
+def test_a_desktop_beat_still_learns_why_its_claim_ended(client, access_token):
+    """The desktop names its container, which is what puts its own notice in
+    scope: nothing else would tell that tab it was taken away."""
+    with _streaming(_webstation()):
+        key = _key_of(_webstation())
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with _stub_stop():
+            client.delete(
+                "/api/streaming/sessions/ps2",
+                params={"container": key, "reason": "patching the host"},
+                headers=_auth(access_token),
+            )
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat",
+            params={"container": key},
+            headers=_auth(access_token),
+        )
+    assert r.json()["status"] == "ended"
+    notice = r.json()["termination"]
+    assert notice["reason"] == "patching the host"
+    assert notice["desktop"] is True
+    assert notice["container"] == key
+
+
+def test_status_does_not_report_a_notice_from_another_platform(client, access_token):
+    """A container serving two platforms files both notices under one key, so
+    the ngc session ending is not an answer for the ps2 tab."""
+    ngc_rom = _rom_on("ngc")
+    with _streaming(_nested()):
+        _claim_ok(client, access_token, ngc_rom.id)
+        with _stub_stop():
+            client.delete(
+                "/api/streaming/sessions/ngc",
+                params={"reason": "patching the host"},
+                headers=_auth(access_token),
+            )
+        r = client.get(
+            "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+        )
+        ngc = client.get(
+            "/api/streaming/sessions/ngc/status", headers=_auth(access_token)
+        )
+    assert r.json()["status"] == "ended"
+    assert r.json()["termination"] is None
+    assert ngc.json()["termination"]["reason"] == "patching the host"
 
 
 def test_heartbeat_refreshes_the_session_on_the_container_that_holds_it(
@@ -1593,6 +1943,33 @@ def test_a_container_that_disagrees_on_the_emulator_is_a_later_pool(caplog):
     # Once per config, not once per lookup.
     assert caplog.text.count("never claimed for a game") == 1
     assert _key_of(second) in caplog.text
+
+
+def test_a_fresh_process_does_not_repeat_the_later_pool_warning(caplog):
+    """Every reaper run is a new RQ job process with nothing memoized."""
+    first = {
+        "platform": "ps2",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "emulator": "pcsx2",
+    }
+    second = {
+        **first,
+        "host": "http://192.168.1.11:3000",
+        "broker_host": "http://192.168.1.11:8000",
+        "emulator": "play",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="romm"):
+            with _streaming(first, second):
+                streaming.containers_for_platform("ps2")
+            with _streaming(first, second):
+                streaming.containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert caplog.text.count("never claimed for a game") == 1
 
 
 def test_a_lone_container_is_a_pool_of_one(rom: Rom):
@@ -1651,7 +2028,7 @@ def test_a_proxied_host_disagreeing_with_its_subfolder_cannot_be_claimed(caplog)
         with _streaming(entry):
             with caplog.at_level(logging.WARNING, logger="romm"):
                 candidates = streaming.containers_for_platform("ps2")
-                listed = streaming.resolve_containers()
+                listed = resolve_containers()
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert candidates == []
@@ -1823,6 +2200,35 @@ def _claim_webstation_ok(client, token, rom_id):
         return _claim(client, token, rom_id)
 
 
+def test_containers_reports_a_container_that_is_still_saving(
+    client, access_token, rom: Rom
+):
+    """A drain marker has no owner, so the row read as idle while the previous
+    session's state was still coming out of the container."""
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _drain(container)
+        rows = _containers(client, access_token).json()["containers"]
+
+    assert rows[0]["draining"] is True
+    assert rows[0]["session"] is None
+
+
+def test_a_desktop_refused_over_a_drain_says_it_is_saving(client, access_token):
+    """Nobody holds a draining container, so "in use" names no one and the
+    admin needs to hear that waiting is enough."""
+    ps2_rom = _rom_on("ps2")
+    container = _webstation()
+    with _streaming(container):
+        _claim_webstation_ok(client, access_token, ps2_rom.id)
+        _drain(container)
+        response, _ = _desktop(client, access_token, _key_of(container))
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["draining"] is True
+
+
 def test_containers_lists_one_row_per_container(client, access_token):
     """A container serves many platforms but hosts one session, so the fleet
     view counts containers, not the platform rows /config ships."""
@@ -1913,6 +2319,115 @@ def test_desktop_and_a_game_block_each_other(client, access_token):
         assert _desktop(client, access_token, key)[0].status_code == 409
 
 
+def test_an_admins_desktop_does_not_block_their_game_claim(client, access_token):
+    """A desktop occupies its container, not the platform, so the claim rolls
+    onto the free pool member."""
+    ps2_rom = _rom_on("ps2")
+    second = _webstation(
+        host="http://192.168.1.11:3000", broker_host="http://192.168.1.11:8000"
+    )
+    with _streaming(_webstation(), second):
+        assert (
+            _desktop(client, access_token, _key_of(_webstation()))[0].status_code == 200
+        )
+        r = _claim_webstation_ok(client, access_token, ps2_rom.id)
+    assert r.status_code == 202
+    assert r.json()["container"] == _key_of(second)
+
+
+def test_an_unnamed_heartbeat_skips_the_callers_desktop(
+    client, access_token, viewer_access_token
+):
+    """An admin playing on one pool member while holding a desktop on another
+    beats their game session, not the desktop the walk reaches first."""
+    ps2_rom = _rom_on("ps2")
+    second = _webstation(
+        host="http://192.168.1.11:3000", broker_host="http://192.168.1.11:8000"
+    )
+    with _streaming(_webstation(), second):
+        # The viewer takes the head of the pool, so the admin's game lands on
+        # the second member and the desktop gets the head once it is released.
+        assert (
+            _claim_webstation_ok(client, viewer_access_token, ps2_rom.id).status_code
+            == 202
+        )
+        assert _claim_webstation_ok(client, access_token, ps2_rom.id).json()[
+            "container"
+        ] == _key_of(second)
+        with (
+            _stub_stop(),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            client.delete(
+                "/api/streaming/sessions/ps2", headers=_auth(viewer_access_token)
+            )
+        assert (
+            _desktop(client, access_token, _key_of(_webstation()))[0].status_code == 200
+        )
+        _age_session_on(_webstation(), 120)
+        _age_session_on(second, 120)
+        desktop_before = json.loads(_session_raw(_webstation()))["last_seen"]
+        game_before = json.loads(_session_raw(second))["last_seen"]
+        r = client.post(
+            "/api/streaming/sessions/ps2/heartbeat", headers=_auth(access_token)
+        )
+        desktop_after = json.loads(_session_raw(_webstation()))["last_seen"]
+        game_after = json.loads(_session_raw(second))["last_seen"]
+    assert r.json()["status"] == "active"
+    assert game_after > game_before
+    assert desktop_after == desktop_before
+
+
+def test_an_unnamed_release_leaves_the_callers_desktop_alone(client, access_token):
+    """Desktop.vue names its container and a game tab never does, so an unnamed
+    release must not end the desktop the admin has open."""
+    with _streaming(_webstation()):
+        key = _key_of(_webstation())
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with _stub_stop():
+            r = client.delete(
+                "/api/streaming/sessions/ps2", headers=_auth(access_token)
+            )
+        session = asyncio.run(session_store.get_session(key))
+    assert r.json()["status"] == "not_found"
+    assert session is not None and session["desktop"] is True
+
+
+def test_an_unnamed_release_leaves_another_platforms_session_alone(
+    client, access_token
+):
+    """The container's ngc row shares a key with the caller's ps2 session, so an
+    unnamed ngc release must not end the ps2 game."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_nested()):
+        assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
+        with _stub_stop():
+            r = client.delete(
+                "/api/streaming/sessions/ngc", headers=_auth(access_token)
+            )
+        session = asyncio.run(session_store.get_session(_key_of(_nested())))
+    assert r.json()["status"] == "not_found"
+    assert session is not None and session["platform"] == "ps2"
+
+
+def test_an_unnamed_heartbeat_leaves_another_platforms_session_alone(
+    client, access_token
+):
+    """An ngc tab beating unnamed must not keep the caller's ps2 session on the
+    same container alive."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_nested()):
+        assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
+        _age_session_on(_nested(), 120)
+        before = json.loads(_session_raw(_nested()))["last_seen"]
+        r = client.post(
+            "/api/streaming/sessions/ngc/heartbeat", headers=_auth(access_token)
+        )
+        after = json.loads(_session_raw(_nested()))["last_seen"]
+    assert r.json()["status"] == "ended"
+    assert after == before
+
+
 def test_desktop_is_admin_only(client, viewer_access_token):
     with _streaming(_webstation()):
         key = _key_of(_first_container("ps2"))
@@ -1960,11 +2475,12 @@ def test_releasing_a_desktop_session_syncs_nothing_to_the_library(client, access
         container = _first_container("ps2")
         assert _desktop(client, access_token, _key_of(container))[0].status_code == 200
         with (
-            patch("handler.streaming.commands.stop", return_value=None) as stop,
+            _stub_stop() as stop,
             patch("handler.streaming.background.spawn_sync_task") as spawn,
         ):
             response = client.delete(
                 f"/api/streaming/sessions/{container.platform}",
+                params={"container": _key_of(container)},
                 headers=_auth(access_token),
             )
     assert response.status_code == 200
@@ -2094,8 +2610,7 @@ def test_swap_disc_broker_has_nothing_to_call_on_a_legacy_container():
 def _age_session_on(container: dict, seconds: int) -> None:
     """Rewrite one container's stored session last_seen to `seconds` ago."""
     key = session_store.session_redis_key(_key_of(container))
-    raw = asyncio.run(async_cache.get(key))
-    session = json.loads(raw)
+    session = _load_session(key)
     session["last_seen"] = (
         datetime.now(timezone.utc) - timedelta(seconds=seconds)
     ).isoformat()
@@ -2127,11 +2642,35 @@ def test_stale_session_taken_over_on_claim(
     with _streaming(_container_for(rom)):
         r1 = _claim_ok(client, access_token, rom.id)
         _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
-        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
+        with _stub_stop() as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert r1.status_code == 202
     assert r2.status_code == 202
     stop_broker.assert_called_once()
+
+
+def test_a_swept_session_is_torn_down_with_its_own_platforms_record(
+    client, access_token, viewer_access_token
+):
+    """An ngc claim sweeping a stale ps2 session on a shared container tears it
+    down as pcsx2, since the state and card coming out are that emulator's."""
+    ps2_rom = _rom_on("ps2")
+    ngc_rom = _rom_on("ngc")
+    with _streaming(_nested()):
+        _claim_ok(client, access_token, ps2_rom.id)
+        _age_session_on(_nested(), session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        with (
+            patch(
+                "handler.streaming.commands.stop", return_value=commands.StopOutcome(3)
+            ) as stop,
+            patch(
+                "handler.streaming.states.pull_state_to_library", new=AsyncMock()
+            ) as pull_state,
+        ):
+            r = _claim_ok(client, viewer_access_token, ngc_rom.id)
+    assert r.status_code == 202
+    assert stop.call_args.args[0].emulator == "pcsx2"
+    assert pull_state.call_args.args[2].emulator == "pcsx2"
 
 
 def test_the_owner_of_a_stale_session_can_claim_it_again(
@@ -2142,7 +2681,7 @@ def test_the_owner_of_a_stale_session_can_claim_it_again(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
-        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
+        with _stub_stop() as stop_broker:
             r2 = _claim_ok(client, access_token, rom.id)
     assert r2.status_code == 202
     stop_broker.assert_called_once()
@@ -2156,13 +2695,11 @@ def test_takeover_leaves_the_displaced_owner_a_notice(
     container = _container_for(rom)
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
-        owner = json.loads(
-            asyncio.run(
-                async_cache.get(session_store.session_redis_key(_key_of(container)))
-            )
-        )["user_id"]
+        owner = _load_session(session_store.session_redis_key(_key_of(container)))[
+            "user_id"
+        ]
         _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
-        with patch("handler.streaming.commands.stop", return_value=None):
+        with _stub_stop():
             _claim_ok(client, viewer_access_token, rom.id)
 
         notice = asyncio.run(session_store.get_termination(_key_of(container), owner))
@@ -2170,6 +2707,29 @@ def test_takeover_leaves_the_displaced_owner_a_notice(
     assert notice is not None
     assert notice["reason"] == "abandoned"
     assert notice["rom_id"] == rom.id
+
+
+def test_taking_over_ones_own_stale_session_pushes_no_notice(
+    client, access_token, rom: Rom
+):
+    """The notice goes to the user, whose only tab is now the one that just
+    claimed this container, and it would end that fresh claim."""
+    container = _container_for(rom)
+    sent: list[str] = []
+
+    async def _capture(user_id: Any, event: str, payload: dict[str, Any]) -> None:
+        sent.append(event)
+
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        with (
+            _stub_stop(),
+            patch("handler.streaming.session_store.push_to_user", new=_capture),
+        ):
+            _claim_ok(client, access_token, rom.id)
+
+    assert "streaming:session-ended" not in sent
 
 
 def test_takeover_aborts_when_the_owner_comes_back_first(
@@ -2194,12 +2754,12 @@ def test_takeover_aborts_when_the_owner_comes_back_first(
             checked = True
             return real_stale(session)
 
-        # Both callers hold their own reference: the claim route runs the scan,
+        # Both callers hold their own reference: session_store runs the scan,
         # lifecycle re-checks under the marker.
         with (
-            patch.object(streaming, "session_is_stale", stale_then_fresh),
+            patch.object(session_store, "session_is_stale", stale_then_fresh),
             patch.object(lifecycle, "session_is_stale", stale_then_fresh),
-            patch("handler.streaming.commands.stop", return_value=None) as stop_broker,
+            _stub_stop() as stop_broker,
         ):
             r = _claim_ok(client, viewer_access_token, rom.id)
 
@@ -2214,7 +2774,7 @@ def test_fresh_session_not_taken_over(
     and the running emulator is never stopped."""
     with _streaming(_container_for(rom)):
         r1 = _claim_ok(client, access_token, rom.id)
-        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
+        with _stub_stop() as stop_broker:
             r2 = _claim_ok(client, viewer_access_token, rom.id)
     assert r1.status_code == 202
     assert r2.status_code == 409
@@ -2234,7 +2794,41 @@ def test_heartbeat_refreshes_last_seen(client, access_token, rom: Rom):
     assert r.status_code == 200
     assert r.json()["status"] == "active"
     key = session_store.session_redis_key(_key_of(_container_for(rom)))
-    session = json.loads(asyncio.run(async_cache.get(key)))
+    session = _load_session(key)
+    assert not session_store.session_is_stale(session)
+
+
+def test_a_heartbeat_for_a_replaced_claim_reports_ended(client, access_token, rom: Rom):
+    """A tab that missed its takeover must not keep the claim that replaced it
+    alive: the stamp it was given is what identifies the claim it holds."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, 60)
+        before = json.loads(_session_raw(_container_for(rom)))["last_seen"]
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+            params={"claimed_at": "2020-01-01T00:00:00+00:00"},
+            headers=_auth(access_token),
+        )
+        after = json.loads(_session_raw(_container_for(rom)))["last_seen"]
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert after == before
+
+
+def test_a_heartbeat_naming_its_own_claim_still_refreshes_it(
+    client, access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        claimed_at = _claim_ok(client, access_token, rom.id).json()["claimed_at"]
+        _age_session(rom, 60)
+        r = client.post(
+            f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+            params={"claimed_at": claimed_at},
+            headers=_auth(access_token),
+        )
+        session = json.loads(_session_raw(_container_for(rom)))
+    assert r.json()["status"] == "active"
     assert not session_store.session_is_stale(session)
 
 
@@ -2263,6 +2857,71 @@ def test_heartbeat_racing_a_teardown_reports_ended(client, access_token, rom: Ro
     assert r.json()["status"] == "ended"
 
 
+def test_heartbeat_for_a_session_reassigned_mid_request_reports_ended(
+    client, access_token, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """The write re-checks the owner the lookup found: a takeover landing in
+    between must not have the loser's beat keep it alive."""
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, 60)
+        before = json.loads(_session_raw(container))["last_seen"]
+        key = session_store.session_redis_key(_key_of(container))
+
+        real_find = access.find_session_for_user
+
+        async def find_then_reassign(*args, **kwargs):
+            found = await real_find(*args, **kwargs)
+            session = json.loads(await async_cache.get(key))
+            session["user_id"] = viewer_user.id
+            await async_cache.set(key, json.dumps(session))
+            return found
+
+        with patch.object(access, "find_session_for_user", find_then_reassign):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+                headers=_auth(access_token),
+            )
+        after = json.loads(_session_raw(container))["last_seen"]
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert after == before
+
+
+def test_heartbeat_for_a_claim_restamped_mid_request_reports_ended(
+    client, access_token, rom: Rom
+):
+    """The same player pressing Play again between the lookup and the write
+    replaces the claim, which the old tab's beat must not keep alive."""
+    container = _container_for(rom)
+    with _streaming(container):
+        claimed_at = _claim_ok(client, access_token, rom.id).json()["claimed_at"]
+        _age_session(rom, 60)
+        before = json.loads(_session_raw(container))["last_seen"]
+        key = session_store.session_redis_key(_key_of(container))
+
+        real_find = access.find_session_for_user
+
+        async def find_then_restamp(*args, **kwargs):
+            found = await real_find(*args, **kwargs)
+            session = json.loads(await async_cache.get(key))
+            session["claimed_at"] = "2099-01-01T00:00:00+00:00"
+            await async_cache.set(key, json.dumps(session))
+            return found
+
+        with patch.object(access, "find_session_for_user", find_then_restamp):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
+                params={"claimed_at": claimed_at},
+                headers=_auth(access_token),
+            )
+        after = json.loads(_session_raw(container))["last_seen"]
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
+    assert after == before
+
+
 def test_heartbeat_does_not_revive_a_draining_session(client, access_token, rom: Rom):
     """A container being torn down must not be made to look live again: the
     emulator is already stopped and its card evacuated."""
@@ -2270,7 +2929,7 @@ def test_heartbeat_does_not_revive_a_draining_session(client, access_token, rom:
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
         key = session_store.session_redis_key(_key_of(container))
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        session = _load_session(key)
         session["draining"] = True
         asyncio.run(async_cache.set(key, json.dumps(session)))
 
@@ -2304,7 +2963,7 @@ def test_heartbeat_keeps_a_disc_swap_that_landed_first(client, access_token, rom
                 f"/api/streaming/sessions/{rom.platform_slug}/heartbeat",
                 headers=_auth(access_token),
             )
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        session = _load_session(key)
 
     assert r.json()["status"] == "active"
     assert session["disc_file_id"] == 4242
@@ -2352,7 +3011,8 @@ def test_heartbeat_for_unknown_platform_returns_404(client, access_token, rom: R
 
 
 def test_status_reports_active_for_owner(client, access_token, rom: Rom):
-    with _streaming(_container_for(rom)):
+    container = _container_for(rom)
+    with _streaming(container):
         _claim_ok(client, access_token, rom.id)
         r = client.get(
             f"/api/streaming/sessions/{rom.platform_slug}/status",
@@ -2364,7 +3024,34 @@ def test_status_reports_active_for_owner(client, access_token, rom: Rom):
         "platform": rom.platform_slug,
         "extraction_phase": None,
         "termination": None,
+        "host": container["host"],
     }
+
+
+def test_status_carries_the_room_the_launch_answered_with(client, access_token):
+    """launch-ready is pushed once: a tab that was reloading when the game came
+    up has only the poll to find its way back into the stream."""
+    rom = _rom_on("ps2")
+    container = _webstation()
+    with _streaming(container):
+        assert _claim_webstation_ok(client, access_token, rom.id).status_code == 202
+        r = client.get(
+            "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
+        )
+    assert r.status_code == 200
+    assert r.json()["host"].endswith("/room/x")
+
+
+def test_a_desktop_launch_is_stamped_without_a_room(client, access_token):
+    """The desktop POST is the only place its room is read, so the session keeps
+    just the launch stamp the status fallback gates its broker call on."""
+    container = _webstation()
+    with _streaming(container):
+        response, _ = _desktop(client, access_token, _key_of(container))
+        assert response.status_code == 200
+        session = json.loads(_session_raw(container))
+    assert session["launched_at"]
+    assert "host" not in session
 
 
 def test_status_does_not_refresh_the_session(client, access_token, rom: Rom):
@@ -2378,8 +3065,26 @@ def test_status_does_not_refresh_the_session(client, access_token, rom: Rom):
             headers=_auth(access_token),
         )
     key = session_store.session_redis_key(_key_of(_container_for(rom)))
-    session = json.loads(asyncio.run(async_cache.get(key)))
+    session = _load_session(key)
     assert session_store.session_is_stale(session)
+
+
+def test_status_for_a_replaced_claim_reports_ended(client, access_token, rom: Rom):
+    """A loading tab whose claim was re-taken on the same container must not be
+    handed the new claim's room as its own."""
+    with _streaming(_container_for(rom)):
+        first = _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        with _stub_stop():
+            second = _claim_ok(client, access_token, rom.id)
+        assert second.json()["container"] == first.json()["container"]
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            params={"claimed_at": first.json()["claimed_at"]},
+            headers=_auth(access_token),
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "ended"
 
 
 def test_admin_release_leaves_termination_notice(
@@ -2406,6 +3111,27 @@ def test_admin_release_leaves_termination_notice(
     assert body["termination"]["ended_by"]
 
 
+def test_admin_release_notifies_the_displaced_player(
+    client, access_token, viewer_access_token, admin_user, viewer_user, rom: Rom
+):
+    """The note expires with the claim, so the player who had no tab open when
+    an admin ended their game hears of it from a notification instead."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "maintenance window"},
+            headers=_auth(access_token),
+        )
+
+    [notification] = db_notification_handler.get_notifications(viewer_user.id)
+    assert notification.kind == NotificationKind.STREAMING_SESSION_ENDED
+    assert notification.actor_id == admin_user.id
+    assert notification.data["rom_id"] == rom.id
+    assert notification.data["reason"] == "maintenance window"
+    assert db_notification_handler.get_notifications(admin_user.id) == []
+
+
 def test_heartbeat_carries_termination_notice(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -2429,6 +3155,123 @@ def test_heartbeat_carries_termination_notice(
     assert body["termination"]["reason"] == "patching the host"
 
 
+def test_a_termination_notice_names_the_container_it_ended(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """A player can hold a session on several containers, so the notice has to
+    say which one ended for the right tab to act on it."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "maintenance window"},
+            headers=_auth(access_token),
+        )
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(viewer_access_token),
+        )
+    notice = r.json()["termination"]
+    assert notice["container"] == _key_of(_container_for(rom))
+    assert notice["desktop"] is False
+
+
+def test_a_termination_notice_names_the_claim_it_ended(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """A re-claim of the same container keeps its key, so only the stamp tells
+    the tab that lost its claim from the one holding the next."""
+    with _streaming(_container_for(rom)):
+        claimed_at = _claim_ok(client, viewer_access_token, rom.id).json()["claimed_at"]
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            headers=_auth(access_token),
+        )
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            headers=_auth(viewer_access_token),
+        )
+    assert r.json()["termination"]["claimed_at"] == claimed_at
+
+
+def test_status_does_not_report_the_notice_of_another_claim(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """A poll names the claim it asks about, so a notice filed for another
+    claim on the container must not tell it who ended its own."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, viewer_access_token, rom.id)
+        client.delete(
+            f"/api/streaming/sessions/{rom.platform_slug}",
+            params={"reason": "maintenance window"},
+            headers=_auth(access_token),
+        )
+        r = client.get(
+            f"/api/streaming/sessions/{rom.platform_slug}/status",
+            params={"claimed_at": "2026-09-17T10:05:00+00:00"},
+            headers=_auth(viewer_access_token),
+        )
+    assert r.json()["status"] == "ended"
+    assert r.json()["termination"] is None
+
+
+def test_a_termination_notice_lands_before_the_drain(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The session ends when the drain marker is written, so a poll during the
+    seconds-long drain is told why the stream stopped, not a bare `ended`."""
+    container = _container_for(rom)
+    seen: list[dict[str, Any] | None] = []
+
+    with _streaming(container):
+        _claim_ok(client, viewer_access_token, rom.id)
+        user_id = json.loads(_session_raw(container))["user_id"]
+
+        async def capture(*args, **kwargs):
+            seen.append(
+                await session_store.get_termination(_key_of(container), user_id)
+            )
+            return commands.StopOutcome()
+
+        with patch(
+            "handler.streaming.lifecycle.quiesce_container",
+            new=AsyncMock(side_effect=capture),
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                params={"reason": "maintenance window"},
+                headers=_auth(access_token),
+            )
+    assert seen and seen[0] is not None
+    assert seen[0]["reason"] == "maintenance window"
+
+
+def test_a_takeover_notice_lands_before_the_drain(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """The abandoned owner's tab polls through the takeover's drain like any
+    other, so the notice has to be there before the quiesce starts."""
+    container = _container_for(rom)
+    seen: list[dict[str, Any] | None] = []
+
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        owner = json.loads(_session_raw(container))["user_id"]
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+
+        async def capture(*args, **kwargs):
+            seen.append(await session_store.get_termination(_key_of(container), owner))
+            return commands.StopOutcome()
+
+        with patch(
+            "handler.streaming.lifecycle.quiesce_container",
+            new=AsyncMock(side_effect=capture),
+        ):
+            _claim_ok(client, viewer_access_token, rom.id)
+    assert seen and seen[0] is not None
+    assert seen[0]["reason"] == "abandoned"
+
+
 def test_force_release_all_leaves_termination_notice(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -2449,7 +3292,9 @@ def test_force_release_all_leaves_termination_notice(
     assert r.json()["termination"]["reason"] == "server restart"
 
 
-def test_self_release_leaves_no_termination_notice(client, access_token, rom: Rom):
+def test_self_release_leaves_no_termination_notice(
+    client, access_token, admin_user, rom: Rom
+):
     """A user who closed their own session already knows why it stopped. The
     player's own release path sends no reason, which is what marks it as such."""
     with _streaming(_container_for(rom)):
@@ -2463,6 +3308,7 @@ def test_self_release_leaves_no_termination_notice(client, access_token, rom: Ro
             headers=_auth(access_token),
         )
     assert r.json()["termination"] is None
+    assert db_notification_handler.get_notifications(admin_user.id) == []
 
 
 def test_admin_release_of_own_session_leaves_notice(client, access_token, rom: Rom):
@@ -2534,7 +3380,7 @@ def _unstamp_launch(container: dict) -> None:
     """Drop the launched_at stamp, leaving the record in the state a claim
     holds while its activate is still running."""
     key = session_store.session_redis_key(_key_of(container))
-    session = json.loads(asyncio.run(async_cache.get(key)))
+    session = _load_session(key)
     session.pop("launched_at", None)
     asyncio.run(async_cache.set(key, json.dumps(session)))
 
@@ -2585,12 +3431,8 @@ def test_status_stops_asking_the_broker_once_the_launch_returned(client, access_
             r = client.get(
                 "/api/streaming/sessions/ps2/status", headers=_auth(access_token)
             )
-    assert r.json() == {
-        "status": "active",
-        "platform": "ps2",
-        "extraction_phase": None,
-        "termination": None,
-    }
+    assert r.json()["status"] == "active"
+    assert r.json()["extraction_phase"] is None
     broker.assert_not_called()
 
 
@@ -2607,12 +3449,8 @@ def test_status_on_a_legacy_container_never_asks_for_a_phase(
                 f"/api/streaming/sessions/{rom.platform_slug}/status",
                 headers=_auth(access_token),
             )
-    assert r.json() == {
-        "status": "active",
-        "platform": rom.platform_slug,
-        "extraction_phase": None,
-        "termination": None,
-    }
+    assert r.json()["status"] == "active"
+    assert r.json()["extraction_phase"] is None
     broker.assert_not_called()
 
 
@@ -2623,13 +3461,87 @@ def test_release_uses_container_key_not_platform(client, access_token, rom: Rom)
     """release_session must find the session by broker_host, not platform string."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        with patch("handler.streaming.commands.stop", return_value=None):
+        with _stub_stop():
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
             )
     assert r.status_code == 200
     assert r.json()["status"] == "released"
+
+
+def test_a_release_for_a_replaced_claim_leaves_the_session(
+    client, access_token, rom: Rom
+):
+    """A tab whose claim was taken over still releases on unload, and it must
+    not end the session that replaced it."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with _stub_stop() as stop:
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                params={"claimed_at": "2020-01-01T00:00:00+00:00"},
+                headers=_auth(access_token),
+            )
+        session = asyncio.run(session_store.get_session(_key_of(_container_for(rom))))
+    assert r.status_code == 200
+    assert r.json()["status"] == "not_found"
+    stop.assert_not_called()
+    assert session is not None
+
+
+def test_a_release_naming_its_own_claim_still_ends_the_session(
+    client, access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        claimed_at = _claim_ok(client, access_token, rom.id).json()["claimed_at"]
+        with _stub_stop() as stop:
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                params={"claimed_at": claimed_at},
+                headers=_auth(access_token),
+            )
+    assert r.json()["status"] == "released"
+    stop.assert_called_once()
+
+
+def test_a_release_for_a_claim_another_player_took_over_is_a_no_op(
+    client, viewer_access_token, editor_access_token, rom: Rom
+):
+    """The tab lost its claim, so the player now holding the container is none
+    of its business, not a forbidden target."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, editor_access_token, rom.id)
+        with _stub_stop() as stop:
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                params={
+                    "container": _key_of(_container_for(rom)),
+                    "claimed_at": "2020-01-01T00:00:00+00:00",
+                },
+                headers=_auth(viewer_access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["status"] == "not_found"
+    stop.assert_not_called()
+
+
+def test_an_unnamed_release_for_a_claim_another_player_took_over_is_a_no_op(
+    client, viewer_access_token, editor_access_token, rom: Rom
+):
+    """A stamped release that names no container reads a takeover the same way
+    as a named one."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, editor_access_token, rom.id)
+        with _stub_stop() as stop:
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                params={"claimed_at": "2020-01-01T00:00:00+00:00"},
+                headers=_auth(viewer_access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["status"] == "not_found"
+    stop.assert_not_called()
 
 
 def test_release_by_other_user_is_forbidden(
@@ -2684,11 +3596,12 @@ def test_save_and_exit_releases_session_once_the_state_is_pulled(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 10, True),
+            ),
             patch("handler.streaming.states.pull_state_to_library", new=AsyncMock()),
-            # Plain MagicMock: the async original would auto-mock to AsyncMock,
-            # whose call handed to the mocked spawn is a never-awaited coroutine.
-            patch("handler.streaming.saves.pull_saves_to_library", new=MagicMock()),
+            patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
             patch(
                 "handler.streaming.background.spawn_sync_task",
                 side_effect=spawned.append,
@@ -2709,13 +3622,128 @@ def test_save_and_exit_releases_session_once_the_state_is_pulled(
     assert r2.status_code == 202
 
 
+def test_a_save_and_exit_for_a_replaced_claim_leaves_the_session(
+    client, access_token, rom: Rom
+):
+    """A playing tab that missed its takeover saves and exits on unload, and
+    must not end the session that replaced it."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with patch(
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(False, 10, False),
+        ) as save_and_exit:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                params={
+                    "container": _key_of(_container_for(rom)),
+                    "claimed_at": "2020-01-01T00:00:00+00:00",
+                },
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+        session = asyncio.run(session_store.get_session(_key_of(_container_for(rom))))
+    assert r.status_code == 200
+    assert r.json()["status"] == "not_found"
+    save_and_exit.assert_not_called()
+    assert session is not None
+
+
+def test_a_save_and_exit_naming_its_own_claim_still_ends_the_session(
+    client, access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        claimed_at = _claim_ok(client, access_token, rom.id).json()["claimed_at"]
+        with patch(
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(False, 10, False),
+        ) as save_and_exit:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                params={
+                    "container": _key_of(_container_for(rom)),
+                    "claimed_at": claimed_at,
+                },
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+    assert r.json()["status"] == "ok"
+    save_and_exit.assert_called_once()
+
+
+def test_a_named_save_and_exit_leaves_another_platforms_session_alone(
+    client, access_token
+):
+    """The container's ngc row shares a key with the caller's ps2 session, so a
+    named ngc save-and-exit must not save and kill the ps2 game."""
+    ps2_rom = _rom_on("ps2")
+    with _streaming(_nested()):
+        assert _claim_ok(client, access_token, ps2_rom.id).status_code == 202
+        with patch(
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(True, 10, True),
+        ) as save_and_exit:
+            r = client.post(
+                "/api/streaming/sessions/ngc/save-and-exit",
+                params={"container": _key_of(_nested())},
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+        session = asyncio.run(session_store.get_session(_key_of(_nested())))
+    assert r.json()["status"] == "not_found"
+    save_and_exit.assert_not_called()
+    assert session is not None and session["platform"] == "ps2"
+
+
+def test_a_named_save_and_exit_leaves_a_desktop_alone(client, access_token):
+    """Save-and-exit acts on a game, so naming a desktop's container reaches
+    nothing to save."""
+    container = _webstation()
+    key = _key_of(container)
+    with _streaming(container):
+        assert _desktop(client, access_token, key)[0].status_code == 200
+        with patch(
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(True, 10, True),
+        ) as save_and_exit:
+            r = client.post(
+                "/api/streaming/sessions/ps2/save-and-exit",
+                params={"container": key},
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+        session = asyncio.run(session_store.get_session(key))
+    assert r.json()["status"] == "not_found"
+    save_and_exit.assert_not_called()
+    assert session is not None and session["desktop"] is True
+
+
+def test_a_save_and_exit_with_nothing_active_is_a_no_op(client, access_token, rom: Rom):
+    """A retried unload finds its claim already gone, which ends nothing."""
+    with _streaming(_container_for(rom)):
+        with patch(
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(False, 10, False),
+        ) as save_and_exit:
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+    assert r.status_code == 200
+    assert r.json()["status"] == "not_found"
+    assert r.json()["released"] is True
+    save_and_exit.assert_not_called()
+
+
 def test_save_and_exit_failure_still_releases_session(client, access_token, rom: Rom):
     """A failed save is reported as saved=False, but the session is still
     released - the container must not stay claimed by a dead session."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with patch(
-            "handler.streaming.commands.save_and_exit", return_value=(False, 10)
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(False, 10, False),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -2735,7 +3763,8 @@ def test_save_and_exit_rejects_a_slot_the_platform_lacks(client, access_token):
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with patch(
-            "handler.streaming.commands.save_and_exit", return_value=(True, 9)
+            "handler.streaming.commands.save_and_exit",
+            return_value=commands.SaveAndExitOutcome(True, 9, True),
         ) as broker:
             r = client.post(
                 "/api/streaming/sessions/ngc/save-and-exit",
@@ -2750,7 +3779,7 @@ def test_force_release_all_stops_brokers(client, access_token, rom: Rom):
     """Force-release must tell each broker to stop, not just clear Redis."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
-        with patch("handler.streaming.commands.stop", return_value=None) as stop_broker:
+        with _stub_stop() as stop_broker:
             r = client.delete("/api/streaming/sessions", headers=_auth(access_token))
     assert r.status_code == 200
     assert stop_broker.call_count == 1
@@ -2900,12 +3929,15 @@ def test_save_and_exit_pulls_broker_effective_slot(client, access_token, rom: Ro
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 10, True),
+            ),
             _spawns_nothing() as spawn,
             patch(
                 "handler.streaming.states.pull_state_to_library", new=MagicMock()
             ) as pull,
-            patch("handler.streaming.saves.pull_saves_to_library", new=MagicMock()),
+            patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
         ):
             r = client.post(
                 f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
@@ -2926,13 +3958,17 @@ def test_save_and_exit_failed_blocking_save_skips_state_pull(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(False, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(False, 10, False),
+            ),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
                 "handler.streaming.states.pull_state_to_library", new=MagicMock()
             ) as state_pull,
             patch(
-                "handler.streaming.saves.pull_saves_to_library", new=MagicMock()
+                "handler.streaming.saves.pull_saves_to_library",
+                new_callable=AsyncMock,
             ) as save_pull,
         ):
             r = client.post(
@@ -2940,10 +3976,11 @@ def test_save_and_exit_failed_blocking_save_skips_state_pull(
                 json={"slot": 0, "wait": True},
                 headers=_auth(access_token),
             )
+            spawn.assert_called_once()
+            asyncio.run(spawn.call_args[0][0])
     assert r.status_code == 200
     state_pull.assert_not_called()
-    save_pull.assert_called_once()
-    spawn.assert_called_once()
+    save_pull.assert_awaited_once()
 
 
 def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
@@ -2957,9 +3994,12 @@ def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 10, True),
+            ),
             patch("handler.streaming.states.pull_state_to_library", new=MagicMock()),
-            patch("handler.streaming.saves.pull_saves_to_library", new=MagicMock()),
+            patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
             _spawns_nothing(),
         ):
             r = client.post(
@@ -2999,7 +4039,7 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
     key = session_store.session_redis_key(_key_of(container))
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        session = _load_session(key)
         session.pop("rom_id")
         asyncio.run(
             async_cache.set(
@@ -3007,7 +4047,10 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
             )
         )
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(True, 10)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 10, True),
+            ),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
         ):
             r = client.post(
@@ -3044,7 +4087,7 @@ def test_drain_marker_is_not_claimed_over_a_takeover():
             asyncio.run(session_store.claim_drain_marker("cas-takeover", claim)) is None
         )
         # The claim that took over is still there, untouched.
-        current = json.loads(asyncio.run(async_cache.get(key)))
+        current = _load_session(key)
         assert current["claimed_at"] == "2026-01-01T00:05:00+00:00"
         assert "draining" not in current
     finally:
@@ -3169,10 +4212,10 @@ def test_work_running_under_a_claim_keeps_it_off_the_stale_list():
         # runs and the test never waits on a clock.
         with (
             patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0),
-            patch.object(session_store, "_HOLD_CEILING_SECONDS", 0),
+            patch.object(session_store, "HOLD_CEILING_SECONDS", 0),
         ):
             asyncio.run(session_store.hold_session_claim("cas-hold-claim", claim))
-        current = json.loads(asyncio.run(async_cache.get(key)))
+        current = _load_session(key)
         assert current["last_seen"] != "2026-01-01T00:00:00+00:00"
         assert not session_store.session_is_stale(current)
     finally:
@@ -3193,7 +4236,7 @@ def test_holding_a_claim_stops_once_it_is_somebody_else_s():
                     session_store.hold_session_claim("cas-hold-lost", claim), 5
                 )
             )
-        current = json.loads(asyncio.run(async_cache.get(key)))
+        current = _load_session(key)
         assert current["claimed_at"] == "2026-01-01T00:05:00+00:00"
         assert "last_seen" not in current
     finally:
@@ -3427,6 +4470,34 @@ def test_hydrate_skipped_when_resume_state_already_pushed(rom: Rom, admin_user: 
     push.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    ("emulator", "name"),
+    [
+        ("duckstation", "SLUS-00594_resume.20260918-010000000000.sav"),
+        ("rpcs3", "BLUS30443_1.20260918-010000000000.SAVESTAT"),
+    ],
+)
+def test_hydrate_pushes_nothing_to_an_exit_state_emulator(
+    rom: Rom, admin_user: User, emulator, name
+):
+    """Their broker refuses a state file, and the save archive already carries
+    the exit state these library entries were pulled from."""
+    db_state_handler.add_state(_state_for(rom, admin_user, name, emulator))
+    container = {**_container_for(rom), "protocol": "webstation", "emulator": emulator}
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=b"state-bytes"),
+        ),
+        patch("handler.streaming.states.push_state_file", return_value=True) as push,
+    ):
+        pushed = asyncio.run(
+            states.hydrate_states_to_broker(admin_user.id, rom.id, _resolved(container))
+        )
+    assert pushed == 0
+    push.assert_not_called()
+
+
 def test_hydrate_pushes_newest_state_under_container_name(rom: Rom, admin_user: User):
     """Only the newest capture is hydrated, and it lands under the unstamped name
     the emulator expects on disk."""
@@ -3500,6 +4571,30 @@ def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User)
         "Game.20260102-000000000000.01.p2s",
         "Game.20260103-000000000000.01.p2s",
     }
+
+
+def test_prune_state_history_drops_the_pruned_thumbnail(rom: Rom, admin_user: User):
+    for day in range(1, 4):
+        _add_state_at(rom, admin_user, f"Game.2026010{day}-000000000000.01.p2s", day)
+    thumbnail = db_screenshot_handler.add_screenshot(
+        Screenshot(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="Game.20260101-000000000000.01.png",
+            file_path=f"{rom.platform_slug}/screenshots",
+            file_size_bytes=3,
+        )
+    )
+    with (
+        patch("handler.streaming.states.STREAMING_STATE_HISTORY_LIMIT", 2),
+        patch(
+            "handler.filesystem.fs_asset_handler.remove_file", new=AsyncMock()
+        ) as remove,
+    ):
+        asyncio.run(states.prune_state_history(admin_user, rom, "pcsx2"))
+
+    assert remove.await_count == 2
+    assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is None
 
 
 # _store_state_screenshot rejects anything without PNG magic, so fixtures that
@@ -4134,19 +5229,607 @@ def test_release_spawns_saves_pull(client, access_token, rom: Rom):
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.stop", return_value=None),
+            _stub_stop(),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch(
-                "handler.streaming.saves.pull_saves_to_library", new=MagicMock()
+                "handler.streaming.saves.pull_saves_to_library",
+                new_callable=AsyncMock,
             ) as pull,
         ):
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
             )
+            spawn.assert_called_once()
+            asyncio.run(spawn.call_args[0][0])
     assert r.status_code == 200
-    spawn.assert_called_once()
-    assert pull.call_args[0][1] == rom.id
+    pull.assert_awaited_once()
+    assert pull.await_args_list[0].args[1] == rom.id
+
+
+def test_a_claim_behind_an_exit_waits_for_that_exits_saves(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Runs both ends for real: nothing else ties the key an exit marks to the
+    one the next claim waits on."""
+    # Equal ids would let a claim that swaps them find the exit's key anyway.
+    if rom.id == admin_user.id:
+        rom = _rom_on("distinct_id")
+    order: list[str] = []
+    real_wait = saves.wait_for_save_pull
+
+    async def slow_pull(*args, **kwargs) -> bool:
+        await asyncio.sleep(saves._SAVE_PULL_POLL_SECONDS * 2)
+        order.append("filed")
+        return True
+
+    async def hydrate(*args, **kwargs) -> bool:
+        order.append("hydrate")
+        return True
+
+    async def wait_while_it_files(user_id: int, rom_id: int) -> bool:
+        filing = asyncio.ensure_future(spawn.call_args[0][0])
+        done = await real_wait(user_id, rom_id, budget=5)
+        order.append("waited" if done else "gave up")
+        await filing
+        return done
+
+    with (
+        _streaming(_container_for(rom)),
+        patch("handler.streaming.saves.pull_saves_to_library", new=slow_pull),
+    ):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            _stub_stop(),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+        with (
+            patch(
+                "handler.streaming.saves.wait_for_save_pull", new=wait_while_it_files
+            ),
+            patch("handler.streaming.saves.hydrate_saves_to_broker", new=hydrate),
+        ):
+            r = _claim_ok(client, access_token, rom.id)
+    assert r.status_code == 202
+    assert order == ["filed", "waited", "hydrate"]
+
+
+async def _save_pull_pending(user_id: int, rom_id: int) -> bool:
+    """Whether a claim would wait on a save pull, read the way the claim reads it."""
+    return not await saves.wait_for_save_pull(user_id, rom_id, budget=0)
+
+
+def test_a_release_marks_its_save_pull_before_stopping_the_emulator(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """On a pool the player's next claim lands on a free sibling while this
+    container drains, so the pull has to be pending before the slow part."""
+    head, tail = _pool_member(rom, 0), _pool_member(rom, 1)
+    at_stop: list[tuple[bool, bool]] = []
+
+    async def quiesce(container, session, *, save=True):
+        sibling_free = await session_store.get_live_session(_key_of(tail)) is None
+        at_stop.append((sibling_free, await _save_pull_pending(admin_user.id, rom.id)))
+        return commands.StopOutcome()
+
+    with _streaming(head, tail):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch("handler.streaming.lifecycle.quiesce_container", new=quiesce),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            r = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+        spawn.call_args[0][0].close()
+    assert r.status_code == 200
+    assert at_stop == [(True, True)]
+
+
+def test_an_abandoned_teardown_marks_its_save_pull_before_stopping_the_emulator(
+    client, access_token, admin_user: User, rom: Rom
+):
+    container = _container_for(rom)
+    at_stop: list[bool] = []
+
+    async def quiesce(container, session, *, save=True):
+        at_stop.append(await _save_pull_pending(admin_user.id, rom.id))
+        return commands.StopOutcome()
+
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        session = json.loads(_session_raw(container))
+        with (
+            patch("handler.streaming.lifecycle.quiesce_container", new=quiesce),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            torn = asyncio.run(
+                lifecycle.teardown_abandoned_session(
+                    _resolved(container),
+                    _key_of(container),
+                    session,
+                    claimed_by=admin_user.id,
+                )
+            )
+        spawn.call_args[0][0].close()
+    assert torn is True
+    assert at_stop == [True]
+
+
+def test_a_release_that_fails_before_its_pull_leaves_nothing_pending(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Only a pull clears the mark, so a teardown that never gets to one has to,
+    or the player's next claim sits out the whole wait for nothing."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch(
+                "handler.streaming.lifecycle.quiesce_container",
+                new=AsyncMock(side_effect=RuntimeError("broker gone")),
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+    spawn.assert_not_called()
+    assert asyncio.run(_save_pull_pending(admin_user.id, rom.id)) is False
+
+
+def test_an_abandoned_teardown_that_fails_before_its_pull_leaves_nothing_pending(
+    client, access_token, admin_user: User, rom: Rom
+):
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        session = json.loads(_session_raw(container))
+        with (
+            patch(
+                "handler.streaming.lifecycle.quiesce_container",
+                new=AsyncMock(side_effect=RuntimeError("broker gone")),
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            asyncio.run(
+                lifecycle.teardown_abandoned_session(
+                    _resolved(container),
+                    _key_of(container),
+                    session,
+                    claimed_by=admin_user.id,
+                )
+            )
+    spawn.assert_not_called()
+    assert asyncio.run(_save_pull_pending(admin_user.id, rom.id)) is False
+
+
+def _run_exit_pulls(spawn: MagicMock) -> None:
+    """Run the save pulls a teardown spawned, and drop whatever else it did."""
+    for spawned in (c.args[0] for c in spawn.call_args_list):
+        if spawned.cr_code.co_name == "pull_exit_saves":
+            asyncio.run(spawned)
+        else:
+            spawned.close()
+
+
+def test_a_webstation_exit_that_changed_no_saves_lets_the_next_claim_straight_through(
+    client, access_token, rom: Rom, monkeypatch
+):
+    """A webstation exit answers once the save dump is written, so its first
+    "nothing new" is final and retrying it only holds the next claim."""
+    # Long enough that a single retry outlasts the claim's wait below.
+    monkeypatch.setattr(broker, "PULL_RETRY_DELAY", 1.0)
+    waited: list[bool] = []
+    real_wait = saves.wait_for_save_pull
+
+    async def wait_while_it_files(user_id: int, rom_id: int) -> bool:
+        filing = asyncio.ensure_future(pull)
+        waited.append(await real_wait(user_id, rom_id, budget=0.5))
+        filing.cancel()
+        return waited[-1]
+
+    with (
+        _streaming(_webstation_for(rom)),
+        patch("handler.streaming.saves.fetch_save_archive", return_value=None),
+    ):
+        _claim_webstation_ok(client, access_token, rom.id)
+        with (
+            patch(
+                "handler.streaming.webstation.exit_session",
+                return_value={"state_saved": False, "state_slot": None},
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+        (pull,) = (
+            c.args[0]
+            for c in spawn.call_args_list
+            if c.args[0].cr_code.co_name == "pull_exit_saves"
+        )
+        with patch(
+            "handler.streaming.saves.wait_for_save_pull", new=wait_while_it_files
+        ):
+            r = _claim_webstation_ok(client, access_token, rom.id)
+    assert r.status_code == 202
+    assert waited == [True]
+
+
+def test_a_webstation_exit_that_never_answered_keeps_asking(
+    client, access_token, rom: Rom
+):
+    """An exit that timed out or failed may still be writing the dump."""
+    with _streaming(_webstation_for(rom)):
+        _claim_webstation_ok(client, access_token, rom.id)
+        with (
+            patch("handler.streaming.webstation.exit_session", return_value=None),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == broker.PULL_ATTEMPTS
+
+
+@pytest.mark.parametrize(
+    ("exit_report", "wait", "attempts"),
+    [
+        (None, True, broker.PULL_ATTEMPTS),
+        ({"state_saved": True, "state_slot": 10}, False, 1),
+        ({"state_saved": False, "state_slot": None}, True, 1),
+    ],
+)
+def test_a_webstation_save_and_exit_takes_one_answer_only_once_its_exit_answers(
+    client,
+    access_token,
+    rom: Rom,
+    exit_report: dict | None,
+    wait: bool,
+    attempts: int,
+):
+    """This exit always blocks until the dump is written, whatever wait says,
+    but one that timed out or failed may still be writing it."""
+    with _streaming(_webstation_for(rom)):
+        _claim_webstation_ok(client, access_token, rom.id)
+        with (
+            patch(
+                "handler.streaming.webstation.exit_session", return_value=exit_report
+            ),
+            patch(
+                "handler.streaming.states.pull_state_to_library",
+                new=AsyncMock(return_value=True),
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": wait},
+                headers=_auth(access_token),
+            )
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == attempts
+
+
+def test_a_release_keeps_asking_while_the_emulator_flushes(
+    client, access_token, rom: Rom
+):
+    """A per-emulator broker acks the stop before the emulator has flushed its
+    saves, so an early "nothing new" is not the answer yet."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            _stub_stop(),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == broker.PULL_ATTEMPTS
+
+
+def test_an_abandoned_teardown_keeps_asking_while_the_emulator_flushes(
+    client, access_token, admin_user: User, rom: Rom
+):
+    container = _container_for(rom)
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        session = json.loads(_session_raw(container))
+        with (
+            _stub_stop(),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            asyncio.run(
+                lifecycle.teardown_abandoned_session(
+                    _resolved(container),
+                    _key_of(container),
+                    session,
+                    claimed_by=admin_user.id,
+                )
+            )
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == broker.PULL_ATTEMPTS
+
+
+def test_a_force_release_keeps_asking_while_the_emulator_flushes(
+    client, access_token, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            _stub_stop(),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            client.delete("/api/streaming/sessions", headers=_auth(access_token))
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == broker.PULL_ATTEMPTS
+
+
+def _broker_saves(body: dict):
+    """A broker whose save-and-exit answers with `body`, and nothing else."""
+    return lambda _container, path, *args, **kwargs: (
+        body if path == "/save-and-exit" else None
+    )
+
+
+@pytest.mark.parametrize(
+    ("saved", "attempts"), [(True, 1), (False, broker.PULL_ATTEMPTS)]
+)
+def test_a_blocking_save_and_exit_takes_one_answer_only_once_the_broker_confirms(
+    client, access_token, rom: Rom, saved: bool, attempts: int
+):
+    """A save-and-exit that timed out or failed may still be killing the
+    emulator, so only a confirmed one has finished writing."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch(
+                "handler.streaming.broker.request_safe",
+                side_effect=_broker_saves({"saved": saved, "slot": 10}),
+            ),
+            patch(
+                "handler.streaming.states.pull_state_to_library",
+                new=AsyncMock(return_value=True),
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == attempts
+
+
+def test_a_background_save_and_exit_keeps_asking_while_the_emulator_writes(
+    client, access_token, rom: Rom
+):
+    """With wait=false the broker is still saving when the pull starts, so an
+    early "nothing new" is not the answer yet, even from a save it confirmed."""
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch(
+                "handler.streaming.broker.request_safe",
+                side_effect=_broker_saves({"saved": True, "slot": 10}),
+            ),
+            patch(
+                "handler.streaming.states.pull_state_to_library",
+                new=AsyncMock(return_value=True),
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.saves.fetch_save_archive", return_value=None
+            ) as fetch,
+        ):
+            client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": False},
+                headers=_auth(access_token),
+            )
+            _run_exit_pulls(spawn)
+    assert fetch.call_count == broker.PULL_ATTEMPTS
+
+
+def test_save_and_exit_marks_the_save_pull_before_giving_up_the_key(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """With no state to wait on, the key is deleted outright, so a claim can win
+    it the moment it goes and has to find the pull already pending."""
+    key = saves._save_pull_redis_key(admin_user.id, rom.id)
+    pending_at_release: list[int] = []
+    real_release = streaming.release_own_session
+
+    async def release_after_looking(*args, **kwargs):
+        pending_at_release.append(await async_cache.exists(key))
+        return await real_release(*args, **kwargs)
+
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(False, 10, False),
+            ),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch.object(streaming, "release_own_session", release_after_looking),
+        ):
+            r = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"slot": 0, "wait": True},
+                headers=_auth(access_token),
+            )
+        asyncio.run(async_cache.delete(key))
+    assert r.status_code == 200
+    assert pending_at_release == [1]
+
+
+def test_a_claim_waits_for_a_running_save_pull():
+    async def scenario() -> bool:
+        mark = await saves.mark_save_pull_pending(1, 2)
+        waiter = asyncio.create_task(saves.wait_for_save_pull(1, 2, budget=5))
+        await asyncio.sleep(saves._SAVE_PULL_POLL_SECONDS * 2)
+        assert not waiter.done()
+        await saves.clear_save_pull_pending(mark)
+        return await waiter
+
+    assert asyncio.run(scenario()) is True
+
+
+def test_a_wedged_save_pull_does_not_hang_the_claim():
+    """A claim is an interactive request: a pull that never finishes costs the
+    player the previous archive, not a claim that never answers."""
+
+    async def scenario() -> bool:
+        mark = await saves.mark_save_pull_pending(1, 2)
+        try:
+            return await saves.wait_for_save_pull(1, 2, budget=0.1)
+        finally:
+            await saves.clear_save_pull_pending(mark)
+
+    assert asyncio.run(scenario()) is False
+
+
+def test_a_claim_with_nothing_pending_hydrates_straight_away():
+    assert asyncio.run(saves.wait_for_save_pull(1, 2, budget=5)) is True
+
+
+def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
+    admin_user: User, rom: Rom
+):
+    """A pull can outlast a claim's wait, so the player can play and exit again
+    while it runs, and its finishing must not let a claim past the later pull."""
+    entry = _container_for(rom)
+    container = _resolved(entry)
+    session = {"user_id": admin_user.id, "rom_id": rom.id}
+
+    async def scenario() -> tuple[bool, bool]:
+        with (
+            _streaming(entry),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
+        ):
+            for _ in range(2):
+                mark = await lifecycle.mark_exit_saves_pending(container, session)
+                await lifecycle.collect_exit_saves(
+                    container, session, mark, settled=False
+                )
+            first, second = (c.args[0] for c in spawn.call_args_list)
+            await first
+            behind_second = await _save_pull_pending(admin_user.id, rom.id)
+            await second
+            return behind_second, await _save_pull_pending(admin_user.id, rom.id)
+
+    assert asyncio.run(scenario()) == (True, False)
+
+
+def test_an_exit_save_pull_runs_on_the_streaming_worker(
+    admin_user: User, rom: Rom, exit_pull_queue: MagicMock
+):
+    """A web restart would otherwise cut a pull short and park the next claim."""
+    container = _resolved(_container_for(rom))
+    session = {"user_id": admin_user.id, "rom_id": rom.id, "broker_session_id": "b1"}
+    exit_pull_queue.enqueue.side_effect = None
+
+    async def scenario() -> saves.SavePullMark | None:
+        mark = await lifecycle.mark_exit_saves_pending(container, session)
+        await lifecycle.collect_exit_saves(container, session, mark, settled=True)
+        return mark
+
+    mark = asyncio.run(scenario())
+
+    assert mark is not None
+    (func,), kwargs = exit_pull_queue.enqueue.call_args
+    assert func is lifecycle.pull_exit_saves
+    assert kwargs["kwargs"] == {
+        "user_id": admin_user.id,
+        "rom_id": rom.id,
+        "token": mark.token,
+        "container_key": container.key,
+        "platform": container.platform,
+        "broker_session": "b1",
+        "settled": True,
+    }
+    assert kwargs["job_timeout"] == saves.SAVE_PULL_TTL_SECONDS
+
+
+def test_a_pull_that_cannot_be_queued_lets_the_next_claim_through(
+    admin_user: User, rom: Rom, exit_pull_queue: MagicMock
+):
+    container = _resolved(_container_for(rom))
+    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    exit_pull_queue.enqueue.side_effect = ConnectionError("redis went away")
+
+    async def scenario() -> bool:
+        mark = await lifecycle.mark_exit_saves_pending(container, session)
+        await lifecycle.collect_exit_saves(container, session, mark, settled=False)
+        return await _save_pull_pending(admin_user.id, rom.id)
+
+    assert asyncio.run(scenario()) is False
+
+
+def test_a_queued_pull_for_a_container_no_longer_configured_clears_its_mark(
+    admin_user: User, rom: Rom
+):
+    session = {"user_id": admin_user.id, "rom_id": rom.id}
+
+    async def scenario() -> tuple[bool, AsyncMock]:
+        container = _resolved(_container_for(rom))
+        mark = await lifecycle.mark_exit_saves_pending(container, session)
+        assert mark is not None
+        with (
+            _streaming(),
+            patch(
+                "handler.streaming.saves.pull_saves_to_library", new=AsyncMock()
+            ) as pull,
+        ):
+            await lifecycle.pull_exit_saves(
+                user_id=mark.user_id,
+                rom_id=mark.rom_id,
+                token=mark.token,
+                container_key=container.key,
+                platform=container.platform,
+                broker_session=None,
+                settled=False,
+            )
+        return await _save_pull_pending(admin_user.id, rom.id), pull
+
+    pending, pull = asyncio.run(scenario())
+    assert pending is False
+    pull.assert_not_awaited()
 
 
 # ── Resume-from-state ─────────────────────────────────────────────────────────
@@ -4184,6 +5867,42 @@ def test_stamped_state_filename_round_trips_for_retroarch():
     stamped = states.stamped_state_filename("retroarch", "Super Mario.state", when)
     assert re.fullmatch(r"Super Mario\.\d{8}-\d{12}\.state", stamped)
     assert states.container_state_filename(stamped) == "Super Mario.state"
+
+
+def test_exit_state_filenames_resolve_to_the_working_slot():
+    """DuckStation and RPCS3 write one state per game, as they exit, with no
+    slot in its name, so the working slot is the only one a pick can mean."""
+    assert states.slot_from_state_filename("duckstation", "SLUS-00594_resume.sav") == 0
+    assert states.slot_from_state_filename("duckstation", "SLUS-00594.mcd") is None
+    assert states.slot_from_state_filename("rpcs3", "BLUS30443_1.SAVESTAT") == 0
+    assert states.slot_from_state_filename("rpcs3", "BLUS30443_1.SAVESTAT.zst") == 0
+    assert states.slot_from_state_filename("rpcs3", "BLUS30443_1.SAVESTAT.gz") == 0
+    assert states.slot_from_state_filename("rpcs3", "PARAM.SFO") is None
+
+
+@pytest.mark.parametrize(
+    ("emulator", "name", "shape"),
+    [
+        (
+            "duckstation",
+            "SLUS-00594_resume.sav",
+            r"SLUS-00594_resume\.\d{8}-\d{12}\.sav",
+        ),
+        (
+            "rpcs3",
+            "BLUS30443_1.SAVESTAT.zst",
+            r"BLUS30443_1\.\d{8}-\d{12}\.SAVESTAT\.zst",
+        ),
+    ],
+)
+def test_stamped_exit_state_filename_round_trips(emulator, name, shape):
+    """Every exit is its own library entry, and the stamped name still resolves
+    a slot: otherwise the entries the stamp creates could never be picked."""
+    when = datetime(2026, 7, 21, 4, 56, 45, 123456, tzinfo=timezone.utc)
+    stamped = states.stamped_state_filename(emulator, name, when)
+    assert re.fullmatch(shape, stamped)
+    assert states.container_state_filename(stamped) == name
+    assert states.slot_from_state_filename(emulator, stamped) == 0
 
 
 class _ResumeClaim(NamedTuple):
@@ -4412,6 +6131,74 @@ def test_webstation_resume_state_is_pushed_after_activate(
     assert order.push.call_args[0][1] == "Game.03.p2s"
 
 
+@pytest.mark.parametrize(
+    ("emulator", "name"),
+    [
+        ("duckstation", "SLUS-00594_resume.20260918-010000000000.sav"),
+        ("rpcs3", "BLUS30443_1.20260918-010000000000.SAVESTAT"),
+    ],
+)
+def test_an_exit_state_resume_is_the_activate_slot_alone(
+    client, access_token, rom: Rom, admin_user: User, emulator, name
+):
+    """These brokers refuse a state file mid-session and resume from the exit
+    state the save archive brings back, so the slot on the activate is the whole
+    resume. A push would only be refused and report the resume as lost."""
+    state = db_state_handler.add_state(_state_for(rom, admin_user, name, emulator))
+    activate = MagicMock(return_value={"url": "/room/x"})
+    push = MagicMock(return_value=False)
+    with _streaming({**_webstation_for(rom), "emulator": emulator}):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.states.push_state_file", push),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.tar"),
+            ),
+            patch(
+                "handler.filesystem.fs_asset_handler.read_file",
+                new=AsyncMock(return_value=b"state-bytes"),
+            ),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch(
+                "handler.streaming.states.hydrate_states_to_broker", new=MagicMock()
+            ) as hydrate,
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id, state_id=state.id)
+    assert r.status_code == 202
+    assert activate.call_args.kwargs["resume_slot"] == 0
+    push.assert_not_called()
+    assert _launch_ready(sent)["resume"] is True
+    assert hydrate.call_args.kwargs["resume_pushed"] is True
+
+
+def test_an_exit_state_resume_with_no_archive_reports_the_resume_lost(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The archive is the whole resume on these brokers, so without one the slot
+    would load whatever the container last held and the player would not be told."""
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "SLUS-00594_resume.sav", "duckstation")
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    with _streaming({**_webstation_for(rom), "emulator": "duckstation"}):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value=None),
+            ),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id, state_id=state.id)
+    assert r.status_code == 202
+    assert activate.call_args.kwargs["resume_slot"] is None
+    assert _launch_ready(sent)["resume"] is False
+
+
 def test_webstation_claim_without_a_state_boots_clean(client, access_token, rom: Rom):
     """A restored archive puts in-game saves back, nothing more: no picked
     state means no resume_slot, even though the archive carries the exit
@@ -4441,14 +6228,14 @@ def test_stopping_a_webstation_broker_reports_the_state_it_captured(rom: Rom):
         "handler.streaming.webstation.exit_session",
         return_value={"state_saved": True, "state_slot": 10},
     ):
-        assert commands.stop(_resolved(container)) == 10
+        assert commands.stop(_resolved(container)) == (10, True)
     with patch(
         "handler.streaming.webstation.exit_session",
         return_value={"state_saved": False, "state_slot": 10},
     ):
-        assert commands.stop(_resolved(container)) is None
+        assert commands.stop(_resolved(container)) == (None, True)
     with patch("handler.streaming.webstation.exit_session", return_value=None):
-        assert commands.stop(_resolved(container)) is None
+        assert commands.stop(_resolved(container)) == (None, False)
 
 
 def test_stopping_without_saving_asks_the_broker_to_write_no_state(rom: Rom):
@@ -4459,7 +6246,7 @@ def test_stopping_without_saving_asks_the_broker_to_write_no_state(rom: Rom):
         "handler.streaming.webstation.exit_session",
         return_value={"state_saved": False, "state_slot": None},
     ) as exit_call:
-        assert commands.stop(_resolved(container), save=False) is None
+        assert commands.stop(_resolved(container), save=False).state_slot is None
     assert exit_call.call_args.kwargs["save"] is False
 
 
@@ -4478,7 +6265,7 @@ def test_a_webstation_exit_carries_slot_zero_rather_than_dropping_it(rom: Rom):
 def test_stopping_a_legacy_broker_reports_no_state(rom: Rom):
     """The per-emulator brokers stop without saving, so nothing is pulled."""
     with patch("handler.streaming.broker.request_safe", return_value={}):
-        assert commands.stop(_resolved(_container_for(rom))) is None
+        assert commands.stop(_resolved(_container_for(rom))) == (None, False)
 
 
 def test_releasing_a_webstation_session_pulls_the_exit_state(
@@ -4524,7 +6311,7 @@ def test_releasing_without_saving_files_no_state(client, access_token, rom: Rom)
     """The stop button is the deliberate way out without saving, so the exit
     writes nothing and there is no state to pull into the library."""
     pull = AsyncMock(return_value=True)
-    stop = MagicMock(return_value=None)
+    stop = MagicMock(return_value=commands.StopOutcome())
     with _streaming(_webstation_for(rom)):
         with (
             patch(
@@ -4601,7 +6388,7 @@ def test_admin_can_release_other_users_session(
     """An admin may release a session claimed by someone else."""
     with _streaming(_container_for(rom)):
         _claim_ok(client, viewer_access_token, rom.id)
-        with patch("handler.streaming.commands.stop", return_value=None) as stop:
+        with _stub_stop() as stop:
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
@@ -5009,7 +6796,10 @@ def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
         ):
             _mc_claim(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.save_and_exit", return_value=(True, 1)),
+            patch(
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 1, True),
+            ),
             patch(
                 "handler.streaming.memory_cards.evacuate_card",
                 new=AsyncMock(return_value=True),
@@ -5046,7 +6836,7 @@ def test_release_evacuates_card(client, access_token, rom: Rom):
         ):
             _mc_claim(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.stop", return_value=None) as stop,
+            _stub_stop() as stop,
             patch(
                 "handler.streaming.memory_cards.evacuate_card",
                 new=AsyncMock(return_value=True),
@@ -5086,7 +6876,7 @@ def test_release_frees_the_claim_when_teardown_raises(client, access_token, rom:
         ):
             _mc_claim(client, access_token, rom.id)
         with (
-            patch("handler.streaming.commands.stop", return_value=None),
+            _stub_stop(),
             patch(
                 "handler.streaming.memory_cards.evacuate_session_card",
                 new=AsyncMock(side_effect=OSError("broker went away")),
@@ -5119,7 +6909,8 @@ def test_save_and_exit_wait_false_forces_blocking_on_card_sync(
             _mc_claim(client, access_token, rom.id)
         with (
             patch(
-                "handler.streaming.commands.save_and_exit", return_value=(True, 1)
+                "handler.streaming.commands.save_and_exit",
+                return_value=commands.SaveAndExitOutcome(True, 1, True),
             ) as save,
             patch(
                 "handler.streaming.memory_cards.evacuate_card",
@@ -5712,7 +7503,7 @@ def test_releasing_a_session_takes_it_off_the_activity_board(
     container = _container_for(rom)
     with _streaming(container):
         _claim_ok(client, access_token, rom.id)
-        with patch("handler.streaming.commands.stop", return_value=None):
+        with _stub_stop():
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",
                 headers=_auth(access_token),
@@ -5868,6 +7659,14 @@ def test_the_rom_language_is_reduced_to_an_iso_code(client, access_token, rom: R
     db_rom_handler.update_rom(rom.id, {"languages": ["fr"]})
 
     assert _activate_body(client, access_token, rom)["rom"]["language"] == "fr"
+
+
+def test_a_provider_only_language_is_reduced_too(client, access_token, rom: Rom):
+    """The languages only a provider reports ("Czech") have no filename
+    shortcode, so the broker would otherwise get nothing for them."""
+    db_rom_handler.update_rom(rom.id, {"languages": ["Czech"]})
+
+    assert _activate_body(client, access_token, rom)["rom"]["language"] == "cs"
 
 
 def test_an_unknown_rom_language_is_sent_as_none(client, access_token, rom: Rom):
@@ -6044,6 +7843,19 @@ def test_joinable_hides_a_solo_session(
     assert body["sessions"] == []
 
 
+def test_joinable_skips_the_rom_lookup_for_a_session_nobody_may_join(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Home polls this listing, and most live sessions are solo."""
+    container = {"host": "http://192.168.1.10:3000", "platform": rom.platform_slug}
+    with _streaming(container):
+        _claim_ok(client, access_token, rom.id)
+        with patch("handler.streaming.access.session_rom") as lookup:
+            _joinable(client, viewer_access_token)
+
+    lookup.assert_not_called()
+
+
 def test_joinable_hides_a_session_nobody_could_join(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -6177,6 +7989,112 @@ def test_joining_a_rom_on_a_hidden_platform_is_404_masked(
     join_broker.assert_not_called()
 
 
+def _ws_pool_member(rom: Rom, index: int, **overrides) -> dict:
+    """One member of a pool of webstation containers, the broker a joiner needs,
+    on a distinct host so the room URL says which member answered."""
+    return _webstation(
+        **{
+            "host": f"http://192.168.1.1{index}:3000",
+            "broker_host": f"http://192.168.1.1{index}:8000",
+            "platforms": {rom.platform_slug: "pcsx2"},
+            **overrides,
+        }
+    )
+
+
+def _joined_room(url: str = "/webstation/?token=abc"):
+    return patch("handler.streaming.webstation.join", return_value={"url": url})
+
+
+def test_joining_walks_past_a_session_whose_rom_is_hidden(
+    client,
+    access_token,
+    editor_access_token,
+    viewer_access_token,
+    viewer_user: User,
+    rom: Rom,
+    second_rom: Rom,
+):
+    """A hidden ROM earlier in the pool is not the caller's answer, so it must
+    not mask the joinable session behind it."""
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    with _streaming(_ws_pool_member(rom, 0), _ws_pool_member(rom, 1)):
+        _claim_multiplayer(client, access_token, rom.id)
+        _claim_multiplayer(client, editor_access_token, second_rom.id)
+        with _joined_room():
+            r = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert r.status_code == 200
+    assert r.json()["rom_id"] == second_rom.id
+
+
+def test_joining_walks_past_the_callers_own_session(
+    client, access_token, viewer_access_token, rom: Rom, second_rom: Rom
+):
+    """Joining is for somebody else's game: the caller's own session is the one
+    they already hold, and the listing leaves it out for the same reason."""
+    with _streaming(_ws_pool_member(rom, 0), _ws_pool_member(rom, 1)):
+        _claim_multiplayer(client, viewer_access_token, rom.id)
+        _claim_multiplayer(client, access_token, second_rom.id)
+        with _joined_room():
+            r = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert r.status_code == 200
+    assert r.json()["rom_id"] == second_rom.id
+
+
+def test_joining_walks_past_a_session_on_another_platform(
+    client,
+    access_token,
+    editor_access_token,
+    viewer_access_token,
+    rom: Rom,
+    second_rom: Rom,
+):
+    """A container serves several platforms and holds one session, so a member
+    busy with another platform is not this platform's session to join."""
+    member = _ws_pool_member(
+        rom, 0, platforms={rom.platform_slug: "pcsx2", "ngc": "dolphin"}
+    )
+    with _streaming(member, _ws_pool_member(rom, 1)):
+        _claim_multiplayer(client, access_token, rom.id)
+        key = session_store.session_redis_key(_key_of(member))
+        session = json.loads(asyncio.run(async_cache.get(key)))
+        session["platform"] = "ngc"
+        asyncio.run(async_cache.set(key, json.dumps(session)))
+        _claim_multiplayer(client, editor_access_token, second_rom.id)
+        with _joined_room():
+            r = _join(client, viewer_access_token, rom.platform_slug)
+
+    assert r.status_code == 200
+    assert r.json()["rom_id"] == second_rom.id
+
+
+def test_joining_a_named_container_busy_with_another_platform_is_a_404(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    """Naming the container skips the walk, not its platform check: the game there
+    now may be another platform's, never the one the caller asked to join."""
+    member = _ws_pool_member(
+        rom, 0, platforms={rom.platform_slug: "pcsx2", "ngc": "dolphin"}
+    )
+    with _streaming(member):
+        _claim_multiplayer(client, access_token, rom.id)
+        key = session_store.session_redis_key(_key_of(member))
+        session = json.loads(asyncio.run(async_cache.get(key)))
+        session["platform"] = "ngc"
+        asyncio.run(async_cache.set(key, json.dumps(session)))
+        with _joined_room():
+            r = _join(
+                client,
+                viewer_access_token,
+                rom.platform_slug,
+                container=_key_of(member),
+            )
+
+    assert r.status_code == 404
+
+
 def test_joining_a_solo_session_finds_nothing_to_join(
     client, access_token, viewer_access_token, rom: Rom
 ):
@@ -6251,7 +8169,7 @@ def test_joining_requires_auth(client, rom: Rom):
 def _expand(entry: dict) -> list[ResolvedContainer]:
     """The records the resolver builds for one raw config entry."""
     with _streaming(entry):
-        return list(streaming.resolve_containers())
+        return list(resolve_containers())
 
 
 def test_expand_platform_block_overrides_container_defaults():
