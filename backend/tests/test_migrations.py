@@ -650,4 +650,9 @@ def test_the_group_rename_leaves_admin_changes_alone():
         groups = _system_groups(connection)
         transaction.rollback()
 
-    assert groups == {"Viewer (legacy)": groups["Viewer (legacy)"], "Editor": "Custom"}
+    migration = _load_migration("0135_rename_system_groups.py")
+    _, _, seeded_viewer_description, _ = migration.RENAMES[0]
+    assert groups == {
+        "Viewer (legacy)": seeded_viewer_description,
+        "Editor": "Custom",
+    }

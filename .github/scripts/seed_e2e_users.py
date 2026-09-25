@@ -32,7 +32,8 @@ from handler.auth import auth_handler  # noqa: E402
 from handler.database import db_permission_handler, db_user_handler  # noqa: E402
 from models.user import Role, User  # noqa: E402
 
-VIEWER_GROUP_NAME = "Viewer"
+# The seeded group stays "Viewer (legacy)" when an admin already took "Viewer".
+VIEWER_GROUP_NAMES = ("Viewer", "Viewer (legacy)")
 
 E2E_ADMIN_USERNAME = "e2e_admin"
 E2E_VIEWER_USERNAME = "e2e_viewer"
@@ -42,11 +43,9 @@ PASSWORD = os.environ.get("E2E_PASSWORD", "e2e-Passw0rd!")  # nosec B105
 
 def _viewer_group_id() -> int:
     for group in db_permission_handler.get_groups():
-        if group.name == VIEWER_GROUP_NAME:
+        if group.is_system and group.name in VIEWER_GROUP_NAMES:
             return group.id
-    raise SystemExit(
-        f"No {VIEWER_GROUP_NAME!r} group found, run `alembic upgrade head` first."
-    )
+    raise SystemExit("No seeded Viewer group found, run `alembic upgrade head` first.")
 
 
 def _upsert(username: str, role: Role, permission_group_id: int | None) -> None:

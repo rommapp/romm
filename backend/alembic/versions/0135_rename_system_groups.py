@@ -1,10 +1,8 @@
 """Rename the seeded permission groups to Viewer and Editor
 
-0092 seeded them as "Viewer (legacy)" and "Editor (legacy)", which reads as
-deprecated even though they are the built-in roles. Only the untouched system
-rows are renamed: a group an admin already renamed keeps its name, a clash
-with an existing "Viewer"/"Editor" skips the rename, and a description the
-admin edited is kept.
+Only the untouched system rows are renamed: a group an admin already renamed
+keeps its name, a clash with an existing "Viewer"/"Editor" skips the rename,
+and a description the admin edited is kept.
 
 Revision ID: 0135_rename_system_groups
 Revises: 0134_gallery_sort_indexes
