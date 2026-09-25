@@ -285,6 +285,11 @@ class SoundtrackTrackMetaSchema(BaseModel):
     track_meta: TrackMetaSchema | None = None
 
 
+class CdAudioExtractionSchema(BaseModel):
+    extracted: list[str]
+    skipped: list[str]
+
+
 class RomMetadataSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RomFileSchema } from "@/__generated__";
-import { romFileUrl, versionedRomFileUrl } from "./romFiles";
+import type { DetailedRom } from "@/stores/roms";
+import { hasCueSheet, romFileUrl, versionedRomFileUrl } from "./romFiles";
 
 const file: RomFileSchema = {
   id: 7,
@@ -40,5 +41,43 @@ describe("versionedRomFileUrl", () => {
   it("changes when the file row is updated", () => {
     const replaced = { ...file, updated_at: "2024-03-01T00:00:00+00:00" };
     expect(versionedRomFileUrl(replaced)).not.toBe(versionedRomFileUrl(file));
+  });
+});
+
+describe("hasCueSheet", () => {
+  function disc(
+    files: Partial<RomFileSchema>[],
+    hasSimpleSingleFile = false,
+  ): DetailedRom {
+    return {
+      has_simple_single_file: hasSimpleSingleFile,
+      files: files.map((overrides) => ({ ...file, ...overrides })),
+    } as DetailedRom;
+  }
+
+  it("finds a game cue sheet in a disc folder", () => {
+    expect(
+      hasCueSheet(
+        disc([
+          { file_name: "Game.CUE", category: "game" },
+          { file_name: "Game (Track 1).bin", category: "game" },
+        ]),
+      ),
+    ).toBe(true);
+    expect(hasCueSheet(disc([{ file_name: "Game.cue", category: null }]))).toBe(
+      true,
+    );
+  });
+
+  it("ignores cue sheets outside the game files", () => {
+    expect(
+      hasCueSheet(disc([{ file_name: "Game.cue", category: "soundtrack" }])),
+    ).toBe(false);
+  });
+
+  it("refuses a sheet loose in the platform folder", () => {
+    expect(
+      hasCueSheet(disc([{ file_name: "Game.cue", category: "game" }], true)),
+    ).toBe(false);
   });
 });

@@ -6,11 +6,21 @@ from fastapi import Request, status
 from fastapi.responses import Response
 
 from decorators.auth import protected_route
-from endpoints.responses.rom import SoundtrackTrackMetaSchema, TrackMetaSchema
+from endpoints.responses.rom import (
+    CdAudioExtractionSchema,
+    SoundtrackTrackMetaSchema,
+    TrackMetaSchema,
+)
 from endpoints.roms.upload import receive_rom_file
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
+from handler.cd_audio import (
+    CdAudioEncodeException,
+    CdAudioNeedsFolderException,
+    CdAudioUnavailableException,
+    extract_cd_audio,
+)
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS
@@ -90,6 +100,48 @@ async def add_rom_soundtracks(
     )
 
     return Response(status_code=status.HTTP_201_CREATED)
+
+
+@protected_route(
+    router.post,
+    "/{id}/soundtracks/cd-audio",
+    [Scope.ROMS_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_409_CONFLICT: {},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {},
+    },
+)
+async def extract_rom_cd_audio(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> CdAudioExtractionSchema:
+    """Extract the audio tracks of a ROM's cue sheets into its soundtrack/ subfolder."""
+
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
+
+    try:
+        result = await extract_cd_audio(rom)
+    except CdAudioUnavailableException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+    except CdAudioNeedsFolderException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    except CdAudioEncodeException as exc:
+        log.error(f"CD audio extraction failed for ROM {id}", exc_info=exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="There was an error extracting the CD audio",
+        ) from exc
+
+    return CdAudioExtractionSchema(extracted=result.extracted, skipped=result.skipped)
 
 
 @protected_route(

@@ -231,6 +231,7 @@ ARG WEBSERVER_FOLDER=/var/www/html
 # rebuilt, so the digest pin alone leaves known-vulnerable packages in the image.
 RUN apk upgrade --no-cache && apk add --no-cache \
     bash \
+    flac \
     libarchive-tools \
     libmagic \
     mariadb-connector-c \
