@@ -408,13 +408,8 @@ def should_scan_rom(
         or (scan_type == ScanType.COMPLETE)
         # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
-        # Importing a new file costs the full hash a title-ids scan skips, and
-        # a platform sigil cannot read has no id to refresh
-        or (
-            scan_type == ScanType.TITLE_IDS
-            and rom is not None
-            and rom.platform_slug in SIGIL_PLATFORM_SLUGS
-        )
+        # Importing a new file costs the full hash a title-ids scan skips
+        or (scan_type == ScanType.TITLE_IDS and rom is not None)
         or (
             rom
             and (
@@ -815,9 +810,7 @@ async def _identify_rom(
     )
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
-    # Similar games key on metadata, which a title-ids scan leaves alone.
-    if scan_type != ScanType.TITLE_IDS:
-        scanned_rom_ids.add(_added_rom.id)
+    scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:
         await _emit_scanning_rom(socket_manager, _added_rom)
@@ -950,6 +943,12 @@ async def _identify_platform(
     if platform and scan_type == ScanType.NEW_PLATFORMS:
         return scan_stats
 
+    # A title-ids scan refreshes known roms, on the platforms sigil can read.
+    if scan_type == ScanType.TITLE_IDS and (
+        not platform or platform.slug not in SIGIL_PLATFORM_SLUGS
+    ):
+        return scan_stats
+
     scanned_platform = await scan_platform(platform_slug, fs_platforms)
     if platform:
         scanned_platform.id = platform.id
@@ -975,7 +974,7 @@ async def _identify_platform(
         try:
             fs_firmware = await fs_firmware_handler.get_firmware(platform.fs_slug)
         except FirmwareNotFoundException:
-            fs_firmware = []
+            pass
 
         if len(fs_firmware) == 0:
             log.warning(
@@ -1067,11 +1066,7 @@ async def _identify_platform(
         roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
-            with_files=scan_type == ScanType.QUICK
-            or (
-                scan_type == ScanType.TITLE_IDS
-                and platform.slug in SIGIL_PLATFORM_SLUGS
-            ),
+            with_files=scan_type in (ScanType.QUICK, ScanType.TITLE_IDS),
         )
 
         # Separate skipped ROMs from those that need scanning
@@ -1457,10 +1452,12 @@ async def scan_platforms(
 
         # Otherwise the games scanned today have an empty "Similar games"
         # section until the nightly build. Threaded: the scoring is CPU-bound.
-        try:
-            await asyncio.to_thread(top_up_similarity, scanned_rom_ids)
-        except Exception as e:
-            log.error(f"Couldn't update recommendations after the scan: {e}")
+        # A title-ids scan leaves the metadata similar games key on alone.
+        if scan_type != ScanType.TITLE_IDS:
+            try:
+                await asyncio.to_thread(top_up_similarity, scanned_rom_ids)
+            except Exception as e:
+                log.error(f"Couldn't update recommendations after the scan: {e}")
 
         # Export metadata files if enabled in config
         config = cm.get_config()

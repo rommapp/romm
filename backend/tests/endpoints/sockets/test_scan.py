@@ -560,20 +560,15 @@ class TestShouldScanRom:
         assert should_scan_rom(ScanType.HASHES, rom, [rom.id + 99], ["igdb"]) is False
         assert should_scan_rom(ScanType.HASHES, rom, [rom.id], ["igdb"]) is True
 
-    def test_title_ids_scan_only_touches_existing_roms(self):
+    def test_title_ids_scan_only_touches_existing_roms(self, rom: Rom):
         """It refreshes ids without rehashing, and importing a file with no
         entry yet would cost the full hash of that file."""
-        rom = _rom_on("psp")
-
         assert should_scan_rom(ScanType.TITLE_IDS, None, [], ["igdb"]) is False
         assert should_scan_rom(ScanType.TITLE_IDS, rom, [], ["igdb"]) is True
         assert (
             should_scan_rom(ScanType.TITLE_IDS, rom, [rom.id + 99], ["igdb"]) is False
         )
         assert should_scan_rom(ScanType.TITLE_IDS, rom, [rom.id], ["igdb"]) is True
-
-    def test_title_ids_scan_skips_platforms_sigil_cannot_read(self):
-        assert should_scan_rom(ScanType.TITLE_IDS, _rom_on("snes"), [], []) is False
 
     # Test UNMATCHED scan type
     def test_unmatched_scan_with_no_rom(self):
@@ -700,7 +695,7 @@ class TestShouldScanRom:
         expected,
     ):
         """Test comprehensive scenarios with different combinations"""
-        rom: Rom = Mock(spec=Rom, platform_slug="psp")
+        rom: Rom = Mock(spec=Rom)
         roms_ids = []
 
         if rom_exists:
@@ -2124,6 +2119,16 @@ class TestPostScanRecommendations:
 
         top_up.assert_called_once_with(set())
 
+    async def test_a_title_ids_scan_skips_the_top_up(self, patched, mocker):
+        """Similar games key on metadata, which a title-ids scan leaves alone."""
+        top_up = mocker.patch.object(scan_module, "top_up_similarity")
+
+        await scan_platforms(
+            platform_ids=[], metadata_sources=[], scan_type=ScanType.TITLE_IDS
+        )
+
+        top_up.assert_not_called()
+
     async def test_a_failure_to_index_does_not_fail_the_scan(self, patched, mocker):
         mocker.patch.object(
             scan_module, "top_up_similarity", side_effect=RuntimeError("boom")
@@ -2814,7 +2819,6 @@ def identify_harness(mocker):
         roms_ids: list[int],
         socket_manager: AsyncMock | None = None,
         scan_stats: AsyncMock | None = None,
-        scanned_rom_ids: set[int] | None = None,
     ) -> None:
         fs_rom: FSRom = {
             "fs_name": "Game",
@@ -2838,7 +2842,7 @@ def identify_harness(mocker):
             launchbox_remote_enabled=False,
             socket_manager=socket_manager or AsyncMock(),
             scan_stats=scan_stats or AsyncMock(),
-            scanned_rom_ids=set() if scanned_rom_ids is None else scanned_rom_ids,
+            scanned_rom_ids=set(),
         )
 
     return SimpleNamespace(
@@ -2931,28 +2935,6 @@ class TestIdentifyRomIncrementalHashing:
         assert kwargs["existing_files"] is None
 
 
-class TestIdentifyRomSimilarityTopUp:
-    """Only scans that can change a rom's metadata queue it for similar games."""
-
-    @pytest.mark.parametrize(
-        "scan_type,queued",
-        [(ScanType.HASHES, True), (ScanType.TITLE_IDS, False)],
-    )
-    async def test_a_title_ids_scan_queues_nothing(
-        self, identify_harness, scan_type: ScanType, queued: bool
-    ):
-        scanned_rom_ids: set[int] = set()
-
-        await identify_harness.run(
-            identify_harness.existing_rom(),
-            scan_type,
-            [],
-            scanned_rom_ids=scanned_rom_ids,
-        )
-
-        assert bool(scanned_rom_ids) is queued
-
-
 class TestIdentifyPlatformLoadsFileRows:
     """A quick or title-ids scan reads every existing rom's files, so their rows
     are loaded with the batch lookup instead of one query per rom."""
@@ -2963,7 +2945,7 @@ class TestIdentifyPlatformLoadsFileRows:
             scan_module, "redis_client", Mock(get=Mock(return_value=None))
         )
 
-        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform = Platform(name="Test", slug="psp", fs_slug="test")
         platform.id = 1
         platform.missing_from_fs = False
         db_platform = mocker.patch.object(scan_module, "db_platform_handler")
@@ -3000,7 +2982,6 @@ class TestIdentifyPlatformLoadsFileRows:
 
         rom = Rom(fs_name="Game", platform_id=platform.id)
         rom.id = 42
-        rom.platform = platform
         db_rom = mocker.patch.object(scan_module, "db_rom_handler")
         db_rom.get_roms_by_fs_name.return_value = {"test/roms/Game": rom}
         db_rom.get_missing_rom_ids.return_value = set()
@@ -3011,19 +2992,16 @@ class TestIdentifyPlatformLoadsFileRows:
         return db_rom
 
     @pytest.mark.parametrize(
-        "scan_type,platform_slug,with_files",
+        "scan_type,with_files",
         [
-            (ScanType.QUICK, "test", True),
-            (ScanType.TITLE_IDS, "psp", True),
-            (ScanType.TITLE_IDS, "test", False),
-            (ScanType.COMPLETE, "test", False),
+            (ScanType.QUICK, True),
+            (ScanType.TITLE_IDS, True),
+            (ScanType.COMPLETE, False),
         ],
     )
     async def test_rows_are_loaded_only_for_the_scans_that_read_them(
-        self, patched, scan_type, platform_slug, with_files
+        self, patched, scan_type, with_files
     ):
-        self.platform.slug = platform_slug
-
         await scan_module._identify_platform(
             platform_slug="test",
             scan_type=scan_type,
@@ -3037,6 +3015,23 @@ class TestIdentifyPlatformLoadsFileRows:
         )
 
         assert patched.get_roms_by_fs_name.call_args.kwargs["with_files"] is with_files
+
+    async def test_a_title_ids_scan_skips_a_platform_sigil_cannot_read(self, patched):
+        self.platform.slug = "snes"
+
+        await scan_module._identify_platform(
+            platform_slug="test",
+            scan_type=ScanType.TITLE_IDS,
+            fs_platforms=["test"],
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
+        )
+
+        patched.get_roms_by_fs_name.assert_not_called()
 
     @pytest.mark.parametrize(
         "scan_type,walks_firmware",
