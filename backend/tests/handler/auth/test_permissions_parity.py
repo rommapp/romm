@@ -24,7 +24,7 @@ from models.user import Role, User
 def test_viewer_matrix_projects_to_write_scopes():
     projected = set(grants_to_scopes(LEGACY_VIEWER_GRANTS))
     assert projected == set(WRITE_SCOPES)
-    # A group-less user falls back to the default (Viewer legacy) group.
+    # A group-less user falls back to the default Viewer group.
     assert projected == set(User(role=Role.USER).oauth_scopes)
 
 
@@ -33,8 +33,8 @@ def test_editor_matrix_projects_to_edit_scopes():
 
     projected = set(grants_to_scopes(LEGACY_EDITOR_GRANTS))
     assert projected == set(EDIT_SCOPES)
-    # Editor-level access now comes from the Editor (legacy) group.
-    editor_group = db_permission_handler.get_group_by_name("Editor (legacy)")
+    # Editor-level access now comes from the Editor group.
+    editor_group = db_permission_handler.get_group_by_name("Editor")
     assert editor_group is not None
     assert projected == set(
         User(role=Role.USER, permission_group_id=editor_group.id).oauth_scopes
@@ -75,14 +75,14 @@ def test_migration_seeded_legacy_groups():
         groups = {
             g.name: g
             for g in s.query(PermissionGroup)
-            .filter(PermissionGroup.name.in_(["Viewer (legacy)", "Editor (legacy)"]))
+            .filter(PermissionGroup.name.in_(["Viewer", "Editor"]))
             .all()
         }
 
-        assert set(groups) == {"Viewer (legacy)", "Editor (legacy)"}
+        assert set(groups) == {"Viewer", "Editor"}
 
-        viewer = groups["Viewer (legacy)"]
-        editor = groups["Editor (legacy)"]
+        viewer = groups["Viewer"]
+        editor = groups["Editor"]
 
         # Viewer is the server-wide default; both are system groups.
         assert viewer.is_default is True

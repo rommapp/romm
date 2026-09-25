@@ -65,7 +65,7 @@ class PermissionGroup(BaseModel):
 
     A group carries a read/write/delete matrix over entity types (its
     ``grants``). Exactly one group is the server-wide default (``is_default``)
-    applied to new users. ``is_system`` marks the auto-created legacy groups so
+    applied to new users. ``is_system`` marks the seeded Viewer and Editor groups so
     the admin UI can warn before editing/deleting them.
     """
 

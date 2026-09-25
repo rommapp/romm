@@ -215,4 +215,4 @@ def test_default_group_is_viewer_legacy():
 
     group = db_permission_handler.get_default_group()
     assert group is not None
-    assert group.name == "Viewer (legacy)"
+    assert group.name == "Viewer"

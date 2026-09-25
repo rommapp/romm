@@ -598,3 +598,56 @@ def test_the_state_disc_file_migration_resumes_an_interrupted_run(drop_column: b
     assert "disc_file_id" in columns
     assert index
     assert "fk_states_disc_file_id" in foreign_keys
+
+
+def _system_groups(connection: sa.Connection) -> dict[str, str]:
+    rows = connection.execute(
+        sa.text("SELECT name, description FROM permission_groups WHERE is_system")
+    )
+    return {name: description for name, description in rows}
+
+
+def _replay_group_rename(connection: sa.Connection, direction: str) -> None:
+    migration = _load_migration("0135_rename_system_groups.py")
+    with Operations.context(MigrationContext.configure(connection)):
+        getattr(migration, direction)()
+
+
+def test_the_group_rename_round_trips_the_seeded_groups():
+    with sync_engine.connect() as connection, connection.begin() as transaction:
+        renamed = _system_groups(connection)
+        _replay_group_rename(connection, "downgrade")
+        legacy = _system_groups(connection)
+        _replay_group_rename(connection, "upgrade")
+        replayed = _system_groups(connection)
+        transaction.rollback()
+
+    assert set(renamed) == {"Viewer", "Editor"}
+    assert set(legacy) == {"Viewer (legacy)", "Editor (legacy)"}
+    assert "pre-upgrade" in legacy["Viewer (legacy)"]
+    assert replayed == renamed
+
+
+def test_the_group_rename_leaves_admin_changes_alone():
+    """A taken name skips that group, and an edited description survives."""
+    with sync_engine.connect() as connection, connection.begin() as transaction:
+        _replay_group_rename(connection, "downgrade")
+        connection.execute(
+            sa.text(
+                "INSERT INTO permission_groups "
+                "(name, description, is_default, is_system, created_at, updated_at) "
+                "VALUES ('Viewer', '', false, false, "
+                "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            )
+        )
+        connection.execute(
+            sa.text(
+                "UPDATE permission_groups SET description = 'Custom' "
+                "WHERE name = 'Editor (legacy)'"
+            )
+        )
+        _replay_group_rename(connection, "upgrade")
+        groups = _system_groups(connection)
+        transaction.rollback()
+
+    assert groups == {"Viewer (legacy)": groups["Viewer (legacy)"], "Editor": "Custom"}

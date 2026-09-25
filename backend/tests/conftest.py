@@ -482,7 +482,7 @@ def admin_user():
 @pytest.fixture
 def editor_user():
     # role collapses to `user`; editor-level access now comes from the group.
-    group = db_permission_handler.get_group_by_name("Editor (legacy)")
+    group = db_permission_handler.get_group_by_name("Editor")
     user = User(
         username="test_editor",
         hashed_password=_password_hash("test_editor_password"),
@@ -494,7 +494,7 @@ def editor_user():
 
 @pytest.fixture
 def viewer_user():
-    group = db_permission_handler.get_group_by_name("Viewer (legacy)")
+    group = db_permission_handler.get_group_by_name("Viewer")
     user = User(
         username="test_viewer",
         hashed_password=_password_hash("test_viewer_password"),
