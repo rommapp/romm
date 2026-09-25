@@ -13,7 +13,7 @@
 //
 // The soundtrack player is reused from v1 for now.
 import { RBtn, RDropzone, REmptyState } from "@v2/lib";
-import { computed, defineAsyncComponent, ref } from "vue";
+import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
@@ -122,9 +122,31 @@ const soundtrackDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const canUploadSoundtrack = computed(
   () => props.rom.has_soundtrack && canEdit.value,
 );
-const canExtractCdAudio = computed(
-  () => canEdit.value && hasDiscImage(props.rom),
+// Probed when the subtab opens, and again whenever the ROM's files change, so
+// the action only shows while the disc has audio tracks left to extract.
+const cdAudioProbeKey = computed(() =>
+  subTab.value === "soundtrack" && canEdit.value && hasDiscImage(props.rom)
+    ? `${props.rom.id}:${(props.rom.files ?? []).map((f) => f.id).join(",")}`
+    : null,
 );
+const pendingCdAudioTracks = ref(0);
+watch(
+  cdAudioProbeKey,
+  async (key) => {
+    pendingCdAudioTracks.value = 0;
+    if (!key) return;
+    try {
+      const { data } = await romApi.getCdAudioStatus({ romId: props.rom.id });
+      if (cdAudioProbeKey.value === key) {
+        pendingCdAudioTracks.value = data.tracks - data.extracted;
+      }
+    } catch {
+      // An unreadable disc just offers nothing to extract.
+    }
+  },
+  { immediate: true },
+);
+const canExtractCdAudio = computed(() => pendingCdAudioTracks.value > 0);
 const extractingCdAudio = ref(false);
 
 // On phones a subtab's single Upload joins the picker row; Screenshots has one

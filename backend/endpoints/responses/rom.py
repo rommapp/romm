@@ -290,6 +290,11 @@ class CdAudioExtractionSchema(BaseModel):
     skipped: list[str]
 
 
+class CdAudioStatusSchema(BaseModel):
+    tracks: int
+    extracted: int
+
+
 class RomMetadataSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

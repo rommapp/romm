@@ -5,6 +5,7 @@ import type {
   Body_update_rom_api_roms__id__put as UpdateRomInput,
   BulkOperationResponse,
   CdAudioExtractionSchema,
+  CdAudioStatusSchema,
   DetailedRomSchema,
   ManualMetadata,
   PhysicalRomCreateForm,
@@ -837,6 +838,10 @@ async function removeSoundtrack({
   return api.delete(`/roms/${romId}/soundtracks/${fileId}`);
 }
 
+async function getCdAudioStatus({ romId }: { romId: number }) {
+  return api.get<CdAudioStatusSchema>(`/roms/${romId}/soundtracks/cd-audio`);
+}
+
 async function extractCdAudio({ romId }: { romId: number }) {
   return api.post<CdAudioExtractionSchema>(
     `/roms/${romId}/soundtracks/cd-audio`,
@@ -1104,6 +1109,7 @@ export default {
   uploadSoundtracks,
   removeSoundtrack,
   extractCdAudio,
+  getCdAudioStatus,
   getSoundtrackMetadata,
   removeScreenshot,
   updateUserRomProps,

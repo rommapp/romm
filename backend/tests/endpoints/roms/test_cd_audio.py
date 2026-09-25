@@ -566,3 +566,109 @@ def test_requires_the_roms_write_scope(
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.parametrize("disc", ["cd_rom", "gdi_rom", "chd_rom", "gdrom_chd_rom"])
+def test_counts_the_audio_tracks_before_and_after_extraction(
+    client: TestClient,
+    access_token: str,
+    disc: str,
+    request: pytest.FixtureRequest,
+):
+    rom: Rom = request.getfixturevalue(disc)
+    url = f"/api/roms/{rom.id}/soundtracks/cd-audio"
+
+    before = client.get(url, headers=_auth(access_token))
+    client.post(url, headers=_auth(access_token))
+    after = client.get(url, headers=_auth(access_token))
+
+    assert before.status_code == status.HTTP_200_OK
+    assert before.json() == {"tracks": 2, "extracted": 0}
+    assert after.json() == {"tracks": 2, "extracted": 2}
+
+
+def test_counts_no_tracks_on_a_data_only_disc(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+):
+    fs_path = f"{platform.slug}/roms/Data Game"
+    folder = real_library / fs_path
+    folder.mkdir(parents=True)
+    (folder / "Data.cue").write_text(
+        'FILE "Data.bin" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n'
+    )
+    (folder / "Data.bin").write_bytes(b"\x01" * AUDIO_SECTOR * 4)
+    rom = _add_disc_rom(
+        admin_user,
+        platform,
+        "Data Game",
+        {"Data.cue": 60, "Data.bin": AUDIO_SECTOR * 4},
+        fs_path,
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"tracks": 0, "extracted": 0}
+
+
+def test_counts_no_tracks_without_a_disc_image(
+    client: TestClient, access_token: str, game_folder_rom: Rom, game_folder_on_disk
+):
+    response = client.get(
+        f"/api/roms/{game_folder_rom.id}/soundtracks/cd-audio",
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"tracks": 0, "extracted": 0}
+
+
+def test_counting_reports_missing_chd_support(
+    client: TestClient,
+    access_token: str,
+    chd_rom: Rom,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(cd_audio, "load_libchdr", lambda: None)
+
+    response = client.get(
+        f"/api/roms/{chd_rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+def test_counting_reports_an_unreadable_chd(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+):
+    fs_path = f"{platform.slug}/roms/Disc Game"
+    (real_library / fs_path).mkdir(parents=True)
+    (real_library / fs_path / "Disc.chd").write_bytes(b"not a chd")
+    rom = _add_disc_rom(admin_user, platform, "Disc Game", {"Disc.chd": 9}, fs_path)
+
+    response = client.get(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+def test_counting_needs_only_the_roms_read_scope(
+    client: TestClient, viewer_access_token: str, cd_rom: Rom
+):
+    response = client.get(
+        f"/api/roms/{cd_rom.id}/soundtracks/cd-audio",
+        headers=_auth(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK

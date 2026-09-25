@@ -8,6 +8,7 @@ from fastapi.responses import Response
 from decorators.auth import protected_route
 from endpoints.responses.rom import (
     CdAudioExtractionSchema,
+    CdAudioStatusSchema,
     SoundtrackTrackMetaSchema,
     TrackMetaSchema,
 )
@@ -20,6 +21,7 @@ from handler.cd_audio import (
     CdAudioEncodeException,
     CdAudioNeedsFolderException,
     CdAudioUnavailableException,
+    cd_audio_status,
     extract_cd_audio,
 )
 from handler.database import db_rom_handler
@@ -101,6 +103,44 @@ async def add_rom_soundtracks(
     )
 
     return Response(status_code=status.HTTP_201_CREATED)
+
+
+@protected_route(
+    router.get,
+    "/{id}/soundtracks/cd-audio",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {},
+    },
+)
+async def get_rom_cd_audio_status(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> CdAudioStatusSchema:
+    """Count the audio tracks on a ROM's disc images and how many are already
+    extracted, reading only the track layout."""
+
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
+
+    try:
+        result = await cd_audio_status(rom)
+    except CdAudioUnavailableException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+    except CdAudioEncodeException as exc:
+        log.error(f"Could not read the disc images of ROM {id}", exc_info=exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="There was an error reading the disc images",
+        ) from exc
+
+    return CdAudioStatusSchema(tracks=result.tracks, extracted=result.extracted)
 
 
 @protected_route(
