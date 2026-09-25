@@ -675,10 +675,8 @@ async def _hydrate_saves(
 
     if container.is_webstation:
         if save_foreign or import_state is not None:
-            # A foreign pick never has its kind's v1 path built; it rides in
-            # a `.import/` member instead, alongside whichever kind (if any)
-            # stayed native. A memory-card-synced container is not special-
-            # cased here: the broker refuses with memcard_synced_separately.
+            # A synced memory card is not special-cased: the broker refuses it
+            # with memcard_synced_separately.
             try:
                 result = await imports.hydrate_import_archive(
                     request.user.id,
@@ -694,11 +692,9 @@ async def _hydrate_saves(
             if result.path is not None:
                 return result
             if save_foreign:
-                # The foreign save itself is what failed; there is no native
-                # side of this pick to fall back to.
+                # A foreign save has no native side to fall back to.
                 return imports.ImportHydration()
-            # The foreign state failed to import; a native save riding
-            # alongside it (or none at all) still gets ordinary hydration.
+            # Only the foreign state failed, so any native save still hydrates.
         # Restore runs inside activate on this protocol, so hydration only gets
         # the bytes onto the container and names the path activate restores.
         # Still runs under whole-card sync: the archive carries the state the
@@ -856,8 +852,8 @@ async def claim_session(
         and not resume_foreign
         and container.resumes_from_archive
     ):
-        newest_states = states.user_states_for_emulator(
-            request.user.id, rom.id, container.emulator
+        newest_states = await asyncio.to_thread(
+            states.user_states_for_emulator, request.user.id, rom.id, container.emulator
         )
         older_exit_state = not newest_states or newest_states[0].id != resume_state.id
 

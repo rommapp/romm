@@ -969,9 +969,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         errorHint.value = t("play.error-hint-not-configured");
       }
     } else if (status === 400 && typeof detail === "string") {
-      // A save/state pick the backend refused (e.g. no container will
-      // import it) carries a specific reason worth showing over the
-      // generic hint.
+      // A refused save/state pick carries a reason worth more than the generic hint.
       errorType.value = "server";
       errorMessage.value = t("play.stream-error-generic");
       errorHint.value = detail;

@@ -55,9 +55,8 @@ class ImportSpec:
         return None
 
 
-# Per container, so one broker's answer never speaks for another. A 404 (no
-# imports) or 422 (unknown pair) holds for the worker's life; an answer only
-# for one claim's worth of checks; a failure is never cached.
+# Per container, so one broker's answer never speaks for another. A 404 or 422
+# holds for the worker's life, an answer for one claim's checks, a failure not at all.
 _IMPORT_SPEC_TTL = 30.0
 _import_spec_cache: dict[tuple[str, str, str], tuple[float, "ImportSpec | None"]] = {}
 
@@ -91,10 +90,7 @@ def _parse_import_spec(body: dict[str, Any]) -> ImportSpec | None:
 def import_spec(
     container: ResolvedContainer, emulator: str, platform: str
 ) -> ImportSpec | None:
-    """What this container's broker will accept as a declared import for
-    (emulator, platform), or None when nothing will (no imports at all, an
-    unrecognized pair, or the check itself could not be answered right now).
-    """
+    """What this broker accepts as a declared import, or None when nothing or unknown."""
     if not container.is_webstation:
         return None
     cache_key = (container.key, emulator, platform)

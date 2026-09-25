@@ -266,14 +266,10 @@ def newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
 def resolve_save_archive(
     user_id: int, rom: Rom, container: ResolvedContainer, save_id: int
 ) -> tuple[Save, bool]:
-    """Validate a pick from the launch screen's save list and return
-    (save, is_foreign).
+    """Validate a launch-screen save pick and return (save, is_foreign).
 
-    Raises 404 for a save that is not the claiming user's own on this ROM. A
-    pick this emulator can restore natively resolves as (save, False). A
-    pick it cannot is checked against the broker's own import-spec before
-    being refused with 400, resolving as (save, True) when the broker says
-    it would still take it as a declared import.
+    Raises 404 for a save that is not the claiming user's own on this ROM, and
+    400 for one neither restorable here nor accepted as an import.
     """
     save = db_save_handler.get_save(user_id=user_id, id=save_id)
     # Same 404 for another user's save and another ROM's, so neither leaks.

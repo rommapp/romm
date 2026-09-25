@@ -5220,7 +5220,9 @@ def test_resolve_resume_state_refuses_a_foreign_pick_when_the_channel_is_none(
     other = db_state_handler.add_state(
         _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
     )
-    spec = webstation.ImportSpec(kinds=(), state_channel="none", state_slot=None)
+    spec = webstation.ImportSpec(
+        kinds=frozenset(), state_channel="none", state_slot=None
+    )
     with patch("handler.streaming.states.webstation.import_spec", return_value=spec):
         with pytest.raises(HTTPException) as exc:
             states.resolve_resume_state(
