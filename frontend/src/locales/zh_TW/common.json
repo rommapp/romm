@@ -194,6 +194,7 @@
   "virtual-collections": "自動生成的收藏庫",
   "visibility": "可見性",
   "warning": "警告：",
+  "websocket-unreachable-retrying": "WebSocket 連線不可用，正在重試…",
   "whats-new": "查看更新內容",
   "zoom-in": "放大",
   "zoom-out": "縮小"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// NotificationChannelsSection: the user's webhooks and email addresses, each
-// forwarding the notifications its filters let through.
+// NotificationChannelsSection: the user's channels (Apprise services, webhooks
+// and email addresses), each forwarding the notifications its filters let through.
 import {
   RAvatar,
   RBtn,
@@ -8,6 +8,7 @@ import {
   RIcon,
   RSkeletonBlock,
   RSwitch,
+  RTag,
   RTextField,
 } from "@v2/lib";
 import { onMounted, reactive, ref } from "vue";
@@ -22,8 +23,8 @@ import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
 import {
+  CHANNEL_ICONS,
   NOTIFICATION_CHANNEL_CODE_MAX_LENGTH,
-  channelIcon,
 } from "@/v2/utils/notificationChannels";
 
 const { t } = useI18n();
@@ -241,13 +242,20 @@ async function remove(channel: NotificationChannelSchema) {
       >
         <div class="r-v2-channel__main">
           <RAvatar
-            :icon="channelIcon(channel)"
+            :icon="CHANNEL_ICONS[channel.type]"
             variant="translucent"
             size="36"
             class="r-v2-channel__icon"
           />
           <span class="r-v2-channel__text">
-            <span class="r-v2-channel__name">{{ channel.name }}</span>
+            <span class="r-v2-channel__heading">
+              <span class="r-v2-channel__name">{{ channel.name }}</span>
+              <RTag
+                v-if="channel.service_name"
+                size="x-small"
+                :text="channel.service_name"
+              />
+            </span>
             <span class="r-v2-channel__target">{{ channel.target }}</span>
             <span class="r-v2-channel__meta">
               {{ filtersLabel(channel) }}
@@ -417,6 +425,13 @@ async function remove(channel: NotificationChannelSchema) {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.r-v2-channel__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--r-space-2);
 }
 
 .r-v2-channel__name {

@@ -17,6 +17,7 @@ from tasks.scheduled.build_recommendations import build_recommendations_task
 from tasks.scheduled.cleanup_audit_log import cleanup_audit_log_task
 from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
 from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
+from tasks.scheduled.cleanup_sync_sessions import cleanup_sync_sessions_task
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
 from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
@@ -45,6 +46,7 @@ SCHEDULED_TASKS: Final[dict[str, PeriodicTask]] = {
     "cleanup_netplay": cleanup_netplay_task,
     "cleanup_upload_tmp": cleanup_upload_tmp_task,
     "reap_streaming_sessions": reap_streaming_sessions_task,
+    "cleanup_sync_sessions": cleanup_sync_sessions_task,
     "cleanup_audit_log": cleanup_audit_log_task,
     "sync_retroachievements_progress": sync_retroachievements_progress_task,
     "sync_push_pull": sync_push_pull_task,

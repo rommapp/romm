@@ -194,6 +194,7 @@
   "virtual-collections": "自動生成コレクションズ",
   "visibility": "公開設定",
   "warning": "警告:",
+  "websocket-unreachable-retrying": "WebSocket接続が利用できません。再試行中…",
   "whats-new": "新機能を見る",
   "zoom-in": "ズームイン",
   "zoom-out": "ズームアウト"

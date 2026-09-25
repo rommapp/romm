@@ -2,4 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type NotificationChannelType = 'webhook' | 'email';
+export type NotificationChannelType = 'apprise' | 'webhook' | 'email';

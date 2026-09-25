@@ -194,6 +194,7 @@
   "virtual-collections": "Colecții autogenerate",
   "visibility": "Vizibilitate",
   "warning": "AVERTISMENT:",
+  "websocket-unreachable-retrying": "Conexiunea WebSocket nu este disponibilă, se reîncearcă…",
   "whats-new": "Vezi noutățile",
   "zoom-in": "Mărește",
   "zoom-out": "Micșorează"
