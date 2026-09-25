@@ -11,6 +11,15 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
+// happy-dom has no ResizeObserver that fires, so the test lays the grid out.
+const resize = vi.hoisted(() => ({ layout: () => {} }));
+vi.mock("@vueuse/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@vueuse/core")>()),
+  useResizeObserver: (_target: unknown, callback: () => void) => {
+    resize.layout = callback;
+  },
+}));
+
 async function open() {
   const emitter = mitt<Events>();
   const wrapper = mount(AboutDialog, {
@@ -29,30 +38,33 @@ async function open() {
   return wrapper;
 }
 
-// happy-dom lays nothing out, so each value's widths are set by hand.
-function widths(wrapper: Awaited<ReturnType<typeof open>>, content: number) {
+async function layOut(
+  wrapper: Awaited<ReturnType<typeof open>>,
+  content: number,
+) {
   const value = wrapper.find(".r-v2-about__value").element;
   Object.defineProperty(value, "scrollWidth", { value: content });
   Object.defineProperty(value, "clientWidth", { value: 120 });
+  resize.layout();
+  await nextTick();
 }
 
 describe("AboutDialog", () => {
   beforeEach(() => setActivePinia(createPinia()));
 
+  // Ready before any hover, as RTooltip decides on the pointer's arrival.
   it("shows a value cut off by its tile in a tooltip", async () => {
     const wrapper = await open();
-    widths(wrapper, 480);
 
-    await wrapper.find(".r-v2-about__tile").trigger("mouseenter");
+    await layOut(wrapper, 480);
 
     expect(wrapper.findComponent(RTooltip).props("disabled")).toBe(false);
   });
 
   it("keeps quiet about a value that fits", async () => {
     const wrapper = await open();
-    widths(wrapper, 60);
 
-    await wrapper.find(".r-v2-about__tile").trigger("mouseenter");
+    await layOut(wrapper, 60);
 
     expect(wrapper.findComponent(RTooltip).props("disabled")).toBe(true);
   });

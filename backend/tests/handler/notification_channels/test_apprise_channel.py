@@ -258,6 +258,7 @@ class TestFieldsFromUrl:
         "url,reason",
         [
             ("syslog://", "doesn't offer"),
+            ("FCM://project/device", "doesn't offer"),
             ("fcm://project/device", "doesn't offer|can't read"),
             (
                 "discord://1234567890/abcdefghijklmnop?template=/etc/passwd",
@@ -430,7 +431,26 @@ class TestSend:
         assert answered.startswith('{"message": "Invalid Form Body", "code": 50035}')
         assert len(answered) == ERROR_DETAIL_CHARS
 
-    def test_keeps_no_warning_logged_outside_a_send(self, notify):
+    def test_an_empty_reply_adds_nothing(self, notify):
+        def log():
+            logger = logging.getLogger("apprise")
+            logger.warning("Failed to send JSON POST notification: error=500.")
+            logger.debug("Response Details:\r\n%r", b"")
+
+        notify(result=False, log=log)
+
+        with pytest.raises(AppriseError, match=r"error=500\.$"):
+            send("json", _JSON, _message())
+
+    def test_a_warning_outside_a_send_goes_to_the_server_log(self, mocker):
+        server_log = mocker.patch.object(apprise_channel, "log")
+
+        logging.getLogger("apprise").warning("A plugin failed to load")
+
+        server_log.warning.assert_called_once_with("Apprise: A plugin failed to load")
+
+    def test_keeps_no_warning_logged_outside_a_send(self, notify, mocker):
+        mocker.patch.object(apprise_channel, "log")
         logging.getLogger("apprise").warning("Something from another send")
         notify(result=False)
 

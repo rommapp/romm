@@ -12,6 +12,7 @@ from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit, urlunsp
 
 from apprise import Apprise, AppriseAsset, NotifyBase, NotifyFormat, NotifyType
 
+from logger.logger import log
 from models.notification import NotificationLevel
 
 from .messages import OutboundMessage
@@ -114,9 +115,12 @@ _REPLY: Final = "Response Details:"
 class _Collector(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         collected = _collected.get()
-        if collected is None:
-            return
         message = record.getMessage()
+        if collected is None:
+            # No send reports it, so it goes to the server log.
+            if record.levelno >= logging.WARNING:
+                log.warning(f"Apprise: {message}")
+            return
         if record.levelno >= logging.WARNING:
             collected.append(message)
         elif message.startswith(_REPLY):
@@ -124,11 +128,12 @@ class _Collector(logging.Handler):
             # Apprise logs the body as a bytes repr, b'...'.
             if reply[:2] in ("b'", 'b"'):
                 reply = reply[2:-1]
-            collected.append(f"Reply: {reply[:ERROR_DETAIL_CHARS]}")
+            if reply:
+                collected.append(f"Reply: {reply[:ERROR_DETAIL_CHARS]}")
 
 
 _apprise_log = logging.getLogger("apprise")
-# Down to debug, where the replies are, and kept out of the server log: a
+# Down to debug, where the replies are, and past the server log: a send's
 # failure is logged once, as the delivery's error.
 _apprise_log.setLevel(logging.DEBUG)
 _apprise_log.propagate = False
@@ -566,7 +571,10 @@ def fields_from_url(url: str) -> tuple[AppriseService, dict[str, FieldValue]]:
     url = url.strip()
     if not url or any(char.isspace() for char in url):
         raise ValueError("Paste one URL, without spaces")
-    if {key.lower() for key, _ in parse_qsl(urlsplit(url).query)} & FILE_OPTIONS:
+    pasted = urlsplit(url)
+    if pasted.scheme.lower() in EXCLUDED_SCHEMAS:
+        raise ValueError("RomM doesn't offer that service")
+    if {key.lower() for key, _ in parse_qsl(pasted.query)} & FILE_OPTIONS:
         raise ValueError("RomM doesn't take the options that read local files")
     try:
         plugin = Apprise.instantiate(url, asset=_ASSET, suppress_exceptions=False)
@@ -595,15 +603,18 @@ def fields_from_url(url: str) -> tuple[AppriseService, dict[str, FieldValue]]:
     if match is None:
         raise ValueError(f"RomM can't read the {service.name} fields from this URL")
 
-    for key, text in match.groupdict().items():
-        field = service.owners.get(key) or service.field(key)
-        if field is not None and key != "schema" and text:
-            fields[field.key] = _read(field, text, quoted=True)  # type: ignore[assignment]
-    for key, text in parse_qsl(parts.query, keep_blank_values=True):
-        field = service.field(key)
-        if field is not None and field.advanced:
-            if (value := _read(field, text, quoted=False)) is not None:
-                fields[key] = value
+    read = [
+        (service.owners.get(key) or service.field(key), text, True)
+        for key, text in match.groupdict().items()
+        if key != "schema" and text
+    ] + [
+        (field, text, False)
+        for key, text in parse_qsl(parts.query, keep_blank_values=True)
+        if (field := service.field(key)) is not None and field.advanced
+    ]
+    for field, text, quoted in read:
+        if field is not None and (value := _read(field, text, quoted)) is not None:
+            fields[field.key] = value
     if len(service.schemas) > 1:
         fields["schema"] = parts.scheme
     return service, known_fields(service, fields)

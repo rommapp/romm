@@ -3,6 +3,7 @@
 // GlobalDialogs stack so the "About" entry in UserMenu renders the v2 glass
 // panel instead of the legacy card.
 import { RDialog, RIcon, RImg, RTooltip } from "@v2/lib";
+import { useResizeObserver } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -24,17 +25,6 @@ onBeforeUnmount(() => emitter?.off("showAboutDialog", openHandler));
 
 function closeDialog() {
   show.value = false;
-}
-
-// Values cut off by their tile's width, whose tile then shows them in full.
-const truncated = reactive(new Set<string>());
-
-function measure(label: string, event: Event) {
-  const value = (event.currentTarget as HTMLElement).querySelector(
-    ".r-v2-about__value",
-  );
-  if (value && value.scrollWidth > value.clientWidth) truncated.add(label);
-  else truncated.delete(label);
 }
 
 type Link = {
@@ -71,6 +61,21 @@ const links = computed<Link[]>(() => [
     href: "https://discord.com/invite/P5HtHnhUDH",
   },
 ]);
+
+// Values cut off by their tile's width, whose tile then shows them in full.
+// Measured whenever the grid lays out, so a tooltip knows before it's hovered.
+const grid = ref<HTMLElement | null>(null);
+const truncated = reactive(new Set<string>());
+
+useResizeObserver(grid, () => {
+  const values = grid.value?.querySelectorAll(".r-v2-about__value") ?? [];
+  links.value.forEach((link, index) => {
+    const value = values[index];
+    if (value && value.scrollWidth > value.clientWidth)
+      truncated.add(link.label);
+    else truncated.delete(link.label);
+  });
+});
 </script>
 
 <template>
@@ -84,7 +89,7 @@ const links = computed<Link[]>(() => [
       <span>{{ t("common.about-romm") }}</span>
     </template>
     <template #content>
-      <div class="r-v2-about">
+      <div ref="grid" class="r-v2-about">
         <a
           v-for="link in links"
           :key="link.label"
@@ -92,8 +97,6 @@ const links = computed<Link[]>(() => [
           target="_blank"
           rel="noopener noreferrer"
           class="r-v2-about__tile"
-          @mouseenter="measure(link.label, $event)"
-          @focusin="measure(link.label, $event)"
         >
           <div class="r-v2-about__icon">
             <RImg

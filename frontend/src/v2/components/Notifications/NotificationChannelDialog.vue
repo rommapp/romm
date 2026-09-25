@@ -222,7 +222,10 @@ async function fillFromUrl(url: string) {
     const { data } = await notificationChannelApi.parseAppriseUrl(url);
     if (request !== pasteRequest) return;
     const found = services.value?.find((s) => s.id === data.service);
-    if (!found) throw new Error(data.service);
+    if (!found) {
+      pasteError.value = t("notifications.channel-paste-failed");
+      return;
+    }
     if (editing.value && found.id !== service.value?.id) {
       pasteError.value = t("notifications.channel-paste-other-service", {
         service: found.name,
