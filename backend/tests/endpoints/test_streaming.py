@@ -16,6 +16,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import app
+from tests.streaming_stubs import exit_pulls_spawned_inline
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import streaming
@@ -104,6 +105,12 @@ def clear_streaming_sessions():
     """Streaming sessions live in Redis (fakeredis under pytest), start clean."""
     asyncio.run(async_cache.flushall())
     yield
+
+
+@pytest.fixture(autouse=True)
+def exit_pull_queue():
+    with exit_pulls_spawned_inline() as queue:
+        yield queue
 
 
 @pytest.fixture(autouse=True)
@@ -5407,7 +5414,7 @@ def test_an_abandoned_teardown_that_fails_before_its_pull_leaves_nothing_pending
 def _run_exit_pulls(spawn: MagicMock) -> None:
     """Run the save pulls a teardown spawned, and drop whatever else it did."""
     for spawned in (c.args[0] for c in spawn.call_args_list):
-        if spawned.cr_code.co_name == "_pull_exit_saves":
+        if spawned.cr_code.co_name == "pull_exit_saves":
             asyncio.run(spawned)
         else:
             spawned.close()
@@ -5448,7 +5455,7 @@ def test_a_webstation_exit_that_changed_no_saves_lets_the_next_claim_straight_th
         (pull,) = (
             c.args[0]
             for c in spawn.call_args_list
-            if c.args[0].cr_code.co_name == "_pull_exit_saves"
+            if c.args[0].cr_code.co_name == "pull_exit_saves"
         )
         with patch(
             "handler.streaming.saves.wait_for_save_pull", new=wait_while_it_files
@@ -5725,17 +5732,21 @@ def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
 ):
     """A pull can outlast a claim's wait, so the player can play and exit again
     while it runs, and its finishing must not let a claim past the later pull."""
-    container = _resolved(_container_for(rom))
+    entry = _container_for(rom)
+    container = _resolved(entry)
     session = {"user_id": admin_user.id, "rom_id": rom.id}
 
     async def scenario() -> tuple[bool, bool]:
         with (
+            _streaming(entry),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
         ):
             for _ in range(2):
                 mark = await lifecycle.mark_exit_saves_pending(container, session)
-                lifecycle.collect_exit_saves(container, session, mark, settled=False)
+                await lifecycle.collect_exit_saves(
+                    container, session, mark, settled=False
+                )
             first, second = (c.args[0] for c in spawn.call_args_list)
             await first
             behind_second = await _save_pull_pending(admin_user.id, rom.id)
@@ -5743,6 +5754,82 @@ def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
             return behind_second, await _save_pull_pending(admin_user.id, rom.id)
 
     assert asyncio.run(scenario()) == (True, False)
+
+
+def test_an_exit_save_pull_runs_on_the_streaming_worker(
+    admin_user: User, rom: Rom, exit_pull_queue: MagicMock
+):
+    """A web restart would otherwise cut a pull short and park the next claim."""
+    container = _resolved(_container_for(rom))
+    session = {"user_id": admin_user.id, "rom_id": rom.id, "broker_session_id": "b1"}
+    exit_pull_queue.enqueue.side_effect = None
+
+    async def scenario() -> saves.SavePullMark | None:
+        mark = await lifecycle.mark_exit_saves_pending(container, session)
+        await lifecycle.collect_exit_saves(container, session, mark, settled=True)
+        return mark
+
+    mark = asyncio.run(scenario())
+
+    assert mark is not None
+    (func,), kwargs = exit_pull_queue.enqueue.call_args
+    assert func is lifecycle.pull_exit_saves
+    assert kwargs["kwargs"] == {
+        "user_id": admin_user.id,
+        "rom_id": rom.id,
+        "token": mark.token,
+        "container_key": container.key,
+        "platform": container.platform,
+        "broker_session": "b1",
+        "settled": True,
+    }
+    assert kwargs["job_timeout"] == saves.SAVE_PULL_TTL_SECONDS
+
+
+def test_a_pull_that_cannot_be_queued_lets_the_next_claim_through(
+    admin_user: User, rom: Rom, exit_pull_queue: MagicMock
+):
+    container = _resolved(_container_for(rom))
+    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    exit_pull_queue.enqueue.side_effect = ConnectionError("redis went away")
+
+    async def scenario() -> bool:
+        mark = await lifecycle.mark_exit_saves_pending(container, session)
+        await lifecycle.collect_exit_saves(container, session, mark, settled=False)
+        return await _save_pull_pending(admin_user.id, rom.id)
+
+    assert asyncio.run(scenario()) is False
+
+
+def test_a_queued_pull_for_a_container_no_longer_configured_clears_its_mark(
+    admin_user: User, rom: Rom
+):
+    session = {"user_id": admin_user.id, "rom_id": rom.id}
+
+    async def scenario() -> tuple[bool, AsyncMock]:
+        container = _resolved(_container_for(rom))
+        mark = await lifecycle.mark_exit_saves_pending(container, session)
+        assert mark is not None
+        with (
+            _streaming(),
+            patch(
+                "handler.streaming.saves.pull_saves_to_library", new=AsyncMock()
+            ) as pull,
+        ):
+            await lifecycle.pull_exit_saves(
+                user_id=mark.user_id,
+                rom_id=mark.rom_id,
+                token=mark.token,
+                container_key=container.key,
+                platform=container.platform,
+                broker_session=None,
+                settled=False,
+            )
+        return await _save_pull_pending(admin_user.id, rom.id), pull
+
+    pending, pull = asyncio.run(scenario())
+    assert pending is False
+    pull.assert_not_awaited()
 
 
 # ── Resume-from-state ─────────────────────────────────────────────────────────

@@ -23,7 +23,8 @@ class QueuePrio(Enum):
 # Scans have a queue and a worker of their own: a library scan runs for hours,
 # and one worker on one queue keeps two of them from ever running at once.
 SCAN_QUEUE_NAME: Final = "scans"
-# Streaming teardowns get one too: a sick broker can hold one for minutes.
+# Streaming teardowns and exit save pulls get one too: a sick broker can hold
+# either for minutes.
 STREAMING_QUEUE_NAME: Final = "streaming"
 
 redis_client = Redis.from_url(REDIS_URL)

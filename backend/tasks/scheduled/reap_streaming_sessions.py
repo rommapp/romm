@@ -8,7 +8,6 @@ from handler.streaming.config import (
     streaming_enabled,
 )
 from handler.streaming.lifecycle import teardown_abandoned_session
-from handler.streaming.saves import SAVE_PULL_TTL_SECONDS
 from handler.streaming.session_store import (
     HOLD_CEILING_SECONDS,
     get_abandoned_session,
@@ -51,8 +50,8 @@ class ReapStreamingSessionsTask(PeriodicTask):
             manual_run=False,
             cron_string="* * * * *",  # Every minute
             # RQ kills a job at its timeout, so it has to cover a teardown holding
-            # its marker to the ceiling plus the exit save pull it then waits out.
-            timeout=HOLD_CEILING_SECONDS + SAVE_PULL_TTL_SECONDS,
+            # its marker to the ceiling.
+            timeout=HOLD_CEILING_SECONDS,
             result_ttl=0,
             queue_name=STREAMING_QUEUE_NAME,
         )

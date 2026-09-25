@@ -7,9 +7,10 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from tests.streaming_stubs import exit_pulls_spawned_inline
 
 from handler.redis_handler import STREAMING_QUEUE_NAME, async_cache
-from handler.streaming import commands, saves, session_store
+from handler.streaming import commands, session_store
 from handler.streaming.config import ResolvedContainer, reset_cache, resolve_entry
 from tasks.registry import SCHEDULED_TASKS
 from tasks.scheduled.reap_streaming_sessions import (
@@ -33,6 +34,12 @@ PSX = {
 @pytest.fixture(autouse=True)
 async def clear_streaming_sessions():
     await async_cache.flushall()
+
+
+@pytest.fixture(autouse=True)
+def exit_pull_queue():
+    with exit_pulls_spawned_inline() as queue:
+        yield queue
 
 
 @contextmanager
@@ -98,13 +105,10 @@ def test_the_reaper_is_scheduled_only_with_streaming_on(enabled: bool):
         assert ReapStreamingSessionsTask().enabled is enabled
 
 
-def test_the_job_outlives_a_slow_teardown_and_its_save_pull():
-    """RQ kills a job at its timeout, and the job waits out the exit save pull
-    after a teardown that may hold its marker right up to the ceiling."""
-    assert (
-        reap_streaming_sessions_task.timeout
-        >= session_store.HOLD_CEILING_SECONDS + saves.SAVE_PULL_TTL_SECONDS
-    )
+def test_the_job_outlives_a_slow_teardown():
+    """RQ kills a job at its timeout, and a teardown may hold its marker right
+    up to the ceiling."""
+    assert reap_streaming_sessions_task.timeout >= session_store.HOLD_CEILING_SECONDS
 
 
 def test_the_reaper_has_a_worker_of_its_own():
@@ -264,15 +268,8 @@ async def test_a_failure_before_the_stop_leaves_the_session_for_the_next_run():
     assert await _stored(N64) is None
 
 
-async def test_the_job_waits_for_the_exit_save_pull_it_spawned():
-    """A worker's event loop stops with the job, so a pull still spawned when
-    the run returns would never file the saves or clear its pending mark."""
-    pulled = asyncio.Event()
-
-    async def pull(*args: Any, **kwargs: Any) -> None:
-        await asyncio.sleep(0.05)
-        pulled.set()
-
+async def test_a_reaped_session_queues_its_exit_save_pull(exit_pull_queue: MagicMock):
+    exit_pull_queue.enqueue.side_effect = None
     with _streaming(N64):
         await _hold(N64, idle_seconds=STALE, rom_id=7)
         with (
@@ -281,13 +278,13 @@ async def test_the_job_waits_for_the_exit_save_pull_it_spawned():
                 new=AsyncMock(return_value=commands.StopOutcome()),
             ),
             patch("handler.streaming.lifecycle.record_play_session"),
-            patch("handler.streaming.saves.pull_saves_to_library", new=pull),
             # The registry's instance read the config at import, with streaming off.
             patch.object(reap_streaming_sessions_task, "enabled", True),
         ):
             await run_task_by_name("reap_streaming_sessions")
 
-    assert pulled.is_set()
+    exit_pull_queue.enqueue.assert_called_once()
+    assert exit_pull_queue.enqueue.call_args.kwargs["kwargs"]["rom_id"] == 7
 
 
 async def test_overlapping_runs_tear_a_session_down_once():
