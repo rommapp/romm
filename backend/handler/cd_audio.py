@@ -212,9 +212,19 @@ def _encode_args(source: AudioSource, album: str | None, output: Path) -> list[s
     ]
 
 
+async def _next_chunk(pcm: PcmChunks) -> bytes | None:
+    read = asyncio.ensure_future(asyncio.to_thread(next, pcm, None))
+    try:
+        return await asyncio.shield(read)
+    except asyncio.CancelledError:
+        # The thread can't be interrupted, and closing a generator mid-read fails.
+        await asyncio.wait([read])
+        raise
+
+
 async def _feed(stdin: asyncio.StreamWriter, pcm: PcmChunks) -> None:
     try:
-        while (chunk := await asyncio.to_thread(next, pcm, None)) is not None:
+        while (chunk := await _next_chunk(pcm)) is not None:
             stdin.write(chunk)
             await stdin.drain()
     finally:
@@ -262,12 +272,22 @@ async def encode_track(source: AudioSource, output: Path, album: str | None) -> 
 
 
 def _disc_images(rom: Rom) -> list[RomFile]:
-    return [
-        file
-        for file in rom.files
-        if file.category in (None, RomFileCategory.GAME)
-        and file.file_name.lower().endswith(DISC_IMAGE_EXTENSIONS)
-    ]
+    """One image per disc: a sheet and a CHD of the same name in one folder are
+    the same disc, and the sheet wins since it can carry CD-Text."""
+    images = sorted(
+        (
+            file
+            for file in rom.files
+            if file.category in (None, RomFileCategory.GAME)
+            and file.file_name.lower().endswith(DISC_IMAGE_EXTENSIONS)
+        ),
+        key=lambda f: DISC_IMAGE_EXTENSIONS.index(Path(f.file_name).suffix.lower()),
+    )
+    distinct: dict[tuple[str, str], RomFile] = {}
+    for image in images:
+        key = (image.file_path, Path(image.file_name).stem.casefold())
+        distinct.setdefault(key, image)
+    return list(distinct.values())
 
 
 @dataclass(frozen=True)
@@ -402,7 +422,12 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
                 continue
             staged = staging_path(destination.location)
             await encode_track(track.source, staged, rom.name)
-            move_into_place(destination.location, staged, overwrite=False)
+            try:
+                move_into_place(destination.location, staged, overwrite=False)
+            except UploadConflictException:
+                # A concurrent extraction of the same disc got there first.
+                result.skipped.append(track.file_name)
+                continue
             result.extracted.append(track.file_name)
     finally:
         # Register whatever landed, even when a later track failed.

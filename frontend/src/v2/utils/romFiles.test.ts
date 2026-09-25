@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { RomFileSchema } from "@/__generated__";
-import type { DetailedRom } from "@/stores/roms";
 import { hasDiscImage, romFileUrl, versionedRomFileUrl } from "./romFiles";
 
 const file: RomFileSchema = {
@@ -48,11 +47,11 @@ describe("hasDiscImage", () => {
   function disc(
     files: Partial<RomFileSchema>[],
     hasSimpleSingleFile = false,
-  ): DetailedRom {
+  ): Parameters<typeof hasDiscImage>[0] {
     return {
       has_simple_single_file: hasSimpleSingleFile,
       files: files.map((overrides) => ({ ...file, ...overrides })),
-    } as DetailedRom;
+    };
   }
 
   it("finds a game cue sheet in a disc folder", () => {

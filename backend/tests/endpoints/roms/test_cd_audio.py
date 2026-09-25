@@ -1,7 +1,10 @@
+import asyncio
 import math
 import shutil
 import struct
 import subprocess
+import threading
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -521,7 +524,9 @@ def test_registers_the_tracks_written_before_a_failure(
 ):
     real_encode = cd_audio.encode_track
 
-    async def fail_on_third(source, output, album):
+    async def fail_on_third(
+        source: cd_audio.AudioSource, output: Path, album: str | None
+    ) -> None:
         if source.number == 3:
             raise cd_audio.CdAudioEncodeException("boom")
         await real_encode(source, output, album)
@@ -543,7 +548,7 @@ def test_leaves_no_partial_file_when_the_image_cannot_be_read(
     real_library: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    async def unreadable(stdin, pcm):
+    async def unreadable(stdin: asyncio.StreamWriter, pcm: cd_audio.PcmChunks) -> None:
         raise OSError("read failed")
 
     monkeypatch.setattr(cd_audio, "_feed", unreadable)
@@ -672,3 +677,103 @@ def test_counting_needs_only_the_roms_read_scope(
     )
 
     assert response.status_code == status.HTTP_200_OK
+
+
+def test_extracts_a_disc_kept_as_both_a_sheet_and_a_chd_once(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+):
+    fs_path = f"{platform.slug}/roms/Disc Game"
+    contents = write_cue_disc(real_library / fs_path)
+    chd = real_library / fs_path / "Disc.chd"
+    _create_chd(real_library / fs_path / "Disc.cue", chd)
+    sizes = {name: len(data) for name, data in contents.items()}
+    rom = _add_disc_rom(
+        admin_user,
+        platform,
+        "Disc Game",
+        {**sizes, "Disc.chd": chd.stat().st_size},
+        fs_path,
+    )
+    url = f"/api/roms/{rom.id}/soundtracks/cd-audio"
+
+    extracted = client.post(url, headers=_auth(access_token))
+    counted = client.get(url, headers=_auth(access_token))
+
+    assert extracted.json() == {
+        "extracted": ["Disc - Track 02.flac", "Disc - Track 03.flac"],
+        "skipped": [],
+    }
+    # The sheet's CD-Text title shows it was read rather than the CHD.
+    metas = _soundtrack_metas(rom.id)
+    assert metas["Disc - Track 02.flac"] is not None
+    assert metas["Disc - Track 02.flac"].title == "Opening"
+    assert counted.json() == {"tracks": 2, "extracted": 2}
+
+
+def test_skips_a_track_a_concurrent_extraction_finished_first(
+    client: TestClient,
+    access_token: str,
+    cd_rom: Rom,
+    real_library: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    real_encode = cd_audio.encode_track
+    soundtrack = real_library / cd_rom.full_path / "soundtrack"
+
+    async def race_on_third(
+        source: cd_audio.AudioSource, output: Path, album: str | None
+    ) -> None:
+        await real_encode(source, output, album)
+        if source.number == 3:
+            (soundtrack / "Disc - Track 03.flac").write_bytes(b"theirs")
+
+    monkeypatch.setattr(cd_audio, "encode_track", race_on_third)
+
+    response = client.post(
+        f"/api/roms/{cd_rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "extracted": ["Disc - Track 02.flac"],
+        "skipped": ["Disc - Track 03.flac"],
+    }
+    assert (soundtrack / "Disc - Track 03.flac").read_bytes() == b"theirs"
+    assert sorted(p.name for p in soundtrack.iterdir()) == [
+        "Disc - Track 02.flac",
+        "Disc - Track 03.flac",
+    ]
+
+
+async def test_cancelling_mid_read_closes_the_image_and_cleans_up(tmp_path: Path):
+    reading = threading.Event()
+    release = threading.Event()
+    closed = threading.Event()
+
+    def slow_pcm() -> Generator[bytes, None, None]:
+        try:
+            reading.set()
+            release.wait(5)
+            yield b"\0" * 4
+        finally:
+            closed.set()
+
+    source = cd_audio.AudioSource(
+        number=2, big_endian=False, title=None, performer=None, pcm=slow_pcm
+    )
+    output = tmp_path / "Track 02.flac"
+    task = asyncio.create_task(cd_audio.encode_track(source, output, None))
+    await asyncio.to_thread(reading.wait, 5)
+
+    task.cancel()
+    await asyncio.sleep(0.05)
+    release.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert closed.is_set()
+    assert not output.exists()

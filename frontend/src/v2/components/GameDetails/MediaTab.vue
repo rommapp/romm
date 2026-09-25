@@ -126,7 +126,9 @@ const canUploadSoundtrack = computed(
 // the action only shows while the disc has audio tracks left to extract.
 const cdAudioProbeKey = computed(() =>
   subTab.value === "soundtrack" && canEdit.value && hasDiscImage(props.rom)
-    ? `${props.rom.id}:${(props.rom.files ?? []).map((f) => f.id).join(",")}`
+    ? `${props.rom.id}:${(props.rom.files ?? [])
+        .map((f) => `${f.id}@${f.updated_at}`)
+        .join(",")}`
     : null,
 );
 const pendingCdAudioTracks = ref(0);

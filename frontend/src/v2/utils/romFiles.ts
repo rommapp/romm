@@ -13,7 +13,9 @@ export function versionedRomFileUrl(file: RomFileSchema): string {
 
 /** Whether the ROM has a disc image to read CD audio tracks from: a CHD, or a
  * .cue/.gdi sheet in a folder of its own (a lone one would lose its tracks). */
-export function hasDiscImage(rom: DetailedRom): boolean {
+export function hasDiscImage(
+  rom: Pick<DetailedRom, "files" | "has_simple_single_file">,
+): boolean {
   return (rom.files ?? []).some((file) => {
     if (file.category != null && file.category !== "game") return false;
     const name = file.file_name.toLowerCase();
