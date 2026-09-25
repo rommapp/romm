@@ -1,10 +1,5 @@
 """Folding a foreign-emulator save or state pick into the one archive a
-launch's `activate` call sends.
-
-RomM never interprets a foreign asset's bytes; it only tags, wraps, and
-carries them under a `.import/<kind>/<name>` member for the broker's own
-declared-import contract to place. See docs/superpowers/specs/2026-09-21-
-declared-save-import-romm-design.md for the wire format this builds toward.
+launch's `activate` call sends, under `.import/<kind>/` for the broker to place.
 """
 
 import asyncio
@@ -12,6 +7,7 @@ import io
 import json
 import time
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple
 
@@ -25,19 +21,15 @@ from utils.zip_cache import ensure_zipfile_writable
 
 _MANIFEST_NAME = ".broker-manifest.json"
 
-# A base or foreign archive's nested zip entries are trusted only for their
-# own central-directory metadata (`info.file_size`) until charged here, never
-# for their compressed size: a small, highly compressible upload could
-# otherwise expand far past what it looked like on disk. Reuses the same
-# ceiling as any other stored save archive rather than inventing a second one.
+# Charged on each entry's expanded size, so a small, highly compressible
+# upload cannot inflate past the ceiling any stored save archive has.
 _MAX_EXPANDED_BYTES = broker.SAVE_FILE_MAX_BYTES
 _MAX_MEMBERS = 2000
 
 
 @dataclass(frozen=True)
 class ForeignMember:
-    """One foreign pick's bytes, waiting to be folded into the launch's
-    single `.import/` archive."""
+    """One foreign pick's bytes, waiting to be folded into the import archive."""
 
     kind: Literal["save", "state"]
     name: str
@@ -46,11 +38,7 @@ class ForeignMember:
 
 
 def origin_of(emulator: str | None, origin_device_id: str | None) -> str:
-    """Where a picked save/state was captured, advisory-only per the
-    broker's v2 manifest: "hardware" when a device tagged it, "unknown" for
-    an untagged manual upload, "standalone" when its `emulator` names one of
-    the streaming subsystem's own containers, else "emulatorjs" (EmulatorJS
-    writes its active core's name into the same field)."""
+    """The advisory manifest origin of a pick; EmulatorJS records its core's name as `emulator`."""
     if origin_device_id is not None:
         return "hardware"
     if not emulator:
@@ -101,8 +89,7 @@ _Staged = dict[str, tuple[bytes, dict[str, Any], zipfile.ZipInfo | None]]
 
 @dataclass
 class _ArchiveBudget:
-    """Cumulative expanded-size and member-count budget for one archive
-    build, charged from each entry's own metadata before it is read."""
+    """Expanded-size and member-count budget for one archive build."""
 
     bytes_left: int = _MAX_EXPANDED_BYTES
     members_left: int = _MAX_MEMBERS
@@ -116,47 +103,52 @@ class _ArchiveBudget:
             )
 
 
+def _stage_zip(
+    zf: zipfile.ZipFile,
+    staged: _Staged,
+    budget: _ArchiveBudget,
+    *,
+    skip_state: bool,
+    place: Callable[[str, dict[str, Any] | None], tuple[str, dict[str, Any]]],
+) -> None:
+    """Stage each non-junk entry of `zf` at the path and manifest entry `place` picks.
+
+    A later write at the same path replaces an earlier one, as a zip reader
+    resolves duplicate entries.
+    """
+    files = _manifest_files(zf)
+    for info in zf.infolist():
+        name = _safe_name(info.filename)
+        if info.is_dir() or name is None:
+            continue
+        entry = files.get(info.filename) or files.get(name)
+        if skip_state and entry is not None and entry.get("kind") == "state":
+            continue
+        budget.charge(info.file_size)
+        path, manifest_entry = place(name, entry)
+        staged[path] = (zf.read(info), manifest_entry, info)
+
+
 def _write_member(
     member: ForeignMember, staged: _Staged, budget: _ArchiveBudget
 ) -> None:
-    """Stage one foreign member's own inner entries (or itself, when not a
-    zip) by archive path. A later write at the same path replaces an
-    earlier one rather than duplicating it, matching how a zip reader
-    resolves duplicate entries."""
-    if zipfile.is_zipfile(io.BytesIO(member.content)):
-        with zipfile.ZipFile(io.BytesIO(member.content)) as inner:
-            inner_files = _manifest_files(inner)
-            for info in inner.infolist():
-                if info.is_dir():
-                    continue
-                name = _safe_name(info.filename)
-                if name is None:
-                    continue
-                # Another emulator's save archive also carries its exit state,
-                # which a save pick must not bring along.
-                inner_entry = inner_files.get(info.filename) or inner_files.get(name)
-                if (
-                    member.kind == "save"
-                    and inner_entry is not None
-                    and inner_entry.get("kind") == "state"
-                ):
-                    continue
-                budget.charge(info.file_size)
-                path = f".import/{member.kind}/{name}"
-                staged[path] = (
-                    inner.read(info),
-                    {"path": path, "kind": member.kind, "origin": member.origin},
-                    info,
-                )
+    """Stage one foreign member's inner entries, or itself when it is not a zip."""
+
+    def place(name: str, _entry: dict[str, Any] | None) -> tuple[str, dict[str, Any]]:
+        path = f".import/{member.kind}/{name}"
+        return path, {"path": path, "kind": member.kind, "origin": member.origin}
+
+    try:
+        inner = zipfile.ZipFile(io.BytesIO(member.content))
+    except zipfile.BadZipFile:
+        budget.charge(len(member.content))
+        path, entry = place(_safe_name(member.name) or "data", None)
+        staged[path] = (member.content, entry, None)
         return
-    budget.charge(len(member.content))
-    name = _safe_name(member.name) or "data"
-    path = f".import/{member.kind}/{name}"
-    staged[path] = (
-        member.content,
-        {"path": path, "kind": member.kind, "origin": member.origin},
-        None,
-    )
+    with inner:
+        # Another emulator's save archive also carries its exit state, which
+        # a save pick must not bring along.
+        _stage_zip(inner, staged, budget, skip_state=member.kind == "save", place=place)
 
 
 def build_import_archive(
@@ -166,52 +158,34 @@ def build_import_archive(
 ) -> tuple[bytes, list[dict[str, Any]]]:
     """Build the single zip `activate`'s `save.archive` wants.
 
-    Carries over the base archive's own members verbatim (its old
-    `.broker-manifest.json` is dropped and rewritten as v2), except its v1
-    state member, which is stripped whenever a foreign state is among
-    `members` since the import replaces it. Adds one `.import/<kind>/<name>`
-    member per foreign member (its own inner members, when its content is
-    itself a zip). Drops dotfiles and `__MACOSX` entries and forces UTF-8
-    names on every member copied in, base or foreign. A path collision
-    (base vs. a foreign member, or between two foreign members' own inner
-    zips) keeps only the last write.
+    The base archive's members are carried over (minus its state when a
+    foreign state replaces it), then each foreign member lands under
+    `.import/<kind>/`, and the manifest is rewritten as v2.
 
     Returns:
         The archive bytes, and the manifest's `files` list actually written.
     """
     ensure_zipfile_writable()
-    strip_state = any(m.kind == "state" for m in members)
     staged: _Staged = {}
     budget = _ArchiveBudget()
     if base is not None:
         base_name, base_content = base
         try:
-            base_zf_handle = zipfile.ZipFile(io.BytesIO(base_content))
+            base_zf = zipfile.ZipFile(io.BytesIO(base_content))
         except zipfile.BadZipFile:
             log.warning("base save archive is not a valid zip, %s", base_name)
-            base_zf_handle = None
-        if base_zf_handle is not None:
-            with base_zf_handle as base_zf:
-                base_files = _manifest_files(base_zf)
-                for info in base_zf.infolist():
-                    if info.is_dir() or info.filename == _MANIFEST_NAME:
-                        continue
-                    name = _safe_name(info.filename)
-                    if name is None:
-                        continue
-                    entry = base_files.get(info.filename) or base_files.get(name)
-                    if (
-                        strip_state
-                        and entry is not None
-                        and entry.get("kind") == "state"
-                    ):
-                        continue
-                    budget.charge(info.file_size)
-                    staged[name] = (
-                        base_zf.read(info),
+        else:
+            with base_zf:
+                _stage_zip(
+                    base_zf,
+                    staged,
+                    budget,
+                    skip_state=any(m.kind == "state" for m in members),
+                    place=lambda name, entry: (
+                        name,
                         entry if entry is not None else {"path": name, "kind": "save"},
-                        info,
-                    )
+                    ),
+                )
     for member in members:
         _write_member(member, staged, budget)
 
@@ -245,8 +219,8 @@ async def _read_asset(file_path: str, file_name: str) -> bytes | None:
 class ImportHydration(NamedTuple):
     """What `hydrate_import_archive` actually got onto the container."""
 
-    path: str | None
-    state_imported: bool
+    path: str | None = None
+    state_imported: bool = False
 
 
 async def hydrate_import_archive(
@@ -258,12 +232,7 @@ async def hydrate_import_archive(
     save_is_foreign: bool,
     state: State | None,
 ) -> ImportHydration:
-    """Build this launch's one archive (native base plus any foreign
-    `.import/` members) and upload it.
-
-    `state` rides here whenever the container takes no separate state push:
-    a foreign pick always, and a native one on an archive-resume container
-    (DuckStation, RPCS3), since a push after activate would be refused.
+    """Build this launch's one archive (native base plus `.import/` members) and upload it.
 
     Returns:
         The container path `activate`'s `save.archive` wants (None when
@@ -271,26 +240,17 @@ async def hydrate_import_archive(
         `state` specifically made it into the uploaded archive.
     """
     members: list[ForeignMember] = []
-    base: tuple[str, bytes] | None = None
-
     if save is not None and save_is_foreign:
         archive = await saves.read_restorable_archive(save)
         if archive is not None:
-            _file_name, save_content = archive
             members.append(
                 ForeignMember(
                     kind="save",
                     name=save.file_name,
-                    content=save_content,
+                    content=archive[1],
                     origin=origin_of(save.emulator, save.origin_device_id),
                 )
             )
-    elif save is not None:
-        base = await saves.read_restorable_archive(save)
-    else:
-        newest = saves.newest_restorable(user_id, rom.id, container.emulator)
-        if newest is not None:
-            base = await saves.read_restorable_archive(newest)
 
     if state is not None:
         content = await _read_asset(state.file_path, state.file_name)
@@ -304,12 +264,15 @@ async def hydrate_import_archive(
                 )
             )
 
+    # Nothing foreign made it in, so the caller falls back to ordinary hydration.
     if not members:
-        # No foreign material made it in (nothing was foreign, or reading it
-        # failed): there is nothing to import. Let the caller fall through
-        # to ordinary hydration for any native save, rather than uploading a
-        # v2 archive whose `.import/` section is empty.
-        return ImportHydration(None, False)
+        return ImportHydration()
+
+    base: tuple[str, bytes] | None = None
+    if not save_is_foreign:
+        native = save or saves.newest_restorable(user_id, rom.id, container.emulator)
+        if native is not None:
+            base = await saves.read_restorable_archive(native)
 
     archive_bytes, carried = await asyncio.to_thread(
         build_import_archive, rom.id, base, members
@@ -317,8 +280,6 @@ async def hydrate_import_archive(
     path = await asyncio.to_thread(
         webstation.upload_archive, container, f"rom-{rom.id}.zip", archive_bytes
     )
-    # A member whose own inner zip filtered out to nothing (junk entries
-    # only) never lands in `carried`, so this reflects what actually made it
-    # into the archive rather than merely what was attempted.
+    # A member whose inner zip held only junk never lands in `carried`.
     state_included = path is not None and any(f.get("kind") == "state" for f in carried)
     return ImportHydration(path, state_included)

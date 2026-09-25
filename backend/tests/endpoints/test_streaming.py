@@ -19,6 +19,7 @@ from main import app
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import streaming
+from endpoints.responses.streaming import ImportRefusalSchema
 from endpoints.streaming import platform_capabilities
 from handler.activity_handler import activity_handler
 from handler.auth import oauth_handler
@@ -106,6 +107,13 @@ def clear_streaming_sessions():
     """Streaming sessions live in Redis (fakeredis under pytest), start clean."""
     asyncio.run(async_cache.flushall())
     yield
+
+
+@pytest.fixture(autouse=True)
+def clear_import_spec_cache():
+    """The import-spec cache is process-wide, so one case's answer must not leak."""
+    with patch.dict(webstation._import_spec_cache, clear=True):
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -5113,7 +5121,7 @@ def test_resolve_save_archive_accepts_a_foreign_pick_the_broker_will_import(
         _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     )
     spec = webstation.ImportSpec(
-        kinds=(webstation.ImportKindSpec("save", False, None),),
+        kinds=frozenset({"save"}),
         state_channel="archive",
         state_slot=0,
     )
@@ -5174,7 +5182,7 @@ def test_resolve_resume_state_accepts_a_foreign_pick_on_an_archive_channel(
         _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
     )
     spec = webstation.ImportSpec(
-        kinds=(webstation.ImportKindSpec("state", True, 1),),
+        kinds=frozenset({"state"}),
         state_channel="archive",
         state_slot=2,
     )
@@ -5194,7 +5202,7 @@ def test_resolve_resume_state_accepts_a_foreign_pick_on_a_push_channel(
         _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
     )
     spec = webstation.ImportSpec(
-        kinds=(webstation.ImportKindSpec("state", True, 1),),
+        kinds=frozenset({"state"}),
         state_channel="push",
         state_slot=1,
     )
@@ -5595,7 +5603,7 @@ def test_hydrate_import_archive_falls_through_when_the_only_foreign_read_fails(
                 state=state,
             )
         )
-    assert result == imports.ImportHydration(None, False)
+    assert result == imports.ImportHydration()
     upload.assert_not_called()
 
 
@@ -5654,7 +5662,7 @@ def test_claim_hydrates_a_foreign_save_through_the_import_path(
         _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     )
     spec = webstation.ImportSpec(
-        kinds=(webstation.ImportKindSpec("save", False, None),),
+        kinds=frozenset({"save"}),
         state_channel="archive",
         state_slot=0,
     )
@@ -5687,7 +5695,7 @@ def test_claim_hydrates_a_foreign_resume_state_through_the_import_path(
         _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
     )
     spec = webstation.ImportSpec(
-        kinds=(webstation.ImportKindSpec("state", False, None),),
+        kinds=frozenset({"state"}),
         state_channel="archive",
         state_slot=0,
     )
@@ -5720,14 +5728,14 @@ def test_a_missing_foreign_state_does_not_falsely_claim_resume_via_import(
     client, access_token, rom: Rom, admin_user: User
 ):
     """The foreign state's bytes are missing on disk, so the import archive
-    never actually carries it. resume_via_import must not reach run_launch as
-    True on the strength of the pre-win check alone, and the native save
+    never actually carries it. the resume must not reach run_launch as
+    imported on the strength of the pre-win check alone, and the native save
     hydration path must still get its turn."""
     state = db_state_handler.add_state(
         _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
     )
     spec = webstation.ImportSpec(
-        kinds=(webstation.ImportKindSpec("state", False, None),),
+        kinds=frozenset({"state"}),
         state_channel="archive",
         state_slot=0,
     )
@@ -5749,7 +5757,7 @@ def test_a_missing_foreign_state_does_not_falsely_claim_resume_via_import(
             r = _claim(client, access_token, rom.id, state_id=state.id)
     assert r.status_code == 202
     run_launch_mock.assert_called_once()
-    assert run_launch_mock.call_args.kwargs["resume_via_import"] is False
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "lost"
     native_hydrate.assert_called_once()
 
 
@@ -5762,7 +5770,7 @@ def test_claim_refuses_a_foreign_save_the_won_container_will_not_import(
         _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     )
     spec = webstation.ImportSpec(
-        kinds=(webstation.ImportKindSpec("save", False, None),),
+        kinds=frozenset({"save"}),
         state_channel="archive",
         state_slot=0,
     )
@@ -5792,7 +5800,7 @@ def test_claim_refuses_a_foreign_state_the_won_container_will_not_import(
         _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
     )
     spec = webstation.ImportSpec(
-        kinds=(webstation.ImportKindSpec("state", False, None),),
+        kinds=frozenset({"state"}),
         state_channel="archive",
         state_slot=0,
     )
@@ -5895,8 +5903,7 @@ def test_run_launch_sends_rom_identity_fields(rom: Rom, admin_user: User):
                 resume_slot=None,
                 resume_pushed=False,
                 resume_after_launch=False,
-                resume_via_import=False,
-                resume_needs_import=False,
+                resume_import="none",
                 memory_card_synced=False,
                 multiplayer=False,
                 blank_card_id=None,
@@ -5913,7 +5920,7 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
 ):
     """An import refusal must reach the player's tabs as structured refusal
     data, not just a flattened error string."""
-    refusal = broker.ImportRefusal(
+    refusal = ImportRefusalSchema(
         reason="shape_mismatch",
         member=".import/save/Game.mcr",
         expected="folder",
@@ -5947,8 +5954,7 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
                 resume_slot=None,
                 resume_pushed=False,
                 resume_after_launch=False,
-                resume_via_import=False,
-                resume_needs_import=False,
+                resume_import="none",
                 memory_card_synced=False,
                 multiplayer=False,
                 blank_card_id=None,
@@ -5975,7 +5981,7 @@ def test_activate_refusal_frees_the_container_for_a_new_claim(
     """An import refusal at activate time must release the claim, not just
     report it: a second claim on the same container has to succeed too, not
     only see `streaming:launch-failed` and an emptied session record."""
-    refusal = broker.ImportRefusal(
+    refusal = ImportRefusalSchema(
         reason="shape_mismatch",
         member=".import/save/Game.mcr",
         expected="folder",
@@ -6057,8 +6063,7 @@ def test_run_launch_skips_the_state_push_when_resuming_via_import(
                 resume_slot=0,
                 resume_pushed=False,
                 resume_after_launch=True,
-                resume_via_import=True,
-                resume_needs_import=True,
+                resume_import="imported",
                 memory_card_synced=False,
                 multiplayer=False,
                 blank_card_id=None,
@@ -6110,8 +6115,7 @@ def test_run_launch_sends_no_resume_slot_when_the_import_was_lost(
                     resume_slot=0,
                     resume_pushed=False,
                     resume_after_launch=True,
-                    resume_via_import=False,
-                    resume_needs_import=True,
+                    resume_import="lost",
                     memory_card_synced=False,
                     multiplayer=False,
                     blank_card_id=None,
@@ -7022,7 +7026,7 @@ def test_an_older_exit_state_resume_rides_the_import_archive(
     activate = MagicMock(return_value={"url": "/room/x"})
     upload = MagicMock(return_value="rom-1.zip")
     spec = webstation.ImportSpec(
-        kinds=(webstation.ImportKindSpec("state", True, 1),),
+        kinds=frozenset({"state"}),
         state_channel="archive",
         state_slot=0,
     )
@@ -7083,7 +7087,7 @@ def test_an_older_exit_state_stays_off_the_import_path_without_broker_support(
             r = _claim(client, access_token, rom.id, state_id=older.id)
     assert r.status_code == 202
     hydrate_import.assert_not_called()
-    assert run_launch_mock.call_args.kwargs["resume_needs_import"] is False
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "none"
     assert run_launch_mock.call_args.kwargs["archive_path"] == "/romm/saves/archive.zip"
 
 
@@ -7678,7 +7682,6 @@ def test_fetch_memory_card_transport_error_raises(rom: Rom):
 
 
 def test_import_spec_parses_the_brokers_discovery_response(rom: Rom):
-    webstation.reset_import_spec_cache()
     body = json.dumps(
         {
             "import_api": 1,
@@ -7719,7 +7722,6 @@ def test_import_spec_parses_the_brokers_discovery_response(rom: Rom):
 def test_import_spec_returns_none_and_caches_on_404(rom: Rom):
     """A broker that predates imports answers 404; that answer is stable for
     the worker's life, so it is cached rather than re-checked every claim."""
-    webstation.reset_import_spec_cache()
     container = _resolved(_webstation_for(rom))
     with patch(
         "handler.streaming.broker.urllib.request.urlopen",
@@ -7746,7 +7748,6 @@ def test_import_spec_never_asks_a_legacy_broker(rom: Rom):
 def test_import_spec_returns_none_uncached_on_a_transient_failure(rom: Rom):
     """A network blip is not the same stable answer a 404/422 is, so it must
     never be cached (a future call should try again)."""
-    webstation.reset_import_spec_cache()
     container = _resolved(_webstation_for(rom))
     with patch(
         "handler.streaming.broker.urllib.request.urlopen",

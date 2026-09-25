@@ -76,6 +76,8 @@ vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({
     claimSession: mocks.claimSession,
     containerForPlatform: () => mocks.container,
+    emulatorLabel: (emulator: string) =>
+      emulator === "duckstation" ? "DuckStation" : emulator,
     platformCapabilities: () => mocks.capabilities,
     fetchConfig: mocks.fetchConfig,
     fetchSessionStatus: mocks.fetchSessionStatus,
@@ -998,7 +1000,7 @@ describe("Stream launch recovery", () => {
     expect(vmOf(wrapper).playerState).toBe("error");
     expect(vmOf(wrapper).errorMessage).toBe("play.stream-error-import-refused");
     expect(vmOf(wrapper).errorHint).toBe(
-      "duckstation (play.import-refusals-truncated)",
+      "DuckStation (play.import-refusals-truncated)",
     );
   });
 

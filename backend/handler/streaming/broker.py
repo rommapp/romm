@@ -14,12 +14,12 @@ import json
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
 from email.message import Message
 from typing import Any, NoReturn
 
 from fastapi import HTTPException
 
+from endpoints.responses.streaming import ImportRefusalSchema
 from handler.streaming.config import ResolvedContainer
 from logger.logger import log
 
@@ -294,30 +294,17 @@ def put_binary(
     return bool(body and body.get("status") == "ok")
 
 
-@dataclass(frozen=True)
-class ImportRefusal:
-    """One `.import/` member the broker's activate declined to place."""
-
-    reason: str
-    member: str | None
-    expected: str | None
-    detail: str | None
-    suggest_emulator: str | None
-    docs: str | None
-
-
 class ImportRefusedError(Exception):
     """The broker refused one or more members of a declared import."""
 
-    def __init__(self, refusals: list[ImportRefusal], truncated: int) -> None:
+    def __init__(self, refusals: list[ImportRefusalSchema], truncated: int) -> None:
         self.refusals = refusals
         self.truncated = truncated
         super().__init__(f"import refused: {len(refusals)} refusal(s)")
 
 
 def _str_or_none(value: Any) -> str | None:
-    """Coerce one broker-JSON field to the `str | None` shape callers rely
-    on, since the broker's own response isn't validated against a schema."""
+    """Coerce one unvalidated broker-JSON field to `str | None`."""
     return value if isinstance(value, str) or value is None else str(value)
 
 
@@ -339,7 +326,7 @@ def raise_http_error(exc: urllib.error.HTTPError) -> NoReturn:
             refusal = detail
     if refusal is not None and isinstance(refusal.get("refusals"), list):
         refusals = [
-            ImportRefusal(
+            ImportRefusalSchema(
                 reason=str(r.get("reason", "")),
                 member=_str_or_none(r.get("member")),
                 expected=_str_or_none(r.get("expected")),

@@ -6,13 +6,11 @@ progress behind it reach the player over the socket instead.
 """
 
 import asyncio
-import dataclasses
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import HTTPException
 
 from endpoints.responses.streaming import (
-    ImportRefusalSchema,
     LaunchFailedPayload,
     LaunchPhasePayload,
     LaunchReadyPayload,
@@ -36,6 +34,9 @@ from models.assets import State
 from models.rom import Rom
 from models.user import User
 
+# Whether a resume state had to ride the import archive, and if it made it in.
+ResumeImport = Literal["none", "imported", "lost"]
+
 
 async def run_launch(
     *,
@@ -54,8 +55,7 @@ async def run_launch(
     resume_slot: int | None,
     resume_pushed: bool,
     resume_after_launch: bool,
-    resume_via_import: bool,
-    resume_needs_import: bool,
+    resume_import: ResumeImport,
     memory_card_synced: bool,
     multiplayer: bool,
     blank_card_id: int | None,
@@ -74,10 +74,9 @@ async def run_launch(
     )
     # Nothing of this player's to resume from: a pick that failed to ride its
     # import archive, or an exit-state broker with no archive uploaded.
-    import_lost = resume_needs_import and not resume_via_import
     resume_on_activate = (
         (resume_pushed or resume_after_launch)
-        and not import_lost
+        and resume_import != "lost"
         and not (container.resumes_from_archive and archive_path is None)
     )
     try:
@@ -120,14 +119,7 @@ async def run_launch(
         refusals_truncated = 0
         if isinstance(exc, broker.ImportRefusedError):
             refusals_truncated = exc.truncated
-            try:
-                refusals = [
-                    ImportRefusalSchema(**dataclasses.asdict(r)) for r in exc.refusals
-                ]
-            except Exception:
-                # A malformed refusal shouldn't also swallow the failure
-                # notification below and strand the player mid-launch.
-                log.exception("could not build refusal payload, platform=%s", platform)
+            refusals = exc.refusals
         await push_to_user(
             session.get("user_id"),
             "streaming:launch-failed",
@@ -154,18 +146,12 @@ async def run_launch(
     # the game running, and holds off further until the state file is there, so
     # this push lands ahead of it even though it runs after activate.
     if resume_after_launch and resume_state is not None:
-        if resume_via_import:
-            # The activate's archive already handed this broker the whole
-            # resume; there is no separate state file to push.
-            resume_pushed = True
-        elif import_lost:
-            # The pick never made it into the archive (a failed read, an
-            # upload that fell through), and this broker refuses a state
-            # pushed in after activate, so there is no fallback delivery.
-            resume_pushed = False
+        if resume_import != "none":
+            # The activate's archive carried the state, or there is no other
+            # delivery for one that never made it in.
+            resume_pushed = resume_import == "imported"
         elif container.resumes_from_archive:
-            # No import was needed at all: this pick is the newest capture,
-            # already the exit state the save archive naturally carries.
+            # The pick is the newest capture, which the save archive carries.
             resume_pushed = resume_on_activate
         else:
             resume_pushed = await states.push_resume_state(container, resume_state)

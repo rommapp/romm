@@ -724,7 +724,11 @@ useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   if (payload.refusals?.length) {
     errorMessage.value = t("play.stream-error-import-refused");
     const hints = payload.refusals
-      .map((r) => r.suggest_emulator || r.reason)
+      .map((r) =>
+        r.suggest_emulator
+          ? streamingStore.emulatorLabel(r.suggest_emulator)
+          : r.reason,
+      )
       .join(", ");
     const truncated = payload.refusals_truncated;
     errorHint.value = truncated

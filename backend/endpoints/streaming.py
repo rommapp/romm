@@ -690,13 +690,13 @@ async def _hydrate_saves(
                 )
             except Exception:
                 log.exception("import archive hydration failed, continuing launch")
-                result = imports.ImportHydration(None, False)
+                result = imports.ImportHydration()
             if result.path is not None:
                 return result
             if save_foreign:
                 # The foreign save itself is what failed; there is no native
                 # side of this pick to fall back to.
-                return imports.ImportHydration(None, False)
+                return imports.ImportHydration()
             # The foreign state failed to import; a native save riding
             # alongside it (or none at all) still gets ordinary hydration.
         # Restore runs inside activate on this protocol, so hydration only gets
@@ -708,7 +708,7 @@ async def _hydrate_saves(
             path = await saves.hydrate_saves_to_webstation(
                 request.user.id, rom.id, container, save
             )
-            return imports.ImportHydration(path, False)
+            return imports.ImportHydration(path)
         except Exception:
             log.exception("save hydration failed, continuing launch")
     elif card is None:
@@ -718,7 +718,7 @@ async def _hydrate_saves(
             await saves.hydrate_saves_to_broker(request.user.id, rom.id, container)
         except Exception:
             log.exception("save hydration failed, continuing launch")
-    return imports.ImportHydration(None, False)
+    return imports.ImportHydration()
 
 
 @protected_route(
@@ -781,8 +781,7 @@ async def claim_session(
     resume_slot: int | None = None
     resume_foreign = False
     if req.state_id is not None:
-        # Wrapped in asyncio.to_thread because it internally calls a
-        # synchronous broker request.
+        # Off the event loop, since a foreign pick asks the broker synchronously.
         resume_state, resume_slot, resume_foreign = await asyncio.to_thread(
             states.resolve_resume_state, request.user.id, rom, reference, req.state_id
         )
@@ -792,8 +791,6 @@ async def claim_session(
     picked_save = None
     save_foreign = False
     if req.save_id is not None:
-        # Wrapped in asyncio.to_thread because it internally calls a
-        # synchronous broker request.
         picked_save, save_foreign = await asyncio.to_thread(
             saves.resolve_save_archive, request.user.id, rom, reference, req.save_id
         )
@@ -938,11 +935,9 @@ async def claim_session(
         save_foreign=save_foreign,
         import_state=resume_state if resume_via_import else None,
     )
-    # Only now, after the archive was actually built and uploaded, is it known
-    # whether the resume state really rode inside it. run_launch trusts this
-    # flag to skip the native state push and report the resume as done.
-    resume_needs_import = resume_via_import
-    resume_via_import = resume_via_import and state_imported
+    resume_import: launch.ResumeImport = "none"
+    if resume_via_import:
+        resume_import = "imported" if state_imported else "lost"
 
     # Detached because an activate blocks through pkg and archive extraction,
     # minutes on a large title, which no player can cancel out of.
@@ -963,8 +958,7 @@ async def claim_session(
         resume_slot=resume_slot,
         resume_pushed=resume_pushed,
         resume_after_launch=resume_after_launch,
-        resume_via_import=resume_via_import,
-        resume_needs_import=resume_needs_import,
+        resume_import=resume_import,
         memory_card_synced=memory_card is not None,
         multiplayer=multiplayer,
         blank_card_id=created_blank_card_id,
