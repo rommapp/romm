@@ -271,23 +271,22 @@ async def encode_track(source: AudioSource, output: Path, album: str | None) -> 
         )
 
 
-def _disc_images(rom: Rom) -> list[RomFile]:
-    """One image per disc: a sheet and a CHD of the same name in one folder are
-    the same disc, and the sheet wins since it can carry CD-Text."""
-    images = sorted(
-        (
-            file
-            for file in rom.files
-            if file.category in (None, RomFileCategory.GAME)
-            and file.file_name.lower().endswith(DISC_IMAGE_EXTENSIONS)
-        ),
-        key=lambda f: DISC_IMAGE_EXTENSIONS.index(Path(f.file_name).suffix.lower()),
-    )
-    distinct: dict[tuple[str, str], RomFile] = {}
-    for image in images:
-        key = (image.file_path, Path(image.file_name).stem.casefold())
-        distinct.setdefault(key, image)
-    return list(distinct.values())
+def _discs(rom: Rom) -> list[list[RomFile]]:
+    """A ROM's disc images, grouped per disc: a sheet and a CHD of the same name
+    in one folder are one disc in two formats, sheet first for its CD-Text."""
+    discs: dict[tuple[str, str], list[RomFile]] = {}
+    for file in rom.files:
+        if file.category in (
+            None,
+            RomFileCategory.GAME,
+        ) and file.file_name.lower().endswith(DISC_IMAGE_EXTENSIONS):
+            key = (file.file_path, Path(file.file_name).stem.casefold())
+            discs.setdefault(key, []).append(file)
+    for images in discs.values():
+        images.sort(
+            key=lambda f: DISC_IMAGE_EXTENSIONS.index(Path(f.file_name).suffix.lower())
+        )
+    return list(discs.values())
 
 
 @dataclass(frozen=True)
@@ -304,46 +303,60 @@ class CdAudioStatus:
     extracted: int
 
 
-def _require_libchdr(images: list[RomFile]) -> ctypes.CDLL | None:
-    lib = load_libchdr()
-    if lib is None and any(i.file_name.lower().endswith(".chd") for i in images):
-        raise CdAudioUnavailableException(
-            "Reading CHD images needs libchdr, which is not installed"
-        )
-    return lib
+def _disc_sources(images: list[RomFile], lib: ctypes.CDLL | None) -> list[AudioSource]:
+    """The audio tracks of the first of a disc's images that has any, so a sheet
+    whose track files are gone falls back to the CHD beside it."""
+    sources: list[AudioSource] = []
+    for image in images:
+        path = fs_rom_handler.validate_path(image.full_path)
+        try:
+            if path.suffix.lower() != ".chd":
+                sources = _sheet_sources(path)
+            elif lib is None:
+                raise CdAudioUnavailableException(
+                    "Reading CHD images needs libchdr, which is not installed"
+                )
+            else:
+                sources = _chd_sources(lib, path)
+        except (ChdError, OSError) as exc:
+            raise CdAudioEncodeException(f"Could not read {path.name}") from exc
+        if sources:
+            break
+    return sources
 
 
-def _plan_tracks(images: list[RomFile], lib: ctypes.CDLL | None) -> list[PlannedTrack]:
+def _plan_tracks(
+    discs: list[list[RomFile]], lib: ctypes.CDLL | None
+) -> list[PlannedTrack]:
     """Read each disc's audio track layout, without touching its samples.
 
     Raises:
+        CdAudioUnavailableException: A disc needs libchdr, which isn't installed.
         CdAudioEncodeException: A disc image couldn't be read.
     """
     # Numbered discs first and in order, then the rest by path.
-    images = sorted(
-        images,
-        key=lambda f: (disc_number(f) is None, disc_number(f) or 0, f.full_path),
+    discs = sorted(
+        discs,
+        key=lambda d: (
+            disc_number(d[0]) is None,
+            disc_number(d[0]) or 0,
+            d[0].file_path,
+            Path(d[0].file_name).stem.casefold(),
+        ),
     )
-    paths = [fs_rom_handler.validate_path(image.full_path) for image in images]
+    # Every image of a disc shares its folder and name, so the first names it.
+    paths = [fs_rom_handler.validate_path(images[0].full_path) for images in discs]
     prefixes = track_prefixes(paths)
-    multi_disc = len(images) > 1
+    multi_disc = len(discs) > 1
     planned: list[PlannedTrack] = []
-    for position, (image, path) in enumerate(zip(images, paths, strict=True), 1):
-        try:
-            if path.suffix.lower() == ".chd":
-                assert lib is not None
-                sources = _chd_sources(lib, path)
-            else:
-                sources = _sheet_sources(path)
-        except (ChdError, OSError) as exc:
-            raise CdAudioEncodeException(f"Could not read {path.name}") from exc
-        disc = (disc_number(image) or position) if multi_disc else None
+    for position, (images, path) in enumerate(zip(discs, paths, strict=True), 1):
+        disc = (disc_number(images[0]) or position) if multi_disc else None
         planned.extend(
             PlannedTrack(
                 file_name=track_file_name(prefixes[path], source.number),
                 source=dataclasses.replace(source, disc=disc),
             )
-            for source in sources
+            for source in _disc_sources(images, lib)
         )
     return planned
 
@@ -355,10 +368,10 @@ async def cd_audio_status(rom: Rom) -> CdAudioStatus:
         CdAudioUnavailableException: libchdr is needed for a CHD but not installed.
         CdAudioEncodeException: A disc image couldn't be read.
     """
-    images = _disc_images(rom)
-    if not images:
+    discs = _discs(rom)
+    if not discs:
         return CdAudioStatus(tracks=0, extracted=0)
-    planned = await asyncio.to_thread(_plan_tracks, images, _require_libchdr(images))
+    planned = await asyncio.to_thread(_plan_tracks, discs, load_libchdr())
     soundtrack = {
         file.file_name
         for file in rom.files
@@ -386,19 +399,24 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
         raise CdAudioUnavailableException("The flac encoder is not installed")
 
     result = CdAudioExtraction()
-    images = _disc_images(rom)
-    if not images:
+    discs = _discs(rom)
+    if not discs:
         return result
 
-    lib = _require_libchdr(images)
+    lib = load_libchdr()
 
     if rom.has_simple_single_file:
+        [[image]] = discs
         # A CHD is self-contained, but a lone sheet would leave its tracks behind.
-        if not images[0].file_name.lower().endswith(".chd"):
+        if not image.file_name.lower().endswith(".chd"):
             raise CdAudioNeedsFolderException(
                 "Move the disc into a folder of its own to extract its audio"
             )
-        disc = fs_rom_handler.validate_path(images[0].full_path)
+        if lib is None:
+            raise CdAudioUnavailableException(
+                "Reading CHD images needs libchdr, which is not installed"
+            )
+        disc = fs_rom_handler.validate_path(image.full_path)
         playlist = await asyncio.to_thread(listing_playlist, disc)
         if playlist:
             raise CdAudioNeedsFolderException(
@@ -407,10 +425,10 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
                 "its audio"
             )
         rom = await promote_single_file_to_folder(rom)
-        images = _disc_images(rom)
+        discs = _discs(rom)
 
     folder = CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK]
-    planned = await asyncio.to_thread(_plan_tracks, images, lib)
+    planned = await asyncio.to_thread(_plan_tracks, discs, lib)
     try:
         for track in planned:
             try:

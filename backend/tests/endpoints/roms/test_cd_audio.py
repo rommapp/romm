@@ -777,3 +777,36 @@ async def test_cancelling_mid_read_closes_the_image_and_cleans_up(tmp_path: Path
         await task
     assert closed.is_set()
     assert not output.exists()
+
+
+def test_falls_back_to_the_chd_when_the_sheet_lost_its_tracks(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+    tmp_path: Path,
+):
+    fs_path = f"{platform.slug}/roms/Disc Game"
+    folder = real_library / fs_path
+    folder.mkdir(parents=True)
+    write_cue_disc(tmp_path / "source")
+    _create_chd(tmp_path / "source" / "Disc.cue", folder / "Disc.chd")
+    (folder / "Disc.cue").write_text(CUE_SHEET)
+    rom = _add_disc_rom(
+        admin_user,
+        platform,
+        "Disc Game",
+        {"Disc.cue": len(CUE_SHEET), "Disc.chd": (folder / "Disc.chd").stat().st_size},
+        fs_path,
+    )
+    url = f"/api/roms/{rom.id}/soundtracks/cd-audio"
+
+    counted = client.get(url, headers=_auth(access_token))
+    extracted = client.post(url, headers=_auth(access_token))
+
+    assert counted.json() == {"tracks": 2, "extracted": 0}
+    assert extracted.json()["extracted"] == [
+        "Disc - Track 02.flac",
+        "Disc - Track 03.flac",
+    ]
