@@ -9,6 +9,8 @@ Create Date: 2026-09-21 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op
 
+from utils.database import CustomJSON
+
 # revision identifiers, used by Alembic.
 revision = "0136_deleted_assets"
 down_revision = "0135_drop_play_session_sync_link"
@@ -26,7 +28,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("rom_id", sa.Integer(), nullable=False),
         sa.Column("slot", sa.String(length=255), nullable=False),
-        sa.Column("content_hashes", sa.JSON(), nullable=False),
+        sa.Column("content_hashes", CustomJSON(), nullable=False),
         sa.Column("deleted_at", sa.TIMESTAMP(timezone=True), nullable=False),
         sa.Column(
             "created_at",

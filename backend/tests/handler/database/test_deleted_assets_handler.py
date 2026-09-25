@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from handler.database import db_deleted_asset_handler
-from handler.database.deleted_assets_handler import MAX_REMEMBERED_HASHES
+from models.deleted_asset import MAX_REMEMBERED_HASHES
 from models.rom import Rom
 from models.user import User
 
@@ -100,6 +100,18 @@ class TestRememberedVersions:
             )
 
         assert record.content_hashes == ["same"]
+
+    def test_a_version_lost_again_is_the_newest(self, rom: Rom, admin_user: User):
+        for content_hash in ("first", "second", "first"):
+            record = db_deleted_asset_handler.record_deletion(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                slot="relost",
+                content_hash=content_hash,
+                deleted_at=datetime.now(timezone.utc),
+            )
+
+        assert record.content_hashes == ["second", "first"]
 
     def test_the_oldest_versions_fall_off(self, rom: Rom, admin_user: User):
         # A slot emptied this often is one whose oldest versions no device

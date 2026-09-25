@@ -12,7 +12,7 @@ export type SyncOperationSchema = {
      */
     rom_id: number;
     /**
-     * ID of the server save, if one exists (null for uploads).
+     * ID of the server save, if one exists (null for uploads and deletes).
      */
     save_id?: (number | null);
     /**
@@ -20,7 +20,7 @@ export type SyncOperationSchema = {
      */
     file_name: string;
     /**
-     * Slot the operation applies to. Echoes the client slot for uploads; for downloads and conflicts it is the server save's slot.
+     * Slot the operation applies to. Echoes the client slot for uploads and deletes; for downloads and conflicts it is the server save's slot.
      */
     slot?: (string | null);
     /**

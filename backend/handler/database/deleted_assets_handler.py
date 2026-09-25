@@ -6,18 +6,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
-from models.deleted_asset import DeletedAsset
+from models.deleted_asset import MAX_REMEMBERED_HASHES, DeletedAsset
 from utils.datetime import to_utc
 
 from .base_handler import DBBaseHandler
 
-# Trimming drops the oldest, which a long-offline device is likeliest to hold;
-# past the bound that device is answered `upload` rather than `delete`.
-MAX_REMEMBERED_HASHES = 100
-
 
 class DBDeletedAssetsHandler(DBBaseHandler):
-    @begin_session
     def record_deletion(
         self,
         user_id: int,
@@ -25,7 +20,6 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         slot: str,
         content_hash: str | None,
         deleted_at: datetime,
-        session: Session = None,  # type: ignore
     ) -> DeletedAsset:
         """Remember a version this slot lost, keeping one row per slot.
 
@@ -39,10 +33,30 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         Returns:
             The record a negotiation will read.
         """
-        existing = self._locked(session, user_id, rom_id, slot)
-        if existing:
-            return self._merge(existing, content_hash, deleted_at, session)
+        # Separate transactions: on MariaDB, locking a missing key and then
+        # inserting deadlocks a concurrent deletion, even of another slot.
+        record = self._merge(user_id, rom_id, slot, content_hash, deleted_at)
+        if record:
+            return record
+        try:
+            return self._insert(user_id, rom_id, slot, content_hash, deleted_at)
+        except IntegrityError:
+            # A concurrent deletion of the same slot inserted first.
+            record = self._merge(user_id, rom_id, slot, content_hash, deleted_at)
+            if not record:
+                raise
+            return record
 
+    @begin_session
+    def _insert(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str,
+        content_hash: str | None,
+        deleted_at: datetime,
+        session: Session = None,  # type: ignore
+    ) -> DeletedAsset:
         record = DeletedAsset(
             user_id=user_id,
             rom_id=rom_id,
@@ -50,39 +64,31 @@ class DBDeletedAssetsHandler(DBBaseHandler):
             content_hashes=[content_hash] if content_hash else [],
             deleted_at=deleted_at,
         )
-        try:
-            # Two deletions of the same slot can each find no row to lock,
-            # since there is nothing there to lock yet. The loser merges.
-            with session.begin_nested():
-                session.add(record)
-                session.flush()
-        except IntegrityError:
-            winner = self._locked(session, user_id, rom_id, slot)
-            if not winner:
-                raise
-            return self._merge(winner, content_hash, deleted_at, session)
+        session.add(record)
+        session.flush()
         return record
 
-    def _locked(
-        self, session: Session, user_id: int, rom_id: int, slot: str
+    @begin_session
+    def _merge(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str,
+        content_hash: str | None,
+        deleted_at: datetime,
+        session: Session = None,  # type: ignore
     ) -> DeletedAsset | None:
-        """This slot's record, held against a concurrent deletion of the same."""
-        return session.scalar(
+        """Add this version to the slot's record, or None when it has none yet."""
+        record = session.scalar(
             select(DeletedAsset)
             .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
             .with_for_update()
         )
-
-    def _merge(
-        self,
-        record: DeletedAsset,
-        content_hash: str | None,
-        deleted_at: datetime,
-        session: Session,
-    ) -> DeletedAsset:
-        """Add this version to what the slot is known to have lost."""
-        hashes = list(record.content_hashes or [])
-        if content_hash and content_hash not in hashes:
+        if not record:
+            return None
+        # A version lost again moves to the end, so trimming keeps it.
+        hashes = [h for h in record.content_hashes or [] if h != content_hash]
+        if content_hash:
             hashes.append(content_hash)
         record.content_hashes = hashes[-MAX_REMEMBERED_HASHES:]
         # Through to_utc: a stored value comes back naive on MariaDB, and

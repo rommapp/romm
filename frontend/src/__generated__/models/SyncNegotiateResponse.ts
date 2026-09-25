@@ -10,6 +10,6 @@ export type SyncNegotiateResponse = {
     total_download: number;
     total_conflict: number;
     total_no_op: number;
-    total_delete?: number;
+    total_delete: number;
 };
 

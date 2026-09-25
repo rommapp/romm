@@ -839,15 +839,15 @@ async def delete_saves(
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
-        # Remembered first: these are separate transactions, and a record for
-        # a save still present is never read, while a deletion with no record
-        # offers the save back to every device holding it.
+        # Recorded first: a record for a save still present is never read, while
+        # a deletion with no record lets every device holding it offer it back.
         if save.slot:
             db_deleted_asset_handler.record_deletion(
                 user_id=request.user.id,
                 rom_id=save.rom_id,
                 slot=save.slot,
-                content_hash=save.content_hash,
+                content_hash=save.content_hash
+                or await fs_asset_handler.compute_content_hash(save.full_path),
                 deleted_at=datetime.now(timezone.utc),
             )
         await _delete_save(save)

@@ -75,10 +75,7 @@ def compare_save_state(
 
 
 def deleted_slot_covers(client_hash: str | None, deleted_hashes: Sequence[str]) -> bool:
-    """Whether a client's copy is one of the versions a slot lost.
-
-    Identity rather than time, since a client's clock is not the server's:
-    bytes nobody deleted are offered back rather than dropped.
+    """Whether a client's copy is a version the slot lost, matched by identity.
 
     Args:
         client_hash: The digest the client reported, when it reported one.

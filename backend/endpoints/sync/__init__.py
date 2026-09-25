@@ -232,10 +232,15 @@ def negotiate_sync(
 
     # Read only when a slot has no row left, so a slot refilled since keeps
     # its record harmlessly.
+    emptied_rom_ids = {
+        s.rom_id
+        for s in payload.saves
+        if s.slot and (s.rom_id, s.slot) not in server_save_map
+    }
     deleted_map: dict[tuple[int, str | None], DeletedAsset] = {
         (record.rom_id, record.slot): record
         for record in db_deleted_asset_handler.get_deletions(
-            user_id=request.user.id, rom_ids=rom_id_scope
+            user_id=request.user.id, rom_ids=sorted(emptied_rom_ids)
         )
     }
 

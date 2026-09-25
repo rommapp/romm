@@ -1,3 +1,5 @@
+from unittest import mock
+
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -24,13 +26,34 @@ def test_delete_saves(client, access_token, save):
     body = response.json()
     assert len(body) == 1
 
-    # The row and its device pairings go together, so what the user did is only
-    # recoverable from this: without it a device still holding the save offers
-    # it back and the deletion undoes itself.
+    # Without this record a device still holding the save offers it back.
     deletions = db_deleted_asset_handler.get_deletions(
         user_id=save.user_id, rom_ids=[save.rom_id]
     )
     assert [record.slot for record in deletions] == [save.slot]
+
+
+def test_delete_saves_hashes_a_save_that_never_recorded_one(
+    client, access_token, save: Save
+):
+    assert save.content_hash is None
+
+    with mock.patch(
+        "endpoints.saves.fs_asset_handler.compute_content_hash",
+        new=mock.AsyncMock(return_value="deadbeef"),
+    ) as compute_content_hash:
+        response = client.post(
+            "/api/saves/delete",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"saves": [save.id]},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    compute_content_hash.assert_awaited_once_with(save.full_path)
+    [record] = db_deleted_asset_handler.get_deletions(
+        user_id=save.user_id, rom_ids=[save.rom_id]
+    )
+    assert record.content_hashes == ["deadbeef"]
 
 
 def test_delete_states(client, access_token, state):

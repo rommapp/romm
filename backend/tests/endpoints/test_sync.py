@@ -122,9 +122,8 @@ class TestSyncNegotiate:
                         "file_name": "test_save.sav",
                         "slot": "autosave",
                         "content_hash": "f00d",
-                        # Older than the deletion, which decides nothing: the
-                        # client's clock is not the server's, and these bytes
-                        # are not among the ones that went.
+                        # Older than the deletion, which decides nothing:
+                        # these bytes are not among the ones that went.
                         "updated_at": "2026-01-09T00:00:00Z",
                         "file_size_bytes": 1024,
                     }

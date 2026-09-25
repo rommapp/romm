@@ -152,9 +152,8 @@ class TestDeletedSlotCovers:
         assert deleted_slot_covers("abc123", ["def456", "abc123"])
 
     def test_bytes_nobody_deleted_are_not(self):
-        # Progress made after the deletion, or on a device that never synced
-        # it. Offering it back costs a deletion that does not reach that
-        # device; deleting it would cost the save.
+        # Offering it back costs a deletion that misses that device; deleting
+        # it would cost the save.
         assert not deleted_slot_covers("fresh", ["abc123"])
 
     def test_a_client_that_reports_no_digest_is_not_covered(self):
@@ -164,11 +163,3 @@ class TestDeletedSlotCovers:
 
     def test_a_slot_that_lost_nothing_covers_nothing(self):
         assert not deleted_slot_covers("abc123", [])
-
-    def test_a_version_trimmed_out_of_the_record_is_offered_back(self):
-        # A digest the record no longer holds is a deletion that does not reach
-        # that device, never a save destroyed on it.
-        aged_out = "the-version-this-device-still-holds"
-        remembered = [f"hash-{index}" for index in range(100)]
-
-        assert not deleted_slot_covers(aged_out, remembered)

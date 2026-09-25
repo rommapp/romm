@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, TIMESTAMP, ForeignKey, Index, String
+from sqlalchemy import TIMESTAMP, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.assets import SAVE_SLOT_MAX_LENGTH
 from models.base import BaseModel
+from utils.database import CustomJSON
+
+# Trimming drops the oldest, which a long-offline device is likeliest to hold;
+# past the bound that device is answered `upload` rather than `delete`.
+MAX_REMEMBERED_HASHES = 100
 
 
 class DeletedAsset(BaseModel):
@@ -30,6 +35,6 @@ class DeletedAsset(BaseModel):
     slot: Mapped[str] = mapped_column(String(length=SAVE_SLOT_MAX_LENGTH))
     # Every version the slot lost, matched by identity rather than by time:
     # a device's clock is not the server's.
-    content_hashes: Mapped[list] = mapped_column(JSON, default=list)
+    content_hashes: Mapped[list[str]] = mapped_column(CustomJSON(), default=list)
     # For reading a row, not for deciding anything.
     deleted_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
