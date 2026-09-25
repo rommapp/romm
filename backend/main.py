@@ -9,7 +9,6 @@ import sentry_sdk
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from startup import main
 
@@ -222,7 +221,6 @@ app.include_router(streaming_router, prefix="/api")
 app.mount("/ws", socket_handler.socket_app)
 app.mount("/netplay", netplay_socket_handler.socket_app)
 
-add_pagination(app)
 publish_socket_payloads(app, STREAMING_SOCKET_PAYLOADS)
 
 

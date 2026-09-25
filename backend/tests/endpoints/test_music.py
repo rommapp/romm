@@ -327,6 +327,29 @@ def test_facet_years_typeahead(client: TestClient, access_token: str, music_libr
     assert {i["value"] for i in body["items"]} == {1991, 1992}
 
 
+@pytest.mark.parametrize(
+    "path", ["/api/roms", "/api/music/tracks", "/api/music/artists"]
+)
+@pytest.mark.parametrize("query", ["limit=0", "limit=10001", "offset=-1"])
+def test_page_params_out_of_bounds_422(
+    client: TestClient, access_token: str, path: str, query: str
+):
+    response = client.get(f"{path}?{query}", headers=_auth(access_token))
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_facet_page_applies_limit_and_offset(
+    client: TestClient, access_token: str, music_library
+):
+    url = "/api/music/artists?order_by=value&order_dir=asc"
+    everything = client.get(url, headers=_auth(access_token)).json()
+    page = client.get(f"{url}&limit=1&offset=1", headers=_auth(access_token)).json()
+
+    assert (page["limit"], page["offset"]) == (1, 1)
+    assert page["total"] == everything["total"]
+    assert page["items"] == everything["items"][1:2]
+
+
 # ---------- visibility (handler level) ----------
 
 
