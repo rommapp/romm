@@ -16,6 +16,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import app
+from tests.streaming_stubs import exit_pulls_spawned_inline
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import streaming
@@ -114,6 +115,12 @@ def clear_import_spec_cache():
     """The import-spec cache is process-wide, so one case's answer must not leak."""
     with patch.dict(webstation._import_spec_cache, clear=True):
         yield
+
+
+@pytest.fixture(autouse=True)
+def exit_pull_queue():
+    with exit_pulls_spawned_inline() as queue:
+        yield queue
 
 
 @pytest.fixture(autouse=True)
@@ -972,6 +979,27 @@ def test_claim_derives_rom_path_server_side(client, access_token, rom: Rom):
     assert r.json()["rom_name"] == rom.name
     _, rom_path, _, _ = call_broker.call_args[0]
     assert rom_path == f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+
+
+def test_a_slow_claim_setup_keeps_its_claim_fresh(client, access_token, rom: Rom):
+    """Nothing beats for the player until the stream is up, so a setup step
+    outlasting the stale window would hand the container to the reaper."""
+
+    async def slow_save_pull(*args: Any, **kwargs: Any) -> bool:
+        await asyncio.sleep(0.05)
+        return True
+
+    with (
+        _streaming(_container_for(rom)),
+        patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0),
+        patch("handler.streaming.saves.wait_for_save_pull", new=slow_save_pull),
+        patch("handler.streaming.launch.run_launch", new=AsyncMock()),
+    ):
+        r = _claim(client, access_token, rom.id)
+
+    assert r.status_code == 202
+    stored = _load_session(session_store.session_redis_key(r.json()["container"]))
+    assert stored["last_seen"] != r.json()["claimed_at"]
 
 
 def test_claim_honors_container_library_path(client, access_token, rom: Rom):
@@ -1927,6 +1955,33 @@ def test_a_container_that_disagrees_on_the_emulator_is_a_later_pool(caplog):
     assert _key_of(second) in caplog.text
 
 
+def test_a_fresh_process_does_not_repeat_the_later_pool_warning(caplog):
+    """Every reaper run is a new RQ job process with nothing memoized."""
+    first = {
+        "platform": "ps2",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "emulator": "pcsx2",
+    }
+    second = {
+        **first,
+        "host": "http://192.168.1.11:3000",
+        "broker_host": "http://192.168.1.11:8000",
+        "emulator": "play",
+    }
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="romm"):
+            with _streaming(first, second):
+                streaming.containers_for_platform("ps2")
+            with _streaming(first, second):
+                streaming.containers_for_platform("ps2")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert caplog.text.count("never claimed for a game") == 1
+
+
 def test_a_lone_container_is_a_pool_of_one(rom: Rom):
     member = _pool_member(rom, 0)
     with _streaming(member):
@@ -2709,10 +2764,10 @@ def test_takeover_aborts_when_the_owner_comes_back_first(
             checked = True
             return real_stale(session)
 
-        # Both callers hold their own reference: the claim route runs the scan,
+        # Both callers hold their own reference: session_store runs the scan,
         # lifecycle re-checks under the marker.
         with (
-            patch.object(streaming, "session_is_stale", stale_then_fresh),
+            patch.object(session_store, "session_is_stale", stale_then_fresh),
             patch.object(lifecycle, "session_is_stale", stale_then_fresh),
             _stub_stop() as stop_broker,
         ):
@@ -4167,7 +4222,7 @@ def test_work_running_under_a_claim_keeps_it_off_the_stale_list():
         # runs and the test never waits on a clock.
         with (
             patch.object(session_store, "_CLAIM_REFRESH_SECONDS", 0),
-            patch.object(session_store, "_HOLD_CEILING_SECONDS", 0),
+            patch.object(session_store, "HOLD_CEILING_SECONDS", 0),
         ):
             asyncio.run(session_store.hold_session_claim("cas-hold-claim", claim))
         current = _load_session(key)
@@ -6254,7 +6309,7 @@ def test_an_abandoned_teardown_marks_its_save_pull_before_stopping_the_emulator(
             patch("handler.streaming.background.spawn_sync_task") as spawn,
         ):
             torn = asyncio.run(
-                lifecycle._teardown_abandoned_session(
+                lifecycle.teardown_abandoned_session(
                     _resolved(container),
                     _key_of(container),
                     session,
@@ -6304,7 +6359,7 @@ def test_an_abandoned_teardown_that_fails_before_its_pull_leaves_nothing_pending
             patch("handler.streaming.background.spawn_sync_task") as spawn,
         ):
             asyncio.run(
-                lifecycle._teardown_abandoned_session(
+                lifecycle.teardown_abandoned_session(
                     _resolved(container),
                     _key_of(container),
                     session,
@@ -6318,7 +6373,7 @@ def test_an_abandoned_teardown_that_fails_before_its_pull_leaves_nothing_pending
 def _run_exit_pulls(spawn: MagicMock) -> None:
     """Run the save pulls a teardown spawned, and drop whatever else it did."""
     for spawned in (c.args[0] for c in spawn.call_args_list):
-        if spawned.cr_code.co_name == "_pull_exit_saves":
+        if spawned.cr_code.co_name == "pull_exit_saves":
             asyncio.run(spawned)
         else:
             spawned.close()
@@ -6359,7 +6414,7 @@ def test_a_webstation_exit_that_changed_no_saves_lets_the_next_claim_straight_th
         (pull,) = (
             c.args[0]
             for c in spawn.call_args_list
-            if c.args[0].cr_code.co_name == "_pull_exit_saves"
+            if c.args[0].cr_code.co_name == "pull_exit_saves"
         )
         with patch(
             "handler.streaming.saves.wait_for_save_pull", new=wait_while_it_files
@@ -6470,7 +6525,7 @@ def test_an_abandoned_teardown_keeps_asking_while_the_emulator_flushes(
             ) as fetch,
         ):
             asyncio.run(
-                lifecycle._teardown_abandoned_session(
+                lifecycle.teardown_abandoned_session(
                     _resolved(container),
                     _key_of(container),
                     session,
@@ -6636,17 +6691,21 @@ def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
 ):
     """A pull can outlast a claim's wait, so the player can play and exit again
     while it runs, and its finishing must not let a claim past the later pull."""
-    container = _resolved(_container_for(rom))
+    entry = _container_for(rom)
+    container = _resolved(entry)
     session = {"user_id": admin_user.id, "rom_id": rom.id}
 
     async def scenario() -> tuple[bool, bool]:
         with (
+            _streaming(entry),
             patch("handler.streaming.background.spawn_sync_task") as spawn,
             patch("handler.streaming.saves.pull_saves_to_library", new=AsyncMock()),
         ):
             for _ in range(2):
                 mark = await lifecycle.mark_exit_saves_pending(container, session)
-                lifecycle.collect_exit_saves(container, session, mark, settled=False)
+                await lifecycle.collect_exit_saves(
+                    container, session, mark, settled=False
+                )
             first, second = (c.args[0] for c in spawn.call_args_list)
             await first
             behind_second = await _save_pull_pending(admin_user.id, rom.id)
@@ -6654,6 +6713,82 @@ def test_an_earlier_pull_finishing_leaves_a_later_exits_mark(
             return behind_second, await _save_pull_pending(admin_user.id, rom.id)
 
     assert asyncio.run(scenario()) == (True, False)
+
+
+def test_an_exit_save_pull_runs_on_the_streaming_worker(
+    admin_user: User, rom: Rom, exit_pull_queue: MagicMock
+):
+    """A web restart would otherwise cut a pull short and park the next claim."""
+    container = _resolved(_container_for(rom))
+    session = {"user_id": admin_user.id, "rom_id": rom.id, "broker_session_id": "b1"}
+    exit_pull_queue.enqueue.side_effect = None
+
+    async def scenario() -> saves.SavePullMark | None:
+        mark = await lifecycle.mark_exit_saves_pending(container, session)
+        await lifecycle.collect_exit_saves(container, session, mark, settled=True)
+        return mark
+
+    mark = asyncio.run(scenario())
+
+    assert mark is not None
+    (func,), kwargs = exit_pull_queue.enqueue.call_args
+    assert func is lifecycle.pull_exit_saves
+    assert kwargs["kwargs"] == {
+        "user_id": admin_user.id,
+        "rom_id": rom.id,
+        "token": mark.token,
+        "container_key": container.key,
+        "platform": container.platform,
+        "broker_session": "b1",
+        "settled": True,
+    }
+    assert kwargs["job_timeout"] == saves.SAVE_PULL_TTL_SECONDS
+
+
+def test_a_pull_that_cannot_be_queued_lets_the_next_claim_through(
+    admin_user: User, rom: Rom, exit_pull_queue: MagicMock
+):
+    container = _resolved(_container_for(rom))
+    session = {"user_id": admin_user.id, "rom_id": rom.id}
+    exit_pull_queue.enqueue.side_effect = ConnectionError("redis went away")
+
+    async def scenario() -> bool:
+        mark = await lifecycle.mark_exit_saves_pending(container, session)
+        await lifecycle.collect_exit_saves(container, session, mark, settled=False)
+        return await _save_pull_pending(admin_user.id, rom.id)
+
+    assert asyncio.run(scenario()) is False
+
+
+def test_a_queued_pull_for_a_container_no_longer_configured_clears_its_mark(
+    admin_user: User, rom: Rom
+):
+    session = {"user_id": admin_user.id, "rom_id": rom.id}
+
+    async def scenario() -> tuple[bool, AsyncMock]:
+        container = _resolved(_container_for(rom))
+        mark = await lifecycle.mark_exit_saves_pending(container, session)
+        assert mark is not None
+        with (
+            _streaming(),
+            patch(
+                "handler.streaming.saves.pull_saves_to_library", new=AsyncMock()
+            ) as pull,
+        ):
+            await lifecycle.pull_exit_saves(
+                user_id=mark.user_id,
+                rom_id=mark.rom_id,
+                token=mark.token,
+                container_key=container.key,
+                platform=container.platform,
+                broker_session=None,
+                settled=False,
+            )
+        return await _save_pull_pending(admin_user.id, rom.id), pull
+
+    pending, pull = asyncio.run(scenario())
+    assert pending is False
+    pull.assert_not_awaited()
 
 
 # ── Resume-from-state ─────────────────────────────────────────────────────────

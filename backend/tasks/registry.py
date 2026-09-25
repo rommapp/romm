@@ -5,7 +5,6 @@ from typing import Any, Final
 from rq.job import Job
 from rq.queue import Queue
 
-from config import TASK_RESULT_TTL
 from exceptions.task_exceptions import TaskNotFoundException
 from handler.redis_handler import low_prio_queue, scan_queue
 from tasks.manual.cleanup_missing_firmware import cleanup_missing_firmware_task
@@ -22,6 +21,7 @@ from tasks.scheduled.cleanup_sync_sessions import cleanup_sync_sessions_task
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
 from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
+from tasks.scheduled.reap_streaming_sessions import reap_streaming_sessions_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.sync_retroachievements_progress import (
     sync_retroachievements_progress_task,
@@ -45,6 +45,7 @@ SCHEDULED_TASKS: Final[dict[str, PeriodicTask]] = {
     "cleanup_orphaned_resources": cleanup_orphaned_resources_task,
     "cleanup_netplay": cleanup_netplay_task,
     "cleanup_upload_tmp": cleanup_upload_tmp_task,
+    "reap_streaming_sessions": reap_streaming_sessions_task,
     "cleanup_sync_sessions": cleanup_sync_sessions_task,
     "cleanup_audit_log": cleanup_audit_log_task,
     "sync_retroachievements_progress": sync_retroachievements_progress_task,
@@ -97,7 +98,7 @@ def enqueue_task(
             "run_by_user_id": run_by_user_id,
         },
         job_timeout=task.timeout,
-        result_ttl=TASK_RESULT_TTL,
+        result_ttl=task.result_ttl,
         meta=task.job_meta(name),
         **job_options,
     )

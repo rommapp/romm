@@ -33,7 +33,7 @@ SAVE_PULL_WAIT_SECONDS = 20.0
 _SAVE_PULL_KEY_PREFIX = "romm:streaming:save-pull:"
 # Backstop for a backend that dies mid-pull: a marker nobody clears would cost
 # every later claim on that ROM the full wait.
-_SAVE_PULL_TTL_SECONDS = 10 * 60
+SAVE_PULL_TTL_SECONDS = 10 * 60
 _SAVE_PULL_POLL_SECONDS = 0.25
 
 
@@ -54,7 +54,7 @@ async def mark_save_pull_pending(user_id: int, rom_id: int) -> SavePullMark:
     later mark taking over so an earlier pull finishing cannot let a claim past it."""
     token = secrets.token_hex(8)
     await async_cache.set(
-        _save_pull_redis_key(user_id, rom_id), token, ex=_SAVE_PULL_TTL_SECONDS
+        _save_pull_redis_key(user_id, rom_id), token, ex=SAVE_PULL_TTL_SECONDS
     )
     return SavePullMark(user_id, rom_id, token)
 
