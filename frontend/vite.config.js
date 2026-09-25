@@ -91,9 +91,9 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       // AudioWorklet.addModule is only dependable with a real URL, and Vite
-      // inlines any asset under 4KB as a data: URI, so keep the worklet out.
+      // inlines any asset under 4KB as a data: URI, so keep worklets out.
       assetsInlineLimit: (filePath) =>
-        filePath.endsWith("pico8AudioWorklet.js") ? false : undefined,
+        filePath.endsWith("AudioWorklet.js") ? false : undefined,
     },
     plugins: [
       tailwindcss(),
@@ -156,6 +156,7 @@ export default defineConfig(({ mode }) => {
           "**/assets/ruffle/**",
           "**/assets/jsdos/**",
           "**/assets/pico8/**",
+          "**/assets/gme/**",
         ],
       },
       proxy,

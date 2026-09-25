@@ -2,6 +2,15 @@
 # trunk-ignore-all(checkov)
 # trunk-ignore-all(hadolint/DL4006)
 
+# Keep the pins in sync with the gme-build stage of docker/Dockerfile.
+FROM --platform=$BUILDPLATFORM emscripten/emsdk:4.0.12@sha256:744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6 AS gme-build
+ARG GME_VERSION=0.6.5
+ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
+COPY docker/gme /romm-gme
+RUN git clone --depth 1 --branch "${GME_VERSION}" https://github.com/libgme/game-music-emu.git /libgme \
+    && test "$(git -C /libgme rev-parse HEAD)" = "${GME_COMMIT}" \
+    && /romm-gme/build.sh /libgme /gme
+
 FROM ubuntu:22.04
 
 # Prevent interactive prompts during installation
@@ -100,6 +109,8 @@ RUN mkdir -p "${EMULATOR_ASSETS_DIR}/pico8" \
     && curl -fsSL -o "${EMULATOR_ASSETS_DIR}/pico8/fake08.wasm" "${FAKE08_P3A_RAW}/fake08.wasm" \
     && echo "${FAKE08_JS_SHA256}  ${EMULATOR_ASSETS_DIR}/pico8/fake08.js" | sha256sum -c - \
     && echo "${FAKE08_WASM_SHA256}  ${EMULATOR_ASSETS_DIR}/pico8/fake08.wasm" | sha256sum -c -
+
+COPY --from=gme-build /gme "${EMULATOR_ASSETS_DIR}/gme"
 
 # Install frontend dependencies
 COPY frontend/package.json /app/frontend/

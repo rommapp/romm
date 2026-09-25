@@ -5,6 +5,7 @@
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
 #   - rahasher-build: Build RAHasher
 #   - sigil-build: Build sigil Python bindings (title ID extraction)
+#   - gme-build: Build libgme to WebAssembly (chiptune soundtracks)
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
@@ -26,6 +27,8 @@ ARG NGINX_VERSION=1.30.5
 ARG NGINX_SHA256=a5f2157a0302eb0c5e300415effb63a9e70ed1eb9c107283819bf6d149ab607c
 ARG UV_VERSION=0.12.13
 ARG UV_SHA256=eb47c391d3a252d9d912270dd2b5e234af5493e92039fedb483f1dd1cb5659ce
+ARG EMSDK_VERSION=4.0.12
+ARG EMSDK_SHA256=744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
@@ -138,6 +141,20 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
     python build_sigil.py && \
     mkdir /sigil-pkg && \
     cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
+
+
+# LIBGME (LGPL-2.1+) FOR CHIPTUNE SOUNDTRACKS
+# The WebAssembly output is the same on every platform, so it builds once on the host.
+# Keep the pins below in sync with the dev image's copies in ../Dockerfile.
+FROM --platform=$BUILDPLATFORM emscripten/emsdk:${EMSDK_VERSION}@sha256:${EMSDK_SHA256} AS gme-build
+
+ARG GME_VERSION=0.6.5
+ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
+
+COPY ./docker/gme /romm-gme
+RUN git clone --depth 1 --branch "${GME_VERSION}" https://github.com/libgme/game-music-emu.git /libgme && \
+    test "$(git -C /libgme rev-parse HEAD)" = "${GME_COMMIT}" && \
+    /romm-gme/build.sh /libgme /gme
 
 
 # FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08
@@ -258,6 +275,7 @@ COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 COPY --from=backend-node-build /backend-node/rom_patcher/node_modules/rom-patcher/rom-patcher-js /backend/utils/rom_patcher/rom-patcher-js
 
 COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
+COPY --from=gme-build /gme ${WEBSERVER_FOLDER}/assets/gme
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 COPY ./backend /backend

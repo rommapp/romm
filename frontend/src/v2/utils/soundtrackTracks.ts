@@ -24,7 +24,29 @@ export interface PanelTrack {
 }
 
 const AUDIO_EXTS = new Set(["mp3", "ogg", "oga", "wav", "flac", "m4a", "opus"]);
+// Console sound formats, played through game-music-emu instead of `<audio>`.
+const CHIPTUNE_EXTS = new Set([
+  "ay",
+  "gbs",
+  "gym",
+  "hes",
+  "kss",
+  "nsf",
+  "nsfe",
+  "sap",
+  "spc",
+  "vgm",
+  "vgz",
+]);
 const COVER_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+
+/** The file picker filter for soundtrack uploads. */
+export const SOUNDTRACK_ACCEPT = [
+  "audio/*",
+  ".flac",
+  ".opus",
+  ...[...CHIPTUNE_EXTS].map((ext) => `.${ext}`),
+].join(",");
 
 export function getExt(name: string): string {
   const dot = name.lastIndexOf(".");
@@ -32,7 +54,12 @@ export function getExt(name: string): string {
 }
 
 export function isAudioFile(name: string): boolean {
-  return AUDIO_EXTS.has(getExt(name));
+  const ext = getExt(name);
+  return AUDIO_EXTS.has(ext) || CHIPTUNE_EXTS.has(ext);
+}
+
+export function isChiptuneFile(name: string): boolean {
+  return CHIPTUNE_EXTS.has(getExt(name));
 }
 
 export function isCoverFile(name: string): boolean {

@@ -28,6 +28,7 @@ import { useRomSoundtrack } from "@/v2/composables/useRomSoundtrack";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSoundtrackActions } from "@/v2/composables/useSoundtrackActions";
 import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
+import { SOUNDTRACK_ACCEPT } from "@/v2/utils/soundtrackTracks";
 
 const ManualSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ManualSubtab.vue"),
@@ -249,7 +250,7 @@ async function deleteSoundtrack(fileId: number) {
           :hint="t('common.dropzone-hint')"
           :active-title="t('common.dropzone-drag-over')"
           :input-label="t('rom.upload-soundtrack')"
-          accept="audio/*,.flac,.opus"
+          :accept="SOUNDTRACK_ACCEPT"
           multiple
           @files="handleSoundtrackFiles"
         />
@@ -262,7 +263,7 @@ async function deleteSoundtrack(fileId: number) {
           class="r-v2-media__fill"
           :release-label="t('common.dropzone-drag-over')"
           :input-label="t('rom.upload-soundtrack')"
-          accept="audio/*,.flac,.opus"
+          :accept="SOUNDTRACK_ACCEPT"
           multiple
           @files="handleSoundtrackFiles"
         >
