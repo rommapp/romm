@@ -63,7 +63,7 @@ def hash_save_file(path: str | os.PathLike[str]) -> str:
         try:
             with zipfile.ZipFile(path, "r") as zf:
                 return hash_zip_contents(zf)
-        except (zipfile.BadZipFile, ValueError, OSError) as e:
+        except Exception as e:
             log.debug(f"Falling back to a plain hash for {path}: {e}")
     with open(path, "rb") as f:
         return hashlib.file_digest(

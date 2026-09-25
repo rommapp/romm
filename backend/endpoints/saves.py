@@ -609,7 +609,22 @@ def confirm_download(
         )
 
     device = _resolve_device(device_id, request.user.id)
-    _record_device_sync(device_id, save, request.user.id, content_hash)
+    synced_at, server_hash = save.updated_at, save.content_hash
+    served = db_device_save_sync_handler.get_sync(device_id=device_id, save_id=save.id)
+    if served and served.last_sync_server_hash and not served.last_sync_hash:
+        # The download recorded the version it served; the server may have moved since.
+        synced_at, server_hash = served.last_synced_at, served.last_sync_server_hash
+    elif content_hash != server_hash:
+        # Without the served version, only a hash equal to the server's proves what the device holds.
+        content_hash = server_hash = None
+    db_device_save_sync_handler.upsert_sync(
+        device_id=device_id,
+        save_id=save.id,
+        synced_at=synced_at,
+        last_sync_hash=content_hash,
+        last_sync_server_hash=server_hash,
+    )
+    db_device_handler.update_last_seen(device_id=device_id, user_id=request.user.id)
 
     return _build_save_schema(save, _syncs_for_save(save.id, device), device)
 
@@ -709,7 +724,9 @@ async def update_save(
     )
 
     if device:
-        _record_device_sync(device.id, db_save, request.user.id, content_hash)
+        # A client hash is only a baseline when the save bytes came with it.
+        client_hash = content_hash if saveFile else None
+        _record_device_sync(device.id, db_save, request.user.id, client_hash)
 
     return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
 

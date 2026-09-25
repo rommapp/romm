@@ -562,3 +562,21 @@ class TestHashSaveFile:
             hash_save_file(path)
             == hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
         )
+
+    @pytest.mark.parametrize("error", [RuntimeError, NotImplementedError])
+    def test_an_entry_that_cannot_be_opened_falls_back_to_the_md5_of_its_bytes(
+        self, temp_base: Path, monkeypatch: pytest.MonkeyPatch, error: type[Exception]
+    ):
+        """Encrypted entries and unsupported compression must not stop a sync."""
+        path = temp_base / "save.zip"
+        self._write_zip(path, zipfile.ZIP_DEFLATED)
+
+        def fail(_zf: zipfile.ZipFile) -> str:
+            raise error("cannot open entry")
+
+        monkeypatch.setattr(assets_handler, "hash_zip_contents", fail)
+
+        assert (
+            hash_save_file(path)
+            == hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
+        )

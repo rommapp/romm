@@ -19,6 +19,7 @@ from handler.database import (
     db_state_handler,
 )
 from handler.database.base_handler import sync_session
+from handler.sync.comparison import compare_save_state
 from models.assets import (
     ASSET_LABEL_MAX_LENGTH,
     ASSET_LABELS_MAX,
@@ -33,6 +34,7 @@ from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 from utils import uploads
+from utils.datetime import to_utc
 from utils.validation import MAX_ROM_IDS_PER_QUERY
 
 
@@ -3985,10 +3987,18 @@ class TestSyncBaselineWriteSites:
         assert sync.last_sync_hash is None
         assert sync.last_sync_server_hash == "server_hash"
 
-    def test_confirm_download_records_the_client_hash(
+    def test_confirm_download_pins_the_served_version(
         self, client, access_token: str, save: Save, device: Device
     ):
-        db_save_handler.update_save(save.id, {"content_hash": "server_hash"})
+        """A server write between download and confirm must still reach the device."""
+        served_at = datetime(2026, 1, 5, tzinfo=timezone.utc)
+        db_device_save_sync_handler.upsert_sync(
+            device_id=device.id,
+            save_id=save.id,
+            synced_at=served_at,
+            last_sync_server_hash="served_hash",
+        )
+        db_save_handler.update_save(save.id, {"content_hash": "newer_hash"})
 
         response = client.post(
             f"/api/saves/{save.id}/downloaded",
@@ -3999,23 +4009,56 @@ class TestSyncBaselineWriteSites:
         assert response.status_code == status.HTTP_200_OK
         sync = self._baseline(device, save.id)
         assert sync.last_sync_hash == "client_hash"
-        assert sync.last_sync_server_hash == "server_hash"
+        assert sync.last_sync_server_hash == "served_hash"
+        assert to_utc(sync.last_synced_at) == served_at
+        result = compare_save_state(
+            client_hash="client_hash",
+            client_updated_at=datetime(2026, 1, 6, tzinfo=timezone.utc),
+            server_hash="newer_hash",
+            server_updated_at=datetime(2026, 1, 7, tzinfo=timezone.utc),
+            device_last_synced_at=sync.last_synced_at,
+            device_last_sync_hash=sync.last_sync_hash,
+            device_last_sync_server_hash=sync.last_sync_server_hash,
+        )
+        assert result.action == "download"
 
-    def test_confirm_download_without_a_client_hash(
+    def test_confirm_download_records_a_client_hash_equal_to_the_server(
         self, client, access_token: str, save: Save, device: Device
     ):
         db_save_handler.update_save(save.id, {"content_hash": "server_hash"})
 
         response = client.post(
             f"/api/saves/{save.id}/downloaded",
-            json={"device_id": device.id},
+            json={"device_id": device.id, "content_hash": "server_hash"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        sync = self._baseline(device, save.id)
+        assert sync.last_sync_hash == "server_hash"
+        assert sync.last_sync_server_hash == "server_hash"
+
+    @pytest.mark.parametrize("client_hash", ["client_hash", None])
+    def test_confirm_download_without_a_served_version_records_no_hashes(
+        self,
+        client,
+        access_token: str,
+        save: Save,
+        device: Device,
+        client_hash: str | None,
+    ):
+        db_save_handler.update_save(save.id, {"content_hash": "server_hash"})
+
+        response = client.post(
+            f"/api/saves/{save.id}/downloaded",
+            json={"device_id": device.id, "content_hash": client_hash},
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
         assert response.status_code == status.HTTP_200_OK
         sync = self._baseline(device, save.id)
         assert sync.last_sync_hash is None
-        assert sync.last_sync_server_hash == "server_hash"
+        assert sync.last_sync_server_hash is None
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -4106,9 +4149,36 @@ class TestSyncBaselineWriteSites:
         assert sync.last_sync_hash is None
         assert sync.last_sync_server_hash == "server_hash"
 
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
     def test_update_save_records_the_client_hash(
+        self,
+        mock_scan,
+        _mock_write,
+        client,
+        access_token: str,
+        save: Save,
+        device: Device,
+    ):
+        mock_scan.return_value = Save(file_size_bytes=100, content_hash="server_hash")
+
+        response = client.put(
+            f"/api/saves/{save.id}?device_id={device.id}&content_hash=client_hash",
+            files={"saveFile": (save.file_name, BytesIO(b"v2"), "application/octet")},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        sync = self._baseline(device, save.id)
+        assert sync.last_sync_hash == "client_hash"
+        assert sync.last_sync_server_hash == "server_hash"
+
+    def test_update_save_without_a_save_file_records_no_client_hash(
         self, client, access_token: str, save: Save, device: Device
     ):
+        """A metadata-only update must not mark the device's unsent save as synced."""
         db_save_handler.update_save(save.id, {"content_hash": "server_hash"})
 
         response = client.put(
@@ -4118,7 +4188,7 @@ class TestSyncBaselineWriteSites:
 
         assert response.status_code == status.HTTP_200_OK
         sync = self._baseline(device, save.id)
-        assert sync.last_sync_hash == "client_hash"
+        assert sync.last_sync_hash is None
         assert sync.last_sync_server_hash == "server_hash"
 
     def test_untrack_clears_the_baseline_and_retrack_leaves_it_empty(
