@@ -1,12 +1,25 @@
+import os
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
 from fastapi import status
+from sqlalchemy import select
 
-from handler.database import db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_save_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from handler.database.base_handler import sync_session
-from models.assets import Screenshot, State
+from models.assets import (
+    ASSET_LABEL_MAX_LENGTH,
+    ASSET_LABELS_MAX,
+    Save,
+    Screenshot,
+    State,
+)
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
@@ -453,3 +466,695 @@ def test_delete_state_removes_file_and_screenshot(
         is None
     )
     assert mock_remove.call_count == 2
+
+
+class TestStateDeleteThumbnail:
+    """Deleting a state takes its thumbnail only when nothing else shows it."""
+
+    @pytest.fixture
+    def screenshots_dir(self, _isolated_assets_dir, platform: Platform):
+        path = _isolated_assets_dir / platform.slug / "screenshots"
+        path.mkdir(parents=True)
+        return path
+
+    def _add_screenshot(
+        self, rom: Rom, user: User, platform: Platform, file_name: str, **fields
+    ) -> Screenshot:
+        return db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=user.id,
+                file_name=file_name,
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=3,
+                **fields,
+            )
+        )
+
+    def _delete(self, client, token: str, state_id: int):
+        return client.post(
+            "/api/states/delete", json={"states": [state_id]}, headers=_auth(token)
+        )
+
+    def test_a_thumbnail_a_save_still_shows_stays(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        state: State,
+        screenshots_dir,
+    ):
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_state.srm",
+                file_path=f"{platform.slug}/saves",
+                file_size_bytes=1,
+            )
+        )
+        thumbnail = self._add_screenshot(rom, admin_user, platform, "test_state.png")
+        (screenshots_dir / "test_state.png").write_bytes(b"PNG")
+
+        response = self._delete(client, access_token, state.id)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is not None
+        assert (screenshots_dir / "test_state.png").read_bytes() == b"PNG"
+
+    def test_a_gallery_screenshot_sharing_the_stem_stays(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        state: State,
+        screenshots_dir,
+    ):
+        gallery = self._add_screenshot(
+            rom, admin_user, platform, "test_state.png", is_gallery=True
+        )
+        (screenshots_dir / "test_state.png").write_bytes(b"PNG")
+
+        response = self._delete(client, access_token, state.id)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert db_screenshot_handler.get_screenshot_by_id(gallery.id) is not None
+        assert (screenshots_dir / "test_state.png").read_bytes() == b"PNG"
+
+    def test_a_file_another_row_spells_differently_stays(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        state: State,
+        screenshots_dir,
+    ):
+        variant = self._add_screenshot(rom, admin_user, platform, "Test_state.png")
+        # Newer, so the state resolves it whether or not lookups ignore case.
+        thumbnail = self._add_screenshot(rom, admin_user, platform, "test_state.png")
+        (screenshots_dir / "test_state.png").write_bytes(b"PNG")
+        # A second link stands in for a case-insensitive filesystem's alias.
+        os.link(screenshots_dir / "test_state.png", screenshots_dir / "Test_state.png")
+
+        response = self._delete(client, access_token, state.id)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is None
+        assert db_screenshot_handler.get_screenshot_by_id(variant.id) is not None
+        assert (screenshots_dir / "test_state.png").read_bytes() == b"PNG"
+        assert (screenshots_dir / "Test_state.png").read_bytes() == b"PNG"
+
+
+class TestStateFavoritesAndLabels:
+    """Owner-only annotations on a state: the star and the free-text labels."""
+
+    def test_starring_and_unstarring_a_state_persists(
+        self, client, access_token: str, state: State
+    ):
+        response = client.put(
+            f"/api/states/{state.id}/favorite",
+            json={"is_favorite": True},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["is_favorite"] is True
+
+        response = client.put(
+            f"/api/states/{state.id}/favorite",
+            json={"is_favorite": False},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["is_favorite"] is False
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.is_favorite is False
+
+    def test_setting_state_labels_persists(
+        self, client, access_token: str, state: State
+    ):
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["100% run", "before the boss"]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["100% run", "before the boss"]
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None
+        assert refreshed.labels == ["100% run", "before the boss"]
+
+    def test_setting_state_labels_replaces_the_previous_set(
+        self, client, access_token: str, state: State
+    ):
+        client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["100% run", "seed 42"]},
+            headers=_auth(access_token),
+        )
+
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["speedrun"]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["speedrun"]
+
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": []},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == []
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == []
+
+    def test_state_labels_are_trimmed_and_blanks_dropped(
+        self, client, access_token: str, state: State
+    ):
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["  100% run  ", "   ", "", "seed 42"]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["100% run", "seed 42"]
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == ["100% run", "seed 42"]
+
+    def test_state_labels_are_deduplicated_case_insensitively(
+        self, client, access_token: str, state: State
+    ):
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["Run", "run", "RUN", "Seed"]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        # The first spelling wins, and the order the client sent survives.
+        assert response.json()["labels"] == ["Run", "Seed"]
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == ["Run", "Seed"]
+
+    def test_overlong_state_label_is_rejected(
+        self, client, access_token: str, state: State
+    ):
+        client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=_auth(access_token),
+        )
+
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["ok", "x" * (ASSET_LABEL_MAX_LENGTH + 1)]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+        # The request is rejected whole, so not even the valid label lands.
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == ["seed 42"]
+
+    def test_too_many_state_labels_are_rejected(
+        self, client, access_token: str, state: State
+    ):
+        client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=_auth(access_token),
+        )
+
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": [f"run {i}" for i in range(ASSET_LABELS_MAX + 1)]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == ["seed 42"]
+
+    def test_annotating_a_state_leaves_updated_at_untouched(
+        self, client, access_token: str, state: State
+    ):
+        # Backdate the row: the column has second precision, so a stray touch
+        # would otherwise be invisible within the same second.
+        db_state_handler.update_state(
+            state.id, {"updated_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}
+        )
+        before = db_state_handler.get_state_by_id(state.id)
+        assert before is not None
+        stamp = before.updated_at
+
+        client.put(
+            f"/api/states/{state.id}/favorite",
+            json={"is_favorite": True},
+            headers=_auth(access_token),
+        )
+        client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=_auth(access_token),
+        )
+        client.put(
+            f"/api/states/{state.id}/visibility",
+            json={"is_public": True},
+            headers=_auth(access_token),
+        )
+
+        # Annotating is not a write to the state's bytes, and the lists order
+        # on `updated_at`.
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None
+        assert refreshed.updated_at == stamp
+        assert refreshed.is_favorite is True
+        assert refreshed.labels == ["seed 42"]
+        assert refreshed.is_public is True
+
+    def test_non_owner_cannot_star_a_state(
+        self, client, viewer_access_token: str, state: State
+    ):
+        response = client.put(
+            f"/api/states/{state.id}/favorite",
+            json={"is_favorite": True},
+            headers=_auth(viewer_access_token),
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.is_favorite is False
+
+    def test_non_owner_cannot_label_a_state(
+        self, client, access_token: str, viewer_access_token: str, state: State
+    ):
+        client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["mine"]},
+            headers=_auth(access_token),
+        )
+
+        response = client.put(
+            f"/api/states/{state.id}/labels",
+            json={"labels": ["not mine"]},
+            headers=_auth(viewer_access_token),
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.labels == ["mine"]
+
+    def test_starring_a_missing_state_returns_not_found(
+        self, client, access_token: str
+    ):
+        response = client.put(
+            "/api/states/99999/favorite",
+            json={"is_favorite": True},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_labelling_a_missing_state_returns_not_found(
+        self, client, access_token: str
+    ):
+        response = client.put(
+            "/api/states/99999/labels",
+            json={"labels": ["ghost"]},
+            headers=_auth(access_token),
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@contextmanager
+def _exact_screenshot_names():
+    """Resolve screenshots by exact name, as PostgreSQL compares them."""
+
+    def lookup(
+        *,
+        rom_id: int,
+        user_id: int,
+        file_name: str,
+        file_name_no_ext=None,
+        session=None,
+    ):
+        names = {n for n in (file_name, file_name_no_ext) if n}
+        with sync_session() as db:
+            rows = db.scalars(
+                select(Screenshot)
+                .where(Screenshot.rom_id == rom_id, Screenshot.user_id == user_id)
+                .order_by(Screenshot.id.desc())
+            ).all()
+        matches = [r for r in rows if names & {r.file_name, r.file_name_no_ext}]
+        # The real lookup prefers a stem equal to the asset's whole name.
+        matches.sort(key=lambda r: r.file_name_no_ext != file_name)
+        return next(iter(matches), None)
+
+    with mock.patch.object(db_screenshot_handler, "get_screenshot", side_effect=lookup):
+        yield
+
+
+class TestStateRename:
+    """Renaming a state moves its file and keeps its screenshot bound."""
+
+    @pytest.fixture
+    def state_file(self, _isolated_assets_dir, state: State):
+        path = _isolated_assets_dir / state.full_path
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"STATE_DATA")
+        return path
+
+    @pytest.fixture
+    def thumbnail(
+        self, _isolated_assets_dir, rom: Rom, platform: Platform, admin_user: User
+    ):
+        screenshot = db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_state.png",
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=3,
+            )
+        )
+        path = _isolated_assets_dir / screenshot.file_path / screenshot.file_name
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"PNG")
+        return screenshot
+
+    @pytest.fixture
+    def shared_save(self, rom: Rom, platform: Platform, admin_user: User) -> Save:
+        # Same stem as the state, so both resolve `test_state.png`.
+        return db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_state.srm",
+                file_path=f"{platform.slug}/saves",
+                file_size_bytes=1,
+            )
+        )
+
+    def _rename(self, client, token: str, state_id: int, file_name: str):
+        return client.put(
+            f"/api/states/{state_id}/file-name",
+            json={"file_name": file_name},
+            headers=_auth(token),
+        )
+
+    def test_renaming_moves_the_file_and_its_screenshot(
+        self, client, access_token: str, state: State, state_file, thumbnail
+    ):
+        response = self._rename(client, access_token, state.id, "Before boss.state")
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["file_name"] == "Before boss.state"
+        assert body["file_name_no_ext"] == "Before boss"
+        assert body["file_extension"] == "state"
+        assert body["screenshot"]["file_name"] == "Before boss.png"
+
+        assert not state_file.exists()
+        assert (state_file.parent / "Before boss.state").read_bytes() == b"STATE_DATA"
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        assert not (screenshots_dir / "test_state.png").exists()
+        assert (screenshots_dir / "Before boss.png").read_bytes() == b"PNG"
+
+        renamed = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert renamed is not None and renamed.file_name_no_ext == "Before boss"
+
+    def test_renaming_leaves_updated_at_untouched(
+        self, client, access_token: str, state: State, state_file
+    ):
+        db_state_handler.update_state(
+            state.id, {"updated_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}
+        )
+        before = db_state_handler.get_state_by_id(state.id)
+        assert before is not None
+
+        response = self._rename(client, access_token, state.id, "renamed.state")
+        assert response.status_code == status.HTTP_200_OK
+
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None
+        assert refreshed.updated_at == before.updated_at
+
+    def test_name_is_sanitized(
+        self, client, access_token: str, state: State, state_file
+    ):
+        response = self._rename(
+            client, access_token, state.id, "../boss: phase 2.state"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["file_name"] == "boss- phase 2.state"
+        assert (state_file.parent / "boss- phase 2.state").exists()
+
+    def test_name_another_state_holds_is_a_conflict(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        state: State,
+        state_file,
+    ):
+        # A different emulator's folder, so only the row makes the name taken.
+        db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="Taken.state",
+                emulator="other_emulator",
+                file_path=f"{platform.slug}/states/other_emulator",
+                file_size_bytes=2,
+            )
+        )
+
+        response = self._rename(client, access_token, state.id, "taken.state")
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert state_file.exists()
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.file_name == "test_state.state"
+
+    def test_name_binding_another_screenshot_is_a_conflict(
+        self,
+        client,
+        access_token: str,
+        state: State,
+        state_file,
+        screenshot: Screenshot,
+    ):
+        # Taking the stem would show that screenshot, and delete it with the state.
+        response = self._rename(client, access_token, state.id, "test_screenshot.state")
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert state_file.exists()
+
+    def test_gallery_screenshot_sharing_the_stem_stays_put(
+        self, client, access_token: str, state: State, state_file, thumbnail
+    ):
+        db_screenshot_handler.update_screenshot(thumbnail.id, {"is_gallery": True})
+
+        response = self._rename(client, access_token, state.id, "renamed.state")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["screenshot"] is None
+        gallery = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert gallery is not None and gallery.file_name == "test_state.png"
+
+    def test_file_missing_from_disk_returns_not_found(
+        self, client, access_token: str, state: State, _isolated_assets_dir
+    ):
+        response = self._rename(client, access_token, state.id, "renamed.state")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        refreshed = db_state_handler.get_state_by_id(state.id)
+        assert refreshed is not None and refreshed.file_name == "test_state.state"
+
+    def test_name_with_nothing_before_the_extension_is_rejected(
+        self, client, access_token: str, state: State, state_file, thumbnail
+    ):
+        response = self._rename(client, access_token, state.id, ".state")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert state_file.exists()
+        kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert kept is not None and kept.file_name == "test_state.png"
+
+    def test_blank_name_is_rejected(
+        self, client, access_token: str, state: State, state_file
+    ):
+        response = self._rename(client, access_token, state.id, "   ")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert state_file.exists()
+
+    def test_a_thumbnail_shared_with_a_save_is_copied_not_moved(
+        self,
+        client,
+        access_token: str,
+        state: State,
+        state_file,
+        thumbnail,
+        shared_save: Save,
+    ):
+        response = self._rename(client, access_token, state.id, "renamed.state")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["screenshot"]["file_name"] == "renamed.png"
+        kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert kept is not None and kept.file_name == "test_state.png"
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        assert (screenshots_dir / "test_state.png").read_bytes() == b"PNG"
+        assert (screenshots_dir / "renamed.png").read_bytes() == b"PNG"
+
+    def test_a_shared_thumbnail_stays_when_the_stem_does(
+        self,
+        client,
+        access_token: str,
+        state: State,
+        state_file,
+        thumbnail,
+        shared_save: Save,
+    ):
+        response = self._rename(client, access_token, state.id, "test_state.st2")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["screenshot"]["id"] == thumbnail.id
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        assert sorted(p.name for p in screenshots_dir.iterdir()) == ["test_state.png"]
+
+    def test_a_case_only_rename_keeps_a_preview(
+        self,
+        client,
+        access_token: str,
+        state: State,
+        state_file,
+        thumbnail,
+        shared_save: Save,
+    ):
+        response = self._rename(client, access_token, state.id, "Test_state.state")
+
+        assert response.status_code == status.HTTP_200_OK
+        preview = response.json()["screenshot"]
+        assert preview is not None
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        assert (screenshots_dir / preview["file_name"]).read_bytes() == b"PNG"
+        kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert kept is not None and kept.file_name == "test_state.png"
+
+    def test_a_case_only_rename_copies_a_shared_thumbnail_for_exact_lookups(
+        self,
+        client,
+        access_token: str,
+        state: State,
+        state_file,
+        thumbnail,
+        shared_save: Save,
+    ):
+        with _exact_screenshot_names():
+            response = self._rename(client, access_token, state.id, "Test_state.state")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["screenshot"]["file_name"] == "Test_state.png"
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        assert (screenshots_dir / "Test_state.png").read_bytes() == b"PNG"
+        kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert kept is not None and kept.file_name == "test_state.png"
+
+    def test_a_folding_filesystem_gives_the_shared_file_a_second_row(
+        self,
+        client,
+        access_token: str,
+        state: State,
+        state_file,
+        thumbnail,
+        shared_save: Save,
+    ):
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        # A second link stands in for a case-insensitive filesystem's alias.
+        os.link(screenshots_dir / "test_state.png", screenshots_dir / "Test_state.png")
+
+        with _exact_screenshot_names():
+            response = self._rename(client, access_token, state.id, "Test_state.state")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["screenshot"]["file_name"] == "Test_state.png"
+        assert sorted(p.name for p in screenshots_dir.iterdir()) == [
+            "Test_state.png",
+            "test_state.png",
+        ]
+        kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert kept is not None and kept.file_name == "test_state.png"
+
+    def test_a_failed_row_update_leaves_a_folded_shared_file(
+        self,
+        client,
+        access_token: str,
+        state: State,
+        state_file,
+        thumbnail,
+        shared_save: Save,
+    ):
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        os.link(screenshots_dir / "test_state.png", screenshots_dir / "Test_state.png")
+
+        with (
+            _exact_screenshot_names(),
+            mock.patch(
+                "handler.asset_store.db_state_handler.update_state",
+                side_effect=RuntimeError("database gone"),
+            ),
+            pytest.raises(RuntimeError),
+        ):
+            self._rename(client, access_token, state.id, "Test_state.state")
+
+        assert state_file.read_bytes() == b"STATE_DATA"
+        # On a folding filesystem both names are the one file the save shows.
+        assert (screenshots_dir / "Test_state.png").read_bytes() == b"PNG"
+        assert (screenshots_dir / "test_state.png").read_bytes() == b"PNG"
+
+    def test_a_failed_row_update_puts_the_files_back(
+        self, client, access_token: str, state: State, state_file, thumbnail
+    ):
+        with (
+            mock.patch(
+                "handler.asset_store.db_state_handler.update_state",
+                side_effect=RuntimeError("database gone"),
+            ),
+            pytest.raises(RuntimeError),
+        ):
+            self._rename(client, access_token, state.id, "renamed.state")
+
+        assert state_file.read_bytes() == b"STATE_DATA"
+        assert not (state_file.parent / "renamed.state").exists()
+        screenshots_dir = state_file.parents[2] / "screenshots"
+        assert (screenshots_dir / "test_state.png").exists()
+        assert not (screenshots_dir / "renamed.png").exists()
+        # The thumbnail's row change rolled back with the state's.
+        kept = db_screenshot_handler.get_screenshot_by_id(thumbnail.id)
+        assert kept is not None and kept.file_name == "test_state.png"
+
+    def test_non_owner_cannot_rename_a_state(
+        self, client, viewer_access_token: str, state: State, state_file
+    ):
+        db_state_handler.update_state(state.id, {"is_public": True})
+
+        response = self._rename(client, viewer_access_token, state.id, "mine.state")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert state_file.exists()

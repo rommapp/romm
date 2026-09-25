@@ -22,21 +22,19 @@ on:
       - Dockerfile
       - docker/Dockerfile
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   pytest:
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
         db: [mariadb, postgresql]
     services:
       mariadb:
-        image: mariadb:12.3.3
+        image: mariadb:13.0.2
         ports:
           - 3306
         env:
@@ -63,6 +61,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install mariadb connectors
         run: |
@@ -70,7 +70,7 @@ jobs:
           sudo apt-get install -y libmariadb3 libmariadb-dev 7zip
 
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Install python
         run: |
@@ -82,12 +82,14 @@ jobs:
 
       - name: Initiate MariaDB database
         if: matrix.db == 'mariadb'
+        env:
+          MARIADB_PORT: ${{ job.services.mariadb.ports['3306'] }}
         run: |
           # Grant on the `romm_test%` namespace so the test user can create the
           # per-worker databases (romm_test_gw0, ...) used under pytest-xdist,
           # without granting it global privileges. The backticks are escaped so
           # the shell doesn't treat them as command substitution.
-          mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON \`romm\_test%\`.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+          mysql --host 127.0.0.1 --port "$MARIADB_PORT" -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON \`romm\_test%\`.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
 
       - name: Run python tests
         env:

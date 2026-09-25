@@ -189,7 +189,7 @@ def extract_steam_metadata(details: SteamAppDetails) -> SteamMetadata:
     if required_age:
         try:
             metadata["required_age"] = int(required_age)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             pass
 
     return metadata

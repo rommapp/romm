@@ -42,7 +42,7 @@ async def auth_middleware(
     Reference: https://api-docs.igdb.com/#authentication
     """
     token = await twitch_auth.get_oauth_token()
-    if not token:
+    if not token or not IGDB_CLIENT_ID:
         raise IGDBInvalidCredentialsException()
     req.headers.update(
         {

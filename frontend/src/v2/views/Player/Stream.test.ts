@@ -1,8 +1,10 @@
+import { RBtn } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent } from "vue";
+import { defineComponent, type Slots, type VNodeChild } from "vue";
 import type { SaveSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
+import { saveFixture } from "@/utils/assets.fixtures";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
@@ -22,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   loadState: vi.fn(),
   saveState: vi.fn(),
   container: null as Record<string, unknown> | null,
+  capabilities: {} as Record<string, unknown>,
   presenceTick: null as (() => Promise<void>) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
   query: {} as Record<string, string>,
@@ -73,7 +76,7 @@ vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({
     claimSession: mocks.claimSession,
     containerForPlatform: () => mocks.container,
-    platformCapabilities: () => ({}),
+    platformCapabilities: () => mocks.capabilities,
     fetchConfig: mocks.fetchConfig,
     fetchSessionStatus: mocks.fetchSessionStatus,
     forgetJoinableSession: vi.fn(),
@@ -152,22 +155,34 @@ vi.mock("@/v2/composables/useUnloadGuard", () => ({
   useUnloadGuard: vi.fn(),
 }));
 
-/** Renders nothing and answers the methods the view calls on the real child. */
-function exposingStub(api: Record<string, unknown>) {
+/**
+ * Renders nothing, or whichever slots `render` picks, and answers the methods
+ * the view calls on the real child.
+ */
+function exposingStub(
+  api: Record<string, unknown>,
+  render: (slots: Slots) => VNodeChild = () => null,
+) {
   return defineComponent({
-    setup(_, { expose }) {
+    // A rendered slot is a fragment root, which has nowhere to put attrs.
+    inheritAttrs: false,
+    setup(_, { expose, slots }) {
       expose(api);
-      return () => null;
+      return () => render(slots);
     },
   });
 }
 
 // The stage owns fullscreen, which the ended path leaves before anything else.
-const StreamStageStub = exposingStub({
-  enterFullscreen: () => Promise.resolve(),
-  leaveFullscreen: () => Promise.resolve(),
-  focusStream: () => {},
-});
+// It also renders the control bar the view fills in, where the state buttons live.
+const StreamStageStub = exposingStub(
+  {
+    enterFullscreen: () => Promise.resolve(),
+    leaveFullscreen: () => Promise.resolve(),
+    focusStream: () => {},
+  },
+  (slots) => slots.bar?.({ isFullscreen: false, toggleFullscreen: () => {} }),
+);
 
 const GameCoverStub = exposingStub({ playLoad: () => 0 });
 
@@ -176,16 +191,15 @@ function save(
   file_name: string,
   overrides: Partial<SaveSchema> = {},
 ): SaveSchema {
-  return {
+  return saveFixture({
     id,
     file_name,
     emulator: "retroarch",
     rom_id: 3,
-    user_id: 1,
     created_at: `2026-09-14T0${id}:00:00`,
     updated_at: `2026-09-14T0${id}:00:00`,
     ...overrides,
-  } as SaveSchema;
+  });
 }
 
 // Newest first, the order the launch screen sorts into.
@@ -224,12 +238,14 @@ afterEach(() => {
 async function launch(opts: {
   picker: boolean;
   saves?: SaveSchema[];
+  liveStates?: boolean;
 }): Promise<VueWrapper> {
   mocks.container = {
     name: "WEBSTATION-DEV",
     emulator: "retroarch",
     protocol: "webstation",
     supports_save_picker: opts.picker,
+    supports_live_states: opts.liveStates ?? true,
     supports_memory_cards: false,
     supports_multiplayer: false,
   };
@@ -745,6 +761,41 @@ describe("Stream claim hygiene", () => {
   });
 });
 
+describe("Stream state controls", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.claimSession.mockResolvedValue(CLAIM);
+    mocks.capabilities = { maxSlots: 0, hasAutosave: true, autosaveSlot: 10 };
+  });
+
+  afterEach(() => {
+    mocks.capabilities = {};
+  });
+
+  async function barIcons(liveStates: boolean): Promise<unknown[]> {
+    const wrapper = await launch({ picker: false, liveStates });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    await flushPromises();
+    return wrapper.findAllComponents(RBtn).map((b) => b.props("icon"));
+  }
+
+  it("offers Save and Load where the broker takes a state mid-game", async () => {
+    const icons = await barIcons(true);
+    expect(icons).toContain("mdi-content-save-outline");
+    expect(icons).toContain("mdi-restore");
+  });
+
+  it("offers neither where the emulator writes its state only on exit", async () => {
+    // DuckStation and RPCS3 keep an autosave slot for their state library,
+    // so that slot alone must not bring the buttons back.
+    const icons = await barIcons(false);
+    expect(icons).not.toContain("mdi-content-save-outline");
+    expect(icons).not.toContain("mdi-restore");
+    expect(icons).toContain("mdi-content-save-move-outline");
+  });
+});
+
 // The heartbeat only runs once the game is on screen, so while loading the
 // status poll is what can find it; a tab coming back to the front runs one.
 async function pollStatus(): Promise<void> {
@@ -777,6 +828,25 @@ describe("Stream launch recovery", () => {
       "gba",
       CLAIM.claimed_at,
     );
+    expect(vmOf(wrapper).playerState).toBe("playing");
+    expect(vmOf(wrapper).containerHost).toBe(
+      "http://webstation-dev:8080/room/x",
+    );
+  });
+
+  it("leaves a stream the poll entered alone when launch-ready follows", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.fetchSessionStatus.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: "http://webstation-dev:8080/room/x",
+    });
+    await pollStatus();
+
+    await launchReady({ host: "http://webstation-dev:8080/room/other" });
+    await flushPromises();
+
     expect(vmOf(wrapper).playerState).toBe("playing");
     expect(vmOf(wrapper).containerHost).toBe(
       "http://webstation-dev:8080/room/x",

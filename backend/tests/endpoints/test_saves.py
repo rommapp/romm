@@ -1,7 +1,8 @@
 import os
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -14,9 +15,17 @@ from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
+    db_screenshot_handler,
+    db_state_handler,
 )
 from handler.database.base_handler import sync_session
-from models.assets import Save
+from models.assets import (
+    ASSET_LABEL_MAX_LENGTH,
+    ASSET_LABELS_MAX,
+    Save,
+    Screenshot,
+    State,
+)
 from models.device import Device
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
@@ -1757,7 +1766,7 @@ class TestSlotValidation:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def _seed_slot_saves(
@@ -2320,6 +2329,108 @@ class TestAutocleanupScreenshots:
                 file_name_no_ext=f"autosave_{i}",
             )
             assert (screenshot is None) == (i in evicted)
+
+
+class TestSaveDeleteThumbnail:
+    """Deleting a save takes its thumbnail only when nothing else shows it."""
+
+    def _add_thumbnail(
+        self, assets_dir, rom: Rom, user: User, platform: Platform, file_name: str
+    ) -> tuple[Screenshot, Path]:
+        thumbnail = db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=user.id,
+                file_name=file_name,
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=3,
+            )
+        )
+        path = assets_dir / thumbnail.file_path / thumbnail.file_name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"PNG")
+        return thumbnail, path
+
+    def _delete(self, client, token: str, save_id: int):
+        return client.post(
+            "/api/saves/delete",
+            json={"saves": [save_id]},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    def test_a_thumbnail_a_state_still_shows_stays(
+        self,
+        client,
+        access_token: str,
+        _isolated_assets_dir,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        save: Save,
+    ):
+        # Same stem as the save, so both resolve `test_save.png`.
+        db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_save.state",
+                file_path=f"{platform.slug}/states",
+                file_size_bytes=1,
+            )
+        )
+        thumbnail, path = self._add_thumbnail(
+            _isolated_assets_dir, rom, admin_user, platform, "test_save.png"
+        )
+
+        response = self._delete(client, access_token, save.id)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is not None
+        assert path.read_bytes() == b"PNG"
+
+    def test_a_thumbnail_a_state_only_matches_by_name_goes(
+        self,
+        client,
+        access_token: str,
+        _isolated_assets_dir,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+    ):
+        save = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="Game.01.srm",
+                file_path=f"{platform.slug}/saves",
+                file_size_bytes=1,
+            )
+        )
+        db_state_handler.add_state(
+            State(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="Game.01.p2s",
+                file_path=f"{platform.slug}/states",
+                file_size_bytes=1,
+            )
+        )
+        thumbnail, path = self._add_thumbnail(
+            _isolated_assets_dir, rom, admin_user, platform, "Game.01.png"
+        )
+        # The state matches the save's by stem, but its lookup prefers the one
+        # named after its whole file name.
+        shown, shown_path = self._add_thumbnail(
+            _isolated_assets_dir, rom, admin_user, platform, "Game.01.p2s.png"
+        )
+
+        response = self._delete(client, access_token, save.id)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert db_screenshot_handler.get_screenshot_by_id(thumbnail.id) is None
+        assert not path.exists()
+        assert db_screenshot_handler.get_screenshot_by_id(shown.id) is not None
+        assert shown_path.read_bytes() == b"PNG"
 
 
 class TestUploadSizeLimit:
@@ -3192,24 +3303,6 @@ FIXTURE_B_HASH = "8cf6bb36a82a5ee4d7d15fc98599908d"
 FIXTURE_C_HASH = "c0c992d1f1f883f56065bb13b68dfdee"
 
 
-@pytest.fixture
-def _isolated_assets_dir(tmp_path, monkeypatch):
-    """Redirect the shared fs_asset_handler to a tmp dir for the test's duration.
-
-    Upload, scan, compute_content_hash, and remove_file all dispatch through
-    self.base_path; rebinding base_path to a tmp dir keeps the test from
-    leaking files into the real ROMM_BASE_PATH and lets every IO path resolve
-    consistently.
-    """
-    from pathlib import Path
-
-    from handler.filesystem import fs_asset_handler
-
-    new_base = Path(tmp_path).resolve()
-    monkeypatch.setattr(fs_asset_handler, "base_path", new_base)
-    return new_base
-
-
 class TestUploadHashContract:
     """Round-trip a real zip through the upload endpoint and pin the
     content_hash the server stores.
@@ -3489,3 +3582,367 @@ class TestSaveVisibilityPropagation:
         )
         refreshed = db_screenshot_handler.get_screenshot_by_id(thumb.id)
         assert refreshed is not None and refreshed.is_public is False
+
+
+class TestSaveFavoritesAndLabels:
+    """Owner-only annotations on a save: the star and the free-text labels."""
+
+    def test_starring_and_unstarring_a_save_persists(
+        self, client, access_token: str, save: Save
+    ):
+        response = client.put(
+            f"/api/saves/{save.id}/favorite",
+            json={"is_favorite": True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["is_favorite"] is True
+
+        response = client.put(
+            f"/api/saves/{save.id}/favorite",
+            json={"is_favorite": False},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["is_favorite"] is False
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.is_favorite is False
+
+    def test_setting_save_labels_persists(self, client, access_token: str, save: Save):
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["100% run", "before the boss"]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["100% run", "before the boss"]
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None
+        assert refreshed.labels == ["100% run", "before the boss"]
+
+    def test_setting_save_labels_replaces_the_previous_set(
+        self, client, access_token: str, save: Save
+    ):
+        headers = {"Authorization": f"Bearer {access_token}"}
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["100% run", "seed 42"]},
+            headers=headers,
+        )
+
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["speedrun"]},
+            headers=headers,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["speedrun"]
+
+        response = client.put(
+            f"/api/saves/{save.id}/labels", json={"labels": []}, headers=headers
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == []
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == []
+
+    def test_save_labels_are_trimmed_and_blanks_dropped(
+        self, client, access_token: str, save: Save
+    ):
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["  100% run  ", "   ", "", "seed 42"]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["labels"] == ["100% run", "seed 42"]
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == ["100% run", "seed 42"]
+
+    def test_save_labels_are_deduplicated_case_insensitively(
+        self, client, access_token: str, save: Save
+    ):
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["Run", "run", "RUN", "Seed"]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        # The first spelling wins, and the order the client sent survives.
+        assert response.json()["labels"] == ["Run", "Seed"]
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == ["Run", "Seed"]
+
+    def test_overlong_save_label_is_rejected(
+        self, client, access_token: str, save: Save
+    ):
+        headers = {"Authorization": f"Bearer {access_token}"}
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=headers,
+        )
+
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["ok", "x" * (ASSET_LABEL_MAX_LENGTH + 1)]},
+            headers=headers,
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+        # The request is rejected whole, so not even the valid label lands.
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == ["seed 42"]
+
+    def test_too_many_save_labels_are_rejected(
+        self, client, access_token: str, save: Save
+    ):
+        headers = {"Authorization": f"Bearer {access_token}"}
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=headers,
+        )
+
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": [f"run {i}" for i in range(ASSET_LABELS_MAX + 1)]},
+            headers=headers,
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == ["seed 42"]
+
+    def test_annotating_a_save_leaves_updated_at_untouched(
+        self, client, access_token: str, save: Save
+    ):
+        headers = {"Authorization": f"Bearer {access_token}"}
+        # Backdate the row: the column has second precision, so a stray touch
+        # would otherwise be invisible within the same second.
+        db_save_handler.update_save(
+            save.id, {"updated_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}
+        )
+        before = db_save_handler.get_save_by_id(save.id)
+        assert before is not None
+        stamp = before.updated_at
+
+        client.put(
+            f"/api/saves/{save.id}/favorite",
+            json={"is_favorite": True},
+            headers=headers,
+        )
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=headers,
+        )
+        client.put(
+            f"/api/saves/{save.id}/visibility",
+            json={"is_public": True},
+            headers=headers,
+        )
+
+        # Annotating is not a write to the save's bytes, and device sync reads
+        # `updated_at` to decide whether a device is stale.
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None
+        assert refreshed.updated_at == stamp
+        assert refreshed.is_favorite is True
+        assert refreshed.labels == ["seed 42"]
+        assert refreshed.is_public is True
+
+    def test_non_owner_cannot_star_a_save(
+        self, client, viewer_access_token: str, save: Save
+    ):
+        response = client.put(
+            f"/api/saves/{save.id}/favorite",
+            json={"is_favorite": True},
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.is_favorite is False
+
+    def test_non_owner_cannot_label_a_save(
+        self, client, access_token: str, viewer_access_token: str, save: Save
+    ):
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["mine"]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        response = client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["not mine"]},
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.labels == ["mine"]
+
+    def test_starring_a_missing_save_returns_not_found(self, client, access_token: str):
+        response = client.put(
+            "/api/saves/99999/favorite",
+            json={"is_favorite": True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_labelling_a_missing_save_returns_not_found(
+        self, client, access_token: str
+    ):
+        response = client.put(
+            "/api/saves/99999/labels",
+            json={"labels": ["ghost"]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_a_shared_save_hides_its_owners_annotations(
+        self,
+        client,
+        access_token: str,
+        viewer_access_token: str,
+        rom: Rom,
+        save: Save,
+    ):
+        owner = {"Authorization": f"Bearer {access_token}"}
+        client.put(
+            f"/api/saves/{save.id}/labels",
+            json={"labels": ["seed 42"]},
+            headers=owner,
+        )
+        client.put(
+            f"/api/saves/{save.id}/favorite", json={"is_favorite": True}, headers=owner
+        )
+        client.put(
+            f"/api/saves/{save.id}/visibility", json={"is_public": True}, headers=owner
+        )
+
+        mine = client.get(f"/api/roms/{rom.id}", headers=owner)
+        assert mine.status_code == status.HTTP_200_OK
+        row = next(s for s in mine.json()["all_user_saves"] if s["id"] == save.id)
+        assert row["labels"] == ["seed 42"]
+        assert row["is_favorite"] is True
+
+        theirs = client.get(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+        )
+        assert theirs.status_code == status.HTTP_200_OK
+        row = next(s for s in theirs.json()["all_user_saves"] if s["id"] == save.id)
+        assert row["labels"] == []
+        assert row["is_favorite"] is False
+
+
+class TestSaveRename:
+    """Renaming a save moves its file and keeps its screenshot bound."""
+
+    @pytest.fixture
+    def save_file(self, _isolated_assets_dir, save: Save):
+        path = _isolated_assets_dir / save.full_path
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"SAVE_DATA")
+        return path
+
+    def _rename(self, client, token: str, save_id: int, file_name: str):
+        return client.put(
+            f"/api/saves/{save_id}/file-name",
+            json={"file_name": file_name},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    def test_renaming_moves_the_file_and_its_screenshot(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        save: Save,
+        save_file,
+        _isolated_assets_dir,
+    ):
+        thumbnail = db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_save.png",
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=3,
+            )
+        )
+        screenshots_dir = _isolated_assets_dir / thumbnail.file_path
+        screenshots_dir.mkdir(parents=True)
+        (screenshots_dir / "test_save.png").write_bytes(b"PNG")
+
+        response = self._rename(client, access_token, save.id, "100% run.srm")
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["file_name"] == "100% run.srm"
+        assert body["file_extension"] == "srm"
+        assert body["slot"] == "autosave"
+        assert body["screenshot"]["file_name"] == "100% run.png"
+
+        assert not save_file.exists()
+        assert (save_file.parent / "100% run.srm").read_bytes() == b"SAVE_DATA"
+        assert (screenshots_dir / "100% run.png").read_bytes() == b"PNG"
+
+    def test_name_a_save_in_another_slot_holds_is_a_conflict(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        save: Save,
+        save_file,
+    ):
+        # Slots share a folder on disk, so the name has to be free across them.
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="archived.sav",
+                emulator="test_emulator",
+                slot=None,
+                file_path=save.file_path,
+                file_size_bytes=1,
+            )
+        )
+
+        response = self._rename(client, access_token, save.id, "archived.sav")
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert save_file.read_bytes() == b"SAVE_DATA"
+        refreshed = db_save_handler.get_save_by_id(save.id)
+        assert refreshed is not None and refreshed.file_name == "test_save.sav"
+
+    def test_unchanged_name_is_a_no_op(
+        self, client, access_token: str, save: Save, save_file
+    ):
+        response = self._rename(client, access_token, save.id, "test_save.sav")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["file_name"] == "test_save.sav"
+        assert save_file.exists()
+
+    def test_non_owner_cannot_rename_a_save(
+        self, client, viewer_access_token: str, save: Save, save_file
+    ):
+        db_save_handler.update_save(save.id, {"is_public": True})
+
+        response = self._rename(client, viewer_access_token, save.id, "mine.sav")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert save_file.exists()

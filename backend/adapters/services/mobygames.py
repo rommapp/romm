@@ -25,7 +25,9 @@ async def auth_middleware(
     req: aiohttp.ClientRequest, handler: aiohttp.ClientHandlerType
 ) -> aiohttp.ClientResponse:
     """MobyGames API authentication mechanism."""
-    req.url = req.url.update_query({"api_key": MOBYGAMES_API_KEY})
+    # Without a key MobyGames answers 401, which the callers already map to {}.
+    if MOBYGAMES_API_KEY is not None:
+        req.url = req.url.update_query({"api_key": MOBYGAMES_API_KEY})
     return await handler(req)
 
 

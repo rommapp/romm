@@ -29,8 +29,10 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  useId,
   watch,
 } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "../../primitives/RBtn/RBtn.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RTextField from "../RTextField/RTextField.vue";
@@ -71,17 +73,25 @@ const props = withDefaults(defineProps<Props>(), {
   firstDayOfWeek: 1,
   min: null,
   max: null,
-  todayLabel: "Today",
-  clearLabel: "Clear",
   hideFooter: false,
   disabled: false,
   displayFormat: () => ({ dateStyle: "medium" }),
+  todayLabel: undefined,
+  clearLabel: undefined,
   clearable: false,
 });
+
+const labels = useChromeLabels();
+
+const todayText = computed(() => props.todayLabel ?? labels.today);
+const clearText = computed(() => props.clearLabel ?? labels.clear);
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: Date | null): void;
 }>();
+
+// Referenced by the input's aria-controls.
+const panelId = useId();
 
 // ── Value normalization ────────────────────────────────────────
 function toDate(v: Date | number | string | null | undefined): Date | null {
@@ -441,18 +451,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <!-- combobox role goes here, not on RTextField: with a visible label
-       RTextField renders a <label>, where the role is disallowed and voids
-       the input's label association. -->
+  <!-- Keydown sits here so Escape and the arrows work wherever focus is
+       inside the field; the combobox role goes on the input via `popup`. -->
   <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -->
-  <div
-    ref="referenceEl"
-    class="r-date-field"
-    role="combobox"
-    aria-haspopup="dialog"
-    :aria-expanded="isOpen"
-    @keydown="onFieldKeydown"
-  >
+  <div ref="referenceEl" class="r-date-field" @keydown="onFieldKeydown">
     <!-- Single `@click` on the wrapper is enough: native clicks on
          every part of the field (input, icon, label well) bubble up
          here. We deliberately don't subscribe to `click:append-inner` —
@@ -462,6 +464,11 @@ onBeforeUnmount(() => {
       :model-value="displayValue"
       :disabled="disabled"
       :focused="isOpen"
+      :popup="{
+        controls: isOpen ? panelId : undefined,
+        expanded: isOpen,
+        kind: 'dialog',
+      }"
       readonly
       :append-inner-icon="
         clearable && selectedDate ? undefined : 'mdi-calendar'
@@ -475,7 +482,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="r-date-field__clear"
-          :aria-label="clearLabel"
+          :aria-label="clearText"
           @mousedown.prevent
           @click.stop="clearValue"
         >
@@ -489,11 +496,12 @@ onBeforeUnmount(() => {
         <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -->
         <div
           v-if="isOpen"
+          :id="panelId"
           ref="panelRef"
           class="r-date-cal"
           :style="floatingStyles"
           role="dialog"
-          aria-label="Date picker"
+          :aria-label="labels.datePicker"
           @keydown="onPanelKeydown"
         >
           <!-- Header — month/year title flanked by nav arrows. The
@@ -503,7 +511,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="r-date-cal__nav"
-              aria-label="Previous year"
+              :aria-label="labels.previousYear"
               @click="shiftYear(-1)"
             >
               <RIcon icon="mdi-chevron-double-left" size="x-small" />
@@ -511,7 +519,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="r-date-cal__nav"
-              aria-label="Previous month"
+              :aria-label="labels.previousMonth"
               @click="shiftMonth(-1)"
             >
               <RIcon icon="mdi-chevron-left" size="x-small" />
@@ -524,7 +532,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="r-date-cal__nav"
-              aria-label="Next month"
+              :aria-label="labels.nextMonth"
               @click="shiftMonth(1)"
             >
               <RIcon icon="mdi-chevron-right" size="x-small" />
@@ -532,7 +540,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="r-date-cal__nav"
-              aria-label="Next year"
+              :aria-label="labels.nextYear"
               @click="shiftYear(1)"
             >
               <RIcon icon="mdi-chevron-double-right" size="x-small" />
@@ -582,7 +590,7 @@ onBeforeUnmount(() => {
                quick-access buttons (e.g. embedded in a complex form). -->
           <div v-if="!hideFooter" class="r-date-cal__foot">
             <RBtn variant="text" size="small" @click="selectToday">
-              {{ todayLabel }}
+              {{ todayText }}
             </RBtn>
             <RBtn
               variant="text"
@@ -591,7 +599,7 @@ onBeforeUnmount(() => {
               :disabled="!selectedDate"
               @click="clearValue"
             >
-              {{ clearLabel }}
+              {{ clearText }}
             </RBtn>
           </div>
         </div>

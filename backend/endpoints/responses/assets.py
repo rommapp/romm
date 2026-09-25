@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import ConfigDict, model_validator
+from pydantic import ConfigDict, field_validator, model_validator
 from sqlalchemy import inspect
 from sqlalchemy.exc import InvalidRequestError
 
@@ -29,6 +29,25 @@ class BaseAsset(BaseModel):
     updated_at: UTCDatetime
 
 
+class AssetAnnotations(BaseModel):
+    """The owner-only annotations saves and states share."""
+
+    is_favorite: bool = False
+    labels: list[str] = []
+
+    @field_validator("labels", mode="before")
+    @classmethod
+    def _labels_never_null(cls, value: Any) -> Any:
+        # The column is nullable, so rows predating the migration read NULL.
+        return value or []
+
+
+# A shared save or state shows its author's name, never their annotations:
+# a label names a run for its owner and is not part of what sharing offers.
+# Derived from the model so a field added there is masked without a second edit.
+HIDDEN_ASSET_ANNOTATIONS: dict[str, Any] = AssetAnnotations().model_dump()
+
+
 class ScreenshotSchema(BaseAsset):
     is_gallery: bool = False
     is_public: bool = False
@@ -44,7 +63,7 @@ class UserScreenshotSchema(ScreenshotSchema):
     user_updated_at: UTCDatetime | None = None
 
 
-class SaveSchema(BaseAsset):
+class SaveSchema(BaseAsset, AssetAnnotations):
     emulator: str | None
     slot: str | None = None
     content_hash: str | None = None
@@ -94,7 +113,7 @@ class SaveSummarySchema(BaseModel):
     slots: list[SlotSummarySchema]
 
 
-class StateSchema(BaseAsset):
+class StateSchema(BaseAsset, AssetAnnotations):
     emulator: str | None
     is_public: bool = False
     screenshot: ScreenshotSchema | None

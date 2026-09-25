@@ -65,38 +65,32 @@ const scanTypes = computed<ScanTypeRow[]>(() => [
   {
     id: "new_platforms",
     title: t("scan.new-platforms"),
-    desc: "This will only look for platforms that are not already in RomM.",
+    desc: t("scan.info-new-platforms-desc"),
   },
   {
     id: "quick",
     title: t("scan.quick-scan"),
-    desc: "Scans for games that are not in the library yet, and picks up files added to the folders of games already in it, at any depth.",
+    desc: t("scan.info-quick-scan-desc"),
   },
   {
     id: "unmatched",
     title: t("scan.unmatched-games"),
-    desc:
-      "Attempts to match games that are not matched with the selected metadata sources.\n\n" +
-      "For example, selecting IGDB and ScreenScraper will scan games that are not matched with IGDB or ScreenScraper.",
+    desc: t("scan.info-unmatched-games-desc"),
   },
   {
     id: "update",
     title: t("scan.update-metadata"),
-    desc:
-      "Updates the metadata for games that have been matched with selected metadata sources using the external ID (e.g. IGDB ID).\n\n" +
-      "For example, selecting IGDB and ScreenScraper will update the metadata for games that are matched with IGDB or ScreenScraper, and will use igdb_id and/or ssfr_id to refetch the metadata from the respective providers.",
+    desc: t("scan.info-update-metadata-desc"),
   },
   {
     id: "hashes",
     title: t("scan.hashes"),
-    desc: "Recalculates hashes for all files in the selected platforms.",
+    desc: t("scan.info-hashes-desc"),
   },
   {
     id: "complete",
     title: t("scan.complete-rescan"),
-    desc:
-      "Rescans and rematches all games in the selected platforms (slowest).\n\n" +
-      "This will wipe all existing metadata matches, including the external IDs, and attempt to match them again, like on a fresh scan. Saves, states and notes will be preserved.",
+    desc: t("scan.info-complete-rescan-desc"),
   },
 ]);
 

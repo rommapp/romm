@@ -194,7 +194,7 @@ def test_rejects_malformed_days(
     """A typo fails loudly rather than quietly matching nothing."""
     assert (
         _get(client, access_token, released_days=released_days).status_code
-        == status.HTTP_422_UNPROCESSABLE_ENTITY
+        == status.HTTP_422_UNPROCESSABLE_CONTENT
     )
 
 
@@ -212,7 +212,7 @@ def test_rejects_more_days_than_the_ceiling(
         access_token,
         released_days=[f"{month}-1" for month in range(1, 13)] + ["1-2"],
     )
-    assert too_many.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert too_many.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_pages_the_day_without_shipping_all_of_it(

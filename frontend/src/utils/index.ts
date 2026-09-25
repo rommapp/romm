@@ -9,6 +9,13 @@ import type { Heartbeat } from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 
+export {
+  getDownloadFileName,
+  getDownloadLink,
+  getDownloadPath,
+  getSoleRomFile,
+} from "@/utils/downloadPath";
+
 /**
  * Views configuration object.
  */
@@ -105,59 +112,6 @@ export function convertCronExperssion(expression: string) {
     convertedExpression.charAt(0).toLocaleLowerCase() +
     convertedExpression.substr(1);
   return convertedExpression;
-}
-
-/**
- * Generate a download link for ROM content.
- *
- * @param rom The ROM object.
- * @param files Optional array of file names to include in the download.
- * @returns The download link.
- */
-export function getDownloadPath({
-  rom,
-  fileIDs = [],
-}: {
-  rom: SimpleRom;
-  fileIDs?: number[];
-}) {
-  const queryParams = new URLSearchParams();
-  if (fileIDs.length > 0) {
-    queryParams.append("file_ids", fileIDs.join(","));
-  }
-  const queryString = queryParams.toString();
-
-  // If a single file is selected, use its name for the download path
-  const selectedFile =
-    fileIDs.length === 1
-      ? rom.files?.find((f) => f.id === fileIDs[0])
-      : undefined;
-  const nestedFile =
-    fileIDs.length === 0 &&
-    rom.has_nested_single_file &&
-    rom.files?.length === 1
-      ? rom.files[0]
-      : undefined;
-  const contentFile = selectedFile ?? nestedFile;
-  const contentName = contentFile
-    ? encodeURIComponent(contentFile.file_name)
-    : rom.fs_name;
-
-  return `/api/roms/${rom.id}/content/${contentName}${
-    queryString ? `?${queryString}` : ""
-  }`;
-}
-
-export function getDownloadLink({
-  rom,
-  fileIDs = [],
-}: {
-  rom: SimpleRom;
-  fileIDs?: number[];
-}) {
-  return `${window.location.origin}${encodeURI(
-    getDownloadPath({ rom, fileIDs }),
-  )}`;
 }
 
 /**

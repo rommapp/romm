@@ -15,6 +15,7 @@ from config import (
     DISABLE_RUFFLE_RS,
     DISABLE_SETUP_WIZARD,
     DISABLE_USERPASS_LOGIN,
+    EMAIL_ENABLED,
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
@@ -34,6 +35,7 @@ from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.heartbeat import HeartbeatResponse
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from handler.auth.base_handler import reset_link_base_url
 from handler.auth.constants import Scope
 from handler.database import db_stats_handler, db_user_handler
 from handler.filesystem import fs_platform_handler
@@ -59,7 +61,7 @@ from handler.metadata import (
 from handler.redis_handler import sync_cache
 from handler.scan_handler import MetadataSource
 from logger.logger import log
-from utils import get_version
+from utils import get_git_branch, get_version
 from utils.platforms import get_supported_platforms
 from utils.rate_limit import enforce_rate_limit, get_client_ip
 from utils.router import APIRouter
@@ -109,9 +111,11 @@ async def heartbeat() -> HeartbeatResponse:
     tgdb_enabled = meta_tgdb_handler.is_enabled()
     libretro_enabled = meta_libretro_handler.is_enabled()
 
+    version = get_version()
     return {
         "SYSTEM": {
-            "VERSION": get_version(),
+            "VERSION": version,
+            "GIT_BRANCH": get_git_branch() if version == "development" else None,
             "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0
             and not DISABLE_SETUP_WIZARD,
         },
@@ -170,6 +174,10 @@ async def heartbeat() -> HeartbeatResponse:
             "AUTOLOGIN": OIDC_AUTOLOGIN,
             "PROVIDER": OIDC_PROVIDER,
             "RP_INITIATED_LOGOUT": OIDC_RP_INITIATED_LOGOUT,
+        },
+        "NOTIFICATIONS": {
+            "EMAIL_ENABLED": EMAIL_ENABLED,
+            "EMAILS_RESET_LINKS": reset_link_base_url() is not None,
         },
         "TASKS": {
             "ENABLE_SCHEDULED_RESCAN": ENABLE_SCHEDULED_RESCAN,

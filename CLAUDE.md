@@ -9,7 +9,7 @@ RomM is a self-hosted ROM manager and player: scan a game library off disk, enri
 |           | Backend                                     | Frontend                                  |
 | --------- | ------------------------------------------- | ----------------------------------------- |
 | Path      | `backend/`                                  | `frontend/`                               |
-| Language  | Python 3.14+                                | TypeScript 5.7 (Vue 3)                    |
+| Language  | Python 3.14+                                | TypeScript 5.9 (Vue 3)                    |
 | Framework | FastAPI, SQLAlchemy 2.0, Alembic            | Vue 3 + Vite, Vuetify, Pinia, Vue Router  |
 | Infra     | Redis + RQ (jobs/cache/sessions), Socket.IO | vue-i18n, Socket.IO client                |
 | DB        | MariaDB (default), MySQL, PostgreSQL        | -                                         |
@@ -41,6 +41,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 
 | Skill                    | When                                                                                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `knowledge-base`         | Understanding how part of the codebase works or where it lives, via Greptile's synthesized knowledge base. Verify what it says against the code.              |
 | `frontend-v2-components` | Building/editing any v2 component - tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                                               |
 | `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language - and the **zero-hex-literal** policy.                                                                     |
 | `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                                          |
@@ -52,6 +53,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 | `pr-ready`               | Before opening a PR - the four passes in order: `security-audit`, `code-review xhigh --fix`, `simplify`, `review-polish`. Not auto-invoked.                   |
 | `address-bot-reviews`    | After Greptile and Copilot review a PR - triage each finding, fix what holds up, reply with the fix or the reason, and resolve the threads. Not auto-invoked. |
 | `draft-release-notes`    | Drafting the GitHub release notes for a release, stable or alpha/beta, from the diff since the previous stable tag.                                           |
+| `draft-announcement`     | Drafting the Discord announcement for a release, from the release notes plus an interview about community news. Not auto-invoked.                             |
 
 ---
 
@@ -73,7 +75,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 **Python tools live in `backend/tools/`.** Standalone dev/test utilities and scripts (not part of the app runtime) go in `backend/tools/`, not scattered across `backend/`.
 **Link PRs to issues.** In the PR description, use `Fixes #XXXX` for issue/bug fixes and `Closes #XXXX` for feature implementations.
 **Use the PR template.** Base every PR description on `.github/PULL_REQUEST_TEMPLATE.md`.
-**Show UI changes in the PR.** A PR that touches anything visible ships with at least one screenshot under the template's `Screenshots` heading, captured from the running app during the `review-polish` browser pass. Enough shots to convey what changed, not a catalogue of every state. Save the files outside the repo and never commit them. If you can't attach them to the PR yourself, open the PR with the section in place and hand the user the file paths to drop in.
+**Show UI changes in the PR.** A PR that touches anything visible ships with at least one screenshot under the template's `Screenshots` heading, captured from the running app during the `review-polish` browser pass. Enough shots to convey what changed, not a catalogue of every state. Save the files outside the repo and never commit them, and upload them with `gh pr create --attach` (or `gh pr edit --attach` on an existing PR) rather than handing the paths to the user.
 **Diagram architectural changes in the PR.** When a change moves a boundary (a new service, task, or provider in a path, a model relationship, a different call path across layers, an auth or socket flow), the PR description carries a `mermaid` block showing it. GitHub renders them. Draw what changed, not the whole system. See `review-polish`.
 
 ---
@@ -98,6 +100,7 @@ uv run alembic upgrade head         # apply migrations
 npm install                         # install (Node 24)
 npm run dev                         # dev server :3000
 npm run typecheck                   # vue-tsc
+npm run typecheck:scripts           # tsc on the Node/Vite tooling in scripts/
 npm run test                        # vitest (+ Storybook play() tests)
 npm run test:e2e                    # playwright (needs a running app + seeded e2e users)
 npm run build                       # production build

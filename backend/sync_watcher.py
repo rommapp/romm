@@ -58,7 +58,7 @@ def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
         platform_slug = parts[2]
         filename = parts[-1]
         return (device_id, platform_slug, filename)
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         return None
 
 
@@ -303,6 +303,7 @@ def _process_incoming_file(
                     session_id=session_id,
                     file_name=filename,
                     rom_id=matched_save.rom_id,
+                    rom_name=matched_save.rom.name or matched_save.rom.fs_name,
                     reason=result.reason,
                 )
             )

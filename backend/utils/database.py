@@ -8,6 +8,10 @@ from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
 
+# What `Session.get_bind()` returns; these helpers only read `.engine`, which
+# an Engine answers with itself.
+type DatabaseBind = sa.Engine | sa.Connection
+
 # Single-column foreign keys that MariaDB/MySQL index implicitly but PostgreSQL
 # does not, so 0124 creates them there only and no model declares them.
 POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
@@ -33,12 +37,50 @@ POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
     ),
 )
 
+HLTB_MAIN_STORY_COLUMN = "generated_hltb_main_story"
+
+# The nullable `roms` columns the gallery sorts on. MariaDB and MySQL have no
+# NULLS LAST and cannot index the `IS NULL` term emulating it, so each column
+# gets a materialized `_unset` flag the ascending sort leads with instead.
+# Named here rather than in `utils.roms_columns`, which imports this module.
+SORTABLE_NULLABLE_ROM_COLUMNS = (
+    "generated_first_release_date",
+    "generated_average_rating",
+    HLTB_MAIN_STORY_COLUMN,
+)
+
+
+def rom_unset_flag_column(column: str) -> str:
+    """The generated flag column recording whether `column` is unset."""
+    return f"{column}_unset"
+
+
+def rom_sort_index_name(column: str) -> str:
+    """The composite index the ascending gallery sort on `column` walks."""
+    return f"idx_roms_{column}_sort"
+
+
+def rom_desc_index_name(column: str) -> str:
+    """The PostgreSQL-only index the descending gallery sort on `column` walks."""
+    return f"idx_roms_{column}_desc"
+
+
 # Indexes that exist in some databases but cannot be declared on a model.
-AUTOGENERATE_EXEMPT_INDEX_NAMES = frozenset(
-    # Search indexes built per dialect in 0084: FULLTEXT on MySQL/MariaDB,
-    # pg_trgm GIN on PostgreSQL. No portable model declaration exists.
-    {"idx_roms_name_fs_name_fulltext", "idx_roms_name_trgm", "idx_roms_fs_name_trgm"}
-) | frozenset(name for _, name, _ in POSTGRESQL_FK_INDEXES)
+AUTOGENERATE_EXEMPT_INDEX_NAMES = (
+    frozenset(
+        # Search indexes built per dialect in 0084: FULLTEXT on MySQL/MariaDB,
+        # pg_trgm GIN on PostgreSQL. No portable model declaration exists.
+        {
+            "idx_roms_name_fs_name_fulltext",
+            "idx_roms_name_trgm",
+            "idx_roms_fs_name_trgm",
+        }
+    )
+    | frozenset(name for _, name, _ in POSTGRESQL_FK_INDEXES)
+    # `DESC NULLS LAST` is the only spelling that matches what the descending
+    # gallery sort asks for, and no other engine parses it.
+    | frozenset(rom_desc_index_name(c) for c in SORTABLE_NULLABLE_ROM_COLUMNS)
+)
 
 
 def CustomJSON(**kwargs: Any) -> sa.JSON:
@@ -47,7 +89,7 @@ def CustomJSON(**kwargs: Any) -> sa.JSON:
 
 
 def is_db_version_compatible(
-    conn: sa.Connection,
+    conn: DatabaseBind,
     min_version: tuple[int, ...] | None = None,
 ) -> bool:
     """Check if the database server version complies with the given version constraints."""
@@ -58,20 +100,20 @@ def is_db_version_compatible(
 
 
 def is_postgresql(
-    conn: sa.Connection, min_version: tuple[int, ...] | None = None
+    conn: DatabaseBind, min_version: tuple[int, ...] | None = None
 ) -> bool:
     if conn.engine.name != "postgresql":
         return False
     return is_db_version_compatible(conn, min_version=min_version)
 
 
-def is_mysql(conn: sa.Connection, min_version: tuple[int, ...] | None = None) -> bool:
+def is_mysql(conn: DatabaseBind, min_version: tuple[int, ...] | None = None) -> bool:
     if conn.engine.name != "mysql":
         return False
     return is_db_version_compatible(conn, min_version=min_version)
 
 
-def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) -> bool:
+def is_mariadb(conn: DatabaseBind, min_version: tuple[int, ...] | None = None) -> bool:
     if conn.engine.name != "mariadb":
         return False
     return is_db_version_compatible(conn, min_version=min_version)
@@ -168,7 +210,7 @@ def json_array_contains_value(
         if isinstance(value, str):
             return sa.type_coerce(column, sa_pg.JSONB).has_key(value)
         return sa.type_coerce(column, sa_pg.JSONB).contains(
-            func.cast(value, sa_pg.JSONB)
+            func.cast(sa.literal(value, sa_pg.JSONB), sa_pg.JSONB)
         )
     elif is_mysql(conn) or is_mariadb(conn):
         # In MySQL and MariaDB, JSON_CONTAINS requires a JSON-formatted string (even if it's an int).

@@ -1,5 +1,6 @@
 import asyncio
 import re
+from typing import Any
 
 from itsdangerous import URLSafeSerializer
 from starlette.applications import Starlette
@@ -10,9 +11,10 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from config import ROMM_AUTH_SECRET_KEY
-from handler.auth.constants import ALGORITHM
+from handler.auth.constants import ALGORITHM, SESSION_COOKIE_NAME
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.session_middleware import SessionMiddleware
 from models.user import User
@@ -56,6 +58,30 @@ def create_test_app(**csrf_kwargs) -> Starlette:
         ),
     ]
     return Starlette(routes=routes, middleware=middleware)
+
+
+def create_session_app(session: dict[str, Any]) -> Starlette:
+    """A CSRF app behind a resolved session, as `main.py` orders them."""
+
+    class StubSessionMiddleware:
+        def __init__(self, app: ASGIApp) -> None:
+            self.app = app
+
+        async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+            scope["session"] = dict(session)
+            await self.app(scope, receive, send)
+
+    async def post_handler(request: Request) -> JSONResponse:
+        return JSONResponse({"status": "success"})
+
+    return Starlette(
+        routes=[Route("/post", post_handler, methods=["POST"])],
+        middleware=[
+            Middleware(StubSessionMiddleware),
+            Middleware(AuthenticationMiddleware, backend=BasicAuthBackend()),
+            Middleware(CSRFMiddleware, secret="test-secret"),
+        ],
+    )
 
 
 class TestCSRFMiddleware:
@@ -199,6 +225,22 @@ class TestCSRFMiddleware:
         """Requests with Bearer/Basic Authorization header bypass CSRF."""
         app = create_test_app()
         client = TestClient(app)
+
+        resp = client.post("/post", headers={"Authorization": "Bearer token"})
+        assert resp.status_code == 200
+
+    def test_authenticated_session_keeps_csrf_on_despite_auth_header(self) -> None:
+        """The session authenticates first, so the header must not exempt it."""
+        client = TestClient(create_session_app({"iss": "romm:auth", "sub": "victim"}))
+        client.cookies.set(SESSION_COOKIE_NAME, "live-session-id")
+
+        resp = client.post("/post", headers={"Authorization": "Bearer anything"})
+        assert resp.status_code == 403
+
+    def test_stale_session_still_lets_the_auth_header_through(self) -> None:
+        """A cookie the session store rejected leaves the header as the credential."""
+        client = TestClient(create_session_app({}))
+        client.cookies.set(SESSION_COOKIE_NAME, "expired-session-id")
 
         resp = client.post("/post", headers={"Authorization": "Bearer token"})
         assert resp.status_code == 200

@@ -1,5 +1,6 @@
 {
   "add-collection": "Koleksiyon ekle",
+  "collection-deleted": "\"{name}\" koleksiyonu silindi",
   "cover": "Kapak tasarımı",
   "create-collection": "Koleksiyon oluştur",
   "create-failed": "Koleksiyon oluşturulamadı",
@@ -7,6 +8,8 @@
   "current-filters": "Mevcut filtreler",
   "danger-zone": "Tehlikeli bölge",
   "delete-collection": "Koleksiyonu sil",
+  "delete-collection-body": "\"{name}\" koleksiyonunu kaldırır (koleksiyonda {count} ROM). ROM dosyalarının kendisi silinmez.",
+  "delete-collection-failed": "Koleksiyon silinemedi: {error}",
   "delete-collection-hint": "Koleksiyonu RomM'den kaldırır. ROM dosyalarının kendisi silinmez.",
   "description": "Açıklama",
   "download-collection": "Koleksiyonu indir",
@@ -24,7 +27,6 @@
   "no-collections-search": "\"{query}\" için eşleşen koleksiyon bulunamadı.",
   "no-collections-yet": "Henüz hiçbir koleksiyon yok.",
   "no-collections-yet-detail": "Henüz hiç koleksiyonunuz yok. Bir oyunu favorilere ekleyin veya herhangi bir ROM'un işlem çubuğundan koleksiyon oluşturun.",
-  "no-collections-yet-hint": "Henüz koleksiyon yok. Yukarıdan bir tane oluşturun.",
   "not-found": "Koleksiyon bulunamadı.",
   "owner": "Sahip",
   "private": "Özel",

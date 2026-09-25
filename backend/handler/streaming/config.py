@@ -22,6 +22,7 @@ from handler.streaming.capabilities import (
     PlatformCapabilities,
     StateTransferLimits,
     emulator_clears_saves,
+    emulator_resumes_from_archive,
     known_to_lack_memory_card,
     slot_capabilities,
     state_transfer_limits,
@@ -181,6 +182,17 @@ class ResolvedContainer:
     def supports_save_picker(self) -> bool:
         """Whether the launch screen may offer a save other than the newest."""
         return self.is_webstation and self.clears_stale_saves
+
+    @property
+    def resumes_from_archive(self) -> bool:
+        """Whether a resume rides the save archive, with no state file to push."""
+        return self.is_webstation and emulator_resumes_from_archive(self.emulator)
+
+    @property
+    def supports_live_states(self) -> bool:
+        """Whether the player may save or load a state while the game runs. An
+        exit-state broker refuses both, though its slot still backs the library."""
+        return self.capabilities["has_autosave"] and not self.resumes_from_archive
 
     def interchangeable_with(self, other: ResolvedContainer) -> bool:
         """Whether two containers serving a platform are one pool: a player
@@ -497,7 +509,7 @@ def reset_cache() -> None:
 def _fingerprint(raw: Any) -> str:
     try:
         return json.dumps(raw, sort_keys=True, default=str)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         # Unserializable config: never matches, so it re-resolves every time
         # rather than serving a record built from something else. A fresh
         # random value rather than an object's repr, which CPython happily

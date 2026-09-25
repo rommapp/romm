@@ -67,13 +67,19 @@ const optimistic = ref(new Map<number, "off" | "some" | "all">());
 const creating = ref(false);
 const createExpanded = ref(false);
 const newName = ref("");
+const newIsPublic = ref(false);
+
+function resetCreate() {
+  newName.value = "";
+  newIsPublic.value = false;
+  createExpanded.value = false;
+}
 
 const openHandler = (romsToAdd: SimpleRom[]) => {
   roms.value = romsToAdd;
   optimistic.value = new Map();
   pendingCollections.value = new Set();
-  newName.value = "";
-  createExpanded.value = false;
+  resetCreate();
   show.value = true;
 };
 emitter?.on("showManageCollectionsDialog", openHandler);
@@ -171,12 +177,11 @@ async function createNewCollection() {
   creating.value = true;
   try {
     const created = await collectionApi.createCollection({
-      collection: { name },
+      collection: { name, is_public: newIsPublic.value },
     });
     collectionsStore.addCollection(created);
     void toggle(created);
-    newName.value = "";
-    createExpanded.value = false;
+    resetCreate();
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(
@@ -186,11 +191,6 @@ async function createNewCollection() {
   } finally {
     creating.value = false;
   }
-}
-
-function cancelCreate() {
-  newName.value = "";
-  createExpanded.value = false;
 }
 
 const subtitle = computed(() => {
@@ -218,8 +218,7 @@ function closeDialog() {
   roms.value = [];
   optimistic.value = new Map();
   pendingCollections.value = new Set();
-  newName.value = "";
-  createExpanded.value = false;
+  resetCreate();
   show.value = false;
 }
 </script>
@@ -228,7 +227,7 @@ function closeDialog() {
   <RDialog
     v-model="show"
     :width="mdAndUp ? 440 : '95vw'"
-    class="r-v2-mng-coll-dialog"
+    body-padding="flush"
     @close="closeDialog"
   >
     <!-- Two-line title block replaces the single-line default so the
@@ -260,10 +259,11 @@ function closeDialog() {
       <NewCollectionRow
         v-model:expanded="createExpanded"
         v-model:name="newName"
+        v-model:is-public="newIsPublic"
         :creating="creating"
         :tile-size="46"
         @create="createNewCollection"
-        @cancel="cancelCreate"
+        @cancel="resetCreate"
       />
 
       <RDivider v-if="ownedCollections.length > 0" full-width />
@@ -276,16 +276,13 @@ function closeDialog() {
             :count="collection.rom_count"
             :covers="coversFor(collection)"
             :state="membershipState(collection)"
+            :is-public="collection.is_public"
             :busy="pendingCollections.has(collection.id)"
             :tile-size="46"
             @toggle="toggle(collection)"
           />
         </li>
       </ul>
-
-      <div v-else class="r-v2-mng-coll__empty">
-        {{ t("collection.no-collections-yet-hint") }}
-      </div>
     </template>
   </RDialog>
 </template>
@@ -325,9 +322,8 @@ function closeDialog() {
   max-width: 320px;
 }
 
-/* Row list — sits flush against the dialog edges. This dialog drops
-   the standard RDialog body padding (see the `:deep(.r-dialog__body)`
-   override below) so rows read as menu items, not as padded cards. */
+/* The dialog body is flush, so rows meet the dialog edges and read as menu
+   items rather than padded cards. */
 .r-v2-mng-coll__list {
   list-style: none;
   margin: 0;
@@ -337,25 +333,5 @@ function closeDialog() {
   gap: 0;
   max-height: 360px;
   overflow-y: auto;
-}
-
-.r-v2-mng-coll__empty {
-  padding: 24px 16px;
-  color: var(--r-color-fg-muted);
-  font-size: 13px;
-  text-align: center;
-}
-</style>
-
-<!-- Unscoped overrides — `.r-dialog__body` is rendered (and teleported)
-     by RDialog with its own data-v hash, so a scoped `:deep()` rule
-     from this component doesn't actually land on it. The unscoped
-     selector targets the body via a class we attach to RDialog's root
-     overlay (flows through `v-bind="$attrs"`), keeping the override
-     localised to this dialog. -->
-<style>
-.r-v2-mng-coll-dialog .r-dialog__body {
-  padding: 0;
-  gap: 0;
 }
 </style>

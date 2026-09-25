@@ -4,35 +4,109 @@ import {
   type SaveSchema,
   type StateSchema,
 } from "@/__generated__";
-import saveApi, { AUTOSAVE_SLOT } from "@/services/api/save";
-import stateApi from "@/services/api/state";
+import saveApi, {
+  AUTOSAVE_SLOT,
+  sessionSaveFile,
+  sessionScreenshotFile,
+} from "@/services/api/save";
+import stateApi, { sessionStateFiles } from "@/services/api/state";
+import pendingAssetStore, {
+  pendingAssetId,
+  type PendingAsset,
+} from "@/services/pending-asset";
+import storeHeartbeat from "@/stores/heartbeat";
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
 
-function buildStateName(rom: DetailedRom): string {
-  const romName = rom.fs_name_no_ext.trim();
-  return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
+/** Tears the emulator down once, however many owners ask. */
+export function exitEmulatorOnce() {
+  // The player and its shell both unmount on the way out, and a second exit
+  // throws ErrnoError(28) unmounting the filesystem, then aborts the runtime.
+  const emulator = window.EJS_emulator;
+  if (!emulator || emulator.__rommExited) return;
+  emulator.__rommExited = true;
+  emulator.callEvent("exit");
 }
 
-// EmulatorJS 4.2.3 hands `EJS_onSaveState` nothing under `screenshot`, and its
-// own canvas capture renders only a slice of the frame even with the upstream
-// fix applied. Reading the live canvas is the path Save & Quit already takes.
-export async function captureStateScreenshot(): Promise<
-  ArrayBuffer | undefined
-> {
+// Long enough for any core to hand over a frame.
+const SCREENSHOT_TIMEOUT_MS = 3000;
+
+// A capture deletes the file the previous one still polls for, and that poll
+// never gives up, so captures are taken one at a time.
+let capturing: Promise<ArrayBuffer | undefined> = Promise.resolve(undefined);
+
+// EmulatorJS 4.2.3 hands `EJS_onSaveState` no screenshot and its own capture
+// renders a slice of the frame, so pictures are read off the live canvas.
+export function captureScreenshot(): Promise<ArrayBuffer | undefined> {
+  capturing = capturing.catch(() => undefined).then(takeScreenshot);
+  return capturing;
+}
+
+async function takeScreenshot(): Promise<ArrayBuffer | undefined> {
+  const gameManager = window.EJS_emulator?.gameManager;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await window.EJS_emulator?.gameManager?.screenshot();
+    const screenshot = await Promise.race([
+      gameManager?.screenshot(),
+      new Promise<undefined>((resolve) => {
+        timer = setTimeout(() => resolve(undefined), SCREENSHOT_TIMEOUT_MS);
+      }),
+    ]);
+    // An empty buffer is a failed readback, not a picture.
+    if (screenshot?.byteLength) return screenshot;
   } catch (error) {
-    console.error("Failed to capture a state screenshot", error);
-    return undefined;
+    console.error("Failed to capture a screenshot", error);
+  } finally {
+    clearTimeout(timer);
+  }
+  releaseScreenshotWait(gameManager);
+  return undefined;
+}
+
+// The poll behind a capture that never arrived runs for the rest of the
+// session; the file it is waiting for is what stops it.
+function releaseScreenshotWait(gameManager?: {
+  FS?: { writeFile(path: string, data: Uint8Array): void };
+}) {
+  try {
+    gameManager?.FS?.writeFile("/screenshot.png", new Uint8Array(0));
+  } catch (error) {
+    console.error("Failed to release a stuck screenshot capture", error);
   }
 }
 
-/** The picture for a save state: the live canvas, else what EmulatorJS passed. */
-export async function resolveStateScreenshot(
+/**
+ * The SRAM as the core holds it right now.
+ *
+ * Returns:
+ *   The bytes, or null when the core has written no save file.
+ */
+export function dumpSaveFile(): Uint8Array | null {
+  // Passing true flushes the core's memory into the file this reads: the copy
+  // already on the emulator's filesystem predates a state it just restored.
+  return window.EJS_emulator?.gameManager?.getSaveFile(true) ?? null;
+}
+
+/** The picture for a save or a state: the live canvas, else EmulatorJS'. */
+export async function resolveScreenshot(
   emulatorScreenshot?: ArrayBuffer,
 ): Promise<ArrayBuffer | undefined> {
-  return (await captureStateScreenshot()) ?? emulatorScreenshot;
+  return (await captureScreenshot()) ?? emulatorScreenshot;
+}
+
+/**
+ * The held row, when it holds these exact bytes.
+ *
+ * Returns:
+ *   The row, or null when there is none or the bytes have moved on since.
+ */
+export function heldFor(
+  pending: PendingAsset | null,
+  bytes: Uint8Array,
+): PendingAsset | null {
+  return pending && bytesEqual(new Uint8Array(pending.bytes), bytes)
+    ? pending
+    : null;
 }
 
 /** Console-mode state upload; without a picture there is no screenshot part. */
@@ -52,6 +126,12 @@ export function buildStateFormData(
   ]);
 }
 
+/** A state upload's outcome: taken, or held in this browser for later, or neither. */
+export interface StateUpload {
+  state: StateSchema | null;
+  kept: boolean;
+}
+
 export async function saveState({
   rom,
   stateFile,
@@ -60,58 +140,55 @@ export async function saveState({
   rom: DetailedRom;
   stateFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
-}): Promise<StateSchema | null> {
+}): Promise<StateUpload> {
   // A zero-length buffer means the core failed to serialize its state (a torn
   // read from a running threaded core). Refuse to upload it so a broken
   // capture can't overwrite the user's good states on the server.
   if (stateFile.byteLength === 0) {
     console.error("Refusing to upload empty state file");
-    return null;
+    return { state: null, kept: false };
   }
 
-  const filename = buildStateName(rom);
+  const capturedAt = new Date();
+  // Held in the browser until the server takes it, so a state captured offline
+  // reaches it on a later pass.
+  const pendingId = pendingAssetId(rom.id);
+  const kept = await pendingAssetStore.write({
+    id: pendingId,
+    kind: "state",
+    romId: rom.id,
+    romName: rom.name ?? rom.fs_name_no_ext,
+    fsNameNoExt: rom.fs_name_no_ext,
+    cover: rom.path_cover_small,
+    bytes: stateFile,
+    screenshotBytes: screenshotFile,
+    emulator: window.EJS_core,
+    capturedAt: capturedAt.getTime(),
+  });
+  // Nothing gets through while the server is down; the held state goes once
+  // it is back.
+  if (!storeHeartbeat().connected) return { state: null, kept };
+
   try {
     const uploadedStates = await stateApi.uploadStates({
       rom: rom,
       emulator: window.EJS_core,
       statesToUpload: [
-        {
-          stateFile: new File([stateFile], `${filename}.state`, {
-            type: "application/octet-stream",
-          }),
-          screenshotFile: screenshotFile
-            ? new File([screenshotFile], `${filename}.png`, {
-                type: "application/octet-stream",
-              })
-            : undefined,
-        },
+        sessionStateFiles(rom, capturedAt, stateFile, screenshotFile),
       ],
     });
 
     const uploadedState = uploadedStates[0];
     if (uploadedState.status == "fulfilled") {
+      await pendingAssetStore.clear(pendingId);
       if (rom) rom.user_states.unshift(uploadedState.value);
-      return uploadedState.value;
+      return { state: uploadedState.value, kept: false };
     }
   } catch (error) {
     console.error("Failed to upload state", error);
   }
 
-  return null;
-}
-
-// Session saves are named after the ROM; a version updated in place keeps
-// its name.
-function sessionSaveFile(
-  rom: DetailedRom,
-  save: SaveSchema | null,
-  bytes: ArrayBuffer,
-): File {
-  return new File(
-    [bytes],
-    save ? save.file_name : `${rom.fs_name_no_ext.trim()}.srm`,
-    { type: "application/octet-stream" },
-  );
+  return { state: null, kept };
 }
 
 // `save` is the version this session already created: it is updated in place,
@@ -136,14 +213,8 @@ export async function saveSave({
       const { data: updatedSave } = await saveApi.updateSave({
         save: save,
         saveFile: sessionSaveFile(rom, save, saveFile),
-        // A version opened by the periodic sync has no screenshot yet; name a
-        // new one after the save so the backend links it by stem.
         screenshotFile: screenshotFile
-          ? new File(
-              [screenshotFile],
-              save.screenshot?.file_name ?? `${save.file_name_no_ext}.png`,
-              { type: "application/octet-stream" },
-            )
+          ? sessionScreenshotFile(rom, save, screenshotFile)
           : undefined,
         deviceId,
       });
@@ -160,7 +231,6 @@ export async function saveSave({
   }
 
   // The backend timestamps slotted uploads, tagging save and screenshot alike.
-  const filename = rom.fs_name_no_ext.trim();
   try {
     const uploadedSaves = await saveApi.uploadSaves({
       rom: rom,
@@ -177,9 +247,7 @@ export async function saveSave({
         {
           saveFile: sessionSaveFile(rom, null, saveFile),
           screenshotFile: screenshotFile
-            ? new File([screenshotFile], `${filename}.png`, {
-                type: "application/octet-stream",
-              })
+            ? sessionScreenshotFile(rom, null, screenshotFile)
             : undefined,
         },
       ],
@@ -263,6 +331,31 @@ export function createSaveSyncTracker() {
     // Whether the server already holds these exact bytes.
     isUploaded(save: Uint8Array): boolean {
       return bytesEqual(save, lastUploaded);
+    },
+  };
+}
+
+// The tick re-offers a failed upload every second, which only hammers a server
+// that is refusing it or on its way down.
+export const RETRY_BACKOFF_MIN_MS = 2_000;
+export const RETRY_BACKOFF_MAX_MS = 30_000;
+
+/** Spaces out the retries of a failing upload, doubling the wait up to a cap. */
+export function createRetryBackoff(now: () => number = Date.now) {
+  let delay = 0;
+  let retryAt = 0;
+  return {
+    ready: (): boolean => now() >= retryAt,
+    failed() {
+      delay = Math.min(
+        Math.max(delay * 2, RETRY_BACKOFF_MIN_MS),
+        RETRY_BACKOFF_MAX_MS,
+      );
+      retryAt = now() + delay;
+    },
+    reset() {
+      delay = 0;
+      retryAt = 0;
     },
   };
 }
@@ -545,7 +638,16 @@ export function installIOSFullscreenShim() {
   };
 }
 
-export function createQuickLoadButton(): HTMLButtonElement {
+// EJS_Buttons cannot relabel the context menu button, so its text is set here.
+export function labelContextMenuButton(label: string) {
+  const text: HTMLElement | null | undefined =
+    window.EJS_emulator?.elements?.bottomBar?.contextMenu?.[0]?.querySelector(
+      ".ejs_menu_text",
+    );
+  if (text) text.innerText = label;
+}
+
+export function createQuickLoadButton(label: string): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -556,7 +658,7 @@ export function createQuickLoadButton(): HTMLButtonElement {
     '<path d="M12,7L17,12H14V16H10V12H7L12,7M19,21H5A2,2 0 0,1 3,19V5A2,2 0 0,1 5,3H19A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21M19,19V5H5V19H19Z"></path>';
   const text = document.createElement("span");
   text.classList.add("ejs_menu_text");
-  text.innerText = "Load Latest State";
+  text.innerText = label;
   button.classList.add("ejs_menu_button");
   button.appendChild(svg);
   button.appendChild(text);
@@ -572,7 +674,7 @@ export function createQuickLoadButton(): HTMLButtonElement {
   return button;
 }
 
-export function createExitEmulationButton(): HTMLButtonElement {
+export function createExitEmulationButton(label: string): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -582,7 +684,7 @@ export function createExitEmulationButton(): HTMLButtonElement {
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 460"><path style="fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke:rgb(255,255,255);stroke-opacity:1;stroke-miterlimit:4;" d="M 14.000061 7.636414 L 14.000061 4.5 C 14.000061 4.223877 13.776123 3.999939 13.5 3.999939 L 4.5 3.999939 C 4.223877 3.999939 3.999939 4.223877 3.999939 4.5 L 3.999939 19.5 C 3.999939 19.776123 4.223877 20.000061 4.5 20.000061 L 13.5 20.000061 C 13.776123 20.000061 14.000061 19.776123 14.000061 19.5 L 14.000061 16.363586 " transform="matrix(21.333333,0,0,21.333333,0,0)"></path><path style="fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke:rgb(255,255,255);stroke-opacity:1;stroke-miterlimit:4;" d="M 9.999939 12 L 21 12 M 21 12 L 18.000366 8.499939 M 21 12 L 18 15.500061 " transform="matrix(21.333333,0,0,21.333333,0,0)"></path></svg>';
   const text = document.createElement("span");
   text.classList.add("ejs_menu_text", "ejs_menu_text_right");
-  text.innerText = "Quit";
+  text.innerText = label;
   button.classList.add("ejs_menu_button");
   button.appendChild(svg);
   button.appendChild(text);
@@ -593,7 +695,7 @@ export function createExitEmulationButton(): HTMLButtonElement {
   return button;
 }
 
-export function createSaveQuitButton(): HTMLButtonElement {
+export function createSaveQuitButton(label: string): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -604,7 +706,7 @@ export function createSaveQuitButton(): HTMLButtonElement {
     '<path d="M17,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H11.81C11.42,20.34 11.17,19.6 11.07,18.84C9.5,18.31 8.66,16.6 9.2,15.03C9.61,13.83 10.73,13 12,13C12.44,13 12.88,13.1 13.28,13.29C15.57,11.5 18.83,11.59 21,13.54V7L17,3M15,9H5V5H15V9M13,17H17V14L22,18.5L17,23V20H13V17"></path>';
   const text = document.createElement("span");
   text.classList.add("ejs_menu_text", "ejs_menu_text_right");
-  text.innerText = "Save & Quit";
+  text.innerText = label;
   button.classList.add("ejs_menu_button");
   button.appendChild(svg);
   button.appendChild(text);

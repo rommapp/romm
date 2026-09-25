@@ -4,15 +4,19 @@
 // resolution) is ported verbatim from `src/views/Player/EmulatorJS/Base.vue`
 // so behaviour stays identical; only the chrome is v2.
 //
+// Inside the RomM desktop shell the hero leads with the native launch, above
+// the in-browser one; a platform the shell alone can run opens this page with
+// the hero by itself, since nothing EmulatorJS owns applies to that launch.
+//
 // Layout — three columns:
-//   1. Hero: cover + title + Play CTA + back links.
+//   1. Hero: cover + title + play CTAs + back links.
 //   2. Resume: tabs (Saves/States), big <AssetPreview> of the selected
 //      asset, and an <AssetStrip> below to swap between options inline.
 //   3. Setup: disc / core / firmware + fullscreen + clear-cache.
 //
 // The running state mounts the v1 <Player> component (600 lines of EJS
-// wiring — not worth rewriting). The v1 SelectSaveDialog / SelectStateDialog
-// + CacheDialog are mounted in GlobalDialogs so the emitter bridge works.
+// wiring, not worth rewriting). LoadSaveStateDialog + EmulatorJSCacheDialog
+// are mounted in GlobalDialogs so the emitter bridge works.
 import {
   RAlert,
   RBtn,
@@ -44,9 +48,9 @@ import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import storeConfig from "@/stores/config";
+import { useNativeStore } from "@/stores/native";
 import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
-import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import {
   areThreadsRequiredForEJSCore,
@@ -58,23 +62,25 @@ import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useActivityPresence } from "@/v2/composables/useActivityPresence";
+import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
-import { useInputModality } from "@/v2/composables/useInputModality";
 import {
   hasSharedArrayBuffer,
   useIsolatedLaunch,
 } from "@/v2/composables/useIsolatedLaunch";
+import { usePlayFocus } from "@/v2/composables/usePlayFocus";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
+import { useSaveStateTabs } from "@/v2/composables/useSaveStateTabs";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useStageActive } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
-import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
-import { shouldClaimFocusOnModality } from "@/v2/utils/autofocus";
+import type { AssetType } from "@/v2/utils/assets";
+import { joinNames } from "@/v2/utils/lists";
 import {
   resolveBezelHost,
   resolveBezelUrl,
@@ -104,6 +110,7 @@ import {
   type SlotChoice,
 } from "@/v2/utils/saveSlots";
 import { isJsResource, loadScript } from "@/v2/utils/scriptLoader";
+import { exitEmulatorOnce } from "@/views/Player/EmulatorJS/utils";
 import { rememberCore, resolveRememberedCore } from "./coreStorage";
 import {
   isLaunchIntent,
@@ -125,26 +132,16 @@ const Player = defineAsyncComponent(
   () => import("@/views/Player/EmulatorJS/Player.vue"),
 );
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
 const playingStore = storePlaying();
 const configStore = storeConfig();
-const { emulatorLabel } = useStreamingStore();
+const nativeStore = useNativeStore();
 const { playing } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
-const { modality } = useInputModality();
 const playSession = usePlaySession();
-
-// Ref the Play CTA so we can imperatively focus it on enter (and again
-// when the user comes back from a running session). RBtn forwards to
-// its rendered <button>/<a>, but resolving the DOM node via a class
-// query is simpler and survives the lazy-load of the inner element.
-function focusPlayButton() {
-  const btn = document.querySelector<HTMLElement>(".r-v2-ejs__play");
-  btn?.focus({ preventScroll: true });
-}
 
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
@@ -168,6 +165,11 @@ const {
   relaunching,
   relaunch: relaunchIsolated,
 } = useIsolatedLaunch<LaunchIntent>("ejs", romId, isLaunchIntent);
+
+const playReady = computed(() => !!rom.value && !relaunching.value);
+// The first CTA is the native launch where the desktop shell offers one; a
+// launch in flight disables it, so the in-browser route takes the focus.
+usePlayFocus(".r-v2-ejs__play:not([disabled])", playReady, gameRunning);
 
 // The EmulatorJS loader declares top-level classes, so a document it reached
 // cannot host another launch. Tracked from the injection, which a departure
@@ -216,23 +218,17 @@ declare global {
   }
 }
 
-function isCoreCompatible(asset: { emulator?: string | null }): boolean {
-  return !asset.emulator || asset.emulator === selectedCore.value;
-}
-const compatibleStates = computed(
-  () => rom.value?.user_states.filter(isCoreCompatible) ?? [],
+const {
+  tabs: assetTabs,
+  stateCount,
+  compatibleStates,
+  allStatesCompatible,
+  stateDisabledReason,
+} = useSaveStateTabs(
+  () => rom.value?.user_saves ?? [],
+  () => rom.value?.user_states ?? [],
+  selectedCore,
 );
-const stateCount = computed(() => rom.value?.user_states.length ?? 0);
-const allStatesCompatible = computed(
-  () => compatibleStates.value.length === stateCount.value,
-);
-// Other emulators' states stay listed, disabled, so the count adds up.
-function stateDisabledReason(asset: { emulator?: string | null }) {
-  if (isCoreCompatible(asset)) return null;
-  return t("play.state-incompatible-core", {
-    emulator: emulatorLabel(asset.emulator),
-  });
-}
 
 const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
 
@@ -283,6 +279,159 @@ const bezelHost = ref<HTMLElement | null>(null);
 useEventListener(document, "fullscreenchange", () => {
   bezelHost.value = resolveBezelHost(document.fullscreenElement);
 });
+
+const { canPlayEJS, canPlayNative } = useCanPlay(() => heroRom.value);
+
+// A platform the shell can run but no in-browser core can. Everything this
+// page offers besides the hero belongs to EmulatorJS, so none of it is shown.
+const nativeOnly = computed(() => canPlayNative.value && !canPlayEJS.value);
+
+const nativeLaunching = computed(() => nativeStore.isLaunching(romId));
+
+// The shell qualifies the emulator with the core it would load, or with a hint
+// that it has yet to be installed ("RetroArch (snes9x)", "PCSX2 (to install)").
+// The button names the emulator alone: the qualifier does not fit beside it,
+// and the launch's own progress readout says what is being set up.
+function emulatorName(label: string | null | undefined): string {
+  return (label ?? "").replace(/\s*\([^()]*\)\s*$/, "").trim();
+}
+
+const nativeEmulator = computed(() =>
+  emulatorName(nativeStore.labelForPlatform(heroRom.value?.platform_slug)),
+);
+
+// The controls above that a native launch takes with it, in the order they are
+// rendered. Only those actually on screen: a choice nobody was offered needs no
+// explaining, and one the shell does not advertise is not carried at all.
+const nativeCarriedControls = computed(() => {
+  const carried: string[] = [];
+  if (nativeStore.honoursDisc && bootableRomFiles.value.length > 1) {
+    carried.push(t("rom.file"));
+  }
+  if (supportedCores.value.length > 1) carried.push(t("common.core"));
+  if (nativeStore.honoursFullscreen) carried.push(t("play.full-screen"));
+  return carried;
+});
+
+// The controls above that stay with the in-browser player, in the order they
+// are rendered. Both are EmulatorJS' own: the BIOS it loads into its core, and
+// the bezel it draws over the canvas.
+const nativeBrowserOnlyControls = computed(() => {
+  const browserOnly: string[] = [];
+  if (firmwareOptions.value.length > 0) {
+    browserOnly.push(t("common.firmware"));
+  }
+  if (bezelUrl.value) browserOnly.push(t("play.show-bezel"));
+  return browserOnly;
+});
+
+// What the settings panel says about the other route, one line per route.
+// Empty outside the shell and on a platform with no in-browser core at all,
+// where the panel is not rendered. Either half can stand alone: a panel whose
+// every control stays behind says only that, and one with nothing left behind
+// says only what carries.
+const nativeSettingsLines = computed(() => {
+  if (!canPlayNative.value || nativeOnly.value) return [];
+  const lines: string[] = [];
+  const carried = nativeCarriedControls.value;
+  if (carried.length > 0) {
+    // Not named after the emulator: what the line has to say is which of these
+    // controls survive the choice of player, and the buttons above have already
+    // named the emulator.
+    lines.push(
+      t("play.native-applies", { controls: joinNames(carried, locale.value) }),
+    );
+  }
+  const browserOnly = nativeBrowserOnlyControls.value;
+  if (browserOnly.length > 0) {
+    lines.push(
+      t("play.native-browser-only", {
+        controls: joinNames(browserOnly, locale.value),
+      }),
+    );
+  }
+  return lines;
+});
+
+// The native button is its own progress readout, so while the shell works the
+// label says what it is waiting for.
+const nativeLabel = computed(() => {
+  if (!nativeLaunching.value) {
+    return nativeEmulator.value
+      ? t("play.play-native-in", { emulator: nativeEmulator.value })
+      : t("play.play-native");
+  }
+  const state = nativeStore.launchStateFor(romId);
+  if (state?.stage === "core" && state.core) {
+    return t("play.native-installing-core", { core: state.core });
+  }
+  // Named rather than left to the percentage below, which is absent whenever
+  // the server declares no length.
+  if (state?.stage === "firmware" && state.firmware) {
+    return t("play.native-fetching-firmware", { firmware: state.firmware });
+  }
+  if (state?.stage === "emulator") {
+    return t("play.native-preparing", {
+      emulator: emulatorName(state.emulator) || nativeEmulator.value,
+    });
+  }
+  // No percentage: whether anything moves is the server's answer, and a save is
+  // kilobytes, so the wait is the round trip rather than the transfer.
+  if (state?.stage === "save") {
+    return t("play.native-syncing-save");
+  }
+  // Same reasoning as the save: whether anything moves is the server's answer,
+  // and a state is megabytes rather than the gigabytes a percentage is for.
+  if (state?.stage === "state") {
+    return t("play.native-syncing-states");
+  }
+  if (state?.progress != null) {
+    return t("play.native-downloading", {
+      percent: Math.round(state.progress * 100),
+    });
+  }
+  return t("play.native-starting");
+});
+
+// A launch the shell accepted reports itself through the launch state (see
+// `installNativeLaunchFeedback`), so only a request it never took is surfaced
+// here. The refusal's own wording is English, hence the console.
+async function onPlayNative() {
+  if (!rom.value) return;
+  // Remembered for both routes: the core and the disc are choices about this
+  // game, not about which player runs it.
+  rememberCore(romId, rom.value.platform_slug, selectedCore.value);
+  rememberDisc(romId, selectedDisc.value);
+  const refusal = await nativeStore.launch(rom.value, {
+    core: selectedCore.value,
+    fullscreen: fullscreenOnPlay.value,
+    disc: selectedDisc.value,
+  });
+  if (!refusal) return;
+  console.error("[native] The shell refused the launch:", refusal);
+  snackbar.error(t("play.native-launch-failed", { name: title.value }), {
+    icon: "mdi-alert-circle-outline",
+  });
+}
+
+// Held from the click until the request settles: the control stays on screen
+// while the shell answers, and a second press would ask twice and report twice.
+const cancelling = ref(false);
+
+// Whether the launch actually stopped is the shell's to say, and it says it by
+// aborting the transfer (see `installNativeLaunchFeedback`). Only a request
+// that never reached it is reported from here.
+async function onCancelNative() {
+  if (cancelling.value) return;
+  cancelling.value = true;
+  try {
+    if (!(await nativeStore.cancel(romId))) {
+      snackbar.error(t("play.native-cancel-failed"));
+    }
+  } finally {
+    cancelling.value = false;
+  }
+}
 
 async function onPlay() {
   if (rom.value) {
@@ -395,6 +544,36 @@ watch(selectedCore, (newSelectedCore) => {
   if (armed?.emulator && armed.emulator !== newSelectedCore) unselectState();
 });
 
+// A native launch moves saves on the server's side of this page, so the rom
+// fetched on mount goes stale. Re-read it: it carries the save list.
+async function refreshRomAfterSync(): Promise<void> {
+  try {
+    const { data } = await romApi.getRom({ romId });
+    rom.value = data;
+    resume.value = defaultResumeSelection(
+      data.user_saves,
+      compatibleStates.value,
+    );
+    slotChoice.value = existingSlot(preferredSlot(data.user_saves));
+    isSavesTabSelected.value = !resume.value.state;
+  } catch (error) {
+    // The old list is kept: a save list that is a launch out of date is not
+    // worth an error on top of whatever the launch itself reported.
+    console.error("[native] Could not re-read the rom:", error);
+  }
+}
+
+// Only what the shell wrote to the server is worth re-reading: a pull writes
+// nothing back, and re-reading it would cost the user their slot and tab.
+watch(
+  () => nativeStore.syncFor(romId),
+  (outcome) => {
+    if (!outcome) return;
+    if (outcome.action === "uploaded" || outcome.action === "archived")
+      void refreshRomAfterSync();
+  },
+);
+
 onMounted(async () => {
   const romResponse = await romApi.getRom({
     romId,
@@ -467,41 +646,16 @@ onMounted(async () => {
     void onPlay();
     return;
   }
-
-  // Land gamepad/keyboard users on the primary action without an extra Tab.
-  if (
-    shouldClaimFocusOnModality(
-      modality.value,
-      document.activeElement,
-      document.body,
-    )
-  ) {
-    await nextTick();
-    focusPlayButton();
-  }
-});
-
-// This view has no spatial navigation for a d-pad to walk, so landing on Play
-// the moment the user picks up a pad is the only entry point into the view.
-watch(modality, (next) => {
-  if (gameRunning.value) return;
-  if (!shouldClaimFocusOnModality(next, document.activeElement, document.body))
-    return;
-  nextTick(focusPlayButton);
 });
 
 // Drive the live-activity lifecycle off the deterministic running state:
-// announce on enter, clear + stop heartbeats on exit. Also restores focus
-// to Play on exit so a Start-Play loop stays on the pad.
+// announce on enter, clear + stop heartbeats on exit.
 watch(gameRunning, (running, prev) => {
   if (running && !prev) {
     if (rom.value) playSession.start(rom.value);
     presence.start();
   }
-  if (prev && !running) {
-    endSession();
-    nextTick(focusPlayButton);
-  }
+  if (prev && !running) endSession();
 });
 
 // Y toggles the saves/states tab — view-local binding wired through
@@ -520,7 +674,7 @@ onBeforeUnmount(() => {
   // Hand the keyboard and gamepad back to the UI; the flag otherwise
   // stays true and pad/hotkey navigation is dead until a reload.
   playing.value = false;
-  window.EJS_emulator?.callEvent("exit");
+  exitEmulatorOnce();
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);
   window.removeEventListener("gamepad:buttondown", onGamepadButton);
@@ -530,29 +684,11 @@ function openCacheDialog() {
   emitter?.emit("openEmulatorJSCacheDialog", null);
 }
 
-type AssetTab = "save" | "state";
-const activeAssetTab = computed<AssetTab>(() =>
+const activeAssetTab = computed<AssetType>(() =>
   isSavesTabSelected.value ? "save" : "state",
 );
 
-const assetTabs = computed<SliderBtnGroupItem<AssetTab>[]>(() => [
-  {
-    id: "save",
-    label: t("common.saves"),
-    badge: rom.value?.user_saves.length ?? 0,
-    icon: "mdi-content-save",
-  },
-  {
-    id: "state",
-    label: t("common.states"),
-    badge: allStatesCompatible.value
-      ? stateCount.value
-      : `${compatibleStates.value.length}/${stateCount.value}`,
-    icon: "mdi-file",
-  },
-]);
-
-function setAssetTab(id: AssetTab) {
+function setAssetTab(id: AssetType) {
   isSavesTabSelected.value = id === "save";
 }
 
@@ -626,8 +762,11 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
     :class="{ 'r-v2-ejs--config': !gameRunning }"
   >
     <!-- Pre-game configuration -->
-    <div v-if="!gameRunning" class="r-v2-ejs__config">
-      <!-- Hero: cover + title + Play CTA -->
+    <div
+      v-if="!gameRunning"
+      :class="nativeOnly ? 'r-v2-ejs__solo' : 'r-v2-ejs__config'"
+    >
+      <!-- Hero: cover + title + play CTAs -->
       <RCard class="r-v2-ejs__panel r-v2-ejs__hero" variant="flat">
         <div
           class="r-v2-ejs__cover"
@@ -650,18 +789,52 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           <h1 class="r-v2-ejs__title">{{ title }}</h1>
           <p class="r-v2-ejs__subtitle">{{ platformLabel }}</p>
         </div>
+        <!-- Someone who has an emulator installed on this machine came to the
+             page for it, so it leads and keeps the play glyph; the in-browser
+             route follows, marked for the browser. -->
         <RBtn
+          v-if="canPlayNative"
           size="x-large"
           variant="flat"
           color="primary"
           block
-          prepend-icon="mdi-play"
+          :prepend-icon="nativeLaunching ? 'mdi-loading mdi-spin' : 'mdi-play'"
           class="r-v2-ejs__play"
-          :loading="!rom || relaunching"
-          :disabled="!rom || relaunching"
+          :loading="!rom"
+          :disabled="!playReady || nativeLaunching"
+          @click="onPlayNative"
+        >
+          {{ nativeLabel }}
+        </RBtn>
+        <!-- Its own control rather than a second press on the button above, so
+             neither changes meaning under the pointer. -->
+        <RBtn
+          v-if="nativeLaunching"
+          variant="text"
+          size="small"
+          color="error"
+          block
+          class="r-v2-ejs__native-cancel"
+          prepend-icon="mdi-close-circle-outline"
+          :disabled="cancelling"
+          @click="onCancelNative"
+        >
+          {{ t("play.native-cancel") }}
+        </RBtn>
+        <RBtn
+          v-if="!nativeOnly"
+          size="x-large"
+          :variant="canPlayNative ? 'outlined' : 'flat'"
+          :color="canPlayNative ? undefined : 'primary'"
+          block
+          :prepend-icon="canPlayNative ? 'mdi-web' : 'mdi-play'"
+          class="r-v2-ejs__play"
+          :class="{ 'r-v2-ejs__play--secondary': canPlayNative }"
+          :loading="!playReady"
+          :disabled="!playReady || nativeLaunching"
           @click="onPlay"
         >
-          {{ t("play.play") }}
+          {{ canPlayNative ? t("play.play-in-browser") : t("play.play") }}
         </RBtn>
         <div class="r-v2-ejs__hero-links">
           <RBtn
@@ -686,7 +859,11 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 
       <!-- Resume: tabs, then preview over the saves list, or the states grid
            beside the preview on wide screens. -->
-      <RCard class="r-v2-ejs__panel r-v2-ejs__resume" variant="flat">
+      <RCard
+        v-if="!nativeOnly"
+        class="r-v2-ejs__panel r-v2-ejs__resume"
+        variant="flat"
+      >
         <div class="r-v2-ejs__panel-head">
           <RSliderBtnGroup
             variant="tab"
@@ -810,7 +987,11 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
       </RCard>
 
       <!-- Setup: disc / core / firmware / fullscreen / clear cache -->
-      <RCard class="r-v2-ejs__panel r-v2-ejs__setup" variant="flat">
+      <RCard
+        v-if="!nativeOnly"
+        class="r-v2-ejs__panel r-v2-ejs__setup"
+        variant="flat"
+      >
         <div class="r-v2-ejs__panel-head r-v2-ejs__panel-head--label">
           <RIcon icon="mdi-cog-outline" size="14" />
           <span>{{ t("common.settings") }}</span>
@@ -859,6 +1040,17 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
             v-model="showBezel"
             :label="t('play.show-bezel')"
           />
+          <!-- Which of the above the native route takes with it, one line per
+               route. Said here rather than left to be discovered: the rest of
+               this panel is EmulatorJS' own, and a choice that silently applies
+               to one player and not the other is worse than a line of text. -->
+          <p
+            v-for="line in nativeSettingsLines"
+            :key="line"
+            class="r-v2-ejs__setup-note"
+          >
+            {{ line }}
+          </p>
         </div>
         <div class="r-v2-ejs__setup-foot">
           <RBtn
@@ -873,7 +1065,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         </div>
       </RCard>
 
-      <div class="r-v2-ejs__brand">
+      <div v-if="!nativeOnly" class="r-v2-ejs__brand">
         <span>{{ t("play.powered-by") }}</span>
         <img
           src="/assets/emulatorjs/emulatorjs-logotype.svg"
@@ -890,6 +1082,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         :state="resume.state"
         :save="resume.save"
         :save-slot="saveSlot"
+        :load-state-label="t('rom.load-save-or-state')"
         :bios="selectedFirmware"
         :core="selectedCore"
         :disc="bootDiscId(selectedDisc)"
@@ -936,6 +1129,16 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
   max-width: 1280px;
   margin: 0 auto;
   align-items: stretch;
+}
+
+/* Native-only: the hero is the whole page, so it gets its own wrapper rather
+   than a column of the grid above and the breakpoint rules that reshape it. */
+.r-v2-ejs__solo {
+  display: grid;
+  grid-template-columns: minmax(0, 380px);
+  justify-content: center;
+  max-width: 1280px;
+  margin: 0 auto;
 }
 
 /* Shared glass-panel skin — single visual vocabulary across panels. */
@@ -1033,6 +1236,21 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
   box-shadow: 0 10px 24px
     color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
 }
+/* The in-browser route below a native launch, which holds the brand glow. */
+.r-v2-ejs__play--secondary {
+  box-shadow: none;
+}
+/* Secondary in weight, not in reach: `small` is 32px and touch wants 44px. */
+.r-v2-ejs__native-cancel {
+  min-height: var(--r-touch-target);
+}
+/* A user-configured emulator can be named anything, so the label is clipped
+   rather than allowed to run out of the button. */
+.r-v2-ejs__play :deep(.r-btn__label) {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .r-v2-ejs__hero-links {
   display: flex;
   flex-direction: column;
@@ -1091,6 +1309,38 @@ html[data-bp~="md-and-up"]
   .r-v2-ejs__resume-main {
   order: -1;
 }
+/* Chrome and Edge below 117 ignore subgrid, so lift each column's label and
+   content into the grid itself to keep the two titles on a shared row. */
+@supports not (grid-template-rows: subgrid) {
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-main,
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-side {
+    display: contents;
+  }
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-main
+    > .r-v2-ejs__strip-label {
+    grid-area: 1 / 1;
+  }
+  html[data-bp~="md-and-up"] .r-v2-ejs__resume-body--split .r-v2-ejs__assets {
+    grid-area: 2 / 1;
+  }
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-side
+    > .r-v2-ejs__strip-label {
+    grid-area: 1 / 2;
+  }
+  html[data-bp~="md-and-up"]
+    .r-v2-ejs__resume-body--split
+    .r-v2-ejs__resume-side-body {
+    grid-area: 2 / 2;
+  }
+}
 /* Beside the grid the stage can afford the screenshots' own ratio, which
    also gives the empty copy room. */
 html[data-bp~="md-and-up"]
@@ -1139,6 +1389,11 @@ html[data-bp~="md-and-up"]
   flex-direction: column;
   gap: 12px;
   flex: 1;
+}
+.r-v2-ejs__setup-note {
+  margin: 0;
+  font-size: var(--r-font-size-xs);
+  color: var(--r-color-fg-faint);
 }
 .r-v2-ejs__setup-foot {
   border-top: 1px solid var(--r-color-border);

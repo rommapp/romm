@@ -1,16 +1,31 @@
 import type {
   AdminContainerSchema,
+  AdminContainersResponse,
   AdminSessionSchema,
+  AdminSessionsResponse,
+  ClaimStreamingSessionRequest,
+  ContainerBusyDetail,
   LaunchingSessionSchema,
   DesktopSessionSchema,
   JoinableSessionSchema,
+  JoinableSessionsResponse,
   JoinedSessionSchema,
+  LaunchFailedPayload,
+  LaunchPhasePayload,
+  LaunchReadyPayload,
+  LoadStateResponse,
   MemoryCardImportRequired,
+  MuteResponse,
+  ReleaseSessionResponse,
+  SaveAndExitResponse,
+  SaveStateResponse,
   SessionStatusSchema,
   SessionTerminationSchema,
   SlotCapabilitiesSchema,
   StreamingConfigSchema,
   StreamingContainerSchema,
+  SwapDiscResponse,
+  VolumeResponse,
 } from "@/__generated__";
 import api, { keepaliveHeaders } from "@/services/api";
 
@@ -26,37 +41,12 @@ export type StreamingContainer = StreamingContainerSchema;
 export type StreamingConfig = StreamingConfigSchema;
 export type LaunchingSession = LaunchingSessionSchema;
 
-// The launch's own result arrives on the socket, and socket payloads reach no
-// route so they are not in the OpenAPI schema (constitution SS X.10, backend
-// debt). The backend builds each of these from a model of the same name in
-// endpoints/responses/streaming.py, so the shapes stay tied.
+// Socket payloads reach no route, so the backend publishes them into the
+// schema by hand (utils/openapi.py).
+export type LaunchReady = LaunchReadyPayload;
+export type LaunchFailed = LaunchFailedPayload;
+export type LaunchPhase = LaunchPhasePayload;
 
-/** `streaming:launch-ready`: the game is up, and `host` is the iframe URL. */
-export interface LaunchReady {
-  platform: string;
-  container: string;
-  claimed_at: string;
-  host: string;
-  /** null when no resume was asked for; false means the state could not be
-   *  pushed and the session started fresh. */
-  resume: boolean | null;
-}
-
-/** `streaming:launch-failed`. The claim is already released. */
-export interface LaunchFailed {
-  platform: string;
-  container: string;
-  claimed_at: string;
-  detail: string;
-}
-
-/** `streaming:launch-phase`, while a broker unpacks a large title. */
-export interface LaunchPhase {
-  platform: string;
-  container: string;
-  claimed_at: string;
-  phase: string | null;
-}
 export type AdminStreamingSession = AdminSessionSchema;
 export type AdminStreamingContainer = AdminContainerSchema;
 export type DesktopSession = DesktopSessionSchema;
@@ -71,7 +61,9 @@ export type MemoryCardImportDetail = MemoryCardImportRequired;
 
 /** The answer to that prompt, replayed on the retried claim. "discard" erases
  *  the card currently on the container. */
-export type MemoryCardImport = "adopt" | "discard";
+export type MemoryCardImport = NonNullable<
+  ClaimStreamingSessionRequest["card_import"]
+>;
 
 export function isMemoryCardImportDetail(
   value: unknown,
@@ -83,14 +75,18 @@ export function isMemoryCardImportDetail(
   );
 }
 
-/** Body of the 409 a claim returns when the container is taken. The route
- *  raises it as a plain detail dict, so it has no generated schema. */
-export interface ContainerBusyDetail {
-  message: string;
-  draining: boolean;
-  /** The game holding it, null when the caller may not see which. */
-  rom_name: string | null;
-  claimed_at: string | null;
+/** Body of the 409 a claim returns when the container is taken. */
+export type { ContainerBusyDetail };
+
+/** The query naming a claim by its container and the stamp it was taken at. */
+function claimParams(
+  container?: string | null,
+  claimedAt?: string | null,
+): { container?: string; claimed_at?: string } {
+  return {
+    ...(container != null ? { container } : {}),
+    ...(claimedAt != null ? { claimed_at: claimedAt } : {}),
+  };
 }
 
 // ── Requests ──────────────────────────────────────────────────────────────────
@@ -129,17 +125,14 @@ async function releaseSession(
   save?: boolean,
   claimedAt?: string | null,
 ) {
-  return api.delete(`/streaming/sessions/${platform}`, {
+  return api.delete<ReleaseSessionResponse>(`/streaming/sessions/${platform}`, {
     params: {
-      // The claim this release is for, so a tab whose claim was taken over
-      // cannot end the one that replaced it. Admin releases send none.
-      ...(claimedAt != null ? { claimed_at: claimedAt } : {}),
+      // The holder names its container and stamp so a taken-over tab cannot end
+      // the claim that replaced it. An admin names its pick and no stamp.
+      ...claimParams(container, claimedAt),
       // Sent whenever the caller supplied one, empty string included: the
       // backend treats the param's presence as "this is an admin force-release".
       ...(reason !== undefined ? { reason } : {}),
-      // Names which container to release, since a pool serves one platform
-      // from several: the holder names the one it claimed, an admin its pick.
-      ...(container != null ? { container } : {}),
       // Only the player who deliberately stopped without saving sends this.
       // Everything else leaves it off so the backend still autosaves.
       ...(save === false ? { save: false } : {}),
@@ -148,9 +141,7 @@ async function releaseSession(
 }
 
 async function listJoinableSessions() {
-  return api.get<{ sessions: JoinableSession[] }>(
-    "/streaming/sessions/joinable",
-  );
+  return api.get<JoinableSessionsResponse>("/streaming/sessions/joinable");
 }
 
 async function joinSession(platform: string, container?: string) {
@@ -168,10 +159,10 @@ async function saveAndExit(
   container?: string | null,
   claimedAt?: string | null,
 ) {
-  return api.post(
+  return api.post<SaveAndExitResponse>(
     `/streaming/sessions/${platform}/save-and-exit`,
     { slot, wait },
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -183,7 +174,7 @@ async function heartbeatSession(
   return api.post<SessionStatus>(
     `/streaming/sessions/${platform}/heartbeat`,
     undefined,
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -199,10 +190,10 @@ async function setVolume(
   container?: string | null,
   claimedAt?: string | null,
 ) {
-  return api.post(
+  return api.post<VolumeResponse>(
     `/streaming/sessions/${platform}/volume`,
     { level: Math.round(level) },
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -212,10 +203,10 @@ async function setMute(
   container?: string | null,
   claimedAt?: string | null,
 ) {
-  return api.post(
+  return api.post<MuteResponse>(
     `/streaming/sessions/${platform}/mute`,
     mute !== undefined ? { mute } : {},
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -225,10 +216,10 @@ async function saveState(
   container?: string | null,
   claimedAt?: string | null,
 ) {
-  return api.post(
+  return api.post<SaveStateResponse>(
     `/streaming/sessions/${platform}/save-state`,
     { slot },
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -238,10 +229,10 @@ async function loadState(
   container?: string | null,
   claimedAt?: string | null,
 ) {
-  return api.post(
+  return api.post<LoadStateResponse>(
     `/streaming/sessions/${platform}/load-state`,
     { slot },
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
@@ -251,22 +242,21 @@ async function swapDisc(
   container?: string | null,
   claimedAt?: string | null,
 ) {
-  return api.post(
+  return api.post<SwapDiscResponse>(
     `/streaming/sessions/${platform}/swap-disc`,
     { file_id: fileId },
-    { params: { container, claimed_at: claimedAt } },
+    { params: claimParams(container, claimedAt) },
   );
 }
 
 async function adminListSessions() {
-  return api.get<{ sessions: AdminStreamingSession[] }>("/streaming/sessions");
+  return api.get<AdminSessionsResponse>("/streaming/sessions");
 }
 
 async function adminListContainers() {
-  return api.get<{ enabled: boolean; containers: AdminStreamingContainer[] }>(
-    "/streaming/containers",
-    { headers: { "Cache-Control": "no-cache" } },
-  );
+  return api.get<AdminContainersResponse>("/streaming/containers", {
+    headers: { "Cache-Control": "no-cache" },
+  });
 }
 
 async function claimDesktop(container: string) {
@@ -285,10 +275,11 @@ function claimQuery(
   container?: string | null,
   claimedAt?: string | null,
 ): string {
-  const params = new URLSearchParams();
-  if (container) params.set("container", container);
-  if (claimedAt) params.set("claimed_at", claimedAt);
-  const search = params.toString();
+  const search = new URLSearchParams(
+    Object.entries(claimParams(container, claimedAt)).filter(
+      ([, value]) => value,
+    ),
+  ).toString();
   return search ? `?${search}` : "";
 }
 

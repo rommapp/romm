@@ -12,10 +12,13 @@
 import { RCheckbox, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import ListSortMenu from "@/v2/components/shared/ListSortMenu.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
   getListColumns,
+  getSortOptions,
   isSortableColumn,
   getListGridTemplate,
   type ListColumn,
@@ -33,14 +36,10 @@ interface Props {
    * name on `GameListRow` + `GameListSkeletonRow` so all three stay in
    * lockstep. */
   showPlatformColumn?: boolean;
-  /** Width of the cover column (px) — shared with every row so the title
-   * column aligns. Set by the shell from the gallery's widest cover. */
-  coverWidth?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showPlatformColumn: true,
-  coverWidth: 48,
 });
 
 const emit = defineEmits<{
@@ -50,11 +49,13 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const gridStyle = computed(() => ({
-  gridTemplateColumns: getListGridTemplate(
-    props.showPlatformColumn,
-    props.coverWidth,
-  ),
+  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
 }));
+
+// Phones and tablets drop the columns (the rows go compact), so the sort
+// key they used to carry moves into a menu on the header.
+const { smAndDown } = useBreakpoint();
+const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
 
 const selection = storeGallerySelection();
 // Whole-result select-all shared with the SelectionBar and Ctrl/Cmd+A;
@@ -75,9 +76,8 @@ function onSelectAllClick(e: MouseEvent) {
 
 function handleClick(col: ListColumn) {
   if (!isSortableColumn(col)) return;
-  // Toggle direction when re-clicking the active column; otherwise
-  // start the new column at ascending — consistent behaviour with
-  // every other sortable table in the app.
+  // Toggle direction when re-clicking the active column; otherwise start the
+  // new one ascending, like every other sortable table in the app.
   const nextDir: "asc" | "desc" =
     props.sortKey === col.key && props.sortDir === "asc" ? "desc" : "asc";
   emit("sort", { key: col.key, dir: nextDir });
@@ -85,7 +85,37 @@ function handleClick(col: ListColumn) {
 </script>
 
 <template>
-  <div class="game-list-header" :style="gridStyle" role="row">
+  <div
+    v-if="smAndDown"
+    class="game-list-header game-list-header--compact"
+    role="row"
+  >
+    <RCheckbox
+      class="game-list-header__check"
+      :model-value="selectionState === 'all'"
+      :indeterminate="selectionState === 'some'"
+      shape="circle"
+      size="sm"
+      color="primary"
+      bare
+      hide-details
+      :aria-label="
+        selectionState === 'all'
+          ? t('gallery.selection-deselect-all')
+          : t('gallery.selection-select-all')
+      "
+      @click="onSelectAllClick"
+    />
+
+    <ListSortMenu
+      :options="sortOptions"
+      :sort-key="sortKey"
+      :sort-dir="sortDir"
+      @sort="emit('sort', $event)"
+    />
+  </div>
+
+  <div v-else class="game-list-header" :style="gridStyle" role="row">
     <template v-for="col in columns" :key="String(col.key)">
       <!-- Tri-state select-all checkbox (off → some → all), judged
            against the whole filtered result. -->
@@ -145,14 +175,23 @@ function handleClick(col: ListColumn) {
 .game-list-header {
   display: grid;
   align-items: center;
-  gap: 0 var(--r-space-3);
+  gap: 0 var(--r-space-5);
   padding: 0 var(--r-space-3);
   height: var(--r-list-header-h);
-  background: var(--r-color-bg-elevated);
-  border-bottom: 1px solid var(--r-color-border);
-  /* Glass tint so the BackgroundArt blur reads behind the row when the
-     scroller's clip-path lifts at the toolbar/header band. */
-  backdrop-filter: blur(10px);
+  /* Overridable so a pinned header can run it edge to edge (r-pinned-list-header). */
+  border-bottom: var(--r-list-header-border, 1px solid var(--r-color-border));
+}
+
+/* Compact (phones / tablets): the tick plus one sort control. */
+.game-list-header--compact {
+  display: flex;
+  align-items: center;
+  gap: var(--r-space-3);
+  padding: 0 var(--r-row-pad);
+}
+.game-list-header--compact .game-list-header__check {
+  flex: none;
+  width: var(--r-list-select-w);
 }
 
 .game-list-header__cell {
@@ -180,6 +219,12 @@ function handleClick(col: ListColumn) {
 .game-list-header__cell--end {
   justify-content: flex-end;
   text-align: end;
+}
+
+/* End-aligned labels hug the right edge, so the sort glyph goes on the
+   label's left. Appending it would shove the label sideways on click. */
+.game-list-header__cell--end .game-list-header__icon {
+  order: -1;
 }
 
 .game-list-header__cell--sortable {

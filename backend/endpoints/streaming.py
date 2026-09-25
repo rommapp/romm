@@ -21,10 +21,15 @@ from pydantic import BaseModel, Field
 
 from decorators.auth import protected_route
 from endpoints.responses.streaming import (
+    AdminContainerSchema,
     AdminContainersResponse,
+    AdminSessionSchema,
     AdminSessionsResponse,
+    ContainerBusyDetail,
+    ContainerSessionSchema,
     DesktopSessionSchema,
     ForceReleaseResponse,
+    JoinableSessionSchema,
     JoinableSessionsResponse,
     JoinedSessionSchema,
     LaunchingSessionSchema,
@@ -36,7 +41,9 @@ from endpoints.responses.streaming import (
     SaveAndExitResponse,
     SaveStateResponse,
     SessionStatusSchema,
+    SlotCapabilitiesSchema,
     StreamingConfigSchema,
+    StreamingContainerSchema,
     SwapDiscResponse,
     VolumeResponse,
 )
@@ -95,6 +102,7 @@ from handler.streaming.session_store import (
     release_own_session,
     same_claim,
     session_disc_id,
+    session_is_desktop,
     session_is_stale,
     session_platform_matches,
     session_redis_key,
@@ -165,11 +173,21 @@ class LoadStateRequest(BaseModel):
     slot: Annotated[int, Field(ge=1, le=MAX_SLOT)] = 1
 
 
+CONTAINER_KEY_MAX_LENGTH = 300
+CLAIMED_AT_MAX_LENGTH = 64
+
+# A claim is named by its container and the stamp it was taken at.
+ContainerQuery = Annotated[
+    str | None, Query(alias="container", max_length=CONTAINER_KEY_MAX_LENGTH)
+]
+ClaimedAtQuery = Annotated[str | None, Query(max_length=CLAIMED_AT_MAX_LENGTH)]
+
+
 class DesktopStreamingSessionRequest(BaseModel):
     # The container to open, named by the key GET /streaming/containers
     # reports. Named rather than pooled: an admin configuring a container
     # needs that one, not whichever is free.
-    container: Annotated[str, Field(min_length=1, max_length=300)]
+    container: Annotated[str, Field(min_length=1, max_length=CONTAINER_KEY_MAX_LENGTH)]
 
 
 def platform_capabilities(platform: str) -> PlatformCapabilities:
@@ -245,7 +263,7 @@ async def _session_status(
     termination = None
     for candidate in candidates:
         notice = await get_termination(candidate.key, request.user.id)
-        if notice is not None and access.notice_in_scope(
+        if notice is not None and access.session_in_scope(
             notice, platform, include_desktop, claimed_at
         ):
             termination = notice
@@ -273,30 +291,33 @@ async def get_config(request: Request) -> StreamingConfigSchema:
     """Return streaming configuration to the frontend"""
     # One row per platform: a pool is a backend concern, the frontend picks a
     # platform and the claim decides which container serves it.
-    safe_containers: list[dict[str, Any]] = []
+    safe_containers: list[StreamingContainerSchema] = []
     for c in first_claim_targets():
         # The record carries the platform's label and capabilities, so a
         # platform hidden from this caller must not be listed here either.
         if not access.platform_is_visible(request, c.platform):
             continue
         safe_containers.append(
-            {
-                "platform": c.platform,
-                "host": c.host,
-                "label": c.label,
+            StreamingContainerSchema(
+                platform=c.platform,
+                host=c.host,
+                label=c.label,
                 # Ship slot capabilities so the frontend selector reads them
                 # instead of keeping its own hardcoded per-platform copy.
-                "capabilities": c.capabilities,
+                capabilities=SlotCapabilitiesSchema(**c.capabilities),
                 # State namespace for this container, so the frontend can
                 # filter the resume picker the same way hydration filters.
-                "emulator": c.emulator,
+                emulator=c.emulator,
                 # Whether this container syncs whole memory cards, so the
                 # frontend only offers the card picker where it applies.
-                "supports_memory_cards": c.memory_card_sync,
+                supports_memory_cards=c.memory_card_sync,
                 # Whether an older save archive still lands here, so the frontend
                 # only offers the save picker where a pick means something.
-                "supports_save_picker": c.supports_save_picker,
-            }
+                supports_save_picker=c.supports_save_picker,
+                # Whether the in-game Save and Load buttons reach a broker that
+                # honours them, which an exit-state emulator's does not.
+                supports_live_states=c.supports_live_states,
+            )
         )
 
     return StreamingConfigSchema(
@@ -327,12 +348,12 @@ async def _win_container(
         if not entered:
             raise HTTPException(
                 status_code=409,
-                detail={
-                    "message": "You already have a session on this platform",
-                    "draining": False,
-                    "rom_name": None,
-                    "claimed_at": None,
-                },
+                detail=ContainerBusyDetail(
+                    message="You already have a session on this platform",
+                    draining=False,
+                    rom_name=None,
+                    claimed_at=None,
+                ).model_dump(),
             )
         return await _reserve_container(request, candidates, session, platform)
 
@@ -354,12 +375,12 @@ async def _reserve_container(
         if not session_is_stale(mine):
             raise HTTPException(
                 status_code=409,
-                detail={
-                    "message": "You already have a session on this platform",
-                    "draining": False,
-                    "rom_name": access.visible_rom_name(request, mine),
-                    "claimed_at": mine.get("claimed_at"),
-                },
+                detail=ContainerBusyDetail(
+                    message="You already have a session on this platform",
+                    draining=False,
+                    rom_name=access.visible_rom_name(request, mine),
+                    claimed_at=mine.get("claimed_at"),
+                ).model_dump(),
             )
         # Their own session, abandoned. Take that container back rather than
         # rolling them onto a free one and stranding this one until its TTL.
@@ -446,12 +467,12 @@ async def _reserve_container(
         message = f"All {len(candidates)} containers for this platform are in use"
     raise HTTPException(
         status_code=409,
-        detail={
-            "message": message,
-            "draining": draining,
-            "rom_name": access.visible_rom_name(request, holder),
-            "claimed_at": holder.get("claimed_at"),
-        },
+        detail=ContainerBusyDetail(
+            message=message,
+            draining=draining,
+            rom_name=access.visible_rom_name(request, holder),
+            claimed_at=holder.get("claimed_at"),
+        ).model_dump(),
     )
 
 
@@ -670,7 +691,10 @@ async def _hydrate_saves(
     [Scope.ROMS_USER_WRITE],
     # The prompt for a card the container still holds is a real body the client
     # parses, so it is declared rather than left as an undocumented `detail`.
-    responses={428: {"model": MemoryCardImportRequired}},
+    responses={
+        409: {"model": ContainerBusyDetail},
+        428: {"model": MemoryCardImportRequired},
+    },
     status_code=202,
 )
 async def claim_session(
@@ -871,8 +895,8 @@ async def save_and_exit_session(
     request: Request,
     platform: str,
     req: Annotated[SaveAndExitRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> SaveAndExitResponse:
     """Save game state then release the session.
 
@@ -914,8 +938,7 @@ async def save_and_exit_session(
     await lifecycle.record_play_session(session)
     await lifecycle.clear_session_activity(session_key, session)
     # Before the key goes, so a claim that wins it next waits for the pull.
-    pull_mark = await lifecycle.mark_exit_saves_pending(container, session)
-    lifecycle.collect_exit_saves(container, session, pull_mark, settled=settled)
+    await lifecycle.start_exit_save_pull(container, session, settled=settled)
 
     # Sync the exit save to the library. With wait=false the broker save may
     # still be running; the pull blocks on the broker until it finishes.
@@ -994,8 +1017,8 @@ async def save_and_exit_session(
 async def heartbeat_session(
     request: Request,
     platform: str,
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> SessionStatusSchema:
     """Refresh the liveness stamp the frontend beats every ~30s, without which the
     claim is abandoned after _STREAMING_SESSION_STALE_SECONDS for the next to take.
@@ -1059,7 +1082,7 @@ async def heartbeat_session(
 async def session_status(
     request: Request,
     platform: str,
-    claimed_at: str | None = Query(default=None, max_length=64),
+    claimed_at: ClaimedAtQuery = None,
 ) -> SessionStatusSchema:
     """Does the caller still hold this platform's session?
 
@@ -1155,8 +1178,8 @@ async def set_volume(
     request: Request,
     platform: str,
     req: Annotated[VolumeRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> VolumeResponse:
     """Set emulator audio volume (0-100)."""
     container, session_key, _ = await access.require_claim(
@@ -1176,8 +1199,8 @@ async def set_mute(
     request: Request,
     platform: str,
     req: Annotated[MuteRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> MuteResponse:
     """Toggle or explicitly set mute state. Omit body to toggle."""
     container, session_key, _ = await access.require_claim(
@@ -1199,8 +1222,8 @@ async def save_state(
     request: Request,
     platform: str,
     req: Annotated[SaveStateRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> SaveStateResponse:
     """Save game state to a slot without stopping the emulator.
 
@@ -1242,8 +1265,8 @@ async def load_state(
     request: Request,
     platform: str,
     req: Annotated[LoadStateRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> LoadStateResponse:
     """Load game state from a manual slot or the platform's autosave slot."""
     container, session_key, _ = await access.require_claim(
@@ -1264,8 +1287,8 @@ async def swap_disc(
     request: Request,
     platform: str,
     req: Annotated[SwapDiscRequest, Body()],
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
 ) -> SwapDiscResponse:
     """Change the mounted disc without restarting the emulator."""
     container, session_key, session = await access.require_claim(
@@ -1312,8 +1335,8 @@ async def release_session(
     platform: str,
     background_tasks: BackgroundTasks,
     reason: str | None = Query(default=None, max_length=200),
-    container_key: str | None = Query(default=None, alias="container", max_length=300),
-    claimed_at: str | None = Query(default=None, max_length=64),
+    container_key: ContainerQuery = None,
+    claimed_at: ClaimedAtQuery = None,
     save: bool = Query(default=True),
 ) -> ReleaseSessionResponse:
     """Release a session and tell the broker to stop the emulator.
@@ -1366,7 +1389,7 @@ async def list_containers(request: Request) -> AdminContainersResponse:
     if request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    containers: list[dict[str, Any]] = []
+    containers: list[AdminContainerSchema] = []
     for container_key, entries in containers_by_key().items():
         first = entries[0]
         held = await get_session(container_key) if container_key else None
@@ -1377,35 +1400,40 @@ async def list_containers(request: Request) -> AdminContainersResponse:
         user_id = session.get("user_id") if session else None
         user = db_user_handler.get_user(user_id) if isinstance(user_id, int) else None
         containers.append(
-            {
-                "container": container_key,
-                "label": first.container_label or first.label,
-                "host": first.host,
-                "platforms": [e.platform for e in entries],
-                "supports_desktop": first.protocol.supports_desktop,
+            AdminContainerSchema(
+                container=container_key,
+                label=first.container_label or first.label,
+                host=first.host,
+                platforms=[e.platform for e in entries],
+                supports_desktop=first.protocol.supports_desktop,
                 # A container whose host has no scheme has an empty key and can
                 # never be claimed, so surface it rather than listing it as idle.
-                "configured": bool(container_key),
-                "draining": draining,
-                "session": (
-                    {
-                        "platform": session.get("platform"),
-                        "rom_id": session.get("rom_id"),
-                        "rom_name": session.get("rom_name"),
-                        "desktop": bool(session.get("desktop")),
-                        "claimed_at": session.get("claimed_at"),
-                        "user_id": user_id,
-                        "username": user.username if user else None,
-                    }
+                configured=bool(container_key),
+                draining=draining,
+                session=(
+                    ContainerSessionSchema(
+                        platform=session.get("platform"),
+                        rom_id=session.get("rom_id"),
+                        rom_name=session.get("rom_name"),
+                        desktop=session_is_desktop(session),
+                        claimed_at=session.get("claimed_at"),
+                        user_id=user_id,
+                        username=user.username if user else None,
+                    )
                     if session
                     else None
                 ),
-            }
+            )
         )
     return AdminContainersResponse(enabled=streaming_enabled(), containers=containers)
 
 
-@protected_route(router.post, "/desktop", [Scope.ROMS_USER_WRITE])
+@protected_route(
+    router.post,
+    "/desktop",
+    [Scope.ROMS_USER_WRITE],
+    responses={409: {"model": ContainerBusyDetail}},
+)
 async def claim_desktop_session(
     request: Request, req: Annotated[DesktopStreamingSessionRequest, Body()]
 ) -> DesktopSessionSchema:
@@ -1458,14 +1486,14 @@ async def claim_desktop_session(
         existing = await get_session(session_key) or {}
         raise HTTPException(
             status_code=409,
-            detail={
-                "message": "Container in use",
-                # Same shape as a game claim's 409: a drain marker means the
-                # previous session is still shutting down, not that anyone holds it.
-                "draining": bool(existing.get("draining")),
-                "rom_name": access.visible_rom_name(request, existing),
-                "claimed_at": existing.get("claimed_at"),
-            },
+            detail=ContainerBusyDetail(
+                message="Container in use",
+                # A drain marker means the previous session is still shutting
+                # down, not that anyone holds it.
+                draining=bool(existing.get("draining")),
+                rom_name=access.visible_rom_name(request, existing),
+                claimed_at=existing.get("claimed_at"),
+            ).model_dump(),
         )
 
     try:
@@ -1508,7 +1536,7 @@ async def list_joinable_sessions(
     """
     grouped = containers_by_key()
 
-    sessions: list[dict[str, Any]] = []
+    sessions: list[JoinableSessionSchema] = []
     async for container_key, s in iter_live_sessions():
         if rom_id is not None and s.get("rom_id") != rom_id:
             continue
@@ -1519,22 +1547,22 @@ async def list_joinable_sessions(
         user_id = s.get("user_id")
         host = db_user_handler.get_user(user_id) if user_id is not None else None
         sessions.append(
-            {
-                "container": container_key,
-                "label": _joinable_container_label(grouped, container_key),
-                "platform": s.get("platform"),
-                "rom_id": s.get("rom_id"),
-                "rom_name": s.get("rom_name"),
-                "host_username": host.username if host else None,
-                "claimed_at": s.get("claimed_at"),
+            JoinableSessionSchema(
+                container=container_key,
+                label=_joinable_container_label(grouped, container_key),
+                platform=s.get("platform"),
+                rom_id=s.get("rom_id"),
+                rom_name=s.get("rom_name"),
+                host_username=host.username if host else None,
+                claimed_at=s.get("claimed_at"),
                 # Enough of the ROM to draw a cover tile without a second
                 # request per session.
-                "platform_id": rom.platform_id if rom else None,
-                "platform_display_name": rom.platform_display_name if rom else None,
-                "path_cover_small": rom.path_cover_small if rom else None,
-                "path_cover_large": rom.path_cover_large if rom else None,
-                "url_cover": rom.url_cover if rom else None,
-            }
+                platform_id=rom.platform_id if rom else None,
+                platform_display_name=rom.platform_display_name if rom else None,
+                path_cover_small=rom.path_cover_small if rom else None,
+                path_cover_large=rom.path_cover_large if rom else None,
+                url_cover=rom.url_cover if rom else None,
+            )
         )
     return JoinableSessionsResponse(sessions=sessions)
 
@@ -1551,23 +1579,23 @@ async def list_sessions(request: Request) -> AdminSessionsResponse:
 
     grouped = containers_by_key()
 
-    sessions: list[dict[str, Any]] = []
+    sessions: list[AdminSessionSchema] = []
     async for container_key, s in iter_live_sessions():
         container = container_for_session(grouped, container_key, s.get("platform"))
         user_id = s.get("user_id")
         user = db_user_handler.get_user(user_id) if user_id is not None else None
         sessions.append(
-            {
-                "container": container_key,
-                "label": container.label if container else None,
-                "platform": s.get("platform"),
-                "rom_id": s.get("rom_id"),
-                "rom_name": s.get("rom_name"),
-                "desktop": bool(s.get("desktop")),
-                "claimed_at": s.get("claimed_at"),
-                "user_id": user_id,
-                "username": user.username if user else None,
-            }
+            AdminSessionSchema(
+                container=container_key,
+                label=container.label if container else None,
+                platform=s.get("platform"),
+                rom_id=s.get("rom_id"),
+                rom_name=s.get("rom_name"),
+                desktop=session_is_desktop(s),
+                claimed_at=s.get("claimed_at"),
+                user_id=user_id,
+                username=user.username if user else None,
+            )
         )
     return AdminSessionsResponse(sessions=sessions)
 
@@ -1612,11 +1640,8 @@ async def force_release_all(
                     await lifecycle.collect_exit_state(
                         container, session, stopped.state_slot
                     )
-                    pull_mark = await lifecycle.mark_exit_saves_pending(
-                        container, session
-                    )
-                    lifecycle.collect_exit_saves(
-                        container, session, pull_mark, settled=stopped.settled
+                    await lifecycle.start_exit_save_pull(
+                        container, session, settled=stopped.settled
                     )
 
             # Note who ended it before the key goes, so the player's next poll
@@ -1627,6 +1652,7 @@ async def force_release_all(
                     container_key,
                     ended_by=request.user.username,
                     reason=reason,
+                    ended_by_user_id=request.user.id,
                 )
         finally:
             # The sweep answered "released", so the key goes even when a step

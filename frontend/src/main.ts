@@ -10,7 +10,9 @@ import storeHeartbeat from "@/stores/heartbeat";
 import "@/styles/common.css";
 import "@/styles/fonts.css";
 import "@/styles/scrollbar.css";
+import { ChromeLabelsKey } from "@/v2/lib/a11y/chromeLabels";
 import "@/v2/styles/global.css";
+import { createChromeLabels } from "@/v2/utils/chromeLabels";
 
 // Recover from stale chunks after a redeploy: hashed asset names change, so
 // a tab opened before the deploy 404s (or gets HTML) on its next lazy import
@@ -61,6 +63,10 @@ async function initializeApp() {
 
   // Registrar vuetify + pinia + i18n + emitter
   registerPlugins(app);
+
+  // Accessible names the v2 primitives render for their own controls.
+  // Provided once, after i18n is registered.
+  app.provide(ChromeLabelsKey, createChromeLabels());
 
   // Locale messages gate the router alongside the initial data: the guard
   // resolves the route title as soon as the router is installed, and with

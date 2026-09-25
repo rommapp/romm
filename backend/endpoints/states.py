@@ -9,8 +9,9 @@ from endpoints.responses.assets import StateSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
+    release_thumbnail,
     remove_asset_file,
-    remove_screenshot,
+    rename_asset,
     store_screenshot,
     store_state_file,
 )
@@ -23,6 +24,8 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import State
+from models.base import FILE_NAME_MAX_LENGTH
+from utils.assets import normalize_asset_labels
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size
@@ -33,7 +36,17 @@ async def _delete_state(state: State) -> None:
     """Drop a state row with its file and screenshot."""
     db_state_handler.delete_state(state.id)
     await remove_asset_file(state.full_path, "State file")
-    await remove_screenshot(state.screenshot)
+    await release_thumbnail(state.screenshot)
+
+
+def _owned_state_or_404(id: int, user_id: int) -> State:
+    state = db_state_handler.get_state_by_id(id)
+    if not state or state.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"State with ID {id} not found",
+        )
+    return state
 
 
 router = APIRouter(
@@ -270,14 +283,9 @@ def update_state_visibility(
     is_public: Annotated[bool, Body(embed=True)],
 ) -> StateSchema:
     """Toggle a state's public/private visibility (owner only)."""
-    state = db_state_handler.get_state_by_id(id)
-    if not state or state.user_id != request.user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"State with ID {id} not found",
-        )
+    state = _owned_state_or_404(id, request.user.id)
 
-    updated = db_state_handler.update_state(id, {"is_public": is_public})
+    updated = db_state_handler.update_state(id, {"is_public": is_public}, touch=False)
 
     # Keep the auto-captured thumbnail's visibility in sync so a shared state
     # still renders its preview for other users.
@@ -290,6 +298,67 @@ def update_state_visibility(
     refresh_affected_smart_collections([state.rom_id], membership_only=True)
 
     return StateSchema.model_validate(updated)
+
+
+@protected_route(
+    router.put,
+    "/{id}/favorite",
+    [Scope.ASSETS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def update_state_favorite(
+    request: Request,
+    id: int,
+    is_favorite: Annotated[bool, Body(embed=True)],
+) -> StateSchema:
+    """Favorite a state, sorting it ahead of the rest (owner only)."""
+    _owned_state_or_404(id, request.user.id)
+
+    return StateSchema.model_validate(
+        db_state_handler.update_state(id, {"is_favorite": is_favorite}, touch=False)
+    )
+
+
+@protected_route(
+    router.put,
+    "/{id}/labels",
+    [Scope.ASSETS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def update_state_labels(
+    request: Request,
+    id: int,
+    labels: Annotated[list[str], Body(embed=True)],
+) -> StateSchema:
+    """Replace a state's free-text labels (owner only)."""
+    _owned_state_or_404(id, request.user.id)
+
+    return StateSchema.model_validate(
+        db_state_handler.update_state(
+            id, {"labels": normalize_asset_labels(labels)}, touch=False
+        )
+    )
+
+
+@protected_route(
+    router.put,
+    "/{id}/file-name",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_409_CONFLICT: {},
+    },
+)
+async def rename_state(
+    request: Request,
+    id: int,
+    file_name: Annotated[str, Body(embed=True, max_length=FILE_NAME_MAX_LENGTH)],
+) -> StateSchema:
+    """Rename a state's file, its screenshot following along (owner only)."""
+    state = _owned_state_or_404(id, request.user.id)
+
+    return StateSchema.model_validate(await rename_asset(state, file_name))
 
 
 @protected_route(

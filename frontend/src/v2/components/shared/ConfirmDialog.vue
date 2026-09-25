@@ -121,19 +121,19 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
         </div>
       </div>
     </template>
+    <template v-if="payload" #footer-start>
+      <RBtn ref="cancelButtonRef" variant="outlined" @click="onCancel">
+        {{ payload.cancelText ?? t("common.cancel") }}
+      </RBtn>
+    </template>
     <template v-if="payload" #footer>
-      <div class="r-confirm__actions">
-        <RBtn ref="cancelButtonRef" variant="text" @click="onCancel">
-          {{ payload.cancelText ?? t("common.cancel") }}
-        </RBtn>
-        <RBtn
-          :color="confirmColor"
-          :disabled="confirmDisabled"
-          @click="onConfirm"
-        >
-          {{ payload.confirmText ?? t("common.confirm") }}
-        </RBtn>
-      </div>
+      <RBtn
+        :color="confirmColor"
+        :disabled="confirmDisabled"
+        @click="onConfirm"
+      >
+        {{ payload.confirmText ?? t("common.confirm") }}
+      </RBtn>
     </template>
   </RDialog>
 </template>
@@ -167,12 +167,5 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
 .r-confirm__typed-hint strong {
   color: var(--r-color-fg);
   font-family: var(--r-font-family-mono);
-}
-
-.r-confirm__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--r-space-2);
-  width: 100%;
 }
 </style>

@@ -23,7 +23,7 @@ import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "
 import api from "@/services/api";
 import socket from "@/services/socket";
 import storeUpload from "@/stores/upload";
-import { getDownloadPath } from "@/utils";
+import { getDownloadPath } from "@/utils/downloadPath";
 import { buildFormInput, type FormInputField } from "@/utils/formData";
 
 export const romApi = api;
@@ -77,6 +77,9 @@ async function uploadRomChunked({
     },
   });
   const { upload_id } = startData;
+
+  // An empty file sends no chunks, so no chunk ever reports it done.
+  if (totalChunks === 0) uploadStore.updateChunkProgress(file.name, 100, 0);
 
   for (let i = 0; i < totalChunks; i++) {
     const start = i * UPLOAD_CHUNK_SIZE;

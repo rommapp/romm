@@ -10,6 +10,7 @@ from rq.registry import FailedJobRegistry, FinishedJobRegistry
 from config import ENABLE_RESCAN_ON_FILESYSTEM_CHANGE, RESCAN_ON_FILESYSTEM_CHANGE_DELAY
 from decorators.auth import protected_route
 from endpoints.responses import (
+    BaseTaskStatusResponse,
     CleanupStats,
     CleanupTaskStatusResponse,
     ConversionTaskStatusResponse,
@@ -23,6 +24,7 @@ from endpoints.responses import (
     WatcherTaskStatusResponse,
 )
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.redis_handler import (
     ALL_QUEUES,
@@ -32,6 +34,7 @@ from handler.redis_handler import (
     low_prio_queue,
     redis_client,
 )
+from models.audit_event import AuditAction, AuditTargetType
 from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS, enqueue_task
 from tasks.tasks import Task, TaskType
 from utils.router import APIRouter
@@ -116,7 +119,7 @@ def _build_task_status_response(
     ended_at = job.ended_at.isoformat() if job.ended_at else None
     enqueued_at = job.enqueued_at.isoformat() if job.enqueued_at else None
 
-    common_data = {
+    common_data: BaseTaskStatusResponse = {
         "task_key": task_key,
         "task_name": task_name,
         "task_id": job.id,
@@ -131,7 +134,7 @@ def _build_task_status_response(
         return GenericTaskStatusResponse(
             task_type=TaskType.GENERIC,
             meta={},
-            **common_data,  # trunk-ignore(mypy/typeddict-item)
+            **common_data,
         )
 
     match TaskType(task_type):
@@ -139,19 +142,19 @@ def _build_task_status_response(
             return ScanTaskStatusResponse(
                 task_type=TaskType.SCAN,
                 meta={"scan_stats": _fill_scan_stats(job_meta.get("scan_stats"))},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.CONVERSION:
             return ConversionTaskStatusResponse(
                 task_type=TaskType.CONVERSION,
                 meta={"conversion_stats": job_meta.get("conversion_stats")},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.UPDATE:
             return UpdateTaskStatusResponse(
                 task_type=TaskType.UPDATE,
                 meta={"update_stats": job_meta.get("update_stats")},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.CLEANUP:
             return CleanupTaskStatusResponse(
@@ -159,25 +162,25 @@ def _build_task_status_response(
                 meta={
                     "cleanup_stats": _fill_cleanup_stats(job_meta.get("cleanup_stats"))
                 },
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.SYNC:
             return SyncTaskStatusResponse(
                 task_type=TaskType.SYNC,
                 meta={},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.WATCHER:
             return WatcherTaskStatusResponse(
                 task_type=TaskType.WATCHER,
                 meta={},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.GENERIC:
             return GenericTaskStatusResponse(
                 task_type=TaskType.GENERIC,
                 meta={},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case _:
             raise ValueError(f"Invalid task type: {task_type}")
@@ -328,7 +331,18 @@ async def run_single_task(
 
     # The caller's arguments are nested rather than spread, so a body cannot
     # name a different task than the one this route just authorized.
-    job = enqueue_task(task_name, queue=low_prio_queue, task_kwargs=task_kwargs or {})
+    job = enqueue_task(
+        task_name,
+        queue=low_prio_queue,
+        task_kwargs=task_kwargs or {},
+        run_by_user_id=request.user.id,
+    )
+    record(
+        AuditAction.TASK_RUN,
+        request,
+        AuditTarget(AuditTargetType.TASK, task_name, task_instance.title),
+        {"job_id": job.id, "kwargs": task_kwargs or {}},
+    )
 
     return {
         "task_key": task_name,
