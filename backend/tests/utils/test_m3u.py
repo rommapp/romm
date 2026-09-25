@@ -48,6 +48,22 @@ class TestListingPlaylist:
 
         assert listing_playlist(disc) == "Game.m3u"
 
+    def test_matches_an_entry_through_a_symlinked_folder(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "link").symlink_to(tmp_path)
+        (tmp_path / "Game.m3u").write_text("link/Game (Disc 1).chd\n")
+
+        assert listing_playlist(disc) == "Game.m3u"
+
+    def test_none_when_the_literal_backslash_file_is_the_one_listed(self, tmp_path):
+        (tmp_path / ".\\Disc 1.chd").write_bytes(b"x")
+        disc = tmp_path / "Disc 1.chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "Game.m3u").write_text(".\\Disc 1.chd\n")
+
+        assert listing_playlist(disc) is None
+
     def test_ignores_comment_lines(self, tmp_path):
         disc = tmp_path / "Game (Disc 1).chd"
         disc.write_bytes(b"x")
