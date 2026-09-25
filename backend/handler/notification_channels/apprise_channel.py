@@ -52,7 +52,7 @@ EXCLUDED_SCHEMAS: Final = frozenset(
 FILE_OPTIONS: Final = frozenset(
     {"template", "keyfile", "subfile", "pgppub", "pgpkey", "pgpprv"}
 )
-# Options every service shares that RomM sets itself or that don't apply here.
+# Options every service shares that are set here or don't apply.
 MANAGED_OPTIONS: Final = frozenset(
     {
         "cto",

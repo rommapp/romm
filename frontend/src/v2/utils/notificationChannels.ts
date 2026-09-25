@@ -37,7 +37,7 @@ export const CHANNEL_ICONS: Record<NotificationChannelType, string> = {
 
 export type AppriseFieldValue = AppriseChannelCreatePayload["fields"][string];
 
-// Fields most services share, labelled by RomM; the rest keep Apprise's label.
+// Fields most services share get a translated label; the rest keep Apprise's.
 const APPRISE_FIELD_LABELS: Record<string, string> = {
   schema: "notifications.channel-field-schema",
   botname: "notifications.channel-field-botname",
@@ -51,7 +51,7 @@ const APPRISE_FIELD_LABELS: Record<string, string> = {
   verify: "notifications.channel-field-verify",
 };
 
-/** A field's label: RomM's for the ones most services share, Apprise's otherwise. */
+/** A field's label: translated when most services share it, Apprise's otherwise. */
 export function appriseFieldLabel(
   field: AppriseFieldSchema,
   t: (key: string) => string,
@@ -89,10 +89,7 @@ export function initialAppriseValues(
   );
 }
 
-/**
- * What the backend gets: the filled-in fields, numbers as numbers. A secret
- * left out keeps its value; an empty one removes it.
- */
+/** The filled-in fields as the backend takes them, with a removed secret as "". */
 export function appriseFieldsPayload(
   service: AppriseServiceSchema,
   values: Record<string, AppriseFieldValue>,
