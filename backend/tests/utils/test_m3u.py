@@ -32,6 +32,29 @@ class TestListingPlaylist:
 
         assert listing_playlist(disc) is None
 
+    def test_none_when_the_playlist_lists_a_namesake_in_another_folder(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "Other.m3u").write_text(
+            "Other Set/Game (Disc 1).chd\nOther Set\\Game (Disc 1).chd\n"
+        )
+
+        assert listing_playlist(disc) is None
+
+    def test_matches_a_literal_backslash_in_the_file_name(self, tmp_path):
+        disc = tmp_path / "Game\\Disc 1.chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "Game.m3u").write_text("Game\\Disc 1.chd\n")
+
+        assert listing_playlist(disc) == "Game.m3u"
+
+    def test_ignores_comment_lines(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "Game.m3u").write_text("#Game (Disc 1).chd\n")
+
+        assert listing_playlist(disc) is None
+
     def test_none_when_the_folder_is_missing(self, tmp_path):
         assert listing_playlist(tmp_path / "gone" / "disc.chd") is None
 
