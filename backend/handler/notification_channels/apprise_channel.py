@@ -434,7 +434,9 @@ def _plugin(service: AppriseService, fields: Mapping[str, FieldValue]) -> Notify
     return plugin
 
 
-def check(service_id: str, fields: Mapping[str, FieldValue]) -> dict[str, FieldValue]:
+def checked_fields(
+    service_id: str, fields: Mapping[str, FieldValue]
+) -> dict[str, FieldValue]:
     """The fields to keep, once Apprise can deliver with them.
 
     Raises:
@@ -517,7 +519,7 @@ def merge_fields(
     return {**merged, **kept}
 
 
-def _quiet(text: str) -> str:
+def _defuse_mentions(text: str) -> str:
     """The text with its mentions broken by a zero-width space, so they ping nobody."""
     return _MENTIONS.sub(lambda m: m.group(0)[0] + "\u200b" + m.group(0)[1:], text)
 
@@ -554,8 +556,8 @@ def send(
     token = _warnings.set(collected)
     try:
         sent = apprise.notify(
-            body=_quiet(message.text),
-            title=_quiet(message.title),
+            body=_defuse_mentions(message.text),
+            title=_defuse_mentions(message.title),
             notify_type=NOTIFY_TYPES.get(message.notification.level, NotifyType.INFO),
             body_format=NotifyFormat.TEXT,
         )

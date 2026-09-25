@@ -9,7 +9,7 @@ from handler.notification_channels.apprise_channel import (
     AppriseError,
     FieldValue,
     build_url,
-    check,
+    checked_fields,
     describe,
     find_service,
     merge_fields,
@@ -136,7 +136,7 @@ class TestBuildUrl:
     )
     def test_fills_in_the_template_the_fields_make_up(self, service, fields, url):
         assert build_url(find_service(service), fields) == url
-        check(service, fields)
+        checked_fields(service, fields)
 
     def test_says_what_is_missing(self):
         with pytest.raises(ValueError, match="^Discord needs Webhook Token$"):
@@ -198,11 +198,14 @@ class TestFields:
         )
 
     def test_check_keeps_only_the_fields_the_service_takes(self):
-        assert check("discord", {**_DISCORD, "junk": "x", "botname": ""}) == _DISCORD
+        assert (
+            checked_fields("discord", {**_DISCORD, "junk": "x", "botname": ""})
+            == _DISCORD
+        )
 
     def test_a_refusal_hides_the_secret_it_quotes(self):
         with pytest.raises(ValueError, match=r"Token \(\*\*\*\*\)"):
-            check("slack", {"access_token": "nope-abc"})
+            checked_fields("slack", {"access_token": "nope-abc"})
 
 
 class TestMergeFields:

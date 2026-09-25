@@ -52,7 +52,7 @@ def _apprise_config(
     """An Apprise channel's config once its owner and fields check out."""
     _require_apprise(user)
     try:
-        kept = apprise_channel.check(service, fields)
+        kept = apprise_channel.checked_fields(service, fields)
     except ValueError as exc:
         raise ChannelError(str(exc)) from exc
     return AppriseConfig(service=service, fields=kept)

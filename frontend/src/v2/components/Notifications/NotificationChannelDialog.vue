@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// NotificationChannelDialog: adds a channel, or edits one, where a blank URL
-// or secret keeps what the channel already has. Admins also get every Apprise
-// service, each with the fields it takes.
+// NotificationChannelDialog: adds or edits a channel, where a blank URL or secret
+// keeps the current one. Admins also get every Apprise service and its fields.
 import {
   RAlert,
   RBtn,

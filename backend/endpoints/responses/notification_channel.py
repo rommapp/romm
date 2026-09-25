@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, Self, TypeAlias
 
 from pydantic import Field, StrictBool, field_validator
 
@@ -39,13 +39,10 @@ AppriseServiceId = Annotated[
     str, Field(min_length=1, max_length=NOTIFICATION_CHANNEL_SERVICE_MAX_LENGTH)
 ]
 _FieldText = Annotated[str, Field(max_length=NOTIFICATION_CHANNEL_URL_MAX_LENGTH)]
-AppriseFieldValue = (
-    StrictBool
-    | int
-    | float
-    | _FieldText
-    | Annotated[list[_FieldText], Field(max_length=NOTIFICATION_CHANNEL_MAX_LIST_ITEMS)]
-)
+_FieldList = Annotated[
+    list[_FieldText], Field(max_length=NOTIFICATION_CHANNEL_MAX_LIST_ITEMS)
+]
+AppriseFieldValue: TypeAlias = StrictBool | int | float | _FieldText | _FieldList
 AppriseFields = Annotated[
     dict[str, AppriseFieldValue], Field(max_length=NOTIFICATION_CHANNEL_MAX_FIELDS)
 ]
@@ -67,8 +64,7 @@ class NotificationChannelSchema(BaseModel):
     topics: list[NotificationTopic] | None
     # The URL with its secrets hidden, or an email address.
     target: str
-    # An Apprise channel's service, its name, the fields that aren't secrets,
-    # and which secrets it has.
+    # An Apprise channel's; `fields` leaves its secrets out, `stored_secrets` names them.
     service: str | None
     service_name: str | None
     fields: dict[str, AppriseFieldValue] | None

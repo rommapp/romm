@@ -12,7 +12,7 @@ from utils.database import CustomJSON
 
 
 class NotificationChannelType(enum.StrEnum):
-    # Any service Apprise speaks to, from one URL.
+    # Any service Apprise reaches, set up through that service's own fields.
     APPRISE = "apprise"
     # RomM's own JSON payload, signed when the channel has a secret.
     WEBHOOK = "webhook"
@@ -34,7 +34,6 @@ NOTIFICATION_CHANNEL_ERROR_MAX_LENGTH: Final = 1000
 NOTIFICATION_CHANNEL_ADDRESS_MAX_LENGTH: Final = 320
 NOTIFICATION_CHANNEL_CODE_MAX_LENGTH: Final = 16
 NOTIFICATION_CHANNEL_SERVICE_MAX_LENGTH: Final = 32
-# An Apprise service's fields: the most any has, with room to spare.
 NOTIFICATION_CHANNEL_MAX_FIELDS: Final = 64
 # Each target of a list is its own request to the service.
 NOTIFICATION_CHANNEL_MAX_LIST_ITEMS: Final = 20
