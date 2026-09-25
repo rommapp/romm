@@ -401,9 +401,11 @@ class TestProcessIncomingFileBaseline:
 
         save = self._save(admin_user, rom, platform, "server_old")
 
-        with patch("sync_watcher.compare_save_state") as mock_cmp, patch(
-            "sync_watcher.fs_asset_handler"
-        ), patch("sync_watcher.asyncio") as mock_asyncio:
+        with (
+            patch("sync_watcher.compare_save_state") as mock_cmp,
+            patch("sync_watcher.fs_asset_handler"),
+            patch("sync_watcher.asyncio") as mock_asyncio,
+        ):
             mock_cmp.return_value = MagicMock(action="upload", reason=None)
             mock_asyncio.run = MagicMock()
             _process_incoming_file(
@@ -435,9 +437,10 @@ class TestProcessIncomingFileBaseline:
         server_file = Path(temp_dir) / "server_baseline.sav"
         server_file.write_bytes(b"server bytes")
 
-        with patch("sync_watcher.compare_save_state") as mock_cmp, patch(
-            "sync_watcher.fs_asset_handler"
-        ) as mock_assets:
+        with (
+            patch("sync_watcher.compare_save_state") as mock_cmp,
+            patch("sync_watcher.fs_asset_handler") as mock_assets,
+        ):
             mock_cmp.return_value = MagicMock(action="download", reason=None)
             mock_assets.validate_path.return_value = server_file
             _process_incoming_file(
@@ -520,9 +523,10 @@ class TestProcessIncomingFileBaseline:
             last_sync_server_hash="server_old",
         )
 
-        with patch("sync_watcher.fs_asset_handler") as mock_assets, patch(
-            "endpoints.sockets.sync.emit_sync_conflict"
-        ) as mock_emit:
+        with (
+            patch("sync_watcher.fs_asset_handler") as mock_assets,
+            patch("endpoints.sockets.sync.emit_sync_conflict") as mock_emit,
+        ):
             mock_assets.validate_path.return_value = server_file
             _process_incoming_file(
                 device=device,

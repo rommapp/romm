@@ -400,15 +400,17 @@ class TestBaselineInProcessRemoteSave:
             last_sync_server_hash="server_at_boundary",
         )
 
-        with patch(
-            "tasks.sync_push_pull_task.get_ssh_sync_handler"
-        ) as mock_handler, patch(
-            "tasks.sync_push_pull_task.compare_save_state"
-        ) as mock_cmp:
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+        ):
             mock_handler.return_value = self._ssh(local_save_file, "remote_now")
             mock_cmp.return_value = MagicMock(action="no_op", reason=None)
             await _process_remote_save(
-                device, conn=MagicMock(), remote_save=self._remote(platform), session_id=1
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
             )
 
         kwargs = mock_cmp.call_args.kwargs
@@ -425,15 +427,17 @@ class TestBaselineInProcessRemoteSave:
     ):
         save = self._save(admin_user, rom, platform, "server_hash")
 
-        with patch(
-            "tasks.sync_push_pull_task.get_ssh_sync_handler"
-        ) as mock_handler, patch(
-            "tasks.sync_push_pull_task.compare_save_state"
-        ) as mock_cmp:
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+        ):
             mock_handler.return_value = self._ssh(local_save_file, "remote_now")
             mock_cmp.return_value = MagicMock(action="no_op", reason=None)
             await _process_remote_save(
-                device, conn=MagicMock(), remote_save=self._remote(platform), session_id=1
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
             )
 
         sync = db_device_save_sync_handler.get_sync(device.id, save.id)
@@ -451,18 +455,19 @@ class TestBaselineInProcessRemoteSave:
     ):
         save = self._save(admin_user, rom, platform, "server_old")
 
-        with patch(
-            "tasks.sync_push_pull_task.get_ssh_sync_handler"
-        ) as mock_handler, patch(
-            "tasks.sync_push_pull_task.compare_save_state"
-        ) as mock_cmp, patch(
-            "tasks.sync_push_pull_task.fs_asset_handler"
-        ) as mock_assets:
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+            patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
+        ):
             mock_assets.write_file = AsyncMock()
             mock_handler.return_value = self._ssh(local_save_file, "remote_now")
             mock_cmp.return_value = MagicMock(action="upload", reason=None)
             await _process_remote_save(
-                device, conn=MagicMock(), remote_save=self._remote(platform), session_id=1
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
             )
 
         sync = db_device_save_sync_handler.get_sync(device.id, save.id)
@@ -480,17 +485,18 @@ class TestBaselineInProcessRemoteSave:
     ):
         save = self._save(admin_user, rom, platform, "server_new")
 
-        with patch(
-            "tasks.sync_push_pull_task.get_ssh_sync_handler"
-        ) as mock_handler, patch(
-            "tasks.sync_push_pull_task.compare_save_state"
-        ) as mock_cmp, patch(
-            "tasks.sync_push_pull_task.fs_asset_handler"
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+            patch("tasks.sync_push_pull_task.fs_asset_handler"),
         ):
             mock_handler.return_value = self._ssh(local_save_file, "remote_old")
             mock_cmp.return_value = MagicMock(action="download", reason=None)
             await _process_remote_save(
-                device, conn=MagicMock(), remote_save=self._remote(platform), session_id=1
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
             )
 
         sync = db_device_save_sync_handler.get_sync(device.id, save.id)
@@ -515,15 +521,17 @@ class TestBaselineInProcessRemoteSave:
             last_sync_server_hash="server_at_boundary",
         )
 
-        with patch(
-            "tasks.sync_push_pull_task.get_ssh_sync_handler"
-        ) as mock_handler, patch(
-            "tasks.sync_push_pull_task.compare_save_state"
-        ) as mock_cmp:
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+        ):
             mock_handler.return_value = self._ssh(local_save_file, "remote_now")
             mock_cmp.return_value = MagicMock(action="conflict", reason="both changed")
             action = await _process_remote_save(
-                device, conn=MagicMock(), remote_save=self._remote(platform), session_id=1
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
             )
 
         assert action == "conflict"
@@ -542,11 +550,10 @@ class TestBaselineInProcessRemoteSave:
         """A device that never had the file cannot have a device half."""
         save = self._save(admin_user, rom, platform, "server_hash")
 
-        with patch(
-            "tasks.sync_push_pull_task.get_ssh_sync_handler"
-        ) as mock_handler, patch(
-            "tasks.sync_push_pull_task.fs_asset_handler"
-        ) as mock_assets:
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
+        ):
             mock_handler.return_value = self._ssh("/tmp/unused.sav", "unused")
             mock_assets.validate_path.side_effect = lambda p: f"/server/{p}"
             pushed = await _push_missing_saves(
