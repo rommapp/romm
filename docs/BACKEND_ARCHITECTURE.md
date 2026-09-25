@@ -311,7 +311,8 @@ backend/
 │   │   ├── update_switch_titledb.py           # Refresh Switch TitleDB
 │   │   ├── update_launchbox_metadata.py       # Refresh LaunchBox data
 │   │   ├── convert_images_to_webp.py          # Artwork WebP conversion
-│   │   └── cleanup_netplay.py                 # Prune stale netplay rooms
+│   │   ├── cleanup_netplay.py                 # Prune stale netplay rooms
+│   │   └── reap_streaming_sessions.py         # Stop abandoned streaming sessions
 │   └── manual/                # On-demand tasks
 │       ├── cleanup_missing_roms.py       # Drop DB entries for missing files
 │       ├── cleanup_orphaned_resources.py # Remove unreferenced artwork
@@ -1552,6 +1553,7 @@ Redis-backed for horizontal scaling across multiple server instances.
 | `default_queue`   | Standard background work                       |
 | `low_prio_queue`  | Cleanups, conversions, metadata refreshes      |
 | `scan_queue`      | Library scans, consumed by a worker of its own |
+| `streaming_queue` | Session reaper and exit save pulls, own worker |
 
 ### Scheduled Tasks
 
@@ -1576,6 +1578,7 @@ Toggled via environment variables:
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
 | `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
 | `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
+| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup     | `* * * * *`        | Stop abandoned streams |
 | `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)    | `30 4 * * *`       | Prune old audit events |
 
 ### Manual Tasks

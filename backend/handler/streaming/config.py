@@ -9,6 +9,7 @@ only walks the first.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import secrets
 from collections.abc import Iterable, Sequence
@@ -16,8 +17,11 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
+from redis.exceptions import RedisError
+
 from config import LIBRARY_BASE_PATH, STREAMING_BROKER_SECRET
 from config.config_manager import config_manager as cm
+from handler.redis_handler import sync_cache
 from handler.streaming.capabilities import (
     PlatformCapabilities,
     StateTransferLimits,
@@ -541,7 +545,7 @@ def resolve_containers() -> tuple[ResolvedContainer, ...]:
         for row, platform in _platform_entries(dict(entry)):
             resolved.append(_resolve_one(row, platform, entry.get("label")))
 
-    _warn_about_later_pools(resolved)
+    _warn_about_later_pools(resolved, fingerprint)
     _cache_fingerprint = fingerprint
     _cached = tuple(resolved)
     return _cached
@@ -573,9 +577,36 @@ def _pools_by_platform(
     return {platform: _pools(members) for platform, members in by_platform.items()}
 
 
-def _warn_about_later_pools(resolved: Sequence[ResolvedContainer]) -> None:
-    """Name every container a game claim can never reach, once per config."""
-    for pools in _pools_by_platform(resolved).values():
+# Each RQ job runs in a fresh process, so "once" has to outlive the process.
+_POOL_WARNING_KEY_PREFIX = "romm:streaming:pool-warning:"
+_POOL_WARNING_TTL_SECONDS = 24 * 60 * 60
+
+
+def _first_to_warn(fingerprint: str) -> bool:
+    digest = hashlib.sha256(fingerprint.encode()).hexdigest()
+    try:
+        return bool(
+            sync_cache.set(
+                f"{_POOL_WARNING_KEY_PREFIX}{digest}",
+                "1",
+                nx=True,
+                ex=_POOL_WARNING_TTL_SECONDS,
+            )
+        )
+    except RedisError:
+        return True
+
+
+def _warn_about_later_pools(
+    resolved: Sequence[ResolvedContainer], fingerprint: str
+) -> None:
+    """Name every container a game claim can never reach, once a day per config."""
+    pools_by_platform = _pools_by_platform(resolved)
+    if not any(len(pools) > 1 for pools in pools_by_platform.values()):
+        return
+    if not _first_to_warn(fingerprint):
+        return
+    for pools in pools_by_platform.values():
         later = [c.key for pool in pools[1:] for c in pool]
         if later:
             log.warning(

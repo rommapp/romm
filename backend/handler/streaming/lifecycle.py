@@ -15,8 +15,13 @@ from typing import Any
 from handler.activity_handler import activity_handler
 from handler.database import db_user_handler
 from handler.play_session_handler import ingest_play_sessions
+from handler.redis_handler import streaming_queue
 from handler.streaming import background, commands, memory_cards, saves, states
-from handler.streaming.config import ResolvedContainer
+from handler.streaming.config import (
+    ResolvedContainer,
+    container_for_session,
+    containers_by_key,
+)
 from handler.streaming.session_store import (
     DRAIN_MARKER_TTL,
     StreamingSessionContended,
@@ -29,6 +34,7 @@ from handler.streaming.session_store import (
     record_termination,
     release_own_session,
     replace_session_if,
+    restore_drained_session,
     same_claim,
     session_disc_id,
     session_is_stale,
@@ -120,20 +126,28 @@ async def quiesce_container(
     return stopped
 
 
-async def _pull_exit_saves(
-    container: ResolvedContainer,
-    mark: saves.SavePullMark,
+async def pull_exit_saves(
+    *,
+    user_id: int,
+    rom_id: int,
+    token: str,
+    container_key: str,
+    platform: str,
     broker_session: str | None,
     settled: bool,
 ) -> None:
-    """The spawned half of `collect_exit_saves`, which lets the next claim
-    through however the pull ended."""
+    """The RQ job behind `collect_exit_saves`, which lets the next claim through
+    however the pull ended."""
     try:
+        container = container_for_session(containers_by_key(), container_key, platform)
+        if container is None:
+            log.warning("skipping the exit save pull, %s is gone", container_key)
+            return
         await saves.pull_saves_to_library(
-            mark.user_id, mark.rom_id, container, broker_session, settled=settled
+            user_id, rom_id, container, broker_session, settled=settled
         )
     finally:
-        await saves.clear_save_pull_pending(mark)
+        await saves.clear_save_pull_pending(saves.SavePullMark(user_id, rom_id, token))
 
 
 async def mark_exit_saves_pending(
@@ -157,15 +171,15 @@ async def mark_exit_saves_pending(
     return await saves.mark_save_pull_pending(user_id, rom_id)
 
 
-def collect_exit_saves(
+async def collect_exit_saves(
     container: ResolvedContainer,
     session: dict[str, Any],
     mark: saves.SavePullMark | None,
     *,
     settled: bool,
 ) -> None:
-    """Pull a stopped session's save archive in the background, since the broker
-    keeps it after the emulator dies, filing it under the owner whoever ended it.
+    """Queue the pull of a stopped session's save archive, since the broker keeps
+    it after the emulator dies, filing it under the owner whoever ended it.
 
     Args:
         mark: cleared by the pull however it ends.
@@ -174,9 +188,26 @@ def collect_exit_saves(
     """
     if mark is None:
         return
-    background.spawn_sync_task(
-        _pull_exit_saves(container, mark, broker_session_id(session), settled)
-    )
+    try:
+        # On the streaming worker, so a web restart cannot cut a pull short.
+        streaming_queue.enqueue(
+            pull_exit_saves,
+            kwargs={
+                "user_id": mark.user_id,
+                "rom_id": mark.rom_id,
+                "token": mark.token,
+                "container_key": container.key,
+                "platform": container.platform,
+                "broker_session": broker_session_id(session),
+                "settled": settled,
+            },
+            job_timeout=saves.SAVE_PULL_TTL_SECONDS,
+            result_ttl=0,
+            meta={"task_name": "Streaming exit save pull"},
+        )
+    except Exception:
+        log.exception("could not queue the exit save pull for %s", container.key)
+        await saves.clear_save_pull_pending(mark)
 
 
 async def start_exit_save_pull(
@@ -184,7 +215,7 @@ async def start_exit_save_pull(
 ) -> None:
     """Mark the exit pull pending, then start it, for a stop that is already done."""
     mark = await mark_exit_saves_pending(container, session)
-    collect_exit_saves(container, session, mark, settled=settled)
+    await collect_exit_saves(container, session, mark, settled=settled)
 
 
 async def collect_exit_state(
@@ -405,7 +436,7 @@ async def teardown_released_session(
 
         # Awaited, not spawned: the claim is released below.
         await collect_exit_state(container, session, stopped.state_slot)
-        collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
+        await collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
         # The pull clears it from here.
         pull_mark = None
 
@@ -425,20 +456,24 @@ async def teardown_released_session(
             await saves.clear_save_pull_pending(pull_mark)
 
 
-async def _teardown_abandoned_session(
+async def teardown_abandoned_session(
     container: ResolvedContainer,
     session_key: str,
     session: dict[str, Any],
     *,
-    claimed_by: int,
+    claimed_by: int | None,
 ) -> bool:
     """Free a container whose owner vanished without releasing (heartbeat went
     stale). Same order as an owner release: stop the emulator so the card is
     quiescent, evacuate and wipe it, credit the owner's playtime, then drop
     the claim.
 
-    Returns False when the session stopped looking abandoned before any of that
-    started, meaning the owner came back or another request got here first.
+    Args:
+        claimed_by: the user whose claim found the session, None for the reaper.
+
+    Returns:
+        Whether the emulator was stopped: False when the session stopped looking
+        abandoned first, or a step before the stop failed and it was put back.
     """
     # Claim the teardown before touching the broker. The work below runs for
     # seconds, and the staleness check that led here is older still, so without
@@ -464,6 +499,7 @@ async def _teardown_abandoned_session(
 
     keepalive = asyncio.ensure_future(hold_drain_marker(session_key, token))
     pull_mark: saves.SavePullMark | None = None
+    stopping = False
     try:
         # Before anything slow, as a release does.
         pull_mark = await mark_exit_saves_pending(container, session)
@@ -473,24 +509,26 @@ async def _teardown_abandoned_session(
             await record_termination(
                 session, session_key, ended_by=None, reason="abandoned"
             )
+        stopping = True
         stopped = await quiesce_container(container, session)
         await record_play_session(session)
         await clear_session_activity(session_key, session)
         await collect_exit_state(container, session, stopped.state_slot)
-        collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
+        await collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
         pull_mark = None
     except Exception:
         log.exception("abandoned session teardown failed, key=%s", session_key)
     finally:
-        # A step raising above would otherwise leave the container unclaimable
-        # until the marker expires: draining blocks the claim, the takeover
-        # skips it, and no release path owns it. Only this teardown's own marker
-        # goes, never a claim that replaced it in the meantime.
         keepalive.cancel()
-        await drop_drain_marker(session_key, token)
+        # Past the stop, free the container rather than park it until the marker
+        # lapses. Before it, a claim would launch over the running emulator.
+        if stopping:
+            await drop_drain_marker(session_key, token)
+        else:
+            await restore_drained_session(session_key, token, session)
         if pull_mark is not None:
             await saves.clear_save_pull_pending(pull_mark)
-    return True
+    return stopping
 
 
 # How long a claim waits for stale sessions to be torn down before it gives up.
@@ -517,7 +555,7 @@ async def await_teardown_within_budget(
     this leaves behind blocks a claim until the teardown drops it.
     """
     task = background.spawn_sync_task(
-        _teardown_abandoned_session(
+        teardown_abandoned_session(
             container, session_key, session, claimed_by=claimed_by
         )
     )

@@ -69,6 +69,7 @@ from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.socket_handler import netplay_socket_handler, socket_handler
+from handler.streaming.session_store import start_restart_grace
 from logger.formatter import LOGGING_CONFIG
 from utils import get_version
 from utils.context import (
@@ -88,6 +89,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     async with initialize_context():
         app.state.aiohttp_session = ctx_aiohttp_session.get()
         app.state.httpx_client = ctx_httpx_client.get()
+        await start_restart_grace()
 
         # Relay backend log lines to admin Socket.IO clients in real time.
         log_forwarder_task: asyncio.Task[None] | None = None
