@@ -23,8 +23,8 @@ services:
     volumes:
       # Emulator configs, BIOS, save data, and the broker's export directory.
       - ./romm_mock/webstation:/config
-      # Activate rejects any rom path outside /romm, and config.yml's
-      # library_path has to name this mount.
+      # Activate rejects any rom path outside /romm. The dev backend runs on
+      # the host, so romm_mock's config.yml sets library_path to this mount.
       - ./romm_mock/library:/romm/library:ro
     ports:
       - "3010:3000" # HTTP, expects a reverse proxy in front
