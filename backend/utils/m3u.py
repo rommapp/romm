@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -45,55 +46,68 @@ def _disc_order(file: RomFile) -> tuple[bool, int, str]:
     return (number is None, number or 0, file.file_name)
 
 
-def first_playlist_entry(m3u_path: Path) -> Path | None:
-    """Resolve an .m3u playlist to the first disc file it lists.
+def _playlist_entries(m3u_path: Path) -> list[list[Path]] | None:
+    """Each disc line of a playlist as the paths it may name, or None when the
+    playlist can't be read.
 
-    Returns:
-        The first non-comment entry, relative to the playlist's folder unless
-        absolute, or None when the playlist can't be read or that entry isn't
-        a file on disk.
+    Paths are relative to the playlist's folder unless absolute. Playlists
+    written on Windows separate folders with backslashes, which a POSIX file
+    name may also contain, so the literal path comes first.
     """
     try:
         lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
     except OSError:
         return None
+    entries = []
     for line in lines:
         entry = line.strip()
         if not entry or entry.startswith("#"):
             continue
-        # Playlists written on Windows separate folders with backslashes, which
-        # a POSIX file name may also contain, so the literal path is tried first.
         candidates = [entry]
         if "\\" in entry:
             candidates.append(entry.replace("\\", "/"))
-        for candidate in candidates:
-            entry_path = Path(candidate)
-            if not entry_path.is_absolute():
-                entry_path = m3u_path.parent / entry_path
-            if entry_path.is_file():
-                return entry_path
+        entries.append(
+            [
+                path if path.is_absolute() else m3u_path.parent / path
+                for path in map(Path, candidates)
+            ]
+        )
+    return entries
+
+
+def first_playlist_entry(m3u_path: Path) -> Path | None:
+    """Resolve an .m3u playlist to the first disc file it lists.
+
+    Returns:
+        The first entry's path, or None when the playlist can't be read or that
+        entry isn't a file on disk.
+    """
+    entries = _playlist_entries(m3u_path)
+    if not entries:
         return None
-    return None
+    return next((path for path in entries[0] if path.is_file()), None)
 
 
 def listing_playlist(disc: Path) -> str | None:
     """The name of an .m3u beside a lone disc that lists it, which moving the
-    disc would break, or None."""
+    disc would break, or None. Names match ignoring case, as Windows-authored
+    playlists often differ in case from the files."""
+    target = os.path.normcase(os.path.normpath(disc)).casefold()
     try:
-        entries = list(disc.parent.iterdir())
+        playlists = [
+            entry
+            for entry in disc.parent.iterdir()
+            if entry.suffix.lower() == ".m3u" and entry.is_file()
+        ]
     except OSError:
         return None
-    for entry in entries:
-        if entry.suffix.lower() != ".m3u" or not entry.is_file():
-            continue
-        try:
-            lines = entry.read_text(encoding="utf-8-sig", errors="replace")
-        except OSError:
-            continue
-        for line in lines.splitlines():
-            listed = line.strip().replace("\\", "/").rsplit("/", 1)[-1]
-            if listed.casefold() == disc.name.casefold():
-                return entry.name
+    for playlist in playlists:
+        for candidates in _playlist_entries(playlist) or []:
+            if any(
+                os.path.normcase(os.path.normpath(path)).casefold() == target
+                for path in candidates
+            ):
+                return playlist.name
     return None
 
 
