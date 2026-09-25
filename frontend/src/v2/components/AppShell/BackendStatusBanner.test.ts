@@ -10,8 +10,16 @@ vi.mock("vue-i18n", () => ({
 }));
 
 const isOffline = ref(false);
+const isWebSocketDegraded = ref(false);
+const retryNow = vi.fn();
+const retryWebSocket = vi.fn();
+
 vi.mock("@/v2/composables/useServerConnection", () => ({
-  useServerConnection: () => ({ isOffline, retryNow: vi.fn() }),
+  useServerConnection: () => ({ isOffline, retryNow }),
+}));
+
+vi.mock("@/v2/composables/useSocketTransportHealth", () => ({
+  useSocketTransportHealth: () => ({ isWebSocketDegraded, retryWebSocket }),
 }));
 
 vi.mock("@v2/lib", () => ({
@@ -39,6 +47,9 @@ describe("BackendStatusBanner", () => {
     setActivePinia(createPinia());
     vi.useFakeTimers();
     isOffline.value = false;
+    isWebSocketDegraded.value = false;
+    retryNow.mockClear();
+    retryWebSocket.mockClear();
   });
 
   afterEach(() => {
@@ -51,6 +62,37 @@ describe("BackendStatusBanner", () => {
     await render();
 
     expect(banner().exists()).toBe(false);
+  });
+
+  it("shows the websocket message when HTTP is up but transport is degraded", async () => {
+    isWebSocketDegraded.value = true;
+
+    await render();
+
+    expect(banner().exists()).toBe(true);
+    expect(wrapper!.text()).toContain("common.websocket-unreachable-retrying");
+  });
+
+  it("prefers the offline message when both HTTP and websocket are down", async () => {
+    isOffline.value = true;
+    isWebSocketDegraded.value = true;
+
+    await render();
+
+    expect(wrapper!.text()).toContain("common.server-offline-retrying");
+    expect(wrapper!.text()).not.toContain(
+      "common.websocket-unreachable-retrying",
+    );
+  });
+
+  it("retries the websocket when the degraded banner retry is clicked", async () => {
+    isWebSocketDegraded.value = true;
+
+    await render();
+    await wrapper!.find(".r-backend-banner__retry").trigger("click");
+
+    expect(retryWebSocket).toHaveBeenCalledOnce();
+    expect(retryNow).not.toHaveBeenCalled();
   });
 
   it("offers the retry button outside a game", async () => {

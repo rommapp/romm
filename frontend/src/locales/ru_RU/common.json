@@ -194,6 +194,7 @@
   "virtual-collections": "Автосгенерированные коллекции",
   "visibility": "Видимость",
   "warning": "ВНИМАНИЕ:",
+  "websocket-unreachable-retrying": "Соединение WebSocket недоступно, повторная попытка…",
   "whats-new": "Что нового",
   "zoom-in": "Приблизить",
   "zoom-out": "Отдалить"
