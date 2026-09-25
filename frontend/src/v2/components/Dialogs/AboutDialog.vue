@@ -5,7 +5,7 @@
 import { RDialog, RIcon, RImg, RTooltip } from "@v2/lib";
 import { useResizeObserver } from "@vueuse/core";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 import { useVersionDisplay } from "@/v2/composables/useVersionDisplay";
@@ -63,16 +63,19 @@ const links = computed<Link[]>(() => [
 ]);
 
 // Which tiles cut their value off, and then show it in full. Measured whenever
-// the grid lays out, as RTooltip decides on the pointer's arrival.
+// the grid lays out or a value changes, as RTooltip decides on the pointer's arrival.
 const grid = ref<HTMLElement | null>(null);
 const truncated = ref<boolean[]>([]);
 
-useResizeObserver(grid, () => {
+function measure() {
   truncated.value = Array.from(
     grid.value?.querySelectorAll(".r-v2-about__value") ?? [],
     (value) => value.scrollWidth > value.clientWidth,
   );
-});
+}
+
+useResizeObserver(grid, measure);
+watch(() => links.value.map((link) => link.value), measure, { flush: "post" });
 </script>
 
 <template>

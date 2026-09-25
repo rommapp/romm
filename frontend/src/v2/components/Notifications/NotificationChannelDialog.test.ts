@@ -349,6 +349,39 @@ describe("NotificationChannelDialog", () => {
     wrapper.unmount();
   });
 
+  it("saves what a URL read during the save's wait fills in", async () => {
+    api.getAppriseServices.mockResolvedValue({ data: [discord()] });
+    let answer: (value: unknown) => void = () => {};
+    api.parseAppriseUrl.mockImplementation(
+      () => new Promise((resolve) => (answer = resolve)),
+    );
+    api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:discord");
+    await wrapper.findAll("input.r-text-field__input")[0].setValue("Alerts");
+    await textField(wrapper, "notifications.channel-service-url")?.setValue(
+      "https://discord.com/api/webhooks/1/t",
+    );
+    await save(wrapper);
+    // The field's own read comes due while the save waits on its read.
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    answer({
+      data: {
+        service: "discord",
+        fields: { webhook_id: "1", webhook_token: "t" },
+      },
+    });
+    await flushPromises();
+
+    expect(api.parseAppriseUrl).toHaveBeenCalledTimes(1);
+    expect(api.create.mock.calls[0][0].fields).toMatchObject({
+      webhook_id: "1",
+      webhook_token: "t",
+    });
+    wrapper.unmount();
+  });
+
   it("needs the URL of a service set up from one", async () => {
     api.getAppriseServices.mockResolvedValue({ data: [discord()] });
     const wrapper = await open(null, { admin: true });

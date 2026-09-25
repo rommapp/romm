@@ -4,6 +4,7 @@ import mitt from "mitt";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import AboutDialog from "./AboutDialog.vue";
 
@@ -38,13 +39,23 @@ async function open() {
   return wrapper;
 }
 
+function size(wrapper: Awaited<ReturnType<typeof open>>, content: number) {
+  const value = wrapper.find(".r-v2-about__value").element;
+  Object.defineProperty(value, "scrollWidth", {
+    value: content,
+    configurable: true,
+  });
+  Object.defineProperty(value, "clientWidth", {
+    value: 120,
+    configurable: true,
+  });
+}
+
 async function layOut(
   wrapper: Awaited<ReturnType<typeof open>>,
   content: number,
 ) {
-  const value = wrapper.find(".r-v2-about__value").element;
-  Object.defineProperty(value, "scrollWidth", { value: content });
-  Object.defineProperty(value, "clientWidth", { value: 120 });
+  size(wrapper, content);
   resize.layout();
   await nextTick();
 }
@@ -57,6 +68,25 @@ describe("AboutDialog", () => {
     const wrapper = await open();
 
     await layOut(wrapper, 480);
+
+    expect(wrapper.findComponent(RTooltip).props("disabled")).toBe(false);
+  });
+
+  it("measures a value that changes without the grid resizing", async () => {
+    const wrapper = await open();
+    await layOut(wrapper, 60);
+
+    size(wrapper, 480);
+    const heartbeat = storeHeartbeat();
+    heartbeat.value = {
+      ...heartbeat.value,
+      SYSTEM: {
+        ...heartbeat.value.SYSTEM,
+        VERSION: "development",
+        GIT_BRANCH: "claude/a-branch-name-too-long-for-its-tile",
+      },
+    };
+    await nextTick();
 
     expect(wrapper.findComponent(RTooltip).props("disabled")).toBe(false);
   });

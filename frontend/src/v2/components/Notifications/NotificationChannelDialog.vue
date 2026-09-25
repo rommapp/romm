@@ -163,11 +163,14 @@ function resetAppriseValues() {
 // A pasted URL, the service's own (a Discord webhook's) or an Apprise one, fills
 // the form in; only the latest paste counts.
 let pasteRequest = 0;
+// The read in flight, which the field and a save share rather than race.
+let reading: { url: string; done: Promise<void> } | null = null;
 const parsedUrl = ref("");
 const URL_LIKE = /^[a-z][\w+.-]*:\/\/\S+$/i;
 
 function clearPaste() {
   pasteRequest++;
+  reading = null;
   pastedUrl.value = "";
   parsedUrl.value = "";
   pasteError.value = null;
@@ -236,7 +239,12 @@ const pasteRules = computed(() =>
   nativeUrl.value && !editing.value ? [notBlank()] : [],
 );
 
-async function fillFromUrl(url: string) {
+function fillFromUrl(url: string): Promise<void> {
+  if (reading?.url !== url) reading = { url, done: readUrl(url) };
+  return reading.done;
+}
+
+async function readUrl(url: string) {
   const request = ++pasteRequest;
   filling.value = true;
   pasteError.value = null;
@@ -274,6 +282,8 @@ async function fillFromUrl(url: string) {
     parsedUrl.value = url;
   } catch (err) {
     if (request !== pasteRequest) return;
+    // A save tries it again.
+    reading = null;
     pasteError.value = errorMessage(
       err,
       t("notifications.channel-paste-failed"),
@@ -355,10 +365,11 @@ async function request() {
 }
 
 async function save() {
-  // A URL typed without a pause to read it is read now.
+  // A URL typed without a pause to read it is read now, and saved only once read.
   const pasted = pastedUrl.value.trim();
   if (service.value && pasted && pasted !== parsedUrl.value) {
     await fillFromUrl(pasted);
+    if (parsedUrl.value !== pasted) return;
   }
   const result = await formRef.value?.validate();
   if (!result?.valid || pasteError.value) return;
