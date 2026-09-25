@@ -1201,8 +1201,7 @@ async def scan_platforms(
     if not platform_fs_slugs:
         platform_fs_slugs = []
 
-    # A title-ids scan reads binaries and asks no provider anything, so the
-    # list is dropped here rather than trusted to arrive empty.
+    # A title-ids scan reads the binaries and asks no provider anything.
     if scan_type == ScanType.TITLE_IDS:
         metadata_sources = []
 
