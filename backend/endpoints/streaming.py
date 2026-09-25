@@ -851,6 +851,46 @@ async def claim_session(
     container = await _win_container(request, candidates, session, platform)
     session_key = container.key
 
+    # A save archive only carries the newest exit state, so an older native
+    # pick on an archive-resume container (DuckStation, RPCS3) needs importing.
+    older_exit_state = False
+    if (
+        resume_state is not None
+        and not resume_foreign
+        and container.resumes_from_archive
+    ):
+        newest_states = states.user_states_for_emulator(
+            request.user.id, rom.id, container.emulator
+        )
+        older_exit_state = not newest_states or newest_states[0].id != resume_state.id
+
+    # The pre-win checks asked the pool's reference; the won container's own
+    # import-spec is what decides, and one answer covers both picks.
+    spec = None
+    if resume_foreign or older_exit_state or save_foreign:
+        spec = await asyncio.to_thread(
+            webstation.import_spec, container, container.emulator, container.platform
+        )
+    if resume_foreign:
+        import_slot = spec.resume_slot() if spec is not None else None
+        if import_slot is None:
+            await lifecycle.abort_claim(session_key, session)
+            raise HTTPException(
+                status_code=400, detail="This container cannot resume the picked state"
+            )
+        resume_slot = import_slot
+    if save_foreign and (spec is None or not spec.accepts("save")):
+        await lifecycle.abort_claim(session_key, session)
+        raise HTTPException(
+            status_code=400, detail="This container cannot restore the picked save"
+        )
+    resume_via_import = (
+        (resume_foreign or older_exit_state)
+        and spec is not None
+        and spec.accepts("state")
+        and spec.state_channel == "archive"
+    )
+
     # The emulator containers mount the RomM library at the same path the
     # backend uses (LIBRARY_BASE_PATH, /romm/library by default), so the
     # backend-side path is valid inside the broker container too. If a
@@ -873,49 +913,6 @@ async def claim_session(
     memory_card, created_blank_card_id = await _settle_memory_card(
         request, container, session, memory_card, rom, probe
     )
-
-    # A foreign resume/save pick only got a best-effort pre-win check inside
-    # resolve_resume_state/resolve_save_archive; now that a container is
-    # actually won, this authoritative check decides whether either pick
-    # rides the import archive. One spec answers both, so a claim carrying
-    # both picks only pays for one broker round trip.
-    resume_via_import = False
-    needs_recheck = (resume_state is not None and resume_foreign) or (
-        picked_save is not None and save_foreign
-    )
-    spec = None
-    if needs_recheck:
-        spec = await asyncio.to_thread(
-            webstation.import_spec, container, container.emulator, container.platform
-        )
-
-    if resume_state is not None and resume_foreign and spec is not None:
-        resume_via_import = spec.state_channel == "archive"
-        if resume_via_import:
-            # A foreign filename never yields a slot, so the archive channel
-            # takes it from the spec instead of resolve_resume_state's guess.
-            resume_slot = spec.state_slot
-
-    # Same authoritative recheck for a foreign save pick: the won container
-    # may answer import-spec differently than the pre-win reference did.
-    if picked_save is not None and save_foreign:
-        save_foreign = spec is not None and spec.accepts("save")
-
-    # A native pick on an archive-resume container (DuckStation, RPCS3) still
-    # needs the import archive when it is not the newest capture: the save
-    # archive already carries the newest exit state, but an older one picked
-    # from the resume history is not in there and would otherwise be
-    # silently dropped in favor of that newest state.
-    if (
-        resume_state is not None
-        and not resume_foreign
-        and container.resumes_from_archive
-    ):
-        newest_states = states.user_states_for_emulator(
-            request.user.id, rom.id, container.emulator
-        )
-        if not newest_states or newest_states[0].id != resume_state.id:
-            resume_via_import = True
 
     # Push the resume state before launch so its file is in place when the
     # broker's deferred slot load fires. Best-effort: a failed push falls

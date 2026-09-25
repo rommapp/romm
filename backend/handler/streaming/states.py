@@ -120,9 +120,8 @@ def resolve_resume_state(
     from: the claiming user's own states plus other users' public ones.
     Raises 404 for anything invisible. A state this emulator wrote and can
     read its own slot from resolves as (state, slot, False). Anything else
-    is checked against the broker's own import-spec: a state_channel of
-    "archive" or "push" with a known state_slot resolves as (state, slot,
-    True); "none", or no import-spec at all, refuses with today's 400.
+    resolves as (state, spec slot, True) when the broker's import-spec takes
+    it as a resume, and is refused with 400 otherwise.
     """
     state = next(
         (
@@ -145,13 +144,9 @@ def resolve_resume_state(
             return state, slot, False
 
     spec = webstation.import_spec(container, emulator, container.platform)
-    if (
-        spec is not None
-        and spec.accepts("state")
-        and spec.state_channel != "none"
-        and spec.state_slot is not None
-    ):
-        return state, spec.state_slot, True
+    import_slot = spec.resume_slot() if spec is not None else None
+    if import_slot is not None:
+        return state, import_slot, True
 
     if not native:
         raise HTTPException(

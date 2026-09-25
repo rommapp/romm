@@ -297,38 +297,27 @@ const showManualDiscHint = computed(
 );
 
 // ── Resume-from-state picker ────────────────────────────────────────
-// States the container's emulator can resume from: the user's own plus
-// other users' public ones (that is what all_user_states carries), kept
-// to this emulator's namespace so EmulatorJS states stay out. The list
-// arrives newest-first from the backend.
+// The user's own states plus other users' public ones (that is what
+// all_user_states carries), newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// Only an archive carries a layout the broker can restore from. Re-sorted on
-// created_at because user_saves arrives on updated_at, which a rehash moves;
-// the rows are dated on created_at to match.
-const nativeRestorableSaves = computed<SaveSchema[]>(() => {
-  const emulator = emulatorKey(container.value?.emulator);
-  if (!rom.value || !emulator) return [];
-  return (rom.value.user_saves ?? [])
-    .filter(
-      (s) =>
-        emulatorKey(s.emulator) === emulator && s.file_name.endsWith(".zip"),
-    )
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
-        b.id - a.id,
-    );
-});
-
-// Every save regardless of which emulator wrote it, so the picker can offer
-// a foreign pick; the broker routes one through the declared-import path.
+// Every save, whichever emulator wrote it, newest capture first: created_at,
+// since the updated_at user_saves arrives on moves with a rehash.
 const pickableSaves = computed<SaveSchema[]>(() => {
   if (!rom.value) return [];
   return [...(rom.value.user_saves ?? [])].sort(
     (a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
       b.id - a.id,
+  );
+});
+
+// Only an archive this emulator wrote carries a layout it restores natively.
+const nativeRestorableSaves = computed<SaveSchema[]>(() => {
+  const emulator = emulatorKey(container.value?.emulator);
+  if (!emulator) return [];
+  return pickableSaves.value.filter(
+    (s) => emulatorKey(s.emulator) === emulator && s.file_name.endsWith(".zip"),
   );
 });
 

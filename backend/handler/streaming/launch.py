@@ -72,10 +72,13 @@ async def run_launch(
     phase_watch = asyncio.create_task(
         _watch_launch_phase(container, session_key, session, platform)
     )
-    # An exit-state broker resumes from the state its archive restores, so with
-    # no archive uploaded there is nothing of this player's to resume.
-    resume_on_activate = (resume_pushed or resume_after_launch) and not (
-        container.resumes_from_archive and archive_path is None
+    # Nothing of this player's to resume from: a pick that failed to ride its
+    # import archive, or an exit-state broker with no archive uploaded.
+    import_lost = resume_needs_import and not resume_via_import
+    resume_on_activate = (
+        (resume_pushed or resume_after_launch)
+        and not import_lost
+        and not (container.resumes_from_archive and archive_path is None)
     )
     try:
         # Wrapped in asyncio.to_thread because urllib is synchronous.
@@ -155,7 +158,7 @@ async def run_launch(
             # The activate's archive already handed this broker the whole
             # resume; there is no separate state file to push.
             resume_pushed = True
-        elif resume_needs_import:
+        elif import_lost:
             # The pick never made it into the archive (a failed read, an
             # upload that fell through), and this broker refuses a state
             # pushed in after activate, so there is no fallback delivery.

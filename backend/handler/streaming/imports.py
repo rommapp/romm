@@ -68,24 +68,35 @@ def _safe_name(name: str) -> str | None:
     return "/".join(parts)
 
 
-def _utf8_zipinfo(name: str) -> zipfile.ZipInfo:
-    info = zipfile.ZipInfo(name, date_time=time.localtime()[:6])
+def _utf8_zipinfo(name: str, source: zipfile.ZipInfo | None) -> zipfile.ZipInfo:
+    """A member header named `name`, keeping a copied entry's timestamp and mode."""
+    if source is None:
+        info = zipfile.ZipInfo(name, date_time=time.localtime()[:6])
+    else:
+        info = zipfile.ZipInfo(name, date_time=source.date_time)
+        info.external_attr = source.external_attr
     info.flag_bits |= 0x800  # UTF-8 filename flag
     info.compress_type = zipfile.ZIP_DEFLATED
     return info
 
 
-def _read_base_manifest(base_zf: zipfile.ZipFile) -> dict[str, Any] | None:
-    if _MANIFEST_NAME not in base_zf.namelist():
-        return None
+def _manifest_files(zf: zipfile.ZipFile) -> dict[str, dict[str, Any]]:
+    """A broker archive's manifest entries by path, empty when it has none."""
+    if _MANIFEST_NAME not in zf.namelist():
+        return {}
     try:
-        manifest = json.loads(base_zf.read(_MANIFEST_NAME))
+        manifest = json.loads(zf.read(_MANIFEST_NAME))
     except (json.JSONDecodeError, KeyError, UnicodeDecodeError):
-        return None
-    return manifest if isinstance(manifest, dict) else None
+        return {}
+    files = manifest.get("files") if isinstance(manifest, dict) else None
+    return {
+        f["path"]: f
+        for f in (files if isinstance(files, list) else [])
+        if isinstance(f, dict) and isinstance(f.get("path"), str)
+    }
 
 
-_Staged = dict[str, tuple[bytes, dict[str, Any]]]
+_Staged = dict[str, tuple[bytes, dict[str, Any], zipfile.ZipInfo | None]]
 
 
 @dataclass
@@ -114,17 +125,28 @@ def _write_member(
     resolves duplicate entries."""
     if zipfile.is_zipfile(io.BytesIO(member.content)):
         with zipfile.ZipFile(io.BytesIO(member.content)) as inner:
+            inner_files = _manifest_files(inner)
             for info in inner.infolist():
                 if info.is_dir():
                     continue
                 name = _safe_name(info.filename)
                 if name is None:
                     continue
+                # Another emulator's save archive also carries its exit state,
+                # which a save pick must not bring along.
+                inner_entry = inner_files.get(info.filename) or inner_files.get(name)
+                if (
+                    member.kind == "save"
+                    and inner_entry is not None
+                    and inner_entry.get("kind") == "state"
+                ):
+                    continue
                 budget.charge(info.file_size)
                 path = f".import/{member.kind}/{name}"
                 staged[path] = (
-                    inner.read(info.filename),
+                    inner.read(info),
                     {"path": path, "kind": member.kind, "origin": member.origin},
+                    info,
                 )
         return
     budget.charge(len(member.content))
@@ -133,6 +155,7 @@ def _write_member(
     staged[path] = (
         member.content,
         {"path": path, "kind": member.kind, "origin": member.origin},
+        None,
     )
 
 
@@ -169,12 +192,7 @@ def build_import_archive(
             base_zf_handle = None
         if base_zf_handle is not None:
             with base_zf_handle as base_zf:
-                base_manifest = _read_base_manifest(base_zf)
-                base_files = {
-                    f["path"]: f
-                    for f in (base_manifest or {}).get("files", [])
-                    if isinstance(f, dict) and isinstance(f.get("path"), str)
-                }
+                base_files = _manifest_files(base_zf)
                 for info in base_zf.infolist():
                     if info.is_dir() or info.filename == _MANIFEST_NAME:
                         continue
@@ -190,17 +208,18 @@ def build_import_archive(
                         continue
                     budget.charge(info.file_size)
                     staged[name] = (
-                        base_zf.read(info.filename),
+                        base_zf.read(info),
                         entry if entry is not None else {"path": name, "kind": "save"},
+                        info,
                     )
     for member in members:
         _write_member(member, staged, budget)
 
-    carried = [entry for _content, entry in staged.values()]
+    carried = [entry for _content, entry, _source in staged.values()]
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
-        for path, (content, _entry) in staged.items():
-            zf.writestr(_utf8_zipinfo(path), content)
+        for path, (content, _entry, source) in staged.items():
+            zf.writestr(_utf8_zipinfo(path, source), content)
         zf.writestr(
             _MANIFEST_NAME,
             json.dumps(

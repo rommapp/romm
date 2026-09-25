@@ -21,6 +21,7 @@ RomM can only come back for it once the teardown has answered. What is still
 missing here is volume, mute and whole-card sync.
 """
 
+import http.client
 import urllib.error
 from dataclasses import dataclass
 from typing import Any
@@ -52,6 +53,12 @@ class ImportSpec:
 
     def accepts(self, kind: str) -> bool:
         return any(k.kind == kind for k in self.kinds)
+
+    def resume_slot(self) -> int | None:
+        """The slot an imported state resumes through, or None when it cannot."""
+        if self.accepts("state") and self.state_channel != "none":
+            return self.state_slot
+        return None
 
 
 # Keyed on (container.key, emulator, platform), so one broker's answer
@@ -107,6 +114,8 @@ def import_spec(
     (emulator, platform), or None when nothing will (no imports at all, an
     unrecognized pair, or the check itself could not be answered right now).
     """
+    if not container.is_webstation:
+        return None
     cache_key = (container.key, emulator, platform)
     if cache_key in _import_spec_cache:
         return _import_spec_cache[cache_key]
@@ -114,9 +123,7 @@ def import_spec(
         f"/import-spec?emulator={quote(emulator, safe='')}&platform={quote(platform, safe='')}"
     )
     try:
-        resp = broker.request(
-            container, path, method="GET", timeout=STREAMING_SAVE_TIMEOUT
-        )
+        resp = broker.request(container, path, method="GET", timeout=ACK_TIMEOUT)
     except urllib.error.HTTPError as exc:
         code = exc.code
         exc.close()
@@ -125,7 +132,7 @@ def import_spec(
             return None
         log.warning("import-spec check failed with HTTP %d, treating as unknown", code)
         return None
-    except (urllib.error.URLError, OSError):
+    except (urllib.error.URLError, OSError, http.client.HTTPException):
         log.warning("import-spec check unreachable, treating as unknown")
         return None
     except ValueError as exc:

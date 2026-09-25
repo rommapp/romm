@@ -58,7 +58,7 @@
   "full-screen": "Pełny ekran",
   "hide-older-versions": "Ukryj starsze wersje",
   "https-required": "Musi być uruchomione przez HTTPS. Skontaktuj się z właścicielem strony.",
-  "import-refusals-truncated": "{count} problem nie został pokazany | {count} problemy nie zostały pokazane | {count} problemów nie zostało pokazanych",
+  "import-refusals-truncated": "Nie pokazano kolejnych problemów: {count} | {count} kolejny problem nie został pokazany | Nie pokazano kolejnych problemów: {count}",
   "join-closed": "Ta sesja nie jest już otwarta dla innych graczy.",
   "join-ended": "Ta sesja się zakończyła.",
   "jsdos-browser-save-warning": "Zapisy js-dos są przechowywane tylko w tej przeglądarce i nie są synchronizowane z RomM.",
