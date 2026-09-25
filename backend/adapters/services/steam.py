@@ -139,7 +139,12 @@ class SteamService:
             query["filters"] = filters
         url = self.url.joinpath("appdetails").with_query(query)
         response = await self._request(str(url))
-        envelope = cast(SteamAppDetailsEnvelope | None, response.get(str(app_id)))
+        envelope = response.get(str(app_id))
+        # Steam sometimes keys the envelope by another ID (e.g. one of the
+        # app's DLC), but only one app was requested.
+        if envelope is None and len(response) == 1:
+            envelope = next(iter(response.values()))
+        envelope = cast(SteamAppDetailsEnvelope | None, envelope)
         if not envelope or not envelope.get("success"):
             return None
 
