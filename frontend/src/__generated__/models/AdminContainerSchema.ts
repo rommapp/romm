@@ -5,6 +5,7 @@
 import type { ContainerSessionSchema } from './ContainerSessionSchema';
 export type AdminContainerSchema = {
     container: string;
+    name?: string;
     label?: (string | null);
     host: string;
     platforms: Array<string>;
