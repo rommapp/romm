@@ -3469,6 +3469,37 @@ class TestSlotScopedDedupeMatrix:
         assert sync.last_sync_hash == "retry_hash"
         assert sync.last_sync_server_hash == first.json()["content_hash"]
 
+    def test_a_deduplicated_upload_of_a_pruned_version_records_no_sync(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        device: Device,
+        _isolated_assets_dir,
+    ):
+        """A retained slot can prune the matched older version before recording."""
+        old_payload = _build_fixture_a_zip()
+
+        def upload(payload: bytes, filename: str, extra: str = ""):
+            return client.post(
+                f"/api/saves?rom_id={rom.id}&slot=slot1&emulator=test_emulator"
+                f"&device_id={device.id}&content_hash=client_hash{extra}",
+                files={
+                    "saveFile": (filename, BytesIO(payload), "application/octet-stream")
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        old = upload(old_payload, "old.sav")
+        new = upload(b"a newer save", "new.sav")
+        assert new.status_code == status.HTTP_200_OK
+
+        retry = upload(old_payload, "old.sav", "&autocleanup=true&autocleanup_limit=1")
+
+        assert retry.status_code == status.HTTP_200_OK
+        assert db_save_handler.get_save_by_id(old.json()["id"]) is None
+        assert db_device_save_sync_handler.get_sync(device.id, old.json()["id"]) is None
+
     def test_same_bytes_different_slots_creates_distinct_records(
         self,
         client,

@@ -337,7 +337,10 @@ async def add_save(
             # A retry still counts as an upload to the slot, so the cap applies.
             if keep is not None:
                 await _prune_slot(request.user.id, rom.id, slot, keep)
-            if device:
+            # Pruning can drop the matched version when it is not among the newest.
+            if device and db_save_handler.get_save(
+                user_id=request.user.id, id=existing_by_hash.id
+            ):
                 _record_device_sync(
                     device.id, existing_by_hash, request.user.id, content_hash
                 )
