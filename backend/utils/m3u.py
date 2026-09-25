@@ -76,6 +76,27 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
     return None
 
 
+def listing_playlist(disc: Path) -> str | None:
+    """The name of an .m3u beside a lone disc that lists it, which moving the
+    disc would break, or None."""
+    try:
+        entries = list(disc.parent.iterdir())
+    except OSError:
+        return None
+    for entry in entries:
+        if entry.suffix.lower() != ".m3u" or not entry.is_file():
+            continue
+        try:
+            lines = entry.read_text(encoding="utf-8-sig", errors="replace")
+        except OSError:
+            continue
+        for line in lines.splitlines():
+            listed = line.strip().replace("\\", "/").rsplit("/", 1)[-1]
+            if listed.casefold() == disc.name.casefold():
+                return entry.name
+    return None
+
+
 def playlist_files(files: list[RomFile]) -> list[RomFile]:
     """The files of a multi-file ROM that name a playable disc.
 

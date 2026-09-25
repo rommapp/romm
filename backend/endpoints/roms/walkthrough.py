@@ -18,7 +18,7 @@ from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.rom_conversion import promote_single_file_to_folder
-from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS
+from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS, assert_promotable
 from handler.walkthrough import fetch_gamefaqs_guide, validate_gamefaqs_url
 from handler.walkthrough.gamefaqs import GameFAQsFetchError
 from logger.formatter import BLUE
@@ -128,6 +128,8 @@ async def add_rom_gamefaqs_walkthrough(
     url = (body.get("url") or "").strip()
     try:
         validate_gamefaqs_url(url)
+        if rom.has_simple_single_file:
+            assert_promotable(rom)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
