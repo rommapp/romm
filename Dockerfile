@@ -78,6 +78,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libmagic-dev \
     7zip \
+    flac \
     libarchive-tools \
     tzdata \
     libbz2-dev \
@@ -155,6 +156,21 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git /tm
     && mkdir -p "${SITE_PACKAGES}/sigil" \
     && cp ./sigil/*.py ./sigil/_sigil.*.so "${SITE_PACKAGES}/sigil/" \
     && rm -rf /tmp/argosy-sigil
+
+# Build and install libchdr (optional, for CD audio in CHD images).
+# Keep the pins in sync with docker/Dockerfile.
+ARG LIBCHDR_COMMIT=8e7b8bd32bc676b7e5c6b42fe7d2daca986c4a0d
+ARG LIBCHDR_SHA256=04d6c61946c95addb78f4554740283b93249b81d8437e3d8a58ca1899c824dcc
+ADD --checksum=sha256:${LIBCHDR_SHA256} \
+    "https://github.com/rtissera/libchdr/archive/${LIBCHDR_COMMIT}.tar.gz" \
+    /tmp/libchdr.tar.gz
+RUN mkdir /tmp/libchdr \
+    && tar -xzf /tmp/libchdr.tar.gz -C /tmp/libchdr --strip-components=1 \
+    && cmake -S /tmp/libchdr -B /tmp/libchdr/build -DCMAKE_BUILD_TYPE=Release -DCHDR_WANT_TESTS=OFF \
+    && cmake --build /tmp/libchdr/build --target chdr \
+    && cp -P /tmp/libchdr/build/libchdr.so* /usr/local/lib/ \
+    && ldconfig \
+    && rm -rf /tmp/libchdr /tmp/libchdr.tar.gz
 WORKDIR /app
 
 # Kept outside /app/frontend because the ./frontend bind mount hides it;

@@ -49,6 +49,18 @@ class RomAlreadyExistsException(Exception):
         return self.message
 
 
+class RomListedByPlaylistException(Exception):
+    def __init__(self, playlist: str):
+        self.message = (
+            f"{playlist} lists this disc, so moving it into a folder would break "
+            "the playlist. Move the set into a folder of its own first"
+        )
+        super().__init__(self.message)
+
+    def __repr__(self):
+        return self.message
+
+
 class FirmwareNotFoundException(Exception):
     def __init__(self, platform: str):
         self.message = f"Firmware not found for platform {hl(platform, color=BLUE)}. {FOLDER_STRUCT_MSG }"

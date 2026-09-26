@@ -160,7 +160,8 @@ async def prepare_upload_destination(
     create the target directory.
 
     Raises the same as `resolve_upload_destination`, plus
-    RomAlreadyExistsException when the promotion collides with a folder.
+    RomAlreadyExistsException when the promotion collides with a folder and
+    RomListedByPlaylistException when a playlist lists the lone file.
     """
     rel_dir, location = resolve_upload_destination(
         rom, folder, filename, overwrite=overwrite
@@ -188,7 +189,8 @@ def claim_destination(location: Path) -> None:
         raise UploadConflictException(f"File {location.name} already exists") from exc
 
 
-def _move_into_place(location: Path, staged: Path, *, overwrite: bool) -> None:
+def move_into_place(location: Path, staged: Path, *, overwrite: bool) -> None:
+    """Rename staged bytes onto the destination, removing the stage on failure."""
     claimed = False
     try:
         if not overwrite:
@@ -218,7 +220,7 @@ async def commit_upload(
         UploadNotRegisteredException: The file is in place but the ROM's rows
             could not be refreshed.
     """
-    _move_into_place(destination.location, staged, overwrite=overwrite)
+    move_into_place(destination.location, staged, overwrite=overwrite)
     log.info(f"Upload complete: {destination.location}")
 
     rom = destination.rom

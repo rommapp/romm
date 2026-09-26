@@ -4,8 +4,94 @@ from utils.m3u import (
     disc_number,
     first_playlist_entry,
     generate_m3u_content,
+    listing_playlist,
     playlist_files,
 )
+
+
+class TestListingPlaylist:
+    def test_names_the_playlist_listing_the_disc(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "Game.m3u").write_text("Game (Disc 1).chd\nGame (Disc 2).chd\n")
+
+        assert listing_playlist(disc) == "Game.m3u"
+
+    def test_matches_backslashed_entries_ignoring_case(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "GAME.M3U").write_bytes(b"\xef\xbb\xbf.\\GAME (DISC 1).CHD\r\n")
+
+        assert listing_playlist(disc) == "GAME.M3U"
+
+    def test_none_when_no_playlist_lists_the_disc(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "Other.m3u").write_text("Other (Disc 1).chd\n")
+        (tmp_path / "notes.txt").write_text("Game (Disc 1).chd\n")
+
+        assert listing_playlist(disc) is None
+
+    def test_none_when_the_playlist_lists_a_namesake_in_another_folder(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "Other.m3u").write_text(
+            "Other Set/Game (Disc 1).chd\nOther Set\\Game (Disc 1).chd\n"
+        )
+
+        assert listing_playlist(disc) is None
+
+    def test_matches_a_literal_backslash_in_the_file_name(self, tmp_path):
+        disc = tmp_path / "Game\\Disc 1.chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "Game.m3u").write_text("Game\\Disc 1.chd\n")
+
+        assert listing_playlist(disc) == "Game.m3u"
+
+    def test_matches_an_entry_through_a_symlinked_folder(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "link").symlink_to(tmp_path)
+        (tmp_path / "Game.m3u").write_text("link/Game (Disc 1).chd\n")
+
+        assert listing_playlist(disc) == "Game.m3u"
+
+    def test_none_when_the_literal_backslash_file_is_the_one_listed(self, tmp_path):
+        (tmp_path / ".\\Disc 1.chd").write_bytes(b"x")
+        disc = tmp_path / "Disc 1.chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "Game.m3u").write_text(".\\Disc 1.chd\n")
+
+        assert listing_playlist(disc) is None
+
+    def test_none_when_the_playlist_names_a_symlinked_discs_target(self, tmp_path):
+        target = tmp_path / "store" / "Game (Disc 1).chd"
+        target.parent.mkdir()
+        target.write_bytes(b"x")
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.symlink_to(target)
+        (tmp_path / "Game.m3u").write_text("store/Game (Disc 1).chd\n")
+
+        assert listing_playlist(disc) is None
+
+    def test_tolerates_an_entry_through_a_symlink_loop(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "a").symlink_to(tmp_path / "b")
+        (tmp_path / "b").symlink_to(tmp_path / "a")
+        (tmp_path / "Other.m3u").write_text("a/Other.chd\n")
+
+        assert listing_playlist(disc) is None
+
+    def test_ignores_comment_lines(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "Game.m3u").write_text("#Game (Disc 1).chd\n")
+
+        assert listing_playlist(disc) is None
+
+    def test_none_when_the_folder_is_missing(self, tmp_path):
+        assert listing_playlist(tmp_path / "gone" / "disc.chd") is None
 
 
 class TestFirstPlaylistEntry:

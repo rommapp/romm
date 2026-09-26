@@ -1,3 +1,4 @@
+import asyncio
 import json
 import shutil
 from pathlib import Path
@@ -16,13 +17,17 @@ from streaming_form_data.targets import FileTarget, NullTarget
 from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from exceptions.fs_exceptions import RomAlreadyExistsException
+from exceptions.fs_exceptions import (
+    RomAlreadyExistsException,
+    RomListedByPlaylistException,
+)
 from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import async_cache
+from handler.rom_conversion import assert_promotable
 from handler.rom_upload import (
     UploadConflictException,
     UploadDestination,
@@ -139,7 +144,7 @@ async def _prepare_rom_destination(
         return await prepare_upload_destination(
             rom, folder, filename, overwrite=overwrite
         )
-    except UploadRejectedException as exc:
+    except (UploadRejectedException, RomListedByPlaylistException) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
@@ -345,7 +350,9 @@ async def start_chunked_upload(
             resolve_upload_destination(
                 rom, rel_folder, safe_filename, overwrite=overwrite
             )
-        except UploadRejectedException as exc:
+            # Refused before any bytes arrive, though promotion checks it again.
+            await asyncio.to_thread(assert_promotable, rom)
+        except (UploadRejectedException, RomListedByPlaylistException) as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
             ) from exc
