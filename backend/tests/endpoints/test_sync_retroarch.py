@@ -1,5 +1,6 @@
 import hashlib
 from collections.abc import Sequence
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -15,7 +16,7 @@ from handler.database import (
     db_screenshot_handler,
     db_state_handler,
 )
-from handler.filesystem import fs_asset_handler
+from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.redis_handler import async_cache
 from handler.sync.retroarch import psp, sync_handler
@@ -58,6 +59,18 @@ def _retroarch_upload_cap(client: TestClient, max_size: int):
             return mock.patch.object(layer, "max_size", max_size)
         layer = getattr(layer, "app", None)
     raise AssertionError("No upload size limit guards /api/sync/retroarch")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_sync_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Keep blobs and pending PSP files per test, since user ids repeat across test databases."""
+    for handler, name in (
+        (fs_retroarch_sync_handler, "retroarch_sync"),
+        (psp.fs_psp_pending_handler, "psp_pending"),
+    ):
+        base = (tmp_path / name).resolve()
+        base.mkdir()
+        monkeypatch.setattr(handler, "base_path", base)
 
 
 @pytest.fixture
