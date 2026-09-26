@@ -6,6 +6,7 @@ from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy import SQLColumnExpression
+from sqlalchemy.dialects import mysql as sa_mysql
 from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import ClauseElement, ColumnElement, func
@@ -13,12 +14,14 @@ from sqlalchemy.sql.compiler import DDLCompiler, SQLCompiler
 from sqlalchemy.sql.ddl import ExecutableDDLElement
 from sqlalchemy.sql.elements import ClauseList
 from sqlalchemy.sql.operators import OperatorType, comma_op
-from sqlalchemy.sql.selectable import FromClause
+from sqlalchemy.sql.selectable import FromClause, Select
 from sqlalchemy.sql.visitors import InternalTraversal
 
 # A JSON column holding an array: `Mapped[list[str] | None]`, `Mapped[set[int]]`...
 type JsonArrayColumn = SQLColumnExpression[Collection[Any] | None]
 type JsonArrayValues = Sequence[str] | Sequence[int]
+
+_MYSQL_FAMILY = ("mysql", "mariadb")
 
 
 def _compiles_on_mysql_family[F: Callable[..., str]](
@@ -27,7 +30,9 @@ def _compiles_on_mysql_family[F: Callable[..., str]](
     """Register a compiler for MySQL and MariaDB; `"mysql"` alone misses MariaDB."""
 
     def decorate(fn: F) -> F:
-        return compiles(construct, "mariadb")(compiles(construct, "mysql")(fn))
+        for dialect_name in _MYSQL_FAMILY:
+            fn = compiles(construct, dialect_name)(fn)
+        return fn
 
     return decorate
 
@@ -93,6 +98,21 @@ def nulls_last[T](sort_key: SQLColumnExpression[T], descending: bool) -> Dialect
         postgresql=directed.nulls_last(),
         mysql=directed if descending else ClauseList(sort_key.is_(None), directed),
     )
+
+
+def force_index_on_mysql[S: Select[Any]](
+    statement: S, table: FromClause | type[Any], index_name: str
+) -> S:
+    """Make MySQL and MariaDB read `table` through `index_name`; PostgreSQL plans freely."""
+    hint = f"FORCE INDEX ({index_name})"
+    for dialect_name in _MYSQL_FAMILY:
+        statement = statement.with_hint(table, hint, dialect_name)
+    return statement
+
+
+def fulltext_match(*columns: ColumnElement[Any], boolean_query: str) -> sa_mysql.match:
+    """A boolean-mode match over one FULLTEXT index's columns, for a `mysql` branch."""
+    return sa_mysql.match(*columns, against=boolean_query).in_boolean_mode()
 
 
 def _jsonb(column: JsonArrayColumn) -> ColumnElement[Any]:

@@ -10,6 +10,7 @@ from decorators.database import begin_session
 from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
 from models.base import with_file_name_parts
 from models.rom import Rom
+from utils.sql_dialect import force_index_on_mysql
 
 from .base_handler import DBBaseHandler, affected_rows
 from .deleted_assets_handler import DBDeletedAssetsHandler
@@ -402,11 +403,10 @@ class DBSavesHandler(DBBaseHandler):
         _lock_slot(user_id, rom_id, slot, session)
         # Locks only this slot's rows and takes no snapshot, which MariaDB's
         # snapshot isolation would fail the delete against.
-        hint = f"FORCE INDEX ({SAVE_SLOT_VERSIONS_INDEX})"
         rows = session.execute(
-            past_keep.with_hint(Save, hint, "mariadb")
-            .with_hint(Save, hint, "mysql")
-            .with_for_update()
+            force_index_on_mysql(
+                past_keep, Save, SAVE_SLOT_VERSIONS_INDEX
+            ).with_for_update()
         ).all()
         fallback_hashes = fallback_hashes or {}
         unhashed = [
