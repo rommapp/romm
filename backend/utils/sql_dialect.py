@@ -1,17 +1,20 @@
-"""SQL constructs that each engine renders in its own spelling.
+"""SQL that each engine renders in its own spelling.
 
 Query code builds these like any other expression and never branches on the
-driver; the per-dialect SQL lives in the `@compiles` functions below.
+driver; the per-dialect choice happens when the statement is compiled.
 """
 
-from collections.abc import Callable
+import json
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.sql import ColumnElement, coercions, roles
+from sqlalchemy.sql import ClauseElement, ColumnElement, func
 from sqlalchemy.sql.compiler import DDLCompiler, SQLCompiler
 from sqlalchemy.sql.ddl import ExecutableDDLElement
+from sqlalchemy.sql.elements import ClauseList
 from sqlalchemy.sql.visitors import InternalTraversal
 
 
@@ -28,39 +31,118 @@ def _compiles_on_mysql_family(construct: type) -> Callable[[Callable], Callable]
     return decorate
 
 
-class NullsLast(ColumnElement[Any]):
-    """An ORDER BY term that sorts NULL values of `sort_key` after every other value."""
+class DialectCase(ColumnElement[Any]):
+    """`mysql` on MySQL and MariaDB, `postgresql` on every other engine.
+
+    Both branches are built up front so their bind parameters are part of the
+    statement's cache key.
+    """
 
     inherit_cache = True
     _traverse_internals = [
-        ("sort_key", InternalTraversal.dp_clauseelement),
-        ("descending", InternalTraversal.dp_boolean),
+        ("postgresql", InternalTraversal.dp_clauseelement),
+        ("mysql", InternalTraversal.dp_clauseelement),
     ]
 
-    def __init__(self, sort_key: Any, descending: bool) -> None:
-        self.sort_key = coercions.expect(roles.ExpressionElementRole, sort_key)
-        self.descending = descending
+    def __init__(self, *, postgresql: ClauseElement, mysql: ClauseElement) -> None:
+        self.postgresql = postgresql
+        self.mysql = mysql
+        self.type = getattr(postgresql, "type", sa.types.NULLTYPE)
 
-    def _directed(self) -> sa.UnaryExpression[Any]:
-        return self.sort_key.desc() if self.descending else self.sort_key.asc()
+    # Group and negate each branch on its own terms, so `NOT` or `AND` around
+    # an `OR` branch keeps its precedence.
+    def self_group(self, against: Any = None) -> ColumnElement[Any]:
+        return DialectCase(
+            postgresql=self.postgresql.self_group(against=against),
+            mysql=self.mysql.self_group(against=against),
+        )
+
+    def _negate(self) -> ColumnElement[Any]:
+        return DialectCase(
+            postgresql=self.postgresql._negate(), mysql=self.mysql._negate()
+        )
 
 
-@compiles(NullsLast)
-def _nulls_last_default(element: NullsLast, compiler: SQLCompiler, **kw: Any) -> str:
-    # PostgreSQL's `idx_roms_<column>_desc` indexes are declared with exactly
-    # this spelling, so the descending sort reads out of them.
-    return compiler.process(element._directed().nulls_last(), **kw)
+@compiles(DialectCase)
+def _dialect_case_default(
+    element: DialectCase, compiler: SQLCompiler, **kw: Any
+) -> str:
+    return compiler.process(element.postgresql, **kw)
 
 
-@_compiles_on_mysql_family(NullsLast)
-def _nulls_last_mysql(element: NullsLast, compiler: SQLCompiler, **kw: Any) -> str:
-    # No NULLS LAST syntax. DESC already puts NULLs last; ASC needs the
-    # `IS NULL` term leading.
-    if element.descending:
-        return compiler.process(element._directed(), **kw)
-    return (
-        f"{compiler.process(element.sort_key.is_(None), **kw)}, "
-        f"{compiler.process(element._directed(), **kw)}"
+@_compiles_on_mysql_family(DialectCase)
+def _dialect_case_mysql(element: DialectCase, compiler: SQLCompiler, **kw: Any) -> str:
+    return compiler.process(element.mysql, **kw)
+
+
+def nulls_last(sort_key: Any, descending: bool) -> DialectCase:
+    """An ORDER BY term that sorts NULL values of `sort_key` after every other value."""
+    directed = sort_key.desc() if descending else sort_key.asc()
+    # MySQL and MariaDB have no NULLS LAST. DESC already puts NULLs last there;
+    # ASC needs the `IS NULL` term leading.
+    return DialectCase(
+        # PostgreSQL's `idx_roms_<column>_desc` indexes are declared with exactly
+        # this spelling, so the descending sort reads out of them.
+        postgresql=directed.nulls_last(),
+        mysql=directed if descending else ClauseList(sort_key.is_(None), directed),
+    )
+
+
+def _jsonb(column: Any) -> Any:
+    return sa.type_coerce(column, sa_pg.JSONB)
+
+
+def _jsonb_contains(column: Any, value: Any) -> ColumnElement[bool]:
+    return _jsonb(column).contains(
+        func.cast(sa.literal(value, sa_pg.JSONB), sa_pg.JSONB)
+    )
+
+
+def json_array_contains_value(column: Any, value: str | int) -> ColumnElement[bool]:
+    """Check if a JSON array column contains the given value."""
+    return DialectCase(
+        # `?` only matches strings; `@>` handles every other JSON type.
+        postgresql=(
+            _jsonb(column).has_key(value)
+            if isinstance(value, str)
+            else _jsonb_contains(column, value)
+        ),
+        # JSON_CONTAINS takes JSON text, even for a number.
+        mysql=func.json_contains(column, json.dumps(value)),
+    )
+
+
+def json_array_contains_any(
+    column: Any, values: Sequence[str] | Sequence[int]
+) -> ColumnElement[bool]:
+    """Check if a JSON array column contains any of the given values."""
+    if not values:
+        return sa.false()
+    if len(values) == 1:
+        return json_array_contains_value(column, values[0])
+
+    return DialectCase(
+        postgresql=(
+            _jsonb(column).has_any(sa.type_coerce(values, sa_pg.ARRAY(sa_pg.TEXT)))
+            if isinstance(values[0], str)
+            else sa.or_(*(_jsonb_contains(column, v) for v in values))
+        ),
+        mysql=func.json_overlaps(column, json.dumps(values)),
+    )
+
+
+def json_array_contains_all(column: Any, values: Sequence[Any]) -> ColumnElement[bool]:
+    """Check if a JSON array column contains all of the given values."""
+    if not values:
+        return sa.false()
+
+    return DialectCase(
+        postgresql=(
+            _jsonb(column).has_all(sa.type_coerce(values, sa_pg.ARRAY(sa_pg.TEXT)))
+            if isinstance(values[0], str)
+            else sa.and_(*(_jsonb_contains(column, v) for v in values))
+        ),
+        mysql=func.json_contains(column, json.dumps(values)),
     )
 
 

@@ -48,10 +48,9 @@ from sqlalchemy.orm import (
     selectinload,
     undefer,
 )
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ClauseList, ColumnElement
 from sqlalchemy.sql.selectable import Select
 
-from config import ROMM_DB_DRIVER
 from config.config_manager import config_manager as cm
 from decorators.database import begin_session
 from handler.database.rom_filters import (
@@ -94,14 +93,18 @@ from utils.database import (
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
     escape_like,
-    json_array_contains_all,
-    json_array_contains_any,
-    json_array_contains_value,
     release_day_ranges,
     rom_unset_flag_column,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
-from utils.sql_dialect import Analyze, NullsLast
+from utils.sql_dialect import (
+    Analyze,
+    DialectCase,
+    json_array_contains_all,
+    json_array_contains_any,
+    json_array_contains_value,
+    nulls_last,
+)
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -224,7 +227,7 @@ def _nulls_last_ordering(
         flag = ROM_UNSET_SORT_FLAGS.get(getattr(sort_key, "key", ""))
         if flag is not None:
             return flag, sort_key.asc()
-    return None, NullsLast(sort_key, descending)
+    return None, nulls_last(sort_key, descending)
 
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
@@ -1059,36 +1062,33 @@ class DBRomsHandler(DBBaseHandler):
         return " ".join(parts) if parts else None
 
     def _build_name_conditions(self, terms: Sequence[str]) -> list[Any]:
-        """Match the term against the ROM's name and filename."""
-        if ROMM_DB_DRIVER in ("mariadb", "mysql"):
-            match_clauses: list[Any] = []
-            for idx, term in enumerate(terms):
-                boolean_query = self._build_fulltext_boolean_query(term)
-                if boolean_query is None:
-                    match_clauses = []
-                    break
-
-                digest = hashlib.blake2s(term.encode(), digest_size=4).hexdigest()
-                param = f"fulltext_search_{digest}_{idx}"
-                match_clauses.append(
-                    text(
-                        f"MATCH(roms.name, roms.fs_name) "
-                        f"AGAINST(:{param} IN BOOLEAN MODE)"
-                    ).bindparams(**{param: boolean_query})
+        """One condition per term, matching it against the ROM's name and filename."""
+        # PostgreSQL's pg_trgm indexes serve the ILIKE; MariaDB and MySQL use
+        # their FULLTEXT index unless a word is too short for it.
+        like_conditions = [
+            and_(
+                *(
+                    or_(Rom.fs_name.ilike(f"%{word}%"), Rom.name.ilike(f"%{word}%"))
+                    for word in term.split()
                 )
-            if match_clauses:
-                return match_clauses
+            )
+            for term in terms
+        ]
+        boolean_queries = [self._build_fulltext_boolean_query(term) for term in terms]
+        if None in boolean_queries:
+            return like_conditions
 
-        # psql and full-text fallback
-        term_conditions = []
-        for term in terms:
-            word_conditions = [
-                or_(Rom.fs_name.ilike(f"%{word}%"), Rom.name.ilike(f"%{word}%"))
-                for word in term.split()
-            ]
-            if word_conditions:
-                term_conditions.append(and_(*word_conditions))
-        return term_conditions
+        conditions: list[Any] = []
+        for idx, (term, boolean_query, like) in enumerate(
+            zip(terms, boolean_queries, like_conditions, strict=True)
+        ):
+            digest = hashlib.blake2s(term.encode(), digest_size=4).hexdigest()
+            param = f"fulltext_search_{digest}_{idx}"
+            match = text(
+                f"MATCH(roms.name, roms.fs_name) AGAINST(:{param} IN BOOLEAN MODE)"
+            ).bindparams(**{param: boolean_query})
+            conditions.append(DialectCase(postgresql=like, mysql=match))
+        return conditions
 
     def _build_hash_selects(self, terms: Iterable[str]) -> list[Select]:
         """Id-yielding selects for terms shaped like a hash digest.
@@ -1343,7 +1343,7 @@ class DBRomsHandler(DBBaseHandler):
             condition = column.in_(values)
         else:
             op = json_array_contains_all if match_all else json_array_contains_any
-            condition = op(column, values, session=session)
+            condition = op(column, values)
 
         return query.filter(~condition) if match_none else query.filter(condition)
 
@@ -1791,23 +1791,29 @@ class DBRomsHandler(DBBaseHandler):
         # mixed-direction pair forces a filesort.
         tiebreaker = Rom.id.desc() if descending else Rom.id.asc()
 
-        relevance_clause = None
-        if search_term and ROMM_DB_DRIVER in ("mariadb", "mysql"):
-            relevance = self._build_fulltext_relevance(search_term)
-            if relevance:
-                relevance_clause = text(
-                    "MATCH(roms.name, roms.fs_name) "
-                    "AGAINST(:relevance IN BOOLEAN MODE) DESC"
-                ).bindparams(relevance=relevance)
+        relevance = self._build_fulltext_relevance(search_term) if search_term else None
+        if relevance:
+            relevance_clause = text(
+                "MATCH(roms.name, roms.fs_name) AGAINST(:relevance IN BOOLEAN MODE) DESC"
+            ).bindparams(relevance=relevance)
+            # An explicit sort wins with relevance breaking ties; with no sort
+            # selected, relevance leads and name is the tiebreaker. Only the
+            # FULLTEXT engines rank, so PostgreSQL keeps the plain order.
+            order_clause = DialectCase(
+                postgresql=order_clause,
+                mysql=(
+                    ClauseList(order_clause, relevance_clause)
+                    if order_by
+                    else ClauseList(relevance_clause, order_clause)
+                ),
+            )
 
-        # An explicit sort wins with relevance breaking ties; with no sort
-        # selected, relevance leads and name is the tiebreaker.
-        ordering = (
-            (nulls_last_clause, order_clause, relevance_clause, tiebreaker)
-            if order_by
-            else (relevance_clause, order_clause, tiebreaker)
-        )
-        return [clause for clause in ordering if clause is not None]
+        leading = nulls_last_clause if order_by else None
+        return [
+            clause
+            for clause in (leading, order_clause, tiebreaker)
+            if clause is not None
+        ]
 
     @begin_session
     def get_roms_query(
@@ -2786,7 +2792,6 @@ class DBRomsHandler(DBBaseHandler):
         min_duration: float | None = None,
         max_duration: float | None = None,
         exclude_field: str | None = None,
-        session: Session | None = None,
     ) -> list[Any]:
         clauses: list[Any] = []
         if hidden_platform_ids:
@@ -2813,13 +2818,7 @@ class DBRomsHandler(DBBaseHandler):
         if platform_ids:
             clauses.append(Rom.platform_id.in_(platform_ids))
         if game_genre and exclude_field != "game_genre":
-            clauses.append(
-                json_array_contains_value(
-                    RomMetadata.genres, game_genre, session=session
-                )
-                if session is not None
-                else false()
-            )
+            clauses.append(json_array_contains_value(RomMetadata.genres, game_genre))
         if year is not None and exclude_field != "year":
             clauses.append(TrackMeta.year == year)
         if min_year is not None and exclude_field != "year":
@@ -2876,7 +2875,6 @@ class DBRomsHandler(DBBaseHandler):
             max_year=max_year,
             min_duration=min_duration,
             max_duration=max_duration,
-            session=session,
         )
         is_favorite_col = (
             MusicFavoriteTrack.user_id.is_not(None)
@@ -3054,7 +3052,6 @@ class DBRomsHandler(DBBaseHandler):
         where = self._music_where(
             hidden_platform_ids=hidden_platform_ids,
             hidden_rom_ids=hidden_rom_ids,
-            session=session,
         )
         row = session.execute(
             self._music_facet_joins(
@@ -3109,7 +3106,6 @@ class DBRomsHandler(DBBaseHandler):
             max_year=max_year,
             min_duration=min_duration,
             max_duration=max_duration,
-            session=session,
         )
         per_rom = self._music_facet_joins(
             select(Rom.id.label("rom_id"), func.count().label("total"))
@@ -3185,7 +3181,6 @@ class DBRomsHandler(DBBaseHandler):
             max_year=max_year,
             min_duration=min_duration,
             max_duration=max_duration,
-            session=session,
         )
         if search:
             where.append(
@@ -3252,7 +3247,6 @@ class DBRomsHandler(DBBaseHandler):
             max_year=max_year,
             min_duration=min_duration,
             max_duration=max_duration,
-            session=session,
         )
         if search:
             like = f"%{escape_like(search.lower())}%"
@@ -3332,9 +3326,7 @@ class DBRomsHandler(DBBaseHandler):
 
         if tags:
             for tag in tags:
-                query = query.filter(
-                    json_array_contains_value(RomNote.tags, tag, session=session)
-                )
+                query = query.filter(json_array_contains_value(RomNote.tags, tag))
 
         return query.order_by(RomNote.updated_at.desc())
 

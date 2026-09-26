@@ -37,7 +37,7 @@ from models.collection import (
     VirtualCollectionRom,
 )
 from models.rom import Rom
-from utils.database import json_array_contains_value
+from utils.sql_dialect import json_array_contains_value
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -464,9 +464,7 @@ class DBCollectionsHandler(DBBaseHandler):
             session.scalars(
                 select(SmartCollection)
                 .where(
-                    json_array_contains_value(
-                        SmartCollection.rom_ids, rom_id, session=session
-                    ),
+                    json_array_contains_value(SmartCollection.rom_ids, rom_id),
                     or_(
                         SmartCollection.user_id == user_id,
                         SmartCollection.is_public,

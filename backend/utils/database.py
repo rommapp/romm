@@ -1,12 +1,10 @@
-import json
 from datetime import date
 from typing import Any, Sequence
 from uuid import uuid4
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
-from sqlalchemy.orm import Session
-from sqlalchemy.sql import ColumnElement, func
+from sqlalchemy.sql import ColumnElement
 
 # What `Session.get_bind()` returns; these helpers only read `.engine`, which
 # an Engine answers with itself.
@@ -196,91 +194,6 @@ def full_path_digest_sql(conn: sa.Connection) -> str:
             "COALESCE(fs_name, ''), 'UTF8')), 'hex')"
         )
     return "SHA2(CONCAT(COALESCE(fs_path, ''), '/', COALESCE(fs_name, '')), 256)"
-
-
-def json_array_contains_value(
-    column: sa.Column | Any, value: str | int, *, session: Session
-) -> ColumnElement:
-    """Check if a JSON array column contains the given value."""
-    conn = session.get_bind()
-    if is_postgresql(conn):
-        # In PostgreSQL, string values can be checked for containment using the `?` operator.
-        # For other types, we use the `@>` operator.
-        if isinstance(value, str):
-            return sa.type_coerce(column, sa_pg.JSONB).has_key(value)
-        return sa.type_coerce(column, sa_pg.JSONB).contains(
-            func.cast(sa.literal(value, sa_pg.JSONB), sa_pg.JSONB)
-        )
-    elif is_mysql(conn) or is_mariadb(conn):
-        # In MySQL and MariaDB, JSON_CONTAINS requires a JSON-formatted string (even if it's an int).
-        return func.json_contains(column, json.dumps(value))
-
-    raise NotImplementedError(
-        f"json_array_contains_value is not implemented for engine: {conn.engine.name}"
-    )
-
-
-def json_array_contains_any(
-    column: sa.Column | Any, values: Sequence[str] | Sequence[int], *, session: Session
-) -> ColumnElement:
-    """Check if a JSON array column contains any of the given values."""
-    if not values:
-        return sa.false()
-
-    # Optimize for single value case
-    if len(values) == 1:
-        return json_array_contains_value(column, values[0], session=session)
-
-    conn = session.get_bind()
-    if is_postgresql(conn):
-        # In PostgreSQL, string arrays can be checked for overlap using the `?|` operator.
-        # For other types, we combine element-wise checks with OR.
-        if isinstance(values[0], str):
-            return sa.type_coerce(column, sa_pg.JSONB).has_any(
-                sa.type_coerce(values, sa_pg.ARRAY(sa_pg.TEXT))
-            )
-        return sa.or_(
-            *[json_array_contains_value(column, v, session=session) for v in values]
-        )
-    elif is_mysql(conn) or is_mariadb(conn, min_version=(10, 9)):
-        # In MySQL and MariaDB, JSON_OVERLAPS requires a JSON-formatted string (even if it's an int).
-        return func.json_overlaps(column, json.dumps(values))
-    elif is_mariadb(conn):
-        # MariaDB before 10.9 does not have JSON_OVERLAPS, so we fall back to element-wise checks.
-        return sa.or_(
-            *[json_array_contains_value(column, v, session=session) for v in values]
-        )
-
-    raise NotImplementedError(
-        f"json_array_contains_any is not implemented for engine: {conn.engine.name}"
-    )
-
-
-def json_array_contains_all(
-    column: sa.Column | Any, values: Sequence[Any], *, session: Session
-) -> ColumnElement:
-    """Check if a JSON array column contains all of the given values."""
-    if not values:
-        return sa.false()
-
-    conn = session.get_bind()
-    if is_postgresql(conn):
-        # In PostgreSQL, string arrays can be checked for containment using the `?&` operator.
-        # For other types, we combine element-wise checks with AND.
-        if isinstance(values[0], str):
-            return sa.type_coerce(column, sa_pg.JSONB).has_all(
-                sa.type_coerce(values, sa_pg.ARRAY(sa_pg.TEXT))
-            )
-        return sa.and_(
-            *[json_array_contains_value(column, v, session=session) for v in values]
-        )
-    elif is_mysql(conn) or is_mariadb(conn):
-        # In MySQL and MariaDB, JSON_CONTAINS requires a JSON-formatted string (even if it's an int).
-        return func.json_contains(column, json.dumps(values))
-
-    raise NotImplementedError(
-        f"json_array_contains_all is not implemented for engine: {conn.engine.name}"
-    )
 
 
 MS_PER_DAY = 86_400_000
