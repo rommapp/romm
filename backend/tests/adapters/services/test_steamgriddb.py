@@ -14,6 +14,7 @@ from adapters.services.steamgriddb import (
 )
 from adapters.services.steamgriddb_types import (
     SGDBDimension,
+    SGDBGrid,
     SGDBMime,
     SGDBStyle,
     SGDBTag,
@@ -21,6 +22,15 @@ from adapters.services.steamgriddb_types import (
 )
 
 INVALID_GAME_ID = 999999
+
+GRID: SGDBGrid = {
+    "id": 1,
+    "score": 0,
+    "style": SGDBStyle.MATERIAL,
+    "url": "https://example.com/grid1.png",
+    "thumb": "https://example.com/thumb1.png",
+    "author": {"name": "TestUser", "steam64": "123", "avatar": ""},
+}
 
 
 class TestAuthMiddleware:
@@ -212,7 +222,7 @@ class TestSteamGridDBServiceUnit:
             "page": 0,
             "total": 1,
             "limit": 50,
-            "data": [{"id": 1, "style": "material"}],
+            "data": [GRID],
         }
 
         with patch.object(
@@ -449,7 +459,7 @@ class TestSteamGridDBServiceUnit:
     @pytest.mark.asyncio
     async def test_iter_grids_for_game_with_filters(self, service):
         """Test iter_grids_for_game with filters passed through."""
-        mock_response = {"page": 0, "total": 1, "limit": 50, "data": [{"id": 1}]}
+        mock_response = {"page": 0, "total": 1, "limit": 50, "data": [GRID]}
 
         with patch.object(
             service, "get_grids_for_game", return_value=mock_response
@@ -678,7 +688,9 @@ class TestSteamGridDBServicePerformance:
     @pytest.mark.asyncio
     async def test_concurrent_requests(self, service):
         """Test multiple concurrent API requests."""
-        mock_response = {"data": [{"id": 1, "name": "Test Game"}]}
+        mock_response = {
+            "data": [{"id": 1, "name": "Test Game", "types": [], "verified": True}]
+        }
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -695,7 +707,7 @@ class TestSteamGridDBServicePerformance:
     @pytest.mark.asyncio
     async def test_concurrent_grid_requests(self, service):
         """Test multiple concurrent grid requests."""
-        mock_response = {"page": 0, "total": 1, "limit": 50, "data": [{"id": 1}]}
+        mock_response = {"page": 0, "total": 1, "limit": 50, "data": [GRID]}
 
         with patch.object(
             service, "_request", return_value=mock_response
