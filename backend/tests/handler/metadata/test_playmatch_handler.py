@@ -208,6 +208,36 @@ async def test_lookup_rom_skips_the_request_when_no_file_qualifies():
     assert await _captured_lookup_payload(PlaymatchHandler(), []) is None
 
 
+async def test_lookup_rom_skips_an_unhashed_file_inside_a_folder_rom():
+    """Unhashed platforms like Wii U store content as 0000000X.app, and a name
+    and size lookup on that matches an unrelated game."""
+    rom = Rom(fs_path="wiiu", fs_name="Adventure Island [Game] [0005000010134100]")
+    content = RomFile(
+        rom=rom,
+        file_path=rom.full_path,
+        file_name="00000005.app",
+        file_size_bytes=1114112,
+    )
+
+    assert await _captured_lookup_payload(PlaymatchHandler(), [content]) is None
+
+
+async def test_lookup_rom_asks_about_an_unhashed_single_file_rom_by_name():
+    rom = Rom(fs_path="switch", fs_name="Game [0100000000010000].nsp")
+    rom_file = RomFile(
+        rom=rom,
+        file_path=rom.fs_path,
+        file_name=rom.fs_name,
+        file_size_bytes=4096,
+    )
+
+    payload = await _captured_lookup_payload(PlaymatchHandler(), [rom_file])
+
+    assert payload is not None
+    assert payload["fileName"] == "Game [0100000000010000].nsp"
+    assert payload["fileSize"] == 4096
+
+
 async def _captured_suggestion_payload(rom: Rom) -> dict | None:
     handler = PlaymatchHandler()
     mock_client = AsyncMock()
