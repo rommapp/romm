@@ -313,6 +313,29 @@ def test_the_exact_save_slots_revision_reverses_and_replays():
         assert _slot_collations(connection)["saves"] == exact
 
 
+def test_the_exact_save_slots_revision_fixes_an_early_deleted_assets_table():
+    """A deleted_assets slot left with the table's folding collation is made exact."""
+    migration = _load_migration("0137_exact_save_slots.py")
+
+    with sync_engine.begin() as connection:
+        exact = exact_collation(connection)
+        if exact is None:
+            pytest.skip("PostgreSQL compares slots exactly already")
+        with Operations.context(MigrationContext.configure(connection)) as op:
+            op.alter_column(
+                "deleted_assets",
+                "slot",
+                existing_type=sa.String(length=255),
+                type_=sa.String(length=255),
+                existing_nullable=False,
+            )
+            assert _slot_collations(connection)["deleted_assets"] != exact
+
+            migration.upgrade()
+
+        assert _slot_collations(connection)["deleted_assets"] == exact
+
+
 def test_the_rom_similarity_revision_fills_in_a_missing_index():
     """0122 meets its own table on a replay, with only some of its indexes.
 

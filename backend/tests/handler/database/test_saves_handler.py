@@ -15,7 +15,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import Delete, event
 
 import handler.database.saves_handler as saves_handler_module
 from handler.database import db_deleted_asset_handler, db_save_handler
@@ -1059,7 +1059,7 @@ class TestDBSavesHandlerRecordsLostVersions:
             user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=1
         )
 
-        assert sorted(self._lost(admin_user, rom)["autosave"]) == ["v0", "v1"]
+        assert self._lost(admin_user, rom) == {"autosave": ["v0", "v1"]}
 
     def test_a_version_overwritten_since_it_was_read_is_recorded(
         self, admin_user: User, rom: Rom
@@ -1078,18 +1078,20 @@ class TestDBSavesHandlerRecordsLostVersions:
         """The record commits with the removal, so no negotiation sees one alone."""
         self._add(admin_user, rom, "kept", "autosave", "kept")
 
-        def fail_the_delete(_conn: Any, _cursor: Any, statement: str, *_: Any) -> None:
-            if statement.startswith("DELETE FROM saves"):
+        # Raised before a cursor exists: failing inside one leaves the MariaDB
+        # driver's pooled connection unusable, and the next checkout crashes.
+        def fail_the_delete(_conn: Any, statement: Any, *_: Any) -> None:
+            if isinstance(statement, Delete) and statement.table.description == "saves":
                 raise RuntimeError("delete failed")
 
-        event.listen(sync_engine, "before_cursor_execute", fail_the_delete)
+        event.listen(sync_engine, "before_execute", fail_the_delete)
         try:
             with pytest.raises(RuntimeError):
                 db_save_handler.prune_slot(
                     user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=0
                 )
         finally:
-            event.remove(sync_engine, "before_cursor_execute", fail_the_delete)
+            event.remove(sync_engine, "before_execute", fail_the_delete)
 
         assert self._lost(admin_user, rom) == {"autosave": []}
         assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])

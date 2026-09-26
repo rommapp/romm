@@ -29,6 +29,14 @@ def upgrade() -> None:
         type_=sa.String(length=255, collation=collation),
         existing_nullable=True,
     )
+    # Some databases created this column with the table's folding collation.
+    op.alter_column(
+        "deleted_assets",
+        "slot",
+        existing_type=sa.String(length=255),
+        type_=sa.String(length=255, collation=collation),
+        existing_nullable=False,
+    )
 
 
 def downgrade() -> None:

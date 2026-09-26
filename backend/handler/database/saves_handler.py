@@ -272,9 +272,7 @@ class DBSavesHandler(DBBaseHandler):
             before = self._slot_version(id)
             if before and _loses_version(before, data):
                 _lock_slot(before, session)
-            current = session.execute(
-                select(*_VERSION_COLUMNS).where(Save.id == id).with_for_update()
-            ).one_or_none()
+            current = _lock_version(id, session)
             if current and _loses_version(current, data):
                 _record_loss(current, session)
         values = data if touch else {**data, "updated_at": Save.updated_at}
@@ -321,7 +319,8 @@ class DBSavesHandler(DBBaseHandler):
         _deleted_assets.ensure_record(user_id, rom_id, slot)
         _deleted_assets.lock_record(user_id, rom_id, slot, session)
         rows = session.execute(past_keep).all()
-        for row in rows:
+        # Oldest first, so trimming the record drops the oldest version first.
+        for row in reversed(rows):
             _record_loss(row, session)
         if rows:
             session.execute(
@@ -355,9 +354,7 @@ class DBSavesHandler(DBBaseHandler):
         before = self._slot_version(id)
         if before:
             _lock_slot(before, session, content_hash)
-        current = session.execute(
-            select(*_VERSION_COLUMNS).where(Save.id == id).with_for_update()
-        ).one_or_none()
+        current = _lock_version(id, session)
         if current:
             _record_loss(current, session, content_hash)
         session.execute(
@@ -461,6 +458,12 @@ class _SlotVersion(Protocol):
     rom_id: int
     slot: str | None
     content_hash: str | None
+
+
+def _lock_version(id: int, session: Session) -> Row | None:
+    return session.execute(
+        select(*_VERSION_COLUMNS).where(Save.id == id).with_for_update()
+    ).one_or_none()
 
 
 def _loses_version(version: _SlotVersion, data: dict) -> bool:
