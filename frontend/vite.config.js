@@ -5,6 +5,7 @@ import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
+import { platformIconManifest } from "./scripts/platformIconManifest";
 import { playerIsolationHeaders } from "./scripts/playerIsolationHeaders";
 import { precompress } from "./scripts/precompress";
 
@@ -56,6 +57,10 @@ const VUETIFY_COMPONENTS = [
   "vuetify/components/VTooltip",
   "vuetify/components/VWindow",
 ];
+
+const PLATFORM_ICONS_DIR = fileURLToPath(
+  new URL("./assets/platforms", import.meta.url),
+);
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -122,6 +127,7 @@ export default defineConfig(({ mode }) => {
       }),
       precompress(),
       playerIsolationHeaders(),
+      platformIconManifest(PLATFORM_ICONS_DIR),
       httpsMode &&
         mkcert({
           savePath: "/app/.vite-plugin-mkcert",

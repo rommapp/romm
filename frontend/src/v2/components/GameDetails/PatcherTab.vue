@@ -11,7 +11,6 @@ import {
   RDropzone,
   RExpandTransition,
   RIcon,
-  RPlatformIcon,
   RSelect,
   RTextField,
   RTooltip,
@@ -29,6 +28,7 @@ import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -375,7 +375,7 @@ const applyLabel = computed(() => {
         </div>
 
         <div class="r-v2-patch__rom-info">
-          <RPlatformIcon
+          <PlatformIcon
             :slug="rom.platform_slug"
             :fs-slug="rom.platform_fs_slug"
             :name="rom.platform_display_name"

@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import { RTooltip } from "@v2/lib";
 import { computed, ref, watch } from "vue";
-import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
+import {
+  DEFAULT_PLATFORM_ICON,
+  platformIconUrl,
+} from "@/v2/composables/usePlatformIconCache";
 
 defineOptions({ inheritAttrs: false });
 
-// Platform assets are keyed by canonical slug, so `slug` is tried before the
-// filesystem folder name.
-//
 // Hover tooltip uses RTooltip (v2 glass skin) instead of the native
 // browser `title=` so the bubble matches the rest of the UI. Disable
 // with `:show-tooltip="false"` if a parent surface already supplies one.
@@ -16,7 +17,7 @@ interface Props {
   name?: string;
   /** Alias for `name`. */
   slug?: string;
-  /** Filesystem slug, tried only after `slug` when the two differ. */
+  /** Filesystem slug, tried only when no icon ships for `slug`. */
   fsSlug?: string;
   /** Explicit override. */
   src?: string;
@@ -42,36 +43,24 @@ const props = withDefaults(defineProps<Props>(), {
 const resolvedSlug = computed(
   () => props.slug ?? props.name ?? props.fsSlug ?? "",
 );
-const resolvedFsSlug = computed(() => props.fsSlug ?? resolvedSlug.value);
 
-// Ordered candidate URL list. We try each one in sequence; `stepIdx` walks
-// through them until one loads (or we fall back to default.ico).
-const candidates = computed(() => {
-  if (props.src) return [props.src];
-  const fs = resolvedFsSlug.value.toLowerCase().trim();
-  const s = resolvedSlug.value.toLowerCase().trim();
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const base of [s, fs]) {
-    if (!base || seen.has(base)) continue;
-    seen.add(base);
-    out.push(`/assets/platforms/${base}.svg`, `/assets/platforms/${base}.ico`);
-  }
-  out.push("/assets/platforms/default.ico");
-  return out;
+const resolvedSrc = computed(
+  () => props.src || platformIconUrl(resolvedSlug.value, props.fsSlug),
+);
+
+// A shipped file can still fail to load (e.g. a stale deploy), so an error
+// drops to the default glyph once instead of showing a broken image.
+const failed = ref(false);
+watch(resolvedSrc, () => {
+  failed.value = false;
 });
 
-const stepIdx = ref(0);
-const currentSrc = computed(() => candidates.value[stepIdx.value] ?? null);
-
-watch(candidates, () => {
-  stepIdx.value = 0;
-});
+const currentSrc = computed(() =>
+  failed.value ? DEFAULT_PLATFORM_ICON : resolvedSrc.value,
+);
 
 function onError() {
-  if (stepIdx.value < candidates.value.length - 1) {
-    stepIdx.value += 1;
-  }
+  if (currentSrc.value !== DEFAULT_PLATFORM_ICON) failed.value = true;
 }
 
 const resolvedSize = computed(() =>
@@ -79,7 +68,7 @@ const resolvedSize = computed(() =>
 );
 
 const tooltipText = computed(
-  () => props.title ?? props.alt ?? resolvedSlug.value ?? "",
+  () => props.title || props.alt || resolvedSlug.value,
 );
 </script>
 
@@ -90,10 +79,9 @@ const tooltipText = computed(
     :style="{ width: resolvedSize, height: resolvedSize }"
   >
     <img
-      v-if="currentSrc"
       :key="currentSrc"
       :src="currentSrc"
-      :alt="alt ?? resolvedSlug ?? ''"
+      :alt="alt || resolvedSlug"
       class="r-platform-icon__img"
       @error="onError"
     />
@@ -110,9 +98,7 @@ const tooltipText = computed(
 /* The `size` prop sets the wrapper dimensions directly via inline
    `width` / `height` (not a CSS var) so they survive contexts where
    the parent collapses cross-axis (e.g. `line-height: 0` flex parents
-   inside RBtn). `min-width: 0` lets the wrapper still shrink inside
-   flex parents that are genuinely narrower — flex items otherwise
-   refuse to go below their intrinsic width. */
+   inside RBtn). */
 .r-platform-icon {
   display: inline-flex;
   align-items: center;

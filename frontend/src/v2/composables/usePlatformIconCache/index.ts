@@ -14,7 +14,38 @@
 //
 // SSR / non-browser environments: `window` is guarded; `fetch` and
 // `URL.createObjectURL` are no-ops there.
+import shippedIconFiles from "virtual:platform-icons";
 import { reactive } from "vue";
+
+const PLATFORM_ICON_DIR = "/assets/platforms";
+export const DEFAULT_PLATFORM_ICON = `${PLATFORM_ICON_DIR}/default.ico`;
+
+// slug -> filename; `.svg` wins over `.ico` when both ship.
+const shippedIcons = new Map<string, string>();
+for (const file of shippedIconFiles) {
+  const dot = file.lastIndexOf(".");
+  const slug = file.slice(0, dot).toLowerCase();
+  const isSvg = file.slice(dot + 1).toLowerCase() === "svg";
+  if (isSvg || !shippedIcons.has(slug)) shippedIcons.set(slug, file);
+}
+
+/** Public URL of the icon shipped for `slug`, or null when none ships. */
+function shippedPlatformIconUrl(slug: string): string | null {
+  const file = shippedIcons.get(slug.trim().toLowerCase());
+  return file ? `${PLATFORM_ICON_DIR}/${file}` : null;
+}
+
+/** Icon URL for a platform: `slug` first, then `fsSlug`, then the default. */
+export function platformIconUrl(
+  slug?: string | null,
+  fsSlug?: string | null,
+): string {
+  return (
+    (slug && shippedPlatformIconUrl(slug)) ||
+    (fsSlug && shippedPlatformIconUrl(fsSlug)) ||
+    DEFAULT_PLATFORM_ICON
+  );
+}
 
 const cache = reactive(new Map<string, string>());
 const inflight = new Set<string>();
@@ -23,13 +54,10 @@ export function getCachedPlatformIcon(slug: string): string | undefined {
   return cache.get(slug.toLowerCase());
 }
 
-/** Blob URL for one candidate, or null when it is missing or unreadable. */
-async function fetchCandidateUrl(
-  key: string,
-  ext: string,
-): Promise<string | null> {
+/** Blob URL for `url`, or null when it is missing or unreadable. */
+async function fetchBlobUrl(url: string): Promise<string | null> {
   try {
-    const res = await fetch(`/assets/platforms/${key}.${ext}`);
+    const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
     // The SPA fallback answers with 200 + HTML, which must not reach the
@@ -37,24 +65,18 @@ async function fetchCandidateUrl(
     if (!blob.type || !blob.type.startsWith("image/")) return null;
     return URL.createObjectURL(blob);
   } catch {
-    // A transport failure on one extension must not abandon the other.
     return null;
   }
 }
 
 async function fetchOne(slug: string): Promise<void> {
   const key = slug.toLowerCase();
-  if (cache.has(key) || inflight.has(key)) return;
+  const url = shippedPlatformIconUrl(key);
+  if (!url || cache.has(key) || inflight.has(key)) return;
   inflight.add(key);
   try {
-    // Over half the catalogue ships `.ico` with no `.svg`, so both are tried.
-    for (const ext of ["svg", "ico"]) {
-      const url = await fetchCandidateUrl(key, ext);
-      if (url) {
-        cache.set(key, url);
-        return;
-      }
-    }
+    const blobUrl = await fetchBlobUrl(url);
+    if (blobUrl) cache.set(key, blobUrl);
   } finally {
     inflight.delete(key);
   }
@@ -62,9 +84,8 @@ async function fetchOne(slug: string): Promise<void> {
 
 /**
  * Drop a slug's cached entry. Called by CachedPlatformIcon when its
- * `<img>` reports a render error, so the next render falls through
- * to its own fallback chain (.ico → default.ico) instead of leaving
- * the broken-image glyph on screen.
+ * `<img>` reports a render error, so the next render falls back to the
+ * shipped URL instead of leaving the broken-image glyph on screen.
  */
 export function invalidatePlatformIcon(slug: string): void {
   const key = slug.toLowerCase();
