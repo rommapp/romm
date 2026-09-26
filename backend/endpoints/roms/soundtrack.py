@@ -137,8 +137,7 @@ async def get_rom_cd_audio_status(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
 ) -> CdAudioStatusSchema:
-    """Count the audio tracks on a ROM's disc images and how many are already
-    extracted, reading only the track layout."""
+    """Count the audio tracks on a ROM's disc images and how many are extracted."""
 
     rom = db_rom_handler.get_rom(id)
     if not rom:
@@ -167,8 +166,7 @@ async def extract_rom_cd_audio(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
 ) -> CdAudioExtractionSchema:
-    """Extract the audio tracks of a ROM's disc images (.cue, .gdi, .chd) into its
-    soundtrack/ subfolder."""
+    """Extract the audio tracks of a ROM's disc images into its soundtrack folder."""
 
     rom = db_rom_handler.get_rom(id)
     if not rom:

@@ -89,9 +89,8 @@ def _path_key(path: Path) -> str:
 
 
 def listing_playlist(disc: Path) -> str | None:
-    """The name of an .m3u beside a lone disc that lists it, which moving the
-    disc would break, or None. Names match ignoring case, as Windows-authored
-    playlists often differ in case from the files."""
+    """The name of an .m3u beside a lone disc that lists it, or None."""
+    # Matched ignoring case: Windows-authored playlists often differ from the files.
     target = _path_key(disc)
     try:
         playlists = [

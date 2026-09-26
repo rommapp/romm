@@ -9,7 +9,7 @@
 //   * The panel doubles as a drag-and-drop target (same affordance as the
 //     Upload / Patcher views): drop files anywhere over it to upload
 //   * Upload goes through `useRomFileUpload`, into the soundtrack/ folder
-//   * A disc (cue sheet or CHD) can extract its CD audio tracks there too
+//   * A disc (cue, gdi or CHD) can extract its CD audio tracks there too
 //
 // The soundtrack player is reused from v1 for now.
 import { RBtn, RDropzone, REmptyState } from "@v2/lib";
@@ -123,8 +123,7 @@ const soundtrackDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const canUploadSoundtrack = computed(
   () => props.rom.has_soundtrack && canEdit.value,
 );
-// Probed when the subtab opens, and again whenever the ROM's files change, so
-// the action only shows while the disc has audio tracks left to extract.
+// Re-probed on any file change, so the action hides once every track is out.
 const cdAudioProbeKey = computed(() =>
   subTab.value === "soundtrack" && canEdit.value && hasDiscImage(props.rom)
     ? `${props.rom.id}:${(props.rom.files ?? [])
