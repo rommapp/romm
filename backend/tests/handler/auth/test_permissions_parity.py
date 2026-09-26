@@ -70,7 +70,7 @@ def _expected_tuples(matrix) -> set[tuple[str, str, bool]]:
     return {(e.value, a.value, o) for (e, a, o) in matrix}
 
 
-def test_migration_seeded_legacy_groups():
+def test_migration_seeded_system_groups():
     with sync_session.begin() as s:
         groups = {
             g.name: g

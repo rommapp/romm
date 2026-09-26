@@ -632,8 +632,11 @@ def _system_groups(connection: sa.Connection) -> dict[str, str]:
     return {name: description for name, description in rows}
 
 
+GROUP_RENAME_REVISION = "0137_rename_system_groups.py"
+
+
 def _replay_group_rename(connection: sa.Connection, direction: str) -> None:
-    migration = _load_migration("0135_rename_system_groups.py")
+    migration = _load_migration(GROUP_RENAME_REVISION)
     with Operations.context(MigrationContext.configure(connection)):
         getattr(migration, direction)()
 
@@ -675,7 +678,7 @@ def test_the_group_rename_leaves_admin_changes_alone():
         groups = _system_groups(connection)
         transaction.rollback()
 
-    migration = _load_migration("0135_rename_system_groups.py")
+    migration = _load_migration(GROUP_RENAME_REVISION)
     _, _, seeded_viewer_description, _ = migration.RENAMES[0]
     assert groups == {
         "Viewer (legacy)": seeded_viewer_description,

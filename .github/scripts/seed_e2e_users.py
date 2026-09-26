@@ -8,9 +8,9 @@ erroring on the existing rows. Pass ``--remove`` to delete the fixtures again.
 
 Two accounts, matching the two sides of every permission assertion:
 
-  * ``e2e_admin``  — role admin, so `useCan` short-circuits to true and every
+  * ``e2e_admin``: role admin, so `useCan` short-circuits to true and every
     gated affordance must be present.
-  * ``e2e_viewer`` — the seeded "Viewer" group, i.e. library read plus
+  * ``e2e_viewer``: the seeded "Viewer" group, i.e. library read plus
     own collections/assets. Every ROM write affordance must be absent.
 
 Never point this at a real library: it writes users with a known password.

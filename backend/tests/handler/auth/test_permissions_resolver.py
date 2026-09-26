@@ -215,7 +215,7 @@ def test_admin_sees_everything_despite_hides(admin_user):
     assert perms.can_see_platform(5)
 
 
-def test_default_group_is_viewer_legacy():
+def test_default_group_is_viewer():
     from handler.database import db_permission_handler
 
     group = db_permission_handler.get_default_group()

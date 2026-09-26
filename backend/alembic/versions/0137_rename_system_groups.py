@@ -1,11 +1,9 @@
 """Rename the seeded permission groups to Viewer and Editor
 
-Only the untouched system rows are renamed: a group an admin already renamed
-keeps its name, a clash with an existing "Viewer"/"Editor" skips the rename,
-and a description the admin edited is kept.
+Admin renames, name clashes and edited descriptions are left alone.
 
-Revision ID: 0135_rename_system_groups
-Revises: 0134_gallery_sort_indexes
+Revision ID: 0137_rename_system_groups
+Revises: 0136_deleted_assets
 Create Date: 2026-09-25 00:00:00.000000
 
 """
@@ -14,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
 # revision identifiers, used by Alembic.
-revision = "0135_rename_system_groups"
-down_revision = "0134_gallery_sort_indexes"
+revision = "0137_rename_system_groups"
+down_revision = "0136_deleted_assets"
 branch_labels = None
 depends_on = None
 
