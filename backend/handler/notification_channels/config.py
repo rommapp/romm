@@ -6,10 +6,15 @@ from urllib.parse import urlsplit
 from utils.secret_box import UnsealError, seal, unseal
 
 
+class AppriseConfig(TypedDict):
+    service: str
+    # What the owner filled in, which the Apprise URL is built from.
+    fields: dict[str, Any]
+
+
 class WebhookConfig(TypedDict):
     url: str
-    format: str
-    # The HMAC key of a JSON webhook, or the access token of an ntfy topic.
+    # The key the payload is signed with.
     secret: NotRequired[str | None]
 
 
@@ -17,7 +22,7 @@ class EmailConfig(TypedDict):
     address: str
 
 
-def seal_config(config: WebhookConfig | EmailConfig) -> str:
+def seal_config(config: AppriseConfig | WebhookConfig | EmailConfig) -> str:
     return seal(dict(config))
 
 

@@ -30,7 +30,8 @@ _LEVEL_RANK: Final[dict[str, int]] = {
     NotificationLevel.ERROR: 2,
 }
 _RETRY: Final = Retry(max=3, interval=[30, 120, 600])
-_JOB_TIMEOUT_SECONDS: Final = 60
+# A delivery, queued or tried from the channel's test button, gets this long.
+DELIVERY_TIMEOUT_SECONDS: Final = 60
 
 
 def may_reach_private_network(role: str) -> bool:
@@ -39,6 +40,8 @@ def may_reach_private_network(role: str) -> bool:
 
 
 def describe_error(exc: Exception) -> str:
+    if isinstance(exc, TimeoutError):
+        return f"No answer within {DELIVERY_TIMEOUT_SECONDS} seconds"
     return str(exc) or type(exc).__name__
 
 
@@ -74,7 +77,7 @@ def enqueue_channel_deliveries(
                     deliver_to_channel,
                     kwargs={"channel_id": channel.id, "notification": payload},
                     retry=_RETRY,
-                    job_timeout=_JOB_TIMEOUT_SECONDS,
+                    job_timeout=DELIVERY_TIMEOUT_SECONDS,
                     result_ttl=0,
                     meta={"task_name": "Notification delivery"},
                 )
@@ -89,26 +92,30 @@ async def send_to_channel(
 
     Raises:
         UnsealError: ROMM_AUTH_SECRET_KEY changed since the channel was saved.
-        WebhookError, EmailError: The delivery failed.
+        AppriseError, WebhookError, EmailError: The delivery failed.
     """
     config = unseal(channel.config)
-    if channel.type == NotificationChannelType.EMAIL:
-        text = "\n\n".join(part for part in (message.body, message.url) if part)
-        await asyncio.to_thread(
-            send_email,
-            config["address"],
-            f"[RomM] {message.title}",
-            text or message.title,
-        )
-    else:
-        await webhook.send(
-            WebhookConfig(
-                url=config["url"], format=config["format"], secret=config.get("secret")
-            ),
-            message,
-            allow_private=allow_private,
-            channel_name=channel.name,
-        )
+    match channel.type:
+        case NotificationChannelType.APPRISE:
+            # Here, so jobs for other channels don't load Apprise's plugins.
+            from . import apprise_channel
+
+            # Apprise opens its own connections, past the SSRF guard.
+            if not allow_private:
+                raise apprise_channel.AppriseError(apprise_channel.ADMINS_ONLY)
+            await asyncio.to_thread(
+                apprise_channel.send, config["service"], config["fields"], message
+            )
+        case NotificationChannelType.EMAIL:
+            await asyncio.to_thread(
+                send_email, config["address"], f"[RomM] {message.title}", message.text
+            )
+        case _:
+            await webhook.send(
+                WebhookConfig(url=config["url"], secret=config.get("secret")),
+                message,
+                allow_private=allow_private,
+            )
 
 
 def sample_message() -> OutboundMessage:

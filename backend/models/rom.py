@@ -373,15 +373,9 @@ class RomFile(BaseModel):
         return LookupHashes(crc=self.crc_hash, md5=self.md5_hash, sha1=self.sha1_hash)
 
     @cached_property
-    def is_nested(self) -> bool:
-        return self.file_path.count("/") > 1
-
-    @cached_property
     def is_top_level(self) -> bool:
-        # File is the same as the rom's full path, or nested file in the rom's directory
-        return self.rom.full_path == (
-            self.file_path if self.is_nested else self.full_path
-        )
+        # The rom's own file, or a file directly inside the rom's folder
+        return self.rom.full_path in (self.full_path, self.file_path)
 
     def file_name_for_download(self, hidden_folder: bool = False) -> str:
         # This needs a trailing slash in the path to work!
@@ -1254,11 +1248,7 @@ Rom.top_level_file_count = column_property(
 
 
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
-    """Fill the deferred file-stat columns from an already-loaded file list.
-
-    Mirrors the subqueries above, not `RomFile.is_top_level`, which disagrees
-    on nested files.
-    """
+    """Fill the deferred file-stat columns from an already-loaded file list."""
     set_committed_value(
         rom, "multi_file", any(f.file_path != rom.fs_path for f in files)
     )
@@ -1278,9 +1268,17 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
     )
 
 
+class HasFileOnDiskFilters(TypedDict):
+    physical: bool
+    missing: bool
+
+
 # Query-side twin of `Rom.has_file_on_disk`, for callers that enumerate roms and
 # want the file-less ones dropped by the database rather than after loading.
-HAS_FILE_ON_DISK_FILTERS = {"physical": False, "missing": False}
+HAS_FILE_ON_DISK_FILTERS: Final[HasFileOnDiskFilters] = {
+    "physical": False,
+    "missing": False,
+}
 
 
 # Maps a metadata-source slug (matching the MetadataSource enum) to the Rom

@@ -48,7 +48,7 @@ import { useIdSelection } from "@/v2/composables/useIdSelection";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
-import type { AssetType } from "@/v2/utils/assets";
+import { emulatorKey, type AssetType } from "@/v2/utils/assets";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
 // Slot payload from AssetList/AssetStrip is the full save|state union; these
@@ -128,18 +128,20 @@ function openUpload(type: AssetType, files: File[] = []) {
 function closeUpload() {
   uploadDialog.value = null;
 }
-// The cores the player offers plus whatever the existing states carry.
+// The cores the player offers plus whatever the existing states carry, keyed
+// case-insensitively as the backend matches them.
 const uploadCores = computed(() => {
-  const cores = new Set(
-    getSupportedEJSCores(
-      props.rom.platform_slug,
-      configStore.config.EJS_NETPLAY_ENABLED,
-    ),
+  const cores = new Map<string, string>();
+  const offered = getSupportedEJSCores(
+    props.rom.platform_slug,
+    configStore.config.EJS_NETPLAY_ENABLED,
   );
-  for (const state of myStates.value) {
-    if (state.emulator) cores.add(state.emulator);
+  const carried = myStates.value.map((state) => state.emulator);
+  for (const core of [...offered, ...carried]) {
+    if (!core || cores.has(emulatorKey(core))) continue;
+    cores.set(emulatorKey(core), core);
   }
-  return [...cores];
+  return [...cores.values()];
 });
 async function onUploadSubmit({
   type,

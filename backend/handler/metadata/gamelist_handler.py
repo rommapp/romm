@@ -564,7 +564,7 @@ class GamelistHandler(MetadataHandler):
             # Populate ROM-specific paths using the actual rom object
             if gamelist_metadata:
                 rom_specific_paths = populate_rom_specific_paths(gamelist_metadata, rom)
-                gamelist_metadata.update(**rom_specific_paths)  # type: ignore
+                gamelist_metadata.update(**rom_specific_paths)  # type: ignore[call-arg]
                 matched_rom["gamelist_metadata"] = gamelist_metadata
 
             return matched_rom

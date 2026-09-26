@@ -9,9 +9,11 @@ from rq.exceptions import AbandonedJobError
 from rq.job import Job
 from rq.timeouts import JobTimeoutException
 
-from config import TASK_TIMEOUT
+from config import TASK_RESULT_TTL, TASK_TIMEOUT
 from exceptions.task_exceptions import TaskNotFoundException
+from handler.redis_handler import QueuePrio
 from logger.logger import log
+from utils.background_tasks import wait_for_background_tasks
 from utils.context import ctx_httpx_client
 
 
@@ -44,7 +46,11 @@ async def run_task_by_name(
     if task is None:
         raise TaskNotFoundException(name)
 
-    result = await task.run(**(task_kwargs or {}))
+    try:
+        result = await task.run(**(task_kwargs or {}))
+    finally:
+        # RQ runs the job on a loop that never runs again once it returns.
+        await wait_for_background_tasks()
     await _notify_task_end(name, task, run_by_user_id)
     return result
 
@@ -149,6 +155,8 @@ class Task(ABC):
     cron_string: str | None = None
     task_type: TaskType
     timeout: int
+    result_ttl: int
+    queue_name: str
 
     def __init__(
         self,
@@ -159,6 +167,8 @@ class Task(ABC):
         manual_run: bool = False,
         cron_string: str | None = None,
         timeout: int = TASK_TIMEOUT,
+        result_ttl: int = TASK_RESULT_TTL,
+        queue_name: str = QueuePrio.LOW.value,
     ):
         self.title = title
         self.description = description or title
@@ -167,6 +177,8 @@ class Task(ABC):
         self.manual_run = manual_run
         self.cron_string = cron_string
         self.timeout = timeout
+        self.result_ttl = result_ttl
+        self.queue_name = queue_name
 
     @property
     def can_run_manually(self) -> bool:

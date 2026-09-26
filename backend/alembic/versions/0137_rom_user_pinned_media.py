@@ -1,7 +1,7 @@
 """Add the per-user pinned overview media
 
-Revision ID: 0135_rom_user_pinned_media
-Revises: 0134_gallery_sort_indexes
+Revision ID: 0137_rom_user_pinned_media
+Revises: 0136_deleted_assets
 Create Date: 2026-09-24 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0135_rom_user_pinned_media"
-down_revision = "0134_gallery_sort_indexes"
+revision = "0137_rom_user_pinned_media"
+down_revision = "0136_deleted_assets"
 branch_labels = None
 depends_on = None
 

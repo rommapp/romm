@@ -270,7 +270,7 @@ function requestDeleteManual() {
         />
         <PdfViewer
           v-else
-          :key="`${selectedManual.id}-${rom.updated_at}-pdf`"
+          :key="selectedManual.url"
           :pdf-url="selectedManual.url"
           :rom-id="rom.id"
           :file-id="selectedManual.fileId ?? undefined"

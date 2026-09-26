@@ -4,7 +4,6 @@
 /* eslint-disable */
 import type { NotificationChannelMinLevel } from './NotificationChannelMinLevel';
 import type { NotificationTopic } from './NotificationTopic';
-import type { WebhookFormat } from './WebhookFormat';
 /**
  * The fields to change; a null `topics` forwards every topic, an empty `secret` drops it.
  */
@@ -14,8 +13,8 @@ export type NotificationChannelUpdatePayload = {
     min_level?: (NotificationChannelMinLevel | null);
     topics?: (Array<NotificationTopic> | null);
     url?: (string | null);
-    format?: (WebhookFormat | null);
     secret?: (string | null);
     address?: (string | null);
+    fields?: (Record<string, (boolean | number | string | Array<string>)> | null);
 };
 

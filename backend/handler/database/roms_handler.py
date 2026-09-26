@@ -3,8 +3,8 @@ import hashlib
 import json
 import re
 import secrets
-from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections import Counter, abc
+from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, Literal, NamedTuple
@@ -39,7 +39,7 @@ from sqlalchemy import (
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     ColumnProperty,
-    Query,
+    Mapper,
     QueryableAttribute,
     Session,
     joinedload,
@@ -48,7 +48,7 @@ from sqlalchemy.orm import (
     selectinload,
     undefer,
 )
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
 
 from config import ROMM_DB_DRIVER
@@ -104,6 +104,8 @@ from utils.database import (
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import DBBaseHandler, affected_rows
+
+type RomSelect = Select[tuple[Rom]]
 
 EJS_SUPPORTED_PLATFORMS = [
     UPS._3DO,
@@ -293,7 +295,8 @@ TRACK_META_SCANNED_COLUMNS = (
 
 @functools.cache
 def _nullable_columns(model: type) -> frozenset[str]:
-    return frozenset(c.key for c in sa_inspect(model).columns if c.nullable)
+    mapper: Mapper[Any] = sa_inspect(model)
+    return frozenset(c.key for c in mapper.columns if c.nullable)
 
 
 def _copy_scanned_columns(
@@ -539,9 +542,9 @@ def sorts_by_rom_user_column(order_by: str, user_id: int) -> bool:
     return _resolve_gallery_sort_key(order_by, user_id).source == "rom_user"
 
 
-def with_details(func):
+def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         kwargs["query"] = select(Rom).options(
             # Ensure platform is loaded for main ROM objects
             selectinload(Rom.platform),
@@ -595,7 +598,7 @@ def with_details(func):
     return wrapper
 
 
-def with_simple_details(func):
+def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     """Lightweight eager-load for the `SimpleRomSchema` (v2 gallery card).
 
     Loads only the relationships `SimpleRomSchema` serializes (rom_users,
@@ -606,7 +609,7 @@ def with_simple_details(func):
     """
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         kwargs["query"] = select(Rom).options(
             selectinload(Rom.platform),
             selectinload(Rom.rom_users).options(
@@ -711,13 +714,13 @@ class DBRomsHandler(DBBaseHandler):
     def add_rom(
         self,
         rom: Rom,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = None,  # type: ignore[assignment]
+        session: Session = None,  # type: ignore[assignment]
     ) -> Rom:
         rom = session.merge(rom)
         session.flush()
 
-        return session.scalar(query.filter_by(id=rom.id).limit(1))
+        return session.scalars(query.filter_by(id=rom.id).limit(1)).one()
 
     @begin_session
     @with_details
@@ -725,8 +728,8 @@ class DBRomsHandler(DBBaseHandler):
         self,
         id: int,
         *,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = None,  # type: ignore[assignment]
+        session: Session = None,  # type: ignore[assignment]
     ) -> Rom | None:
         return session.scalar(query.filter_by(id=id).limit(1))
 
@@ -735,7 +738,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         id: int,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomVisibility | None:
         """The id and platform id a visibility check needs, nothing else."""
         row = session.execute(
@@ -752,7 +755,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         id: int,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomVisibilityLabel | None:
         """`get_rom_visibility` plus the name pair the file-delete logs need."""
         row = session.execute(
@@ -771,7 +774,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         id: int,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomDeletionTarget | None:
         """The columns the bulk-delete route reads off one rom, and no relations."""
         row = session.execute(
@@ -809,8 +812,8 @@ class DBRomsHandler(DBBaseHandler):
         self,
         id: int,
         *,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = None,  # type: ignore[assignment]
+        session: Session = None,  # type: ignore[assignment]
     ) -> Rom | None:
         """Get a rom by ID with only the loads `SimpleRomSchema` needs."""
         return session.scalar(query.filter_by(id=id).limit(1))
@@ -821,8 +824,8 @@ class DBRomsHandler(DBBaseHandler):
         self,
         ids: list[int],
         *,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = None,  # type: ignore[assignment]
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Rom]:
         """Get multiple ROMs by their IDs."""
         if not ids:
@@ -835,8 +838,8 @@ class DBRomsHandler(DBBaseHandler):
         self,
         ids: Sequence[int],
         *,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = None,  # type: ignore[assignment]
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Rom]:
         """Get multiple ROMs by ID with only the loads `SimpleRomSchema` needs."""
         if not ids:
@@ -875,8 +878,8 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int,
         *,
         session: Session,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
     ) -> dict[int, list[tuple[Rom, bool]]]:
         """Return {rom_id: [(sibling Rom, is_main_sibling), ...]} in a single query.
 
@@ -959,15 +962,15 @@ class DBRomsHandler(DBBaseHandler):
             ).all()
         )
 
-    def filter_by_platform_id(self, query: Query, platform_id: int):
+    def filter_by_platform_id(self, query: Select, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
 
     def _filter_by_platform_ids(
-        self, query: Query, platform_ids: Sequence[int]
-    ) -> Query:
+        self, query: Select, platform_ids: Sequence[int]
+    ) -> Select:
         return query.filter(Rom.platform_id.in_(platform_ids))
 
-    def _filter_by_collection_id(self, query: Query, collection_id: int):
+    def _filter_by_collection_id(self, query: Select, collection_id: int):
         # `collections_roms` is keyed on (collection_id, rom_id), so membership
         # is an indexed subquery rather than a list of ids fetched into Python.
         return query.filter(
@@ -979,7 +982,7 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     def _filter_by_virtual_collection_id(
-        self, query: Query, session: Session, virtual_collection_id: str
+        self, query: Select, session: Session, virtual_collection_id: str
     ):
         from . import db_collection_handler
 
@@ -993,7 +996,7 @@ class DBRomsHandler(DBBaseHandler):
 
     def _filter_by_smart_collection_id(
         self,
-        query: Query,
+        query: Select,
         session: Session,
         smart_collection_id: int,
         user_id: int | None,
@@ -1010,7 +1013,7 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(
             Rom.id.in_(
                 db_collection_handler.build_smart_collection_query(
-                    query=member_ids,  # type: ignore
+                    query=member_ids,
                     smart_collection=smart_collection,
                     user_id=user_id,
                     session=session,
@@ -1033,7 +1036,7 @@ class DBRomsHandler(DBBaseHandler):
         smart_collection: SmartCollection,
         rom_ids: Iterable[int],
         user_id: int | None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> set[int]:
         """Which of `rom_ids` currently match the collection's criteria.
 
@@ -1046,7 +1049,7 @@ class DBRomsHandler(DBBaseHandler):
         return set(
             session.scalars(
                 db_collection_handler.build_smart_collection_query(
-                    query=query,  # type: ignore
+                    query=query,
                     smart_collection=smart_collection,
                     user_id=user_id,
                     session=session,
@@ -1129,7 +1132,7 @@ class DBRomsHandler(DBBaseHandler):
             select(RomFile.rom_id.label("id")).where(or_(*file_predicates)),
         ]
 
-    def _filter_by_search_term(self, query: Query, search_term: str):
+    def _filter_by_search_term(self, query: Select, search_term: str):
         terms = [term.strip() for term in search_term.split("|")]
         terms = [term for term in terms if term]
         if not terms:
@@ -1149,7 +1152,7 @@ class DBRomsHandler(DBBaseHandler):
         ).subquery()
         return query.filter(Rom.id.in_(select(matches.c.id)))
 
-    def _filter_by_matched(self, query: Query, value: bool) -> Query:
+    def _filter_by_matched(self, query: Select, value: bool) -> Select:
         """Filter based on whether the rom is matched to a metadata provider.
 
         Args:
@@ -1170,8 +1173,8 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(predicate)
 
     def _filter_by_favorite(
-        self, query: Query, session: Session, value: bool, user_id: int | None
-    ) -> Query:
+        self, query: Select, session: Session, value: bool, user_id: int | None
+    ) -> Select:
         """Filter based on whether the rom is in the user's favorites collection."""
         if not user_id:
             return query
@@ -1188,14 +1191,14 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def _filter_by_duplicate(self, query: Query, value: bool) -> Query:
+    def _filter_by_duplicate(self, query: Select, value: bool) -> Select:
         """Filter based on whether the rom has duplicates."""
         predicate = Rom.sibling_roms.any()
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def _filter_by_playable(self, query: Query, value: bool) -> Query:
+    def _filter_by_playable(self, query: Select, value: bool) -> Select:
         """Filter based on whether the rom is playable on supported platforms."""
         predicate = or_(
             Platform.slug.in_(EJS_SUPPORTED_PLATFORMS),
@@ -1206,8 +1209,8 @@ class DBRomsHandler(DBBaseHandler):
         return query.join(Platform).filter(predicate)
 
     def _filter_by_last_played(
-        self, query: Query, value: bool, user_id: int | None = None
-    ) -> Query:
+        self, query: Select, value: bool, user_id: int | None = None
+    ) -> Select:
         """Filter based on whether the rom has a last played value for the user."""
         if not user_id:
             return query
@@ -1219,15 +1222,15 @@ class DBRomsHandler(DBBaseHandler):
         )
         return query.filter(has_last_played)
 
-    def _filter_by_has_ra(self, query: Query, value: bool) -> Query:
+    def _filter_by_has_ra(self, query: Select, value: bool) -> Select:
         predicate = Rom.ra_id.isnot(None)
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)
 
     def _filter_by_has_saves(
-        self, query: Query, value: bool, user_id: int | None = None
-    ) -> Query:
+        self, query: Select, value: bool, user_id: int | None = None
+    ) -> Select:
         """Filter based on whether the rom has saves visible to the current
         user: their own plus other users' public (community) saves."""
         if not user_id:
@@ -1238,8 +1241,8 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(predicate)
 
     def _filter_by_has_states(
-        self, query: Query, value: bool, user_id: int | None = None
-    ) -> Query:
+        self, query: Select, value: bool, user_id: int | None = None
+    ) -> Select:
         """Filter based on whether the rom has save states visible to the
         current user: their own plus other users' public (community) states."""
         if not user_id:
@@ -1249,7 +1252,7 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def _filter_by_missing_from_fs(self, query: Query, value: bool) -> Query:
+    def _filter_by_missing_from_fs(self, query: Select, value: bool) -> Select:
         # The column is NOT NULL, so equality matches the same rows as the
         # `IS [NOT] FALSE` form. MariaDB only treats the equality as indexable
         # though, and this filter backs the Missing tab's whole-library scan.
@@ -1261,7 +1264,7 @@ class DBRomsHandler(DBBaseHandler):
             and_(Rom.missing_from_fs == true(), Rom.is_physical.is_(False))
         )
 
-    def _filter_by_verified(self, query: Query, value: bool) -> Query:
+    def _filter_by_verified(self, query: Select, value: bool) -> Select:
         keys_to_check = [
             "tosec_match",
             "mame_arcade_match",
@@ -1290,16 +1293,14 @@ class DBRomsHandler(DBBaseHandler):
                 predicate = text(f"NOT ({conditions})")
             return query.filter(predicate)
         else:
-            predicate = or_(
+            any_verified = or_(
                 *(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check)
             )
-            if not value:
-                predicate = not_(predicate)
-            return query.filter(predicate)
+            return query.filter(any_verified if value else not_(any_verified))
 
     def _filter_by_status(
         self,
-        query: Query,
+        query: Select,
         *,
         session: Session,
         values: Sequence[str],
@@ -1309,7 +1310,7 @@ class DBRomsHandler(DBBaseHandler):
         if not values:
             return query
 
-        status_filters = []
+        status_filters: list[ColumnElement[bool]] = []
         for selected_status in values:
             if selected_status == "now_playing":
                 status_filters.append(RomUser.now_playing.is_(True))
@@ -1334,14 +1335,14 @@ class DBRomsHandler(DBBaseHandler):
 
     def _apply_filter_spec(
         self,
-        query: Query,
+        query: Select,
         spec: RomFilterSpec,
         *,
         session: Session,
         values: Sequence[str],
         match_all: bool = False,
         match_none: bool = False,
-    ) -> Query:
+    ) -> Select:
         """Narrow `query` to the roms matching `values` under `spec`."""
         column = spec.column
         if column is None:
@@ -1366,12 +1367,12 @@ class DBRomsHandler(DBBaseHandler):
 
     def _filter_by_metadata_providers(
         self,
-        query: Query,
+        query: Select,
         *,
         values: Sequence[str],
         match_all: bool = False,
         match_none: bool = False,
-    ) -> Query:
+    ) -> Select:
         """Filter on which metadata providers a ROM matched, keyed off each
         provider's id column on the facets mirror.
 
@@ -1399,7 +1400,7 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def filter_roms(
         self,
-        query: Query,
+        query: Select,
         filters: RomFilterParams | None = None,
         *,
         # The grouped dedup aggregates the active sort key over each group;
@@ -1416,10 +1417,10 @@ class DBRomsHandler(DBBaseHandler):
         include_related: bool = True,
         include_siblings: bool = True,
         include_notes: bool = True,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> Query[Rom]:
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Select:
         from handler.scan_handler import MetadataSource
 
         filters = filters or RomFilterParams()
@@ -1622,7 +1623,7 @@ class DBRomsHandler(DBBaseHandler):
             # drop the carried-over ORDER BY the window doesn't use.
             base_subquery = (
                 query.order_by(None)
-                .with_only_columns(  # type: ignore
+                .with_only_columns(
                     Rom.id,
                     Rom.fs_name_no_ext,
                     _prerelease_rank().label("prerelease_rank"),
@@ -1764,9 +1765,7 @@ class DBRomsHandler(DBBaseHandler):
                 # Add a filter to the original query to only include the primary ROM from each group
                 query = query.filter(
                     Rom.id.in_(
-                        session.query(group_subquery.c.id).filter(
-                            group_subquery.c.row_num == 1
-                        )
+                        select(group_subquery.c.id).where(group_subquery.c.row_num == 1)
                     )
                 )
 
@@ -1834,8 +1833,8 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         search_term: str | None = None,
         user_id: int | None = None,
-        session: Session = None,  # type: ignore
-    ) -> tuple[Query[Rom], _GallerySortKey]:
+        session: Session = None,  # type: ignore[assignment]
+    ) -> tuple[RomSelect, _GallerySortKey]:
         query = self._join_rom_user(select(Rom), user_id)
         order_dir = order_dir.lower()
 
@@ -1851,7 +1850,7 @@ class DBRomsHandler(DBBaseHandler):
             search_term=search_term,
         )
 
-        return query.order_by(*order_clauses), sort_key  # type: ignore
+        return query.order_by(*order_clauses), sort_key
 
     def _scoped_roms_query(
         self,
@@ -1859,7 +1858,7 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         include_related: bool = True,
         **kwargs,
-    ) -> Query[Rom]:
+    ) -> RomSelect:
         """The filtered, ordered query `get_roms_scalar` and `get_rom_ids` both run."""
         order_by = kwargs.get("order_by", "")
         order_dir = kwargs.get("order_dir", "asc")
@@ -1895,7 +1894,7 @@ class DBRomsHandler(DBBaseHandler):
     def get_roms_scalar(
         self,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
         **kwargs,
     ) -> Sequence[Rom]:
         query = self._scoped_roms_query(session=session, **kwargs)
@@ -1905,7 +1904,7 @@ class DBRomsHandler(DBBaseHandler):
     def get_rom_ids(
         self,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
         **kwargs,
     ) -> list[int]:
         """Every matching rom id, in query order."""
@@ -1918,9 +1917,9 @@ class DBRomsHandler(DBBaseHandler):
     def get_hidden_rom_ids_among(
         self,
         rom_ids: Sequence[int],
-        hidden_platform_ids: Sequence[int] | None,
-        hidden_rom_ids: Sequence[int] | None,
-        session: Session = None,  # type: ignore
+        hidden_platform_ids: abc.Collection[int] | None,
+        hidden_rom_ids: abc.Collection[int] | None,
+        session: Session = None,  # type: ignore[assignment]
     ) -> set[int]:
         """Of `rom_ids`, the subset hidden from the caller (own hide or platform)."""
         candidates = set(rom_ids)
@@ -1938,12 +1937,12 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def with_char_index(
         self,
-        query: Query,
+        query: RomSelect,
         order_by_attr: Any,
         *,
         cache_key: str | None = None,
         order_dir: str = "asc",
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[tuple[str, int]]:
         # Letter offsets only index a lexically ordered result. `Enum` subclasses
         # `String`, but the database orders native enums by declaration order.
@@ -1974,9 +1973,7 @@ class DBRomsHandler(DBBaseHandler):
         descending = order_dir.lower() == "desc"
         letter = func.substring(order_by_attr, 1, 1)
         counts = (
-            query.with_only_columns(  # type: ignore
-                letter.label("letter"), func.count().label("count")
-            )
+            query.with_only_columns(letter.label("letter"), func.count().label("count"))
             .group_by(letter)
             .order_by(letter.desc() if descending else letter.asc())
         )
@@ -1997,10 +1994,10 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_rom_id_index(
         self,
-        query: Query,
+        query: RomSelect,
         *,
         cache_key: str | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[int]:
         """Return every matching rom id in query order.
 
@@ -2019,7 +2016,7 @@ class DBRomsHandler(DBBaseHandler):
             if cached is not None:
                 return json.loads(cached)
 
-        ids = list(session.scalars(query.with_only_columns(Rom.id)).all())  # type: ignore
+        ids = list(session.scalars(query.with_only_columns(Rom.id)).all())
 
         if redis_key is not None and version is not None:
             _store_versioned_cache(redis_key, version, ids)
@@ -2028,9 +2025,9 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_rom_count(
         self,
-        query: Query,
+        query: RomSelect,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         """Count matching roms without materialising their ids.
 
@@ -2048,9 +2045,9 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_random_rom_id(
         self,
-        query: Query,
+        query: RomSelect,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int | None:
         """Pick one rom id at random, uniformly, from a filtered query.
 
@@ -2065,7 +2062,7 @@ class DBRomsHandler(DBBaseHandler):
         in it. That reads no rows, only index entries, since the statement
         selects nothing but the id.
         """
-        id_query = query.order_by(None).with_only_columns(Rom.id)  # type: ignore
+        id_query = query.order_by(None).with_only_columns(Rom.id)
 
         # Bounds come from the table rather than the filtered set: they only
         # need to cover it, and MIN/MAX over an untouched primary key are two
@@ -2096,7 +2093,7 @@ class DBRomsHandler(DBBaseHandler):
         platform_id: int,
         fs_names: Iterable[str],
         with_files: bool = False,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> dict[str, Rom]:
         """Retrieve a dictionary of roms keyed by their full path (fs_path/fs_name).
 
@@ -2138,7 +2135,7 @@ class DBRomsHandler(DBBaseHandler):
     def get_roms_by_fs_names_no_ext(
         self,
         fs_names_no_ext: Iterable[str],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[Rom]:
         """ROMs on any platform with one of these extensionless file names."""
         names = list(dict.fromkeys(fs_names_no_ext))
@@ -2158,13 +2155,13 @@ class DBRomsHandler(DBBaseHandler):
         self,
         id: int,
         data: dict,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Rom:
         if "name" in data and "name_sort_key" not in data:
             # Re-derive the key from the new name, but only when the stored key
             # is still the derived value (i.e. not a manual override). Mirrors
             # the `@validates` logic, which the bulk update() bypasses.
-            existing = session.query(Rom).filter_by(id=id).one()
+            existing = session.scalars(select(Rom).filter_by(id=id)).one()
             if (
                 existing.name_sort_key is None
                 or existing.name_sort_key == compute_name_sort_key(existing.name)
@@ -2183,7 +2180,7 @@ class DBRomsHandler(DBBaseHandler):
         if "fs_name" in data or "fs_path" in data:
             # The unique index reads the digest, so whichever half the caller
             # left out has to come from the stored row.
-            stored = session.query(Rom).filter_by(id=id).one()
+            stored = session.scalars(select(Rom).filter_by(id=id)).one()
             data = {
                 **data,
                 "full_path_hash": compute_full_path_hash(
@@ -2198,7 +2195,7 @@ class DBRomsHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Rom).filter_by(id=id).one()
+        return session.scalars(select(Rom).filter_by(id=id)).one()
 
     @begin_session
     def convert_rom_to_folder(
@@ -2206,10 +2203,10 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         folder: str,
         file_path: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         parts = compute_file_name_parts(folder)
-        stored = session.query(Rom).filter_by(id=id).one()
+        stored = session.scalars(select(Rom).filter_by(id=id)).one()
         session.execute(
             update(Rom)
             .where(Rom.id == id)
@@ -2229,7 +2226,7 @@ class DBRomsHandler(DBBaseHandler):
     def delete_rom(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(
             delete(Rom)
@@ -2241,7 +2238,7 @@ class DBRomsHandler(DBBaseHandler):
     def get_missing_rom_ids(
         self,
         platform_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> set[int]:
         """Return the ids of a platform's ROMs currently flagged missing."""
         return set(
@@ -2260,7 +2257,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         platform_id: int,
         rom_ids: list[int],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         """Bulk set missing_from_fs=False for a list of ROM IDs.
 
@@ -2291,7 +2288,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         platform_id: int,
         fs_roms_to_keep: list[str],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Rom]:
         """Sync `missing_from_fs` for a platform against the keep-list.
 
@@ -2352,7 +2349,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         rom_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomUser:
         rom_user = session.merge(RomUser(rom_id=rom_id, user_id=user_id))
         session.flush()
@@ -2366,7 +2363,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         rom_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomUser | None:
         return session.scalar(
             select(RomUser).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
@@ -2376,7 +2373,7 @@ class DBRomsHandler(DBBaseHandler):
     def get_rom_user_by_id(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomUser | None:
         return session.scalar(select(RomUser).filter_by(id=id).limit(1))
 
@@ -2385,7 +2382,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         id: int,
         data: dict,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomUser | None:
         session.execute(
             update(RomUser)
@@ -2394,7 +2391,7 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        rom_user = session.query(RomUser).filter_by(id=id).one_or_none()
+        rom_user = session.scalars(select(RomUser).filter_by(id=id)).one_or_none()
         if not rom_user:
             return None
 
@@ -2433,7 +2430,7 @@ class DBRomsHandler(DBBaseHandler):
     def add_rom_file(
         self,
         rom_file: RomFile,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomFile:
         merged = session.merge(rom_file)
         session.flush()
@@ -2482,7 +2479,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         rom_id: int,
         scanned_files: Sequence[RomFile],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> SyncedRomFiles:
         """Reconcile a ROM's file rows against a fresh scan, preserving row ids.
 
@@ -2573,7 +2570,7 @@ class DBRomsHandler(DBBaseHandler):
     def get_rom_file_by_id(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
@@ -2592,7 +2589,7 @@ class DBRomsHandler(DBBaseHandler):
     def get_rom_files_by_ids(
         self,
         ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[RomFile]:
         if not ids:
             return []
@@ -2615,7 +2612,7 @@ class DBRomsHandler(DBBaseHandler):
         rom_id: int,
         file_path: str,
         file_name: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
@@ -2629,7 +2626,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         rom_id: int,
         category: RomFileCategory,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[RomFile]:
         """Return the ROM's files for a single category, ordered by file_name."""
         return (
@@ -2649,7 +2646,7 @@ class DBRomsHandler(DBBaseHandler):
     def rom_files_for_rom_id(
         self,
         rom_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[RomFile]:
         """Fetch a ROM's files on demand, with the `RomFile.rom` backref loaded."""
         return list(
@@ -2670,7 +2667,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         id: int,
         data: dict,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomFile | None:
         session.execute(
             update(RomFile)
@@ -2679,7 +2676,7 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        return session.query(RomFile).filter_by(id=id).one_or_none()
+        return session.scalars(select(RomFile).filter_by(id=id)).one_or_none()
 
     @begin_session
     def upsert_track_meta(
@@ -2687,7 +2684,7 @@ class DBRomsHandler(DBBaseHandler):
         rom_file_id: int,
         rom_id: int,
         values: dict,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> TrackMeta:
         existing = session.get(TrackMeta, rom_file_id)
         if existing:
@@ -2705,7 +2702,7 @@ class DBRomsHandler(DBBaseHandler):
     def delete_track_meta(
         self,
         rom_file_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(delete(TrackMeta).where(TrackMeta.rom_file_id == rom_file_id))
 
@@ -2717,7 +2714,7 @@ class DBRomsHandler(DBBaseHandler):
         rom_file_id: int,
         rom_id: int,
         values: dict,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomFileDocMeta:
         """Create or update the provenance sidecar for a document file."""
         existing = session.get(RomFileDocMeta, rom_file_id)
@@ -2739,7 +2736,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         rom_file_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomFileUser | None:
         return session.scalar(
             select(RomFileUser)
@@ -2753,7 +2750,7 @@ class DBRomsHandler(DBBaseHandler):
         rom_file_id: int,
         user_id: int,
         values: dict,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomFileUser:
         """Create or update a user's reading progress for a document file."""
         select_state = (
@@ -2789,8 +2786,8 @@ class DBRomsHandler(DBBaseHandler):
     def _music_where(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None,
-        hidden_rom_ids: Sequence[int] | None,
+        hidden_platform_ids: abc.Collection[int] | None,
+        hidden_rom_ids: abc.Collection[int] | None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -2854,8 +2851,8 @@ class DBRomsHandler(DBBaseHandler):
     def get_music_tracks(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -2875,7 +2872,7 @@ class DBRomsHandler(DBBaseHandler):
         is_favorite_user_id: int | None = None,
         only_favorites: bool = False,
         playlist_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> tuple[Sequence[Any], int]:
         if only_favorites and is_favorite_user_id is None:
             return [], 0
@@ -2982,8 +2979,8 @@ class DBRomsHandler(DBBaseHandler):
         self,
         *,
         field: str,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -2996,7 +2993,7 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "desc",
         limit: int = 50,
         offset: int = 0,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> tuple[Sequence[Any], int]:
         facet_columns = {
             "artists": (TrackMeta.artist, "artist"),
@@ -3038,6 +3035,7 @@ class DBRomsHandler(DBBaseHandler):
             .group_by(col)
         )
         total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        primary: UnaryExpression[Any]
         if order_by == "value":
             primary = col.asc() if order_dir != "desc" else col.desc()
         else:
@@ -3060,9 +3058,9 @@ class DBRomsHandler(DBBaseHandler):
     def get_music_stats(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
-        session: Session = None,  # type: ignore
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
+        session: Session = None,  # type: ignore[assignment]
     ) -> tuple[int, float]:
         """Total track count and total duration, for the jukebox home cards.
 
@@ -3090,8 +3088,8 @@ class DBRomsHandler(DBBaseHandler):
     def get_music_game_genre_facet(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -3106,7 +3104,7 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "desc",
         limit: int = 50,
         offset: int = 0,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> tuple[Sequence[Any], int]:
         """Distinct *game* genres over the tracked roms, with track counts.
 
@@ -3172,8 +3170,8 @@ class DBRomsHandler(DBBaseHandler):
     def get_music_platform_facet(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -3188,7 +3186,7 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         limit: int = 50,
         offset: int = 0,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> tuple[Sequence[Any], int]:
         """Platforms that have soundtrack tracks, with per-platform counts."""
         where = self._music_where(
@@ -3222,6 +3220,7 @@ class DBRomsHandler(DBBaseHandler):
         ).where(*where)
         base = base.group_by(Platform.id, Platform.slug, Platform.name)
         total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        primary: UnaryExpression[Any]
         if order_by == "count":
             primary = count_col.asc() if order_dir == "asc" else count_col.desc()
         else:
@@ -3237,8 +3236,8 @@ class DBRomsHandler(DBBaseHandler):
     def get_music_game_facet(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: abc.Collection[int] | None = None,
+        hidden_rom_ids: abc.Collection[int] | None = None,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -3254,7 +3253,7 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         limit: int = 50,
         offset: int = 0,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> tuple[Sequence[Any], int]:
         """Games that have soundtrack tracks -- the jukebox's album list."""
         where = self._music_where(
@@ -3303,6 +3302,7 @@ class DBRomsHandler(DBBaseHandler):
             Platform.name,
         )
         total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        primary: UnaryExpression[Any]
         if order_by == "count":
             primary = count_col.asc() if order_dir == "asc" else count_col.desc()
         else:
@@ -3316,7 +3316,7 @@ class DBRomsHandler(DBBaseHandler):
     def delete_rom_file(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(
             delete(RomFile)
@@ -3334,8 +3334,8 @@ class DBRomsHandler(DBBaseHandler):
         search: str | None = "",
         tags: list[str] | None = None,
         session: Session,
-    ) -> Query[RomNote]:
-        query = session.query(RomNote).filter(RomNote.rom_id == rom_id)
+    ) -> Select[tuple[RomNote]]:
+        query = select(RomNote).filter(RomNote.rom_id == rom_id)
 
         if public_only:
             query = query.filter(RomNote.is_public)
@@ -3364,15 +3364,17 @@ class DBRomsHandler(DBBaseHandler):
         public_only: bool = False,
         search: str | None = "",
         tags: list[str] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[RomNote]:
-        return self._rom_notes_query(
-            rom_id=rom_id,
-            user_id=user_id,
-            public_only=public_only,
-            search=search,
-            tags=tags,
-            session=session,
+        return session.scalars(
+            self._rom_notes_query(
+                rom_id=rom_id,
+                user_id=user_id,
+                public_only=public_only,
+                search=search,
+                tags=tags,
+                session=session,
+            )
         ).all()
 
     @begin_session
@@ -3383,7 +3385,7 @@ class DBRomsHandler(DBBaseHandler):
         public_only: bool = False,
         search: str | None = "",
         tags: list[str] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[int]:
         """Ids only, so no `RomNote` is built and no eager rom or user join fires."""
         query = self._rom_notes_query(
@@ -3394,7 +3396,7 @@ class DBRomsHandler(DBBaseHandler):
             tags=tags,
             session=session,
         )
-        return [row[0] for row in query.with_entities(RomNote.id).all()]
+        return list(session.scalars(query.with_only_columns(RomNote.id)).all())
 
     @begin_session
     def create_rom_note(
@@ -3405,7 +3407,7 @@ class DBRomsHandler(DBBaseHandler):
         content: str = "",
         is_public: bool = False,
         tags: list[str] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> dict:
         note = RomNote(
             rom_id=rom_id,
@@ -3437,17 +3439,17 @@ class DBRomsHandler(DBBaseHandler):
         note_id: int,
         user_id: int,
         rom_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
         **fields,
     ) -> dict | None:
-        note = (
-            session.query(RomNote)
+        note = session.scalar(
+            select(RomNote)
             .filter(
                 RomNote.id == note_id,
                 RomNote.user_id == user_id,
                 RomNote.rom_id == rom_id,
             )
-            .first()
+            .limit(1)
         )
 
         if not note:
@@ -3478,7 +3480,7 @@ class DBRomsHandler(DBBaseHandler):
         note_id: int,
         user_id: int,
         rom_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> bool:
         result = session.execute(
             delete(RomNote).where(
@@ -3509,8 +3511,8 @@ class DBRomsHandler(DBBaseHandler):
         csdb_id: int | None = None,
         steam_id: int | None = None,
         *,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = None,  # type: ignore[assignment]
+        session: Session = None,  # type: ignore[assignment]
     ) -> Rom | None:
         """
         Get a ROM by any metadata ID.
@@ -3553,8 +3555,8 @@ class DBRomsHandler(DBBaseHandler):
         sha1_hash: str | None = None,
         ra_hash: str | None = None,
         *,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = None,  # type: ignore[assignment]
+        session: Session = None,  # type: ignore[assignment]
     ) -> Rom | None:
         """
         Get a ROM by calculated hash value.
@@ -3591,7 +3593,7 @@ class DBRomsHandler(DBBaseHandler):
         md5_hash: str | None = None,
         sha1_hash: str | None = None,
         title_id: str | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Rom | None:
         """Find a ROM marked missing on a platform that identifies the file.
 
@@ -3698,7 +3700,7 @@ class DBRomsHandler(DBBaseHandler):
     def refresh_identity_key_statistics(
         self,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         """Resample `rom_identity_keys` so the sibling join keeps its indexed plan.
 
@@ -3723,10 +3725,10 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def with_filter_values(
         self,
-        query: Query,
+        query: RomSelect,
         *,
         cache_key: str | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomFiltersDict:
         """
         Returns the list of filters given the current subset of ROMs in the query
@@ -3740,7 +3742,7 @@ class DBRomsHandler(DBBaseHandler):
             if cached is not None:
                 return json.loads(cached)
 
-        ids_subq = query.order_by(None).with_only_columns(Rom.id).scalar_subquery()  # type: ignore
+        ids_subq = query.order_by(None).with_only_columns(Rom.id).scalar_subquery()
 
         statement = _FILTER_VALUES_SELECT.where(RomFacets.rom_id.in_(ids_subq))
 
@@ -3752,7 +3754,7 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_rom_filters(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> RomFiltersDict:
         """
         Returns all filter values across all ROM metadata

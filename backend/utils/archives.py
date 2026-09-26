@@ -117,7 +117,7 @@ def read_tar_file(
 
             # Find the largest file among regular files only
             largest_file = max(regular_files, key=lambda x: x.size)
-            with f.extractfile(largest_file) as ef:  # type: ignore
+            with f.extractfile(largest_file) as ef:  # type: ignore[union-attr]
                 with ef:
                     while chunk := ef.read(FILE_READ_CHUNK_SIZE):
                         yield chunk

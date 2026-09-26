@@ -17,7 +17,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
         self,
         device_id: str,
         save_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> DeviceSaveSync | None:
         return session.scalar(
             select(DeviceSaveSync)
@@ -30,7 +30,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
         self,
         device_id: str,
         save_ids: list[int],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[DeviceSaveSync]:
         if not save_ids:
             return []
@@ -45,7 +45,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
     def get_syncs_for_saves(
         self,
         save_ids: list[int],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> dict[int, list[tuple[DeviceSaveSync, str | None]]]:
         """Fetch every device sync row for the given saves, grouped by save id.
 
@@ -72,7 +72,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
         device_id: str,
         save_id: int,
         synced_at: datetime | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> DeviceSaveSync:
         now = synced_at or datetime.now(timezone.utc)
         existing = session.scalar(
@@ -110,7 +110,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
         device_id: str,
         save_id: int,
         untracked: bool,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> DeviceSaveSync | None:
         existing = session.scalar(
             select(DeviceSaveSync)
@@ -146,7 +146,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
     def delete_syncs_for_device(
         self,
         device_id: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(
             delete(DeviceSaveSync)
