@@ -1,4 +1,6 @@
+import contextlib
 import enum
+import json
 from typing import NotRequired, TypedDict
 from unittest.mock import MagicMock
 
@@ -68,6 +70,17 @@ def test_mismatch_raises_when_strict():
         validate_response(Parent, {"id": "x"}, source="test")
 
 
+def test_mismatch_is_not_swallowed_by_a_broad_except():
+    with pytest.raises(ResponseMismatchError), contextlib.suppress(Exception):
+        validate_response(Parent, {"id": "x"}, source="test")
+
+
+def test_nan_is_not_a_coercion():
+    data = json.loads('{"id": 1, "kind": 0, "child": {"id": 2}, "score": NaN}')
+
+    assert validate_response(Parent, data, source="test") is data
+
+
 def test_value_that_fits_only_after_coercion_is_a_mismatch():
     data = {"id": "1", "kind": 0, "child": {"id": 2}}
 
@@ -101,3 +114,17 @@ def test_id_keyed_entries_share_one_warning(monkeypatch: pytest.MonkeyPatch):
     validate_response(dict[str, Child], {"202": {"id": "y"}}, source="test")
 
     log.warning.assert_called_once()
+
+
+@pytest.mark.usefixtures("lenient")
+def test_known_problems_in_a_new_combination_are_not_logged_again(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    log = MagicMock()
+    monkeypatch.setattr(response_validation, "log", log)
+
+    validate_response(list[Child], [{"id": "x"}], source="test")
+    validate_response(list[Child], [{"id": None}], source="test")
+    validate_response(list[Child], [{"id": "x"}, {"id": None}], source="test")
+
+    assert log.warning.call_count == 2

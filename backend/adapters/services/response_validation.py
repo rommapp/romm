@@ -11,10 +11,11 @@ _CONFIG = ConfigDict(extra="allow", use_enum_values=True)
 RAISE_ON_MISMATCH = False
 
 _adapters: dict[object, TypeAdapter[tuple[Any]]] = {}
-_reported: set[tuple[str, frozenset[tuple[str, str]]]] = set()
+_reported: set[tuple[str, tuple[str, str]]] = set()
 
 
-class ResponseMismatchError(Exception):
+# A BaseException, so a handler's `except Exception` cannot hide drift from a test.
+class ResponseMismatchError(BaseException):
     pass
 
 
@@ -39,6 +40,9 @@ def _path(loc: tuple[int | str, ...]) -> str:
 def _first_difference(
     validated: object, raw: object, loc: tuple[int | str, ...] = ()
 ) -> tuple[int | str, ...] | None:
+    # Pydantic hands back uncoerced scalars, and anything typed Any, as the same object.
+    if validated is raw:
+        return None
     if isinstance(validated, dict) and isinstance(raw, dict):
         for key, value in raw.items():
             found = _first_difference(validated.get(key), value, (*loc, key))
@@ -58,7 +62,7 @@ def _first_difference(
 
 
 def validate_response[T](tp: type[T], data: object, *, source: str) -> T:
-    """Return a provider payload as sent, logging once per shape if it strays from `tp`.
+    """Return a provider payload as sent, logging each new way it strays from `tp` once.
 
     Args:
         tp: The TypedDict (or container of one) the payload should match.
@@ -88,8 +92,9 @@ def validate_response[T](tp: type[T], data: object, *, source: str) -> T:
             f"{source} response does not match {tp!r}: {details}"
         )
 
-    if (source, frozenset(problems)) not in _reported:
-        _reported.add((source, frozenset(problems)))
+    unreported = {(source, problem) for problem in problems} - _reported
+    if unreported:
+        _reported.update(unreported)
         log.warning(
             "%s response does not match %r (%d problems): %s",
             source,

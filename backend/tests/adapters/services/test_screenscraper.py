@@ -11,6 +11,7 @@ import yarl
 from fastapi import HTTPException, status
 
 import adapters.services.screenscraper as ss_module
+from adapters.services import response_validation
 from adapters.services.screenscraper import (
     LOGIN_ERROR_CHECK,
     SS_DEFAULT_MAX_THREADS,
@@ -327,6 +328,20 @@ class TestScreenScraperServiceUnit:
             await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
 
         assert ss_module._concurrency_limiter.max_concurrency == 5
+
+    @pytest.mark.asyncio
+    async def test_request_reads_a_non_object_body_as_empty(self, service, monkeypatch):
+        monkeypatch.setattr(response_validation, "RAISE_ON_MISMATCH", False)
+        response = _ok_response({})
+        response.json = AsyncMock(return_value=[{"jeu": {}}])
+        _, context = _session(response)
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
+            result = await service._request(
+                "https://api.screenscraper.fr/api2/jeuInfos.php"
+            )
+
+        assert result == {}
 
     @pytest.mark.asyncio
     async def test_request_ignores_invalid_maxthreads(self, service):

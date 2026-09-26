@@ -719,8 +719,10 @@ class ScreenScraperService:
         # A response means the wall the counter was tracking is not there.
         _state.daily_quota_errors = 0
         response = validate_response(dict[str, Any], data, source="ScreenScraper")
-        if isinstance(response, dict):
-            _update_account_limits(response)
+        # Callers only ever read mappings.
+        if not isinstance(response, dict):
+            return {}
+        _update_account_limits(response)
         return response
 
     async def _recheck_daily_quota(self) -> bool:

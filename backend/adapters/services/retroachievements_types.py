@@ -63,8 +63,8 @@ class RAGameExtendedDetails(TypedDict):
     Publisher: str
     Developer: str
     Genre: str
-    Released: str  # ISO 8601 date format
-    ReleasedAtGranularity: RAGameReleasedAtGranularity
+    Released: str | None  # ISO 8601 date format
+    ReleasedAtGranularity: RAGameReleasedAtGranularity | None
     RichPresencePatch: str
     GuideURL: str | None
     Updated: str  # ISO 8601 datetime format
@@ -132,8 +132,8 @@ class RAGameInfoAndUserProgress(TypedDict):
     Publisher: str
     Developer: str
     Genre: str
-    Released: str  # ISO 8601 date format
-    ReleasedAtGranularity: RAGameReleasedAtGranularity
+    Released: str | None  # ISO 8601 date format
+    ReleasedAtGranularity: RAGameReleasedAtGranularity | None
     RichPresencePatch: str
     GuideURL: NotRequired[str | None]
     ConsoleName: str
@@ -149,8 +149,8 @@ class RAGameInfoAndUserProgress(TypedDict):
     NumDistinctPlayersHardcore: int
     UserCompletion: str  # e.g., "100.00%"
     UserCompletionHardcore: str  # e.g., "100.00%"
-    HighestAwardKind: NotRequired[RAUserCompletionProgressKind]
-    HighestAwardDate: NotRequired[str]  # ISO 8601 datetime format
+    HighestAwardKind: NotRequired[RAUserCompletionProgressKind | None]
+    HighestAwardDate: NotRequired[str | None]  # ISO 8601 datetime format
 
 
 # https://api-docs.retroachievements.org/v1/get-game-list.html#response
