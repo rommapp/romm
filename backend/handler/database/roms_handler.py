@@ -1325,7 +1325,6 @@ class DBRomsHandler(DBBaseHandler):
         query: Select,
         spec: RomFilterSpec,
         *,
-        session: Session,
         values: Sequence[str],
         match_all: bool = False,
         match_none: bool = False,
@@ -1569,7 +1568,6 @@ class DBRomsHandler(DBBaseHandler):
                 query = self._apply_filter_spec(
                     query,
                     spec,
-                    session=session,
                     values=values,
                     match_all=(logic == "all"),
                     match_none=(logic == "none"),
@@ -3313,7 +3311,6 @@ class DBRomsHandler(DBBaseHandler):
         public_only: bool = False,
         search: str | None = "",
         tags: list[str] | None = None,
-        session: Session,
     ) -> Select[tuple[RomNote]]:
         query = select(RomNote).filter(RomNote.rom_id == rom_id)
 
@@ -3351,7 +3348,6 @@ class DBRomsHandler(DBBaseHandler):
                 public_only=public_only,
                 search=search,
                 tags=tags,
-                session=session,
             )
         ).all()
 
@@ -3372,7 +3368,6 @@ class DBRomsHandler(DBBaseHandler):
             public_only=public_only,
             search=search,
             tags=tags,
-            session=session,
         )
         return list(session.scalars(query.with_only_columns(RomNote.id)).all())
 
