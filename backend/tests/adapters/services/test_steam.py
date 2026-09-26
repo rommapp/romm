@@ -1,4 +1,5 @@
 import http
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -15,7 +16,7 @@ from adapters.services.steam import (
 def _response(json_body: object) -> MagicMock:
     response = MagicMock()
     response.raise_for_status = MagicMock()
-    response.json = AsyncMock(return_value=json_body)
+    response.read = AsyncMock(return_value=json.dumps(json_body).encode())
     return response
 
 
@@ -51,7 +52,7 @@ async def test_search_apps_returns_items(session):
 
 
 async def test_search_apps_handles_empty_payload(session):
-    session.get.return_value = _response({})
+    session.get.return_value = _response({"total": 0, "items": []})
 
     assert await SteamService().search_apps("nothing at all") == []
 
@@ -90,12 +91,18 @@ async def test_get_app_details_unwraps_envelope_keyed_by_another_id(session):
 
 async def test_get_app_details_rejects_envelope_for_another_app(session):
     session.get.return_value = _response(
-        {"662290": {"success": True, "data": {"type": "dlc", "steam_appid": 662290}}}
+        {
+            "662290": {
+                "success": True,
+                "data": {"type": "dlc", "name": "DLC", "steam_appid": 662290},
+            }
+        }
     )
 
     assert await SteamService().get_app_details(242820) is None
 
 
+@pytest.mark.usefixtures("lenient")
 async def test_get_app_details_rejects_a_sole_value_that_is_not_an_envelope(session):
     session.get.return_value = _response({"error": "unavailable"})
 
