@@ -13,11 +13,15 @@ vi.mock("@/services/api/rom", () => ({
   default: { updateUserRomProps: vi.fn() },
 }));
 
-vi.mock("@/stores/auth", () => ({
-  default: () => ({ scopes: ["roms.user.write"] }),
-}));
+const auth = vi.hoisted(() => ({ scopes: ["roms.user.write"] }));
+vi.mock("@/stores/auth", () => ({ default: () => auth }));
 
 const snackbarError = vi.fn();
+const syncCachedRom = vi.fn();
+vi.mock("@/v2/composables/useRomSync", () => ({
+  useRomSync: () => ({ syncCachedRom }),
+}));
+
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ error: snackbarError }),
 }));
@@ -56,7 +60,7 @@ describe("usePinnedMedia", () => {
     const rom = makeRom(null);
     const { isPinned, isCustomized, togglePin } = usePinnedMedia(rom);
 
-    expect(isPinned("file:1")).toBe(true);
+    expect(isPinned.value?.("file:1")).toBe(true);
     expect(isCustomized.value).toBe(false);
 
     togglePin("file:2");
@@ -161,6 +165,14 @@ describe("usePinnedMedia", () => {
       "rom.pinned-media-limit",
       expect.anything(),
     );
+  });
+
+  it("hides pin controls without the roms.user.write scope", () => {
+    auth.scopes = [];
+    const { isPinned } = usePinnedMedia(makeRom(["file:1"]));
+
+    expect(isPinned.value).toBeUndefined();
+    auth.scopes = ["roms.user.write"];
   });
 
   it("resets to the default selection", async () => {

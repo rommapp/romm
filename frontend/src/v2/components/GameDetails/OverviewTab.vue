@@ -284,7 +284,7 @@ const coverSource = computed(() => {
         :items="pinnedMedia"
         compact
         pin-on-hover
-        :is-pinned="canPin ? isPinned : undefined"
+        :is-pinned="isPinned"
         @toggle-pin="togglePin"
       />
       <p v-else class="overview-tab__empty">

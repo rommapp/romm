@@ -27,7 +27,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import Response
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
@@ -141,7 +141,11 @@ from utils.m3u import generate_m3u_content, playlist_files
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter, as_query_dependency
 from utils.screenshots import continue_playing_screenshot
-from utils.validation import ValidationError, parse_comma_separated_ids
+from utils.validation import (
+    ValidationError,
+    dedupe_in_order,
+    parse_comma_separated_ids,
+)
 from utils.zip_cache import (
     BULK_CACHE_MAX_ROMS,
     ZipFileEntry,
@@ -335,6 +339,14 @@ def _record_rom_update(request: Request, before: Rom, after: Rom) -> None:
     )
 
 
+PinnedMediaKey = Annotated[
+    str,
+    StringConstraints(
+        max_length=PINNED_MEDIA_KEY_MAX_LENGTH, pattern=PINNED_MEDIA_KEY_PATTERN
+    ),
+]
+
+
 class RomUserData(BaseModel):
     is_main_sibling: bool | None = Field(
         default=None, description="Whether this rom is the main sibling."
@@ -364,28 +376,13 @@ class RomUserData(BaseModel):
     status: RomUserStatus | None = Field(
         default=None, description="User play status for this rom."
     )
-    pinned_media: (
-        list[
-            Annotated[
-                str,
-                StringConstraints(
-                    max_length=PINNED_MEDIA_KEY_MAX_LENGTH,
-                    pattern=PINNED_MEDIA_KEY_PATTERN,
-                ),
-            ]
-        ]
-        | None
-    ) = Field(
+    pinned_media: Annotated[
+        list[PinnedMediaKey] | None, AfterValidator(dedupe_in_order)
+    ] = Field(
         default=None,
         description="Ordered media keys shown on the overview; null restores the default selection.",
         max_length=PINNED_MEDIA_MAX_ITEMS,
     )
-
-    @field_validator("pinned_media")
-    @classmethod
-    def dedupe_pinned_media(cls, keys: list[str] | None) -> list[str] | None:
-        """Drop repeated keys, keeping each at its first position."""
-        return None if keys is None else list(dict.fromkeys(keys))
 
 
 async def parse_rom_update_form(

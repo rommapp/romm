@@ -38,7 +38,7 @@ vi.mock("@/v2/utils/pinnedMedia", () => ({
 vi.mock("@/v2/composables/usePinnedMedia", () => ({
   usePinnedMedia: () => ({
     canPin: ref(true),
-    isPinned: () => true,
+    isPinned: ref(() => true),
     isCustomized,
     togglePin: vi.fn(),
     resetPins,

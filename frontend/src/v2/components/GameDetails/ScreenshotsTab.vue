@@ -7,8 +7,8 @@
 // MediaTab, performs the actions):
 //   * edit:     when `editable` and owned, opens its visibility (top-right)
 //   * delete:   when `deletable` and the item is owned (top-right, hover)
-//   * pin:      when `isPinned` is given and the item has a `pinKey`
-//               (bottom-right, always shown while pinned)
+//   * pin:      when `isPinned` is given (bottom-right, always shown while
+//               pinned)
 //   * username: community items (others' public shots) show an owner chip
 import { RAvatar, RBtn, RCarousel } from "@v2/lib";
 import { computed, ref } from "vue";
@@ -24,7 +24,7 @@ defineOptions({ inheritAttrs: false });
 // `isOwn`/`isPublic`/`username` only matter for the per-user community grids.
 export type ScreenshotItem = {
   url: string;
-  pinKey?: string;
+  pinKey: string;
   id?: number;
   isOwn?: boolean;
   isPublic?: boolean;
@@ -75,7 +75,7 @@ function canEdit(shot: ScreenshotItem): boolean {
   <section class="r-v2-det-shots">
     <div
       v-for="(shot, i) in screenshots"
-      :key="shot.pinKey ?? shot.url"
+      :key="shot.pinKey"
       class="r-v2-det-shots__cell r-v2-asset-fade"
       :style="{ '--asset-fade-i': i }"
     >
@@ -136,7 +136,7 @@ function canEdit(shot: ScreenshotItem): boolean {
       </div>
 
       <MediaPinBtn
-        v-if="isPinned && shot.pinKey"
+        v-if="isPinned"
         class="r-v2-det-shots__pin"
         :class="{ 'r-v2-det-shots__pin--shown': isPinned(shot.pinKey) }"
         :pinned="isPinned(shot.pinKey)"

@@ -6,6 +6,7 @@ import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import {
   PINNED_MEDIA_MAX_ITEMS,
@@ -27,10 +28,16 @@ export function usePinnedMedia(rom: MaybeRefOrGetter<DetailedRom>) {
   const { t } = useI18n();
   const snackbar = useSnackbar();
   const auth = storeAuth();
+  const { syncCachedRom } = useRomSync();
 
   // The props endpoint refuses sessions without this scope.
   const canPin = computed(() => auth.scopes.includes("roms.user.write"));
-  const pinned = computed(() => new Set(pinnedMediaKeys(toValue(rom))));
+  const keys = computed(() => pinnedMediaKeys(toValue(rom)));
+  const pinned = computed(() => new Set(keys.value));
+  // Undefined without the scope, which hides every pin control.
+  const isPinned = computed(() =>
+    canPin.value ? (key: string) => pinned.value.has(key) : undefined,
+  );
   const isCustomized = computed(
     () => toValue(rom).rom_user?.pinned_media != null,
   );
@@ -40,23 +47,21 @@ export function usePinnedMedia(rom: MaybeRefOrGetter<DetailedRom>) {
     const romUser = target.rom_user;
     if (!romUser) return;
 
-    let writes = romWrites.get(target.id);
-    if (!writes) {
-      writes = {
-        queue: Promise.resolve(),
-        pending: 0,
-        confirmed: romUser.pinned_media,
-      };
-      romWrites.set(target.id, writes);
-    }
-    const state = writes;
+    const state = romWrites.get(target.id) ?? {
+      queue: Promise.resolve(),
+      pending: 0,
+      confirmed: romUser.pinned_media,
+    };
+    romWrites.set(target.id, state);
     // A refetch mid-write swaps in a new rom_user, so settle on the live one.
     const settle = (value: string[] | null) => {
       const live = toValue(rom);
-      const current = live.id === target.id ? live.rom_user : romUser;
-      current.pinned_media = value;
+      const current = live.id === target.id ? live : target;
+      current.rom_user.pinned_media = value;
+      syncCachedRom(current);
     };
     romUser.pinned_media = next;
+    syncCachedRom(target);
     state.pending++;
     state.queue = state.queue.then(async () => {
       try {
@@ -78,12 +83,8 @@ export function usePinnedMedia(rom: MaybeRefOrGetter<DetailedRom>) {
     });
   }
 
-  function isPinned(key: string): boolean {
-    return pinned.value.has(key);
-  }
-
   function togglePin(key: string) {
-    const next = togglePinnedMediaKey(pinnedMediaKeys(toValue(rom)), key);
+    const next = togglePinnedMediaKey(keys.value, key);
     if (next.length > PINNED_MEDIA_MAX_ITEMS) {
       snackbar.error(
         t("rom.pinned-media-limit", { n: PINNED_MEDIA_MAX_ITEMS }),

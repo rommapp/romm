@@ -35,43 +35,53 @@ export function romFolderScreenshots(rom: DetailedRom): RomFileSchema[] {
   });
 }
 
-function screenshotLabel(n: number): string {
-  return i18n.global.t("rom.screenshot-num", { n });
-}
-
-function scrapedScreenshots(rom: DetailedRom): MediaShelfItem[] {
-  return (rom.merged_screenshots ?? []).map((url, i) => ({
-    key: mediaKey.scraped(url),
-    label: screenshotLabel(i + 1),
-    url,
+function screenshotItems<T>(
+  list: T[],
+  keyOf: (entry: T) => string,
+  urlOf: (entry: T) => string,
+): MediaShelfItem[] {
+  return list.map((entry, i) => ({
+    key: keyOf(entry),
+    label: i18n.global.t("rom.screenshot-num", { n: i + 1 }),
+    url: urlOf(entry),
   }));
 }
 
-function folderScreenshots(rom: DetailedRom): MediaShelfItem[] {
-  return romFolderScreenshots(rom).map((file, i) => ({
-    key: mediaKey.file(file.id),
-    label: screenshotLabel(i + 1),
-    url: versionedRomFileUrl(file),
-  }));
-}
-
-function userScreenshots(rom: DetailedRom): MediaShelfItem[] {
-  return (rom.all_user_screenshots ?? []).map((shot, i) => ({
-    key: mediaKey.screenshot(shot.id),
-    label: screenshotLabel(i + 1),
-    url: shot.download_path,
-  }));
+function mediaSources(rom: DetailedRom) {
+  return {
+    screenshots: [
+      ...screenshotItems(
+        rom.merged_screenshots ?? [],
+        mediaKey.scraped,
+        (url) => url,
+      ),
+      ...screenshotItems(
+        romFolderScreenshots(rom),
+        (file) => mediaKey.file(file.id),
+        versionedRomFileUrl,
+      ),
+    ],
+    userScreenshots: screenshotItems(
+      rom.all_user_screenshots ?? [],
+      (shot) => mediaKey.screenshot(shot.id),
+      (shot) => shot.download_path,
+    ),
+    artwork: resolveRomArtwork(rom),
+  };
 }
 
 // Capped so the first toggle can always save the defaults it starts from.
-export function defaultPinnedMediaKeys(rom: DetailedRom): string[] {
-  return [
-    ...scrapedScreenshots(rom),
-    ...folderScreenshots(rom),
-    ...resolveRomArtwork(rom).filter((entry) => entry.isVideo),
-  ]
+function defaultKeys({
+  screenshots,
+  artwork,
+}: ReturnType<typeof mediaSources>): string[] {
+  return [...screenshots, ...artwork.filter((entry) => entry.isVideo)]
     .map((item) => item.key)
     .slice(0, PINNED_MEDIA_MAX_ITEMS);
+}
+
+export function defaultPinnedMediaKeys(rom: DetailedRom): string[] {
+  return defaultKeys(mediaSources(rom));
 }
 
 export function pinnedMediaKeys(rom: DetailedRom): string[] {
@@ -81,15 +91,16 @@ export function pinnedMediaKeys(rom: DetailedRom): string[] {
 // Keys whose media is gone (a rescrape, a deleted file, a screenshot made
 // private) are skipped rather than pruned, so they return with the media.
 export function resolvePinnedMedia(rom: DetailedRom): MediaShelfItem[] {
+  const sources = mediaSources(rom);
   const byKey = new Map(
     [
-      ...scrapedScreenshots(rom),
-      ...folderScreenshots(rom),
-      ...userScreenshots(rom),
-      ...resolveRomArtwork(rom),
+      ...sources.screenshots,
+      ...sources.userScreenshots,
+      ...sources.artwork,
     ].map((item) => [item.key, item]),
   );
-  return pinnedMediaKeys(rom).flatMap((key) => byKey.get(key) ?? []);
+  const keys = rom.rom_user?.pinned_media ?? defaultKeys(sources);
+  return keys.flatMap((key) => byKey.get(key) ?? []);
 }
 
 export function togglePinnedMediaKey(keys: string[], key: string): string[] {
