@@ -4,20 +4,9 @@ RomM is a self-hosted ROM manager and player: scan a game library off disk, enri
 
 ---
 
-## The stack at a glance
-
-|           | Backend                                     | Frontend                                  |
-| --------- | ------------------------------------------- | ----------------------------------------- |
-| Path      | `backend/`                                  | `frontend/`                               |
-| Language  | Python 3.14+                                | TypeScript 5.9 (Vue 3)                    |
-| Framework | FastAPI, SQLAlchemy 2.0, Alembic            | Vue 3 + Vite, Vuetify, Pinia, Vue Router  |
-| Infra     | Redis + RQ (jobs/cache/sessions), Socket.IO | vue-i18n, Socket.IO client                |
-| DB        | MariaDB (default), MySQL, PostgreSQL        | -                                         |
-| Tooling   | `uv`, pytest, Trunk (ruff/black/isort/mypy) | `npm`, vue-tsc, ESLint, Vitest, Storybook |
-
 The frontend talks to the backend over `/api/*` (REST) and `/ws` (Socket.IO). TypeScript types are **generated** from the backend's OpenAPI schema into `frontend/src/__generated__/` - the backend is the single source of truth for API shapes.
 
-### Deep-dive references
+## Deep-dive references
 
 - **`docs/BACKEND_ARCHITECTURE.md`** - directory map, ER diagram, every endpoint, auth/scopes, tasks.
 - **`docs/FRONTEND_ARCHITECTURE.md`** - routing, stores, services, theming, build tooling.
@@ -26,34 +15,15 @@ The frontend talks to the backend over `/api/*` (REST) and `/ws` (Socket.IO). Ty
 
 ---
 
-## The frontend has two UIs - know which you're in
+## Stack-specific guidance
 
-- **v1 is frozen.** Everything under `frontend/src/views/`, `src/components/`, `src/console/`, `src/layouts/` is legacy and will be deleted wholesale in a final wave. **Do not refactor v1.** Only touch it for a critical bug, and when a v2 fork exists, mark the v1 export `@deprecated`.
-- **v2 is the active rewrite** under `frontend/src/v2/`, gated by `user.ui_settings.uiVersion`. It has its own design system (tokens), primitive library (`R*` components in `src/v2/lib/`), universal input (mouse/touch/keyboard/gamepad), and responsive system. New frontend work goes in v2.
-
-v2 has a detailed constitution, split across focused skills (below). **Read the relevant skill before editing v2 code.**
+`frontend/CLAUDE.md` (v1 vs v2, frontend commands) and `backend/CLAUDE.md` (backend commands) load when you work in those directories. New frontend work goes in v2 (`frontend/src/v2/`); v1 is frozen.
 
 ---
 
 ## Skills - load the focused guide for your task
 
-These live in `.claude/skills/` and carry the detailed rules. Invoke the one that matches what you're doing:
-
-| Skill                    | When                                                                                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `knowledge-base`         | Understanding how part of the codebase works or where it lives, via Greptile's synthesized knowledge base. Verify what it says against the code.              |
-| `frontend-v2-components` | Building/editing any v2 component - tiers (lib/shared/feature), file & SFC conventions, barrels, anti-patterns.                                               |
-| `frontend-v2-theming`    | Colors, tokens, light/dark themes, visual language - and the **zero-hex-literal** policy.                                                                     |
-| `frontend-v2-input`      | Interactive components, focus/spatial navigation, gamepad/keyboard, breakpoints & responsive layout.                                                          |
-| `frontend-v2-patterns`   | Feature behavior - errors/snackbars, loading, sockets, state persistence, pagination, forms, permissions, destructive confirmations.                          |
-| `frontend-i18n`          | Any user-visible string or change under `frontend/src/locales/**`.                                                                                            |
-| `backend-development`    | Endpoints, handlers, models, schemas, metadata adapters, tasks, migrations under `backend/`.                                                                  |
-| `review-polish`          | Before committing / opening a PR / declaring done - the self-review pass (comments, duplication, naming, test typing) plus the checks that keep CI green.     |
-| `security-audit`         | Vetting a diff (release tag range or PR) for anything malicious or a security regression - supply chain, egress, auth/injection, CI, provenance.              |
-| `pr-ready`               | Before opening a PR - the four passes in order: `security-audit`, `code-review xhigh --fix`, `simplify`, `review-polish`. Not auto-invoked.                   |
-| `address-bot-reviews`    | After Greptile and Copilot review a PR - triage each finding, fix what holds up, reply with the fix or the reason, and resolve the threads. Not auto-invoked. |
-| `draft-release-notes`    | Drafting the GitHub release notes for a release, stable or alpha/beta, from the diff since the previous stable tag.                                           |
-| `draft-announcement`     | Drafting the Discord announcement for a release, from the release notes plus an interview about community news. Not auto-invoked.                             |
+These live in `.claude/skills/` and carry the detailed rules. Invoke the one that matches what you're doing. `pr-ready`, `address-bot-reviews`, and `draft-announcement` are run by the user, not auto-invoked.
 
 ---
 
@@ -83,32 +53,5 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 ## Quick command reference
 
 **Setup:** see `DEVELOPER_SETUP.md`. Docker path is `cp env.template .env` → `docker compose build` → `docker compose up -d` (app at `http://localhost:3000`).
-
-**Backend** (`cd backend`):
-
-```bash
-uv sync --all-extras --dev          # install
-uv run main.py              # run (migrations auto-apply)
-uv run pytest <path/file>           # test - affected files only, NEVER the whole suite
-uv run alembic revision --autogenerate -m "msg"   # new migration (then HAND-REVIEW)
-uv run alembic upgrade head         # apply migrations
-```
-
-**Frontend** (`cd frontend`):
-
-```bash
-npm install                         # install (Node 24)
-npm run dev                         # dev server :3000
-npm run typecheck                   # vue-tsc
-npm run typecheck:scripts           # tsc on the Node/Vite tooling in scripts/
-npm run test                        # vitest (+ Storybook play() tests)
-npm run test:e2e                    # playwright (needs a running app + seeded e2e users)
-npm run build                       # production build
-npm run generate                    # regenerate types from backend OpenAPI (backend must be running)
-npm run build:tokens                # regenerate v2 tokens.css (auto on predev/prebuild)
-npm run storybook                   # component library on :6006
-python3 src/locales/check_i18n_locales.py   # i18n parity check
-python3 src/locales/check_i18n_sorted.py    # locale keys sorted (--fix to sort)
-```
 
 **Lint (both stacks):** `trunk fmt && trunk check`.
