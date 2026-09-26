@@ -1,3 +1,5 @@
+from collections.abc import Callable, Iterator
+
 import pytest
 import sqlalchemy as sa
 from sqlalchemy.dialects import mysql, postgresql, sqlite
@@ -12,6 +14,7 @@ from utils.database import CustomJSON
 from utils.sql_dialect import (
     Analyze,
     DialectCase,
+    JsonArrayColumn,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
@@ -145,7 +148,7 @@ class TestJsonArrayContainsSpelling:
 
 class TestJsonArrayContainsOnTheRunningEngine:
     @pytest.fixture
-    def tagged(self):
+    def tagged(self) -> Iterator[sa.Table]:
         table = sa.Table(
             "sql_dialect_tagged",
             sa.MetaData(),
@@ -178,7 +181,12 @@ class TestJsonArrayContainsOnTheRunningEngine:
             (lambda c: ~json_array_contains_any(c, [8, 9]), [1, 2]),
         ],
     )
-    def test_matches_the_expected_rows(self, tagged: sa.Table, build, expected):
+    def test_matches_the_expected_rows(
+        self,
+        tagged: sa.Table,
+        build: Callable[[JsonArrayColumn], sa.ColumnElement[bool]],
+        expected: list[int],
+    ):
         statement = (
             sa.select(tagged.c.id).where(build(tagged.c.tags)).order_by(tagged.c.id)
         )

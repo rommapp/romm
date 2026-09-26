@@ -15,6 +15,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     Integer,
+    SQLColumnExpression,
     String,
     Text,
     and_,
@@ -214,7 +215,7 @@ ROM_UNSET_SORT_FLAGS: dict[str, QueryableAttribute] = {
 
 
 def _nulls_last_ordering(
-    sort_key: Any, descending: bool
+    sort_key: SQLColumnExpression[Any], descending: bool
 ) -> tuple[ColumnExpressionArgument[bool] | None, ColumnElement[Any]]:
     """NULL sort keys land last on every engine.
 

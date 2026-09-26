@@ -85,35 +85,16 @@ def CustomJSON(**kwargs: Any) -> sa.JSON:
     return sa.JSON(**kwargs).with_variant(sa_pg.JSONB(**kwargs), "postgresql")
 
 
-def is_db_version_compatible(
-    conn: DatabaseBind,
-    min_version: tuple[int, ...] | None = None,
-) -> bool:
-    """Check if the database server version complies with the given version constraints."""
-    if min_version is None:
-        return True
-    server_version = conn.engine.dialect.server_version_info
-    return bool(server_version and server_version >= min_version)
+def is_postgresql(conn: DatabaseBind) -> bool:
+    return conn.engine.name == "postgresql"
 
 
-def is_postgresql(
-    conn: DatabaseBind, min_version: tuple[int, ...] | None = None
-) -> bool:
-    if conn.engine.name != "postgresql":
-        return False
-    return is_db_version_compatible(conn, min_version=min_version)
+def is_mysql(conn: DatabaseBind) -> bool:
+    return conn.engine.name == "mysql"
 
 
-def is_mysql(conn: DatabaseBind, min_version: tuple[int, ...] | None = None) -> bool:
-    if conn.engine.name != "mysql":
-        return False
-    return is_db_version_compatible(conn, min_version=min_version)
-
-
-def is_mariadb(conn: DatabaseBind, min_version: tuple[int, ...] | None = None) -> bool:
-    if conn.engine.name != "mariadb":
-        return False
-    return is_db_version_compatible(conn, min_version=min_version)
+def is_mariadb(conn: DatabaseBind) -> bool:
+    return conn.engine.name == "mariadb"
 
 
 # Error 1419, which MariaDB and MySQL raise for every trigger statement while
