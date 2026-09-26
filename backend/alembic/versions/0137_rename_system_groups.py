@@ -48,23 +48,22 @@ groups_t = sa.table(
 
 def _rename(from_name: str, to_name: str, from_desc: str, to_desc: str) -> None:
     conn = op.get_bind()
-    group_id = conn.execute(
-        sa.select(groups_t.c.id).where(
-            groups_t.c.name == from_name, groups_t.c.is_system.is_(True)
-        )
-    ).scalar()
-    if group_id is None:
-        return
     # `name` is unique, so an admin-created group already holding it wins.
     if conn.execute(sa.select(groups_t.c.id).where(groups_t.c.name == to_name)).first():
         return
 
     conn.execute(
-        groups_t.update().where(groups_t.c.id == group_id).values(name=to_name)
+        groups_t.update()
+        .where(groups_t.c.name == from_name, groups_t.c.is_system.is_(True))
+        .values(name=to_name)
     )
     conn.execute(
         groups_t.update()
-        .where(groups_t.c.id == group_id, groups_t.c.description == from_desc)
+        .where(
+            groups_t.c.name == to_name,
+            groups_t.c.is_system.is_(True),
+            groups_t.c.description == from_desc,
+        )
         .values(description=to_desc)
     )
 

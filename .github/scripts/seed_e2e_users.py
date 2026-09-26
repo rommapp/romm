@@ -10,7 +10,7 @@ Two accounts, matching the two sides of every permission assertion:
 
   * ``e2e_admin``: role admin, so `useCan` short-circuits to true and every
     gated affordance must be present.
-  * ``e2e_viewer``: the seeded "Viewer" group, i.e. library read plus
+  * ``e2e_viewer``: the default (seeded "Viewer") group, i.e. library read plus
     own collections/assets. Every ROM write affordance must be absent.
 
 Never point this at a real library: it writes users with a known password.
@@ -32,9 +32,6 @@ from handler.auth import auth_handler  # noqa: E402
 from handler.database import db_permission_handler, db_user_handler  # noqa: E402
 from models.user import Role, User  # noqa: E402
 
-# The seeded group stays "Viewer (legacy)" when an admin already took "Viewer".
-VIEWER_GROUP_NAMES = ("Viewer", "Viewer (legacy)")
-
 E2E_ADMIN_USERNAME = "e2e_admin"
 E2E_VIEWER_USERNAME = "e2e_viewer"
 # Fixture-only credential for a throwaway dev instance
@@ -42,10 +39,10 @@ PASSWORD = os.environ.get("E2E_PASSWORD", "e2e-Passw0rd!")  # nosec B105
 
 
 def _viewer_group_id() -> int:
-    for group in db_permission_handler.get_groups():
-        if group.is_system and group.name in VIEWER_GROUP_NAMES:
-            return group.id
-    raise SystemExit("No seeded Viewer group found, run `alembic upgrade head` first.")
+    group = db_permission_handler.get_default_group()
+    if group is None:
+        raise SystemExit("No default group found, run `alembic upgrade head` first.")
+    return group.id
 
 
 def _upsert(username: str, role: Role, permission_group_id: int | None) -> None:

@@ -632,21 +632,14 @@ def _system_groups(connection: sa.Connection) -> dict[str, str]:
     return {name: description for name, description in rows}
 
 
-GROUP_RENAME_REVISION = "0137_rename_system_groups.py"
-
-
-def _replay_group_rename(connection: sa.Connection, direction: str) -> None:
-    migration = _load_migration(GROUP_RENAME_REVISION)
-    with Operations.context(MigrationContext.configure(connection)):
-        getattr(migration, direction)()
-
-
 def test_the_group_rename_round_trips_the_seeded_groups():
+    migration = _load_migration("0137_rename_system_groups.py")
     with sync_engine.connect() as connection, connection.begin() as transaction:
         renamed = _system_groups(connection)
-        _replay_group_rename(connection, "downgrade")
-        legacy = _system_groups(connection)
-        _replay_group_rename(connection, "upgrade")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            legacy = _system_groups(connection)
+            migration.upgrade()
         replayed = _system_groups(connection)
         transaction.rollback()
 
@@ -658,29 +651,30 @@ def test_the_group_rename_round_trips_the_seeded_groups():
 
 def test_the_group_rename_leaves_admin_changes_alone():
     """A taken name skips that group, and an edited description survives."""
+    migration = _load_migration("0137_rename_system_groups.py")
     with sync_engine.connect() as connection, connection.begin() as transaction:
-        _replay_group_rename(connection, "downgrade")
-        connection.execute(
-            sa.text(
-                "INSERT INTO permission_groups "
-                "(name, description, is_default, is_system, created_at, updated_at) "
-                "VALUES ('Viewer', '', false, false, "
-                "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            legacy = _system_groups(connection)
+            connection.execute(
+                sa.text(
+                    "INSERT INTO permission_groups "
+                    "(name, description, is_default, is_system, created_at, updated_at) "
+                    "VALUES ('Viewer', '', false, false, "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
             )
-        )
-        connection.execute(
-            sa.text(
-                "UPDATE permission_groups SET description = 'Custom' "
-                "WHERE name = 'Editor (legacy)'"
+            connection.execute(
+                sa.text(
+                    "UPDATE permission_groups SET description = 'Custom' "
+                    "WHERE name = 'Editor (legacy)'"
+                )
             )
-        )
-        _replay_group_rename(connection, "upgrade")
+            migration.upgrade()
         groups = _system_groups(connection)
         transaction.rollback()
 
-    migration = _load_migration(GROUP_RENAME_REVISION)
-    _, _, seeded_viewer_description, _ = migration.RENAMES[0]
     assert groups == {
-        "Viewer (legacy)": seeded_viewer_description,
+        "Viewer (legacy)": legacy["Viewer (legacy)"],
         "Editor": "Custom",
     }
