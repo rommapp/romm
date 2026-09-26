@@ -7,10 +7,8 @@ key yields NULL, and an OR chain containing a NULL is NULL rather than false,
 which makes `NOT (...)` NULL too: the unverified side would drop every row it
 should have returned.
 
-On MariaDB and MySQL `as_boolean()` already collapses a missing key into false
-(it compiles to a CASE whose ELSE branch catches it); PostgreSQL's `->>`
-extraction does not, hence the coalesce. The suite runs against one driver at
-a time, hence the compiled-SQL check below.
+A coalesce folds that NULL to false on every engine. The suite runs against one
+driver at a time, hence the compiled-SQL check below.
 """
 
 import pytest
