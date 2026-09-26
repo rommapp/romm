@@ -313,6 +313,7 @@ def test_upload_soundtrack_chiptune_gets_untagged_meta(
     assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     soundtracks = [
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]
@@ -483,7 +484,7 @@ def test_upload_soundtrack_rejects_traversal_filename(
     soundtrack_fs: Path,
 ):
     """x-upload-filename containing path components must be rejected with 400,
-    exercising the real sanitizer — not the mocked validate_path."""
+    exercising the real sanitizer, not the mocked validate_path."""
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
         headers={
@@ -553,7 +554,7 @@ def test_upload_soundtrack_with_malformed_audio_still_succeeds(
     game_folder_rom: Rom,
     soundtrack_fs: Path,
 ):
-    """The real extract_audio_meta must never raise — garbage bytes produce
+    """The real extract_audio_meta must never raise: garbage bytes produce
     audio_meta=None, not a 500."""
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",

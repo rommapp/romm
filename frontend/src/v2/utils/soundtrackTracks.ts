@@ -7,13 +7,13 @@ import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { romFileUrl } from "@/v2/utils/romFiles";
 
 export interface PanelTrack {
-  /** `rom_file_id` — unique across the catalog. */
+  /** `rom_file_id`, unique across the catalog. */
   id: number;
   romId: number;
   fileName: string;
   /** Display title, already resolved from metadata or the file name. */
   title: string;
-  /** Artist · album · (game · platform) — whatever the source could supply. */
+  /** Artist · album · (game · platform), whatever the source could supply. */
   subtitle: string;
   url: string;
   durationSeconds?: number;

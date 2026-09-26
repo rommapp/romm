@@ -39,7 +39,7 @@ CHIPTUNE_EXTENSIONS = frozenset(
 
 SOUNDTRACK_EXTENSIONS = ALLOWED_AUDIO_EXTENSIONS | CHIPTUNE_EXTENSIONS
 
-# Skip parsing anything larger than this — mutagen mmaps the file and can
+# Skip parsing anything larger than this, since mutagen mmaps the file and can
 # consume substantial memory on pathological inputs (e.g. a mislabeled 4GB WAV).
 MAX_AUDIO_PARSE_BYTES = 512 * 1024 * 1024  # 512 MiB
 
@@ -179,7 +179,7 @@ def _allowed_mime_types(data: bytes) -> str:
 
 # NOTE: the per-format tag and embedded-cover handling below (ID3 / MP4 /
 # Vorbis comments / FLAC pictures) was largely AI-generated against mutagen's
-# API — verify against real files when adding or changing a format.
+# API, so verify against real files when adding or changing a format.
 def _extract_common_tags(audio: mutagen.FileType) -> dict[str, str | None]:
     """Extract common tags across formats from a single non-easy mutagen handle."""
     tags = getattr(audio, "tags", None)
@@ -261,7 +261,7 @@ def _open_mutagen(full_path: str) -> mutagen.FileType | None:
 def extract_audio_meta(full_path: str) -> AudioTags | None:
     """Read tags + duration + embedded-cover presence from an audio file.
 
-    Returns None if the file cannot be parsed. Never raises — on any failure
+    Returns None if the file cannot be parsed. Never raises: on any failure
     we log and fall back to None so the upload/scan path keeps moving.
 
     Opens the file once with mutagen (non-easy) and derives tags, duration,

@@ -876,7 +876,7 @@ class FSRomsHandler(FSHandler):
                 # Empty, malformed, unreadable, or all-excluded archive: hash the archive
                 # file's raw bytes. We avoid `_calculate_rom_hashes` here because
                 # it would decompress based on extension and end up hashing the
-                # largest internal member, not the archive itself — and would
+                # largest internal member, not the archive itself, and would
                 # crash on an empty zip. `archive_members` stays None.
                 def _hash_raw_archive(crc: int) -> int:
                     for chunk in read_basic_file(rom_dir):

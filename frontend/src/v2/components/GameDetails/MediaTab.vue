@@ -189,11 +189,11 @@ async function deleteSoundtrack(fileId: number) {
     <div class="r-v2-media__content">
       <!-- All subtab sections stay mounted (v-show, not v-if). The manual,
            soundtrack and screenshots panels are heavy defineAsyncComponent
-           loads — un/remounting them on every subtab switch causes a visible
+           loads, and un/remounting them on every subtab switch causes a visible
            main-thread freeze (the PDF parser is the worst offender). With
            v-show the cost is paid once on Media tab entry and switching is a
            CSS toggle. -->
-      <!-- Manual subtab — its own component (PDF / Markdown viewer with an
+      <!-- Manual subtab: its own component (PDF / Markdown viewer with an
            entry selector; scrolls independently). -->
       <section v-show="subTab === 'manual'" class="r-v2-media__panel">
         <ManualSubtab ref="manualPanel" :rom="rom" :hide-upload="smAndDown" />
@@ -209,13 +209,13 @@ async function deleteSoundtrack(fileId: number) {
         />
       </section>
 
-      <!-- Screenshots subtab — its own component (ROM / Mine / Community
+      <!-- Screenshots subtab: its own component (ROM / Mine / Community
            sections, per-user public/private). -->
       <section v-show="subTab === 'screenshots'" class="r-v2-media__panel">
         <ScreenshotsSubtab :rom="rom" />
       </section>
 
-      <!-- Artwork subtab — read-only gallery of scraped art assets
+      <!-- Artwork subtab: read-only gallery of scraped art assets
            (bezel / logo / marquee / box art / fan art / videos). -->
       <section v-show="subTab === 'artwork'" class="r-v2-media__panel">
         <ArtworkSubtab :rom="rom" />
@@ -289,7 +289,7 @@ async function deleteSoundtrack(fileId: number) {
   gap: 24px;
   /* Fills the parent tab panel exactly so the PDF viewer (inside the
      manual section) can size to 100% without forcing the outer panel
-     to scroll — the PDF has its own internal scroll. */
+     to scroll, since the PDF has its own internal scroll. */
   height: 100%;
   min-height: 0;
 }
@@ -309,7 +309,7 @@ async function deleteSoundtrack(fileId: number) {
   min-height: 0;
 }
 
-/* Panels — each subtab section fills the content height so its
+/* Panels: each subtab section fills the content height so its
    children (manual / soundtrack / screenshots) can stretch to 100%
    without forcing an outer scrollbar. */
 .r-v2-media__panel {
@@ -358,7 +358,7 @@ html[data-bp~="sm-and-down"] .r-v2-media {
   gap: 14px;
 }
 
-/* Soundtrack — the v1 player has its own internal styling; wrap in an
+/* Soundtrack: the v1 player has its own internal styling; wrap in an
    elevated container so it blends with v2 tokens. */
 .r-v2-media__soundtrack {
   border: 1px solid var(--r-color-border);

@@ -37,7 +37,7 @@ watch([() => playingStore.stageActive, smAndDown], ([stage, phone]) => {
   if (stage && phone) active?.pause();
 });
 
-// Generation token — bumped every time we reassign `src`. Any async
+// Generation token, bumped every time we reassign `src`. Any async
 // `play()` promise resolves against the token current when it was
 // kicked off, so stale awaits from prior tracks don't clobber the
 // current state. Same idiom as v1's mini player.
@@ -180,7 +180,7 @@ function onError(event: Event) {
   if (!isActive(event)) return;
   clearTimeout(bufferingTimer);
   store.setError();
-  // Snackbar payload still uses v1's `snackbarShow` event shape —
+  // Snackbar payload still uses v1's `snackbarShow` event shape;
   // when v1 is removed, switch to `useSnackbar()` here.
   emitter?.emit("snackbarShow", {
     msg: t("rom.cant-play-track"),
@@ -192,7 +192,7 @@ function onError(event: Event) {
 </script>
 
 <template>
-  <!-- Persistent audio element — hidden, always mounted. -->
+  <!-- Persistent audio element: hidden, always mounted. -->
   <!-- eslint-disable-next-line vuejs-accessibility/media-has-caption -->
   <audio
     ref="audioEl"
