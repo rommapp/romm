@@ -85,6 +85,19 @@ describe("resolveSoundtrackGameArtwork", () => {
     ).toBe("small.png");
     expect(resolveSoundtrackGameArtwork(makeRom())).toBeUndefined();
   });
+
+  it("treats the backend's empty cover paths as missing", () => {
+    expect(
+      resolveSoundtrackGameArtwork(
+        makeRom({ path_cover_large: "", path_cover_small: "", url_cover: "" }),
+      ),
+    ).toBeUndefined();
+    expect(
+      resolveSoundtrackGameArtwork(
+        makeRom({ path_cover_large: "", path_cover_small: "small.png" }),
+      ),
+    ).toBe("small.png");
+  });
 });
 
 describe("loadPlaylist with preserved shuffle", () => {

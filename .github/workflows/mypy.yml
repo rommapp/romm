@@ -1,0 +1,60 @@
+name: Run mypy
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/scripts/**.py"
+      - "frontend/src/locales/*.py"
+      - ".github/workflows/mypy.yml"
+      - ".trunk/configs/mypy.ini"
+      - pyproject.toml
+      - uv.lock
+      - .python-version
+  push:
+    branches:
+      - "master"
+    paths:
+      - "backend/**"
+      - ".github/scripts/**.py"
+      - "frontend/src/locales/*.py"
+      - ".github/workflows/mypy.yml"
+      - ".trunk/configs/mypy.ini"
+      - pyproject.toml
+      - uv.lock
+      - .python-version
+
+permissions:
+  contents: read
+
+jobs:
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install mariadb connectors
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb3 libmariadb-dev
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Install python
+        run: |
+          uv python install
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen --extra dev --extra test
+
+      # The scripts import the app from backend/, as they add it to sys.path.
+      - name: Type check the backend and the scripts outside it
+        env:
+          MYPYPATH: backend
+        run: |
+          uv run mypy --config-file .trunk/configs/mypy.ini backend .github/scripts frontend/src/locales

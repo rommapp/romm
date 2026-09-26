@@ -93,7 +93,7 @@ function onPlay() {
       letterbox: "on",
       openUrlMode: "confirm",
       publicPath: "/assets/ruffle/",
-      url: getDownloadPath({ rom: rom.value }),
+      url: getDownloadPath({ rom: rom.value, purpose: "play" }),
     });
     player.style.width = "100%";
     player.style.height = "100%";

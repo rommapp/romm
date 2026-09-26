@@ -988,7 +988,7 @@ class IGDBHandler(MetadataHandler):
 
 
 class TwitchAuth(MetadataHandler):
-    def __init__(self):
+    def __init__(self) -> None:
         self.BASE_URL = "https://id.twitch.tv/oauth2/token"
         self.params = {
             "client_id": IGDB_CLIENT_ID,

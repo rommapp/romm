@@ -4,7 +4,7 @@ from tasks.tasks import PeriodicTask, TaskType
 
 
 class CleanupNetplayTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled netplay cleanup",
             description="Cleans up empty netplay rooms",

@@ -17,7 +17,8 @@ from sqlalchemy.orm import sessionmaker
 from config import ROMM_DB_DRIVER
 from config.config_manager import ConfigManager
 from handler.auth import auth_handler
-from handler.auth.base_handler import ALGORITHM, oct_key
+from handler.auth.base_handler import oct_key
+from handler.auth.constants import ALGORITHM
 from handler.database import (
     db_firmware_handler,
     db_memory_card_handler,
@@ -31,11 +32,16 @@ from handler.database import (
 )
 from handler.database.base_handler import sync_engine
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
+from models.audit_event import AuditEvent
 from models.client_token import ClientToken
 from models.container_adoption import StreamingContainerAdoption
+from models.deleted_asset import DeletedAsset
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.firmware import Firmware
+from models.notification import Notification
+from models.notification_channel import NotificationChannel
+from models.permission import SystemGroupKey
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
@@ -131,6 +137,9 @@ def setup_database():
 @pytest.fixture(autouse=True)
 def clear_database():
     with session.begin() as s:
+        s.query(AuditEvent).delete(synchronize_session="evaluate")
+        s.query(Notification).delete(synchronize_session="evaluate")
+        s.query(NotificationChannel).delete(synchronize_session="evaluate")
         s.query(PlaySession).delete(synchronize_session="evaluate")
         s.query(ClientToken).delete(synchronize_session="evaluate")
         s.query(SyncSession).delete(synchronize_session="evaluate")
@@ -139,6 +148,7 @@ def clear_database():
         s.query(MemoryCardVersion).delete(synchronize_session="evaluate")
         s.query(MemoryCard).delete(synchronize_session="evaluate")
         s.query(StreamingContainerAdoption).delete(synchronize_session="evaluate")
+        s.query(DeletedAsset).delete(synchronize_session="evaluate")
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")
@@ -476,7 +486,7 @@ def admin_user():
 @pytest.fixture
 def editor_user():
     # role collapses to `user`; editor-level access now comes from the group.
-    group = db_permission_handler.get_group_by_name("Editor (legacy)")
+    group = db_permission_handler.get_system_group(SystemGroupKey.EDITOR)
     user = User(
         username="test_editor",
         hashed_password=_password_hash("test_editor_password"),
@@ -488,7 +498,7 @@ def editor_user():
 
 @pytest.fixture
 def viewer_user():
-    group = db_permission_handler.get_group_by_name("Viewer (legacy)")
+    group = db_permission_handler.get_system_group(SystemGroupKey.VIEWER)
     user = User(
         username="test_viewer",
         hashed_password=_password_hash("test_viewer_password"),

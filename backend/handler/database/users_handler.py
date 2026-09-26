@@ -1,6 +1,7 @@
 from collections.abc import Sequence
+from typing import Any
 
-from sqlalchemy import and_, delete, func, not_, select, update
+from sqlalchemy import Result, and_, delete, func, not_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 from sqlalchemy.sql import Delete, Select, Update
 
@@ -41,7 +42,7 @@ class DBUsersHandler(DBBaseHandler):
     def add_user(
         self,
         user: User,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> User:
         return session.merge(user)
 
@@ -49,7 +50,7 @@ class DBUsersHandler(DBBaseHandler):
     def get_user_by_username(
         self,
         username: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> User | None:
         query = self.filter(select(User), usernames=[username])
         return session.scalar(query.limit(1))
@@ -58,7 +59,7 @@ class DBUsersHandler(DBBaseHandler):
     def get_user_by_email(
         self,
         email: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> User | None:
         query = self.filter(select(User), emails=[email])
         return session.scalar(query.limit(1))
@@ -67,7 +68,7 @@ class DBUsersHandler(DBBaseHandler):
     def get_user(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> User | None:
         return session.get(User, id)
 
@@ -75,8 +76,8 @@ class DBUsersHandler(DBBaseHandler):
     def update_user(
         self,
         id: int,
-        data: dict,
-        session: Session = None,  # type: ignore
+        data: dict[str, Any],
+        session: Session = None,  # type: ignore[assignment]
     ) -> User:
         session.execute(
             update(User)
@@ -84,7 +85,7 @@ class DBUsersHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(User).filter_by(id=id).one()
+        return session.scalars(select(User).filter_by(id=id)).one()
 
     @begin_session
     def get_users(
@@ -94,8 +95,8 @@ class DBUsersHandler(DBBaseHandler):
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
         has_ra_username: bool | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
+        only_fields: Sequence[QueryableAttribute[Any]] | None = None,
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[User]:
         query = self.filter(
             select(User),
@@ -114,8 +115,8 @@ class DBUsersHandler(DBBaseHandler):
     def delete_user(
         self,
         id: int,
-        session: Session = None,  # type: ignore
-    ):
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Result[Any]:
         return session.execute(
             delete(User)
             .where(User.id == id)
@@ -125,7 +126,7 @@ class DBUsersHandler(DBBaseHandler):
     @begin_session
     def get_admin_users(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[User]:
         query = self.filter(select(User), roles=[Role.ADMIN])
         return session.scalars(query).all()

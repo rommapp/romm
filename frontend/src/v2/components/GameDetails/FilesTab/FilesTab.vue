@@ -38,7 +38,8 @@
 // `rom.delete` permission. Each file is removed from disk and the DB
 // row is dropped via `DELETE /roms/{rom_id}/files/{file_id}`.
 import { RBtn, RCheckbox, REmptyState } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import type { Emitter } from "mitt";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type {
@@ -48,6 +49,7 @@ import type {
 } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 import { getDownloadLink } from "@/utils";
 import SubtabNav, {
   type SubtabNavItem,
@@ -74,6 +76,7 @@ const props = defineProps<{ rom: DetailedRomSchema }>();
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
+const emitter = inject<Emitter<Events>>("emitter");
 const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
@@ -365,16 +368,18 @@ const showUpload = computed(() => filteredCount.value > 0 && canUpload.value);
 // Used by the per-subtab + per-selection copy-link buttons; per-file
 // hash copying lives in HashChip itself.
 async function copyDownloadLink(url: string) {
-  try {
-    await navigator.clipboard.writeText(url);
-    snackbar.success(t("rom.download-link-copied"), {
-      icon: "mdi-check-bold",
-    });
-  } catch {
-    snackbar.error(t("rom.download-link-copy-failed"), {
-      icon: "mdi-close-circle",
-    });
+  const copied =
+    !!navigator.clipboard &&
+    window.isSecureContext &&
+    (await navigator.clipboard.writeText(url).then(
+      () => true,
+      () => false,
+    ));
+  if (!copied) {
+    emitter?.emit("showCopyDownloadLinkDialog", url);
+    return;
   }
+  snackbar.success(t("rom.download-link-copied"), { icon: "mdi-check-bold" });
 }
 
 // ---------- Actions ----------

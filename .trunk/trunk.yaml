@@ -21,6 +21,8 @@ lint:
     - svgo
     - oxipng
     - pyright
+    # Trunk's venv lacks the project's packages; mypy.yml runs it against uv's.
+    - mypy
   enabled:
     - zizmor@1.30.1
     - pinact@4.0.0
@@ -33,8 +35,8 @@ lint:
     - black@26.5.1
     - checkov@3.3.8
     - git-diff-check
+    - no-emdash
     - isort@8.0.1
-    - mypy@2.3.0
     - osv-scanner@2.3.3
     - prettier@3.9.5:
         packages:
@@ -57,12 +59,6 @@ lint:
         - backend/utils/rom_patcher/patcher.js
         # Intentionally malformed YAML, used as a test fixture
         - backend/tests/config/fixtures/config/malformed_config.yml
-    # Alembic env/migrations rely on runtime-injected globals (context, op)
-    # that mypy cannot resolve; already excluded in mypy.ini, but Trunk passes
-    # changed files explicitly, which bypasses that exclude.
-    - linters: [mypy]
-      paths:
-        - backend/alembic/**
     # The v1 UI is frozen and the freeze check blocks changes to these paths,
     # so ESLint findings in its templates cannot lead to fixes. Its TypeScript
     # stays covered, since that was already linted before .vue was.
@@ -76,6 +72,22 @@ lint:
     - name: vue
       extensions: [vue]
   definitions:
+    # ESLint's romm/no-emdash-in-comment covers frontend/src/v2. In Python only
+    # text after a `#` is checked, since some string literals carry test data.
+    - name: no-emdash
+      files: [markdown, python]
+      commands:
+        - name: lint
+          output: regex
+          parse_regex: ((?P<path>.*):(?P<line>\d+):(?P<col>\d+) - (?P<message>.*))
+          read_output_from: stdout
+          run: >-
+            awk '{ s = FILENAME ~ /\.mdx?$/ ? 1 : index($0, "#"); i = s ? index(substr($0, s), "—") : 0 }
+            i { print FILENAME ":" FNR ":" (s + i - 1)
+            " - Replace the em dash with a comma, parentheses, or a separate sentence." }'
+            ${target}
+          success_codes: [0]
+          batch: true
     - name: eslint
       files:
         - javascript

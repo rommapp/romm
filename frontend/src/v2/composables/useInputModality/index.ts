@@ -15,6 +15,7 @@ const MOUSE_AFTER_TOUCH_MS = 700;
 let lastTouchAt = 0;
 let installed = false;
 let teardown: (() => void) | null = null;
+let pinned: InputModality | null = null;
 
 function applyAttribute(next: InputModality) {
   if (typeof document === "undefined") return;
@@ -22,7 +23,16 @@ function applyAttribute(next: InputModality) {
 }
 
 function setModality(next: InputModality) {
-  if (modality.value === next) return;
+  if (pinned || modality.value === next) return;
+  modality.value = next;
+  applyAttribute(next);
+}
+
+// Holds the modality at one value regardless of input (Storybook's Input
+// toolbar); null resumes tracking.
+function pin(next: InputModality | null) {
+  pinned = next;
+  if (!next) return;
   modality.value = next;
   applyAttribute(next);
 }
@@ -110,6 +120,7 @@ export function useInputModality() {
     modality: readonly(modality),
     install,
     setModality,
+    pin,
   };
 }
 

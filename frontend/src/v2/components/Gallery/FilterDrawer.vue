@@ -574,6 +574,7 @@ function saveAsSmartCollection() {
         multiple
         clearable
         hide-details
+        promote-filled
         prefix-label="stacked"
         :placeholder="t('common.all-platforms')"
       >

@@ -720,11 +720,11 @@ class TestUniversalPlatformSlug:
 
     def test_specific_platform_slugs(self):
         """Test specific platform slug values."""
-        assert UniversalPlatformSlug.N64 == "n64"
-        assert UniversalPlatformSlug.PSX == "psx"
-        assert UniversalPlatformSlug.PS2 == "ps2"
-        assert UniversalPlatformSlug.SWITCH == "switch"
-        assert UniversalPlatformSlug.ARCADE == "arcade"
+        assert UniversalPlatformSlug.N64.value == "n64"
+        assert UniversalPlatformSlug.PSX.value == "psx"
+        assert UniversalPlatformSlug.PS2.value == "ps2"
+        assert UniversalPlatformSlug.SWITCH.value == "switch"
+        assert UniversalPlatformSlug.ARCADE.value == "arcade"
 
     def test_enum_contains_expected_platforms(self):
         """Test that enum contains major gaming platforms."""

@@ -338,6 +338,10 @@ class SSMetadata(SSMetadataMedia):
     game_modes: list[str]
     genres: list[str]
     player_count: str
+    # What the dump our hashes matched says of itself, kept by the scan.
+    dump_regions: NotRequired[list[str]]
+    dump_languages: NotRequired[list[str]]
+    dump_tags: NotRequired[list[str]]
 
 
 class SSRom(BaseRom):
@@ -669,7 +673,8 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             "franchises": _get_franchises(game),
             "game_modes": _get_game_modes(game),
             "player_count": _get_player_count(game),
-            **extract_media_from_ss_game(rom, game),
+            # The media dict never carries the dump_* keys extra_checks asks about.
+            **extract_media_from_ss_game(rom, game),  # type: ignore[typeddict-item]
         }
     )
 
@@ -735,9 +740,7 @@ def extract_tags_from_ss_dump(dump: SSGameRom) -> list[str]:
     """Tags of one dump, from the flags it raises."""
     # ScreenScraper sends these flags as "1", not 1.
     return [
-        tag
-        for key, tag in _SS_DUMP_FLAG_TAGS
-        if str(dump.get(key, "")).strip() == "1"  # type: ignore[literal-required]
+        tag for key, tag in _SS_DUMP_FLAG_TAGS if str(dump.get(key, "")).strip() == "1"
     ]
 
 

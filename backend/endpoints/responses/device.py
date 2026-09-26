@@ -34,14 +34,14 @@ class DeviceSchema(BaseModel):
     client_device_identifier: str | None
     sync_mode: SyncMode
     sync_enabled: bool
-    sync_config: dict | None
+    sync_config: dict[str, Any] | None
     last_seen: UTCDatetime | None
     created_at: UTCDatetime
     updated_at: UTCDatetime
 
     @field_serializer("sync_config")
     @classmethod
-    def mask_sensitive_fields(cls, v: dict | None) -> dict[str, Any] | None:
+    def mask_sensitive_fields(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         if not v:
             return v
         return {

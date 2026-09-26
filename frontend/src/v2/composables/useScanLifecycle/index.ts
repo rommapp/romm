@@ -15,8 +15,10 @@
 //   * `scan:done`              — scan finished; persist the final stats,
 //                                flip `scanning` off so the indicator hides,
 //                                then refetch platforms to reconcile counts.
-//   * `scan:done_ko`           — scan errored; surface the message as a
-//                                snackbar and flip `scanning` off.
+//   * `scan:done_ko`           — scan errored; flip `scanning` off.
+//
+// Both reach every connected user, so only the tab that started the scan
+// toasts its end. Whoever else it concerns gets a notification.
 //
 // Events alone can't tell a tab that loads mid-scan what's going on, so
 // install also reconciles against the running RQ job — see
@@ -183,12 +185,14 @@ export function installScanLifecycle() {
 
   useSocketEvent<ScanStats>("scan:done", (stats) => {
     markScanEnded();
+    const startedHere = scanningStore.startedInThisTab;
     scanningStore.setScanStats(stats);
     scanningStore.setScanning(false);
     // Reconcile against the backend once the scan settles: pick up anything
     // the live updates missed and correct rom_counts that drifted.
     void platformsStore.fetchPlatforms();
     void collectionsStore.refreshVirtualCollections();
+    if (!startedHere) return;
     emitter?.emit("snackbarShow", {
       msg: "Scan completed successfully.",
       color: "success",
@@ -199,7 +203,9 @@ export function installScanLifecycle() {
 
   useSocketEvent<string>("scan:done_ko", (msg) => {
     markScanEnded();
+    const startedHere = scanningStore.startedInThisTab;
     scanningStore.setScanning(false);
+    if (!startedHere) return;
     emitter?.emit("snackbarShow", {
       msg: `Scan failed: ${msg}`,
       color: "error",

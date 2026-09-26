@@ -2,13 +2,15 @@
 // Preview of the asset to resume from: a screenshot stage for states, one
 // compact row for saves (thumbnail when the save has a screenshot; relabelled
 // as the write target when a state is armed).
-import { RIcon, RTag, RTooltip } from "@v2/lib";
+import { RIcon, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
-import { formatBytes, formatRelativeDate, formatTimestamp } from "@/utils";
+import { useStreamingStore } from "@/stores/streaming";
+import { formatBytes } from "@/utils";
 import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
+import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
 import { dateOf, type AssetDateField } from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
 
@@ -42,7 +44,8 @@ defineEmits<{
   clear: [];
 }>();
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
+const { emulatorLabel } = useStreamingStore();
 
 const screenshotUrl = computed(() => {
   if (!props.asset) return null;
@@ -60,10 +63,6 @@ const heading = computed(() => {
     ? t("play.resume-from-save")
     : t("play.resume-from-state");
 });
-
-const timeLabel = computed(() =>
-  props.timestamp === "created" ? t("rom.created") : t("rom.updated"),
-);
 
 const emptyText = computed(() =>
   props.type === "save"
@@ -166,17 +165,6 @@ const emptyText = computed(() =>
             :favorite="asset.is_favorite"
             :size="14"
           />
-          <RTooltip activator="parent" location="top" :open-delay="400">
-            <div class="r-asset-preview__tip">
-              <span class="r-asset-preview__tip-name">
-                {{ asset.file_name }}
-              </span>
-              <span class="r-asset-preview__tip-sub">
-                {{ timeLabel }}:
-                {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
-              </span>
-            </div>
-          </RTooltip>
         </p>
         <AssetLabels class="r-asset-preview__labels" :asset="asset" />
         <div class="r-asset-preview__chips">
@@ -191,19 +179,16 @@ const emptyText = computed(() =>
             v-if="type === 'state' && asset.emulator"
             tone="warning"
             size="x-small"
-            :text="asset.emulator"
+            :text="emulatorLabel(asset.emulator)"
           />
           <span class="r-asset-preview__chip">
             {{ formatBytes(asset.file_size_bytes) }}
           </span>
         </div>
-        <p class="r-asset-preview__when">
-          <RIcon icon="mdi-clock-outline" size="11" />
-          {{ formatRelativeDate(dateOf(asset, timestamp)) }}
-          <span class="r-asset-preview__when-exact">
-            {{ formatTimestamp(dateOf(asset, timestamp), locale) }}
-          </span>
-        </p>
+        <AssetTimestamp
+          class="r-asset-preview__when"
+          :date="dateOf(asset, timestamp)"
+        />
       </div>
 
       <!-- For states this stays as an empty block: the stage already carries
@@ -517,46 +502,11 @@ const emptyText = computed(() =>
   color: var(--r-color-fg-secondary);
 }
 
-.r-asset-preview__when {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--r-color-fg-secondary);
-  font-variant-numeric: tabular-nums;
-}
-.r-asset-preview__when-exact {
-  color: var(--r-color-fg-muted);
-}
-/* Separates the exact stamp from the relative one it trails. */
-.r-asset-preview__when-exact::before {
-  content: "·";
-  margin-right: 4px;
-}
-
 .r-asset-preview__empty-hint {
   margin: 0;
   font-size: 12px;
   color: var(--r-color-fg-muted);
   max-width: 360px;
-}
-
-.r-asset-preview__tip {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 360px;
-}
-.r-asset-preview__tip-name {
-  font-size: 12px;
-  font-weight: var(--r-font-weight-semibold);
-  word-break: break-all;
-}
-.r-asset-preview__tip-sub {
-  font-size: 11px;
-  opacity: 0.85;
 }
 
 /* Phones read the save preview like a save row: thumbnail and name together,

@@ -12,6 +12,9 @@ from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     LAUNCHBOX_API_ENABLED,
     SENTRY_DSN,
+    SMTP_HOST,
+    SMTP_SECURITY,
+    SMTP_SECURITY_MODES,
 )
 from config.config_manager import config_manager as cm
 from handler.database import db_save_handler
@@ -172,6 +175,12 @@ async def main() -> None:
         log.info("Running startup tasks")
 
         cm.check_library_layout()
+
+        if SMTP_HOST and SMTP_SECURITY not in SMTP_SECURITY_MODES:
+            log.warning(
+                f"Email is off: SMTP_SECURITY is {SMTP_SECURITY!r}, not one of "
+                + ", ".join(SMTP_SECURITY_MODES)
+            )
 
         try:
             drop_stale_scheduled_scans()

@@ -346,11 +346,11 @@ def populate_rom_specific_paths(
 class GamelistHandler(MetadataHandler):
     """Handler for ES-DE gamelist.xml metadata source"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Cache for storing parsed gamelist data by platform ID
-        self._gamelist_cache = {}
+        self._gamelist_cache: dict[int, dict[str, GamelistRom]] = {}
 
-    async def populate_cache(self, platform: Platform):
+    async def populate_cache(self, platform: Platform) -> None:
         if not self.is_enabled():
             return
 
@@ -362,7 +362,7 @@ class GamelistHandler(MetadataHandler):
         # Parse the gamelist file
         self._parse_gamelist_xml(gamelist_file_path, platform)
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear the gamelist cache"""
         self._gamelist_cache.clear()
 
@@ -564,7 +564,7 @@ class GamelistHandler(MetadataHandler):
             # Populate ROM-specific paths using the actual rom object
             if gamelist_metadata:
                 rom_specific_paths = populate_rom_specific_paths(gamelist_metadata, rom)
-                gamelist_metadata.update(**rom_specific_paths)  # type: ignore
+                gamelist_metadata.update(**rom_specific_paths)  # type: ignore[call-arg]
                 matched_rom["gamelist_metadata"] = gamelist_metadata
 
             return matched_rom

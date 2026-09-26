@@ -79,7 +79,7 @@ class DBRecommendationsHandler(DBBaseHandler):
 
     @begin_session
     def get_feature_rows(
-        self, session: Session = None  # type: ignore
+        self, session: Session = None  # type: ignore[assignment]
     ) -> list[RomFeatureRow]:
         """Every ROM's facet values, for building the library-wide IDF.
 
@@ -112,7 +112,7 @@ class DBRecommendationsHandler(DBBaseHandler):
 
     @begin_session
     def get_rom_igdb_ids(
-        self, session: Session = None  # type: ignore
+        self, session: Session = None  # type: ignore[assignment]
     ) -> dict[int, int]:
         """ROM id -> IGDB id, for resolving IGDB's related-game ids to owned copies."""
         stmt = select(RomFacets.rom_id, RomFacets.igdb_id).where(
@@ -122,7 +122,7 @@ class DBRecommendationsHandler(DBBaseHandler):
 
     @begin_session
     def get_rom_identity_ids(
-        self, session: Session = None  # type: ignore
+        self, session: Session = None  # type: ignore[assignment]
     ) -> dict[int, frozenset[str]]:
         """ROM id -> "provider:id" tokens from every provider that matched it.
 
@@ -146,7 +146,7 @@ class DBRecommendationsHandler(DBBaseHandler):
 
     @begin_session
     def iter_igdb_related(
-        self, session: Session = None  # type: ignore
+        self, session: Session = None  # type: ignore[assignment]
     ) -> Iterator[tuple[int, list[int]]]:
         """Stream each ROM's IGDB related-game ids out of its metadata blob.
 
@@ -184,7 +184,7 @@ class DBRecommendationsHandler(DBBaseHandler):
 
     @begin_session
     def get_collection_membership_sets(
-        self, session: Session = None  # type: ignore
+        self, session: Session = None  # type: ignore[assignment]
     ) -> list[list[int]]:
         """ROM ids grouped by user collection, for co-membership scoring."""
         stmt = select(CollectionRom.collection_id, CollectionRom.rom_id).order_by(
@@ -194,7 +194,7 @@ class DBRecommendationsHandler(DBBaseHandler):
 
     @begin_session
     def get_played_sets(
-        self, session: Session = None  # type: ignore
+        self, session: Session = None  # type: ignore[assignment]
     ) -> list[list[int]]:
         """ROM ids grouped by user, restricted to games they actually played.
 
@@ -232,7 +232,7 @@ class DBRecommendationsHandler(DBBaseHandler):
         self,
         rom_ids: Sequence[int],
         edges: Sequence[dict[str, Any]],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         """Swap in a batch of ROMs' edges.
 
@@ -256,7 +256,7 @@ class DBRecommendationsHandler(DBBaseHandler):
     def get_stored_edges(
         self,
         rom_ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> dict[int, list[tuple[float, int]]]:
         """Each ROM's current neighbours, for a top-up to merge new ones into.
 
@@ -276,7 +276,7 @@ class DBRecommendationsHandler(DBBaseHandler):
         return stored
 
     @begin_session
-    def count_similarity_edges(self, session: Session = None) -> int:  # type: ignore
+    def count_similarity_edges(self, session: Session = None) -> int:  # type: ignore[assignment]
         return session.scalar(select(func.count()).select_from(RomSimilarity)) or 0
 
     # --- Reads -------------------------------------------------------------------
@@ -286,7 +286,7 @@ class DBRecommendationsHandler(DBBaseHandler):
         self,
         rom_id: int,
         limit: int = 20,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[SimilarRomEdge]:
         """Top precomputed neighbours of one ROM, best first.
 
@@ -314,7 +314,7 @@ class DBRecommendationsHandler(DBBaseHandler):
         self,
         rom_ids: Sequence[int],
         limit_per_rom: int = 20,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[tuple[int, int, float, list[dict[str, Any]]]]:
         """Edges fanning out from a set of seed ROMs, for the personalised feed.
 
@@ -352,7 +352,7 @@ class DBRecommendationsHandler(DBBaseHandler):
     def get_user_affinity(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[UserAffinityRow]:
         """Everything the user has done with each ROM, plus total playtime.
 
@@ -402,7 +402,7 @@ class DBRecommendationsHandler(DBBaseHandler):
     def get_rom_names(
         self,
         rom_ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> dict[int, str]:
         """Display names only, for the "Because you played X" attribution."""
         if not rom_ids:
@@ -419,7 +419,7 @@ class DBRecommendationsHandler(DBBaseHandler):
         self,
         limit: int,
         exclude_rom_ids: Sequence[int] = (),
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[int]:
         """Cold-start feed: the best-reviewed games in the library.
 

@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, fields
 from math import isclose
-from typing import Final, cast
+from typing import Any, Final, cast
 from urllib.parse import urlparse
 
 import aiohttp
@@ -41,7 +41,7 @@ LOGIN_ERROR_CHECK: Final = "Erreur de login"
 _INVALID_ESCAPE_RE: Final = re.compile(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})')
 
 
-def _loads_lenient(text: str) -> dict:
+def _loads_lenient(text: str) -> dict[str, Any]:
     """Parse a ScreenScraper JSON payload, repairing invalid escapes on failure.
 
     A single unescaped backslash would otherwise sink an entire response (and thus
@@ -341,7 +341,7 @@ def _reject_credentials(url: str, message: str = "") -> ScreenScraperCredentials
 
 def _handle_client_error(
     url: str, err: aiohttp.ClientResponseError, generation: int
-) -> dict:
+) -> dict[str, Any]:
     """Map one of ScreenScraper's documented statuses onto a clear error.
 
     Returns an empty response for the ones a scan can carry on through, and
@@ -533,7 +533,7 @@ def _warn_on_low_quota(limits: SSAccountLimits) -> None:
         )
 
 
-def _update_account_limits(response: dict) -> None:
+def _update_account_limits(response: dict[str, Any]) -> None:
     """Read the account allowances ScreenScraper attaches to every response.
 
     They govern how fast we may scrape (threads and requests per minute), how
@@ -678,7 +678,7 @@ class ScreenScraperService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://api.screenscraper.fr/api2")
 
-    async def _attempt_request(self, url: str, request_timeout: int) -> dict:
+    async def _attempt_request(self, url: str, request_timeout: int) -> dict[str, Any]:
         """Make one request, and read the account allowances riding along on it.
 
         A refusal explains itself in the body, so the body is read before the
@@ -766,7 +766,7 @@ class ScreenScraperService:
         reset_daily_quota()
         return True
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict:
+    async def _request(self, url: str, request_timeout: int = 120) -> dict[str, Any]:
         # Credentials already refused: the answer will not change until they are
         # corrected, which takes a restart to pick up. Checked ahead of the quota
         # so a re-check never spends a request on credentials already refused.
@@ -823,7 +823,7 @@ class ScreenScraperService:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 
-    async def get_user_info(self) -> dict:
+    async def get_user_info(self) -> dict[str, Any]:
         """Retrieve the account's allowances and quota counters.
 
         Reference: https://api.screenscraper.fr/webapi2.php#ssuserInfos
@@ -831,7 +831,7 @@ class ScreenScraperService:
         url = self.url.joinpath("ssuserInfos.php")
         return await self._request(str(url))
 
-    async def get_infra_info(self) -> dict:
+    async def get_infra_info(self) -> dict[str, Any]:
         """Retrieve information about the infrastructure.
 
         Reference: https://api.screenscraper.fr/webapi2.php#infraInfos

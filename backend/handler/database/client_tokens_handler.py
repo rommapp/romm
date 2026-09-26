@@ -18,7 +18,7 @@ class DBClientTokensHandler(DBBaseHandler):
     def add_token(
         self,
         token: ClientToken,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> ClientToken:
         return session.merge(token)
 
@@ -26,7 +26,7 @@ class DBClientTokensHandler(DBBaseHandler):
     def get_token_by_hash(
         self,
         hashed_token: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> ClientToken | None:
         return session.scalar(
             select(ClientToken).where(ClientToken.hashed_token == hashed_token)
@@ -36,7 +36,7 @@ class DBClientTokensHandler(DBBaseHandler):
     def get_tokens_by_user(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[ClientToken]:
         return session.scalars(
             select(ClientToken)
@@ -47,7 +47,7 @@ class DBClientTokensHandler(DBBaseHandler):
     @begin_session
     def get_all_tokens(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[ClientToken]:
         return (
             session.scalars(
@@ -64,7 +64,7 @@ class DBClientTokensHandler(DBBaseHandler):
         self,
         token_id: int,
         user_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         stmt = delete(ClientToken).where(ClientToken.id == token_id)
         if user_id is not None:
@@ -77,7 +77,7 @@ class DBClientTokensHandler(DBBaseHandler):
     def update_last_used(
         self,
         token_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         now = datetime.now(timezone.utc)
         token = session.get(ClientToken, token_id)
@@ -103,7 +103,7 @@ class DBClientTokensHandler(DBBaseHandler):
         token_id: int,
         new_hash: str,
         user_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> ClientToken | None:
         stmt = (
             update(ClientToken)
@@ -125,7 +125,7 @@ class DBClientTokensHandler(DBBaseHandler):
     def count_tokens_by_user(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         return (
             session.scalar(
@@ -141,7 +141,7 @@ class DBClientTokensHandler(DBBaseHandler):
         self,
         token_id: int,
         user_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> ClientToken | None:
         stmt = select(ClientToken).where(ClientToken.id == token_id)
         if user_id is not None:

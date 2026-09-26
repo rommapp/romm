@@ -6,6 +6,7 @@ trigger-maintained from the same source: writing the blob is what drives both.
 """
 
 from datetime import datetime, timezone
+from typing import Any
 
 import pytest
 
@@ -38,7 +39,7 @@ def make_rom(
     rating_votes: int | None = None,
     source: str = "igdb_metadata",
 ) -> Rom:
-    metadata: dict = {
+    metadata: dict[str, Any] = {
         "genres": genres or [],
         "franchises": franchises or [],
         "collections": collections or [],
@@ -676,7 +677,7 @@ class TestTopUp:
 
 class TestTopUpPolicy:
     def test_a_scan_that_touched_the_library_defers_to_a_rebuild(self, monkeypatch):
-        enqueued: list[tuple[str, dict]] = []
+        enqueued: list[tuple[str, dict[str, Any]]] = []
         monkeypatch.setattr(builder, "MAX_TOP_UP_ROMS", 2)
         monkeypatch.setattr(
             "tasks.registry.enqueue_task",

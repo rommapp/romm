@@ -180,7 +180,7 @@ onMounted(fetchGroups);
             size="x-small"
           />
           <RTag
-            v-if="(row as PermissionGroupSchema).is_system"
+            v-if="(row as PermissionGroupSchema).system_key"
             tone="info"
             :text="t('settings.group-system-tag')"
             size="x-small"

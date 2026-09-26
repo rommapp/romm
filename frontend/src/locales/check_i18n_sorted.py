@@ -14,7 +14,7 @@ import sys
 locales_dir = os.path.dirname(os.path.abspath(__file__))
 
 
-def sort_recursive(value):
+def sort_recursive(value: object) -> object:
     """Return a copy with every dict's keys sorted alphabetically."""
     if isinstance(value, dict):
         return {key: sort_recursive(value[key]) for key in sorted(value)}
@@ -23,12 +23,12 @@ def sort_recursive(value):
     return value
 
 
-def dump(data):
+def dump(data: object) -> str:
     # Match Prettier's formatting: 2-space indent, unicode preserved, trailing newline.
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--fix",

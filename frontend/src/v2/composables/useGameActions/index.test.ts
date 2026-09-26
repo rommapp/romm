@@ -16,7 +16,7 @@ const canPlayRuffle = { value: false };
 const canPlayNative = { value: false };
 const streamContainer = { value: null as object | null };
 const joinableSession = {
-  value: null as { host_username: string | null } | null,
+  value: null as { host_username: string | null; container?: string } | null,
 };
 // Granted action keys — `null` means "everything" (the default).
 const grantedActions: { value: Set<ActionKey> | null } = { value: null };
@@ -145,7 +145,10 @@ beforeEach(() => {
 describe("useGameActions.joinStream", () => {
   beforeEach(() => {
     streamContainer.value = { host: "http://stream" };
-    joinableSession.value = { host_username: "ada" };
+    joinableSession.value = {
+      host_username: "ada",
+      container: "http://box:8000",
+    };
   });
 
   it("does not navigate until the user confirms", async () => {
@@ -164,7 +167,11 @@ describe("useGameActions.joinStream", () => {
 
     await actions.joinStream();
 
-    expect(push).toHaveBeenCalledWith("/rom/1/stream?join=1");
+    // The joinable row names the container, and a pool needs it: the stream
+    // view would otherwise walk the pool and could land on another session.
+    expect(push).toHaveBeenCalledWith(
+      "/rom/1/stream?join=1&container=http%3A%2F%2Fbox%3A8000",
+    );
   });
 
   it("names the host in the confirmation", async () => {

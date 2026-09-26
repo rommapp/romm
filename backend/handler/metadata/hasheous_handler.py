@@ -40,6 +40,10 @@ class HasheousMetadata(TypedDict):
     ra_match: bool
     fbneo_match: bool
     puredos_match: bool
+    # What the dump our hashes matched says of itself, kept by the scan.
+    dump_regions: NotRequired[list[str]]
+    dump_languages: NotRequired[list[str]]
+    dump_tags: NotRequired[list[str]]
 
 
 class HasheousPlatform(TypedDict):
@@ -242,9 +246,9 @@ class HasheousHandler(MetadataHandler):
         self,
         url: str,
         method: str = "POST",
-        params: dict | None = None,
-        data: dict | list | None = None,
-    ) -> dict:
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | list[Any] | None = None,
+    ) -> dict[str, Any]:
         httpx_client = ctx_httpx_client.get()
 
         # Normalize method to uppercase
@@ -353,7 +357,7 @@ class HasheousHandler(MetadataHandler):
         # The lookup endpoint accepts the hashes of all top-level files, which
         # increases the accuracy of metadata lookups by letting Hasheous match
         # against any of them.
-        data: list[dict] = []
+        data: list[dict[str, Any]] = []
         for file in filtered_files:
             hashes = file.lookup_hashes
             file_hashes: dict[str, str | None] = {

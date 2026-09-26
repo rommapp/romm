@@ -44,7 +44,7 @@ WEBRCADE_SUPPORTED_PLATFORM_SLUGS = frozenset(
     )
 )
 
-WEBRCADE_SLUG_TO_TYPE_MAP = {
+WEBRCADE_SLUG_TO_TYPE_MAP: dict[str, str] = {
     UPS.ATARI2600: "2600",
     UPS.ATARI5200: "5200",
     UPS.ATARI7800: "7800",
@@ -158,7 +158,7 @@ class TinfoilFeedTitleDBSchema(BaseModel):
 class TinfoilFeedSchema(TypedDict):
     files: list[TinfoilFeedFileSchema]
     directories: list[str]
-    titledb: NotRequired[dict[str, dict]]  # dict after .model_dump()
+    titledb: NotRequired[dict[str, dict[str, Any]]]  # dict after .model_dump()
     success: NotRequired[str]
     error: NotRequired[str]
 

@@ -63,9 +63,10 @@ def platform_with_roms(admin_user: User):
     )
 
     # Re-fetch to get joined metadata
-    rom = db_rom_handler.get_rom(rom.id)
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
 
-    return platform, [rom]
+    return platform, [refreshed]
 
 
 @pytest.fixture

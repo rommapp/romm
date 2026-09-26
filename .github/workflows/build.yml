@@ -6,16 +6,37 @@ on:
   #     - "[0-9]+.[0-9]+.[0-9]+*"
   release:
     types: [published]
+  # Rolling `nightly` image of master.
+  schedule:
+    - cron: "17 4 * * *"
 
 permissions:
   contents: read
 
-# `build` pushes digests here and `merge` tags them from here; the two must agree.
 env:
+  CHANNEL: ${{ github.event_name == 'schedule' && 'nightly' || 'release' }}
+  # `build` pushes digests here and `merge` tags them from here; the two must agree.
   DIGEST_IMAGE: ghcr.io/${{ github.repository_owner }}/romm
+  IMAGES: |
+    name=rommapp/romm
+    name=ghcr.io/rommapp/romm
+  # `build` and `merge` must derive the same tag set.
+  TAGS: |
+    type=semver,pattern={{version}}
+    type=semver,pattern={{major}}.{{minor}}
+    type=semver,pattern={{major}}
+    type=schedule,pattern=nightly
+  # Labels on each platform image, annotations on the index. metadata-action fills in
+  # the version itself (with `-slim`) and would render a `{{version}}` here as empty.
+  OCI_METADATA: |
+    org.opencontainers.image.title=rommapp/romm
+    org.opencontainers.image.description=RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators.
+    org.opencontainers.image.licenses=AGPL-3.0-only
 
 jobs:
   validate-tag-semver:
+    # Forks have no registry credentials, so their nightly would fail every day.
+    if: github.event_name != 'schedule' || github.repository == 'rommapp/romm'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -27,7 +48,7 @@ jobs:
         env:
           TAG: ${{ github.event.release.tag_name }}
         run: |
-          if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
+          if [[ "$CHANNEL" == "nightly" || "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
             echo "valid=true" >>"$GITHUB_OUTPUT"
           else
             echo "valid=false" >>"$GITHUB_OUTPUT"
@@ -80,43 +101,30 @@ jobs:
         id: meta-slim
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
+          images: ${{ env.IMAGES }}
           flavor: |
             latest=auto
             suffix=-slim,onlatest=true
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-          labels: |
-            org.opencontainers.image.version={{version}}-slim
-            org.opencontainers.image.title="rommapp/romm"
-            org.opencontainers.image.description="RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
-            org.opencontainers.image.licenses="AGPLv3"
+          tags: ${{ env.TAGS }}
+          labels: ${{ env.OCI_METADATA }}
 
       - name: Generate Docker metadata (full)
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-          labels: |
-            org.opencontainers.image.version={{version}}
-            org.opencontainers.image.title="rommapp/romm"
-            org.opencontainers.image.description="RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
-            org.opencontainers.image.licenses="AGPLv3"
+          images: ${{ env.IMAGES }}
+          tags: ${{ env.TAGS }}
+          labels: ${{ env.OCI_METADATA }}
 
+      # Nightly builds carry the short commit so each one is identifiable and busts
+      # version-keyed caches.
       - name: Set version
         env:
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
+          if [[ "$CHANNEL" == "nightly" ]]; then
+            VERSION="${VERSION}-${GITHUB_SHA::7}"
+          fi
           sed -i "s/<version>/$VERSION/" backend/__version__.py
 
       - name: Build and push slim image by digest
@@ -128,6 +136,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta-slim.outputs.labels }}
           target: slim-image
+          sbom: true
           outputs: type=image,name=${{ env.DIGEST_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           # Both stages run `apk upgrade` off a fixed base digest, so nothing in
           # them changes between releases and the cache would serve the package
@@ -135,7 +144,9 @@ jobs:
           no-cache-filters: python-runtime,production-stage
           # Deliberately not seeded from the preview cache: those layers are
           # built from PR head content and must not reach a release image.
-          cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
+          cache-from: |
+            type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
+            ${{ env.CHANNEL == 'nightly' && format('type=registry,ref={0}:nightly-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
             SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
@@ -151,10 +162,15 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           target: full-image
+          sbom: true
           outputs: type=image,name=${{ env.DIGEST_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           no-cache-filters: python-runtime,production-stage
-          cache-from: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
-          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }},mode=max
+          cache-from: |
+            type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
+            ${{ env.CHANNEL == 'nightly' && format('type=registry,ref={0}:nightly-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
+          # Nightly reads the release cache but writes its own, so master layers
+          # never seed a release image.
+          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:${{ env.CHANNEL }}-${{ matrix.arch }},mode=max
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
             SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
@@ -187,6 +203,8 @@ jobs:
   merge:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      DOCKER_METADATA_ANNOTATIONS_LEVELS: index
     permissions:
       contents: read
       packages: write
@@ -225,28 +243,20 @@ jobs:
         id: meta-slim
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
+          images: ${{ env.IMAGES }}
           flavor: |
             latest=auto
             suffix=-slim,onlatest=true
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+          tags: ${{ env.TAGS }}
+          annotations: ${{ env.OCI_METADATA }}
 
       - name: Generate Docker metadata (full)
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+          images: ${{ env.IMAGES }}
+          tags: ${{ env.TAGS }}
+          annotations: ${{ env.OCI_METADATA }}
 
       # Tags spanning both registries are fine here: `imagetools create` copies
       # the blobs over when a target sits in a different registry than the digests.
@@ -263,6 +273,13 @@ jobs:
               tags+=(--tag "$tag")
             done < <(jq -r '.tags[]' <<<"$metadata")
 
+            # The labels only reach each platform's image config; registries
+            # read a multi-platform image's metadata from its index.
+            local annotations=()
+            while IFS= read -r annotation; do
+              annotations+=(--annotation "$annotation")
+            done < <(jq -r '.annotations[]' <<<"$metadata")
+
             local sources=()
             local digest
             for digest in "$dir"/*; do
@@ -277,7 +294,7 @@ jobs:
               return 1
             fi
 
-            docker buildx imagetools create "${tags[@]}" "${sources[@]}"
+            docker buildx imagetools create "${tags[@]}" "${annotations[@]}" "${sources[@]}"
           }
 
           push_variant /tmp/digests/slim "$SLIM_METADATA"

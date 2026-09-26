@@ -4,6 +4,7 @@ from http.cookies import SimpleCookie
 from typing import Any
 
 from fastapi import Request
+from starlette.requests import HTTPConnection
 from ua_parser import Result as UAResult
 from ua_parser import parse as parse_ua
 
@@ -16,6 +17,13 @@ from logger.logger import log
 from models.device import KNOWN_DEVICES, Device
 from models.user import User
 from utils import json_module
+
+
+def current_device_id(conn: HTTPConnection) -> str | None:
+    """The device a request comes from: its client token's, else its web session's."""
+    return getattr(conn.state, "device_id", None) or (
+        conn.scope.get("session") or {}
+    ).get("device_id")
 
 
 async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
@@ -45,9 +53,11 @@ async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
     if not session_data:
         return {}
     try:
-        return json_module.loads(session_data)
+        session = json_module.loads(session_data)
     except Exception:  # noqa: BLE001 - malformed session is "no session"
         return {}
+    # The middleware adds the same key on the scope path.
+    return {**session, "session_id": morsel.value}
 
 
 def _get_device_name(user_agent: UAResult) -> str | None:

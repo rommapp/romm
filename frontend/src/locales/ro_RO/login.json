@@ -17,6 +17,7 @@
   "reset-link-failed": "Nu s-a putut trimite linkul de resetare",
   "reset-password": "Resetează parola",
   "reset-sent": "Linkul de resetare a fost trimis. Contactează administratorul.",
+  "reset-sent-email": "Dacă contul are o adresă de e-mail, linkul de resetare este pe drum. Dacă nu, întreabă administratorul.",
   "send-reset-link": "Trimite link de resetare",
   "setup-wizard": "Asistent de configurare",
   "unable-to-login": "Nu s-a putut realiza autentificarea: {error}",

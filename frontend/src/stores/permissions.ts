@@ -19,6 +19,8 @@ import {
 interface State {
   grants: Grant[];
   isAdmin: boolean;
+  /** False until `/permissions/me` answered, while every check reads false. */
+  hydrated: boolean;
   hidden: { platforms: number[]; roms: number[] };
 }
 
@@ -31,6 +33,7 @@ export default defineStore("permissions", {
   state: (): State => ({
     grants: [],
     isAdmin: false,
+    hydrated: false,
     hidden: { platforms: [], roms: [] },
   }),
 
@@ -42,6 +45,7 @@ export default defineStore("permissions", {
         scope: normalizeScope(g.scope),
       }));
       this.isAdmin = payload.is_admin;
+      this.hydrated = true;
       this.hidden = {
         platforms: [...payload.hidden.platforms],
         roms: [...payload.hidden.roms],
@@ -53,12 +57,14 @@ export default defineStore("permissions", {
     setGrants(grants: Grant[]) {
       this.grants = grants;
       this.isAdmin = false;
+      this.hydrated = true;
       this.hidden = { platforms: [], roms: [] };
     },
 
     reset() {
       this.grants = [];
       this.isAdmin = false;
+      this.hydrated = false;
       this.hidden = { platforms: [], roms: [] };
     },
   },

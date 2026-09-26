@@ -303,7 +303,7 @@ class PouetHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return POUET_API_ENABLED
 
-    async def _request(self, url: str) -> dict:
+    async def _request(self, url: str) -> dict[str, Any]:
         await _rate_limiter.acquire()
         headers = {
             "User-Agent": f"RomM/{get_version()}",

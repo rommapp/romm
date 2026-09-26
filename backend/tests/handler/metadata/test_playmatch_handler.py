@@ -1,4 +1,5 @@
 import json
+from typing import Any
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import httpx
@@ -73,7 +74,9 @@ def _rom_file(*, is_top_level: bool = True, **kwargs) -> RomFile:
     return file
 
 
-async def _captured_lookup_payload(handler: PlaymatchHandler, files) -> dict | None:
+async def _captured_lookup_payload(
+    handler: PlaymatchHandler, files
+) -> dict[str, Any] | None:
     with (
         patch.object(handler, "is_enabled", return_value=True),
         patch.object(handler, "_request", new_callable=AsyncMock) as mock_request,
@@ -208,7 +211,33 @@ async def test_lookup_rom_skips_the_request_when_no_file_qualifies():
     assert await _captured_lookup_payload(PlaymatchHandler(), []) is None
 
 
-async def _captured_suggestion_payload(rom: Rom) -> dict | None:
+def _unhashed_file(rom: Rom, file_path: str, file_name: str) -> RomFile:
+    file = RomFile(file_path=file_path, file_name=file_name, file_size_bytes=1024)
+    file.rom = rom
+    file.__dict__["is_top_level"] = True
+    return file
+
+
+async def test_lookup_rom_skips_an_unhashed_folder_member():
+    """Wii U content files share generic names across titles, so asking by name
+    and size alone matches every title to the same unrelated game."""
+    rom = Rom(fs_path="wiiu", fs_name="Adventure Island [0005000010134100]")
+    member = _unhashed_file(rom, rom.full_path, "00000005.app")
+
+    assert await _captured_lookup_payload(PlaymatchHandler(), [member]) is None
+
+
+async def test_lookup_rom_asks_about_an_unhashed_single_file_by_name():
+    rom = Rom(fs_path="switch", fs_name="Game [0100000000010000].nsp")
+    single = _unhashed_file(rom, "switch", rom.fs_name)
+
+    payload = await _captured_lookup_payload(PlaymatchHandler(), [single])
+
+    assert payload is not None
+    assert payload["fileName"] == rom.fs_name
+
+
+async def _captured_suggestion_payload(rom: Rom) -> dict[str, Any] | None:
     handler = PlaymatchHandler()
     mock_client = AsyncMock()
     mock_client.post.return_value = MagicMock()

@@ -177,7 +177,7 @@ async def store_memory_card_version(
             )
             return None
 
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H-%M-%S-%f")[:-3]
+    ts = datetime.now().strftime("%Y-%m-%d %H-%M-%S-%f")[:-3]
     cards_path = fs_asset_handler.build_memory_cards_file_path(
         user=user, emulator=card.emulator, card_id=card.id
     )

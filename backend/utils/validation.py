@@ -25,8 +25,8 @@ EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 MAX_ROM_IDS_PER_QUERY: Final = 500
 
 
-def _dedupe_rom_ids(rom_ids: list[int] | None) -> list[int] | None:
-    return None if rom_ids is None else list(dict.fromkeys(rom_ids))
+def dedupe_in_order[T](items: list[T] | None) -> list[T] | None:
+    return None if items is None else list(dict.fromkeys(items))
 
 
 # Shared by every route that scopes a query to a set of ROMs, so the cap and
@@ -34,7 +34,7 @@ def _dedupe_rom_ids(rom_ids: list[int] | None) -> list[int] | None:
 RomIdScope = Annotated[
     list[Annotated[int, Field(gt=0)]] | None,
     Field(max_length=MAX_ROM_IDS_PER_QUERY),
-    AfterValidator(_dedupe_rom_ids),
+    AfterValidator(dedupe_in_order),
 ]
 
 

@@ -158,9 +158,11 @@ async def activity_stop(sid: str, data: ActivityEventPayload | None = None) -> N
     await activity_handler.publish_clear(int(user_id), device_id)
 
 
-@socket_handler.socket_server.on("disconnect")
 async def activity_on_disconnect(sid: str) -> None:
-    """Safety net: clear any activity tied to a disconnecting socket."""
+    """Safety net: clear any activity tied to a disconnecting socket.
+
+    Called from the server's one ``disconnect`` handler, in ``endpoints.sockets.logs``.
+    """
     session = await _session(sid)
     user_id = session.get("activity_user_id")
     device_id = session.get("activity_device_id")

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// CrtOverlay — the persistent "CRT mode" shader. While CRT mode is on this
+// CrtOverlay: the persistent "CRT mode" shader. While CRT mode is on this
 // sits above the whole app (teleported to <body> so it also covers
 // teleported dialogs/menus), pointer-events:none so it never traps input,
 // and layers scanlines + a rolling refresh band + vignette/curvature +
 // flicker + an occasional chromatic-aberration glitch to sell the cathode-
-// ray-tube look — without ever distorting the real DOM (it stays readable).
+// ray-tube look, without ever distorting the real DOM (it stays readable).
 //
 // Chrome-only: no stores/services/domain text. Self-gates on useCrtMode.
 // The one-shot power-on flash is a separate component (CrtWarmup.vue).
@@ -31,13 +31,13 @@ const { enabled } = useCrtMode();
   z-index: 99990;
   pointer-events: none;
   overflow: hidden;
-  /* Phosphor "punch" — grade the live app behind the overlay (saturation +
+  /* Phosphor "punch": grade the live app behind the overlay (saturation +
      contrast). Done via backdrop-filter rather than a CSS `filter` on a
      layout container: this layer is teleported to <body>, a sibling of the
      app root, so it never becomes a containing block for the app's own
      position:fixed chrome (navbar, gallery SelectionBar, …). */
   backdrop-filter: saturate(1.3) contrast(1.05) brightness(1.02);
-  /* Subtle whole-screen flicker — the CRT never sits perfectly still. */
+  /* Subtle whole-screen flicker, the CRT never sits perfectly still. */
   animation: r-crtfx-flicker 0.14s steps(2, end) infinite;
 }
 
@@ -74,7 +74,7 @@ const { enabled } = useCrtMode();
   animation: r-crtfx-roll 7s linear infinite;
 }
 
-/* Chromatic-aberration ghost slices — idle most of the time, then jolt.
+/* Chromatic-aberration ghost slices, idle most of the time, then jolt.
    Two stacked box-shadows give a red/cyan RGB-split fringe; the keyframes
    nudge the layer sideways in quick steps for the "tracking error" glitch. */
 .r-crtfx__glitch {
@@ -151,6 +151,12 @@ const { enabled } = useCrtMode();
     opacity: 0.85;
     transform: translateX(-2px);
   }
+}
+
+/* Chromium on Android stops painting images under a full-viewport
+   backdrop-filter until they are touched, so phones skip the grade. */
+html[data-bp~="xs"] .r-crtfx {
+  backdrop-filter: none;
 }
 
 /* Reduced motion: keep the static CRT texture (scanlines + vignette) but

@@ -1,11 +1,12 @@
 import asyncio
 import enum
 import functools
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 import pydash
 import socketio
 
+from adapters.services.igdb import IGDB_PLATFORM_LIST
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
@@ -47,7 +48,7 @@ from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST, Flashp
 from handler.metadata.gamelist_handler import GamelistRom
 from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST, HasheousRom
 from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST, HLTBRom
-from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST, IGDBRom
+from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.launchbox_handler.types import LaunchboxRom
@@ -138,6 +139,45 @@ PROVIDER_TAG_FIELDS = ("regions", "languages")
 # Tags merge rather than fill: being a translation says nothing about being a
 # revision, so a dump's tags join the filename's instead of replacing them.
 PROVIDER_MERGED_TAG_FIELDS = ("tags",)
+PROVIDER_ALL_TAG_FIELDS = PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
+# Where a hash source's blob keeps each tag field its dump gave.
+DUMP_TAG_KEYS = {field: f"dump_{field}" for field in PROVIDER_ALL_TAG_FIELDS}
+
+
+def hash_source_tags(
+    fields: dict[str, Any], rom_attrs: dict[str, Any]
+) -> tuple[dict[str, list[str]], bool]:
+    """The tags a hash-matched source vouches for, and whether it said so this scan.
+
+    Args:
+        fields: The source's entry in the scan's handler table, its blob already
+            holding this scan's dump tags.
+        rom_attrs: The ROM's attributes, still holding its stored ids and blobs.
+
+    Returns:
+        Each tag field's values, empty when the source doesn't cover the ROM, and
+        whether they are this scan's answer rather than the stored one.
+    """
+    handler = fields["handler"]
+    answered = bool(handler.get(fields["id_field"]))
+    if answered:
+        blob = handler.get(fields["metadata_field"]) or {}
+    elif rom_attrs.get(fields["id_field"]):
+        blob = rom_attrs.get(fields["metadata_field"]) or {}
+    else:
+        blob = {}
+    # A hand edit of the raw metadata can store any JSON; only lists of strings count.
+    if not isinstance(blob, dict):
+        blob = {}
+    claims = {}
+    for field in PROVIDER_ALL_TAG_FIELDS:
+        value = blob.get(DUMP_TAG_KEYS[field])
+        claims[field] = (
+            [tag for tag in value if isinstance(tag, str)]
+            if isinstance(value, list)
+            else []
+        )
+    return claims, answered
 
 
 def scene_apply_sources(
@@ -184,7 +224,7 @@ def build_hashless_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
     return build_empty_fs_rom(fs_name, fs_path, flat=flat)
 
 
-def get_main_platform_igdb_id(platform: Platform):
+def get_main_platform_igdb_id(platform: Platform) -> int | None:
     cnfg = cm.get_config()
 
     main_platform_slug = cnfg.PLATFORMS_VERSIONS.get(platform.fs_slug.lower())
@@ -193,8 +233,8 @@ def get_main_platform_igdb_id(platform: Platform):
         if main_platform:
             main_platform_igdb_id = main_platform.igdb_id
         else:
-            main_platform = meta_igdb_handler.get_platform(main_platform_slug)
-            main_platform_igdb_id = main_platform["igdb_id"]
+            igdb_platform = meta_igdb_handler.get_platform(main_platform_slug)
+            main_platform_igdb_id = igdb_platform["igdb_id"]
             if not main_platform_igdb_id:
                 main_platform_igdb_id = platform.igdb_id
     else:
@@ -1097,12 +1137,16 @@ async def scan_rom(
                     f"{hl(str(h_ra_id), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
+                return await meta_ra_handler.get_rom_by_id(
+                    rom=rom, ra_id=h_ra_id, ra_hash=rom_attrs["ra_hash"]
+                )
 
             if (scan_type == ScanType.UPDATE and rom.ra_id) or (
                 scan_type == ScanType.UNMATCHED and rom.ra_id and not rom.ra_metadata
             ):
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=rom.ra_id)
+                return await meta_ra_handler.get_rom_by_id(
+                    rom=rom, ra_id=rom.ra_id, ra_hash=rom_attrs["ra_hash"]
+                )
             else:
                 return await meta_ra_handler.get_rom(
                     rom=rom, ra_hash=rom_attrs["ra_hash"]
@@ -1285,7 +1329,7 @@ async def scan_rom(
                 if merged_csdb:
                     blob["summary"] = merged_csdb
 
-    metadata_handlers: dict[MetadataSource, dict] = {
+    metadata_handlers: dict[MetadataSource, dict[str, Any]] = {
         MetadataSource.IGDB: {
             "handler": igdb_handler_rom,
             "id_field": "igdb_id",
@@ -1415,15 +1459,61 @@ async def scan_rom(
             extra=LOGGER_MODULE_NAME,
         )
 
+    # A rehash that no longer matches must drop the previous Hasheous match, or
+    # the ROM keeps showing verification flags earned by hashes it no longer has.
+    # Only a conclusive lookup clears them, so an unreachable Hasheous can't
+    # silently de-verify a library.
+    if (
+        scan_type == ScanType.HASHES
+        and hasheous_lookup_conclusive
+        and not hasheous_hash_match.get("hasheous_id")
+    ):
+        rom_attrs["hasheous_id"] = None
+        rom_attrs["hasheous_metadata"] = {}
+
+    # Same for the RA hash match, once an RA lookup that ran found nothing.
+    ra_metadata = rom_attrs.get("ra_metadata") or {}
+    if (
+        scan_type == ScanType.HASHES
+        and MetadataSource.RA in attempted_sources
+        and not ra_handler_rom.get("ra_id")
+        and ra_metadata.get("hash_match")
+    ):
+        rom_attrs["ra_metadata"] = {**ra_metadata, "hash_match": False}
+
+    # A skipped source's tags can't be told apart on the row, so each hash source
+    # keeps the ones its dump gave in its own blob.
+    for source_name in HASH_MATCHED_TAG_SOURCES:
+        fields = metadata_handlers[source_name]
+        handler = fields["handler"]
+        if handler.get(fields["id_field"]):
+            dump_tags = {
+                DUMP_TAG_KEYS[field]: list(handler.get(field) or [])
+                for field in PROVIDER_ALL_TAG_FIELDS
+            }
+            blob = {**(handler.get(fields["metadata_field"]) or {}), **dump_tags}
+            fields["handler"] = {**handler, fields["metadata_field"]: blob}
+
+    # One ordering pass for both lists, since each one rereads config.yml.
+    hash_sources = [] if scene_locked else list(HASH_MATCHED_TAG_SOURCES)
+    ordered = get_priority_ordered_metadata_sources(
+        list(dict.fromkeys([*apply_sources, *hash_sources])), "metadata"
+    )
+    priority_ordered = [source for source in ordered if source in apply_sources]
+    hash_claims = [
+        hash_source_tags(metadata_handlers[source], rom_attrs)
+        for source in ordered
+        if source in hash_sources
+    ]
+
     # Apply metadata priority order
-    priority_ordered = get_priority_ordered_metadata_sources(apply_sources, "metadata")
     # Reverse priority order to apply highest priority last
     for source_name in reversed(priority_ordered):
         handler_data = metadata_handlers[source_name]["handler"]
         # Only update fields that have valid values
         for key, field_value in handler_data.items():
             if (
-                key in PROVIDER_TAG_FIELDS + PROVIDER_MERGED_TAG_FIELDS
+                key in PROVIDER_ALL_TAG_FIELDS
                 and source_name in HASH_MATCHED_TAG_SOURCES
             ):
                 continue
@@ -1445,12 +1535,11 @@ async def scan_rom(
             if source_name not in HASH_MATCHED_TAG_SOURCES
         ):
             continue
-        for source_name in priority_ordered:
-            if source_name not in HASH_MATCHED_TAG_SOURCES:
-                continue
-            field_value = metadata_handlers[source_name]["handler"].get(field)
-            if field_value:
-                rom_attrs[field] = field_value
+        for claims, answered in hash_claims:
+            # What a source said on an earlier scan fills only an empty slot: the
+            # row's value may come from a source this scan didn't ask either.
+            if claims[field] and (answered or not rom_attrs.get(field)):
+                rom_attrs[field] = claims[field]
                 break
 
     for field in PROVIDER_MERGED_TAG_FIELDS:
@@ -1464,10 +1553,8 @@ async def scan_rom(
             if claimed:
                 merged_tags = list(claimed)
                 break
-        for source_name in priority_ordered:
-            if source_name not in HASH_MATCHED_TAG_SOURCES:
-                continue
-            for tag in metadata_handlers[source_name]["handler"].get(field) or []:
+        for claims, _ in hash_claims:
+            for tag in claims[field]:
                 if tag not in merged_tags:
                     merged_tags.append(tag)
         rom_attrs[field] = merged_tags
@@ -1519,18 +1606,6 @@ async def scan_rom(
                 "url_screenshots": rom_attrs.get("url_screenshots") or [],
             }
         )
-
-    # A rehash that no longer matches must drop the previous Hasheous match, or
-    # the ROM keeps showing verification flags earned by hashes it no longer has.
-    # Only a conclusive lookup clears them, so an unreachable Hasheous can't
-    # silently de-verify a library.
-    if (
-        scan_type == ScanType.HASHES
-        and hasheous_lookup_conclusive
-        and not hasheous_hash_match.get("hasheous_id")
-    ):
-        rom_attrs["hasheous_id"] = None
-        rom_attrs["hasheous_metadata"] = {}
 
     # Use PICO-8 cartridge PNG as cover art if no cover is set.
     # PICO-8 .p8.png files are valid PNG images whose visual content is the
@@ -1757,11 +1832,20 @@ async def download_rom_resources(
                 await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
 
-async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False):
+class ScannedAsset(TypedDict):
+    file_path: str
+    file_name: str
+    file_size_bytes: int
+    content_hash: NotRequired[str | None]
+
+
+async def _scan_asset(
+    file_name: str, asset_path: str, should_hash: bool = False
+) -> ScannedAsset:
     file_path = f"{asset_path}/{file_name}"
     file_size = await fs_asset_handler.get_file_size(file_path)
 
-    result = {
+    result: ScannedAsset = {
         "file_path": asset_path,
         "file_name": file_name,
         "file_size_bytes": file_size,
@@ -1830,9 +1914,10 @@ async def scan_screenshot(
     user: User,
     platform_fs_slug: str,
     rom_id: int,
+    emulator: str | None = None,
 ) -> Screenshot:
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
-        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id
+        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
     scanned_asset = await _scan_asset(file_name, screenshots_path)
     return Screenshot(**scanned_asset)

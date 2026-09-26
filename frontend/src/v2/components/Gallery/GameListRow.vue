@@ -17,7 +17,6 @@ import {
   RChip,
   RIcon,
   RMarquee,
-  RPlatformIcon,
   RSkeletonBlock,
   RTooltip,
 } from "@v2/lib";
@@ -32,6 +31,7 @@ import ProviderBadges from "@/v2/components/Gallery/ProviderBadges.vue";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
@@ -395,7 +395,7 @@ function onRowPointerDown(e: PointerEvent) {
             </div>
             <div class="r-list-compact__facts">
               <template v-if="platformName">
-                <RPlatformIcon
+                <PlatformIcon
                   class="game-list-row__facts-icon"
                   :slug="rom.platform_slug"
                   :fs-slug="rom.platform_fs_slug"
@@ -558,7 +558,7 @@ function onRowPointerDown(e: PointerEvent) {
           v-if="showPlatformColumn"
           class="game-list-row__cell game-list-row__platform"
         >
-          <RPlatformIcon
+          <PlatformIcon
             v-if="platformMeta?.slug"
             :slug="platformMeta.slug"
             :size="24"
@@ -777,7 +777,11 @@ function onRowPointerDown(e: PointerEvent) {
   display: grid;
   align-items: center;
   gap: 0 var(--r-space-5);
+  /* Runs to the leading screen edge wherever the shell asks, keeping that
+     gutter as padding so the first column lines up with the toolbar. */
+  margin-inline-start: calc(-1 * var(--r-list-bleed-start, 0px));
   padding: 0 var(--r-space-3);
+  padding-inline-start: max(var(--r-space-3), var(--r-list-bleed-start, 0px));
   height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
 }
@@ -899,6 +903,15 @@ function onRowPointerDown(e: PointerEvent) {
 }
 .game-list-row--selected.game-list-row--clickable:hover {
   background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
+}
+
+/* The scroller clips an outline past the row's screen edge, so key and pad
+   focus paint inside the row. */
+html:not([data-input]) .game-list-row:focus-visible,
+html[data-input="key"] .game-list-row:focus-visible,
+html[data-input="pad"] .game-list-row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 var(--r-focus-ring-width) var(--r-color-focus);
 }
 
 /* Select cell — checkbox column. Empty when the row is in skeleton

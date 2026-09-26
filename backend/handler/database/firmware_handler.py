@@ -1,4 +1,5 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
+from typing import Any
 
 from sqlalchemy import Select, and_, delete, select, update
 from sqlalchemy.orm import Session, noload
@@ -14,7 +15,7 @@ class DBFirmwareHandler(DBBaseHandler):
     def add_firmware(
         self,
         firmware: Firmware,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Firmware:
         return session.merge(firmware)
 
@@ -23,7 +24,7 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         id: int,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Firmware | None:
         return session.scalar(select(Firmware).filter_by(id=id).limit(1))
 
@@ -32,7 +33,7 @@ class DBFirmwareHandler(DBBaseHandler):
         *,
         platform_ids: Sequence[int] | None = None,
         missing: bool | None = None,
-        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
     ) -> Select[tuple[Firmware]]:
         query = select(Firmware).order_by(Firmware.file_name.asc())
 
@@ -55,8 +56,8 @@ class DBFirmwareHandler(DBBaseHandler):
         *,
         platform_ids: Sequence[int] | None = None,
         missing: bool | None = None,
-        hidden_platform_ids: Sequence[int] | None = None,
-        session: Session = None,  # type: ignore
+        hidden_platform_ids: Collection[int] | None = None,
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Firmware]:
         query = self._firmware_query(
             platform_ids=platform_ids,
@@ -73,8 +74,8 @@ class DBFirmwareHandler(DBBaseHandler):
         *,
         platform_ids: Sequence[int] | None = None,
         missing: bool | None = None,
-        hidden_platform_ids: Sequence[int] | None = None,
-        session: Session = None,  # type: ignore
+        hidden_platform_ids: Collection[int] | None = None,
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[int]:
         """Ids only, so no `Firmware` is built and no eager platform join fires."""
         query = self._firmware_query(
@@ -89,8 +90,8 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         platform_id: int,
         file_name: str,
-        session: Session = None,  # type: ignore
-    ):
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Firmware | None:
         return session.scalar(
             select(Firmware)
             .filter_by(platform_id=platform_id, file_name=file_name)
@@ -101,8 +102,8 @@ class DBFirmwareHandler(DBBaseHandler):
     def update_firmware(
         self,
         id: int,
-        data: dict,
-        session: Session = None,  # type: ignore
+        data: dict[str, Any],
+        session: Session = None,  # type: ignore[assignment]
     ) -> Firmware:
         session.execute(
             update(Firmware)
@@ -110,13 +111,13 @@ class DBFirmwareHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Firmware).filter_by(id=id).one()
+        return session.scalars(select(Firmware).filter_by(id=id)).one()
 
     @begin_session
     def delete_firmware(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(
             delete(Firmware)
@@ -129,7 +130,7 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         platform_id: int,
         fs_firmwares_to_keep: list[str],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Firmware]:
         missing_firmware = (
             session.scalars(

@@ -18,6 +18,18 @@ def client():
         yield client
 
 
+@pytest.fixture
+def _isolated_assets_dir(tmp_path, monkeypatch):
+    """Point the shared fs_asset_handler at the test's tmp dir."""
+    from pathlib import Path
+
+    from handler.filesystem import fs_asset_handler
+
+    new_base = Path(tmp_path).resolve()
+    monkeypatch.setattr(fs_asset_handler, "base_path", new_base)
+    return new_base
+
+
 @pytest.fixture(autouse=True)
 def clear_cache():
     sync_cache.flushall()

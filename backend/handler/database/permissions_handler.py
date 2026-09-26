@@ -10,6 +10,7 @@ from models.permission import (
     PermEntity,
     PermissionGroup,
     PermissionGroupGrant,
+    SystemGroupKey,
     UserPermissionOverride,
 )
 from models.user import User
@@ -34,7 +35,7 @@ class DBPermissionsHandler(DBBaseHandler):
     @begin_session
     def get_default_group(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> PermissionGroup | None:
         return session.scalar(
             select(PermissionGroup).filter_by(is_default=True).limit(1)
@@ -44,7 +45,7 @@ class DBPermissionsHandler(DBBaseHandler):
     def get_group_grants(
         self,
         group_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[PermissionGroupGrant]:
         return session.scalars(
             select(PermissionGroupGrant).filter_by(group_id=group_id)
@@ -54,7 +55,7 @@ class DBPermissionsHandler(DBBaseHandler):
     def get_user_overrides(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[UserPermissionOverride]:
         return session.scalars(
             select(UserPermissionOverride).filter_by(user_id=user_id)
@@ -66,7 +67,7 @@ class DBPermissionsHandler(DBBaseHandler):
         entity: PermEntity,
         user_id: int | None,
         group_id: int | None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> set[int]:
         """Ids of `entity` hidden from the given user OR their group.
 
@@ -93,7 +94,7 @@ class DBPermissionsHandler(DBBaseHandler):
     @begin_session
     def get_groups(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[PermissionGroup]:
         return (
             session.scalars(select(PermissionGroup).order_by(PermissionGroup.name))
@@ -105,7 +106,7 @@ class DBPermissionsHandler(DBBaseHandler):
     def get_group(
         self,
         group_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> PermissionGroup | None:
         return session.get(PermissionGroup, group_id)
 
@@ -113,9 +114,17 @@ class DBPermissionsHandler(DBBaseHandler):
     def get_group_by_name(
         self,
         name: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> PermissionGroup | None:
         return session.scalar(select(PermissionGroup).filter_by(name=name).limit(1))
+
+    @begin_session
+    def get_system_group(
+        self,
+        key: SystemGroupKey,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> PermissionGroup | None:
+        return session.scalar(select(PermissionGroup).filter_by(system_key=key))
 
     @begin_session
     def create_group(
@@ -125,14 +134,13 @@ class DBPermissionsHandler(DBBaseHandler):
         is_default: bool = False,
         color: str | None = None,
         grants: Iterable[GrantTuple] = (),
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> PermissionGroup:
         group = PermissionGroup(
             name=name,
             description=description,
             is_default=is_default,
             color=color,
-            is_system=False,
         )
         session.add(group)
         session.flush()
@@ -152,7 +160,7 @@ class DBPermissionsHandler(DBBaseHandler):
         is_default: bool | None = None,
         color: str | None = None,
         grants: Iterable[GrantTuple] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> PermissionGroup | None:
         group = session.get(PermissionGroup, group_id)
         if group is None:
@@ -177,7 +185,7 @@ class DBPermissionsHandler(DBBaseHandler):
     def delete_group(
         self,
         group_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(delete(PermissionGroup).where(PermissionGroup.id == group_id))
 
@@ -208,7 +216,7 @@ class DBPermissionsHandler(DBBaseHandler):
     def get_group_member_ids(
         self,
         group_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[int]:
         return list(
             session.scalars(
@@ -223,7 +231,7 @@ class DBPermissionsHandler(DBBaseHandler):
         self,
         user_id: int,
         group_id: int | None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(
             update(User)
@@ -237,7 +245,7 @@ class DBPermissionsHandler(DBBaseHandler):
         self,
         user_id: int,
         overrides: Iterable[OverrideTuple],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(
             delete(UserPermissionOverride).where(
@@ -263,7 +271,7 @@ class DBPermissionsHandler(DBBaseHandler):
         *,
         user_id: int | None = None,
         group_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[HiddenEntity]:
         query = select(HiddenEntity)
         if user_id is not None:
@@ -280,7 +288,7 @@ class DBPermissionsHandler(DBBaseHandler):
         *,
         user_id: int | None = None,
         group_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         # Idempotent: a repeated hide is a no-op rather than a unique violation.
         existing = session.scalar(
@@ -311,7 +319,7 @@ class DBPermissionsHandler(DBBaseHandler):
         *,
         user_id: int | None = None,
         group_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(
             delete(HiddenEntity).where(

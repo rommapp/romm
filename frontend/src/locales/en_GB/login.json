@@ -17,6 +17,7 @@
   "reset-link-failed": "Could not send reset link",
   "reset-password": "Reset password",
   "reset-sent": "Reset link sent. Contact your admin.",
+  "reset-sent-email": "If that account has an email address, a reset link is on its way. If not, ask your admin.",
   "send-reset-link": "Send reset link",
   "setup-wizard": "Setup wizard",
   "unable-to-login": "Unable to login: {error}",

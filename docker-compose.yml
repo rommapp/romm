@@ -40,7 +40,7 @@ services:
     tty: true
 
   romm-db-dev:
-    image: mariadb:12.3.3
+    image: mariadb:13.0.2
     container_name: romm-db-dev
     restart: unless-stopped
     env_file: .env

@@ -14,12 +14,11 @@ These tests pin down that machinery:
 """
 
 import json
+from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import cast
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.orm import Query
 from tests.conftest import session as session_factory
 
 from handler.database import db_rom_handler
@@ -51,7 +50,7 @@ def _flush_cache():
     sync_cache.flushall()
 
 
-def _decode_members(raw_members: set) -> set[str]:
+def _decode_members(raw_members: Iterable[bytes | str]) -> set[str]:
     return {m.decode() if isinstance(m, bytes) else m for m in raw_members}
 
 
@@ -120,7 +119,7 @@ class TestStoreVersionedCache:
 
 class TestCacheHitMatchesMiss:
     def test_with_filter_values_hit_matches_miss(self, rom_with_metadata: Rom):
-        query = cast(Query[Rom], select(Rom))
+        query = select(Rom)
         cache_key = "all:test-filters"
 
         miss = db_rom_handler.with_filter_values(query=query, cache_key=cache_key)
@@ -143,7 +142,7 @@ class TestCacheHitMatchesMiss:
     def test_with_filter_values_without_cache_key_does_not_cache(
         self, rom_with_metadata: Rom
     ):
-        query = cast(Query[Rom], select(Rom))
+        query = select(Rom)
         result = db_rom_handler.with_filter_values(query=query)
 
         # Nothing written, and a sane shape is still returned.
@@ -151,7 +150,7 @@ class TestCacheHitMatchesMiss:
         assert result["genres"] == ["RPG"]
 
     def test_with_char_index_hit_matches_miss(self, rom: Rom):
-        query = cast(Query[Rom], select(Rom))
+        query = select(Rom)
         cache_key = "all:test-charindex"
 
         miss = db_rom_handler.with_char_index(
@@ -187,7 +186,7 @@ class TestCacheHitMatchesMiss:
         assert dict(hit) == dict(miss) == {"t": 0}
 
     def test_get_rom_id_index_hit_matches_miss(self, rom: Rom):
-        query = cast(Query[Rom], select(Rom))
+        query = select(Rom)
         cache_key = "all:test-idindex"
 
         miss = db_rom_handler.get_rom_id_index(query=query, cache_key=cache_key)
@@ -227,7 +226,7 @@ class TestFilterValuesSchemaDrift:
     """
 
     def test_legacy_unnamespaced_entry_is_not_read(self, rom_with_metadata: Rom):
-        query = cast(Query[Rom], select(Rom))
+        query = select(Rom)
         cache_key = "all:schema-drift"
         version = _filter_values_cache_version()
 
@@ -345,7 +344,7 @@ class TestRomUserCacheVersion:
 
 class TestInvalidateFilterValuesCache:
     def test_deletes_prior_version_keys_and_set(self, rom_with_metadata: Rom):
-        query = cast(Query[Rom], select(Rom))
+        query = select(Rom)
 
         # Populate both caches under the current version.
         db_rom_handler.with_filter_values(query=query, cache_key="all:filters")
@@ -373,7 +372,7 @@ class TestInvalidateFilterValuesCache:
     def test_recomputes_under_new_version_after_invalidation(
         self, rom_with_metadata: Rom
     ):
-        query = cast(Query[Rom], select(Rom))
+        query = select(Rom)
         cache_key = "all:filters"
 
         db_rom_handler.with_filter_values(query=query, cache_key=cache_key)

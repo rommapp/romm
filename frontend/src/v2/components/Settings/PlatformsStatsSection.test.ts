@@ -64,7 +64,7 @@ function mountSection(
       plugins: [i18n],
       stubs: {
         RIcon: true,
-        RPlatformIcon: true,
+        PlatformIcon: true,
         RProgressLinear: true,
         RSliderBtnGroup: true,
         RTextField: true,

@@ -17,6 +17,7 @@
   "reset-link-failed": "재설정 링크를 보낼 수 없습니다",
   "reset-password": "비밀번호 재설정",
   "reset-sent": "재설정 링크가 전송되었습니다. 관리자에게 문의하세요.",
+  "reset-sent-email": "계정에 이메일 주소가 있으면 재설정 링크를 보냈습니다. 없다면 관리자에게 문의하세요.",
   "send-reset-link": "재설정 링크 보내기",
   "setup-wizard": "설정 마법사",
   "unable-to-login": "로그인할 수 없습니다: {error}",

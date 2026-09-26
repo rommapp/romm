@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SaveSchema, StateSchema } from "@/__generated__";
+import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import {
   defaultResumeSelection,
   newerThanPick,
@@ -8,9 +8,9 @@ import {
 } from "./resumeSelection";
 
 const save = (id: number, updated_at = "", slot: string | null = null) =>
-  ({ id, file_name: `${id}.srm`, updated_at, slot }) as SaveSchema;
+  saveFixture({ id, file_name: `${id}.srm`, updated_at, slot });
 const state = (id: number, updated_at = "") =>
-  ({ id, file_name: `${id}.state`, updated_at }) as StateSchema;
+  stateFixture({ id, file_name: `${id}.state`, updated_at });
 
 describe("defaultResumeSelection", () => {
   it("starts fresh when there is nothing to resume from", () => {
@@ -80,9 +80,9 @@ describe("pickState", () => {
 
 describe("newerThanPick", () => {
   const at = (id: number, updated_at: string) =>
-    ({ id, updated_at }) as SaveSchema;
+    saveFixture({ id, updated_at });
   const stateAt = (id: number, updated_at: string) =>
-    ({ id, updated_at }) as StateSchema;
+    stateFixture({ id, updated_at });
 
   it("points at the newest asset of either kind", () => {
     const saves = [at(1, "2026-09-03T10:00:00Z")];

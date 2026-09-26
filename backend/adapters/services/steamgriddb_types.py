@@ -1,6 +1,6 @@
 import enum
 from collections.abc import Mapping
-from typing import NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 
 @enum.unique
@@ -43,7 +43,7 @@ class SGDBTag(enum.StrEnum):
     EPILEPSY = "epilepsy"
 
 
-class PaginatedResponse[T: Mapping](TypedDict):
+class PaginatedResponse[T: Mapping[str, Any]](TypedDict):
     page: int
     total: int
     limit: int

@@ -4,7 +4,7 @@ import re
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, Mapping, NotRequired, TypedDict
+from typing import TYPE_CHECKING, Any, Final, Mapping, NotRequired, TypedDict
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from fastapi import HTTPException, status
@@ -295,7 +295,7 @@ class MetadataHandler(abc.ABC):
 
     async def _switch_titledb_format(
         self, match: re.Match[str], search_term: str
-    ) -> tuple[str, dict | None]:
+    ) -> tuple[str, dict[str, Any] | None]:
         title_id = match.group(1)
 
         if not await self._is_switch_titledb_current():
@@ -310,7 +310,7 @@ class MetadataHandler(abc.ABC):
 
     async def _switch_productid_format(
         self, rom: "Rom", fs_name: str, search_term: str
-    ) -> tuple[str, dict | None]:
+    ) -> tuple[str, dict[str, Any] | None]:
         """Match by Switch product id, preferring the one the scan read out of
         the binary over one scraped from the filename."""
         if rom.title_id and SWITCH_PRODUCT_ID_REGEX.fullmatch(rom.title_id.upper()):
@@ -343,11 +343,11 @@ class MetadataHandler(abc.ABC):
         )
 
     @staticmethod
-    async def _switch_titledb_entry(title_id: str) -> dict | None:
+    async def _switch_titledb_entry(title_id: str) -> dict[str, Any] | None:
         return await hget_json(SWITCH_TITLEDB_INDEX_KEY, title_id)
 
     @classmethod
-    async def _switch_product_id_entry(cls, product_id: str) -> dict | None:
+    async def _switch_product_id_entry(cls, product_id: str) -> dict[str, Any] | None:
         """Resolve a Switch product id to the titleID entry its index points at."""
         title_id = await hget_json(SWITCH_PRODUCT_ID_KEY, product_id)
         if not title_id:

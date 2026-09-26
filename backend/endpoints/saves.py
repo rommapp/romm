@@ -2,7 +2,7 @@ import os
 import re
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
@@ -13,7 +13,11 @@ from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummar
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from handler.asset_store import remove_asset_file, remove_screenshot
+from handler.asset_store import (
+    prune_save_slot,
+    remove_save,
+    rename_asset,
+)
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
@@ -30,6 +34,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import SAVE_SLOT_MAX_LENGTH, Save
+from models.base import FILE_NAME_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.assets import normalize_asset_labels
@@ -105,29 +110,6 @@ def _syncs_for_save(
 DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
 
 
-async def _delete_save(save: Save) -> None:
-    """Drop a save row with its file and screenshot."""
-    db_save_handler.delete_save(save.id)
-    await remove_asset_file(save.full_path, "Save file")
-    await remove_screenshot(save.screenshot)
-
-
-async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
-    """Drop every version of ``slot`` past the ``keep`` newest, files included."""
-    for file_path, file_name, file_name_no_ext in db_save_handler.prune_slot(
-        user_id=user_id, rom_id=rom_id, slot=slot, keep=keep
-    ):
-        await remove_asset_file(f"{file_path}/{file_name}", "Save file")
-        await remove_screenshot(
-            db_screenshot_handler.get_screenshot(
-                rom_id=rom_id,
-                user_id=user_id,
-                file_name=file_name,
-                file_name_no_ext=file_name_no_ext,
-            )
-        )
-
-
 def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
     """Versions to keep in a slot: the tighter of the client's ask and the server cap."""
     limits = [MAX_SAVES_PER_SLOT] if MAX_SAVES_PER_SLOT else []
@@ -138,7 +120,7 @@ def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
 
 def _apply_datetime_tag(filename: str) -> str:
     name, ext = os.path.splitext(filename)
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     if DATETIME_TAG_PATTERN.search(name):
         name = DATETIME_TAG_PATTERN.sub("", name)
@@ -165,6 +147,20 @@ def _resolve_device(
             detail=f"Device with ID {device_id} not found",
         )
     return device
+
+
+def _record_device_sync(
+    device_id: str, save: Save, user_id: int, client_hash: str | None = None
+) -> None:
+    """Mark the device as synced to the save's current version."""
+    db_device_save_sync_handler.upsert_sync(
+        device_id=device_id,
+        save_id=save.id,
+        synced_at=save.updated_at,
+        last_sync_hash=client_hash,
+        last_sync_server_hash=save.content_hash,
+    )
+    db_device_handler.update_last_seen(device_id=device_id, user_id=user_id)
 
 
 def _increment_session_counter(session_id: int, user_id: int) -> None:
@@ -208,6 +204,8 @@ async def add_save(
     emulator: str | None = None,
     slot: Annotated[str | None, Query(max_length=SAVE_SLOT_MAX_LENGTH)] = None,
     device_id: str | None = None,
+    # Over-long hashes are stored as unknown by upsert_sync.
+    content_hash: Annotated[str | None, Query()] = None,
     session_id: int | None = None,
     overwrite: bool = False,
     autocleanup: bool = False,
@@ -293,6 +291,21 @@ async def add_save(
         f"Uploading save {hl(actual_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
+    # Looked up before the write, which replaces a colliding save's bytes.
+    colliding_save = (
+        None
+        if db_save
+        else db_save_handler.get_save_by_path(
+            user_id=request.user.id,
+            rom_id=rom.id,
+            file_path=saves_path,
+            file_name=actual_filename,
+        )
+    )
+    replaced = db_save or colliding_save
+    replaced_hash = (
+        await fs_asset_handler.unrecorded_hash(replaced) if replaced else None
+    )
     await fs_asset_handler.write_file(
         file=saveFile, path=saves_path, filename=actual_filename
     )
@@ -319,26 +332,26 @@ async def add_save(
                 pass
             # A retry still counts as an upload to the slot, so the cap applies.
             if keep is not None:
-                await _prune_slot(request.user.id, rom.id, slot, keep)
+                await prune_save_slot(request.user.id, rom.id, slot, keep)
+            # Pruning can drop the matched version when it is not among the newest.
+            if device and db_save_handler.get_save(
+                user_id=request.user.id, id=existing_by_hash.id
+            ):
+                _record_device_sync(
+                    device.id, existing_by_hash, request.user.id, content_hash
+                )
             return _build_save_schema(
                 existing_by_hash, _syncs_for_save(existing_by_hash.id, device), device
             )
 
-    if db_save is None:
-        # Refresh hash if the file already exists to avoid mismatched metadata.
-        colliding_save = db_save_handler.get_save_by_path(
-            user_id=request.user.id,
-            rom_id=rom.id,
-            file_path=scanned_save.file_path,
-            file_name=actual_filename,
-        )
-        if colliding_save and colliding_save.content_hash != scanned_save.content_hash:
-            db_save = colliding_save
+    # Refresh hash if the file already exists to avoid mismatched metadata.
+    if colliding_save and colliding_save.content_hash != scanned_save.content_hash:
+        db_save = colliding_save
 
     if db_save:
         # Track file path and emulator to prevent hash-content drift.
         stale_full_path = db_save.full_path
-        update_data: dict = {
+        update_data: dict[str, Any] = {
             "file_size_bytes": scanned_save.file_size_bytes,
             "content_hash": scanned_save.content_hash,
             "file_path": scanned_save.file_path,
@@ -346,7 +359,9 @@ async def add_save(
         }
         if slot is not None:
             update_data["slot"] = slot
-        db_save = db_save_handler.update_save(db_save.id, update_data)
+        db_save = db_save_handler.update_save(
+            db_save.id, update_data, replaced_hash=replaced_hash
+        )
 
         # Delete orphaned bytes only if no other row references the old path.
         if stale_full_path != db_save.full_path:
@@ -370,16 +385,13 @@ async def add_save(
         db_save = db_save_handler.add_save(save=scanned_save)
 
     if device:
-        db_device_save_sync_handler.upsert_sync(
-            device_id=device.id, save_id=db_save.id, synced_at=db_save.updated_at
-        )
-        db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
+        _record_device_sync(device.id, db_save, request.user.id, content_hash)
 
     if session_id:
         _increment_session_counter(session_id, request.user.id)
 
     if slot and keep is not None:
-        await _prune_slot(request.user.id, rom.id, slot, keep)
+        await prune_save_slot(request.user.id, rom.id, slot, keep)
 
     if screenshotFile and screenshotFile.filename:
         try:
@@ -569,12 +581,8 @@ def download_save(
 
     # Sync bookkeeping only makes sense for the owner's own saves.
     if device and optimistic and is_owner:
-        db_device_save_sync_handler.upsert_sync(
-            device_id=device.id,
-            save_id=save.id,
-            synced_at=save.updated_at,
-        )
-        db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
+        # The device has no bytes yet, so only the server half is known.
+        _record_device_sync(device.id, save, request.user.id)
 
     if session_id:
         _increment_session_counter(session_id, request.user.id)
@@ -587,6 +595,7 @@ def confirm_download(
     request: Request,
     id: int,
     device_id: str = Body(..., embed=True),
+    content_hash: str | None = Body(default=None, embed=True),
 ) -> SaveSchema:
     """Confirm a save was downloaded successfully."""
     save = db_save_handler.get_save(user_id=request.user.id, id=id)
@@ -597,10 +606,20 @@ def confirm_download(
         )
 
     device = _resolve_device(device_id, request.user.id)
+    synced_at, server_hash = save.updated_at, save.content_hash
+    served = db_device_save_sync_handler.get_sync(device_id=device_id, save_id=save.id)
+    if served and served.last_sync_server_hash and not served.last_sync_hash:
+        # The download recorded the version it served; the server may have moved since.
+        synced_at, server_hash = served.last_synced_at, served.last_sync_server_hash
+    elif content_hash != server_hash:
+        # Without the served version, only a hash equal to the server's proves what the device holds.
+        content_hash = server_hash = None
     db_device_save_sync_handler.upsert_sync(
         device_id=device_id,
         save_id=save.id,
-        synced_at=save.updated_at,
+        synced_at=synced_at,
+        last_sync_hash=content_hash,
+        last_sync_server_hash=server_hash,
     )
     db_device_handler.update_last_seen(device_id=device_id, user_id=request.user.id)
 
@@ -612,6 +631,7 @@ async def update_save(
     request: Request,
     id: int,
     device_id: str | None = None,
+    content_hash: Annotated[str | None, Query()] = None,
     saveFile: UploadFile | None = SAVE_FILE_UPDATE,
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPDATE,
 ) -> SaveSchema:
@@ -631,6 +651,7 @@ async def update_save(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     if saveFile:
+        replaced_hash = await fs_asset_handler.unrecorded_hash(db_save)
         await fs_asset_handler.write_file(
             file=saveFile, path=db_save.file_path, filename=db_save.file_name
         )
@@ -647,6 +668,7 @@ async def update_save(
                 "file_size_bytes": scanned_save.file_size_bytes,
                 "content_hash": scanned_save.content_hash,
             },
+            replaced_hash=replaced_hash,
         )
 
     if screenshotFile and screenshotFile.filename:
@@ -701,10 +723,9 @@ async def update_save(
     )
 
     if device:
-        db_device_save_sync_handler.upsert_sync(
-            device_id=device.id, save_id=db_save.id, synced_at=db_save.updated_at
-        )
-        db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
+        # A client hash is only a baseline when the save bytes came with it.
+        client_hash = content_hash if saveFile else None
+        _record_device_sync(device.id, db_save, request.user.id, client_hash)
 
     return _build_save_schema(db_save, _syncs_for_save(db_save.id, device), device)
 
@@ -723,7 +744,7 @@ def update_save_visibility(
     """Toggle a save's public/private visibility (owner only)."""
     save = _owned_save_or_404(id, request.user.id)
 
-    updated = db_save_handler.update_save(id, {"is_public": is_public})
+    updated = db_save_handler.update_save(id, {"is_public": is_public}, touch=False)
 
     # Keep the auto-captured thumbnail's visibility in sync so a shared save
     # still renders its preview for other users.
@@ -779,6 +800,27 @@ def update_save_labels(
 
 
 @protected_route(
+    router.put,
+    "/{id}/file-name",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_409_CONFLICT: {},
+    },
+)
+async def rename_save(
+    request: Request,
+    id: int,
+    file_name: Annotated[str, Body(embed=True, max_length=FILE_NAME_MAX_LENGTH)],
+) -> SaveSchema:
+    """Rename a save's file, its screenshot following along (owner only)."""
+    save = _owned_save_or_404(id, request.user.id)
+
+    return _build_save_schema(await rename_asset(save, file_name))
+
+
+@protected_route(
     router.post,
     "/delete",
     [Scope.ASSETS_WRITE],
@@ -816,7 +858,7 @@ async def delete_saves(
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
-        await _delete_save(save)
+        await remove_save(save)
 
     refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 

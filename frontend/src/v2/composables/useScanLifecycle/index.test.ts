@@ -1,4 +1,5 @@
 import { mount } from "@vue/test-utils";
+import mitt from "mitt";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
@@ -6,6 +7,7 @@ import type { ScanStats } from "@/__generated__";
 import taskApi from "@/services/api/task";
 import storeCollections from "@/stores/collections";
 import storeScanning from "@/stores/scanning";
+import type { Events } from "@/types/emitter";
 import { installScanLifecycle } from "./index";
 
 // Minimal socket stand-in: records handlers so tests can fire events, and
@@ -91,6 +93,8 @@ function runningScanTask(stats: ScanStats | null) {
 // reconcile again during later tests.
 let host: ReturnType<typeof mount> | null = null;
 
+const emitter = mitt<Events>();
+
 function install() {
   host = mount(
     defineComponent({
@@ -99,6 +103,7 @@ function install() {
         return () => null;
       },
     }),
+    { global: { provide: { emitter } } },
   );
 }
 
@@ -129,6 +134,28 @@ describe("installScanLifecycle", () => {
 
     expect(scanning.scanning).toBe(true);
     expect(scanning.scanStats.scanned_roms).toBe(12);
+  });
+
+  it.each([
+    ["scan:done", makeStats()],
+    ["scan:done_ko", "disk gone"],
+  ])("toasts %s only in the tab that started the scan", (event, payload) => {
+    const shown = vi.fn();
+    emitter.on("snackbarShow", shown);
+    install();
+    const scanning = storeScanning();
+
+    scanning.setScanning(true);
+    fire(event, payload);
+    expect(shown).not.toHaveBeenCalled();
+
+    scanning.setScanning(true);
+    scanning.startedInThisTab = true;
+    fire(event, payload);
+    expect(shown).toHaveBeenCalledOnce();
+    expect(scanning.startedInThisTab).toBe(false);
+
+    emitter.off("snackbarShow", shown);
   });
 
   it("re-reads the virtual collections when the scan settles", () => {

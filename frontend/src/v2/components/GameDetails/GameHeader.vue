@@ -9,13 +9,14 @@
 //
 // Metadata-provider links live in the Metadata tab, not the header.
 // Genre/franchise belong in the Overview tab info grid.
-import { RIcon, RPlatformIcon, RTag, RTooltip } from "@v2/lib";
+import { RIcon, RTag, RTooltip } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import type { DetailedRom } from "@/stores/roms";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
 import MainSiblingToggle from "@/v2/components/GameDetails/MainSiblingToggle.vue";
 import PrevNextNav from "@/v2/components/GameDetails/PrevNextNav.vue";
 import VersionSwitcher from "@/v2/components/GameDetails/VersionSwitcher.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGameActions } from "@/v2/composables/useGameActions";
 import { searchLocation } from "@/v2/utils/searchLocation";
@@ -56,7 +57,7 @@ const actions = useGameActions(() => props.rom);
         class="r-v2-det-header__platform"
         :aria-label="t('platform.browse-platform', { platform: platformLabel })"
       >
-        <RPlatformIcon
+        <PlatformIcon
           :slug="rom.platform_slug"
           :fs-slug="rom.platform_fs_slug"
           :alt="platformLabel"

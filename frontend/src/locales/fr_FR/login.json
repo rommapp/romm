@@ -17,6 +17,7 @@
   "reset-link-failed": "Impossible d'envoyer le lien de réinitialisation",
   "reset-password": "Réinitialiser le mot de passe",
   "reset-sent": "Lien de réinitialisation envoyé. Contactez votre administrateur.",
+  "reset-sent-email": "Si ce compte a une adresse e-mail, un lien de réinitialisation est en route. Sinon, demandez à votre administrateur.",
   "send-reset-link": "Envoyer le lien de réinitialisation",
   "setup-wizard": "Assistant de configuration",
   "unable-to-login": "Impossible de se connecter : {error}",

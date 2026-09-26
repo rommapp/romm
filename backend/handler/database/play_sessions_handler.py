@@ -15,7 +15,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
     def add_sessions(
         self,
         play_sessions: list[PlaySession],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[PlaySession]:
         session.add_all(play_sessions)
         session.flush()
@@ -27,7 +27,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
         user_id: int,
         device_id: str | None,
         rom_start_pairs: list[tuple[int | None, datetime]],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> set[tuple[int | None, datetime]]:
         """Return which (rom_id, start_time) pairs already exist for this user+device."""
         if not rom_start_pairs:
@@ -75,7 +75,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
         end_before: datetime | None = None,
         limit: int | None = 50,
         offset: int = 0,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[PlaySession]:
         stmt = select(PlaySession).filter_by(user_id=user_id)
 
@@ -99,7 +99,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         result = session.scalar(
             select(func.sum(PlaySession.duration_ms)).where(
@@ -114,7 +114,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> bool:
         result = session.execute(
             delete(PlaySession)

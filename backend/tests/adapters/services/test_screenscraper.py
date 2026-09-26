@@ -2,6 +2,7 @@ import asyncio
 import http
 import json
 import time
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -79,7 +80,7 @@ def _session(*responses) -> tuple[AsyncMock, MagicMock]:
     return session, context
 
 
-def _ok_response(payload: dict) -> MagicMock:
+def _ok_response(payload: dict[str, Any]) -> MagicMock:
     """A 200 carrying the given JSON body."""
     response = MagicMock()
     response.text = AsyncMock(return_value=json.dumps(payload))
@@ -102,7 +103,7 @@ def _forbidden_response(body: str = SS_LOGIN_ERROR_BODY) -> MagicMock:
     return response
 
 
-def _ssuser_response(**fields: str) -> dict:
+def _ssuser_response(**fields: str) -> dict[str, Any]:
     return {"response": {"ssuser": dict(fields)}}
 
 
@@ -902,7 +903,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_no_game_found(self, service):
         """Test get_game_info when no game is found."""
-        mock_response: dict[str, dict] = {"response": {}}
+        mock_response: dict[str, dict[str, Any]] = {"response": {}}
 
         with patch.object(service, "_request", return_value=mock_response):
             result = await service.get_game_info(crc="NOTFOUND")
@@ -912,7 +913,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_empty_jeu_data(self, service):
         """Test get_game_info when jeu data is empty."""
-        mock_response: dict[str, dict] = {"response": {"jeu": {}}}
+        mock_response: dict[str, dict[str, Any]] = {"response": {"jeu": {}}}
 
         with patch.object(service, "_request", return_value=mock_response):
             result = await service.get_game_info(crc="EMPTY")
@@ -960,7 +961,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_search_games_no_results(self, service):
         """Test search_games when no games are found."""
-        mock_response: dict[str, dict] = {"response": {"jeux": []}}
+        mock_response: dict[str, dict[str, Any]] = {"response": {"jeux": []}}
 
         with patch.object(service, "_request", return_value=mock_response):
             result = await service.search_games(term="NonexistentGame")
@@ -970,7 +971,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_search_games_empty_response(self, service):
         """Test search_games with empty response."""
-        mock_response: dict[str, dict] = {"response": {}}
+        mock_response: dict[str, dict[str, Any]] = {"response": {}}
 
         with patch.object(service, "_request", return_value=mock_response):
             result = await service.search_games(term="Test")
@@ -980,7 +981,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_search_games_special_characters(self, service):
         """Test search_games with special characters in term."""
-        mock_response: dict[str, dict] = {"response": {"jeux": []}}
+        mock_response: dict[str, dict[str, Any]] = {"response": {"jeux": []}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -1233,7 +1234,7 @@ class TestScreenScraperServiceEdgeCases:
     @pytest.mark.asyncio
     async def test_search_games_empty_term(self, service):
         """Test search_games with empty term."""
-        mock_response: dict[str, dict] = {"response": {"jeux": []}}
+        mock_response: dict[str, dict[str, Any]] = {"response": {"jeux": []}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -2117,7 +2118,7 @@ class TestPrimingAccountLimits:
         monkeypatch.setattr(ss_module, "SCREENSCRAPER_USER", "user1")
         monkeypatch.setattr(ss_module, "SCREENSCRAPER_PASSWORD", "pw1")
 
-    def _mock_session(self, payload: dict) -> tuple[MagicMock, MagicMock]:
+    def _mock_session(self, payload: dict[str, Any]) -> tuple[MagicMock, MagicMock]:
         session = AsyncMock()
         response = MagicMock()
         response.json = AsyncMock(return_value=payload)

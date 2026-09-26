@@ -7,6 +7,7 @@ export type SessionStatusSchema = {
     status: 'active' | 'ended';
     platform: string;
     extraction_phase?: (string | null);
+    host?: (string | null);
     termination?: (SessionTerminationSchema | null);
 };
 

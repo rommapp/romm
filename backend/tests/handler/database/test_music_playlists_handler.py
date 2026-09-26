@@ -32,11 +32,12 @@ def track_ids(rom: Rom) -> list[int]:
 
 
 def test_playlist_crud(admin_user: User, playlist: MusicPlaylist):
-    assert db_music_playlist_handler.get_playlist(playlist.id).name == "Focus"
-    assert (
-        db_music_playlist_handler.get_playlist_by_name("Focus", admin_user.id).id
-        == playlist.id
-    )
+    fetched = db_music_playlist_handler.get_playlist(playlist.id)
+    assert fetched is not None
+    assert fetched.name == "Focus"
+    by_name = db_music_playlist_handler.get_playlist_by_name("Focus", admin_user.id)
+    assert by_name is not None
+    assert by_name.id == playlist.id
     assert db_music_playlist_handler.get_playlist_by_name("Focus", 999999) is None
 
     updated = db_music_playlist_handler.update_playlist(

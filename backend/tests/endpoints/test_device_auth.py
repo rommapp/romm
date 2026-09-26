@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -14,7 +15,9 @@ from models.user import User
 from utils import device_auth as df
 
 
-def _recent_times(minutes_ago_start: int = 30, duration_minutes: int = 15) -> dict:
+def _recent_times(
+    minutes_ago_start: int = 30, duration_minutes: int = 15
+) -> dict[str, Any]:
     """Build start/end times anchored to now() so play-session ingest accepts them."""
     start = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago_start)
     end = start + timedelta(minutes=duration_minutes)
@@ -35,7 +38,9 @@ AUTHORIZE_PAYLOAD = {
 }
 
 
-def _authorize(client: TestClient, payload: dict | None = None) -> dict:
+def _authorize(
+    client: TestClient, payload: dict[str, Any] | None = None
+) -> dict[str, Any]:
     resp = client.post("/api/auth/device/init", json=payload or AUTHORIZE_PAYLOAD)
     assert resp.status_code == status.HTTP_201_CREATED
     return resp.json()
@@ -49,7 +54,7 @@ def _approve(
     device_name: str | None = None,
     expires_in: str | None = None,
 ) -> Response:
-    body: dict = {"user_code": user_code, "approved_scopes": approved_scopes}
+    body: dict[str, Any] = {"user_code": user_code, "approved_scopes": approved_scopes}
     if device_name is not None:
         body["device_name"] = device_name
     if expires_in is not None:
@@ -603,7 +608,7 @@ class TestBoundTokenInference:
 
     def _run_flow(
         self, client: TestClient, access_token: str, scopes: list[str]
-    ) -> dict:
+    ) -> dict[str, Any]:
         init = _authorize(
             client,
             payload={**AUTHORIZE_PAYLOAD, "requested_scopes": scopes},

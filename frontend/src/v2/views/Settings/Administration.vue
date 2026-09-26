@@ -13,6 +13,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import storeAuth from "@/stores/auth";
+import storePermissions from "@/stores/permissions";
 import CreateUserDialog from "@/v2/components/Settings/CreateUserDialog.vue";
 import EditUserDialog from "@/v2/components/Settings/EditUserDialog.vue";
 import GroupFormDialog from "@/v2/components/Settings/GroupFormDialog.vue";
@@ -27,6 +28,7 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
+const permissions = storePermissions();
 const isAdmin = useCan("app.admin");
 
 type Tab = "users" | "groups" | "tasks" | "streaming";
@@ -95,8 +97,9 @@ const tabs = computed<RTabNavItem[]>(() => {
 // admits `users.write` as well, and Streaming would otherwise deep-link them
 // to a panel whose every request 403s.
 watch(
-  tabs,
-  (items) => {
+  () => [tabs.value, permissions.hydrated] as const,
+  ([items, hydrated]) => {
+    if (!hydrated) return; // Admin-only tabs appear once permissions load.
     if (!items.some((item) => item.id === tab.value)) tab.value = "users";
   },
   { immediate: true },

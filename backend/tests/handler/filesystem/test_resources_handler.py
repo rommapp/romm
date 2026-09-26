@@ -1356,7 +1356,7 @@ class _SlotAwareClient:
 
     def __init__(self, response):
         self._response = response
-        self.calls: list[dict] = []
+        self.calls: list[dict[str, Any]] = []
 
     def stream(self, *_args, **kwargs):
         self.calls.append(

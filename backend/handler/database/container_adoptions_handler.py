@@ -13,7 +13,7 @@ class DBContainerAdoptionsHandler(DBBaseHandler):
     def get_adoption(
         self,
         container_key: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> StreamingContainerAdoption | None:
         return session.scalar(
             select(StreamingContainerAdoption).filter_by(container_key=container_key)
@@ -25,7 +25,7 @@ class DBContainerAdoptionsHandler(DBBaseHandler):
         container_key: str,
         outcome: AdoptionOutcome,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> StreamingContainerAdoption | None:
         """Returns None when another claim recorded the decision first. The
         unique constraint is the arbiter, not the earlier read."""
