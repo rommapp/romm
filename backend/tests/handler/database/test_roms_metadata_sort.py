@@ -14,6 +14,11 @@ since no index can serve the `ORDER BY <column> IS NULL` that emulated it.
 
 import pytest
 import sqlalchemy as sa
+from tests.sql_dialects import (
+    MARIADB_DIALECT,
+    POSTGRESQL_DIALECT,
+    compile_sql,
+)
 
 from config import ROMM_DB_DRIVER
 from handler.database import db_rom_handler
@@ -64,7 +69,7 @@ class TestMetadataSortQueryShape:
         ],
     )
     def test_orders_by_the_indexed_unset_flag_then_the_value(
-        self, mariadb_driver: None, order_by: str, expected_column: str
+        self, order_by: str, expected_column: str
     ):
         query, sort_key = db_rom_handler.get_roms_query(order_by=order_by)
         sql = str(query)
@@ -79,54 +84,98 @@ class TestMetadataSortQueryShape:
         # view is expected; the sort must not add a second one.
         assert sql.count("JOIN roms_metadata") == 1
 
-    def test_sort_without_a_flag_still_emulates_nulls_last(self, mariadb_driver: None):
+    @pytest.mark.parametrize(
+        ("dialect", "expected"),
+        [
+            (
+                MARIADB_DIALECT,
+                "ORDER BY roms.generated_player_count IS NULL, "
+                "roms.generated_player_count ASC",
+            ),
+            (
+                POSTGRESQL_DIALECT,
+                "ORDER BY roms.generated_player_count ASC NULLS LAST",
+            ),
+        ],
+    )
+    def test_sort_without_a_flag_still_emulates_nulls_last(
+        self, dialect: sa.Dialect, expected: str
+    ):
         """`player_count` carries no flag; the gallery does not sort on it."""
         query, sort_key = db_rom_handler.get_roms_query(order_by="player_count")
 
-        assert (
-            "ORDER BY roms.generated_player_count IS NULL, "
-            "roms.generated_player_count ASC"
-        ) in str(query)
+        assert expected in compile_sql(query, dialect)
         assert sort_key.column is Rom.generated_player_count
 
     # One dialect matrix for the shared NULL-placement block; the rom_user
     # family proves its branch separately through the NULLIF shape test.
     # Every spelling here matches an index, so none of them filesorts.
     @pytest.mark.parametrize(
-        ("driver", "order_dir", "expected"),
+        ("dialect", "order_dir", "expected"),
         [
             (
-                "mariadb",
+                MARIADB_DIALECT,
                 "asc",
                 "roms.generated_first_release_date_unset, "
                 "roms.generated_first_release_date ASC",
             ),
-            ("mariadb", "desc", "roms.generated_first_release_date DESC"),
+            (MARIADB_DIALECT, "desc", "roms.generated_first_release_date DESC"),
             (
-                "postgres",
+                POSTGRESQL_DIALECT,
                 "asc",
                 "roms.generated_first_release_date_unset, "
                 "roms.generated_first_release_date ASC",
             ),
-            ("postgres", "desc", "roms.generated_first_release_date DESC NULLS LAST"),
+            (
+                POSTGRESQL_DIALECT,
+                "desc",
+                "roms.generated_first_release_date DESC NULLS LAST",
+            ),
         ],
     )
     def test_null_placement_per_dialect(
-        self,
-        request: pytest.FixtureRequest,
-        driver: str,
-        order_dir: str,
-        expected: str,
+        self, dialect: sa.Dialect, order_dir: str, expected: str
     ):
-        request.getfixturevalue(f"{driver}_driver")
         query, _ = db_rom_handler.get_roms_query(
             order_by="first_release_date", order_dir=order_dir
         )
-        order_sql = str(query).split("ORDER BY")[-1]
+        order_sql = compile_sql(query, dialect).split("ORDER BY")[-1]
 
         assert order_sql.strip().startswith(expected)
         # Nothing computes NULL placement per row any more.
         assert "IS NULL" not in order_sql
+
+    @pytest.mark.parametrize(
+        ("dialect", "order_dir", "expected"),
+        [
+            (
+                MARIADB_DIALECT,
+                "asc",
+                "roms.generated_player_count IS NULL, "
+                "roms.generated_player_count ASC, MATCH (",
+            ),
+            (MARIADB_DIALECT, "desc", "roms.generated_player_count DESC, MATCH ("),
+            (
+                POSTGRESQL_DIALECT,
+                "asc",
+                "roms.generated_player_count ASC NULLS LAST, roms.id ASC",
+            ),
+            (
+                POSTGRESQL_DIALECT,
+                "desc",
+                "roms.generated_player_count DESC NULLS LAST, roms.id DESC",
+            ),
+        ],
+    )
+    def test_search_relevance_follows_the_null_placement_terms(
+        self, dialect: sa.Dialect, order_dir: str, expected: str
+    ):
+        """Relevance only ranks on the FULLTEXT engines, after the explicit sort."""
+        query, _ = db_rom_handler.get_roms_query(
+            order_by="player_count", order_dir=order_dir, search_term="final fantasy"
+        )
+
+        assert compile_sql(query, dialect).split("ORDER BY ")[-1].startswith(expected)
 
     def test_rom_column_sort_is_unchanged(self):
         query, sort_key = db_rom_handler.get_roms_query(order_by="fs_size_bytes")
@@ -146,9 +195,7 @@ class TestMetadataSortQueryShape:
         assert sql.count("JOIN roms_metadata") == 1
         assert "JOIN rom_user" in sql
 
-    def test_grouped_metadata_sort_keeps_the_representative_key(
-        self, mariadb_driver: None
-    ):
+    def test_grouped_metadata_sort_keeps_the_representative_key(self):
         query, _ = db_rom_handler.get_roms_query(order_by="first_release_date")
         grouped = db_rom_handler.filter_roms(
             query=query,
@@ -269,6 +316,31 @@ class TestMetadataSortResults:
             "two",
             "four",
         ]
+
+    @pytest.mark.parametrize(
+        ("order_dir", "expected"),
+        [
+            ("asc", ["final fantasy solo", "final fantasy two", "final fantasy four"]),
+            ("desc", ["final fantasy four", "final fantasy two", "final fantasy solo"]),
+        ],
+    )
+    def test_search_ranks_after_the_sort(
+        self, platform: Platform, order_dir: str, expected: list[str]
+    ):
+        # `player_count` falls back to "1", so "solo" needs no metadata.
+        _make_rom(platform, "final fantasy four", igdb_metadata={"player_count": "4"})
+        _make_rom(platform, "final fantasy solo")
+        _make_rom(platform, "final fantasy two", igdb_metadata={"player_count": "2"})
+        _make_rom(platform, "zelda", igdb_metadata={"player_count": "3"})
+
+        assert (
+            _ordered_names(
+                order_by="player_count",
+                order_dir=order_dir,
+                search_term="final fantasy",
+            )
+            == expected
+        )
 
     def test_null_bucket_ties_break_on_the_rom_id(self, platform: Platform):
         """Unmatched roms stay in the result, trail the dated ones in both

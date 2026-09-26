@@ -36,5 +36,9 @@ export type RomUserData = {
      * User play status for this rom.
      */
     status?: (RomUserStatus | null);
+    /**
+     * Ordered media keys shown on the overview; null restores the default selection.
+     */
+    pinned_media?: (Array<string> | null);
 };
 

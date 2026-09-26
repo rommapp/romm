@@ -337,10 +337,11 @@ class DBSavesHandler(DBBaseHandler):
         Returns:
             Whether the row still held ``replacing`` and took the new hash.
         """
+        # Keeps `updated_at`, as `touch=False` does: device sync reads it as a write.
         result = session.execute(
             update(Save)
             .where(Save.id == id, Save.content_hash.is_not_distinct_from(replacing))
-            .values(content_hash=content_hash)
+            .values(content_hash=content_hash, updated_at=Save.updated_at)
             .execution_options(synchronize_session=False)
         )
         return affected_rows(result) == 1
@@ -425,6 +426,7 @@ class DBSavesHandler(DBBaseHandler):
             _deleted_assets.record_deletions(
                 user_id, rom_id, slot, lost, session=session
             )
+        # One row at a time: MariaDB's `id IN (...)` plan deadlocks concurrent prunes.
         for row in rows:
             session.execute(
                 delete(Save)

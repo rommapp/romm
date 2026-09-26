@@ -19,6 +19,7 @@ export const ROM_USER: RomUserSchema = {
   difficulty: 0,
   completion: 0,
   status: null,
+  pinned_media: null,
 };
 
 export const METADATUM: RomMetadataSchema = {

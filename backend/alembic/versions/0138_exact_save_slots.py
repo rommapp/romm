@@ -24,6 +24,24 @@ SLOT_COLUMNS = (("saves", True), ("deleted_assets", False))
 
 
 def upgrade() -> None:
+    op.add_column(
+        "deleted_assets",
+        sa.Column("removed_at", CustomJSON(), nullable=True),
+        if_not_exists=True,
+    )
+    collation = exact_collation(op.get_bind())
+    if collation is not None:
+        for table, nullable in SLOT_COLUMNS:
+            # Skipped once done, so a run that died partway resumes without a rebuild.
+            if _slot_collation(table) != collation:
+                op.alter_column(
+                    table,
+                    "slot",
+                    existing_type=sa.String(length=SAVE_SLOT_MAX_LENGTH),
+                    type_=sa.String(length=SAVE_SLOT_MAX_LENGTH, collation=collation),
+                    existing_nullable=nullable,
+                )
+    # After the collation change, which would otherwise rebuild it.
     op.create_index(
         SAVE_SLOT_VERSIONS_INDEX,
         "saves",
@@ -32,24 +50,6 @@ def upgrade() -> None:
         ["rom_id", "user_id", "slot", "updated_at"],
         if_not_exists=True,
     )
-    op.add_column(
-        "deleted_assets",
-        sa.Column("removed_at", CustomJSON(), nullable=True),
-        if_not_exists=True,
-    )
-    collation = exact_collation(op.get_bind())
-    if collation is None:
-        return
-    for table, nullable in SLOT_COLUMNS:
-        # Skipped once done, so a run that died partway resumes without a rebuild.
-        if _slot_collation(table) != collation:
-            op.alter_column(
-                table,
-                "slot",
-                existing_type=sa.String(length=SAVE_SLOT_MAX_LENGTH),
-                type_=sa.String(length=SAVE_SLOT_MAX_LENGTH, collation=collation),
-                existing_nullable=nullable,
-            )
 
 
 def downgrade() -> None:

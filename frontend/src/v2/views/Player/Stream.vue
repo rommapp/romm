@@ -861,7 +861,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
     romApi
       .updateUserRomProps({
         romId: rom.value.id,
-        data: rom.value.rom_user,
+        data: {},
         updateLastPlayed: true,
       })
       .catch((err) => {

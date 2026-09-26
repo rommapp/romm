@@ -504,6 +504,7 @@ class TestBaselineInProcessRemoteSave:
             patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
         ):
             mock_assets.write_file = AsyncMock()
+            mock_assets.unrecorded_hash = AsyncMock(return_value=None)
             mock_handler.return_value = self._ssh(local_save_file, "remote_now")
             mock_cmp.return_value = MagicMock(action="upload", reason=None)
             await _process_remote_save(

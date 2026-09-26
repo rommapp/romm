@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pytest
-from sqlalchemy.dialects import mysql
+from tests.sql_dialects import MARIADB_DIALECT, compile_sql
 
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
@@ -73,9 +73,7 @@ class TestRomUserSortQueryShape:
 
     # The dialect matrix for the shared NULL-placement block lives in
     # test_roms_metadata_sort.py; this pins the rom_user branch's shape.
-    def test_zero_default_columns_fold_zero_into_the_null_bucket(
-        self, mariadb_driver: None
-    ):
+    def test_zero_default_columns_fold_zero_into_the_null_bucket(self):
         query, sort_key = db_rom_handler.get_roms_query(order_by="rating", user_id=1)
 
         # NULLIF turns the 0 default into a NULL sort key, so a touched but
@@ -83,7 +81,7 @@ class TestRomUserSortQueryShape:
         assert (
             "ORDER BY nullif(rom_user.rating, :nullif_1) IS NULL, "
             "nullif(rom_user.rating, :nullif_1) ASC"
-        ) in str(query)
+        ) in compile_sql(query, MARIADB_DIALECT)
         assert sort_key.column is RomUser.rating
 
     @pytest.mark.parametrize(
@@ -376,13 +374,13 @@ class TestGroupedRomUserSortQueryShape:
         )
 
     def _grouped_sql(self, order_by: str, order_dir: str = "desc") -> str:
-        return str(self._grouped_query(order_by, order_dir))
+        return compile_sql(self._grouped_query(order_by, order_dir), MARIADB_DIALECT)
 
     @pytest.mark.parametrize(
         ("order_dir", "aggregate"), [("desc", "max"), ("asc", "min")]
     )
     def test_group_key_aggregates_with_the_sort_direction(
-        self, mariadb_driver: None, order_dir: str, aggregate: str
+        self, order_dir: str, aggregate: str
     ):
         sql = self._grouped_sql("last_played", order_dir)
         direction = order_dir.upper()
@@ -403,7 +401,7 @@ class TestGroupedRomUserSortQueryShape:
     def test_group_key_join_stays_outer(self):
         # Compiled for MariaDB, where the null-safe <=> is what stops the
         # optimizer from converting the join to inner and re-planning.
-        sql = str(self._grouped_query("last_played").compile(dialect=mysql.dialect()))
+        sql = self._grouped_sql("last_played")
 
         assert "LEFT OUTER JOIN (SELECT" in sql
         assert "<=> roms.id" in sql
@@ -416,7 +414,7 @@ class TestGroupedRomUserSortQueryShape:
         ],
     )
     def test_lexical_and_enum_sorts_keep_the_representative_key(
-        self, mariadb_driver: None, order_by: str, order_clause: str
+        self, order_by: str, order_clause: str
     ):
         sql = self._grouped_sql(order_by)
 

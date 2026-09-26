@@ -237,7 +237,8 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0135_drop_play_session_sync_link.py", "play_sessions"),
         ("0136_deleted_assets.py", "deleted_assets"),
         ("0138_exact_save_slots.py", "saves"),
-        ("0139_device_save_sync_baseline.py", "device_save_sync"),
+        ("0139_rom_user_pinned_media.py", "rom_user"),
+        ("0140_device_save_sync_baseline.py", "device_save_sync"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
