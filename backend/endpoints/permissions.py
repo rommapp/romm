@@ -81,7 +81,7 @@ def _group_schema(group: PermissionGroup) -> PermissionGroupSchema:
         name=group.name,
         description=group.description,
         is_default=group.is_default,
-        is_system=group.is_system,
+        system_key=group.system_key,
         color=group.color,
         grants=[
             GrantSchemaIO(entity=g.entity, action=g.action, own_only=g.own_only)

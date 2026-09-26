@@ -13,11 +13,15 @@ from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummar
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from handler.asset_store import release_thumbnail, remove_asset_file, rename_asset
+from handler.asset_store import (
+    prune_save_slot,
+    remove_save,
+    rename_asset,
+    unrecorded_hash,
+)
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
-    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_rom_handler,
@@ -105,42 +109,6 @@ def _syncs_for_save(
 
 
 DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
-
-
-async def _delete_save(save: Save) -> None:
-    """Drop a save row with its file and screenshot."""
-    # Recorded first: a record for a save still present is never read, while
-    # a deletion with no record lets every device holding it offer it back.
-    if save.slot:
-        content_hash = save.content_hash or (
-            await fs_asset_handler.compute_content_hash(save.full_path)
-        )
-        if content_hash:
-            db_deleted_asset_handler.record_deletion(
-                user_id=save.user_id,
-                rom_id=save.rom_id,
-                slot=save.slot,
-                content_hash=content_hash,
-            )
-    db_save_handler.delete_save(save.id)
-    await remove_asset_file(save.full_path, "Save file")
-    await release_thumbnail(save.screenshot)
-
-
-async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
-    """Drop every version of ``slot`` past the ``keep`` newest, files included."""
-    for file_path, file_name, file_name_no_ext in db_save_handler.prune_slot(
-        user_id=user_id, rom_id=rom_id, slot=slot, keep=keep
-    ):
-        await remove_asset_file(f"{file_path}/{file_name}", "Save file")
-        await release_thumbnail(
-            db_screenshot_handler.get_screenshot(
-                rom_id=rom_id,
-                user_id=user_id,
-                file_name=file_name,
-                file_name_no_ext=file_name_no_ext,
-            )
-        )
 
 
 def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
@@ -308,6 +276,19 @@ async def add_save(
         f"Uploading save {hl(actual_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
+    # Looked up before the write, which replaces a colliding save's bytes.
+    colliding_save = (
+        None
+        if db_save
+        else db_save_handler.get_save_by_path(
+            user_id=request.user.id,
+            rom_id=rom.id,
+            file_path=saves_path,
+            file_name=actual_filename,
+        )
+    )
+    replaced = db_save or colliding_save
+    replaced_hash = await unrecorded_hash(replaced) if replaced else None
     await fs_asset_handler.write_file(
         file=saveFile, path=saves_path, filename=actual_filename
     )
@@ -334,21 +315,14 @@ async def add_save(
                 pass
             # A retry still counts as an upload to the slot, so the cap applies.
             if keep is not None:
-                await _prune_slot(request.user.id, rom.id, slot, keep)
+                await prune_save_slot(request.user.id, rom.id, slot, keep)
             return _build_save_schema(
                 existing_by_hash, _syncs_for_save(existing_by_hash.id, device), device
             )
 
-    if db_save is None:
-        # Refresh hash if the file already exists to avoid mismatched metadata.
-        colliding_save = db_save_handler.get_save_by_path(
-            user_id=request.user.id,
-            rom_id=rom.id,
-            file_path=scanned_save.file_path,
-            file_name=actual_filename,
-        )
-        if colliding_save and colliding_save.content_hash != scanned_save.content_hash:
-            db_save = colliding_save
+    # Refresh hash if the file already exists to avoid mismatched metadata.
+    if colliding_save and colliding_save.content_hash != scanned_save.content_hash:
+        db_save = colliding_save
 
     if db_save:
         # Track file path and emulator to prevent hash-content drift.
@@ -361,7 +335,9 @@ async def add_save(
         }
         if slot is not None:
             update_data["slot"] = slot
-        db_save = db_save_handler.update_save(db_save.id, update_data)
+        db_save = db_save_handler.update_save(
+            db_save.id, update_data, replaced_hash=replaced_hash
+        )
 
         # Delete orphaned bytes only if no other row references the old path.
         if stale_full_path != db_save.full_path:
@@ -394,7 +370,7 @@ async def add_save(
         _increment_session_counter(session_id, request.user.id)
 
     if slot and keep is not None:
-        await _prune_slot(request.user.id, rom.id, slot, keep)
+        await prune_save_slot(request.user.id, rom.id, slot, keep)
 
     if screenshotFile and screenshotFile.filename:
         try:
@@ -852,7 +828,7 @@ async def delete_saves(
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
-        await _delete_save(save)
+        await remove_save(save)
 
     refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 

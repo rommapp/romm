@@ -5,7 +5,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from handler.database import db_device_handler, db_save_handler
+from handler.database import (
+    db_deleted_asset_handler,
+    db_device_handler,
+    db_save_handler,
+)
 from handler.sync.ssh_handler import RemoteSaveInfo
 from models.assets import Save
 from models.device import Device, SyncMode
@@ -210,6 +214,41 @@ class TestNullSlotLeakInProcessRemoteSave:
         refreshed = db_save_handler.get_save(user_id=admin_user.id, id=archival.id)
         assert refreshed is not None
         assert refreshed.content_hash == "archival_hash_unique"
+
+    async def test_a_version_removed_since_the_device_wrote_it_is_replaced(
+        self, device: Device, admin_user: User, platform: Platform, save: Save
+    ):
+        """Newer than the server's save by its timestamp, yet lost since it was written."""
+        assert save.slot
+        db_save_handler.update_save(
+            save.id, {"updated_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}
+        )
+        db_deleted_asset_handler.record_deletion(
+            admin_user.id, save.rom_id, save.slot, "removed_here"
+        )
+        remote_save = RemoteSaveInfo(
+            path=f"/remote/{platform.fs_slug}/{save.file_name}",
+            file_name=save.file_name,
+            platform_slug=platform.fs_slug,
+            file_size=1,
+            mtime=datetime(2021, 1, 1, tzinfo=timezone.utc),
+        )
+        ssh = MagicMock()
+        ssh.download_save = AsyncMock(return_value=("/tmp/unused", "removed_here"))
+        ssh.upload_save = AsyncMock()
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh),
+            patch("tasks.sync_push_pull_task.fs_asset_handler"),
+            patch("tasks.sync_push_pull_task.AnyioPath") as mock_anyio_path,
+        ):
+            mock_anyio_path.return_value.exists = AsyncMock(return_value=False)
+            action = await _process_remote_save(
+                device, conn=MagicMock(), remote_save=remote_save, session_id=1
+            )
+
+        assert action == "pushed"
+        ssh.upload_save.assert_awaited_once()
 
 
 class TestProcessRemoteSaveConflict:

@@ -18,6 +18,7 @@ from models.permission import (
     PermEntity,
     PermissionGroup,
     PermissionGroupGrant,
+    SystemGroupKey,
     UserPermissionOverride,
 )
 from models.user import User
@@ -30,14 +31,14 @@ def _cleanup_non_system_groups():
     # so drop them (cascading their grants + group-hidden rows) after each test.
     yield
     with sync_session.begin() as s:
-        s.query(PermissionGroup).filter(PermissionGroup.is_system.is_(False)).delete(
+        s.query(PermissionGroup).filter(PermissionGroup.system_key.is_(None)).delete(
             synchronize_session="evaluate"
         )
 
 
 def _make_group(name, grants, *, is_default=False):
     with sync_session.begin() as s:
-        group = PermissionGroup(name=name, is_default=is_default, is_system=False)
+        group = PermissionGroup(name=name, is_default=is_default)
         s.add(group)
         s.flush()
         gid = group.id
@@ -215,9 +216,9 @@ def test_admin_sees_everything_despite_hides(admin_user):
     assert perms.can_see_platform(5)
 
 
-def test_default_group_is_viewer_legacy():
+def test_default_group_is_viewer():
     from handler.database import db_permission_handler
 
     group = db_permission_handler.get_default_group()
     assert group is not None
-    assert group.name == "Viewer (legacy)"
+    assert group.system_key == SystemGroupKey.VIEWER

@@ -281,6 +281,7 @@ export type { SyncSessionSchema } from './models/SyncSessionSchema';
 export type { SyncTaskMeta } from './models/SyncTaskMeta';
 export type { SyncTaskStatusResponse } from './models/SyncTaskStatusResponse';
 export type { SystemDict } from './models/SystemDict';
+export type { SystemGroupKey } from './models/SystemGroupKey';
 export type { TaskExecutionResponse } from './models/TaskExecutionResponse';
 export type { TaskInfo } from './models/TaskInfo';
 export type { TasksDict } from './models/TasksDict';

@@ -27,6 +27,7 @@ from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     POSTGRESQL_FK_INDEXES,
     SORTABLE_NULLABLE_ROM_COLUMNS,
+    exact_collation,
     full_path_digest_sql,
     has_column,
     is_mariadb,
@@ -235,7 +236,8 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0132_audit_events.py", "audit_events"),
         ("0135_drop_play_session_sync_link.py", "play_sessions"),
         ("0136_deleted_assets.py", "deleted_assets"),
-        ("0137_rom_user_pinned_media.py", "rom_user"),
+        ("0138_exact_save_slots.py", "saves"),
+        ("0139_rom_user_pinned_media.py", "rom_user"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -269,6 +271,88 @@ def test_the_play_session_sync_link_revision_reverses_and_replays():
 
         assert not has_column(connection, "play_sessions", "sync_session_id")
         assert _schema_of(connection, "play_sessions") == before
+
+
+def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:
+    inspector = sa.inspect(connection)
+    collations = {}
+    for table in ("saves", "deleted_assets"):
+        [slot_type] = [
+            column["type"]
+            for column in inspector.get_columns(table)
+            if column["name"] == "slot"
+        ]
+        assert isinstance(slot_type, sa.String)
+        collations[table] = slot_type.collation
+    return collations
+
+
+def test_save_slots_are_compared_exactly():
+    """Both slot columns match as sync negotiation pairs them in Python."""
+    with sync_engine.connect() as connection:
+        expected = exact_collation(connection)
+        assert _slot_collations(connection) == {
+            "saves": expected,
+            "deleted_assets": expected,
+        }
+
+
+def test_the_exact_save_slots_revision_reverses_and_replays():
+    migration = _load_migration("0138_exact_save_slots.py")
+
+    with sync_engine.begin() as connection:
+        exact = exact_collation(connection)
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            if exact is not None:
+                assert _slot_collations(connection)["saves"] != exact
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _slot_collations(connection)["saves"] == exact
+
+
+def test_the_exact_save_slots_revision_fixes_an_early_deleted_assets_table():
+    """A deleted_assets slot left with the table's folding collation is made exact."""
+    migration = _load_migration("0138_exact_save_slots.py")
+
+    with sync_engine.begin() as connection:
+        exact = exact_collation(connection)
+        if exact is None:
+            pytest.skip("PostgreSQL compares slots exactly already")
+        with Operations.context(MigrationContext.configure(connection)) as op:
+            op.alter_column(
+                "deleted_assets",
+                "slot",
+                existing_type=sa.String(length=255),
+                type_=sa.String(length=255),
+                existing_nullable=False,
+            )
+            assert _slot_collations(connection)["deleted_assets"] != exact
+
+            migration.upgrade()
+
+        assert _slot_collations(connection)["deleted_assets"] == exact
+
+
+def test_the_exact_save_slots_revision_rebuilds_no_table_already_exact():
+    """A replay after a run that died partway skips the collations it finished."""
+    migration = _load_migration("0138_exact_save_slots.py")
+    statements: list[str] = []
+
+    with sync_engine.begin() as connection:
+
+        @sa.event.listens_for(connection, "before_cursor_execute")
+        def _record(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+            if re.match(r"ALTER TABLE \S+ MODIFY", statement.lstrip(), re.I):
+                statements.append(statement)
+
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+
+    assert statements == []
 
 
 def test_the_rom_similarity_revision_fills_in_a_missing_index():
@@ -624,3 +708,110 @@ def test_the_state_disc_file_migration_resumes_an_interrupted_run(drop_column: b
     assert "disc_file_id" in columns
     assert index
     assert "fk_states_disc_file_id" in foreign_keys
+
+
+def _is_system_sql(connection: sa.Connection) -> str:
+    # Before 0137 the seeded groups are flagged by `is_system`, after it by a key.
+    if has_column(connection, "permission_groups", "system_key"):
+        return "system_key IS NOT NULL"
+    return "is_system"
+
+
+def _system_groups(connection: sa.Connection) -> dict[str, str]:
+    rows = connection.execute(
+        sa.text(
+            "SELECT name, description FROM permission_groups "
+            f"WHERE {_is_system_sql(connection)}"
+        )
+    )
+    return {name: description for name, description in rows}
+
+
+def _system_keys(connection: sa.Connection) -> dict[str, str]:
+    rows = connection.execute(
+        sa.text(
+            "SELECT system_key, name FROM permission_groups "
+            "WHERE system_key IS NOT NULL"
+        )
+    )
+    return {key: name for key, name in rows}
+
+
+GROUP_RENAME = _load_migration("0137_rename_system_groups.py")
+
+
+def _upgrade_group_rename(connection: sa.Connection) -> None:
+    # MariaDB commits the column DDL implicitly, so tests restore head by hand
+    # rather than rolling back.
+    with Operations.context(MigrationContext.configure(connection)):
+        GROUP_RENAME.upgrade()
+    connection.commit()
+
+
+def test_the_group_rename_round_trips_the_seeded_groups():
+    with sync_engine.connect() as connection:
+        renamed = _system_groups(connection)
+        try:
+            with Operations.context(MigrationContext.configure(connection)):
+                GROUP_RENAME.downgrade()
+            legacy = _system_groups(connection)
+        finally:
+            _upgrade_group_rename(connection)
+        replayed = _system_groups(connection)
+        keys = _system_keys(connection)
+        flag_dropped = not has_column(connection, "permission_groups", "is_system")
+
+    assert set(renamed) == {"Viewer", "Editor"}
+    assert set(legacy) == {"Viewer (legacy)", "Editor (legacy)"}
+    assert "pre-upgrade" in legacy["Viewer (legacy)"]
+    assert replayed == renamed
+    assert keys == {"viewer": "Viewer", "editor": "Editor"}
+    assert flag_dropped
+
+
+def test_the_group_rename_leaves_admin_changes_alone():
+    """A taken name skips that group, and an edited description survives."""
+    with sync_engine.connect() as connection:
+        try:
+            with Operations.context(MigrationContext.configure(connection)):
+                GROUP_RENAME.downgrade()
+            legacy = _system_groups(connection)
+            connection.execute(
+                sa.text(
+                    "INSERT INTO permission_groups "
+                    "(name, description, is_default, is_system, created_at, updated_at) "
+                    "VALUES ('Viewer', '', false, false, "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "UPDATE permission_groups SET description = 'Custom' "
+                    "WHERE name = 'Editor (legacy)'"
+                )
+            )
+            _upgrade_group_rename(connection)
+            groups = _system_groups(connection)
+            keys = _system_keys(connection)
+        finally:
+            _, _, _, _, editor_description = GROUP_RENAME.RENAMES[1]
+            connection.execute(
+                sa.text(
+                    "DELETE FROM permission_groups "
+                    f"WHERE name = 'Viewer' AND NOT ({_is_system_sql(connection)})"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "UPDATE permission_groups SET description = :description "
+                    f"WHERE {_is_system_sql(connection)} AND description = 'Custom'"
+                ),
+                {"description": editor_description},
+            )
+            _upgrade_group_rename(connection)
+
+    assert groups == {
+        "Viewer (legacy)": legacy["Viewer (legacy)"],
+        "Editor": "Custom",
+    }
+    assert keys == {"viewer": "Viewer (legacy)", "editor": "Editor"}
