@@ -12,7 +12,6 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
-from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -630,15 +629,22 @@ def _container_labels(resolved: Iterable[ResolvedContainer]) -> dict[str, str]:
     return labels
 
 
+def _keys_by_label(labels: dict[str, str]) -> list[list[str]]:
+    """Container keys grouped by their case-folded label."""
+    groups: dict[str, list[str]] = {}
+    for key, label in labels.items():
+        groups.setdefault(label.casefold(), []).append(key)
+    return list(groups.values())
+
+
 def _unique_labels(resolved: Sequence[ResolvedContainer]) -> dict[str, str]:
     """The labels that name exactly one container and are not another's key."""
     labels = _container_labels(resolved)
-    counts = Counter(label.casefold() for label in labels.values())
     keys = {container.key for container in resolved if container.key}
     return {
-        key: label
-        for key, label in labels.items()
-        if counts[label.casefold()] == 1 and label not in keys
+        group[0]: labels[group[0]]
+        for group in _keys_by_label(labels)
+        if len(group) == 1 and labels[group[0]] not in keys
     }
 
 
@@ -648,10 +654,7 @@ def _warn_about_shared_labels(
     """Name every label a URL cannot use because it names several containers,
     once a day per config."""
     labels = _container_labels(resolved)
-    by_label: dict[str, list[str]] = {}
-    for key, label in labels.items():
-        by_label.setdefault(label.casefold(), []).append(key)
-    shared = [keys for keys in by_label.values() if len(keys) > 1]
+    shared = [keys for keys in _keys_by_label(labels) if len(keys) > 1]
     if not shared or not _first_to_warn(f"labels:{fingerprint}"):
         return
     for keys in shared:

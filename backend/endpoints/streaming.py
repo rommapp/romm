@@ -870,14 +870,13 @@ async def claim_session(
         newest_state = max(own_states, key=lambda s: (s.created_at, s.id), default=None)
         state_off_archive = newest_state is None or newest_state.id != resume_state.id
         if not state_off_archive and picked_save is not None:
-            newest_save = None
-            if not save_foreign:
-                newest_save = await asyncio.to_thread(
-                    saves.newest_restorable,
-                    request.user.id,
-                    rom.id,
-                    container.emulator,
+            newest_save = (
+                None
+                if save_foreign
+                else await asyncio.to_thread(
+                    saves.newest_restorable, request.user.id, rom.id, container.emulator
                 )
+            )
             state_off_archive = newest_save is None or newest_save.id != picked_save.id
 
     # The pre-win checks asked the pool's reference; the won container's own
@@ -887,19 +886,17 @@ async def claim_session(
         spec = await asyncio.to_thread(
             webstation.import_spec, container, container.emulator, container.platform
         )
-    if resume_foreign:
-        import_slot = spec.resume_slot() if spec is not None else None
-        if import_slot is None:
-            await lifecycle.abort_claim(session_key, session)
-            raise HTTPException(
-                status_code=400, detail="This container cannot resume the picked state"
-            )
-        resume_slot = import_slot
-    if save_foreign and (spec is None or not spec.accepts("save")):
+    import_slot = spec.resume_slot() if spec is not None else None
+    refusal = None
+    if resume_foreign and import_slot is None:
+        refusal = "This container cannot resume the picked state"
+    elif save_foreign and (spec is None or not spec.accepts("save")):
+        refusal = "This container cannot restore the picked save"
+    if refusal is not None:
         await lifecycle.abort_claim(session_key, session)
-        raise HTTPException(
-            status_code=400, detail="This container cannot restore the picked save"
-        )
+        raise HTTPException(status_code=400, detail=refusal)
+    if resume_foreign:
+        resume_slot = import_slot
     resume_via_import = (
         (resume_foreign or state_off_archive)
         and spec is not None

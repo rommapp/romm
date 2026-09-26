@@ -74,7 +74,7 @@ def _utf8_zipinfo(name: str, source: zipfile.ZipInfo | None) -> zipfile.ZipInfo:
     return info
 
 
-def _read_member(zf: zipfile.ZipFile, info: zipfile.ZipInfo | str) -> bytes:
+def _read_member(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
     """An entry's bytes, inflated a chunk at a time so a size the header
     understates fails the CRC check before it can exhaust memory."""
     out = bytearray()
@@ -94,7 +94,7 @@ def _manifest_files(zf: zipfile.ZipFile) -> dict[str, dict[str, Any]]:
         return {}
     try:
         manifest = json.loads(_read_member(zf, info))
-    except (json.JSONDecodeError, KeyError, UnicodeDecodeError):
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return {}
     files = manifest.get("files") if isinstance(manifest, dict) else None
     return {
@@ -171,9 +171,8 @@ def _write_member(
         staged[path] = (member.content, entry, None)
         return
     with inner:
-        # Another emulator's save archive also carries its exit state, which
-        # a save pick must not bring along.
-        _stage_zip(inner, staged, budget, skip_state=member.kind == "save", place=place)
+        # Another emulator's save archive also carries its exit state.
+        _stage_zip(inner, staged, budget, skip_state=True, place=place)
 
 
 def build_import_archive(
