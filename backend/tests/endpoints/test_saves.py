@@ -3652,6 +3652,45 @@ class TestSlotScopedDedupeMatrix:
             [slotted.json()["content_hash"]],
         )
 
+    def test_updating_a_save_never_hashed_records_its_bytes(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        admin_user: User,
+        _isolated_assets_dir,
+    ):
+        slotted = self._upload(
+            client, access_token, rom, _build_fixture_a_zip(), slot="slot1"
+        )
+        with sync_session.begin() as session:
+            session.execute(
+                update(Save)
+                .where(Save.id == slotted.json()["id"])
+                .values(content_hash=None)
+            )
+
+        response = client.put(
+            f"/api/saves/{slotted.json()['id']}",
+            files={
+                "saveFile": (
+                    slotted.json()["file_name"],
+                    BytesIO(_build_fixture_b_zip()),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        [record] = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        assert (record.slot, record.content_hashes) == (
+            "slot1",
+            [slotted.json()["content_hash"]],
+        )
+
     def test_different_bytes_same_slot_creates_distinct_records(
         self,
         client,

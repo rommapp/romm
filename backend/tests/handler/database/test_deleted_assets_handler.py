@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
 
+from sqlalchemy import update
+
 from handler.database import db_deleted_asset_handler
+from handler.database.base_handler import sync_session
 from models.deleted_asset import MAX_REMEMBERED_HASHES, DeletedAsset
 from models.rom import Rom
 from models.user import User
@@ -99,6 +102,24 @@ class TestRemovalTimes:
             "legacy": to_utc(record.updated_at),
             "stamped": to_utc(record.updated_at),
         }
+
+    def test_an_unstamped_version_keeps_its_time_when_another_is_lost(
+        self, rom: Rom, admin_user: User
+    ):
+        """Recording bumps the record's own time, which must not move older losses."""
+        legacy = _record(admin_user, rom, "autosave", "legacy")
+        recorded = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        with sync_session.begin() as session:
+            session.execute(
+                update(DeletedAsset)
+                .where(DeletedAsset.id == legacy.id)
+                .values(removed_at=None, updated_at=recorded)
+            )
+
+        times = _record(admin_user, rom, "autosave", "later").removal_times()
+
+        assert times["legacy"] == recorded
+        assert times["later"] > recorded
 
     def test_trimmed_versions_lose_their_stamps(self, rom: Rom, admin_user: User):
         for index in range(MAX_REMEMBERED_HASHES + 1):

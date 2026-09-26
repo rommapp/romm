@@ -25,6 +25,7 @@ from models.assets import Save
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from utils.datetime import to_utc
 
 
 class TestDBSavesHandlerPlatformFiltering:
@@ -1294,6 +1295,20 @@ class TestDBSavesHandlerRecordsLostVersions:
 
         assert db_save_handler.rehash_save(save.id, "entries_md5", replacing="raw_md5")
         assert self._lost(admin_user, rom) == {}
+
+    def test_a_recomputed_hash_keeps_the_saves_timestamp(
+        self, admin_user: User, rom: Rom
+    ):
+        """Device sync reads `updated_at` as a write, and the bytes are unchanged."""
+        save = self._add(admin_user, rom, "rehashed", "autosave", "raw_md5")
+        written = datetime(2026, 1, 1, tzinfo=UTC)
+        db_save_handler.update_save(save.id, {"updated_at": written})
+
+        db_save_handler.rehash_save(save.id, "entries_md5", replacing="raw_md5")
+
+        [kept] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        assert kept.content_hash == "entries_md5"
+        assert to_utc(kept.updated_at) == written
 
     def test_a_recomputed_hash_never_replaces_a_newer_one(
         self, admin_user: User, rom: Rom

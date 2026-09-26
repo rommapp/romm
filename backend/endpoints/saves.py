@@ -622,6 +622,7 @@ async def update_save(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     if saveFile:
+        replaced_hash = await unrecorded_hash(db_save)
         await fs_asset_handler.write_file(
             file=saveFile, path=db_save.file_path, filename=db_save.file_name
         )
@@ -638,6 +639,7 @@ async def update_save(
                 "file_size_bytes": scanned_save.file_size_bytes,
                 "content_hash": scanned_save.content_hash,
             },
+            replaced_hash=replaced_hash,
         )
 
     if screenshotFile and screenshotFile.filename:

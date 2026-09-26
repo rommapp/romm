@@ -337,10 +337,11 @@ class DBSavesHandler(DBBaseHandler):
         Returns:
             Whether the row still held ``replacing`` and took the new hash.
         """
+        # Keeps `updated_at`, as `touch=False` does: device sync reads it as a write.
         result = session.execute(
             update(Save)
             .where(Save.id == id, Save.content_hash.is_not_distinct_from(replacing))
-            .values(content_hash=content_hash)
+            .values(content_hash=content_hash, updated_at=Save.updated_at)
             .execution_options(synchronize_session=False)
         )
         return affected_rows(result) == 1
@@ -425,10 +426,10 @@ class DBSavesHandler(DBBaseHandler):
             _deleted_assets.record_deletions(
                 user_id, rom_id, slot, lost, session=session
             )
-        for row in rows:
+        if rows:
             session.execute(
                 delete(Save)
-                .where(Save.id == row.id)
+                .where(Save.id.in_([row.id for row in rows]))
                 .execution_options(synchronize_session="evaluate")
             )
         return rows
