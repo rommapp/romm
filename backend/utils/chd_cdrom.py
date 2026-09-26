@@ -7,11 +7,10 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from utils.cue_sheet import MAX_TRACKS
+from utils.cue_sheet import AUDIO_SECTOR_BYTES, MAX_TRACKS
 
 # A CD frame in a CHD: one raw sector followed by its subcode.
-SECTOR_BYTES = 2352
-FRAME_BYTES = SECTOR_BYTES + 96
+FRAME_BYTES = AUDIO_SECTOR_BYTES + 96
 # Each track's frames are padded up to a multiple of this.
 TRACK_PADDING = 4
 
@@ -203,11 +202,8 @@ class ChdImage:
                 raise ChdError(f"libchdr could not read hunk {number}")
             count = min(frames_per_hunk - offset, end - frame)
             raw = hunk.raw
-            yield b"".join(
-                raw[
-                    (offset + i) * FRAME_BYTES : (offset + i) * FRAME_BYTES
-                    + SECTOR_BYTES
-                ]
-                for i in range(count)
+            starts = range(
+                offset * FRAME_BYTES, (offset + count) * FRAME_BYTES, FRAME_BYTES
             )
+            yield b"".join(raw[start : start + AUDIO_SECTOR_BYTES] for start in starts)
             frame += count

@@ -479,7 +479,9 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
             staged = staging_path(destination.location)
             await encode_track(track.source, staged, rom.name)
             try:
-                move_into_place(destination.location, staged, overwrite=False)
+                await asyncio.to_thread(
+                    move_into_place, destination.location, staged, overwrite=False
+                )
             except UploadConflictException:
                 # A concurrent extraction of the same disc got there first.
                 result.skipped.append(track.file_name)

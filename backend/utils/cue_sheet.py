@@ -7,10 +7,11 @@ from dataclasses import dataclass, field
 FRAMES_PER_SECOND = 75
 # Red Book numbers a disc's tracks 1 to 99.
 MAX_TRACKS = 99
+AUDIO_SECTOR_BYTES = 2352
 
 # Bytes per sector for each track mode a raw image can hold.
 SECTOR_SIZES = {
-    "AUDIO": 2352,
+    "AUDIO": AUDIO_SECTOR_BYTES,
     "CDG": 2448,
     "MODE1/2048": 2048,
     "MODE1/2352": 2352,
@@ -23,7 +24,9 @@ SECTOR_SIZES = {
 # FILE types holding raw sectors; WAVE, MP3 and AIFF tracks are already audio.
 RAW_FILE_TYPES = {"BINARY": False, "MOTOROLA": True}
 
-_FILE_REGEX = re.compile(r'^(?:"(?P<quoted>[^"]+)"|(?P<bare>\S+))\s+(?P<type>\S+)$')
+# A sheet's file reference, quoted when it has spaces.
+SHEET_FILE_PATTERN = r'(?:"(?P<quoted>[^"]+)"|(?P<bare>\S+))'
+_FILE_REGEX = re.compile(rf"^{SHEET_FILE_PATTERN}\s+(?P<type>\S+)$")
 # ASCII digits of bounded length, so int() never meets a superscript or a
 # number past its digit limit.
 _NUMBER_REGEX = re.compile(r"\d{1,3}", re.ASCII)
@@ -54,6 +57,11 @@ class AudioTrackRange:
     big_endian: bool
     title: str | None
     performer: str | None
+
+
+def sheet_file_name(match: re.Match[str]) -> str:
+    """The base name a `SHEET_FILE_PATTERN` match refers to, in either path style."""
+    return re.split(r"[\\/]", match.group("quoted") or match.group("bare"))[-1]
 
 
 def _cd_text(value: str) -> str | None:
@@ -91,9 +99,7 @@ def parse_cue_sheet(text: str) -> list[CueTrack]:
             if not match:
                 file_name = None
                 continue
-            path = match.group("quoted") or match.group("bare")
-            # Sheets made on Windows use backslashes; only the name is trusted.
-            file_name = re.split(r"[\\/]", path)[-1]
+            file_name = sheet_file_name(match)
             file_type = match.group("type").upper()
         elif keyword == "TRACK" and file_name:
             number, _, mode = rest.partition(" ")
@@ -172,7 +178,7 @@ def audio_track_ranges(
             else:
                 continue
             pregap = track.indexes[1] - min(track.indexes.values())
-            offset = byte_start + pregap * SECTOR_SIZES["AUDIO"]
+            offset = byte_start + pregap * AUDIO_SECTOR_BYTES
             length = (min(end, size) - offset) // 4 * 4
             if length > 0:
                 ranges.append(

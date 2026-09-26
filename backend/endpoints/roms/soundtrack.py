@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Annotated
 
 from fastapi import Header, HTTPException
@@ -105,6 +107,23 @@ async def add_rom_soundtracks(
     return Response(status_code=status.HTTP_201_CREATED)
 
 
+@contextmanager
+def _cd_audio_errors(rom_id: int, action: str) -> Iterator[None]:
+    """Map the CD audio failures both routes share to HTTP errors."""
+    try:
+        yield
+    except CdAudioUnavailableException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+    except CdAudioEncodeException as exc:
+        log.error(f"Failed {action} of ROM {rom_id}", exc_info=exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"There was an error {action}",
+        ) from exc
+
+
 @protected_route(
     router.get,
     "/{id}/soundtracks/cd-audio",
@@ -127,18 +146,8 @@ async def get_rom_cd_audio_status(
 
     assert_rom_visible(request, rom)
 
-    try:
+    with _cd_audio_errors(id, "reading the disc images"):
         result = await cd_audio_status(rom)
-    except CdAudioUnavailableException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
-        ) from exc
-    except CdAudioEncodeException as exc:
-        log.error(f"Could not read the disc images of ROM {id}", exc_info=exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="There was an error reading the disc images",
-        ) from exc
 
     return CdAudioStatusSchema(tracks=result.tracks, extracted=result.extracted)
 
@@ -168,11 +177,8 @@ async def extract_rom_cd_audio(
     assert_rom_visible(request, rom)
 
     try:
-        result = await extract_cd_audio(rom)
-    except CdAudioUnavailableException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
-        ) from exc
+        with _cd_audio_errors(id, "extracting the CD audio"):
+            result = await extract_cd_audio(rom)
     except UploadRejectedException as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -180,12 +186,6 @@ async def extract_rom_cd_audio(
     except (CdAudioNeedsFolderException, RomAlreadyExistsException) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-        ) from exc
-    except CdAudioEncodeException as exc:
-        log.error(f"CD audio extraction failed for ROM {id}", exc_info=exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="There was an error extracting the CD audio",
         ) from exc
 
     return CdAudioExtractionSchema(extracted=result.extracted, skipped=result.skipped)

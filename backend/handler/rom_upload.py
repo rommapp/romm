@@ -115,6 +115,8 @@ def assert_promotable(rom: Rom) -> None:
     Raises:
         UploadRejectedException: An .m3u in the file's folder lists it.
     """
+    if not rom.has_simple_single_file:
+        return
     try:
         disc = fs_rom_handler.validate_path(rom.full_path)
     except ValueError as exc:
@@ -161,8 +163,7 @@ def resolve_upload_destination(
         raise UploadRejectedException(
             "Upload destination must be inside the game folder"
         )
-    if rom.has_simple_single_file:
-        assert_promotable(rom)
+    assert_promotable(rom)
 
     promoted_over_itself = (
         rom.has_simple_single_file and not folder and filename == rom.fs_name

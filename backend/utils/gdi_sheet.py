@@ -4,16 +4,20 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from utils.cue_sheet import AudioTrackRange
+from utils.cue_sheet import (
+    AUDIO_SECTOR_BYTES,
+    SHEET_FILE_PATTERN,
+    AudioTrackRange,
+    sheet_file_name,
+)
 
 AUDIO_TRACK_TYPE = 0
-AUDIO_SECTOR_BYTES = 2352
 
-# "<track> <lba> <type> <sector size> <file> <offset>", the file quoted when it
-# has spaces. Numbers are ASCII and bounded so int() always takes them.
+# "<track> <lba> <type> <sector size> <file> <offset>". Numbers are ASCII and
+# bounded so int() always takes them.
 _LINE_REGEX = re.compile(
-    r"^\s*(\d{1,3})\s+(\d{1,9})\s+(\d{1,3})\s+(\d{1,5})\s+"
-    r'(?:"(?P<quoted>[^"]+)"|(?P<bare>\S+))\s+-?\d+\s*$',
+    rf"^\s*(\d{{1,3}})\s+\d{{1,9}}\s+(\d{{1,3}})\s+(\d{{1,5}})\s+"
+    rf"{SHEET_FILE_PATTERN}\s+-?\d+\s*$",
     re.ASCII,
 )
 
@@ -21,7 +25,6 @@ _LINE_REGEX = re.compile(
 @dataclass(frozen=True)
 class GdiTrack:
     number: int
-    lba: int
     type: int
     sector_size: int
     file_name: str
@@ -40,15 +43,13 @@ def parse_gdi_sheet(text: str) -> list[GdiTrack]:
         match = _LINE_REGEX.match(line)
         if not match:
             continue
-        number, lba, kind, sector_size = (int(match.group(i)) for i in range(1, 5))
-        path = match.group("quoted") or match.group("bare")
+        number, kind, sector_size = (int(match.group(i)) for i in range(1, 4))
         tracks.append(
             GdiTrack(
                 number=number,
-                lba=lba,
                 type=kind,
                 sector_size=sector_size,
-                file_name=re.split(r"[\\/]", path)[-1],
+                file_name=sheet_file_name(match),
             )
         )
     return tracks

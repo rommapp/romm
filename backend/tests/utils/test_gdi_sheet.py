@@ -10,17 +10,14 @@ GDI_SHEET = """3
 
 def test_parses_bare_quoted_and_windows_paths():
     assert parse_gdi_sheet(GDI_SHEET) == [
-        GdiTrack(number=1, lba=0, type=4, sector_size=2352, file_name="track01.bin"),
+        GdiTrack(number=1, type=4, sector_size=2352, file_name="track01.bin"),
         GdiTrack(
             number=2,
-            lba=450,
             type=0,
             sector_size=2352,
             file_name="Track 02 (Audio).raw",
         ),
-        GdiTrack(
-            number=3, lba=45000, type=4, sector_size=2048, file_name="track03.iso"
-        ),
+        GdiTrack(number=3, type=4, sector_size=2048, file_name="track03.iso"),
     ]
 
 

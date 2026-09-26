@@ -128,8 +128,7 @@ async def add_rom_gamefaqs_walkthrough(
     url = (body.get("url") or "").strip()
     try:
         validate_gamefaqs_url(url)
-        if rom.has_simple_single_file:
-            assert_promotable(rom)
+        assert_promotable(rom)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)

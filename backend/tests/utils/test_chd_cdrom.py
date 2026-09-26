@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 from utils.chd_cdrom import (
-    SECTOR_BYTES,
     ChdAudioTrack,
     ChdError,
     ChdImage,
@@ -14,6 +13,7 @@ from utils.chd_cdrom import (
     load_libchdr,
     parse_track_metadata,
 )
+from utils.cue_sheet import AUDIO_SECTOR_BYTES
 
 
 def test_parses_a_current_track_entry():
@@ -109,9 +109,9 @@ def _chdman_createcd(source: Path, output: Path) -> None:
 def test_reads_gdrom_audio_back_without_its_padding(tmp_path: Path):
     lib = load_libchdr()
     assert lib is not None, "libchdr is needed to read CHD images"
-    second = bytes((i * 7) & 0xFF for i in range(37 * SECTOR_BYTES))
-    third = bytes((i * 13) & 0xFF for i in range(20 * SECTOR_BYTES))
-    (tmp_path / "track01.bin").write_bytes(b"\x11" * 4 * SECTOR_BYTES)
+    second = bytes((i * 7) & 0xFF for i in range(37 * AUDIO_SECTOR_BYTES))
+    third = bytes((i * 13) & 0xFF for i in range(20 * AUDIO_SECTOR_BYTES))
+    (tmp_path / "track01.bin").write_bytes(b"\x11" * 4 * AUDIO_SECTOR_BYTES)
     (tmp_path / "track02.raw").write_bytes(second)
     (tmp_path / "track03.raw").write_bytes(third)
     # Gaps between the LBAs become padding in the CHD.
@@ -132,7 +132,7 @@ def test_reads_audio_back_as_stored_big_endian(tmp_path: Path):
     assert lib is not None, "libchdr is needed to read CHD images"
 
     # 37 sectors of a rising ramp, so any misplaced or swapped byte shows.
-    pcm = bytes((i * 7) & 0xFF for i in range(37 * SECTOR_BYTES))
+    pcm = bytes((i * 7) & 0xFF for i in range(37 * AUDIO_SECTOR_BYTES))
     (tmp_path / "Track 1.bin").write_bytes(pcm)
     (tmp_path / "Disc.cue").write_text(
         'FILE "Track 1.bin" BINARY\n  TRACK 01 AUDIO\n    INDEX 01 00:00:00\n'
