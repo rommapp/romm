@@ -7,6 +7,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+from utils.cue_sheet import MAX_TRACKS
+
 # A CD frame in a CHD: one raw sector followed by its subcode.
 SECTOR_BYTES = 2352
 FRAME_BYTES = SECTOR_BYTES + 96
@@ -51,18 +53,21 @@ def parse_track_metadata(text: str) -> ChdTrack | None:
         token.split(":", 1) for token in text.strip("\0 ").split() if ":" in token
     )
     try:
-        pregap = int(fields.get("PREGAP", "0"))
-        return ChdTrack(
+        track = ChdTrack(
             number=int(fields["TRACK"]),
             type=fields["TYPE"].upper(),
             frames=int(fields["FRAMES"]),
-            pregap=pregap,
+            pregap=int(fields.get("PREGAP", "0")),
             # A 'V' pregap type means the pregap's frames are in the image.
             pregap_stored=fields.get("PGTYPE", "").upper().startswith("V"),
             pad=int(fields.get("PAD", "0")),
         )
     except KeyError, ValueError:
         return None
+    # A negative count would move later tracks back over earlier ones.
+    if min(track.frames, track.pregap, track.pad) < 0:
+        return None
+    return track
 
 
 def audio_tracks(tracks: list[ChdTrack]) -> list[ChdAudioTrack]:
@@ -164,10 +169,17 @@ class ChdImage:
         for tag in TRACK_METADATA_TAGS:
             found: list[ChdTrack] = []
             index = 0
-            while not self._lib.chd_get_metadata(
+            # Each lookup walks the metadata chain from its start, so a crafted
+            # image with endless entries is cut off where a real disc must end.
+            while index < MAX_TRACKS and not self._lib.chd_get_metadata(
                 self._handle, tag, index, buffer, len(buffer), length, None, None
             ):
-                track = parse_track_metadata(buffer.value.decode("ascii", "replace"))
+                # libchdr doesn't NUL-terminate, so a shorter entry would
+                # otherwise carry the tail of the one read before it.
+                raw = buffer.raw[: min(length.value, len(buffer))]
+                track = parse_track_metadata(
+                    raw.split(b"\0", 1)[0].decode("ascii", "replace")
+                )
                 if track:
                     found.append(track)
                 index += 1

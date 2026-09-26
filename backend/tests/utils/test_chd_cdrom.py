@@ -35,7 +35,17 @@ def test_parses_a_legacy_track_entry():
     )
 
 
-@pytest.mark.parametrize("text", ["", "TRACK:x TYPE:AUDIO FRAMES:1", "TYPE:AUDIO"])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "TRACK:x TYPE:AUDIO FRAMES:1",
+        "TYPE:AUDIO",
+        "TRACK:2 TYPE:AUDIO FRAMES:-4",
+        "TRACK:2 TYPE:AUDIO FRAMES:4 PREGAP:-150 PGTYPE:VAUDIO",
+        "TRACK:2 TYPE:AUDIO FRAMES:4 PAD:-100",
+    ],
+)
 def test_rejects_a_malformed_entry(text):
     assert parse_track_metadata(text) is None
 

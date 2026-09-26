@@ -16,6 +16,8 @@ from handler.rom_files import refresh_rom_files
 from handler.rom_upload import (
     CATEGORY_UPLOAD_FOLDERS,
     UploadConflictException,
+    UploadRejectedException,
+    assert_promotable,
     move_into_place,
     prepare_upload_destination,
     staging_path,
@@ -30,9 +32,14 @@ from utils.chd_cdrom import (
     audio_tracks,
     load_libchdr,
 )
-from utils.cue_sheet import AudioTrackRange, audio_track_ranges, parse_cue_sheet
+from utils.cue_sheet import (
+    MAX_TRACKS,
+    AudioTrackRange,
+    audio_track_ranges,
+    parse_cue_sheet,
+)
 from utils.gdi_sheet import gdi_audio_ranges, parse_gdi_sheet
-from utils.m3u import disc_number, listing_playlist
+from utils.m3u import disc_number
 
 FLAC_BINARY = "flac"
 READ_CHUNK_BYTES = 1024 * 1024
@@ -40,6 +47,8 @@ READ_CHUNK_BYTES = 1024 * 1024
 ENCODE_TIMEOUT_SECONDS = 600
 # Sheets (.cue, Dreamcast .gdi) point at separate track files; a CHD holds them.
 DISC_IMAGE_EXTENSIONS = (".cue", ".gdi", ".chd")
+# A 99-track sheet with full CD-Text is a few tens of KiB.
+MAX_SHEET_BYTES = 1024 * 1024
 
 PcmChunks = Generator[bytes, None, None]
 
@@ -94,7 +103,10 @@ def track_prefixes(images: list[Path]) -> dict[Path, str]:
 
 
 def _read_sheet(path: Path) -> str:
-    raw = path.read_bytes()
+    with path.open("rb") as sheet:
+        raw = sheet.read(MAX_SHEET_BYTES + 1)
+    if len(raw) > MAX_SHEET_BYTES:
+        raise CdAudioEncodeException(f"{path.name} is too large to be a disc sheet")
     try:
         return raw.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -154,19 +166,37 @@ def _sheet_sources(sheet_path: Path) -> list[AudioSource]:
     else:
         cue_tracks = parse_cue_sheet(text)
         located = _locate_files(sheet_path.parent, {t.file_name for t in cue_tracks})
+        # FILE names differing only in case open one file, so they share its
+        # layout rather than each spanning the whole of it.
+        cue_tracks = [
+            (
+                dataclasses.replace(track, file_name=located[track.file_name].name)
+                if track.file_name in located
+                else track
+            )
+            for track in cue_tracks
+        ]
+        located = {path.name: path for path in located.values()}
         ranges = audio_track_ranges(cue_tracks, _file_sizes(located))
-    return [
-        AudioSource(
-            number=track.number,
-            big_endian=track.big_endian,
-            title=track.title,
-            performer=track.performer,
-            pcm=functools.partial(
-                _bin_pcm, located[track.file_name], track.offset, track.length
-            ),
+    sources: list[AudioSource] = []
+    # Lines pointing at the same samples would write the same audio again.
+    seen: set[tuple[Path, int]] = set()
+    for track in ranges:
+        path = located[track.file_name]
+        key = (path.resolve(), track.offset)
+        if key in seen:
+            continue
+        seen.add(key)
+        sources.append(
+            AudioSource(
+                number=track.number,
+                big_endian=track.big_endian,
+                title=track.title,
+                performer=track.performer,
+                pcm=functools.partial(_bin_pcm, path, track.offset, track.length),
+            )
         )
-        for track in ranges
-    ]
+    return sources
 
 
 def _chd_sources(lib: ctypes.CDLL, chd_path: Path) -> list[AudioSource]:
@@ -239,12 +269,17 @@ async def encode_track(source: AudioSource, output: Path, album: str | None) -> 
     Raises:
         CdAudioEncodeException: The image couldn't be read, or flac failed.
     """
-    process = await asyncio.create_subprocess_exec(
-        *_encode_args(source, album, output),
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.PIPE,
-    )
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *_encode_args(source, album, output),
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except (OSError, ValueError) as exc:
+        raise CdAudioEncodeException(
+            f"Could not start flac for track {source.number}"
+        ) from exc
     assert process.stdin is not None and process.stderr is not None
     try:
         await asyncio.wait_for(
@@ -322,7 +357,13 @@ def _disc_sources(images: list[RomFile], lib: ctypes.CDLL | None) -> list[AudioS
             raise CdAudioEncodeException(f"Could not read {path.name}") from exc
         if sources:
             break
-    return sources
+    # Track numbers name the output files, so each is taken once, within the
+    # range a real disc can hold.
+    by_number: dict[int, AudioSource] = {}
+    for source in sources:
+        if 1 <= source.number <= MAX_TRACKS:
+            by_number.setdefault(source.number, source)
+    return list(by_number.values())
 
 
 def _plan_tracks(
@@ -394,6 +435,8 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
         CdAudioNeedsFolderException: A sheet, or a disc an .m3u lists, sits loose
             in the platform folder.
         CdAudioEncodeException: A track couldn't be encoded.
+        UploadRejectedException: A track's file name can't go in the soundtrack
+            folder, such as one the scanner excludes.
     """
     if shutil.which(FLAC_BINARY) is None:
         raise CdAudioUnavailableException("The flac encoder is not installed")
@@ -404,31 +447,26 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
         return result
 
     lib = load_libchdr()
+    lone = rom.has_simple_single_file
+    # A CHD is self-contained, but a lone sheet would leave its tracks behind.
+    if lone and not discs[0][0].file_name.lower().endswith(".chd"):
+        raise CdAudioNeedsFolderException(
+            "Move the disc into a folder of its own to extract its audio"
+        )
+    planned = await asyncio.to_thread(_plan_tracks, discs, lib)
+    # Nothing to write, so a lone disc stays where it is.
+    if not planned:
+        return result
 
-    if rom.has_simple_single_file:
-        [[image]] = discs
-        # A CHD is self-contained, but a lone sheet would leave its tracks behind.
-        if not image.file_name.lower().endswith(".chd"):
-            raise CdAudioNeedsFolderException(
-                "Move the disc into a folder of its own to extract its audio"
-            )
-        if lib is None:
-            raise CdAudioUnavailableException(
-                "Reading CHD images needs libchdr, which is not installed"
-            )
-        disc = fs_rom_handler.validate_path(image.full_path)
-        playlist = await asyncio.to_thread(listing_playlist, disc)
-        if playlist:
-            raise CdAudioNeedsFolderException(
-                f"{playlist} lists this disc, so moving it would break the "
-                "playlist. Move the set into a folder of its own to extract "
-                "its audio"
-            )
+    if lone:
+        try:
+            await asyncio.to_thread(assert_promotable, rom)
+        except UploadRejectedException as exc:
+            raise CdAudioNeedsFolderException(str(exc)) from exc
         rom = await promote_single_file_to_folder(rom)
-        discs = _discs(rom)
+        planned = await asyncio.to_thread(_plan_tracks, _discs(rom), lib)
 
     folder = CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK]
-    planned = await asyncio.to_thread(_plan_tracks, discs, lib)
     try:
         for track in planned:
             try:

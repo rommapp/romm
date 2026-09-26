@@ -5,6 +5,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 FRAMES_PER_SECOND = 75
+# Red Book numbers a disc's tracks 1 to 99.
+MAX_TRACKS = 99
 
 # Bytes per sector for each track mode a raw image can hold.
 SECTOR_SIZES = {
@@ -21,8 +23,13 @@ SECTOR_SIZES = {
 # FILE types holding raw sectors; WAVE, MP3 and AIFF tracks are already audio.
 RAW_FILE_TYPES = {"BINARY": False, "MOTOROLA": True}
 
-_FILE_REGEX = re.compile(r'^(?:"(?P<quoted>[^"]*)"|(?P<bare>\S+))\s+(?P<type>\S+)$')
-_MSF_REGEX = re.compile(r"^(\d+):(\d{1,2}):(\d{1,2})$")
+_FILE_REGEX = re.compile(r'^(?:"(?P<quoted>[^"]+)"|(?P<bare>\S+))\s+(?P<type>\S+)$')
+# ASCII digits of bounded length, so int() never meets a superscript or a
+# number past its digit limit.
+_NUMBER_REGEX = re.compile(r"\d{1,3}", re.ASCII)
+_MSF_REGEX = re.compile(r"^(\d{1,4}):(\d{1,2}):(\d{1,2})$", re.ASCII)
+# Control characters would reach flac's argv, where a NUL can't go.
+_CONTROL_REGEX = re.compile(r"[\x00-\x1f\x7f]")
 
 
 @dataclass
@@ -49,11 +56,11 @@ class AudioTrackRange:
     performer: str | None
 
 
-def _unquote(value: str) -> str:
+def _cd_text(value: str) -> str | None:
     value = value.strip()
     if len(value) >= 2 and value[0] == value[-1] == '"':
-        return value[1:-1]
-    return value
+        value = value[1:-1]
+    return _CONTROL_REGEX.sub("", value) or None
 
 
 def _msf_to_frames(value: str) -> int | None:
@@ -90,7 +97,7 @@ def parse_cue_sheet(text: str) -> list[CueTrack]:
             file_type = match.group("type").upper()
         elif keyword == "TRACK" and file_name:
             number, _, mode = rest.partition(" ")
-            if number.isdigit():
+            if _NUMBER_REGEX.fullmatch(number):
                 tracks.append(
                     CueTrack(
                         number=int(number),
@@ -102,10 +109,10 @@ def parse_cue_sheet(text: str) -> list[CueTrack]:
         elif keyword == "INDEX" and tracks:
             index, _, position = rest.partition(" ")
             frames = _msf_to_frames(position)
-            if index.isdigit() and frames is not None:
+            if _NUMBER_REGEX.fullmatch(index) and frames is not None:
                 tracks[-1].indexes[int(index)] = frames
         elif keyword in ("TITLE", "PERFORMER") and tracks:
-            setattr(tracks[-1], keyword.lower(), _unquote(rest) or None)
+            setattr(tracks[-1], keyword.lower(), _cd_text(rest))
     return tracks
 
 
@@ -140,9 +147,10 @@ def audio_track_ranges(
                 break
             if position:
                 previous = file_tracks[position - 1]
-                if previous.mode not in SECTOR_SIZES:
-                    break
                 sectors = min(track.indexes.values()) - min(previous.indexes.values())
+                # A region opening before the last one would replay its audio.
+                if previous.mode not in SECTOR_SIZES or sectors < 0:
+                    break
                 region_starts.append(
                     region_starts[-1] + sectors * SECTOR_SIZES[previous.mode]
                 )

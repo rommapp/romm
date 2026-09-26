@@ -53,3 +53,11 @@ def test_takes_each_audio_track_as_its_whole_file():
 
 def test_skips_audio_tracks_missing_from_disk():
     assert gdi_audio_ranges(parse_gdi_sheet(GDI_SHEET), {}) == []
+
+
+def test_skips_a_line_with_a_number_int_cannot_take():
+    tracks = parse_gdi_sheet(
+        f"2\n{'1' * 5000} 0 0 2352 a.raw 0\n2 450 0 2352 t.raw 0\n"
+    )
+
+    assert [t.number for t in tracks] == [2]

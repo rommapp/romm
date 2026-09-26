@@ -26,7 +26,7 @@ from handler.cd_audio import (
 )
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
-from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS
+from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS, UploadRejectedException
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -148,6 +148,7 @@ async def get_rom_cd_audio_status(
     "/{id}/soundtracks/cd-audio",
     [Scope.ROMS_WRITE],
     responses={
+        status.HTTP_400_BAD_REQUEST: {},
         status.HTTP_404_NOT_FOUND: {},
         status.HTTP_409_CONFLICT: {},
         status.HTTP_503_SERVICE_UNAVAILABLE: {},
@@ -171,6 +172,10 @@ async def extract_rom_cd_audio(
     except CdAudioUnavailableException as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+    except UploadRejectedException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
     except (CdAudioNeedsFolderException, RomAlreadyExistsException) as exc:
         raise HTTPException(

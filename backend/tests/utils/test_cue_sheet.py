@@ -154,3 +154,55 @@ def test_ignores_malformed_lines():
     )
 
     assert [(t.number, t.indexes) for t in tracks] == [(2, {1: SECOND})]
+
+
+def test_skips_a_file_with_an_empty_name():
+    tracks = parse_cue_sheet(
+        'FILE "" BINARY\n  TRACK 01 AUDIO\n    INDEX 01 00:00:00\n'
+    )
+
+    assert audio_track_ranges(tracks, {}) == []
+
+
+def test_skips_numbers_int_cannot_take():
+    tracks = parse_cue_sheet(
+        'FILE "Track.bin" BINARY\n'
+        "  TRACK ² AUDIO\n"
+        f"  TRACK {'1' * 5000} AUDIO\n"
+        "  TRACK 02 AUDIO\n"
+        f"    INDEX 01 {'1' * 5000}:00:00\n"
+        "    INDEX ¹ 00:01:00\n"
+        "    INDEX 01 00:02:00\n"
+    )
+
+    assert [(t.number, t.indexes) for t in tracks] == [(2, {1: 2 * SECOND})]
+
+
+def test_strips_control_characters_from_cd_text():
+    tracks = parse_cue_sheet(
+        'FILE "Track.bin" BINARY\n'
+        "  TRACK 01 AUDIO\n"
+        '    TITLE "Open\x00ing"\n'
+        '    PERFORMER "\x01"\n'
+    )
+
+    assert tracks[0].title == "Opening"
+    assert tracks[0].performer is None
+
+
+def test_stops_measuring_where_a_track_starts_before_the_last():
+    tracks = parse_cue_sheet(
+        'FILE "Game.bin" BINARY\n'
+        "  TRACK 01 AUDIO\n"
+        "    INDEX 01 00:00:00\n"
+        "  TRACK 02 AUDIO\n"
+        "    INDEX 01 00:02:00\n"
+        "  TRACK 03 AUDIO\n"
+        "    INDEX 01 00:00:00\n"
+        "  TRACK 04 AUDIO\n"
+        "    INDEX 01 00:02:00\n"
+    )
+
+    ranges = audio_track_ranges(tracks, {"Game.bin": 10 * SECOND * AUDIO_SECTOR})
+
+    assert [(r.number, r.offset) for r in ranges] == [(1, 0)]

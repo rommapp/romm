@@ -10,10 +10,11 @@ AUDIO_TRACK_TYPE = 0
 AUDIO_SECTOR_BYTES = 2352
 
 # "<track> <lba> <type> <sector size> <file> <offset>", the file quoted when it
-# has spaces.
+# has spaces. Numbers are ASCII and bounded so int() always takes them.
 _LINE_REGEX = re.compile(
-    r'^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(?:"(?P<quoted>[^"]+)"|(?P<bare>\S+))'
-    r"\s+-?\d+\s*$"
+    r"^\s*(\d{1,3})\s+(\d{1,9})\s+(\d{1,3})\s+(\d{1,5})\s+"
+    r'(?:"(?P<quoted>[^"]+)"|(?P<bare>\S+))\s+-?\d+\s*$',
+    re.ASCII,
 )
 
 

@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from handler import cd_audio
 from handler.database import db_rom_handler
+from handler.filesystem import fs_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
 from models.user import User
@@ -807,3 +808,175 @@ def test_falls_back_to_the_chd_when_the_sheet_lost_its_tracks(
         "Disc - Track 02.flac",
         "Disc - Track 03.flac",
     ]
+
+
+def _add_sheet_rom(
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+    contents: dict[str, bytes],
+) -> Rom:
+    fs_path = f"{platform.slug}/roms/Disc Game"
+    folder = real_library / fs_path
+    folder.mkdir(parents=True)
+    for name, data in contents.items():
+        (folder / name).write_bytes(data)
+    return _add_disc_rom(
+        admin_user,
+        platform,
+        "Disc Game",
+        {name: len(data) for name, data in contents.items()},
+        fs_path,
+    )
+
+
+def test_reads_a_file_named_in_several_cases_once(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+):
+    names = ["Track.bin", "TRACK.BIN", "track.bin"]
+    sheet = "".join(
+        f'FILE "{name}" BINARY\n  TRACK {number:02d} AUDIO\n'
+        f"    INDEX 01 00:00:{(number - 2) * 25:02d}\n"
+        for number, name in enumerate(names, 2)
+    )
+    rom = _add_sheet_rom(
+        admin_user,
+        platform,
+        real_library,
+        {"Disc.cue": sheet.encode(), "Track.bin": _tone(TRACK_2_SECTORS)},
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    durations = [
+        meta.duration_seconds
+        for meta in _soundtrack_metas(rom.id).values()
+        if meta is not None and meta.duration_seconds is not None
+    ]
+    # Split three ways rather than each spanning the whole file.
+    assert sum(durations) == pytest.approx(
+        TRACK_2_SECTORS / SECTORS_PER_SECOND, abs=0.02
+    )
+
+
+def test_takes_each_gdi_track_file_and_number_once(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+):
+    sheet = (
+        "5\n2 150 0 2352 track02.raw 0\n3 300 0 2352 TRACK02.RAW 0\n"
+        "4 450 0 2352 track02.raw 0\n0 600 0 2352 track05.raw 0\n"
+        "100 750 0 2352 track06.raw 0\n"
+    )
+    tone = _tone(TRACK_3_SECTORS)
+    rom = _add_sheet_rom(
+        admin_user,
+        platform,
+        real_library,
+        {
+            "disc.gdi": sheet.encode(),
+            "track02.raw": tone,
+            "track05.raw": tone,
+            "track06.raw": tone,
+        },
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.json() == {"tracks": 1, "extracted": 0}
+
+
+def test_refuses_a_sheet_too_large_to_be_one(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+):
+    rom = _add_sheet_rom(
+        admin_user,
+        platform,
+        real_library,
+        {"Disc.cue": b"REM" + b" " * cd_audio.MAX_SHEET_BYTES},
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+def test_reports_a_track_name_the_scanner_would_ignore(
+    client: TestClient,
+    access_token: str,
+    cd_rom: Rom,
+    real_library: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        fs_rom_handler,
+        "is_excluded_multi_part",
+        lambda file_name, cnfg=None: file_name.endswith(".flac"),
+    )
+
+    response = client.post(
+        f"/api/roms/{cd_rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert not (real_library / cd_rom.full_path / "soundtrack").exists()
+
+
+def test_leaves_a_lone_disc_without_audio_where_it_is(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+    tmp_path: Path,
+):
+    fs_path = f"{platform.slug}/roms"
+    (real_library / fs_path).mkdir(parents=True)
+    (tmp_path / "Data.cue").write_text(
+        'FILE "Data.bin" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n'
+    )
+    # libchdr can't open a CHD of a single hunk, so the track spans several.
+    (tmp_path / "Data.bin").write_bytes(b"\x01" * AUDIO_SECTOR * 300)
+    chd = real_library / fs_path / "Data Game.chd"
+    _create_chd(tmp_path / "Data.cue", chd)
+    rom = _add_disc_rom(
+        admin_user, platform, chd.name, {chd.name: chd.stat().st_size}, fs_path
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.json() == {"extracted": [], "skipped": []}
+    assert chd.is_file()
+    assert not (real_library / fs_path / "Data Game").exists()
+
+
+async def test_reports_a_track_flac_cannot_be_started_for(tmp_path: Path):
+    def silence() -> Generator[bytes, None, None]:
+        yield b"\0" * 4
+
+    source = cd_audio.AudioSource(
+        number=2, big_endian=False, title="Open\0ing", performer=None, pcm=silence
+    )
+
+    with pytest.raises(cd_audio.CdAudioEncodeException):
+        await cd_audio.encode_track(source, tmp_path / "Track 02.flac", None)

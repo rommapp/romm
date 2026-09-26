@@ -207,6 +207,8 @@ async function extractCdAudio() {
     snackbar.error(
       t("rom.soundtrack-cd-audio-failed", { error: errorMessage(error) }),
     );
+    // The tracks written before the failure are registered all the same.
+    await refetchRom(romId);
   } finally {
     extractingCdAudio.value = false;
   }
