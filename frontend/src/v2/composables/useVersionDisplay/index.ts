@@ -1,9 +1,9 @@
 // The version to display and where it links: the branch on a dev build when
-// known, the commit on an edge build (`edge-<short sha>`), else the release.
+// known, the commit on a nightly build (`nightly-<short sha>`), else the release.
 import { computed } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 
-const EDGE_VERSION_RE = /^edge-([0-9a-f]{7,40})$/;
+const NIGHTLY_VERSION_RE = /^nightly-([0-9a-f]{7,40})$/;
 
 export function useVersionDisplay() {
   const heartbeatStore = storeHeartbeat();
@@ -27,9 +27,9 @@ export function useVersionDisplay() {
     if (encodedBranch) {
       return `https://github.com/rommapp/romm/tree/${encodedBranch}`;
     }
-    const edgeCommit = EDGE_VERSION_RE.exec(version.value)?.[1];
-    return edgeCommit
-      ? `https://github.com/rommapp/romm/commit/${edgeCommit}`
+    const nightlyCommit = NIGHTLY_VERSION_RE.exec(version.value)?.[1];
+    return nightlyCommit
+      ? `https://github.com/rommapp/romm/commit/${nightlyCommit}`
       : `https://github.com/rommapp/romm/releases/tag/${version.value}`;
   });
 

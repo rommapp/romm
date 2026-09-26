@@ -6,17 +6,9 @@ on:
   #     - "[0-9]+.[0-9]+.[0-9]+*"
   release:
     types: [published]
-  # Rolling `edge` image of master.
-  push:
-    branches: [master]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-
-# Two quick merges must not race, or the older build could land on `edge` last.
-concurrency:
-  group: build-${{ github.event_name == 'push' && 'edge' || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  # Rolling `nightly` image of master.
+  schedule:
+    - cron: "17 4 * * *"
 
 permissions:
   contents: read
@@ -39,7 +31,7 @@ jobs:
         env:
           TAG: ${{ github.event.release.tag_name }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "push" || "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" || "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
             echo "valid=true" >>"$GITHUB_OUTPUT"
           else
             echo "valid=false" >>"$GITHUB_OUTPUT"
@@ -66,9 +58,9 @@ jobs:
       packages: write
     env:
       CACHE_IMAGE: ghcr.io/${{ github.repository_owner }}/romm-buildcache
-      # Edge reads the release cache but writes its own, so master layers never
+      # Nightly reads the release cache but writes its own, so master layers never
       # seed a release image.
-      CACHE_SCOPE: ${{ github.event_name == 'push' && 'edge' || 'release' }}
+      CACHE_SCOPE: ${{ github.event_name == 'schedule' && 'nightly' || 'release' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -105,7 +97,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=edge,enable=${{ github.event_name == 'push' }}
+            type=schedule,pattern=nightly
           labels: |
             org.opencontainers.image.version={{version}}-slim
             org.opencontainers.image.title=rommapp/romm
@@ -123,20 +115,20 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=edge,enable=${{ github.event_name == 'push' }}
+            type=schedule,pattern=nightly
           labels: |
             org.opencontainers.image.version={{version}}
             org.opencontainers.image.title=rommapp/romm
             org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
             org.opencontainers.image.licenses=AGPL-3.0-only
 
-      # Edge builds carry the short commit so each one is identifiable and busts
+      # Nightly builds carry the short commit so each one is identifiable and busts
       # version-keyed caches.
       - name: Set version
         env:
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
             VERSION="${VERSION}-${GITHUB_SHA::7}"
           fi
           sed -i "s/<version>/$VERSION/" backend/__version__.py
@@ -160,7 +152,7 @@ jobs:
           # built from PR head content and must not reach a release image.
           cache-from: |
             type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
-            ${{ env.CACHE_SCOPE == 'edge' && format('type=registry,ref={0}:edge-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
+            ${{ env.CACHE_SCOPE == 'nightly' && format('type=registry,ref={0}:nightly-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
             SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
@@ -181,7 +173,7 @@ jobs:
           no-cache-filters: python-runtime,production-stage
           cache-from: |
             type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
-            ${{ env.CACHE_SCOPE == 'edge' && format('type=registry,ref={0}:edge-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
+            ${{ env.CACHE_SCOPE == 'nightly' && format('type=registry,ref={0}:nightly-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
           cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:${{ env.CACHE_SCOPE }}-${{ matrix.arch }},mode=max
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
@@ -265,7 +257,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=edge,enable=${{ github.event_name == 'push' }}
+            type=schedule,pattern=nightly
           annotations: |
             org.opencontainers.image.version={{version}}-slim
             org.opencontainers.image.title=rommapp/romm
@@ -285,7 +277,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=edge,enable=${{ github.event_name == 'push' }}
+            type=schedule,pattern=nightly
           annotations: |
             org.opencontainers.image.version={{version}}
             org.opencontainers.image.title=rommapp/romm
