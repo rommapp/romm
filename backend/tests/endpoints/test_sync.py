@@ -771,7 +771,7 @@ class TestNegotiateRemovedVersions:
     @staticmethod
     def _held(
         rom: Rom, content_hash: str, updated_at: str = "2026-02-01T00:00:00Z"
-    ) -> dict:
+    ) -> dict[str, Any]:
         return {
             "rom_id": rom.id,
             "file_name": "autosave.sav",
@@ -1336,7 +1336,7 @@ class TestNegotiateConflictEvents:
         return device
 
     @staticmethod
-    def _changed_client_save(save: Save) -> dict:
+    def _changed_client_save(save: Save) -> dict[str, Any]:
         return {
             "rom_id": save.rom_id,
             "file_name": save.file_name,
@@ -1485,7 +1485,7 @@ class TestNegotiateBaseline:
     """A device presenting a save it has not changed must not be told it conflicted."""
 
     @staticmethod
-    def _client_save(save: Save, content_hash: str) -> dict:
+    def _client_save(save: Save, content_hash: str) -> dict[str, Any]:
         return {
             "rom_id": save.rom_id,
             "file_name": save.file_name,

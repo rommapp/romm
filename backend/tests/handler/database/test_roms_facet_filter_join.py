@@ -61,7 +61,7 @@ def _cartesian_warnings(statement) -> list[str]:
 
 class TestGroupedMetadataFilterJoin:
     @pytest.mark.parametrize("filters", FACET_FILTERS, ids=lambda f: next(iter(f)))
-    def test_grouped_query_joins_what_it_filters_on(self, filters: dict):
+    def test_grouped_query_joins_what_it_filters_on(self, filters: dict[str, Any]):
         query, _ = db_rom_handler.get_roms_query()
         grouped = db_rom_handler.filter_roms(
             query=query,

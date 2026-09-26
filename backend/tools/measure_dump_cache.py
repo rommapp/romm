@@ -249,7 +249,9 @@ def plain(value: Any) -> bytes:
 
 
 def load(
-    client: redis.Redis, records: Iterator[Record], serialize: Callable[[Any], bytes]
+    client: redis.Redis[bytes],
+    records: Iterator[Record],
+    serialize: Callable[[Any], bytes],
 ) -> None:
     """Write every record into the store its key names."""
     pipe = client.pipeline(transaction=False)
@@ -264,7 +266,7 @@ def load(
         pipe.execute()
 
 
-def store_stats(client: redis.Redis) -> tuple[dict[str, int], dict[str, int]]:
+def store_stats(client: redis.Redis[bytes]) -> tuple[dict[str, int], dict[str, int]]:
     """Field count and total value bytes per store, read back off the hashes."""
     # Not tallied while writing: the dump repeats a title on one platform and an
     # alternate name across platforms, so ~9k records overwrite another's field.
@@ -281,13 +283,13 @@ def store_stats(client: redis.Redis) -> tuple[dict[str, int], dict[str, int]]:
     return counts, value_bytes
 
 
-def foreign_keys(client: redis.Redis) -> int:
+def foreign_keys(client: redis.Redis[bytes]) -> int:
     """How many keys on the server are not this tool's own stores."""
     owned = {key.encode() for key in DUMP_STORE_KEYS}
     return sum(1 for key in client.scan_iter(count=1000) if key not in owned)
 
 
-def clear_stores(client: redis.Redis) -> int:
+def clear_stores(client: redis.Redis[bytes]) -> int:
     """Drop only this tool's stores, returning `used_memory` without them."""
     # Not `flushall`: the URL can point at a live RomM, whose sessions and RQ
     # queues share the database with these stores.
@@ -296,7 +298,7 @@ def clear_stores(client: redis.Redis) -> int:
 
 
 def store_memory(
-    client: redis.Redis, keys: list[str]
+    client: redis.Redis[bytes], keys: list[str]
 ) -> tuple[dict[str, int], int, int]:
     sizes = {}
     for key in keys:
@@ -350,7 +352,7 @@ def sweep_threshold(metadata_zip: Path, limit: int) -> int:
 
 
 def bench_decode(
-    client: redis.Redis, key: str, rounds: int = 5
+    client: redis.Redis[bytes], key: str, rounds: int = 5
 ) -> tuple[float, float] | None:
     """Median `decode` latency, and mean stored size, on real stored records."""
     fields = client.hrandfield(key, 2000)

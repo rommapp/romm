@@ -1,7 +1,7 @@
 import contextlib
 import os
 import re
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import unquote
 
 from fastapi import Body, Header, HTTPException
@@ -112,7 +112,7 @@ async def add_rom_walkthrough_file(
 async def add_rom_gamefaqs_walkthrough(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    body: Annotated[dict, Body()],
+    body: Annotated[dict[str, Any], Body()],
 ) -> Response:
     """Fetch a GameFAQs text guide by URL and store it as a walkthrough.
 

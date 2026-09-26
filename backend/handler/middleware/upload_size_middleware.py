@@ -20,7 +20,7 @@ class UploadSizeLimitMiddleware:
         app: ASGIApp,
         *,
         max_size: int,
-        paths: list[Pattern],
+        paths: list[Pattern[str]],
     ) -> None:
         self.app = app
         self.max_size = max_size

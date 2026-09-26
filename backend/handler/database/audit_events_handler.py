@@ -41,7 +41,7 @@ class AuditEventFilters:
 
 
 def _not_targeting(
-    target_type: str, ids: Collection[int] | Select
+    target_type: str, ids: Collection[int] | Select[tuple[str]]
 ) -> ColumnElement[bool]:
     """Events other than those on the given targets of one type."""
     excluded = ids if isinstance(ids, Select) else [str(i) for i in ids]

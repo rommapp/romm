@@ -231,14 +231,9 @@ async function uploadState(
   screenshotFile: ArrayBuffer,
 ) {
   if (!romRef.value) return;
-  const filename = `${romRef.value.fs_name_no_ext.trim()} [${new Date()
-    .toISOString()
-    .replace(/[:.]/g, "-")
-    .replace("T", " ")
-    .replace("Z", "")}]`;
-
   try {
     const stateApi = await import("@/services/api/state");
+    const filename = stateApi.sessionStateName(romRef.value, new Date());
 
     const uploadedStates = await stateApi.default.uploadStates({
       rom: romRef.value,

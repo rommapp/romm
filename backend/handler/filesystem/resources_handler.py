@@ -525,7 +525,7 @@ class FSResourcesHandler(FSHandler):
         return f"{rom.fs_resources_path}/screenshots/{idx}.jpg"
 
     async def get_rom_screenshots(
-        self, rom: Rom, overwrite: bool, url_screenshots: list | None
+        self, rom: Rom, overwrite: bool, url_screenshots: list[str] | None
     ) -> list[str]:
         """Get rom screenshots from filesystem
 

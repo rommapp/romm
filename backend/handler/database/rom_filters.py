@@ -39,7 +39,7 @@ class FilterKind(StrEnum):
 class RomFilterSpec:
     name: str
     kind: FilterKind
-    column: QueryableAttribute | None = None
+    column: QueryableAttribute[Any] | None = None
 
 
 # Order is the order the filters narrow the query, so the generated WHERE

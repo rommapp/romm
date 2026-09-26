@@ -2,7 +2,7 @@
 discovery script."""
 
 from pathlib import Path
-from typing import Final, NamedTuple
+from typing import Any, Final, NamedTuple
 
 HLTB_BASE_URL: Final[str] = "https://howlongtobeat.com"
 
@@ -71,7 +71,7 @@ def search_headers(base_url: str, session: HLTBSession) -> dict[str, str]:
     return headers
 
 
-def search_body(payload: dict, session: HLTBSession) -> dict:
+def search_body(payload: dict[str, Any], session: HLTBSession) -> dict[str, Any]:
     honeypot = session.honeypot()
     if not honeypot:
         return payload
@@ -81,7 +81,7 @@ def search_body(payload: dict, session: HLTBSession) -> dict:
     return {**payload, hp_key: hp_val}
 
 
-def build_search_payload(search_term: str, platform_name: str) -> dict:
+def build_search_payload(search_term: str, platform_name: str) -> dict[str, Any]:
     return {
         "searchType": "games",
         "searchTerms": search_term.split(" "),

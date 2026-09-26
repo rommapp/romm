@@ -1,6 +1,7 @@
 import functools
 from collections.abc import Callable, Collection, Sequence
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import Select, delete, func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
@@ -41,7 +42,7 @@ class DBPlatformsHandler(DBBaseHandler):
     def update_platform(
         self,
         id: int,
-        data: dict,
+        data: dict[str, Any],
         session: Session = None,  # type: ignore[assignment]
     ) -> Platform:
         session.execute(

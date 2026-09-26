@@ -1,4 +1,5 @@
 import re
+from typing import Any
 
 from config import LAUNCHBOX_API_ENABLED
 from handler.filesystem import fs_rom_handler
@@ -92,7 +93,7 @@ class LaunchboxHandler(MetadataHandler):
 
         if local is not None:
             launchbox_id_local = safe_int(local.get("DatabaseID"))
-            remote: dict | None = None
+            remote: dict[str, Any] | None = None
             if remote_available:
                 if launchbox_id_local:
                     remote = await self._remote.get_by_id(launchbox_id_local)

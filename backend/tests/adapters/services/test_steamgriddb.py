@@ -1,6 +1,7 @@
 import asyncio
 import http
 import json
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -368,7 +369,7 @@ class TestSteamGridDBServiceUnit:
     @pytest.mark.asyncio
     async def test_get_grids_for_game_empty_response(self, service):
         """Test get_grids_for_game with empty response."""
-        mock_response: dict[str, list] = {}
+        mock_response: dict[str, list[Any]] = {}
 
         with patch.object(service, "_request", return_value=mock_response):
             result = await service.get_grids_for_game(123)
@@ -502,7 +503,7 @@ class TestSteamGridDBServiceUnit:
     @pytest.mark.asyncio
     async def test_search_games_no_results(self, service):
         """Test search_games with no results."""
-        mock_response: dict[str, list] = {"data": []}
+        mock_response: dict[str, list[Any]] = {"data": []}
 
         with patch.object(service, "_request", return_value=mock_response):
             result = await service.search_games("nonexistent")
@@ -512,7 +513,7 @@ class TestSteamGridDBServiceUnit:
     @pytest.mark.asyncio
     async def test_search_games_empty_response(self, service):
         """Test search_games with empty response."""
-        mock_response: dict[str, list] = {}
+        mock_response: dict[str, list[Any]] = {}
 
         with patch.object(service, "_request", return_value=mock_response):
             result = await service.search_games("test")
@@ -522,7 +523,7 @@ class TestSteamGridDBServiceUnit:
     @pytest.mark.asyncio
     async def test_search_games_special_characters(self, service):
         """Test search_games with special characters in term."""
-        mock_response: dict[str, list] = {"data": []}
+        mock_response: dict[str, list[Any]] = {"data": []}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -791,7 +792,7 @@ class TestSteamGridDBServiceEdgeCases:
     @pytest.mark.asyncio
     async def test_search_games_empty_term(self, service):
         """Test search_games with empty term."""
-        mock_response: dict[str, list] = {"data": []}
+        mock_response: dict[str, list[Any]] = {"data": []}
 
         with patch.object(
             service, "_request", return_value=mock_response

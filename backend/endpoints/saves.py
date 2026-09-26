@@ -2,7 +2,7 @@ import os
 import re
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
@@ -120,7 +120,7 @@ def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
 
 def _apply_datetime_tag(filename: str) -> str:
     name, ext = os.path.splitext(filename)
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     if DATETIME_TAG_PATTERN.search(name):
         name = DATETIME_TAG_PATTERN.sub("", name)
@@ -351,7 +351,7 @@ async def add_save(
     if db_save:
         # Track file path and emulator to prevent hash-content drift.
         stale_full_path = db_save.full_path
-        update_data: dict = {
+        update_data: dict[str, Any] = {
             "file_size_bytes": scanned_save.file_size_bytes,
             "content_hash": scanned_save.content_hash,
             "file_path": scanned_save.file_path,

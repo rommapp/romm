@@ -2,7 +2,7 @@ import asyncio
 import http
 import json
 from collections.abc import Collection
-from typing import Final, Literal, overload
+from typing import Any, Final, Literal, overload
 
 import aiohttp
 import yarl
@@ -43,7 +43,7 @@ class MobyGamesService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://api.mobygames.com/v1")
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict:
+    async def _request(self, url: str, request_timeout: int = 120) -> dict[str, Any]:
         aiohttp_session = ctx_aiohttp_session.get()
         log.debug(
             "API request: URL=%s, Timeout=%s",
@@ -115,7 +115,7 @@ class MobyGamesService:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 
-    async def list_groups(self, limit: int | None = None) -> list[dict]:
+    async def list_groups(self, limit: int | None = None) -> list[dict[str, Any]]:
         """Retrieve a list of groups.
 
         Reference: https://www.mobygames.com/info/api/#groups

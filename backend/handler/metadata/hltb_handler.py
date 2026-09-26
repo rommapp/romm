@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 import time
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 import httpx
 import pydash
@@ -98,7 +98,7 @@ class HLTBSearchResponse(TypedDict):
     pageTotal: int
     pageSize: int
     data: list[HLTBGame]
-    userData: list
+    userData: list[Any]
     displayModifier: str | None
 
 
@@ -156,7 +156,7 @@ def _release_year(value: object) -> int:
     return 0
 
 
-def build_hltb_game(game_data: dict) -> HLTBGame:
+def build_hltb_game(game_data: dict[str, Any]) -> HLTBGame:
     """Build an HLTBGame, defaulting the fields a given HLTB payload omits."""
     return HLTBGame(
         game_id=game_data.get("game_id", 0),
@@ -419,7 +419,7 @@ class HLTBHandler(MetadataHandler):
 
         return True
 
-    async def _request(self, url: str, payload: dict) -> dict:
+    async def _request(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
         """
         Sends a POST request to HowLongToBeat API.
 
@@ -706,7 +706,7 @@ class HLTBHandler(MetadataHandler):
             hltb_metadata=extract_hltb_metadata(game),
         )
 
-    async def _fetch_game_page(self, hltb_id: int) -> dict:
+    async def _fetch_game_page(self, hltb_id: int) -> dict[str, Any]:
         """Fetch and parse a game page's hydration payload."""
         httpx_client = ctx_httpx_client.get()
 

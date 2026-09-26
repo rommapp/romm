@@ -1,5 +1,6 @@
 import binascii
 import hashlib
+from typing import Any
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
@@ -32,7 +33,9 @@ class FSFirmwareHandler(FSHandler):
 
         return [f for f in self.exclude_single_files(fs_firmware_files)]
 
-    async def calculate_file_hashes(self, firmware_path: str, file_name: str) -> dict:
+    async def calculate_file_hashes(
+        self, firmware_path: str, file_name: str
+    ) -> dict[str, Any]:
         file_path = f"{firmware_path}/{file_name}"
         async with await self.stream_file(file_path=file_path) as f:
             crc_c = 0

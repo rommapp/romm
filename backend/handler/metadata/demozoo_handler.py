@@ -506,7 +506,7 @@ class DemozooHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return DEMOZOO_API_ENABLED
 
-    async def _request(self, url: str) -> dict:
+    async def _request(self, url: str) -> dict[str, Any]:
         await _rate_limiter.acquire()
         headers = {
             "User-Agent": f"RomM/{get_version()}",
@@ -546,7 +546,7 @@ class DemozooHandler(MetadataHandler):
             return DemozooRom(demozoo_id=None)
         return production_to_rom(data)
 
-    def get_platform(self, slug: str) -> dict:
+    def get_platform(self, slug: str) -> dict[str, Any]:
         if slug not in DEMOZOO_PLATFORM_LIST:
             return {"slug": slug, "demozoo_id": None, "name": slug}
         platform = DEMOZOO_PLATFORM_LIST[UPS(slug)]
@@ -558,7 +558,7 @@ class DemozooHandler(MetadataHandler):
 
     async def search_productions(
         self, title: str, platform_id: int | None = None, *, limit: int = 20
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Demozoo title filter. Do not use ``?search=``."""
         params: dict[str, str] = {"title": title}
         if platform_id is not None:

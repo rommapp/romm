@@ -381,7 +381,9 @@ COVER_SMALL = ((132, 198), (4, 6))
 SCREENSHOT = ((320, 240), (8, 6))
 
 
-def _write_mosaic(rng: random.Random, path: str, spec: tuple) -> None:
+def _write_mosaic(
+    rng: random.Random, path: str, spec: tuple[tuple[int, int], tuple[int, int]]
+) -> None:
     (w, h), (bw, bh) = spec
     buf = bytes(rng.getrandbits(8) for _ in range(bw * bh * 3))
     img = Image.frombytes("RGB", (bw, bh), buf).resize((w, h), Image.Resampling.NEAREST)

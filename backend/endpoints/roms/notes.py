@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Body, HTTPException
 from fastapi import Path as PathVar
@@ -85,7 +85,7 @@ async def get_rom_note_identifiers(
 async def create_rom_note(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    note_data: Annotated[dict, Body()],
+    note_data: Annotated[dict[str, Any], Body()],
 ) -> UserNoteSchema:
     """Create a new note for a ROM."""
     rom = db_rom_handler.get_rom_visibility(id)
@@ -120,7 +120,7 @@ async def update_rom_note(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     note_id: Annotated[int, PathVar(description="Note id.", ge=1)],
-    note_data: Annotated[dict, Body()],
+    note_data: Annotated[dict[str, Any], Body()],
 ) -> UserNoteSchema:
     """Update a ROM note."""
     rom = db_rom_handler.get_rom_visibility(id)
@@ -162,7 +162,7 @@ async def delete_rom_note(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     note_id: Annotated[int, PathVar(description="Note id.", ge=1)],
-) -> dict:
+) -> dict[str, Any]:
     """Delete a ROM note."""
     rom = db_rom_handler.get_rom_visibility(id)
     if not rom:

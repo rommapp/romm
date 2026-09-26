@@ -1,6 +1,7 @@
 """How a scan picks a ROM's Steam match."""
 
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -12,7 +13,7 @@ MATCH = SteamRom(steam_id=1091500, name="Cyberpunk 2077")
 NO_MATCH = SteamRom(steam_id=None)
 
 
-def _rom(steam_id: int | None = None, steam_metadata: dict | None = None):
+def _rom(steam_id: int | None = None, steam_metadata: dict[str, Any] | None = None):
     return SimpleNamespace(
         steam_id=steam_id,
         steam_metadata=steam_metadata or {},

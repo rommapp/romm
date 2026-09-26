@@ -27,7 +27,7 @@ class SyncFolderScanTask(Task):
             manual_run=True,
         )
 
-    async def run(self, *args: Any, **kwargs: Any) -> dict:
+    async def run(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         if not self.enabled:
             log.info("Sync folder scan not enabled, skipping")
             return {"status": "disabled"}

@@ -26,7 +26,7 @@ import io
 import lzma
 import os
 import struct
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 import zstandard
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -155,7 +155,7 @@ class _LaggedFibonacci:
         return bytes(out)
 
 
-def _decode_lzma_filters(lzma2: bool, compr_data: bytes) -> list[dict]:
+def _decode_lzma_filters(lzma2: bool, compr_data: bytes) -> list[dict[str, Any]]:
     """Convert the 7-Zip-SDK properties stored in the header to lzma filters."""
     if lzma2:
         if len(compr_data) < 1:

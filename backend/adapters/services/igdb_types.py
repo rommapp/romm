@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import Literal, NewType, TypedDict, TypeGuard
+from typing import Any, Literal, NewType, TypedDict, TypeGuard
 
 # https://api-docs.igdb.com/#expander
 type ExpandableField[T] = T | int
@@ -18,7 +18,7 @@ def mark_list_expanded[T](value: list[ExpandableField[T]]) -> TypeGuard[list[T]]
 
 
 # TODO: Add missing structures until all are implemented.
-UnimplementedEntity = NewType("UnimplementedEntity", dict)
+UnimplementedEntity = NewType("UnimplementedEntity", dict[str, Any])
 AgeRatingContentDescription = UnimplementedEntity
 Artwork = UnimplementedEntity
 CollectionRelation = UnimplementedEntity

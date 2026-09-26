@@ -2,7 +2,7 @@ import http
 import itertools
 import json
 from collections.abc import AsyncIterator, Collection
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import aiohttp
 import aiohttp.client_exceptions
@@ -46,7 +46,7 @@ class SteamGridDBService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://steamgriddb.com/api/v2")
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict:
+    async def _request(self, url: str, request_timeout: int = 120) -> dict[str, Any]:
         aiohttp_session = ctx_aiohttp_session.get()
         log.debug(
             "API request: URL=%s, Timeout=%s",

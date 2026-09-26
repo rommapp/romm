@@ -1,6 +1,6 @@
 import functools
 from collections.abc import Callable, Collection, Mapping, Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select, update
 from sqlalchemy.engine import Row
@@ -27,7 +27,7 @@ class _SlotMoved(Exception):
 class UnhashedVersions(Exception):
     """Versions a prune would drop without a hash to record them by."""
 
-    def __init__(self, versions: Sequence[Row]):
+    def __init__(self, versions: Sequence[Row[Any]]):
         super().__init__(f"{len(versions)} versions to prune were never hashed")
         self.versions = versions
 
@@ -278,10 +278,10 @@ class DBSavesHandler(DBBaseHandler):
         self,
         id: int,
         session: Session = None,  # type: ignore[assignment]
-    ) -> Row | None:
+    ) -> Row[Any] | None:
         return session.execute(_version_query(id)).one_or_none()
 
-    def _lock_for_removal(self, id: int, session: Session) -> Row | None:
+    def _lock_for_removal(self, id: int, session: Session) -> Row[Any] | None:
         """Lock the save's slot record, then the save, returning its current version."""
         # Before this session holds a connection, since ensuring takes its own.
         before = self._slot_version(id)
@@ -300,7 +300,7 @@ class DBSavesHandler(DBBaseHandler):
     def update_save(
         self,
         id: int,
-        data: dict,
+        data: dict[str, Any],
         touch: bool = True,
         replaced_hash: str | None = None,
         session: Session = None,  # type: ignore[assignment]
@@ -347,7 +347,7 @@ class DBSavesHandler(DBBaseHandler):
         return affected_rows(result) == 1
 
     @staticmethod
-    def _write(id: int, data: dict, touch: bool, session: Session) -> Save:
+    def _write(id: int, data: dict[str, Any], touch: bool, session: Session) -> Save:
         values = data if touch else {**data, "updated_at": Save.updated_at}
         session.execute(
             update(Save)
@@ -366,7 +366,7 @@ class DBSavesHandler(DBBaseHandler):
         keep: int,
         fallback_hashes: Mapping[int, str | None] | None = None,
         session: Session = None,  # type: ignore[assignment]
-    ) -> Sequence[Row]:
+    ) -> Sequence[Row[Any]]:
         """Delete every version of a slot past the ``keep`` newest.
 
         The slot's record is locked while its versions are listed and deleted,
@@ -438,7 +438,7 @@ class DBSavesHandler(DBBaseHandler):
     @begin_session
     def _any(
         self,
-        query: Select,
+        query: Select[Any],
         session: Session = None,  # type: ignore[assignment]
     ) -> bool:
         return session.execute(query.limit(1)).first() is not None
@@ -504,14 +504,14 @@ class DBSavesHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         session: Session = None,  # type: ignore[assignment]
-    ) -> dict:
+    ) -> dict[str, Any]:
         saves = session.scalars(
             select(Save)
             .filter_by(user_id=user_id, rom_id=rom_id)
             .order_by(desc(Save.updated_at))
         ).all()
 
-        slots_data: dict[str | None, dict] = {}
+        slots_data: dict[str | None, dict[str, Any]] = {}
         for save in saves:
             slot_key = save.slot
             if slot_key not in slots_data:
@@ -555,11 +555,11 @@ class DBSavesHandler(DBBaseHandler):
         ).all()
 
 
-def _version_query(id: int) -> Select:
+def _version_query(id: int) -> Select[Any]:
     return select(*_VERSION_COLUMNS).where(Save.id == id)
 
 
-def _loses_version(version: Row, data: dict) -> bool:
+def _loses_version(version: Row[Any], data: dict[str, Any]) -> bool:
     """Whether writing `data` takes this version out of its slot."""
     return (
         data.get("slot", version.slot) != version.slot
@@ -575,7 +575,7 @@ def _lock_slot(user_id: int, rom_id: int, slot: str, session: Session) -> None:
 
 
 def _record_loss(
-    version: Row, session: Session, content_hash: str | None = None
+    version: Row[Any], session: Session, content_hash: str | None = None
 ) -> None:
     """Remember a version leaving its slot, in the transaction that removes it."""
     content_hash = version.content_hash or content_hash

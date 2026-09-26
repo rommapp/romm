@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException
 from fastapi import Path as PathVar
@@ -188,7 +188,7 @@ def add_playlist_tracks(
     request: Request,
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
     payload: MusicTrackIdsPayload,
-) -> dict:
+) -> dict[str, Any]:
     """Append tracks to the playlist; tracks already present are ignored."""
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
@@ -202,7 +202,7 @@ def remove_playlist_tracks(
     request: Request,
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
     payload: MusicTrackIdsPayload,
-) -> dict:
+) -> dict[str, Any]:
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
     rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)

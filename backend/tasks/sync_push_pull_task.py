@@ -34,7 +34,7 @@ async def run_push_pull_sync(
     device_id: str | None = None,
     session_id: int | None = None,
     force: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Execute push-pull sync for one or all push_pull devices."""
     if not ENABLE_SYNC_PUSH_PULL and not force:
         log.info("Push-pull sync not enabled, skipping")
@@ -64,7 +64,7 @@ async def run_push_pull_sync(
     return {"status": "completed", "device_results": results}
 
 
-async def _sync_device(device: Device, session_id: int | None = None) -> dict:
+async def _sync_device(device: Device, session_id: int | None = None) -> dict[str, Any]:
     """Perform push-pull sync for a single device."""
     sync_config = device.sync_config or {}
     if not sync_config.get("ssh_host"):
@@ -371,7 +371,7 @@ async def _push_missing_saves(
     device: Device,
     conn: asyncssh.SSHClientConnection,
     remote_saves: list[RemoteSaveInfo],
-    save_directories: list[dict],
+    save_directories: list[dict[str, Any]],
 ) -> int:
     """Push server saves that are missing from the device."""
     ssh_sync_handler = get_ssh_sync_handler()

@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections.abc import Iterable
 from enum import Enum
-from typing import Final, Literal, NotRequired, TypedDict, TypeIs, get_args
+from typing import Any, Final, Literal, NotRequired, TypedDict, TypeIs, get_args
 
 import httpx
 import yarl
@@ -154,7 +154,7 @@ class PlaymatchHandler(MetadataHandler):
 
         return True
 
-    async def _request(self, url: str, query: dict) -> dict:
+    async def _request(self, url: str, query: dict[str, Any]) -> dict[str, Any]:
         """
         Sends a Request to Playmatch API.
 

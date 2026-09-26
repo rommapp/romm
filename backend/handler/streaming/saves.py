@@ -9,7 +9,7 @@ a .zip extension so the whole card set travels as a unit.
 import asyncio
 import secrets
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import NamedTuple
 
 from fastapi import HTTPException
@@ -151,7 +151,7 @@ async def store_save_asset(user: User, rom: Rom, emulator: str, content: bytes) 
     history of save snapshots rather than overwriting. Identical content is
     deduplicated by hash so idle exits do not pile up copies.
     """
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H-%M-%S")
+    ts = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
     filename = sanitize_filename(f"{rom.fs_name_no_ext} [{emulator} {ts}].saves.zip")
 
     saves_path = fs_asset_handler.build_saves_file_path(
