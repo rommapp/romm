@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { RomHasheousMetadata, RomRAMetadata } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
+import { rom as listRom } from "@/v2/components/Gallery/listRowFixture";
 import { isRomVerified, VERIFICATION_DATABASES } from "./romVerification";
 
-// Only the match blobs are read; cast a minimal stub to SimpleRom.
 const rom = (
-  hasheous_metadata?: RomHasheousMetadata | null,
-  merged_ra_metadata?: RomRAMetadata | null,
-): SimpleRom => ({ hasheous_metadata, merged_ra_metadata }) as SimpleRom;
+  hasheous_metadata: RomHasheousMetadata | null = null,
+  merged_ra_metadata: RomRAMetadata | null = null,
+): SimpleRom => listRom({ hasheous_metadata, merged_ra_metadata });
 
 const database = (label: string) =>
   VERIFICATION_DATABASES.find((db) => db.label === label)!;

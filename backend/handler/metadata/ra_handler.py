@@ -239,10 +239,12 @@ class RAHandler(MetadataHandler):
             return await self._search_rom(rom, ra_hash) == ra_id
         except Exception as exc:
             # A failed check must not block the ID lookup, nor drop a match
-            # already recorded for this game.
+            # already recorded for this game and hash.
             log.warning(f"Couldn't check the RetroAchievements hash list: {exc}")
-            return rom.ra_id == ra_id and bool(
-                (rom.ra_metadata or {}).get("hash_match")
+            return (
+                rom.ra_id == ra_id
+                and rom.ra_hash == ra_hash
+                and bool((rom.ra_metadata or {}).get("hash_match"))
             )
 
     def get_platform(self, slug: str) -> RAGamesPlatform:

@@ -257,8 +257,23 @@ class TestHashMatch:
             handler, "_search_rom", AsyncMock(side_effect=HTTPException(503))
         )
         rom.ra_id = 17353
+        rom.ra_hash = "abcdef"
         rom.ra_metadata = {"hash_match": True}
 
         result = await handler.get_rom_by_id(rom, ra_id=17353, ra_hash="abcdef")
 
         assert result["ra_metadata"]["hash_match"] is True
+
+    async def test_a_failed_hash_check_drops_the_match_for_a_new_hash(
+        self, handler: RAHandler, rom: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            handler, "_search_rom", AsyncMock(side_effect=HTTPException(503))
+        )
+        rom.ra_id = 17353
+        rom.ra_hash = "abcdef"
+        rom.ra_metadata = {"hash_match": True}
+
+        result = await handler.get_rom_by_id(rom, ra_id=17353, ra_hash="ffffff")
+
+        assert result["ra_metadata"]["hash_match"] is False
