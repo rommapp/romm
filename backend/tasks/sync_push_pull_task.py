@@ -5,7 +5,6 @@ and performs bidirectional sync operations.
 """
 
 import os
-from datetime import datetime, timezone
 from typing import Any
 
 import asyncssh
@@ -268,6 +267,10 @@ async def _process_remote_save(
             server_hash=matched_save.content_hash,
             server_updated_at=matched_save.updated_at,
             device_last_synced_at=device_sync.last_synced_at if device_sync else None,
+            device_last_sync_hash=device_sync.last_sync_hash if device_sync else None,
+            device_last_sync_server_hash=(
+                device_sync.last_sync_server_hash if device_sync else None
+            ),
             # Identical content is a no_op, which never reads removals.
             removed_at=(
                 db_deleted_asset_handler.removal_times(
@@ -279,11 +282,16 @@ async def _process_remote_save(
         )
 
         if result.action == "no_op":
-            # Update sync tracking even for no-ops
+            # A timestamp-only no-op can leave the two sides different, so only
+            # identical content is recorded as the baseline.
+            identical = (
+                remote_hash if remote_hash == matched_save.content_hash else None
+            )
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
+                last_sync_hash=identical,
+                last_sync_server_hash=identical,
             )
             return "no_op"
 
@@ -308,10 +316,12 @@ async def _process_remote_save(
                 },
                 replaced_hash=replaced_hash,
             )
+            # The server save's hash was just set to remote_hash, so both sides hold it.
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
+                last_sync_hash=remote_hash,
+                last_sync_server_hash=remote_hash,
             )
             return "pulled"
 
@@ -325,10 +335,12 @@ async def _process_remote_save(
             await ssh_sync_handler.upload_save(
                 conn, str(server_full_path), remote_save.path
             )
+            # The device now holds the server file, so both halves are its hash.
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
+                last_sync_hash=matched_save.content_hash,
+                last_sync_server_hash=matched_save.content_hash,
             )
             return "pushed"
 
@@ -415,7 +427,8 @@ async def _push_missing_saves(
                     db_device_save_sync_handler.upsert_sync(
                         device_id=device.id,
                         save_id=save.id,
-                        synced_at=datetime.now(timezone.utc),
+                        last_sync_hash=save.content_hash,
+                        last_sync_server_hash=save.content_hash,
                     )
                     pushed += 1
                     log.info(
