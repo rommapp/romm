@@ -124,32 +124,34 @@ class DBSyncSessionsHandler(DBBaseHandler):
         # failure is the one closed state a completion may reopen: it says
         # nobody reported this, and somebody just has. A session cancelled, or
         # failed by whatever ran it, was closed on purpose.
-        updated = session.execute(
-            update(SyncSession)
-            .where(
-                SyncSession.id == session_id,
-                or_(
-                    SyncSession.status.in_(
-                        [SyncSessionStatus.PENDING, SyncSessionStatus.IN_PROGRESS]
+        updated = affected_rows(
+            session.execute(
+                update(SyncSession)
+                .where(
+                    SyncSession.id == session_id,
+                    or_(
+                        SyncSession.status.in_(
+                            [SyncSessionStatus.PENDING, SyncSessionStatus.IN_PROGRESS]
+                        ),
+                        and_(
+                            SyncSession.status == SyncSessionStatus.FAILED,
+                            SyncSession.error_message == STALE_SESSION_MESSAGE,
+                        ),
                     ),
-                    and_(
-                        SyncSession.status == SyncSessionStatus.FAILED,
-                        SyncSession.error_message == STALE_SESSION_MESSAGE,
-                    ),
-                ),
+                )
+                .values(
+                    status=SyncSessionStatus.COMPLETED,
+                    completed_at=datetime.now(timezone.utc),
+                    operations_completed=operations_completed,
+                    operations_failed=operations_failed,
+                    # A session the cleanup gave up on, then closed by its owner,
+                    # is a completed session rather than one still carrying why it
+                    # was given up on.
+                    error_message=None,
+                )
+                .execution_options(synchronize_session="evaluate")
             )
-            .values(
-                status=SyncSessionStatus.COMPLETED,
-                completed_at=datetime.now(timezone.utc),
-                operations_completed=operations_completed,
-                operations_failed=operations_failed,
-                # A session the cleanup gave up on, then closed by its owner,
-                # is a completed session rather than one still carrying why it
-                # was given up on.
-                error_message=None,
-            )
-            .execution_options(synchronize_session="evaluate")
-        ).rowcount
+        )
         result = session.scalar(select(SyncSession).filter_by(id=session_id))
         if not result:
             raise NoResultFound(f"SyncSession {session_id} not found after complete")

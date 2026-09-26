@@ -407,7 +407,7 @@ class ManifestAsset(NamedTuple):
 
 def _manifest_assets(
     user: User, can_see: Callable[[Rom], bool], tree: AssetKind | None = None
-) -> tuple[list[ManifestAsset], list[Save]]:
+) -> tuple[list[ManifestAsset], Sequence[Save]]:
     """The manifest's saves and states (only `tree`'s when given), plus the unslotted saves its PSP bundles come from."""
     # Slotted saves are RomM's timestamped history, which no core would load.
     saves = (

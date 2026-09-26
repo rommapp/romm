@@ -182,7 +182,10 @@ class TestSortIndexes:
     def roms_index_sorting(self) -> dict[str, dict[str, tuple[str, ...]]]:
         with sync_engine.connect() as connection:
             return {
-                index["name"]: index.get("column_sorting") or {}
+                index["name"]: {
+                    column: tuple(order)
+                    for column, order in (index.get("column_sorting") or {}).items()
+                }
                 for index in sa.inspect(connection).get_indexes("roms")
                 if index["name"]
             }
