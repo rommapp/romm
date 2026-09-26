@@ -32,6 +32,7 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
+import { firmwareExternalFiles } from "@/utils/emulatorjsFirmware";
 import {
   buildStateFormData,
   resolveScreenshot,
@@ -470,8 +471,10 @@ async function boot() {
     window.EJS_biosUrl = bios
       ? `/api/firmware/${bios.id}/content/${bios.file_name}`
       : "";
+    window.EJS_externalFiles = firmwareExternalFiles(core, firmware);
   } catch {
     window.EJS_biosUrl = "";
+    window.EJS_externalFiles = {};
   }
 
   window.EJS_player = "#game";

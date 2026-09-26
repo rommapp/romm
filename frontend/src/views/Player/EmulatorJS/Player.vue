@@ -339,7 +339,6 @@ window.EJS_biosUrl = props.bios
 window.EJS_externalFiles = firmwareExternalFiles(
   window.EJS_core,
   props.firmware,
-  props.bios,
 );
 window.EJS_player = "#game";
 window.EJS_color = "#A453FF";
