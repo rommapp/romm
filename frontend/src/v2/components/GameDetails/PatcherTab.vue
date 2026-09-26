@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PatcherTab — server-side patch flow for a single ROM, rendered as a tab
+// PatcherTab: server-side patch flow for a single ROM, rendered as a tab
 // in GameDetails. Picks a base game file and a patch file from the ROM's
 // `files`, POSTs to `/roms/{fileId}/patch`, and streams the patched ROM
 // back as a blob to download locally and/or re-upload into RomM.
@@ -21,16 +21,15 @@ import { useI18n } from "vue-i18n";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
 import api from "@/services/api";
 import romApi from "@/services/api/rom";
-import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
 import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useCan } from "@/v2/composables/useCan";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const props = defineProps<{ rom: DetailedRomSchema }>();
@@ -40,8 +39,8 @@ const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
 const snackbar = useSnackbar();
 const heartbeat = storeHeartbeat();
-const scanningStore = storeScanning();
 const uploadStore = storeUpload();
+const { startScan } = useScanTrigger();
 
 const supportedPatchExtensions = [
   ".ips",
@@ -81,7 +80,7 @@ const acceptAttr = supportedPatchExtensions.join(",");
 const downloadLocally = ref(true);
 // Uploading the patched ROM back into RomM needs write access. Viewers
 // can only download locally, so both toggles are hidden for them and
-// `saveIntoRomM` stays off — the apply button then reads "apply and
+// `saveIntoRomM` stays off, the apply button then reads "apply and
 // download".
 const canUpload = useCan("rom.upload");
 const saveIntoRomM = ref(false);
@@ -316,14 +315,14 @@ async function uploadPatchedFile(file: File, platformId: number) {
   selectedPlatformId.value = props.rom.platform_id;
   saveIntoRomM.value = false;
 
-  scanningStore.setScanning(true);
-  if (!socket.connected) socket.connect();
   setTimeout(() => {
-    socket.emit("scan", {
-      platforms: [platformId],
-      type: "quick",
-      apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
-    });
+    startScan([
+      {
+        platforms: [platformId],
+        type: "quick",
+        apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
+      },
+    ]);
   }, 2000);
 }
 
@@ -364,7 +363,7 @@ const applyLabel = computed(() => {
       </RAlert>
     </div>
 
-    <!-- File pickers — base ROM + patch, combined into the output. The
+    <!-- File pickers, base ROM + patch, combined into the output. The
          connector badge between them expresses that ROM + patch operation. -->
     <div class="r-v2-patch__flow">
       <!-- ROM panel -->
@@ -666,7 +665,7 @@ const applyLabel = computed(() => {
   }
 }
 
-/* Flow row — base ROM and patch panels sit side by side, joined by the
+/* Flow row, base ROM and patch panels sit side by side, joined by the
    connector "+". A muted, translucent frame wraps both so they read as one
    combined "ROM + patch" operation rather than two unrelated cards. Stacks
    on narrow screens. */
@@ -693,7 +692,7 @@ const applyLabel = computed(() => {
   gap: 12px;
 }
 
-/* The "+" bridging the two panels — just a muted glyph, no surface/border,
+/* The "+" bridging the two panels, just a muted glyph, no surface/border,
    so it reads as a relationship between the boxes and not as an action
    button sitting between them. */
 .r-v2-patch__connector {
@@ -721,7 +720,7 @@ const applyLabel = computed(() => {
   color: var(--r-color-fg-secondary);
 }
 
-/* Panel header — the small uppercase label on the left, the supported-
+/* Panel header, the small uppercase label on the left, the supported-
    formats pill on the opposite (right) edge of the same top row. */
 .r-v2-patch__panel-head {
   display: flex;
@@ -730,7 +729,7 @@ const applyLabel = computed(() => {
   gap: 8px;
 }
 
-/* ROM identity row — platform icon + name/file + missing-fs badge. */
+/* ROM identity row, platform icon + name/file + missing-fs badge. */
 .r-v2-patch__rom-info {
   display: flex;
   align-items: center;
@@ -855,7 +854,7 @@ const applyLabel = computed(() => {
   color: var(--r-color-fg);
 }
 
-/* Tooltip body — the full format list, wrapping in a compact grid. The
+/* Tooltip body, the full format list, wrapping in a compact grid. The
    tooltip surface ships 5px vertical / 10px horizontal padding; add the
    missing 5px top/bottom here so the list sits evenly inset all round. */
 .r-v2-patch__formats-list {
