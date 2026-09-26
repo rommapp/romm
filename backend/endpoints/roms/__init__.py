@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
-from typing import Annotated, Any, Final, Literal, Sequence
+from typing import Annotated, Any, Final, Literal, Sequence, cast
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -475,7 +475,7 @@ def parse_raw_metadata(
         return None
 
     try:
-        return json.loads(str(raw_json))
+        return cast(dict[str, Any] | None, json.loads(str(raw_json)))
     except json.JSONDecodeError as e:
         log.warning(f"Invalid JSON for {form_key}: {e}")
         return None

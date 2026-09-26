@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -172,7 +173,10 @@ class TestAuthenticate:
 
     @pytest.fixture
     def bind(self, mocker, handler) -> AsyncMock:
-        return mocker.patch.object(handler, "bind_to_login_session", AsyncMock())
+        return cast(
+            AsyncMock,
+            mocker.patch.object(handler, "bind_to_login_session", AsyncMock()),
+        )
 
     @pytest.fixture
     def user(self, mocker) -> MagicMock:

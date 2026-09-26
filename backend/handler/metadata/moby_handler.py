@@ -1,5 +1,5 @@
 import re
-from typing import Final, NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict, cast
 
 import pydash
 from unidecode import unidecode as uc
@@ -260,7 +260,7 @@ class MobyGamesHandler(MetadataHandler):
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
 
-        return MobyGamesRom({k: v for k, v in moby_rom.items() if v})  # type: ignore[misc]
+        return cast(MobyGamesRom, {k: v for k, v in moby_rom.items() if v})
 
     async def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
         if not self.is_enabled():
@@ -280,7 +280,7 @@ class MobyGamesHandler(MetadataHandler):
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
 
-        return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+        return cast(MobyGamesRom, {k: v for k, v in rom.items() if v})
 
     async def get_matched_rom_by_id(self, moby_id: int) -> MobyGamesRom | None:
         if not self.is_enabled():

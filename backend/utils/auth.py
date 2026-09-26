@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from http.cookies import SimpleCookie
-from typing import Any
+from typing import Any, cast
 
 from fastapi import Request
 from starlette.requests import HTTPConnection
@@ -37,7 +37,7 @@ async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
     scope = environ.get("asgi.scope", {})
     session = scope.get("session")
     if session:
-        return session
+        return cast(dict[str, Any], session)
 
     raw_cookie = environ.get("HTTP_COOKIE", "")
     if not raw_cookie:

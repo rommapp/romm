@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Final, Literal, Optional
+from typing import Annotated, Final, Literal, Optional, cast
 from urllib.parse import urlencode
 
 from authlib.common.errors import AuthlibBaseError
@@ -347,7 +347,10 @@ async def login_via_openid(request: Request) -> RedirectResponse:
     if not oauth.openid:
         raise OIDCNotConfiguredException
 
-    return await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI)
+    return cast(
+        RedirectResponse,
+        await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI),
+    )
 
 
 @router.get("/oauth/openid")

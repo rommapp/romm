@@ -12,6 +12,7 @@ from fastapi import HTTPException, status
 from unidecode import unidecode
 
 from adapters.services.igdb_types import Game
+from adapters.services.response_validation import parse_response
 from config import IGDB_CLIENT_ID
 from logger.logger import log
 from utils import get_version
@@ -69,15 +70,17 @@ class IGDBService:
         self.twitch_auth = twitch_auth
         self.auth_middleware = partial(auth_middleware, twitch_auth=self.twitch_auth)
 
-    async def _request(
+    async def _request[T](
         self,
         url: str,
+        tp: type[T],
         search_term: str | None = None,
         fields: Sequence[str] | None = None,
         where: str | None = None,
         limit: int | None = None,
         request_timeout: int = 120,
-    ) -> list[Any]:
+    ) -> T | None:
+        source = f"IGDB {yarl.URL(url).name}"
         aiohttp_session = ctx_aiohttp_session.get()
 
         content = ""
@@ -108,7 +111,7 @@ class IGDBService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return await res.json()
+            return parse_response(tp, await res.read(), source=source)
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             log.debug("Request to URL=%s timed out. Retrying...", url)
@@ -133,12 +136,11 @@ class IGDBService:
                 # Retry after 2 seconds if rate limit hit
                 await asyncio.sleep(2)
             else:
-                # Log the error and return an empty list if the request fails with a different code
                 log.error(exc)
-                return []
+                return None
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from IGDB: %s", exc)
-            return []
+            return None
 
         # Retry the request once if it times out
         try:
@@ -157,19 +159,19 @@ class IGDBService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return await res.json()
+            return parse_response(tp, await res.read(), source=source)
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as exc:
             if (
                 isinstance(exc, aiohttp.ClientResponseError)
                 and exc.status == http.HTTPStatus.UNAUTHORIZED
             ):
-                return []
+                return None
 
             log.error(exc)
-            return []
+            return None
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from IGDB: %s", exc)
-            return []
+            return None
 
     async def list_games(
         self,
@@ -184,13 +186,15 @@ class IGDBService:
         Reference: https://api-docs.igdb.com/#game
         """
         url = self.url.joinpath("games")
-        return await self._request(
+        games = await self._request(
             str(url),
+            list[Game],
             search_term=search_term,
             fields=fields,
             where=where,
             limit=limit,
         )
+        return games or []
 
     async def search(
         self,
@@ -205,13 +209,15 @@ class IGDBService:
         Reference: https://api-docs.igdb.com/#search
         """
         url = self.url.joinpath("search")
-        return await self._request(
+        results = await self._request(
             str(url),
+            list[dict[str, Any]],
             search_term=search_term,
             fields=fields,
             where=where,
             limit=limit,
         )
+        return results or []
 
 
 class SlugToIGDB(TypedDict):

@@ -1,4 +1,6 @@
-from typing import Literal, NotRequired, TypedDict
+from typing import Annotated, Literal, NotRequired, TypedDict
+
+from pydantic import BeforeValidator
 
 
 # Per-account limits returned in `response.ssuser`
@@ -72,11 +74,11 @@ class SSGameMedia(TypedDict):
     type: str
     parent: str
     url: str
-    region: str
+    region: NotRequired[str]
     crc: str
     md5: str
     sha1: str
-    size: str
+    size: NotRequired[str]
     format: str
 
 
@@ -97,7 +99,7 @@ class SSRomLanguages(TypedDict):
 class SSGameRom(TypedDict):
     """One dump of a game, as `jeu.roms` lists every dump ScreenScraper knows."""
 
-    id: NotRequired[int]
+    id: NotRequired[str]
     romfilename: NotRequired[str]
     romcrc: NotRequired[str]
     rommd5: NotRequired[str]
@@ -115,24 +117,49 @@ class SSGameRom(TypedDict):
 
 
 # https://api.screenscraper.fr/webapi2.php#jeuInfos
+# jeuRecherche results carry only some of these fields.
 class SSGame(TypedDict):
-    id: int
-    romid: str
-    notgame: Literal["true", "false"]
+    id: str
+    romid: NotRequired[str]
+    notgame: NotRequired[Literal["true", "false"]]
     noms: list[SSRegionalText]
-    cloneof: str
+    cloneof: NotRequired[str]
     systeme: SSTextID
-    editeur: SSTextID
-    developpeur: SSTextID
-    joueurs: SSText
-    note: SSText
-    topstaff: str
+    editeur: NotRequired[SSTextID]
+    developpeur: NotRequired[SSTextID]
+    joueurs: NotRequired[SSText]
+    note: NotRequired[SSText]
+    topstaff: str | None
     rotation: str
-    synopsis: list[SSLanguageText]
-    classifications: list[SSGameClassification]
-    dates: list[SSGameDate]
-    genres: list[SSGameGenre]
-    modes: list[SSGameMode]
-    familles: list[SSGameFranchise]
+    synopsis: NotRequired[list[SSLanguageText]]
+    classifications: NotRequired[list[SSGameClassification]]
+    dates: NotRequired[list[SSGameDate]]
+    genres: NotRequired[list[SSGameGenre]]
+    modes: NotRequired[list[SSGameMode]]
+    familles: NotRequired[list[SSGameFranchise]]
     medias: list[SSGameMedia]
     roms: NotRequired[list[SSGameRom]]
+
+
+# Every reply carries the account's allowances alongside its payload.
+class SSResult(TypedDict):
+    ssuser: NotRequired[SSUser]
+
+
+class SSGameInfoResult(SSResult):
+    jeu: NotRequired[SSGame]
+
+
+def _drop_no_match_placeholder(games: object) -> object:
+    # With no match, jeuRecherche sends a list holding one empty object.
+    return [game for game in games if game] if isinstance(games, list) else games
+
+
+class SSSearchResult(SSResult):
+    jeux: NotRequired[
+        Annotated[list[SSGame], BeforeValidator(_drop_no_match_placeholder)]
+    ]
+
+
+class SSResponse[T](TypedDict):
+    response: T

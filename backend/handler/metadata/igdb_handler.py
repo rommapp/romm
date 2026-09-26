@@ -1,6 +1,6 @@
 import re
 from collections.abc import Sequence
-from typing import Any, Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict, cast
 
 import httpx
 import pydash
@@ -1042,7 +1042,7 @@ class TwitchAuth(MetadataHandler):
 
         log.info("Twitch token fetched!")
 
-        return token
+        return cast(str, token)
 
     async def get_oauth_token(self) -> str:
         # Use a fake token when running tests

@@ -18,7 +18,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import asyncssh
 from anyio import Path as AnyioPath
@@ -70,7 +70,7 @@ class SSHSyncHandler:
         """
         explicit = sync_config.get("ssh_key_path")
         if explicit and os.path.isfile(explicit):
-            return explicit
+            return cast(str, explicit)
 
         convention_path = self.keys_path / f"{device_id}.pem"
         if convention_path.is_file():

@@ -6,6 +6,7 @@ import socket
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from unittest.mock import MagicMock
 
 import alembic.config
 import pytest
@@ -14,6 +15,7 @@ from joserfc import jwt
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
+from adapters.services import response_validation
 from config import ROMM_DB_DRIVER
 from config.config_manager import ConfigManager
 from handler.auth import auth_handler
@@ -126,6 +128,21 @@ def _ensure_database_exists() -> None:
             if not exists:
                 conn.execute(text(f'CREATE DATABASE "{db_name}"'))
         admin_engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def raise_on_response_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(response_validation, "RAISE_ON_MISMATCH", True)
+
+
+@pytest.fixture
+def lenient(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Production mode: mismatches log to the returned mock instead of raising."""
+    log = MagicMock()
+    monkeypatch.setattr(response_validation, "RAISE_ON_MISMATCH", False)
+    monkeypatch.setattr(response_validation, "_reported", set())
+    monkeypatch.setattr(response_validation, "log", log)
+    return log
 
 
 @pytest.fixture(scope="session", autouse=True)

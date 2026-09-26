@@ -214,17 +214,31 @@ class TestHashMatch:
         assert result["ra_id"] == 17353
         assert result["ra_metadata"]["hash_match"] is True
 
-    async def test_failed_details_for_an_indexed_hash_are_unavailable(
+    async def test_a_failed_details_request_stays_a_failure(
         self, handler: RAHandler, rom: MagicMock, monkeypatch: pytest.MonkeyPatch
     ):
+        unavailable = HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
         monkeypatch.setattr(
-            handler.ra_service, "get_game_extended_details", AsyncMock(return_value={})
+            handler.ra_service,
+            "get_game_extended_details",
+            AsyncMock(side_effect=unavailable),
         )
 
         with pytest.raises(HTTPException) as exc_info:
             await handler.get_rom(rom, ra_hash="abcdef")
 
-        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert exc_info.value is unavailable
+
+    async def test_a_game_ra_retired_since_the_index_is_a_miss(
+        self, handler: RAHandler, rom: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            handler.ra_service,
+            "get_game_extended_details",
+            AsyncMock(return_value=None),
+        )
+
+        assert (await handler.get_rom(rom, ra_hash="abcdef"))["ra_id"] is None
 
     async def test_an_id_match_whose_hash_ra_lists_is_a_hash_match(
         self, handler: RAHandler, rom: MagicMock

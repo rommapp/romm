@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -534,7 +534,7 @@ def metadata_file(tmp_path, monkeypatch, snes_platform: Platform) -> Path:
         snes_platform.fs_slug
     )
     platform_dir.mkdir(parents=True)
-    return platform_dir / "metadata.pegasus.txt"
+    return cast(Path, platform_dir / "metadata.pegasus.txt")
 
 
 def _write_metadata(metadata_file: Path, content: str | bytes) -> None:

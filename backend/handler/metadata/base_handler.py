@@ -4,7 +4,7 @@ import re
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, Mapping, NotRequired, TypedDict
+from typing import TYPE_CHECKING, Any, Final, Mapping, NotRequired, TypedDict, cast
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from fastapi import HTTPException, status
@@ -268,7 +268,7 @@ class MetadataHandler(abc.ABC):
         index_entry = await async_cache.hget(index_key, serial_code.upper())
         if index_entry:
             index_entry = json.loads(index_entry)
-            return index_entry["title"]
+            return cast(str | None, index_entry["title"])
 
         return None
 
@@ -344,7 +344,9 @@ class MetadataHandler(abc.ABC):
 
     @staticmethod
     async def _switch_titledb_entry(title_id: str) -> dict[str, Any] | None:
-        return await hget_json(SWITCH_TITLEDB_INDEX_KEY, title_id)
+        return cast(
+            dict[str, Any] | None, await hget_json(SWITCH_TITLEDB_INDEX_KEY, title_id)
+        )
 
     @classmethod
     async def _switch_product_id_entry(cls, product_id: str) -> dict[str, Any] | None:

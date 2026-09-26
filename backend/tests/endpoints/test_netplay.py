@@ -1,6 +1,7 @@
 """The netplay room listing must not reveal rooms for a hidden rom."""
 
 from datetime import timedelta
+from typing import cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -54,7 +55,10 @@ def _room(rom_id: int) -> NetplayRoom:
 
 @pytest.fixture
 def rooms(mocker) -> Mock:
-    return mocker.patch.object(netplay_handler, "get_all", AsyncMock(return_value={}))
+    return cast(
+        Mock,
+        mocker.patch.object(netplay_handler, "get_all", AsyncMock(return_value={})),
+    )
 
 
 def test_listing_shows_rooms_for_a_visible_rom(client, viewer_user, rom, rooms):

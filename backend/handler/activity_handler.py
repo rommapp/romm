@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 from endpoints.responses.activity import ActivityClearSchema
 from handler.database import (
@@ -184,7 +184,7 @@ class ActivityHandler:
         if not raw:
             return None
         try:
-            return json.loads(raw)
+            return cast(ActivityEntry | None, json.loads(raw))
         except ValueError:
             return None
 
