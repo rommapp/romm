@@ -19,6 +19,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 vi.mock("@/v2/utils/pinnedMedia", () => ({
+  PINNED_MEDIA_MAX_ITEMS: 3,
   pinnedMediaKeys: (rom: DetailedRom) =>
     rom.rom_user.pinned_media ?? ["file:1"],
   togglePinnedMediaKey: (keys: string[], key: string) =>
@@ -27,9 +28,11 @@ vi.mock("@/v2/utils/pinnedMedia", () => ({
 
 const update = vi.mocked(romApi.updateUserRomProps);
 
+let nextRomId = 1;
+
 function makeRom(pinnedMedia: string[] | null): DetailedRom {
   return reactive({
-    id: 3,
+    id: nextRomId++,
     rom_user: { pinned_media: pinnedMedia } as RomUserSchema,
   }) as DetailedRom;
 }
@@ -57,20 +60,22 @@ describe("usePinnedMedia", () => {
     expect(isCustomized.value).toBe(true);
     await settle();
     expect(update).toHaveBeenCalledWith({
-      romId: 3,
+      romId: rom.id,
       data: { pinned_media: ["file:1", "file:2"] },
     });
   });
 
-  it("sends rapid toggles one after another, in click order", async () => {
+  it("sends toggles from every caller one after another, in click order", async () => {
     const releases: (() => void)[] = [];
     update.mockImplementation(
       () => new Promise((resolve) => releases.push(() => resolve({} as never))),
     );
-    const { togglePin } = usePinnedMedia(makeRom([]));
+    const rom = makeRom([]);
+    const screenshots = usePinnedMedia(rom);
+    const artwork = usePinnedMedia(rom);
 
-    togglePin("file:1");
-    togglePin("file:2");
+    screenshots.togglePin("file:1");
+    artwork.togglePin("file:2");
     await settle();
     expect(update).toHaveBeenCalledTimes(1);
 
@@ -80,6 +85,8 @@ describe("usePinnedMedia", () => {
     expect(update.mock.calls[1][0].data).toEqual({
       pinned_media: ["file:1", "file:2"],
     });
+    releases[1]();
+    await settle();
   });
 
   it("restores the previous pins and reports a failed write", async () => {
@@ -97,6 +104,45 @@ describe("usePinnedMedia", () => {
     );
   });
 
+  it("keeps a newer pin when an earlier write fails", async () => {
+    update
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({} as never);
+    const rom = makeRom([]);
+    const { togglePin } = usePinnedMedia(rom);
+
+    togglePin("file:1");
+    togglePin("file:2");
+    await settle();
+    expect(rom.rom_user.pinned_media).toEqual(["file:1", "file:2"]);
+    expect(snackbarError).toHaveBeenCalledOnce();
+  });
+
+  it("restores the last saved pins when every pending write fails", async () => {
+    update.mockRejectedValue(new Error("offline"));
+    const rom = makeRom(["file:9"]);
+    const { togglePin } = usePinnedMedia(rom);
+
+    togglePin("file:1");
+    togglePin("file:2");
+    await settle();
+    expect(rom.rom_user.pinned_media).toEqual(["file:9"]);
+  });
+
+  it("refuses a pin past the limit without writing", async () => {
+    const rom = makeRom(["file:1", "file:2", "file:3"]);
+    const { togglePin } = usePinnedMedia(rom);
+
+    togglePin("file:4");
+    await settle();
+    expect(rom.rom_user.pinned_media).toEqual(["file:1", "file:2", "file:3"]);
+    expect(update).not.toHaveBeenCalled();
+    expect(snackbarError).toHaveBeenCalledWith(
+      "rom.pinned-media-limit",
+      expect.anything(),
+    );
+  });
+
   it("resets to the default selection", async () => {
     update.mockResolvedValue({} as never);
     const rom = makeRom(["file:9"]);
@@ -106,7 +152,7 @@ describe("usePinnedMedia", () => {
     expect(rom.rom_user.pinned_media).toBeNull();
     await settle();
     expect(update).toHaveBeenCalledWith({
-      romId: 3,
+      romId: rom.id,
       data: { pinned_media: null },
     });
   });

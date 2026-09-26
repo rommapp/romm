@@ -1,9 +1,6 @@
 <script setup lang="ts">
-// MediaShelf: art assets of mixed shapes (a 42x680 box spine next to a 16:9
-// title screen) laid out as a shelf rather than a grid. Each asset keeps its
-// real proportions, capped to a shared height, and stands on a common
-// baseline. Images open a fullscreen RCarousel lightbox on click; videos play
-// inline.
+// MediaShelf: mixed-shape art (a box spine next to a 16:9 screenshot) on a
+// shared baseline, each asset keeping its own proportions.
 import { RCarousel, RIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -123,8 +120,7 @@ function close() {
 
 <style scoped>
 .r-v2-media-shelf {
-  /* Shared cap every asset is measured against: the tallest it may stand and
-     the widest it may run. */
+  /* Shared cap on every asset's height and width. */
   --art-h: 232px;
   --art-w: min(28rem, calc(100vw - 4rem));
   display: flex;
@@ -181,19 +177,15 @@ function close() {
   max-width: var(--art-w);
   max-height: var(--art-h);
   border-radius: var(--r-radius-art);
-  /* drop-shadow, not box-shadow: most of these scans are transparent PNGs
-     (3D boxes, logos, marquees), so the shadow follows the artwork's own
-     silhouette instead of outlining an invisible rectangle. */
+  /* drop-shadow follows the silhouette of transparent PNGs (boxes, logos). */
   filter: drop-shadow(0 12px 20px color-mix(in srgb, black 45%, transparent));
   transition:
     transform var(--r-motion-med) var(--r-motion-ease-out),
     filter var(--r-motion-med) var(--r-motion-ease-out);
 }
 
-/* Height-pinned with a free width, so the element tracks the clip's own
-   ratio once metadata lands and the backing never shows as side bars. The
-   backing only covers the wait, since a video carries no intrinsic size
-   until then. */
+/* Free width tracks the clip's ratio once metadata lands; the backing only
+   covers the wait before then. */
 .r-v2-media-shelf__media--video {
   height: var(--art-h);
   background: var(--r-color-cover-placeholder);

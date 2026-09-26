@@ -8,6 +8,9 @@ import { mediaKey } from "@/v2/utils/mediaKeys";
 import { resolveRomArtwork } from "@/v2/utils/romArtwork";
 import { versionedRomFileUrl } from "@/v2/utils/romFiles";
 
+// Mirrors PINNED_MEDIA_MAX_ITEMS in backend/models/rom.py.
+export const PINNED_MEDIA_MAX_ITEMS = 100;
+
 // Previewable image extensions for screenshots in the game folder. Mirrors
 // the canonical "Web Images" set.
 const SCREENSHOT_EXTENSIONS = new Set([

@@ -313,6 +313,7 @@
   "pick-cover": "Wybierz okładkę",
   "pin-to-overview": "Przypnij do przeglądu",
   "pinned-media-empty": "Nic nie jest przypięte. Przypinaj zrzuty ekranu i grafiki na karcie Media.",
+  "pinned-media-limit": "Możesz przypiąć maksymalnie {n} elementów",
   "pinned-media-reset": "Przywróć domyślne",
   "pinned-media-update-failed": "Nie udało się zaktualizować przypiętych multimediów",
   "play": "Graj",

@@ -313,6 +313,7 @@
   "pick-cover": "Choisir une jaquette",
   "pin-to-overview": "Épingler à l'aperçu",
   "pinned-media-empty": "Rien d'épinglé. Épinglez des captures d'écran et des illustrations depuis l'onglet Media.",
+  "pinned-media-limit": "Vous pouvez épingler jusqu'à {n} éléments",
   "pinned-media-reset": "Rétablir par défaut",
   "pinned-media-update-failed": "Échec de la mise à jour des médias épinglés",
   "play": "Jouer",

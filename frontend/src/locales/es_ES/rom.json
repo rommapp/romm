@@ -313,6 +313,7 @@
   "pick-cover": "Elige una portada",
   "pin-to-overview": "Fijar en el resumen",
   "pinned-media-empty": "No hay nada fijado. Fija capturas y material gráfico desde la pestaña Media.",
+  "pinned-media-limit": "Puedes fijar hasta {n} elementos",
   "pinned-media-reset": "Restablecer valores predeterminados",
   "pinned-media-update-failed": "Error al actualizar los medios fijados",
   "play": "Jugar",

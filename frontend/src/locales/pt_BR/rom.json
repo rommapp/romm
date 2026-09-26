@@ -313,6 +313,7 @@
   "pick-cover": "Escolher uma capa",
   "pin-to-overview": "Fixar na visão geral",
   "pinned-media-empty": "Nada fixado. Fixe capturas de tela e arte na aba Mídia.",
+  "pinned-media-limit": "Você pode fixar até {n} itens",
   "pinned-media-reset": "Restaurar padrão",
   "pinned-media-update-failed": "Falha ao atualizar a mídia fixada",
   "play": "Jogar",

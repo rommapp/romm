@@ -313,6 +313,7 @@
   "pick-cover": "Pick a cover",
   "pin-to-overview": "Pin to overview",
   "pinned-media-empty": "Nothing pinned. Pin screenshots and artwork from the Media tab.",
+  "pinned-media-limit": "You can pin up to {n} items",
   "pinned-media-reset": "Reset to default",
   "pinned-media-update-failed": "Failed to update pinned media",
   "play": "Play",

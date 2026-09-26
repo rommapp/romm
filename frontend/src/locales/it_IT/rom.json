@@ -313,6 +313,7 @@
   "pick-cover": "Scegli una copertina",
   "pin-to-overview": "Fissa nella panoramica",
   "pinned-media-empty": "Nulla di fissato. Fissa screenshot e artwork dalla scheda Media.",
+  "pinned-media-limit": "Puoi fissare fino a {n} elementi",
   "pinned-media-reset": "Ripristina predefiniti",
   "pinned-media-update-failed": "Impossibile aggiornare i media fissati",
   "play": "Gioca",

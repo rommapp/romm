@@ -313,6 +313,7 @@
   "pick-cover": "カバーを選択",
   "pin-to-overview": "概要にピン留め",
   "pinned-media-empty": "ピン留めされた項目はありません。Media タブからスクリーンショットやアートワークをピン留めできます。",
+  "pinned-media-limit": "ピン留めできるのは最大 {n} 件までです",
   "pinned-media-reset": "デフォルトに戻す",
   "pinned-media-update-failed": "ピン留めしたメディアの更新に失敗しました",
   "play": "プレイ",

@@ -313,6 +313,7 @@
   "pick-cover": "选择封面",
   "pin-to-overview": "固定到概览",
   "pinned-media-empty": "尚未固定任何内容。可在“媒体”标签页中固定截图和美术图。",
+  "pinned-media-limit": "最多可固定 {n} 项",
   "pinned-media-reset": "恢复默认",
   "pinned-media-update-failed": "更新已固定的媒体失败",
   "play": "开始游玩",

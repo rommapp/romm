@@ -313,6 +313,7 @@
   "pick-cover": "Vybrat obal",
   "pin-to-overview": "Připnout do přehledu",
   "pinned-media-empty": "Nic není připnuto. Připněte screenshoty a grafiku na kartě Media.",
+  "pinned-media-limit": "Můžete připnout nejvýše {n} položek",
   "pinned-media-reset": "Obnovit výchozí",
   "pinned-media-update-failed": "Nepodařilo se aktualizovat připnutá média",
   "play": "Hrát",

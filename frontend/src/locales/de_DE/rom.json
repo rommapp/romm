@@ -313,6 +313,7 @@
   "pick-cover": "Cover auswählen",
   "pin-to-overview": "An Übersicht anheften",
   "pinned-media-empty": "Nichts angeheftet. Hefte Screenshots und Artwork im Tab Media an.",
+  "pinned-media-limit": "Du kannst bis zu {n} Elemente anheften",
   "pinned-media-reset": "Auf Standard zurücksetzen",
   "pinned-media-update-failed": "Angeheftete Medien konnten nicht aktualisiert werden",
   "play": "Spielen",

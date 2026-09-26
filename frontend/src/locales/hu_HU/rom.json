@@ -313,6 +313,7 @@
   "pick-cover": "Borító kiválasztása",
   "pin-to-overview": "Kitűzés az áttekintésre",
   "pinned-media-empty": "Nincs kitűzött elem. Tűzz ki képernyőképeket és grafikákat a Media lapon.",
+  "pinned-media-limit": "Legfeljebb {n} elemet tűzhetsz ki",
   "pinned-media-reset": "Alapértelmezés visszaállítása",
   "pinned-media-update-failed": "A kitűzött médiák frissítése sikertelen",
   "play": "Indítás",

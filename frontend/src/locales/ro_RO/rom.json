@@ -313,6 +313,7 @@
   "pick-cover": "Alege o copertă",
   "pin-to-overview": "Fixează în prezentare",
   "pinned-media-empty": "Nimic fixat. Fixează capturi de ecran și grafică din fila Media.",
+  "pinned-media-limit": "Poți fixa cel mult {n} elemente",
   "pinned-media-reset": "Resetează la implicit",
   "pinned-media-update-failed": "Actualizarea elementelor media fixate a eșuat",
   "play": "Joacă",

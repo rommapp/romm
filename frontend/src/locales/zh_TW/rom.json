@@ -313,6 +313,7 @@
   "pick-cover": "選擇封面",
   "pin-to-overview": "釘選到概覽",
   "pinned-media-empty": "尚未釘選任何內容。可在 Media 分頁中釘選截圖和美術圖。",
+  "pinned-media-limit": "最多可釘選 {n} 項",
   "pinned-media-reset": "恢復預設",
   "pinned-media-update-failed": "更新已釘選的媒體失敗",
   "play": "遊玩",

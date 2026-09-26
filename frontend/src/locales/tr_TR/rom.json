@@ -313,6 +313,7 @@
   "pick-cover": "Kapak seç",
   "pin-to-overview": "Genel bakışa sabitle",
   "pinned-media-empty": "Sabitlenmiş öğe yok. Medya sekmesinden ekran görüntülerini ve görselleri sabitleyin.",
+  "pinned-media-limit": "En fazla {n} öğe sabitleyebilirsiniz",
   "pinned-media-reset": "Varsayılana sıfırla",
   "pinned-media-update-failed": "Sabitlenmiş medya güncellenemedi",
   "play": "Oyna",
