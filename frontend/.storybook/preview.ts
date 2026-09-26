@@ -15,6 +15,11 @@ import { ChromeLabelsKey } from "../src/v2/lib/a11y/chromeLabels";
 import "../src/v2/styles/global.css";
 import { createChromeLabels } from "../src/v2/utils/chromeLabels";
 import { ROMM_STORYBOOK_VIEWPORTS } from "./rommViewports";
+import {
+  INPUT_GLOBAL,
+  INPUT_TOOLBAR,
+  withInputModality,
+} from "./withInputModality";
 
 // Mirror AppLayout/AuthLayout so html[data-bp] CSS matches useBreakpoint() in the iframe.
 installBreakpointAttribute();
@@ -62,8 +67,12 @@ setup((app) => {
 });
 
 const preview: Preview = {
+  globalTypes: {
+    [INPUT_GLOBAL]: INPUT_TOOLBAR,
+  },
   initialGlobals: {
     viewport: { value: "rommDesktopMd" },
+    [INPUT_GLOBAL]: "mouse",
   },
   parameters: {
     layout: "centered",
@@ -102,6 +111,7 @@ const preview: Preview = {
     },
   },
   decorators: [
+    withInputModality,
     withThemeByClassName({
       themes: {
         dark: "r-v2 r-v2-dark v-theme--dark",
