@@ -40,6 +40,14 @@ async def auth_middleware(
     return await handler(req)
 
 
+def _failed(reason: object) -> HTTPException:
+    log.error("RetroAchievements request failed: %s", reason)
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="RetroAchievements did not answer the request, try again later",
+    )
+
+
 def _parse[T](tp: type[T], body: bytes, *, source: str) -> T | None:
     # RA answers an unknown id with 200 and an empty list.
     if body.strip() == b"[]" and get_origin(tp) is not list:
@@ -62,6 +70,10 @@ class RetroAchievementsService:
     async def _request[T](
         self, url: str, tp: type[T], request_timeout: int = 120
     ) -> T | None:
+        """Fetch one endpoint, raising a 503 when the request fails.
+
+        Returns None only when RA answers that it has no such entity.
+        """
         source = f"RetroAchievements {yarl.URL(url).name}"
         aiohttp_session = ctx_aiohttp_session.get()
         log.debug(
@@ -95,11 +107,9 @@ class RetroAchievementsService:
                 # Retry after 2 seconds if rate limit hit
                 await asyncio.sleep(2)
             else:
-                log.error(err)
-                return None
+                raise _failed(err) from err
         except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
-            return None
+            raise _failed(exc) from exc
 
         try:
             log.debug(
@@ -117,17 +127,9 @@ class RetroAchievementsService:
             res.raise_for_status()
             return _parse(tp, await res.read(), source=source)
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as err:
-            if (
-                isinstance(err, aiohttp.ClientResponseError)
-                and err.status == http.HTTPStatus.UNAUTHORIZED
-            ):
-                return None
-
-            log.error(err)
-            return None
+            raise _failed(err) from err
         except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
-            return None
+            raise _failed(exc) from exc
 
     async def get_achievement_of_the_week(self) -> dict[str, Any] | None:
         """Retrieve the achievement of the week.

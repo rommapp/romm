@@ -81,6 +81,53 @@ class TestRetroAchievementsServiceUnit:
         assert "Can't connect to RetroAchievements" in exc_info.value.detail
 
     @pytest.mark.asyncio
+    async def test_request_raises_when_ra_refuses(self, service):
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=500
+        )
+        mock_session = AsyncMock()
+        mock_session.get.return_value = mock_response
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch(
+            "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://retroachievements.org/API", object)
+
+        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    @pytest.mark.asyncio
+    async def test_request_reads_an_unknown_id_as_none(self, service):
+        mock_response = MagicMock()
+        mock_response.read = AsyncMock(return_value=b"[]")
+        mock_response.raise_for_status.return_value = None
+        mock_session = AsyncMock()
+        mock_session.get.return_value = mock_response
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch(
+            "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
+        ):
+            assert await service.get_game_extended_details(999999) is None
+
+    @pytest.mark.asyncio
+    async def test_a_failed_progress_page_aborts_the_iteration(self, service):
+        first_page = {"Count": 500, "Total": 1000, "Results": [{}] * 500}
+        unavailable = HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+        with patch.object(
+            service,
+            "get_user_completion_progress",
+            AsyncMock(side_effect=[first_page, unavailable]),
+        ):
+            with pytest.raises(HTTPException):
+                async for _ in service.iter_user_completion_progress("user"):
+                    pass
+
+    @pytest.mark.asyncio
     async def test_request_acquires_rate_limiter(self, service):
         """Test that the request reserves a rate-limiter slot before sending."""
         mock_response = MagicMock()
@@ -189,13 +236,11 @@ class TestRetroAchievementsServiceIntegration:
             "adapters.services.retroachievements.ctx_aiohttp_session",
             mock_ctx_aiohttp_session,
         ):
-            result = await service.get_user_completion_progress("arcanecraeda", limit=5)
+            # The recording caught RA rejecting the key, which is a failed request.
+            with pytest.raises(HTTPException) as exc_info:
+                await service.get_user_completion_progress("arcanecraeda", limit=5)
 
-        assert result is None or isinstance(result, dict)
-        if result:  # Non-empty response
-            assert "Total" in result
-            assert "Results" in result
-            assert isinstance(result["Results"], list)
+        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
 
     @pytest.mark.asyncio
     @pytest.mark.vcr
