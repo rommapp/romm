@@ -1,5 +1,7 @@
 import os
 import re
+import time
+from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
@@ -10,6 +12,7 @@ from fastapi import status
 from sqlalchemy import update
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from endpoints.saves import _apply_datetime_tag
 from handler.auth import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import (
@@ -4135,3 +4138,27 @@ class TestSaveRename:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert save_file.exists()
+
+
+class TestApplyDatetimeTag:
+    @pytest.fixture
+    def sao_paulo_tz(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+        monkeypatch.setenv("TZ", "America/Sao_Paulo")
+        time.tzset()
+        yield
+        monkeypatch.undo()
+        time.tzset()
+
+    @pytest.mark.usefixtures("sao_paulo_tz")
+    def test_stamps_the_server_local_time(self):
+        captured_at = datetime(2026, 9, 22, 22, 10, 13, tzinfo=timezone.utc)
+
+        class FrozenDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime.fromtimestamp(captured_at.timestamp(), tz)
+
+        with mock.patch("endpoints.saves.datetime", FrozenDatetime):
+            tagged = _apply_datetime_tag("suikoden [2020-01-01_00-00-00].srm")
+
+        assert tagged == "suikoden [2026-09-22_19-10-13].srm"
