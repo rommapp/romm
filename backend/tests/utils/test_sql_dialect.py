@@ -19,6 +19,7 @@ from utils.sql_dialect import (
     json_array_contains_any,
     json_array_contains_value,
     nulls_last,
+    order_terms,
 )
 
 _T = sa.table("t", sa.column("v", sa.Integer), sa.column("tags", CustomJSON()))
@@ -86,6 +87,18 @@ class TestNullsLastSpelling:
         self, dialect: sa.Dialect, descending: bool, expected: str
     ):
         assert _order_by_sql(descending, dialect) == expected
+
+    def test_stays_unparenthesised_inside_further_order_terms(self):
+        """`(t.v IS NULL, t.v ASC)` would be a row value MariaDB cannot parse."""
+        ranked: DialectCase[int] = DialectCase(
+            postgresql=_T.c.v.asc(),
+            mysql=order_terms(nulls_last(_T.c.v, False), _T.c.tags.desc()),
+        )
+        statement = sa.select(_T.c.v).order_by(ranked)
+
+        assert compile_sql(statement, MARIADB_DIALECT).split("ORDER BY ")[-1] == (
+            "t.v IS NULL, t.v ASC, t.tags DESC"
+        )
 
     def test_direction_is_part_of_the_cache_key(self):
         """A shared cache key would replay one direction's SQL for the other."""

@@ -49,7 +49,7 @@ from sqlalchemy.orm import (
     selectinload,
     undefer,
 )
-from sqlalchemy.sql.elements import ClauseList, ColumnElement, UnaryExpression
+from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
 
 from config.config_manager import config_manager as cm
@@ -105,6 +105,7 @@ from utils.sql_dialect import (
     json_array_contains_any,
     json_array_contains_value,
     nulls_last,
+    order_terms,
 )
 
 from .base_handler import DBBaseHandler, affected_rows
@@ -1804,9 +1805,9 @@ class DBRomsHandler(DBBaseHandler):
             order_clause = DialectCase(
                 postgresql=order_clause,
                 mysql=(
-                    ClauseList(order_clause, relevance_clause)
+                    order_terms(order_clause, relevance_clause)
                     if order_by
-                    else ClauseList(relevance_clause, order_clause)
+                    else order_terms(relevance_clause, order_clause)
                 ),
             )
 

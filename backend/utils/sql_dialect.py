@@ -15,7 +15,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import ClauseElement, ColumnElement, func
 from sqlalchemy.sql.compiler import DDLCompiler, SQLCompiler
 from sqlalchemy.sql.ddl import ExecutableDDLElement
-from sqlalchemy.sql.elements import ClauseList
+from sqlalchemy.sql.elements import ClauseList, TextClause
 from sqlalchemy.sql.operators import OperatorType
 from sqlalchemy.sql.visitors import InternalTraversal
 
@@ -85,6 +85,15 @@ def _dialect_case_mysql(
     return compiler.process(element.mysql, **kw)
 
 
+def order_terms(*terms: ColumnElement[Any] | TextClause) -> ClauseList:
+    """Several ORDER BY terms as one element, for a `DialectCase` branch.
+
+    Never parenthesised: grouped, `(a, b)` reads as a row value and MariaDB
+    rejects the direction inside it.
+    """
+    return ClauseList(*terms, group=False)
+
+
 def nulls_last[T](sort_key: SQLColumnExpression[T], descending: bool) -> DialectCase[T]:
     """An ORDER BY term that sorts NULL values of `sort_key` after every other value."""
     directed = sort_key.desc() if descending else sort_key.asc()
@@ -94,7 +103,7 @@ def nulls_last[T](sort_key: SQLColumnExpression[T], descending: bool) -> Dialect
         # PostgreSQL's `idx_roms_<column>_desc` indexes are declared with exactly
         # this spelling, so the descending sort reads out of them.
         postgresql=directed.nulls_last(),
-        mysql=directed if descending else ClauseList(sort_key.is_(None), directed),
+        mysql=directed if descending else order_terms(sort_key.is_(None), directed),
     )
 
 

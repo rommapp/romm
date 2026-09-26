@@ -145,6 +145,38 @@ class TestMetadataSortQueryShape:
         # Nothing computes NULL placement per row any more.
         assert "IS NULL" not in order_sql
 
+    @pytest.mark.parametrize(
+        ("dialect", "order_dir", "expected"),
+        [
+            (
+                MARIADB_DIALECT,
+                "asc",
+                "roms.generated_player_count IS NULL, "
+                "roms.generated_player_count ASC, MATCH(",
+            ),
+            (MARIADB_DIALECT, "desc", "roms.generated_player_count DESC, MATCH("),
+            (
+                POSTGRESQL_DIALECT,
+                "asc",
+                "roms.generated_player_count ASC NULLS LAST, roms.id ASC",
+            ),
+            (
+                POSTGRESQL_DIALECT,
+                "desc",
+                "roms.generated_player_count DESC NULLS LAST, roms.id DESC",
+            ),
+        ],
+    )
+    def test_search_relevance_follows_the_null_placement_terms(
+        self, dialect: sa.Dialect, order_dir: str, expected: str
+    ):
+        """Relevance only ranks on the FULLTEXT engines, after the explicit sort."""
+        query, _ = db_rom_handler.get_roms_query(
+            order_by="player_count", order_dir=order_dir, search_term="final fantasy"
+        )
+
+        assert compile_sql(query, dialect).split("ORDER BY ")[-1].startswith(expected)
+
     def test_rom_column_sort_is_unchanged(self):
         query, sort_key = db_rom_handler.get_roms_query(order_by="fs_size_bytes")
 
@@ -284,6 +316,31 @@ class TestMetadataSortResults:
             "two",
             "four",
         ]
+
+    @pytest.mark.parametrize(
+        ("order_dir", "expected"),
+        [
+            ("asc", ["final fantasy solo", "final fantasy two", "final fantasy four"]),
+            ("desc", ["final fantasy four", "final fantasy two", "final fantasy solo"]),
+        ],
+    )
+    def test_search_ranks_after_the_sort(
+        self, platform: Platform, order_dir: str, expected: list[str]
+    ):
+        # `player_count` falls back to "1", so "solo" needs no metadata.
+        _make_rom(platform, "final fantasy four", igdb_metadata={"player_count": "4"})
+        _make_rom(platform, "final fantasy solo")
+        _make_rom(platform, "final fantasy two", igdb_metadata={"player_count": "2"})
+        _make_rom(platform, "zelda", igdb_metadata={"player_count": "3"})
+
+        assert (
+            _ordered_names(
+                order_by="player_count",
+                order_dir=order_dir,
+                search_term="final fantasy",
+            )
+            == expected
+        )
 
     def test_null_bucket_ties_break_on_the_rom_id(self, platform: Platform):
         """Unmatched roms stay in the result, trail the dated ones in both
