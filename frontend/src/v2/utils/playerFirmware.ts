@@ -2,7 +2,7 @@
 // never selectable, so a platform whose only BIOS is gone boots with none.
 
 // Only these fields are read, so both `FirmwareSchema` and lighter shapes fit.
-interface FirmwareLike {
+export interface FirmwareLike {
   id: number;
   file_name: string;
   missing_from_fs: boolean;

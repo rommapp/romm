@@ -42,9 +42,24 @@ describe("firmwareExternalFiles", () => {
         [
           { id: 1, file_name: "../other.rom", missing_from_fs: false },
           { id: 2, file_name: "folder\\file.rom", missing_from_fs: false },
+          { id: 3, file_name: "..", missing_from_fs: false },
+          { id: 4, file_name: ".", missing_from_fs: false },
         ],
         null,
       ),
     ).toEqual({});
+  });
+
+  it("encodes the name in the URL but keeps it verbatim in the path", () => {
+    expect(
+      firmwareExternalFiles(
+        "puae",
+        [{ id: 5, file_name: "kick #1?.rom", missing_from_fs: false }],
+        null,
+      ),
+    ).toEqual({
+      "/home/web_user/retroarch/userdata/system/kick #1?.rom":
+        "/api/firmware/5/content/kick%20%231%3F.rom",
+    });
   });
 });
