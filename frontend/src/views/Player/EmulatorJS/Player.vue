@@ -37,7 +37,7 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
 } from "@/utils";
-import { puaeFirmwareFiles } from "@/utils/emulatorjsFirmware";
+import { firmwareExternalFiles } from "@/utils/emulatorjsFirmware";
 import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
 import {
   saveSave,
@@ -336,7 +336,11 @@ window.EJS_gameUrl = getDownloadPath({
 window.EJS_biosUrl = props.bios
   ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
   : "";
-window.EJS_externalFiles = puaeFirmwareFiles(window.EJS_core, props.firmware);
+window.EJS_externalFiles = firmwareExternalFiles(
+  window.EJS_core,
+  props.firmware,
+  props.bios,
+);
 window.EJS_player = "#game";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
