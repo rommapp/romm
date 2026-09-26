@@ -1,7 +1,7 @@
 import asyncio
 import enum
 import functools
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 import pydash
 import socketio
@@ -1817,13 +1817,20 @@ async def download_rom_resources(
                 await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
 
+class ScannedAsset(TypedDict):
+    file_path: str
+    file_name: str
+    file_size_bytes: int
+    content_hash: NotRequired[str | None]
+
+
 async def _scan_asset(
     file_name: str, asset_path: str, should_hash: bool = False
-) -> dict[str, str | int | None]:
+) -> ScannedAsset:
     file_path = f"{asset_path}/{file_name}"
     file_size = await fs_asset_handler.get_file_size(file_path)
 
-    result: dict[str, str | int | None] = {
+    result: ScannedAsset = {
         "file_path": asset_path,
         "file_name": file_name,
         "file_size_bytes": file_size,

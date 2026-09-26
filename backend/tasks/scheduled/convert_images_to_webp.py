@@ -108,7 +108,7 @@ class ConversionStats:
     errors: int = 0
     total: int = 0
 
-    def update(self, **kwargs: object) -> None:
+    def update(self, **kwargs: int) -> None:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)

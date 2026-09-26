@@ -226,7 +226,7 @@ class ScanStats:
         await socket_manager.emit("scan:update_stats", stats)
 
     async def update(
-        self, socket_manager: socketio.AsyncRedisManager, **kwargs: object
+        self, socket_manager: socketio.AsyncRedisManager, **kwargs: int
     ) -> None:
         async with self._lock:
             for key, value in kwargs.items():

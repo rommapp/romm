@@ -26,15 +26,18 @@ import io
 import lzma
 import os
 import struct
-from typing import BinaryIO
+from typing import TYPE_CHECKING, BinaryIO
 
 import zstandard
-from _hashlib import HASH
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+
+if TYPE_CHECKING:
+    # CPython's private OpenSSL hash type, which hashlib.md5() is typed as.
+    from _hashlib import HASH
 
 # Container extensions RAHasher can't read but which we can hash natively. The
 # real container is still detected by magic; the extension only gates whether

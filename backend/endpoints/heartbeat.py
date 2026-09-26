@@ -289,7 +289,7 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
     # Check authentication - only allow public access if no admin users
     # If admin users exist, this would need authentication (but won't be called during setup)
 
-    # If there are admin users already, enforce the USERS_WRITE scope.
+    # If there are admin users already, enforce the PLATFORMS_READ scope.
     if (
         Scope.PLATFORMS_READ not in request.auth.scopes
         and len(db_user_handler.get_admin_users()) > 0
@@ -389,7 +389,7 @@ async def create_setup_platforms(
         - message: success or error message
     """
 
-    # If there are admin users already, enforce the USERS_WRITE scope.
+    # If there are admin users already, enforce the PLATFORMS_WRITE scope.
     if (
         Scope.PLATFORMS_WRITE not in request.auth.scopes
         and len(db_user_handler.get_admin_users()) > 0

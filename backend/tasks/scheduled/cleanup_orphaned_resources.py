@@ -55,7 +55,7 @@ class CleanupStats:
     removed_fs_platforms: int = 0
     removed_fs_roms: int = 0
 
-    def update(self, **kwargs: object) -> None:
+    def update(self, **kwargs: int) -> None:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)

@@ -28,9 +28,7 @@ class FSFirmwareHandler(FSHandler):
         try:
             fs_firmware_files = await self.list_files(path=firmware_path)
         except FileNotFoundError as e:
-            raise FirmwareNotFoundException(
-                f"Firmware not found for platform {platform_fs_slug}"
-            ) from e
+            raise FirmwareNotFoundException(platform_fs_slug) from e
 
         return [f for f in self.exclude_single_files(fs_firmware_files)]
 
