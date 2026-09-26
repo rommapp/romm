@@ -14,7 +14,6 @@ from adapters.services.steamgriddb import (
 )
 from adapters.services.steamgriddb_types import (
     SGDBDimension,
-    SGDBGrid,
     SGDBMime,
     SGDBStyle,
     SGDBTag,
@@ -23,10 +22,10 @@ from adapters.services.steamgriddb_types import (
 
 INVALID_GAME_ID = 999999
 
-GRID: SGDBGrid = {
+GRID = {
     "id": 1,
     "score": 0,
-    "style": SGDBStyle.MATERIAL,
+    "style": "material",
     "url": "https://example.com/grid1.png",
     "thumb": "https://example.com/thumb1.png",
     "author": {"name": "TestUser", "steam64": "123", "avatar": ""},

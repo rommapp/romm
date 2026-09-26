@@ -3,10 +3,12 @@ from typing import NotRequired, TypedDict
 from unittest.mock import MagicMock
 
 import pytest
-from pydantic import ValidationError
 
 from adapters.services import response_validation
-from adapters.services.response_validation import validate_response
+from adapters.services.response_validation import (
+    ResponseMismatchError,
+    validate_response,
+)
 
 
 class Kind(enum.IntEnum):
@@ -23,6 +25,7 @@ class Parent(TypedDict):
     kind: Kind
     child: Child
     note: NotRequired[str]
+    score: NotRequired[float]
 
 
 @pytest.fixture
@@ -31,13 +34,16 @@ def lenient(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(response_validation, "_reported", set())
 
 
-def test_matching_payload_comes_back_unchanged():
-    data = {"id": 1, "kind": 1, "child": {"id": 2, "extra": "kept"}, "other": [1]}
+def test_matching_payload_comes_back_as_sent():
+    data = {
+        "id": 1,
+        "kind": 1,
+        "child": {"id": 2, "extra": "kept"},
+        "score": 80,
+        "other": [1],
+    }
 
-    result = validate_response(Parent, data, source="test")
-
-    assert result == data
-    assert type(result["kind"]) is int
+    assert validate_response(Parent, data, source="test") is data
 
 
 def test_list_payload_is_validated_per_item():
@@ -52,8 +58,15 @@ def test_empty_error_payload_skips_validation(empty: object):
 
 
 def test_mismatch_raises_when_strict():
-    with pytest.raises(ValidationError):
+    with pytest.raises(ResponseMismatchError, match="id"):
         validate_response(Parent, {"id": "x"}, source="test")
+
+
+def test_value_that_fits_only_after_coercion_is_a_mismatch():
+    data = {"id": "1", "kind": 0, "child": {"id": 2}}
+
+    with pytest.raises(ResponseMismatchError, match="id: matches only after coercion"):
+        validate_response(Parent, data, source="test")
 
 
 @pytest.mark.usefixtures("lenient")
