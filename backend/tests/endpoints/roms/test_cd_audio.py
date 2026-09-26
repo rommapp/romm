@@ -850,7 +850,7 @@ async def test_cancelling_mid_read_closes_the_image_and_cleans_up(tmp_path: Path
     release = threading.Event()
     closed = threading.Event()
 
-    def slow_pcm() -> Generator[bytes, None, None]:
+    def slow_pcm() -> Generator[bytes]:
         try:
             reading.set()
             release.wait(5)
@@ -1069,7 +1069,7 @@ def test_leaves_a_lone_disc_without_audio_where_it_is(
 
 
 async def test_reports_a_track_flac_cannot_be_started_for(tmp_path: Path):
-    def silence() -> Generator[bytes, None, None]:
+    def silence() -> Generator[bytes]:
         yield b"\0" * 4
 
     source = cd_audio.AudioSource(

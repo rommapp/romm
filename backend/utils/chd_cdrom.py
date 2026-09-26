@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 import ctypes
 import ctypes.util
 import functools
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 from utils.cue_sheet import AUDIO_SECTOR_BYTES, MAX_TRACKS
 
@@ -154,7 +153,7 @@ class ChdImage:
         self.hunk_bytes: int = header.hunkbytes
         self.total_hunks: int = header.totalhunks
 
-    def __enter__(self) -> ChdImage:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_: object) -> None:

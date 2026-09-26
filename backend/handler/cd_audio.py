@@ -50,7 +50,7 @@ DISC_IMAGE_EXTENSIONS = (".cue", ".gdi", ".chd")
 # A 99-track sheet with full CD-Text is a few tens of KiB.
 MAX_SHEET_BYTES = 1024 * 1024
 
-PcmChunks = Generator[bytes, None, None]
+type PcmChunks = Generator[bytes]
 
 
 class CdAudioUnavailableException(RuntimeError):
