@@ -43,6 +43,11 @@ class PermAction(enum.StrEnum):
     DELETE = "delete"
 
 
+class SystemGroupKey(enum.StrEnum):
+    VIEWER = "viewer"
+    EDITOR = "editor"
+
+
 def _str_enum(enum_cls: type[enum.StrEnum], length: int) -> Enum:
     """A VARCHAR-backed enum that stores the member ``value`` (lowercase).
 
@@ -66,7 +71,8 @@ class PermissionGroup(BaseModel):
     A group carries a read/write/delete matrix over entity types (its
     ``grants``). Exactly one group is the server-wide default (``is_default``)
     applied to new users. ``is_system`` marks the seeded Viewer and Editor groups so
-    the admin UI can warn before editing/deleting them.
+    the admin UI can warn before editing/deleting them, and ``system_key`` finds
+    them whatever an admin renamed them to.
     """
 
     __tablename__ = "permission_groups"
@@ -77,6 +83,9 @@ class PermissionGroup(BaseModel):
     description: Mapped[str] = mapped_column(String(1000), default="")
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+    system_key: Mapped[SystemGroupKey | None] = mapped_column(
+        _str_enum(SystemGroupKey, 16), nullable=True, unique=True, index=True
+    )
     # Optional hex color (e.g. "#7c5cff") used by the admin UI to render the
     # group as a colored pill/dot. NULL falls back to a neutral tone.
     color: Mapped[str | None] = mapped_column(String(9), nullable=True)

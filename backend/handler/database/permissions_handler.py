@@ -10,6 +10,7 @@ from models.permission import (
     PermEntity,
     PermissionGroup,
     PermissionGroupGrant,
+    SystemGroupKey,
     UserPermissionOverride,
 )
 from models.user import User
@@ -116,6 +117,14 @@ class DBPermissionsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore[assignment]
     ) -> PermissionGroup | None:
         return session.scalar(select(PermissionGroup).filter_by(name=name).limit(1))
+
+    @begin_session
+    def get_system_group(
+        self,
+        key: SystemGroupKey,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> PermissionGroup | None:
+        return session.scalar(select(PermissionGroup).filter_by(system_key=key))
 
     @begin_session
     def create_group(

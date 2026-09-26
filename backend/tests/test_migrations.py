@@ -632,29 +632,52 @@ def _system_groups(connection: sa.Connection) -> dict[str, str]:
     return {name: description for name, description in rows}
 
 
+def _system_keys(connection: sa.Connection) -> dict[str, str]:
+    rows = connection.execute(
+        sa.text(
+            "SELECT system_key, name FROM permission_groups "
+            "WHERE system_key IS NOT NULL"
+        )
+    )
+    return {key: name for key, name in rows}
+
+
+GROUP_RENAME = _load_migration("0137_rename_system_groups.py")
+
+
+def _upgrade_group_rename(connection: sa.Connection) -> None:
+    # MariaDB commits the column DDL implicitly, so tests restore head by hand
+    # rather than rolling back.
+    with Operations.context(MigrationContext.configure(connection)):
+        GROUP_RENAME.upgrade()
+    connection.commit()
+
+
 def test_the_group_rename_round_trips_the_seeded_groups():
-    migration = _load_migration("0137_rename_system_groups.py")
-    with sync_engine.connect() as connection, connection.begin() as transaction:
+    with sync_engine.connect() as connection:
         renamed = _system_groups(connection)
-        with Operations.context(MigrationContext.configure(connection)):
-            migration.downgrade()
+        try:
+            with Operations.context(MigrationContext.configure(connection)):
+                GROUP_RENAME.downgrade()
             legacy = _system_groups(connection)
-            migration.upgrade()
+        finally:
+            _upgrade_group_rename(connection)
         replayed = _system_groups(connection)
-        transaction.rollback()
+        keys = _system_keys(connection)
 
     assert set(renamed) == {"Viewer", "Editor"}
     assert set(legacy) == {"Viewer (legacy)", "Editor (legacy)"}
     assert "pre-upgrade" in legacy["Viewer (legacy)"]
     assert replayed == renamed
+    assert keys == {"viewer": "Viewer", "editor": "Editor"}
 
 
 def test_the_group_rename_leaves_admin_changes_alone():
     """A taken name skips that group, and an edited description survives."""
-    migration = _load_migration("0137_rename_system_groups.py")
-    with sync_engine.connect() as connection, connection.begin() as transaction:
-        with Operations.context(MigrationContext.configure(connection)):
-            migration.downgrade()
+    with sync_engine.connect() as connection:
+        try:
+            with Operations.context(MigrationContext.configure(connection)):
+                GROUP_RENAME.downgrade()
             legacy = _system_groups(connection)
             connection.execute(
                 sa.text(
@@ -670,11 +693,27 @@ def test_the_group_rename_leaves_admin_changes_alone():
                     "WHERE name = 'Editor (legacy)'"
                 )
             )
-            migration.upgrade()
-        groups = _system_groups(connection)
-        transaction.rollback()
+            _upgrade_group_rename(connection)
+            groups = _system_groups(connection)
+            keys = _system_keys(connection)
+        finally:
+            _, _, _, _, editor_description = GROUP_RENAME.RENAMES[1]
+            connection.execute(
+                sa.text(
+                    "DELETE FROM permission_groups WHERE name = 'Viewer' AND NOT is_system"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "UPDATE permission_groups SET description = :description "
+                    "WHERE is_system AND description = 'Custom'"
+                ),
+                {"description": editor_description},
+            )
+            _upgrade_group_rename(connection)
 
     assert groups == {
         "Viewer (legacy)": legacy["Viewer (legacy)"],
         "Editor": "Custom",
     }
+    assert keys == {"viewer": "Viewer (legacy)", "editor": "Editor"}

@@ -18,6 +18,7 @@ from models.permission import (
     PermEntity,
     PermissionGroup,
     PermissionGroupGrant,
+    SystemGroupKey,
     UserPermissionOverride,
 )
 from models.user import User
@@ -220,4 +221,4 @@ def test_default_group_is_viewer():
 
     group = db_permission_handler.get_default_group()
     assert group is not None
-    assert group.name == "Viewer"
+    assert group.system_key == SystemGroupKey.VIEWER

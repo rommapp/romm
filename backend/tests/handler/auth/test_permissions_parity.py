@@ -15,7 +15,7 @@ from handler.auth.permissions_map import (
     grants_to_scopes,
 )
 from handler.database.base_handler import sync_session
-from models.permission import PermissionGroup
+from models.permission import PermissionGroup, SystemGroupKey
 from models.user import Role, User
 
 # --- Pure parity: matrices reproduce legacy scopes ---------------------------
@@ -34,7 +34,7 @@ def test_editor_matrix_projects_to_edit_scopes():
     projected = set(grants_to_scopes(LEGACY_EDITOR_GRANTS))
     assert projected == set(EDIT_SCOPES)
     # Editor-level access now comes from the Editor group.
-    editor_group = db_permission_handler.get_group_by_name("Editor")
+    editor_group = db_permission_handler.get_system_group(SystemGroupKey.EDITOR)
     assert editor_group is not None
     assert projected == set(
         User(role=Role.USER, permission_group_id=editor_group.id).oauth_scopes
@@ -73,16 +73,18 @@ def _expected_tuples(matrix) -> set[tuple[str, str, bool]]:
 def test_migration_seeded_system_groups():
     with sync_session.begin() as s:
         groups = {
-            g.name: g
+            g.system_key: g
             for g in s.query(PermissionGroup)
-            .filter(PermissionGroup.name.in_(["Viewer", "Editor"]))
+            .filter(PermissionGroup.system_key.is_not(None))
             .all()
         }
 
-        assert set(groups) == {"Viewer", "Editor"}
+        assert set(groups) == set(SystemGroupKey)
 
-        viewer = groups["Viewer"]
-        editor = groups["Editor"]
+        viewer = groups[SystemGroupKey.VIEWER]
+        editor = groups[SystemGroupKey.EDITOR]
+        assert viewer.name == "Viewer"
+        assert editor.name == "Editor"
 
         # Viewer is the server-wide default; both are system groups.
         assert viewer.is_default is True

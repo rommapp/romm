@@ -10,7 +10,7 @@ Two accounts, matching the two sides of every permission assertion:
 
   * ``e2e_admin``: role admin, so `useCan` short-circuits to true and every
     gated affordance must be present.
-  * ``e2e_viewer``: the default (seeded "Viewer") group, i.e. library read plus
+  * ``e2e_viewer``: the seeded Viewer group, i.e. library read plus
     own collections/assets. Every ROM write affordance must be absent.
 
 Never point this at a real library: it writes users with a known password.
@@ -30,6 +30,7 @@ sys.path.insert(
 
 from handler.auth import auth_handler  # noqa: E402
 from handler.database import db_permission_handler, db_user_handler  # noqa: E402
+from models.permission import SystemGroupKey  # noqa: E402
 from models.user import Role, User  # noqa: E402
 
 E2E_ADMIN_USERNAME = "e2e_admin"
@@ -39,9 +40,9 @@ PASSWORD = os.environ.get("E2E_PASSWORD", "e2e-Passw0rd!")  # nosec B105
 
 
 def _viewer_group_id() -> int:
-    group = db_permission_handler.get_default_group()
+    group = db_permission_handler.get_system_group(SystemGroupKey.VIEWER)
     if group is None:
-        raise SystemExit("No default group found, run `alembic upgrade head` first.")
+        raise SystemExit("No Viewer group found, run `alembic upgrade head` first.")
     return group.id
 
 
