@@ -16,10 +16,17 @@ permissions:
 # `build` pushes digests here and `merge` tags them from here; the two must agree.
 env:
   DIGEST_IMAGE: ghcr.io/${{ github.repository_owner }}/romm
-  IMAGE_DESCRIPTION: RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators.
+  # Labels on each platform image, annotations on the index. metadata-action fills in
+  # the version itself (with `-slim`) and would render a `{{version}}` here as empty.
+  OCI_METADATA: |
+    org.opencontainers.image.title=rommapp/romm
+    org.opencontainers.image.description=RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators.
+    org.opencontainers.image.licenses=AGPL-3.0-only
 
 jobs:
   validate-tag-semver:
+    # Forks have no registry credentials, so their nightly would fail every day.
+    if: github.event_name != 'schedule' || github.repository == 'rommapp/romm'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -98,11 +105,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=schedule,pattern=nightly
-          labels: |
-            org.opencontainers.image.version={{version}}-slim
-            org.opencontainers.image.title=rommapp/romm
-            org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
-            org.opencontainers.image.licenses=AGPL-3.0-only
+          labels: ${{ env.OCI_METADATA }}
 
       - name: Generate Docker metadata (full)
         id: meta
@@ -116,11 +119,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=schedule,pattern=nightly
-          labels: |
-            org.opencontainers.image.version={{version}}
-            org.opencontainers.image.title=rommapp/romm
-            org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
-            org.opencontainers.image.licenses=AGPL-3.0-only
+          labels: ${{ env.OCI_METADATA }}
 
       # Nightly builds carry the short commit so each one is identifiable and busts
       # version-keyed caches.
@@ -258,11 +257,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=schedule,pattern=nightly
-          annotations: |
-            org.opencontainers.image.version={{version}}-slim
-            org.opencontainers.image.title=rommapp/romm
-            org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
-            org.opencontainers.image.licenses=AGPL-3.0-only
+          annotations: ${{ env.OCI_METADATA }}
 
       - name: Generate Docker metadata (full)
         id: meta
@@ -278,11 +273,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=schedule,pattern=nightly
-          annotations: |
-            org.opencontainers.image.version={{version}}
-            org.opencontainers.image.title=rommapp/romm
-            org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
-            org.opencontainers.image.licenses=AGPL-3.0-only
+          annotations: ${{ env.OCI_METADATA }}
 
       # Tags spanning both registries are fine here: `imagetools create` copies
       # the blobs over when a target sits in a different registry than the digests.
