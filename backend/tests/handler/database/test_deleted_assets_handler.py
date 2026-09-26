@@ -54,6 +54,17 @@ class TestRecordDeletion:
         }
         assert records == {"Autosave": ["Autosave"], "autosave": ["autosave"]}
 
+    def test_ensuring_a_record_twice_keeps_one_empty_row(
+        self, rom: Rom, admin_user: User
+    ):
+        for _ in range(2):
+            db_deleted_asset_handler.ensure_record(admin_user.id, rom.id, "autosave")
+
+        [record] = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        assert record.content_hashes == []
+
 
 class TestGetDeletions:
     def test_an_empty_scope_asks_about_nothing(self, rom: Rom, admin_user: User):

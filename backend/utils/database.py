@@ -4,7 +4,6 @@ from typing import Any, Sequence
 from uuid import uuid4
 
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql as sa_mysql
 from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
@@ -93,25 +92,32 @@ MARIADB_EXACT_COLLATION = "utf8mb4_nopad_bin"
 MYSQL_EXACT_COLLATION = "utf8mb4_0900_bin"
 
 
-def ExactString(length: int) -> sa.String:
+class ExactString(sa.types.TypeDecorator[str]):
     """A VARCHAR that MariaDB and MySQL compare exactly, as PostgreSQL and Python do."""
-    return (
-        sa.String(length)
-        .with_variant(
-            sa_mysql.VARCHAR(length, collation=MARIADB_EXACT_COLLATION), "mariadb"
+
+    impl = sa.String
+    cache_ok = True
+
+    def __init__(self, length: int) -> None:
+        super().__init__(length)
+        self.length = length
+
+    def load_dialect_impl(self, dialect: sa.Dialect) -> sa.types.TypeEngine[Any]:
+        return dialect.type_descriptor(
+            sa.String(self.length, collation=_exact_collation(dialect))
         )
-        .with_variant(
-            sa_mysql.VARCHAR(length, collation=MYSQL_EXACT_COLLATION), "mysql"
-        )
-    )
 
 
 def exact_collation(conn: DatabaseBind) -> str | None:
     """The collation `ExactString` needs on this server, None on PostgreSQL."""
-    if conn.engine.dialect.name == "postgresql":
+    return _exact_collation(conn.engine.dialect)
+
+
+def _exact_collation(dialect: sa.Dialect) -> str | None:
+    if dialect.name == "postgresql":
         return None
     # The dialect is named `mysql` when the MySQL driver reaches a MariaDB server.
-    if getattr(conn.engine.dialect, "is_mariadb", False):
+    if getattr(dialect, "is_mariadb", False):
         return MARIADB_EXACT_COLLATION
     return MYSQL_EXACT_COLLATION
 

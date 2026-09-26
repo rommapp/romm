@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Collection
+from collections.abc import Collection, Iterable, Mapping
 from datetime import datetime
-from typing import Literal, NamedTuple
+from typing import Literal, NamedTuple, Protocol
 
 from utils.datetime import to_utc
 
@@ -98,3 +98,32 @@ def compare_missing_server_save(
     if client_hash in deleted_hashes:
         return SyncComparisonResult("delete", "Save was deleted on the server")
     return SyncComparisonResult("upload", "Save exists on client but not on server")
+
+
+class _Version(Protocol):
+    @property
+    def content_hash(self) -> str | None: ...
+
+
+class _ClientVersion(_Version, Protocol):
+    @property
+    def rom_id(self) -> int: ...
+
+    @property
+    def slot(self) -> str | None: ...
+
+
+def roms_to_check_for_removals(
+    client_saves: Iterable[_ClientVersion],
+    current: Mapping[tuple[int, str | None], _Version],
+) -> set[int]:
+    """ROMs whose slotted client saves differ from the current version, so may hold a lost one."""
+    return {
+        save.rom_id
+        for save in client_saves
+        if save.slot
+        and (
+            (version := current.get((save.rom_id, save.slot))) is None
+            or version.content_hash != save.content_hash
+        )
+    }

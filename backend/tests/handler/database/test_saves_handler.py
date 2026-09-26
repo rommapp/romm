@@ -6,18 +6,21 @@ it properly filters by platform_id through the Rom relationship.
 """
 
 import ast
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 
 import pytest
+from sqlalchemy import event
 
 import handler.database.saves_handler as saves_handler_module
 from handler.database import db_deleted_asset_handler, db_save_handler
 from handler.database.base_handler import sync_engine
 from models.assets import Save
-from models.deleted_asset import DeletedAsset
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -1058,33 +1061,109 @@ class TestDBSavesHandlerRecordsLostVersions:
 
         assert sorted(self._lost(admin_user, rom)["autosave"]) == ["v0", "v1"]
 
-    def test_a_version_pushed_past_the_limit_mid_prune_is_recorded(
+    def test_a_version_overwritten_since_it_was_read_is_recorded(
         self, admin_user: User, rom: Rom
     ):
-        self._add(admin_user, rom, "late", "autosave", "late")
+        """Two overwrites racing: the second replaces what the first wrote."""
+        save = self._add(admin_user, rom, "raced", "autosave", "v0")
+        stale = db_save_handler._slot_version(save.id)
+        db_save_handler.update_save(save.id, {"content_hash": "v1"})
 
-        with mock.patch.object(db_save_handler, "_versions_past", return_value=[]):
-            db_save_handler.prune_slot(
-                user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=0
+        with mock.patch.object(db_save_handler, "_slot_version", return_value=stale):
+            db_save_handler.update_save(save.id, {"content_hash": "v2"})
+
+        assert self._lost(admin_user, rom) == {"autosave": ["v0", "v1"]}
+
+    def test_a_prune_that_fails_records_nothing(self, admin_user: User, rom: Rom):
+        """The record commits with the removal, so no negotiation sees one alone."""
+        self._add(admin_user, rom, "kept", "autosave", "kept")
+
+        def fail_the_delete(_conn: Any, _cursor: Any, statement: str, *_: Any) -> None:
+            if statement.startswith("DELETE FROM saves"):
+                raise RuntimeError("delete failed")
+
+        event.listen(sync_engine, "before_cursor_execute", fail_the_delete)
+        try:
+            with pytest.raises(RuntimeError):
+                db_save_handler.prune_slot(
+                    user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=0
+                )
+        finally:
+            event.remove(sync_engine, "before_cursor_execute", fail_the_delete)
+
+        assert self._lost(admin_user, rom) == {"autosave": []}
+        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+
+    def test_a_loss_the_first_read_missed_is_still_recorded(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "missed", "autosave", "old")
+        looks_unchanged = SimpleNamespace(
+            user_id=admin_user.id, rom_id=rom.id, slot="autosave", content_hash="new"
+        )
+
+        with mock.patch.object(
+            db_save_handler, "_slot_version", return_value=looks_unchanged
+        ):
+            db_save_handler.update_save(save.id, {"content_hash": "new"})
+
+        assert self._lost(admin_user, rom) == {"autosave": ["old"]}
+
+    def test_concurrent_removals_record_every_lost_version(
+        self, admin_user: User, rom: Rom
+    ):
+        """One lock order, the slot's record before its rows, so none deadlock."""
+        saves = [
+            self._add(admin_user, rom, f"c{index}", f"slot{index % 6}", f"c{index}")
+            for index in range(90)
+        ]
+
+        def remove(index: int) -> None:
+            save = saves[index]
+            if index % 3 == 0:
+                db_save_handler.delete_save(save.id)
+            elif index % 3 == 1:
+                db_save_handler.update_save(save.id, {"content_hash": f"n{index}"})
+            else:
+                db_save_handler.prune_slot(
+                    user_id=admin_user.id,
+                    rom_id=rom.id,
+                    slot=f"slot{index % 6}",
+                    keep=3,
+                )
+
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            list(pool.map(remove, range(90)))
+
+        remaining = {
+            save.content_hash
+            for save in db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id]
             )
-
-        assert self._lost(admin_user, rom) == {"autosave": ["late"]}
+        }
+        lost = {h for hashes in self._lost(admin_user, rom).values() for h in hashes}
+        assert {save.content_hash for save in saves} - remaining <= lost
 
     @pytest.mark.parametrize("path", ["delete", "prune", "overwrite"])
-    def test_recording_never_waits_on_a_held_connection(
+    def test_recording_never_checks_out_a_second_connection(
         self, admin_user: User, rom: Rom, path: str
     ):
         """A second checkout per removal would starve the pool under load."""
         save = self._add(admin_user, rom, "pooled", "autosave", "pooled")
-        checked_out: list[int] = []
-        record = saves_handler_module._deleted_assets.record_deletion
+        checked_out: dict[str, int] = {}
+        deleted_assets = saves_handler_module._deleted_assets
+        ensure, record = deleted_assets.ensure_record, deleted_assets.record_deletion
 
-        def spy(**kwargs: Any) -> DeletedAsset:
-            checked_out.append(sync_engine.pool.checkedout())  # type: ignore[attr-defined]
-            return record(**kwargs)
+        def spy(name: str, wrapped: Callable[..., Any]) -> Callable[..., Any]:
+            def call(*args: Any, **kwargs: Any) -> Any:
+                checked_out[name] = sync_engine.pool.checkedout()  # type: ignore[attr-defined]
+                return wrapped(*args, **kwargs)
 
-        with mock.patch.object(
-            saves_handler_module._deleted_assets, "record_deletion", side_effect=spy
+            return call
+
+        with (
+            mock.patch.object(deleted_assets, "ensure_record", spy("ensure", ensure)),
+            mock.patch.object(deleted_assets, "record_deletion", spy("record", record)),
         ):
             if path == "delete":
                 db_save_handler.delete_save(save.id)
@@ -1095,7 +1174,8 @@ class TestDBSavesHandlerRecordsLostVersions:
             else:
                 db_save_handler.update_save(save.id, {"content_hash": "new"})
 
-        assert checked_out == [0]
+        # Ensuring runs before the removal holds one; recording joins it.
+        assert checked_out == {"ensure": 0, "record": 1}
 
     def test_an_overwritten_version_is_recorded(self, admin_user: User, rom: Rom):
         save = self._add(admin_user, rom, "overwritten", "autosave", "before")

@@ -11,12 +11,41 @@ from .base_handler import DBBaseHandler
 
 
 class DBDeletedAssetsHandler(DBBaseHandler):
+    def ensure_record(self, user_id: int, rom_id: int, slot: str) -> None:
+        """Create the slot's empty record if it has none, in its own transaction."""
+        # Recording then only locks a row that exists: on MariaDB, locking a
+        # missing key and then inserting deadlocks a concurrent deletion.
+        if self._exists(user_id, rom_id, slot):
+            return
+        try:
+            self._insert(user_id, rom_id, slot)
+        except IntegrityError:
+            pass  # A concurrent deletion of the same slot inserted first.
+
+    @begin_session
+    def _exists(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> bool:
+        return (
+            session.scalar(
+                select(DeletedAsset.id).filter_by(
+                    user_id=user_id, rom_id=rom_id, slot=slot
+                )
+            )
+            is not None
+        )
+
     def record_deletion(
         self,
         user_id: int,
         rom_id: int,
         slot: str,
         content_hash: str,
+        session: Session | None = None,
     ) -> DeletedAsset:
         """Remember a version this slot lost, keeping one row per slot.
 
@@ -25,26 +54,19 @@ class DBDeletedAssetsHandler(DBBaseHandler):
             rom_id: The ROM whose slot lost a version.
             slot: The slot itself.
             content_hash: What that version held.
+            session: The transaction losing the version, so both commit
+                together. Its caller runs `ensure_record` before taking locks.
 
         Returns:
             The record a negotiation will read.
         """
-        # Separate transactions: on MariaDB, locking a missing key and then
-        # inserting deadlocks a concurrent deletion, even of another slot.
-        record = self._merge(user_id, rom_id, slot, content_hash)
-        if record:
-            return record
-        try:
-            return self._insert(user_id, rom_id, slot, content_hash)
-        except IntegrityError:
-            # A concurrent deletion of the same slot inserted first.
-            record = self._merge(user_id, rom_id, slot, content_hash)
-            if not record:
-                raise
-            return record
+        if session is None:
+            self.ensure_record(user_id, rom_id, slot)
+            return self._append(user_id, rom_id, slot, content_hash)
+        return self._append(user_id, rom_id, slot, content_hash, session=session)
 
     @begin_session
-    def _insert(
+    def _append(
         self,
         user_id: int,
         rom_id: int,
@@ -52,39 +74,49 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         content_hash: str,
         session: Session = None,  # type: ignore[assignment]
     ) -> DeletedAsset:
-        record = DeletedAsset(
-            user_id=user_id,
-            rom_id=rom_id,
-            slot=slot,
-            content_hashes=[content_hash],
-        )
-        session.add(record)
-        session.flush()
-        return record
-
-    @begin_session
-    def _merge(
-        self,
-        user_id: int,
-        rom_id: int,
-        slot: str,
-        content_hash: str,
-        session: Session = None,  # type: ignore[assignment]
-    ) -> DeletedAsset | None:
-        """Add this version to the slot's record, or None when it has none yet."""
-        record = session.scalar(
-            select(DeletedAsset)
-            .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
-            .with_for_update()
-        )
-        if not record:
-            return None
+        record = self.lock_record(user_id, rom_id, slot, session)
+        if record is None:
+            # The slot changed since its record was ensured, or it was never ensured.
+            try:
+                with session.begin_nested():
+                    record = self._insert(user_id, rom_id, slot, session=session)
+            except IntegrityError:
+                # A concurrent deletion of the same slot inserted first.
+                record = self.lock_record(user_id, rom_id, slot, session)
+                if record is None:
+                    raise
         # A version lost again moves to the end, so trimming keeps it.
         hashes = [h for h in record.content_hashes if h != content_hash]
         hashes.append(content_hash)
         record.content_hashes = hashes[-MAX_REMEMBERED_HASHES:]
         session.flush()
         return record
+
+    @begin_session
+    def _insert(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> DeletedAsset:
+        record = DeletedAsset(
+            user_id=user_id, rom_id=rom_id, slot=slot, content_hashes=[]
+        )
+        session.add(record)
+        session.flush()
+        return record
+
+    @staticmethod
+    def lock_record(
+        user_id: int, rom_id: int, slot: str, session: Session
+    ) -> DeletedAsset | None:
+        """Lock the slot's record, which serializes every change to the slot's versions."""
+        return session.scalar(
+            select(DeletedAsset)
+            .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
+            .with_for_update()
+        )
 
     @begin_session
     def get_deletions(

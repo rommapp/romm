@@ -30,7 +30,11 @@ from handler.database import (
 )
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import high_prio_queue
-from handler.sync.comparison import compare_missing_server_save, compare_save_state
+from handler.sync.comparison import (
+    compare_missing_server_save,
+    compare_save_state,
+    roms_to_check_for_removals,
+)
 from logger.logger import log
 from models.assets import Save
 from models.deleted_asset import DeletedAsset
@@ -231,17 +235,11 @@ def negotiate_sync(
         if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
             server_save_map[key] = save
 
-    # Only a client save that differs from its slot's current version can be
-    # one the slot lost.
-    differing_rom_ids = set()
-    for s in payload.saves:
-        current = server_save_map.get((s.rom_id, s.slot))
-        if s.slot and (current is None or current.content_hash != s.content_hash):
-            differing_rom_ids.add(s.rom_id)
     deleted_map: dict[tuple[int, str | None], DeletedAsset] = {
         (record.rom_id, record.slot): record
         for record in db_deleted_asset_handler.get_deletions(
-            user_id=request.user.id, rom_ids=differing_rom_ids
+            user_id=request.user.id,
+            rom_ids=roms_to_check_for_removals(payload.saves, server_save_map),
         )
     }
 

@@ -1,11 +1,13 @@
 """Tests for sync comparison algorithm."""
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from handler.sync.comparison import (
     SyncComparisonResult,
     compare_missing_server_save,
     compare_save_state,
+    roms_to_check_for_removals,
 )
 
 
@@ -200,3 +202,26 @@ class TestCompareMissingServerSave:
 
     def test_a_slot_that_lost_nothing_is_uploaded(self):
         assert compare_missing_server_save("abc123", ()).action == "upload"
+
+
+@dataclass(frozen=True)
+class _Save:
+    rom_id: int
+    slot: str | None
+    content_hash: str | None
+
+
+class TestRomsToCheckForRemovals:
+    def test_only_saves_that_differ_from_their_slot_are_checked(self):
+        current: dict[tuple[int, str | None], _Save] = {
+            (1, "autosave"): _Save(1, "autosave", "same"),
+            (2, "autosave"): _Save(2, "autosave", "current"),
+        }
+        client_saves = [
+            _Save(1, "autosave", "same"),
+            _Save(2, "autosave", "older"),
+            _Save(3, "autosave", "unknown"),
+            _Save(4, None, "archival"),
+        ]
+
+        assert roms_to_check_for_removals(client_saves, current) == {2, 3}
