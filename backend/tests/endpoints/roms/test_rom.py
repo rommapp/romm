@@ -1730,6 +1730,31 @@ class TestUpdateMetadataIDs:
         assert body["ra_id"] == MOCK_RA_ID
         assert get_rom_by_id_mock.called
 
+    @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=None))
+    def test_update_rom_ra_id_drops_the_previous_games_hash_match(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A relink RA can't resolve keeps the old blob, but not its verification."""
+        db_rom_handler.update_rom(
+            rom.id,
+            {"ra_id": 1, "ra_metadata": {"achievements": [], "hash_match": True}},
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"ra_id": str(MOCK_RA_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["ra_id"] == MOCK_RA_ID
+        assert body["merged_ra_metadata"]["hash_match"] is False
+
     @patch.object(
         LaunchboxHandler,
         "get_rom_by_id",

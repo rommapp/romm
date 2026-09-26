@@ -1027,6 +1027,61 @@ async def test_scan_rom_marks_an_ra_hash_match_hasheous_cannot_see(
     assert (result.ra_metadata or {}).get("hash_match") is True
 
 
+@pytest.mark.parametrize(
+    ("ra_result", "expected"),
+    [(RAGameRom(ra_id=None), False), (RuntimeError("RA down"), True)],
+)
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ra_handler, "get_rom", new_callable=AsyncMock)
+async def test_scan_rom_hashes_drops_an_ra_hash_match_the_new_hash_lost(
+    mock_get_rom, mock_playmatch_enabled, ra_result, expected
+):
+    """Only an RA lookup that answered clears the flag; a failed one keeps it."""
+    mock_get_rom.side_effect = [ra_result]
+
+    platform = db_platform_handler.add_platform(
+        Platform(id=1, slug="nds", fs_slug="nds", name="Nintendo DS", ra_id=18)
+    )
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="Game (USA).nds",
+            fs_name_no_tags="Game",
+            fs_name_no_ext="Game (USA)",
+            fs_extension="nds",
+            fs_path="nds",
+            name="Game",
+            ra_id=17353,
+            ra_hash="fedcba9876543210fedcba9876543210",
+            ra_metadata={"achievements": [], "hash_match": True},
+            fs_size_bytes=1024,
+            tags=[],
+        )
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.HASHES,
+            rom=rom,
+            fs_rom={
+                "fs_name": rom.fs_name,
+                "fs_path": rom.fs_path,
+                "flat": True,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.RA],
+            newly_added=False,
+        )
+
+    assert result.ra_id == 17353
+    assert (result.ra_metadata or {}).get("hash_match") is expected
+
+
 @contextmanager
 def _capture_romm_logs(caplog):
     """The "romm" logger has propagate=False, so caplog's handler has to be

@@ -198,6 +198,13 @@ class RAHandler(MetadataHandler):
                 only_games_with_achievements=True,
                 include_hashes=True,
             )
+            # A failed request comes back as {}, which must not be cached as an
+            # empty index for the whole refresh window.
+            if not isinstance(roms, list):
+                log.warning(
+                    f"Couldn't fetch the RetroAchievements hash list for platform {rom.platform.ra_id}"
+                )
+                return None
 
             hash_index = {h.lower(): r["ID"] for r in roms for h in r.get("Hashes", ())}
 

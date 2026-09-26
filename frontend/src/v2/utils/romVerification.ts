@@ -1,10 +1,5 @@
-// romVerification: single source of truth for what "verified" means, a
-// ROM whose file hash matched a known ROM database (via Hasheous, or the
-// RetroAchievements hash lookup at scan time). Mirrors the backend's
-// `_filter_by_verified` (roms_handler.py) so the header badge, the
-// per-database chips in the Metadata tab, and the library "verified"
-// filter all agree. Merely having a computed hash
-// (crc/md5/sha1) does NOT make a ROM verified.
+// "Verified" means the ROM's hash matched a known database (via Hasheous or
+// the RA hash list). Mirrors the backend's `_filter_by_verified`.
 import type { RomHasheousMetadata } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 
@@ -27,7 +22,7 @@ export const VERIFICATION_DATABASES: {
   { label: "RetroAchievements", keys: ["ra_match"] },
 ];
 
-// Flattened match flags, i.e. the exact set the backend filters on.
+// Flattened Hasheous match flags the backend filters on.
 export const VERIFICATION_KEYS: (keyof RomHasheousMetadata)[] =
   VERIFICATION_DATABASES.flatMap((db) => db.keys);
 

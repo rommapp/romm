@@ -124,6 +124,17 @@ class TestSearchRom:
         get_game_list.assert_awaited_once()
         assert ra_id == 10210
 
+    async def test_does_not_cache_a_failed_download(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch, resources_dir: Path
+    ):
+        """The service answers a failed request with {}, not a game list."""
+        monkeypatch.setattr(
+            handler.ra_service, "get_game_list", AsyncMock(return_value={})
+        )
+
+        assert await handler._search_rom(self._make_rom(), "abcdef") is None
+        assert not (resources_dir / handler.HASHES_FILE_NAME).exists()
+
     async def test_returns_none_without_a_platform_ra_id(self, handler: RAHandler):
         rom = self._make_rom()
         rom.platform.ra_id = None

@@ -1989,6 +1989,9 @@ async def update_rom(
         )
         if ra_rom.get("ra_id"):
             cleaned_data.update(ra_rom)
+        elif rom.ra_metadata and rom.ra_metadata.get("hash_match"):
+            # The kept blob's hash match was earned against the previous game.
+            cleaned_data["ra_metadata"] = {**rom.ra_metadata, "hash_match": False}
     elif rom.ra_id and not cleaned_data["ra_id"]:
         cleaned_data.update({"ra_id": None, "ra_metadata": {}})
 

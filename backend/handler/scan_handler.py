@@ -1470,6 +1470,16 @@ async def scan_rom(
         rom_attrs["hasheous_id"] = None
         rom_attrs["hasheous_metadata"] = {}
 
+    # Same for the RA hash match, once an RA lookup that ran found nothing.
+    ra_metadata = rom_attrs.get("ra_metadata") or {}
+    if (
+        scan_type == ScanType.HASHES
+        and MetadataSource.RA in attempted_sources
+        and not ra_handler_rom.get("ra_id")
+        and ra_metadata.get("hash_match")
+    ):
+        rom_attrs["ra_metadata"] = {**ra_metadata, "hash_match": False}
+
     # A skipped source's tags can't be told apart on the row, so each hash source
     # keeps the ones its dump gave in its own blob.
     for source_name in HASH_MATCHED_TAG_SOURCES:
