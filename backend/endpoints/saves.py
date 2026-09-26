@@ -13,13 +13,7 @@ from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummar
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from handler.asset_store import (
-    prune_save_slot,
-    release_thumbnail,
-    remove_asset_file,
-    remove_save,
-    rename_asset,
-)
+from handler.asset_store import prune_save_slot, remove_save, rename_asset
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
