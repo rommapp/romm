@@ -418,7 +418,7 @@ HTTP Request
 | Database       | Driver                     | Status    |
 | -------------- | -------------------------- | --------- |
 | MariaDB 10.11+ | `mariadb+mariadbconnector` | Default   |
-| MySQL 8.0+     | `mysql+mysqlconnector`     | Supported |
+| MySQL 8.0.17+  | `mysql+mysqlconnector`     | Supported |
 | PostgreSQL     | `postgresql+psycopg`       | Supported |
 
 MariaDB 10.5 and 10.6 reached upstream end of life in June 2025 and July 2026, so

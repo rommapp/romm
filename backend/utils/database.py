@@ -96,6 +96,34 @@ def is_mariadb(conn: DatabaseBind) -> bool:
     return conn.engine.name == "mariadb"
 
 
+# Queries use JSON_OVERLAPS (MariaDB 10.9, MySQL 8.0.17); 10.11 is the oldest
+# MariaDB LTS still receiving fixes.
+MIN_MARIADB_VERSION = (10, 11)
+MIN_MYSQL_VERSION = (8, 0, 17)
+
+
+def unsupported_server_version(dialect: sa.Dialect) -> str | None:
+    """Why the connected server is too old for RomM, or None when it is supported."""
+    if dialect.name not in ("mysql", "mariadb") or not dialect.server_version_info:
+        return None
+
+    # A MariaDB server reached through the mysql driver still reports as MariaDB.
+    engine, minimum = (
+        ("MariaDB", MIN_MARIADB_VERSION)
+        if getattr(dialect, "is_mariadb", False)
+        else ("MySQL", MIN_MYSQL_VERSION)
+    )
+    version = tuple(p for p in dialect.server_version_info if isinstance(p, int))
+    if version >= minimum:
+        return None
+
+    return (
+        f"RomM needs {engine} {'.'.join(map(str, minimum))} or newer, but the "
+        f"database server runs {'.'.join(map(str, version))}. Upgrade the server, "
+        "then start RomM again. See https://docs.romm.app/latest/install/databases/"
+    )
+
+
 # Error 1419, which MariaDB and MySQL raise for every trigger statement while
 # binary logging is on and the user lacks SUPER (issue #3932).
 BINLOG_TRIGGER_DDL_ERRNO = 1419
