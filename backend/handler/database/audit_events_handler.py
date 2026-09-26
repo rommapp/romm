@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import ColumnElement, Select, String, cast, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.interfaces import LoaderOption
 
 from decorators.database import begin_session
 from models.audit_event import AuditCategory, AuditEvent, actions_in
@@ -15,7 +16,7 @@ from utils.database import LIKE_ESCAPE_CHAR, escape_like
 from .base_handler import DBBaseHandler, affected_rows
 
 
-def _with_actor():
+def _with_actor() -> LoaderOption:
     # Name and avatar only, the rest of a user row is large JSON.
     return joinedload(AuditEvent.actor).load_only(
         User.id, User.username, User.avatar_path, User.updated_at

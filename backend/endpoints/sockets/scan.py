@@ -199,7 +199,7 @@ class ScanStats:
     updated_roms: int = 0
     new_files: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # Lock for thread-safe updates
         self._lock = asyncio.Lock()
         self._unpublished = False
@@ -225,7 +225,9 @@ class ScanStats:
         update_job_meta({"scan_stats": stats})
         await socket_manager.emit("scan:update_stats", stats)
 
-    async def update(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
+    async def update(
+        self, socket_manager: socketio.AsyncRedisManager, **kwargs: object
+    ) -> None:
         async with self._lock:
             for key, value in kwargs.items():
                 if hasattr(self, key):
@@ -235,7 +237,9 @@ class ScanStats:
             # to report as they happen.
             await self._publish(socket_manager, force=True)
 
-    async def increment(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
+    async def increment(
+        self, socket_manager: socketio.AsyncRedisManager, **kwargs: int
+    ) -> None:
         async with self._lock:
             for key, value in kwargs.items():
                 if hasattr(self, key):
@@ -1343,7 +1347,7 @@ async def scan_platforms(
         total_roms=total_roms,
     )
 
-    async def stop_scan():
+    async def stop_scan() -> None:
         log.info(f"{emoji.EMOJI_STOP_SIGN} Scan stopped manually")
         await finish("scan:done", scan_stats.to_dict(), stopped=True)
         redis_client.delete(STOP_SCAN_FLAG)
@@ -1509,7 +1513,7 @@ async def authorize_scan(sid: str) -> User | None:
 
 
 @socket_handler.socket_server.on("scan")
-async def scan_handler(sid: str, options: dict[str, Any]):
+async def scan_handler(sid: str, options: dict[str, Any]) -> ScanStats | Job | None:
     """Scan socket endpoint
 
     Args:
@@ -1518,7 +1522,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
 
     user = await authorize_scan(sid)
     if user is None:
-        return
+        return None
 
     platform_ids = options.get("platforms", [])
     platform_fs_slugs = options.get("platform_fs_slugs", [])
@@ -1537,7 +1541,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
                 message,
                 to=sid,
             )
-            return
+            return None
 
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
@@ -1575,7 +1579,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
 
 
 @socket_handler.socket_server.on("scan:stop")
-async def stop_scan_handler(sid: str):
+async def stop_scan_handler(sid: str) -> None:
     """Stop scan socket endpoint"""
 
     user = await authorize_scan(sid)

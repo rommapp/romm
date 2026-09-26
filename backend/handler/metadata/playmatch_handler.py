@@ -123,7 +123,7 @@ class PlaymatchHandler(MetadataHandler):
     Handler for [Playmatch](https://github.com/RetroRealm/playmatch), a service for matching ROMs by Hashes.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_url = PLAYMATCH_API_URL
         self.identify_url = f"{self.base_url}/identify/ids"
         self.healthcheck_url = f"{self.base_url}/health"

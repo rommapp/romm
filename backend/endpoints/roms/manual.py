@@ -99,7 +99,7 @@ async def add_rom_manuals(
     parser.register("x-upload-platform", NullTarget())
     parser.register(safe_field_name, FileTarget(str(file_location)))
 
-    def cleanup_partial_file():
+    def cleanup_partial_file() -> None:
         if file_location.exists():
             file_location.unlink()
 

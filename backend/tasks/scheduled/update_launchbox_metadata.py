@@ -50,7 +50,7 @@ LAUNCHBOX_TASK_TIMEOUT: Final[int] = max(TASK_TIMEOUT, 30 * 60)
 class BatchedCacheWriter:
     """Queues cache writes on a pipeline, flushing every `batch_size` entries."""
 
-    def __init__(self, pipe: Pipeline, batch_size: int | None = None):
+    def __init__(self, pipe: Pipeline, batch_size: int | None = None) -> None:
         self._pipe = pipe
         self._batch_size = batch_size or CACHE_WRITE_BATCH_SIZE
         self._queued = 0
@@ -101,7 +101,7 @@ def _iter_elements(source: Any) -> Iterator[Any]:
 
 
 class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled LaunchBox metadata update",
             description="Updates the LaunchBox metadata store",

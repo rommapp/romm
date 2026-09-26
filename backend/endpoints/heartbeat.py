@@ -1,7 +1,7 @@
 import asyncio
 import os
 from collections import defaultdict
-from typing import Final
+from typing import Any, Final
 
 from anyio import Path as AnyioPath
 from fastapi import HTTPException, Request, status
@@ -268,8 +268,9 @@ async def _probe_metadata_source(metadata_source: MetadataSource) -> bool:
     router.get,
     "/setup/library",
     [],
+    response_model=None,
 )
-async def get_setup_library_info(request: Request):
+async def get_setup_library_info(request: Request) -> dict[str, Any]:
     """Get library structure information for setup wizard.
 
     Only accessible during initial setup (no admin users) or with authentication.
@@ -367,8 +368,11 @@ async def get_setup_library_info(request: Request):
     "/setup/platforms",
     [],
     status_code=status.HTTP_201_CREATED,
+    response_model=None,
 )
-async def create_setup_platforms(request: Request, platform_slugs: list[str]):
+async def create_setup_platforms(
+    request: Request, platform_slugs: list[str]
+) -> dict[str, Any]:
     """Create platform folders during setup wizard.
 
     Only accessible during initial setup (no admin users) or with authentication.

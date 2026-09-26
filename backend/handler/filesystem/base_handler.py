@@ -5,7 +5,7 @@ import os
 import re
 import shutil
 import tempfile
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import AsyncIterator, Callable, Iterable, Sequence
 from contextlib import asynccontextmanager
 from enum import Enum
 from io import BytesIO
@@ -13,6 +13,7 @@ from pathlib import Path
 from tempfile import SpooledTemporaryFile
 from typing import BinaryIO, Final
 
+from anyio import AsyncFile
 from anyio import Path as AnyioPath
 from anyio import open_file
 from starlette.datastructures import UploadFile
@@ -370,7 +371,7 @@ class Asset(Enum):
 
 
 class FSHandler:
-    def __init__(self, base_path: str):
+    def __init__(self, base_path: str) -> None:
         self.base_path = Path(base_path).resolve()
         self._locks: dict[str, asyncio.Lock] = {}
         self._lock_mutex = asyncio.Lock()
@@ -474,7 +475,7 @@ class FSHandler:
         return await self._compute_file_hash(file_path)
 
     @asynccontextmanager
-    async def _atomic_write(self, target_path: Path):
+    async def _atomic_write(self, target_path: Path) -> AsyncIterator[Path]:
         """Context manager for atomic file writing.
 
         Creates the temp file in the same directory as the target so the
@@ -659,7 +660,9 @@ class FSHandler:
                         raise ValueError("Unsupported file type for writing")
 
     @asynccontextmanager
-    async def write_file_streamed(self, path: str, filename: str):
+    async def write_file_streamed(
+        self, path: str, filename: str
+    ) -> AsyncIterator[AsyncFile[bytes]]:
         """
         Write file to filesystem using a streamed approach.
 
@@ -727,7 +730,7 @@ class FSHandler:
             async with await open_file(full_path, "rb") as f:
                 return await f.read()
 
-    async def stream_file(self, file_path: str):
+    async def stream_file(self, file_path: str) -> AsyncFile[bytes]:
         """
         Stream file from filesystem.
 

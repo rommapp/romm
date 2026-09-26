@@ -29,6 +29,7 @@ import struct
 from typing import BinaryIO
 
 import zstandard
+from _hashlib import HASH
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from logger.formatter import LIGHTMAGENTA
@@ -681,7 +682,7 @@ def _be32(data: bytes, offset: int = 0) -> int:
     return struct.unpack_from(">I", data, offset)[0]
 
 
-def _hash_chunked(md5, reader: _RvzReader, offset: int, size: int) -> None:
+def _hash_chunked(md5: HASH, reader: _RvzReader, offset: int, size: int) -> None:
     """Feed [offset, offset+size) to the hash in bounded chunks."""
     pos = offset
     remaining = size
@@ -693,7 +694,7 @@ def _hash_chunked(md5, reader: _RvzReader, offset: int, size: int) -> None:
 
 
 def _hash_nintendo_disc_partition(
-    md5, reader: _RvzReader, part_offset: int, wii_shift: int
+    md5: HASH, reader: _RvzReader, part_offset: int, wii_shift: int
 ) -> None:
     """Mirror of rcheevos rc_hash_nintendo_disc_partition."""
     body, trailer = struct.unpack(
@@ -752,7 +753,7 @@ def calculate_gamecube_ra_hash(file_path: str) -> str:
         reader.close()
 
 
-def _hash_wii_disc(md5, reader: _RvzReader) -> None:
+def _hash_wii_disc(md5: HASH, reader: _RvzReader) -> None:
     """Mirror of rcheevos rc_hash_wii_disc for encrypted retail discs."""
     if reader.read_at(0x61, 1) != b"\x00":
         raise RvzHashError("decrypted Wii disc images are not supported")

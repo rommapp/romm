@@ -29,13 +29,16 @@ from typing import Any
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from PIL import Image  # noqa: E402
+from sqlalchemy import Connection, insert  # noqa: E402
+from sqlalchemy.engine.interfaces import DBAPIConnection  # noqa: E402
+from sqlalchemy.pool import ConnectionPoolEntry  # noqa: E402
 
 from adapters.services.igdb import IGDB_PLATFORM_LIST  # noqa: E402
 from config import RESOURCES_BASE_PATH  # noqa: E402
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST  # noqa: E402
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST  # noqa: E402
 from models.assets import Save, Screenshot, State  # noqa: E402
-from models.base import compute_file_name_parts  # noqa: E402
+from models.base import BaseModel, compute_file_name_parts  # noqa: E402
 from models.client_token import ClientToken  # noqa: E402
 from models.collection import (  # noqa: E402
     Collection,
@@ -417,7 +420,7 @@ def slugify(value: str) -> str:
 class Ids:
     """Hands out monotonically increasing integer primary keys per table."""
 
-    def __init__(self, start: dict[str, int]):
+    def __init__(self, start: dict[str, int]) -> None:
         self._next = dict(start)
 
     def take(self, table: str, count: int = 1) -> int:
@@ -706,7 +709,12 @@ def rand_past(rng: random.Random, now: datetime, max_days: int = 730) -> datetim
     return now - timedelta(days=rng.randint(0, max_days), seconds=rng.randint(0, 86400))
 
 
-def bulk_insert(conn, model, rows: list[dict[str, Any]], chunk: int = 1000) -> None:
+def bulk_insert(
+    conn: Connection,
+    model: type[BaseModel],
+    rows: list[dict[str, Any]],
+    chunk: int = 1000,
+) -> None:
     """Insert rows as multi-VALUES statements.
 
     Not `executemany`: MariaDB Connector/Python's bulk path silently drops all
@@ -716,9 +724,8 @@ def bulk_insert(conn, model, rows: list[dict[str, Any]], chunk: int = 1000) -> N
     """
     if not rows:
         return
-    table = model.__table__
     for i in range(0, len(rows), chunk):
-        conn.execute(table.insert().values(rows[i : i + chunk]))
+        conn.execute(insert(model).values(rows[i : i + chunk]))
 
 
 def main() -> int:
@@ -825,7 +832,7 @@ def main() -> int:
     # Pin every connection to UTC so the random historical timestamps we
     # generate never land in a local DST gap that TIMESTAMP columns reject.
     @event.listens_for(sync_engine, "connect")
-    def _session_utc(dbapi_conn, _record):  # noqa: ANN001
+    def _session_utc(dbapi_conn: DBAPIConnection, _record: ConnectionPoolEntry) -> None:
         cur = dbapi_conn.cursor()
         try:
             try:
@@ -1589,7 +1596,7 @@ def main() -> int:
     return 0
 
 
-def _wipe(conn) -> None:
+def _wipe(conn: Connection) -> None:
     """Delete all rows from the tables this script populates (FK-safe order)."""
     from sqlalchemy import text
 

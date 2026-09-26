@@ -1,6 +1,7 @@
 from collections.abc import Sequence
+from typing import Any
 
-from sqlalchemy import and_, delete, func, not_, select, update
+from sqlalchemy import Result, and_, delete, func, not_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 from sqlalchemy.sql import Delete, Select, Update
 
@@ -115,7 +116,7 @@ class DBUsersHandler(DBBaseHandler):
         self,
         id: int,
         session: Session = None,  # type: ignore[assignment]
-    ):
+    ) -> Result[Any]:
         return session.execute(
             delete(User)
             .where(User.id == id)

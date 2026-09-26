@@ -419,7 +419,7 @@ def _create_metadata_id_case(
     prefix: str,
     id_column: ColumnElement,
     platform_id_column: ColumnElement,
-):
+) -> ColumnElement:
     return case(
         (
             id_column.isnot(None),
@@ -962,7 +962,7 @@ class DBRomsHandler(DBBaseHandler):
             ).all()
         )
 
-    def filter_by_platform_id(self, query: Select, platform_id: int):
+    def filter_by_platform_id(self, query: Select, platform_id: int) -> Select:
         return query.filter(Rom.platform_id == platform_id)
 
     def _filter_by_platform_ids(
@@ -970,7 +970,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Select:
         return query.filter(Rom.platform_id.in_(platform_ids))
 
-    def _filter_by_collection_id(self, query: Select, collection_id: int):
+    def _filter_by_collection_id(self, query: Select, collection_id: int) -> Select:
         # `collections_roms` is keyed on (collection_id, rom_id), so membership
         # is an indexed subquery rather than a list of ids fetched into Python.
         return query.filter(
@@ -983,7 +983,7 @@ class DBRomsHandler(DBBaseHandler):
 
     def _filter_by_virtual_collection_id(
         self, query: Select, session: Session, virtual_collection_id: str
-    ):
+    ) -> Select:
         from . import db_collection_handler
 
         return query.filter(
@@ -1000,7 +1000,7 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         smart_collection_id: int,
         user_id: int | None,
-    ):
+    ) -> Select:
         from . import db_collection_handler
 
         smart_collection = db_collection_handler.get_smart_collection(
@@ -1132,7 +1132,7 @@ class DBRomsHandler(DBBaseHandler):
             select(RomFile.rom_id.label("id")).where(or_(*file_predicates)),
         ]
 
-    def _filter_by_search_term(self, query: Select, search_term: str):
+    def _filter_by_search_term(self, query: Select, search_term: str) -> Select:
         terms = [term.strip() for term in search_term.split("|")]
         terms = [term for term in terms if term]
         if not terms:
@@ -1306,7 +1306,7 @@ class DBRomsHandler(DBBaseHandler):
         values: Sequence[str],
         match_all: bool = False,
         match_none: bool = False,
-    ):
+    ) -> Select:
         if not values:
             return query
 
@@ -1857,7 +1857,7 @@ class DBRomsHandler(DBBaseHandler):
         *,
         session: Session,
         include_related: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> RomSelect:
         """The filtered, ordered query `get_roms_scalar` and `get_rom_ids` both run."""
         order_by = kwargs.get("order_by", "")
@@ -1895,7 +1895,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         *,
         session: Session = None,  # type: ignore[assignment]
-        **kwargs,
+        **kwargs: Any,
     ) -> Sequence[Rom]:
         query = self._scoped_roms_query(session=session, **kwargs)
         return session.scalars(query).all()
@@ -1905,7 +1905,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         *,
         session: Session = None,  # type: ignore[assignment]
-        **kwargs,
+        **kwargs: Any,
     ) -> list[int]:
         """Every matching rom id, in query order."""
         query = self._scoped_roms_query(
@@ -3439,7 +3439,7 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         session: Session = None,  # type: ignore[assignment]
-        **fields,
+        **fields: Any,
     ) -> dict | None:
         note = session.scalar(
             select(RomNote)

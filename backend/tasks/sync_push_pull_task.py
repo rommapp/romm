@@ -8,6 +8,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
+import asyncssh
 from anyio import Path as AnyioPath
 from anyio import open_file
 
@@ -21,7 +22,7 @@ from handler.database import (
 )
 from handler.filesystem import fs_asset_handler
 from handler.sync.comparison import compare_save_state
-from handler.sync.ssh_handler import get_ssh_sync_handler
+from handler.sync.ssh_handler import RemoteSaveInfo, get_ssh_sync_handler
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.device import Device, SyncMode
@@ -216,8 +217,8 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict:
 
 async def _process_remote_save(
     device: Device,
-    conn,
-    remote_save,
+    conn: asyncssh.SSHClientConnection,
+    remote_save: RemoteSaveInfo,
     session_id: int,
 ) -> str:
     """Process a single remote save file. Returns action taken."""
@@ -345,8 +346,8 @@ async def _process_remote_save(
 
 async def _push_missing_saves(
     device: Device,
-    conn,
-    remote_saves,
+    conn: asyncssh.SSHClientConnection,
+    remote_saves: list[RemoteSaveInfo],
     save_directories: list[dict],
 ) -> int:
     """Push server saves that are missing from the device."""

@@ -655,7 +655,7 @@ class DBCollectionsHandler(DBBaseHandler):
         rom_ids: Sequence[int],
         membership_only: bool = False,
         session: Session = None,  # type: ignore[assignment]
-    ):
+    ) -> None:
         """Refresh the collections a handful of changed ROMs touch.
 
         Editing one ROM rarely moves any collection, and asking whether given

@@ -245,7 +245,7 @@ def _resolve_firmware_content(request: Request, id: int) -> tuple[Firmware, Path
     "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
 )
-def head_firmware_content(request: Request, id: int, file_name: str):
+def head_firmware_content(request: Request, id: int, file_name: str) -> FileResponse:
     """Head firmware content endpoint
 
     Args:
@@ -277,7 +277,7 @@ def get_firmware_content(
     request: Request,
     id: int,
     file_name: str,
-):
+) -> FileResponse:
     """Download firmware endpoint
 
     Args:

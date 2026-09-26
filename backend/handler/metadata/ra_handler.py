@@ -87,7 +87,7 @@ class RAUserProgression(TypedDict):
 def extract_metadata_from_rom_details(
     rom: Rom, rom_details: RAGameExtendedDetails
 ) -> RAMetadata:
-    def parse_release_timestamp():
+    def parse_release_timestamp() -> int | None:
         release_date_str = rom_details.get("Released")
         if not release_date_str:
             return None
