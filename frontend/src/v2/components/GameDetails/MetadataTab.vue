@@ -14,10 +14,7 @@ import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import ProviderGrid from "@/v2/components/GameDetails/ProviderGrid.vue";
 import HashChip from "@/v2/components/shared/HashChip.vue";
-import {
-  matchesDatabase,
-  VERIFICATION_DATABASES,
-} from "@/v2/utils/romVerification";
+import { VERIFICATION_DATABASES } from "@/v2/utils/romVerification";
 
 defineOptions({ inheritAttrs: false });
 
@@ -70,7 +67,7 @@ type Verification = { label: string; match: boolean };
 const verifications = computed<Verification[]>(() =>
   VERIFICATION_DATABASES.map((db) => ({
     label: db.label,
-    match: matchesDatabase(props.rom, db.keys),
+    match: db.matches(props.rom),
   })),
 );
 

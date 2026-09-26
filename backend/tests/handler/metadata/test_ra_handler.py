@@ -1,6 +1,7 @@
 """Tests for the RetroAchievements metadata handler."""
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -109,6 +110,24 @@ class TestSearchRom:
 
         assert ra_id == 10210
         get_game_list.assert_not_awaited()
+
+    async def test_parses_the_cached_index_once_until_it_changes(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch, resources_dir: Path
+    ):
+        cache_file = resources_dir / handler.HASHES_FILE_NAME
+        cache_file.write_bytes(json.dumps({"abcdef": 10210}).encode("utf-8"))
+        read_file = ra_handler.fs_resource_handler.read_file
+
+        assert await handler._search_rom(self._make_rom(), "abcdef") == 10210
+        assert await handler._search_rom(self._make_rom(), "abcdef") == 10210
+        assert read_file.await_count == 1  # type: ignore[attr-defined]
+
+        cache_file.write_bytes(json.dumps({"abcdef": 10211}).encode("utf-8"))
+        stat = cache_file.stat()
+        os.utime(cache_file, (stat.st_atime, stat.st_mtime + 1))
+
+        assert await handler._search_rom(self._make_rom(), "abcdef") == 10211
+        assert read_file.await_count == 2  # type: ignore[attr-defined]
 
     async def test_ignores_an_unfiltered_index_from_an_older_version(
         self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch, resources_dir: Path

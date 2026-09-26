@@ -136,6 +136,8 @@ class RAHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ra_service = RetroAchievementsService()
         self.HASHES_FILE_NAME = "ra_hashes_v3.json"
+        # Parsed hash index per platform id, with the cache file mtime it came from.
+        self._hash_indexes: dict[int, tuple[float, dict[str, int]]] = {}
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -216,11 +218,16 @@ class RAHandler(MetadataHandler):
                 self.HASHES_FILE_NAME,
             )
         else:
-            # Read the hash index from the JSON file
-            json_file_bytes = await fs_resource_handler.read_file(
-                self._get_hashes_file_path(rom.platform.id)
-            )
-            hash_index = json.loads(json_file_bytes.decode("utf-8"))
+            file_path = self._get_hashes_file_path(rom.platform.id)
+            full_path = fs_resource_handler.validate_path(file_path)
+            mtime = (await AnyioPath(str(full_path)).stat()).st_mtime
+            cached = self._hash_indexes.get(rom.platform.id)
+            if cached and cached[0] == mtime:
+                hash_index = cached[1]
+            else:
+                json_file_bytes = await fs_resource_handler.read_file(file_path)
+                hash_index = json.loads(json_file_bytes.decode("utf-8"))
+                self._hash_indexes[rom.platform.id] = (mtime, hash_index)
 
         return hash_index.get(ra_hash.lower())
 
@@ -311,11 +318,12 @@ class RAHandler(MetadataHandler):
         if not ra_id:
             return RAGameRom(ra_id=None)
 
-        hash_match = await self._hash_matches(rom, ra_hash, ra_id)
         try:
             rom_details = await self.ra_service.get_game_extended_details(ra_id)
+            game_id = rom_details["ID"]
+            hash_match = await self._hash_matches(rom, ra_hash, ra_id)
             return RAGameRom(
-                ra_id=rom_details["ID"],
+                ra_id=game_id,
                 name=rom_details.get("Title", ""),
                 url_cover=(
                     f"https://media.retroachievements.org{rom_details['ImageTitle']}"
