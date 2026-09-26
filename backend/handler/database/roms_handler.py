@@ -35,7 +35,6 @@ from sqlalchemy import (
     union,
     update,
 )
-from sqlalchemy.dialects import mysql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     ColumnProperty,
@@ -100,6 +99,7 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.sql_dialect import (
     Analyze,
     DialectCase,
+    fulltext_match,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
@@ -234,11 +234,11 @@ def _nulls_last_ordering(
     return None, nulls_last(sort_key, descending)
 
 
-def _fulltext_match(boolean_query: str) -> mysql.match:
+def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
     """A MariaDB/MySQL FULLTEXT match of the ROM's name and filename."""
-    return mysql.match(
-        Rom.name.expression, Rom.fs_name.expression, against=boolean_query
-    ).in_boolean_mode()
+    return fulltext_match(
+        Rom.name.expression, Rom.fs_name.expression, boolean_query=boolean_query
+    )
 
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
