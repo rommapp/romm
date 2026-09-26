@@ -36,6 +36,15 @@ from adapters.services.screenscraper import (
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
 INVALID_GAME_ID = 999999
+
+GAME = {
+    "id": "1",
+    "noms": [{"region": "wor", "text": "Test Game"}],
+    "systeme": {"id": "1", "text": "NES"},
+    "topstaff": None,
+    "rotation": "0",
+    "medias": [],
+}
 INVALID_SYSTEM_ID = 999999
 
 # Fast enough that the module's pacing never adds real sleeps to a test.
@@ -734,15 +743,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_with_crc(self, service):
         """Test get_game_info with CRC parameter."""
-        mock_response = {
-            "response": {
-                "jeu": {
-                    "id": "1",
-                    "noms": [{"region": "wor", "text": "Test Game"}],
-                    "systeme": {"id": "1", "text": "NES"},
-                }
-            }
-        }
+        mock_response = {"response": {"jeu": GAME}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -757,7 +758,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_with_md5(self, service):
         """Test get_game_info with MD5 parameter."""
-        mock_response = {"response": {"jeu": {"id": "1"}}}
+        mock_response = {"response": {"jeu": GAME}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -771,7 +772,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_with_sha1(self, service):
         """Test get_game_info with SHA1 parameter."""
-        mock_response = {"response": {"jeu": {"id": "1"}}}
+        mock_response = {"response": {"jeu": GAME}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -785,7 +786,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_with_system_id(self, service):
         """Test get_game_info with system ID parameter."""
-        mock_response = {"response": {"jeu": {"id": "1"}}}
+        mock_response = {"response": {"jeu": GAME}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -799,7 +800,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_with_rom_type(self, service):
         """Test get_game_info with ROM type parameter."""
-        mock_response = {"response": {"jeu": {"id": "1"}}}
+        mock_response = {"response": {"jeu": GAME}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -813,7 +814,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_with_rom_name(self, service):
         """Test get_game_info with ROM name parameter."""
-        mock_response = {"response": {"jeu": {"id": "1"}}}
+        mock_response = {"response": {"jeu": GAME}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -829,7 +830,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_with_rom_size(self, service):
         """Test get_game_info with ROM size parameter."""
-        mock_response = {"response": {"jeu": {"id": "1"}}}
+        mock_response = {"response": {"jeu": GAME}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -843,7 +844,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_with_serial_number(self, service):
         """Test get_game_info with serial number parameter."""
-        mock_response = {"response": {"jeu": {"id": "1"}}}
+        mock_response = {"response": {"jeu": GAME}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -857,7 +858,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_with_game_id(self, service):
         """Test get_game_info with game ID parameter."""
-        mock_response = {"response": {"jeu": {"id": "123"}}}
+        mock_response = {"response": {"jeu": {**GAME, "id": "123"}}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -872,7 +873,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_get_game_info_with_all_parameters(self, service):
         """Test get_game_info with all parameters."""
-        mock_response = {"response": {"jeu": {"id": "1"}}}
+        mock_response = {"response": {"jeu": GAME}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -926,8 +927,8 @@ class TestScreenScraperServiceUnit:
         mock_response = {
             "response": {
                 "jeux": [
-                    {"id": "1", "noms": [{"region": "wor", "text": "Sonic"}]},
-                    {"id": "2", "noms": [{"region": "wor", "text": "Sonic 2"}]},
+                    {**GAME, "id": "1", "noms": [{"region": "wor", "text": "Sonic"}]},
+                    {**GAME, "id": "2", "noms": [{"region": "wor", "text": "Sonic 2"}]},
                 ]
             }
         }
@@ -946,7 +947,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_search_games_with_system_id(self, service):
         """Test search_games with system ID filter."""
-        mock_response = {"response": {"jeux": [{"id": "1"}]}}
+        mock_response = {"response": {"jeux": [GAME]}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -1141,7 +1142,7 @@ class TestScreenScraperServicePerformance:
     @pytest.mark.asyncio
     async def test_concurrent_requests(self, service):
         """Test multiple concurrent API requests."""
-        mock_response = {"response": {"jeu": {"id": "1"}}}
+        mock_response = {"response": {"jeu": GAME}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -1183,7 +1184,7 @@ class TestScreenScraperServicePerformance:
     @pytest.mark.asyncio
     async def test_concurrent_search_requests(self, service):
         """Test multiple concurrent search requests."""
-        mock_response = {"response": {"jeux": [{"id": "1"}]}}
+        mock_response = {"response": {"jeux": [GAME]}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -1214,7 +1215,7 @@ class TestScreenScraperServiceEdgeCases:
     @pytest.mark.asyncio
     async def test_get_game_info_with_zero_values(self, service):
         """Test get_game_info with zero values."""
-        mock_response = {"response": {"jeu": {"id": "0"}}}
+        mock_response = {"response": {"jeu": {**GAME, "id": "0"}}}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -1248,7 +1249,7 @@ class TestScreenScraperServiceEdgeCases:
     @pytest.mark.asyncio
     async def test_get_game_info_with_special_characters(self, service):
         """Test get_game_info with special characters in parameters."""
-        mock_response = {"response": {"jeu": {"id": "1"}}}
+        mock_response = {"response": {"jeu": GAME}}
 
         with patch.object(
             service, "_request", return_value=mock_response

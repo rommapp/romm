@@ -2118,7 +2118,7 @@ class TestExtractFromSSDump:
     # Shaped after a real jeuInfos payload, trimmed to the keys read here.
     ROMS = [
         {
-            "id": 4219,
+            "id": "4219",
             "romfilename": "Super Mario Bros.",
             "rommd5": "B330314E19126D87D156D0618C4657B0",
             "romsha1": "8EE8032491DEE422534B82F107DE0E9F5F9D44F9",
@@ -2127,7 +2127,7 @@ class TestExtractFromSSDump:
             "regions": {"regions_shortname": ["wor"], "regions_en": ["World"]},
         },
         {
-            "id": 154585,
+            "id": "154585",
             "romfilename": "Super Mario Bros. (W) [T Fre].nes",
             "rommd5": "811B027EAF99C2DEF7B933C5208636DE",
             "romsha1": "",
@@ -2140,7 +2140,7 @@ class TestExtractFromSSDump:
 
     def _game(self) -> SSGame:
         # `romid` names a dump that is not ours, which is why hashes decide.
-        return cast(SSGame, {"id": 1245, "romid": "999999", "roms": self.ROMS})
+        return cast(SSGame, {"id": "1245", "romid": "999999", "roms": self.ROMS})
 
     def test_the_dump_is_found_by_md5_whatever_romid_says(self):
         dump = find_ss_dump(
@@ -2149,7 +2149,7 @@ class TestExtractFromSSDump:
         )
 
         assert dump is not None
-        assert dump["id"] == 154585
+        assert dump["id"] == "154585"
 
     def test_the_dump_is_found_by_sha1(self):
         dump = find_ss_dump(
@@ -2160,7 +2160,7 @@ class TestExtractFromSSDump:
         )
 
         assert dump is not None
-        assert dump["id"] == 4219
+        assert dump["id"] == "4219"
 
     def test_a_hash_no_dump_carries_matches_nothing(self):
         assert (
