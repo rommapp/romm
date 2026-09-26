@@ -6,8 +6,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.sql import ColumnElement
 
-# What `Session.get_bind()` returns; these helpers only read `.engine`, which
-# an Engine answers with itself.
+# These helpers only read `.engine`, which an Engine answers with itself.
 type DatabaseBind = sa.Engine | sa.Connection
 
 # Single-column foreign keys that MariaDB/MySQL index implicitly but PostgreSQL

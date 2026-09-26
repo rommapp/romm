@@ -14,7 +14,7 @@ a time, hence the compiled-SQL check below.
 """
 
 import pytest
-from tests.handler.database.conftest import POSTGRESQL_DIALECT
+from tests.sql_dialects import POSTGRESQL_DIALECT, compile_sql
 
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
@@ -120,9 +120,6 @@ class TestVerifiedFilter:
 
 
 class TestVerifiedPostgresPredicate:
-    """The suite runs on a single driver at a time, so PostgreSQL's spelling is
-    pinned by compiling for it."""
-
     @pytest.mark.parametrize("verified", [True, False])
     def test_every_key_is_coalesced_to_false(self, verified: bool):
         query, _ = db_rom_handler.get_roms_query()
@@ -130,11 +127,7 @@ class TestVerifiedPostgresPredicate:
             query=query, filters=RomFilterParams(verified=verified)
         )
 
-        sql = str(
-            filtered.compile(
-                dialect=POSTGRESQL_DIALECT, compile_kwargs={"literal_binds": True}
-            )
-        )
+        sql = compile_sql(filtered, POSTGRESQL_DIALECT, literal_binds=True)
 
         for key in [*LEGACY_KEYS, "mame_redump_match"]:
             assert (

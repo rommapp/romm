@@ -1,6 +1,8 @@
 """Dialects for query-shape tests: the suite runs one database at a time, so
 each engine's spelling is pinned by compiling for it explicitly."""
 
+from typing import Any
+
 from sqlalchemy import ClauseElement
 from sqlalchemy.dialects.mysql.mariadb import MariaDBDialect
 from sqlalchemy.dialects.postgresql import psycopg
@@ -12,5 +14,7 @@ MARIADB_DIALECT: Dialect = MariaDBDialect(paramstyle="named")
 POSTGRESQL_DIALECT: Dialect = psycopg.dialect(paramstyle="named")
 
 
-def compile_sql(statement: ClauseElement, dialect: Dialect) -> str:
-    return str(statement.compile(dialect=dialect))
+def compile_sql(
+    statement: ClauseElement, dialect: Dialect, **compile_kwargs: Any
+) -> str:
+    return str(statement.compile(dialect=dialect, compile_kwargs=compile_kwargs))

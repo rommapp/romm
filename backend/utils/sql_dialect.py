@@ -11,8 +11,8 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import ClauseElement, ColumnElement, func
 from sqlalchemy.sql.compiler import DDLCompiler, SQLCompiler
 from sqlalchemy.sql.ddl import ExecutableDDLElement
-from sqlalchemy.sql.elements import ClauseList, TextClause
-from sqlalchemy.sql.operators import OperatorType
+from sqlalchemy.sql.elements import ClauseList
+from sqlalchemy.sql.operators import OperatorType, comma_op
 from sqlalchemy.sql.selectable import FromClause
 from sqlalchemy.sql.visitors import InternalTraversal
 
@@ -52,9 +52,11 @@ class DialectCase[T](ColumnElement[T]):
     def _from_objects(self) -> list[FromClause]:
         return [*self.postgresql._from_objects, *self.mysql._from_objects]
 
-    # Group and negate each branch on its own terms, so `NOT` or `AND` around
-    # an `OR` branch keeps its precedence.
+    # Group and negate each branch on its own, so `NOT (a OR b)` keeps its parens;
+    # a comma list stays flat, since a grouped ORDER BY list is a row value.
     def self_group(self, against: OperatorType | None = None) -> ColumnElement[T]:
+        if against is comma_op:
+            return self
         return DialectCase(
             postgresql=self.postgresql.self_group(against=against),
             mysql=self.mysql.self_group(against=against),
@@ -80,11 +82,6 @@ def _dialect_case_mysql(
     return compiler.process(element.mysql, **kw)
 
 
-def order_terms(*terms: ColumnElement[Any] | TextClause) -> ClauseList:
-    """Keep ORDER BY terms unparenthesised to avoid invalid MariaDB row values."""
-    return ClauseList(*terms, group=False)
-
-
 def nulls_last[T](sort_key: SQLColumnExpression[T], descending: bool) -> DialectCase[T]:
     """An ORDER BY term that sorts NULL values of `sort_key` after every other value."""
     directed = sort_key.desc() if descending else sort_key.asc()
@@ -94,7 +91,7 @@ def nulls_last[T](sort_key: SQLColumnExpression[T], descending: bool) -> Dialect
         # PostgreSQL's `idx_roms_<column>_desc` indexes are declared with exactly
         # this spelling, so the descending sort reads out of them.
         postgresql=directed.nulls_last(),
-        mysql=directed if descending else order_terms(sort_key.is_(None), directed),
+        mysql=directed if descending else ClauseList(sort_key.is_(None), directed),
     )
 
 

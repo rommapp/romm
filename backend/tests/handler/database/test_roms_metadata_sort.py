@@ -14,7 +14,7 @@ since no index can serve the `ORDER BY <column> IS NULL` that emulated it.
 
 import pytest
 import sqlalchemy as sa
-from tests.handler.database.conftest import (
+from tests.sql_dialects import (
     MARIADB_DIALECT,
     POSTGRESQL_DIALECT,
     compile_sql,
@@ -152,9 +152,9 @@ class TestMetadataSortQueryShape:
                 MARIADB_DIALECT,
                 "asc",
                 "roms.generated_player_count IS NULL, "
-                "roms.generated_player_count ASC, MATCH(",
+                "roms.generated_player_count ASC, MATCH (",
             ),
-            (MARIADB_DIALECT, "desc", "roms.generated_player_count DESC, MATCH("),
+            (MARIADB_DIALECT, "desc", "roms.generated_player_count DESC, MATCH ("),
             (
                 POSTGRESQL_DIALECT,
                 "asc",

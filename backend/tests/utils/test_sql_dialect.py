@@ -2,8 +2,8 @@ from collections.abc import Callable, Iterator
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql, postgresql, sqlite
-from tests.handler.database.conftest import (
+from sqlalchemy.dialects import mysql, sqlite
+from tests.sql_dialects import (
     MARIADB_DIALECT,
     POSTGRESQL_DIALECT,
     compile_sql,
@@ -19,7 +19,6 @@ from utils.sql_dialect import (
     json_array_contains_any,
     json_array_contains_value,
     nulls_last,
-    order_terms,
 )
 
 _T = sa.table("t", sa.column("v", sa.Integer), sa.column("tags", CustomJSON()))
@@ -83,8 +82,8 @@ class TestNullsLastSpelling:
             (MARIADB_DIALECT, True, "t.v DESC"),
             (mysql.dialect(), False, "t.v IS NULL, t.v ASC"),
             (mysql.dialect(), True, "t.v DESC"),
-            (postgresql.dialect(), False, "t.v ASC NULLS LAST"),
-            (postgresql.dialect(), True, "t.v DESC NULLS LAST"),
+            (POSTGRESQL_DIALECT, False, "t.v ASC NULLS LAST"),
+            (POSTGRESQL_DIALECT, True, "t.v DESC NULLS LAST"),
             (sqlite.dialect(), True, "t.v DESC NULLS LAST"),
         ],
     )
@@ -93,11 +92,11 @@ class TestNullsLastSpelling:
     ):
         assert _order_by_sql(descending, dialect) == expected
 
-    def test_stays_unparenthesised_inside_further_order_terms(self):
+    def test_stays_unparenthesised_inside_a_multi_term_branch(self):
         """`(t.v IS NULL, t.v ASC)` would be a row value MariaDB cannot parse."""
         ranked: DialectCase[int] = DialectCase(
             postgresql=_T.c.v.asc(),
-            mysql=order_terms(nulls_last(_T.c.v, False), _T.c.tags.desc()),
+            mysql=sa.ClauseList(nulls_last(_T.c.v, False), _T.c.tags.desc()),
         )
         statement = sa.select(_T.c.v).order_by(ranked)
 
@@ -222,7 +221,7 @@ class TestAnalyze:
         [
             (MARIADB_DIALECT, "ANALYZE TABLE roms"),
             (mysql.dialect(), "ANALYZE TABLE roms"),
-            (postgresql.dialect(), "ANALYZE roms"),
+            (POSTGRESQL_DIALECT, "ANALYZE roms"),
         ],
     )
     def test_each_engine_gets_its_own_spelling(
@@ -231,7 +230,7 @@ class TestAnalyze:
         assert str(Analyze("roms").compile(dialect=dialect)) == expected
 
     def test_quotes_a_reserved_name(self):
-        assert str(Analyze("order").compile(dialect=postgresql.dialect())) == (
+        assert str(Analyze("order").compile(dialect=POSTGRESQL_DIALECT)) == (
             'ANALYZE "order"'
         )
 

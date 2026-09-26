@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pytest
-from tests.handler.database.conftest import MARIADB_DIALECT, compile_sql
+from tests.sql_dialects import MARIADB_DIALECT, compile_sql
 
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams

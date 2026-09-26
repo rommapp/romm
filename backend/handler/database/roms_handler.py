@@ -18,7 +18,6 @@ from sqlalchemy import (
     String,
     Text,
     and_,
-    bindparam,
     case,
     cast,
     delete,
@@ -32,11 +31,11 @@ from sqlalchemy import (
     not_,
     or_,
     select,
-    text,
     true,
     union,
     update,
 )
+from sqlalchemy.dialects import mysql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     ColumnProperty,
@@ -49,7 +48,7 @@ from sqlalchemy.orm import (
     selectinload,
     undefer,
 )
-from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
+from sqlalchemy.sql.elements import ClauseList, ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
 
 from config.config_manager import config_manager as cm
@@ -105,7 +104,6 @@ from utils.sql_dialect import (
     json_array_contains_any,
     json_array_contains_value,
     nulls_last,
-    order_terms,
 )
 
 from .base_handler import DBBaseHandler, affected_rows
@@ -232,6 +230,13 @@ def _nulls_last_ordering(
         if flag is not None:
             return flag, sort_key.asc()
     return None, nulls_last(sort_key, descending)
+
+
+def _fulltext_match(boolean_query: str) -> mysql.match:
+    """A MariaDB/MySQL FULLTEXT match of the ROM's name and filename."""
+    return mysql.match(
+        Rom.name.expression, Rom.fs_name.expression, against=boolean_query
+    ).in_boolean_mode()
 
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
@@ -1079,19 +1084,20 @@ class DBRomsHandler(DBBaseHandler):
             )
             for term in terms
         ]
-        boolean_queries = [self._build_fulltext_boolean_query(term) for term in terms]
-        if None in boolean_queries:
+        boolean_queries = [
+            query
+            for term in terms
+            if (query := self._build_fulltext_boolean_query(term)) is not None
+        ]
+        if len(boolean_queries) < len(terms):
             return like_conditions
 
-        conditions: list[Any] = []
-        for boolean_query, like in zip(boolean_queries, like_conditions, strict=True):
-            # A unique bind gets its own name per MATCH (a smart collection's search
-            # composes with the gallery's) and keeps the term out of the cache key.
-            match = text(
-                "MATCH(roms.name, roms.fs_name) AGAINST(:fulltext_search IN BOOLEAN MODE)"
-            ).bindparams(bindparam("fulltext_search", boolean_query, unique=True))
-            conditions.append(DialectCase(postgresql=like, mysql=match))
-        return conditions
+        return [
+            DialectCase(postgresql=like, mysql=_fulltext_match(boolean_query))
+            for boolean_query, like in zip(
+                boolean_queries, like_conditions, strict=True
+            )
+        ]
 
     def _build_hash_selects(self, terms: Iterable[str]) -> list[Select]:
         """Id-yielding selects for terms shaped like a hash digest.
@@ -1787,24 +1793,21 @@ class DBRomsHandler(DBBaseHandler):
 
         relevance = self._build_fulltext_relevance(search_term) if search_term else None
         if relevance:
-            relevance_clause = text(
-                "MATCH(roms.name, roms.fs_name) AGAINST(:relevance IN BOOLEAN MODE) DESC"
-            ).bindparams(relevance=relevance)
+            relevance_clause = _fulltext_match(relevance).desc()
             # Only the FULLTEXT engines rank: relevance breaks an explicit sort's
             # ties, or leads (with name breaking its ties) when no sort is picked.
             order_clause = DialectCase(
                 postgresql=order_clause,
                 mysql=(
-                    order_terms(order_clause, relevance_clause)
+                    ClauseList(order_clause, relevance_clause)
                     if order_by
-                    else order_terms(relevance_clause, order_clause)
+                    else ClauseList(relevance_clause, order_clause)
                 ),
             )
 
-        leading = nulls_last_clause if order_by else None
         return [
             clause
-            for clause in (leading, order_clause, tiebreaker)
+            for clause in (nulls_last_clause, order_clause, tiebreaker)
             if clause is not None
         ]
 
@@ -2934,14 +2937,10 @@ class DBRomsHandler(DBBaseHandler):
         if playlist_id is not None:
             order_map["position"] = MusicPlaylistTrack.position
         col = order_map.get(order_by, TrackMeta.title)
-        nulls_last_clause, direction = _nulls_last_ordering(col, order_dir == "desc")
-        track_ordering = [
-            clause
-            for clause in (nulls_last_clause, direction, TrackMeta.rom_file_id)
-            if clause is not None
-        ]
         rows = session.execute(
-            base.order_by(*track_ordering).limit(limit).offset(offset)
+            base.order_by(nulls_last(col, order_dir == "desc"), TrackMeta.rom_file_id)
+            .limit(limit)
+            .offset(offset)
         ).all()
         return rows, total
 
