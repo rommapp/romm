@@ -1,3 +1,4 @@
+import json
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -19,7 +20,7 @@ class TestIGDBServiceUnit:
     async def test_request_acquires_rate_limiter(self, service):
         """Test that the request reserves a rate-limiter slot before sending."""
         mock_response = MagicMock()
-        mock_response.json = AsyncMock(return_value=[{"id": 1}])
+        mock_response.read = AsyncMock(return_value=json.dumps([{"id": 1}]).encode())
         mock_response.raise_for_status.return_value = None
 
         # Record the order in which the rate limiter is acquired and the request is sent
@@ -38,7 +39,7 @@ class TestIGDBServiceUnit:
         mock_context.get.return_value = mock_session
 
         with patch("adapters.services.igdb.ctx_aiohttp_session", mock_context):
-            result = await service._request("https://api.igdb.com/v4/games")
+            result = await service._request("https://api.igdb.com/v4/games", object)
 
         assert result == [{"id": 1}]
         # The rate-limiter slot must be reserved, and before the request is sent.
