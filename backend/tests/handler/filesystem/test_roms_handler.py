@@ -1828,6 +1828,39 @@ class TestFSRomsHandler:
         assert parsed.ra_hash == "abcdef1234567890abcdef1234567890"
 
     @pytest.mark.asyncio
+    async def test_get_rom_files_archive_computes_ra_hash_when_member_read_fails(
+        self, tmp_path: Path
+    ):
+        """A timed-out member read falls back to raw hashing but keeps the RA hash."""
+        from utils.archives import ArchiveReadError
+
+        nds_platform = Platform(name="Nintendo DS", slug="nds", fs_slug="nds")
+        archive_bytes = b"stand-in bytes for a large 7z"
+        test_handler, rom = self._setup_archive_rom(
+            tmp_path, nds_platform, "game.7z", "7z", archive_bytes
+        )
+
+        with (
+            patch.dict(
+                "handler.filesystem.roms_handler.ARCHIVE_READERS",
+                {".7z": Mock(side_effect=ArchiveReadError("Extraction timed out"))},
+            ),
+            patch(
+                "adapters.services.rahasher.RAHasherService.calculate_hash",
+                return_value="abcdef1234567890abcdef1234567890",
+            ) as mock_calculate,
+        ):
+            parsed = await test_handler.get_rom_files(rom)
+
+        mock_calculate.assert_called_once()
+        assert parsed.ra_hash == "abcdef1234567890abcdef1234567890"
+        assert (
+            parsed.md5_hash
+            == hashlib.md5(archive_bytes, usedforsecurity=False).hexdigest()
+        )
+        assert parsed.rom_files[0].archive_members is None
+
+    @pytest.mark.asyncio
     async def test_get_rom_files_archive_skips_ra_hash_for_disc_platform(
         self, tmp_path: Path
     ):

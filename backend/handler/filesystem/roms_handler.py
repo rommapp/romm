@@ -849,16 +849,17 @@ class FSRomsHandler(FSHandler):
                 _hash_archive_entries, rom_crc_c, rom_md5_h, rom_sha1_h
             )
 
+            # RAHasher extracts the ROM itself, independent of the member read.
+            if calculate_hashes:
+                ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
+                if ra_platform and ra_platform["ra_id"]:
+                    rom_ra_h = await RAHasherService().calculate_hash(
+                        ra_platform,
+                        f"{abs_fs_path}/{rom.fs_name}",
+                    )
+
             if members:
                 rom_md5_h, rom_sha1_h = archive_md5_h, archive_sha1_h
-                if calculate_hashes:
-                    ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
-                    if ra_platform and ra_platform["ra_id"]:
-                        rom_ra_h = await RAHasherService().calculate_hash(
-                            ra_platform,
-                            f"{abs_fs_path}/{rom.fs_name}",
-                        )
-
                 rom_files.append(
                     self._build_rom_file(
                         rom=rom,

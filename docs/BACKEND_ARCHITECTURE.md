@@ -415,18 +415,22 @@ HTTP Request
 
 ### Supported Databases
 
-| Database       | Driver                | Status    |
-| -------------- | --------------------- | --------- |
-| MariaDB 10.11+ | `mariadb+pymysql`     | Default   |
-| MySQL 8.0+     | `mysql+pymysql`       | Supported |
-| PostgreSQL     | `postgresql+psycopg2` | Supported |
+| Database       | Driver                     | Status    |
+| -------------- | -------------------------- | --------- |
+| MariaDB 10.11+ | `mariadb+mariadbconnector` | Default   |
+| MySQL 8.0.17+  | `mysql+mysqlconnector`     | Supported |
+| PostgreSQL     | `postgresql+psycopg`       | Supported |
 
 MariaDB 10.5 and 10.6 reached upstream end of life in June 2025 and July 2026, so
 10.11 is the oldest LTS still receiving fixes.
 
-CI runs the test suite against MariaDB 12.3 and PostgreSQL 16, and the migration
+CI runs the test suite against MariaDB 13.0 and PostgreSQL 18, and the migration
 suite additionally against MariaDB 10.11, which predates the 11.6 `uca1400`
 collation default. MySQL has no CI coverage.
+
+Query SQL that differs between engines lives in `utils/sql_dialect.py`
+(`DialectCase` and the helpers built on it), which picks each engine's spelling
+when the statement compiles. Handlers don't branch on `ROMM_DB_DRIVER`.
 
 ### Engine & Session Setup
 

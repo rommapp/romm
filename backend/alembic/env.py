@@ -17,6 +17,7 @@ from utils.database import (
     alembic_command_runs_revisions,
     is_binlog_trigger_privilege_error,
     trigger_ddl_is_blocked,
+    unsupported_server_version,
 )
 
 # this is the Alembic Config object, which provides
@@ -127,6 +128,9 @@ def run_migrations_online() -> None:
             compare_type=True,
             include_object=include_object,
         )
+
+        if message := unsupported_server_version(connection.dialect):
+            raise CommandError(message)
 
         # The probe first: one statement, and free on the other dialects.
         if trigger_ddl_is_blocked(connection) and will_run_revisions():

@@ -19,6 +19,7 @@ from handler.database import (
     db_state_handler,
 )
 from handler.database.base_handler import sync_session
+from handler.database.saves_handler import UnhashedVersions
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_screenshot, scan_state
 from logger.formatter import highlight as hl
@@ -151,6 +152,47 @@ async def release_thumbnail(screenshot: Screenshot | None) -> None:
     ):
         return
     await remove_asset_file(path, "Screenshot file")
+
+
+async def remove_save(save: Save) -> None:
+    """Drop a save row with its file and screenshot."""
+    db_save_handler.delete_save(
+        save.id, content_hash=await fs_asset_handler.unrecorded_hash(save)
+    )
+    await remove_asset_file(save.full_path, "Save file")
+    await release_thumbnail(save.screenshot)
+
+
+async def prune_save_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
+    """Drop every version of ``slot`` past the ``keep`` newest, files included."""
+    # Hashed outside the slot's lock, recorded by the prune that deletes them.
+    # Each pass hashes only what the last one lacked.
+    file_hashes: dict[int, str | None] = {}
+    while True:
+        try:
+            pruned = db_save_handler.prune_slot(
+                user_id=user_id,
+                rom_id=rom_id,
+                slot=slot,
+                keep=keep,
+                fallback_hashes=file_hashes,
+            )
+            break
+        except UnhashedVersions as unhashed:
+            for version in unhashed.versions:
+                file_hashes[version.id] = await fs_asset_handler.compute_content_hash(
+                    f"{version.file_path}/{version.file_name}"
+                )
+    for version in pruned:
+        await remove_asset_file(f"{version.file_path}/{version.file_name}", "Save file")
+        await release_thumbnail(
+            db_screenshot_handler.get_screenshot(
+                rom_id=rom_id,
+                user_id=user_id,
+                file_name=version.file_name,
+                file_name_no_ext=version.file_name_no_ext,
+            )
+        )
 
 
 def _name_taken(file_name: str) -> HTTPException:

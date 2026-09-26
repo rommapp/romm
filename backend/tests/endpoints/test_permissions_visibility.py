@@ -50,7 +50,7 @@ def _hide(entity, entity_id, user_id):
 
 def _make_group(name, grants):
     with sync_session.begin() as s:
-        group = PermissionGroup(name=name, is_system=False)
+        group = PermissionGroup(name=name)
         s.add(group)
         s.flush()
         gid = group.id
@@ -69,7 +69,7 @@ def _cleanup_non_system_groups():
     # non-system groups created here need explicit cleanup.
     yield
     with sync_session.begin() as s:
-        s.query(PermissionGroup).filter(PermissionGroup.is_system.is_(False)).delete(
+        s.query(PermissionGroup).filter(PermissionGroup.system_key.is_(None)).delete(
             synchronize_session="evaluate"
         )
 

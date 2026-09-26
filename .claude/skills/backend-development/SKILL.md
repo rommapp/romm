@@ -42,6 +42,7 @@ alembic/          Migrations (env.py + versions/)
 - **Imports:** stdlib → third-party → local; explicit (no wildcards); `TYPE_CHECKING` blocks to break circular imports.
 - **Errors:** raise the custom exceptions in `exceptions/` (e.g. `RomNotFoundInDatabaseException`), not bare `HTTPException`, where a typed one exists.
 - **Validation/SSRF:** sanitize filenames/paths before filesystem use (`utils/`); paths are rooted at `LIBRARY_BASE_PATH`/`RESOURCES_BASE_PATH`/`ASSETS_BASE_PATH` from config.
+- **Engine-specific query SQL:** reach for a portable SQLAlchemy expression first. If the engines need different SQL, build both with `DialectCase(postgresql=..., mysql=...)` from `utils/sql_dialect.py` (or add a helper or `@compiles` construct there) rather than branching on `ROMM_DB_DRIVER` in a handler. `@compiles(..., "mysql")` alone misses MariaDB; use `_compiles_on_mysql_family`. Pin each spelling in tests by compiling for `MARIADB_DIALECT`/`POSTGRESQL_DIALECT` from `tests/sql_dialects.py`.
 
 ## Auth & scopes
 

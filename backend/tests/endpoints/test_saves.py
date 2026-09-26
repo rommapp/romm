@@ -7,11 +7,13 @@ from unittest import mock
 
 import pytest
 from fastapi import status
+from sqlalchemy import update
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
@@ -1870,6 +1872,115 @@ class TestAutocleanup:
         assert mock_remove.call_count == 6
 
     @mock.patch(
+        "endpoints.saves.fs_asset_handler.compute_content_hash",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_autocleanup_records_versions_never_hashed(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        mock_hash,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        slot_saves: list[Save],
+    ):
+        mock_hash.side_effect = lambda path: f"hash of {path.rsplit('/', 1)[-1]}"
+        mock_scan.return_value = _slot_save(
+            admin_user, rom, platform, "new_autosave", "autosave"
+        )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot=autosave&autocleanup=true&autocleanup_limit=10",
+            files={
+                "saveFile": (
+                    "new_autosave.sav",
+                    BytesIO(b"new"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        [record] = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        # The six oldest of the fifteen seeded versions, oldest first.
+        assert record.content_hashes == [
+            f"hash of autosave_{index}.sav" for index in range(6)
+        ]
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.compute_content_hash",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_autocleanup_records_versions_pushed_past_the_limit_while_hashing(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        mock_hash,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        slot_saves: list[Save],
+    ):
+        raced: list[Save] = []
+
+        def hash_while_another_upload_lands(path: str) -> str:
+            if not raced:
+                upload = _slot_save(admin_user, rom, platform, "raced", "autosave")
+                upload.content_hash = "raced"
+                raced.append(db_save_handler.add_save(upload))
+            return f"hash of {path.rsplit('/', 1)[-1]}"
+
+        mock_hash.side_effect = hash_while_another_upload_lands
+        mock_scan.return_value = _slot_save(
+            admin_user, rom, platform, "new_autosave", "autosave"
+        )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot=autosave&autocleanup=true&autocleanup_limit=10",
+            files={
+                "saveFile": (
+                    "new_autosave.sav",
+                    BytesIO(b"new"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        [record] = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        # The race pushed a seventh version past the limit.
+        assert record.content_hashes == [
+            f"hash of autosave_{index}.sav" for index in range(7)
+        ]
+
+    @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
     )
     @mock.patch(
@@ -3501,6 +3612,84 @@ class TestSlotScopedDedupeMatrix:
         rows = [s for s in listing.json() if s["file_name"] == shared_name]
         assert len(rows) == 1
         assert rows[0]["content_hash"] == FIXTURE_B_HASH
+
+    def test_overwriting_a_colliding_save_never_hashed_records_its_bytes(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        admin_user: User,
+        _isolated_assets_dir,
+    ):
+        slotted = self._upload(
+            client, access_token, rom, _build_fixture_a_zip(), slot="slot1"
+        )
+        with sync_session.begin() as session:
+            session.execute(
+                update(Save)
+                .where(Save.id == slotted.json()["id"])
+                .values(content_hash=None)
+            )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&emulator=test_emulator",
+            files={
+                "saveFile": (
+                    slotted.json()["file_name"],
+                    BytesIO(_build_fixture_b_zip()),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        [record] = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        assert (record.slot, record.content_hashes) == (
+            "slot1",
+            [slotted.json()["content_hash"]],
+        )
+
+    def test_updating_a_save_never_hashed_records_its_bytes(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        admin_user: User,
+        _isolated_assets_dir,
+    ):
+        slotted = self._upload(
+            client, access_token, rom, _build_fixture_a_zip(), slot="slot1"
+        )
+        with sync_session.begin() as session:
+            session.execute(
+                update(Save)
+                .where(Save.id == slotted.json()["id"])
+                .values(content_hash=None)
+            )
+
+        response = client.put(
+            f"/api/saves/{slotted.json()['id']}",
+            files={
+                "saveFile": (
+                    slotted.json()["file_name"],
+                    BytesIO(_build_fixture_b_zip()),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        [record] = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        assert (record.slot, record.content_hashes) == (
+            "slot1",
+            [slotted.json()["content_hash"]],
+        )
 
     def test_different_bytes_same_slot_creates_distinct_records(
         self,
