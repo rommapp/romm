@@ -2924,7 +2924,9 @@ def test_heartbeat_for_a_session_reassigned_mid_request_reports_ended(
 
         async def find_then_reassign(*args, **kwargs):
             found = await real_find(*args, **kwargs)
-            session = json.loads(await async_cache.get(key))
+            raw = await async_cache.get(key)
+            assert raw is not None
+            session = json.loads(raw)
             session["user_id"] = viewer_user.id
             await async_cache.set(key, json.dumps(session))
             return found
@@ -2956,7 +2958,9 @@ def test_heartbeat_for_a_claim_restamped_mid_request_reports_ended(
 
         async def find_then_restamp(*args, **kwargs):
             found = await real_find(*args, **kwargs)
-            session = json.loads(await async_cache.get(key))
+            raw = await async_cache.get(key)
+            assert raw is not None
+            session = json.loads(raw)
             session["claimed_at"] = "2099-01-01T00:00:00+00:00"
             await async_cache.set(key, json.dumps(session))
             return found
@@ -5996,7 +6000,7 @@ def test_run_launch_sends_rom_identity_fields(rom: Rom, admin_user: User):
                 user=admin_user,
                 rom=rom,
                 platform=rom.platform_slug,
-                rom_name=rom.name,
+                rom_name=rom.name or rom.fs_name_no_ext,
                 rom_path="rom/path",
                 rom_language=None,
                 gui_language=None,
@@ -6047,7 +6051,7 @@ def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
                 user=admin_user,
                 rom=rom,
                 platform=rom.platform_slug,
-                rom_name=rom.name,
+                rom_name=rom.name or rom.fs_name_no_ext,
                 rom_path="rom/path",
                 rom_language=None,
                 gui_language=None,
@@ -6156,7 +6160,7 @@ def test_run_launch_skips_the_state_push_when_resuming_via_import(
                 user=admin_user,
                 rom=rom,
                 platform=rom.platform_slug,
-                rom_name=rom.name,
+                rom_name=rom.name or rom.fs_name_no_ext,
                 rom_path="rom/path",
                 rom_language=None,
                 gui_language=None,
@@ -6208,7 +6212,7 @@ def test_run_launch_sends_no_resume_slot_when_the_import_was_lost(
                     user=admin_user,
                     rom=rom,
                     platform=rom.platform_slug,
-                    rom_name=rom.name,
+                    rom_name=rom.name or rom.fs_name_no_ext,
                     rom_path="rom/path",
                     rom_language=None,
                     gui_language=None,
@@ -9389,7 +9393,9 @@ def test_joining_walks_past_a_session_on_another_platform(
     with _streaming(member, _ws_pool_member(rom, 1)):
         _claim_multiplayer(client, access_token, rom.id)
         key = session_store.session_redis_key(_key_of(member))
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        raw = asyncio.run(async_cache.get(key))
+        assert raw is not None
+        session = json.loads(raw)
         session["platform"] = "ngc"
         asyncio.run(async_cache.set(key, json.dumps(session)))
         _claim_multiplayer(client, editor_access_token, second_rom.id)
@@ -9411,7 +9417,9 @@ def test_joining_a_named_container_busy_with_another_platform_is_a_404(
     with _streaming(member):
         _claim_multiplayer(client, access_token, rom.id)
         key = session_store.session_redis_key(_key_of(member))
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        raw = asyncio.run(async_cache.get(key))
+        assert raw is not None
+        session = json.loads(raw)
         session["platform"] = "ngc"
         asyncio.run(async_cache.set(key, json.dumps(session)))
         with _joined_room():

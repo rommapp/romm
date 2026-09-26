@@ -31,7 +31,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 
 **Disclose AI assistance in the PR.** RomM requires it (see `CONTRIBUTING.md`): state that AI was used and to what extent. This is mandatory and non-negotiable for agent-written contributions.
 **Branch off `master`; open PRs against `master`.** Fork → feature branch → PR. Don't push to `master`.
-**Linting is via [Trunk](https://trunk.io)** (`trunk fmt && trunk check`) — it wraps ruff, black, isort, mypy, ESLint, Prettier, and more, and runs in CI on every PR. **Never commit with `--no-verify`.**
+**Linting is via [Trunk](https://trunk.io)** (`trunk fmt && trunk check`), which wraps ruff, black, isort, ESLint, Prettier, and more, and runs in CI on every PR. **Never commit with `--no-verify`.**
 **The backend owns the API contract.** Changed a response schema or route? Regenerate frontend types (`npm run generate`) and re-typecheck.
 **Tests travel with code.** New logic gets a test; new endpoints get endpoint tests; new v2 primitives get a Storybook story (+ `play()` if interactive).
 **Verify before handoff.** Don't say "done" on UI work without testing it in the browser in both themes and all input modalities. See `review-polish`.

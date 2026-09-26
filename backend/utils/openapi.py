@@ -23,6 +23,7 @@ def publish_socket_payloads(app: FastAPI, models: Sequence[type[BaseModel]]) -> 
             )
             components = schema.setdefault("components", {}).setdefault("schemas", {})
             components.update(definitions.get("$defs", {}))
+            return schema
         return app.openapi_schema
 
     app.openapi = openapi  # type: ignore[method-assign]

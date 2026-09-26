@@ -209,6 +209,13 @@ trunk fmt
 trunk check
 ```
 
+Type checking runs separately from Trunk, against the project's own environment. CI type-checks the whole backend on every backend change; to run it locally:
+
+```sh
+cd backend
+uv run mypy --config-file ../.trunk/configs/mypy.ini .
+```
+
 **Failing to install and run the linter will result in a failed CI check, which won't allow us to merge your PR.**
 
 ## Test setup
