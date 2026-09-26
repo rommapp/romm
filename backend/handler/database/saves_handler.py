@@ -426,10 +426,11 @@ class DBSavesHandler(DBBaseHandler):
             _deleted_assets.record_deletions(
                 user_id, rom_id, slot, lost, session=session
             )
-        if rows:
+        # One row at a time: MariaDB's `id IN (...)` plan deadlocks concurrent prunes.
+        for row in rows:
             session.execute(
                 delete(Save)
-                .where(Save.id.in_([row.id for row in rows]))
+                .where(Save.id == row.id)
                 .execution_options(synchronize_session="evaluate")
             )
         return rows

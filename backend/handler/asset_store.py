@@ -154,16 +154,11 @@ async def release_thumbnail(screenshot: Screenshot | None) -> None:
     await remove_asset_file(path, "Screenshot file")
 
 
-async def unrecorded_hash(save: Save) -> str | None:
-    """The file's hash for a slotted save never hashed, so its removal is still recorded."""
-    if save.slot and not save.content_hash:
-        return await fs_asset_handler.compute_content_hash(save.full_path)
-    return None
-
-
 async def remove_save(save: Save) -> None:
     """Drop a save row with its file and screenshot."""
-    db_save_handler.delete_save(save.id, content_hash=await unrecorded_hash(save))
+    db_save_handler.delete_save(
+        save.id, content_hash=await fs_asset_handler.unrecorded_hash(save)
+    )
     await remove_asset_file(save.full_path, "Save file")
     await release_thumbnail(save.screenshot)
 

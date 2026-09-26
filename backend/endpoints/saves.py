@@ -17,7 +17,6 @@ from handler.asset_store import (
     prune_save_slot,
     remove_save,
     rename_asset,
-    unrecorded_hash,
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
@@ -288,7 +287,9 @@ async def add_save(
         )
     )
     replaced = db_save or colliding_save
-    replaced_hash = await unrecorded_hash(replaced) if replaced else None
+    replaced_hash = (
+        await fs_asset_handler.unrecorded_hash(replaced) if replaced else None
+    )
     await fs_asset_handler.write_file(
         file=saveFile, path=saves_path, filename=actual_filename
     )
@@ -622,7 +623,7 @@ async def update_save(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     if saveFile:
-        replaced_hash = await unrecorded_hash(db_save)
+        replaced_hash = await fs_asset_handler.unrecorded_hash(db_save)
         await fs_asset_handler.write_file(
             file=saveFile, path=db_save.file_path, filename=db_save.file_name
         )
