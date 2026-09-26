@@ -90,7 +90,7 @@ class DBFirmwareHandler(DBBaseHandler):
         platform_id: int,
         file_name: str,
         session: Session = None,  # type: ignore[assignment]
-    ):
+    ) -> Firmware | None:
         return session.scalar(
             select(Firmware)
             .filter_by(platform_id=platform_id, file_name=file_name)

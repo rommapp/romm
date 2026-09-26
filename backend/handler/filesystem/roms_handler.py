@@ -1002,7 +1002,7 @@ class FSRomsHandler(FSHandler):
             sha1_h = hashlib.sha1(usedforsecurity=False)
             accumulate = rom_md5_h is not None and rom_sha1_h is not None
 
-            def update_hashes(chunk: bytes | bytearray):
+            def update_hashes(chunk: bytes | bytearray) -> None:
                 nonlocal crc_c, rom_crc_c
 
                 md5_h.update(chunk)

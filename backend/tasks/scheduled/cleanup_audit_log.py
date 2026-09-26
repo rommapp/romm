@@ -11,7 +11,7 @@ DELETE_BATCH_SIZE: Final = 5000
 
 
 class CleanupAuditLogTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled audit log cleanup",
             description=f"Removes audit log events older than {AUDIT_LOG_RETENTION_DAYS} days",

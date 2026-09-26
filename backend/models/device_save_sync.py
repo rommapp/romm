@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import TIMESTAMP, Boolean, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from models.assets import CONTENT_HASH_MAX_LENGTH
 from models.base import BaseModel
 
 if TYPE_CHECKING:
@@ -30,6 +31,15 @@ class DeviceSaveSync(BaseModel):
 
     last_synced_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
     is_untracked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Content each side held at `last_synced_at`, so a later comparison can prove
+    # a side did not change regardless of timestamps or hashing scheme.
+    last_sync_hash: Mapped[str | None] = mapped_column(
+        String(length=CONTENT_HASH_MAX_LENGTH)
+    )
+    last_sync_server_hash: Mapped[str | None] = mapped_column(
+        String(length=CONTENT_HASH_MAX_LENGTH)
+    )
 
     device: Mapped[Device] = relationship(back_populates="save_syncs", lazy="raise")
     save: Mapped[Save] = relationship(back_populates="device_syncs", lazy="raise")

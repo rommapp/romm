@@ -157,7 +157,7 @@ def discover_hltb_endpoint(base_url: str = HLTB_BASE_URL) -> str | None:
         return None
 
 
-def main():
+def main() -> None:
     """Main function to discover and update the HLTB API URL."""
     print("Starting HLTB API URL discovery...")
 

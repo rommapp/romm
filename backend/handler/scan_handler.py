@@ -1,7 +1,7 @@
 import asyncio
 import enum
 import functools
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 import pydash
 import socketio
@@ -223,7 +223,7 @@ def build_hashless_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
     return build_empty_fs_rom(fs_name, fs_path, flat=flat)
 
 
-def get_main_platform_igdb_id(platform: Platform):
+def get_main_platform_igdb_id(platform: Platform) -> int | None:
     cnfg = cm.get_config()
 
     main_platform_slug = cnfg.PLATFORMS_VERSIONS.get(platform.fs_slug.lower())
@@ -1817,11 +1817,20 @@ async def download_rom_resources(
                 await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
 
-async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False):
+class ScannedAsset(TypedDict):
+    file_path: str
+    file_name: str
+    file_size_bytes: int
+    content_hash: NotRequired[str | None]
+
+
+async def _scan_asset(
+    file_name: str, asset_path: str, should_hash: bool = False
+) -> ScannedAsset:
     file_path = f"{asset_path}/{file_name}"
     file_size = await fs_asset_handler.get_file_size(file_path)
 
-    result = {
+    result: ScannedAsset = {
         "file_path": asset_path,
         "file_name": file_name,
         "file_size_bytes": file_size,

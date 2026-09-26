@@ -12,6 +12,7 @@ from passlib.context import CryptContext
 from redis.exceptions import RedisError
 from starlette.requests import HTTPConnection
 
+import models.user
 from config import (
     EMAIL_ENABLED,
     INVITE_TOKEN_EXPIRY_SECONDS,
@@ -35,6 +36,8 @@ from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.urls import get_public_base_url
+
+type UserWithClaims = tuple[models.user.User, dict[str, Any]]
 
 oct_key = OctKey.import_key(ROMM_AUTH_SECRET_KEY)
 
@@ -109,7 +112,7 @@ class AuthHandler:
     def hash_client_token(raw: str) -> str:
         return hashlib.sha256(raw.encode()).hexdigest()
 
-    def verify_password(self, plain_password, hashed_password):
+    def verify_password(self, plain_password: str, hashed_password: str | None) -> bool:
         try:
             return self.pwd_context.verify(plain_password, hashed_password)
         except ValueError:
@@ -117,10 +120,12 @@ class AuthHandler:
             # and passlib raises on one it cannot identify.
             return False
 
-    def get_password_hash(self, password):
+    def get_password_hash(self, password: str) -> str:
         return self.pwd_context.hash(password)
 
-    def authenticate_user(self, username: str, password: str):
+    def authenticate_user(
+        self, username: str, password: str
+    ) -> models.user.User | None:
         from handler.database import db_user_handler
 
         user = db_user_handler.get_user_by_username(username)
@@ -132,7 +137,9 @@ class AuthHandler:
 
         return user
 
-    async def get_current_active_user_from_session(self, conn: HTTPConnection):
+    async def get_current_active_user_from_session(
+        self, conn: HTTPConnection
+    ) -> models.user.User | None:
         from handler.database import db_user_handler
 
         issuer = conn.session.get("iss")
@@ -461,7 +468,7 @@ class OAuthHandler:
 
         return token
 
-    async def consume_refresh_token(self, token: str):
+    async def consume_refresh_token(self, token: str) -> UserWithClaims:
         from handler.database import db_user_handler
 
         try:
@@ -496,7 +503,9 @@ class OAuthHandler:
 
         return user, payload.claims
 
-    async def get_current_active_user_from_bearer_token(self, token: str):
+    async def get_current_active_user_from_bearer_token(
+        self, token: str
+    ) -> UserWithClaims | tuple[None, None]:
         from handler.database import db_user_handler
 
         try:
@@ -527,7 +536,9 @@ class OAuthHandler:
 
 
 class OpenIDHandler:
-    async def get_current_active_user_from_openid_token(self, token: Any):
+    async def get_current_active_user_from_openid_token(
+        self, token: Any
+    ) -> UserWithClaims | tuple[None, None]:
         from handler.audit_handler import SYSTEM_ACTOR, AuditActor, AuditTarget, record
         from handler.database import db_user_handler
         from models.audit_event import AuditAction

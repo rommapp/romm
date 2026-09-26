@@ -16,7 +16,7 @@ class FSFirmwareHandler(FSHandler):
     def get_firmware_fs_structure(self, fs_slug: str) -> str:
         return cm.get_config().firmware_structure.firmware_dir(fs_slug)
 
-    async def get_firmware(self, platform_fs_slug: str):
+    async def get_firmware(self, platform_fs_slug: str) -> list[str]:
         """Gets all filesystem firmware for a platform
 
         Args:
@@ -28,9 +28,7 @@ class FSFirmwareHandler(FSHandler):
         try:
             fs_firmware_files = await self.list_files(path=firmware_path)
         except FileNotFoundError as e:
-            raise FirmwareNotFoundException(
-                f"Firmware not found for platform {platform_fs_slug}"
-            ) from e
+            raise FirmwareNotFoundException(platform_fs_slug) from e
 
         return [f for f in self.exclude_single_files(fs_firmware_files)]
 

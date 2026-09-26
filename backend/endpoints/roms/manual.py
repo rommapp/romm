@@ -84,22 +84,11 @@ async def add_rom_manuals(
 
     await fs_resource_handler.make_directory(manuals_path)
 
-    # Drop any prior manual stored under a different extension so the single
-    # primary manual stays unambiguous (the glob matches `{rom.id}.*`).
-    for allowed_ext in ALLOWED_MANUAL_EXTENSIONS:
-        if allowed_ext == ext:
-            continue
-        stale = fs_resource_handler.validate_path(
-            f"{manuals_path}/{rom.id}{allowed_ext}"
-        )
-        if stale.exists():
-            stale.unlink()
-
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
     parser.register(safe_field_name, FileTarget(str(file_location)))
 
-    def cleanup_partial_file():
+    def cleanup_partial_file() -> None:
         if file_location.exists():
             file_location.unlink()
 
@@ -117,6 +106,17 @@ async def add_rom_manuals(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="There was an error uploading the manual",
         ) from exc
+
+    # Drop a prior manual under another extension (the glob matches `{rom.id}.*`),
+    # only once the upload has landed so a failed one keeps the old manual.
+    for allowed_ext in ALLOWED_MANUAL_EXTENSIONS:
+        if allowed_ext == ext:
+            continue
+        stale = fs_resource_handler.validate_path(
+            f"{manuals_path}/{rom.id}{allowed_ext}"
+        )
+        if stale.exists():
+            stale.unlink()
 
     # An uploaded manual and a scraped one share this path, so only the lock
     # tells them apart.

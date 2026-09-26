@@ -115,11 +115,7 @@ async def run_launch(
     except Exception as exc:
         log.exception("launch failed, platform=%s", platform)
         await lifecycle.abort_claim(session_key, session, blank_card_id)
-        refusals = None
-        refusals_truncated = 0
-        if isinstance(exc, broker.ImportRefusedError):
-            refusals_truncated = exc.truncated
-            refusals = exc.refusals
+        refused = exc if isinstance(exc, broker.ImportRefusedError) else None
         await push_to_user(
             session.get("user_id"),
             "streaming:launch-failed",
@@ -128,8 +124,8 @@ async def run_launch(
                 container=session_key,
                 claimed_at=session["claimed_at"],
                 detail=_failure_detail(exc),
-                refusals=refusals,
-                refusals_truncated=refusals_truncated,
+                refusals=refused.refusals if refused else None,
+                refusals_truncated=refused.truncated if refused else 0,
             ).model_dump(),
         )
         return

@@ -86,7 +86,7 @@ async def get_romfile_content(
     request: Request,
     id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
     file_name: Annotated[str, PathVar(description="File name to download")],
-):
+) -> Response:
     """Download a rom file."""
 
     current_username = (

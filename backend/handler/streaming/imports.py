@@ -5,6 +5,7 @@ launch's `activate` call sends, under `.import/<kind>/` for the broker to place.
 import asyncio
 import io
 import json
+import stat
 import time
 import zipfile
 from collections.abc import Callable
@@ -25,6 +26,8 @@ _MANIFEST_NAME = ".broker-manifest.json"
 # upload cannot inflate past the ceiling any stored save archive has.
 _MAX_EXPANDED_BYTES = broker.SAVE_FILE_MAX_BYTES
 _MAX_MEMBERS = 2000
+_READ_CHUNK = 64 * 1024
+_MAX_MANIFEST_BYTES = 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -62,19 +65,36 @@ def _utf8_zipinfo(name: str, source: zipfile.ZipInfo | None) -> zipfile.ZipInfo:
         info = zipfile.ZipInfo(name, date_time=time.localtime()[:6])
     else:
         info = zipfile.ZipInfo(name, date_time=source.date_time)
-        info.external_attr = source.external_attr
+        # Only the permission bits, so a symlink entry lands as a regular file.
+        info.external_attr = (
+            stat.S_IFREG | stat.S_IMODE(source.external_attr >> 16)
+        ) << 16
     info.flag_bits |= 0x800  # UTF-8 filename flag
     info.compress_type = zipfile.ZIP_DEFLATED
     return info
 
 
+def _read_member(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
+    """An entry's bytes, inflated a chunk at a time so a size the header
+    understates fails the CRC check before it can exhaust memory."""
+    out = bytearray()
+    with zf.open(info) as f:
+        while chunk := f.read(_READ_CHUNK):
+            out += chunk
+    return bytes(out)
+
+
 def _manifest_files(zf: zipfile.ZipFile) -> dict[str, dict[str, Any]]:
     """A broker archive's manifest entries by path, empty when it has none."""
-    if _MANIFEST_NAME not in zf.namelist():
-        return {}
     try:
-        manifest = json.loads(zf.read(_MANIFEST_NAME))
-    except (json.JSONDecodeError, KeyError, UnicodeDecodeError):
+        info = zf.getinfo(_MANIFEST_NAME)
+    except KeyError:
+        return {}
+    if info.file_size > _MAX_MANIFEST_BYTES:
+        raise ValueError("broker manifest exceeds its size limit")
+    try:
+        manifest = json.loads(_read_member(zf, info))
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return {}
     files = manifest.get("files") if isinstance(manifest, dict) else None
     return {
@@ -126,29 +146,33 @@ def _stage_zip(
             continue
         budget.charge(info.file_size)
         path, manifest_entry = place(name, entry)
-        staged[path] = (zf.read(info), manifest_entry, info)
+        staged[path] = (_read_member(zf, info), manifest_entry, info)
 
 
 def _write_member(
     member: ForeignMember, staged: _Staged, budget: _ArchiveBudget
 ) -> None:
-    """Stage one foreign member's inner entries, or itself when it is not a zip."""
+    """Stage a foreign save archive's inner entries, or the member itself as one file."""
 
     def place(name: str, _entry: dict[str, Any] | None) -> tuple[str, dict[str, Any]]:
         path = f".import/{member.kind}/{name}"
         return path, {"path": path, "kind": member.kind, "origin": member.origin}
 
-    try:
-        inner = zipfile.ZipFile(io.BytesIO(member.content))
-    except zipfile.BadZipFile:
+    # A state is one emulator file even when it is zip-shaped (a PCSX2 .p2s).
+    inner = None
+    if member.kind == "save":
+        try:
+            inner = zipfile.ZipFile(io.BytesIO(member.content))
+        except zipfile.BadZipFile:
+            pass
+    if inner is None:
         budget.charge(len(member.content))
         path, entry = place(_safe_name(member.name) or "data", None)
         staged[path] = (member.content, entry, None)
         return
     with inner:
-        # Another emulator's save archive also carries its exit state, which
-        # a save pick must not bring along.
-        _stage_zip(inner, staged, budget, skip_state=member.kind == "save", place=place)
+        # Another emulator's save archive also carries its exit state.
+        _stage_zip(inner, staged, budget, skip_state=True, place=place)
 
 
 def build_import_archive(
@@ -156,11 +180,7 @@ def build_import_archive(
     base: tuple[str, bytes] | None,
     members: list[ForeignMember],
 ) -> tuple[bytes, list[dict[str, Any]]]:
-    """Build the single zip `activate`'s `save.archive` wants.
-
-    The base archive's members are carried over (minus its state when a
-    foreign state replaces it), then each foreign member lands under
-    `.import/<kind>/`, and the manifest is rewritten as v2.
+    """Build the single v2 zip `activate`'s `save.archive` wants: the base plus `.import/` members.
 
     Returns:
         The archive bytes, and the manifest's `files` list actually written.
@@ -183,7 +203,11 @@ def build_import_archive(
                     skip_state=any(m.kind == "state" for m in members),
                     place=lambda name, entry: (
                         name,
-                        entry if entry is not None else {"path": name, "kind": "save"},
+                        (
+                            {**entry, "path": name}
+                            if entry is not None
+                            else {"path": name, "kind": "save"}
+                        ),
                     ),
                 )
     for member in members:
@@ -270,7 +294,9 @@ async def hydrate_import_archive(
 
     base: tuple[str, bytes] | None = None
     if not save_is_foreign:
-        native = save or saves.newest_restorable(user_id, rom.id, container.emulator)
+        native = save or await asyncio.to_thread(
+            saves.newest_restorable, user_id, rom.id, container.emulator
+        )
         if native is not None:
             base = await saves.read_restorable_archive(native)
 

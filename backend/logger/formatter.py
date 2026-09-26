@@ -159,7 +159,7 @@ class Formatter(logging.Formatter):
         return redact_sensitive(output)
 
 
-def highlight(msg: str = "", color=YELLOW) -> str:
+def highlight(msg: str = "", color: str = YELLOW) -> str:
     """
     Highlights the message to send to the fancylog.
 

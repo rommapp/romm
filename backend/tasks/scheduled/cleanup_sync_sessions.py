@@ -10,7 +10,7 @@ STALE_AFTER_HOURS = 24
 
 
 class CleanupSyncSessionsTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled sync session cleanup",
             description="Fails sync sessions no client ever completed",

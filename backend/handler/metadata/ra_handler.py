@@ -2,7 +2,7 @@ import json
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, cast
 
 import pydash
@@ -87,15 +87,16 @@ class RAUserProgression(TypedDict):
 def extract_metadata_from_rom_details(
     rom: Rom, rom_details: RAGameExtendedDetails
 ) -> RAMetadata:
-    def parse_release_timestamp():
+    def parse_release_timestamp() -> int | None:
         release_date_str = rom_details.get("Released")
         if not release_date_str:
             return None
 
         try:
-            # Extract date part (assuming format: "YYYY-MM-DD [additional info]")
+            # Extract date part (assuming format: "YYYY-MM-DD [additional info]"),
+            # pinned to UTC midnight so the host's offset never shifts the day.
             parsed_date = datetime.strptime(release_date_str.split()[0], "%Y-%m-%d")
-            return int(parsed_date.timestamp())
+            return int(parsed_date.replace(tzinfo=timezone.utc).timestamp())
         except AttributeError, ValueError, IndexError:
             return None
 

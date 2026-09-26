@@ -952,7 +952,7 @@ async def download_roms(
             description="Name for the zip file (optional).",
         ),
     ] = None,
-):
+) -> Response:
     """Download a list of roms as a zip file."""
 
     current_username = (
@@ -1312,7 +1312,7 @@ async def head_rom_content(
             description="Comma-separated list of file ids to download for multi-part roms."
         ),
     ] = None,
-):
+) -> Response:
     """Retrieve head information for a rom file download."""
 
     rom = db_rom_handler.get_rom(id)
@@ -1413,7 +1413,7 @@ async def get_rom_content(
             "recorded as a player load rather than a download."
         ),
     ] = "download",
-):
+) -> Response:
     """Download a rom.
 
     This endpoint serves the content of the requested rom, as:

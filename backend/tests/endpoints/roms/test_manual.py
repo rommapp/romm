@@ -132,6 +132,31 @@ def test_upload_manual_to_resources_drops_stale_other_extension(
     assert not (manual_fs_resources / f"{rom.id}.pdf").exists()
 
 
+def test_upload_manual_to_resources_failure_keeps_other_extension(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    manual_fs_resources: Path,
+    mocker: MockerFixture,
+):
+    (manual_fs_resources / f"{rom.id}.pdf").write_bytes(PDF_BYTES)
+    mocker.patch.object(
+        manual_endpoint.StreamingFormDataParser,
+        "data_received",
+        side_effect=RuntimeError("stream broke"),
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/manuals",
+        headers={**_auth(access_token), "x-upload-filename": "README.md"},
+        files={"README.md": ("README.md", MD_BYTES, "text/markdown")},
+    )
+
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert (manual_fs_resources / f"{rom.id}.pdf").read_bytes() == PDF_BYTES
+    assert not (manual_fs_resources / f"{rom.id}.md").exists()
+
+
 def test_upload_manual_to_resources_rom_not_found(
     client: TestClient,
     access_token: str,

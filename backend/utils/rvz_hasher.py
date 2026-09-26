@@ -26,7 +26,7 @@ import io
 import lzma
 import os
 import struct
-from typing import BinaryIO
+from typing import TYPE_CHECKING, BinaryIO
 
 import zstandard
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -34,6 +34,10 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+
+if TYPE_CHECKING:
+    # CPython's private OpenSSL hash type, which hashlib.md5() is typed as.
+    from _hashlib import HASH
 
 # Container extensions RAHasher can't read but which we can hash natively. The
 # real container is still detected by magic; the extension only gates whether
@@ -681,7 +685,7 @@ def _be32(data: bytes, offset: int = 0) -> int:
     return struct.unpack_from(">I", data, offset)[0]
 
 
-def _hash_chunked(md5, reader: _RvzReader, offset: int, size: int) -> None:
+def _hash_chunked(md5: HASH, reader: _RvzReader, offset: int, size: int) -> None:
     """Feed [offset, offset+size) to the hash in bounded chunks."""
     pos = offset
     remaining = size
@@ -693,7 +697,7 @@ def _hash_chunked(md5, reader: _RvzReader, offset: int, size: int) -> None:
 
 
 def _hash_nintendo_disc_partition(
-    md5, reader: _RvzReader, part_offset: int, wii_shift: int
+    md5: HASH, reader: _RvzReader, part_offset: int, wii_shift: int
 ) -> None:
     """Mirror of rcheevos rc_hash_nintendo_disc_partition."""
     body, trailer = struct.unpack(
@@ -752,7 +756,7 @@ def calculate_gamecube_ra_hash(file_path: str) -> str:
         reader.close()
 
 
-def _hash_wii_disc(md5, reader: _RvzReader) -> None:
+def _hash_wii_disc(md5: HASH, reader: _RvzReader) -> None:
     """Mirror of rcheevos rc_hash_wii_disc for encrypted retail discs."""
     if reader.read_at(0x61, 1) != b"\x00":
         raise RvzHashError("decrypted Wii disc images are not supported")

@@ -1,13 +1,10 @@
 """Property-based tests for the LaunchBox metadata parsing helpers."""
 
-import os
-import time
-from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import datetime
 
 from hypothesis import assume, given
 from hypothesis import strategies as st
+from tests.handler.metadata.conftest import local_timezone
 
 from handler.metadata.launchbox_handler.utils import (
     dedupe_words,
@@ -17,22 +14,6 @@ from handler.metadata.launchbox_handler.utils import (
 )
 
 LB_INVALID_CHARS = set("\\/|<>\"?*:'")
-
-
-@contextmanager
-def local_timezone(name: str) -> Iterator[None]:
-    """Pin the process timezone that a naive datetime.timestamp() reads."""
-    previous = os.environ.get("TZ")
-    os.environ["TZ"] = name
-    time.tzset()
-    try:
-        yield
-    finally:
-        if previous is None:
-            os.environ.pop("TZ", None)
-        else:
-            os.environ["TZ"] = previous
-        time.tzset()
 
 
 class TestParseList:
