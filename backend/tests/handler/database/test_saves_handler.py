@@ -5,10 +5,19 @@ This module tests the platform filtering fixes for DBSavesHandler to ensure
 it properly filters by platform_id through the Rom relationship.
 """
 
+import ast
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+from unittest import mock
+
 import pytest
 
-from handler.database import db_save_handler
+import handler.database.saves_handler as saves_handler_module
+from handler.database import db_deleted_asset_handler, db_save_handler
+from handler.database.base_handler import sync_engine
 from models.assets import Save
+from models.deleted_asset import DeletedAsset
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -980,3 +989,172 @@ class TestGetSavesRomIdsScope:
         )
 
         assert [s.id for s in saves] == [save.id]
+
+
+class TestDBSavesHandlerRecordsLostVersions:
+    """Every way a version leaves its slot is remembered for sync."""
+
+    @staticmethod
+    def _add(
+        user: User, rom: Rom, stem: str, slot: str | None, content_hash: str | None
+    ) -> Save:
+        return db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=user.id,
+                file_name=f"{stem}.sav",
+                file_name_no_tags=stem,
+                file_name_no_ext=stem,
+                file_extension="sav",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot=slot,
+                content_hash=content_hash,
+            )
+        )
+
+    @staticmethod
+    def _lost(user: User, rom: Rom) -> dict[str, list[str]]:
+        return {
+            record.slot: record.content_hashes
+            for record in db_deleted_asset_handler.get_deletions(
+                user_id=user.id, rom_ids=[rom.id]
+            )
+        }
+
+    def test_a_deleted_version_is_recorded(self, admin_user: User, rom: Rom):
+        save = self._add(admin_user, rom, "deleted", "autosave", "gone")
+
+        db_save_handler.delete_save(save.id)
+
+        assert self._lost(admin_user, rom) == {"autosave": ["gone"]}
+
+    def test_a_deleted_version_never_hashed_takes_the_callers_hash(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "unhashed", "autosave", None)
+
+        db_save_handler.delete_save(save.id, content_hash="from_file")
+
+        assert self._lost(admin_user, rom) == {"autosave": ["from_file"]}
+
+    def test_a_save_outside_any_slot_is_not_recorded(self, admin_user: User, rom: Rom):
+        save = self._add(admin_user, rom, "archival", None, "archived")
+
+        db_save_handler.delete_save(save.id)
+
+        assert self._lost(admin_user, rom) == {}
+
+    def test_pruned_versions_are_recorded(self, admin_user: User, rom: Rom):
+        for index in range(3):
+            save = self._add(admin_user, rom, f"v{index}", "autosave", f"v{index}")
+            db_save_handler.update_save(
+                save.id, {"updated_at": datetime(2026, 1, 1 + index, tzinfo=UTC)}
+            )
+
+        db_save_handler.prune_slot(
+            user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=1
+        )
+
+        assert sorted(self._lost(admin_user, rom)["autosave"]) == ["v0", "v1"]
+
+    def test_a_version_pushed_past_the_limit_mid_prune_is_recorded(
+        self, admin_user: User, rom: Rom
+    ):
+        self._add(admin_user, rom, "late", "autosave", "late")
+
+        with mock.patch.object(db_save_handler, "_versions_past", return_value=[]):
+            db_save_handler.prune_slot(
+                user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=0
+            )
+
+        assert self._lost(admin_user, rom) == {"autosave": ["late"]}
+
+    @pytest.mark.parametrize("path", ["delete", "prune", "overwrite"])
+    def test_recording_never_waits_on_a_held_connection(
+        self, admin_user: User, rom: Rom, path: str
+    ):
+        """A second checkout per removal would starve the pool under load."""
+        save = self._add(admin_user, rom, "pooled", "autosave", "pooled")
+        checked_out: list[int] = []
+        record = saves_handler_module._deleted_assets.record_deletion
+
+        def spy(**kwargs: Any) -> DeletedAsset:
+            checked_out.append(sync_engine.pool.checkedout())  # type: ignore[attr-defined]
+            return record(**kwargs)
+
+        with mock.patch.object(
+            saves_handler_module._deleted_assets, "record_deletion", side_effect=spy
+        ):
+            if path == "delete":
+                db_save_handler.delete_save(save.id)
+            elif path == "prune":
+                db_save_handler.prune_slot(
+                    user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=0
+                )
+            else:
+                db_save_handler.update_save(save.id, {"content_hash": "new"})
+
+        assert checked_out == [0]
+
+    def test_an_overwritten_version_is_recorded(self, admin_user: User, rom: Rom):
+        save = self._add(admin_user, rom, "overwritten", "autosave", "before")
+
+        db_save_handler.update_save(save.id, {"content_hash": "after"})
+
+        assert self._lost(admin_user, rom) == {"autosave": ["before"]}
+
+    def test_a_version_moved_to_another_slot_is_recorded_in_the_first(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "moved", "autosave", "moved")
+
+        db_save_handler.update_save(save.id, {"slot": "main_quest"})
+
+        assert self._lost(admin_user, rom) == {"autosave": ["moved"]}
+
+    @pytest.mark.parametrize(
+        "data",
+        [{"content_hash": "same"}, {"is_favorite": True}],
+        ids=["same-bytes", "annotation"],
+    )
+    def test_an_update_that_keeps_the_version_records_nothing(
+        self, admin_user: User, rom: Rom, data: dict
+    ):
+        save = self._add(admin_user, rom, "kept", "autosave", "same")
+
+        db_save_handler.update_save(save.id, data)
+
+        assert self._lost(admin_user, rom) == {}
+
+
+BACKEND_ROOT = Path(__file__).parents[3]
+SAVES_HANDLER = BACKEND_ROOT / "handler" / "database" / "saves_handler.py"
+
+
+def _writes_save_rows(node: ast.Call) -> bool:
+    """Whether `node` is `delete(Save)`, `update(Save)` or `.query(Save)...delete()`."""
+    func = node.func
+    name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+    if name not in {"delete", "update"}:
+        return False
+    if any(isinstance(arg, ast.Name) and arg.id == "Save" for arg in node.args):
+        return True
+    return isinstance(func, ast.Attribute) and "query(Save)" in ast.unparse(func.value)
+
+
+def test_only_the_saves_handler_writes_save_rows():
+    """The handler records every version leaving a slot, so nothing may go around it."""
+    offenders = []
+    for path in BACKEND_ROOT.rglob("*.py"):
+        relative = path.relative_to(BACKEND_ROOT)
+        if relative.parts[0] in {"tests", "alembic"} or path == SAVES_HANDLER:
+            continue
+        tree = ast.parse(path.read_text(), filename=str(path))
+        offenders += [
+            f"{relative}:{node.lineno}"
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and _writes_save_rows(node)
+        ]
+
+    assert offenders == []

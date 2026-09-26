@@ -147,6 +147,44 @@ class TestCompareReturnType:
         assert isinstance(result.reason, str)
 
 
+class TestCompareRemovedVersions:
+    NOW = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    EARLIER = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    def test_a_removed_version_downloads_however_new_it_looks(self):
+        result = compare_save_state(
+            client_hash="removed",
+            client_updated_at=self.NOW,
+            server_hash="current",
+            server_updated_at=self.EARLIER,
+            device_last_synced_at=self.EARLIER,
+            removed_hashes=["removed"],
+        )
+        assert result.action == "download"
+
+    def test_the_current_version_stays_in_sync_even_if_once_removed(self):
+        result = compare_save_state(
+            client_hash="current",
+            client_updated_at=self.NOW,
+            server_hash="current",
+            server_updated_at=self.EARLIER,
+            device_last_synced_at=None,
+            removed_hashes=["current"],
+        )
+        assert result.action == "no_op"
+
+    def test_a_client_that_reports_no_digest_compares_by_time(self):
+        result = compare_save_state(
+            client_hash=None,
+            client_updated_at=self.NOW,
+            server_hash="current",
+            server_updated_at=self.EARLIER,
+            device_last_synced_at=None,
+            removed_hashes=["removed"],
+        )
+        assert result.action == "upload"
+
+
 class TestCompareMissingServerSave:
     def test_a_version_the_slot_lost_is_deleted(self):
         result = compare_missing_server_save("abc123", ["def456", "abc123"])

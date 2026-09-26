@@ -8,16 +8,16 @@ from models.base import BaseModel
 from utils.database import CustomJSON, ExactString
 
 # Trimming drops the oldest, which a long-offline device is likeliest to hold;
-# past the bound that device is answered `upload` rather than `delete`.
+# past the bound that device's version is negotiated as if it were new.
 MAX_REMEMBERED_HASHES = 100
 
 
 class DeletedAsset(BaseModel):
-    """A slot emptied by its owner, so a device still holding it can be told."""
+    """The versions a slot lost, so a device still holding one can be told."""
 
     __tablename__ = "deleted_assets"
     __table_args__ = (
-        # One row per slot, however often it is emptied and refilled.
+        # One row per slot, however many versions it loses.
         Index(
             "ix_deleted_assets_user_rom_slot", "user_id", "rom_id", "slot", unique=True
         ),

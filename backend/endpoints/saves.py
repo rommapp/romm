@@ -17,7 +17,6 @@ from handler.asset_store import release_thumbnail, remove_asset_file, rename_ass
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
-    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_rom_handler,
@@ -109,20 +108,10 @@ DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
 
 async def _delete_save(save: Save) -> None:
     """Drop a save row with its file and screenshot."""
-    # Recorded first: a record for a save still present is never read, while
-    # a deletion with no record lets every device holding it offer it back.
-    if save.slot:
-        content_hash = save.content_hash or (
-            await fs_asset_handler.compute_content_hash(save.full_path)
-        )
-        if content_hash:
-            db_deleted_asset_handler.record_deletion(
-                user_id=save.user_id,
-                rom_id=save.rom_id,
-                slot=save.slot,
-                content_hash=content_hash,
-            )
-    db_save_handler.delete_save(save.id)
+    content_hash = None
+    if save.slot and not save.content_hash:
+        content_hash = await fs_asset_handler.compute_content_hash(save.full_path)
+    db_save_handler.delete_save(save.id, content_hash=content_hash)
     await remove_asset_file(save.full_path, "Save file")
     await release_thumbnail(save.screenshot)
 

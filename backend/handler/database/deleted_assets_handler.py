@@ -93,7 +93,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         rom_ids: Collection[int],
         session: Session = None,  # type: ignore
     ) -> Sequence[DeletedAsset]:
-        """Every slot of these ROMs this user emptied."""
+        """What each slot of these ROMs lost, for this user."""
         if not rom_ids:
             return []
         return session.scalars(

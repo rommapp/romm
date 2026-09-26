@@ -230,17 +230,17 @@ def negotiate_sync(
         if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
             server_save_map[key] = save
 
-    # Read only when a slot has no row left, so a slot refilled since keeps
-    # its record harmlessly.
-    emptied_rom_ids = {
-        s.rom_id
-        for s in payload.saves
-        if s.slot and (s.rom_id, s.slot) not in server_save_map
-    }
+    # Only a client save that differs from its slot's current version can be
+    # one the slot lost.
+    differing_rom_ids = set()
+    for s in payload.saves:
+        current = server_save_map.get((s.rom_id, s.slot))
+        if s.slot and (current is None or current.content_hash != s.content_hash):
+            differing_rom_ids.add(s.rom_id)
     deleted_map = {
         (record.rom_id, record.slot): record
         for record in db_deleted_asset_handler.get_deletions(
-            user_id=request.user.id, rom_ids=emptied_rom_ids
+            user_id=request.user.id, rom_ids=differing_rom_ids
         )
     }
 
@@ -258,13 +258,14 @@ def negotiate_sync(
     for client_save in payload.saves:
         key = (client_save.rom_id, client_save.slot)
         server_save = server_save_map.get(key)
+        # Without this the client offers a removed version back and the
+        # deletion or rollback undoes itself.
+        deletion = deleted_map.get(key)
+        removed_hashes = deletion.content_hashes if deletion else ()
 
         if server_save is None:
-            # Without this the client offers the save back and the deletion
-            # undoes itself.
-            deletion = deleted_map.get(key)
             result = compare_missing_server_save(
-                client_save.content_hash, deletion.content_hashes if deletion else ()
+                client_save.content_hash, removed_hashes
             )
             operations.append(
                 SyncOperationSchema(
@@ -303,6 +304,7 @@ def negotiate_sync(
             server_hash=server_save.content_hash,
             server_updated_at=server_save.updated_at,
             device_last_synced_at=device_sync.last_synced_at if device_sync else None,
+            removed_hashes=removed_hashes,
         )
 
         operations.append(

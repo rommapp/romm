@@ -21,8 +21,12 @@ def compare_save_state(
     server_hash: str | None,
     server_updated_at: datetime,
     device_last_synced_at: datetime | None,
+    removed_hashes: Collection[str] = (),
 ) -> SyncComparisonResult:
     """Compare client and server save state to determine the sync action.
+
+    `removed_hashes` are versions the server's slot lost, so a client still
+    holding one is behind the server whatever its timestamps say.
 
     Returns a (action, reason) tuple where action is one of:
     - upload: client save should be uploaded to server
@@ -36,6 +40,11 @@ def compare_save_state(
     # If hashes match, saves are identical
     if client_hash and server_hash and client_hash == server_hash:
         return SyncComparisonResult("no_op", "Content is identical")
+
+    if client_hash in removed_hashes:
+        return SyncComparisonResult(
+            "download", "Client holds a version removed on the server"
+        )
 
     # If we have a last sync timestamp, use it to determine which side changed
     if device_last_synced_at:
