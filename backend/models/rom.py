@@ -1175,7 +1175,7 @@ class Rom(BaseModel):
         )
 
     @cached_property
-    def merged_ra_metadata(self) -> dict[str, list[Any]] | None:
+    def merged_ra_metadata(self) -> dict[str, Any] | None:
         if self.ra_metadata and "achievements" in self.ra_metadata:
             # Create a deep copy to avoid mutating the original metadata
             # This ensures that badge paths remain relative for filesystem operations
