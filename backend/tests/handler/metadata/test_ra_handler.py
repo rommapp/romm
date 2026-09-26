@@ -2,12 +2,16 @@
 
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
+from tests.handler.metadata.conftest import local_timezone
 
+from adapters.services.retroachievements_types import RAGameExtendedDetails
 from handler.metadata import ra_handler
 from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAHandler
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -28,6 +32,18 @@ def test_platform_list_uses_ups_keys():
     """Every entry in RA_PLATFORM_LIST should be a UniversalPlatformSlug."""
     for key in RA_PLATFORM_LIST.keys():
         assert isinstance(key, UPS)
+
+
+def test_release_date_is_utc_midnight_whatever_the_host_timezone():
+    # CI runs in UTC, so a naive timestamp only shows its drift under another zone.
+    details = cast(RAGameExtendedDetails, {"Released": "1991-08-23 00:00:00"})
+    with local_timezone("Asia/Tokyo"):
+        metadata = ra_handler.extract_metadata_from_rom_details(
+            MagicMock(), details, hash_match=False
+        )
+
+    expected = datetime(1991, 8, 23, tzinfo=timezone.utc).timestamp()
+    assert metadata["first_release_date"] == int(expected)
 
 
 class TestSearchRom:

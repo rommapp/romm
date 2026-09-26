@@ -7,7 +7,7 @@ from tasks.tasks import PeriodicTask, TaskType
 
 
 class CleanupUploadTmpTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled upload tmp cleanup",
             description="Cleans up orphaned chunked-upload temp directories",

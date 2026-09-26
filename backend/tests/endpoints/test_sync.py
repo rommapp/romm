@@ -1479,3 +1479,196 @@ class TestNegotiateConflictEvents:
 
         assert data["total_conflict"] == len(saves)
         assert write_manager.return_value.emit.await_count == len(saves)
+
+
+class TestNegotiateBaseline:
+    """A device presenting a save it has not changed must not be told it conflicted."""
+
+    @staticmethod
+    def _client_save(save: Save, content_hash: str) -> dict:
+        return {
+            "rom_id": save.rom_id,
+            "file_name": save.file_name,
+            "slot": save.slot,
+            "content_hash": content_hash,
+            "updated_at": "2099-01-01T00:00:00Z",
+            "file_size_bytes": 100,
+        }
+
+    @staticmethod
+    def _device_with_baseline(
+        device_id: str,
+        admin_user: User,
+        save: Save,
+        last_sync_hash: str,
+        last_sync_server_hash: str,
+    ) -> Device:
+        """A device whose last sync of `save` was an hour ago, with content recorded."""
+        device = db_device_handler.add_device(
+            Device(id=device_id, user_id=admin_user.id, sync_enabled=True)
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device_id=device.id,
+            save_id=save.id,
+            synced_at=datetime.now(timezone.utc) - timedelta(hours=1),
+            last_sync_hash=last_sync_hash,
+            last_sync_server_hash=last_sync_server_hash,
+        )
+        return device
+
+    def test_rewritten_client_save_downloads_instead_of_conflicting(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        """The emulator-rewrote-on-exit case, end to end through negotiate."""
+        db_save_handler.update_save(save.id, {"content_hash": "server_new"})
+        device = self._device_with_baseline(
+            "neg-baseline-dev", admin_user, save, "client_hash", "server_old"
+        )
+
+        with mock.patch(
+            "endpoints.sync.emit_sync_conflict", new_callable=mock.AsyncMock
+        ) as emit:
+            response = client.post(
+                "/api/sync/negotiate",
+                json={
+                    "device_id": device.id,
+                    "saves": [self._client_save(save, "client_hash")],
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total_conflict"] == 0
+        ops = [op for op in data["operations"] if op["save_id"] == save.id]
+        assert len(ops) == 1
+        assert ops[0]["action"] == "download"
+        assert ops[0]["reason"] == "Server save is newer than last sync"
+        emit.assert_not_awaited()
+
+    def test_identical_content_records_a_boundary(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        db_save_handler.update_save(save.id, {"content_hash": "same_hash"})
+        device = self._device_with_baseline(
+            "neg-baseline-identical", admin_user, save, "old_client", "old_server"
+        )
+
+        data = _negotiate(
+            client, access_token, device.id, [self._client_save(save, "same_hash")]
+        )
+
+        ops = [op for op in data["operations"] if op["save_id"] == save.id]
+        assert ops[0]["action"] == "no_op"
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash == "same_hash"
+        assert sync.last_sync_server_hash == "same_hash"
+
+    def test_matching_baselines_negotiate_a_no_op(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        db_save_handler.update_save(save.id, {"content_hash": "server_hash"})
+        device = self._device_with_baseline(
+            "neg-baseline-noop", admin_user, save, "client_hash", "server_hash"
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={
+                "device_id": device.id,
+                "saves": [self._client_save(save, "client_hash")],
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total_conflict"] == 0
+        ops = [op for op in data["operations"] if op["save_id"] == save.id]
+        assert len(ops) == 1
+        assert ops[0]["action"] == "no_op"
+        assert ops[0]["reason"] == "No changes since last sync"
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_an_uploaded_baseline_is_what_the_next_negotiation_uses(
+        self,
+        mock_scan,
+        _mock_write,
+        client,
+        access_token: str,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+    ):
+        """The write site and the negotiate call must agree on the boundary."""
+        device = db_device_handler.add_device(
+            Device(id="neg-baseline-chain", user_id=admin_user.id, sync_enabled=True)
+        )
+        mock_scan.return_value = Save(
+            file_name="chain.sav",
+            file_name_no_tags="chain",
+            file_name_no_ext="chain",
+            file_extension="sav",
+            file_path=f"{platform.slug}/saves/test_emulator",
+            file_size_bytes=100,
+            content_hash="server_hash",
+            slot="autosave",
+            rom_id=rom.id,
+            user_id=admin_user.id,
+        )
+
+        upload = client.post(
+            f"/api/saves?rom_id={rom.id}&device_id={device.id}"
+            f"&slot=autosave&content_hash=client_hash",
+            files={
+                "saveFile": (
+                    "chain.sav",
+                    BytesIO(b"save data"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert upload.status_code == status.HTTP_200_OK
+
+        # The server moves on after the boundary the upload recorded.
+        db_save_handler.update_save(
+            upload.json()["id"],
+            {
+                "content_hash": "server_new",
+                "updated_at": datetime(2099, 1, 1, tzinfo=timezone.utc),
+            },
+        )
+
+        with mock.patch(
+            "endpoints.sync.emit_sync_conflict", new_callable=mock.AsyncMock
+        ) as emit:
+            response = client.post(
+                "/api/sync/negotiate",
+                json={
+                    "device_id": device.id,
+                    "saves": [
+                        {
+                            "rom_id": rom.id,
+                            "file_name": "chain.sav",
+                            "slot": "autosave",
+                            "content_hash": "client_hash",
+                            "updated_at": "2099-01-01T00:00:00Z",
+                            "file_size_bytes": 100,
+                        }
+                    ],
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total_conflict"] == 0
+        assert len(data["operations"]) == 1
+        assert data["operations"][0]["action"] == "download"
+        assert data["operations"][0]["reason"] == "Server save is newer than last sync"
+        emit.assert_not_awaited()

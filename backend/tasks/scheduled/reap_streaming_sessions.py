@@ -40,7 +40,7 @@ async def _reap(
 
 
 class ReapStreamingSessionsTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled streaming session reaper",
             description="Stops streaming sessions whose player stopped sending heartbeats",

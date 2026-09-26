@@ -376,7 +376,7 @@ class FSResourcesHandler(FSHandler):
 
         return path_cover_s, path_cover_l
 
-    async def remove_cover(self, entity: Rom | Collection | None):
+    async def remove_cover(self, entity: Rom | Collection | None) -> dict[str, str]:
         if not entity:
             return {"path_cover_s": "", "path_cover_l": ""}
 
@@ -515,7 +515,7 @@ class FSResourcesHandler(FSHandler):
         full_path = self.validate_path(f"{rom.fs_resources_path}/screenshots")
         return {path.stem for path in full_path.glob("*.jpg")}
 
-    def _get_screenshot_path(self, rom: Rom, idx: str):
+    def _get_screenshot_path(self, rom: Rom, idx: str) -> str:
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
@@ -568,7 +568,7 @@ class FSResourcesHandler(FSHandler):
             for ext in ALLOWED_MANUAL_EXTENSIONS
         )
 
-    async def _store_manual(self, rom: Rom, url_manual: str):
+    async def _store_manual(self, rom: Rom, url_manual: str) -> None:
         manual_path = f"{rom.fs_resources_path}/manual"
         await self.make_directory(manual_path)
 
@@ -665,7 +665,7 @@ class FSResourcesHandler(FSHandler):
         await self._store_manual(rom, url_manual)
         return self._get_manual_path(rom)
 
-    async def remove_manual(self, rom: Rom):
+    async def remove_manual(self, rom: Rom) -> None:
         await self.remove_directory(f"{rom.fs_resources_path}/manual")
 
     # Retroachievements

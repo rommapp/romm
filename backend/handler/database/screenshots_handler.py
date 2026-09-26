@@ -92,7 +92,7 @@ class DBScreenshotsHandler(DBBaseHandler):
     @begin_session
     def get_screenshot_by_id(
         self,
-        id,
+        id: int,
         session: Session = None,  # type: ignore[assignment]
     ) -> Screenshot | None:
         return session.get(Screenshot, id)

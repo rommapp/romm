@@ -13,7 +13,7 @@ class FSPlatformsHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=LIBRARY_BASE_PATH)
 
-    def _exclude_platforms(self, platforms: list):
+    def _exclude_platforms(self, platforms: list[str]) -> list[str]:
         cnfg = cm.get_config()
         return [
             platform

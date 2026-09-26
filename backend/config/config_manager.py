@@ -6,7 +6,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, Self, TextIO, TypedDict
 
 import pydash
 import yaml
@@ -495,7 +495,7 @@ class Config:
     STREAMING_ENABLED: bool
     STREAMING_CONTAINERS: list[StreamingContainer]
 
-    def __init__(self, **entries):
+    def __init__(self, **entries: Any) -> None:
         self.__dict__.update(entries)
 
     def _raw_template(self, key: str, fallback: str) -> str:
@@ -555,14 +555,14 @@ class ConfigManager:
     _config_file_writable: bool = False
     _config_file_parse_error: str | None = None
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
         if cls._self is None:
             cls._self = super().__new__(cls, *args, **kwargs)
 
         return cls._self
 
     # Tests require custom config path
-    def __init__(self, config_file: str = ROMM_USER_CONFIG_FILE):
+    def __init__(self, config_file: str = ROMM_USER_CONFIG_FILE) -> None:
         self.config_file = config_file
 
         try:
@@ -584,7 +584,7 @@ class ConfigManager:
             self._parse_config()
             self._validate_config()
 
-    def _safe_load_yaml(self, cf) -> dict:
+    def _safe_load_yaml(self, cf: TextIO) -> dict:
         """Load YAML, falling back to an empty config on syntax errors so the
         app can still boot with defaults rather than crashing."""
         try:
@@ -667,7 +667,7 @@ class ConfigManager:
             query=query,
         )
 
-    def _parse_config(self):
+    def _parse_config(self) -> None:
         """Parses each entry in the config.yml"""
 
         self.config = Config(
@@ -988,7 +988,7 @@ class ConfigManager:
         )
         sys.exit(3)
 
-    def _validate_config(self):
+    def _validate_config(self) -> None:
         """Validates the config.yml file"""
         self._check_retired_filesystem_keys()
 
@@ -1456,7 +1456,9 @@ class ConfigManager:
         self.config.PLATFORMS_VERSIONS = platform_versions
         self._update_config_file()
 
-    def add_exclusion(self, exclusion_type: ExclusionType, exclusion_value: str):
+    def add_exclusion(
+        self, exclusion_type: ExclusionType, exclusion_value: str
+    ) -> None:
         config_item = self.config.__getattribute__(exclusion_type)
         if exclusion_value in config_item:
             log.warning(
@@ -1468,7 +1470,9 @@ class ConfigManager:
         self.config.__setattr__(exclusion_type, config_item)
         self._update_config_file()
 
-    def remove_exclusion(self, exclusion_type: ExclusionType, exclusion_value: str):
+    def remove_exclusion(
+        self, exclusion_type: ExclusionType, exclusion_value: str
+    ) -> None:
         config_item = self.config.__getattribute__(exclusion_type)
 
         try:

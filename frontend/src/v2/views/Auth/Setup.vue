@@ -1,6 +1,6 @@
 ^
 <script setup lang="ts">
-// Setup — three-step first-run wizard. Orchestrates library info loading,
+// Setup: three-step first-run wizard. Orchestrates library info loading,
 // platform selection, admin user creation, and metadata source review.
 // The wizard owns all wizard-level state (current step, selection set,
 // admin form, async flight); the per-step components are pure UI that
@@ -9,10 +9,10 @@ import { RBtn, RIcon, RImg, RSpinner, RSteps } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import type { SetupLibraryResponse } from "@/__generated__";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import setupApi from "@/services/api/setup";
-import type { SetupLibraryInfo } from "@/services/api/setup";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -32,26 +32,26 @@ const TOTAL_STEPS = 3;
 
 const step = ref<1 | 2 | 3>(1);
 // Direction of the last step change, used to pick the slide transition.
-// "forward" — slide left out, slide in from the right.
-// "back"    — slide right out, slide in from the left.
+// "forward": slide left out, slide in from the right.
+// "back":    slide right out, slide in from the left.
 const stepDirection = ref<"forward" | "back">("forward");
 
-// Step 1 — library + platforms
-const EMPTY_LIBRARY_INFO: SetupLibraryInfo = {
+// Step 1: library + platforms
+const EMPTY_LIBRARY_INFO: SetupLibraryResponse = {
   library_ready: false,
   library_structure: "",
   existing_platforms: [],
   supported_platforms: [],
 };
-const libraryInfo = ref<SetupLibraryInfo>({ ...EMPTY_LIBRARY_INFO });
+const libraryInfo = ref<SetupLibraryResponse>({ ...EMPTY_LIBRARY_INFO });
 // Starts true so the first paint shows the spinner, not an empty flash.
 const loadingLibrary = ref(true);
-// Non-null when the library probe failed — the step 1 body swaps to an inline
+// Non-null when the library probe failed, so the step 1 body swaps to an inline
 // error with a retry instead of silently showing an empty platform list.
 const libraryError = ref<string | null>(null);
 const selectedNewPlatforms = ref<string[]>([]);
 
-// Step 2 — admin user
+// Step 2: admin user
 const adminUser = ref<AdminUserDraft>({
   username: "",
   email: "",
@@ -60,7 +60,7 @@ const adminUser = ref<AdminUserDraft>({
 });
 const adminFormValid = ref(false);
 
-// Step 3 — metadata (purely informational)
+// Step 3: metadata (purely informational)
 
 // Final submission
 const submitting = ref(false);
@@ -146,7 +146,7 @@ async function finishWizard() {
 
     // If the user picked an avatar, we need to be authenticated to PUT
     // it on the just-created account. Log in with the chosen credentials
-    // then upload — failures here are non-fatal (the account still
+    // then upload. Failures here are non-fatal (the account still
     // exists; user can set the avatar later from profile settings).
     if (adminUser.value.avatar) {
       try {
@@ -255,8 +255,8 @@ onMounted(loadLibraryInfo);
         <SetupStepPlatforms
           v-if="step === 1"
           key="step-1"
-          :library-info="libraryInfo"
           v-model:selected-new-platforms="selectedNewPlatforms"
+          :library-info="libraryInfo"
         />
         <SetupStepAdmin
           v-else-if="step === 2"
@@ -403,7 +403,7 @@ onMounted(loadLibraryInfo);
   flex: 1 1 auto;
 }
 
-/* Step transitions — slide horizontally based on direction. The fade
+/* Step transitions slide horizontally based on direction. The fade
    keeps the overlap clean during the brief out-in handoff. */
 .r-v2-setup-step-forward-enter-active,
 .r-v2-setup-step-back-enter-active {
@@ -439,7 +439,7 @@ onMounted(loadLibraryInfo);
 
 /* Small tablets (sm): the fixed-height card keeps header + footer pinned and
    the BODY scrolls, instead of the desktop fixed-pane model where each list
-   scrolled in its own box. (xs overrides this below — the whole card flows
+   scrolled in its own box. (xs overrides this below: the whole card flows
    and the auth stage scrolls.) */
 html[data-bp~="sm-and-down"] .r-v2-setup__body {
   /* Body clips; each step scrolls its own content region internally (the
@@ -448,7 +448,7 @@ html[data-bp~="sm-and-down"] .r-v2-setup__body {
 }
 
 /* Phones: the card fills the auth stage via a definite flex cross-size
-   (align-self: stretch — NOT height:100%, whose percentage collapses on a
+   (align-self: stretch, NOT height:100%, whose percentage collapses on a
    reactive re-layout). Header + footer stay pinned; the step's lists region
    scrolls internally, like desktop. */
 html[data-bp~="xs"] .r-v2-setup {

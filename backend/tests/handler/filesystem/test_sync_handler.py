@@ -82,6 +82,7 @@ class TestFSSyncHandler:
         hash1 = handler.compute_file_hash(test_file)
         hash2 = handler.compute_file_hash(test_file)
         assert hash1 == hash2
+        assert hash1 is not None
         assert len(hash1) == 32  # MD5 hex length
 
     def test_compute_file_hash_different_content(

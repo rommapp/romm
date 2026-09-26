@@ -57,10 +57,13 @@ from handler.streaming.capabilities import (
     state_transfer_limits,
 )
 from handler.streaming.config import (
+    CONTAINER_NAME_MAX_LENGTH,
     ResolvedContainer,
     _derive_broker_host,
     configured_emulator,
+    container_names,
     emulator_display_label,
+    key_for_name,
     pools_for_platform,
     reset_cache,
     resolve_containers,
@@ -2207,6 +2210,102 @@ def test_the_session_platform_picks_the_config_entry_for_its_container():
     assert streaming.container_for_session(grouped, "http://nope:8000", "ps2") is None
 
 
+# ── Container names ───────────────────────────────────────────────────────────
+
+
+def _labelled(label: str | None, index: int) -> dict[str, Any]:
+    """A webstation container on its own host, with the given label."""
+    return {
+        "host": f"http://192.168.1.{index}:3000",
+        "broker_host": f"http://192.168.1.{index}:8000",
+        "protocol": "webstation",
+        "platforms": {"ps2": "pcsx2"},
+        **({"label": label} if label is not None else {}),
+    }
+
+
+def test_a_labelled_container_is_named_by_its_label():
+    entry = _labelled("WEBSTATION-DEV", 10)
+    with _streaming(entry):
+        names = container_names()
+        key = key_for_name("WEBSTATION-DEV")
+    assert names == {_key_of(entry): "WEBSTATION-DEV"}
+    assert key == _key_of(entry)
+
+
+def test_an_unlabelled_container_is_named_by_its_key():
+    entry = _labelled(None, 10)
+    with _streaming(entry):
+        assert container_names() == {_key_of(entry): _key_of(entry)}
+
+
+def test_a_name_matches_its_label_in_any_case():
+    entry = _labelled("Emulation station", 10)
+    with _streaming(entry):
+        assert key_for_name("emulation STATION") == _key_of(entry)
+
+
+def test_a_key_still_names_a_labelled_container():
+    """Links from before names existed carry the key."""
+    entry = _labelled("WEBSTATION-DEV", 10)
+    with _streaming(entry):
+        assert key_for_name(_key_of(entry)) == _key_of(entry)
+
+
+def test_an_unknown_name_matches_nothing():
+    with _streaming(_labelled("WEBSTATION-DEV", 10)):
+        assert key_for_name("WEBSTATION-OTHER") is None
+
+
+def test_a_shared_label_names_neither_container(caplog):
+    first = _labelled("Webstation", 10)
+    second = _labelled("webstation", 11)
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(first, second):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                names = container_names()
+                key = key_for_name("Webstation")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert names == {_key_of(first): _key_of(first), _key_of(second): _key_of(second)}
+    assert key is None
+    assert "share the label" in caplog.text
+
+
+def test_a_label_cannot_take_another_containers_key():
+    """A label spelled like another container's key must not redirect it."""
+    target = _labelled("Target", 10)
+    impostor = _labelled(_key_of(target), 11)
+    with _streaming(target, impostor):
+        names = container_names()
+        key = key_for_name(_key_of(target))
+    assert names[_key_of(impostor)] == _key_of(impostor)
+    assert key == _key_of(target)
+
+
+def test_a_label_matching_another_containers_key_in_any_case_names_neither():
+    target = _labelled("Target", 10)
+    impostor = _labelled(_key_of(target).upper(), 11)
+    with _streaming(target, impostor):
+        names = container_names()
+    assert names[_key_of(impostor)] == _key_of(impostor)
+
+
+def test_a_label_too_long_for_a_url_names_nothing():
+    entry = _labelled("x" * (CONTAINER_NAME_MAX_LENGTH + 1), 10)
+    with _streaming(entry):
+        assert container_names() == {_key_of(entry): _key_of(entry)}
+
+
+def test_an_unclaimable_container_has_no_name():
+    broken = _labelled("Broken", 10) | {"host": "192.168.1.10:3000", "broker_host": ""}
+    with _streaming(broken):
+        assert container_names() == {}
+        assert key_for_name("Broken") is None
+
+
 # ── Desktop sessions ──────────────────────────────────────────────────────────
 
 
@@ -2314,6 +2413,43 @@ def test_containers_shows_what_is_running(client, access_token):
     assert session["rom_name"] == ps2_rom.name
     assert session["desktop"] is False
     assert session["username"] == "test_admin"
+
+
+def test_containers_reports_each_containers_name(client, access_token):
+    labelled = _webstation(label="WEBSTATION-DEV")
+    unlabelled = _webstation(
+        label=None,
+        host="http://192.168.1.11:3000",
+        broker_host="http://192.168.1.11:8000",
+    )
+    with _streaming(labelled, unlabelled):
+        rows = _containers(client, access_token).json()["containers"]
+    assert [row["name"] for row in rows] == ["WEBSTATION-DEV", _key_of(unlabelled)]
+    assert rows[0]["container"] == _key_of(labelled)
+
+
+def test_desktop_opens_by_label(client, access_token):
+    container = _webstation(label="Emulation station")
+    with _streaming(container):
+        response, activate = _desktop(client, access_token, "emulation station")
+    assert response.status_code == 200
+    assert response.json()["container"] == _key_of(container)
+    activate.assert_called_once()
+
+
+def test_desktop_still_opens_by_key(client, access_token):
+    container = _webstation(label="WEBSTATION-DEV")
+    with _streaming(container):
+        response, _ = _desktop(client, access_token, _key_of(container))
+    assert response.status_code == 200
+    assert response.json()["container"] == _key_of(container)
+
+
+def test_desktop_refuses_an_unknown_name(client, access_token):
+    with _streaming(_webstation(label="WEBSTATION-DEV")):
+        response, activate = _desktop(client, access_token, "WEBSTATION-OTHER")
+    assert response.status_code == 404
+    activate.assert_not_called()
 
 
 def test_containers_is_admin_only(client, viewer_access_token):
@@ -5412,6 +5548,56 @@ def test_build_import_archive_expands_a_foreign_zips_own_members():
         assert zf.read(".import/save/save.mcr") == b"card-bytes"
 
 
+def test_build_import_archive_keeps_a_zip_shaped_state_whole():
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    inner = io.BytesIO()
+    with zipfile.ZipFile(inner, "w") as izf:
+        izf.writestr("eeMemory.bin", b"ee-bytes")
+    member = imports.ForeignMember(
+        kind="state",
+        name="SLUS-20062 (ABCD1234).01.p2s",
+        content=inner.getvalue(),
+        origin="standalone",
+    )
+    zip_bytes, carried = imports.build_import_archive(
+        rom_id=7, base=None, members=[member]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        assert zf.read(".import/state/SLUS-20062 (ABCD1234).01.p2s") == inner.getvalue()
+    assert [f["path"] for f in carried] == [
+        ".import/state/SLUS-20062 (ABCD1234).01.p2s"
+    ]
+
+
+def test_build_import_archive_names_a_carried_entry_by_its_staged_path():
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        bzf.writestr("saves\\Game.srm", b"native-save-bytes")
+        bzf.writestr(
+            ".broker-manifest.json",
+            json.dumps(
+                {"version": 1, "files": [{"path": "saves\\Game.srm", "kind": "save"}]}
+            ),
+        )
+    _zip_bytes, carried = imports.build_import_archive(
+        rom_id=7,
+        base=("Game.saves.zip", base_zip.getvalue()),
+        members=[
+            imports.ForeignMember(
+                kind="state", name="Game.00.pcsx2", content=b"s", origin="standalone"
+            )
+        ],
+    )
+    assert {"path": "saves/Game.srm", "kind": "save"} in carried
+
+
 def test_build_import_archive_keeps_a_native_base_alongside_a_foreign_state():
     """One native save and one foreign state in the same launch: the save
     stays entirely on its own v1 entry, only the state gets an import
@@ -5609,6 +5795,74 @@ def test_build_import_archive_rejects_a_foreign_member_over_the_expanded_byte_bu
     ):
         with pytest.raises(ValueError):
             imports.build_import_archive(rom_id=7, base=None, members=[member])
+
+
+def _understated_zip(name: str, content: bytes, declared_size: int) -> bytes:
+    """A one-entry zip whose central directory understates the entry's size."""
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(name, content)
+    raw = bytearray(buf.getvalue())
+    central = raw.rindex(b"PK\x01\x02")
+    raw[central + 24 : central + 28] = declared_size.to_bytes(4, "little")
+    return bytes(raw)
+
+
+def test_build_import_archive_does_not_inflate_past_a_members_declared_size():
+    import tracemalloc
+
+    bomb = _understated_zip("Game.srm", b"\0" * (64 * 1024 * 1024), 16)
+    tracemalloc.start()
+    try:
+        with pytest.raises(zipfile.BadZipFile):
+            imports.build_import_archive(
+                rom_id=7, base=("Game.saves.zip", bomb), members=[]
+            )
+        _current, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 16 * 1024 * 1024
+
+
+def test_manifest_files_rejects_a_manifest_over_the_size_cap():
+    """Dropping it would lose which entries are states, so a replaced state
+    would ride along as a save."""
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    manifest = {"files": [{"path": "Game.srm", "kind": "save"}], "pad": "x" * 64}
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(".broker-manifest.json", json.dumps(manifest))
+    with (
+        patch("handler.streaming.imports._MAX_MANIFEST_BYTES", 32),
+        zipfile.ZipFile(buf) as zf,
+        pytest.raises(ValueError),
+    ):
+        imports._manifest_files(zf)
+
+
+def test_build_import_archive_rebuilds_a_symlink_entry_as_a_regular_file():
+    import stat
+
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        link = zipfile.ZipInfo("Game.srm")
+        link.external_attr = (stat.S_IFLNK | 0o777) << 16
+        bzf.writestr(link, b"/etc/passwd")
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7, base=("Game.saves.zip", base_zip.getvalue()), members=[]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        mode = zf.getinfo("Game.srm").external_attr >> 16
+    assert stat.S_ISREG(mode)
+    assert stat.S_IMODE(mode) == 0o777
 
 
 def test_hydrate_import_archive_uploads_a_foreign_save_with_no_native_base(
@@ -7278,6 +7532,43 @@ def test_an_older_exit_state_stays_off_the_import_path_without_broker_support(
     assert run_launch_mock.call_args.kwargs["archive_path"] == "/romm/saves/archive.zip"
 
 
+def test_a_rewritten_older_state_is_still_not_the_archives_capture(
+    client, access_token, rom: Rom, admin_user: User
+):
+    older = db_state_handler.add_state(
+        _state_for(
+            rom,
+            admin_user,
+            "SLUS-00594_resume.20260917-010000000000.sav",
+            "duckstation",
+        )
+    )
+    db_state_handler.add_state(
+        _state_for(
+            rom,
+            admin_user,
+            "SLUS-00594_resume.20260918-010000000000.sav",
+            "duckstation",
+        )
+    )
+    db_state_handler.update_state(
+        older.id, {"updated_at": datetime.now(timezone.utc) + timedelta(days=1)}
+    )
+    run_launch_mock = AsyncMock()
+    with _streaming({**_webstation_for(rom), "emulator": "duckstation"}):
+        with (
+            patch("handler.streaming.webstation.import_spec", return_value=None),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.zip"),
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(client, access_token, rom.id, state_id=older.id)
+    assert r.status_code == 202
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "lost"
+
+
 def _duckstation_pairing(rom: Rom, user: User) -> tuple[Save, Save, State]:
     """An older and a newer DuckStation archive, plus the newest capture."""
     older, newer = (
@@ -7911,7 +8202,7 @@ def test_raise_http_error_raises_import_refused_as_a_typed_error():
         }
     ).encode()
     exc = _http_error(422)
-    with patch.object(exc, "read", return_value=payload):
+    with patch.object(exc, "read", side_effect=_reads(payload)):
         with pytest.raises(broker.ImportRefusedError) as raised:
             broker.raise_http_error(exc)
     assert raised.value.truncated == 0
@@ -7920,13 +8211,67 @@ def test_raise_http_error_raises_import_refused_as_a_typed_error():
     assert raised.value.refusals[0].member == ".import/save/Game.mcr"
 
 
+def test_raise_http_error_parses_a_refusal_list_at_the_brokers_cap():
+    import http.client
+    import urllib.error
+
+    refusal = {
+        "reason": "unrecognised_layout",
+        "expected": "<card>/" + "x" * 200,
+        "detail": "plan is partial: other members were refused",
+        "suggest_emulator": None,
+        "docs": "/docs/api/imports#unrecognised-layout",
+    }
+    payload = json.dumps(
+        {
+            "detail": {
+                "error": "import_refused",
+                "refusals": [
+                    {**refusal, "member": f".import/save/card/{i:04d}/" + "y" * 100}
+                    for i in range(200)
+                ],
+                "truncated": 40,
+            }
+        }
+    ).encode()
+    assert len(payload) > 64 * 1024
+    exc = urllib.error.HTTPError(
+        "http://broker/activate",
+        422,
+        "err",
+        http.client.HTTPMessage(),
+        io.BytesIO(payload),
+    )
+    with pytest.raises(broker.ImportRefusedError) as raised:
+        broker.raise_http_error(exc)
+    assert len(raised.value.refusals) == 200
+    assert raised.value.truncated == 40
+
+
+def test_raise_http_error_keeps_a_long_plain_error_out_of_the_502_detail():
+    exc = _http_error(500)
+    with patch.object(exc, "read", side_effect=_reads(b"x" * (100 * 1024))):
+        with pytest.raises(HTTPException) as raised:
+            broker.raise_http_error(exc)
+    assert len(raised.value.detail) < 9 * 1024
+
+
 def test_raise_http_error_still_raises_502_for_a_plain_broker_error():
     """An ordinary broker error (not an import refusal) is still a plain 502."""
     exc = _http_error(500)
-    with patch.object(exc, "read", return_value=b"boom"):
+    with patch.object(exc, "read", side_effect=_reads(b"boom")):
         with pytest.raises(HTTPException) as raised:
             broker.raise_http_error(exc)
     assert raised.value.status_code == 502
+
+
+def test_broker_error_body_gives_up_on_a_slow_body():
+    exc = _http_error(500)
+    with (
+        patch.object(exc, "read", side_effect=_reads(b"boom")),
+        patch("handler.streaming.broker._BROKER_ERROR_READ_SECONDS", -1),
+    ):
+        assert broker.broker_error_body(exc) == ""
 
 
 def test_fetch_memory_card_returns_bytes(rom: Rom):

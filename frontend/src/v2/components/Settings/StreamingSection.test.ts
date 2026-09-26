@@ -2,11 +2,14 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import StreamingSection from "./StreamingSection.vue";
 
-const { adminListContainers, releaseSession, confirm } = vi.hoisted(() => ({
-  adminListContainers: vi.fn(),
-  releaseSession: vi.fn(),
-  confirm: vi.fn(),
-}));
+const { adminListContainers, releaseSession, confirm, push } = vi.hoisted(
+  () => ({
+    adminListContainers: vi.fn(),
+    releaseSession: vi.fn(),
+    confirm: vi.fn(),
+    push: vi.fn(),
+  }),
+);
 
 vi.mock("@/services/api/streaming", () => ({
   default: { adminListContainers, releaseSession },
@@ -20,7 +23,7 @@ vi.mock("vue-i18n", () => ({
   }),
 }));
 
-vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("vue-router", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/plugins/router", () => ({
   ROUTES: { STREAM_DESKTOP: "stream-desktop" },
 }));
@@ -38,7 +41,8 @@ const RBtnStub = {
 
 function container(overrides: Record<string, unknown> = {}) {
   return {
-    container: "WEBSTATION-DEV",
+    container: "http://webstation:8000",
+    name: "WEBSTATION-DEV",
     label: "Webstation",
     host: "https://webstation:8080",
     platforms: ["ps2"],
@@ -73,6 +77,7 @@ function desktopButton(wrapper: Awaited<ReturnType<typeof mountSection>>) {
 describe("StreamingSection draining containers", () => {
   beforeEach(() => {
     confirm.mockReset();
+    push.mockReset();
     releaseSession.mockReset();
     adminListContainers.mockReset();
     adminListContainers.mockResolvedValue({
@@ -109,5 +114,26 @@ describe("StreamingSection draining containers", () => {
     const wrapper = await mountSection();
 
     expect(desktopButton(wrapper)?.props("disabled")).toBe(true);
+  });
+});
+
+describe("StreamingSection desktop link", () => {
+  beforeEach(() => {
+    push.mockReset();
+    adminListContainers.mockReset();
+    adminListContainers.mockResolvedValue({
+      data: { enabled: true, containers: [container()] },
+    });
+  });
+
+  it("names the container by its name, not its broker host", async () => {
+    const wrapper = await mountSection();
+
+    await desktopButton(wrapper)?.trigger("click");
+
+    expect(push).toHaveBeenCalledWith({
+      name: "stream-desktop",
+      query: { container: "WEBSTATION-DEV" },
+    });
   });
 });

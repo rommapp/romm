@@ -123,7 +123,7 @@ class PlaymatchHandler(MetadataHandler):
     Handler for [Playmatch](https://github.com/RetroRealm/playmatch), a service for matching ROMs by Hashes.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_url = PLAYMATCH_API_URL
         self.identify_url = f"{self.base_url}/identify/ids"
         self.healthcheck_url = f"{self.base_url}/health"
@@ -243,6 +243,15 @@ class PlaymatchHandler(MetadataHandler):
             return fallback_rom
 
         hashes = match_file.lookup_hashes
+
+        # Folder ROM members carry generic names (a Wii U title's 00000005.app),
+        # so name and size alone match an unrelated game.
+        if not any(hashes) and match_file.full_path != match_file.rom.full_path:
+            log.debug(
+                "Skipping Playmatch lookup for %s: no hashes to identify it by",
+                match_file.full_path,
+            )
+            return fallback_rom
 
         try:
             response = await self._request(
