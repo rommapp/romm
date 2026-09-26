@@ -9,8 +9,14 @@ import yarl
 from aiohttp.client import ClientTimeout
 from fastapi import HTTPException, status
 
-from adapters.services.mobygames_types import MobyGame, MobyGameBrief, MobyOutputFormat
-from adapters.services.response_validation import validate_response
+from adapters.services.mobygames_types import (
+    MobyGame,
+    MobyGameBrief,
+    MobyGamesResponse,
+    MobyGroupsResponse,
+    MobyOutputFormat,
+)
+from adapters.services.response_validation import parse_response
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
 from utils import get_version
@@ -44,7 +50,10 @@ class MobyGamesService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://api.mobygames.com/v1")
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict[str, Any]:
+    async def _request[T](
+        self, url: str, tp: type[T], request_timeout: int = 120
+    ) -> T | None:
+        source = f"MobyGames {yarl.URL(url).name}"
         aiohttp_session = ctx_aiohttp_session.get()
         log.debug(
             "API request: URL=%s, Timeout=%s",
@@ -61,9 +70,7 @@ class MobyGamesService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return validate_response(
-                dict[str, Any], await res.json(), source="MobyGames"
-            )
+            return parse_response(tp, await res.read(), source=source)
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             log.debug("Request to URL=%s timed out. Retrying...", url)
@@ -77,17 +84,16 @@ class MobyGamesService:
             if exc.status == http.HTTPStatus.UNAUTHORIZED:
                 # Sometimes MobyGames returns 401 even with a valid API key
                 log.error(exc)
-                return {}
+                return None
             elif exc.status == http.HTTPStatus.TOO_MANY_REQUESTS:
                 # Retry after 2 seconds if rate limit hit
                 await asyncio.sleep(2)
             else:
-                # Log the error and return an empty dict if the request fails with a different code
                 log.error(exc)
-                return {}
+                return None
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
-            return {}
+            return None
 
         # Retry the request once if it times out
         try:
@@ -104,21 +110,19 @@ class MobyGamesService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return validate_response(
-                dict[str, Any], await res.json(), source="MobyGames"
-            )
+            return parse_response(tp, await res.read(), source=source)
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as exc:
             if (
                 isinstance(exc, aiohttp.ClientResponseError)
                 and exc.status == http.HTTPStatus.UNAUTHORIZED
             ):
-                return {}
+                return None
 
             log.error(exc)
-            return {}
+            return None
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
-            return {}
+            return None
 
     async def list_groups(self, limit: int | None = None) -> list[dict[str, Any]]:
         """Retrieve a list of groups.
@@ -130,10 +134,8 @@ class MobyGamesService:
             params["limit"] = [str(limit)]
 
         url = self.url.joinpath("groups").with_query(**params)
-        response = await self._request(str(url))
-        return validate_response(
-            list[dict[str, Any]], response.get("groups", []), source="MobyGames groups"
-        )
+        response = await self._request(str(url), MobyGroupsResponse)
+        return response.get("groups", []) if response else []
 
     @overload
     async def list_games(
@@ -212,12 +214,11 @@ class MobyGamesService:
             params["offset"] = [str(offset)]
 
         url = self.url.joinpath("games").with_query(**params)
-        response = await self._request(str(url))
-        games = response.get("games", [])
         if output_format == "id":
-            return validate_response(list[int], games, source="MobyGames games")
+            ids = await self._request(str(url), MobyGamesResponse[int])
+            return ids.get("games", []) if ids else []
         if output_format == "brief":
-            return validate_response(
-                list[MobyGameBrief], games, source="MobyGames games"
-            )
-        return validate_response(list[MobyGame], games, source="MobyGames games")
+            briefs = await self._request(str(url), MobyGamesResponse[MobyGameBrief])
+            return briefs.get("games", []) if briefs else []
+        games = await self._request(str(url), MobyGamesResponse[MobyGame])
+        return games.get("games", []) if games else []
