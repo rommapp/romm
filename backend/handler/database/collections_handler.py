@@ -39,7 +39,6 @@ from models.rom import Rom
 from utils.sql_dialect import json_array_contains_value
 
 from .base_handler import DBBaseHandler, affected_rows
-from .roms_handler import RomSelect
 
 MAX_VIRTUAL_COLLECTION_COVERS = 5
 
@@ -513,14 +512,14 @@ class DBCollectionsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-    def build_smart_collection_query(
+    def build_smart_collection_query[S: Select[Any]](
         self,
         *,
-        query: RomSelect,
+        query: S,
         smart_collection: SmartCollection,
         user_id: int | None,
         session: Session,
-    ) -> RomSelect:
+    ) -> S:
         """Apply a smart collection's stored criteria to a ROM query.
 
         The criteria are `filter_roms`'s own vocabulary, so membership composes
