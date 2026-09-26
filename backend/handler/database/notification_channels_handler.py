@@ -21,7 +21,7 @@ class DBNotificationChannelsHandler(DBBaseHandler):
     def get_channels(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[NotificationChannel]:
         return session.scalars(
             select(NotificationChannel)
@@ -34,7 +34,7 @@ class DBNotificationChannelsHandler(DBBaseHandler):
         self,
         channel_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> NotificationChannel | None:
         return session.scalar(
             select(NotificationChannel).where(
@@ -47,7 +47,7 @@ class DBNotificationChannelsHandler(DBBaseHandler):
     def get_channel_for_delivery(
         self,
         channel_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> tuple[NotificationChannel, str] | None:
         """The channel and its owner's role, as of now."""
         row = session.execute(
@@ -64,7 +64,7 @@ class DBNotificationChannelsHandler(DBBaseHandler):
     def get_deliverable_channels(
         self,
         user_ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[NotificationChannel]:
         """The users' channels that are on and, for an email address, confirmed."""
         return session.scalars(
@@ -80,7 +80,7 @@ class DBNotificationChannelsHandler(DBBaseHandler):
         self,
         channel: NotificationChannel,
         limit: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> NotificationChannel | None:
         """Add the channel unless its user already has `limit`; None if they do."""
         # Locking the user's row makes that user's concurrent adds count in turn.
@@ -104,7 +104,7 @@ class DBNotificationChannelsHandler(DBBaseHandler):
         channel_id: int,
         user_id: int,
         data: dict[str, Any],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> NotificationChannel | None:
         session.execute(
             update(NotificationChannel)
@@ -127,7 +127,7 @@ class DBNotificationChannelsHandler(DBBaseHandler):
         self,
         channel_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         result = session.execute(
             delete(NotificationChannel)
@@ -143,7 +143,7 @@ class DBNotificationChannelsHandler(DBBaseHandler):
     def record_delivery(
         self,
         channel_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(
             update(NotificationChannel)
@@ -162,7 +162,7 @@ class DBNotificationChannelsHandler(DBBaseHandler):
         channel_id: int,
         error: str,
         counts: bool,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         """Keep a failed delivery's error; one that `counts` brings the channel closer to off."""
         values: dict[str, Any] = {
@@ -183,7 +183,7 @@ class DBNotificationChannelsHandler(DBBaseHandler):
     def turn_off_if_failing(
         self,
         channel_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> bool:
         """Turn the channel off once it failed too often in a row; True if this call did."""
         result = session.execute(

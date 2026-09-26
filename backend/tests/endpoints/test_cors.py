@@ -1,5 +1,6 @@
 """Guards the cross-origin defaults the API is served with."""
 
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
@@ -32,9 +33,9 @@ def _scratch_app(**kwargs: Any) -> TestClient:
 
 def test_a_wildcard_origin_is_never_paired_with_credentials() -> None:
     cors = _cors_middleware()
-    assert not (
-        cors.kwargs["allow_credentials"] and "*" in cors.kwargs["allow_origins"]
-    ), (
+    origins = cors.kwargs["allow_origins"]
+    assert isinstance(origins, Sequence)
+    assert not (cors.kwargs["allow_credentials"] and "*" in origins), (
         "Starlette answers a wildcard with the caller's own Origin and "
         "Access-Control-Allow-Credentials, granting every site credentialed access"
     )

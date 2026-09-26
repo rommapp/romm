@@ -52,6 +52,28 @@ def test_rom_with_libretro_match_is_identified(rom: Rom):
     assert rom.is_identified is True
 
 
+@pytest.mark.parametrize(
+    "fs_path, fs_name, file_path, file_name, expected",
+    [
+        ("roms/ps2", "gta.iso", "roms/ps2", "gta.iso", True),
+        ("roms/ps2/Action", "gta.iso", "roms/ps2/Action", "gta.iso", True),
+        ("ps2", "gta.iso", "ps2", "gta.iso", True),
+        ("roms/ps2", "FF X", "roms/ps2/FF X", "disc1.iso", True),
+        ("ps2", "FF X", "ps2/FF X", "disc1.iso", True),
+        ("roms/ps2/RPG", "FF X", "roms/ps2/RPG/FF X", "disc1.iso", True),
+        ("roms/ps2", "FF X", "roms/ps2/FF X/dlc", "extra.bin", False),
+        ("ps2", "FF X", "ps2/FF X/dlc", "extra.bin", False),
+    ],
+)
+def test_is_top_level_at_any_folder_depth(
+    fs_path: str, fs_name: str, file_path: str, file_name: str, expected: bool
+):
+    rom = Rom(fs_path=fs_path, fs_name=fs_name)
+    file = RomFile(rom=rom, file_path=file_path, file_name=file_name)
+
+    assert file.is_top_level is expected
+
+
 def _archive(**kwargs) -> RomFile:
     return RomFile(
         file_name="sf2.zip",

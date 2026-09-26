@@ -33,6 +33,7 @@ from handler.redis_handler import high_prio_queue
 from handler.sync.comparison import compare_missing_server_save, compare_save_state
 from logger.logger import log
 from models.assets import Save
+from models.deleted_asset import DeletedAsset
 from models.device import SyncMode
 from models.sync_session import SyncSessionStatus
 from utils.datetime import to_utc
@@ -237,7 +238,7 @@ def negotiate_sync(
         for s in payload.saves
         if s.slot and (s.rom_id, s.slot) not in server_save_map
     }
-    deleted_map = {
+    deleted_map: dict[tuple[int, str | None], DeletedAsset] = {
         (record.rom_id, record.slot): record
         for record in db_deleted_asset_handler.get_deletions(
             user_id=request.user.id, rom_ids=emptied_rom_ids

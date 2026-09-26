@@ -5,10 +5,11 @@
 // mode so several platforms can be toggled without the menu closing each
 // time; the activator shows a count and the picked platforms render below as
 // a removable list (icon + name), not pills.
-import { RBtn, RPlatformIcon } from "@v2/lib";
+import { RBtn } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -74,7 +75,7 @@ function remove(id: number) {
 
     <ul v-if="selected.length" class="r-v2-hidplat__list">
       <li v-for="p in selected" :key="p.id" class="r-v2-hidplat__row">
-        <RPlatformIcon
+        <PlatformIcon
           :slug="p.slug"
           :fs-slug="p.fs_slug"
           :name="p.display_name"

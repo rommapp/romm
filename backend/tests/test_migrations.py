@@ -235,7 +235,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0132_audit_events.py", "audit_events"),
         ("0135_drop_play_session_sync_link.py", "play_sessions"),
         ("0136_deleted_assets.py", "deleted_assets"),
-        ("0137_device_save_sync_baseline.py", "device_save_sync"),
+        ("0138_device_save_sync_baseline.py", "device_save_sync"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -624,3 +624,110 @@ def test_the_state_disc_file_migration_resumes_an_interrupted_run(drop_column: b
     assert "disc_file_id" in columns
     assert index
     assert "fk_states_disc_file_id" in foreign_keys
+
+
+def _is_system_sql(connection: sa.Connection) -> str:
+    # Before 0137 the seeded groups are flagged by `is_system`, after it by a key.
+    if has_column(connection, "permission_groups", "system_key"):
+        return "system_key IS NOT NULL"
+    return "is_system"
+
+
+def _system_groups(connection: sa.Connection) -> dict[str, str]:
+    rows = connection.execute(
+        sa.text(
+            "SELECT name, description FROM permission_groups "
+            f"WHERE {_is_system_sql(connection)}"
+        )
+    )
+    return {name: description for name, description in rows}
+
+
+def _system_keys(connection: sa.Connection) -> dict[str, str]:
+    rows = connection.execute(
+        sa.text(
+            "SELECT system_key, name FROM permission_groups "
+            "WHERE system_key IS NOT NULL"
+        )
+    )
+    return {key: name for key, name in rows}
+
+
+GROUP_RENAME = _load_migration("0137_rename_system_groups.py")
+
+
+def _upgrade_group_rename(connection: sa.Connection) -> None:
+    # MariaDB commits the column DDL implicitly, so tests restore head by hand
+    # rather than rolling back.
+    with Operations.context(MigrationContext.configure(connection)):
+        GROUP_RENAME.upgrade()
+    connection.commit()
+
+
+def test_the_group_rename_round_trips_the_seeded_groups():
+    with sync_engine.connect() as connection:
+        renamed = _system_groups(connection)
+        try:
+            with Operations.context(MigrationContext.configure(connection)):
+                GROUP_RENAME.downgrade()
+            legacy = _system_groups(connection)
+        finally:
+            _upgrade_group_rename(connection)
+        replayed = _system_groups(connection)
+        keys = _system_keys(connection)
+        flag_dropped = not has_column(connection, "permission_groups", "is_system")
+
+    assert set(renamed) == {"Viewer", "Editor"}
+    assert set(legacy) == {"Viewer (legacy)", "Editor (legacy)"}
+    assert "pre-upgrade" in legacy["Viewer (legacy)"]
+    assert replayed == renamed
+    assert keys == {"viewer": "Viewer", "editor": "Editor"}
+    assert flag_dropped
+
+
+def test_the_group_rename_leaves_admin_changes_alone():
+    """A taken name skips that group, and an edited description survives."""
+    with sync_engine.connect() as connection:
+        try:
+            with Operations.context(MigrationContext.configure(connection)):
+                GROUP_RENAME.downgrade()
+            legacy = _system_groups(connection)
+            connection.execute(
+                sa.text(
+                    "INSERT INTO permission_groups "
+                    "(name, description, is_default, is_system, created_at, updated_at) "
+                    "VALUES ('Viewer', '', false, false, "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "UPDATE permission_groups SET description = 'Custom' "
+                    "WHERE name = 'Editor (legacy)'"
+                )
+            )
+            _upgrade_group_rename(connection)
+            groups = _system_groups(connection)
+            keys = _system_keys(connection)
+        finally:
+            _, _, _, _, editor_description = GROUP_RENAME.RENAMES[1]
+            connection.execute(
+                sa.text(
+                    "DELETE FROM permission_groups "
+                    f"WHERE name = 'Viewer' AND NOT ({_is_system_sql(connection)})"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "UPDATE permission_groups SET description = :description "
+                    f"WHERE {_is_system_sql(connection)} AND description = 'Custom'"
+                ),
+                {"description": editor_description},
+            )
+            _upgrade_group_rename(connection)
+
+    assert groups == {
+        "Viewer (legacy)": legacy["Viewer (legacy)"],
+        "Editor": "Custom",
+    }
+    assert keys == {"viewer": "Viewer (legacy)", "editor": "Editor"}

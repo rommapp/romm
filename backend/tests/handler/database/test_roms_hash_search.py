@@ -7,7 +7,7 @@ taking anything away from the name search.
 """
 
 import pytest
-from sqlalchemy.orm import Query
+from sqlalchemy import select
 
 from handler.database import db_collection_handler, db_rom_handler
 from models.collection import SmartCollection
@@ -62,8 +62,8 @@ def _search_ids(term: str) -> list[int]:
 
 
 def _search_sql(term: str) -> str:
-    query = db_rom_handler._filter_by_search_term(Query(Rom.id), term)
-    return str(query.statement.compile(compile_kwargs={"literal_binds": True}))
+    query = db_rom_handler._filter_by_search_term(select(Rom.id), term)
+    return str(query.compile(compile_kwargs={"literal_binds": True}))
 
 
 @pytest.fixture

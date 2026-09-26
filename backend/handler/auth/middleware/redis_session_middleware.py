@@ -7,7 +7,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from config import SESSION_MAX_AGE_SECONDS
 from handler.redis_handler import async_cache
-from handler.socket_handler import socket_handler
+from handler.socket_handler import close_login_session_sockets
 
 
 class RedisSessionMiddleware:
@@ -41,7 +41,7 @@ class RedisSessionMiddleware:
         await async_cache.delete(
             *(f"session:{sid}" for sid in ids), f"user_sessions:{user_id}"
         )
-        await socket_handler.close_login_sessions(ids)
+        await close_login_session_sockets(ids)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):
@@ -104,7 +104,7 @@ class RedisSessionMiddleware:
                         await async_cache.srem(
                             f"user_sessions:{initial_user_id}", session_id
                         )
-                        await socket_handler.close_login_sessions([session_id])
+                        await close_login_session_sockets([session_id])
 
                     header_value = f"{self.session_cookie}=null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; {self.security_flags}"
                     headers.append("Set-Cookie", header_value)

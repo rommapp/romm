@@ -4,16 +4,19 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from handler import socket_handler as socket_handler_module
+from handler.database import db_user_handler
 from handler.socket_handler import (
     LOGIN_SESSION_ID_KEY,
     SocketHandler,
+    close_login_session_sockets,
     netplay_socket_handler,
     socket_handler,
 )
+from utils import auth as auth_utils
 
 
 def test_netplay_cannot_join_the_main_servers_rooms():
-    # Netplay clients are unauthenticated and name their own rooms, so an emit to
+    # Netplay clients may be anonymous and name their own rooms, so an emit to
     # `user:{id}` or `admin` must not reach a netplay socket that picked that name.
     netplay = netplay_socket_handler.socket_server.manager
     main = socket_handler.socket_server.manager
@@ -89,7 +92,7 @@ class TestLoginSessionSockets:
 
         await handler.bind_to_login_session("sid-1", "s1")
 
-        cache.sadd.assert_awaited_once_with("session_sockets:s1", "sid-1")
+        cache.sadd.assert_awaited_once_with("session_sockets:socketio:s1", "sid-1")
         cache.expire.assert_awaited_once()
         assert socket_session == {LOGIN_SESSION_ID_KEY: "s1"}
 
@@ -103,7 +106,7 @@ class TestLoginSessionSockets:
 
         await handler.unbind_from_login_session("sid-1")
 
-        cache.srem.assert_awaited_once_with("session_sockets:s1", "sid-1")
+        cache.srem.assert_awaited_once_with("session_sockets:socketio:s1", "sid-1")
 
     async def test_unbinding_an_anonymous_socket_touches_nothing(self, mocker, cache):
         handler = SocketHandler(path="/test")
@@ -124,7 +127,7 @@ class TestLoginSessionSockets:
 
         await handler.close_login_sessions(["s1"])
 
-        cache.delete.assert_awaited_once_with("session_sockets:s1")
+        cache.delete.assert_awaited_once_with("session_sockets:socketio:s1")
         disconnect.assert_awaited_once_with("sid-1")
 
     async def test_a_broker_failure_moves_on_to_the_next_session(self, mocker, cache):
@@ -139,3 +142,70 @@ class TestLoginSessionSockets:
         await handler.close_login_sessions(["s1", "s2"])
 
         assert disconnect.await_count == 2
+
+    async def test_each_server_keeps_its_own_sockets(self, mocker, cache):
+        handler = SocketHandler(path="/test", channel="netplay")
+
+        @asynccontextmanager
+        async def session(sid: str):
+            yield {}
+
+        mocker.patch.object(handler.socket_server, "session", session)
+
+        await handler.bind_to_login_session("sid-1", "s1")
+
+        cache.sadd.assert_awaited_once_with("session_sockets:netplay:s1", "sid-1")
+
+
+async def test_revoking_a_session_closes_its_sockets_on_every_server(mocker):
+    main = mocker.patch.object(socket_handler, "close_login_sessions", AsyncMock())
+    netplay = mocker.patch.object(
+        netplay_socket_handler, "close_login_sessions", AsyncMock()
+    )
+
+    await close_login_session_sockets(["s1"])
+
+    main.assert_awaited_once_with(["s1"])
+    netplay.assert_awaited_once_with(["s1"])
+
+
+class TestAuthenticate:
+    @pytest.fixture
+    def handler(self) -> SocketHandler:
+        return SocketHandler(path="/test")
+
+    @pytest.fixture
+    def bind(self, mocker, handler) -> AsyncMock:
+        return mocker.patch.object(handler, "bind_to_login_session", AsyncMock())
+
+    @pytest.fixture
+    def user(self, mocker) -> MagicMock:
+        user = MagicMock(enabled=True)
+        mocker.patch.object(db_user_handler, "get_user_by_username", return_value=user)
+        return user
+
+    def _session(self, mocker, **session) -> None:
+        mocker.patch.object(
+            auth_utils, "get_session_from_environ", AsyncMock(return_value=session)
+        )
+
+    async def test_resolves_and_binds_a_login_session(
+        self, mocker, handler, bind, user
+    ):
+        self._session(mocker, iss="romm:auth", sub="sam", session_id="s1")
+
+        assert await handler.authenticate("sid-1", {}) is user
+        bind.assert_awaited_once_with("sid-1", "s1")
+
+    async def test_rejects_a_foreign_issuer(self, mocker, handler, bind, user):
+        self._session(mocker, iss="other", sub="sam", session_id="s1")
+
+        assert await handler.authenticate("sid-1", {}) is None
+        bind.assert_not_awaited()
+
+    async def test_rejects_a_disabled_user(self, mocker, handler, bind, user):
+        user.enabled = False
+        self._session(mocker, iss="romm:auth", sub="sam", session_id="s1")
+
+        assert await handler.authenticate("sid-1", {}) is None
+        bind.assert_not_awaited()

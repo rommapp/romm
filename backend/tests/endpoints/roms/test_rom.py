@@ -1095,7 +1095,9 @@ def test_update_rom_artwork_locks_the_cover(
     )
     assert response.status_code == status.HTTP_200_OK
 
-    assert db_rom_handler.get_rom(rom.id).locked_fields == ["url_cover"]
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.locked_fields == ["url_cover"]
 
 
 @patch.object(
@@ -1119,7 +1121,9 @@ def test_remove_cover_releases_the_lock(
     )
     assert response.status_code == status.HTTP_200_OK
 
-    assert db_rom_handler.get_rom(rom.id).locked_fields == []
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.locked_fields == []
 
 
 @patch.object(
@@ -1162,7 +1166,9 @@ def test_saving_without_changing_urls_keeps_locks(
     )
     assert response.status_code == status.HTTP_200_OK
 
-    assert db_rom_handler.get_rom(rom.id).locked_fields == [
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.locked_fields == [
         "url_cover",
         "url_manual",
     ]
@@ -1208,7 +1214,9 @@ def test_naming_new_source_urls_releases_both_locks(
     )
     assert response.status_code == status.HTTP_200_OK
 
-    assert db_rom_handler.get_rom(rom.id).locked_fields == []
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.locked_fields == []
 
 
 def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
@@ -2022,7 +2030,9 @@ class TestUpdateMetadataIDs:
         assert response.status_code == status.HTTP_200_OK
 
         assert response.json()["url_cover"] == ""
-        assert db_rom_handler.get_rom(rom.id).locked_fields == ["url_cover"]
+        refreshed = db_rom_handler.get_rom(rom.id)
+        assert refreshed is not None
+        assert refreshed.locked_fields == ["url_cover"]
 
     @patch.object(
         SteamHandler,
