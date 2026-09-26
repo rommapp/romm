@@ -100,22 +100,20 @@ def compare_missing_server_save(
     return SyncComparisonResult("upload", "Save exists on client but not on server")
 
 
-class _Version(Protocol):
-    @property
-    def content_hash(self) -> str | None: ...
-
-
-class _ClientVersion(_Version, Protocol):
+class _SlotVersion(Protocol):
     @property
     def rom_id(self) -> int: ...
 
     @property
     def slot(self) -> str | None: ...
 
+    @property
+    def content_hash(self) -> str | None: ...
+
 
 def roms_to_check_for_removals(
-    client_saves: Iterable[_ClientVersion],
-    current: Mapping[tuple[int, str | None], _Version],
+    client_saves: Iterable[_SlotVersion],
+    current: Mapping[tuple[int, str | None], _SlotVersion],
 ) -> set[int]:
     """ROMs whose slotted client saves differ from the current version, so may hold a lost one."""
     return {

@@ -47,14 +47,27 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         content_hash: str,
         session: Session | None = None,
     ) -> DeletedAsset:
-        """Remember a version this slot lost, keeping one row per slot.
+        """Remember one version this slot lost, as `record_deletions` does."""
+        return self.record_deletions(
+            user_id, rom_id, slot, [content_hash], session=session
+        )
+
+    def record_deletions(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str,
+        content_hashes: Sequence[str],
+        session: Session | None = None,
+    ) -> DeletedAsset:
+        """Remember versions this slot lost, oldest first, keeping one row per slot.
 
         Args:
             user_id: Whose library the slot belongs to.
-            rom_id: The ROM whose slot lost a version.
+            rom_id: The ROM whose slot lost the versions.
             slot: The slot itself.
-            content_hash: What that version held.
-            session: The transaction losing the version, so both commit
+            content_hashes: What those versions held, oldest first.
+            session: The transaction losing the versions, so both commit
                 together. Its caller runs `ensure_record` before taking locks.
 
         Returns:
@@ -62,8 +75,8 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         """
         if session is None:
             self.ensure_record(user_id, rom_id, slot)
-            return self._append(user_id, rom_id, slot, content_hash)
-        return self._append(user_id, rom_id, slot, content_hash, session=session)
+            return self._append(user_id, rom_id, slot, content_hashes)
+        return self._append(user_id, rom_id, slot, content_hashes, session=session)
 
     @begin_session
     def _append(
@@ -71,7 +84,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         slot: str,
-        content_hash: str,
+        content_hashes: Sequence[str],
         session: Session = None,  # type: ignore[assignment]
     ) -> DeletedAsset:
         record = self.lock_record(user_id, rom_id, slot, session)
@@ -86,8 +99,8 @@ class DBDeletedAssetsHandler(DBBaseHandler):
                 if record is None:
                     raise
         # A version lost again moves to the end, so trimming keeps it.
-        hashes = [h for h in record.content_hashes if h != content_hash]
-        hashes.append(content_hash)
+        lost = dict.fromkeys(content_hashes)
+        hashes = [h for h in record.content_hashes if h not in lost] + list(lost)
         record.content_hashes = hashes[-MAX_REMEMBERED_HASHES:]
         session.flush()
         return record

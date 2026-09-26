@@ -15,7 +15,6 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from tests._zipfile_shim import reload_zipfile
 
 from handler.database import db_save_handler
 from handler.filesystem import fs_asset_handler
@@ -27,6 +26,7 @@ from tasks.manual.recompute_save_content_hashes import (
     RecomputeSaveContentHashesTask,
     recompute_save_content_hashes_task,
 )
+from tests._zipfile_shim import reload_zipfile
 
 FIXTURE_A_PINNED_HASH = "b3636b49ca5c3d807adee33e75d410ca"
 
@@ -393,7 +393,7 @@ class TestRecomputeSaveContentHashesTask:
 
         mocker.patch.object(
             db_save_handler,
-            "update_save",
+            "rehash_save",
             side_effect=RuntimeError("simulated DB failure"),
         )
 

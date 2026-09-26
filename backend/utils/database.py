@@ -98,10 +98,6 @@ class ExactString(sa.types.TypeDecorator[str]):
     impl = sa.String
     cache_ok = True
 
-    def __init__(self, length: int) -> None:
-        super().__init__(length)
-        self.length = length
-
     def load_dialect_impl(self, dialect: sa.Dialect) -> sa.types.TypeEngine[Any]:
         return dialect.type_descriptor(
             sa.String(self.length, collation=_exact_collation(dialect))

@@ -12,6 +12,7 @@ from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
@@ -1868,6 +1869,56 @@ class TestAutocleanup:
 
         assert response.status_code == status.HTTP_200_OK
         assert mock_remove.call_count == 6
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.compute_content_hash",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_autocleanup_records_versions_never_hashed(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        mock_hash,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        slot_saves: list[Save],
+    ):
+        mock_hash.side_effect = lambda path: f"hash of {path.rsplit('/', 1)[-1]}"
+        mock_scan.return_value = _slot_save(
+            admin_user, rom, platform, "new_autosave", "autosave"
+        )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot=autosave&autocleanup=true&autocleanup_limit=10",
+            files={
+                "saveFile": (
+                    "new_autosave.sav",
+                    BytesIO(b"new"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        [record] = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        # The six oldest of the fifteen seeded versions, oldest first.
+        assert record.content_hashes == [
+            f"hash of autosave_{index}.sav" for index in range(6)
+        ]
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock

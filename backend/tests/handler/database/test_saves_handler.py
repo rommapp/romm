@@ -1164,7 +1164,7 @@ class TestDBSavesHandlerRecordsLostVersions:
         save = self._add(admin_user, rom, "pooled", "autosave", "pooled")
         checked_out: dict[str, int] = {}
         deleted_assets = saves_handler_module._deleted_assets
-        ensure, record = deleted_assets.ensure_record, deleted_assets.record_deletion
+        ensure, record = deleted_assets.ensure_record, deleted_assets.record_deletions
 
         def spy(name: str, wrapped: Callable[..., Any]) -> Callable[..., Any]:
             def call(*args: Any, **kwargs: Any) -> Any:
@@ -1175,7 +1175,9 @@ class TestDBSavesHandlerRecordsLostVersions:
 
         with (
             mock.patch.object(deleted_assets, "ensure_record", spy("ensure", ensure)),
-            mock.patch.object(deleted_assets, "record_deletion", spy("record", record)),
+            mock.patch.object(
+                deleted_assets, "record_deletions", spy("record", record)
+            ),
         ):
             if path == "delete":
                 db_save_handler.delete_save(save.id)
@@ -1210,9 +1212,7 @@ class TestDBSavesHandlerRecordsLostVersions:
     ):
         save = self._add(admin_user, rom, "rehashed", "autosave", "raw_md5")
 
-        db_save_handler.update_save(
-            save.id, {"content_hash": "entries_md5"}, same_version=True
-        )
+        db_save_handler.rehash_save(save.id, "entries_md5")
 
         assert self._lost(admin_user, rom) == {}
 

@@ -17,6 +17,7 @@ from handler.asset_store import release_thumbnail, remove_asset_file, rename_ass
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_rom_handler,
@@ -118,16 +119,27 @@ async def _delete_save(save: Save) -> None:
 
 async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
     """Drop every version of ``slot`` past the ``keep`` newest, files included."""
-    for file_path, file_name, file_name_no_ext in db_save_handler.prune_slot(
+    pruned = db_save_handler.prune_slot(
         user_id=user_id, rom_id=rom_id, slot=slot, keep=keep
-    ):
-        await remove_asset_file(f"{file_path}/{file_name}", "Save file")
+    )
+    # A version never hashed could not be recorded, so its file is hashed first.
+    for version in reversed(pruned):
+        if not version.content_hash:
+            content_hash = await fs_asset_handler.compute_content_hash(
+                f"{version.file_path}/{version.file_name}"
+            )
+            if content_hash:
+                db_deleted_asset_handler.record_deletion(
+                    user_id, rom_id, slot, content_hash
+                )
+    for version in pruned:
+        await remove_asset_file(f"{version.file_path}/{version.file_name}", "Save file")
         await release_thumbnail(
             db_screenshot_handler.get_screenshot(
                 rom_id=rom_id,
                 user_id=user_id,
-                file_name=file_name,
-                file_name_no_ext=file_name_no_ext,
+                file_name=version.file_name,
+                file_name_no_ext=version.file_name_no_ext,
             )
         )
 

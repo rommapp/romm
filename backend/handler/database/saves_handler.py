@@ -1,5 +1,5 @@
 from collections.abc import Collection, Sequence
-from typing import Literal, Protocol
+from typing import Literal
 
 from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select, update
 from sqlalchemy.engine import Row
@@ -248,9 +248,19 @@ class DBSavesHandler(DBBaseHandler):
         id: int,
         session: Session = None,  # type: ignore[assignment]
     ) -> Row | None:
-        return session.execute(
-            select(*_VERSION_COLUMNS).where(Save.id == id)
-        ).one_or_none()
+        return session.execute(_version_query(id)).one_or_none()
+
+    def _lock_for_removal(
+        self, id: int, session: Session, content_hash: str | None = None
+    ) -> Row | None:
+        """Lock the save's slot record, then the save, returning its current version."""
+        # Before this session holds a connection, since ensuring takes its own.
+        before = self._slot_version(id)
+        if not before or not before.slot:
+            return None
+        if before.content_hash or content_hash:
+            _lock_slot(before.user_id, before.rom_id, before.slot, session)
+        return session.execute(_version_query(id).with_for_update()).one_or_none()
 
     @begin_session
     def update_save(
@@ -258,7 +268,6 @@ class DBSavesHandler(DBBaseHandler):
         id: int,
         data: dict,
         touch: bool = True,
-        same_version: bool = False,
         session: Session = None,  # type: ignore[assignment]
     ) -> Save:
         """Write `data` onto a save.
@@ -266,18 +275,26 @@ class DBSavesHandler(DBBaseHandler):
         Args:
             touch: False keeps `updated_at`, since annotating is not a write
                 to the bytes and device sync reads it to detect staleness.
-            same_version: True when only the hash of unchanged bytes is
-                recomputed, so no version leaves the slot.
         """
         data = with_file_name_parts(data)
-        if not same_version and ("content_hash" in data or "slot" in data):
-            # Before this session holds a connection, since ensuring takes its own.
-            before = self._slot_version(id)
-            if before:
-                _lock_slot(before, session)
-            current = _lock_version(id, session)
+        if "content_hash" in data or "slot" in data:
+            current = self._lock_for_removal(id, session)
             if current and _loses_version(current, data):
                 _record_loss(current, session)
+        return self._write(id, data, touch, session)
+
+    @begin_session
+    def rehash_save(
+        self,
+        id: int,
+        content_hash: str,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Save:
+        """Store a recomputed hash of the same bytes, so no version leaves the slot."""
+        return self._write(id, {"content_hash": content_hash}, True, session)
+
+    @staticmethod
+    def _write(id: int, data: dict, touch: bool, session: Session) -> Save:
         values = data if touch else {**data, "updated_at": Save.updated_at}
         session.execute(
             update(Save)
@@ -295,14 +312,15 @@ class DBSavesHandler(DBBaseHandler):
         slot: str,
         keep: int,
         session: Session = None,  # type: ignore[assignment]
-    ) -> list[tuple[str, str, str]]:
+    ) -> Sequence[Row]:
         """Delete every version of a slot past the ``keep`` newest.
 
         The slot's record is locked while its versions are listed and deleted,
         so two uploads pruning it cannot both keep a version the other dropped.
 
         Returns:
-            ``(file_path, file_name, file_name_no_ext)`` of each deleted version.
+            Each deleted version's hash and ``file_path``, ``file_name`` and
+            ``file_name_no_ext``, newest first.
         """
         past_keep = (
             select(
@@ -319,11 +337,9 @@ class DBSavesHandler(DBBaseHandler):
         # Before this session holds a connection, since ensuring takes its own.
         if not self._any(past_keep):
             return []
-        _deleted_assets.ensure_record(user_id, rom_id, slot)
-        _deleted_assets.lock_record(user_id, rom_id, slot, session)
-        # A locking read through the slot's own index takes no snapshot, which
-        # MariaDB's snapshot isolation would fail the delete against, and locks
-        # no other slot's rows, which a wider scan would deadlock on.
+        _lock_slot(user_id, rom_id, slot, session)
+        # Locks only this slot's rows and takes no snapshot, which MariaDB's
+        # snapshot isolation would fail the delete against.
         hint = f"FORCE INDEX ({SAVE_SLOT_VERSIONS_INDEX})"
         rows = session.execute(
             past_keep.with_hint(Save, hint, "mariadb")
@@ -331,14 +347,18 @@ class DBSavesHandler(DBBaseHandler):
             .with_for_update()
         ).all()
         # Oldest first, so trimming the record drops the oldest version first.
-        for row in reversed(rows):
-            _record_loss(row, session)
+        lost = [row.content_hash for row in reversed(rows) if row.content_hash]
+        if lost:
+            _deleted_assets.record_deletions(
+                user_id, rom_id, slot, lost, session=session
+            )
+        for row in rows:
             session.execute(
                 delete(Save)
                 .where(Save.id == row.id)
                 .execution_options(synchronize_session="evaluate")
             )
-        return [(row.file_path, row.file_name, row.file_name_no_ext) for row in rows]
+        return rows
 
     @begin_session
     def _any(
@@ -360,11 +380,7 @@ class DBSavesHandler(DBBaseHandler):
         Args:
             content_hash: What the version held, for a row that never hashed it.
         """
-        # Before this session holds a connection, since ensuring takes its own.
-        before = self._slot_version(id)
-        if before:
-            _lock_slot(before, session, content_hash)
-        current = _lock_version(id, session)
+        current = self._lock_for_removal(id, session, content_hash)
         if current:
             _record_loss(current, session, content_hash)
         session.execute(
@@ -463,20 +479,11 @@ class DBSavesHandler(DBBaseHandler):
         ).all()
 
 
-class _SlotVersion(Protocol):
-    user_id: int
-    rom_id: int
-    slot: str | None
-    content_hash: str | None
+def _version_query(id: int) -> Select:
+    return select(*_VERSION_COLUMNS).where(Save.id == id)
 
 
-def _lock_version(id: int, session: Session) -> Row | None:
-    return session.execute(
-        select(*_VERSION_COLUMNS).where(Save.id == id).with_for_update()
-    ).one_or_none()
-
-
-def _loses_version(version: _SlotVersion, data: dict) -> bool:
+def _loses_version(version: Row, data: dict) -> bool:
     """Whether writing `data` takes this version out of its slot."""
     return (
         data.get("slot", version.slot) != version.slot
@@ -484,28 +491,23 @@ def _loses_version(version: _SlotVersion, data: dict) -> bool:
     )
 
 
-def _lock_slot(
-    version: _SlotVersion, session: Session, content_hash: str | None = None
-) -> None:
-    """Ensure the version's slot has a record, then lock it before any of its rows."""
+def _lock_slot(user_id: int, rom_id: int, slot: str, session: Session) -> None:
+    """Ensure the slot has a record, then lock it before any of its rows."""
     # One order everywhere, the record before the rows, so removals never deadlock.
-    if version.slot and (version.content_hash or content_hash):
-        _deleted_assets.ensure_record(version.user_id, version.rom_id, version.slot)
-        _deleted_assets.lock_record(
-            version.user_id, version.rom_id, version.slot, session
-        )
+    _deleted_assets.ensure_record(user_id, rom_id, slot)
+    _deleted_assets.lock_record(user_id, rom_id, slot, session)
 
 
 def _record_loss(
-    version: _SlotVersion, session: Session, content_hash: str | None = None
+    version: Row, session: Session, content_hash: str | None = None
 ) -> None:
     """Remember a version leaving its slot, in the transaction that removes it."""
     content_hash = version.content_hash or content_hash
     if version.slot and content_hash:
         _deleted_assets.record_deletion(
-            user_id=version.user_id,
-            rom_id=version.rom_id,
-            slot=version.slot,
-            content_hash=content_hash,
+            version.user_id,
+            version.rom_id,
+            version.slot,
+            content_hash,
             session=session,
         )
