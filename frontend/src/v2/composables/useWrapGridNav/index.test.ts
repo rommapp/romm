@@ -1,8 +1,9 @@
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h, ref } from "vue";
+import { defineComponent, h, nextTick, ref } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import storeFocusRestoration from "@/v2/stores/focusRestoration";
 import { useWrapGridNav } from "./index";
 
 vi.mock("vue-router", () => ({
@@ -27,6 +28,7 @@ const Grid = defineComponent({
               class: "cell",
               "data-row": row,
               "data-col": col,
+              "data-focus-key": `${row}-${col}`,
             }),
           ),
         ),
@@ -121,6 +123,18 @@ describe("useWrapGridNav", () => {
     expect(document.activeElement).toBe(cell(0, 1));
     expect(scrollIntoView).toHaveBeenLastCalledWith(
       expect.objectContaining({ block: "nearest" }),
+    );
+  });
+
+  it("centres the restored tile when the pad takes over", async () => {
+    storeFocusRestoration().save("/platforms", "1-1");
+
+    setModality("pad");
+    await nextTick();
+
+    expect(document.activeElement).toBe(cell(1, 1));
+    expect(scrollIntoView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ block: "center" }),
     );
   });
 });

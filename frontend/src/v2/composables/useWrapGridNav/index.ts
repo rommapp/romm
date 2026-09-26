@@ -159,8 +159,7 @@ export function useWrapGridNav(
     target.setAttribute("tabindex", "0");
 
     target.focus({ preventScroll: true });
-    // "nearest" would stop at the viewport edge, which on index pages sits
-    // under the fixed top bar and pinned toolbar, hiding the row above.
+    // Rows centre on vertical moves so the fixed bars never cover them.
     target.scrollIntoView({
       block: opts.verticalJump ? "center" : "nearest",
       behavior: "smooth",
