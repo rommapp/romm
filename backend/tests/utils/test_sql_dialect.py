@@ -31,7 +31,7 @@ def _where_sql(condition: sa.ColumnElement[bool], dialect: sa.Dialect) -> str:
 
 def _order_by_sql(descending: bool, dialect: sa.Dialect) -> str:
     statement = sa.select(_T.c.v).order_by(nulls_last(_T.c.v, descending))
-    return str(statement.compile(dialect=dialect)).split("ORDER BY ")[-1]
+    return compile_sql(statement, dialect).split("ORDER BY ")[-1]
 
 
 class TestDialectCase:
@@ -55,7 +55,7 @@ class TestDialectCase:
         )
 
         assert _where_sql(sa.and_(~case, _T.c.v != 4), POSTGRESQL_DIALECT) == (
-            "NOT (t.v = :v_1 OR t.v = :v_2) AND t.v != :v_3"
+            "NOT (t.v = :v_1::INTEGER OR t.v = :v_2::INTEGER) AND t.v != :v_3::INTEGER"
         )
 
     def test_both_branches_bind_parameters_follow_the_cache(self):
@@ -63,11 +63,16 @@ class TestDialectCase:
         with sync_engine.connect() as connection:
             for value in (1, 2):
                 case = DialectCase(
-                    postgresql=sa.literal(value) == value,
-                    mysql=sa.literal(value) == value,
+                    postgresql=sa.literal(value), mysql=sa.literal(value)
                 )
-                statement = sa.select(sa.literal(value)).where(case)
-                assert connection.scalar(statement) == value
+                assert connection.scalar(sa.select(case)) == value
+
+    def test_from_inference_sees_the_tables_a_branch_reads(self):
+        case = DialectCase(postgresql=_T.c.v.is_(None), mysql=_T.c.v.is_not(None))
+
+        assert "FROM t" in compile_sql(
+            sa.select(sa.literal(1)).where(case), MARIADB_DIALECT
+        )
 
 
 class TestNullsLastSpelling:
@@ -133,7 +138,7 @@ class TestJsonArrayContainsSpelling:
             (
                 json_array_contains_value(_T.c.tags, "rpg"),
                 "json_contains(t.tags, :json_contains_1)",
-                "t.tags ? :param_1",
+                "t.tags ? :param_1::VARCHAR",
             ),
             (
                 json_array_contains_any(_T.c.tags, ["rpg", "puzzle"]),
@@ -154,9 +159,10 @@ class TestJsonArrayContainsSpelling:
         assert _where_sql(condition, POSTGRESQL_DIALECT) == postgres
 
     def test_no_values_match_nothing(self):
-        assert _where_sql(
-            json_array_contains_any(_T.c.tags, []), POSTGRESQL_DIALECT
-        ) == ("false")
+        assert (
+            _where_sql(json_array_contains_any(_T.c.tags, []), POSTGRESQL_DIALECT)
+            == "false"
+        )
 
 
 class TestJsonArrayContainsOnTheRunningEngine:
@@ -169,6 +175,8 @@ class TestJsonArrayContainsOnTheRunningEngine:
             sa.Column("tags", CustomJSON()),
         )
         with sync_engine.begin() as connection:
+            # An interrupted run can leave the table behind in the shared test DB.
+            table.drop(connection, checkfirst=True)
             table.create(connection)
             connection.execute(
                 table.insert(),

@@ -13,6 +13,7 @@ from sqlalchemy.sql.compiler import DDLCompiler, SQLCompiler
 from sqlalchemy.sql.ddl import ExecutableDDLElement
 from sqlalchemy.sql.elements import ClauseList, TextClause
 from sqlalchemy.sql.operators import OperatorType
+from sqlalchemy.sql.selectable import FromClause
 from sqlalchemy.sql.visitors import InternalTraversal
 
 # A JSON column holding an array: `Mapped[list[str] | None]`, `Mapped[set[int]]`...
@@ -45,6 +46,11 @@ class DialectCase[T](ColumnElement[T]):
         self.postgresql = postgresql
         self.mysql = mysql
         self.type = postgresql.type
+
+    # FROM inference and correlation see the tables either branch reads.
+    @property
+    def _from_objects(self) -> list[FromClause]:
+        return [*self.postgresql._from_objects, *self.mysql._from_objects]
 
     # Group and negate each branch on its own terms, so `NOT` or `AND` around
     # an `OR` branch keeps its precedence.

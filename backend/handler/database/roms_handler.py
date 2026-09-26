@@ -1,5 +1,4 @@
 import functools
-import hashlib
 import json
 import re
 import secrets
@@ -19,6 +18,7 @@ from sqlalchemy import (
     String,
     Text,
     and_,
+    bindparam,
     case,
     cast,
     delete,
@@ -1084,14 +1084,12 @@ class DBRomsHandler(DBBaseHandler):
             return like_conditions
 
         conditions: list[Any] = []
-        for idx, (term, boolean_query, like) in enumerate(
-            zip(terms, boolean_queries, like_conditions, strict=True)
-        ):
-            digest = hashlib.blake2s(term.encode(), digest_size=4).hexdigest()
-            param = f"fulltext_search_{digest}_{idx}"
+        for boolean_query, like in zip(boolean_queries, like_conditions, strict=True):
+            # A unique bind gets its own name per MATCH (a smart collection's search
+            # composes with the gallery's) and keeps the term out of the cache key.
             match = text(
-                f"MATCH(roms.name, roms.fs_name) AGAINST(:{param} IN BOOLEAN MODE)"
-            ).bindparams(**{param: boolean_query})
+                "MATCH(roms.name, roms.fs_name) AGAINST(:fulltext_search IN BOOLEAN MODE)"
+            ).bindparams(bindparam("fulltext_search", boolean_query, unique=True))
             conditions.append(DialectCase(postgresql=like, mysql=match))
         return conditions
 
@@ -1270,11 +1268,8 @@ class DBRomsHandler(DBBaseHandler):
             "puredos_match",
         ]
 
-        # A key absent from `hasheous_metadata` (rows stored before it existed, or
-        # rows with no Hasheous match at all) extracts as NULL, and NULL poisons
-        # both the OR and its negation, so the unverified side would drop those
-        # rows. MariaDB's `as_boolean()` folds a missing key into false on its
-        # own; PostgreSQL's does not, hence the coalesce.
+        # A missing key or a JSON null can extract as NULL, which would poison the
+        # OR and its negation; coalesce folds it to false on every engine.
         predicate = or_(
             *(
                 func.coalesce(Rom.hasheous_metadata[key].as_boolean(), false())
@@ -1795,9 +1790,8 @@ class DBRomsHandler(DBBaseHandler):
             relevance_clause = text(
                 "MATCH(roms.name, roms.fs_name) AGAINST(:relevance IN BOOLEAN MODE) DESC"
             ).bindparams(relevance=relevance)
-            # An explicit sort wins with relevance breaking ties; with no sort
-            # selected, relevance leads and name is the tiebreaker. Only the
-            # FULLTEXT engines rank, so PostgreSQL keeps the plain order.
+            # Only the FULLTEXT engines rank: relevance breaks an explicit sort's
+            # ties, or leads (with name breaking its ties) when no sort is picked.
             order_clause = DialectCase(
                 postgresql=order_clause,
                 mysql=(
