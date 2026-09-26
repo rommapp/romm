@@ -120,7 +120,7 @@ def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
 
 def _apply_datetime_tag(filename: str) -> str:
     name, ext = os.path.splitext(filename)
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     if DATETIME_TAG_PATTERN.search(name):
         name = DATETIME_TAG_PATTERN.sub("", name)
