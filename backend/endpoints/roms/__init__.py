@@ -1984,9 +1984,14 @@ async def update_rom(
         cleaned_data.update({"launchbox_id": None, "launchbox_metadata": {}})
 
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
-        ra_rom = await meta_ra_handler.get_rom_by_id(rom, ra_id=cleaned_data["ra_id"])
+        ra_rom = await meta_ra_handler.get_rom_by_id(
+            rom, ra_id=cleaned_data["ra_id"], ra_hash=rom.ra_hash
+        )
         if ra_rom.get("ra_id"):
             cleaned_data.update(ra_rom)
+        elif rom.ra_metadata and rom.ra_metadata.get("hash_match"):
+            # The kept blob's hash match was earned against the previous game.
+            cleaned_data["ra_metadata"] = {**rom.ra_metadata, "hash_match": False}
     elif rom.ra_id and not cleaned_data["ra_id"]:
         cleaned_data.update({"ra_id": None, "ra_metadata": {}})
 
