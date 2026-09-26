@@ -4,6 +4,7 @@
 // <AssetFavoriteMark>.
 import { RTag } from "@v2/lib";
 import { useI18n } from "vue-i18n";
+import { useStreamingStore } from "@/stores/streaming";
 import { formatBytes } from "@/utils";
 import type { Asset } from "@/v2/utils/assets";
 
@@ -22,6 +23,7 @@ withDefaults(
 );
 
 const { t } = useI18n();
+const { emulatorLabel } = useStreamingStore();
 </script>
 
 <template>
@@ -36,7 +38,7 @@ const { t } = useI18n();
       v-if="showEmulator && asset.emulator"
       tone="warning"
       size="x-small"
-      :text="asset.emulator"
+      :text="emulatorLabel(asset.emulator)"
     />
     <span class="r-asset-chips__size">
       {{ formatBytes(asset.file_size_bytes) }}

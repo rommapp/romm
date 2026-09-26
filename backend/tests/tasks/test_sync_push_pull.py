@@ -128,7 +128,7 @@ class TestNullSlotLeakInProcessRemoteSave:
 
         with patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh):
             action = await _process_remote_save(
-                device, conn=MagicMock(), remote_save=remote_save
+                device, conn=MagicMock(), remote_save=remote_save, session_id=1
             )
 
         # Archival rows must not be selected as a sync target.
@@ -195,7 +195,7 @@ class TestNullSlotLeakInProcessRemoteSave:
             mock_cmp.return_value = MagicMock(action="no_op", reason=None)
             mock_anyio_path.return_value.exists = AsyncMock(return_value=False)
             await _process_remote_save(
-                device, conn=MagicMock(), remote_save=remote_save
+                device, conn=MagicMock(), remote_save=remote_save, session_id=1
             )
 
             # compare_save_state should have been called with the SLOTTED save's
@@ -210,6 +210,55 @@ class TestNullSlotLeakInProcessRemoteSave:
         refreshed = db_save_handler.get_save(user_id=admin_user.id, id=archival.id)
         assert refreshed is not None
         assert refreshed.content_hash == "archival_hash_unique"
+
+
+class TestProcessRemoteSaveConflict:
+    async def test_conflict_names_the_matched_rom(
+        self, admin_user: User, rom: Rom, platform: Platform, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(
+                id="pp-dev-conflict",
+                user_id=admin_user.id,
+                sync_mode=SyncMode.PUSH_PULL,
+                sync_enabled=True,
+                sync_config={"ssh_host": "1.2.3.4"},
+            )
+        )
+        remote_save = RemoteSaveInfo(
+            path=f"/remote/{platform.fs_slug}/{save.file_name}",
+            file_name=save.file_name,
+            platform_slug=platform.fs_slug,
+            file_size=1,
+            mtime=datetime.now(timezone.utc),
+        )
+        ssh = MagicMock()
+        ssh.download_save = AsyncMock(return_value=("/tmp/pp-conflict", "remote"))
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh),
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+            patch("tasks.sync_push_pull_task.AnyioPath") as mock_anyio_path,
+            patch(
+                "endpoints.sockets.sync.emit_sync_conflict", new_callable=AsyncMock
+            ) as emit,
+        ):
+            mock_cmp.return_value = MagicMock(action="conflict", reason="both changed")
+            mock_anyio_path.return_value.exists = AsyncMock(return_value=False)
+            action = await _process_remote_save(
+                device, conn=MagicMock(), remote_save=remote_save, session_id=5
+            )
+
+        assert action == "conflict"
+        emit.assert_awaited_once_with(
+            user_id=admin_user.id,
+            device_id=device.id,
+            session_id=5,
+            file_name=save.file_name,
+            rom_id=rom.id,
+            rom_name="test_rom",
+            reason="both changed",
+        )
 
 
 class TestNullSlotLeakInPushMissingSaves:

@@ -1,5 +1,6 @@
 import asyncio
 import fnmatch
+import hashlib
 import os
 import re
 import shutil
@@ -24,6 +25,7 @@ from models.base import (
     compute_file_name_no_tags,
 )
 from utils.filesystem import (
+    LINK_FALLBACK_ERRNOS,
     SERVED_FILE_MODE,
     iter_directories,
     iter_files,
@@ -417,7 +419,16 @@ class FSHandler:
 
         # Normalize path without resolving the full path yet
         base_path_obj = Path(self.base_path).resolve()
-        full_path = base_path_obj / path_path
+        base_path_str = str(base_path_obj)
+        normalized_path = os.path.normpath(os.path.join(base_path_str, path_path))
+        if normalized_path == base_path_str:
+            return base_path_obj
+        # A bare startswith guard, which CodeQL recognizes as a path sanitizer.
+        if not normalized_path.startswith(base_path_str + os.sep):
+            raise ValueError(
+                f"Path {path} is outside the base directory {self.base_path}"
+            )
+        full_path = Path(normalized_path)
 
         try:
             # Detect a symlink anywhere in the path, not just at the leaf —
@@ -432,12 +443,9 @@ class FSHandler:
                         has_symlink_in_path = True
                         break
 
-            if has_symlink_in_path:
-                # Validate lexically — `..` and absolute paths are already
-                # rejected above, so the symlink target is reachable only via
-                # an intentionally-configured link.
-                full_path.relative_to(base_path_obj)
-            else:
+            # A symlinked path already passed the lexical check above, so its
+            # target is reachable only via an intentionally-configured link.
+            if not has_symlink_in_path:
                 full_path.resolve().relative_to(base_path_obj)
         except ValueError as exc:
             raise ValueError(
@@ -445,6 +453,25 @@ class FSHandler:
             ) from exc
 
         return full_path
+
+    async def _compute_file_hash(self, file_path: str) -> str:
+        full_path = self.validate_path(file_path)
+
+        def digest() -> str:
+            with open(full_path, "rb") as f:
+                return hashlib.file_digest(
+                    f, lambda: hashlib.md5(usedforsecurity=False)
+                ).hexdigest()
+
+        return await asyncio.to_thread(digest)
+
+    async def compute_file_md5(self, file_path: str) -> str:
+        """MD5 of the bytes on disk, unlike zip-aware `compute_content_hash`.
+
+        Raises:
+            OSError: The file is missing or unreadable.
+        """
+        return await self._compute_file_hash(file_path)
 
     @asynccontextmanager
     async def _atomic_write(self, target_path: Path):
@@ -603,9 +630,8 @@ class FSHandler:
 
         # Validate and sanitize inputs
         sanitized_filename = self._sanitize_filename(original_filename)
-        target_directory = self.validate_path(path)
-
-        final_file_path = target_directory / sanitized_filename
+        final_file_path = self.validate_path(os.path.join(path, sanitized_filename))
+        target_directory = final_file_path.parent
 
         # Async thread-safe file operations
         lock = await self._get_file_lock(str(final_file_path))
@@ -658,9 +684,8 @@ class FSHandler:
 
         # Validate and sanitize inputs
         sanitized_filename = self._sanitize_filename(filename)
-        target_directory = self.validate_path(path)
-
-        final_file_path = target_directory / sanitized_filename
+        final_file_path = self.validate_path(os.path.join(path, sanitized_filename))
+        target_directory = final_file_path.parent
 
         # Async thread-safe file operations
         lock = await self._get_file_lock(str(final_file_path))
@@ -806,6 +831,106 @@ class FSHandler:
             # Create destination directory if needed
             dest_full_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(source_full_path), str(dest_full_path))
+
+    def is_same_file(self, path: str, other_path: str) -> bool:
+        """Whether two relative paths name one file, as names differing only in
+        case do on a case-insensitive filesystem."""
+        full_path = self.validate_path(path)
+        other_full_path = self.validate_path(other_path)
+        if full_path == other_full_path:
+            return True
+        try:
+            return full_path.samefile(other_full_path)
+        except FileNotFoundError:
+            return False
+
+    async def copy_to_new_file(self, source_path: str, dest_path: str) -> None:
+        """
+        Copy a file to a path nothing holds yet, never replacing another file.
+
+        Args:
+            source_path: Relative path to the file to copy
+            dest_path: Relative path of the copy
+
+        Raises:
+            FileNotFoundError: If the source does not exist
+            FileExistsError: If the destination already exists
+        """
+        source_full_path = self.validate_path(source_path)
+        dest_full_path = self.validate_path(dest_path)
+        if source_full_path == dest_full_path:
+            raise FileExistsError(f"File already exists: {dest_full_path}")
+
+        source_lock = await self._get_file_lock(str(source_full_path))
+        dest_lock = await self._get_file_lock(str(dest_full_path))
+
+        async with source_lock, dest_lock:
+            if not source_full_path.is_file():
+                raise FileNotFoundError(f"File not found: {source_full_path}")
+
+            # Both a link and an exclusive create refuse a name that exists.
+            try:
+                os.link(source_full_path, dest_full_path)
+            except OSError as exc:
+                if exc.errno not in LINK_FALLBACK_ERRNOS:
+                    raise
+                with (
+                    source_full_path.open("rb") as source,
+                    dest_full_path.open("xb") as dest,
+                ):
+                    try:
+                        shutil.copyfileobj(source, dest)
+                    except BaseException:
+                        # Only a file this copy created, never one it refused.
+                        dest_full_path.unlink()
+                        raise
+                shutil.copymode(source_full_path, dest_full_path)
+
+    async def rename_file(self, file_path: str, new_name: str) -> None:
+        """
+        Rename a file within its directory, never replacing another file.
+
+        Args:
+            file_path: Relative path to the file to rename
+            new_name: New file name
+
+        Raises:
+            FileNotFoundError: If the file does not exist
+            FileExistsError: If another file already holds the new name
+        """
+        source_full_path = self.validate_path(file_path)
+        dest_full_path = self.validate_path(
+            str(Path(file_path).with_name(self._sanitize_filename(new_name)))
+        )
+        if source_full_path == dest_full_path:
+            return
+
+        source_lock = await self._get_file_lock(str(source_full_path))
+        dest_lock = await self._get_file_lock(str(dest_full_path))
+
+        async with source_lock, dest_lock:
+            if not source_full_path.is_file():
+                raise FileNotFoundError(f"File not found: {source_full_path}")
+
+            if dest_full_path.exists():
+                # A case-only rename on a case-insensitive filesystem finds itself.
+                if not dest_full_path.samefile(source_full_path):
+                    raise FileExistsError(f"File already exists: {dest_full_path}")
+                source_full_path.rename(dest_full_path)
+                return
+
+            # A link refuses a name another worker took since the check, which
+            # a rename would silently replace.
+            try:
+                os.link(source_full_path, dest_full_path)
+            except FileExistsError as exc:
+                raise FileExistsError(f"File already exists: {dest_full_path}") from exc
+            except OSError as exc:
+                if exc.errno not in LINK_FALLBACK_ERRNOS:
+                    raise
+                source_full_path.rename(dest_full_path)
+                return
+            source_full_path.unlink()
 
     async def remove_file(self, file_path: str) -> None:
         """

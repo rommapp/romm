@@ -169,10 +169,14 @@ class FSAssetsHandler(FSHandler):
 
     # /users/557365723a31/screenshots/{rom.id}/n64
     def build_screenshots_file_path(
-        self, user: User, platform_fs_slug: str, rom_id: int
+        self,
+        user: User,
+        platform_fs_slug: str,
+        rom_id: int,
+        emulator: str | None = None,
     ):
         return self._build_asset_file_path(
-            user, "screenshots", platform_fs_slug, rom_id
+            user, "screenshots", platform_fs_slug, rom_id, emulator
         )
 
     # /users/557365723a31/memory_cards/pcsx2/{card_id}
@@ -183,13 +187,6 @@ class FSAssetsHandler(FSHandler):
         return os.path.join(
             self.user_folder_path(user), "memory_cards", emulator, str(card_id)
         )
-
-    async def _compute_file_hash(self, file_path: str) -> str:
-        hash_obj = hashlib.md5(usedforsecurity=False)
-        async with await self.stream_file(file_path=file_path) as f:
-            while chunk := await f.read(8192):
-                hash_obj.update(chunk)
-        return hash_obj.hexdigest()
 
     async def _compute_zip_hash(self, zip_path: str) -> str:
         with zipfile.ZipFile(self.base_path / zip_path, "r") as zf:

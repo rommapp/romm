@@ -338,6 +338,10 @@ class SSMetadata(SSMetadataMedia):
     game_modes: list[str]
     genres: list[str]
     player_count: str
+    # What the dump our hashes matched says of itself, kept by the scan.
+    dump_regions: NotRequired[list[str]]
+    dump_languages: NotRequired[list[str]]
+    dump_tags: NotRequired[list[str]]
 
 
 class SSRom(BaseRom):

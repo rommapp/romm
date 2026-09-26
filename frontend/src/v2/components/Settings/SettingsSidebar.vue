@@ -4,7 +4,7 @@
 //
 // Groups mirror the v2 user-menu IA so the dropdown and the in-page
 // navigator share the same mental model:
-//   • Account: notifications, profile + UI prefs
+//   • Account: profile, UI prefs, notifications
 //   • Library: folder mappings, providers, paired devices
 //   • System: admin + server stats
 //   • Tools: jukebox, controller debug (developer-leaning, kept here so
@@ -23,7 +23,6 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
-import storeHeartbeat from "@/stores/heartbeat";
 import { useCan } from "@/v2/composables/useCan";
 import storeNotificationInbox from "@/v2/stores/notificationInbox";
 
@@ -34,11 +33,6 @@ const auth = storeAuth();
 const { user, scopes } = storeToRefs(auth);
 const isAdmin = useCan("app.admin");
 const { unreadCount } = storeToRefs(storeNotificationInbox());
-const heartbeat = storeHeartbeat();
-const logsViewerEnabled = computed(
-  () => !heartbeat.value.FRONTEND.DISABLE_LOGS_VIEWER,
-);
-
 interface Entry {
   icon: string;
   label: string;
@@ -63,13 +57,6 @@ const groups = computed<Group[]>(() => {
       label: t("settings.group-account"),
       entries: [
         {
-          icon: "mdi-bell-outline",
-          label: t("notifications.notifications"),
-          to: { name: ROUTES.NOTIFICATIONS },
-          visible: true,
-          count: unreadCount.value,
-        },
-        {
           icon: "mdi-account-outline",
           label: t("common.profile"),
           to: {
@@ -83,6 +70,13 @@ const groups = computed<Group[]>(() => {
           label: t("common.user-interface"),
           to: { name: ROUTES.USER_INTERFACE },
           visible: true,
+        },
+        {
+          icon: "mdi-bell-outline",
+          label: t("notifications.notifications"),
+          to: { name: ROUTES.NOTIFICATIONS },
+          visible: true,
+          count: unreadCount.value,
         },
       ],
     },
@@ -154,7 +148,7 @@ const groups = computed<Group[]>(() => {
           icon: "mdi-text-box-search-outline",
           label: t("common.logs"),
           to: { name: ROUTES.LOGS },
-          visible: isAdmin.value && logsViewerEnabled.value,
+          visible: isAdmin.value,
         },
       ],
     },

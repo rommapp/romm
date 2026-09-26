@@ -142,6 +142,12 @@ async function setStateLabels({
   return api.put<StateSchema>(`/states/${id}/labels`, { labels });
 }
 
+async function renameState({ id, fileName }: { id: number; fileName: string }) {
+  return api.put<StateSchema>(`/states/${id}/file-name`, {
+    file_name: fileName,
+  });
+}
+
 export default {
   uploadStates,
   updateState,
@@ -149,4 +155,5 @@ export default {
   setStateVisibility,
   setStateFavorite,
   setStateLabels,
+  renameState,
 };

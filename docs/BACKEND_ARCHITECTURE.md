@@ -193,7 +193,9 @@ backend/
 │   ├── search.py              # Cross-provider metadata search
 │   ├── states.py              # Save state management
 │   ├── stats.py               # Library statistics
-│   ├── sync.py                # Device sync sessions (push/pull, SSH)
+│   ├── sync/                  # Device sync
+│   │   ├── __init__.py        # Sync sessions (push/pull, SSH)
+│   │   └── retroarch.py       # RetroArch Cloud Sync WebDAV surface
 │   ├── tasks.py               # Task monitoring & triggering
 │   ├── roms/                  # ROM-specific endpoints
 │   │   ├── __init__.py        # ROM CRUD, download, bulk ops
@@ -309,7 +311,8 @@ backend/
 │   │   ├── update_switch_titledb.py           # Refresh Switch TitleDB
 │   │   ├── update_launchbox_metadata.py       # Refresh LaunchBox data
 │   │   ├── convert_images_to_webp.py          # Artwork WebP conversion
-│   │   └── cleanup_netplay.py                 # Prune stale netplay rooms
+│   │   ├── cleanup_netplay.py                 # Prune stale netplay rooms
+│   │   └── reap_streaming_sessions.py         # Stop abandoned streaming sessions
 │   └── manual/                # On-demand tasks
 │       ├── cleanup_missing_roms.py       # Drop DB entries for missing files
 │       ├── cleanup_orphaned_resources.py # Remove unreferenced artwork
@@ -760,6 +763,23 @@ Token format: `rmm_` + 64 hex chars (32-byte random)
 
 ---
 
+#### Audit Events
+
+**Table:** `audit_events` (what users and background jobs did, kept `AUDIT_LOG_RETENTION_DAYS`)
+
+| Column                                                  | Type       | Notes                                         |
+| ------------------------------------------------------- | ---------- | --------------------------------------------- |
+| `id`                                                    | Integer    | PK                                            |
+| `occurred_at`                                           | Timestamp  | For a synced play, when it started            |
+| `actor_kind`                                            | String(16) | `user`, `anonymous` or `system`               |
+| `actor_id`                                              | FK → users | `SET NULL` on delete                          |
+| `action`                                                | String(64) | `AuditAction`, e.g. `rom.download`            |
+| `actor_name`, `target_type`, `target_id`, `target_name` | String     | Snapshots, so an event outlives what it names |
+| `ip_address`, `device_id`                               | String     | No FK                                         |
+| `data`                                                  | JSON       | What the client builds the sentence from      |
+
+---
+
 #### Firmware
 
 **Table:** `firmware`
@@ -800,7 +820,7 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 
 **Base URL:** `/api`
 **Documentation:** Swagger UI at `/api/docs`, ReDoc at `/api/redoc`
-**Pagination:** `fastapi-pagination` with `LimitOffsetParams` (`limit`, `offset`, `total`)
+**Pagination:** `PageParams` (`limit`, `offset`) via the `PAGE_QUERY` dependency, returning a `LimitOffsetPage` (`items`, `total`, `limit`, `offset`); both live in `endpoints/responses/base.py`. Routes with a smaller page cap subclass `PageParams` (`MusicPageParams`, `AuditPageParams`)
 
 ### 6.1 Authentication (`/api`)
 
@@ -811,8 +831,10 @@ Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/P
 | POST   | `/token`           | No   | OAuth2 token (password, refresh_token grants)  |
 | GET    | `/login/openid`    | No   | OIDC login redirect                            |
 | GET    | `/oauth/openid`    | No   | OIDC callback                                  |
-| POST   | `/forgot-password` | No   | Request password reset                         |
+| POST   | `/forgot-password` | No   | Email a reset link, or log it without email    |
 | POST   | `/reset-password`  | No   | Reset password with token                      |
+
+A reset link is emailed when SMTP is set up, the user has an address and `ROMM_BASE_URL` is shareable, at most once a minute per user; otherwise it goes to the log for an admin to pass on. It is built from `ROMM_BASE_URL`, never the request's `Host`. The heartbeat's `NOTIFICATIONS.EMAILS_RESET_LINKS` says whether links are emailed.
 
 ### 6.2 Users (`/api/users`)
 
@@ -921,20 +943,65 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 | GET    | `/{id}/content`    | ASSETS_READ   | Download save file                      |
 | POST   | `/{id}/downloaded` | DEVICES_WRITE | Confirm download (device sync)          |
 | PUT    | `/{id}`            | ASSETS_WRITE  | Update save                             |
+| PUT    | `/{id}/file-name`  | ASSETS_WRITE  | Rename save file and its screenshot     |
 | POST   | `/delete`          | ASSETS_WRITE  | Bulk delete                             |
 | POST   | `/{id}/track`      | DEVICES_WRITE | Re-enable sync tracking                 |
 | POST   | `/{id}/untrack`    | DEVICES_WRITE | Disable sync tracking                   |
 
 ### 6.9 States (`/api/states`)
 
-| Method | Path           | Scope        | Description   |
-| ------ | -------------- | ------------ | ------------- |
-| POST   | `/`            | ASSETS_WRITE | Upload state  |
-| GET    | `/`            | ASSETS_READ  | List states   |
-| GET    | `/identifiers` | ASSETS_READ  | Get state IDs |
-| GET    | `/{id}`        | ASSETS_READ  | Get state     |
-| PUT    | `/{id}`        | ASSETS_WRITE | Update state  |
-| POST   | `/delete`      | ASSETS_WRITE | Bulk delete   |
+| Method | Path              | Scope        | Description                          |
+| ------ | ----------------- | ------------ | ------------------------------------ |
+| POST   | `/`               | ASSETS_WRITE | Upload state                         |
+| GET    | `/`               | ASSETS_READ  | List states                          |
+| GET    | `/identifiers`    | ASSETS_READ  | Get state IDs                        |
+| GET    | `/{id}`           | ASSETS_READ  | Get state                            |
+| PUT    | `/{id}`           | ASSETS_WRITE | Update state                         |
+| PUT    | `/{id}/file-name` | ASSETS_WRITE | Rename state file and its screenshot |
+| POST   | `/delete`         | ASSETS_WRITE | Bulk delete                          |
+
+### 6.9b RetroArch Cloud Sync (`/api/sync/retroarch`)
+
+A minimal WebDAV surface for RetroArch's Cloud Sync driver, which diffs a JSON
+manifest of `{path, hash}` entries instead of listing collections. Point
+RetroArch's WebDAV URL at `https://<host>/api/sync/retroarch/` (trailing slash
+required) and authenticate with a RomM username and password over HTTP Basic.
+
+| Method               | Path                                 | Scope        | Description                                       |
+| -------------------- | ------------------------------------ | ------------ | ------------------------------------------------- |
+| OPTIONS              | `/{path}`                            | ASSETS_READ  | Advertise DAV support                             |
+| PROPFIND/LOCK/UNLOCK | `/{path}`                            | ASSETS_READ  | Read-only browsing (`roms/` also needs ROMS_READ) |
+| GET                  | `/manifest.server`                   | ASSETS_READ  | Manifest of the caller's saves, states and blobs  |
+| GET                  | `/{root}/[core/]{file}`              | ASSETS_READ  | Download one save/state                           |
+| PUT                  | `/{root}/[core/]{file}`              | ASSETS_WRITE | Upload one save/state                             |
+| DELETE/MOVE          | `/{root}/[core/]{file}`              | ASSETS_WRITE | Delete one save/state                             |
+| GET                  | `/{config,thumbnails,system}/{path}` | ASSETS_READ  | Download one opaque blob file                     |
+| PUT                  | `/{config,thumbnails,system}/{path}` | ASSETS_WRITE | Upload one opaque blob file                       |
+| DELETE/MOVE          | `/{config,thumbnails,system}/{path}` | ASSETS_WRITE | Delete one opaque blob file                       |
+| MKCOL                | `/{path}`                            | ASSETS_WRITE | Accepted no-op (layout is derived from the ROM)   |
+
+- **Matching:** `{root}` is `saves` or `states`. A file matches a ROM by file
+  name alone (`Super Mario World.srm` matches `fs_name_no_ext` `Super Mario
+World`), so a name shared across platforms resolves to the lowest visible ROM id.
+- **Cores:** the `core` segment is RetroArch's directory name (e.g. `Snes9x`),
+  mapped to and from the asset's `emulator` through
+  `sync.retroarch.emulator_names`, so web player saves stay visible. Unknown
+  cores round-trip unchanged.
+- **Manifest:** slotted saves are left out, since no core loads them. Assets
+  whose file is gone are flagged `missing_from_fs`. Hashes are MD5s of the
+  bytes on disk, Redis-cached by path, size and mtime.
+- **PSP:** PPSSPP's `PSP/SAVEDATA/<folder>/` files are stored as one zipped
+  `Save` per folder. A folder whose title matches no ROM is buffered under
+  `SYNC_RETROARCH_PSP_PENDING_PATH`, or mapped through `SYNC_RETROARCH_PSP_SERIAL_MAP`.
+- **Blobs:** `config/`, `thumbnails/` and `system/` belong to no ROM, so they
+  are stored per user under `SYNC_RETROARCH_BASE_PATH` (`FSRetroArchSyncHandler`).
+- **Auth:** the router gates itself so it can answer a 401 Basic challenge,
+  and sends body-less errors, which RetroArch's client needs. The kiosk guest
+  may browse `roms/` but is challenged everywhere else. Uploads are capped at
+  `MAX_ASSET_UPLOAD_SIZE_BYTES`.
+- **Device:** each manifest fetch registers or touches one RetroArch `Device`
+  per user (`client="retroarch"`, `SyncMode.API`), since RetroArch sends no
+  install identity.
 
 ### 6.10 Screenshots (`/api/screenshots`)
 
@@ -959,16 +1026,18 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 
 ### 6.12 Collections (`/api/collections`)
 
-| Method | Path                  | Scope             | Description           |
-| ------ | --------------------- | ----------------- | --------------------- |
-| POST   | `/`                   | COLLECTIONS_WRITE | Create collection     |
-| GET    | `/`                   | COLLECTIONS_READ  | List collections      |
-| GET    | `/identifiers`        | COLLECTIONS_READ  | Get collection IDs    |
-| GET    | `/{id}`               | COLLECTIONS_READ  | Get collection        |
-| PUT    | `/{id}`               | COLLECTIONS_WRITE | Update collection     |
-| DELETE | `/{id}`               | COLLECTIONS_WRITE | Delete collection     |
-| POST   | `/{id}/roms`          | COLLECTIONS_WRITE | Add ROM to collection |
-| DELETE | `/{id}/roms/{rom_id}` | COLLECTIONS_WRITE | Remove ROM            |
+| Method | Path                     | Scope             | Description                       |
+| ------ | ------------------------ | ----------------- | --------------------------------- |
+| POST   | `/`                      | COLLECTIONS_WRITE | Create collection                 |
+| GET    | `/`                      | COLLECTIONS_READ  | List collections                  |
+| GET    | `/identifiers`           | COLLECTIONS_READ  | Get collection IDs                |
+| GET    | `/{id}`                  | COLLECTIONS_READ  | Get collection                    |
+| PUT    | `/{id}`                  | COLLECTIONS_WRITE | Update collection                 |
+| PUT    | `/{id}/visibility`       | COLLECTIONS_WRITE | Share or unshare collection       |
+| PUT    | `/smart/{id}/visibility` | COLLECTIONS_WRITE | Share or unshare smart collection |
+| DELETE | `/{id}`                  | COLLECTIONS_WRITE | Delete collection                 |
+| POST   | `/{id}/roms`             | COLLECTIONS_WRITE | Add ROM to collection             |
+| DELETE | `/{id}/roms/{rom_id}`    | COLLECTIONS_WRITE | Remove ROM                        |
 
 ### 6.13 Feeds (`/api/feeds`)
 
@@ -1026,7 +1095,60 @@ curl -X POST "$ROMM/api/notifications" -H "Authorization: Bearer $TOKEN" \
   -d '{"title": "Sync finished", "body": "12 saves uploaded", "level": "success", "link": "/rom/12"}'
 ```
 
-### 6.17 Other Endpoints
+#### Notification channels (`/api/notification-channels`)
+
+Each user forwards their own notifications to other services. A channel is one of three types:
+
+- `apprise`: any of the 100+ services [Apprise](https://github.com/caronc/apprise#supported-notifications) reaches (Discord, Telegram, ntfy, Slack, Gotify…), set up through that service's own fields. **Admins only**, since Apprise opens its own connections, past the SSRF guard. The owner's role is checked again at every delivery, so a demoted admin's channel fails until it turns off.
+- `webhook`: RomM's own JSON payload (below), POSTed to an http(s) URL.
+- `email`: a plain-text email over the server's SMTP, to an address confirmed with a 6-digit code first.
+
+A channel filters by minimum level and by topic (`scans`, `tasks`, `streaming`, `account`, `custom`); every stored notification that passes goes out in its own RQ job, retried at 30 s, 2 min and 10 min. A channel that fails 10 deliveries in a row turns itself off and tells its owner.
+
+| Method | Path                      | Scope    | Description                                                                                    |
+| ------ | ------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| GET    | `/`                       | ME_READ  | Caller's channels, secrets masked                                                              |
+| GET    | `/apprise-services`       | ME_READ  | Every Apprise service and its fields (admins only, else 403)                                   |
+| POST   | `/apprise-services/parse` | ME_READ  | Read a pasted URL (Discord's own, or an Apprise one) into its service and fields (admins only) |
+| POST   | `/`                       | ME_WRITE | Add a channel; an email address gets a code                                                    |
+| PATCH  | `/{id}`                   | ME_WRITE | Change it; an omitted URL or secret stays, an empty secret is dropped                          |
+| DELETE | `/{id}`                   | ME_WRITE | Delete it                                                                                      |
+| POST   | `/{id}/test`              | ME_WRITE | Send a sample notification now                                                                 |
+| POST   | `/{id}/confirm`           | ME_WRITE | Confirm an email address with its code                                                         |
+| POST   | `/{id}/resend-code`       | ME_WRITE | Email a new code (once a minute)                                                               |
+
+The Apprise catalog comes from Apprise's own plugin details: URL tokens become fields, options become advanced fields, and a field is required only when every URL template of its service needs it. A token is a secret when Apprise marks it so or its name is a credential's (`token`, `key`, `webhook`…). A channel stores its service and fields, sealed, and each delivery builds the URL from the template those fields fill. Not offered: schemas that act on the host (`syslog`, `dbus`, `windows`…), FCM (it opens its key file itself), the options Apprise reads from a local file (`template`, `keyfile`, `subfile`, `pgp*`) and the ones RomM sets. Apprise follows no redirects and doesn't retry, its timeouts are capped at 10 s to connect and 15 s to read, a list takes at most 20 items, and `@everyone`, `@here` and `<@…>` ping nobody. A failure's error carries Apprise's warning and the start of the service's reply. Each service links its setup guide on Apprise's wiki. A pasted URL is read back into fields by matching the URL Apprise writes for it against the service's templates. The API returns the fields that aren't secret and names the secrets; on edit, a secret left out stays and an empty one goes, but a kept secret never follows the channel to another destination, as Apprise's `url_identifier` tells them apart. A test gets 60 s, like a queued delivery.
+
+Only an admin's webhooks may reach private addresses; everyone else's go through the SSRF guard. A kept webhook secret doesn't follow the channel to another origin. A webhook delivery gets 15 s in all, and only the start of a refusal's body is read. Text for RomM's own kinds is English until outbound messages are translated. Links are absolute only when `ROMM_BASE_URL` is shareable.
+
+```json
+{
+  "event": "notification",
+  "id": 42,
+  "kind": "scan_completed",
+  "level": "success",
+  "title": "Scan completed",
+  "body": "3 new games",
+  "url": "https://romm.example.com/scan",
+  "data": { "new_roms": 3 },
+  "actor": null,
+  "created_at": "2026-09-23T12:00:00+00:00"
+}
+```
+
+With a secret, a webhook adds `X-RomM-Signature: sha256=<hex HMAC-SHA256 of the body>`. Email needs `SMTP_HOST` and `SMTP_FROM` (see `env.template`); the heartbeat's `NOTIFICATIONS.EMAIL_ENABLED` says whether it's set up. Channel configs are sealed with a key derived from `ROMM_AUTH_SECRET_KEY`, so rotating it means entering their URLs and secrets again.
+
+### 6.17 Audit Events (`/api/audit-events`)
+
+| Method | Path | Scope   | Description                                                     |
+| ------ | ---- | ------- | --------------------------------------------------------------- |
+| GET    | `/`  | ME_READ | Events newest first: everyone's for an admin, else the caller's |
+
+Filters: `actor_id`, `action`, `category`, `target_type`/`target_id`, `since`/`until`, `search` (names and IP). Pages carry `max_id`; pass it back so later pages skip events recorded meanwhile. An admin reads everyone's only with `users.read` in the token.
+
+Events are written by `handler/audit_handler.record()` after an action succeeds, and a failure to write never fails the action. A ROM content fetch is a `rom.download`, or a `rom.player_load` when the in-browser player marks it `purpose=play`; a fetch whose Range starts past byte 0, or that the same caller made in the last 10 minutes, isn't recorded. A failed login keeps the attempted name only when an account has it. The client address comes from `X-Forwarded-For` only when the connection is from a proxy in `FORWARDED_ALLOW_IPS`.
+
+### 6.18 Other Endpoints
 
 | Router        | Path                                   | Description                            |
 | ------------- | -------------------------------------- | -------------------------------------- |
@@ -1117,10 +1239,10 @@ tasks.run                    : Task execution
 
 ### Session Management
 
-- Redis keys: `session:{session_id}`, `user_sessions:{username}`, `session_sockets:{session_id}`
+- Redis keys: `session:{session_id}`, `user_sessions:{username}`, `session_sockets:{channel}:{session_id}`
 - Cookie: `romm_session` (httponly, samesite=lax/strict)
 - `clear_user_sessions(user_id)` on password change clears all sessions
-- Removing a session (logout, revoke) disconnects the sockets it opened, which would otherwise keep their `user:{id}` and `admin` rooms
+- Removing a session (logout, revoke) disconnects the sockets it opened on both `/ws` and `/netplay`, which would otherwise keep their `user:{id}` and `admin` rooms or their netplay access
 
 ---
 
@@ -1259,7 +1381,7 @@ Tracks per-user playtime events ingested from clients (web player, console mode,
 
 ### 8.7 Device Sync Sessions
 
-Coordinates save/state synchronization between devices using three sync modes (`API`, `FILE_TRANSFER`, `PUSH_PULL`). `SyncSession` tracks the lifecycle of a push/pull operation (including optional SSH-based file transfer; see `SYNC_SSH_*` env vars). Endpoints live in `endpoints/sync.py`; state is stored in the `sync_sessions` table.
+Coordinates save/state synchronization between devices using three sync modes (`API`, `FILE_TRANSFER`, `PUSH_PULL`). `SyncSession` tracks the lifecycle of a push/pull operation (including optional SSH-based file transfer; see `SYNC_SSH_*` env vars). Endpoints live in `endpoints/sync/__init__.py`; state is stored in the `sync_sessions` table.
 
 ### 8.8 Socket Handler (`handler/socket_handler.py`)
 
@@ -1404,6 +1526,18 @@ Sent to the user's own `user:{id}` room:
 
 ### Netplay (`/netplay`)
 
+Rooms are authorized per ROM. A socket is identified once, at `connect`, from its
+session cookie, and is closed when that login session is revoked. The identity is
+reloaded on every gated event so a disabled account loses access without waiting
+for a reconnect. `open-room` requires a logged-in user with `roms.read` who can
+see the ROM being played. `join-room` into a room with a password requires that
+password (sent as `password` beside `extra`), which is the guest invite path; a
+room without one requires the same access as `open-room`. `GET /api/netplay/list`
+requires `roms.read` and 404s for a ROM the caller cannot see, through the same
+guard the other ROM endpoints use. WebRTC
+signals relay only between peers of the same room, and leaving the room ends that
+relay.
+
 **Events:**
 
 | Event           | Direction       | Description             |
@@ -1431,6 +1565,7 @@ Redis-backed for horizontal scaling across multiple server instances.
 | `default_queue`   | Standard background work                       |
 | `low_prio_queue`  | Cleanups, conversions, metadata refreshes      |
 | `scan_queue`      | Library scans, consumed by a worker of its own |
+| `streaming_queue` | Session reaper and exit save pulls, own worker |
 
 ### Scheduled Tasks
 
@@ -1455,6 +1590,8 @@ Toggled via environment variables:
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
 | `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
 | `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
+| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup     | `* * * * *`        | Stop abandoned streams |
+| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)    | `30 4 * * *`       | Prune old audit events |
 
 ### Manual Tasks
 
@@ -1559,23 +1696,26 @@ Falls back to `FakeRedis` in test mode.
 
 ### Cache Key Patterns
 
-| Pattern                    | TTL             | Content                         |
-| -------------------------- | --------------- | ------------------------------- |
-| `session:{id}`             | 14 days         | Session JSON                    |
-| `user_sessions:{username}` | 14 days         | Set of session IDs              |
-| `session_sockets:{id}`     | 14 days         | Socket IDs a session opened     |
-| `reset-jti:{jti}`          | 10 min          | Password reset token (one-time) |
-| `invite-jti:{jti}`         | 10 min          | Invite token (one-time)         |
-| `refresh-jti:{jti}`        | 7 days          | Refresh token validation        |
-| `romm:mame_index`          | Permanent       | MAME game index                 |
-| `romm:scummvm_index`       | Permanent       | ScummVM game index              |
-| `romm:ps1_serials`         | Permanent       | PS1 serial codes                |
-| `romm:ps2_serials`         | Permanent       | PS2 serial codes                |
-| `romm:psp_serials`         | Permanent       | PSP serial codes                |
-| `romm:switch_titledb`      | Refreshed daily | Switch TitleDB                  |
-| `romm:known_bios`          | Permanent       | Verified BIOS hashes            |
-| Upload sessions            | 24 hours        | Chunked upload state            |
-| Netplay rooms              | Dynamic         | Active room state               |
+| Pattern                           | TTL             | Content                             |
+| --------------------------------- | --------------- | ----------------------------------- |
+| `session:{id}`                    | 14 days         | Session JSON                        |
+| `user_sessions:{username}`        | 14 days         | Set of session IDs                  |
+| `session_sockets:{channel}:{id}`  | 14 days         | Socket IDs a session opened         |
+| `notification-channel:{id}:code`  | 30 min          | Hash of an email confirmation code  |
+| `notification-channel-cooldown:*` | 1 min           | A user's and an address's last code |
+| `reset-email:{user_id}`           | 1 min           | A user's last emailed reset link    |
+| `reset-jti:{jti}`                 | 10 min          | Password reset token (one-time)     |
+| `invite-jti:{jti}`                | 10 min          | Invite token (one-time)             |
+| `refresh-jti:{jti}`               | 7 days          | Refresh token validation            |
+| `romm:mame_index`                 | Permanent       | MAME game index                     |
+| `romm:scummvm_index`              | Permanent       | ScummVM game index                  |
+| `romm:ps1_serials`                | Permanent       | PS1 serial codes                    |
+| `romm:ps2_serials`                | Permanent       | PS2 serial codes                    |
+| `romm:psp_serials`                | Permanent       | PSP serial codes                    |
+| `romm:switch_titledb`             | Refreshed daily | Switch TitleDB                      |
+| `romm:known_bios`                 | Permanent       | Verified BIOS hashes                |
+| Upload sessions                   | 24 hours        | Chunked upload state                |
+| Netplay rooms                     | Dynamic         | Active room state                   |
 
 ---
 
@@ -1585,13 +1725,14 @@ Falls back to `FakeRedis` in test mode.
 
 #### Core
 
-| Variable         | Default          | Description          |
-| ---------------- | ---------------- | -------------------- |
-| `ROMM_BASE_PATH` | `/romm`          | Base data directory  |
-| `ROMM_BASE_URL`  | `http://0.0.0.0` | Application base URL |
-| `ROMM_PORT`      | `8080`           | Server port          |
-| `DEV_MODE`       | `false`          | Development mode     |
-| `LOGLEVEL`       | `INFO`           | Log level            |
+| Variable              | Default          | Description                                                |
+| --------------------- | ---------------- | ---------------------------------------------------------- |
+| `ROMM_BASE_PATH`      | `/romm`          | Base data directory                                        |
+| `ROMM_BASE_URL`       | `http://0.0.0.0` | Application base URL                                       |
+| `ROMM_PORT`           | `8080`           | Server port                                                |
+| `DEV_MODE`            | `false`          | Development mode                                           |
+| `LOGLEVEL`            | `INFO`           | Log level                                                  |
+| `FORWARDED_ALLOW_IPS` | private ranges   | Proxies trusted to report the client address (`*` for any) |
 
 #### Database
 
@@ -1692,14 +1833,15 @@ Falls back to `FakeRedis` in test mode.
 
 #### Device Sync
 
-| Variable                     | Default | Description                     |
-| ---------------------------- | ------- | ------------------------------- |
-| `ENABLE_SYNC_FOLDER_WATCHER` | `false` | Watch sync folder for new saves |
-| `SYNC_FOLDER_SCAN_DELAY`     |         | Debounce for sync folder scans  |
-| `ENABLE_SYNC_PUSH_PULL`      | `false` | Enable scheduled push/pull sync |
-| `SYNC_PUSH_PULL_CRON`        |         | Cron schedule for push/pull     |
-| `SYNC_SSH_KEYS_PATH`         |         | SSH keys path                   |
-| `SYNC_SSH_KNOWN_HOSTS_PATH`  |         | SSH known hosts path            |
+| Variable                        | Default | Description                             |
+| ------------------------------- | ------- | --------------------------------------- |
+| `ENABLE_SYNC_FOLDER_WATCHER`    | `false` | Watch sync folder for new saves         |
+| `SYNC_FOLDER_SCAN_DELAY`        |         | Debounce for sync folder scans          |
+| `ENABLE_SYNC_PUSH_PULL`         | `false` | Enable scheduled push/pull sync         |
+| `SYNC_PUSH_PULL_CRON`           |         | Cron schedule for push/pull             |
+| `SYNC_SSH_KEYS_PATH`            |         | SSH keys path                           |
+| `SYNC_SSH_KNOWN_HOSTS_PATH`     |         | SSH known hosts path                    |
+| `SYNC_RETROARCH_PSP_SERIAL_MAP` | `{}`    | JSON map of PSP serial to ROM file name |
 
 ### YAML Configuration (`config.yml`)
 

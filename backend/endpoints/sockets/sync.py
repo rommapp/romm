@@ -7,9 +7,9 @@ Emits events:
 - sync:conflict  - when a conflict is detected
 - sync:error     - when a sync operation fails
 
-Uses AsyncRedisManager in write-only mode so these can be called from
-RQ background workers (push-pull task, folder watcher) that don't have
-access to the main socket server instance.
+Emits go through the write-only manager, so these can be called from RQ
+workers (push-pull task, folder watcher), and a failed emit is logged
+rather than raised.
 """
 
 from handler.socket_handler import socket_handler
@@ -22,15 +22,14 @@ async def emit_sync_started(
     sync_mode: str,
 ) -> None:
     """Notify that a sync session has started."""
-    sm = socket_handler.write_manager()
-    await sm.emit(
+    await socket_handler.emit_to_user(
+        user_id,
         "sync:started",
         {
             "device_id": device_id,
             "session_id": session_id,
             "sync_mode": sync_mode,
         },
-        room=f"user:{user_id}",
     )
 
 
@@ -43,8 +42,8 @@ async def emit_sync_progress(
     current_file: str | None = None,
 ) -> None:
     """Notify sync progress update."""
-    sm = socket_handler.write_manager()
-    await sm.emit(
+    await socket_handler.emit_to_user(
+        user_id,
         "sync:progress",
         {
             "device_id": device_id,
@@ -53,7 +52,6 @@ async def emit_sync_progress(
             "operations_planned": operations_planned,
             "current_file": current_file,
         },
-        room=f"user:{user_id}",
     )
 
 
@@ -65,8 +63,8 @@ async def emit_sync_completed(
     operations_failed: int,
 ) -> None:
     """Notify that a sync session has completed."""
-    sm = socket_handler.write_manager()
-    await sm.emit(
+    await socket_handler.emit_to_user(
+        user_id,
         "sync:completed",
         {
             "device_id": device_id,
@@ -74,7 +72,6 @@ async def emit_sync_completed(
             "operations_completed": operations_completed,
             "operations_failed": operations_failed,
         },
-        room=f"user:{user_id}",
     )
 
 
@@ -84,20 +81,21 @@ async def emit_sync_conflict(
     session_id: int,
     file_name: str,
     rom_id: int,
+    rom_name: str,
     reason: str,
 ) -> None:
     """Notify that a sync conflict was detected."""
-    sm = socket_handler.write_manager()
-    await sm.emit(
+    await socket_handler.emit_to_user(
+        user_id,
         "sync:conflict",
         {
             "device_id": device_id,
             "session_id": session_id,
             "file_name": file_name,
             "rom_id": rom_id,
+            "rom_name": rom_name,
             "reason": reason,
         },
-        room=f"user:{user_id}",
     )
 
 
@@ -108,13 +106,12 @@ async def emit_sync_error(
     error_message: str,
 ) -> None:
     """Notify that a sync error occurred."""
-    sm = socket_handler.write_manager()
-    await sm.emit(
+    await socket_handler.emit_to_user(
+        user_id,
         "sync:error",
         {
             "device_id": device_id,
             "session_id": session_id,
             "error": error_message,
         },
-        room=f"user:{user_id}",
     )

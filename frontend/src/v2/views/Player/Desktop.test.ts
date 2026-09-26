@@ -1,6 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
+import { serverError } from "@/test-utils/serverError";
 import Desktop from "./Desktop.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -10,10 +11,14 @@ const mocks = vi.hoisted(() => ({
   heartbeatSession: vi.fn(),
   heartbeatTick: null as (() => Promise<void>) | null,
   routeLeave: null as (() => Promise<boolean> | boolean) | null,
+  socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
 }));
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key}:${Object.values(params).join(",")}` : key,
+  }),
 }));
 
 vi.mock("vue-router", () => ({
@@ -54,8 +59,13 @@ vi.mock("@/v2/composables/useConfirm", () => ({
 
 vi.mock("@/v2/composables/usePageTitle", () => ({ usePageTitle: vi.fn() }));
 
+vi.mock("@/v2/composables/useSocketEvent", () => ({
+  useSocketEvent: (event: string, handler: (payload: unknown) => unknown) => {
+    mocks.socketHandlers[event] = handler;
+  },
+}));
+
 const StreamStageStub = defineComponent({
-  props: { active: { type: Boolean, default: false } },
   setup(_, { expose }) {
     expose({
       leaveFullscreen: () => Promise.resolve(),
@@ -65,9 +75,13 @@ const StreamStageStub = defineComponent({
   },
 });
 
+type DesktopVm = { state: string; errorMessage: string; endedReason: string };
+
 // The view listens on window, so a mount left standing would answer the next
 // test's pagehide too.
 let mounted: VueWrapper | null = null;
+
+const CLAIMED_AT = "2026-09-17T10:00:00";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -78,10 +92,7 @@ afterEach(() => {
   mounted = null;
 });
 
-async function openDesktop(): Promise<VueWrapper> {
-  mocks.claimDesktop.mockResolvedValue({
-    data: { host: "http://webstation-dev:8080", label: "PS2", platform: "ps2" },
-  });
+async function mountDesktop(): Promise<VueWrapper> {
   mounted = mount(Desktop, {
     shallow: true,
     global: { stubs: { StreamStage: StreamStageStub } },
@@ -90,13 +101,104 @@ async function openDesktop(): Promise<VueWrapper> {
   return mounted;
 }
 
-function streamIsLive(wrapper: VueWrapper): boolean | undefined {
-  return wrapper.findComponent(StreamStageStub).props("active");
+async function openDesktop(): Promise<VueWrapper> {
+  mocks.claimDesktop.mockResolvedValue({
+    data: {
+      host: "http://webstation-dev:8080",
+      label: "PS2",
+      platform: "ps2",
+      claimed_at: CLAIMED_AT,
+    },
+  });
+  return mountDesktop();
 }
 
+async function refuseDesktop(detail: unknown): Promise<VueWrapper> {
+  mocks.claimDesktop.mockRejectedValue(serverError(detail, 409));
+  return mountDesktop();
+}
+
+function vmOf(wrapper: VueWrapper): DesktopVm {
+  return wrapper.vm as unknown as DesktopVm;
+}
+
+function endSession(notice: Record<string, unknown>): void {
+  const handler = mocks.socketHandlers["streaming:session-ended"];
+  expect(handler).toBeTypeOf("function");
+  handler({
+    ended_by: "admin",
+    reason: null,
+    desktop: true,
+    claimed_at: CLAIMED_AT,
+    ...notice,
+  });
+}
+
+describe("Desktop session-ended notices", () => {
+  it("ends the desktop when the notice names its container", async () => {
+    const wrapper = await openDesktop();
+    expect(vmOf(wrapper).state).toBe("running");
+
+    endSession({ platform: "ps2", container: "WEBSTATION-DEV" });
+    await flushPromises();
+
+    expect(vmOf(wrapper).state).toBe("error");
+    expect(vmOf(wrapper).errorMessage).toBe("play.session-ended-by:admin");
+  });
+
+  it("shows the reason the notice gives", async () => {
+    const wrapper = await openDesktop();
+
+    endSession({
+      platform: "ps2",
+      container: "WEBSTATION-DEV",
+      reason: "Maintenance",
+    });
+    await flushPromises();
+
+    expect(vmOf(wrapper).endedReason).toBe("Maintenance");
+  });
+
+  it("holds the claim when the notice names another container", async () => {
+    const wrapper = await openDesktop();
+
+    endSession({ platform: "ps2", container: "WEBSTATION-OTHER" });
+    await flushPromises();
+
+    expect(vmOf(wrapper).state).toBe("running");
+  });
+
+  it("holds the claim when the notice names one this claim replaced", async () => {
+    const wrapper = await openDesktop();
+
+    endSession({
+      platform: "ps2",
+      container: "WEBSTATION-DEV",
+      claimed_at: "2026-09-17T09:55:00",
+    });
+    await flushPromises();
+
+    expect(vmOf(wrapper).state).toBe("running");
+  });
+
+  it("releases nothing once a notice has ended the claim", async () => {
+    // The claim is gone, so an exit must not hand back whoever holds the
+    // container next.
+    await openDesktop();
+
+    endSession({ platform: "ps2", container: "WEBSTATION-DEV" });
+    await flushPromises();
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(mocks.releaseSessionKeepalive).not.toHaveBeenCalled();
+    expect(mocks.releaseSession).not.toHaveBeenCalled();
+  });
+});
+
 describe("Desktop heartbeats", () => {
-  it("beats for the container it claimed", async () => {
-    // Unnamed, the beat only reaches the platform's first pool.
+  it("beats for the claim it made", async () => {
+    // Unstamped, the beat keeps alive whatever this admin runs on the
+    // container, such as a game that swept a stale desktop off it.
     const wrapper = await openDesktop();
     mocks.heartbeatSession.mockResolvedValue({ status: "active" });
 
@@ -105,31 +207,116 @@ describe("Desktop heartbeats", () => {
     expect(mocks.heartbeatSession).toHaveBeenCalledWith(
       "ps2",
       "WEBSTATION-DEV",
+      CLAIMED_AT,
     );
-    expect(streamIsLive(wrapper)).toBe(true);
+    expect(vmOf(wrapper).state).toBe("running");
   });
 
-  it("stops the stream when the beat reports the session ended", async () => {
+  it("drops the claim when the beat reports the session ended", async () => {
     const wrapper = await openDesktop();
-    mocks.heartbeatSession.mockResolvedValue({ status: "ended" });
-
-    await mocks.heartbeatTick?.();
-    await flushPromises();
-
-    expect(streamIsLive(wrapper)).toBe(false);
-  });
-
-  it("releases nothing once the beat ended the claim", async () => {
-    // The claim is gone, so an exit must not hand back whoever holds the
-    // container next.
-    await openDesktop();
-    mocks.heartbeatSession.mockResolvedValue({ status: "ended" });
+    mocks.heartbeatSession.mockResolvedValue({
+      status: "ended",
+      termination: { ended_by: "admin", reason: "Maintenance" },
+    });
 
     await mocks.heartbeatTick?.();
     window.dispatchEvent(new Event("pagehide"));
 
-    expect(await mocks.routeLeave?.()).toBe(true);
+    expect(vmOf(wrapper).state).toBe("error");
+    expect(vmOf(wrapper).errorMessage).toBe("play.session-ended-by:admin");
+    expect(vmOf(wrapper).endedReason).toBe("Maintenance");
     expect(mocks.releaseSessionKeepalive).not.toHaveBeenCalled();
+  });
+
+  it("keeps the exit a release made while a beat was in flight", async () => {
+    const wrapper = await openDesktop();
+    mocks.releaseSession.mockResolvedValue({});
+    let answer = (_: unknown) => {};
+    mocks.heartbeatSession.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+
+    const beat = mocks.heartbeatTick?.();
+    expect(await mocks.routeLeave?.()).toBe(true);
+    answer({ status: "ended" });
+    await beat;
+
+    expect(vmOf(wrapper).state).toBe("exited");
+  });
+
+  it("leaves the view without a release once the beat ended the claim", async () => {
+    await openDesktop();
+    mocks.heartbeatSession.mockResolvedValue({ status: "ended" });
+
+    await mocks.heartbeatTick?.();
+
+    expect(await mocks.routeLeave?.()).toBe(true);
     expect(mocks.releaseSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("Desktop releases", () => {
+  // Unstamped, a release reaches whichever session took the container.
+  it("names the claim it releases on exit", async () => {
+    mocks.releaseSession.mockResolvedValue({});
+    await openDesktop();
+
+    expect(await mocks.routeLeave?.()).toBe(true);
+
+    expect(mocks.releaseSession).toHaveBeenCalledWith(
+      "ps2",
+      undefined,
+      "WEBSTATION-DEV",
+      undefined,
+      CLAIMED_AT,
+    );
+  });
+
+  it("names the claim it releases when the tab closes", async () => {
+    await openDesktop();
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(mocks.releaseSessionKeepalive).toHaveBeenCalledWith(
+      "ps2",
+      "WEBSTATION-DEV",
+      CLAIMED_AT,
+    );
+  });
+});
+
+describe("Desktop refused claims", () => {
+  it("names the game holding the container", async () => {
+    const wrapper = await refuseDesktop({
+      rom_name: "Ico",
+      claimed_at: "2026-09-17T10:00:00",
+      draining: false,
+    });
+
+    expect(vmOf(wrapper).errorMessage).toBe(
+      "play.desktop-error-occupied-by:Ico",
+    );
+  });
+
+  it("says the container is in use when the game is not the admin's to see", async () => {
+    const wrapper = await refuseDesktop({
+      rom_name: null,
+      claimed_at: "2026-09-17T10:00:00",
+      draining: false,
+    });
+
+    expect(vmOf(wrapper).errorMessage).toBe("play.desktop-error-occupied");
+  });
+
+  it("says to come back when the container is still shutting down", async () => {
+    const wrapper = await refuseDesktop({
+      rom_name: null,
+      claimed_at: null,
+      draining: true,
+    });
+
+    expect(vmOf(wrapper).errorMessage).toBe("play.stream-occupied-draining");
   });
 });

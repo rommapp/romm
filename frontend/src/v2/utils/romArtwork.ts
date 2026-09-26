@@ -18,6 +18,7 @@
 import i18n from "@/locales";
 import type { DetailedRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { versionedRomFileUrl } from "@/v2/utils/romFiles";
 
 export type RomArtworkEntry = {
   key: string;
@@ -160,7 +161,7 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
       return {
         key: `file-${file.id}`,
         label: file.file_name.replace(/\.[^.]+$/, ""),
-        url: `/api/roms/${file.id}/files/content/${encodeURIComponent(file.file_name)}?v=${cacheBust}`,
+        url: versionedRomFileUrl(file),
         isVideo,
       };
     })

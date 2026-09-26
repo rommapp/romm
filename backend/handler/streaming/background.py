@@ -3,11 +3,8 @@
 import asyncio
 from typing import Any
 
-_sync_tasks: set[asyncio.Task] = set()
+from utils.background_tasks import fire_and_forget
 
 
 def spawn_sync_task(coro: Any) -> asyncio.Task:
-    task = asyncio.get_running_loop().create_task(coro)
-    _sync_tasks.add(task)
-    task.add_done_callback(_sync_tasks.discard)
-    return task
+    return fire_and_forget(coro)

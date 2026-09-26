@@ -78,6 +78,22 @@ describe("describeNotification", () => {
     expect(view.title).toBe("Your role is now Admin");
   });
 
+  it("points a turned-off channel back at the channels tab", () => {
+    const view = describeNotification(
+      notification("channel_disabled", {
+        name: "Discord",
+        error: "discord.com answered 404",
+      }),
+    );
+
+    expect(view.title).toBe("Discord was turned off");
+    expect(view.body).toBe("discord.com answered 404");
+    expect(view.to).toEqual({
+      name: ROUTES.NOTIFICATIONS,
+      query: { tab: "channels" },
+    });
+  });
+
   it("shows a custom notification with its own content", () => {
     const view = describeNotification({
       ...notification("argosy.sync_done"),

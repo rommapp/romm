@@ -31,6 +31,33 @@ class NotificationKind(enum.StrEnum):
     TASK_FAILED = "task_failed"
     STREAMING_SESSION_ENDED = "streaming_session_ended"
     ROLE_CHANGED = "role_changed"
+    CHANNEL_DISABLED = "channel_disabled"
+
+
+class NotificationTopic(enum.StrEnum):
+    """The groups a notification channel picks what it forwards by."""
+
+    SCANS = "scans"
+    TASKS = "tasks"
+    STREAMING = "streaming"
+    ACCOUNT = "account"
+    CUSTOM = "custom"
+
+
+_KIND_TOPICS: Final[dict[str, NotificationTopic]] = {
+    NotificationKind.SCAN_COMPLETED: NotificationTopic.SCANS,
+    NotificationKind.SCAN_FAILED: NotificationTopic.SCANS,
+    NotificationKind.TASK_COMPLETED: NotificationTopic.TASKS,
+    NotificationKind.TASK_FAILED: NotificationTopic.TASKS,
+    NotificationKind.STREAMING_SESSION_ENDED: NotificationTopic.STREAMING,
+    NotificationKind.ROLE_CHANGED: NotificationTopic.ACCOUNT,
+    NotificationKind.CHANNEL_DISABLED: NotificationTopic.ACCOUNT,
+}
+
+
+def topic_of(kind: str) -> NotificationTopic:
+    """The topic a kind belongs to; any kind RomM doesn't define is custom."""
+    return _KIND_TOPICS.get(kind, NotificationTopic.CUSTOM)
 
 
 # A user who never clears their inbox keeps only this many, newest first.

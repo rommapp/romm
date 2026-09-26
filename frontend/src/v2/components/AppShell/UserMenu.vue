@@ -34,7 +34,6 @@ import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
-import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -65,11 +64,6 @@ const isAdmin = useCan("app.admin");
 // `library.scan` is an editor-up capability, so it stands in for
 // "editor or admin" without an inline role check (see CLAUDE.md §VI.G).
 const canSeeChangelog = useCan("library.scan");
-
-const heartbeatStore = storeHeartbeat();
-const logsViewerEnabled = computed(
-  () => !heartbeatStore.value.FRONTEND.DISABLE_LOGS_VIEWER,
-);
 
 const canSeeProfile = computed(
   () => !!user.value?.id && scopes.value.includes("me.write"),
@@ -183,6 +177,19 @@ async function onLogout() {
         {{ t("settings.group-account") }}
       </div>
       <RMenuItem
+        v-if="canSeeProfile"
+        :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
+        icon="mdi-account-outline"
+        :label="t('common.profile')"
+        @click="open = false"
+      />
+      <RMenuItem
+        :to="{ name: ROUTES.USER_INTERFACE }"
+        icon="mdi-palette-outline"
+        :label="t('common.user-interface')"
+        @click="open = false"
+      />
+      <RMenuItem
         :to="{ name: ROUTES.NOTIFICATIONS }"
         icon="mdi-bell-outline"
         :label="t('notifications.notifications')"
@@ -196,19 +203,6 @@ async function onLogout() {
           />
         </template>
       </RMenuItem>
-      <RMenuItem
-        v-if="canSeeProfile"
-        :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
-        icon="mdi-account-outline"
-        :label="t('common.profile')"
-        @click="open = false"
-      />
-      <RMenuItem
-        :to="{ name: ROUTES.USER_INTERFACE }"
-        icon="mdi-palette-outline"
-        :label="t('common.user-interface')"
-        @click="open = false"
-      />
     </div>
 
     <!-- Library -->
@@ -286,7 +280,7 @@ async function onLogout() {
         @click="open = false"
       />
       <RMenuItem
-        v-if="isAdmin && logsViewerEnabled"
+        v-if="isAdmin"
         :to="{ name: ROUTES.LOGS }"
         icon="mdi-text-box-search-outline"
         :label="t('common.logs')"

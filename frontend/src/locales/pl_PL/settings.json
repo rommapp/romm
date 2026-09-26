@@ -462,6 +462,7 @@
   "streaming-by": "({user})",
   "streaming-desktop-session": "Desktop session",
   "streaming-disabled": "Emulator streaming is disabled on this server.",
+  "streaming-draining": "Zamykanie poprzedniej sesji",
   "streaming-idle": "Idle",
   "streaming-load-failed": "Could not load the streaming containers.",
   "streaming-none": "No streaming containers are configured.",
