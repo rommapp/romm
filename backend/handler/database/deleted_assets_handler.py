@@ -99,17 +99,16 @@ class DBDeletedAssetsHandler(DBBaseHandler):
                 record = self.lock_record(user_id, rom_id, slot, session)
                 if record is None:
                     raise
+        # Read before the flush bumps `updated_at`, which unstamped versions fall back to.
+        previous = record.removal_times()
         # A version lost again moves to the end, so trimming keeps it.
         lost = dict.fromkeys(content_hashes)
         hashes = [h for h in record.content_hashes if h not in lost] + list(lost)
         hashes = hashes[-MAX_REMEMBERED_HASHES:]
         now = datetime.now(timezone.utc).isoformat()
-        stamped = record.removed_at or {}
         record.content_hashes = hashes
         record.removed_at = {
-            h: now if h in lost else stamped[h]
-            for h in hashes
-            if h in lost or h in stamped
+            h: now if h in lost else previous[h].isoformat() for h in hashes
         }
         session.flush()
         return record

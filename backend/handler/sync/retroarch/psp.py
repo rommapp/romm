@@ -23,7 +23,6 @@ from typing import Literal
 from redis.exceptions import RedisError
 
 from config import SYNC_RETROARCH_PSP_PENDING_PATH, SYNC_RETROARCH_PSP_SERIAL_MAP
-from handler.asset_store import unrecorded_hash
 from handler.database import db_platform_handler, db_rom_handler, db_save_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.base_handler import FSHandler
@@ -447,7 +446,6 @@ async def put_psp_file(
 async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:
     """Write `entries` over the bundle's own file and refresh its row."""
     zip_bytes = await asyncio.to_thread(_write_bundle, entries)
-    replaced_hash = await unrecorded_hash(bundle)
     await fs_asset_handler.write_file(
         file=zip_bytes, path=bundle.file_path, filename=bundle.file_name
     )
@@ -458,7 +456,6 @@ async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:
             "content_hash": content_hash_of_bytes(zip_bytes),
             "missing_from_fs": False,
         },
-        replaced_hash=replaced_hash,
     )
     await _cache_member_md5s(updated, entries)
 

@@ -4,6 +4,7 @@ import threading
 import zipfile
 from mimetypes import guess_type
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import magic
 from fastapi import HTTPException, UploadFile, status
@@ -15,6 +16,9 @@ from models.user import User
 from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
 
 from .base_handler import FSHandler
+
+if TYPE_CHECKING:
+    from models.assets import Save
 
 # libmagic loads its database on construction (~few MB read from disk), so we
 # share a single Magic instance across requests. The underlying magic_t handle
@@ -201,3 +205,9 @@ class FSAssetsHandler(FSHandler):
         except Exception as e:
             log.debug(f"Failed to compute content hash for {file_path}: {e}")
             return None
+
+    async def unrecorded_hash(self, save: "Save") -> str | None:
+        """The file's hash for a slotted save never hashed, so its removal is still recorded."""
+        if save.slot and not save.content_hash:
+            return await self.compute_content_hash(save.full_path)
+        return None
