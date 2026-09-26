@@ -8,7 +8,7 @@ from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from tests.handler.metadata.conftest import local_timezone
 
 from adapters.services.retroachievements_types import RAGameExtendedDetails
@@ -213,6 +213,18 @@ class TestHashMatch:
 
         assert result["ra_id"] == 17353
         assert result["ra_metadata"]["hash_match"] is True
+
+    async def test_failed_details_for_an_indexed_hash_are_unavailable(
+        self, handler: RAHandler, rom: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            handler.ra_service, "get_game_extended_details", AsyncMock(return_value={})
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await handler.get_rom(rom, ra_hash="abcdef")
+
+        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
 
     async def test_an_id_match_whose_hash_ra_lists_is_a_hash_match(
         self, handler: RAHandler, rom: MagicMock
