@@ -103,7 +103,7 @@ const collectionsStore = storeCollections();
 const { supportsWebp, toWebp } = useWebpSupport();
 
 const pinnedMedia = computed(() => resolvePinnedMedia(props.rom));
-const { isPinned, isCustomized, togglePin, resetPins } = usePinnedMedia(
+const { canPin, isPinned, isCustomized, togglePin, resetPins } = usePinnedMedia(
   () => props.rom,
 );
 
@@ -270,7 +270,7 @@ const coverSource = computed(() => {
           {{ t("rom.media") }}
         </h4>
         <RBtn
-          v-if="isCustomized"
+          v-if="isCustomized && canPin"
           variant="text"
           size="x-small"
           prepend-icon="mdi-restore"
@@ -284,7 +284,7 @@ const coverSource = computed(() => {
         :items="pinnedMedia"
         compact
         pin-on-hover
-        :is-pinned="isPinned"
+        :is-pinned="canPin ? isPinned : undefined"
         @toggle-pin="togglePin"
       />
       <p v-else class="overview-tab__empty">

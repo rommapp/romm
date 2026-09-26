@@ -1523,6 +1523,19 @@ def test_update_rom_user_props_pinned_media(
     assert reset.json()["pinned_media"] is None
 
 
+def test_update_rom_user_props_dedupes_pinned_media(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.put(
+        f"/api/roms/{rom.id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"pinned_media": ["file:2", "file:1", "file:2"]},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["pinned_media"] == ["file:2", "file:1"]
+
+
 @pytest.mark.parametrize(
     "pinned_media",
     [

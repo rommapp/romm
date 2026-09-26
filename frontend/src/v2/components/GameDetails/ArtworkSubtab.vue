@@ -16,7 +16,7 @@ import { resolveRomArtwork } from "@/v2/utils/romArtwork";
 const props = defineProps<{ rom: DetailedRom }>();
 
 const { t } = useI18n();
-const { isPinned, togglePin } = usePinnedMedia(() => props.rom);
+const { canPin, isPinned, togglePin } = usePinnedMedia(() => props.rom);
 
 const artwork = computed(() => resolveRomArtwork(props.rom));
 </script>
@@ -33,7 +33,7 @@ const artwork = computed(() => resolveRomArtwork(props.rom));
       v-else
       :items="artwork"
       captions
-      :is-pinned="isPinned"
+      :is-pinned="canPin ? isPinned : undefined"
       @toggle-pin="togglePin"
     />
   </div>

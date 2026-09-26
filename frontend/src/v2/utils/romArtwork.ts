@@ -1,6 +1,6 @@
 // Resolves the art assets attached to a ROM into a flat, display-ready list.
-// Shared by the Media tab's Artwork subtab (full gallery) and the Overview tab
-// (videos only) so both stay in sync.
+// Shared by the Media tab's Artwork subtab (full gallery) and the Overview
+// tab's pinned media (utils/pinnedMedia) so both stay in sync.
 //
 // Two sources feed the list:
 //   1. Scraped resources — ScreenScraper is the richest and wins; gamelist
@@ -18,15 +18,9 @@
 import i18n from "@/locales";
 import type { DetailedRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import type { MediaShelfItem } from "@/v2/components/GameDetails/MediaShelf.vue";
 import { mediaKey } from "@/v2/utils/mediaKeys";
 import { versionedRomFileUrl } from "@/v2/utils/romFiles";
-
-export type RomArtworkEntry = {
-  key: string;
-  label: string;
-  url: string;
-  isVideo?: boolean;
-};
 
 // Library file extensions the browser can render inline. Kept in sync with the
 // backend download endpoint (utils/media_types.py), which serves these inline.
@@ -49,17 +43,17 @@ const SURFACED_ELSEWHERE = new Set(["screenshot", "soundtrack", "manual"]);
 
 // A candidate asset before its URL is resolved. `isAbsolute` marks a URL that
 // is already browser-ready rather than a path under the resources root.
-type ArtworkDef = Omit<RomArtworkEntry, "url"> & {
+type ArtworkDef = Omit<MediaShelfItem, "url"> & {
   url: string | null;
   isAbsolute?: boolean;
 };
 
-export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
+export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
   const ss = rom.ss_metadata;
   const gl = rom.gamelist_metadata;
   const cacheBust = encodeURIComponent(rom.updated_at);
   const seen = new Set<string>();
-  const out: RomArtworkEntry[] = [];
+  const out: MediaShelfItem[] = [];
 
   const artworkDefs: ArtworkDef[] = [
     {

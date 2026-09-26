@@ -58,7 +58,7 @@ const { user } = storeToRefs(authStore);
 // section writes per-user assets and stays available to everyone.
 const canEditRom = useCan("rom.edit");
 
-const { isPinned, togglePin } = usePinnedMedia(() => props.rom);
+const { canPin, isPinned, togglePin } = usePinnedMedia(() => props.rom);
 
 const scrapedScreenshots = computed<ScreenshotItem[]>(() =>
   (props.rom.merged_screenshots ?? []).map((url) => ({
@@ -237,7 +237,7 @@ async function submitEdit(isPublic: boolean) {
       </header>
       <ScreenshotsTab
         :screenshots="scrapedScreenshots"
-        :is-pinned="isPinned"
+        :is-pinned="canPin ? isPinned : undefined"
         @toggle-pin="togglePin"
       />
     </section>
@@ -293,7 +293,7 @@ async function submitEdit(isPublic: boolean) {
         <ScreenshotsTab
           :screenshots="romScreenshots"
           :deletable="canEditRom"
-          :is-pinned="isPinned"
+          :is-pinned="canPin ? isPinned : undefined"
           @delete="deleteRomScreenshot"
           @toggle-pin="togglePin"
         />
@@ -343,7 +343,7 @@ async function submitEdit(isPublic: boolean) {
           :screenshots="myScreenshots"
           deletable
           editable
-          :is-pinned="isPinned"
+          :is-pinned="canPin ? isPinned : undefined"
           @edit="editTarget = $event"
           @delete="deleteMyScreenshot"
           @toggle-pin="togglePin"
@@ -362,7 +362,7 @@ async function submitEdit(isPublic: boolean) {
       </header>
       <ScreenshotsTab
         :screenshots="communityScreenshots"
-        :is-pinned="isPinned"
+        :is-pinned="canPin ? isPinned : undefined"
         @toggle-pin="togglePin"
       />
     </section>

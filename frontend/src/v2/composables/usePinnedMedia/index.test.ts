@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { reactive } from "vue";
+import { reactive, shallowRef } from "vue";
 import type { RomUserSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
@@ -11,6 +11,10 @@ vi.mock("vue-i18n", () => ({
 
 vi.mock("@/services/api/rom", () => ({
   default: { updateUserRomProps: vi.fn() },
+}));
+
+vi.mock("@/stores/auth", () => ({
+  default: () => ({ scopes: ["roms.user.write"] }),
 }));
 
 const snackbarError = vi.fn();
@@ -127,6 +131,22 @@ describe("usePinnedMedia", () => {
     togglePin("file:2");
     await settle();
     expect(rom.rom_user.pinned_media).toEqual(["file:9"]);
+  });
+
+  it("settles on the ROM a refetch swapped in mid-write", async () => {
+    update.mockResolvedValue({} as never);
+    const loaded = makeRom([]);
+    const current = shallowRef(loaded);
+    const { togglePin } = usePinnedMedia(() => current.value);
+
+    togglePin("file:1");
+    const refetched = reactive({
+      id: loaded.id,
+      rom_user: { pinned_media: [] as string[] } as RomUserSchema,
+    }) as DetailedRom;
+    current.value = refetched;
+    await settle();
+    expect(refetched.rom_user.pinned_media).toEqual(["file:1"]);
   });
 
   it("refuses a pin past the limit without writing", async () => {

@@ -63,12 +63,15 @@ function userScreenshots(rom: DetailedRom): MediaShelfItem[] {
   }));
 }
 
+// Capped so the first toggle can always save the defaults it starts from.
 export function defaultPinnedMediaKeys(rom: DetailedRom): string[] {
   return [
     ...scrapedScreenshots(rom),
     ...folderScreenshots(rom),
     ...resolveRomArtwork(rom).filter((entry) => entry.isVideo),
-  ].map((item) => item.key);
+  ]
+    .map((item) => item.key)
+    .slice(0, PINNED_MEDIA_MAX_ITEMS);
 }
 
 export function pinnedMediaKeys(rom: DetailedRom): string[] {

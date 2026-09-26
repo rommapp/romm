@@ -6,6 +6,7 @@ import type {
 } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import {
+  PINNED_MEDIA_MAX_ITEMS,
   defaultPinnedMediaKeys,
   resolvePinnedMedia,
   romFolderScreenshots,
@@ -86,6 +87,17 @@ describe("defaultPinnedMediaKeys", () => {
       "file:5",
       "file:6",
     ]);
+  });
+
+  it("caps the selection at the pin limit", () => {
+    const rom = makeRom(null, {
+      merged_screenshots: Array.from(
+        { length: PINNED_MEDIA_MAX_ITEMS + 5 },
+        (_, i) => `/shots/${i}.jpg`,
+      ),
+    });
+
+    expect(defaultPinnedMediaKeys(rom)).toHaveLength(PINNED_MEDIA_MAX_ITEMS);
   });
 });
 

@@ -27,7 +27,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import Response
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
@@ -380,6 +380,12 @@ class RomUserData(BaseModel):
         description="Ordered media keys shown on the overview; null restores the default selection.",
         max_length=PINNED_MEDIA_MAX_ITEMS,
     )
+
+    @field_validator("pinned_media")
+    @classmethod
+    def dedupe_pinned_media(cls, keys: list[str] | None) -> list[str] | None:
+        """Drop repeated keys, keeping each at its first position."""
+        return None if keys is None else list(dict.fromkeys(keys))
 
 
 async def parse_rom_update_form(

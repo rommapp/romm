@@ -1398,7 +1398,7 @@ class RomUser(BaseModel):
     )
     # NULL means the default selection; an empty list pins nothing.
     pinned_media: Mapped[list[str] | None] = mapped_column(
-        CustomJSON(), default=None, nullable=True
+        CustomJSON(none_as_null=True), default=None, nullable=True
     )
 
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))

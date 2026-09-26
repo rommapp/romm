@@ -4,6 +4,7 @@
 import { computed, toValue, type MaybeRefOrGetter } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import {
@@ -25,7 +26,10 @@ const romWrites = new Map<number, RomWrites>();
 export function usePinnedMedia(rom: MaybeRefOrGetter<DetailedRom>) {
   const { t } = useI18n();
   const snackbar = useSnackbar();
+  const auth = storeAuth();
 
+  // The props endpoint refuses sessions without this scope.
+  const canPin = computed(() => auth.scopes.includes("roms.user.write"));
   const pinned = computed(() => new Set(pinnedMediaKeys(toValue(rom))));
   const isCustomized = computed(
     () => toValue(rom).rom_user?.pinned_media != null,
@@ -46,6 +50,12 @@ export function usePinnedMedia(rom: MaybeRefOrGetter<DetailedRom>) {
       romWrites.set(target.id, writes);
     }
     const state = writes;
+    // A refetch mid-write swaps in a new rom_user, so settle on the live one.
+    const settle = (value: string[] | null) => {
+      const live = toValue(rom);
+      const current = live.id === target.id ? live.rom_user : romUser;
+      current.pinned_media = value;
+    };
     romUser.pinned_media = next;
     state.pending++;
     state.queue = state.queue.then(async () => {
@@ -55,9 +65,10 @@ export function usePinnedMedia(rom: MaybeRefOrGetter<DetailedRom>) {
           data: { pinned_media: next },
         });
         state.confirmed = next;
+        if (state.pending === 1) settle(next);
       } catch {
         // A newer queued write already carries the state the user wants.
-        if (state.pending === 1) romUser.pinned_media = state.confirmed;
+        if (state.pending === 1) settle(state.confirmed);
         snackbar.error(t("rom.pinned-media-update-failed"), {
           icon: "mdi-alert-circle-outline",
         });
@@ -87,5 +98,5 @@ export function usePinnedMedia(rom: MaybeRefOrGetter<DetailedRom>) {
     write(null);
   }
 
-  return { isPinned, isCustomized, togglePin, resetPins };
+  return { canPin, isPinned, isCustomized, togglePin, resetPins };
 }
