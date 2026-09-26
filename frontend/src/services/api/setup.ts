@@ -1,23 +1,10 @@
+import type {
+  SetupLibraryResponse,
+  SetupPlatformsResponse,
+} from "@/__generated__";
 import api from "@/services/api";
-import type { Platform } from "@/stores/platforms";
 
-export interface ExistingPlatform {
-  fs_slug: string;
-  rom_count: number;
-}
-
-export interface SetupLibraryInfo {
-  library_ready: boolean;
-  library_structure: string;
-  existing_platforms: ExistingPlatform[];
-  supported_platforms: Platform[];
-}
-
-export interface CreatePlatformsResponse {
-  success: boolean;
-  created_count: number;
-  message: string;
-}
+export type SetupLibraryInfo = SetupLibraryResponse;
 
 export default {
   async getLibraryInfo() {
@@ -25,7 +12,7 @@ export default {
   },
 
   async createPlatforms(platformSlugs: string[]) {
-    return await api.post<CreatePlatformsResponse>(
+    return await api.post<SetupPlatformsResponse>(
       "/setup/platforms",
       platformSlugs,
     );

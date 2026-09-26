@@ -1,5 +1,7 @@
 from typing import TypedDict
 
+from .platform import PlatformSchema
+
 
 class SystemDict(TypedDict):
     VERSION: str
@@ -79,3 +81,21 @@ class HeartbeatResponse(TypedDict):
     OIDC: OIDCDict
     NOTIFICATIONS: NotificationsDict
     TASKS: TasksDict
+
+
+class SetupExistingPlatform(TypedDict):
+    fs_slug: str
+    rom_count: int
+
+
+class SetupLibraryResponse(TypedDict):
+    library_ready: bool
+    library_structure: str
+    existing_platforms: list[SetupExistingPlatform]
+    supported_platforms: list[PlatformSchema]
+
+
+class SetupPlatformsResponse(TypedDict):
+    success: bool
+    created_count: int
+    message: str

@@ -76,7 +76,7 @@ async def _playable_rom_id(sid: str, game_id: Any) -> int | None:
 
     try:
         rom_id = int(game_id)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
     rom = db_rom_handler.get_rom_visibility(rom_id)

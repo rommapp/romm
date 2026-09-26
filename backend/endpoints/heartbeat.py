@@ -1,7 +1,7 @@
 import asyncio
 import os
 from collections import defaultdict
-from typing import Any, Final
+from typing import Final
 
 from anyio import Path as AnyioPath
 from fastapi import HTTPException, Request, status
@@ -33,7 +33,12 @@ from config import (
 )
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
-from endpoints.responses.heartbeat import HeartbeatResponse
+from endpoints.responses.heartbeat import (
+    HeartbeatResponse,
+    SetupExistingPlatform,
+    SetupLibraryResponse,
+    SetupPlatformsResponse,
+)
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.base_handler import reset_link_base_url
 from handler.auth.constants import Scope
@@ -268,9 +273,8 @@ async def _probe_metadata_source(metadata_source: MetadataSource) -> bool:
     router.get,
     "/setup/library",
     [],
-    response_model=None,
 )
-async def get_setup_library_info(request: Request) -> dict[str, Any]:
+async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
     """Get library structure information for setup wizard.
 
     Only accessible during initial setup (no admin users) or with authentication.
@@ -317,7 +321,7 @@ async def get_setup_library_info(request: Request) -> dict[str, Any]:
         existing_platform_slugs = []
 
     # Build existing platforms with rom counts
-    existing_platforms = []
+    existing_platforms: list[SetupExistingPlatform] = []
     if library_ready and existing_platform_slugs:
         for fs_slug in existing_platform_slugs:
             rom_count = 0
@@ -368,11 +372,10 @@ async def get_setup_library_info(request: Request) -> dict[str, Any]:
     "/setup/platforms",
     [],
     status_code=status.HTTP_201_CREATED,
-    response_model=None,
 )
 async def create_setup_platforms(
     request: Request, platform_slugs: list[str]
-) -> dict[str, Any]:
+) -> SetupPlatformsResponse:
     """Create platform folders during setup wizard.
 
     Only accessible during initial setup (no admin users) or with authentication.
