@@ -1921,6 +1921,59 @@ class TestAutocleanup:
         ]
 
     @mock.patch(
+        "endpoints.saves.fs_asset_handler.compute_content_hash",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_autocleanup_records_versions_pushed_past_the_limit_while_hashing(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        mock_hash,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        slot_saves: list[Save],
+    ):
+        mock_hash.side_effect = lambda path: f"hash of {path.rsplit('/', 1)[-1]}"
+        mock_scan.return_value = _slot_save(
+            admin_user, rom, platform, "new_autosave", "autosave"
+        )
+
+        # Nothing was past the limit when hashing ran, as if an upload landed after.
+        with mock.patch.object(
+            db_save_handler, "get_unhashed_versions_past", return_value=[]
+        ):
+            response = client.post(
+                f"/api/saves?rom_id={rom.id}&slot=autosave&autocleanup=true&autocleanup_limit=10",
+                files={
+                    "saveFile": (
+                        "new_autosave.sav",
+                        BytesIO(b"new"),
+                        "application/octet-stream",
+                    )
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        [record] = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        assert record.content_hashes == [
+            f"hash of autosave_{index}.sav" for index in range(6)
+        ]
+
+    @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
     )
     @mock.patch(

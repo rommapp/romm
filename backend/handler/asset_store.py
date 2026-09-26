@@ -14,6 +14,7 @@ from typing import Any, BinaryIO, TypeAlias, cast
 from fastapi import HTTPException, UploadFile, status
 
 from handler.database import (
+    db_deleted_asset_handler,
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
@@ -186,6 +187,20 @@ async def prune_save_slot(user_id: int, rom_id: int, slot: str, keep: int) -> No
         keep=keep,
         fallback_hashes=fallback_hashes,
     )
+    # A version an upload pushed past `keep` after the hashing above.
+    late_hashes = [
+        content_hash
+        for version in reversed(pruned)
+        if not version.content_hash
+        and version.id not in fallback_hashes
+        and (
+            content_hash := await fs_asset_handler.compute_content_hash(
+                f"{version.file_path}/{version.file_name}"
+            )
+        )
+    ]
+    if late_hashes:
+        db_deleted_asset_handler.record_deletions(user_id, rom_id, slot, late_hashes)
     for version in pruned:
         await remove_asset_file(f"{version.file_path}/{version.file_name}", "Save file")
         await release_thumbnail(
