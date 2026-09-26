@@ -510,6 +510,24 @@ function installDefaultOptionsFallback(emulator: any) {
   }
 }
 
+// GamepadHandler polls once in its constructor, before EmulatorJS registers
+// its "connected" listener, so a pad the page already sees (e.g. the one that
+// pressed Play) is never assigned to a player until it reconnects.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function replayConnectedGamepads(emulator: any) {
+  const handler = emulator.gamepad;
+  if (emulator.__rommGamepadsReplayed || !handler?.dispatchEvent) return;
+  emulator.__rommGamepadsReplayed = true;
+  for (const pad of [...(handler.gamepads ?? [])]) {
+    if (!pad) continue;
+    try {
+      handler.dispatchEvent("connected", { gamepadIndex: pad.index });
+    } catch (error) {
+      console.warn("Could not assign connected gamepad", error);
+    }
+  }
+}
+
 // Trap the window.EJS_emulator assignment so the instance is patched right
 // after the constructor returns, before the async core download and boot
 // consume any of the patched values. Patching later (e.g. in EJS_onGameStart)
@@ -523,7 +541,9 @@ export function installEJSDefaultOptionsTrap() {
     get: () => instance,
     set: (value) => {
       instance = value;
-      if (value) installDefaultOptionsFallback(value);
+      if (!value) return;
+      installDefaultOptionsFallback(value);
+      replayConnectedGamepads(value);
     },
   });
 }
