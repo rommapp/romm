@@ -2395,12 +2395,12 @@ class DBRomsHandler(DBBaseHandler):
         if not rom_user:
             return None
 
-        # Any non-hidden RomUser column can back a sort (hidden already bumps
-        # the global version), and main-sibling picks move grouped sets.
+        # Other RomUser columns can back a sort (hidden bumps the global version,
+        # pinned_media sorts nothing); main-sibling picks move grouped sets.
         _queue_user_cache_bumps(
             session,
             rom_user.user_id,
-            sort_keys=bool(data.keys() - {"hidden"}),
+            sort_keys=bool(data.keys() - {"hidden", "pinned_media"}),
             siblings="is_main_sibling" in data,
             feed=bool(RECOMMENDATION_SEED_FIELDS & data.keys()),
         )

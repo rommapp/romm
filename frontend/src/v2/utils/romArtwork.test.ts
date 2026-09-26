@@ -48,7 +48,10 @@ describe("resolveRomArtwork — cover", () => {
     });
     const entries = resolveRomArtwork(rom);
 
-    expect(entries.map((e) => e.key)).toEqual(["cover", "logo"]);
+    expect(entries.map((e) => e.key)).toEqual([
+      "artwork:cover",
+      "artwork:logo",
+    ]);
     expect(entries[0].url).toBe(
       "/assets/romm/resources/roms/1/1/cover/big.png?ts=x",
     );
@@ -83,7 +86,10 @@ describe("resolveRomArtwork — scraped resources", () => {
     });
     const entries = resolveRomArtwork(rom);
 
-    expect(entries.map((e) => e.key)).toEqual(["box2d", "box2d_back"]);
+    expect(entries.map((e) => e.key)).toEqual([
+      "artwork:box2d",
+      "artwork:box2d_back",
+    ]);
     expect(entries[0].url).toContain("roms/1/1/box2d/box2d.png");
   });
 
