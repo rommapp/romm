@@ -57,6 +57,7 @@ from handler.streaming.capabilities import (
     state_transfer_limits,
 )
 from handler.streaming.config import (
+    CONTAINER_NAME_MAX_LENGTH,
     ResolvedContainer,
     _derive_broker_host,
     configured_emulator,
@@ -2212,7 +2213,7 @@ def test_the_session_platform_picks_the_config_entry_for_its_container():
 # ── Container names ───────────────────────────────────────────────────────────
 
 
-def _labelled(label, index):
+def _labelled(label: str | None, index: int) -> dict[str, Any]:
     """A webstation container on its own host, with the given label."""
     return {
         "host": f"http://192.168.1.{index}:3000",
@@ -2282,6 +2283,20 @@ def test_a_label_cannot_take_another_containers_key():
         key = key_for_name(_key_of(target))
     assert names[_key_of(impostor)] == _key_of(impostor)
     assert key == _key_of(target)
+
+
+def test_a_label_matching_another_containers_key_in_any_case_names_neither():
+    target = _labelled("Target", 10)
+    impostor = _labelled(_key_of(target).upper(), 11)
+    with _streaming(target, impostor):
+        names = container_names()
+    assert names[_key_of(impostor)] == _key_of(impostor)
+
+
+def test_a_label_too_long_for_a_url_names_nothing():
+    entry = _labelled("x" * (CONTAINER_NAME_MAX_LENGTH + 1), 10)
+    with _streaming(entry):
+        assert container_names() == {_key_of(entry): _key_of(entry)}
 
 
 def test_an_unclaimable_container_has_no_name():
@@ -5804,7 +5819,9 @@ def test_build_import_archive_does_not_inflate_past_a_members_declared_size():
     assert peak < 16 * 1024 * 1024
 
 
-def test_manifest_files_ignores_a_manifest_over_the_size_cap():
+def test_manifest_files_rejects_a_manifest_over_the_size_cap():
+    """Dropping it would lose which entries are states, so a replaced state
+    would ride along as a save."""
     from tests._zipfile_shim import reload_zipfile
 
     reload_zipfile()
@@ -5815,8 +5832,9 @@ def test_manifest_files_ignores_a_manifest_over_the_size_cap():
     with (
         patch("handler.streaming.imports._MAX_MANIFEST_BYTES", 32),
         zipfile.ZipFile(buf) as zf,
+        pytest.raises(ValueError),
     ):
-        assert imports._manifest_files(zf) == {}
+        imports._manifest_files(zf)
 
 
 def test_build_import_archive_rebuilds_a_symlink_entry_as_a_regular_file():
@@ -8174,7 +8192,7 @@ def test_raise_http_error_raises_import_refused_as_a_typed_error():
         }
     ).encode()
     exc = _http_error(422)
-    with patch.object(exc, "read", return_value=payload):
+    with patch.object(exc, "read", side_effect=_reads(payload)):
         with pytest.raises(broker.ImportRefusedError) as raised:
             broker.raise_http_error(exc)
     assert raised.value.truncated == 0
@@ -8222,7 +8240,7 @@ def test_raise_http_error_parses_a_refusal_list_at_the_brokers_cap():
 
 def test_raise_http_error_keeps_a_long_plain_error_out_of_the_502_detail():
     exc = _http_error(500)
-    with patch.object(exc, "read", return_value=b"x" * (100 * 1024)):
+    with patch.object(exc, "read", side_effect=_reads(b"x" * (100 * 1024))):
         with pytest.raises(HTTPException) as raised:
             broker.raise_http_error(exc)
     assert len(raised.value.detail) < 9 * 1024
@@ -8231,10 +8249,19 @@ def test_raise_http_error_keeps_a_long_plain_error_out_of_the_502_detail():
 def test_raise_http_error_still_raises_502_for_a_plain_broker_error():
     """An ordinary broker error (not an import refusal) is still a plain 502."""
     exc = _http_error(500)
-    with patch.object(exc, "read", return_value=b"boom"):
+    with patch.object(exc, "read", side_effect=_reads(b"boom")):
         with pytest.raises(HTTPException) as raised:
             broker.raise_http_error(exc)
     assert raised.value.status_code == 502
+
+
+def test_broker_error_body_gives_up_on_a_slow_body():
+    exc = _http_error(500)
+    with (
+        patch.object(exc, "read", side_effect=_reads(b"boom")),
+        patch("handler.streaming.broker._BROKER_ERROR_READ_SECONDS", -1),
+    ):
+        assert broker.broker_error_body(exc) == ""
 
 
 def test_fetch_memory_card_returns_bytes(rom: Rom):

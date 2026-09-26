@@ -619,12 +619,16 @@ def _warn_about_later_pools(
             )
 
 
+# The longest name a container URL or desktop request accepts.
+CONTAINER_NAME_MAX_LENGTH = 300
+
+
 def _container_labels(resolved: Iterable[ResolvedContainer]) -> dict[str, str]:
     """Each claimable container's key to its own label, when it sets one."""
     labels: dict[str, str] = {}
     for container in resolved:
         label = (container.container_label or "").strip()
-        if container.key and label:
+        if container.key and label and len(label) <= CONTAINER_NAME_MAX_LENGTH:
             labels.setdefault(container.key, label)
     return labels
 
@@ -640,11 +644,11 @@ def _keys_by_label(labels: dict[str, str]) -> list[list[str]]:
 def _unique_labels(resolved: Sequence[ResolvedContainer]) -> dict[str, str]:
     """The labels that name exactly one container and are not another's key."""
     labels = _container_labels(resolved)
-    keys = {container.key for container in resolved if container.key}
+    folded_keys = {container.key.casefold() for container in resolved if container.key}
     return {
         group[0]: labels[group[0]]
         for group in _keys_by_label(labels)
-        if len(group) == 1 and labels[group[0]] not in keys
+        if len(group) == 1 and labels[group[0]].casefold() not in folded_keys
     }
 
 

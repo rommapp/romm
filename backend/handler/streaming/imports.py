@@ -91,7 +91,7 @@ def _manifest_files(zf: zipfile.ZipFile) -> dict[str, dict[str, Any]]:
     except KeyError:
         return {}
     if info.file_size > _MAX_MANIFEST_BYTES:
-        return {}
+        raise ValueError("broker manifest exceeds its size limit")
     try:
         manifest = json.loads(_read_member(zf, info))
     except (json.JSONDecodeError, UnicodeDecodeError):

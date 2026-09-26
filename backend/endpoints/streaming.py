@@ -74,6 +74,7 @@ from handler.streaming.capabilities import (
     slot_capabilities,
 )
 from handler.streaming.config import (
+    CONTAINER_NAME_MAX_LENGTH,
     ResolvedContainer,
     configured_emulator,
     container_for_session,
@@ -176,12 +177,11 @@ class LoadStateRequest(BaseModel):
     slot: Annotated[int, Field(ge=1, le=MAX_SLOT)] = 1
 
 
-CONTAINER_KEY_MAX_LENGTH = 300
 CLAIMED_AT_MAX_LENGTH = 64
 
 # A claim is named by its container and the stamp it was taken at.
 ContainerQuery = Annotated[
-    str | None, Query(alias="container", max_length=CONTAINER_KEY_MAX_LENGTH)
+    str | None, Query(alias="container", max_length=CONTAINER_NAME_MAX_LENGTH)
 ]
 ClaimedAtQuery = Annotated[str | None, Query(max_length=CLAIMED_AT_MAX_LENGTH)]
 
@@ -190,7 +190,7 @@ class DesktopStreamingSessionRequest(BaseModel):
     # The container to open, by the name or key GET /streaming/containers
     # reports. Named rather than pooled: an admin configuring a container
     # needs that one, not whichever is free.
-    container: Annotated[str, Field(min_length=1, max_length=CONTAINER_KEY_MAX_LENGTH)]
+    container: Annotated[str, Field(min_length=1, max_length=CONTAINER_NAME_MAX_LENGTH)]
 
 
 def platform_capabilities(platform: str) -> PlatformCapabilities:
