@@ -179,19 +179,32 @@ describe("installEJSDefaultOptionsTrap", () => {
     expect(emulator.preGetSetting).toBe(patched);
   });
 
-  it("replays connected for pads the gamepad handler saw before its listener", () => {
-    const connected = vi.fn();
+  it("assigns pads the gamepad handler saw before its listener to players", () => {
     const emulator = makeEmulator({});
+    emulator.gamepadSelection = ["", "", "", ""];
+    type Listener = (arg: { gamepadIndex: number }) => void;
+    const listeners: Record<string, Listener> = {};
     emulator.gamepad = {
       gamepads: [{ index: 0, id: "pad" }, null, { index: 2, id: "pad" }],
+      on(name: string, cb: Listener) {
+        listeners[name] = cb;
+      },
       dispatchEvent(name: string, arg: { gamepadIndex: number }) {
-        if (name === "connected") connected(arg.gamepadIndex);
+        listeners[name]?.(arg);
       },
     };
+    // Mirrors EmulatorJS 4.2.3's listener: fill the first free player slot.
+    const onConnected: Listener = ({ gamepadIndex }) => {
+      const pad = emulator.gamepad.gamepads[gamepadIndex];
+      const slot = emulator.gamepadSelection.indexOf("");
+      if (slot !== -1)
+        emulator.gamepadSelection[slot] = `${pad.id}_${pad.index}`;
+    };
+    emulator.gamepad.on("connected", onConnected);
     window.EJS_emulator = emulator;
     window.EJS_emulator = emulator;
 
-    expect(connected.mock.calls).toEqual([[0], [2]]);
+    expect(emulator.gamepadSelection).toEqual(["pad_0", "pad_2", "", ""]);
   });
 
   it("keeps booting when a replayed connected handler throws", () => {

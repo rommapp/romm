@@ -510,9 +510,8 @@ function installDefaultOptionsFallback(emulator: any) {
   }
 }
 
-// GamepadHandler polls once in its constructor, before EmulatorJS registers
-// its "connected" listener, so a pad the page already sees (e.g. the one that
-// pressed Play) is never assigned to a player until it reconnects.
+// GamepadHandler polls before EmulatorJS registers its "connected" listener,
+// so pads it already saw (e.g. the one that pressed Play) get no player.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function replayConnectedGamepads(emulator: any) {
   const handler = emulator.gamepad;
