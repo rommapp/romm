@@ -70,9 +70,9 @@ class PermissionGroup(BaseModel):
 
     A group carries a read/write/delete matrix over entity types (its
     ``grants``). Exactly one group is the server-wide default (``is_default``)
-    applied to new users. ``is_system`` marks the seeded Viewer and Editor groups so
-    the admin UI can warn before editing/deleting them, and ``system_key`` finds
-    them whatever an admin renamed them to.
+    applied to new users. ``system_key`` marks the seeded Viewer and Editor
+    groups, whatever an admin renamed them to, so the admin UI can warn before
+    editing/deleting them.
     """
 
     __tablename__ = "permission_groups"
@@ -82,7 +82,6 @@ class PermissionGroup(BaseModel):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     description: Mapped[str] = mapped_column(String(1000), default="")
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
-    is_system: Mapped[bool] = mapped_column(Boolean, default=False)
     system_key: Mapped[SystemGroupKey | None] = mapped_column(
         _str_enum(SystemGroupKey, 16), nullable=True, unique=True, index=True
     )

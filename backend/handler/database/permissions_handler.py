@@ -141,7 +141,6 @@ class DBPermissionsHandler(DBBaseHandler):
             description=description,
             is_default=is_default,
             color=color,
-            is_system=False,
         )
         session.add(group)
         session.flush()

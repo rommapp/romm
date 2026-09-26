@@ -625,9 +625,19 @@ def test_the_state_disc_file_migration_resumes_an_interrupted_run(drop_column: b
     assert "fk_states_disc_file_id" in foreign_keys
 
 
+def _is_system_sql(connection: sa.Connection) -> str:
+    # Before 0137 the seeded groups are flagged by `is_system`, after it by a key.
+    if has_column(connection, "permission_groups", "system_key"):
+        return "system_key IS NOT NULL"
+    return "is_system"
+
+
 def _system_groups(connection: sa.Connection) -> dict[str, str]:
     rows = connection.execute(
-        sa.text("SELECT name, description FROM permission_groups WHERE is_system")
+        sa.text(
+            "SELECT name, description FROM permission_groups "
+            f"WHERE {_is_system_sql(connection)}"
+        )
     )
     return {name: description for name, description in rows}
 
@@ -664,12 +674,14 @@ def test_the_group_rename_round_trips_the_seeded_groups():
             _upgrade_group_rename(connection)
         replayed = _system_groups(connection)
         keys = _system_keys(connection)
+        flag_dropped = not has_column(connection, "permission_groups", "is_system")
 
     assert set(renamed) == {"Viewer", "Editor"}
     assert set(legacy) == {"Viewer (legacy)", "Editor (legacy)"}
     assert "pre-upgrade" in legacy["Viewer (legacy)"]
     assert replayed == renamed
     assert keys == {"viewer": "Viewer", "editor": "Editor"}
+    assert flag_dropped
 
 
 def test_the_group_rename_leaves_admin_changes_alone():
@@ -700,13 +712,14 @@ def test_the_group_rename_leaves_admin_changes_alone():
             _, _, _, _, editor_description = GROUP_RENAME.RENAMES[1]
             connection.execute(
                 sa.text(
-                    "DELETE FROM permission_groups WHERE name = 'Viewer' AND NOT is_system"
+                    "DELETE FROM permission_groups "
+                    f"WHERE name = 'Viewer' AND NOT ({_is_system_sql(connection)})"
                 )
             )
             connection.execute(
                 sa.text(
                     "UPDATE permission_groups SET description = :description "
-                    "WHERE is_system AND description = 'Custom'"
+                    f"WHERE {_is_system_sql(connection)} AND description = 'Custom'"
                 ),
                 {"description": editor_description},
             )

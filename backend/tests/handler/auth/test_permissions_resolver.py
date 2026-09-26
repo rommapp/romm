@@ -31,14 +31,14 @@ def _cleanup_non_system_groups():
     # so drop them (cascading their grants + group-hidden rows) after each test.
     yield
     with sync_session.begin() as s:
-        s.query(PermissionGroup).filter(PermissionGroup.is_system.is_(False)).delete(
+        s.query(PermissionGroup).filter(PermissionGroup.system_key.is_(None)).delete(
             synchronize_session="evaluate"
         )
 
 
 def _make_group(name, grants, *, is_default=False):
     with sync_session.begin() as s:
-        group = PermissionGroup(name=name, is_default=is_default, is_system=False)
+        group = PermissionGroup(name=name, is_default=is_default)
         s.add(group)
         s.flush()
         gid = group.id

@@ -86,11 +86,9 @@ def test_migration_seeded_system_groups():
         assert viewer.name == "Viewer"
         assert editor.name == "Editor"
 
-        # Viewer is the server-wide default; both are system groups.
+        # Viewer is the server-wide default.
         assert viewer.is_default is True
-        assert viewer.is_system is True
         assert editor.is_default is False
-        assert editor.is_system is True
 
         # Seeded grants equal the frozen matrices (no drift).
         assert _grant_tuples(viewer) == _expected_tuples(LEGACY_VIEWER_GRANTS)

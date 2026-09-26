@@ -106,7 +106,7 @@ function diffHidden(
 
 emitter?.on("showGroupFormDialog", async (group) => {
   editingId.value = group?.id ?? null;
-  isSystem.value = group?.is_system ?? false;
+  isSystem.value = group?.system_key != null;
   name.value = group?.name ?? "";
   description.value = group?.description ?? "";
   isDefault.value = group?.is_default ?? false;

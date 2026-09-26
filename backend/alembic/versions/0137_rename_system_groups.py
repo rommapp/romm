@@ -1,6 +1,7 @@
 """Key the seeded permission groups and rename them to Viewer and Editor
 
-Admin renames, name clashes and edited descriptions are left alone.
+`system_key` replaces `is_system`. Admin renames, name clashes and edited
+descriptions are left alone.
 
 Revision ID: 0137_rename_system_groups
 Revises: 0136_deleted_assets
@@ -85,16 +86,19 @@ def upgrade() -> None:
                 if_not_exists=True,
             )
 
-    for key, old_name, new_name, _, _ in RENAMES:
-        conn.execute(
-            groups_t.update()
-            .where(
-                groups_t.c.is_system.is_(True),
-                groups_t.c.system_key.is_(None),
-                groups_t.c.name.in_([old_name, new_name]),
+    if has_column(conn, "permission_groups", "is_system"):
+        for key, old_name, new_name, _, _ in RENAMES:
+            conn.execute(
+                groups_t.update()
+                .where(
+                    groups_t.c.is_system.is_(True),
+                    groups_t.c.system_key.is_(None),
+                    groups_t.c.name.in_([old_name, new_name]),
+                )
+                .values(system_key=key)
             )
-            .values(system_key=key)
-        )
+        with op.batch_alter_table("permission_groups") as batch_op:
+            batch_op.drop_column("is_system")
 
     for key, old_name, new_name, old_desc, new_desc in RENAMES:
         _rename(key, old_name, new_name, old_desc, new_desc)
@@ -103,6 +107,21 @@ def upgrade() -> None:
 def downgrade() -> None:
     for key, old_name, new_name, old_desc, new_desc in RENAMES:
         _rename(key, new_name, old_name, new_desc, old_desc)
+
+    with op.batch_alter_table("permission_groups") as batch_op:
+        batch_op.add_column(
+            sa.Column(
+                "is_system",
+                sa.Boolean(),
+                nullable=False,
+                server_default=sa.text("false"),
+            )
+        )
+    op.get_bind().execute(
+        groups_t.update()
+        .where(groups_t.c.system_key.is_not(None))
+        .values(is_system=True)
+    )
 
     with op.batch_alter_table("permission_groups") as batch_op:
         batch_op.drop_index("ix_permission_groups_system_key")
