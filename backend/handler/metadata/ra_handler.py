@@ -289,8 +289,7 @@ class RAHandler(MetadataHandler):
             return RAGameRom(ra_id=None)
 
         rom_details = await self.ra_service.get_game_extended_details(ra_game_id)
-        # RA's own index names this game, so an empty reply is a failed request,
-        # not a miss that would clear an earlier hash match.
+        # RA's own index names this game, so an empty reply is a failed request.
         if not rom_details:
             raise unavailable("RetroAchievements")
 
