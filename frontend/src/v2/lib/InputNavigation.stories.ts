@@ -22,14 +22,7 @@ const TITLES = [
 const meta: Meta = {
   title: "Input Navigation",
   parameters: { layout: "padded" },
-};
-
-export default meta;
-
-type Story = StoryObj;
-
-function renderGrid() {
-  return {
+  render: () => ({
     components: { RBtn },
     setup() {
       const gridRoot = ref<HTMLElement | null>(null);
@@ -58,15 +51,16 @@ function renderGrid() {
         </p>
       </div>
     `,
-  };
-}
-
-export const WrapGrid: Story = {
-  render: renderGrid,
+  }),
 };
 
+export default meta;
+
+type Story = StoryObj;
+
+export const WrapGrid: Story = {};
+
 export const KeyboardNavigation: Story = {
-  render: renderGrid,
   globals: { input: "key" },
   play: async ({ canvasElement }) => {
     await expect(document.documentElement.dataset.input).toBe("key");

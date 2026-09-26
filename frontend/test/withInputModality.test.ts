@@ -1,17 +1,12 @@
 import type { StoryContext } from "@storybook/vue3-vite";
 import { mount } from "@vue/test-utils";
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import { defineComponent, nextTick, reactive } from "vue";
+import { useInputModality } from "@/v2/composables/useInputModality";
+import { withInputModality } from "../.storybook/withInputModality";
 
-it("keeps a pinned mode once the live listeners are installed", async () => {
-  // vitest.setup.ts already loaded the decorator, so load a fresh copy with
-  // its own modality singleton.
-  vi.resetModules();
-  const { useInputModality } =
-    await import("@/v2/composables/useInputModality");
-  const { withInputModality } = await import("../.storybook/withInputModality");
+it("pins the toolbar's mode over live input and follows a toolbar change", async () => {
   useInputModality().install();
-
   const globals = reactive({ input: "key" });
   const story = defineComponent({ render: () => null });
   mount(
@@ -22,7 +17,9 @@ it("keeps a pinned mode once the live listeners are installed", async () => {
   );
 
   window.dispatchEvent(new Event("touchstart"));
-  await nextTick();
-
   expect(document.documentElement.dataset.input).toBe("key");
+
+  globals.input = "touch";
+  await nextTick();
+  expect(document.documentElement.dataset.input).toBe("touch");
 });

@@ -10,6 +10,8 @@ export const INPUT_GLOBAL = "input";
 // "live" tracks real devices like the app shell; every other value pins data-input.
 type StoryInputMode = InputModality | "live";
 
+export const INPUT_DEFAULT: StoryInputMode = "mouse";
+
 export const INPUT_TOOLBAR = {
   description: "Input modality (data-input on <html>)",
   toolbar: {
@@ -26,26 +28,15 @@ export const INPUT_TOOLBAR = {
   },
 } satisfies NonNullable<Preview["globalTypes"]>[string];
 
-const { modality, install, setModality } = useInputModality();
-let pinned: InputModality | null = null;
-
-// Once installed the modality listeners are app-lifetime, so a pinned mode undoes
-// their writes. Not sync: setModality writes data-input after it sets the ref.
-const stopRepin = watch(modality, (next) => {
-  if (pinned && next !== pinned) setModality(pinned);
-});
-import.meta.hot?.dispose(stopRepin);
+const { install, pin } = useInputModality();
 
 function applyMode(mode: StoryInputMode) {
-  if (mode === "live") {
-    pinned = null;
-    install();
+  if (mode !== "live") {
+    pin(mode);
     return;
   }
-  pinned = mode;
-  setModality(mode);
-  // setModality skips the DOM write when the ref already holds the value.
-  document.documentElement.dataset.input = mode;
+  pin(null);
+  install();
 }
 
 // Unmounting stops useGamepad's poll loop, so the pad only drives stories that asked for it.
@@ -66,7 +57,7 @@ export const withInputModality: Decorator = (story, context) => ({
     // The Vue renderer keeps the story mounted on a toolbar change and
     // updates the reactive globals in place.
     const mode = computed(
-      () => (context.globals[INPUT_GLOBAL] ?? "mouse") as StoryInputMode,
+      () => (context.globals[INPUT_GLOBAL] ?? INPUT_DEFAULT) as StoryInputMode,
     );
     watch(mode, applyMode, { immediate: true });
     const padActive = computed(

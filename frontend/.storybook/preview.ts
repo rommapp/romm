@@ -16,6 +16,7 @@ import "../src/v2/styles/global.css";
 import { createChromeLabels } from "../src/v2/utils/chromeLabels";
 import { ROMM_STORYBOOK_VIEWPORTS } from "./rommViewports";
 import {
+  INPUT_DEFAULT,
   INPUT_GLOBAL,
   INPUT_TOOLBAR,
   withInputModality,
@@ -72,7 +73,7 @@ const preview: Preview = {
   },
   initialGlobals: {
     viewport: { value: "rommDesktopMd" },
-    [INPUT_GLOBAL]: "mouse",
+    [INPUT_GLOBAL]: INPUT_DEFAULT,
   },
   parameters: {
     layout: "centered",
