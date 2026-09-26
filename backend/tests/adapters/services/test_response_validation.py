@@ -110,3 +110,15 @@ def test_known_problems_in_a_new_combination_are_not_logged_again(
     validate_response(list[Child], [{"id": "x"}, {"id": None}], source="test")
 
     assert lenient.warning.call_count == 2
+
+
+def test_problems_beyond_a_warning_surface_in_the_next_one(lenient: MagicMock):
+    data = {f"k{i}": "x" for i in range(7)}
+
+    validate_response(dict[str, int], data, source="test")
+    validate_response(dict[str, int], data, source="test")
+    validate_response(dict[str, int], data, source="test")
+
+    assert lenient.warning.call_count == 2
+    second = lenient.warning.call_args_list[1].args
+    assert second[4].count(":") == 2
