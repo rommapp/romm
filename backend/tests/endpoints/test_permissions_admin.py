@@ -38,7 +38,7 @@ def _me_actions(client, user_id):
 
 def _cleanup():
     with sync_session.begin() as s:
-        s.query(PermissionGroup).filter(PermissionGroup.is_system.is_(False)).delete(
+        s.query(PermissionGroup).filter(PermissionGroup.system_key.is_(None)).delete(
             synchronize_session="evaluate"
         )
 
@@ -59,6 +59,14 @@ def test_catalog_lists_vocabulary(client, access_token):
     body = client.get("/api/permissions/catalog", headers=_bearer(access_token)).json()
     assert "roms" in body["entities"] and "platforms" in body["entities"]
     assert set(body["actions"]) == {"read", "write", "delete"}
+
+
+def test_groups_expose_the_system_key(client, access_token):
+    groups = client.get("/api/permissions/groups", headers=_bearer(access_token)).json()
+    keys = {g["name"]: g["system_key"] for g in groups}
+    assert keys["Viewer"] == "viewer"
+    assert keys["Editor"] == "editor"
+    assert "is_system" not in groups[0]
 
 
 def test_group_create_assign_and_effective_permissions(

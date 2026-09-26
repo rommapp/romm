@@ -124,6 +124,20 @@ catch these, but only after the contributor has handed the PR over.
 
 ---
 
+## Encode what you fixed twice
+
+If polish turned up a mechanical pattern (you fixed the same kind of thing
+twice), propose a check as a named follow-up instead of relying on the next
+reviewer. For the frontend, that is a stock rule in `eslint.config.js`, or
+`frontend/eslint-plugin-romm/rules/<name>.js` plus `<name>.test.ts`
+(`RuleTester`, valid and invalid cases), registered in the plugin's `index.js`
+and turned on in `eslint.config.js`. Test with `npx vitest run
+eslint-plugin-romm` and `npm run typecheck:scripts`. A plain text pattern across
+the repo can be a Trunk regex linter instead (see `no-emdash` in
+`.trunk/trunk.yaml`).
+
+---
+
 ## E. Verification before handoff
 
 Run the checks that match what you touched. **Static checks don't prove a
@@ -144,7 +158,7 @@ Run from `frontend/`:
 
 1. `npm run typecheck`: zero errors (`vue-tsc --noEmit`).
 2. `npm run typecheck:scripts`: zero errors (`tsc -p tsconfig.node.json`, covers `scripts/`).
-3. `npm run lint` _(if present)_ / ESLint clean. Trunk also runs ESLint + Prettier in CI.
+3. `trunk check`: ESLint clean on the changed files.
 4. `npm run test`: zero failures (Vitest + happy-dom; runs unit tests **and** every `/lib` and `components/shared` story's `play()` via `composeStories`).
 5. `npm run build`: zero failures (CI sanity check).
 
