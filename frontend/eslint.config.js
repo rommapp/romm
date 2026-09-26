@@ -31,7 +31,6 @@ export default tseslint.config(
   // Global ignore (object with only `ignores` = applies everywhere).
   {
     ignores: [
-      ".storybook/**",
       "src/__generated__/**",
       // Build and coverage output: generated, so nothing here is fixable in
       // source. These only take effect in an `ignores`-only config object.
@@ -56,7 +55,6 @@ export default tseslint.config(
       "*.local",
       "*.config.js",
       "src/plugins/*.d.ts",
-      "eslint-plugin-romm/**",
     ],
     languageOptions: {
       parserOptions: {
@@ -131,7 +129,7 @@ export default tseslint.config(
   // v2 primitives: no stores, services, i18n, emitter, or product domain.
   {
     files: ["src/v2/lib/**/*.ts", "src/v2/lib/**/*.vue"],
-    ignores: ["**/*.stories.ts", "**/*.test.ts"],
+    ignores: ["**/*.stories.ts", "**/*.test.ts", "**/*.spec.ts"],
     rules: {
       "@typescript-eslint/no-restricted-imports": [
         "error",
@@ -143,10 +141,19 @@ export default tseslint.config(
               message:
                 "Primitives take text via props, slots, or useChromeLabels().",
             },
+            {
+              name: "@/locales",
+              message:
+                "Primitives take text via props, slots, or useChromeLabels().",
+            },
             { name: "axios", message: "Primitives do not fetch." },
             {
               name: "vue-router",
               importNames: ["useRouter", "useRoute"],
+              message: "Primitives accept a RouterLink `to`, not the router.",
+            },
+            {
+              name: "@/plugins/router",
               message: "Primitives accept a RouterLink `to`, not the router.",
             },
           ],
@@ -173,8 +180,11 @@ export default tseslint.config(
             {
               group: [
                 "@/v2/components/**",
+                "@v2/components/**",
                 "@/v2/composables/usePlatformIconCache",
                 "@/v2/composables/usePlatformIconCache/**",
+                "@v2/composables/usePlatformIconCache",
+                "@v2/composables/usePlatformIconCache/**",
               ],
               message:
                 "Primitives cannot depend on composites or domain composables.",
@@ -190,7 +200,12 @@ export default tseslint.config(
     rules: {
       "vue/block-lang": ["error", { script: { lang: "ts" } }],
       "vue/component-api-style": ["error", ["script-setup"]],
-      "vue/block-order": ["error", { order: ["script", "template", "style"] }],
+      "vue/block-order": [
+        "error",
+        {
+          order: ["script", "template", "style[scoped]", "style:not([scoped])"],
+        },
+      ],
       "vue/define-props-declaration": ["error", "type-based"],
       "vue/define-emits-declaration": ["error", "type-based"],
     },

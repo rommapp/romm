@@ -1100,15 +1100,14 @@ Procedural SVG generation for:
 
 ### Scripts
 
-| Script              | Command                              | Purpose                                                |
-| ------------------- | ------------------------------------ | ------------------------------------------------------ |
-| `dev`               | `vite --host`                        | Development server                                     |
-| `build`             | `vite build`                         | Production build                                       |
-| `preview`           | `vite preview`                       | Preview production build                               |
-| `typecheck`         | `vue-tsc --noEmit`                   | App SFCs (`tsconfig.json`)                             |
-| `typecheck:scripts` | `tsc --noEmit -p tsconfig.node.json` | Node/Vite tooling in `scripts/` (`tsconfig.node.json`) |
-| `generate`          | `openapi-typescript-codegen`         | Generate types from backend OpenAPI                    |
-| `lint`              | `eslint`                             | Lint `.vue`, `.js`, `.ts`; import cycles               |
+| Script              | Command                              | Purpose                                              |
+| ------------------- | ------------------------------------ | ---------------------------------------------------- |
+| `dev`               | `vite --host`                        | Development server                                   |
+| `build`             | `vite build`                         | Production build                                     |
+| `preview`           | `vite preview`                       | Preview production build                             |
+| `typecheck`         | `vue-tsc --noEmit`                   | App SFCs (`tsconfig.json`)                           |
+| `typecheck:scripts` | `tsc --noEmit -p tsconfig.node.json` | Node tooling in `scripts/` and `eslint-plugin-romm/` |
+| `generate`          | `openapi-typescript-codegen`         | Generate types from backend OpenAPI                  |
 
 ### OpenAPI Code Generation
 
@@ -1126,6 +1125,8 @@ Generated types used throughout stores and API services for type-safe backend co
 - Vue plugin with essential rules
 - TypeScript-ESLint integration
 - Vue accessibility plugin (`eslint-plugin-vuejs-accessibility`)
+- Repo rules in `eslint-plugin-romm/`, tested by the `eslint-plugin-romm` Vitest project
+- Run through `trunk check`; there is no npm lint script
 
 ---
 

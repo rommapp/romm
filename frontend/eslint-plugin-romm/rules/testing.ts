@@ -17,6 +17,6 @@ export const ruleTester = new RuleTester({
   },
 });
 
-export function sfc(style: string, lang = ""): string {
-  return `<script setup lang="ts"></script>\n<template><div /></template>\n<style scoped${lang}>\n${style}\n</style>\n`;
+export function sfc(style: string): string {
+  return `<script setup lang="ts"></script>\n<template><div /></template>\n<style scoped>\n${style}\n</style>\n`;
 }

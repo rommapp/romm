@@ -4,7 +4,7 @@ import { sfcStyleBlocks } from "../utils/sfcStyles.js";
 const MEDIA_RULE = /@media\b([^{;]*)/gi;
 // Whatever is left after removing these is a condition the rule rejects.
 const ALLOWED_PARTS =
-  /\(\s*prefers-reduced-motion\b[^)]*\)|\b(?:print|screen|all|only|not|and)\b|[\s,]/gi;
+  /\(\s*prefers-reduced-motion\b[^)]*\)|\b(?:print|screen|all|only|not|and|or)\b|[\s,]/gi;
 
 /** @type {import("eslint").Rule.RuleModule} */
 export default {

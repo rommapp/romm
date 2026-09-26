@@ -38,9 +38,12 @@ export default {
       Program() {
         const { sourceCode } = context;
         const { text } = sourceCode;
+        if (!text.includes(EM_DASH)) return;
         for (const [start, end] of commentRanges(context)) {
-          let index = text.indexOf(EM_DASH, start);
-          while (index !== -1 && index < end) {
+          const comment = text.slice(start, end);
+          let offset = comment.indexOf(EM_DASH);
+          while (offset !== -1) {
+            const index = start + offset;
             context.report({
               loc: {
                 start: sourceCode.getLocFromIndex(index),
@@ -48,7 +51,7 @@ export default {
               },
               messageId: "emDash",
             });
-            index = text.indexOf(EM_DASH, index + 1);
+            offset = comment.indexOf(EM_DASH, offset + 1);
           }
         }
       },

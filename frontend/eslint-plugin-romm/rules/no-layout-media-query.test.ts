@@ -19,6 +19,12 @@ ruleTester.run("no-layout-media-query", rule, {
       filename: "A.vue",
     },
     {
+      code: sfc(
+        "@media (prefers-reduced-motion: reduce) or print { .a { gap: 0; } }",
+      ),
+      filename: "A.vue",
+    },
+    {
       code: sfc('html[data-bp~="xs"] .a { display: none; }'),
       filename: "A.vue",
     },

@@ -42,8 +42,8 @@ function rawStyleBlocks(context) {
 }
 
 /**
- * The `<style>` blocks of a Vue SFC, with comments blanked out so offsets
- * still map to the source. Empty for files that are not SFCs.
+ * The `<style>` blocks of a Vue SFC (none for other files), with comments
+ * blanked out so offsets still map to the source.
  * @param {import("eslint").Rule.RuleContext} context
  * @returns {StyleBlock[]}
  */

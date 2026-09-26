@@ -23,6 +23,11 @@ ruleTester.run("no-color-literal", rule, {
     },
     { code: sfc(".a:not(#abc) { color: currentColor; }"), filename: "A.vue" },
     { code: sfc("#fade { fill: url(#fade); }"), filename: "A.vue" },
+    {
+      code: sfc(".a {\n  color: red;\n  li:not(#abc) { opacity: 1; }\n}"),
+      filename: "A.vue",
+    },
+    { code: sfc('.a::before { content: "#123"; }'), filename: "A.vue" },
     { code: sfc("/* was #fff */\n.a { color: white; }"), filename: "A.vue" },
     { code: 'const fill = "#ffffff";' },
     {
@@ -72,6 +77,11 @@ ruleTester.run("no-color-literal", rule, {
       code: sfc(".a {\n  color: #abc;\n}"),
       filename: "A.vue",
       errors: [{ ...error("#abc"), line: 5, column: 10 }],
+    },
+    {
+      code: sfc(".a {\n  @media print { display: none; }\n  color: #fff;\n}"),
+      filename: "A.vue",
+      errors: [{ ...error("#fff"), line: 6 }],
     },
     {
       code: `${sfc(".a { color: var(--r-color-fg); }")}<style>\n.b { color: #123456; }\n</style>\n`,
