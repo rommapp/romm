@@ -6,6 +6,7 @@ from typing import Any, NotRequired, TypedDict
 import pydash
 import socketio
 
+from adapters.services.igdb import IGDB_PLATFORM_LIST
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
@@ -47,7 +48,7 @@ from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST, Flashp
 from handler.metadata.gamelist_handler import GamelistRom
 from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST, HasheousRom
 from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST, HLTBRom
-from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST, IGDBRom
+from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.launchbox_handler.types import LaunchboxRom

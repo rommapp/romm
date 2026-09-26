@@ -13,11 +13,8 @@ from hypothesis import strategies as st
 from tests._zipfile_shim import reload_zipfile
 
 from adapters.services.sigil import SigilExtractionResult
-from config.config_manager import (
-    DEFAULT_EXCLUDED_EXTENSIONS,
-    LIBRARY_BASE_PATH,
-    Config,
-)
+from config import LIBRARY_BASE_PATH
+from config.config_manager import DEFAULT_EXCLUDED_EXTENSIONS, Config
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
     REGIONS_BY_SHORTCODE,

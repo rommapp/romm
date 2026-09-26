@@ -673,7 +673,8 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             "franchises": _get_franchises(game),
             "game_modes": _get_game_modes(game),
             "player_count": _get_player_count(game),
-            **extract_media_from_ss_game(rom, game),
+            # The media dict never carries the dump_* keys extra_checks asks about.
+            **extract_media_from_ss_game(rom, game),  # type: ignore[typeddict-item]
         }
     )
 

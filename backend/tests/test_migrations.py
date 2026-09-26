@@ -25,6 +25,7 @@ from models.base import BaseModel
 from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
+    HLTB_MAIN_STORY_COLUMN,
     POSTGRESQL_FK_INDEXES,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     exact_collation,
@@ -38,7 +39,6 @@ from utils.database import (
 )
 from utils.roms_columns import (
     FULL_PATH_HASH_COLUMN,
-    HLTB_MAIN_STORY_COLUMN,
     ROMS_METADATA_VIEW_COLUMNS,
     STEAM_FED_COLUMNS,
     STEAM_METADATA_COLUMN,

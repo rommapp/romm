@@ -9,12 +9,9 @@ from unittest.mock import Mock
 import pytest
 from tests._zipfile_shim import reload_zipfile
 
+from config import ASSETS_BASE_PATH
 from handler.filesystem import assets_handler
-from handler.filesystem.assets_handler import (
-    ASSETS_BASE_PATH,
-    FSAssetsHandler,
-    hash_save_file,
-)
+from handler.filesystem.assets_handler import FSAssetsHandler, hash_save_file
 from models.user import User
 
 

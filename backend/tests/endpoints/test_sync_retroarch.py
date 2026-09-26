@@ -17,6 +17,7 @@ from handler.database import (
 )
 from handler.filesystem import fs_asset_handler
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
+from handler.redis_handler import async_cache
 from handler.sync.retroarch import psp, sync_handler
 from handler.sync.retroarch.device import CLIENT_DEVICE_IDENTIFIER
 from handler.sync.retroarch.emulator_names import (
@@ -1203,7 +1204,7 @@ class TestRetroArchSyncPsp:
             auth=ADMIN_AUTH,
         )
 
-        with mock.patch.object(psp.async_cache, "get") as get:
+        with mock.patch.object(async_cache, "get") as get:
             response = client.get(
                 "/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH
             )
@@ -1220,7 +1221,7 @@ class TestRetroArchSyncPsp:
     def test_upload_succeeds_when_priming_the_cache_fails(
         self, client, admin_user: User
     ):
-        with mock.patch.object(psp.async_cache, "set", side_effect=RedisError("down")):
+        with mock.patch.object(async_cache, "set", side_effect=RedisError("down")):
             response = client.put(
                 "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
                 content=b"data",
@@ -1805,14 +1806,14 @@ class TestRetroArchSyncBrowsing:
     ):
         with (
             mock.patch.object(
-                sync_handler.db_save_handler,
+                db_save_handler,
                 "get_saves",
-                wraps=sync_handler.db_save_handler.get_saves,
+                wraps=db_save_handler.get_saves,
             ) as get_saves,
             mock.patch.object(
-                sync_handler.db_state_handler,
+                db_state_handler,
                 "get_states",
-                wraps=sync_handler.db_state_handler.get_states,
+                wraps=db_state_handler.get_states,
             ) as get_states,
         ):
             client.request(

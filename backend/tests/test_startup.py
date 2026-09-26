@@ -7,7 +7,9 @@ import startup
 from rq.exceptions import DuplicateJobError
 from rq.job import JOB_ID_PATTERN
 
+from handler.database import db_save_handler
 from handler.metadata.launchbox_handler.types import LAUNCHBOX_METADATA_STORE
+from handler.redis_handler import default_queue, high_prio_queue, low_prio_queue
 from tasks.registry import get_task
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
 from utils.cache import VersionedCacheStore
@@ -21,7 +23,7 @@ def enqueue_task(mocker):
 def test_enqueue_recompute_skips_when_no_missing_hashes(mocker, enqueue_task):
     """Saves all have content_hash -> no enqueue."""
     mocker.patch.object(
-        startup.db_save_handler, "count_saves_missing_content_hash", return_value=0
+        db_save_handler, "count_saves_missing_content_hash", return_value=0
     )
 
     startup._enqueue_recompute_save_hashes_if_needed()
@@ -32,7 +34,7 @@ def test_enqueue_recompute_skips_when_no_missing_hashes(mocker, enqueue_task):
 def test_enqueue_recompute_fires_when_missing_hashes_present(mocker, enqueue_task):
     """At least one Save row has NULL content_hash -> enqueue exactly once."""
     mocker.patch.object(
-        startup.db_save_handler, "count_saves_missing_content_hash", return_value=42
+        db_save_handler, "count_saves_missing_content_hash", return_value=42
     )
 
     startup._enqueue_recompute_save_hashes_if_needed()
@@ -79,7 +81,7 @@ def test_both_backfills_name_a_registered_task():
 def test_a_failed_backfill_enqueue_does_not_crash_startup(mocker, error):
     """An in-flight job from a previous restart, or a Redis outage, is survivable."""
     mocker.patch.object(
-        startup.db_save_handler, "count_saves_missing_content_hash", return_value=10
+        db_save_handler, "count_saves_missing_content_hash", return_value=10
     )
     mocker.patch.object(startup, "enqueue_task", side_effect=error)
 
@@ -90,7 +92,7 @@ def test_a_failed_backfill_enqueue_does_not_crash_startup(mocker, error):
 def test_enqueue_recompute_swallows_count_error(mocker, enqueue_task):
     """A failed COUNT query must not crash startup."""
     mocker.patch.object(
-        startup.db_save_handler,
+        db_save_handler,
         "count_saves_missing_content_hash",
         side_effect=RuntimeError("db gone"),
     )
@@ -118,11 +120,9 @@ class TestDropLegacySchedulerState:
 
     def test_deletes_orphaned_jobs_but_not_queued_ones(self, mocker, redis):
         redis.zrange.return_value = [b"orphan", b"queued"]
-        for queue in (startup.high_prio_queue, startup.default_queue):
+        for queue in (high_prio_queue, default_queue):
             mocker.patch.object(queue, "get_job_ids", return_value=[])
-        mocker.patch.object(
-            startup.low_prio_queue, "get_job_ids", return_value=["queued"]
-        )
+        mocker.patch.object(low_prio_queue, "get_job_ids", return_value=["queued"])
 
         startup._drop_legacy_scheduler_state()
 

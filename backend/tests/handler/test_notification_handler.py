@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from handler import notification_handler
+from handler.database import db_notification_handler, db_user_handler
 from handler.notification_handler import (
     NOTIFICATIONS_NEW_EVENT,
     UnknownRecipientsError,
@@ -15,6 +16,7 @@ from handler.notification_handler import (
     resolve_recipients,
     send,
 )
+from handler.socket_handler import socket_handler
 from models.notification import Notification, NotificationKind, NotificationLevel
 
 
@@ -29,9 +31,7 @@ def _stored(notifications: Sequence[Notification]) -> Sequence[Notification]:
 
 @pytest.fixture
 def emit(mocker):
-    return mocker.patch.object(
-        notification_handler.socket_handler, "emit_to_user", AsyncMock()
-    )
+    return mocker.patch.object(socket_handler, "emit_to_user", AsyncMock())
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +42,7 @@ def enqueue_channel_deliveries(mocker):
 @pytest.fixture
 def add_notifications(mocker):
     return mocker.patch.object(
-        notification_handler.db_notification_handler,
+        db_notification_handler,
         "add_notifications",
         side_effect=_stored,
     )
@@ -97,7 +97,7 @@ class TestNotify:
 
     async def test_a_storage_failure_pushes_nothing(self, mocker, emit):
         mocker.patch.object(
-            notification_handler.db_notification_handler,
+            db_notification_handler,
             "add_notifications",
             side_effect=RuntimeError("database gone"),
         )
@@ -124,7 +124,7 @@ class TestRecipientIds:
     @pytest.fixture
     def users(self, mocker):
         return mocker.patch.object(
-            notification_handler.db_user_handler,
+            db_user_handler,
             "get_users",
             return_value=[
                 MagicMock(id=1, enabled=True),
@@ -182,7 +182,7 @@ class TestResolveRecipients:
     @pytest.fixture
     def users(self, mocker):
         return mocker.patch.object(
-            notification_handler.db_user_handler,
+            db_user_handler,
             "get_users",
             return_value=[
                 MagicMock(id=1, enabled=True),
@@ -228,7 +228,7 @@ class TestSend:
 
     async def test_a_storage_failure_reaches_the_caller(self, mocker, emit):
         mocker.patch.object(
-            notification_handler.db_notification_handler,
+            db_notification_handler,
             "add_notifications",
             side_effect=RuntimeError("database gone"),
         )

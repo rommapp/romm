@@ -5,9 +5,10 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
+from streaming_form_data import StreamingFormDataParser
 
-from endpoints.roms import manual as manual_endpoint
 from handler.database import db_rom_handler
+from handler.filesystem import fs_resource_handler
 from models.rom import Rom, RomFile, RomFileCategory
 
 PDF_BYTES = b"%PDF-1.4\n%mock pdf\n%%EOF"
@@ -28,11 +29,9 @@ def manual_fs_resources(tmp_path: Path, mocker: MockerFixture):
         target = resources_dir / Path(path).name
         return target
 
+    mocker.patch.object(fs_resource_handler, "validate_path", validate_path)
     mocker.patch.object(
-        manual_endpoint.fs_resource_handler, "validate_path", validate_path
-    )
-    mocker.patch.object(
-        manual_endpoint.fs_resource_handler,
+        fs_resource_handler,
         "make_directory",
         AsyncMock(return_value=None),
     )
@@ -141,7 +140,7 @@ def test_upload_manual_to_resources_failure_keeps_other_extension(
 ):
     (manual_fs_resources / f"{rom.id}.pdf").write_bytes(PDF_BYTES)
     mocker.patch.object(
-        manual_endpoint.StreamingFormDataParser,
+        StreamingFormDataParser,
         "data_received",
         side_effect=RuntimeError("stream broke"),
     )
@@ -271,7 +270,7 @@ def test_redownload_manual_success(
     )
     fake_path = f"{rom.fs_resources_path}/manual/{rom.id}.pdf"
     mocker.patch.object(
-        manual_endpoint.fs_resource_handler,
+        fs_resource_handler,
         "get_manual",
         AsyncMock(return_value=fake_path),
     )
@@ -298,7 +297,7 @@ def test_delete_manual_no_manual_returns_404(
     mocker: MockerFixture,
 ):
     mocker.patch.object(
-        manual_endpoint.fs_resource_handler,
+        fs_resource_handler,
         "manual_exists",
         lambda _rom: False,
     )
@@ -325,13 +324,9 @@ def test_delete_manual_success(
             "locked_fields": ["url_manual"],
         },
     )
-    mocker.patch.object(
-        manual_endpoint.fs_resource_handler, "manual_exists", lambda _rom: True
-    )
+    mocker.patch.object(fs_resource_handler, "manual_exists", lambda _rom: True)
     remove_mock = AsyncMock(return_value=None)
-    mocker.patch.object(
-        manual_endpoint.fs_resource_handler, "remove_manual", remove_mock
-    )
+    mocker.patch.object(fs_resource_handler, "remove_manual", remove_mock)
 
     response = client.delete(
         f"/api/roms/{rom.id}/manuals",

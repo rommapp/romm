@@ -3,7 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from config.config_manager import LIBRARY_BASE_PATH, Config
+from config import LIBRARY_BASE_PATH
+from config.config_manager import Config
 from handler.filesystem.platforms_handler import FSPlatformsHandler
 
 

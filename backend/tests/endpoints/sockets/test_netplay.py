@@ -20,7 +20,9 @@ from endpoints.sockets.netplay import (
     webrtc_signal,
 )
 from handler.auth.constants import Scope
+from handler.database import db_rom_handler, db_user_handler
 from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom
+from handler.socket_handler import netplay_socket_handler
 
 ROM_ID = 42
 PLATFORM_ID = 7
@@ -79,7 +81,7 @@ def server(mocker) -> Mock:
     async def save_session(sid: str, session: dict[str, Any]) -> None:
         sessions[sid] = session
 
-    socket_server = netplay_module.netplay_socket_handler.socket_server
+    socket_server = netplay_socket_handler.socket_server
     mocker.patch.object(
         socket_server, "get_session", AsyncMock(side_effect=get_session)
     )
@@ -113,9 +115,7 @@ def rooms(mocker) -> Mock:
     handler.set = AsyncMock(side_effect=set_)
     handler.delete = AsyncMock()
 
-    mocker.patch.object(
-        netplay_module.db_rom_handler, "get_rom_visibility", return_value=VISIBLE_ROM
-    )
+    mocker.patch.object(db_rom_handler, "get_rom_visibility", return_value=VISIBLE_ROM)
     permissions = mocker.patch.object(netplay_module, "resolve_permissions")
     permissions.return_value.can_see_rom = Mock(return_value=True)
     return Mock(store=store, handler=handler, permissions=permissions)
@@ -183,9 +183,7 @@ class TestOpenRoomAuthorization:
         """The identity is reloaded per call, so a disable lands without a reconnect."""
         disabled = _user(Scope.ROMS_READ)
         disabled.enabled = False
-        mocker.patch.object(
-            netplay_module.db_user_handler, "get_user", return_value=disabled
-        )
+        mocker.patch.object(db_user_handler, "get_user", return_value=disabled)
         server.sessions["sid"] = {AUTH_USER_SESSION_KEY: 1}
 
         result = await open_room("sid", _open())
@@ -212,9 +210,7 @@ class TestOpenRoomAuthorization:
             "_authenticated_user",
             AsyncMock(return_value=_user(Scope.ROMS_READ)),
         )
-        mocker.patch.object(
-            netplay_module.db_rom_handler, "get_rom_visibility", return_value=None
-        )
+        mocker.patch.object(db_rom_handler, "get_rom_visibility", return_value=None)
 
         result = await open_room("sid", _open())
 
@@ -498,7 +494,7 @@ class TestLoginSessionBinding:
 
     async def test_disconnect_forgets_the_binding(self, mocker, server, rooms):
         unbind = mocker.patch.object(
-            netplay_module.netplay_socket_handler,
+            netplay_socket_handler,
             "unbind_from_login_session",
             AsyncMock(),
         )
@@ -512,7 +508,7 @@ class TestEventWiring:
     """The gates only hold if they are attached to the netplay server, not `/ws`."""
 
     def test_handlers_are_registered_on_the_netplay_server(self):
-        handlers = netplay_module.netplay_socket_handler.socket_server.handlers["/"]
+        handlers = netplay_socket_handler.socket_server.handlers["/"]
 
         assert handlers["connect"] is connect
         assert handlers["disconnect"] is disconnect
@@ -523,9 +519,7 @@ class TestEventWiring:
 class TestConnectIdentity:
     @pytest.fixture
     def authenticate(self, mocker) -> AsyncMock:
-        return mocker.patch.object(
-            netplay_module.netplay_socket_handler, "authenticate", AsyncMock()
-        )
+        return mocker.patch.object(netplay_socket_handler, "authenticate", AsyncMock())
 
     async def test_stores_identity_for_an_authenticated_session(
         self, server, authenticate
