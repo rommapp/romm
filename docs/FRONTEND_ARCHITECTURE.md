@@ -1126,7 +1126,7 @@ Generated types used throughout stores and API services for type-safe backend co
 - TypeScript-ESLint integration
 - Vue accessibility plugin (`eslint-plugin-vuejs-accessibility`)
 - Repo rules in `eslint-plugin-romm/`, tested by the `eslint-plugin-romm` Vitest project
-- Run through `trunk check`; there is no npm lint script
+- Run through `trunk check`
 
 ---
 
