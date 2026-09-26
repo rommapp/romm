@@ -20,6 +20,7 @@ from typing import cast
 import sentry_sdk
 
 from config import ENABLE_SYNC_FOLDER_WATCHER, SENTRY_DSN
+from handler.asset_store import unrecorded_hash
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
@@ -267,6 +268,7 @@ def _process_incoming_file(
             )
             with open(full_path, "rb") as f:
                 file_data = f.read()
+            replaced_hash = asyncio.run(unrecorded_hash(matched_save))
             asyncio.run(
                 fs_asset_handler.write_file(
                     file=file_data,
@@ -280,6 +282,7 @@ def _process_incoming_file(
                     "file_size_bytes": file_size,
                     "content_hash": file_hash,
                 },
+                replaced_hash=replaced_hash,
             )
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,

@@ -1944,33 +1944,39 @@ class TestAutocleanup:
         admin_user: User,
         slot_saves: list[Save],
     ):
-        mock_hash.side_effect = lambda path: f"hash of {path.rsplit('/', 1)[-1]}"
+        raced: list[Save] = []
+
+        def hash_while_another_upload_lands(path: str) -> str:
+            if not raced:
+                upload = _slot_save(admin_user, rom, platform, "raced", "autosave")
+                upload.content_hash = "raced"
+                raced.append(db_save_handler.add_save(upload))
+            return f"hash of {path.rsplit('/', 1)[-1]}"
+
+        mock_hash.side_effect = hash_while_another_upload_lands
         mock_scan.return_value = _slot_save(
             admin_user, rom, platform, "new_autosave", "autosave"
         )
 
-        # Nothing was past the limit when hashing ran, as if an upload landed after.
-        with mock.patch.object(
-            db_save_handler, "get_unhashed_versions_past", return_value=[]
-        ):
-            response = client.post(
-                f"/api/saves?rom_id={rom.id}&slot=autosave&autocleanup=true&autocleanup_limit=10",
-                files={
-                    "saveFile": (
-                        "new_autosave.sav",
-                        BytesIO(b"new"),
-                        "application/octet-stream",
-                    )
-                },
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot=autosave&autocleanup=true&autocleanup_limit=10",
+            files={
+                "saveFile": (
+                    "new_autosave.sav",
+                    BytesIO(b"new"),
+                    "application/octet-stream",
+                )
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
 
         assert response.status_code == status.HTTP_200_OK
         [record] = db_deleted_asset_handler.get_deletions(
             user_id=admin_user.id, rom_ids=[rom.id]
         )
+        # The race pushed a seventh version past the limit.
         assert record.content_hashes == [
-            f"hash of autosave_{index}.sav" for index in range(6)
+            f"hash of autosave_{index}.sav" for index in range(7)
         ]
 
     @mock.patch(

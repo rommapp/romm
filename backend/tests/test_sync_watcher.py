@@ -198,7 +198,9 @@ class TestProcessIncomingFileFilenameOnlyMatching:
             patch("sync_watcher.asyncio") as mock_asyncio,
         ):
             mock_cmp.return_value = MagicMock(action="upload", reason=None)
-            mock_asyncio.run = MagicMock()
+            mock_asyncio.run = MagicMock(
+                side_effect=lambda awaitable: awaitable.close()
+            )
             _process_incoming_file(
                 device=device,
                 session_id=1,
@@ -265,7 +267,9 @@ class TestProcessIncomingFileFilenameOnlyMatching:
             patch("sync_watcher.asyncio") as mock_asyncio,
         ):
             mock_cmp.return_value = MagicMock(action="upload", reason=None)
-            mock_asyncio.run = MagicMock()
+            mock_asyncio.run = MagicMock(
+                side_effect=lambda awaitable: awaitable.close()
+            )
             _process_incoming_file(
                 device=device,
                 session_id=1,

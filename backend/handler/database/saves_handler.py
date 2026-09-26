@@ -24,6 +24,14 @@ class _SlotMoved(Exception):
     """The save changed slot between the unlocked read and its lock."""
 
 
+class UnhashedVersions(Exception):
+    """Versions a prune would drop without a hash to record them by."""
+
+    def __init__(self, versions: Sequence[Row]):
+        super().__init__(f"{len(versions)} versions to prune were never hashed")
+        self.versions = versions
+
+
 def _retry_if_slot_moved[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     """Rerun a removal in a fresh transaction, releasing the stale slot's lock."""
 
@@ -287,19 +295,6 @@ class DBSavesHandler(DBBaseHandler):
             raise _SlotMoved
         return current
 
-    @begin_session
-    def get_unhashed_versions_past(
-        self,
-        user_id: int,
-        rom_id: int,
-        slot: str,
-        keep: int,
-        session: Session = None,  # type: ignore[assignment]
-    ) -> list[Row]:
-        """The versions past the ``keep`` newest never hashed, with their ``id`` and path."""
-        rows = session.execute(_past_keep(user_id, rom_id, slot, keep)).all()
-        return [row for row in rows if not row.content_hash]
-
     @_retry_if_slot_moved
     @begin_session
     def update_save(
@@ -307,6 +302,7 @@ class DBSavesHandler(DBBaseHandler):
         id: int,
         data: dict,
         touch: bool = True,
+        replaced_hash: str | None = None,
         session: Session = None,  # type: ignore[assignment]
     ) -> Save:
         """Write `data` onto a save.
@@ -314,12 +310,13 @@ class DBSavesHandler(DBBaseHandler):
         Args:
             touch: False keeps `updated_at`, since annotating is not a write
                 to the bytes and device sync reads it to detect staleness.
+            replaced_hash: What the version held, for a row that never hashed it.
         """
         data = with_file_name_parts(data)
         if "content_hash" in data or "slot" in data:
             current = self._lock_for_removal(id, session)
             if current and _loses_version(current, data):
-                _record_loss(current, session)
+                _record_loss(current, session, replaced_hash)
         return self._write(id, data, touch, session)
 
     @begin_session
@@ -366,7 +363,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         slot: str,
         keep: int,
-        fallback_hashes: Mapping[int, str] | None = None,
+        fallback_hashes: Mapping[int, str | None] | None = None,
         session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Row]:
         """Delete every version of a slot past the ``keep`` newest.
@@ -375,13 +372,29 @@ class DBSavesHandler(DBBaseHandler):
         so two uploads pruning it cannot both keep a version the other dropped.
 
         Args:
-            fallback_hashes: What versions never hashed held, by save id.
+            fallback_hashes: What versions never hashed held, by save id, or
+                None for a file that couldn't be read.
 
         Returns:
             Each deleted version's hash and ``file_path``, ``file_name`` and
             ``file_name_no_ext``, newest first.
+
+        Raises:
+            UnhashedVersions: Deleting nothing, for versions never hashed that
+                ``fallback_hashes`` lacks.
         """
-        past_keep = _past_keep(user_id, rom_id, slot, keep)
+        past_keep = (
+            select(
+                Save.id,
+                *_VERSION_COLUMNS,
+                Save.file_path,
+                Save.file_name,
+                Save.file_name_no_ext,
+            )
+            .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
+            .order_by(desc(Save.updated_at), desc(Save.id))
+            .offset(keep)
+        )
         # Before this session holds a connection, since ensuring takes its own.
         if not self._any(past_keep):
             return []
@@ -394,8 +407,15 @@ class DBSavesHandler(DBBaseHandler):
             .with_hint(Save, hint, "mysql")
             .with_for_update()
         ).all()
-        # Oldest first, so trimming the record drops the oldest version first.
         fallback_hashes = fallback_hashes or {}
+        unhashed = [
+            row
+            for row in rows
+            if not row.content_hash and row.id not in fallback_hashes
+        ]
+        if unhashed:
+            raise UnhashedVersions(unhashed)
+        # Oldest first, so trimming the record drops the oldest version first.
         lost = [
             content_hash
             for row in reversed(rows)
@@ -531,21 +551,6 @@ class DBSavesHandler(DBBaseHandler):
         return session.scalars(
             select(Save).where(Save.id > after_id).order_by(asc(Save.id)).limit(limit)
         ).all()
-
-
-def _past_keep(user_id: int, rom_id: int, slot: str, keep: int) -> Select:
-    return (
-        select(
-            Save.id,
-            *_VERSION_COLUMNS,
-            Save.file_path,
-            Save.file_name,
-            Save.file_name_no_ext,
-        )
-        .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
-        .order_by(desc(Save.updated_at), desc(Save.id))
-        .offset(keep)
-    )
 
 
 def _version_query(id: int) -> Select:

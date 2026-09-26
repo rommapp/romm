@@ -332,6 +332,7 @@ class TestDBSavesHandlerSlotFiltering:
                     file_path=f"{rom.platform_slug}/saves",
                     file_size_bytes=100,
                     slot=name,
+                    content_hash=f"exact_{index}",
                 )
             )
 
@@ -1062,7 +1063,7 @@ class TestDBSavesHandlerRecordsLostVersions:
 
         assert self._lost(admin_user, rom) == {"autosave": ["v0", "v1"]}
 
-    def test_only_unhashed_versions_a_prune_drops_are_listed(
+    def test_a_prune_hands_back_versions_it_has_no_hash_for(
         self, admin_user: User, rom: Rom
     ):
         for index, content_hash in enumerate([None, "hashed", None]):
@@ -1071,11 +1072,34 @@ class TestDBSavesHandlerRecordsLostVersions:
                 save.id, {"updated_at": datetime(2026, 1, 1 + index, tzinfo=UTC)}
             )
 
-        unhashed = db_save_handler.get_unhashed_versions_past(
-            admin_user.id, rom.id, "autosave", keep=1
+        with pytest.raises(saves_handler_module.UnhashedVersions) as raised:
+            db_save_handler.prune_slot(
+                user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=1
+            )
+        [unhashed] = raised.value.versions
+        assert unhashed.file_name == "v0.sav"
+        assert len(db_save_handler.get_saves(user_id=admin_user.id)) == 3
+
+        db_save_handler.prune_slot(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="autosave",
+            keep=1,
+            fallback_hashes={unhashed.id: "from_file"},
         )
 
-        assert [row.file_name for row in unhashed] == ["v0.sav"]
+        assert self._lost(admin_user, rom) == {"autosave": ["from_file", "hashed"]}
+
+    def test_an_overwritten_version_never_hashed_takes_the_callers_hash(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "unhashed", "autosave", None)
+
+        db_save_handler.update_save(
+            save.id, {"content_hash": "new"}, replaced_hash="from_file"
+        )
+
+        assert self._lost(admin_user, rom) == {"autosave": ["from_file"]}
 
     def test_a_version_overwritten_since_it_was_read_is_recorded(
         self, admin_user: User, rom: Rom

@@ -14,12 +14,12 @@ from typing import Any, BinaryIO, TypeAlias, cast
 from fastapi import HTTPException, UploadFile, status
 
 from handler.database import (
-    db_deleted_asset_handler,
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
 )
 from handler.database.base_handler import sync_session
+from handler.database.saves_handler import UnhashedVersions
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_screenshot, scan_state
 from logger.formatter import highlight as hl
@@ -170,37 +170,24 @@ async def remove_save(save: Save) -> None:
 
 async def prune_save_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
     """Drop every version of ``slot`` past the ``keep`` newest, files included."""
-    # Hashed before the prune, so a version never hashed is recorded along with it.
-    fallback_hashes = {}
-    for version in db_save_handler.get_unhashed_versions_past(
-        user_id, rom_id, slot, keep
-    ):
-        content_hash = await fs_asset_handler.compute_content_hash(
-            f"{version.file_path}/{version.file_name}"
-        )
-        if content_hash:
-            fallback_hashes[version.id] = content_hash
-    pruned = db_save_handler.prune_slot(
-        user_id=user_id,
-        rom_id=rom_id,
-        slot=slot,
-        keep=keep,
-        fallback_hashes=fallback_hashes,
-    )
-    # A version an upload pushed past `keep` after the hashing above.
-    late_hashes = [
-        content_hash
-        for version in reversed(pruned)
-        if not version.content_hash
-        and version.id not in fallback_hashes
-        and (
-            content_hash := await fs_asset_handler.compute_content_hash(
-                f"{version.file_path}/{version.file_name}"
+    # Hashed outside the slot's lock, recorded by the prune that deletes them.
+    # Each pass hashes only what the last one lacked.
+    file_hashes: dict[int, str | None] = {}
+    while True:
+        try:
+            pruned = db_save_handler.prune_slot(
+                user_id=user_id,
+                rom_id=rom_id,
+                slot=slot,
+                keep=keep,
+                fallback_hashes=file_hashes,
             )
-        )
-    ]
-    if late_hashes:
-        db_deleted_asset_handler.record_deletions(user_id, rom_id, slot, late_hashes)
+            break
+        except UnhashedVersions as unhashed:
+            for version in unhashed.versions:
+                file_hashes[version.id] = await fs_asset_handler.compute_content_hash(
+                    f"{version.file_path}/{version.file_name}"
+                )
     for version in pruned:
         await remove_asset_file(f"{version.file_path}/{version.file_name}", "Save file")
         await release_thumbnail(

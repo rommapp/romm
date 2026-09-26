@@ -13,7 +13,12 @@ from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummar
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from handler.asset_store import prune_save_slot, remove_save, rename_asset
+from handler.asset_store import (
+    prune_save_slot,
+    remove_save,
+    rename_asset,
+    unrecorded_hash,
+)
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
@@ -271,6 +276,7 @@ async def add_save(
         f"Uploading save {hl(actual_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
+    replaced_hash = await unrecorded_hash(db_save) if db_save else None
     await fs_asset_handler.write_file(
         file=saveFile, path=saves_path, filename=actual_filename
     )
@@ -324,7 +330,9 @@ async def add_save(
         }
         if slot is not None:
             update_data["slot"] = slot
-        db_save = db_save_handler.update_save(db_save.id, update_data)
+        db_save = db_save_handler.update_save(
+            db_save.id, update_data, replaced_hash=replaced_hash
+        )
 
         # Delete orphaned bytes only if no other row references the old path.
         if stale_full_path != db_save.full_path:

@@ -12,6 +12,7 @@ from anyio import Path as AnyioPath
 from anyio import open_file
 
 from config import ENABLE_SYNC_PUSH_PULL, SYNC_PUSH_PULL_CRON
+from handler.asset_store import unrecorded_hash
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
@@ -288,6 +289,7 @@ async def _process_remote_save(
             )
             async with await open_file(local_path, "rb") as f:
                 file_data = await f.read()
+            replaced_hash = await unrecorded_hash(matched_save)
             await fs_asset_handler.write_file(
                 file=file_data,
                 path=matched_save.file_path,
@@ -299,6 +301,7 @@ async def _process_remote_save(
                     "file_size_bytes": remote_save.file_size,
                     "content_hash": remote_hash,
                 },
+                replaced_hash=replaced_hash,
             )
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
