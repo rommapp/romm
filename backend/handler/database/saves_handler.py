@@ -1,4 +1,4 @@
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Literal
 
 from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select, update
@@ -250,17 +250,29 @@ class DBSavesHandler(DBBaseHandler):
     ) -> Row | None:
         return session.execute(_version_query(id)).one_or_none()
 
-    def _lock_for_removal(
-        self, id: int, session: Session, content_hash: str | None = None
-    ) -> Row | None:
+    def _lock_for_removal(self, id: int, session: Session) -> Row | None:
         """Lock the save's slot record, then the save, returning its current version."""
         # Before this session holds a connection, since ensuring takes its own.
         before = self._slot_version(id)
         if not before or not before.slot:
             return None
-        if before.content_hash or content_hash:
-            _lock_slot(before.user_id, before.rom_id, before.slot, session)
+        _lock_slot(before.user_id, before.rom_id, before.slot, session)
         return session.execute(_version_query(id).with_for_update()).one_or_none()
+
+    @begin_session
+    def get_unhashed_slot_versions(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Sequence[Row]:
+        """The slot's versions never hashed, by ``id``, ``file_path`` and ``file_name``."""
+        return session.execute(
+            select(Save.id, Save.file_path, Save.file_name).filter_by(
+                user_id=user_id, rom_id=rom_id, slot=slot, content_hash=None
+            )
+        ).all()
 
     @begin_session
     def update_save(
@@ -327,12 +339,16 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         slot: str,
         keep: int,
+        fallback_hashes: Mapping[int, str] | None = None,
         session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Row]:
         """Delete every version of a slot past the ``keep`` newest.
 
         The slot's record is locked while its versions are listed and deleted,
         so two uploads pruning it cannot both keep a version the other dropped.
+
+        Args:
+            fallback_hashes: What versions never hashed held, by save id.
 
         Returns:
             Each deleted version's hash and ``file_path``, ``file_name`` and
@@ -363,7 +379,12 @@ class DBSavesHandler(DBBaseHandler):
             .with_for_update()
         ).all()
         # Oldest first, so trimming the record drops the oldest version first.
-        lost = [row.content_hash for row in reversed(rows) if row.content_hash]
+        fallback_hashes = fallback_hashes or {}
+        lost = [
+            content_hash
+            for row in reversed(rows)
+            if (content_hash := row.content_hash or fallback_hashes.get(row.id))
+        ]
         if lost:
             _deleted_assets.record_deletions(
                 user_id, rom_id, slot, lost, session=session
@@ -396,7 +417,7 @@ class DBSavesHandler(DBBaseHandler):
         Args:
             content_hash: What the version held, for a row that never hashed it.
         """
-        current = self._lock_for_removal(id, session, content_hash)
+        current = self._lock_for_removal(id, session)
         if current:
             _record_loss(current, session, content_hash)
         session.execute(

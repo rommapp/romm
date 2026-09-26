@@ -14,7 +14,6 @@ from typing import Any, BinaryIO, TypeAlias, cast
 from fastapi import HTTPException, UploadFile, status
 
 from handler.database import (
-    db_deleted_asset_handler,
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
@@ -154,31 +153,37 @@ async def release_thumbnail(screenshot: Screenshot | None) -> None:
     await remove_asset_file(path, "Screenshot file")
 
 
+async def unrecorded_hash(save: Save) -> str | None:
+    """The file's hash for a slotted save never hashed, so its removal is still recorded."""
+    if save.slot and not save.content_hash:
+        return await fs_asset_handler.compute_content_hash(save.full_path)
+    return None
+
+
 async def remove_save(save: Save) -> None:
     """Drop a save row with its file and screenshot."""
-    content_hash = None
-    if save.slot and not save.content_hash:
-        content_hash = await fs_asset_handler.compute_content_hash(save.full_path)
-    db_save_handler.delete_save(save.id, content_hash=content_hash)
+    db_save_handler.delete_save(save.id, content_hash=await unrecorded_hash(save))
     await remove_asset_file(save.full_path, "Save file")
     await release_thumbnail(save.screenshot)
 
 
 async def prune_save_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
     """Drop every version of ``slot`` past the ``keep`` newest, files included."""
+    # Hashed before the prune, so a version never hashed is recorded along with it.
+    fallback_hashes = {}
+    for version in db_save_handler.get_unhashed_slot_versions(user_id, rom_id, slot):
+        content_hash = await fs_asset_handler.compute_content_hash(
+            f"{version.file_path}/{version.file_name}"
+        )
+        if content_hash:
+            fallback_hashes[version.id] = content_hash
     pruned = db_save_handler.prune_slot(
-        user_id=user_id, rom_id=rom_id, slot=slot, keep=keep
+        user_id=user_id,
+        rom_id=rom_id,
+        slot=slot,
+        keep=keep,
+        fallback_hashes=fallback_hashes,
     )
-    # A version never hashed could not be recorded, so its file is hashed first.
-    for version in reversed(pruned):
-        if not version.content_hash:
-            content_hash = await fs_asset_handler.compute_content_hash(
-                f"{version.file_path}/{version.file_name}"
-            )
-            if content_hash:
-                db_deleted_asset_handler.record_deletion(
-                    user_id, rom_id, slot, content_hash
-                )
     for version in pruned:
         await remove_asset_file(f"{version.file_path}/{version.file_name}", "Save file")
         await release_thumbnail(

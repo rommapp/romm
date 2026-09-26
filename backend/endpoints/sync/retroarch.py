@@ -10,6 +10,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request, Response, UploadFile, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
+from handler.asset_store import unrecorded_hash
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
@@ -482,7 +483,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             await psp.put_psp_file(
                 request.user, psp_path, content, _rom_visibility(request)
             )
-        except (psp.PspFolderUnresolved, psp.PspBundleInvalid, ValueError):
+        except psp.PspFolderUnresolved, psp.PspBundleInvalid, ValueError:
             return _empty(status.HTTP_409_CONFLICT)
         return _empty(status.HTTP_201_CREATED)
 
@@ -658,7 +659,7 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if isinstance(asset, Screenshot):
         db_screenshot_handler.delete_screenshot(asset.id)
     elif isinstance(asset, Save):
-        db_save_handler.delete_save(asset.id)
+        db_save_handler.delete_save(asset.id, content_hash=await unrecorded_hash(asset))
     else:
         db_state_handler.delete_state(asset.id)
 
