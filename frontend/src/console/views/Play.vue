@@ -32,7 +32,7 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
-import { firmwareExternalFiles } from "@/utils/emulatorjsFirmware";
+import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import {
   buildStateFormData,
   resolveScreenshot,

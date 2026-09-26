@@ -37,8 +37,8 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
 } from "@/utils";
-import { firmwareExternalFiles } from "@/utils/emulatorjsFirmware";
 import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
+import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import {
   saveSave,
   captureScreenshot,
