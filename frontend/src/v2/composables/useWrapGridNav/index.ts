@@ -1,6 +1,6 @@
 // useWrapGridNav
 //
-// 2D arrow-key navigation for wrapping CSS grids — the layout
+// 2D arrow-key navigation for wrapping CSS grids, the layout
 // PlatformsIndex / CollectionsIndex use:
 //
 //   .grid {
@@ -10,7 +10,7 @@
 //
 // There are no per-row DOM containers; tiles wrap visually based on the
 // viewport width. Rows are reconstructed at navigation time from each
-// cell's `getBoundingClientRect().top` — cells with (approximately) the
+// cell's `getBoundingClientRect().top`: cells with (approximately) the
 // same top live on the same visual row. This handles:
 //   * variable column count at different breakpoints
 //   * multiple grouped grids in a single view (each group's grid sits
@@ -46,7 +46,7 @@ const FOCUSABLE_SELECTOR = [
 const ROW_TOP_TOLERANCE = 2;
 
 export interface UseWrapGridNavOptions {
-  /** CSS selector for the focusable tiles within the root. Required —
+  /** CSS selector for the focusable tiles within the root. Required:
    *  the composable can't guess what counts as a cell (the grid may also
    *  contain headings, panels, dividers, etc). */
   cellSelector: string;
@@ -132,7 +132,11 @@ export function useWrapGridNav(
     return null;
   }
 
-  function focusAt(rowIdx: number, colIdx: number) {
+  function focusAt(
+    rowIdx: number,
+    colIdx: number,
+    opts: { verticalJump?: boolean } = {},
+  ) {
     const rs = rows();
     const row = rs[rowIdx];
     if (!row) return;
@@ -141,7 +145,7 @@ export function useWrapGridNav(
     const cell = row[clamped];
     const target = focusableIn(cell);
 
-    // Roving tabindex — only the current cell is a tab stop. Mirrors
+    // Roving tabindex: only the current cell is a tab stop. Mirrors
     // useGridNav's approach so Tab from outside the grid lands on the
     // last-focused tile.
     const previous = rootRef.value?.querySelectorAll<HTMLElement>(
@@ -155,7 +159,12 @@ export function useWrapGridNav(
     target.setAttribute("tabindex", "0");
 
     target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    // "nearest" would stop at the viewport edge, which on index pages sits
+    // under the fixed top bar and pinned toolbar, hiding the row above.
+    target.scrollIntoView({
+      block: opts.verticalJump ? "center" : "nearest",
+      behavior: "smooth",
+    });
   }
 
   function focusFirst() {
@@ -168,7 +177,7 @@ export function useWrapGridNav(
   // Restore focus to whichever tile carried the saved `[data-focus-key]`
   // on this route the last time the user was here. Returns false when the
   // saved key has no match in the current view (filter changed, item
-  // removed) — the caller falls back to `focusFirst`.
+  // removed); the caller falls back to `focusFirst`.
   function focusSaved(): boolean {
     const savedKey = focusStore.restore(route.fullPath);
     if (!savedKey) return false;
@@ -177,7 +186,7 @@ export function useWrapGridNav(
       for (let c = 0; c < rs[r].length; c++) {
         if (focusKeyOf(rs[r][c]) === savedKey) {
           preferredCol = c;
-          focusAt(r, c);
+          focusAt(r, c, { verticalJump: true });
           return true;
         }
       }
@@ -204,6 +213,7 @@ export function useWrapGridNav(
     const rs = rows();
     let { rowIdx, colIdx } = cur;
     const rowCells = rs[rowIdx];
+    let verticalJump = false;
 
     if (e.key === "ArrowLeft") {
       if (colIdx === 0) return;
@@ -217,14 +227,16 @@ export function useWrapGridNav(
       if (rowIdx === 0) return;
       rowIdx -= 1;
       colIdx = preferredCol;
+      verticalJump = true;
     } else if (e.key === "ArrowDown") {
       if (rowIdx === rs.length - 1) return;
       rowIdx += 1;
       colIdx = preferredCol;
+      verticalJump = true;
     }
 
     e.preventDefault();
-    focusAt(rowIdx, colIdx);
+    focusAt(rowIdx, colIdx, { verticalJump });
   }
 
   let observer: MutationObserver | null = null;
