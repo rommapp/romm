@@ -40,7 +40,7 @@ class DBStatsHandler(DBBaseHandler):
         self,
         hidden_platform_ids: Collection[int] | None = None,
         hidden_rom_ids: Collection[int] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         """Get the number of platforms with any roms."""
         query = _exclude_hidden(
@@ -55,7 +55,7 @@ class DBStatsHandler(DBBaseHandler):
         self,
         hidden_platform_ids: Collection[int] | None = None,
         hidden_rom_ids: Collection[int] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         query = _exclude_hidden(
             select(func.count()).select_from(Rom),
@@ -67,21 +67,21 @@ class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_saves_count(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         return session.scalar(select(func.count()).select_from(Save)) or 0
 
     @begin_session
     def get_states_count(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         return session.scalar(select(func.count()).select_from(State)) or 0
 
     @begin_session
     def get_screenshots_count(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         return session.scalar(select(func.count()).select_from(Screenshot)) or 0
 
@@ -90,7 +90,7 @@ class DBStatsHandler(DBBaseHandler):
         self,
         hidden_platform_ids: Collection[int] | None = None,
         hidden_rom_ids: Collection[int] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         """Get the total filesize of all roms in the database, in bytes."""
         query = select(func.sum(RomFile.file_size_bytes)).select_from(RomFile)
@@ -104,7 +104,7 @@ class DBStatsHandler(DBBaseHandler):
     def get_platform_filesize(
         self,
         platform_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         """Get the total filesize of all roms in the database, in bytes."""
         return (
@@ -122,7 +122,7 @@ class DBStatsHandler(DBBaseHandler):
         self,
         hidden_platform_ids: Collection[int] | None = None,
         hidden_rom_ids: Collection[int] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> dict[int, list[MetadataCoverageItem]]:
         """Get the count of ROMs matched per metadata source, grouped by platform.
 
@@ -160,7 +160,7 @@ class DBStatsHandler(DBBaseHandler):
         self,
         hidden_platform_ids: Collection[int] | None = None,
         hidden_rom_ids: Collection[int] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> dict[int, list[RegionBreakdownItem]]:
         """Get the count of ROMs per region, grouped by platform.
 

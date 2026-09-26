@@ -14,7 +14,7 @@ class DBFirmwareHandler(DBBaseHandler):
     def add_firmware(
         self,
         firmware: Firmware,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Firmware:
         return session.merge(firmware)
 
@@ -23,7 +23,7 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         id: int,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Firmware | None:
         return session.scalar(select(Firmware).filter_by(id=id).limit(1))
 
@@ -56,7 +56,7 @@ class DBFirmwareHandler(DBBaseHandler):
         platform_ids: Sequence[int] | None = None,
         missing: bool | None = None,
         hidden_platform_ids: Collection[int] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Firmware]:
         query = self._firmware_query(
             platform_ids=platform_ids,
@@ -74,7 +74,7 @@ class DBFirmwareHandler(DBBaseHandler):
         platform_ids: Sequence[int] | None = None,
         missing: bool | None = None,
         hidden_platform_ids: Collection[int] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[int]:
         """Ids only, so no `Firmware` is built and no eager platform join fires."""
         query = self._firmware_query(
@@ -89,7 +89,7 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         platform_id: int,
         file_name: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ):
         return session.scalar(
             select(Firmware)
@@ -102,7 +102,7 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         id: int,
         data: dict,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Firmware:
         session.execute(
             update(Firmware)
@@ -116,7 +116,7 @@ class DBFirmwareHandler(DBBaseHandler):
     def delete_firmware(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(
             delete(Firmware)
@@ -129,7 +129,7 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         platform_id: int,
         fs_firmwares_to_keep: list[str],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Firmware]:
         missing_firmware = (
             session.scalars(

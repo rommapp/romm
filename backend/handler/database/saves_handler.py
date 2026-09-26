@@ -17,7 +17,7 @@ class DBSavesHandler(DBBaseHandler):
     def add_save(
         self,
         save: Save,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Save:
         return session.merge(save)
 
@@ -26,7 +26,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         user_id: int,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Save | None:
         return session.scalar(select(Save).filter_by(user_id=user_id, id=id).limit(1))
 
@@ -37,7 +37,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         file_name: str,
         slot: str | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Save | None:
         query = select(Save).filter_by(
             rom_id=rom_id, user_id=user_id, file_name=file_name
@@ -55,7 +55,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         file_path: str,
         file_name: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Save | None:
         return session.scalars(
             select(Save)
@@ -72,7 +72,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         content_hash: str,
         slot: str | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Save | None:
         query = select(Save).filter_by(
             rom_id=rom_id, user_id=user_id, content_hash=content_hash
@@ -138,7 +138,7 @@ class DBSavesHandler(DBBaseHandler):
         file_name_prefix: str | None = None,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Save]:
         query = self._saves_query(
             user_id=user_id,
@@ -163,7 +163,7 @@ class DBSavesHandler(DBBaseHandler):
         slot_not_null: bool = False,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[int]:
         """Ids only, so no `Save` is built and no eager rom or user join fires."""
         query = self._saves_query(
@@ -181,7 +181,7 @@ class DBSavesHandler(DBBaseHandler):
     def get_save_by_id(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Save | None:
         """Fetch a save by id without scoping to an owner. Used for the
         visibility toggle and community downloads, where the caller may not own
@@ -194,7 +194,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         public_only: bool = False,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Save]:
         """Saves for a ROM visible to the requesting user: own (public +
         private) plus other users' public ones. Mirrors
@@ -214,7 +214,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> dict[int, Save]:
         """The most recent save per ROM for a user, keyed by `rom_id`.
 
@@ -242,7 +242,7 @@ class DBSavesHandler(DBBaseHandler):
         id: int,
         data: dict,
         touch: bool = True,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Save:
         """Write `data` onto a save.
 
@@ -267,7 +267,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         slot: str,
         keep: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> list[tuple[str, str, str]]:
         """Delete every version of a slot past the ``keep`` newest.
 
@@ -296,7 +296,7 @@ class DBSavesHandler(DBBaseHandler):
     def delete_save(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(
             delete(Save)
@@ -310,7 +310,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         saves_to_keep: list[str],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Save]:
         missing_saves = session.scalars(
             select(Save).filter(
@@ -342,7 +342,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> dict:
         saves = session.scalars(
             select(Save)
@@ -365,7 +365,7 @@ class DBSavesHandler(DBBaseHandler):
     @begin_session
     def count_saves_missing_content_hash(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         """Number of Save rows whose content_hash is NULL. Used at startup to
         decide whether the one-shot recompute task needs to be enqueued."""
@@ -381,7 +381,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         after_id: int,
         limit: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Save]:
         """Page Save rows by primary key. Returns up to ``limit`` rows with
         ``id > after_id``, ordered by id. Used by the
