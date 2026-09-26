@@ -1,9 +1,6 @@
 <script setup lang="ts">
-// CachedPlatformIcon — reads the platform icon from the in-memory
-// blob cache populated by `prefetchPlatformIcons(...)`. When the
-// cache has a hit, renders a plain `<img>` with the blob URL (zero
-// network). Otherwise it uses the shipped icon, or `default.ico` when
-// none ships, so users never see the browser's broken-image glyph.
+// Prefers the blob cache filled by `prefetchPlatformIcons(...)` (zero
+// network), then the shipped icon, then `default.ico`.
 import { RImg } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import {

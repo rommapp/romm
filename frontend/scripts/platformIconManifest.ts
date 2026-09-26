@@ -1,6 +1,5 @@
 // Exposes the icons under assets/platforms as `virtual:platform-icons`, so
-// the app can skip requests for icons that were never shipped. An
-// `import.meta.glob` would also emit or inline every icon into the bundle.
+// the app can skip requests for icons that were never shipped.
 import { readdirSync } from "node:fs";
 import { dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
