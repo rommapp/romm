@@ -21,8 +21,12 @@ RomM can only come back for it once the teardown has answered. What is still
 missing here is volume, mute and whole-card sync.
 """
 
+import http.client
+import math
+import time
 import urllib.error
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Literal
 from urllib.parse import quote
 
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
@@ -31,6 +35,103 @@ from handler.streaming.config import ResolvedContainer
 from handler.streaming.protocol import ACK_TIMEOUT
 from logger.logger import log
 from models.user import User
+
+
+@dataclass(frozen=True)
+class ImportSpec:
+    """What one (emulator, platform) pair accepts through a declared import."""
+
+    kinds: frozenset[str]
+    state_channel: str
+    state_slot: int | None
+
+    def accepts(self, kind: str) -> bool:
+        return kind in self.kinds
+
+    def resume_slot(self) -> int | None:
+        """The slot an imported state resumes through, or None when it cannot."""
+        if self.accepts("state") and self.state_channel != "none":
+            return self.state_slot
+        return None
+
+    def pickable_kinds(self) -> list[Literal["save", "state"]]:
+        """The launch picks a foreign save or state can resume through here."""
+        kinds: list[Literal["save", "state"]] = []
+        if self.accepts("save"):
+            kinds.append("save")
+        if self.resume_slot() is not None:
+            kinds.append("state")
+        return kinds
+
+
+# Per container, so one broker's answer never speaks for another. A 404 or 422
+# holds for the worker's life, an answer for one claim's checks, a failure not at all.
+_IMPORT_SPEC_TTL = 30.0
+_import_spec_cache: dict[tuple[str, str, str], tuple[float, "ImportSpec | None"]] = {}
+
+
+def _parse_import_spec(body: dict[str, Any]) -> ImportSpec | None:
+    raw_kinds = body.get("kinds")
+    if not isinstance(raw_kinds, list):
+        log.warning("import-spec response has no kinds list, treating as unknown")
+        return None
+    if not all(
+        isinstance(entry, dict) and isinstance(entry.get("kind"), str)
+        for entry in raw_kinds
+    ):
+        log.warning("import-spec response has a malformed kind entry, %r", raw_kinds)
+        return None
+    state_channel = body.get("state_channel")
+    if state_channel not in ("archive", "push", "none"):
+        log.warning(
+            "import-spec response has an unrecognized state_channel, %r",
+            state_channel,
+        )
+        return None
+    state_slot = body.get("state_slot")
+    return ImportSpec(
+        kinds=frozenset(entry["kind"] for entry in raw_kinds),
+        state_channel=state_channel,
+        state_slot=state_slot if isinstance(state_slot, int) else None,
+    )
+
+
+def import_spec(
+    container: ResolvedContainer, emulator: str, platform: str
+) -> ImportSpec | None:
+    """What this broker accepts as a declared import, or None when nothing or unknown."""
+    if not container.is_webstation:
+        return None
+    cache_key = (container.key, emulator, platform)
+    cached = _import_spec_cache.get(cache_key)
+    if cached is not None and cached[0] > time.monotonic():
+        return cached[1]
+    path = container.protocol.session_route(
+        f"/import-spec?emulator={quote(emulator, safe='')}&platform={quote(platform, safe='')}"
+    )
+    try:
+        resp = broker.request(container, path, method="GET", timeout=ACK_TIMEOUT)
+    except urllib.error.HTTPError as exc:
+        code = exc.code
+        exc.close()
+        if code in (404, 422):
+            _import_spec_cache[cache_key] = (math.inf, None)
+            return None
+        log.warning("import-spec check failed with HTTP %d, treating as unknown", code)
+        return None
+    except (urllib.error.URLError, OSError, http.client.HTTPException):
+        log.warning("import-spec check unreachable, treating as unknown")
+        return None
+    except ValueError as exc:
+        log.warning("import-spec response was not valid JSON, %s", exc)
+        return None
+    if not isinstance(resp, dict):
+        log.warning("import-spec response was not a JSON object, treating as unknown")
+        return None
+    spec = _parse_import_spec(resp)
+    if spec is not None:
+        _import_spec_cache[cache_key] = (time.monotonic() + _IMPORT_SPEC_TTL, spec)
+    return spec
 
 
 def activate(

@@ -10,15 +10,18 @@ import {
 } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { useStreamingStore } from "@/stores/streaming";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
 import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
+import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   byFavoriteFirst,
+  emulatorKey,
   ownerOf,
   screenshotOf,
   staggerIndex,
@@ -38,6 +41,9 @@ const props = withDefaults(
     selectable?: boolean;
     selectedId?: number | null;
     showOwner?: boolean;
+    /** Badge the thumbnails of the public ones, for lists of the user's own.
+     *  The `list` layout has no thumbnail to carry it. */
+    markPublic?: boolean;
     layout?: AssetLayout;
     /** Why an asset cannot be picked here; a reason disables its tile. */
     disabledReason?: (asset: Asset) => string | null;
@@ -51,6 +57,7 @@ const props = withDefaults(
     selectable: true,
     selectedId: null,
     showOwner: false,
+    markPublic: false,
     layout: "strip",
     disabledReason: undefined,
     groupBy: undefined,
@@ -69,6 +76,7 @@ defineSlots<{
 }>();
 
 const { t } = useI18n();
+const { emulatorLabel } = useStreamingStore();
 
 const emptyLabel = computed(() =>
   props.type === "save"
@@ -108,12 +116,12 @@ const groups = computed<AssetGroup[]>(() => {
   }
   const byKey = new Map<string, AssetGroup>();
   for (const asset of props.assets) {
-    const key = asset.emulator ?? "";
+    const key = emulatorKey(asset.emulator);
     let group = byKey.get(key);
     if (!group) {
       group = {
         key,
-        label: key || t("play.any-core"),
+        label: emulatorLabel(asset.emulator) || t("play.any-core"),
         assets: [],
         disabled: true,
         newest: "",
@@ -223,6 +231,10 @@ const fadeIndex = computed(() =>
                   class="r-asset-strip__fav"
                   :favorite="selectable && asset.is_favorite"
                   :size="14"
+                />
+                <PublicBadge
+                  v-if="markPublic && asset.is_public"
+                  class="r-asset-strip__public"
                 />
               </div>
               <div class="r-asset-strip__body">
@@ -520,6 +532,11 @@ const fadeIndex = computed(() =>
   top: 4px;
   left: 6px;
   filter: drop-shadow(0 1px 3px color-mix(in srgb, black 75%, transparent));
+}
+.r-asset-strip__public {
+  position: absolute;
+  top: 6px;
+  left: 6px;
 }
 .r-asset-strip__body {
   display: flex;

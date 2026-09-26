@@ -2,9 +2,10 @@ import vue from "@vitejs/plugin-vue";
 import { URL, fileURLToPath } from "node:url";
 import vuetify from "vite-plugin-vuetify";
 import { defineConfig } from "vitest/config";
+import { platformIconManifest } from "./scripts/platformIconManifest";
 
 export default defineConfig({
-  plugins: [vue(), vuetify({ autoImport: true })],
+  plugins: [vue(), vuetify({ autoImport: true }), platformIconManifest()],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

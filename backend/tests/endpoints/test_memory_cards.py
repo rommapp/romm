@@ -216,9 +216,9 @@ def test_version_listing_flags_an_archive_that_is_gone(
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()[0]["missing_from_fs"] is True
-    assert db_memory_card_handler.get_version_by_id(
-        memory_card_version.id
-    ).missing_from_fs
+    version = db_memory_card_handler.get_version_by_id(memory_card_version.id)
+    assert version is not None
+    assert version.missing_from_fs
 
 
 @mock.patch("endpoints.memory_cards.fs_asset_handler.validate_path")
@@ -240,9 +240,9 @@ def test_version_listing_clears_the_flag_when_the_archive_is_back(
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()[0]["missing_from_fs"] is False
-    assert not db_memory_card_handler.get_version_by_id(
-        memory_card_version.id
-    ).missing_from_fs
+    version = db_memory_card_handler.get_version_by_id(memory_card_version.id)
+    assert version is not None
+    assert not version.missing_from_fs
 
 
 @mock.patch("endpoints.memory_cards.fs_asset_handler.validate_path")
@@ -450,9 +450,9 @@ def test_upload_memory_card_version(client, access_token: str, memory_card: Memo
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["content_hash"] == "uploaded"
     write_file.assert_awaited_once()
-    assert db_memory_card_handler.get_latest_version(memory_card.id).id == (
-        response.json()["id"]
-    )
+    latest = db_memory_card_handler.get_latest_version(memory_card.id)
+    assert latest is not None
+    assert latest.id == response.json()["id"]
 
 
 def test_upload_of_already_stored_content_still_becomes_newest(
@@ -840,9 +840,9 @@ async def test_version_filename_steps_around_an_occupied_name(
 
     written = write_file.await_args.kwargs["filename"] if write_file.await_args else ""
     assert "(2)" in written
-    assert (
-        db_memory_card_handler.get_latest_version(memory_card.id).file_name == written
-    )
+    latest = db_memory_card_handler.get_latest_version(memory_card.id)
+    assert latest is not None
+    assert latest.file_name == written
 
 
 async def test_a_failed_scan_leaves_no_archive_behind(

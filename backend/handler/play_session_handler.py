@@ -70,7 +70,6 @@ def ingest_play_sessions(
     username: str,
     entries: list[PlaySessionEntry],
     device_id: str | None = None,
-    sync_session_id: int | None = None,
     max_future_minutes: int = 5,
     perms: ResolvedPermissions | None,
 ) -> PlaySessionIngestSummary:
@@ -140,7 +139,6 @@ def ingest_play_sessions(
                     user_id=user_id,
                     device_id=resolved_device_id,
                     rom_id=resolved_rom_id,
-                    sync_session_id=sync_session_id,
                     save_slot=item.get("save_slot"),
                     start_time=item["start_time"],
                     end_time=item["end_time"],

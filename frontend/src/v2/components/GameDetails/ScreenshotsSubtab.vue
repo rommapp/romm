@@ -6,7 +6,7 @@
 //                  single-file ROM is promoted to a folder on upload. Public to
 //                  every user who can see the ROM. Upload → `useRomFileUpload`.
 //   * Mine       — per-user screenshots stored under the user's asset folder.
-//                  Private by default, with a per-item public/private toggle.
+//                  Private by default; each one's edit dialog shares it.
 //                  Any ROM. Upload → `screenshotApi.uploadGalleryScreenshots`.
 //   * Community  — other users' public per-user screenshots (read-only).
 //
@@ -21,6 +21,7 @@ import screenshotApi from "@/services/api/screenshot";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
+import ScreenshotEditDialog from "@/v2/components/GameDetails/ScreenshotEditDialog.vue";
 import type { ScreenshotItem } from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
@@ -31,6 +32,7 @@ import {
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { versionedRomFileUrl } from "@/v2/utils/romFiles";
 
 const ScreenshotsTab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ScreenshotsTab.vue"),
@@ -65,7 +67,6 @@ const canEditRom = useCan("rom.edit");
 
 // ---------- ROM (shared) screenshots — RomFile-backed ----------
 const romScreenshots = computed<ScreenshotItem[]>(() => {
-  const cacheBust = encodeURIComponent(props.rom.updated_at);
   const out: ScreenshotItem[] = [];
   for (const file of props.rom.files ?? []) {
     const rel = file.full_path
@@ -79,9 +80,7 @@ const romScreenshots = computed<ScreenshotItem[]>(() => {
     if (!IMAGE_EXTENSIONS.has(ext)) continue;
     out.push({
       id: file.id,
-      url: `/api/roms/${file.id}/files/content/${encodeURIComponent(
-        file.file_name,
-      )}?v=${cacheBust}`,
+      url: versionedRomFileUrl(file),
     });
   }
   return out;
@@ -207,21 +206,26 @@ async function deleteMyScreenshot(id: number) {
   }
 }
 
-// ---------- Visibility toggle ----------
-const togglingId = ref<number | null>(null);
-async function toggleVisibility(id: number, isPublic: boolean) {
-  if (togglingId.value != null) return;
-  togglingId.value = id;
+// ---------- Edit ----------
+const editTarget = ref<ScreenshotItem | null>(null);
+const savingEdit = ref(false);
+
+async function submitEdit(isPublic: boolean) {
+  const target = editTarget.value;
+  if (!target?.id || savingEdit.value) return;
+  savingEdit.value = true;
   try {
-    await screenshotApi.setScreenshotVisibility({ id, isPublic });
+    await screenshotApi.setScreenshotVisibility({ id: target.id, isPublic });
     await refreshRom();
+    if (editTarget.value === target) editTarget.value = null;
+    snackbar.success(t("rom.screenshot-updated"), { icon: "mdi-check-bold" });
   } catch (error: unknown) {
     snackbar.error(
-      t("rom.screenshot-visibility-failed", { error: errorMessage(error) }),
+      t("common.cant-update-visibility", { error: errorMessage(error) }),
       { icon: "mdi-close-circle" },
     );
   } finally {
-    togglingId.value = null;
+    savingEdit.value = false;
   }
 }
 </script>
@@ -326,10 +330,9 @@ async function toggleVisibility(id: number, isPublic: boolean) {
         <ScreenshotsTab
           :screenshots="myScreenshots"
           deletable
-          togglable
-          :toggling-id="togglingId"
+          editable
+          @edit="editTarget = $event"
           @delete="deleteMyScreenshot"
-          @toggle-visibility="toggleVisibility"
         />
       </RDropzone>
     </section>
@@ -345,6 +348,14 @@ async function toggleVisibility(id: number, isPublic: boolean) {
       </header>
       <ScreenshotsTab :screenshots="communityScreenshots" />
     </section>
+
+    <ScreenshotEditDialog
+      :model-value="editTarget !== null"
+      :is-public="!!editTarget?.isPublic"
+      :busy="savingEdit"
+      @update:model-value="!$event && (editTarget = null)"
+      @submit="submitEdit"
+    />
   </div>
 </template>
 

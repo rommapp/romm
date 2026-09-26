@@ -47,6 +47,7 @@ def test_upload_soundtrack_success(
     assert written.read_bytes() == MP3_BYTES
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     soundtracks = [
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]
@@ -71,6 +72,7 @@ def test_upload_soundtrack_upserts_on_reupload(
         assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     soundtracks = [
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]
@@ -114,6 +116,7 @@ def test_upload_soundtrack_keeps_the_other_files(
 
     assert response.status_code == status.HTTP_201_CREATED
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     assert {f.file_name for f in rom_after.files} == before | {"track1.mp3"}
     assert not list(soundtrack_fs.glob(".*"))
 
@@ -274,6 +277,7 @@ def test_upload_soundtrack_extracts_audio_meta(
     assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     soundtracks = [
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]
@@ -320,6 +324,7 @@ def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
     assert cover_calls == []  # never called when has_embedded_cover is False
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     track = next(f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK)
     assert track.track_meta is not None
     assert track.track_meta.cover_path is None
@@ -533,6 +538,7 @@ def test_upload_soundtrack_with_malformed_audio_still_succeeds(
     assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     soundtracks = [
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]

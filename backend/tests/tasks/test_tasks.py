@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -14,6 +15,7 @@ from tasks.tasks import (
     report_task_failure,
     run_task_by_name,
 )
+from utils.background_tasks import fire_and_forget
 
 
 class ConcretePeriodicTask(PeriodicTask):
@@ -186,6 +188,26 @@ class TestRunTaskByName:
         with pytest.raises(TaskNotFoundException, match="some_task"):
             await run_task_by_name("some_task")
 
+    async def test_waits_for_what_the_task_spawned(self, mocker):
+        """RQ runs each job on a loop that never runs again once the job returns,
+        so work the task spawned and left running would be frozen partway."""
+        finished = asyncio.Event()
+
+        async def later() -> None:
+            await asyncio.sleep(0.05)
+            finished.set()
+
+        async def run() -> None:
+            fire_and_forget(later())
+
+        task = MagicMock()
+        task.run = run
+        mocker.patch("tasks.registry.get_task", return_value=task)
+
+        await run_task_by_name("some_task")
+
+        assert finished.is_set()
+
 
 @pytest.fixture
 def notify(mocker):
@@ -220,6 +242,29 @@ class TestRunTaskByNameNotifications:
         )
         assert data == {"task": "cleanup_missing_roms", "title": "Cleanup Missing ROMs"}
         notify_admins.assert_not_awaited()
+
+    async def test_reports_success_only_once_spawned_work_is_done(self, mocker, notify):
+        """Spawned work that then overran the job timeout would read as both a
+        success and a failure."""
+        finished = asyncio.Event()
+
+        async def later() -> None:
+            await asyncio.sleep(0.05)
+            finished.set()
+
+        async def run() -> None:
+            fire_and_forget(later())
+
+        task = _task(mocker)
+        task.run = run
+        finished_when_notified: list[bool] = []
+        notify.side_effect = lambda *args: finished_when_notified.append(
+            finished.is_set()
+        )
+
+        await run_task_by_name("cleanup_missing_roms", run_by_user_id=4)
+
+        assert finished_when_notified == [True]
 
     async def test_a_scheduled_success_stays_quiet(self, mocker, notify, notify_admins):
         _task(mocker, return_value=None)

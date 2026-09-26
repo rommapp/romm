@@ -6,8 +6,7 @@ one off is a restart rather than an unschedule.
 
 from rq import cron
 
-from config import TASK_RESULT_TTL, TASK_TIMEOUT
-from handler.redis_handler import QueuePrio
+from config import TASK_TIMEOUT
 from logger.logger import log
 from tasks.registry import SCHEDULED_TASKS, enqueue_scheduled_scan
 from tasks.tasks import TaskType, run_task_by_name
@@ -24,14 +23,14 @@ for name, task in SCHEDULED_TASKS.items():
     # share one cron identity and one job history.
     cron.register(
         enqueue_scheduled_scan if is_scan else run_task_by_name,
-        QueuePrio.LOW.value,
+        task.queue_name,
         name=name,
         kwargs={"name": name},
         cron=task.cron_string,
         job_timeout=TASK_TIMEOUT if is_scan else task.timeout,
         # A spent dispatch carries the scan's own name, and RQ drops a job whose
         # result_ttl is 0, so one rescan is not listed as two runs.
-        result_ttl=0 if is_scan else TASK_RESULT_TTL,
+        result_ttl=0 if is_scan else task.result_ttl,
         meta=task.job_meta(name),
     )
     log.info(f"Scheduled '{name}' at '{task.cron_string}'")

@@ -4,6 +4,7 @@ import type { MusicTrackSchema, TrackMetaSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import type { PlayerMeta } from "@/stores/soundtrackPlayer";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { romFileUrl } from "@/v2/utils/romFiles";
 
 export interface PanelTrack {
   /** `rom_file_id` — unique across the catalog. */
@@ -36,10 +37,6 @@ export function isAudioFile(name: string): boolean {
 
 export function isCoverFile(name: string): boolean {
   return COVER_EXTS.has(getExt(name));
-}
-
-export function romFileUrl(fileId: number, fileName: string): string {
-  return `/api/roms/${fileId}/files/content/${encodeURIComponent(fileName)}`;
 }
 
 function resourceUrl(path: string | null | undefined): string | undefined {
@@ -140,9 +137,9 @@ export function nowPlayingCaption(tags: NowPlayingTags | undefined): string {
 /** The mini player's cover: the track's own art, then the ROM's. */
 export function playerCoverUrl(meta: PlayerMeta): string {
   return (
-    meta.coverUrl ??
-    meta.folderCoverUrl ??
-    meta.gameArtworkUrl ??
+    meta.coverUrl ||
+    meta.folderCoverUrl ||
+    meta.gameArtworkUrl ||
     "/assets/default/album_cover.jpg"
   );
 }

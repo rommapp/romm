@@ -30,11 +30,18 @@ class StreamingContainerSchema(BaseModel):
     emulator: str
     supports_memory_cards: bool
     supports_save_picker: bool
+    supports_live_states: bool
+    import_kinds: list[Literal["save", "state"]]
+    """Which foreign-emulator picks the broker declares it can import, empty
+    when it declares none or cannot be asked."""
 
 
 class StreamingConfigSchema(BaseModel):
     enabled: bool
     containers: list[StreamingContainerSchema]
+    emulator_labels: dict[str, str]
+    """Display name per emulator id, so a save or state tagged with one can be
+    labelled without a second copy of the map on the frontend."""
 
 
 class SessionTerminationSchema(BaseModel):
@@ -50,6 +57,9 @@ class SessionTerminationSchema(BaseModel):
     platform: str | None = None
     rom_id: int | None = None
     rom_name: str | None = None
+    container: str | None = None
+    claimed_at: str | None = None
+    desktop: bool = False
 
 
 class SessionStatusSchema(BaseModel):
@@ -58,6 +68,9 @@ class SessionStatusSchema(BaseModel):
     extraction_phase: str | None = None
     """Set while a webstation broker unpacks a pkg or archive, which is the
     part of a launch long enough that the player needs to see something."""
+    host: str | None = None
+    """The room URL of a launched session, for a tab that missed launch-ready,
+    reported by the status poll only and left None by a heartbeat."""
     termination: SessionTerminationSchema | None = None
 
 
@@ -78,10 +91,23 @@ class LaunchReadyPayload(BaseModel):
 
     platform: str
     container: str
+    claimed_at: str
+    """The claim's stamp, since a re-claim of the same container shares its key."""
     host: str
     resume: bool | None = None
     """None when no resume was asked for; False means the state could not be
     pushed and the session started fresh."""
+
+
+class ImportRefusalSchema(BaseModel):
+    """One `.import/` member the broker's activate declined to place."""
+
+    reason: str
+    member: str | None = None
+    expected: str | None = None
+    detail: str | None = None
+    suggest_emulator: str | None = None
+    docs: str | None = None
 
 
 class LaunchFailedPayload(BaseModel):
@@ -89,7 +115,10 @@ class LaunchFailedPayload(BaseModel):
 
     platform: str
     container: str
+    claimed_at: str
     detail: str
+    refusals: list[ImportRefusalSchema] | None = None
+    refusals_truncated: int = 0
 
 
 class LaunchPhasePayload(BaseModel):
@@ -97,7 +126,26 @@ class LaunchPhasePayload(BaseModel):
 
     platform: str
     container: str
+    claimed_at: str
     phase: str | None = None
+
+
+class ContainerBusyDetail(BaseModel):
+    """The 409 body when a claim finds its container held."""
+
+    message: str
+    draining: bool
+    """A previous session is still shutting down, rather than anyone holding it."""
+    rom_name: str | None
+    """The game holding it, None when the caller may not see which."""
+    claimed_at: str | None
+
+
+SOCKET_PAYLOADS: tuple[type[BaseModel], ...] = (
+    LaunchReadyPayload,
+    LaunchFailedPayload,
+    LaunchPhasePayload,
+)
 
 
 class DesktopSessionSchema(BaseModel):
@@ -117,7 +165,7 @@ class JoinedSessionSchema(BaseModel):
 
 
 class SaveAndExitResponse(BaseModel):
-    status: Literal["ok"]
+    status: Literal["ok", "not_found"]
     saved: bool
     platform: str
     released: bool
@@ -223,6 +271,9 @@ class AdminContainerSchema(BaseModel):
     configured: bool
     """False for a container with no usable broker address: it can never be
     claimed, and saying so beats listing it as idle."""
+    draining: bool = False
+    """The previous session's exit work is still running, so the container is
+    held by nobody and about to come free."""
     session: ContainerSessionSchema | None = None
 
 

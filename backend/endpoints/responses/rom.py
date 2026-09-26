@@ -488,7 +488,7 @@ class SiblingRomSchema(BaseModel):
     fs_name_no_ext: str
     is_main_sibling: bool
 
-    @computed_field  # type: ignore
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def sort_comparator(self) -> str:
         return (
