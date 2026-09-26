@@ -1,8 +1,4 @@
-"""SQL that each engine renders in its own spelling.
-
-Query code builds these like any other expression and never branches on the
-driver; the per-dialect choice happens when the statement is compiled.
-"""
+"""Per-engine SQL spellings, chosen when the statement compiles."""
 
 import json
 from collections.abc import Callable, Collection, Sequence
@@ -27,11 +23,7 @@ type JsonArrayValues = Sequence[str] | Sequence[int]
 def _compiles_on_mysql_family[F: Callable[..., str]](
     construct: type[ClauseElement],
 ) -> Callable[[F], F]:
-    """Register a compiler for both MySQL and MariaDB.
-
-    `@compiles(..., "mysql")` alone misses MariaDB, whose dialect is named
-    `mariadb` even though it inherits MySQL's compiler.
-    """
+    """Register a compiler for MySQL and MariaDB; `"mysql"` alone misses MariaDB."""
 
     def decorate(fn: F) -> F:
         return compiles(construct, "mariadb")(compiles(construct, "mysql")(fn))
@@ -40,13 +32,10 @@ def _compiles_on_mysql_family[F: Callable[..., str]](
 
 
 class DialectCase[T](ColumnElement[T]):
-    """`mysql` on MySQL and MariaDB, `postgresql` on every other engine.
-
-    Both branches are built up front so their bind parameters are part of the
-    statement's cache key. The construct takes the type of `postgresql`.
-    """
+    """`mysql` on MySQL and MariaDB, `postgresql` elsewhere, typed as `postgresql`."""
 
     inherit_cache = True
+    # Both branches are traversed, so their binds are part of the cache key.
     _traverse_internals = [
         ("postgresql", InternalTraversal.dp_clauseelement),
         ("mysql", InternalTraversal.dp_clauseelement),
@@ -86,11 +75,7 @@ def _dialect_case_mysql(
 
 
 def order_terms(*terms: ColumnElement[Any] | TextClause) -> ClauseList:
-    """Several ORDER BY terms as one element, for a `DialectCase` branch.
-
-    Never parenthesised: grouped, `(a, b)` reads as a row value and MariaDB
-    rejects the direction inside it.
-    """
+    """Keep ORDER BY terms unparenthesised to avoid invalid MariaDB row values."""
     return ClauseList(*terms, group=False)
 
 
