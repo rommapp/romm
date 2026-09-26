@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// MetadataTab — four sections, top to bottom:
-//   1. File info — name, size, and the platform-native ids when present.
-//   2. Hashes — SHA-1, MD5, CRC, RA, all mono. RTag with eyebrow label.
+// MetadataTab: four sections, top to bottom:
+//   1. File info: name, size, and the platform-native ids when present.
+//   2. Hashes: SHA-1, MD5, CRC, RA, all mono. RTag with eyebrow label.
 //      Same order as the files list so the two tabs read alike.
 //   3. Verification: RTag per database; tone="success" for match,
 //      neutral for miss. Same source of truth as the "Verified" badge in
 //      the header, via `VERIFICATION_DATABASES`.
-//   4. Metadata sources — ProviderGrid (linked + unlinked).
+//   4. Metadata sources: ProviderGrid (linked + unlinked).
 import { RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -45,7 +45,7 @@ const fileRows = computed<Row[]>(() => {
 // render as a dash via the fallback chip below.
 const hashRows = computed<{ label: string; value: string | null }[]>(() => {
   const r = props.rom;
-  // CHD SHA-1 lives on the file, not the ROM — surface it at ROM level
+  // CHD SHA-1 lives on the file, not the ROM; surface it at ROM level
   // only when the ROM is a single CHD file. Skipped (not dashed) when
   // not applicable since most ROMs aren't CHDs.
   const chdSha1 = r.has_simple_single_file
@@ -110,8 +110,8 @@ const downloadUrls = computed(() => {
       </div>
     </section>
 
-    <!-- 2. Hashes — click-to-copy via HashChip; absent hashes still
-         render a "—" pill so the row layout stays predictable. -->
+    <!-- 2. Hashes: click-to-copy via HashChip; absent hashes still
+         render a dash pill so the row layout stays predictable. -->
     <section class="metadata-tab__section">
       <h3 class="metadata-tab__heading">{{ t("rom.hashes-label") }}</h3>
       <div class="metadata-tab__inline">
@@ -175,7 +175,7 @@ const downloadUrls = computed(() => {
   color: var(--r-color-fg);
 }
 
-/* File info — two-column rows on wide screens, stacked on narrow. */
+/* File info: two-column rows on wide screens, stacked on narrow. */
 .metadata-tab__rows {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -200,7 +200,7 @@ const downloadUrls = computed(() => {
   word-break: break-all;
 }
 
-/* Hashes & Verification — inline row, wraps when narrow. */
+/* Hashes & Verification: inline row, wraps when narrow. */
 .metadata-tab__inline {
   display: flex;
   flex-wrap: wrap;

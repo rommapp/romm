@@ -12,13 +12,13 @@ driver at a time, hence the compiled-SQL check below.
 """
 
 import pytest
+from tests.sql_dialects import POSTGRESQL_DIALECT, compile_sql
 
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
-from tests.sql_dialects import POSTGRESQL_DIALECT, compile_sql
 
 # The keys as they were written before `mame_redump_match` joined them.
 LEGACY_KEYS = [
