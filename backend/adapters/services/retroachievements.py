@@ -2,13 +2,14 @@ import asyncio
 import http
 import json
 from collections.abc import AsyncIterator
-from typing import Any, Final, cast
+from typing import Any, Final
 
 import aiohttp
 import yarl
 from aiohttp.client import ClientTimeout
 from fastapi import HTTPException, status
 
+from adapters.services.response_validation import validate_response
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
     RAGameInfoAndUserProgress,
@@ -51,7 +52,7 @@ class RetroAchievementsService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://retroachievements.org/API")
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict[str, Any]:
+    async def _request(self, url: str, request_timeout: int = 120) -> object:
         aiohttp_session = ctx_aiohttp_session.get()
         log.debug(
             "API request: URL=%s, Timeout=%s",
@@ -67,7 +68,7 @@ class RetroAchievementsService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return cast(dict[str, Any], await res.json())
+            return await res.json()
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             pass
@@ -105,7 +106,7 @@ class RetroAchievementsService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return cast(dict[str, Any], await res.json())
+            return await res.json()
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as err:
             if (
                 isinstance(err, aiohttp.ClientResponseError)
@@ -126,7 +127,11 @@ class RetroAchievementsService:
         """
         url = self.url.joinpath("API_GetAchievementOfTheWeek.php")
         response = await self._request(str(url))
-        return response
+        return validate_response(
+            dict[str, Any],
+            response,
+            source="RetroAchievements API_GetAchievementOfTheWeek",
+        )
 
     async def get_game_extended_details(self, game_id: int) -> RAGameExtendedDetails:
         """Retrieve extended metadata about a game, targeted via its unique ID.
@@ -137,7 +142,11 @@ class RetroAchievementsService:
             i=[game_id],
         )
         response = await self._request(str(url))
-        return cast(RAGameExtendedDetails, response)
+        return validate_response(
+            RAGameExtendedDetails,
+            response,
+            source="RetroAchievements API_GetGameExtended",
+        )
 
     async def get_game_list(
         self,
@@ -164,7 +173,9 @@ class RetroAchievementsService:
 
         url = self.url.joinpath("API_GetGameList.php").with_query(**params)
         response = await self._request(str(url))
-        return cast(list[RAGameListItem], response)
+        return validate_response(
+            list[RAGameListItem], response, source="RetroAchievements API_GetGameList"
+        )
 
     async def get_user_completion_progress(
         self,
@@ -187,7 +198,11 @@ class RetroAchievementsService:
             **params
         )
         response = await self._request(str(url))
-        return cast(RAUserCompletionProgress, response)
+        return validate_response(
+            RAUserCompletionProgress,
+            response,
+            source="RetroAchievements API_GetUserCompletionProgress",
+        )
 
     async def iter_user_completion_progress(
         self,
@@ -236,4 +251,8 @@ class RetroAchievementsService:
             **params
         )
         response = await self._request(str(url))
-        return cast(RAGameInfoAndUserProgress, response)
+        return validate_response(
+            RAGameInfoAndUserProgress,
+            response,
+            source="RetroAchievements API_GetGameInfoAndUserProgress",
+        )
