@@ -131,6 +131,7 @@ export type { IGDBAgeRating } from './models/IGDBAgeRating';
 export type { IGDBMetadataMultiplayerMode } from './models/IGDBMetadataMultiplayerMode';
 export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
+export type { ImportRefusalSchema } from './models/ImportRefusalSchema';
 export type { InviteLinkSchema } from './models/InviteLinkSchema';
 export type { JobStatus } from './models/JobStatus';
 export type { JoinableSessionSchema } from './models/JoinableSessionSchema';

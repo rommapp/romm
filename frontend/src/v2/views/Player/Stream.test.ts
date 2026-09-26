@@ -2,9 +2,9 @@ import { RBtn } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, type Slots, type VNodeChild } from "vue";
-import type { SaveSchema } from "@/__generated__";
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
-import { saveFixture } from "@/utils/assets.fixtures";
+import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
@@ -76,6 +76,8 @@ vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({
     claimSession: mocks.claimSession,
     containerForPlatform: () => mocks.container,
+    emulatorLabel: (emulator: string) =>
+      emulator === "duckstation" ? "DuckStation" : emulator,
     platformCapabilities: () => mocks.capabilities,
     fetchConfig: mocks.fetchConfig,
     fetchSessionStatus: mocks.fetchSessionStatus,
@@ -209,7 +211,7 @@ const ARCHIVES = [
   save(1, "Pool [retroarch 2026-09-14 00-20-28].saves.zip"),
 ];
 
-function romWith(saves: SaveSchema[]): DetailedRom {
+function romWith(saves: SaveSchema[], states: StateSchema[] = []): DetailedRom {
   return {
     id: 3,
     name: "Archer Maclean's 3D Pool (USA)",
@@ -219,7 +221,7 @@ function romWith(saves: SaveSchema[]): DetailedRom {
     fs_name: "Archer Maclean's 3D Pool (USA).gba",
     files: [],
     user_saves: saves,
-    all_user_states: [],
+    all_user_states: states,
     user_screenshots: [],
     metadatum: {},
   } as unknown as DetailedRom;
@@ -238,7 +240,9 @@ afterEach(() => {
 async function launch(opts: {
   picker: boolean;
   saves?: SaveSchema[];
+  states?: StateSchema[];
   liveStates?: boolean;
+  imports?: ("save" | "state")[];
 }): Promise<VueWrapper> {
   mocks.container = {
     name: "WEBSTATION-DEV",
@@ -246,10 +250,13 @@ async function launch(opts: {
     protocol: "webstation",
     supports_save_picker: opts.picker,
     supports_live_states: opts.liveStates ?? true,
+    import_kinds: opts.imports ?? [],
     supports_memory_cards: false,
     supports_multiplayer: false,
   };
-  mocks.getRom.mockResolvedValue({ data: romWith(opts.saves ?? ARCHIVES) });
+  mocks.getRom.mockResolvedValue({
+    data: romWith(opts.saves ?? ARCHIVES, opts.states),
+  });
   const wrapper = mount(Stream, {
     shallow: true,
     global: {
@@ -345,19 +352,40 @@ describe("Stream save picker", () => {
     expect(mocks.claimSession.mock.calls[0][2]).toBe(1);
   });
 
-  it("leaves bare save files out of the picker", async () => {
+  it("includes bare (non-archive) save files where the broker imports saves", async () => {
     const wrapper = await launch({
       picker: true,
       saves: [save(9, "Pool.srm"), ...ARCHIVES],
+      imports: ["save"],
     });
 
     expect(
       (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
-    ).toEqual([3, 2, 1]);
+    ).toEqual([9, 3, 2, 1]);
     expect(saveList(wrapper)!.props("selectedId")).toBe(3);
   });
 
-  it("leaves another emulator's archives out of the picker", async () => {
+  it("offers another emulator's archives too, still defaulting to this one's newest", async () => {
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(9, "Pool [pcsx2 a].saves.zip", {
+          emulator: "pcsx2",
+          created_at: "2026-09-13T00:00:00",
+          updated_at: "2026-09-13T00:00:00",
+        }),
+        ...ARCHIVES,
+      ],
+      imports: ["save"],
+    });
+
+    expect(
+      (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
+    ).toEqual([3, 2, 1, 9]);
+    expect(saveList(wrapper)!.props("selectedId")).toBe(3);
+  });
+
+  it("hides another emulator's archives where the broker declares no save import", async () => {
     const wrapper = await launch({
       picker: true,
       saves: [
@@ -369,6 +397,30 @@ describe("Stream save picker", () => {
     expect(
       (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
     ).toEqual([3, 2, 1]);
+  });
+
+  it("sends a foreign-emulator pick on the claim", async () => {
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(9, "Pool [pcsx2 a].saves.zip", {
+          emulator: "pcsx2",
+          created_at: "2026-09-13T00:00:00",
+          updated_at: "2026-09-13T00:00:00",
+        }),
+        ...ARCHIVES,
+      ],
+      imports: ["save"],
+    });
+
+    await saveList(wrapper)!.vm.$emit(
+      "select",
+      save(9, "Pool [pcsx2 a].saves.zip", { emulator: "pcsx2" }),
+    );
+    expect(saveList(wrapper)!.props("selectedId")).toBe(9);
+
+    await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
+    expect(mocks.claimSession.mock.calls[0][2]).toBe(9);
   });
 
   it("reports instead of offering where the emulator keeps its save tree", async () => {
@@ -422,6 +474,8 @@ type StreamVm = {
   endedDialogOpen: boolean;
   holdsClaim: boolean;
   containerHost: string;
+  errorMessage: string;
+  errorHint: string;
 };
 
 function vmOf(wrapper: VueWrapper): StreamVm {
@@ -449,6 +503,19 @@ async function launchReady(
     ...CLAIM,
     host: "http://webstation-dev:8080",
     resume: null,
+    ...payload,
+  });
+}
+
+async function launchFailed(
+  payload: Record<string, unknown> = {},
+): Promise<void> {
+  const handler = mocks.socketHandlers["streaming:launch-failed"];
+  expect(handler).toBeTypeOf("function");
+  await handler({
+    platform: "gba",
+    ...CLAIM,
+    detail: "The broker refused the picked save or state",
     ...payload,
   });
 }
@@ -919,6 +986,66 @@ describe("Stream launch recovery", () => {
 
     expect(vmOf(wrapper).playerState).toBe("loading");
   });
+
+  it("shows the generic error and the flattened detail when there are no refusals", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchFailed({ detail: "The container could not start the game" });
+
+    expect(vmOf(wrapper).playerState).toBe("error");
+    expect(vmOf(wrapper).errorMessage).toBe("play.stream-error-generic");
+    expect(vmOf(wrapper).errorHint).toBe(
+      "The container could not start the game",
+    );
+  });
+
+  it("builds the hint from structured refusals instead of the flattened detail", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchFailed({
+      detail: "shape_mismatch",
+      refusals: [
+        {
+          reason: "shape_mismatch",
+          member: ".import/save/Game.mcr",
+          expected: "folder",
+          detail: null,
+          suggest_emulator: "duckstation",
+          docs: null,
+        },
+      ],
+      refusals_truncated: 2,
+    });
+
+    expect(vmOf(wrapper).playerState).toBe("error");
+    expect(vmOf(wrapper).errorMessage).toBe("play.stream-error-import-refused");
+    expect(vmOf(wrapper).errorHint).toBe(
+      "DuckStation (play.import-refusals-truncated)",
+    );
+  });
+
+  it("skips the truncated-count suffix when nothing was truncated", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchFailed({
+      refusals: [
+        {
+          reason: "shape_mismatch",
+          member: ".import/save/Game.mcr",
+          expected: "folder",
+          detail: null,
+          suggest_emulator: null,
+          docs: null,
+        },
+      ],
+      refusals_truncated: 0,
+    });
+
+    expect(vmOf(wrapper).errorHint).toBe("shape_mismatch");
+  });
 });
 
 describe("Stream join", () => {
@@ -948,5 +1075,39 @@ describe("Stream join", () => {
     await flushPromises();
 
     expect(mocks.joinSession).toHaveBeenCalledWith("gba", undefined);
+  });
+});
+
+describe("Stream state picker", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.claimSession.mockResolvedValue(CLAIM);
+  });
+
+  const STATES = [
+    stateFixture({ id: 5, emulator: "retroarch" }),
+    stateFixture({ id: 6, emulator: "duckstation" }),
+  ];
+
+  function pickableStateIds(wrapper: VueWrapper): number[] {
+    return (
+      wrapper.vm as unknown as { pickableStates: StateSchema[] }
+    ).pickableStates.map((s) => s.id);
+  }
+
+  it("offers only this emulator's states where the broker declares no state import", async () => {
+    const wrapper = await launch({ picker: false, states: STATES });
+
+    expect(pickableStateIds(wrapper)).toEqual([5]);
+  });
+
+  it("offers another emulator's states where the broker imports them", async () => {
+    const wrapper = await launch({
+      picker: false,
+      states: STATES,
+      imports: ["state"],
+    });
+
+    expect(pickableStateIds(wrapper)).toEqual([5, 6]);
   });
 });
