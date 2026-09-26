@@ -3,7 +3,7 @@ import http
 import json
 from collections.abc import Sequence
 from functools import partial
-from typing import TYPE_CHECKING, Any, Final, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Final, TypedDict
 
 import aiohttp
 import yarl
@@ -12,6 +12,7 @@ from fastapi import HTTPException, status
 from unidecode import unidecode
 
 from adapters.services.igdb_types import Game
+from adapters.services.response_validation import validate_response
 from config import IGDB_CLIENT_ID
 from logger.logger import log
 from utils import get_version
@@ -77,7 +78,7 @@ class IGDBService:
         where: str | None = None,
         limit: int | None = None,
         request_timeout: int = 120,
-    ) -> list[Any]:
+    ) -> object:
         aiohttp_session = ctx_aiohttp_session.get()
 
         content = ""
@@ -108,7 +109,7 @@ class IGDBService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return cast(list[Any], await res.json())
+            return await res.json()
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             log.debug("Request to URL=%s timed out. Retrying...", url)
@@ -157,7 +158,7 @@ class IGDBService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return cast(list[Any], await res.json())
+            return await res.json()
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as exc:
             if (
                 isinstance(exc, aiohttp.ClientResponseError)
@@ -184,13 +185,14 @@ class IGDBService:
         Reference: https://api-docs.igdb.com/#game
         """
         url = self.url.joinpath("games")
-        return await self._request(
+        response = await self._request(
             str(url),
             search_term=search_term,
             fields=fields,
             where=where,
             limit=limit,
         )
+        return validate_response(list[Game], response, source="IGDB games")
 
     async def search(
         self,
@@ -205,13 +207,14 @@ class IGDBService:
         Reference: https://api-docs.igdb.com/#search
         """
         url = self.url.joinpath("search")
-        return await self._request(
+        response = await self._request(
             str(url),
             search_term=search_term,
             fields=fields,
             where=where,
             limit=limit,
         )
+        return validate_response(list[dict[str, Any]], response, source="IGDB search")
 
 
 class SlugToIGDB(TypedDict):
