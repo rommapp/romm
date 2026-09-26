@@ -217,6 +217,7 @@ def patched(mocker):
     config = MagicMock()
     config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
     config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+    config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN = False
     mocker.patch.object(scan_module.cm, "get_config", return_value=config)
 
     # Skip the actual per-platform scanning, returning the stats unchanged.
@@ -883,6 +884,7 @@ class TestIdentifyRomTagReparse:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            cd_audio_rom_ids=set(),
         )
 
     async def test_complete_rescan_rewrites_stale_tags(self, patched):
@@ -1047,6 +1049,7 @@ async def run_identify_rom(platform: Platform, fs_rom: FSRom) -> None:
         socket_manager=AsyncMock(),
         scan_stats=AsyncMock(),
         scanned_rom_ids=set(),
+        cd_audio_rom_ids=set(),
     )
 
 
@@ -1370,6 +1373,7 @@ class TestIdentifyPlatformMarksMissingBeforeScan:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            cd_audio_rom_ids=set(),
         )
 
         assert "mark_missing" in calls and "identify" in calls
@@ -1456,6 +1460,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
             socket_manager=socket_manager,
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            cd_audio_rom_ids=set(),
         )
 
     async def test_emits_for_rom_that_is_no_longer_missing(self, patched):
@@ -1569,6 +1574,7 @@ class TestIdentifyPlatformFirmwareReporting:
             socket_manager=socket_manager,
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            cd_audio_rom_ids=set(),
         )
         return next(
             call.args[1]
@@ -1815,6 +1821,7 @@ class TestScanSelectedRoms:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            cd_audio_rom_ids=set(),
         )
 
         identify.assert_called_once()
@@ -1859,6 +1866,7 @@ class TestScanSelectedRoms:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            cd_audio_rom_ids=set(),
         )
 
         identify.assert_not_called()
@@ -1893,6 +1901,7 @@ class TestScanSelectedRoms:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            cd_audio_rom_ids=set(),
         )
 
         fs_rom = identify.call_args.kwargs["fs_rom"]
@@ -1924,6 +1933,7 @@ class TestScanSelectedRoms:
                 socket_manager=AsyncMock(),
                 scan_stats=AsyncMock(),
                 scanned_rom_ids=set(),
+                cd_audio_rom_ids=set(),
             )
 
 
@@ -1942,6 +1952,7 @@ class TestScopedScanSkipsLibraryWork:
         config = MagicMock()
         config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
         config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+        config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN = False
         mocker.patch.object(scan_module.cm, "get_config", return_value=config)
 
         platform = MagicMock(id=1, fs_slug="test")
@@ -2765,6 +2776,7 @@ def identify_harness(mocker):
             socket_manager=socket_manager or AsyncMock(),
             scan_stats=scan_stats or AsyncMock(),
             scanned_rom_ids=set(),
+            cd_audio_rom_ids=set(),
         )
 
     return SimpleNamespace(
@@ -2928,6 +2940,7 @@ class TestIdentifyPlatformLoadsFilesForQuickScan:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            cd_audio_rom_ids=set(),
         )
 
         assert patched.get_roms_by_fs_name.call_args.kwargs["with_files"] is with_files

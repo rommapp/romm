@@ -467,6 +467,7 @@ class Config:
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     GAMELIST_AUTO_EXPORT_ON_SCAN: bool
     PEGASUS_AUTO_EXPORT_ON_SCAN: bool
+    CD_AUDIO_AUTO_EXTRACT_ON_SCAN: bool
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
     STRUCTURE_TEMPLATES: dict[str, str | list[str]]
@@ -862,6 +863,9 @@ class ConfigManager:
             PEGASUS_AUTO_EXPORT_ON_SCAN=pydash.get(
                 self._raw_config, "scan.pegasus.export", False
             ),
+            CD_AUDIO_AUTO_EXTRACT_ON_SCAN=pydash.get(
+                self._raw_config, "scan.cd_audio.extract", False
+            ),
             STREAMING_ENABLED=pydash.get(self._raw_config, "streaming.enabled", False),
             STREAMING_CONTAINERS=pydash.get(
                 self._raw_config, "streaming.containers", []
@@ -1032,6 +1036,10 @@ class ConfigManager:
 
         if not isinstance(self.config.PEGASUS_AUTO_EXPORT_ON_SCAN, bool):
             log.critical("Invalid config.yml: scan.pegasus.export must be a boolean")
+            sys.exit(3)
+
+        if not isinstance(self.config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN, bool):
+            log.critical("Invalid config.yml: scan.cd_audio.extract must be a boolean")
             sys.exit(3)
 
         self.config.PLATFORMS_BINDING = self._validated_platform_map(
@@ -1386,6 +1394,9 @@ class ConfigManager:
                 "pegasus": {
                     "export": self.config.PEGASUS_AUTO_EXPORT_ON_SCAN,
                 },
+                "cd_audio": {
+                    "extract": self.config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN,
+                },
             },
         }
 
@@ -1492,6 +1503,7 @@ class ConfigManager:
         gamelist_thumbnail: str,
         gamelist_image: str,
         pegasus_export: bool,
+        cd_audio_extract: bool,
     ) -> None:
         """Replace the whole scan.* section and persist it to config.yml.
 
@@ -1515,6 +1527,7 @@ class ConfigManager:
         self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType(gamelist_thumbnail)
         self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType(gamelist_image)
         self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
+        self.config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN = cd_audio_extract
         self._update_config_file()
 
 

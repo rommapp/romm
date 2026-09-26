@@ -1,5 +1,3 @@
-from collections.abc import Iterator
-from contextlib import contextmanager
 from typing import Annotated
 
 from fastapi import Header, HTTPException
@@ -8,34 +6,14 @@ from fastapi import Request, status
 from fastapi.responses import Response
 
 from decorators.auth import protected_route
-from endpoints.responses.rom import (
-    CdAudioExtractionSchema,
-    CdAudioStatusSchema,
-    SoundtrackTrackMetaSchema,
-    TrackMetaSchema,
-)
+from endpoints.responses.rom import SoundtrackTrackMetaSchema, TrackMetaSchema
 from endpoints.roms.upload import receive_rom_file
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from exceptions.fs_exceptions import (
-    RomAlreadyExistsException,
-    RomListedByPlaylistException,
-)
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
-from handler.cd_audio import (
-    CdAudioEncodeException,
-    CdAudioNeedsFolderException,
-    CdAudioUnavailableException,
-    cd_audio_status,
-    extract_cd_audio,
-)
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
-from handler.rom_upload import (
-    CATEGORY_UPLOAD_FOLDERS,
-    UploadNotRegisteredException,
-    UploadRejectedException,
-)
+from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -112,100 +90,6 @@ async def add_rom_soundtracks(
     )
 
     return Response(status_code=status.HTTP_201_CREATED)
-
-
-@contextmanager
-def _cd_audio_errors(rom_id: int, action: str) -> Iterator[None]:
-    """Map the CD audio failures both routes share to HTTP errors."""
-    try:
-        yield
-    except CdAudioUnavailableException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
-        ) from exc
-    except CdAudioEncodeException as exc:
-        log.error(f"Failed {action} of ROM {rom_id}", exc_info=exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"There was an error {action}",
-        ) from exc
-
-
-@protected_route(
-    router.get,
-    "/{id}/soundtracks/cd-audio",
-    [Scope.ROMS_READ],
-    responses={
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_503_SERVICE_UNAVAILABLE: {},
-    },
-)
-async def get_rom_cd_audio_status(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-) -> CdAudioStatusSchema:
-    """Count the audio tracks on a ROM's disc images and how many are extracted."""
-
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
-
-    with _cd_audio_errors(id, "reading the disc images"):
-        result = await cd_audio_status(rom)
-
-    return CdAudioStatusSchema(
-        tracks=result.tracks,
-        extracted=result.extracted,
-        extractable=result.extractable,
-    )
-
-
-@protected_route(
-    router.post,
-    "/{id}/soundtracks/cd-audio",
-    [Scope.ROMS_WRITE],
-    responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_409_CONFLICT: {},
-        status.HTTP_503_SERVICE_UNAVAILABLE: {},
-    },
-)
-async def extract_rom_cd_audio(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-) -> CdAudioExtractionSchema:
-    """Extract the audio tracks of a ROM's disc images into its soundtrack folder."""
-
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
-
-    try:
-        with _cd_audio_errors(id, "extracting the CD audio"):
-            result = await extract_cd_audio(rom)
-    except UploadRejectedException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
-    except (
-        CdAudioNeedsFolderException,
-        RomAlreadyExistsException,
-        RomListedByPlaylistException,
-    ) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-        ) from exc
-    except UploadNotRegisteredException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
-        ) from exc
-
-    return CdAudioExtractionSchema(extracted=result.extracted, skipped=result.skipped)
 
 
 @protected_route(

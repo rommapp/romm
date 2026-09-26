@@ -70,6 +70,7 @@ class ScanSettingsPayload(BaseModel):
     gamelist_thumbnail: MetadataMediaType
     gamelist_image: MetadataMediaType
     pegasus_export: bool
+    cd_audio_extract: bool
 
     @field_validator(
         "metadata_priority",
@@ -169,6 +170,7 @@ def get_config(request: Request) -> ConfigResponse:
         GAMELIST_MEDIA_THUMBNAIL=cfg.GAMELIST_MEDIA_THUMBNAIL,
         GAMELIST_MEDIA_IMAGE=cfg.GAMELIST_MEDIA_IMAGE,
         PEGASUS_AUTO_EXPORT_ON_SCAN=cfg.PEGASUS_AUTO_EXPORT_ON_SCAN,
+        CD_AUDIO_AUTO_EXTRACT_ON_SCAN=cfg.CD_AUDIO_AUTO_EXTRACT_ON_SCAN,
     )
 
 
@@ -326,6 +328,7 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
             gamelist_thumbnail=str(payload.gamelist_thumbnail),
             gamelist_image=str(payload.gamelist_image),
             pegasus_export=payload.pegasus_export,
+            cd_audio_extract=payload.cd_audio_extract,
         )
     except ConfigNotWritableException as exc:
         log.critical(exc.message)

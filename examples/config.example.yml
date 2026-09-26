@@ -175,6 +175,10 @@
 #       image: screenshot  # Use as the <image> tag in the exported gamelist.xml
 #   pegasus:
 #     export: false # Whether to export metadata.pegasus.txt for Pegasus (merged into an existing file)
+#   # Extract the CD audio tracks of new or changed disc images (.cue/.bin, .gdi, .chd) into each game's soundtrack folder as FLAC.
+#   # A .chd alone in the platform folder is moved into a folder of its own first, unless an .m3u beside it lists it.
+#   cd_audio:
+#     extract: false
 
 # EmulatorJS per-core options
 # emulatorjs:

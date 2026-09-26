@@ -9,30 +9,25 @@
 //   * The panel doubles as a drag-and-drop target (same affordance as the
 //     Upload / Patcher views): drop files anywhere over it to upload
 //   * Upload goes through `useRomFileUpload`, into the soundtrack/ folder
-//   * A disc (cue, gdi or CHD) can extract its CD audio tracks there too
 //
 // The soundtrack player is reused from v1 for now.
 import { RBtn, RDropzone, REmptyState } from "@v2/lib";
-import { computed, defineAsyncComponent, ref, watch } from "vue";
+import { computed, defineAsyncComponent, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import SubtabNav, {
   type SubtabNavItem,
 } from "@/v2/components/GameDetails/SubtabNav.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
-import { useIsAlive } from "@/v2/composables/useIsAlive";
 import {
   ROM_UPLOAD_FOLDERS,
   useRomFileUpload,
 } from "@/v2/composables/useRomFileUpload";
 import { useRomSoundtrack } from "@/v2/composables/useRomSoundtrack";
 import { useRomSync } from "@/v2/composables/useRomSync";
-import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSoundtrackActions } from "@/v2/composables/useSoundtrackActions";
 import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
-import { errorMessage } from "@/v2/utils/errorMessage";
 
 const ManualSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ManualSubtab.vue"),
@@ -59,7 +54,6 @@ const {
   fallbackArtUrl: soundtrackArtUrl,
 } = useRomSoundtrack(() => props.rom);
 const { refetchRom } = useRomSync();
-const snackbar = useSnackbar();
 const { t } = useI18n();
 const { smAndDown } = useBreakpoint();
 
@@ -122,36 +116,6 @@ const soundtrackDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const canUploadSoundtrack = computed(
   () => props.rom.has_soundtrack && canEdit.value,
 );
-// Re-probed on any file change, so the action hides once every track is out.
-const cdAudioProbeKey = computed(() =>
-  subTab.value === "soundtrack" && canEdit.value
-    ? `${props.rom.id}:${(props.rom.files ?? [])
-        .map((f) => `${f.id}@${f.updated_at}`)
-        .join(",")}`
-    : null,
-);
-const pendingCdAudioTracks = ref(0);
-const alive = useIsAlive();
-watch(
-  cdAudioProbeKey,
-  async (key) => {
-    pendingCdAudioTracks.value = 0;
-    if (!key) return;
-    try {
-      const { data } = await romApi.getCdAudioStatus({ romId: props.rom.id });
-      if (alive.value && cdAudioProbeKey.value === key) {
-        pendingCdAudioTracks.value = data.extractable
-          ? data.tracks - data.extracted
-          : 0;
-      }
-    } catch {
-      // An unreadable disc just offers nothing to extract.
-    }
-  },
-  { immediate: true },
-);
-const canExtractCdAudio = computed(() => pendingCdAudioTracks.value > 0);
-const extractingCdAudio = ref(false);
 
 // On phones a subtab's single Upload joins the picker row; Screenshots has one
 // per section, so it keeps them in place.
@@ -186,34 +150,6 @@ async function handleSoundtrackFiles(files: File[]) {
   await uploadFiles(props.rom, ROM_UPLOAD_FOLDERS.soundtrack, files);
 }
 
-async function extractCdAudio() {
-  // RBtn's loading state doesn't disable it, so a double click would re-run.
-  if (extractingCdAudio.value) return;
-  const romId = props.rom.id;
-  extractingCdAudio.value = true;
-  try {
-    const { data } = await romApi.extractCdAudio({ romId });
-    if (data.extracted.length > 0) {
-      snackbar.success(
-        t("rom.soundtrack-cd-audio-extracted", data.extracted.length),
-      );
-      await refetchRom(romId);
-    } else if (data.skipped.length > 0) {
-      snackbar.info(t("rom.soundtrack-cd-audio-up-to-date"));
-    } else {
-      snackbar.info(t("rom.soundtrack-cd-audio-none"));
-    }
-  } catch (error: unknown) {
-    snackbar.error(
-      t("rom.soundtrack-cd-audio-failed", { error: errorMessage(error) }),
-    );
-    // The tracks written before the failure are registered all the same.
-    await refetchRom(romId);
-  } finally {
-    extractingCdAudio.value = false;
-  }
-}
-
 async function deleteSoundtrack(fileId: number) {
   const track = (props.rom.files ?? []).find((f) => f.id === fileId);
   if (
@@ -233,18 +169,6 @@ async function deleteSoundtrack(fileId: number) {
       variant="menu"
     >
       <template #actions>
-        <!-- Icon-only, so the subtab picker keeps room for its label. -->
-        <RBtn
-          v-if="subTab === 'soundtrack' && canExtractCdAudio"
-          icon="mdi-disc"
-          variant="outlined"
-          size="small"
-          density="comfortable"
-          :tooltip="t('rom.soundtrack-extract-cd-audio')"
-          :aria-label="t('rom.soundtrack-extract-cd-audio')"
-          :loading="extractingCdAudio"
-          @click="extractCdAudio"
-        />
         <RBtn
           v-if="pickerRowUpload"
           variant="outlined"
@@ -264,11 +188,11 @@ async function deleteSoundtrack(fileId: number) {
     <div class="r-v2-media__content">
       <!-- All subtab sections stay mounted (v-show, not v-if). The manual,
            soundtrack and screenshots panels are heavy defineAsyncComponent
-           loads, and un/remounting them on every subtab switch causes a visible
+           loads — un/remounting them on every subtab switch causes a visible
            main-thread freeze (the PDF parser is the worst offender). With
            v-show the cost is paid once on Media tab entry and switching is a
            CSS toggle. -->
-      <!-- Manual subtab: its own component (PDF / Markdown viewer with an
+      <!-- Manual subtab — its own component (PDF / Markdown viewer with an
            entry selector; scrolls independently). -->
       <section v-show="subTab === 'manual'" class="r-v2-media__panel">
         <ManualSubtab ref="manualPanel" :rom="rom" :hide-upload="smAndDown" />
@@ -284,13 +208,13 @@ async function deleteSoundtrack(fileId: number) {
         />
       </section>
 
-      <!-- Screenshots subtab: its own component (ROM / Mine / Community
+      <!-- Screenshots subtab — its own component (ROM / Mine / Community
            sections, per-user public/private). -->
       <section v-show="subTab === 'screenshots'" class="r-v2-media__panel">
         <ScreenshotsSubtab :rom="rom" />
       </section>
 
-      <!-- Artwork subtab: read-only gallery of scraped art assets
+      <!-- Artwork subtab — read-only gallery of scraped art assets
            (bezel / logo / marquee / box art / fan art / videos). -->
       <section v-show="subTab === 'artwork'" class="r-v2-media__panel">
         <ArtworkSubtab :rom="rom" />
@@ -299,22 +223,11 @@ async function deleteSoundtrack(fileId: number) {
       <!-- Soundtrack subtab -->
       <section v-show="subTab === 'soundtrack'" class="r-v2-media__panel">
         <header
-          v-if="(canUploadSoundtrack || canExtractCdAudio) && !smAndDown"
+          v-if="canUploadSoundtrack && !smAndDown"
           class="r-v2-media__section-head"
         >
           <div class="r-v2-media__section-actions">
             <RBtn
-              v-if="canExtractCdAudio"
-              variant="outlined"
-              size="small"
-              prepend-icon="mdi-disc"
-              :loading="extractingCdAudio"
-              @click="extractCdAudio"
-            >
-              {{ t("rom.soundtrack-extract-cd-audio") }}
-            </RBtn>
-            <RBtn
-              v-if="canUploadSoundtrack"
               variant="outlined"
               size="small"
               prepend-icon="mdi-cloud-upload-outline"
@@ -375,7 +288,7 @@ async function deleteSoundtrack(fileId: number) {
   gap: 24px;
   /* Fills the parent tab panel exactly so the PDF viewer (inside the
      manual section) can size to 100% without forcing the outer panel
-     to scroll, since the PDF has its own internal scroll. */
+     to scroll — the PDF has its own internal scroll. */
   height: 100%;
   min-height: 0;
 }
@@ -395,7 +308,7 @@ async function deleteSoundtrack(fileId: number) {
   min-height: 0;
 }
 
-/* Panels: each subtab section fills the content height so its
+/* Panels — each subtab section fills the content height so its
    children (manual / soundtrack / screenshots) can stretch to 100%
    without forcing an outer scrollbar. */
 .r-v2-media__panel {
@@ -444,7 +357,7 @@ html[data-bp~="sm-and-down"] .r-v2-media {
   gap: 14px;
 }
 
-/* Soundtrack: the v1 player has its own internal styling; wrap in an
+/* Soundtrack — the v1 player has its own internal styling; wrap in an
    elevated container so it blends with v2 tokens. */
 .r-v2-media__soundtrack {
   border: 1px solid var(--r-color-border);

@@ -27,11 +27,22 @@ from exceptions.fs_exceptions import (
     FOLDER_STRUCT_MSG,
     FirmwareNotFoundException,
     FolderStructureNotMatchException,
+    RomAlreadyExistsException,
+    RomListedByPlaylistException,
     RomsNotFoundException,
 )
 from exceptions.socket_exceptions import ScanStoppedException
 from handler.audit_handler import AuditActor, record
 from handler.auth.constants import Scope
+from handler.cd_audio import (
+    CdAudioNeedsFolderException,
+    CdAudioUnavailableException,
+    DiscImageState,
+    disc_image_state,
+    disc_images_changed,
+    encoder_available,
+    extract_cd_audio,
+)
 from handler.database import (
     db_collection_handler,
     db_firmware_handler,
@@ -63,6 +74,7 @@ from handler.redis_handler import (
     scan_queue,
 )
 from handler.rom_files import loaded_rom_files, refresh_rom_files
+from handler.rom_upload import UploadRejectedException
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
@@ -579,6 +591,49 @@ async def _rebuild_rom_files(
     return parsed
 
 
+def _track_cd_audio(
+    rom_id: int, before: DiscImageState, cd_audio_rom_ids: set[int]
+) -> None:
+    """Queue a ROM for CD audio extraction when one of its disc images is new
+    or changed."""
+    after = disc_image_state(db_rom_handler.rom_files_for_rom_id(rom_id))
+    if disc_images_changed(before, after):
+        cd_audio_rom_ids.add(rom_id)
+
+
+async def _extract_cd_audio(rom_ids: set[int]) -> None:
+    """Extract the CD audio of the queued ROMs.
+
+    Runs after the platforms' missing-file sync, since moving a lone CHD into a
+    folder changes the path that sync matches on.
+    """
+    if not rom_ids:
+        return
+    if not encoder_available():
+        log.warning("Skipping CD audio extraction: the flac encoder is not installed")
+        return
+    for rom_id in sorted(rom_ids):
+        if redis_client.get(STOP_SCAN_FLAG):
+            raise ScanStoppedException()
+        rom = db_rom_handler.get_rom(rom_id)
+        if rom is None:
+            continue
+        try:
+            await extract_cd_audio(rom)
+        except (
+            CdAudioUnavailableException,
+            CdAudioNeedsFolderException,
+            RomAlreadyExistsException,
+            RomListedByPlaylistException,
+            UploadRejectedException,
+        ) as exc:
+            log.warning(f"Skipped the CD audio of {hl(rom.fs_name)}: {exc}")
+        except Exception as exc:
+            log.error(
+                f"Could not extract the CD audio of {hl(rom.fs_name)}", exc_info=exc
+            )
+
+
 # There's an order of operations here that is important:
 # 1. Read the list of roms from the filesystem
 # 2. Check if ROM should be scanned based on the scan type
@@ -596,15 +651,23 @@ async def _identify_rom(
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
+    cd_audio_rom_ids: set[int],
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return
 
+    track_cd_audio = cm.get_config().CD_AUDIO_AUTO_EXTRACT_ON_SCAN
+    disc_images_before = (
+        disc_image_state(loaded_rom_files(rom)) if track_cd_audio and rom else {}
+    )
+
     # A quick scan only reconciles an existing entry's files with disk, so it
     # needs none of the metadata prelude below.
     if rom is not None and scan_type == ScanType.QUICK:
         refreshed = await refresh_rom_files(rom)
+        if track_cd_audio and refreshed.changed:
+            _track_cd_audio(rom.id, disc_images_before, cd_audio_rom_ids)
         await scan_stats.increment(
             socket_manager=socket_manager,
             scanned_roms=1,
@@ -813,6 +876,8 @@ async def _identify_rom(
             remove_persisted_cover(cover_path)
         for saved in synced.files:
             persist_soundtrack_cover(saved, _added_rom)
+        if track_cd_audio:
+            _track_cd_audio(_added_rom.id, disc_images_before, cd_audio_rom_ids)
 
     # Short circuit if the scan type is hashes
     if scan_type == ScanType.HASHES:
@@ -839,6 +904,7 @@ async def _scan_selected_roms(
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
+    cd_audio_rom_ids: set[int],
 ) -> ScanStats:
     """Scan a hand-picked set of ROMs without touching the rest of their platform.
 
@@ -893,6 +959,7 @@ async def _scan_selected_roms(
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
                 scanned_rom_ids=scanned_rom_ids,
+                cd_audio_rom_ids=cd_audio_rom_ids,
             )
 
     results = await asyncio.gather(
@@ -924,6 +991,7 @@ async def _identify_platform(
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
+    cd_audio_rom_ids: set[int],
 ) -> ScanStats:
     # Stop the scan if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -1038,6 +1106,7 @@ async def _identify_platform(
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
                 scanned_rom_ids=scanned_rom_ids,
+                cd_audio_rom_ids=cd_audio_rom_ids,
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
@@ -1196,6 +1265,9 @@ async def scan_platforms(
     # Filled in by the ROM pass, and read by the post-scan work that has to know
     # which entries changed rather than how many.
     scanned_rom_ids: set[int] = set()
+    # ROMs with a new or changed disc image, whose CD audio is extracted once
+    # every platform is scanned.
+    cd_audio_rom_ids: set[int] = set()
 
     async def finish(event: str, payload: Any, *, stopped: bool = False) -> None:
         """End the scan, reporting whatever a coalesced increment held back."""
@@ -1363,6 +1435,7 @@ async def scan_platforms(
                     socket_manager=socket_manager,
                     scan_stats=scan_stats,
                     scanned_rom_ids=scanned_rom_ids,
+                    cd_audio_rom_ids=cd_audio_rom_ids,
                 )
         else:
             if len(platform_list) == 0:
@@ -1386,6 +1459,7 @@ async def scan_platforms(
                     socket_manager=socket_manager,
                     scan_stats=scan_stats,
                     scanned_rom_ids=scanned_rom_ids,
+                    cd_audio_rom_ids=cd_audio_rom_ids,
                 )
 
             missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
@@ -1393,6 +1467,8 @@ async def scan_platforms(
                 log.warning(f"{hl('Missing')} platforms from filesystem:")
                 for p in missed_platforms:
                     log.warning(f" - {p.slug} ({p.fs_slug})")
+
+        await _extract_cd_audio(cd_audio_rom_ids)
 
         if MetadataSource.SS in metadata_sources:
             log_ss_scan_summary()
