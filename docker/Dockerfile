@@ -146,20 +146,24 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
 
 
 # LIBCHDR (BSD-3-Clause) FOR CD AUDIO IN CHD IMAGES
-# Keep this pin in sync with the dev image's LIBCHDR_COMMIT in ../Dockerfile.
+# Keep these pins in sync with the dev image's copies in ../Dockerfile.
+# checkov:skip=CKV_DOCKER_4:the ADD below is a remote URL pinned by --checksum
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS libchdr-build
 # trunk-ignore(hadolint/DL3018)
 RUN apk add --no-cache \
     cmake \
     g++ \
-    git \
     make \
     musl-dev
 
 ARG LIBCHDR_COMMIT=8e7b8bd32bc676b7e5c6b42fe7d2daca986c4a0d
+ARG LIBCHDR_SHA256=04d6c61946c95addb78f4554740283b93249b81d8437e3d8a58ca1899c824dcc
 
-RUN git clone --filter=blob:none https://github.com/rtissera/libchdr.git ./libchdr-src && \
-    git -C ./libchdr-src checkout "${LIBCHDR_COMMIT}" && \
+ADD --checksum=sha256:${LIBCHDR_SHA256} \
+    "https://github.com/rtissera/libchdr/archive/${LIBCHDR_COMMIT}.tar.gz" \
+    /downloads/libchdr.tar.gz
+RUN mkdir ./libchdr-src && \
+    tar -xzf /downloads/libchdr.tar.gz -C ./libchdr-src --strip-components=1 && \
     cmake -S ./libchdr-src -B ./libchdr-src/build -DCMAKE_BUILD_TYPE=Release -DCHDR_WANT_TESTS=OFF && \
     cmake --build ./libchdr-src/build --target chdr && \
     mkdir /libchdr && \
