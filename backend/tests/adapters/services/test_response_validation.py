@@ -111,3 +111,15 @@ def test_known_problems_in_a_new_combination_are_not_logged_again(
 def test_a_reply_whose_top_level_is_the_wrong_type_reads_as_none(lenient: MagicMock):
     assert parse_response(Parent, b"[1, 2]", source="test") is None
     lenient.warning.assert_called_once()
+
+
+def test_problems_beyond_a_warning_surface_in_the_next_one(lenient: MagicMock):
+    body = json.dumps({f"k{i}": "x" for i in range(7)}).encode()
+
+    parse_response(dict[str, int], body, source="test")
+    parse_response(dict[str, int], body, source="test")
+    parse_response(dict[str, int], body, source="test")
+
+    assert lenient.warning.call_count == 2
+    second = lenient.warning.call_args_list[1].args
+    assert second[4].count(":") == 2

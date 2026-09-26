@@ -69,15 +69,17 @@ def parse_response[T](tp: type[T], body: str | bytes, *, source: str) -> T | Non
             f"{source} response does not match {tp!r}: {details}"
         )
 
-    unreported = {(source, problem) for problem in problems} - _reported
+    # Only the problems a warning names count as reported, so the rest surface later.
+    unreported = [p for p in dict.fromkeys(problems) if (source, p) not in _reported]
     if unreported:
-        _reported.update(unreported)
+        named = unreported[:5]
+        _reported.update((source, problem) for problem in named)
         log.warning(
             "%s response does not match %r (%d problems): %s",
             source,
             tp,
             len(problems),
-            details,
+            "; ".join(f"{path}: {msg}" for path, msg in named),
         )
     if any(len(err["loc"]) == 1 for err in errors):
         return None
