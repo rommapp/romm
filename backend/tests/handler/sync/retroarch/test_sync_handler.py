@@ -1,6 +1,7 @@
 import os
 from collections.abc import Iterator
 from pathlib import Path
+from typing import cast
 from unittest import mock
 
 import pytest
@@ -21,7 +22,8 @@ class TestCachedMd5s:
     async def test_misses_are_written_back_with_the_ttl(self):
         await cached_hashes([("miss", mock.AsyncMock(return_value="fresh-md5"))])
 
-        assert await async_cache.get("miss") == b"fresh-md5"
+        # The test fake stores bytes, where production decodes to str.
+        assert cast(object, await async_cache.get("miss")) == b"fresh-md5"
         ttl = await async_cache.ttl("miss")
         assert 0 < ttl <= HASH_CACHE_TTL_SECONDS
 

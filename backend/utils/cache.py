@@ -10,7 +10,9 @@ from redis.asyncio import Redis as AsyncRedis
 from logger.logger import log
 
 
-async def conditionally_set_cache(cache: AsyncRedis, key: str, file_path: Path) -> None:
+async def conditionally_set_cache(
+    cache: AsyncRedis[str], key: str, file_path: Path
+) -> None:
     """Set the content of a JSON file to the cache, if it does not already exist or is outdated.
 
     The MD5 hash of the file is stored alongside the data to determine if the content has changed.
@@ -65,19 +67,21 @@ class VersionedCacheStore(NamedTuple):
 
 
 async def is_cache_schema_current(
-    cache: AsyncRedis, store: VersionedCacheStore
+    cache: AsyncRedis[str], store: VersionedCacheStore
 ) -> bool:
     """Whether the store holds the shape its readers expect."""
     return await cache.get(store.schema_key) == str(store.version)
 
 
-async def stamp_cache_schema(cache: AsyncRedis, store: VersionedCacheStore) -> None:
+async def stamp_cache_schema(
+    cache: AsyncRedis[str], store: VersionedCacheStore
+) -> None:
     """Record the shape a completed import left the store in."""
     await cache.set(store.schema_key, str(store.version))
 
 
 async def is_cache_store_ready(
-    cache: AsyncRedis, store: VersionedCacheStore, data_key: str
+    cache: AsyncRedis[str], store: VersionedCacheStore, data_key: str
 ) -> bool:
     """Whether `data_key` holds entries an import wrote under the current shape.
 
@@ -89,7 +93,9 @@ async def is_cache_store_ready(
     return bool(await cache.exists(data_key))
 
 
-async def drop_stale_cache_store(cache: AsyncRedis, store: VersionedCacheStore) -> bool:
+async def drop_stale_cache_store(
+    cache: AsyncRedis[str], store: VersionedCacheStore
+) -> bool:
     """Delete a store an older release wrote, returning whether one was there.
 
     `unlink` frees the hundreds of MB a metadata store holds off the main

@@ -1,6 +1,7 @@
 import hashlib
 import os
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock
 from uuid import UUID
 
@@ -71,7 +72,7 @@ def test_start_chunked_upload_success(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     response = _start_upload(client, access_token, platform.id)
 
@@ -83,7 +84,7 @@ def test_start_chunked_upload_success(
 def test_start_chunked_upload_platform_not_found(
     client: TestClient,
     access_token: str,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     response = _start_upload(client, access_token, platform_id=999999)
 
@@ -95,7 +96,7 @@ def test_upload_chunk_complete_success(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(
         client,
@@ -135,7 +136,7 @@ def test_upload_empty_file_without_chunks(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(
         client,
@@ -164,7 +165,7 @@ def test_start_with_chunks_that_do_not_match_the_size_returns_400(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
     total_size: int,
     total_chunks: int,
 ):
@@ -196,7 +197,7 @@ def test_upload_chunk_forbidden_user(
     access_token: str,
     editor_access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(client, access_token, platform.id)
     upload_id = start_response.json()["upload_id"]
@@ -215,7 +216,7 @@ def test_upload_chunk_oversized_returns_413(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setattr(upload_endpoint, "ROM_UPLOAD_MAX_CHUNK_SIZE", 6)
@@ -243,7 +244,7 @@ def test_complete_missing_chunks_returns_400(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(client, access_token, platform.id)
     upload_id = start_response.json()["upload_id"]
@@ -277,7 +278,7 @@ def test_cancel_upload_cleans_temp_files(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(client, access_token, platform.id)
     upload_id = start_response.json()["upload_id"]
@@ -304,7 +305,7 @@ def test_complete_after_cancel_returns_404(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(client, access_token, platform.id)
     upload_id = start_response.json()["upload_id"]

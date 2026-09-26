@@ -11,6 +11,8 @@ A coalesce folds that NULL to false on every engine. The suite runs against one
 driver at a time, hence the compiled-SQL check below.
 """
 
+from typing import Any
+
 import pytest
 from tests.sql_dialects import POSTGRESQL_DIALECT, compile_sql
 
@@ -38,8 +40,8 @@ def _add_rom(
     platform: Platform,
     user: User,
     name: str,
-    metadata: dict,
-    ra_metadata: dict | None = None,
+    metadata: dict[str, Any],
+    ra_metadata: dict[str, Any] | None = None,
 ) -> Rom:
     rom = db_rom_handler.add_rom(
         Rom(

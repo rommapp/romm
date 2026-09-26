@@ -1,7 +1,7 @@
 import asyncio
 import http
 import json
-from typing import Final, cast
+from typing import Any, Final, cast
 
 import aiohttp
 import yarl
@@ -50,7 +50,7 @@ class SteamService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://store.steampowered.com/api")
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict:
+    async def _request(self, url: str, request_timeout: int = 120) -> dict[str, Any]:
         aiohttp_session = ctx_aiohttp_session.get()
 
         for attempt in range(STEAM_MAX_REQUEST_ATTEMPTS):
@@ -149,7 +149,9 @@ class SteamService:
         return envelope.get("data")
 
     @staticmethod
-    def _envelope_keyed_by_another_id(response: dict, app_id: int) -> dict | None:
+    def _envelope_keyed_by_another_id(
+        response: dict[str, Any], app_id: int
+    ) -> dict[str, Any] | None:
         """Steam keys some apps' envelope by another ID, e.g. one of their DLC."""
         envelope = next(iter(response.values()))
         if not isinstance(envelope, dict):

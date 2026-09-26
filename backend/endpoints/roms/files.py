@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any
 
 from anyio import Path
 from fastapi import Body, HTTPException
@@ -311,7 +311,7 @@ async def update_rom_file_progress(
     request: Request,
     rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
-    body: Annotated[dict, Body()],
+    body: Annotated[dict[str, Any], Body()],
 ) -> RomFileUserSchema:
     """Upsert the current user's reading progress for a document file.
 
@@ -321,7 +321,7 @@ async def update_rom_file_progress(
 
     _assert_document_file(rom_id, file_id, request)
 
-    values: dict = {"last_read_at": datetime.now(timezone.utc)}
+    values: dict[str, Any] = {"last_read_at": datetime.now(timezone.utc)}
     if "progress" in body:
         try:
             values["progress"] = min(1.0, max(0.0, float(body["progress"])))

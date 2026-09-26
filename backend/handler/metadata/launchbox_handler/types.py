@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 from config import ROMM_BASE_PATH
 from utils.cache import VersionedCacheStore
@@ -109,7 +109,7 @@ class MediaRequest:
     fs_name: str
     title: str
     region_hint: str | None
-    remote_images: list[dict] | None
+    remote_images: list[dict[str, Any]] | None
     remote_enabled: bool
     # Provider region shortcodes (e.g. "us", "eu") ordered by preference, used
     # to pick a region-matched remote cover. Derived from the ROM filename.

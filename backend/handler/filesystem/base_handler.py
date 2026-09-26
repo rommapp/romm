@@ -609,7 +609,7 @@ class FSHandler:
 
     async def write_file(
         self,
-        file: UploadFile | BinaryIO | BytesIO | bytes | SpooledTemporaryFile,
+        file: UploadFile | BinaryIO | BytesIO | bytes | SpooledTemporaryFile[bytes],
         path: str,
         filename: str | None = None,
     ) -> None:

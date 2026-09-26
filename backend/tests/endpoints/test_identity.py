@@ -383,7 +383,7 @@ def test_overlapping_registrations_spend_one_invite_once(client, access_token: s
         def __getattr__(self, name):
             return getattr(live_redis, name)
 
-    responses: list = []
+    responses: list[httpx.Response] = []
 
     def register(index: int) -> None:
         responses.append(
@@ -564,7 +564,7 @@ async def test_sessions_are_revoked_on_both_sides_of_the_write(
     real_update = DBUsersHandler.update_user
 
     def record_update(
-        self: DBUsersHandler, id: int, data: dict, *args: Any, **kwargs: Any
+        self: DBUsersHandler, id: int, data: dict[str, Any], *args: Any, **kwargs: Any
     ) -> User:
         # `set_last_active` writes on every authenticated request; only the
         # credential write is being ordered here.

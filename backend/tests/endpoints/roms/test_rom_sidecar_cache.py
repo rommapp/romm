@@ -103,7 +103,7 @@ def _seed_rom_id_index(cache_key: str, ids: list[int]) -> str:
     return redis_key
 
 
-def _get_roms(client: TestClient, access_token: str, **params: Any) -> dict:
+def _get_roms(client: TestClient, access_token: str, **params: Any) -> dict[str, Any]:
     response = client.get(
         "/api/roms",
         headers={"Authorization": f"Bearer {access_token}"},

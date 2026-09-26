@@ -6,6 +6,7 @@ platforms with no LaunchBox metadata at all while a manual match still works.
 """
 
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -35,7 +36,9 @@ def _playmatch(launchbox_id: int | None) -> PlaymatchRomMatch:
     )
 
 
-def _rom(launchbox_id: int | None = None, launchbox_metadata: dict | None = None):
+def _rom(
+    launchbox_id: int | None = None, launchbox_metadata: dict[str, Any] | None = None
+):
     return SimpleNamespace(
         launchbox_id=launchbox_id,
         launchbox_metadata=launchbox_metadata or {},

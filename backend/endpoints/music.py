@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
@@ -197,7 +197,9 @@ def get_music_favorites(
 
 
 @protected_route(router.post, "/favorites", [Scope.PLAYLISTS_WRITE])
-def add_music_favorites(request: Request, payload: MusicTrackIdsPayload) -> dict:
+def add_music_favorites(
+    request: Request, payload: MusicTrackIdsPayload
+) -> dict[str, Any]:
     """Mark tracks as favorites; already-favorited tracks are ignored."""
     perms = get_permissions(request)
     rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)
@@ -206,7 +208,9 @@ def add_music_favorites(request: Request, payload: MusicTrackIdsPayload) -> dict
 
 
 @protected_route(router.delete, "/favorites", [Scope.PLAYLISTS_WRITE])
-def remove_music_favorites(request: Request, payload: MusicTrackIdsPayload) -> dict:
+def remove_music_favorites(
+    request: Request, payload: MusicTrackIdsPayload
+) -> dict[str, Any]:
     """Unmark tracks as favorites."""
     perms = get_permissions(request)
     rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)

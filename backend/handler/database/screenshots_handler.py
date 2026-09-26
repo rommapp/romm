@@ -1,5 +1,6 @@
 from collections.abc import Collection, Sequence
 from functools import partial
+from typing import Any
 
 import pydash
 from sqlalchemy import case, delete, func, or_, select, update
@@ -176,7 +177,7 @@ class DBScreenshotsHandler(DBBaseHandler):
     def update_screenshot(
         self,
         id: int,
-        data: dict,
+        data: dict[str, Any],
         session: Session = None,  # type: ignore[assignment]
     ) -> Screenshot:
         session.execute(

@@ -42,7 +42,7 @@ class Filters(BaseModel):
 
 class TestAsQueryDependency:
     @staticmethod
-    def _schema() -> list[dict]:
+    def _schema() -> list[dict[str, Any]]:
         """OpenAPI parameters of a route taking the model and one plain param."""
         router = APIRouter()
 

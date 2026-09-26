@@ -1329,7 +1329,7 @@ async def scan_rom(
                 if merged_csdb:
                     blob["summary"] = merged_csdb
 
-    metadata_handlers: dict[MetadataSource, dict] = {
+    metadata_handlers: dict[MetadataSource, dict[str, Any]] = {
         MetadataSource.IGDB: {
             "handler": igdb_handler_rom,
             "id_field": "igdb_id",

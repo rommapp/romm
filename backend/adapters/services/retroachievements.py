@@ -2,7 +2,7 @@ import asyncio
 import http
 import json
 from collections.abc import AsyncIterator
-from typing import Final, cast
+from typing import Any, Final, cast
 
 import aiohttp
 import yarl
@@ -51,7 +51,7 @@ class RetroAchievementsService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://retroachievements.org/API")
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict:
+    async def _request(self, url: str, request_timeout: int = 120) -> dict[str, Any]:
         aiohttp_session = ctx_aiohttp_session.get()
         log.debug(
             "API request: URL=%s, Timeout=%s",
@@ -119,7 +119,7 @@ class RetroAchievementsService:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 
-    async def get_achievement_of_the_week(self) -> dict:
+    async def get_achievement_of_the_week(self) -> dict[str, Any]:
         """Retrieve the achievement of the week.
 
         Reference: https://api-docs.retroachievements.org/v1/get-achievement-of-the-week.html

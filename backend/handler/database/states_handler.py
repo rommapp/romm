@@ -1,4 +1,5 @@
 from collections.abc import Collection, Sequence
+from typing import Any
 
 from sqlalchemy import Select, and_, delete, desc, or_, select, update
 from sqlalchemy.orm import Session
@@ -125,7 +126,7 @@ class DBStatesHandler(DBBaseHandler):
     def update_state(
         self,
         id: int,
-        data: dict,
+        data: dict[str, Any],
         touch: bool = True,
         session: Session = None,  # type: ignore[assignment]
     ) -> State:

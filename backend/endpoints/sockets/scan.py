@@ -130,7 +130,11 @@ def _scan_reported_itself(job: Job) -> bool:
 
 
 def report_scan_failure(
-    job: Job, connection: Redis, exc_type: type, exc_value: BaseException, tb: Any
+    job: Job,
+    connection: Redis[bytes],
+    exc_type: type,
+    exc_value: BaseException,
+    tb: Any,
 ) -> None:
     """Tell the clients a scan is over when the scan could not say so itself.
 

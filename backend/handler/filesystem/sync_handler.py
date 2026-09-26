@@ -1,6 +1,7 @@
 import functools
 import os
 from pathlib import Path
+from typing import Any
 
 from config import SYNC_BASE_PATH
 from logger.logger import log
@@ -48,7 +49,7 @@ class FSSyncHandler(FSHandler):
 
         log.info(f"Ensured sync directories for device {device_id}")
 
-    def list_incoming_files(self, device_id: str) -> list[dict]:
+    def list_incoming_files(self, device_id: str) -> list[dict[str, Any]]:
         """List all files in a device's incoming directory.
 
         Returns list of dicts with keys: platform_slug, file_name, full_path, file_size, mtime

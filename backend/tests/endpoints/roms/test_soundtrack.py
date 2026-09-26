@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi import status
@@ -308,7 +309,7 @@ def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
     monkeypatch.setattr(
         audio_tags, "extract_audio_meta", lambda _path: {"has_embedded_cover": False}
     )
-    cover_calls: list[dict] = []
+    cover_calls: list[dict[str, Any]] = []
 
     def _record_cover_call(**kw: object) -> None:
         cover_calls.append(kw)

@@ -1,7 +1,7 @@
 """Tests for the ScreenScraper metadata handler."""
 
 import json
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
@@ -680,7 +680,7 @@ class TestBuildSSGame:
         rom.regions = regions
         return rom
 
-    def _make_media(self, media_type: str) -> dict:
+    def _make_media(self, media_type: str) -> dict[str, Any]:
         return {
             "type": media_type,
             "parent": "jeu",
@@ -1954,7 +1954,7 @@ class TestSearchTermEncoding:
     ):
         """``_search_rom`` hands the service a term that is not pre-encoded."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -1971,7 +1971,7 @@ class TestSearchTermEncoding:
     async def test_search_rom_still_transliterates_unicode(self):
         """Unidecode is still applied so accented titles match ScreenScraper."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -1986,7 +1986,7 @@ class TestSearchTermEncoding:
     async def test_get_matched_roms_by_name_passes_unencoded_term(self):
         """``get_matched_roms_by_name`` also avoids pre-encoding the term."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -2008,7 +2008,7 @@ class TestSearchTermEncoding:
         """End-to-end through the real service: a ``+`` is encoded exactly once
         in the request URL (``%2B``), never doubly (``%252B``)."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture_request(url, *args, **kwargs):
             captured["url"] = url
