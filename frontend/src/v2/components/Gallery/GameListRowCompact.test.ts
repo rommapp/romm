@@ -29,7 +29,7 @@ function mountRow(props: Record<string, unknown> = {}) {
         RCheckbox: true,
         RChip: true,
         RIcon: true,
-        RPlatformIcon: true,
+        PlatformIcon: true,
         RTooltip: true,
         SiblingBadge: true,
       },

@@ -107,7 +107,7 @@ import { useCan } from "@/v2/composables/useCan";
 - Every primitive ships at least one story with controls and at least one variant per theme.
 - A new interactive primitive that warrants gamepad navigation ships a `play()` interaction.
 - Modified primitive: existing story must still render and its interactions still pass.
-- `npm run test` runs Vitest **and** every `/lib` story's `play()` via `composeStories`. Don't duplicate coverage between Vitest (pure logic) and Storybook `play()` (components).
+- `npm run test` runs Vitest **and** every `/lib` and `components/shared` story's `play()` via `composeStories`. Don't duplicate coverage between Vitest (pure logic) and Storybook `play()` (components).
 - **Responsive QA:** `.storybook/rommViewports.ts` + viewport globals in `preview.ts`; see `frontend-v2-input` for `data-bp` vs iframe width.
 
 ---

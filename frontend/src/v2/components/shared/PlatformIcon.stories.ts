@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import RPlatformIcon from "./RPlatformIcon.vue";
+import PlatformIcon from "./PlatformIcon.vue";
 
-const meta: Meta<typeof RPlatformIcon> = {
-  title: "Media/RPlatformIcon",
-  component: RPlatformIcon,
+const meta: Meta<typeof PlatformIcon> = {
+  title: "Media/PlatformIcon",
+  component: PlatformIcon,
   argTypes: {
     name: { control: "text" },
     src: { control: "text" },
@@ -15,20 +15,20 @@ const meta: Meta<typeof RPlatformIcon> = {
 
 export default meta;
 
-type Story = StoryObj<typeof RPlatformIcon>;
+type Story = StoryObj<typeof PlatformIcon>;
 
 export const Known: Story = { args: { name: "snes", size: 40 } };
 export const Unknown: Story = { args: { name: "does-not-exist", size: 40 } };
 export const Row: Story = {
   render: () => ({
-    components: { RPlatformIcon },
+    components: { PlatformIcon },
     template: `
       <div style="display:flex;gap:.5rem;align-items:center">
-        <RPlatformIcon name="snes" />
-        <RPlatformIcon name="nes" />
-        <RPlatformIcon name="gba" />
-        <RPlatformIcon name="ps1" />
-        <RPlatformIcon name="mystery" />
+        <PlatformIcon name="snes" />
+        <PlatformIcon name="nes" />
+        <PlatformIcon name="gba" />
+        <PlatformIcon name="ps1" />
+        <PlatformIcon name="mystery" />
       </div>
     `,
   }),
@@ -43,23 +43,23 @@ export const Row: Story = {
 export const SizeLadder: Story = {
   name: "Size ladder",
   render: () => ({
-    components: { RPlatformIcon },
+    components: { PlatformIcon },
     template: `
       <div style="display:flex;gap:14px;align-items:center;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <RPlatformIcon name="snes" :size="16" />
+          <PlatformIcon name="snes" :size="16" />
           <span>16</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <RPlatformIcon name="snes" :size="22" />
+          <PlatformIcon name="snes" :size="22" />
           <span>22</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <RPlatformIcon name="snes" :size="32" />
+          <PlatformIcon name="snes" :size="32" />
           <span>32</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <RPlatformIcon name="snes" :size="48" />
+          <PlatformIcon name="snes" :size="48" />
           <span>48</span>
         </div>
       </div>
@@ -81,11 +81,11 @@ export const SizeLadder: Story = {
 export const InsideFlexParent: Story = {
   name: "Inside indefinite-extent flex parent",
   render: () => ({
-    components: { RPlatformIcon },
+    components: { PlatformIcon },
     template: `
       <div style="display:flex;align-items:center;gap:6px;padding:6px;border:1px dashed var(--r-color-border);border-radius:6px">
         <span style="font:11px sans-serif;color:var(--r-color-fg-muted)">indefinite flex parent →</span>
-        <RPlatformIcon name="snes" :size="22" />
+        <PlatformIcon name="snes" :size="22" />
       </div>
     `,
   }),
