@@ -40,6 +40,7 @@ from models.device_save_sync import DeviceSaveSync
 from models.firmware import Firmware
 from models.notification import Notification
 from models.notification_channel import NotificationChannel
+from models.permission import SystemGroupKey
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
@@ -484,7 +485,7 @@ def admin_user():
 @pytest.fixture
 def editor_user():
     # role collapses to `user`; editor-level access now comes from the group.
-    group = db_permission_handler.get_group_by_name("Editor (legacy)")
+    group = db_permission_handler.get_system_group(SystemGroupKey.EDITOR)
     user = User(
         username="test_editor",
         hashed_password=_password_hash("test_editor_password"),
@@ -496,7 +497,7 @@ def editor_user():
 
 @pytest.fixture
 def viewer_user():
-    group = db_permission_handler.get_group_by_name("Viewer (legacy)")
+    group = db_permission_handler.get_system_group(SystemGroupKey.VIEWER)
     user = User(
         username="test_viewer",
         hashed_password=_password_hash("test_viewer_password"),

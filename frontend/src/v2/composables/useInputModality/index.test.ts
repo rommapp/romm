@@ -65,4 +65,19 @@ describe("useInputModality", () => {
 
     expect(modality.value).toBe("pad");
   });
+
+  it("ignores every input while pinned, and resumes tracking once unpinned", async () => {
+    const { modality, pin } = await loadFresh();
+
+    pin("key");
+    expect(document.documentElement.dataset.input).toBe("key");
+
+    tap();
+    window.dispatchEvent(new Event("gamepadconnected"));
+    expect(modality.value).toBe("key");
+
+    pin(null);
+    tap();
+    expect(modality.value).toBe("touch");
+  });
 });

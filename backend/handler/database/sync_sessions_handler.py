@@ -21,7 +21,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> SyncSession:
         sync_session = SyncSession(
             device_id=device_id,
@@ -38,7 +38,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> SyncSession | None:
         return session.scalar(
             select(SyncSession).filter_by(id=session_id, user_id=user_id).limit(1)
@@ -49,7 +49,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> SyncSession | None:
         return session.scalar(
             select(SyncSession)
@@ -72,7 +72,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         data: dict,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> SyncSession:
         session.execute(
             update(SyncSession)
@@ -90,7 +90,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         session.execute(
             update(SyncSession)
@@ -107,7 +107,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         session_id: int,
         operations_completed: int = 0,
         operations_failed: int = 0,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> SyncSession | None:
         """Complete a session that is still open, or that the cleanup expired.
 
@@ -162,7 +162,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         error_message: str | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> SyncSession:
         session.execute(
             update(SyncSession)
@@ -183,7 +183,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
     def fail_stale_sessions(
         self,
         older_than: datetime,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         """Fail every session opened before ``older_than`` and never closed.
 
@@ -220,7 +220,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         device_id: str | None = None,
         status: SyncSessionStatus | None = None,
         limit: int = 50,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[SyncSession]:
         query = select(SyncSession).filter_by(user_id=user_id)
 

@@ -1084,6 +1084,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         :save-slot="saveSlot"
         :load-state-label="t('rom.load-save-or-state')"
         :bios="selectedFirmware"
+        :firmware="firmwareOptions"
         :core="selectedCore"
         :disc="bootDiscId(selectedDisc)"
       />

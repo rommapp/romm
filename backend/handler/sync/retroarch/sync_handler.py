@@ -11,7 +11,7 @@ from collections.abc import Awaitable, Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
-from typing import Literal, NamedTuple, cast
+from typing import Literal, NamedTuple
 
 from handler.database import (
     db_rom_handler,
@@ -88,7 +88,7 @@ def parse_retroarch_sync_path(path: str) -> RetroArchSyncPath | None:
 
     if segments[0] not in ASSET_ROOTS:
         return None
-    kind = cast(AssetKind, segments[0])
+    kind = segments[0]
 
     emulator = None
     if len(segments) == 3:

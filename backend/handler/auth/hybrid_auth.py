@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+from fastapi import HTTPException
 from fastapi.security.http import HTTPBasic
 from starlette.authentication import AuthCredentials, AuthenticationBackend
 from starlette.requests import HTTPConnection
@@ -27,7 +28,8 @@ class HybridAuthBackend(AuthenticationBackend):
             user.set_last_active()
             return (AuthCredentials(user.oauth_scopes), user)
 
-        # Check if Authorization header exists
+        # Errors raised here bypass FastAPI's exception handlers and surface as 500s,
+        # so an unusable credential leaves the request unauthenticated instead
         if "Authorization" in conn.headers:
             auth_header_parts = conn.headers["Authorization"].split()
             if len(auth_header_parts) != 2:
@@ -37,7 +39,10 @@ class HybridAuthBackend(AuthenticationBackend):
 
             # Check if basic auth header is valid
             if scheme.lower() == "basic":
-                credentials = await HTTPBasic().__call__(conn)  # type: ignore[arg-type]
+                try:
+                    credentials = await HTTPBasic().__call__(conn)  # type: ignore[arg-type]
+                except HTTPException:
+                    return None
                 if not credentials:
                     return None
 
@@ -82,10 +87,15 @@ class HybridAuthBackend(AuthenticationBackend):
                     return (AuthCredentials(effective_scopes), user)
 
                 # OAuth JWT bearer tokens
-                (
-                    user,
-                    claims,
-                ) = await oauth_handler.get_current_active_user_from_bearer_token(token)
+                try:
+                    (
+                        user,
+                        claims,
+                    ) = await oauth_handler.get_current_active_user_from_bearer_token(
+                        token
+                    )
+                except HTTPException:
+                    return None
 
                 if user is None or claims is None:
                     return None

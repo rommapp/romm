@@ -6,7 +6,6 @@ import {
   RIcon,
   RList,
   RListItem,
-  RPlatformIcon,
   RSkeletonBlock,
   RTextField,
 } from "@v2/lib";
@@ -15,6 +14,7 @@ import { useI18n } from "vue-i18n";
 import musicApi, { type MusicTrackFilters } from "@/services/api/music";
 import useMusicFavorites from "@/stores/musicFavorites";
 import SoundtrackPanel from "@/v2/components/Soundtrack/Panel.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useTrackPager } from "@/v2/composables/useTrackPager";
 import { panelTracksFromCatalog } from "@/v2/utils/soundtrackTracks";
@@ -161,7 +161,7 @@ function onDelete(fileId: number, romId: number) {
                 alt=""
                 loading="lazy"
               />
-              <RPlatformIcon
+              <PlatformIcon
                 v-else-if="entry.platformSlug"
                 :slug="entry.platformSlug"
                 :alt="entry.label"

@@ -91,6 +91,9 @@ undo a behaviour the maintainer asked for is a decline, with that intent as the
 reason. Repo rules are a valid source: Greptile enforces the comment discipline
 from `CLAUDE.md` and `review-polish`, and those findings stand.
 
+A valid finding that is pattern-shaped is a missing check: name one as a
+follow-up in the reply (see `review-polish`, "Encode what you fixed twice").
+
 Suggestion blocks are a starting point, not a patch to apply blindly. Check they
 are complete and not duplicating a call a neighbouring branch already makes.
 

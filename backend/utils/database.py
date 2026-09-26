@@ -84,6 +84,37 @@ def CustomJSON(**kwargs: Any) -> sa.JSON:
     return sa.JSON(**kwargs).with_variant(sa_pg.JSONB(**kwargs), "postgresql")
 
 
+# Byte for byte and NO PAD, so case, accents and trailing spaces all count.
+MARIADB_EXACT_COLLATION = "utf8mb4_nopad_bin"
+MYSQL_EXACT_COLLATION = "utf8mb4_0900_bin"
+
+
+class ExactString(sa.types.TypeDecorator[str]):
+    """A VARCHAR that MariaDB and MySQL compare exactly, as PostgreSQL and Python do."""
+
+    impl = sa.String
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: sa.Dialect) -> sa.types.TypeEngine[Any]:
+        return dialect.type_descriptor(
+            sa.String(self.length, collation=_exact_collation(dialect))
+        )
+
+
+def exact_collation(conn: DatabaseBind) -> str | None:
+    """The collation `ExactString` needs on this server, None on PostgreSQL."""
+    return _exact_collation(conn.engine.dialect)
+
+
+def _exact_collation(dialect: sa.Dialect) -> str | None:
+    if dialect.name == "postgresql":
+        return None
+    # The dialect is named `mysql` when the MySQL driver reaches a MariaDB server.
+    if getattr(dialect, "is_mariadb", False):
+        return MARIADB_EXACT_COLLATION
+    return MYSQL_EXACT_COLLATION
+
+
 def is_postgresql(conn: DatabaseBind) -> bool:
     return conn.engine.name == "postgresql"
 
