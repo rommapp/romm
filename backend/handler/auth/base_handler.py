@@ -2,7 +2,7 @@ import hashlib
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fastapi import HTTPException, status
 from joserfc import jwt
@@ -12,6 +12,7 @@ from passlib.context import CryptContext
 from redis.exceptions import RedisError
 from starlette.requests import HTTPConnection
 
+import models.user
 from config import (
     EMAIL_ENABLED,
     INVITE_TOKEN_EXPIRY_SECONDS,
@@ -35,9 +36,6 @@ from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.urls import get_public_base_url
-
-if TYPE_CHECKING:
-    from models.user import User
 
 oct_key = OctKey.import_key(ROMM_AUTH_SECRET_KEY)
 
@@ -123,7 +121,9 @@ class AuthHandler:
     def get_password_hash(self, password: str) -> str:
         return self.pwd_context.hash(password)
 
-    def authenticate_user(self, username: str, password: str) -> User | None:
+    def authenticate_user(
+        self, username: str, password: str
+    ) -> models.user.User | None:
         from handler.database import db_user_handler
 
         user = db_user_handler.get_user_by_username(username)
@@ -137,7 +137,7 @@ class AuthHandler:
 
     async def get_current_active_user_from_session(
         self, conn: HTTPConnection
-    ) -> User | None:
+    ) -> models.user.User | None:
         from handler.database import db_user_handler
 
         issuer = conn.session.get("iss")
@@ -466,7 +466,9 @@ class OAuthHandler:
 
         return token
 
-    async def consume_refresh_token(self, token: str) -> tuple[User, dict[str, Any]]:
+    async def consume_refresh_token(
+        self, token: str
+    ) -> tuple[models.user.User, dict[str, Any]]:
         from handler.database import db_user_handler
 
         try:
@@ -503,7 +505,7 @@ class OAuthHandler:
 
     async def get_current_active_user_from_bearer_token(
         self, token: str
-    ) -> tuple[User, dict[str, Any]] | tuple[None, None]:
+    ) -> tuple[models.user.User, dict[str, Any]] | tuple[None, None]:
         from handler.database import db_user_handler
 
         try:
@@ -536,7 +538,7 @@ class OAuthHandler:
 class OpenIDHandler:
     async def get_current_active_user_from_openid_token(
         self, token: Any
-    ) -> tuple[User, dict[str, Any]] | tuple[None, None]:
+    ) -> tuple[models.user.User, dict[str, Any]] | tuple[None, None]:
         from handler.audit_handler import SYSTEM_ACTOR, AuditActor, AuditTarget, record
         from handler.database import db_user_handler
         from models.audit_event import AuditAction
