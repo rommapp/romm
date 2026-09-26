@@ -112,9 +112,8 @@ RUN make HAVE_CHD=1 -f ./Makefile.RAHasher \
 RUN rm -rf /tmp/RALibretro
 
 # Install rom-converto (optional ROM conversion/decryption/metadata tool).
-# Pinned release; checksums are the upstream-published sha256 of the musl
-# builds, which are fully static so they run on this glibc image. Bump the
-# version and both sums together.
+# The musl builds are fully static, so they run on this glibc image.
+# Keep the version and both sums in sync with docker/Dockerfile.
 ARG TARGETARCH
 RUN ROM_CONVERTO_VERSION=v0.21.0 \
     && case "${TARGETARCH}" in \
