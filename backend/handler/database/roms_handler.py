@@ -682,7 +682,8 @@ def _queue_user_cache_bumps(
     def _consume(ending_session: Session) -> dict[int, set[str]]:
         # Popping the state re-arms the next transaction on a reused session.
         ending_session.info.pop("user_cache_bumps_armed", None)
-        return ending_session.info.pop("user_cache_bumps", {})
+        bumps: dict[int, set[str]] = ending_session.info.pop("user_cache_bumps", {})
+        return bumps
 
     @event.listens_for(session, "after_commit", once=True)
     def _flush(_session: Session) -> None:
@@ -1947,7 +1948,8 @@ class DBRomsHandler(DBBaseHandler):
             redis_key = _char_index_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
-                return json.loads(cached)
+                char_index: list[tuple[str, int]] = json.loads(cached)
+                return char_index
 
         # Drop any ordering carried over from the main query (e.g. search relevance).
         # This builds its own positional ordering below.
@@ -2001,7 +2003,8 @@ class DBRomsHandler(DBBaseHandler):
             redis_key = _rom_id_index_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
-                return json.loads(cached)
+                rom_ids: list[int] = json.loads(cached)
+                return rom_ids
 
         ids = list(session.scalars(query.with_only_columns(Rom.id)).all())
 
@@ -3704,7 +3707,8 @@ class DBRomsHandler(DBBaseHandler):
             redis_key = _filter_values_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
-                return json.loads(cached)
+                filters: RomFiltersDict = json.loads(cached)
+                return filters
 
         ids_subq = query.order_by(None).with_only_columns(Rom.id).scalar_subquery()
 

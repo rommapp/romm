@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from handler.dump_cache import hget_json
 from handler.redis_handler import async_cache
@@ -21,7 +21,10 @@ from .utils import deinvert_article, file_name_forms, fold_title
 
 class RemoteSource:
     async def get_by_id(self, database_id: int | str) -> dict[str, Any] | None:
-        return await hget_json(LAUNCHBOX_METADATA_DATABASE_ID_KEY, str(database_id))
+        return cast(
+            dict[str, Any] | None,
+            await hget_json(LAUNCHBOX_METADATA_DATABASE_ID_KEY, str(database_id)),
+        )
 
     async def _lookup_title_index(self, key: str, field: str) -> dict[str, Any] | None:
         """Read a title index hit and resolve the database id it holds."""
@@ -153,7 +156,7 @@ class RemoteSource:
         for candidate in candidates:
             entry = await hget_json(LAUNCHBOX_MAME_KEY, candidate)
             if entry:
-                return entry
+                return cast(dict[str, Any] | None, entry)
 
         return None
 
@@ -174,4 +177,7 @@ class RemoteSource:
         if not resolved_id:
             return None
 
-        return await hget_json(LAUNCHBOX_METADATA_IMAGE_KEY, str(resolved_id))
+        return cast(
+            list[dict[str, Any]] | None,
+            await hget_json(LAUNCHBOX_METADATA_IMAGE_KEY, str(resolved_id)),
+        )

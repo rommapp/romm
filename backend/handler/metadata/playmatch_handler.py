@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections.abc import Iterable
 from enum import Enum
-from typing import Any, Final, Literal, NotRequired, TypedDict, TypeIs, get_args
+from typing import Any, Final, Literal, NotRequired, TypedDict, TypeIs, cast, get_args
 
 import httpx
 import yarl
@@ -188,7 +188,7 @@ class PlaymatchHandler(MetadataHandler):
                     str(url_with_query), headers=headers, timeout=60
                 )
                 res.raise_for_status()
-                return res.json()
+                return cast(dict[str, Any], res.json())
             except (
                 httpx.HTTPStatusError,
                 httpx.ConnectError,

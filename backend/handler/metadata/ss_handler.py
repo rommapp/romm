@@ -2,7 +2,7 @@ import html
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Final, NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict, cast
 
 import pydash
 from fastapi import HTTPException, status
@@ -849,7 +849,7 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
         "ss_metadata": ss_metadata,
     }
 
-    return SSRom({k: v for k, v in game_rom.items() if v})  # type: ignore[misc]
+    return cast(SSRom, {k: v for k, v in game_rom.items() if v})
 
 
 class SSHandler(MetadataHandler):

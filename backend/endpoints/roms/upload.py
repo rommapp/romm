@@ -1,7 +1,7 @@
 import json
 import shutil
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 from uuid import UUID, uuid4
 
 from anyio import Path as AsyncPath
@@ -72,7 +72,7 @@ async def _get_session(upload_id: str) -> dict[str, Any]:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Upload session not found or expired",
         )
-    return json.loads(raw)
+    return cast(dict[str, Any], json.loads(raw))
 
 
 async def _save_session(upload_id: str, session: dict[str, Any]) -> None:

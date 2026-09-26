@@ -1,5 +1,6 @@
 import base64
 import uuid
+from typing import cast
 from unittest.mock import Mock, patch
 
 import pytest
@@ -175,7 +176,7 @@ class TestClientTokens:
             json={"name": "Argosy", "scopes": ["roms.read"]},
             headers=_auth(access_token),
         )
-        return response.json()["id"]
+        return cast(int, response.json()["id"])
 
     def test_creating_and_revoking_are_recorded(
         self, client: TestClient, access_token: str, token_id: int

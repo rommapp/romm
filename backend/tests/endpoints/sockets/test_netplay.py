@@ -1,6 +1,6 @@
 """Authorization for the netplay socket namespace."""
 
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -519,7 +519,10 @@ class TestEventWiring:
 class TestConnectIdentity:
     @pytest.fixture
     def authenticate(self, mocker) -> AsyncMock:
-        return mocker.patch.object(netplay_socket_handler, "authenticate", AsyncMock())
+        return cast(
+            AsyncMock,
+            mocker.patch.object(netplay_socket_handler, "authenticate", AsyncMock()),
+        )
 
     async def test_stores_identity_for_an_authenticated_session(
         self, server, authenticate

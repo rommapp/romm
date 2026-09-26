@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 import time
-from typing import Any, Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict, cast
 
 import httpx
 import pydash
@@ -466,7 +466,7 @@ class HLTBHandler(MetadataHandler):
                     url, json=body, headers=headers, timeout=60
                 )
                 res.raise_for_status()
-                return res.json()
+                return cast(dict[str, Any], res.json())
             except httpx.HTTPStatusError as exc:
                 status_code = exc.response.status_code
                 is_last_attempt = attempt == HLTB_MAX_REQUEST_ATTEMPTS - 1

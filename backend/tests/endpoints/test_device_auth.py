@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -43,7 +43,7 @@ def _authorize(
 ) -> dict[str, Any]:
     resp = client.post("/api/auth/device/init", json=payload or AUTHORIZE_PAYLOAD)
     assert resp.status_code == status.HTTP_201_CREATED
-    return resp.json()
+    return cast(dict[str, Any], resp.json())
 
 
 def _approve(
@@ -59,15 +59,21 @@ def _approve(
         body["device_name"] = device_name
     if expires_in is not None:
         body["expires_in"] = expires_in
-    return client.post(
-        "/api/auth/device/approve",
-        json=body,
-        headers={"Authorization": f"Bearer {access_token}"},
+    return cast(
+        Response,
+        client.post(
+            "/api/auth/device/approve",
+            json=body,
+            headers={"Authorization": f"Bearer {access_token}"},
+        ),
     )
 
 
 def _poll_token(client: TestClient, device_code: str) -> Response:
-    return client.post("/api/auth/device/token", json={"device_code": device_code})
+    return cast(
+        Response,
+        client.post("/api/auth/device/token", json={"device_code": device_code}),
+    )
 
 
 class TestAuthorize:
@@ -617,7 +623,7 @@ class TestBoundTokenInference:
         assert approve.status_code == status.HTTP_200_OK
         token_resp = _poll_token(client, init["device_code"])
         assert token_resp.status_code == status.HTTP_200_OK
-        return token_resp.json()
+        return cast(dict[str, Any], token_resp.json())
 
     def test_play_session_inferred_from_bound_token(
         self, client: TestClient, access_token: str

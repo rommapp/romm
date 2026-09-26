@@ -49,9 +49,9 @@ def _loads_lenient(text: str) -> dict[str, Any]:
     JSON escape and try once more.
     """
     try:
-        return json.loads(text)
+        return cast(dict[str, Any], json.loads(text))
     except json.JSONDecodeError:
-        return json.loads(_INVALID_ESCAPE_RE.sub(r"\\\\", text))
+        return cast(dict[str, Any], json.loads(_INVALID_ESCAPE_RE.sub(r"\\\\", text)))
 
 
 # ScreenScraper enforces a per-account *thread* (concurrency) cap. Because a
@@ -716,7 +716,7 @@ class ScreenScraperService:
         # A response means the wall the counter was tracking is not there.
         _state.daily_quota_errors = 0
         _update_account_limits(data)
-        return data
+        return cast(dict[str, Any], data)
 
     async def _recheck_daily_quota(self) -> bool:
         """Ask the free account endpoint whether the scrape allowance is back.

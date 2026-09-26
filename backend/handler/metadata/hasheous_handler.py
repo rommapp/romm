@@ -1,7 +1,7 @@
 import json
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict, cast
 
 import httpx
 import pydash
@@ -283,7 +283,7 @@ class HasheousHandler(MetadataHandler):
 
             res = await httpx_client.request(method, **request_kwargs)
             res.raise_for_status()
-            return res.json()
+            return cast(dict[str, Any], res.json())
         except httpx.HTTPStatusError as exc:
             # Check if its a 404 error
             if exc.response.status_code == status.HTTP_404_NOT_FOUND:

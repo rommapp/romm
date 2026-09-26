@@ -61,7 +61,7 @@ class SteamGridDBService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return await res.json()
+            return cast(dict[str, Any], await res.json())
         except aiohttp.client_exceptions.ClientResponseError as exc:
             log.warning(f"Request failed with status {exc.status} for URL: {url}")
             if exc.status == http.HTTPStatus.UNAUTHORIZED:

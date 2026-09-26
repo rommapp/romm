@@ -8,7 +8,7 @@ about a pending request touches the database until the user approves.
 import json
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from fastapi import Request
 from yarl import URL
@@ -130,7 +130,7 @@ def load_pending(device_code: str) -> dict[str, Any] | None:
     raw = sync_cache.get(_KEY_DC.format(device_code))
     if not raw:
         return None
-    return json.loads(raw)
+    return cast(dict[str, Any] | None, json.loads(raw))
 
 
 def resolve_device_code_from_user_code(user_code: str) -> str | None:
@@ -212,4 +212,4 @@ def consume_approved(device_code: str) -> dict[str, Any] | None:
             json.dumps(data),
         )
         return None
-    return data
+    return cast(dict[str, Any] | None, data)

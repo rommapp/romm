@@ -2,7 +2,7 @@ import asyncio
 import http
 import json
 from collections.abc import Collection
-from typing import Any, Final, Literal, overload
+from typing import Any, Final, Literal, cast, overload
 
 import aiohttp
 import yarl
@@ -60,7 +60,7 @@ class MobyGamesService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return await res.json()
+            return cast(dict[str, Any], await res.json())
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             log.debug("Request to URL=%s timed out. Retrying...", url)
@@ -101,7 +101,7 @@ class MobyGamesService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return await res.json()
+            return cast(dict[str, Any], await res.json())
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as exc:
             if (
                 isinstance(exc, aiohttp.ClientResponseError)
@@ -126,7 +126,7 @@ class MobyGamesService:
 
         url = self.url.joinpath("groups").with_query(**params)
         response = await self._request(str(url))
-        return response.get("groups", [])
+        return cast(list[dict[str, Any]], response.get("groups", []))
 
     @overload
     async def list_games(
@@ -206,4 +206,6 @@ class MobyGamesService:
 
         url = self.url.joinpath("games").with_query(**params)
         response = await self._request(str(url))
-        return response.get("games", [])
+        return cast(
+            list[int] | list[MobyGameBrief] | list[MobyGame], response.get("games", [])
+        )

@@ -3,7 +3,7 @@ import http
 import json
 from collections.abc import Sequence
 from functools import partial
-from typing import TYPE_CHECKING, Any, Final, TypedDict
+from typing import TYPE_CHECKING, Any, Final, TypedDict, cast
 
 import aiohttp
 import yarl
@@ -108,7 +108,7 @@ class IGDBService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return await res.json()
+            return cast(list[Any], await res.json())
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             log.debug("Request to URL=%s timed out. Retrying...", url)
@@ -157,7 +157,7 @@ class IGDBService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return await res.json()
+            return cast(list[Any], await res.json())
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as exc:
             if (
                 isinstance(exc, aiohttp.ClientResponseError)

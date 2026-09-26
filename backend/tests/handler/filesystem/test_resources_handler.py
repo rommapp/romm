@@ -3,7 +3,7 @@ import errno
 import os
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
@@ -1538,7 +1538,7 @@ class TestCoverSingleFetch:
 
     @staticmethod
     def _cover_dir(handler: FSResourcesHandler, entity) -> Path:
-        return handler.base_path / entity.fs_resources_path / "cover"
+        return cast(Path, handler.base_path / entity.fs_resources_path / "cover")
 
     @staticmethod
     def _image_size(path: Path) -> tuple[int, int]:

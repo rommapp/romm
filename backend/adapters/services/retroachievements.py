@@ -67,7 +67,7 @@ class RetroAchievementsService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return await res.json()
+            return cast(dict[str, Any], await res.json())
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             pass
@@ -105,7 +105,7 @@ class RetroAchievementsService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return await res.json()
+            return cast(dict[str, Any], await res.json())
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as err:
             if (
                 isinstance(err, aiohttp.ClientResponseError)
