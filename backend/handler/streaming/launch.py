@@ -6,7 +6,7 @@ progress behind it reach the player over the socket instead.
 """
 
 import asyncio
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import HTTPException
 
@@ -15,7 +15,14 @@ from endpoints.responses.streaming import (
     LaunchPhasePayload,
     LaunchReadyPayload,
 )
-from handler.streaming import background, commands, lifecycle, states, webstation
+from handler.streaming import (
+    background,
+    broker,
+    commands,
+    lifecycle,
+    states,
+    webstation,
+)
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import (
     hold_session_claim,
@@ -26,6 +33,9 @@ from logger.logger import log
 from models.assets import State
 from models.rom import Rom
 from models.user import User
+
+# Whether a resume state had to ride the import archive, and if it made it in.
+ResumeImport = Literal["none", "imported", "lost"]
 
 
 async def run_launch(
@@ -45,6 +55,7 @@ async def run_launch(
     resume_slot: int | None,
     resume_pushed: bool,
     resume_after_launch: bool,
+    resume_import: ResumeImport,
     memory_card_synced: bool,
     multiplayer: bool,
     blank_card_id: int | None,
@@ -61,10 +72,12 @@ async def run_launch(
     phase_watch = asyncio.create_task(
         _watch_launch_phase(container, session_key, session, platform)
     )
-    # An exit-state broker resumes from the state its archive restores, so with
-    # no archive uploaded there is nothing of this player's to resume.
-    resume_on_activate = (resume_pushed or resume_after_launch) and not (
-        container.resumes_from_archive and archive_path is None
+    # Nothing of this player's to resume from: a pick that failed to ride its
+    # import archive, or an exit-state broker with no archive uploaded.
+    resume_on_activate = (
+        (resume_pushed or resume_after_launch)
+        and resume_import != "lost"
+        and not (container.resumes_from_archive and archive_path is None)
     )
     try:
         # Wrapped in asyncio.to_thread because urllib is synchronous.
@@ -81,6 +94,9 @@ async def run_launch(
                     "platform": platform,
                     "language": rom_language,
                     "path": rom_path,
+                    "title_id": rom.title_id,
+                    "save_target": rom.save_target,
+                    "save_target_layout": rom.save_target_layout,
                 },
                 gui_language=gui_language,
                 archive_path=archive_path,
@@ -99,6 +115,11 @@ async def run_launch(
     except Exception as exc:
         log.exception("launch failed, platform=%s", platform)
         await lifecycle.abort_claim(session_key, session, blank_card_id)
+        refusals = None
+        refusals_truncated = 0
+        if isinstance(exc, broker.ImportRefusedError):
+            refusals_truncated = exc.truncated
+            refusals = exc.refusals
         await push_to_user(
             session.get("user_id"),
             "streaming:launch-failed",
@@ -107,6 +128,8 @@ async def run_launch(
                 container=session_key,
                 claimed_at=session["claimed_at"],
                 detail=_failure_detail(exc),
+                refusals=refusals,
+                refusals_truncated=refusals_truncated,
             ).model_dump(),
         )
         return
@@ -123,8 +146,12 @@ async def run_launch(
     # the game running, and holds off further until the state file is there, so
     # this push lands ahead of it even though it runs after activate.
     if resume_after_launch and resume_state is not None:
-        if container.resumes_from_archive:
-            # The activate's slot already handed this broker the whole resume.
+        if resume_import != "none":
+            # The activate's archive carried the state, or there is no other
+            # delivery for one that never made it in.
+            resume_pushed = resume_import == "imported"
+        elif container.resumes_from_archive:
+            # The pick is the newest capture, which the save archive carries.
             resume_pushed = resume_on_activate
         else:
             resume_pushed = await states.push_resume_state(container, resume_state)
@@ -168,6 +195,9 @@ async def run_launch(
 
 def _failure_detail(exc: BaseException) -> str:
     """What to tell the player about a launch that never came up."""
+    if isinstance(exc, broker.ImportRefusedError):
+        reasons = "; ".join(r.reason for r in exc.refusals)
+        return reasons or "The broker refused the picked save or state"
     if isinstance(exc, HTTPException):
         return str(exc.detail)
     return "The container could not start the game"

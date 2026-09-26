@@ -1,11 +1,11 @@
 <script setup lang="ts">
 // PlatformTile — platform card used by the Home dashboard row (variant="row",
 // 150px fixed) and the /platforms grid (variant="grid"). Feature composite
-// around RPlatformIcon and the shared Tile chrome; not a primitive.
-import { RPlatformIcon } from "@v2/lib";
+// around PlatformIcon and the shared Tile chrome; not a primitive.
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import Tile from "@/v2/components/shared/Tile.vue";
 import { usePlatformPlayable } from "@/v2/composables/usePlatformPlayable";
 import {
@@ -19,9 +19,9 @@ defineOptions({ inheritAttrs: false });
 type Variant = "row" | "grid";
 
 interface Props {
-  /** Platform slug used to locate /assets/platforms/<slug>.{svg,ico} */
+  /** Platform slug used to pick the shipped icon. */
   slug: string;
-  /** Filesystem slug (tried first — matches v1's fallback chain). */
+  /** Filesystem slug, used when no icon ships for `slug`. */
   fsSlug?: string;
   displayName: string;
   romCount?: number | null;
@@ -44,7 +44,7 @@ const href = computed(() => props.to ?? `/platform/${props.id ?? ""}`);
 const { t } = useI18n();
 
 // Shared-element morph between the platform tile icon and the
-// RPlatformIcon shown in the Platform view's InfoPanel cover slot.
+// PlatformIcon shown in the Platform view's InfoPanel cover slot.
 const router = useRouter();
 const iconEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
@@ -87,7 +87,7 @@ const { emulator, mode, streamLabel } = usePlatformPlayable(() => props.slug);
   >
     <template #icon>
       <div ref="iconEl" class="plat-tile__icon-inner" :style="morphStyle">
-        <RPlatformIcon
+        <PlatformIcon
           :slug="slug"
           :fs-slug="fsSlug"
           :alt="displayName"

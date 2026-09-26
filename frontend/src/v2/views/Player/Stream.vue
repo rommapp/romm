@@ -297,33 +297,41 @@ const showManualDiscHint = computed(
 );
 
 // ── Resume-from-state picker ────────────────────────────────────────
-// States the container's emulator can resume from: the user's own plus
-// other users' public ones (that is what all_user_states carries), kept
-// to this emulator's namespace so EmulatorJS states stay out. The list
-// arrives newest-first from the backend.
+// The user's own states plus other users' public ones (that is what
+// all_user_states carries), newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// Only an archive carries a layout the broker can restore from. Re-sorted on
-// created_at because user_saves arrives on updated_at, which a rehash moves;
-// the rows are dated on created_at to match.
-const restorableSaves = computed<SaveSchema[]>(() => {
-  const emulator = emulatorKey(container.value?.emulator);
-  if (!rom.value || !emulator) return [];
-  return (rom.value.user_saves ?? [])
-    .filter(
-      (s) =>
-        emulatorKey(s.emulator) === emulator && s.file_name.endsWith(".zip"),
-    )
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
-        b.id - a.id,
-    );
+// Every save, whichever emulator wrote it, newest capture first: created_at,
+// since the updated_at user_saves arrives on moves with a rehash.
+const allSaves = computed<SaveSchema[]>(() => {
+  if (!rom.value) return [];
+  return [...(rom.value.user_saves ?? [])].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
+      b.id - a.id,
+  );
 });
 
-// The one the broker restores before boot when the claim names none.
+// Only an archive this emulator wrote carries a layout it restores natively.
+const nativeRestorableSaves = computed<SaveSchema[]>(() => {
+  const emulator = emulatorKey(container.value?.emulator);
+  if (!emulator) return [];
+  return allSaves.value.filter(
+    (s) => emulatorKey(s.emulator) === emulator && s.file_name.endsWith(".zip"),
+  );
+});
+
+// A foreign save is only on offer where the broker declares it can import one.
+const pickableSaves = computed<SaveSchema[]>(() =>
+  container.value?.import_kinds.includes("save")
+    ? allSaves.value
+    : nativeRestorableSaves.value,
+);
+
+// The one the broker restores before boot when the claim names none: this
+// emulator's own, so the fallback restore always succeeds.
 const newestSave = computed<SaveSchema | null>(
-  () => restorableSaves.value[0] ?? null,
+  () => nativeRestorableSaves.value[0] ?? null,
 );
 
 // A pick only lands where the broker empties the save tree first; elsewhere
@@ -331,7 +339,7 @@ const newestSave = computed<SaveSchema | null>(
 const showSavePicker = computed(
   () =>
     (container.value?.supports_save_picker ?? false) &&
-    restorableSaves.value.length > 0,
+    pickableSaves.value.length > 0,
 );
 
 // The id rather than the row, so a pick that is no longer on offer falls back
@@ -340,16 +348,25 @@ const savePickId = ref<number | null>(null);
 
 const selectedSave = computed<SaveSchema | null>(
   () =>
-    restorableSaves.value.find((s) => s.id === savePickId.value) ??
+    pickableSaves.value.find((s) => s.id === savePickId.value) ??
     newestSave.value,
 );
 
-const streamStates = computed<UserStateSchema[]>(() => {
+const nativeStreamStates = computed<UserStateSchema[]>(() => {
   const emulator = emulatorKey(container.value?.emulator);
   if (!rom.value || !emulator) return [];
   return (rom.value.all_user_states ?? []).filter(
     (s) => emulatorKey(s.emulator) === emulator,
   );
+});
+
+// Every state regardless of which emulator wrote it where the broker declares
+// it can import one, which routes a foreign pick through the import path.
+const pickableStates = computed<UserStateSchema[]>(() => {
+  if (!rom.value) return [];
+  return container.value?.import_kinds.includes("state")
+    ? (rom.value.all_user_states ?? [])
+    : nativeStreamStates.value;
 });
 
 // Every capture is kept, so a heavy save-stater ends up with a history the
@@ -371,15 +388,15 @@ const stateLayout = useLocalStorage<AssetLayout>(
 // list recomputes on every rom/config refresh and must not re-pick.
 const statePreselected = ref(false);
 watch(
-  streamStates,
-  (states) => {
+  [pickableStates, nativeStreamStates],
+  ([states, native]) => {
     const current = selectedState.value;
     if (current && !states.some((s) => s.id === current.id)) {
       selectedState.value = null;
     }
-    if (!statePreselected.value && states.length > 0) {
+    if (!statePreselected.value && native.length > 0) {
       statePreselected.value = true;
-      if (!selectedState.value) selectedState.value = states[0];
+      if (!selectedState.value) selectedState.value = native[0];
     }
   },
   { immediate: true },
@@ -405,7 +422,7 @@ type ResumeTab = "state" | "save";
 const resumeTab = ref<ResumeTab>("state");
 
 const showResumeTabs = computed(
-  () => supportsStates.value && restorableSaves.value.length > 0,
+  () => supportsStates.value && pickableSaves.value.length > 0,
 );
 
 // The pick only counts when there is something to pick between.
@@ -422,13 +439,13 @@ const resumeTabs = computed<SliderBtnGroupItem<ResumeTab>[]>(() => [
   {
     id: "state",
     label: t("common.states"),
-    badge: streamStates.value.length,
+    badge: pickableStates.value.length,
     icon: "mdi-file",
   },
   {
     id: "save",
     label: t("common.saves"),
-    badge: restorableSaves.value.length,
+    badge: pickableSaves.value.length,
     icon: "mdi-content-save",
   },
 ]);
@@ -714,8 +731,23 @@ useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   launchPhase.value = null;
   if (playerState.value === "exited") return;
   errorType.value = "server";
-  errorMessage.value = t("play.stream-error-generic");
-  errorHint.value = payload.detail;
+  if (payload.refusals?.length) {
+    errorMessage.value = t("play.stream-error-import-refused");
+    const hints = payload.refusals
+      .map((r) =>
+        r.suggest_emulator
+          ? streamingStore.emulatorLabel(r.suggest_emulator)
+          : r.reason,
+      )
+      .join(", ");
+    const truncated = payload.refusals_truncated;
+    errorHint.value = truncated
+      ? `${hints} (${t("play.import-refusals-truncated", truncated)})`
+      : hints;
+  } else {
+    errorMessage.value = t("play.stream-error-generic");
+    errorHint.value = payload.detail;
+  }
   playerState.value = "error";
 });
 
@@ -758,7 +790,9 @@ function sendVolumeToBroker(level: number): void {
     if (platform)
       streamingApi
         .setVolume(platform, level, claimedContainer.value, claimedAt.value)
-        .catch((err) => console.warn("[streaming] Could not set volume:", err));
+        .catch((err) =>
+          console.error("[streaming] Could not set volume:", err),
+        );
   }, 150);
 }
 
@@ -777,7 +811,7 @@ function toggleMute(): void {
   if (platform)
     streamingApi
       .setMute(platform, isMuted.value, claimedContainer.value, claimedAt.value)
-      .catch((err) => console.warn("[streaming] Could not set mute:", err));
+      .catch((err) => console.error("[streaming] Could not set mute:", err));
 }
 
 // ── Session lifecycle ──────────────────────────────────────────────
@@ -831,7 +865,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         updateLastPlayed: true,
       })
       .catch((err) => {
-        console.warn("[stream] Could not update last-played:", err);
+        console.error("[stream] Could not update last-played:", err);
       });
   }
 
@@ -944,6 +978,11 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         });
         errorHint.value = t("play.error-hint-not-configured");
       }
+    } else if (status === 400 && typeof detail === "string") {
+      // A refused save/state pick carries a reason worth more than the generic hint.
+      errorType.value = "server";
+      errorMessage.value = t("play.stream-error-generic");
+      errorHint.value = detail;
     } else {
       errorType.value = "server";
       // The axios message ("Request failed with status code 502") is English
@@ -1084,7 +1123,7 @@ async function handleSaveState(): Promise<void> {
       claimedAt.value,
     );
   } catch (err) {
-    console.warn("[streaming] Could not save state:", err);
+    console.error("[streaming] Could not save state:", err);
     snackbar.error(t("play.stream-save-state-failed"), { timeout: 6000 });
   } finally {
     isSavingState.value = false;
@@ -1103,7 +1142,7 @@ async function handleLoadState(): Promise<void> {
       claimedAt.value,
     );
   } catch (err) {
-    console.warn("[streaming] Could not load state:", err);
+    console.error("[streaming] Could not load state:", err);
     snackbar.error(t("play.stream-load-state-failed"), { timeout: 6000 });
   } finally {
     isLoadingState.value = false;
@@ -1127,7 +1166,7 @@ async function handleSwapDisc(): Promise<void> {
     );
     showDiscSwap.value = false;
   } catch (err) {
-    console.warn("[streaming] Could not swap disc:", err);
+    console.error("[streaming] Could not swap disc:", err);
     snackbar.error(t("play.swap-disc-failed"), { timeout: 6000 });
   } finally {
     isSwappingDisc.value = false;
@@ -1480,7 +1519,7 @@ onBeforeUnmount(() => {
             <div class="r-v2-stream__strip-label">
               <span aria-hidden="true">{{ t("play.all-states") }}</span>
               <span class="r-v2-stream__strip-count" aria-hidden="true">{{
-                streamStates.length
+                pickableStates.length
               }}</span>
               <div
                 class="r-v2-stream__strip-views"
@@ -1503,7 +1542,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <AssetStrip
-              :assets="streamStates"
+              :assets="pickableStates"
               type="state"
               :selected-id="selectedState?.id ?? null"
               :layout="stateLayout"
@@ -1523,11 +1562,11 @@ onBeforeUnmount(() => {
             <div class="r-v2-stream__strip-label">
               <span aria-hidden="true">{{ t("play.all-saves") }}</span>
               <span class="r-v2-stream__strip-count" aria-hidden="true">{{
-                restorableSaves.length
+                pickableSaves.length
               }}</span>
             </div>
             <AssetList
-              :assets="restorableSaves"
+              :assets="pickableSaves"
               type="save"
               :selected-id="selectedSave?.id ?? null"
               timestamp="created"

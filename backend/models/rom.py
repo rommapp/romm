@@ -1263,9 +1263,17 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
     )
 
 
+class HasFileOnDiskFilters(TypedDict):
+    physical: bool
+    missing: bool
+
+
 # Query-side twin of `Rom.has_file_on_disk`, for callers that enumerate roms and
 # want the file-less ones dropped by the database rather than after loading.
-HAS_FILE_ON_DISK_FILTERS = {"physical": False, "missing": False}
+HAS_FILE_ON_DISK_FILTERS: Final[HasFileOnDiskFilters] = {
+    "physical": False,
+    "missing": False,
+}
 
 
 # Maps a metadata-source slug (matching the MetadataSource enum) to the Rom

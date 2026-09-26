@@ -28,6 +28,7 @@ describe("platformCapabilities disc flags", () => {
           supports_memory_cards: false,
           supports_save_picker: false,
           supports_live_states: true,
+          import_kinds: [],
           capabilities: {
             max_slots: 0,
             has_autosave: true,

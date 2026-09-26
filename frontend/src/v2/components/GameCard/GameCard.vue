@@ -47,6 +47,7 @@ import CardFlags from "@/v2/components/GameCard/CardFlags.vue";
 import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
 import CoverArtPip from "@/v2/components/shared/CoverArtPip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
@@ -56,7 +57,6 @@ import {
 } from "@/v2/composables/useGameActions";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 import RCheckbox from "@/v2/lib/forms/RCheckbox/RCheckbox.vue";
-import RPlatformIcon from "@/v2/lib/media/RPlatformIcon/RPlatformIcon.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -457,7 +457,7 @@ function onStaticKeydown(e: KeyboardEvent) {
           "
           @click="onPlatformClick"
         >
-          <RPlatformIcon
+          <PlatformIcon
             :slug="rom.platform_slug"
             :fs-slug="rom.platform_fs_slug"
             :alt="platformShort"
@@ -650,7 +650,7 @@ function onStaticKeydown(e: KeyboardEvent) {
   /* Shrink-wrap around the platform icon. RBtn's size classes try to
      impose a fixed `height` / `width: var(--r-btn-rest-h)` — we have
      to defeat those so the badge always fits whatever `:size` the
-     RPlatformIcon was given (icon + 3px padding all around). */
+     PlatformIcon was given (icon + 3px padding all around). */
   width: auto !important;
   height: auto !important;
   min-width: 0 !important;

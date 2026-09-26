@@ -14,7 +14,6 @@
 import {
   REmptyState,
   RIcon,
-  RPlatformIcon,
   RProgressLinear,
   RSliderBtnGroup,
   RTextField,
@@ -29,6 +28,7 @@ import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdown
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, regionToEmoji } from "@/utils";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import {
   pendingMorphName,
   useViewTransition,
@@ -237,7 +237,7 @@ function onRowClick(e: MouseEvent, platformId: number): void {
         "
         @click="onRowClick($event, platform.id)"
       >
-        <RPlatformIcon
+        <PlatformIcon
           :slug="platform.slug"
           :name="platform.name"
           :fs-slug="platform.fs_slug"

@@ -24,7 +24,7 @@ class DBNotificationsHandler(DBBaseHandler):
     def add_notifications(
         self,
         notifications: Sequence[Notification],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Notification]:
         """Store notifications and trim their users' inboxes; returns the rows kept."""
         session.add_all(notifications)
@@ -61,7 +61,7 @@ class DBNotificationsHandler(DBBaseHandler):
     def get_notifications(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[Notification]:
         return session.scalars(
             select(Notification)
@@ -75,7 +75,7 @@ class DBNotificationsHandler(DBBaseHandler):
         self,
         user_id: int,
         ids: list[int] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> None:
         """Mark the user's unread notifications read, all of them when `ids` is None."""
         stmt = update(Notification).where(
@@ -95,7 +95,7 @@ class DBNotificationsHandler(DBBaseHandler):
         self,
         user_id: int,
         ids: list[int] | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> int:
         """Delete the user's notifications, all of them when `ids` is None."""
         stmt = delete(Notification).where(Notification.user_id == user_id)

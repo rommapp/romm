@@ -49,7 +49,7 @@ def _make_rom(platform: Platform, fs_name: str, **metadata) -> Rom:
 
 
 def _ordered_names(**kwargs) -> list[str]:
-    return [rom.name for rom in db_rom_handler.get_roms_scalar(**kwargs)]
+    return [rom.name or "" for rom in db_rom_handler.get_roms_scalar(**kwargs)]
 
 
 class TestMetadataSortQueryShape:
@@ -182,7 +182,10 @@ class TestSortIndexes:
     def roms_index_sorting(self) -> dict[str, dict[str, tuple[str, ...]]]:
         with sync_engine.connect() as connection:
             return {
-                index["name"]: index.get("column_sorting") or {}
+                index["name"]: {
+                    column: tuple(order)
+                    for column, order in (index.get("column_sorting") or {}).items()
+                }
                 for index in sa.inspect(connection).get_indexes("roms")
                 if index["name"]
             }

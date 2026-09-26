@@ -63,7 +63,7 @@ function mountHydratedRow() {
         GameCard: true,
         RCheckbox: true,
         RChip: true,
-        RPlatformIcon: true,
+        PlatformIcon: true,
         RTooltip: true,
         SiblingBadge: true,
       },

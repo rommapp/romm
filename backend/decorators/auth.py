@@ -1,5 +1,6 @@
 import functools
 import inspect
+from collections.abc import Callable
 from typing import Any
 
 from authlib.integrations.starlette_client import OAuth
@@ -135,11 +136,11 @@ def _requires_scopes(scopes: list[Scope]):
 
 
 def protected_route(
-    method: Any,
+    method: Callable[..., Callable[[DecoratedCallable], DecoratedCallable]],
     path: str,
     scopes: list[Scope] | None = None,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Callable[[DecoratedCallable], DecoratedCallable]:
     def decorator(func: DecoratedCallable) -> DecoratedCallable:
         fn = _requires_scopes(scopes or [])(func)
         return method(
