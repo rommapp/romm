@@ -6,7 +6,7 @@ from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
-from models.assets import Save
+from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
 from models.base import with_file_name_parts
 from models.rom import Rom
 
@@ -258,6 +258,7 @@ class DBSavesHandler(DBBaseHandler):
         id: int,
         data: dict,
         touch: bool = True,
+        same_version: bool = False,
         session: Session = None,  # type: ignore[assignment]
     ) -> Save:
         """Write `data` onto a save.
@@ -265,12 +266,14 @@ class DBSavesHandler(DBBaseHandler):
         Args:
             touch: False keeps `updated_at`, since annotating is not a write
                 to the bytes and device sync reads it to detect staleness.
+            same_version: True when only the hash of unchanged bytes is
+                recomputed, so no version leaves the slot.
         """
         data = with_file_name_parts(data)
-        if "content_hash" in data or "slot" in data:
+        if not same_version and ("content_hash" in data or "slot" in data):
             # Before this session holds a connection, since ensuring takes its own.
             before = self._slot_version(id)
-            if before and _loses_version(before, data):
+            if before:
                 _lock_slot(before, session)
             current = _lock_version(id, session)
             if current and _loses_version(current, data):
@@ -318,14 +321,21 @@ class DBSavesHandler(DBBaseHandler):
             return []
         _deleted_assets.ensure_record(user_id, rom_id, slot)
         _deleted_assets.lock_record(user_id, rom_id, slot, session)
-        rows = session.execute(past_keep).all()
+        # A locking read through the slot's own index takes no snapshot, which
+        # MariaDB's snapshot isolation would fail the delete against, and locks
+        # no other slot's rows, which a wider scan would deadlock on.
+        hint = f"FORCE INDEX ({SAVE_SLOT_VERSIONS_INDEX})"
+        rows = session.execute(
+            past_keep.with_hint(Save, hint, "mariadb")
+            .with_hint(Save, hint, "mysql")
+            .with_for_update()
+        ).all()
         # Oldest first, so trimming the record drops the oldest version first.
         for row in reversed(rows):
             _record_loss(row, session)
-        if rows:
             session.execute(
                 delete(Save)
-                .where(Save.id.in_([row.id for row in rows]))
+                .where(Save.id == row.id)
                 .execution_options(synchronize_session="evaluate")
             )
         return [(row.file_path, row.file_name, row.file_name_no_ext) for row in rows]

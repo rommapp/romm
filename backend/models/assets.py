@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 
 
 SAVE_SLOT_MAX_LENGTH = 255
+# A slot's versions, newest last: pruning locks exactly these rows through it.
+SAVE_SLOT_VERSIONS_INDEX = "ix_saves_rom_user_slot_updated"
 EMULATOR_MAX_LENGTH = 50
 ASSET_LABEL_MAX_LENGTH = 255
 ASSET_LABELS_MAX = 20
@@ -104,6 +106,7 @@ class Save(RomAsset):
     __table_args__ = (
         Index("ix_saves_rom_user_hash", "rom_id", "user_id", "content_hash"),
         Index("idx_saves_public", "is_public"),
+        Index(SAVE_SLOT_VERSIONS_INDEX, "rom_id", "user_id", "slot", "updated_at"),
         {"extend_existing": True},
     )
 

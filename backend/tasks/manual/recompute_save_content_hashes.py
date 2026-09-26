@@ -111,7 +111,9 @@ class RecomputeSaveContentHashesTask(Task):
                     continue
 
                 try:
-                    db_save_handler.update_save(save.id, {"content_hash": new_hash})
+                    db_save_handler.update_save(
+                        save.id, {"content_hash": new_hash}, same_version=True
+                    )
                     stats.saves_updated += 1
                     log.debug(
                         f"Rewrote content_hash for save {save.id} "

@@ -1,4 +1,4 @@
-"""Compare save slots exactly on MariaDB and MySQL
+"""Compare save slots exactly on MariaDB and MySQL, and index a slot's versions
 
 Revision ID: 0137_exact_save_slots
 Revises: 0136_deleted_assets
@@ -17,8 +17,18 @@ down_revision = "0136_deleted_assets"
 branch_labels = None
 depends_on = None
 
+SLOT_VERSIONS_INDEX = "ix_saves_rom_user_slot_updated"
+
 
 def upgrade() -> None:
+    op.create_index(
+        SLOT_VERSIONS_INDEX,
+        "saves",
+        # Led by rom_id, which another index already serves as a foreign key:
+        # a user_id lead would replace MariaDB's own index for that key.
+        ["rom_id", "user_id", "slot", "updated_at"],
+        if_not_exists=True,
+    )
     collation = exact_collation(op.get_bind())
     if collation is None:
         return
@@ -40,6 +50,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index(SLOT_VERSIONS_INDEX, table_name="saves", if_exists=True)
     if exact_collation(op.get_bind()) is None:
         return
     # Without a collation the column takes the table's default back.

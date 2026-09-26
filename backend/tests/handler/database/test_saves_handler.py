@@ -16,6 +16,7 @@ from unittest import mock
 
 import pytest
 from sqlalchemy import Delete, event
+from sqlalchemy.exc import NoResultFound
 
 import handler.database.saves_handler as saves_handler_module
 from handler.database import db_deleted_asset_handler, db_save_handler
@@ -1115,27 +1116,36 @@ class TestDBSavesHandlerRecordsLostVersions:
         self, admin_user: User, rom: Rom
     ):
         """One lock order, the slot's record before its rows, so none deadlock."""
+        # Five slots against four kinds of write, so every pair races on a slot.
         saves = [
-            self._add(admin_user, rom, f"c{index}", f"slot{index % 6}", f"c{index}")
-            for index in range(90)
+            self._add(admin_user, rom, f"c{index}", f"slot{index % 5}", f"c{index}")
+            for index in range(120)
         ]
 
         def remove(index: int) -> None:
             save = saves[index]
-            if index % 3 == 0:
-                db_save_handler.delete_save(save.id)
-            elif index % 3 == 1:
-                db_save_handler.update_save(save.id, {"content_hash": f"n{index}"})
-            else:
-                db_save_handler.prune_slot(
-                    user_id=admin_user.id,
-                    rom_id=rom.id,
-                    slot=f"slot{index % 6}",
-                    keep=3,
-                )
+            try:
+                if index % 4 == 0:
+                    db_save_handler.delete_save(save.id)
+                elif index % 4 == 1:
+                    db_save_handler.update_save(save.id, {"content_hash": f"n{index}"})
+                elif index % 4 == 2:
+                    db_save_handler.prune_slot(
+                        user_id=admin_user.id,
+                        rom_id=rom.id,
+                        slot=f"slot{index % 5}",
+                        keep=3,
+                    )
+                else:
+                    # Writes a row a prune may be deleting, without the slot's lock.
+                    db_save_handler.update_save(
+                        save.id, {"is_favorite": True}, touch=False
+                    )
+            except NoResultFound:
+                pass  # A prune removed the row first.
 
         with ThreadPoolExecutor(max_workers=12) as pool:
-            list(pool.map(remove, range(90)))
+            list(pool.map(remove, range(120)))
 
         remaining = {
             save.content_hash
@@ -1195,6 +1205,17 @@ class TestDBSavesHandlerRecordsLostVersions:
 
         assert self._lost(admin_user, rom) == {"autosave": ["moved"]}
 
+    def test_a_recomputed_hash_of_the_same_bytes_records_nothing(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "rehashed", "autosave", "raw_md5")
+
+        db_save_handler.update_save(
+            save.id, {"content_hash": "entries_md5"}, same_version=True
+        )
+
+        assert self._lost(admin_user, rom) == {}
+
     @pytest.mark.parametrize(
         "data",
         [{"content_hash": "same"}, {"is_favorite": True}],
@@ -1207,7 +1228,7 @@ class TestDBSavesHandlerRecordsLostVersions:
 
         db_save_handler.update_save(save.id, data)
 
-        assert self._lost(admin_user, rom) == {}
+        assert not any(self._lost(admin_user, rom).values())
 
 
 BACKEND_ROOT = Path(__file__).parents[3]
