@@ -75,9 +75,10 @@ def parse_response[T](tp: type[T], body: str | bytes, *, source: str) -> T | Non
         named = unreported[:5]
         _reported.update((source, problem) for problem in named)
         log.warning(
-            "%s response does not match %r (%d problems): %s",
+            "%s response does not match %r (%d new of %d problems): %s",
             source,
             tp,
+            len(unreported),
             len(problems),
             "; ".join(f"{path}: {msg}" for path, msg in named),
         )

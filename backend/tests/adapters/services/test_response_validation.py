@@ -122,4 +122,6 @@ def test_problems_beyond_a_warning_surface_in_the_next_one(lenient: MagicMock):
 
     assert lenient.warning.call_count == 2
     second = lenient.warning.call_args_list[1].args
-    assert second[4].count(":") == 2
+    message = second[0] % second[1:]
+    assert "(2 new of 7 problems)" in message
+    assert message.split("problems): ")[1].count(":") == 2
