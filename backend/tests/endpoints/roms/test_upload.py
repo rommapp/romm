@@ -8,7 +8,6 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from config import ROM_UPLOAD_TMP_BASE
 from endpoints.roms import upload as upload_endpoint
 from handler import rom_upload
 from handler.database import db_platform_handler, db_rom_handler
@@ -721,6 +720,7 @@ def test_complete_after_destination_appeared_returns_409(
     platform: Platform,
     admin_user: User,
     rom_upload_fs: Path,
+    tmp_path: Path,
 ):
     rom = _folder_rom(platform, admin_user, rom_upload_fs, {"game.bin": b"game"})
     start = _start_into_rom(
@@ -739,7 +739,7 @@ def test_complete_after_destination_appeared_returns_409(
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT
-    assert not (ROM_UPLOAD_TMP_BASE / upload_id).exists()
+    assert not (tmp_path / "uploads" / upload_id).exists()
     assert (
         rom_upload_fs / rom.fs_path / ROM_FOLDER / "late.bin"
     ).read_bytes() == b"raced"
