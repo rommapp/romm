@@ -56,11 +56,8 @@ export default tseslint.config(
       "*.local",
       "*.config.js",
       "src/plugins/*.d.ts",
-      // Typechecked by tsconfig.node.json and covered by its own RuleTester tests.
       "eslint-plugin-romm/**",
     ],
-    // No rule needs type information; a project service would build a
-    // TypeScript program per file for nothing.
     languageOptions: {
       parserOptions: {
         parser: "@typescript-eslint/parser",
