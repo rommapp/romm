@@ -4,7 +4,7 @@
 /* eslint-disable */
 export type SyncOperationSchema = {
     /**
-     * Operation the client should perform. 'upload' when the client has a save the server lacks (including any null-slot save, which is never paired with server saves), 'download' when the server has a newer or unknown save, 'conflict' when both sides changed independently, 'delete' when the slot the client still holds was emptied here, and 'no_op' when no action is needed.
+     * Operation the client should perform. 'upload' when the client has a save the server lacks (including any null-slot save, which is never paired with server saves), 'download' when the server has a newer or unknown save or the client holds a version removed here, 'conflict' when both sides changed independently, 'delete' when the slot the client still holds was emptied here, and 'no_op' when no action is needed.
      */
     action: 'upload' | 'download' | 'conflict' | 'no_op' | 'delete';
     /**

@@ -5,7 +5,22 @@ This module tests the platform filtering fixes for DBSavesHandler to ensure
 it properly filters by platform_id through the Rom relationship.
 """
 
-from handler.database import db_save_handler
+import ast
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+from unittest import mock
+
+import pytest
+from sqlalchemy import Delete, event
+from sqlalchemy.exc import NoResultFound
+
+import handler.database.saves_handler as saves_handler_module
+from handler.database import db_deleted_asset_handler, db_save_handler
+from handler.database.base_handler import sync_engine
 from models.assets import Save
 from models.platform import Platform
 from models.rom import Rom
@@ -295,6 +310,42 @@ class TestDBSavesHandlerSlotFiltering:
         )
         assert len(slot_b_saves) == 1
         assert slot_b_saves[0].slot == "Slot B"
+
+    @pytest.mark.parametrize(
+        "slot,sibling",
+        [("autosave", "Autosave"), ("Cafe", "Café"), ("autosave", "autosave ")],
+        ids=["case", "accent", "trailing-space"],
+    )
+    def test_a_slot_is_matched_exactly(
+        self, admin_user: User, rom: Rom, slot: str, sibling: str
+    ):
+        """Sync pairs slots in Python, so the database must not fold them."""
+        for index, name in enumerate((slot, sibling)):
+            db_save_handler.add_save(
+                Save(
+                    rom_id=rom.id,
+                    user_id=admin_user.id,
+                    file_name=f"exact_{index}.sav",
+                    file_name_no_tags=f"exact_{index}",
+                    file_name_no_ext=f"exact_{index}",
+                    file_extension="sav",
+                    file_path=f"{rom.platform_slug}/saves",
+                    file_size_bytes=100,
+                    slot=name,
+                    content_hash=f"exact_{index}",
+                )
+            )
+
+        [found] = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], slot=slot
+        )
+        assert found.slot == slot
+
+        db_save_handler.prune_slot(
+            user_id=admin_user.id, rom_id=rom.id, slot=slot, keep=0
+        )
+        [kept] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        assert kept.slot == sibling
 
     def test_get_saves_with_null_slot_filter(self, admin_user: User, rom: Rom):
         save_with_slot = Save(
@@ -943,3 +994,360 @@ class TestGetSavesRomIdsScope:
         )
 
         assert [s.id for s in saves] == [save.id]
+
+
+class TestDBSavesHandlerRecordsLostVersions:
+    """Every way a version leaves its slot is remembered for sync."""
+
+    @staticmethod
+    def _add(
+        user: User, rom: Rom, stem: str, slot: str | None, content_hash: str | None
+    ) -> Save:
+        return db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=user.id,
+                file_name=f"{stem}.sav",
+                file_name_no_tags=stem,
+                file_name_no_ext=stem,
+                file_extension="sav",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot=slot,
+                content_hash=content_hash,
+            )
+        )
+
+    @staticmethod
+    def _lost(user: User, rom: Rom) -> dict[str, list[str]]:
+        return {
+            record.slot: record.content_hashes
+            for record in db_deleted_asset_handler.get_deletions(
+                user_id=user.id, rom_ids=[rom.id]
+            )
+        }
+
+    def test_a_deleted_version_is_recorded(self, admin_user: User, rom: Rom):
+        save = self._add(admin_user, rom, "deleted", "autosave", "gone")
+
+        db_save_handler.delete_save(save.id)
+
+        assert self._lost(admin_user, rom) == {"autosave": ["gone"]}
+
+    def test_a_deleted_version_never_hashed_takes_the_callers_hash(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "unhashed", "autosave", None)
+
+        db_save_handler.delete_save(save.id, content_hash="from_file")
+
+        assert self._lost(admin_user, rom) == {"autosave": ["from_file"]}
+
+    def test_a_save_outside_any_slot_is_not_recorded(self, admin_user: User, rom: Rom):
+        save = self._add(admin_user, rom, "archival", None, "archived")
+
+        db_save_handler.delete_save(save.id)
+
+        assert self._lost(admin_user, rom) == {}
+
+    def test_pruned_versions_are_recorded(self, admin_user: User, rom: Rom):
+        for index in range(3):
+            save = self._add(admin_user, rom, f"v{index}", "autosave", f"v{index}")
+            db_save_handler.update_save(
+                save.id, {"updated_at": datetime(2026, 1, 1 + index, tzinfo=UTC)}
+            )
+
+        db_save_handler.prune_slot(
+            user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=1
+        )
+
+        assert self._lost(admin_user, rom) == {"autosave": ["v0", "v1"]}
+
+    def test_a_prune_hands_back_versions_it_has_no_hash_for(
+        self, admin_user: User, rom: Rom
+    ):
+        for index, content_hash in enumerate([None, "hashed", None]):
+            save = self._add(admin_user, rom, f"v{index}", "autosave", content_hash)
+            db_save_handler.update_save(
+                save.id, {"updated_at": datetime(2026, 1, 1 + index, tzinfo=UTC)}
+            )
+
+        with pytest.raises(saves_handler_module.UnhashedVersions) as raised:
+            db_save_handler.prune_slot(
+                user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=1
+            )
+        [unhashed] = raised.value.versions
+        assert unhashed.file_name == "v0.sav"
+        assert len(db_save_handler.get_saves(user_id=admin_user.id)) == 3
+
+        db_save_handler.prune_slot(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="autosave",
+            keep=1,
+            fallback_hashes={unhashed.id: "from_file"},
+        )
+
+        assert self._lost(admin_user, rom) == {"autosave": ["from_file", "hashed"]}
+
+    def test_an_overwritten_version_never_hashed_takes_the_callers_hash(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "unhashed", "autosave", None)
+
+        db_save_handler.update_save(
+            save.id, {"content_hash": "new"}, replaced_hash="from_file"
+        )
+
+        assert self._lost(admin_user, rom) == {"autosave": ["from_file"]}
+
+    def test_a_version_overwritten_since_it_was_read_is_recorded(
+        self, admin_user: User, rom: Rom
+    ):
+        """Two overwrites racing: the second replaces what the first wrote."""
+        save = self._add(admin_user, rom, "raced", "autosave", "v0")
+        stale = db_save_handler._slot_version(save.id)
+        db_save_handler.update_save(save.id, {"content_hash": "v1"})
+
+        with mock.patch.object(db_save_handler, "_slot_version", return_value=stale):
+            db_save_handler.update_save(save.id, {"content_hash": "v2"})
+
+        assert self._lost(admin_user, rom) == {"autosave": ["v0", "v1"]}
+
+    def test_a_version_moved_since_it_was_read_is_retried_in_its_new_slot(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "moved", "autosave", "v0")
+        moved_from = SimpleNamespace(
+            user_id=admin_user.id, rom_id=rom.id, slot="manual", content_hash="v0"
+        )
+        pre_reads = iter([moved_from])
+        read_current = db_save_handler._slot_version
+
+        with mock.patch.object(
+            db_save_handler,
+            "_slot_version",
+            side_effect=lambda id: next(pre_reads, None) or read_current(id),
+        ) as pre_read:
+            db_save_handler.update_save(save.id, {"content_hash": "v1"})
+
+        assert pre_read.call_count == 2
+        current = db_save_handler.get_save(admin_user.id, save.id)
+        assert current is not None
+        assert current.content_hash == "v1"
+        assert self._lost(admin_user, rom)["autosave"] == ["v0"]
+
+    def test_a_version_that_keeps_moving_gives_up(self, admin_user: User, rom: Rom):
+        save = self._add(admin_user, rom, "moving", "autosave", "v0")
+        moved_from = SimpleNamespace(
+            user_id=admin_user.id, rom_id=rom.id, slot="manual", content_hash="v0"
+        )
+
+        with (
+            mock.patch.object(
+                db_save_handler, "_slot_version", return_value=moved_from
+            ),
+            pytest.raises(saves_handler_module._SlotMoved),
+        ):
+            db_save_handler.delete_save(save.id)
+
+        current = db_save_handler.get_save(admin_user.id, save.id)
+        assert current is not None
+        assert current.content_hash == "v0"
+
+    def test_a_prune_that_fails_records_nothing(self, admin_user: User, rom: Rom):
+        """The record commits with the removal, so no negotiation sees one alone."""
+        self._add(admin_user, rom, "kept", "autosave", "kept")
+
+        # Raised before a cursor exists: failing inside one leaves the MariaDB
+        # driver's pooled connection unusable, and the next checkout crashes.
+        def fail_the_delete(_conn: Any, statement: Any, *_: Any) -> None:
+            if isinstance(statement, Delete) and statement.table.description == "saves":
+                raise RuntimeError("delete failed")
+
+        event.listen(sync_engine, "before_execute", fail_the_delete)
+        try:
+            with pytest.raises(RuntimeError):
+                db_save_handler.prune_slot(
+                    user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=0
+                )
+        finally:
+            event.remove(sync_engine, "before_execute", fail_the_delete)
+
+        assert self._lost(admin_user, rom) == {"autosave": []}
+        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+
+    def test_a_loss_the_first_read_missed_is_still_recorded(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "missed", "autosave", "old")
+        looks_unchanged = SimpleNamespace(
+            user_id=admin_user.id, rom_id=rom.id, slot="autosave", content_hash="new"
+        )
+
+        with mock.patch.object(
+            db_save_handler, "_slot_version", return_value=looks_unchanged
+        ):
+            db_save_handler.update_save(save.id, {"content_hash": "new"})
+
+        assert self._lost(admin_user, rom) == {"autosave": ["old"]}
+
+    def test_concurrent_removals_record_every_lost_version(
+        self, admin_user: User, rom: Rom
+    ):
+        """One lock order, the slot's record before its rows, so none deadlock."""
+        # Five slots against four kinds of write, so every pair races on a slot.
+        saves = [
+            self._add(admin_user, rom, f"c{index}", f"slot{index % 5}", f"c{index}")
+            for index in range(120)
+        ]
+
+        def remove(index: int) -> None:
+            save = saves[index]
+            try:
+                if index % 4 == 0:
+                    db_save_handler.delete_save(save.id)
+                elif index % 4 == 1:
+                    db_save_handler.update_save(save.id, {"content_hash": f"n{index}"})
+                elif index % 4 == 2:
+                    db_save_handler.prune_slot(
+                        user_id=admin_user.id,
+                        rom_id=rom.id,
+                        slot=f"slot{index % 5}",
+                        keep=3,
+                    )
+                else:
+                    # Writes a row a prune may be deleting, without the slot's lock.
+                    db_save_handler.update_save(
+                        save.id, {"is_favorite": True}, touch=False
+                    )
+            except NoResultFound:
+                pass  # A prune removed the row first.
+
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            list(pool.map(remove, range(120)))
+
+        remaining = {
+            save.content_hash
+            for save in db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id]
+            )
+        }
+        lost = {h for hashes in self._lost(admin_user, rom).values() for h in hashes}
+        assert {save.content_hash for save in saves} - remaining <= lost
+
+    @pytest.mark.parametrize("path", ["delete", "prune", "overwrite"])
+    def test_recording_never_checks_out_a_second_connection(
+        self, admin_user: User, rom: Rom, path: str
+    ):
+        """A second checkout per removal would starve the pool under load."""
+        save = self._add(admin_user, rom, "pooled", "autosave", "pooled")
+        checked_out: dict[str, int] = {}
+        deleted_assets = saves_handler_module._deleted_assets
+        ensure, record = deleted_assets.ensure_record, deleted_assets.record_deletions
+
+        def spy(name: str, wrapped: Callable[..., Any]) -> Callable[..., Any]:
+            def call(*args: Any, **kwargs: Any) -> Any:
+                checked_out[name] = sync_engine.pool.checkedout()  # type: ignore[attr-defined]
+                return wrapped(*args, **kwargs)
+
+            return call
+
+        with (
+            mock.patch.object(deleted_assets, "ensure_record", spy("ensure", ensure)),
+            mock.patch.object(
+                deleted_assets, "record_deletions", spy("record", record)
+            ),
+        ):
+            if path == "delete":
+                db_save_handler.delete_save(save.id)
+            elif path == "prune":
+                db_save_handler.prune_slot(
+                    user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=0
+                )
+            else:
+                db_save_handler.update_save(save.id, {"content_hash": "new"})
+
+        # Ensuring runs before the removal holds one; recording joins it.
+        assert checked_out == {"ensure": 0, "record": 1}
+
+    def test_an_overwritten_version_is_recorded(self, admin_user: User, rom: Rom):
+        save = self._add(admin_user, rom, "overwritten", "autosave", "before")
+
+        db_save_handler.update_save(save.id, {"content_hash": "after"})
+
+        assert self._lost(admin_user, rom) == {"autosave": ["before"]}
+
+    def test_a_version_moved_to_another_slot_is_recorded_in_the_first(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "moved", "autosave", "moved")
+
+        db_save_handler.update_save(save.id, {"slot": "main_quest"})
+
+        assert self._lost(admin_user, rom) == {"autosave": ["moved"]}
+
+    def test_a_recomputed_hash_of_the_same_bytes_records_nothing(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "rehashed", "autosave", "raw_md5")
+
+        assert db_save_handler.rehash_save(save.id, "entries_md5", replacing="raw_md5")
+        assert self._lost(admin_user, rom) == {}
+
+    def test_a_recomputed_hash_never_replaces_a_newer_one(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "rewritten", "autosave", "newer")
+
+        assert not db_save_handler.rehash_save(
+            save.id, "entries_md5", replacing="read_before"
+        )
+        [kept] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        assert kept.content_hash == "newer"
+
+    @pytest.mark.parametrize(
+        "data",
+        [{"content_hash": "same"}, {"is_favorite": True}],
+        ids=["same-bytes", "annotation"],
+    )
+    def test_an_update_that_keeps_the_version_records_nothing(
+        self, admin_user: User, rom: Rom, data: dict
+    ):
+        save = self._add(admin_user, rom, "kept", "autosave", "same")
+
+        db_save_handler.update_save(save.id, data)
+
+        assert not any(self._lost(admin_user, rom).values())
+
+
+BACKEND_ROOT = Path(__file__).parents[3]
+SAVES_HANDLER = BACKEND_ROOT / "handler" / "database" / "saves_handler.py"
+
+
+def _writes_save_rows(node: ast.Call) -> bool:
+    """Whether `node` is `delete(Save)`, `update(Save)` or `.query(Save)...delete()`."""
+    func = node.func
+    name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+    if name not in {"delete", "update"}:
+        return False
+    if any(isinstance(arg, ast.Name) and arg.id == "Save" for arg in node.args):
+        return True
+    return isinstance(func, ast.Attribute) and "query(Save)" in ast.unparse(func.value)
+
+
+def test_only_the_saves_handler_writes_save_rows():
+    """The handler records every version leaving a slot, so nothing may go around it."""
+    offenders = []
+    for path in BACKEND_ROOT.rglob("*.py"):
+        relative = path.relative_to(BACKEND_ROOT)
+        if relative.parts[0] in {"tests", "alembic"} or path == SAVES_HANDLER:
+            continue
+        tree = ast.parse(path.read_text(), filename=str(path))
+        offenders += [
+            f"{relative}:{node.lineno}"
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and _writes_save_rows(node)
+        ]
+
+    assert offenders == []

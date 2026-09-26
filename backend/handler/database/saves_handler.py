@@ -1,15 +1,52 @@
-from collections.abc import Collection, Sequence
+import functools
+from collections.abc import Callable, Collection, Mapping, Sequence
 from typing import Literal
 
 from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select, update
+from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
-from models.assets import Save
+from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
 from models.base import with_file_name_parts
 from models.rom import Rom
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
+from .deleted_assets_handler import DBDeletedAssetsHandler
+
+_deleted_assets = DBDeletedAssetsHandler()
+# What identifies a version in its slot, for recording it when it leaves.
+_VERSION_COLUMNS = (Save.user_id, Save.rom_id, Save.slot, Save.content_hash)
+_SLOT_MOVE_ATTEMPTS = 3
+
+
+class _SlotMoved(Exception):
+    """The save changed slot between the unlocked read and its lock."""
+
+
+class UnhashedVersions(Exception):
+    """Versions a prune would drop without a hash to record them by."""
+
+    def __init__(self, versions: Sequence[Row]):
+        super().__init__(f"{len(versions)} versions to prune were never hashed")
+        self.versions = versions
+
+
+def _retry_if_slot_moved[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+    """Rerun a removal in a fresh transaction, releasing the stale slot's lock."""
+
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        if kwargs.get("session") is not None:
+            return func(*args, **kwargs)
+        for _ in range(_SLOT_MOVE_ATTEMPTS - 1):
+            try:
+                return func(*args, **kwargs)
+            except _SlotMoved:
+                continue
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 class DBSavesHandler(DBBaseHandler):
@@ -237,11 +274,35 @@ class DBSavesHandler(DBBaseHandler):
         return latest
 
     @begin_session
+    def _slot_version(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Row | None:
+        return session.execute(_version_query(id)).one_or_none()
+
+    def _lock_for_removal(self, id: int, session: Session) -> Row | None:
+        """Lock the save's slot record, then the save, returning its current version."""
+        # Before this session holds a connection, since ensuring takes its own.
+        before = self._slot_version(id)
+        if not before:
+            return None
+        if before.slot:
+            _lock_slot(before.user_id, before.rom_id, before.slot, session)
+        current = session.execute(_version_query(id).with_for_update()).one_or_none()
+        # Locking the slot it moved to now would take a slot after a row.
+        if current and current.slot and current.slot != before.slot:
+            raise _SlotMoved
+        return current
+
+    @_retry_if_slot_moved
+    @begin_session
     def update_save(
         self,
         id: int,
         data: dict,
         touch: bool = True,
+        replaced_hash: str | None = None,
         session: Session = None,  # type: ignore[assignment]
     ) -> Save:
         """Write `data` onto a save.
@@ -249,8 +310,43 @@ class DBSavesHandler(DBBaseHandler):
         Args:
             touch: False keeps `updated_at`, since annotating is not a write
                 to the bytes and device sync reads it to detect staleness.
+            replaced_hash: What the version held, for a row that never hashed it.
         """
         data = with_file_name_parts(data)
+        if "content_hash" in data or "slot" in data:
+            current = self._lock_for_removal(id, session)
+            if current and _loses_version(current, data):
+                _record_loss(current, session, replaced_hash)
+        return self._write(id, data, touch, session)
+
+    @begin_session
+    def rehash_save(
+        self,
+        id: int,
+        content_hash: str,
+        replacing: str | None,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> bool:
+        """Store a recomputed hash of the same bytes, so no version leaves the slot.
+
+        Args:
+            content_hash: The recomputed hash.
+            replacing: The hash it was computed against; a row holding another
+                was rewritten meanwhile and keeps its own.
+
+        Returns:
+            Whether the row still held ``replacing`` and took the new hash.
+        """
+        result = session.execute(
+            update(Save)
+            .where(Save.id == id, Save.content_hash.is_not_distinct_from(replacing))
+            .values(content_hash=content_hash)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) == 1
+
+    @staticmethod
+    def _write(id: int, data: dict, touch: bool, session: Session) -> Save:
         values = data if touch else {**data, "updated_at": Save.updated_at}
         session.execute(
             update(Save)
@@ -267,37 +363,100 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         slot: str,
         keep: int,
+        fallback_hashes: Mapping[int, str | None] | None = None,
         session: Session = None,  # type: ignore[assignment]
-    ) -> list[tuple[str, str, str]]:
+    ) -> Sequence[Row]:
         """Delete every version of a slot past the ``keep`` newest.
 
-        The rows are locked while they are listed and deleted, so two uploads
-        pruning the same slot cannot both keep a version the other dropped.
+        The slot's record is locked while its versions are listed and deleted,
+        so two uploads pruning it cannot both keep a version the other dropped.
+
+        Args:
+            fallback_hashes: What versions never hashed held, by save id, or
+                None for a file that couldn't be read.
 
         Returns:
-            ``(file_path, file_name, file_name_no_ext)`` of each deleted version.
+            Each deleted version's hash and ``file_path``, ``file_name`` and
+            ``file_name_no_ext``, newest first.
+
+        Raises:
+            UnhashedVersions: Deleting nothing, for versions never hashed that
+                ``fallback_hashes`` lacks.
         """
-        rows = session.execute(
-            select(Save.id, Save.file_path, Save.file_name, Save.file_name_no_ext)
+        past_keep = (
+            select(
+                Save.id,
+                *_VERSION_COLUMNS,
+                Save.file_path,
+                Save.file_name,
+                Save.file_name_no_ext,
+            )
             .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
             .order_by(desc(Save.updated_at), desc(Save.id))
             .offset(keep)
+        )
+        # Before this session holds a connection, since ensuring takes its own.
+        if not self._any(past_keep):
+            return []
+        _lock_slot(user_id, rom_id, slot, session)
+        # Locks only this slot's rows and takes no snapshot, which MariaDB's
+        # snapshot isolation would fail the delete against.
+        hint = f"FORCE INDEX ({SAVE_SLOT_VERSIONS_INDEX})"
+        rows = session.execute(
+            past_keep.with_hint(Save, hint, "mariadb")
+            .with_hint(Save, hint, "mysql")
             .with_for_update()
         ).all()
-        if rows:
+        fallback_hashes = fallback_hashes or {}
+        unhashed = [
+            row
+            for row in rows
+            if not row.content_hash and row.id not in fallback_hashes
+        ]
+        if unhashed:
+            raise UnhashedVersions(unhashed)
+        # Oldest first, so trimming the record drops the oldest version first.
+        lost = [
+            content_hash
+            for row in reversed(rows)
+            if (content_hash := row.content_hash or fallback_hashes.get(row.id))
+        ]
+        if lost:
+            _deleted_assets.record_deletions(
+                user_id, rom_id, slot, lost, session=session
+            )
+        for row in rows:
             session.execute(
                 delete(Save)
-                .where(Save.id.in_([row.id for row in rows]))
+                .where(Save.id == row.id)
                 .execution_options(synchronize_session="evaluate")
             )
-        return [(row.file_path, row.file_name, row.file_name_no_ext) for row in rows]
+        return rows
 
+    @begin_session
+    def _any(
+        self,
+        query: Select,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> bool:
+        return session.execute(query.limit(1)).first() is not None
+
+    @_retry_if_slot_moved
     @begin_session
     def delete_save(
         self,
         id: int,
+        content_hash: str | None = None,
         session: Session = None,  # type: ignore[assignment]
     ) -> None:
+        """Delete a save, recording the version its slot loses.
+
+        Args:
+            content_hash: What the version held, for a row that never hashed it.
+        """
+        current = self._lock_for_removal(id, session)
+        if current:
+            _record_loss(current, session, content_hash)
         session.execute(
             delete(Save)
             .where(Save.id == id)
@@ -392,3 +551,37 @@ class DBSavesHandler(DBBaseHandler):
         return session.scalars(
             select(Save).where(Save.id > after_id).order_by(asc(Save.id)).limit(limit)
         ).all()
+
+
+def _version_query(id: int) -> Select:
+    return select(*_VERSION_COLUMNS).where(Save.id == id)
+
+
+def _loses_version(version: Row, data: dict) -> bool:
+    """Whether writing `data` takes this version out of its slot."""
+    return (
+        data.get("slot", version.slot) != version.slot
+        or data.get("content_hash", version.content_hash) != version.content_hash
+    )
+
+
+def _lock_slot(user_id: int, rom_id: int, slot: str, session: Session) -> None:
+    """Ensure the slot has a record, then lock it before any of its rows."""
+    # One order everywhere, the record before the rows, so removals never deadlock.
+    _deleted_assets.ensure_record(user_id, rom_id, slot)
+    _deleted_assets.lock_record(user_id, rom_id, slot, session)
+
+
+def _record_loss(
+    version: Row, session: Session, content_hash: str | None = None
+) -> None:
+    """Remember a version leaving its slot, in the transaction that removes it."""
+    content_hash = version.content_hash or content_hash
+    if version.slot and content_hash:
+        _deleted_assets.record_deletion(
+            version.user_id,
+            version.rom_id,
+            version.slot,
+            content_hash,
+            session=session,
+        )
