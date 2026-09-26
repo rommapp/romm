@@ -51,3 +51,31 @@ describe("MetadataTab hash rows", () => {
     expect(hashLabels(chd)).toEqual(["SHA-1", "CHD SHA-1", "MD5", "CRC", "RA"]);
   });
 });
+
+describe("MetadataTab verification chips", () => {
+  function raChipTone(r: DetailedRom) {
+    return shallowMount(MetadataTab, { props: { rom: r } })
+      .findAllComponents({ name: "RTag" })
+      .find((c) => c.props("text") === "RetroAchievements")
+      ?.props("tone");
+  }
+
+  it("lights RetroAchievements for a scan-time RA hash match", () => {
+    const matched = rom({
+      hasheous_metadata: { nointro_match: true, ra_match: false },
+      merged_ra_metadata: { hash_match: true },
+    } as Partial<DetailedRom>);
+
+    expect(raChipTone(matched)).toBe("success");
+  });
+
+  it("leaves RetroAchievements neutral without any RA hash match", () => {
+    const linkedOnly = rom({
+      ra_id: 17353,
+      hasheous_metadata: { ra_match: false },
+      merged_ra_metadata: { hash_match: false },
+    } as Partial<DetailedRom>);
+
+    expect(raChipTone(linkedOnly)).toBe("neutral");
+  });
+});

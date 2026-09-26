@@ -1285,7 +1285,8 @@ class DBRomsHandler(DBBaseHandler):
             *(
                 func.coalesce(Rom.hasheous_metadata[key].as_boolean(), false())
                 for key in keys_to_check
-            )
+            ),
+            func.coalesce(Rom.ra_metadata["hash_match"].as_boolean(), false()),
         )
         if not value:
             predicate = not_(predicate)
