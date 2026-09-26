@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.assets import SAVE_SLOT_MAX_LENGTH
 from models.base import BaseModel
 from utils.database import CustomJSON, ExactString
+from utils.datetime import to_utc
 
 # Trimming drops the oldest, which a long-offline device is likeliest to hold;
 # past the bound that device's version is negotiated as if it were new.
@@ -31,6 +34,21 @@ class DeletedAsset(BaseModel):
     )
     # Exact, like `Save.slot`, so the unique index keys what negotiation looks up.
     slot: Mapped[str] = mapped_column(ExactString(SAVE_SLOT_MAX_LENGTH))
-    # Every version the slot lost, matched by identity rather than by time:
-    # a device's clock is not the server's.
+    # Every version the slot lost, oldest first, matched by what a device reports holding.
     content_hashes: Mapped[list[str]] = mapped_column(CustomJSON(), default=list)
+    # When each was lost, by the server's clock: a device copy written later is new progress.
+    removed_at: Mapped[dict[str, str] | None] = mapped_column(
+        CustomJSON(), nullable=True, default=dict
+    )
+
+    def removal_times(self) -> dict[str, datetime]:
+        """When each remembered version was lost, the record's own time where unstamped."""
+        stamped = self.removed_at or {}
+        return {
+            content_hash: (
+                to_utc(datetime.fromisoformat(stamped[content_hash]))
+                if content_hash in stamped
+                else to_utc(self.updated_at)
+            )
+            for content_hash in self.content_hashes
+        }

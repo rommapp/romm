@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Collection, Iterable, Mapping
+from collections.abc import Iterable, Mapping
 from datetime import datetime
 from typing import Literal, NamedTuple, Protocol
 
@@ -21,12 +21,12 @@ def compare_save_state(
     server_hash: str | None,
     server_updated_at: datetime,
     device_last_synced_at: datetime | None,
-    removed_hashes: Collection[str] = (),
+    removed_at: Mapping[str, datetime] | None = None,
 ) -> SyncComparisonResult:
     """Compare client and server save state to determine the sync action.
 
-    `removed_hashes` are versions the server's slot lost, so a client still
-    holding one is behind the server whatever its timestamps say.
+    `removed_at` maps versions the server's slot lost to when they were lost, so
+    a client still holding one from before then is behind the server.
 
     Returns a (action, reason) tuple where action is one of:
     - upload: client save should be uploaded to server
@@ -41,7 +41,7 @@ def compare_save_state(
     if client_hash and server_hash and client_hash == server_hash:
         return SyncComparisonResult("no_op", "Content is identical")
 
-    if client_hash in removed_hashes:
+    if _held_since_removal(client_hash, client_ts, removed_at):
         return SyncComparisonResult(
             "download", "Client holds a version removed on the server"
         )
@@ -84,20 +84,35 @@ def compare_save_state(
 
 
 def compare_missing_server_save(
-    client_hash: str | None, deleted_hashes: Collection[str]
+    client_hash: str | None,
+    client_updated_at: datetime,
+    removed_at: Mapping[str, datetime],
 ) -> SyncComparisonResult:
     """Decide a client save whose slot has no server save, matched by identity.
 
     Args:
         client_hash: The digest the client reported, when it reported one.
-        deleted_hashes: What the slot is known to have lost.
+        client_updated_at: When the client last wrote its copy.
+        removed_at: What the slot is known to have lost, and when.
 
     Returns:
-        `delete` when the client holds a version the slot lost, else `upload`.
+        `delete` when the client holds a version the slot lost since the client
+        wrote it, else `upload`.
     """
-    if client_hash in deleted_hashes:
+    if _held_since_removal(client_hash, to_utc(client_updated_at), removed_at):
         return SyncComparisonResult("delete", "Save was deleted on the server")
     return SyncComparisonResult("upload", "Save exists on client but not on server")
+
+
+def _held_since_removal(
+    client_hash: str | None,
+    client_ts: datetime,
+    removed_at: Mapping[str, datetime] | None,
+) -> bool:
+    """Whether the client's copy is a removed version it wrote before the removal."""
+    # Written after the removal, the same bytes are progress made on the device.
+    removed = (removed_at or {}).get(client_hash) if client_hash else None
+    return removed is not None and client_ts <= to_utc(removed)
 
 
 class _SlotVersion(Protocol):

@@ -260,11 +260,11 @@ def negotiate_sync(
         # Without this the client offers a removed version back and the
         # deletion or rollback undoes itself.
         deletion = deleted_map.get(key)
-        removed_hashes = deletion.content_hashes if deletion else ()
+        removed_at = deletion.removal_times() if deletion else {}
 
         if server_save is None:
             result = compare_missing_server_save(
-                client_save.content_hash, removed_hashes
+                client_save.content_hash, client_save.updated_at, removed_at
             )
             operations.append(
                 SyncOperationSchema(
@@ -303,7 +303,7 @@ def negotiate_sync(
             server_hash=server_save.content_hash,
             server_updated_at=server_save.updated_at,
             device_last_synced_at=device_sync.last_synced_at if device_sync else None,
-            removed_hashes=removed_hashes,
+            removed_at=removed_at,
         )
 
         operations.append(

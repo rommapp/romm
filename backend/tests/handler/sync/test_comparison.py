@@ -150,58 +150,71 @@ class TestCompareReturnType:
 
 
 class TestCompareRemovedVersions:
-    NOW = datetime(2026, 1, 2, tzinfo=timezone.utc)
-    EARLIER = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    REMOVED = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    BEFORE = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    AFTER = datetime(2026, 1, 3, tzinfo=timezone.utc)
 
-    def test_a_removed_version_downloads_however_new_it_looks(self):
-        result = compare_save_state(
-            client_hash="removed",
-            client_updated_at=self.NOW,
-            server_hash="current",
-            server_updated_at=self.EARLIER,
-            device_last_synced_at=self.EARLIER,
-            removed_hashes=["removed"],
-        )
-        assert result.action == "download"
+    def _compare(self, client_hash, client_updated_at, **overrides):
+        kwargs = {
+            "client_hash": client_hash,
+            "client_updated_at": client_updated_at,
+            "server_hash": "current",
+            "server_updated_at": self.BEFORE,
+            "device_last_synced_at": self.BEFORE,
+            "removed_at": {"removed": self.REMOVED, "current": self.REMOVED},
+        }
+        return compare_save_state(**{**kwargs, **overrides})
+
+    def test_a_version_written_before_its_removal_downloads(self):
+        # Its timestamp is newer than the server's current save, which alone
+        # would answer upload.
+        assert self._compare("removed", self.REMOVED).action == "download"
+
+    def test_the_same_bytes_written_after_the_removal_are_progress(self):
+        assert self._compare("removed", self.AFTER).action == "upload"
 
     def test_the_current_version_stays_in_sync_even_if_once_removed(self):
-        result = compare_save_state(
-            client_hash="current",
-            client_updated_at=self.NOW,
-            server_hash="current",
-            server_updated_at=self.EARLIER,
-            device_last_synced_at=None,
-            removed_hashes=["current"],
-        )
-        assert result.action == "no_op"
+        assert self._compare("current", self.BEFORE).action == "no_op"
 
     def test_a_client_that_reports_no_digest_compares_by_time(self):
-        result = compare_save_state(
-            client_hash=None,
-            client_updated_at=self.NOW,
-            server_hash="current",
-            server_updated_at=self.EARLIER,
-            device_last_synced_at=None,
-            removed_hashes=["removed"],
-        )
+        result = self._compare(None, self.AFTER, device_last_synced_at=None)
         assert result.action == "upload"
 
 
 class TestCompareMissingServerSave:
-    def test_a_version_the_slot_lost_is_deleted(self):
-        result = compare_missing_server_save("abc123", ["def456", "abc123"])
+    REMOVED = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    LOST = {"def456": REMOVED, "abc123": REMOVED}
+
+    def test_a_version_written_before_the_slot_lost_it_is_deleted(self):
+        result = compare_missing_server_save(
+            "abc123", datetime(2026, 1, 1, tzinfo=timezone.utc), self.LOST
+        )
         assert result.action == "delete"
+
+    def test_the_same_bytes_written_after_the_loss_are_uploaded(self):
+        result = compare_missing_server_save(
+            "abc123", datetime(2026, 1, 3, tzinfo=timezone.utc), self.LOST
+        )
+        assert result.action == "upload"
 
     def test_bytes_nobody_deleted_are_uploaded(self):
         # Offering it back costs a deletion that misses that device; deleting
         # it would cost the save.
-        assert compare_missing_server_save("fresh", ["abc123"]).action == "upload"
+        assert (
+            compare_missing_server_save("fresh", self.REMOVED, self.LOST).action
+            == "upload"
+        )
 
     def test_a_client_that_reports_no_digest_is_uploaded(self):
-        assert compare_missing_server_save(None, ["abc123"]).action == "upload"
+        assert (
+            compare_missing_server_save(None, self.REMOVED, self.LOST).action
+            == "upload"
+        )
 
     def test_a_slot_that_lost_nothing_is_uploaded(self):
-        assert compare_missing_server_save("abc123", ()).action == "upload"
+        assert (
+            compare_missing_server_save("abc123", self.REMOVED, {}).action == "upload"
+        )
 
 
 @dataclass(frozen=True)

@@ -1,4 +1,5 @@
 from collections.abc import Collection, Sequence
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -101,7 +102,15 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         # A version lost again moves to the end, so trimming keeps it.
         lost = dict.fromkeys(content_hashes)
         hashes = [h for h in record.content_hashes if h not in lost] + list(lost)
-        record.content_hashes = hashes[-MAX_REMEMBERED_HASHES:]
+        hashes = hashes[-MAX_REMEMBERED_HASHES:]
+        now = datetime.now(timezone.utc).isoformat()
+        stamped = record.removed_at or {}
+        record.content_hashes = hashes
+        record.removed_at = {
+            h: now if h in lost else stamped[h]
+            for h in hashes
+            if h in lost or h in stamped
+        }
         session.flush()
         return record
 
@@ -114,7 +123,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore[assignment]
     ) -> DeletedAsset:
         record = DeletedAsset(
-            user_id=user_id, rom_id=rom_id, slot=slot, content_hashes=[]
+            user_id=user_id, rom_id=rom_id, slot=slot, content_hashes=[], removed_at={}
         )
         session.add(record)
         session.flush()
@@ -130,6 +139,20 @@ class DBDeletedAssetsHandler(DBBaseHandler):
             .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
             .with_for_update()
         )
+
+    @begin_session
+    def removal_times(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str | None,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> dict[str, datetime]:
+        """When each version this slot lost was lost, empty for a slot that lost none."""
+        record = session.scalar(
+            select(DeletedAsset).filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
+        )
+        return record.removal_times() if record else {}
 
     @begin_session
     def get_deletions(

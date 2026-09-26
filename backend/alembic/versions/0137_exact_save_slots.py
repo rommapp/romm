@@ -1,4 +1,4 @@
-"""Compare save slots exactly on MariaDB and MySQL, and index a slot's versions
+"""Compare save slots exactly, index a slot's versions, and time their removal
 
 Revision ID: 0137_exact_save_slots
 Revises: 0136_deleted_assets
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 from models.assets import SAVE_SLOT_MAX_LENGTH, SAVE_SLOT_VERSIONS_INDEX
-from utils.database import exact_collation
+from utils.database import CustomJSON, exact_collation
 
 # revision identifiers, used by Alembic.
 revision = "0137_exact_save_slots"
@@ -26,6 +26,11 @@ def upgrade() -> None:
         # Led by rom_id, which another index already serves as a foreign key:
         # a user_id lead would replace MariaDB's own index for that key.
         ["rom_id", "user_id", "slot", "updated_at"],
+        if_not_exists=True,
+    )
+    op.add_column(
+        "deleted_assets",
+        sa.Column("removed_at", CustomJSON(), nullable=True),
         if_not_exists=True,
     )
     collation = exact_collation(op.get_bind())
@@ -49,6 +54,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_column("deleted_assets", "removed_at", if_exists=True)
     op.drop_index(SAVE_SLOT_VERSIONS_INDEX, table_name="saves", if_exists=True)
     if exact_collation(op.get_bind()) is None:
         return

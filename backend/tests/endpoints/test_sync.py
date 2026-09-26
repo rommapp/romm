@@ -769,13 +769,15 @@ class TestNegotiateRemovedVersions:
     BASE = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
     @staticmethod
-    def _held(rom: Rom, content_hash: str) -> dict:
+    def _held(
+        rom: Rom, content_hash: str, updated_at: str = "2026-02-01T00:00:00Z"
+    ) -> dict:
         return {
             "rom_id": rom.id,
             "file_name": "autosave.sav",
             "slot": "autosave",
             "content_hash": content_hash,
-            "updated_at": "2026-02-01T00:00:00Z",
+            "updated_at": updated_at,
             "file_size_bytes": 100,
         }
 
@@ -840,6 +842,42 @@ class TestNegotiateRemovedVersions:
         data = _negotiate(client, access_token, device.id, [self._held(rom, "HASH_V1")])
 
         assert data["operations"][0]["action"] == "delete"
+
+    def test_a_copy_written_after_the_removal_is_offered_as_new(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="removed-rewritten", user_id=admin_user.id, sync_enabled=True)
+        )
+        db_deleted_asset_handler.record_deletion(
+            user_id=admin_user.id, rom_id=rom.id, slot="autosave", content_hash="SAME"
+        )
+        later = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+
+        data = _negotiate(
+            client, access_token, device.id, [self._held(rom, "SAME", later)]
+        )
+
+        assert data["operations"][0]["action"] == "upload"
+
+    def test_a_copy_written_after_a_rollback_is_not_replaced(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="removed-progress", user_id=admin_user.id, sync_enabled=True)
+        )
+        _slot_version(admin_user, rom, "older", "HASH_A", self.BASE)
+        newest = _slot_version(
+            admin_user, rom, "newest", "HASH_B", self.BASE + timedelta(hours=1)
+        )
+        self._delete(client, access_token, newest)
+        later = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+
+        data = _negotiate(
+            client, access_token, device.id, [self._held(rom, "HASH_B", later)]
+        )
+
+        assert data["operations"][0]["action"] == "upload"
 
     def test_the_current_version_matches_even_after_it_was_once_removed(
         self, client, access_token: str, admin_user: User, rom: Rom
