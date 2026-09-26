@@ -5,11 +5,20 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
+from tests.audit_events import recorded_events
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
-from handler.database import db_device_handler, db_play_session_handler, db_rom_handler
+from handler.database import (
+    db_audit_event_handler,
+    db_device_handler,
+    db_play_session_handler,
+    db_rom_handler,
+)
+from handler.database.audit_events_handler import AuditEventFilters
+from handler.database.base_handler import sync_session
 from models.device import Device
+from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomUserStatus
 from models.user import User
@@ -211,6 +220,59 @@ class TestPlaySessionIngest:
 
         assert response.status_code == status.HTTP_201_CREATED
         assert response.json()["created_count"] == 1
+
+
+class TestPlaySessionAudit:
+    def test_each_new_session_of_a_known_rom_is_a_play(
+        self, client, access_token: str, device: Device, rom: Rom
+    ):
+        played = _session(rom_id=rom.id, duration_minutes=45)
+        payload = _ingest(
+            device_id=device.id,
+            sessions=[played, _session(rom_id=None, start_offset_hours=-2)],
+        )
+
+        for _ in range(2):
+            client.post(
+                "/api/play-sessions",
+                json=payload,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        rows, total, _ = db_audit_event_handler.get_events(
+            AuditEventFilters(), limit=10, offset=0
+        )
+        assert total == 1
+        [(event, device_name)] = rows
+        assert event.action == "rom.play"
+        assert event.target_id == str(rom.id)
+        assert event.device_id == device.id
+        assert device_name == "Test Device"
+        assert event.data["duration_ms"] == 45 * 60 * 1000
+        started = datetime.fromisoformat(played["start_time"])
+        # The column keeps whole seconds.
+        assert abs(to_utc(event.occurred_at) - started) < timedelta(seconds=1)
+
+    def test_a_rom_hidden_from_the_player_is_not_theirs_to_log(
+        self, client, editor_user: User, editor_access_token: str, rom: Rom
+    ):
+        with sync_session.begin() as session:
+            session.add(
+                HiddenEntity(
+                    entity=PermEntity.ROMS, entity_id=rom.id, user_id=editor_user.id
+                )
+            )
+
+        response = client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {editor_access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [played] = db_play_session_handler.get_sessions(user_id=editor_user.id)
+        assert played.rom_id is None
+        assert recorded_events() == []
 
 
 class TestPlaySessionDedup:

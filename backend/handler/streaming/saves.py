@@ -7,12 +7,17 @@ a .zip extension so the whole card set travels as a unit.
 """
 
 import asyncio
+import secrets
+import time
 from datetime import datetime, timezone
+from typing import NamedTuple
 
 from fastapi import HTTPException
+from redis.exceptions import WatchError
 
 from handler.database import db_rom_handler, db_save_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
+from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save
 from handler.streaming import broker, webstation
 from handler.streaming.config import ResolvedContainer
@@ -21,6 +26,78 @@ from models.assets import Save
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import sanitize_filename
+
+# An exit files its archive in the background, so a claim landing behind it would
+# hydrate from the archive before last. The exit leaves a marker a claim waits out.
+SAVE_PULL_WAIT_SECONDS = 20.0
+_SAVE_PULL_KEY_PREFIX = "romm:streaming:save-pull:"
+# Backstop for a backend that dies mid-pull: a marker nobody clears would cost
+# every later claim on that ROM the full wait.
+SAVE_PULL_TTL_SECONDS = 10 * 60
+_SAVE_PULL_POLL_SECONDS = 0.25
+
+
+def _save_pull_redis_key(user_id: int, rom_id: int) -> str:
+    return f"{_SAVE_PULL_KEY_PREFIX}{user_id}:{rom_id}"
+
+
+class SavePullMark(NamedTuple):
+    """One exit's pending pull, whose token lets only that pull clear it."""
+
+    user_id: int
+    rom_id: int
+    token: str
+
+
+async def mark_save_pull_pending(user_id: int, rom_id: int) -> SavePullMark:
+    """Hold this user's claims on this ROM until the returned mark is cleared, a
+    later mark taking over so an earlier pull finishing cannot let a claim past it."""
+    token = secrets.token_hex(8)
+    await async_cache.set(
+        _save_pull_redis_key(user_id, rom_id), token, ex=SAVE_PULL_TTL_SECONDS
+    )
+    return SavePullMark(user_id, rom_id, token)
+
+
+async def clear_save_pull_pending(mark: SavePullMark) -> None:
+    """Drop the marker, while it is still the one `mark` set."""
+    key = _save_pull_redis_key(mark.user_id, mark.rom_id)
+    async with async_cache.pipeline() as pipe:
+        await pipe.watch(key)
+        current = await pipe.get(key)
+        if isinstance(current, bytes):
+            current = current.decode()
+        if current != mark.token:
+            await pipe.unwatch()
+            return
+        pipe.multi()
+        await pipe.delete(key)
+        try:
+            await pipe.execute()
+        except WatchError:
+            # Only a later mark or the TTL moves the key, and neither is ours.
+            pass
+
+
+async def wait_for_save_pull(
+    user_id: int, rom_id: int, budget: float = SAVE_PULL_WAIT_SECONDS
+) -> bool:
+    """Wait for a pull of this user's saves for this ROM to finish filing.
+
+    Returns:
+        Whether nothing is pending any more, False once `budget` runs out, since a
+        claim is interactive and must not hang on a wedged pull.
+    """
+    key = _save_pull_redis_key(user_id, rom_id)
+    deadline = time.monotonic() + budget
+    while await async_cache.exists(key):
+        if time.monotonic() >= deadline:
+            log.warning(
+                "gave up waiting for the previous session's saves, rom_id=%d", rom_id
+            )
+            return False
+        await asyncio.sleep(_SAVE_PULL_POLL_SECONDS)
+    return True
 
 
 def fetch_save_archive(
@@ -117,11 +194,17 @@ async def pull_saves_to_library(
     rom_id: int,
     container: ResolvedContainer,
     broker_session_id: str | None = None,
+    *,
+    settled: bool = False,
 ) -> bool:
     """Background task: pull in-game saves from the broker and store them.
 
     Best-effort by design, a sync failure must never surface to the player,
     the save still exists inside the container.
+
+    Args:
+        settled: the emulator is done writing, so one attempt is final where the
+            retries would wait out one still writing.
     """
     user = db_user_handler.get_user(user_id)
     rom = db_rom_handler.get_rom(rom_id)
@@ -129,7 +212,7 @@ async def pull_saves_to_library(
         return False
     emulator = container.emulator
 
-    for attempt in range(broker.PULL_ATTEMPTS):
+    for attempt in range(1 if settled else broker.PULL_ATTEMPTS):
         if attempt > 0:
             await asyncio.sleep(broker.PULL_RETRY_DELAY)
         content = await asyncio.to_thread(
@@ -168,7 +251,7 @@ def _is_restorable(save: Save, emulator: str) -> bool:
     return _written_by(save, emulator) and _is_archive(save)
 
 
-def _newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
+def newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
     """The user's most recent restorable archive for this emulator."""
     archives = [
         save
@@ -182,11 +265,11 @@ def _newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
 
 def resolve_save_archive(
     user_id: int, rom: Rom, container: ResolvedContainer, save_id: int
-) -> Save:
-    """Validate a pick from the launch screen's save list and return the save.
+) -> tuple[Save, bool]:
+    """Validate a launch-screen save pick and return (save, is_foreign).
 
     Raises 404 for a save that is not the claiming user's own on this ROM, and
-    400 when it cannot be restored on this container.
+    400 for one neither restorable here nor accepted as an import.
     """
     save = db_save_handler.get_save(user_id=user_id, id=save_id)
     # Same 404 for another user's save and another ROM's, so neither leaks.
@@ -198,20 +281,25 @@ def resolve_save_archive(
             status_code=400,
             detail="This emulator always restores the newest save",
         )
-    if not _written_by(save, container.emulator):
-        raise HTTPException(
-            status_code=400,
-            detail="Save was made by a different emulator",
-        )
+    if _is_restorable(save, container.emulator):
+        return save, False
+
+    spec = webstation.import_spec(container, container.emulator, container.platform)
+    if spec is not None and spec.accepts("save"):
+        return save, True
+
     if not _is_archive(save):
         raise HTTPException(
             status_code=400,
             detail="Save is not a restorable archive",
         )
-    return save
+    raise HTTPException(
+        status_code=400,
+        detail="Save was made by a different emulator",
+    )
 
 
-async def _read_archive(save: Save) -> tuple[str, bytes] | None:
+async def read_restorable_archive(save: Save) -> tuple[str, bytes] | None:
     """The archive's (file name, content), or None when it is gone off disk."""
     try:
         content = await fs_asset_handler.read_file(f"{save.file_path}/{save.file_name}")
@@ -232,10 +320,10 @@ async def hydrate_saves_to_broker(
     if db_user_handler.get_user(user_id) is None or rom is None:
         return False
 
-    newest = _newest_restorable(user_id, rom_id, container.emulator)
+    newest = newest_restorable(user_id, rom_id, container.emulator)
     if newest is None:
         return False
-    archive = await _read_archive(newest)
+    archive = await read_restorable_archive(newest)
     if archive is None:
         return False
     file_name, content = archive
@@ -254,10 +342,10 @@ async def hydrate_saves_to_webstation(
     The webstation broker restores as part of activate, so hydration only gets
     the bytes into place. `save` is the player's pick, newest when absent.
     """
-    picked = save or _newest_restorable(user_id, rom_id, container.emulator)
+    picked = save or newest_restorable(user_id, rom_id, container.emulator)
     if picked is None:
         return None
-    archive = await _read_archive(picked)
+    archive = await read_restorable_archive(picked)
     if archive is None:
         return None
     file_name, content = archive

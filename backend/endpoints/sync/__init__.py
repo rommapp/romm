@@ -1,6 +1,8 @@
+import asyncio
+from collections import Counter
 from datetime import datetime
 
-from fastapi import HTTPException, Request, status
+from fastapi import BackgroundTasks, HTTPException, Request, status
 from pydantic import Field, model_validator
 
 from config import TASK_TIMEOUT
@@ -16,8 +18,11 @@ from endpoints.responses.sync import (
     SyncOperationSchema,
     SyncSessionSchema,
 )
+from endpoints.sockets.sync import emit_sync_conflict
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_permissions
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
@@ -25,7 +30,7 @@ from handler.database import (
 )
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import high_prio_queue
-from handler.sync.comparison import compare_save_state
+from handler.sync.comparison import compare_missing_server_save, compare_save_state
 from logger.logger import log
 from models.assets import Save
 from models.device import SyncMode
@@ -34,10 +39,16 @@ from utils.datetime import to_utc
 from utils.router import APIRouter
 from utils.validation import MAX_ROM_IDS_PER_QUERY, RomIdScope
 
+from .retroarch import router as retroarch_router
+
 router = APIRouter(
     prefix="/sync",
     tags=["sync"],
 )
+router.include_router(retroarch_router)
+
+# A hung broker must not pin the background task forever.
+CONFLICT_NOTIFY_TIMEOUT_S = 2.0
 
 
 class ClientSaveState(BaseModel):
@@ -114,15 +125,44 @@ class SyncCompletePayload(BaseModel):
     play_sessions: list[SyncPlaySessionEntry] | None = None
 
 
+async def _notify_conflicts(
+    user_id: int,
+    device_id: str,
+    session_id: int,
+    conflict_ops: list[SyncOperationSchema],
+    rom_names: dict[int, str],
+) -> None:
+    """Emit one sync:conflict event per operation, within one deadline."""
+    try:
+        async with asyncio.timeout(CONFLICT_NOTIFY_TIMEOUT_S):
+            for op in conflict_ops:
+                await emit_sync_conflict(
+                    user_id=user_id,
+                    device_id=device_id,
+                    session_id=session_id,
+                    file_name=op.file_name,
+                    rom_id=op.rom_id,
+                    rom_name=rom_names[op.rom_id],
+                    reason=op.reason,
+                )
+    except TimeoutError:
+        log.warning(
+            f"Gave up on {len(conflict_ops)} sync:conflict events "
+            f"after {CONFLICT_NOTIFY_TIMEOUT_S}s"
+        )
+
+
 @protected_route(router.post, "/negotiate", [Scope.ASSETS_READ, Scope.DEVICES_READ])
 def negotiate_sync(
     request: Request,
     payload: SyncNegotiatePayload,
+    background_tasks: BackgroundTasks,
 ) -> SyncNegotiateResponse:
     """Negotiate sync operations between a client device and the server.
 
     The client sends its current save state, and the server returns a list of
-    operations (upload, download, conflict, no_op) to bring both sides in sync.
+    operations (upload, download, conflict, delete, no_op) to bring both sides
+    in sync.
 
     A client that only holds part of the library can send `rom_ids` to scope the
     negotiation to the ROMs installed on the device, which keeps the response
@@ -162,14 +202,9 @@ def negotiate_sync(
             detail="Sync is disabled for this device",
         )
 
-    # Cancel any existing active sessions for this device
-    cancelled = db_sync_session_handler.cancel_active_sessions(
-        device_id=device.id, user_id=request.user.id
-    )
-    if cancelled:
-        log.info(f"Cancelled {cancelled} active sync session(s) for device {device.id}")
-
-    # Create a new sync session
+    # A session belongs to the launch that negotiated it, not to the device,
+    # which can have two games open at once. One nobody closes is left to the
+    # scheduled cleanup rather than to the next negotiation.
     sync_session = db_sync_session_handler.create_session(
         device_id=device.id, user_id=request.user.id
     )
@@ -195,6 +230,20 @@ def negotiate_sync(
         if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
             server_save_map[key] = save
 
+    # Read only when a slot has no row left, so a slot refilled since keeps
+    # its record harmlessly.
+    emptied_rom_ids = {
+        s.rom_id
+        for s in payload.saves
+        if s.slot and (s.rom_id, s.slot) not in server_save_map
+    }
+    deleted_map = {
+        (record.rom_id, record.slot): record
+        for record in db_deleted_asset_handler.get_deletions(
+            user_id=request.user.id, rom_ids=emptied_rom_ids
+        )
+    }
+
     # Only the newest row per slot is ever looked up, so superseded rows stay out.
     current_save_ids = [s.id for s in server_save_map.values()]
     device_syncs = db_device_save_sync_handler.get_syncs_for_device_and_saves(
@@ -211,16 +260,21 @@ def negotiate_sync(
         server_save = server_save_map.get(key)
 
         if server_save is None:
-            # Client has a save the server doesn't -> upload
+            # Without this the client offers the save back and the deletion
+            # undoes itself.
+            deletion = deleted_map.get(key)
+            result = compare_missing_server_save(
+                client_save.content_hash, deletion.content_hashes if deletion else ()
+            )
             operations.append(
                 SyncOperationSchema(
-                    action="upload",
+                    action=result.action,
                     rom_id=client_save.rom_id,
                     save_id=None,
                     file_name=client_save.file_name,
                     slot=client_save.slot,
                     emulator=client_save.emulator,
-                    reason="Save exists on client but not on server",
+                    reason=result.reason,
                 )
             )
             continue
@@ -316,16 +370,13 @@ def negotiate_sync(
             )
 
     # Update session with operation counts
-    total_upload = sum(1 for op in operations if op.action == "upload")
-    total_download = sum(1 for op in operations if op.action == "download")
-    total_conflict = sum(1 for op in operations if op.action == "conflict")
-    total_no_op = sum(1 for op in operations if op.action == "no_op")
+    counts = Counter(op.action for op in operations)
 
     db_sync_session_handler.update_session(
         session_id=sync_session.id,
         data={
             "status": SyncSessionStatus.IN_PROGRESS,
-            "operations_planned": total_upload + total_download + total_conflict,
+            "operations_planned": len(operations) - counts["no_op"],
         },
     )
 
@@ -334,17 +385,35 @@ def negotiate_sync(
 
     log.info(
         f"Sync negotiation for device {device.id}: "
-        f"{total_upload} uploads, {total_download} downloads, "
-        f"{total_conflict} conflicts, {total_no_op} no-ops"
+        f"{counts['upload']} uploads, {counts['download']} downloads, "
+        f"{counts['conflict']} conflicts, {counts['delete']} deletions, "
+        f"{counts['no_op']} no-ops"
     )
+
+    # Sent after the response on the app's loop, so a slow broker never holds
+    # up the client and the shared socket manager stays on one loop.
+    conflict_ops = [op for op in operations if op.action == "conflict"]
+    if conflict_ops:
+        background_tasks.add_task(
+            _notify_conflicts,
+            user_id=request.user.id,
+            device_id=device.id,
+            session_id=sync_session.id,
+            conflict_ops=conflict_ops,
+            rom_names={
+                save.rom_id: save.rom.name or save.rom.fs_name
+                for save in server_save_map.values()
+            },
+        )
 
     return SyncNegotiateResponse(
         session_id=sync_session.id,
         operations=operations,
-        total_upload=total_upload,
-        total_download=total_download,
-        total_conflict=total_conflict,
-        total_no_op=total_no_op,
+        total_upload=counts["upload"],
+        total_download=counts["download"],
+        total_conflict=counts["conflict"],
+        total_no_op=counts["no_op"],
+        total_delete=counts["delete"],
     )
 
 
@@ -364,20 +433,19 @@ def complete_sync_session(
             detail=f"Sync session with ID {session_id} not found",
         )
 
-    if sync_session.status not in (
-        SyncSessionStatus.PENDING,
-        SyncSessionStatus.IN_PROGRESS,
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Session is already {sync_session.status}",
-        )
-
+    # A session the cleanup expired can still be completed: its counts and the
+    # play sessions the client carries are worth more than the guess that
+    # nobody would ever report them. One closed on purpose is refused.
     completed = db_sync_session_handler.complete_session(
         session_id=session_id,
         operations_completed=payload.operations_completed,
         operations_failed=payload.operations_failed,
     )
+    if completed is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Session is already {sync_session.status}",
+        )
 
     log.info(
         f"Sync session {session_id} completed: "
@@ -389,6 +457,7 @@ def complete_sync_session(
         summary = ingest_play_sessions(
             user_id=request.user.id,
             username=request.user.username,
+            perms=get_permissions(request),
             entries=[
                 {
                     "rom_id": s.rom_id,
@@ -400,7 +469,6 @@ def complete_sync_session(
                 for s in payload.play_sessions
             ],
             device_id=sync_session.device_id,
-            sync_session_id=session_id,
         )
         play_session_ingest = PlaySessionIngestResponse(
             results=[

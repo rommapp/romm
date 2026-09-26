@@ -89,20 +89,18 @@ html[data-bp~="xs"] .r-v2-idx-shell {
   z-index: 3;
 }
 
-/* Compact list mode: the column header and the rows run to the screen
-   edges, out of the shell's gutter. Each keeps that gutter as its own
-   padding, so only the separators and the row fill reach the edge. */
-html[data-bp~="sm-and-down"] .r-v2-idx-shell {
+/* List mode: the column header and the rows run to the screen edges and keep
+   the shell's gutter as padding, so only the separators and row fill move. */
+.r-v2-idx-shell {
   --r-list-bleed: var(--r-row-pad);
 }
-html[data-bp~="sm-and-down"] .r-v2-idx-shell__list-header {
+.r-v2-idx-shell__list-header {
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));
 }
 /* The header already reaches both edges by the margin above, so the pinned
    glass must not add the gutter a second time: the page has no horizontal
    clip, and the surplus on the right would scroll the document sideways. */
-html[data-bp~="sm-and-down"]
-  .r-v2-idx-shell__list-header.r-pinned-list-header::before {
+.r-v2-idx-shell__list-header.r-pinned-list-header::before {
   inset: 0;
 }
 </style>

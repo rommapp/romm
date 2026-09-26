@@ -672,11 +672,12 @@ router.beforeEach(async (to, from, next) => {
       return next({ name: ROUTES.NOT_FOUND });
     }
 
-    // The logs viewer can be turned off entirely via DISABLE_LOGS_VIEWER; the
-    // backend endpoint/stream are then gone, so direct navigation must 404 too.
+    // DISABLE_LOGS_VIEWER takes the log tab away; an admin still has the
+    // event log there, anyone else has nothing left on the page.
     if (
       currentRoute === ROUTES.LOGS &&
-      heartbeat.value.FRONTEND.DISABLE_LOGS_VIEWER
+      heartbeat.value.FRONTEND.DISABLE_LOGS_VIEWER &&
+      user.value?.role !== "admin"
     ) {
       return next({ name: ROUTES.NOT_FOUND });
     }

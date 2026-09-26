@@ -29,7 +29,7 @@ export function isCoreCompatible(
   asset: { emulator?: string | null },
   core: string | null | undefined,
 ): boolean {
-  return !asset.emulator || asset.emulator === core;
+  return !asset.emulator || emulatorKey(asset.emulator) === emulatorKey(core);
 }
 
 /** ISO timestamps sort lexically. */
@@ -63,4 +63,19 @@ export function staggerIndex(
     for (const asset of assets) order.set(asset.id, order.size);
   }
   return order;
+}
+
+/** Emulator ids match case-insensitively, as the backend matches them. */
+export function emulatorKey(emulator: string | null | undefined): string {
+  return (emulator ?? "").toLowerCase();
+}
+
+/** The label a map gives an emulator id, else the id as it stands. */
+export function emulatorLabelFrom(
+  labels: Record<string, string>,
+  emulator: string | null | undefined,
+): string {
+  if (!emulator) return "";
+  const key = emulatorKey(emulator);
+  return Object.hasOwn(labels, key) ? labels[key] : emulator;
 }

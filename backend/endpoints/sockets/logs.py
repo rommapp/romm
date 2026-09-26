@@ -18,14 +18,12 @@ from typing import Any, Final
 
 from config import DISABLE_LOGS_VIEWER
 from endpoints.sockets.activity import activity_on_disconnect, store_authenticated_user
-from handler.database import db_user_handler
 from handler.redis_handler import async_cache
 from handler.socket_handler import socket_handler
 from logger.log_stream_handler import LOG_BUFFER_KEY, LOG_CHANNEL
 from logger.logger import log
 from models.user import Role
 from utils import json_module
-from utils.auth import get_session_from_environ
 
 ADMIN_ROOM: Final = "admin"
 FORWARDER_LOCK_KEY: Final = "romm:logs:forwarder"
@@ -45,16 +43,8 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     scan/sync sockets keep working for everyone.
     """
     try:
-        session = await get_session_from_environ(environ)
-        if session.get("iss") != "romm:auth":
-            return
-
-        username = session.get("sub")
-        if not username:
-            return
-
-        user = db_user_handler.get_user_by_username(username)
-        if not user or not user.enabled:
+        user = await socket_handler.authenticate(sid, environ)
+        if user is None:
             return
 
         await store_authenticated_user(sid, user.id)
@@ -62,10 +52,6 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
 
         if not DISABLE_LOGS_VIEWER and user.role == Role.ADMIN:
             await socket_handler.socket_server.enter_room(sid, ADMIN_ROOM)
-
-        session_id = session.get("session_id")
-        if session_id:
-            await socket_handler.bind_to_login_session(sid, session_id)
     except Exception:  # noqa: BLE001 - never let auth resolution refuse a socket
         log.exception("Failed to resolve user on socket connect")
 

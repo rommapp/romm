@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
 from models.assets import State
+from models.base import with_file_name_parts
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
@@ -134,6 +135,7 @@ class DBStatesHandler(DBBaseHandler):
             touch: False keeps `updated_at`, since annotating is not a write
                 to the bytes and device sync reads it to detect staleness.
         """
+        data = with_file_name_parts(data)
         values = data if touch else {**data, "updated_at": State.updated_at}
         session.execute(
             update(State)

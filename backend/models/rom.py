@@ -368,15 +368,9 @@ class RomFile(BaseModel):
         return LookupHashes(crc=self.crc_hash, md5=self.md5_hash, sha1=self.sha1_hash)
 
     @cached_property
-    def is_nested(self) -> bool:
-        return self.file_path.count("/") > 1
-
-    @cached_property
     def is_top_level(self) -> bool:
-        # File is the same as the rom's full path, or nested file in the rom's directory
-        return self.rom.full_path == (
-            self.file_path if self.is_nested else self.full_path
-        )
+        # The rom's own file, or a file directly inside the rom's folder
+        return self.rom.full_path in (self.full_path, self.file_path)
 
     def file_name_for_download(self, hidden_folder: bool = False) -> str:
         # This needs a trailing slash in the path to work!
@@ -697,13 +691,32 @@ class Rom(BaseModel):
             "id",
         ),
         Index("idx_roms_platform_fs_size", "platform_id", "fs_size_bytes"),
+        # The remaining gallery sorts, each paired with the `id` tiebreak the
+        # gallery orders by; the key alone would not match its ORDER BY.
+        Index("idx_roms_platform_id_sorted", "platform_id", "id"),
+        Index("idx_roms_fs_size_bytes_sorted", "fs_size_bytes", "id"),
+        Index("idx_roms_created_at_sorted", "created_at", "id"),
         Index("idx_roms_missing_from_fs", "missing_from_fs", "name_sort_key"),
         Index("idx_roms_platform_name_sort_key", "platform_id", "name_sort_key"),
         Index("idx_roms_name", "name"),
         Index("idx_roms_name_sort_key", "name_sort_key"),
-        # Gallery sorts exposed through ROM_METADATA_ORDER_COLUMNS.
+        # Gallery sorts exposed through ROM_METADATA_ORDER_COLUMNS: the value
+        # alone serves the range filters, the `_sort` triple the ascending sort
+        # through its `id` tiebreak. PostgreSQL adds `idx_roms_<column>_desc`.
         Index("idx_roms_generated_first_release_date", "generated_first_release_date"),
+        Index(
+            "idx_roms_generated_first_release_date_sort",
+            "generated_first_release_date_unset",
+            "generated_first_release_date",
+            "id",
+        ),
         Index("idx_roms_generated_average_rating", "generated_average_rating"),
+        Index(
+            "idx_roms_generated_average_rating_sort",
+            "generated_average_rating_unset",
+            "generated_average_rating",
+            "id",
+        ),
         Index("idx_roms_generated_player_count", "generated_player_count"),
         Index("idx_roms_igdb_id", "igdb_id"),
         Index("idx_roms_moby_id", "moby_id"),
@@ -716,6 +729,12 @@ class Rom(BaseModel):
         Index("idx_roms_flashpoint_id", "flashpoint_id"),
         Index("idx_roms_hltb_id", "hltb_id"),
         Index("idx_roms_hltb_main_story", "generated_hltb_main_story"),
+        Index(
+            "idx_roms_generated_hltb_main_story_sort",
+            "generated_hltb_main_story_unset",
+            "generated_hltb_main_story",
+            "id",
+        ),
         Index("idx_roms_demozoo_id", "demozoo_id"),
         Index("idx_roms_pouet_id", "pouet_id"),
         Index("idx_roms_csdb_id", "csdb_id"),
@@ -790,19 +809,52 @@ class Rom(BaseModel):
 
     # Read-only slice of the stored generated columns from the `roms_metadata` view
     generated_first_release_date: Mapped[int | None] = mapped_column(
-        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+        BigInteger(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
     generated_average_rating: Mapped[float | None] = mapped_column(
-        Float(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+        Float(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
     generated_player_count: Mapped[str | None] = mapped_column(
         String(length=100),
+        nullable=True,
         server_default=FetchedValue(),
         server_onupdate=FetchedValue(),
     )
     # Seconds, as HowLongToBeat reports them.
     generated_hltb_main_story: Mapped[int | None] = mapped_column(
-        BigInteger(), server_default=FetchedValue(), server_onupdate=FetchedValue()
+        BigInteger(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+    )
+
+    # The ascending gallery sort leads with these so unset metadata lands last
+    # off an index. `nullable=True` matches the DDL, which MariaDB forces by
+    # taking no NOT NULL on a generated column; `IS NULL` never yields NULL, so
+    # the values themselves are always `bool`.
+    generated_first_release_date_unset: Mapped[bool] = mapped_column(
+        Boolean(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+    )
+    generated_average_rating_unset: Mapped[bool] = mapped_column(
+        Boolean(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+    )
+    generated_hltb_main_story_unset: Mapped[bool] = mapped_column(
+        Boolean(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
@@ -837,6 +889,7 @@ class Rom(BaseModel):
     # so the dedup window can rank regions without reading the JSON.
     generated_primary_region: Mapped[str | None] = mapped_column(
         String(length=50),
+        nullable=True,
         server_default=FetchedValue(),
         server_onupdate=FetchedValue(),
     )
@@ -1190,11 +1243,7 @@ Rom.top_level_file_count = column_property(
 
 
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
-    """Fill the deferred file-stat columns from an already-loaded file list.
-
-    Mirrors the subqueries above, not `RomFile.is_top_level`, which disagrees
-    on nested files.
-    """
+    """Fill the deferred file-stat columns from an already-loaded file list."""
     set_committed_value(
         rom, "multi_file", any(f.file_path != rom.fs_path for f in files)
     )

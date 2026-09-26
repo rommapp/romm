@@ -7,20 +7,21 @@ import {
   RExpandTransition,
   RIcon,
   RTag,
-  RTooltip,
 } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { formatTimestamp } from "@/utils";
+import { useStreamingStore } from "@/stores/streaming";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
 import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
 import AssetOwnerChip from "@/v2/components/shared/AssetOwnerChip.vue";
 import AssetTimestamp from "@/v2/components/shared/AssetTimestamp.vue";
+import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   byFavoriteFirst,
+  emulatorKey,
   ownerOf,
   screenshotOf,
   staggerIndex,
@@ -40,6 +41,9 @@ const props = withDefaults(
     selectable?: boolean;
     selectedId?: number | null;
     showOwner?: boolean;
+    /** Badge the thumbnails of the public ones, for lists of the user's own.
+     *  The `list` layout has no thumbnail to carry it. */
+    markPublic?: boolean;
     layout?: AssetLayout;
     /** Why an asset cannot be picked here; a reason disables its tile. */
     disabledReason?: (asset: Asset) => string | null;
@@ -53,6 +57,7 @@ const props = withDefaults(
     selectable: true,
     selectedId: null,
     showOwner: false,
+    markPublic: false,
     layout: "strip",
     disabledReason: undefined,
     groupBy: undefined,
@@ -70,7 +75,8 @@ defineSlots<{
   actions(props: { asset: Asset }): unknown;
 }>();
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
+const { emulatorLabel } = useStreamingStore();
 
 const emptyLabel = computed(() =>
   props.type === "save"
@@ -110,12 +116,12 @@ const groups = computed<AssetGroup[]>(() => {
   }
   const byKey = new Map<string, AssetGroup>();
   for (const asset of props.assets) {
-    const key = asset.emulator ?? "";
+    const key = emulatorKey(asset.emulator);
     let group = byKey.get(key);
     if (!group) {
       group = {
         key,
-        label: key || t("play.any-core"),
+        label: emulatorLabel(asset.emulator) || t("play.any-core"),
         assets: [],
         disabled: true,
         newest: "",
@@ -226,6 +232,10 @@ const fadeIndex = computed(() =>
                   :favorite="selectable && asset.is_favorite"
                   :size="14"
                 />
+                <PublicBadge
+                  v-if="markPublic && asset.is_public"
+                  class="r-asset-strip__public"
+                />
               </div>
               <div class="r-asset-strip__body">
                 <div class="r-asset-strip__meta">
@@ -252,6 +262,7 @@ const fadeIndex = computed(() =>
                   />
                   <AssetTimestamp
                     :date="asset.updated_at"
+                    :stacked="layout === 'list'"
                     class="r-asset-strip__time"
                   />
                   <AssetOwnerChip
@@ -277,28 +288,6 @@ const fadeIndex = computed(() =>
                   <slot name="actions" :asset="asset" />
                 </div>
               </div>
-              <RTooltip
-                v-if="selectable"
-                activator="parent"
-                location="top"
-                :open-delay="400"
-              >
-                <div class="r-asset-strip__tip">
-                  <span class="r-asset-strip__tip-name">{{
-                    asset.file_name
-                  }}</span>
-                  <span class="r-asset-strip__tip-sub">
-                    {{ t("rom.updated") }}:
-                    {{ formatTimestamp(asset.updated_at, locale) }}
-                  </span>
-                  <span
-                    v-if="reasonOf(asset)"
-                    class="r-asset-strip__tip-reason"
-                  >
-                    {{ reasonOf(asset) }}
-                  </span>
-                </div>
-              </RTooltip>
             </component>
           </div>
         </div>
@@ -361,18 +350,16 @@ const fadeIndex = computed(() =>
   border-radius: 6px;
 }
 
-/* Flow layout (Save data subtab): a responsive grid instead of a single
-   horizontal scroll row. Tiles fill their grid cell, so the per-tile
-   flex-basis below is overridden. */
+/* Flow layout: a responsive grid with cells wide enough that labels and chips
+   don't stack a tile too tall. min() lets a lone column shrink on a phone. */
 .r-asset-strip--flow .r-asset-strip__track {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   overflow: visible;
   scroll-snap-type: none;
   padding: 4px 0;
 }
 .r-asset-strip--flow .r-asset-strip__tile {
-  flex: initial;
   scroll-snap-align: none;
 }
 
@@ -441,7 +428,6 @@ const fadeIndex = computed(() =>
 .r-asset-strip--list .r-asset-strip__time {
   order: 1;
   flex: 0 0 96px;
-  align-items: flex-end;
 }
 .r-asset-strip--list .r-asset-strip__owner {
   flex: 0 0 auto;
@@ -547,6 +533,11 @@ const fadeIndex = computed(() =>
   left: 6px;
   filter: drop-shadow(0 1px 3px color-mix(in srgb, black 75%, transparent));
 }
+.r-asset-strip__public {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+}
 .r-asset-strip__body {
   display: flex;
   flex-direction: column;
@@ -630,26 +621,6 @@ const fadeIndex = computed(() =>
     var(--r-color-brand-primary) 40%,
     transparent
   );
-}
-
-.r-asset-strip__tip {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 360px;
-}
-.r-asset-strip__tip-name {
-  font-size: 12px;
-  font-weight: var(--r-font-weight-semibold);
-  word-break: break-all;
-}
-.r-asset-strip__tip-reason {
-  font-size: 11px;
-  color: var(--r-color-warning);
-}
-.r-asset-strip__tip-sub {
-  font-size: 11px;
-  opacity: 0.85;
 }
 
 html[data-bp~="xs"] .r-asset-strip__tile {

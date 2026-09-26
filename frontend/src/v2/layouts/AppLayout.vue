@@ -47,6 +47,7 @@ import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
 import { installStageActiveClass } from "@/v2/composables/useStageActive";
+import { installSyncConflictToast } from "@/v2/composables/useSyncConflictToast";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
 
 // The server joins a socket to its user's rooms when it connects, so one left
@@ -58,6 +59,8 @@ installPermissionsHydration();
 // route the user is on (navbar indicator + /scan view consume the same
 // store state).
 installScanLifecycle();
+// Save-sync conflicts reach the user from any route.
+installSyncConflictToast();
 // Saves and states a player could not hand over reach the server from any
 // route, so the next launch screen can offer them.
 installPendingAssetSync();

@@ -17,6 +17,7 @@
   "reset-link-failed": "Nie można wysłać linku resetującego",
   "reset-password": "Zresetuj hasło",
   "reset-sent": "Link do resetu został wysłany. Skontaktuj się z administratorem.",
+  "reset-sent-email": "Jeśli konto ma adres e-mail, link do resetu jest w drodze. Jeśli nie, zapytaj administratora.",
   "send-reset-link": "Wyślij link do resetu",
   "setup-wizard": "Kreator konfiguracji",
   "unable-to-login": "Nie można zalogować: {error}",

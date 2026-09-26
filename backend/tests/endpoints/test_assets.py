@@ -1,7 +1,14 @@
+from unittest import mock
+
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from handler.database import db_save_handler, db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_deleted_asset_handler,
+    db_save_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom
@@ -18,6 +25,37 @@ def test_delete_saves(client, access_token, save):
 
     body = response.json()
     assert len(body) == 1
+
+    # No hash and no file to take one from, so nothing a device could match.
+    assert (
+        db_deleted_asset_handler.get_deletions(
+            user_id=save.user_id, rom_ids=[save.rom_id]
+        )
+        == []
+    )
+
+
+def test_delete_saves_hashes_a_save_that_never_recorded_one(
+    client, access_token, save: Save
+):
+    assert save.content_hash is None
+
+    with mock.patch(
+        "endpoints.saves.fs_asset_handler.compute_content_hash",
+        new=mock.AsyncMock(return_value="deadbeef"),
+    ) as compute_content_hash:
+        response = client.post(
+            "/api/saves/delete",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"saves": [save.id]},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    compute_content_hash.assert_awaited_once_with(save.full_path)
+    [record] = db_deleted_asset_handler.get_deletions(
+        user_id=save.user_id, rom_ids=[save.rom_id]
+    )
+    assert record.content_hashes == ["deadbeef"]
 
 
 def test_delete_states(client, access_token, state):

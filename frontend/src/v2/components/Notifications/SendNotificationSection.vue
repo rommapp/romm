@@ -7,7 +7,6 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { NotificationLevel } from "@/__generated__";
 import notificationApi from "@/services/api/notification";
-import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { TONE_ICONS, useSnackbar } from "@/v2/composables/useSnackbar";
@@ -71,10 +70,8 @@ const linkRules = [
 ];
 
 onMounted(async () => {
-  if (allUsers.value.length > 0) return;
   try {
-    const { data } = await userApi.fetchUsers();
-    usersStore.set(data);
+    await usersStore.ensureLoaded();
   } catch (error) {
     console.error("Could not load users:", error);
   }

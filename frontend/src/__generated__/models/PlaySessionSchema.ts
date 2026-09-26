@@ -7,7 +7,6 @@ export type PlaySessionSchema = {
     user_id: number;
     device_id: (string | null);
     rom_id: (number | null);
-    sync_session_id: (number | null);
     save_slot: (string | null);
     start_time: string;
     end_time: string;

@@ -31,12 +31,15 @@ from handler.database import (
 )
 from handler.database.base_handler import sync_engine
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
+from models.audit_event import AuditEvent
 from models.client_token import ClientToken
 from models.container_adoption import StreamingContainerAdoption
+from models.deleted_asset import DeletedAsset
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.firmware import Firmware
 from models.notification import Notification
+from models.notification_channel import NotificationChannel
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
@@ -132,7 +135,9 @@ def setup_database():
 @pytest.fixture(autouse=True)
 def clear_database():
     with session.begin() as s:
+        s.query(AuditEvent).delete(synchronize_session="evaluate")
         s.query(Notification).delete(synchronize_session="evaluate")
+        s.query(NotificationChannel).delete(synchronize_session="evaluate")
         s.query(PlaySession).delete(synchronize_session="evaluate")
         s.query(ClientToken).delete(synchronize_session="evaluate")
         s.query(SyncSession).delete(synchronize_session="evaluate")
@@ -141,6 +146,7 @@ def clear_database():
         s.query(MemoryCardVersion).delete(synchronize_session="evaluate")
         s.query(MemoryCard).delete(synchronize_session="evaluate")
         s.query(StreamingContainerAdoption).delete(synchronize_session="evaluate")
+        s.query(DeletedAsset).delete(synchronize_session="evaluate")
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")

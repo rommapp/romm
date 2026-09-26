@@ -450,6 +450,7 @@ async function boot() {
   window.EJS_gameUrl = getDownloadPath({
     rom: rom,
     fileIDs: validDiscId ? [validDiscId] : [],
+    purpose: "play",
   });
 
   // BIOS selection persistence

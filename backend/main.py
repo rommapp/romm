@@ -9,7 +9,6 @@ import sentry_sdk
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from startup import main
 
@@ -29,8 +28,10 @@ from config import (
     ROMM_CORS_ALLOWED_ORIGINS,
     ROMM_SESSION_SECURE_COOKIE,
     SENTRY_DSN,
+    cors_allow_credentials,
 )
 from endpoints.activity import router as activity_router
+from endpoints.audit_events import router as audit_events_router
 from endpoints.auth import router as auth_router
 from endpoints.client_tokens import router as client_tokens_router
 from endpoints.collections import router as collections_router
@@ -46,11 +47,13 @@ from endpoints.memory_cards import router as memory_cards_router
 from endpoints.music import router as music_router
 from endpoints.music_playlists import router as music_playlists_router
 from endpoints.netplay import router as netplay_router
+from endpoints.notification_channels import router as notification_channels_router
 from endpoints.notifications import router as notifications_router
 from endpoints.permissions import router as permissions_router
 from endpoints.platform import router as platform_router
 from endpoints.play_sessions import router as play_sessions_router
 from endpoints.recommendations import router as recommendations_router
+from endpoints.responses.streaming import SOCKET_PAYLOADS as STREAMING_SOCKET_PAYLOADS
 from endpoints.roms import router as rom_router
 from endpoints.saves import router as saves_router
 from endpoints.screenshots import router as screenshots_router
@@ -67,6 +70,7 @@ from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.socket_handler import netplay_socket_handler, socket_handler
+from handler.streaming.session_store import start_restart_grace
 from logger.formatter import LOGGING_CONFIG
 from utils import get_version
 from utils.context import (
@@ -76,6 +80,7 @@ from utils.context import (
     set_context_middleware,
 )
 from utils.memory_cards import MEMORY_CARD_MAX_BYTES
+from utils.openapi import publish_socket_payloads
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -85,6 +90,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     async with initialize_context():
         app.state.aiohttp_session = ctx_aiohttp_session.get()
         app.state.httpx_client = ctx_httpx_client.get()
+        await start_restart_grace()
 
         # Relay backend log lines to admin Socket.IO clients in real time.
         log_forwarder_task: asyncio.Task[None] | None = None
@@ -120,7 +126,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ROMM_CORS_ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=cors_allow_credentials(ROMM_CORS_ALLOWED_ORIGINS),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -133,6 +139,7 @@ app.add_middleware(
         re.compile(r"^/api/saves"),
         re.compile(r"^/api/states"),
         re.compile(r"^/api/screenshots"),
+        re.compile(r"^/api/sync/retroarch"),
     ],
 )
 
@@ -183,9 +190,11 @@ app.middleware("http")(set_context_middleware)
 app.include_router(heartbeat_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(activity_router, prefix="/api")
+app.include_router(audit_events_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
 app.include_router(client_tokens_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
+app.include_router(notification_channels_router, prefix="/api")
 app.include_router(device_router, prefix="/api")
 app.include_router(device_auth_router, prefix="/api")
 app.include_router(play_sessions_router, prefix="/api")
@@ -215,7 +224,7 @@ app.include_router(streaming_router, prefix="/api")
 app.mount("/ws", socket_handler.socket_app)
 app.mount("/netplay", netplay_socket_handler.socket_app)
 
-add_pagination(app)
+publish_socket_payloads(app, STREAMING_SOCKET_PAYLOADS)
 
 
 # NOTE: This code is only executed when running the application directly,
