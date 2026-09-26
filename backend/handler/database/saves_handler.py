@@ -1,4 +1,5 @@
-from collections.abc import Collection, Mapping, Sequence
+import functools
+from collections.abc import Callable, Collection, Mapping, Sequence
 from typing import Literal
 
 from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select, update
@@ -16,6 +17,28 @@ from .deleted_assets_handler import DBDeletedAssetsHandler
 _deleted_assets = DBDeletedAssetsHandler()
 # What identifies a version in its slot, for recording it when it leaves.
 _VERSION_COLUMNS = (Save.user_id, Save.rom_id, Save.slot, Save.content_hash)
+_SLOT_MOVE_ATTEMPTS = 3
+
+
+class _SlotMoved(Exception):
+    """The save changed slot between the unlocked read and its lock."""
+
+
+def _retry_if_slot_moved[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+    """Rerun a removal in a fresh transaction, releasing the stale slot's lock."""
+
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        if kwargs.get("session") is not None:
+            return func(*args, **kwargs)
+        for _ in range(_SLOT_MOVE_ATTEMPTS - 1):
+            try:
+                return func(*args, **kwargs)
+            except _SlotMoved:
+                continue
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 class DBSavesHandler(DBBaseHandler):
@@ -254,10 +277,15 @@ class DBSavesHandler(DBBaseHandler):
         """Lock the save's slot record, then the save, returning its current version."""
         # Before this session holds a connection, since ensuring takes its own.
         before = self._slot_version(id)
-        if not before or not before.slot:
+        if not before:
             return None
-        _lock_slot(before.user_id, before.rom_id, before.slot, session)
-        return session.execute(_version_query(id).with_for_update()).one_or_none()
+        if before.slot:
+            _lock_slot(before.user_id, before.rom_id, before.slot, session)
+        current = session.execute(_version_query(id).with_for_update()).one_or_none()
+        # Locking the slot it moved to now would take a slot after a row.
+        if current and current.slot and current.slot != before.slot:
+            raise _SlotMoved
+        return current
 
     @begin_session
     def get_unhashed_versions_past(
@@ -272,6 +300,7 @@ class DBSavesHandler(DBBaseHandler):
         rows = session.execute(_past_keep(user_id, rom_id, slot, keep)).all()
         return [row for row in rows if not row.content_hash]
 
+    @_retry_if_slot_moved
     @begin_session
     def update_save(
         self,
@@ -392,6 +421,7 @@ class DBSavesHandler(DBBaseHandler):
     ) -> bool:
         return session.execute(query.limit(1)).first() is not None
 
+    @_retry_if_slot_moved
     @begin_session
     def delete_save(
         self,

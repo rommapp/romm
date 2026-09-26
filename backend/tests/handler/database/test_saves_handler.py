@@ -1090,6 +1090,43 @@ class TestDBSavesHandlerRecordsLostVersions:
 
         assert self._lost(admin_user, rom) == {"autosave": ["v0", "v1"]}
 
+    def test_a_version_moved_since_it_was_read_is_retried_in_its_new_slot(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "moved", "autosave", "v0")
+        moved_from = SimpleNamespace(
+            user_id=admin_user.id, rom_id=rom.id, slot="manual", content_hash="v0"
+        )
+        pre_reads = iter([moved_from])
+        read_current = db_save_handler._slot_version
+
+        with mock.patch.object(
+            db_save_handler,
+            "_slot_version",
+            side_effect=lambda id: next(pre_reads, None) or read_current(id),
+        ) as pre_read:
+            db_save_handler.update_save(save.id, {"content_hash": "v1"})
+
+        assert pre_read.call_count == 2
+        assert db_save_handler.get_save(admin_user.id, save.id).content_hash == "v1"
+        assert self._lost(admin_user, rom)["autosave"] == ["v0"]
+
+    def test_a_version_that_keeps_moving_gives_up(self, admin_user: User, rom: Rom):
+        save = self._add(admin_user, rom, "moving", "autosave", "v0")
+        moved_from = SimpleNamespace(
+            user_id=admin_user.id, rom_id=rom.id, slot="manual", content_hash="v0"
+        )
+
+        with (
+            mock.patch.object(
+                db_save_handler, "_slot_version", return_value=moved_from
+            ),
+            pytest.raises(saves_handler_module._SlotMoved),
+        ):
+            db_save_handler.delete_save(save.id)
+
+        assert db_save_handler.get_save(admin_user.id, save.id).content_hash == "v0"
+
     def test_a_prune_that_fails_records_nothing(self, admin_user: User, rom: Rom):
         """The record commits with the removal, so no negotiation sees one alone."""
         self._add(admin_user, rom, "kept", "autosave", "kept")
