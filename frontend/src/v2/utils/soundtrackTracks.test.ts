@@ -3,6 +3,7 @@ import type { MusicTrackSchema, TrackMetaSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import {
   isAudioFile,
+  isChiptuneFile,
   nowPlayingCaption,
   panelTracksFromCatalog,
   panelTracksFromRom,
@@ -24,6 +25,12 @@ describe("isAudioFile", () => {
     expect(isAudioFile("track.FLAC")).toBe(true);
     expect(isAudioFile("cover.png")).toBe(false);
     expect(isAudioFile("noextension")).toBe(false);
+  });
+
+  it("counts chiptune files as playable", () => {
+    expect(isAudioFile("Mega Man 2.nsf")).toBe(true);
+    expect(isChiptuneFile("Stage 1.SPC")).toBe(true);
+    expect(isChiptuneFile("01 - Theme.mp3")).toBe(false);
   });
 });
 

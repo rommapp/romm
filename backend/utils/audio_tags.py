@@ -19,7 +19,27 @@ ALLOWED_AUDIO_EXTENSIONS = frozenset(
     {".mp3", ".ogg", ".oga", ".opus", ".m4a", ".aac", ".wav", ".flac"}
 )
 
-# Skip parsing anything larger than this — mutagen mmaps the file and can
+# Console sound formats the browser plays through game-music-emu; mutagen can't
+# read them, so they carry no tags.
+CHIPTUNE_EXTENSIONS = frozenset(
+    {
+        ".ay",
+        ".gbs",
+        ".gym",
+        ".hes",
+        ".kss",
+        ".nsf",
+        ".nsfe",
+        ".sap",
+        ".spc",
+        ".vgm",
+        ".vgz",
+    }
+)
+
+SOUNDTRACK_EXTENSIONS = ALLOWED_AUDIO_EXTENSIONS | CHIPTUNE_EXTENSIONS
+
+# Skip parsing anything larger than this, since mutagen mmaps the file and can
 # consume substantial memory on pathological inputs (e.g. a mislabeled 4GB WAV).
 MAX_AUDIO_PARSE_BYTES = 512 * 1024 * 1024  # 512 MiB
 
@@ -93,6 +113,11 @@ def is_allowed_audio_file(file_name: str) -> bool:
     return ext.lower() in ALLOWED_AUDIO_EXTENSIONS
 
 
+def is_chiptune_file(file_name: str) -> bool:
+    _, ext = os.path.splitext(file_name)
+    return ext.lower() in CHIPTUNE_EXTENSIONS
+
+
 # MIME types for audio formats that the stdlib mimetypes module guesses
 # inconsistently (or not at all) across platforms.
 AUDIO_MIME_OVERRIDES = {
@@ -106,6 +131,9 @@ AUDIO_MIME_OVERRIDES = {
 
 def guess_audio_media_type(file_name: str) -> str:
     ext = os.path.splitext(file_name)[1].lower()
+    # The stdlib maps some of these to unrelated types (.nsf to Lotus Notes).
+    if ext in CHIPTUNE_EXTENSIONS:
+        return "application/octet-stream"
     if ext in AUDIO_MIME_OVERRIDES:
         return AUDIO_MIME_OVERRIDES[ext]
     guessed, _ = mimetypes.guess_type(file_name)
@@ -151,7 +179,7 @@ def _allowed_mime_types(data: bytes) -> str:
 
 # NOTE: the per-format tag and embedded-cover handling below (ID3 / MP4 /
 # Vorbis comments / FLAC pictures) was largely AI-generated against mutagen's
-# API — verify against real files when adding or changing a format.
+# API, so verify against real files when adding or changing a format.
 def _extract_common_tags(audio: mutagen.FileType) -> dict[str, str | None]:
     """Extract common tags across formats from a single non-easy mutagen handle."""
     tags = getattr(audio, "tags", None)
@@ -233,7 +261,7 @@ def _open_mutagen(full_path: str) -> mutagen.FileType | None:
 def extract_audio_meta(full_path: str) -> AudioTags | None:
     """Read tags + duration + embedded-cover presence from an audio file.
 
-    Returns None if the file cannot be parsed. Never raises — on any failure
+    Returns None if the file cannot be parsed. Never raises: on any failure
     we log and fall back to None so the upload/scan path keeps moving.
 
     Opens the file once with mutagen (non-easy) and derives tags, duration,

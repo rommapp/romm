@@ -9,6 +9,16 @@ import { FRONTEND_RESOURCES_PATH, isCDBasedSystem, shuffled } from "@/utils";
 const volumeStorage = useLocalStorage<number>("soundtrack.volume", 1);
 const mutedStorage = useLocalStorage<boolean>("soundtrack.muted", false);
 
+/** What the store drives playback through: an `<audio>` element or the chiptune engine. */
+export interface SoundtrackSink {
+  readonly paused: boolean;
+  currentTime: number;
+  volume: number;
+  muted: boolean;
+  play: () => Promise<void>;
+  pause: () => void;
+}
+
 export interface PlayerTrack {
   romId: number;
   fileId: number;
@@ -86,7 +96,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   const hasError = ref(false);
   const currentTime = ref(0);
   const duration = ref(0);
-  const audioRef = shallowRef<HTMLAudioElement | null>(null);
+  const audioRef = shallowRef<SoundtrackSink | null>(null);
   const volume = volumeStorage;
   const muted = mutedStorage;
   const playlist = ref<PlayerTrack[]>([]);
@@ -95,7 +105,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   const playlistMeta = ref<Record<number, PlayerMeta>>({});
   const activePlaylistRomId = ref<number | null>(null);
 
-  function setAudioRef(el: HTMLAudioElement | null) {
+  function setAudioRef(el: SoundtrackSink | null) {
     audioRef.value = el;
     if (el) {
       el.volume = volume.value;
@@ -250,16 +260,8 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
 
   function stop() {
     setCurrentTimeThrottled.cancel();
-    const el = audioRef.value;
-    if (el) {
-      el.pause();
-      el.removeAttribute("src");
-      try {
-        el.load();
-      } catch {
-        // ignore
-      }
-    }
+    // The mini player unloads the source once `track` clears.
+    audioRef.value?.pause();
     track.value = null;
     meta.value = {};
     isPlaying.value = false;

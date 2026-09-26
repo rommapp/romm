@@ -298,6 +298,32 @@ def test_upload_soundtrack_extracts_audio_meta(
     )
 
 
+def test_upload_soundtrack_chiptune_gets_untagged_meta(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    nsf_bytes = b"NESM\x1a\x01fake nsf payload"
+    response = client.post(
+        f"/api/roms/{game_folder_rom.id}/soundtracks",
+        headers={**_auth(access_token), "x-upload-filename": "Theme.nsf"},
+        files={"Theme.nsf": ("Theme.nsf", nsf_bytes, "application/octet-stream")},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+
+    rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
+    soundtracks = [
+        f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
+    ]
+    assert len(soundtracks) == 1
+    track_meta = soundtracks[0].track_meta
+    assert track_meta is not None
+    assert track_meta.title is None
+    assert track_meta.duration_seconds is None
+
+
 def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
     client: TestClient,
     access_token: str,
@@ -458,7 +484,7 @@ def test_upload_soundtrack_rejects_traversal_filename(
     soundtrack_fs: Path,
 ):
     """x-upload-filename containing path components must be rejected with 400,
-    exercising the real sanitizer — not the mocked validate_path."""
+    exercising the real sanitizer, not the mocked validate_path."""
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
         headers={
@@ -528,7 +554,7 @@ def test_upload_soundtrack_with_malformed_audio_still_succeeds(
     game_folder_rom: Rom,
     soundtrack_fs: Path,
 ):
-    """The real extract_audio_meta must never raise — garbage bytes produce
+    """The real extract_audio_meta must never raise: garbage bytes produce
     audio_meta=None, not a 500."""
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",

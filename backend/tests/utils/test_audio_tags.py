@@ -8,9 +8,25 @@ from utils.audio_tags import (
     _extract_picture_from_mp4,
     _parse_leading_int,
     _parse_year,
+    guess_audio_media_type,
+    is_chiptune_file,
     persist_embedded_cover,
     track_meta_columns,
 )
+
+
+class TestIsChiptuneFile:
+    @pytest.mark.parametrize("name", ["Theme.nsf", "Stage 1.SPC", "intro.vgz"])
+    def test_chiptune(self, name):
+        assert is_chiptune_file(name)
+
+    @pytest.mark.parametrize("name", ["Theme.mp3", "cover.png", "nsf"])
+    def test_other(self, name):
+        assert not is_chiptune_file(name)
+
+    @pytest.mark.parametrize("name", ["Theme.nsf", "Stage 1.spc"])
+    def test_served_as_binary(self, name):
+        assert guess_audio_media_type(name) == "application/octet-stream"
 
 
 class TestParseYear:
