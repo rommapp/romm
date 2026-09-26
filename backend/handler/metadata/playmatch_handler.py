@@ -244,6 +244,15 @@ class PlaymatchHandler(MetadataHandler):
 
         hashes = match_file.lookup_hashes
 
+        # Folder ROM members carry generic names (a Wii U title's 00000005.app),
+        # so name and size alone match an unrelated game.
+        if not any(hashes) and match_file.full_path != match_file.rom.full_path:
+            log.debug(
+                "Skipping Playmatch lookup for %s: no hashes to identify it by",
+                match_file.full_path,
+            )
+            return fallback_rom
+
         try:
             response = await self._request(
                 self.identify_url,
