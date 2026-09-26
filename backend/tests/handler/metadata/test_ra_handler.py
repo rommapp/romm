@@ -133,7 +133,7 @@ class TestSearchRom:
     ):
         cache_file = resources_dir / handler.HASHES_FILE_NAME
         cache_file.write_bytes(json.dumps({"abcdef": 10210}).encode("utf-8"))
-        read_file = ra_handler.fs_resource_handler.read_file
+        read_file = fs_resource_handler.read_file
 
         assert await handler._search_rom(self._make_rom(), "abcdef") == 10210
         assert await handler._search_rom(self._make_rom(), "abcdef") == 10210
