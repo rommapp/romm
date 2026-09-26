@@ -1,6 +1,5 @@
 import type { Decorator, Preview } from "@storybook/vue3-vite";
-import { computed, defineComponent, watch } from "vue";
-import { useGamepad } from "../src/v2/composables/useGamepad";
+import { computed, defineAsyncComponent, defineComponent, watch } from "vue";
 import {
   useInputModality,
   type InputModality,
@@ -30,15 +29,12 @@ export const INPUT_TOOLBAR = {
 const { modality, install, setModality } = useInputModality();
 let pinned: InputModality | null = null;
 
-// The modality listeners are app-lifetime once installed, so a pinned mode
-// has to undo whatever they write.
-watch(
-  modality,
-  (next) => {
-    if (pinned && next !== pinned) setModality(pinned);
-  },
-  { flush: "sync" },
-);
+// Once installed the modality listeners are app-lifetime, so a pinned mode undoes
+// their writes. Not sync: setModality writes data-input after it sets the ref.
+const stopRepin = watch(modality, (next) => {
+  if (pinned && next !== pinned) setModality(pinned);
+});
+import.meta.hot?.dispose(stopRepin);
 
 function applyMode(mode: StoryInputMode) {
   if (mode === "live") {
@@ -53,11 +49,15 @@ function applyMode(mode: StoryInputMode) {
 }
 
 // Unmounting stops useGamepad's poll loop, so the pad only drives stories that asked for it.
-const GamepadLayer = defineComponent({
-  setup() {
-    useGamepad().install();
-    return () => null;
-  },
+// Lazy so vitest.setup.ts doesn't cache useGamepad ahead of its tests' vue-router mock.
+const GamepadLayer = defineAsyncComponent(async () => {
+  const { useGamepad } = await import("../src/v2/composables/useGamepad");
+  return defineComponent({
+    setup() {
+      useGamepad().install();
+      return () => null;
+    },
+  });
 });
 
 export const withInputModality: Decorator = (story, context) => ({

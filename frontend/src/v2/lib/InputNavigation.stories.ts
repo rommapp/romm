@@ -4,8 +4,8 @@ import { ref } from "vue";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 
-// Pick an input in the toolbar: "Keyboard" / "Gamepad" show the focus rings,
-// "Live" also drives the grid from a connected controller (D-pad moves, A clicks).
+// Pick an input in the toolbar: "Keyboard" / "Gamepad" show the focus rings;
+// "Gamepad" and "Live" drive the grid from a connected controller (D-pad moves, A clicks).
 
 const TITLES = [
   "Super Metroid",
@@ -69,6 +69,7 @@ export const KeyboardNavigation: Story = {
   render: renderGrid,
   globals: { input: "key" },
   play: async ({ canvasElement }) => {
+    await expect(document.documentElement.dataset.input).toBe("key");
     const canvas = within(canvasElement);
     const first = canvas.getByRole("button", { name: TITLES[0] });
     first.focus();
