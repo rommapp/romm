@@ -4796,6 +4796,7 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
     state = db_state_handler.get_state_by_filename(
         user_id=admin_user.id, rom_id=rom.id, file_name="Game.03.p2s"
     )
+    assert state is not None
     assert state.screenshot is not None
     assert state.screenshot.file_name == "Game.03.png"
     assert state.screenshot.is_gallery is False
@@ -4818,6 +4819,7 @@ def test_store_state_screenshot_rejects_non_png(admin_user: User, rom: Rom):
     state = db_state_handler.get_state_by_filename(
         user_id=admin_user.id, rom_id=rom.id, file_name="Game.05.p2s"
     )
+    assert state is not None
     assert state.screenshot is None
 
 
@@ -4845,6 +4847,7 @@ def test_store_state_asset_binds_screenshot(admin_user: User, rom: Rom):
     state = db_state_handler.get_state_by_filename(
         user_id=admin_user.id, rom_id=rom.id, file_name="Game.03.p2s"
     )
+    assert state is not None
     assert state.screenshot is not None
     assert state.screenshot.file_name == "Game.03.png"
 
@@ -4908,6 +4911,7 @@ def test_store_state_asset_collision_keeps_disc_file_id_in_sync(
             )
         )
     updated = db_state_handler.get_state_by_id(existing.id)
+    assert updated is not None
     assert updated.disc_file_id == disc.id
     assert updated.file_size_bytes == 999
 
@@ -7791,7 +7795,9 @@ def test_store_memory_card_version_stores_new(admin_user: User):
         )
     assert stored is not None
     wf.assert_awaited_once()
-    assert db_memory_card_handler.get_latest_version(card.id).content_hash == "hash-new"
+    latest = db_memory_card_handler.get_latest_version(card.id)
+    assert latest is not None
+    assert latest.content_hash == "hash-new"
 
 
 def test_store_memory_card_version_dedups_identical(admin_user: User):
@@ -8752,7 +8758,9 @@ def test_concurrent_adopts_record_one_decision(admin_user: User, rom: Rom):
     )
     assert first is not None
     assert second is None
-    assert db_container_adoption_handler.get_adoption(key).outcome == "adopt"
+    adoption = db_container_adoption_handler.get_adoption(key)
+    assert adoption is not None
+    assert adoption.outcome == "adopt"
 
 
 # ── Playtime ──────────────────────────────────────────────────────────────────

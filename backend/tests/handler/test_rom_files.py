@@ -71,11 +71,17 @@ def _folder_rom(
                 sha1_hash="row-sha1",
             )
         )
-    return db_rom_handler.get_rom(rom.id)
+    return _reload(rom.id)
+
+
+def _reload(rom_id: int) -> Rom:
+    rom = db_rom_handler.get_rom(rom_id)
+    assert rom is not None
+    return rom
 
 
 def _files_by_name(rom_id: int) -> dict[str, RomFile]:
-    return {f.file_name: f for f in db_rom_handler.get_rom(rom_id).files}
+    return {f.file_name: f for f in _reload(rom_id).files}
 
 
 async def test_registers_new_nested_file(platform, admin_user, library):
@@ -92,7 +98,7 @@ async def test_registers_new_nested_file(platform, admin_user, library):
     assert (
         new.md5_hash == hashlib.md5(b"patch bytes", usedforsecurity=False).hexdigest()
     )
-    after = db_rom_handler.get_rom(rom.id)
+    after = _reload(rom.id)
     assert after.fs_size_bytes == len(b"game") + len(b"readme") + len(b"patch bytes")
     assert after.md5_hash == "stored-md5"
 
@@ -110,7 +116,7 @@ async def test_top_level_addition_updates_rom_hashes_and_size(
         hashlib.md5(a + b, usedforsecurity=False).hexdigest()
         for a, b in ((b"game", b"extra"), (b"extra", b"game"))
     }
-    after = db_rom_handler.get_rom(rom.id)
+    after = _reload(rom.id)
     assert after.md5_hash in either_order
     assert after.fs_size_bytes == len(b"game") + len(b"extra")
     assert (
@@ -144,18 +150,18 @@ async def test_removes_rows_for_vanished_files(platform, admin_user, library):
     assert result.removed_files == 1
     assert set(_files_by_name(rom.id)) == {"game.bin"}
     # A nested file leaves the top level, and so the rom hash, alone.
-    assert db_rom_handler.get_rom(rom.id).md5_hash == "stored-md5"
+    assert _reload(rom.id).md5_hash == "stored-md5"
 
 
 async def test_clears_missing_flag(platform, admin_user, library):
     rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
     db_rom_handler.update_rom(rom.id, {"missing_from_fs": True})
-    rom = db_rom_handler.get_rom(rom.id)
+    rom = _reload(rom.id)
 
     result = await refresh_rom_files(rom)
 
     assert not result.changed
-    assert db_rom_handler.get_rom(rom.id).missing_from_fs is False
+    assert _reload(rom.id).missing_from_fs is False
 
 
 async def test_empty_folder_keeps_recorded_rows(platform, admin_user, library):
@@ -176,7 +182,7 @@ async def test_edited_file_is_rehashed_in_place(platform, admin_user, library):
     result = await refresh_rom_files(rom)
 
     assert result.updated_files == 1
-    after = db_rom_handler.get_rom(rom.id)
+    after = _reload(rom.id)
     assert after.files[0].id == row_id
     assert (
         after.files[0].md5_hash
@@ -212,7 +218,7 @@ async def test_disabled_hashing_keeps_stored_rom_hashes(
     result = await refresh_rom_files(rom)
 
     assert result.new_files == 1
-    after = db_rom_handler.get_rom(rom.id)
+    after = _reload(rom.id)
     assert (after.crc_hash, after.md5_hash, after.sha1_hash) == (
         "stored-crc",
         "stored-md5",
@@ -267,7 +273,7 @@ async def test_a_newly_read_identity_is_persisted(platform, admin_user, library)
         result = await refresh_rom_files(rom)
 
     assert result.changed
-    refreshed = db_rom_handler.get_rom(rom.id)
+    refreshed = _reload(rom.id)
     assert refreshed.title_id == "0100ABCD12340000"
     assert refreshed.save_target == "0100ABCD12340000"
     assert refreshed.save_target_layout == SaveTargetLayout.FOLDER_EXACT
@@ -278,7 +284,7 @@ async def test_a_stored_identity_survives_a_parse_that_read_none(
 ):
     rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
     db_rom_handler.update_rom(rom.id, {"title_id": "ULUS-10041"})
-    rom = db_rom_handler.get_rom(rom.id)
+    rom = _reload(rom.id)
 
     with patch.object(
         fs_rom_handler,
@@ -287,7 +293,7 @@ async def test_a_stored_identity_survives_a_parse_that_read_none(
     ):
         await refresh_rom_files(rom)
 
-    assert db_rom_handler.get_rom(rom.id).title_id == "ULUS-10041"
+    assert _reload(rom.id).title_id == "ULUS-10041"
 
 
 async def test_a_category_settled_on_a_reused_row_is_persisted(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection
 
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
@@ -16,8 +16,8 @@ from .base_handler import DBBaseHandler
 
 def _exclude_hidden(
     query: Select,
-    hidden_platform_ids: Sequence[int] | None,
-    hidden_rom_ids: Sequence[int] | None,
+    hidden_platform_ids: Collection[int] | None,
+    hidden_rom_ids: Collection[int] | None,
     *,
     platform_id_col: InstrumentedAttribute = Rom.platform_id,
     rom_id_col: InstrumentedAttribute = Rom.id,
@@ -38,8 +38,8 @@ class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_platforms_count(
         self,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
+        hidden_rom_ids: Collection[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> int:
         """Get the number of platforms with any roms."""
@@ -53,8 +53,8 @@ class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_roms_count(
         self,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
+        hidden_rom_ids: Collection[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> int:
         query = _exclude_hidden(
@@ -88,8 +88,8 @@ class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_total_filesize(
         self,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
+        hidden_rom_ids: Collection[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> int:
         """Get the total filesize of all roms in the database, in bytes."""
@@ -120,8 +120,8 @@ class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_metadata_coverage_by_platform(
         self,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
+        hidden_rom_ids: Collection[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> dict[int, list[MetadataCoverageItem]]:
         """Get the count of ROMs matched per metadata source, grouped by platform.
@@ -158,8 +158,8 @@ class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_region_breakdown_by_platform(
         self,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
+        hidden_rom_ids: Collection[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> dict[int, list[RegionBreakdownItem]]:
         """Get the count of ROMs per region, grouped by platform.
