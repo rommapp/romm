@@ -21,7 +21,7 @@ from logger.logger import log
 from models.rom import Rom
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import BaseRom, MetadataHandler, unavailable
 
 # Regex to detect RetroAchievements ID tags in filenames like (ra-12345)
 RA_TAG_REGEX = re.compile(r"\(ra-(\d+)\)", re.IGNORECASE)
@@ -56,6 +56,8 @@ class RAMetadata(TypedDict):
     publishers: list[str]
     developers: list[str]
     achievements: list[RAGameRomAchievement]
+    # The ROM's RA hash is one RetroAchievements lists for this game.
+    hash_match: NotRequired[bool]
 
 
 class RAGameRom(BaseRom):
@@ -85,7 +87,7 @@ class RAUserProgression(TypedDict):
 
 
 def extract_metadata_from_rom_details(
-    rom: Rom, rom_details: RAGameExtendedDetails
+    rom: Rom, rom_details: RAGameExtendedDetails, hash_match: bool
 ) -> RAMetadata:
     def parse_release_timestamp() -> int | None:
         release_date_str = rom_details.get("Released")
@@ -127,6 +129,7 @@ def extract_metadata_from_rom_details(
             )
             for achievement in rom_details.get("Achievements", {}).values()
         ],
+        hash_match=hash_match,
     )
 
 
@@ -134,6 +137,8 @@ class RAHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ra_service = RetroAchievementsService()
         self.HASHES_FILE_NAME = "ra_hashes_v3.json"
+        # Parsed hash index per platform id, with the cache file mtime it came from.
+        self._hash_indexes: dict[int, tuple[float, dict[str, int]]] = {}
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -196,6 +201,10 @@ class RAHandler(MetadataHandler):
                 only_games_with_achievements=True,
                 include_hashes=True,
             )
+            # A failed request comes back as {}, which must not be cached as an
+            # empty index for the whole refresh window.
+            if not isinstance(roms, list):
+                raise unavailable("RetroAchievements")
 
             hash_index = {h.lower(): r["ID"] for r in roms for h in r.get("Hashes", ())}
 
@@ -210,13 +219,33 @@ class RAHandler(MetadataHandler):
                 self.HASHES_FILE_NAME,
             )
         else:
-            # Read the hash index from the JSON file
-            json_file_bytes = await fs_resource_handler.read_file(
-                self._get_hashes_file_path(rom.platform.id)
-            )
-            hash_index = json.loads(json_file_bytes.decode("utf-8"))
+            file_path = self._get_hashes_file_path(rom.platform.id)
+            full_path = fs_resource_handler.validate_path(file_path)
+            mtime = (await AnyioPath(str(full_path)).stat()).st_mtime
+            cached = self._hash_indexes.get(rom.platform.id)
+            if cached and cached[0] == mtime:
+                hash_index = cached[1]
+            else:
+                json_file_bytes = await fs_resource_handler.read_file(file_path)
+                hash_index = json.loads(json_file_bytes.decode("utf-8"))
+                self._hash_indexes[rom.platform.id] = (mtime, hash_index)
 
         return hash_index.get(ra_hash.lower())
+
+    async def _hash_matches(self, rom: Rom, ra_hash: str | None, ra_id: int) -> bool:
+        if not ra_hash:
+            return False
+        try:
+            return await self._search_rom(rom, ra_hash) == ra_id
+        except Exception as exc:
+            # A failed check must not block the ID lookup, nor drop a match
+            # already recorded for this game and hash.
+            log.warning(f"Couldn't check the RetroAchievements hash list: {exc}")
+            return (
+                rom.ra_id == ra_id
+                and rom.ra_hash == ra_hash
+                and bool((rom.ra_metadata or {}).get("hash_match"))
+            )
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
         if slug not in RA_PLATFORM_LIST:
@@ -238,7 +267,9 @@ class RAHandler(MetadataHandler):
         ra_id_from_tag = self.extract_ra_id_from_filename(rom.fs_name)
         if ra_id_from_tag:
             log.debug(f"Found RetroAchievements ID tag in filename: {ra_id_from_tag}")
-            rom_by_id = await self.get_rom_by_id(rom=rom, ra_id=ra_id_from_tag)
+            rom_by_id = await self.get_rom_by_id(
+                rom=rom, ra_id=ra_id_from_tag, ra_hash=ra_hash
+            )
             if rom_by_id["ra_id"]:
                 log.debug(
                     f"Successfully matched ROM by RetroAchievements ID tag: {rom.fs_name} -> {ra_id_from_tag}"
@@ -277,19 +308,25 @@ class RAHandler(MetadataHandler):
                         )
                     ]
                 ),
-                ra_metadata=extract_metadata_from_rom_details(rom, rom_details),
+                ra_metadata=extract_metadata_from_rom_details(
+                    rom, rom_details, hash_match=True
+                ),
             )
         except KeyError:
             return RAGameRom(ra_id=None)
 
-    async def get_rom_by_id(self, rom: Rom, ra_id: int) -> RAGameRom:
+    async def get_rom_by_id(
+        self, rom: Rom, ra_id: int, ra_hash: str | None = None
+    ) -> RAGameRom:
         if not ra_id:
             return RAGameRom(ra_id=None)
 
         try:
             rom_details = await self.ra_service.get_game_extended_details(ra_id)
+            game_id = rom_details["ID"]
+            hash_match = await self._hash_matches(rom, ra_hash, ra_id)
             return RAGameRom(
-                ra_id=rom_details["ID"],
+                ra_id=game_id,
                 name=rom_details.get("Title", ""),
                 url_cover=(
                     f"https://media.retroachievements.org{rom_details['ImageTitle']}"
@@ -305,7 +342,9 @@ class RAHandler(MetadataHandler):
                         )
                     ]
                 ),
-                ra_metadata=extract_metadata_from_rom_details(rom, rom_details),
+                ra_metadata=extract_metadata_from_rom_details(
+                    rom, rom_details, hash_match=hash_match
+                ),
             )
         except KeyError:
             return RAGameRom(ra_id=None)

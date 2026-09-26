@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// MetadataTab — four sections, top to bottom:
-//   1. File info — name, size, and the platform-native ids when present.
-//   2. Hashes — SHA-1, MD5, CRC, RA, all mono. RTag with eyebrow label.
+// MetadataTab: four sections, top to bottom:
+//   1. File info: name, size, and the platform-native ids when present.
+//   2. Hashes: SHA-1, MD5, CRC, RA, all mono. RTag with eyebrow label.
 //      Same order as the files list so the two tabs read alike.
-//   3. Verification — RTag per database; tone="success" for match,
-//      neutral for miss. Same source of truth (Hasheous match flags) as
-//      the "Verified" badge in the header, via `VERIFICATION_DATABASES`.
-//   4. Metadata sources — ProviderGrid (linked + unlinked).
+//   3. Verification: RTag per database; tone="success" for match,
+//      neutral for miss. Same source of truth as the "Verified" badge in
+//      the header, via `VERIFICATION_DATABASES`.
+//   4. Metadata sources: ProviderGrid (linked + unlinked).
 import { RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -14,10 +14,7 @@ import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import ProviderGrid from "@/v2/components/GameDetails/ProviderGrid.vue";
 import HashChip from "@/v2/components/shared/HashChip.vue";
-import {
-  matchesDatabase,
-  VERIFICATION_DATABASES,
-} from "@/v2/utils/romVerification";
+import { VERIFICATION_DATABASES } from "@/v2/utils/romVerification";
 
 defineOptions({ inheritAttrs: false });
 
@@ -45,7 +42,7 @@ const fileRows = computed<Row[]>(() => {
 // render as a dash via the fallback chip below.
 const hashRows = computed<{ label: string; value: string | null }[]>(() => {
   const r = props.rom;
-  // CHD SHA-1 lives on the file, not the ROM — surface it at ROM level
+  // CHD SHA-1 lives on the file, not the ROM; surface it at ROM level
   // only when the ROM is a single CHD file. Skipped (not dashed) when
   // not applicable since most ROMs aren't CHDs.
   const chdSha1 = r.has_simple_single_file
@@ -66,11 +63,11 @@ type Verification = { label: string; match: boolean };
 // Per-database match badges, driven by the shared VERIFICATION_DATABASES
 // so this list stays in lockstep with the header badge and the backend
 // filter. A match means the ROM's hash was found in that database (via
-// Hasheous), which is what "verified" communicates.
+// Hasheous or the RA hash lookup), which is what "verified" communicates.
 const verifications = computed<Verification[]>(() =>
   VERIFICATION_DATABASES.map((db) => ({
     label: db.label,
-    match: matchesDatabase(props.rom, db.keys),
+    match: db.matches(props.rom),
   })),
 );
 
@@ -110,8 +107,8 @@ const downloadUrls = computed(() => {
       </div>
     </section>
 
-    <!-- 2. Hashes — click-to-copy via HashChip; absent hashes still
-         render a "—" pill so the row layout stays predictable. -->
+    <!-- 2. Hashes: click-to-copy via HashChip; absent hashes still
+         render a dash pill so the row layout stays predictable. -->
     <section class="metadata-tab__section">
       <h3 class="metadata-tab__heading">{{ t("rom.hashes-label") }}</h3>
       <div class="metadata-tab__inline">
@@ -175,7 +172,7 @@ const downloadUrls = computed(() => {
   color: var(--r-color-fg);
 }
 
-/* File info — two-column rows on wide screens, stacked on narrow. */
+/* File info: two-column rows on wide screens, stacked on narrow. */
 .metadata-tab__rows {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -200,7 +197,7 @@ const downloadUrls = computed(() => {
   word-break: break-all;
 }
 
-/* Hashes & Verification — inline row, wraps when narrow. */
+/* Hashes & Verification: inline row, wraps when narrow. */
 .metadata-tab__inline {
   display: flex;
   flex-wrap: wrap;

@@ -1137,12 +1137,16 @@ async def scan_rom(
                     f"{hl(str(h_ra_id), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
+                return await meta_ra_handler.get_rom_by_id(
+                    rom=rom, ra_id=h_ra_id, ra_hash=rom_attrs["ra_hash"]
+                )
 
             if (scan_type == ScanType.UPDATE and rom.ra_id) or (
                 scan_type == ScanType.UNMATCHED and rom.ra_id and not rom.ra_metadata
             ):
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=rom.ra_id)
+                return await meta_ra_handler.get_rom_by_id(
+                    rom=rom, ra_id=rom.ra_id, ra_hash=rom_attrs["ra_hash"]
+                )
             else:
                 return await meta_ra_handler.get_rom(
                     rom=rom, ra_hash=rom_attrs["ra_hash"]
@@ -1466,6 +1470,16 @@ async def scan_rom(
     ):
         rom_attrs["hasheous_id"] = None
         rom_attrs["hasheous_metadata"] = {}
+
+    # Same for the RA hash match, once an RA lookup that ran found nothing.
+    ra_metadata = rom_attrs.get("ra_metadata") or {}
+    if (
+        scan_type == ScanType.HASHES
+        and MetadataSource.RA in attempted_sources
+        and not ra_handler_rom.get("ra_id")
+        and ra_metadata.get("hash_match")
+    ):
+        rom_attrs["ra_metadata"] = {**ra_metadata, "hash_match": False}
 
     # A skipped source's tags can't be told apart on the row, so each hash source
     # keeps the ones its dump gave in its own blob.

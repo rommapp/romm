@@ -186,7 +186,9 @@ class RomFilterParams(BaseModel):
     ] = None
     verified: Annotated[
         bool | None,
-        Field(description="Whether the rom is verified by Hasheous."),
+        Field(
+            description="Whether the rom's hash matched a known database, via Hasheous or RetroAchievements."
+        ),
     ] = None
     has_soundtrack: Annotated[
         bool | None,

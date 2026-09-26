@@ -2,7 +2,7 @@ import logging
 import re
 from contextlib import contextmanager
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException, status
@@ -945,6 +945,142 @@ async def test_scan_rom_hashes_keeps_match_when_hasheous_unreachable(
 
     assert result.hasheous_id == 999
     assert result.hasheous_metadata == {"nointro_match": True, "ra_match": True}
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ra_handler, "_search_rom", new_callable=AsyncMock)
+@patch.object(
+    meta_ra_handler.ra_service, "get_game_extended_details", new_callable=AsyncMock
+)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_marks_an_ra_hash_match_hasheous_cannot_see(
+    mock_lookup,
+    mock_get_igdb,
+    mock_get_ra,
+    mock_ra_details,
+    mock_ra_search,
+    mock_playmatch_enabled,
+):
+    """RA hashes only part of an NDS ROM, so Hasheous never flags `ra_match` for
+    its file hashes; the scan-time RA hash lookup has to count instead."""
+    hasheous_match = HasheousRom(
+        hasheous_id=123,
+        igdb_id=None,
+        tgdb_id=None,
+        ra_id=17353,
+        hasheous_metadata=HasheousMetadata(nointro_match=True, ra_match=False),  # type: ignore[typeddict-item]
+    )
+    mock_lookup.return_value = (hasheous_match, True)
+    mock_get_igdb.return_value = hasheous_match
+    mock_get_ra.return_value = hasheous_match
+    mock_ra_details.return_value = {"ID": 17353, "Title": "Game", "Achievements": {}}
+    mock_ra_search.return_value = 17353
+
+    platform = db_platform_handler.add_platform(
+        Platform(
+            id=1,
+            slug="nds",
+            fs_slug="nds",
+            name="Nintendo DS",
+            ra_id=18,
+            hasheous_id=20,
+        )
+    )
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="Game (USA).7z",
+            fs_name_no_tags="Game",
+            fs_name_no_ext="Game (USA)",
+            fs_extension="7z",
+            fs_path="nds",
+            name="Game",
+            ra_hash="fedcba9876543210fedcba9876543210",
+            fs_size_bytes=1024,
+            tags=[],
+        )
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.HASHES,
+            rom=rom,
+            fs_rom={
+                "fs_name": rom.fs_name,
+                "fs_path": rom.fs_path,
+                "flat": True,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.HASHEOUS, MetadataSource.RA],
+            newly_added=False,
+        )
+
+    mock_ra_search.assert_awaited_once_with(ANY, "fedcba9876543210fedcba9876543210")
+    assert result.ra_id == 17353
+    assert (result.hasheous_metadata or {}).get("ra_match") is False
+    assert (result.ra_metadata or {}).get("hash_match") is True
+
+
+@pytest.mark.parametrize(
+    ("ra_result", "expected"),
+    [(RAGameRom(ra_id=None), False), (RuntimeError("RA down"), True)],
+)
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ra_handler, "get_rom", new_callable=AsyncMock)
+async def test_scan_rom_hashes_drops_an_ra_hash_match_the_new_hash_lost(
+    mock_get_rom, mock_playmatch_enabled, ra_result, expected
+):
+    """Only an RA lookup that answered clears the flag; a failed one keeps it."""
+    mock_get_rom.side_effect = [ra_result]
+
+    platform = db_platform_handler.add_platform(
+        Platform(id=1, slug="nds", fs_slug="nds", name="Nintendo DS", ra_id=18)
+    )
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="Game (USA).nds",
+            fs_name_no_tags="Game",
+            fs_name_no_ext="Game (USA)",
+            fs_extension="nds",
+            fs_path="nds",
+            name="Game",
+            ra_id=17353,
+            ra_hash="fedcba9876543210fedcba9876543210",
+            ra_metadata={"achievements": [], "hash_match": True},
+            fs_size_bytes=1024,
+            tags=[],
+        )
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.HASHES,
+            rom=rom,
+            fs_rom={
+                "fs_name": rom.fs_name,
+                "fs_path": rom.fs_path,
+                "flat": True,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.RA],
+            newly_added=False,
+        )
+
+    assert result.ra_id == 17353
+    assert (result.ra_metadata or {}).get("hash_match") is expected
 
 
 @contextmanager
