@@ -260,19 +260,17 @@ class DBSavesHandler(DBBaseHandler):
         return session.execute(_version_query(id).with_for_update()).one_or_none()
 
     @begin_session
-    def get_unhashed_slot_versions(
+    def get_unhashed_versions_past(
         self,
         user_id: int,
         rom_id: int,
         slot: str,
+        keep: int,
         session: Session = None,  # type: ignore[assignment]
-    ) -> Sequence[Row]:
-        """The slot's versions never hashed, by ``id``, ``file_path`` and ``file_name``."""
-        return session.execute(
-            select(Save.id, Save.file_path, Save.file_name).filter_by(
-                user_id=user_id, rom_id=rom_id, slot=slot, content_hash=None
-            )
-        ).all()
+    ) -> list[Row]:
+        """The versions past the ``keep`` newest never hashed, with their ``id`` and path."""
+        rows = session.execute(_past_keep(user_id, rom_id, slot, keep)).all()
+        return [row for row in rows if not row.content_hash]
 
     @begin_session
     def update_save(
@@ -354,18 +352,7 @@ class DBSavesHandler(DBBaseHandler):
             Each deleted version's hash and ``file_path``, ``file_name`` and
             ``file_name_no_ext``, newest first.
         """
-        past_keep = (
-            select(
-                Save.id,
-                *_VERSION_COLUMNS,
-                Save.file_path,
-                Save.file_name,
-                Save.file_name_no_ext,
-            )
-            .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
-            .order_by(desc(Save.updated_at), desc(Save.id))
-            .offset(keep)
-        )
+        past_keep = _past_keep(user_id, rom_id, slot, keep)
         # Before this session holds a connection, since ensuring takes its own.
         if not self._any(past_keep):
             return []
@@ -514,6 +501,21 @@ class DBSavesHandler(DBBaseHandler):
         return session.scalars(
             select(Save).where(Save.id > after_id).order_by(asc(Save.id)).limit(limit)
         ).all()
+
+
+def _past_keep(user_id: int, rom_id: int, slot: str, keep: int) -> Select:
+    return (
+        select(
+            Save.id,
+            *_VERSION_COLUMNS,
+            Save.file_path,
+            Save.file_name,
+            Save.file_name_no_ext,
+        )
+        .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
+        .order_by(desc(Save.updated_at), desc(Save.id))
+        .offset(keep)
+    )
 
 
 def _version_query(id: int) -> Select:

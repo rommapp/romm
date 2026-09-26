@@ -56,6 +56,7 @@ def downgrade() -> None:
     op.drop_column("deleted_assets", "removed_at", if_exists=True)
     op.drop_index(SAVE_SLOT_VERSIONS_INDEX, table_name="saves", if_exists=True)
     collation = exact_collation(op.get_bind())
+    # 0136 creates deleted_assets.slot exact, so only saves.slot reverts.
     if collation is None or _slot_collation("saves") != collation:
         return
     # Without a collation the column takes the table's default back.

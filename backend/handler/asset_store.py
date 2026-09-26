@@ -171,7 +171,9 @@ async def prune_save_slot(user_id: int, rom_id: int, slot: str, keep: int) -> No
     """Drop every version of ``slot`` past the ``keep`` newest, files included."""
     # Hashed before the prune, so a version never hashed is recorded along with it.
     fallback_hashes = {}
-    for version in db_save_handler.get_unhashed_slot_versions(user_id, rom_id, slot):
+    for version in db_save_handler.get_unhashed_versions_past(
+        user_id, rom_id, slot, keep
+    ):
         content_hash = await fs_asset_handler.compute_content_hash(
             f"{version.file_path}/{version.file_name}"
         )

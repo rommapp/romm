@@ -1062,6 +1062,21 @@ class TestDBSavesHandlerRecordsLostVersions:
 
         assert self._lost(admin_user, rom) == {"autosave": ["v0", "v1"]}
 
+    def test_only_unhashed_versions_a_prune_drops_are_listed(
+        self, admin_user: User, rom: Rom
+    ):
+        for index, content_hash in enumerate([None, "hashed", None]):
+            save = self._add(admin_user, rom, f"v{index}", "autosave", content_hash)
+            db_save_handler.update_save(
+                save.id, {"updated_at": datetime(2026, 1, 1 + index, tzinfo=UTC)}
+            )
+
+        unhashed = db_save_handler.get_unhashed_versions_past(
+            admin_user.id, rom.id, "autosave", keep=1
+        )
+
+        assert [row.file_name for row in unhashed] == ["v0.sav"]
+
     def test_a_version_overwritten_since_it_was_read_is_recorded(
         self, admin_user: User, rom: Rom
     ):
