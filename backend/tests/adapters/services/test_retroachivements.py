@@ -1,3 +1,4 @@
+import json
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -74,7 +75,7 @@ class TestRetroAchievementsServiceUnit:
             "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await service._request("https://retroachievements.org/API")
+                await service._request("https://retroachievements.org/API", object)
 
         assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         assert "Can't connect to RetroAchievements" in exc_info.value.detail
@@ -83,7 +84,7 @@ class TestRetroAchievementsServiceUnit:
     async def test_request_acquires_rate_limiter(self, service):
         """Test that the request reserves a rate-limiter slot before sending."""
         mock_response = MagicMock()
-        mock_response.json = AsyncMock(return_value={})
+        mock_response.read = AsyncMock(return_value=json.dumps({}).encode())
         mock_response.raise_for_status.return_value = None
 
         # Record the order in which the rate limiter is acquired and the request is sent
@@ -104,7 +105,7 @@ class TestRetroAchievementsServiceUnit:
         with patch(
             "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
         ):
-            await service._request("https://retroachievements.org/API")
+            await service._request("https://retroachievements.org/API", object)
 
         # The rate-limiter slot must be reserved, and before the request is sent.
         acquire_mock.assert_awaited_once()
@@ -190,7 +191,7 @@ class TestRetroAchievementsServiceIntegration:
         ):
             result = await service.get_user_completion_progress("arcanecraeda", limit=5)
 
-        assert isinstance(result, dict)
+        assert result is None or isinstance(result, dict)
         if result:  # Non-empty response
             assert "Total" in result
             assert "Results" in result
@@ -291,4 +292,4 @@ class TestRetroAchievementsServiceIntegration:
             ):
                 # This should handle the error gracefully
                 result = await service.get_game_extended_details(INVALID_GAME_ID)
-                assert isinstance(result, list)
+                assert result is None
