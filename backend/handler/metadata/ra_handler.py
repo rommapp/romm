@@ -21,7 +21,7 @@ from logger.logger import log
 from models.rom import Rom
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import BaseRom, MetadataHandler, unavailable
 
 # Regex to detect RetroAchievements ID tags in filenames like (ra-12345)
 RA_TAG_REGEX = re.compile(r"\(ra-(\d+)\)", re.IGNORECASE)
@@ -201,10 +201,7 @@ class RAHandler(MetadataHandler):
             # A failed request comes back as {}, which must not be cached as an
             # empty index for the whole refresh window.
             if not isinstance(roms, list):
-                log.warning(
-                    f"Couldn't fetch the RetroAchievements hash list for platform {rom.platform.ra_id}"
-                )
-                return None
+                raise unavailable("RetroAchievements")
 
             hash_index = {h.lower(): r["ID"] for r in roms for h in r.get("Hashes", ())}
 
@@ -230,7 +227,15 @@ class RAHandler(MetadataHandler):
     async def _hash_matches(self, rom: Rom, ra_hash: str | None, ra_id: int) -> bool:
         if not ra_hash:
             return False
-        return await self._search_rom(rom, ra_hash) == ra_id
+        try:
+            return await self._search_rom(rom, ra_hash) == ra_id
+        except Exception as exc:
+            # A failed check must not block the ID lookup, nor drop a match
+            # already recorded for this game.
+            log.warning(f"Couldn't check the RetroAchievements hash list: {exc}")
+            return rom.ra_id == ra_id and bool(
+                (rom.ra_metadata or {}).get("hash_match")
+            )
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
         if slug not in RA_PLATFORM_LIST:

@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import HTTPException
 
 from handler.metadata import ra_handler
 from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAHandler
@@ -132,7 +133,8 @@ class TestSearchRom:
             handler.ra_service, "get_game_list", AsyncMock(return_value={})
         )
 
-        assert await handler._search_rom(self._make_rom(), "abcdef") is None
+        with pytest.raises(HTTPException):
+            await handler._search_rom(self._make_rom(), "abcdef")
         assert not (resources_dir / handler.HASHES_FILE_NAME).exists()
 
     async def test_returns_none_without_a_platform_ra_id(self, handler: RAHandler):
@@ -199,3 +201,29 @@ class TestHashMatch:
         result = await handler.get_rom_by_id(rom, ra_id=1, ra_hash="abcdef")
 
         assert result["ra_metadata"]["hash_match"] is False
+
+    async def test_a_failed_hash_check_still_returns_the_game(
+        self, handler: RAHandler, rom: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            handler, "_search_rom", AsyncMock(side_effect=HTTPException(503))
+        )
+        rom.ra_id = None
+
+        result = await handler.get_rom_by_id(rom, ra_id=17353, ra_hash="abcdef")
+
+        assert result["ra_id"] == 17353
+        assert result["ra_metadata"]["hash_match"] is False
+
+    async def test_a_failed_hash_check_keeps_the_recorded_match(
+        self, handler: RAHandler, rom: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            handler, "_search_rom", AsyncMock(side_effect=HTTPException(503))
+        )
+        rom.ra_id = 17353
+        rom.ra_metadata = {"hash_match": True}
+
+        result = await handler.get_rom_by_id(rom, ra_id=17353, ra_hash="abcdef")
+
+        assert result["ra_metadata"]["hash_match"] is True
