@@ -55,7 +55,7 @@ class CleanupStats:
     removed_fs_platforms: int = 0
     removed_fs_roms: int = 0
 
-    def update(self, **kwargs) -> None:
+    def update(self, **kwargs: int) -> None:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
@@ -74,7 +74,7 @@ class CleanupStats:
 
 
 class CleanupOrphanedResourcesTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Cleanup orphaned resources",
             description="Clean up orphaned resources in the ROMs directory",

@@ -25,7 +25,7 @@ class NetplayRoom(TypedDict):
 class NetplayHandler:
     """A class to handle netplay rooms in Redis."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.hash_name = "netplay:rooms"
 
     async def get(self, room_id: str) -> NetplayRoom | None:
@@ -33,11 +33,11 @@ class NetplayHandler:
         room = await async_cache.hget(self.hash_name, room_id)
         return json.loads(room) if room else None
 
-    async def set(self, room_id: str, room_data: NetplayRoom):
+    async def set(self, room_id: str, room_data: NetplayRoom) -> int:
         """Set a room in Redis."""
         return await async_cache.hset(self.hash_name, room_id, json.dumps(room_data))
 
-    async def delete(self, room_ids: list[str]):
+    async def delete(self, room_ids: list[str]) -> int:
         """Delete a room from Redis."""
         return await async_cache.hdel(self.hash_name, *room_ids)
 

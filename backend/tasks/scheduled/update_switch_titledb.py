@@ -30,7 +30,7 @@ SWITCH_TITLEDB_STORE: Final = VersionedCacheStore(
 
 
 class UpdateSwitchTitleDBTask(RemoteFilePullTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled Switch TitleDB update",
             description="Updates the Nintendo Switch TitleDB file",

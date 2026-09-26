@@ -601,6 +601,7 @@ async def test_oidc_valid_no_edit_user_role_if_claim_not_in_userinfo(
 
     # The user's existing ADMIN role should be preserved
     mock_edit_user.assert_not_called()
+    assert user is not None
     assert user.role == Role.ADMIN
 
 

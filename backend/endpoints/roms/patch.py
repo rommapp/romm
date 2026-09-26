@@ -74,7 +74,7 @@ async def patch_rom(
             description="A patch file uploaded from the client, applied without being stored in the library.",
         ),
     ] = None,
-):
+) -> FileResponse:
     """Apply a patch to a ROM file server-side and return the patched file.
 
     The base ROM file must exist in the library. The patch is supplied either

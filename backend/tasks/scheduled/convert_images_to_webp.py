@@ -42,7 +42,7 @@ class ImageConverter:
         "YCbCr": "RGB",  # YCbCr to RGB
     }
 
-    def __init__(self, quality: int = 90):
+    def __init__(self, quality: int = 90) -> None:
         self.quality = quality
 
     def _convert_image_mode(self, img: Image.Image) -> Image.Image:
@@ -108,7 +108,7 @@ class ConversionStats:
     errors: int = 0
     total: int = 0
 
-    def update(self, **kwargs) -> None:
+    def update(self, **kwargs: int) -> None:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
@@ -126,7 +126,7 @@ class ConversionStats:
 class ConvertImagesToWebPTask(PeriodicTask):
     """Task to convert existing images to WebP format."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Convert images to WebP",
             description="Convert existing image files (PNG, JPG, BMP, TIFF, GIF) to WebP format for better performance",

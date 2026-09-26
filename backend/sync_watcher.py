@@ -32,7 +32,7 @@ from handler.filesystem import fs_asset_handler, get_fs_sync_handler
 from handler.sync.comparison import compare_save_state
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.device import SyncMode
+from models.device import Device, SyncMode
 from models.sync_session import SyncSessionStatus
 from utils import get_version
 
@@ -205,7 +205,11 @@ def _process_device_incoming(
 
 
 def _process_incoming_file(
-    device, session_id: int, platform_slug: str, filename: str, full_path: str
+    device: Device,
+    session_id: int,
+    platform_slug: str,
+    filename: str,
+    full_path: str,
 ) -> None:
     """Process a single incoming file from a device's sync folder."""
     from endpoints.sockets.sync import emit_sync_conflict
