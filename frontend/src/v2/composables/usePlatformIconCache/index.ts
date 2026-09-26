@@ -1,6 +1,6 @@
-// Singleton in-memory cache of platform icon SVGs as blob URLs.
+// Singleton in-memory cache of platform icons as blob URLs.
 //
-// Why: `/assets/platforms/*.svg` is served without explicit cache
+// Why: `/assets/platforms/*` is served without explicit cache
 // headers, so the browser revalidates / re-downloads on every
 // `<img>` mount. In tables and menus that render many platform icons,
 // this turns into a flood of network requests every time the surface
@@ -14,35 +14,17 @@
 //
 // SSR / non-browser environments: `window` is guarded; `fetch` and
 // `URL.createObjectURL` are no-ops there.
-import shippedIcons from "virtual:platform-icons";
 import { reactive } from "vue";
-
-const PLATFORM_ICON_DIR = "/assets/platforms";
-export const DEFAULT_PLATFORM_ICON = `${PLATFORM_ICON_DIR}/default.ico`;
-
-/** Public URL of the icon shipped for `slug`, or null when none ships. */
-function shippedPlatformIconUrl(slug: string): string | null {
-  const file = shippedIcons.get(slug.trim().toLowerCase());
-  return file ? `${PLATFORM_ICON_DIR}/${file}` : null;
-}
-
-/** Icon URL for a platform: `slug` first, then `fsSlug`, then the default. */
-export function platformIconUrl(
-  slug?: string | null,
-  fsSlug?: string | null,
-): string {
-  return (
-    (slug && shippedPlatformIconUrl(slug)) ||
-    (fsSlug && shippedPlatformIconUrl(fsSlug)) ||
-    DEFAULT_PLATFORM_ICON
-  );
-}
+import {
+  platformSlugKey,
+  shippedPlatformIconUrl,
+} from "@/v2/utils/platformIcons";
 
 const cache = reactive(new Map<string, string>());
 const inflight = new Set<string>();
 
 export function getCachedPlatformIcon(slug: string): string | undefined {
-  return cache.get(slug.toLowerCase());
+  return cache.get(platformSlugKey(slug));
 }
 
 /** Blob URL for `url`, or null when it is missing or unreadable. */
@@ -61,7 +43,7 @@ async function fetchBlobUrl(url: string): Promise<string | null> {
 }
 
 async function fetchOne(slug: string): Promise<void> {
-  const key = slug.toLowerCase();
+  const key = platformSlugKey(slug);
   const url = shippedPlatformIconUrl(key);
   if (!url || cache.has(key) || inflight.has(key)) return;
   inflight.add(key);
@@ -79,7 +61,7 @@ async function fetchOne(slug: string): Promise<void> {
  * shipped URL instead of leaving the broken-image glyph on screen.
  */
 export function invalidatePlatformIcon(slug: string): void {
-  const key = slug.toLowerCase();
+  const key = platformSlugKey(slug);
   const url = cache.get(key);
   if (url) {
     URL.revokeObjectURL(url);

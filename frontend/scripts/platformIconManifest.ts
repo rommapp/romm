@@ -2,7 +2,7 @@
 // the app can skip requests for icons that were never shipped. An
 // `import.meta.glob` would also emit or inline every icon into the bundle.
 import { readdirSync } from "node:fs";
-import { dirname, extname, resolve } from "node:path";
+import { dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 
@@ -25,10 +25,10 @@ export function listPlatformIcons(dir: string): Map<string, string> {
   return icons;
 }
 
-export function platformIconManifest(
-  dir = fileURLToPath(new URL("../assets/platforms", import.meta.url)),
-): Plugin {
-  const iconDir = resolve(dir);
+export function platformIconManifest(): Plugin {
+  const iconDir = fileURLToPath(
+    new URL("../assets/platforms", import.meta.url),
+  );
   return {
     name: "romm:platform-icon-manifest",
     resolveId(id) {

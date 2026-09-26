@@ -71,7 +71,6 @@ function getItemKey(item: unknown) {
         :slug="platform.slug"
         :name="platform.display_name"
         :size="32"
-        :show-tooltip="false"
       />
     </template>
     <template #title>

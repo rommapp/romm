@@ -4,7 +4,7 @@ import { computed, ref, watch } from "vue";
 import {
   DEFAULT_PLATFORM_ICON,
   platformIconUrl,
-} from "@/v2/composables/usePlatformIconCache";
+} from "@/v2/utils/platformIcons";
 
 defineOptions({ inheritAttrs: false });
 
@@ -23,7 +23,7 @@ interface Props {
   src?: string;
   size?: number | string;
   alt?: string;
-  /** Tooltip text override. Falls back to `alt` then resolved slug. */
+  /** Tooltip text override. Falls back to `alt`. */
   title?: string;
   /** Show RTooltip on hover (default `true`). */
   showTooltip?: boolean;
@@ -40,12 +40,8 @@ const props = withDefaults(defineProps<Props>(), {
   showTooltip: true,
 });
 
-const resolvedSlug = computed(
-  () => props.slug ?? props.name ?? props.fsSlug ?? "",
-);
-
 const resolvedSrc = computed(
-  () => props.src || platformIconUrl(resolvedSlug.value, props.fsSlug),
+  () => props.src || platformIconUrl(props.slug ?? props.name, props.fsSlug),
 );
 
 // A shipped file can still fail to load (e.g. a stale deploy), so an error
@@ -60,16 +56,14 @@ const currentSrc = computed(() =>
 );
 
 function onError() {
-  if (currentSrc.value !== DEFAULT_PLATFORM_ICON) failed.value = true;
+  failed.value = true;
 }
 
 const resolvedSize = computed(() =>
   typeof props.size === "number" ? `${props.size}px` : props.size,
 );
 
-const tooltipText = computed(
-  () => props.title || props.alt || resolvedSlug.value,
-);
+const tooltipText = computed(() => props.title || props.alt);
 </script>
 
 <template>

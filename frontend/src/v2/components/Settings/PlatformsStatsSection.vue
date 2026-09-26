@@ -242,7 +242,6 @@ function onRowClick(e: MouseEvent, platformId: number): void {
           :name="platform.name"
           :fs-slug="platform.fs_slug"
           :size="32"
-          :show-tooltip="false"
           class="r-v2-plat-stats__icon"
           :style="morphStyle(platform.id)"
         />

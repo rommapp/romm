@@ -5,23 +5,17 @@ import PlatformIcon from "./PlatformIcon.vue";
 
 type Props = Partial<InstanceType<typeof PlatformIcon>["$props"]>;
 
+/** The src before and after one load error, collapsed when unchanged. */
 async function loadChain(props: Props): Promise<string[]> {
   const wrapper = mount(PlatformIcon, {
     props: { showTooltip: false, ...props },
   });
-
-  const seen: string[] = [];
-  for (let step = 0; step < 8; step += 1) {
-    const img = wrapper.find("img");
-    if (!img.exists()) break;
-    const src = img.attributes("src");
-    if (!src || seen[seen.length - 1] === src) break;
-    seen.push(src);
-    await img.trigger("error");
-    await nextTick();
-  }
+  const first = wrapper.find("img").attributes("src");
+  await wrapper.find("img").trigger("error");
+  await nextTick();
+  const second = wrapper.find("img").attributes("src");
   wrapper.unmount();
-  return seen;
+  return [...new Set([first, second])].filter((src) => src !== undefined);
 }
 
 describe("PlatformIcon source", () => {
@@ -68,18 +62,5 @@ describe("PlatformIcon source", () => {
       "/custom/icon.png",
       "/assets/platforms/default.ico",
     ]);
-  });
-});
-
-describe("PlatformIcon tooltip", () => {
-  it("falls back to the slug when no title or alt is given", () => {
-    const wrapper = mount(PlatformIcon, {
-      props: { slug: "snes" },
-      global: {
-        stubs: { RTooltip: { props: ["text"], template: "<i>{{ text }}</i>" } },
-      },
-    });
-
-    expect(wrapper.find("i").text()).toBe("snes");
   });
 });

@@ -7,11 +7,13 @@
 import { RImg } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import {
-  DEFAULT_PLATFORM_ICON,
   getCachedPlatformIcon,
   invalidatePlatformIcon,
-  platformIconUrl,
 } from "@/v2/composables/usePlatformIconCache";
+import {
+  DEFAULT_PLATFORM_ICON,
+  platformIconUrl,
+} from "@/v2/utils/platformIcons";
 
 interface Props {
   slug: string;
@@ -42,7 +44,7 @@ const src = computed<string>(() => {
 function onError() {
   // A blob that fails to decode is dropped so the shipped URL gets a turn.
   if (cached.value) invalidatePlatformIcon(props.slug);
-  else if (src.value !== DEFAULT_PLATFORM_ICON) failed.value = true;
+  else failed.value = true;
 }
 </script>
 
