@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ScreenshotsTab — responsive grid of 16:9 screenshot thumbnails. Clicking
+// ScreenshotsTab: responsive grid of 16:9 screenshot thumbnails. Clicking
 // a thumbnail opens RCarousel in fullscreen (lightbox) mode with prev/next
 // navigation, a thumbnail strip, and keyboard / gamepad arrows.
 //
@@ -207,7 +207,7 @@ function canEdit(shot: ScreenshotItem): boolean {
   display: block;
 }
 
-/* Action cluster — top-right, revealed on cell hover / focus-within.
+/* Action cluster, top-right, revealed on cell hover / focus-within.
    Stays visible on touch/pad (no hover) so it's reachable there. */
 .r-v2-det-shots__actions {
   position: absolute;
@@ -238,7 +238,7 @@ html[data-bp~="sm-and-down"] .r-v2-det-shots__pin {
   opacity: 1;
 }
 
-/* Owner chip (community) — bottom-left, always visible. */
+/* Owner chip (community), bottom-left, always visible. */
 .r-v2-det-shots__owner {
   position: absolute;
   left: 6px;
@@ -261,7 +261,7 @@ html[data-bp~="sm-and-down"] .r-v2-det-shots__pin {
   white-space: nowrap;
 }
 
-/* "Shared" badge for owned public screenshots — top-left, always visible. */
+/* "Shared" badge for owned public screenshots, top-left, always visible. */
 .r-v2-det-shots__badge {
   position: absolute;
   top: 6px;

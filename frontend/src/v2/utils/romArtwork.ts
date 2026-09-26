@@ -3,10 +3,10 @@
 // tab's pinned media (utils/pinnedMedia) so both stay in sync.
 //
 // Two sources feed the list:
-//   1. Scraped resources — ScreenScraper is the richest and wins; gamelist
+//   1. Scraped resources: ScreenScraper is the richest and wins; gamelist
 //      fills in for the few types it also scrapes (mirrors v1's MediaCarousel
 //      fallbacks).
-//   2. Library media files — images/videos sitting at the top level of the
+//   2. Library media files: images/videos sitting at the top level of the
 //      game folder on disk (rom.files), so a trailer or artwork dropped next
 //      to the ROM shows up here too.
 //

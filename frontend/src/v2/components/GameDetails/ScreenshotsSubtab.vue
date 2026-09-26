@@ -3,14 +3,14 @@
 // screenshot pinnable to the Overview tab:
 //
 //   * Scraped: screenshots fetched from metadata providers (read-only).
-//   * ROM        — shared library screenshots stored in the ROM's
+//   * ROM: shared library screenshots stored in the ROM's
 //                  `screenshots/` folder (RomFile, category SCREENSHOT). A
 //                  single-file ROM is promoted to a folder on upload. Public to
 //                  every user who can see the ROM. Upload → `useRomFileUpload`.
-//   * Mine       — per-user screenshots stored under the user's asset folder.
+//   * Mine: per-user screenshots stored under the user's asset folder.
 //                  Private by default; each one's edit dialog shares it.
 //                  Any ROM. Upload → `screenshotApi.uploadGalleryScreenshots`.
-//   * Community  — other users' public per-user screenshots (read-only).
+//   * Community: other users' public per-user screenshots (read-only).
 //
 // Both uploadable sections use RDropzone (CTA when empty, overlay over the
 // grid when filled).
@@ -67,7 +67,7 @@ const scrapedScreenshots = computed<ScreenshotItem[]>(() =>
   })),
 );
 
-// ---------- ROM (shared) screenshots — RomFile-backed ----------
+// ---------- ROM (shared) screenshots, RomFile-backed ----------
 const romScreenshots = computed<ScreenshotItem[]>(() =>
   romFolderScreenshots(props.rom).map((file) => ({
     id: file.id,
@@ -76,7 +76,7 @@ const romScreenshots = computed<ScreenshotItem[]>(() =>
   })),
 );
 
-// ---------- Per-user screenshots — asset-backed ----------
+// ---------- Per-user screenshots, asset-backed ----------
 const allUserScreenshots = computed(() => props.rom.all_user_screenshots ?? []);
 
 const myScreenshots = computed<ScreenshotItem[]>(() =>
@@ -242,7 +242,7 @@ async function submitEdit(isPublic: boolean) {
       />
     </section>
 
-    <!-- ROM (shared) screenshots — the whole section drops away for a
+    <!-- ROM (shared) screenshots, the whole section drops away for a
          read-only user with nothing to show, since there is neither art to
          look at nor an upload they're allowed to make. -->
     <section

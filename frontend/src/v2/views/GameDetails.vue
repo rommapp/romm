@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// GameDetails — artist-mockup layout.
+// GameDetails: artist-mockup layout.
 //
 // Two-column body: fixed cover column on the left, everything else (header,
 // tabs, tab panel) stacked in a flex-1 column on the right. Thin
-// orchestrator — data + tab state live here, every visual piece is a
+// orchestrator: data + tab state live here, every visual piece is a
 // sub-component under components/GameDetails/.
 import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { formatReleaseDate } from "@v2/utils/time";
@@ -55,7 +55,7 @@ const { smAndDown } = useBreakpoint();
 
 const setBgArt = useBackgroundArt();
 
-// Param-change navigation guard — the route's `beforeEnter` in
+// Param-change navigation guard, the route's `beforeEnter` in
 // `plugins/router.ts` only fires on initial entry; navigating between
 // `/rom/123` and `/rom/456` reuses this component, so currentRom
 // would stay stale (e.g. clicking an "Owned" related game card
@@ -64,7 +64,7 @@ const setBgArt = useBackgroundArt();
 // ROM's overview doesn't start halfway down where the user clicked.
 const panelEl = ref<HTMLElement | null>(null);
 
-// Right stick scrolls the tab panel — D-pad / A move focus across the
+// Right stick scrolls the tab panel, D-pad / A move focus across the
 // action ribbon, right stick scrolls long tabs (Overview, Achievements)
 // without needing to leave the ribbon focus.
 useRightStickScroll(panelEl);
@@ -105,12 +105,12 @@ onBeforeRouteUpdate(async (to) => {
     }
   }
   // Reset the per-view scroll on every navigation (even if the
-  // currentRom hasn't changed — e.g. re-entering the same ROM from
+  // currentRom hasn't changed, e.g. re-entering the same ROM from
   // its own page): the panel is the sole scroll context here.
   panelEl.value?.scrollTo({ top: 0, behavior: "smooth" });
 });
 
-// Active tab — URL-persistent via `?tab=`.
+// Active tab, URL-persistent via `?tab=`.
 const tab = ref<string>((route.query.tab as string) || "overview");
 watch(tab, (value) => {
   if (route.query.tab !== value) {
@@ -421,7 +421,7 @@ const tabs = computed<RTabNavItem[]>(() => [
   z-index: 2;
   flex: 1;
   display: flex;
-  /* `stretch` (default) so the info column fills the body height —
+  /* `stretch` (default) so the info column fills the body height,
      needed so the inner panel can use `flex: 1` + `min-height: 0` to
      scroll. The cover keeps its natural height via `align-self:
      flex-start` declared on CoverColumn itself. */
@@ -483,8 +483,8 @@ const tabs = computed<RTabNavItem[]>(() => [
   font-size: 13px;
 }
 
-/* Mobile / small tablet: stack the cover above the info column, and — unlike
-   desktop — let the WHOLE view scroll as one document instead of freezing the
+/* Mobile / small tablet: stack the cover above the info column, and, unlike
+   desktop, let the WHOLE view scroll as one document instead of freezing the
    cover/header/tabs and scrolling only the panel. A phone has no room to keep
    half the screen static; the desktop "fixed cover + inner panel scroll"
    layout makes no sense here. So the section grows with its content and the

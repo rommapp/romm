@@ -1,23 +1,23 @@
 <script setup lang="ts">
-// OverviewTab — single landing surface for everything that doesn't get
+// OverviewTab: single landing surface for everything that doesn't get
 // its own tab. Top to bottom:
 //   1. Summary paragraph
 //   2. Last-played row (TODO: move into a SaveData tab once it lands)
-//   3. Quick facts — PlayerCountBadge + AgeRatingBadges (game-level
+//   3. Quick facts: PlayerCountBadge + AgeRatingBadges (game-level
 //      characteristics, rendered as semantic badges rather than chips)
-//   4. RomM Collections — the user's personal collections this ROM
+//   4. RomM Collections: the user's personal collections this ROM
 //      lives in, rendered as bookmark-icon chip RouterLinks
 //   5. Info grid (Genres / Developers / Publishers / Companies /
 //      Franchises / Collections)
 //   6. Media: the user's pinned screenshots, artwork and videos (see
 //      utils/pinnedMedia), pinned from the Media tab
 //   7. HLTB strip
-//   8. Related games — a single RCollapsible collapsing all of:
+//   8. Related games: a single RCollapsible collapsing all of:
 //      Expansions, DLC, Remakes, Remasters, Ports, Similar games.
 //
 // Status enum + flags (now_playing / backlogged / hidden) and personal
-// metrics (rating / difficulty / completion) live in the action ribbon
-// — see GameActionBtn (status) and MetricMenuBtn.
+// metrics (rating / difficulty / completion) live in the action ribbon (see
+// GameActionBtn for status, and MetricMenuBtn).
 import { RBtn, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -93,7 +93,7 @@ const hasHltb = computed(() => {
 
 // Enrich the slim `{ id, name, is_smart }` user_collections payload from
 // the ROM with the full record (cover paths, rom_count) the store already
-// holds — so we can render real CollectionTile mosaics instead of stripped
+// holds, so we can render real CollectionTile mosaics instead of stripped
 // chips. Smart collections (#3934) resolve from their own store slice and
 // route, and carry the "smart" kind so the tile shows its flash badge.
 // Falls back to a bare entry if the store is empty (e.g. deep-link before
@@ -137,7 +137,7 @@ const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
   }),
 );
 
-// Related — show the panel only if at least one section has items.
+// Related: show the panel only if at least one section has items.
 const hasRelated = computed(
   () =>
     props.expansions.length +
@@ -149,7 +149,7 @@ const hasRelated = computed(
     0,
 );
 
-// Attribution — credit the metadata providers that supplied data for this
+// Attribution: credit the metadata providers that supplied data for this
 // ROM (mirrors v1's GameInfo footer). Reuses the PROVIDERS registry so the
 // list stays in sync with the Metadata tab; providers without a public URL
 // render as plain text.
@@ -200,8 +200,8 @@ const coverSource = computed(() => {
     <p v-if="summary" class="overview-tab__summary">{{ summary }}</p>
 
     <!-- 2. Per-ROM fact rows (left-labelled). Revision, Last played +
-         the per-game characteristics — Players, Age rating, RomM
-         collections — get a row each so each fact can render its own
+         the per-game characteristics (Players, Age rating, RomM
+         collections) get a row each so each fact can render its own
          semantic widget instead of being flattened to a chip list. -->
     <div
       v-if="
@@ -301,7 +301,7 @@ const coverSource = computed(() => {
       <HLTBStrip :metadata="hltb" />
     </div>
 
-    <!-- 5. Related games — each category gets its own labelled section,
+    <!-- 5. Related games: each category gets its own labelled section,
          rendered inline as siblings to the rest of the overview blocks.
          No collapsible wrapper: these sections aren't a distinct
          "surface" the user needs to expand into; they're just more
@@ -352,7 +352,7 @@ const coverSource = computed(() => {
       </div>
     </template>
 
-    <!-- 6. Attribution — credit the metadata + cover-art sources -->
+    <!-- 6. Attribution: credit the metadata + cover-art sources -->
     <div
       v-if="dataProviders.length || coverSource"
       class="overview-tab__attribution"
@@ -445,12 +445,12 @@ const coverSource = computed(() => {
   font-style: italic;
 }
 
-/* Tile-row variant — the eyebrow pins to the top of the tile column
+/* Tile-row variant: the eyebrow pins to the top of the tile column
    (instead of centring through the ~190px-tall CollectionTile) so the
    label hovers over the mosaic rather than drifting halfway down it.
    Vertical padding on the scroll container gives the hover-pop
    (CollectionTile's scale + elevated shadow) room to render
-   before the scroll container clips it — `overflow-x: auto` also
+   before the scroll container clips it; `overflow-x: auto` also
    clips on Y per the CSS spec, so without this the shadow and
    lifted edge get sheared off. */
 .overview-tab__row--tiles {
@@ -476,7 +476,7 @@ const coverSource = computed(() => {
 }
 
 /* Labelled overview section (screenshots, HLTB, each related-games
-   category) — a heading + its content as a sibling block in the overview
+   category), a heading + its content as a sibling block in the overview
    flex column; the outer column's `gap: 30px` provides separation. */
 .overview-tab__section {
   display: flex;
@@ -507,7 +507,7 @@ const coverSource = computed(() => {
   color: var(--r-color-fg-muted);
 }
 
-/* Attribution — a quiet, italic credits footer for the metadata and
+/* Attribution: a quiet, italic credits footer for the metadata and
    cover-art sources. */
 .overview-tab__attribution {
   display: flex;
