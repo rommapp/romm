@@ -84,3 +84,14 @@ def test_mismatch_returns_raw_payload_and_logs_once(monkeypatch: pytest.MonkeyPa
     message = log.warning.call_args.args[0] % log.warning.call_args.args[1:]
     assert "Provider endpoint" in message
     assert "*.kind" in message
+
+
+@pytest.mark.usefixtures("lenient")
+def test_id_keyed_entries_share_one_warning(monkeypatch: pytest.MonkeyPatch):
+    log = MagicMock()
+    monkeypatch.setattr(response_validation, "log", log)
+
+    validate_response(dict[str, Child], {"101": {"id": "x"}}, source="test")
+    validate_response(dict[str, Child], {"202": {"id": "y"}}, source="test")
+
+    log.warning.assert_called_once()

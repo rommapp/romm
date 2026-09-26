@@ -27,7 +27,13 @@ def _adapter[T](tp: type[T]) -> TypeAdapter[tuple[T]]:
 
 
 def _path(loc: tuple[int | str, ...]) -> str:
-    return ".".join("*" if isinstance(part, int) else part for part in loc) or "(root)"
+    # List indices and id-keyed dict entries (RA achievements) share one shape.
+    return (
+        ".".join(
+            "*" if isinstance(part, int) or part.isdigit() else part for part in loc
+        )
+        or "(root)"
+    )
 
 
 def _first_difference(
@@ -52,11 +58,7 @@ def _first_difference(
 
 
 def validate_response[T](tp: type[T], data: object, *, source: str) -> T:
-    """Check a provider payload against its declared type and return it as sent.
-
-    A value that fits only after coercion (a "1" for an int) is a mismatch. A
-    mismatch is logged once per shape and the payload still returned, so a
-    provider adding an enum value never costs a scan its metadata.
+    """Return a provider payload as sent, logging once per shape if it strays from `tp`.
 
     Args:
         tp: The TypedDict (or container of one) the payload should match.
