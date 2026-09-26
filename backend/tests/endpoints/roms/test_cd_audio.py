@@ -315,9 +315,6 @@ def test_names_the_tracks_of_discs_that_share_a_sheet_name(
                     category=RomFileCategory.GAME,
                 )
             )
-    rom = db_rom_handler.get_rom(rom.id)
-    assert rom is not None
-
     response = client.post(
         f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
     )

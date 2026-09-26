@@ -405,6 +405,7 @@ def test_upload_to_a_disc_a_playlist_lists_returns_400(
     assert (roms_dir / DISC_1).read_bytes() == b"romdata"
     assert not (roms_dir / "Game (Disc 1)").exists()
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == DISC_1
     assert [f.file_name for f in after.files] == [DISC_1]
 
@@ -434,7 +435,9 @@ def test_upload_to_a_lone_disc_no_playlist_lists_promotes_it(
     assert response.status_code == status.HTTP_201_CREATED
     assert (roms_dir / "Game (Disc 1)" / DISC_1).read_bytes() == b"romdata"
     assert not (roms_dir / DISC_1).exists()
-    assert db_rom_handler.get_rom(rom.id).fs_name == "Game (Disc 1)"
+    after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
+    assert after.fs_name == "Game (Disc 1)"
 
 
 def test_gamefaqs_import_to_a_disc_a_playlist_lists_returns_400(
@@ -461,7 +464,9 @@ def test_gamefaqs_import_to_a_disc_a_playlist_lists_returns_400(
     assert "Game.m3u" in response.json()["detail"]
     fetch.assert_not_called()
     assert (roms_dir / DISC_1).exists()
-    assert db_rom_handler.get_rom(rom.id).fs_name == DISC_1
+    after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
+    assert after.fs_name == DISC_1
 
 
 async def test_second_upload_racing_a_promotion_keeps_the_rom_in_its_folder(
