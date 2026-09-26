@@ -81,7 +81,7 @@ const tooltipText = computed(
     <img
       :key="currentSrc"
       :src="currentSrc"
-      :alt="alt || resolvedSlug"
+      :alt="alt"
       class="r-platform-icon__img"
       @error="onError"
     />

@@ -336,7 +336,7 @@ const spinnerSize = computed(() => {
       <!-- Icon-only mode: when `icon` is a string, render the matching
            RIcon directly. When `icon` is bare `true`, fall through to
            the default slot so consumers can drop their own glyph in
-           (e.g. PlatformIcon on a GameCard badge) — without this
+           (e.g. PlatformIcon on a GameCard badge). Without this
            branch the slot was silently dropped and the button rendered
            empty. -->
       <RIcon

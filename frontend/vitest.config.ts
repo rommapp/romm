@@ -5,13 +5,7 @@ import { defineConfig } from "vitest/config";
 import { platformIconManifest } from "./scripts/platformIconManifest";
 
 export default defineConfig({
-  plugins: [
-    vue(),
-    vuetify({ autoImport: true }),
-    platformIconManifest(
-      fileURLToPath(new URL("./assets/platforms", import.meta.url)),
-    ),
-  ],
+  plugins: [vue(), vuetify({ autoImport: true }), platformIconManifest()],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

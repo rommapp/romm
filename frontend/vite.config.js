@@ -58,10 +58,6 @@ const VUETIFY_COMPONENTS = [
   "vuetify/components/VWindow",
 ];
 
-const PLATFORM_ICONS_DIR = fileURLToPath(
-  new URL("./assets/platforms", import.meta.url),
-);
-
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load ENV variables from the parent directory and the current directory.
@@ -127,7 +123,7 @@ export default defineConfig(({ mode }) => {
       }),
       precompress(),
       playerIsolationHeaders(),
-      platformIconManifest(PLATFORM_ICONS_DIR),
+      platformIconManifest(),
       httpsMode &&
         mkcert({
           savePath: "/app/.vite-plugin-mkcert",

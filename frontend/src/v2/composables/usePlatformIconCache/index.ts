@@ -14,20 +14,11 @@
 //
 // SSR / non-browser environments: `window` is guarded; `fetch` and
 // `URL.createObjectURL` are no-ops there.
-import shippedIconFiles from "virtual:platform-icons";
+import shippedIcons from "virtual:platform-icons";
 import { reactive } from "vue";
 
 const PLATFORM_ICON_DIR = "/assets/platforms";
 export const DEFAULT_PLATFORM_ICON = `${PLATFORM_ICON_DIR}/default.ico`;
-
-// slug -> filename; `.svg` wins over `.ico` when both ship.
-const shippedIcons = new Map<string, string>();
-for (const file of shippedIconFiles) {
-  const dot = file.lastIndexOf(".");
-  const slug = file.slice(0, dot).toLowerCase();
-  const isSvg = file.slice(dot + 1).toLowerCase() === "svg";
-  if (isSvg || !shippedIcons.has(slug)) shippedIcons.set(slug, file);
-}
 
 /** Public URL of the icon shipped for `slug`, or null when none ships. */
 function shippedPlatformIconUrl(slug: string): string | null {

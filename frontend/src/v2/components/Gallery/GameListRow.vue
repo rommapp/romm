@@ -562,6 +562,7 @@ function onRowPointerDown(e: PointerEvent) {
             v-if="platformMeta?.slug"
             :slug="platformMeta.slug"
             :size="24"
+            :show-tooltip="false"
           />
           <span class="game-list-row__platform-name">
             {{ platformMeta?.name ?? "—" }}
