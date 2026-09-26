@@ -1,11 +1,13 @@
 """Tests for sync comparison algorithm."""
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from handler.sync.comparison import (
     SyncComparisonResult,
     compare_missing_server_save,
     compare_save_state,
+    roms_to_check_for_removals,
 )
 
 
@@ -269,18 +271,92 @@ class TestCompareReturnType:
         assert isinstance(result.reason, str)
 
 
+class TestCompareRemovedVersions:
+    REMOVED = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    BEFORE = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    AFTER = datetime(2026, 1, 3, tzinfo=timezone.utc)
+
+    def _compare(self, client_hash, client_updated_at, **overrides):
+        kwargs = {
+            "client_hash": client_hash,
+            "client_updated_at": client_updated_at,
+            "server_hash": "current",
+            "server_updated_at": self.BEFORE,
+            "device_last_synced_at": self.BEFORE,
+            "removed_at": {"removed": self.REMOVED, "current": self.REMOVED},
+        }
+        return compare_save_state(**{**kwargs, **overrides})
+
+    def test_a_version_written_before_its_removal_downloads(self):
+        # Its timestamp is newer than the server's current save, which alone
+        # would answer upload.
+        assert self._compare("removed", self.REMOVED).action == "download"
+
+    def test_the_same_bytes_written_after_the_removal_are_progress(self):
+        assert self._compare("removed", self.AFTER).action == "upload"
+
+    def test_the_current_version_stays_in_sync_even_if_once_removed(self):
+        assert self._compare("current", self.BEFORE).action == "no_op"
+
+    def test_a_client_that_reports_no_digest_compares_by_time(self):
+        result = self._compare(None, self.AFTER, device_last_synced_at=None)
+        assert result.action == "upload"
+
+
 class TestCompareMissingServerSave:
-    def test_a_version_the_slot_lost_is_deleted(self):
-        result = compare_missing_server_save("abc123", ["def456", "abc123"])
+    REMOVED = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    LOST = {"def456": REMOVED, "abc123": REMOVED}
+
+    def test_a_version_written_before_the_slot_lost_it_is_deleted(self):
+        result = compare_missing_server_save(
+            "abc123", datetime(2026, 1, 1, tzinfo=timezone.utc), self.LOST
+        )
         assert result.action == "delete"
+
+    def test_the_same_bytes_written_after_the_loss_are_uploaded(self):
+        result = compare_missing_server_save(
+            "abc123", datetime(2026, 1, 3, tzinfo=timezone.utc), self.LOST
+        )
+        assert result.action == "upload"
 
     def test_bytes_nobody_deleted_are_uploaded(self):
         # Offering it back costs a deletion that misses that device; deleting
         # it would cost the save.
-        assert compare_missing_server_save("fresh", ["abc123"]).action == "upload"
+        assert (
+            compare_missing_server_save("fresh", self.REMOVED, self.LOST).action
+            == "upload"
+        )
 
     def test_a_client_that_reports_no_digest_is_uploaded(self):
-        assert compare_missing_server_save(None, ["abc123"]).action == "upload"
+        assert (
+            compare_missing_server_save(None, self.REMOVED, self.LOST).action
+            == "upload"
+        )
 
     def test_a_slot_that_lost_nothing_is_uploaded(self):
-        assert compare_missing_server_save("abc123", ()).action == "upload"
+        assert (
+            compare_missing_server_save("abc123", self.REMOVED, {}).action == "upload"
+        )
+
+
+@dataclass(frozen=True)
+class _Save:
+    rom_id: int
+    slot: str | None
+    content_hash: str | None
+
+
+class TestRomsToCheckForRemovals:
+    def test_only_saves_that_differ_from_their_slot_are_checked(self):
+        current: dict[tuple[int, str | None], _Save] = {
+            (1, "autosave"): _Save(1, "autosave", "same"),
+            (2, "autosave"): _Save(2, "autosave", "current"),
+        }
+        client_saves = [
+            _Save(1, "autosave", "same"),
+            _Save(2, "autosave", "older"),
+            _Save(3, "autosave", "unknown"),
+            _Save(4, None, "archival"),
+        ]
+
+        assert roms_to_check_for_removals(client_saves, current) == {2, 3}

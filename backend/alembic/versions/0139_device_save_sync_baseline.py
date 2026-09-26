@@ -2,8 +2,8 @@
 
 Existing rows keep NULL, meaning unknown.
 
-Revision ID: 0138_device_save_sync_baseline
-Revises: 0137_rename_system_groups
+Revision ID: 0139_device_save_sync_baseline
+Revises: 0138_exact_save_slots
 Create Date: 2026-09-16 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0138_device_save_sync_baseline"
-down_revision = "0137_rename_system_groups"
+revision = "0139_device_save_sync_baseline"
+down_revision = "0138_exact_save_slots"
 branch_labels = None
 depends_on = None
 

@@ -1,7 +1,10 @@
+from datetime import datetime, timezone
+
 from handler.database import db_deleted_asset_handler
 from models.deleted_asset import MAX_REMEMBERED_HASHES, DeletedAsset
 from models.rom import Rom
 from models.user import User
+from utils.datetime import to_utc
 
 
 def _record(user: User, rom: Rom, slot: str, content_hash: str) -> DeletedAsset:
@@ -39,6 +42,73 @@ class TestRecordDeletion:
             )
         }
         assert slots == {"autosave", "main_quest"}
+
+    def test_a_slot_differing_only_in_case_is_its_own_record(
+        self, rom: Rom, admin_user: User
+    ):
+        for slot in ("Autosave", "autosave"):
+            _record(admin_user, rom, slot, slot)
+
+        records = {
+            record.slot: record.content_hashes
+            for record in db_deleted_asset_handler.get_deletions(
+                user_id=admin_user.id, rom_ids=[rom.id]
+            )
+        }
+        assert records == {"Autosave": ["Autosave"], "autosave": ["autosave"]}
+
+    def test_ensuring_a_record_twice_keeps_one_empty_row(
+        self, rom: Rom, admin_user: User
+    ):
+        for _ in range(2):
+            db_deleted_asset_handler.ensure_record(admin_user.id, rom.id, "autosave")
+
+        [record] = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        assert record.content_hashes == []
+
+
+class TestRemovalTimes:
+    def test_each_version_is_stamped_when_it_was_lost(self, rom: Rom, admin_user: User):
+        before = datetime.now(timezone.utc)
+        _record(admin_user, rom, "autosave", "lost")
+
+        times = db_deleted_asset_handler.removal_times(
+            admin_user.id, rom.id, "autosave"
+        )
+
+        assert list(times) == ["lost"]
+        assert before <= times["lost"] <= datetime.now(timezone.utc)
+
+    def test_a_version_lost_again_is_stamped_again(self, rom: Rom, admin_user: User):
+        first = _record(admin_user, rom, "autosave", "again").removal_times()["again"]
+        _record(admin_user, rom, "autosave", "other")
+        again = _record(admin_user, rom, "autosave", "again").removal_times()["again"]
+
+        assert again >= first
+
+    def test_an_unstamped_version_falls_back_to_the_records_time(
+        self, rom: Rom, admin_user: User
+    ):
+        record = _record(admin_user, rom, "autosave", "stamped")
+        record.removed_at = {}
+        record.content_hashes = ["legacy", "stamped"]
+
+        assert record.removal_times() == {
+            "legacy": to_utc(record.updated_at),
+            "stamped": to_utc(record.updated_at),
+        }
+
+    def test_trimmed_versions_lose_their_stamps(self, rom: Rom, admin_user: User):
+        for index in range(MAX_REMEMBERED_HASHES + 1):
+            record = _record(admin_user, rom, "autosave", f"v{index}")
+
+        assert set(record.removed_at or {}) == set(record.content_hashes)
+        assert "v0" not in (record.removed_at or {})
+
+    def test_a_slot_that_lost_nothing_has_no_times(self, rom: Rom, admin_user: User):
+        assert db_deleted_asset_handler.removal_times(admin_user.id, rom.id, "x") == {}
 
 
 class TestGetDeletions:

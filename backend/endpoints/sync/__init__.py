@@ -30,7 +30,11 @@ from handler.database import (
 )
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import high_prio_queue
-from handler.sync.comparison import compare_missing_server_save, compare_save_state
+from handler.sync.comparison import (
+    compare_missing_server_save,
+    compare_save_state,
+    roms_to_check_for_removals,
+)
 from logger.logger import log
 from models.assets import Save
 from models.deleted_asset import DeletedAsset
@@ -231,17 +235,11 @@ def negotiate_sync(
         if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
             server_save_map[key] = save
 
-    # Read only when a slot has no row left, so a slot refilled since keeps
-    # its record harmlessly.
-    emptied_rom_ids = {
-        s.rom_id
-        for s in payload.saves
-        if s.slot and (s.rom_id, s.slot) not in server_save_map
-    }
     deleted_map: dict[tuple[int, str | None], DeletedAsset] = {
         (record.rom_id, record.slot): record
         for record in db_deleted_asset_handler.get_deletions(
-            user_id=request.user.id, rom_ids=emptied_rom_ids
+            user_id=request.user.id,
+            rom_ids=roms_to_check_for_removals(payload.saves, server_save_map),
         )
     }
 
@@ -259,13 +257,14 @@ def negotiate_sync(
     for client_save in payload.saves:
         key = (client_save.rom_id, client_save.slot)
         server_save = server_save_map.get(key)
+        # Without this the client offers a removed version back and the
+        # deletion or rollback undoes itself.
+        deletion = deleted_map.get(key)
+        removed_at = deletion.removal_times() if deletion else {}
 
         if server_save is None:
-            # Without this the client offers the save back and the deletion
-            # undoes itself.
-            deletion = deleted_map.get(key)
             result = compare_missing_server_save(
-                client_save.content_hash, deletion.content_hashes if deletion else ()
+                client_save.content_hash, client_save.updated_at, removed_at
             )
             operations.append(
                 SyncOperationSchema(
@@ -308,6 +307,7 @@ def negotiate_sync(
             device_last_sync_server_hash=(
                 device_sync.last_sync_server_hash if device_sync else None
             ),
+            removed_at=removed_at,
         )
         if (
             result.action == "no_op"

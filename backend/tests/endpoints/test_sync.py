@@ -107,6 +107,39 @@ class TestSyncNegotiate:
         assert data[f"total_{expected_action}"] == 1
         assert data["operations"][0]["action"] == expected_action
 
+    def test_negotiate_a_deleted_slot_matches_its_exact_name(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        """Slots differing only in case keep their own deletion records."""
+        device = db_device_handler.add_device(
+            Device(id="neg-dev-deleted-case", user_id=admin_user.id, sync_enabled=True)
+        )
+        for slot, content_hash in (("Autosave", "upper"), ("autosave", "lower")):
+            db_deleted_asset_handler.record_deletion(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                slot=slot,
+                content_hash=content_hash,
+            )
+
+        data = _negotiate(
+            client,
+            access_token,
+            device.id,
+            [
+                {
+                    "rom_id": rom.id,
+                    "file_name": "test_save.sav",
+                    "slot": "autosave",
+                    "content_hash": "lower",
+                    "updated_at": "2026-01-09T00:00:00Z",
+                    "file_size_bytes": 1024,
+                }
+            ],
+        )
+
+        assert data["operations"][0]["action"] == "delete"
+
     def test_negotiate_server_has_save_client_doesnt(
         self, client, access_token: str, admin_user: User, save: Save
     ):
@@ -708,6 +741,161 @@ def _negotiate(client, access_token, device_id, saves):
     )
     assert resp.status_code == status.HTTP_200_OK
     return resp.json()
+
+
+def _slot_version(
+    user: User, rom: Rom, stem: str, content_hash: str, updated_at: datetime
+) -> Save:
+    save = db_save_handler.add_save(
+        Save(
+            rom_id=rom.id,
+            user_id=user.id,
+            file_name=f"{stem}.sav",
+            file_name_no_tags=stem,
+            file_name_no_ext=stem,
+            file_extension="sav",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="autosave",
+            content_hash=content_hash,
+        )
+    )
+    return db_save_handler.update_save(save.id, {"updated_at": updated_at})
+
+
+class TestNegotiateRemovedVersions:
+    """A version that left its slot on the server is never offered back."""
+
+    BASE = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    @staticmethod
+    def _held(
+        rom: Rom, content_hash: str, updated_at: str = "2026-02-01T00:00:00Z"
+    ) -> dict:
+        return {
+            "rom_id": rom.id,
+            "file_name": "autosave.sav",
+            "slot": "autosave",
+            "content_hash": content_hash,
+            "updated_at": updated_at,
+            "file_size_bytes": 100,
+        }
+
+    def _delete(self, client, access_token: str, save: Save) -> None:
+        response = client.post(
+            "/api/saves/delete",
+            json={"saves": [save.id]},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_a_rolled_back_version_is_replaced_by_the_current_one(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="removed-rollback", user_id=admin_user.id, sync_enabled=True)
+        )
+        older = _slot_version(admin_user, rom, "older", "HASH_A", self.BASE)
+        newest = _slot_version(
+            admin_user, rom, "newest", "HASH_B", self.BASE + timedelta(hours=1)
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device_id=device.id, save_id=newest.id, synced_at=newest.updated_at
+        )
+        self._delete(client, access_token, newest)
+
+        data = _negotiate(client, access_token, device.id, [self._held(rom, "HASH_B")])
+
+        [op] = data["operations"]
+        assert op["action"] == "download"
+        assert op["save_id"] == older.id
+
+    def test_a_pruned_version_is_deleted_once_the_slot_is(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="removed-pruned", user_id=admin_user.id, sync_enabled=True)
+        )
+        _slot_version(admin_user, rom, "v1", "HASH_V1", self.BASE)
+        current = _slot_version(
+            admin_user, rom, "v2", "HASH_V2", self.BASE + timedelta(hours=1)
+        )
+        db_save_handler.prune_slot(
+            user_id=admin_user.id, rom_id=rom.id, slot="autosave", keep=1
+        )
+        self._delete(client, access_token, current)
+
+        data = _negotiate(client, access_token, device.id, [self._held(rom, "HASH_V1")])
+
+        assert data["operations"][0]["action"] == "delete"
+
+    def test_an_overwritten_version_is_deleted_once_the_slot_is(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="removed-overwritten", user_id=admin_user.id, sync_enabled=True)
+        )
+        save = _slot_version(admin_user, rom, "v1", "HASH_V1", self.BASE)
+        save = db_save_handler.update_save(save.id, {"content_hash": "HASH_V2"})
+        self._delete(client, access_token, save)
+
+        data = _negotiate(client, access_token, device.id, [self._held(rom, "HASH_V1")])
+
+        assert data["operations"][0]["action"] == "delete"
+
+    def test_a_copy_written_after_the_removal_is_offered_as_new(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="removed-rewritten", user_id=admin_user.id, sync_enabled=True)
+        )
+        db_deleted_asset_handler.record_deletion(
+            user_id=admin_user.id, rom_id=rom.id, slot="autosave", content_hash="SAME"
+        )
+        later = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+
+        data = _negotiate(
+            client, access_token, device.id, [self._held(rom, "SAME", later)]
+        )
+
+        assert data["operations"][0]["action"] == "upload"
+
+    def test_a_copy_written_after_a_rollback_is_not_replaced(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="removed-progress", user_id=admin_user.id, sync_enabled=True)
+        )
+        _slot_version(admin_user, rom, "older", "HASH_A", self.BASE)
+        newest = _slot_version(
+            admin_user, rom, "newest", "HASH_B", self.BASE + timedelta(hours=1)
+        )
+        self._delete(client, access_token, newest)
+        later = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+
+        data = _negotiate(
+            client, access_token, device.id, [self._held(rom, "HASH_B", later)]
+        )
+
+        assert data["operations"][0]["action"] == "upload"
+
+    def test_the_current_version_matches_even_after_it_was_once_removed(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="removed-refilled", user_id=admin_user.id, sync_enabled=True)
+        )
+        db_deleted_asset_handler.record_deletion(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="autosave",
+            content_hash="HASH_A",
+        )
+        _slot_version(admin_user, rom, "again", "HASH_A", self.BASE)
+
+        data = _negotiate(client, access_token, device.id, [self._held(rom, "HASH_A")])
+
+        assert data["operations"][0]["action"] == "no_op"
 
 
 class TestNegotiateAdvanced:

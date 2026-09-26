@@ -20,7 +20,9 @@ from typing import cast
 import sentry_sdk
 
 from config import ENABLE_SYNC_FOLDER_WATCHER, SENTRY_DSN
+from handler.asset_store import unrecorded_hash
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_platform_handler,
@@ -253,6 +255,9 @@ def _process_incoming_file(
             device_last_sync_server_hash=(
                 device_sync.last_sync_server_hash if device_sync else None
             ),
+            removed_at=db_deleted_asset_handler.removal_times(
+                device.user_id, matched_save.rom_id, matched_save.slot
+            ),
         )
 
         if result.action == "no_op":
@@ -271,6 +276,7 @@ def _process_incoming_file(
             )
             with open(full_path, "rb") as f:
                 file_data = f.read()
+            replaced_hash = asyncio.run(unrecorded_hash(matched_save))
             asyncio.run(
                 fs_asset_handler.write_file(
                     file=file_data,
@@ -284,6 +290,7 @@ def _process_incoming_file(
                     "file_size_bytes": file_size,
                     "content_hash": file_hash,
                 },
+                replaced_hash=replaced_hash,
             )
             # This path hashes the device's file itself, so both sides hold file_hash.
             db_device_save_sync_handler.upsert_sync(

@@ -11,6 +11,7 @@ import pytest
 from tests._zipfile_shim import reload_zipfile
 
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
@@ -203,7 +204,9 @@ class TestProcessIncomingFileFilenameOnlyMatching:
             patch("sync_watcher.asyncio") as mock_asyncio,
         ):
             mock_cmp.return_value = MagicMock(action="upload", reason=None)
-            mock_asyncio.run = MagicMock()
+            mock_asyncio.run = MagicMock(
+                side_effect=lambda awaitable: awaitable.close()
+            )
             _process_incoming_file(
                 device=device,
                 session_id=1,
@@ -270,7 +273,9 @@ class TestProcessIncomingFileFilenameOnlyMatching:
             patch("sync_watcher.asyncio") as mock_asyncio,
         ):
             mock_cmp.return_value = MagicMock(action="upload", reason=None)
-            mock_asyncio.run = MagicMock()
+            mock_asyncio.run = MagicMock(
+                side_effect=lambda awaitable: awaitable.close()
+            )
             _process_incoming_file(
                 device=device,
                 session_id=1,
@@ -290,6 +295,47 @@ class TestProcessIncomingFileFilenameOnlyMatching:
         assert (
             slotted_after.content_hash != "slotted_old_hash"
         ), "slotted save should have been updated, but the bug picked archival"
+
+    def test_the_matched_slots_removals_reach_the_comparison(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        incoming_file: str,
+    ):
+        from sync_watcher import _process_incoming_file
+
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="collision.sav",
+                file_name_no_tags="collision",
+                file_name_no_ext="collision",
+                file_extension="sav",
+                emulator="test_emulator",
+                slot="autosave",
+                file_path=f"{platform.slug}/saves/test_emulator",
+                file_size_bytes=99,
+                content_hash="current",
+            )
+        )
+        db_deleted_asset_handler.record_deletion(
+            admin_user.id, rom.id, "autosave", "removed_here"
+        )
+
+        with patch("sync_watcher.compare_save_state") as mock_cmp:
+            mock_cmp.return_value = MagicMock(action="no_op", reason=None)
+            _process_incoming_file(
+                device=device,
+                session_id=1,
+                platform_slug=platform.fs_slug,
+                filename="collision.sav",
+                full_path=incoming_file,
+            )
+
+        assert set(mock_cmp.call_args.kwargs["removed_at"]) == {"removed_here"}
 
 
 class TestProcessIncomingFileBaseline:

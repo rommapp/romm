@@ -11,7 +11,9 @@ from anyio import Path as AnyioPath
 from anyio import open_file
 
 from config import ENABLE_SYNC_PUSH_PULL, SYNC_PUSH_PULL_CRON
+from handler.asset_store import unrecorded_hash
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_platform_handler,
@@ -269,6 +271,9 @@ async def _process_remote_save(
             device_last_sync_server_hash=(
                 device_sync.last_sync_server_hash if device_sync else None
             ),
+            removed_at=db_deleted_asset_handler.removal_times(
+                device.user_id, matched_save.rom_id, matched_save.slot
+            ),
         )
 
         if result.action == "no_op":
@@ -292,6 +297,7 @@ async def _process_remote_save(
             )
             async with await open_file(local_path, "rb") as f:
                 file_data = await f.read()
+            replaced_hash = await unrecorded_hash(matched_save)
             await fs_asset_handler.write_file(
                 file=file_data,
                 path=matched_save.file_path,
@@ -303,6 +309,7 @@ async def _process_remote_save(
                     "file_size_bytes": remote_save.file_size,
                     "content_hash": remote_hash,
                 },
+                replaced_hash=replaced_hash,
             )
             # The server save's hash was just set to remote_hash, so both sides hold it.
             db_device_save_sync_handler.upsert_sync(

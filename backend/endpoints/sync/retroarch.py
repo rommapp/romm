@@ -10,7 +10,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request, Response, UploadFile, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from handler.asset_store import record_save_deletion
+from handler.asset_store import unrecorded_hash
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
@@ -569,6 +569,9 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     # the row pointing at the fresh bytes instead of orphaning them.
     existing = _get_asset(request.user, rom, parsed)
     write_file_name = existing.file_name if existing else file_name
+    replaced_hash = (
+        await unrecorded_hash(existing) if isinstance(existing, Save) else None
+    )
 
     async with _request_body(request) as body:
         await fs_asset_handler.write_file(
@@ -593,7 +596,9 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         }
         if isinstance(scanned, Save):
             db_save_handler.update_save(
-                existing.id, {**fields, "content_hash": scanned.content_hash}
+                existing.id,
+                {**fields, "content_hash": scanned.content_hash},
+                replaced_hash=replaced_hash,
             )
         else:
             db_state_handler.update_state(existing.id, fields)
@@ -659,8 +664,7 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if isinstance(asset, Screenshot):
         db_screenshot_handler.delete_screenshot(asset.id)
     elif isinstance(asset, Save):
-        await record_save_deletion(asset)
-        db_save_handler.delete_save(asset.id)
+        db_save_handler.delete_save(asset.id, content_hash=await unrecorded_hash(asset))
     else:
         db_state_handler.delete_state(asset.id)
 
