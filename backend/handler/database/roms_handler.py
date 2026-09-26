@@ -94,7 +94,6 @@ from utils.database import (
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
     escape_like,
-    is_postgresql,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
@@ -102,6 +101,7 @@ from utils.database import (
     rom_unset_flag_column,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.sql_dialect import Analyze, NullsLast
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -218,23 +218,13 @@ def _nulls_last_ordering(
     Returns:
         A leading unset term (or None) and the directed sort clause.
     """
-    order_clause = sort_key.desc() if descending else sort_key.asc()
-    if descending:
-        # MariaDB and MySQL place NULLs last on DESC already; PostgreSQL
-        # sorts them first, and `idx_roms_<column>_desc` matches the spelling
-        # that corrects it.
-        if ROMM_DB_DRIVER == "postgresql":
-            return None, order_clause.nulls_last()
-        return None, order_clause
-
-    flag = ROM_UNSET_SORT_FLAGS.get(getattr(sort_key, "key", ""))
-    if flag is not None:
-        return flag, order_clause
-    # A key with no materialized flag (rom_user, the view, a grouped
-    # aggregate) still has to emulate it, which costs a sort.
-    if ROMM_DB_DRIVER == "postgresql":
-        return None, order_clause.nulls_last()
-    return sort_key.is_(None), order_clause
+    if not descending:
+        # A materialized flag lets the ascending sort read out of an index; a
+        # key without one (rom_user, the view, a grouped aggregate) costs a sort.
+        flag = ROM_UNSET_SORT_FLAGS.get(getattr(sort_key, "key", ""))
+        if flag is not None:
+            return flag, sort_key.asc()
+    return None, NullsLast(sort_key, descending)
 
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
@@ -1278,24 +1268,17 @@ class DBRomsHandler(DBBaseHandler):
         # A key absent from `hasheous_metadata` (rows stored before it existed, or
         # rows with no Hasheous match at all) extracts as NULL, and NULL poisons
         # both the OR and its negation, so the unverified side would drop those
-        # rows. The JSON path below folds a missing key into false on its own;
-        # `->>` does not, hence the coalesce.
-        if ROMM_DB_DRIVER == "postgresql":
-            conditions = " OR ".join(
-                f"COALESCE((hasheous_metadata->>'{key}')::boolean, false)"
+        # rows. MariaDB's `as_boolean()` folds a missing key into false on its
+        # own; PostgreSQL's does not, hence the coalesce.
+        predicate = or_(
+            *(
+                func.coalesce(Rom.hasheous_metadata[key].as_boolean(), false())
                 for key in keys_to_check
             )
-            predicate = text(f"({conditions})")
-            if not value:
-                predicate = text(f"NOT ({conditions})")
-            return query.filter(predicate)
-        else:
-            predicate = or_(
-                *(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check)
-            )
-            if not value:
-                predicate = not_(predicate)
-            return query.filter(predicate)
+        )
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
 
     def _filter_by_status(
         self,
@@ -3704,8 +3687,7 @@ class DBRomsHandler(DBBaseHandler):
         Migration 0127's sample lands on an empty table on a fresh install, and
         InnoDB's auto-recalc refreshes the stored row count without replanning.
         """
-        keyword = "ANALYZE" if is_postgresql(session.connection()) else "ANALYZE TABLE"
-        session.execute(text(f"{keyword} {RomIdentityKey.__tablename__}"))
+        session.execute(Analyze(RomIdentityKey.__tablename__))
 
     def invalidate_filter_values_cache(self) -> None:
         old_version = str(int(sync_cache.incr(ROM_FILTERS_CACHE_VERSION_KEY)) - 1)

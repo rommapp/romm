@@ -1,16 +1,16 @@
-"""Driver fixtures for query-shape tests: the suite runs one database at a
-time, so dialect branches are pinned by patching the handler's constant."""
+"""Dialects for query-shape tests: the suite runs one database at a time, so
+each engine's spelling is pinned by compiling for it explicitly."""
 
-import pytest
+from typing import Any
 
-_DRIVER_ATTR = "handler.database.roms_handler.ROMM_DB_DRIVER"
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.mysql.mariadb import MariaDBDialect
+from sqlalchemy.engine import Dialect
+
+# Named binds keep the expected SQL identical across dialects.
+MARIADB_DIALECT: Dialect = MariaDBDialect(paramstyle="named")
+POSTGRESQL_DIALECT: Dialect = postgresql.dialect(paramstyle="named")
 
 
-@pytest.fixture
-def mariadb_driver(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(_DRIVER_ATTR, "mariadb")
-
-
-@pytest.fixture
-def postgres_driver(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(_DRIVER_ATTR, "postgresql")
+def compile_sql(statement: Any, dialect: Dialect) -> str:
+    return str(statement.compile(dialect=dialect))

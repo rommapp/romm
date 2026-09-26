@@ -7,17 +7,17 @@ key yields NULL, and an OR chain containing a NULL is NULL rather than false,
 which makes `NOT (...)` NULL too: the unverified side would drop every row it
 should have returned.
 
-The JSON path already collapses a missing key into false (SQLAlchemy compiles
-`as_boolean()` to a CASE whose ELSE branch catches it), so only the PostgreSQL
-`->>` extraction needs the coalesce. The suite runs against one driver at a
-time, hence the compiled-SQL check below.
+On MariaDB and MySQL `as_boolean()` already collapses a missing key into false
+(it compiles to a CASE whose ELSE branch catches it); PostgreSQL's `->>`
+extraction does not, hence the coalesce. The suite runs against one driver at
+a time, hence the compiled-SQL check below.
 """
 
 import pytest
+from tests.handler.database.conftest import POSTGRESQL_DIALECT
 
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
-from handler.database.roms_handler import DBRomsHandler
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -120,23 +120,24 @@ class TestVerifiedFilter:
 
 
 class TestVerifiedPostgresPredicate:
-    """The PostgreSQL branch builds raw SQL, so it can only be checked by
-    compiling it (the suite runs on a single driver at a time)."""
-
-    @pytest.fixture
-    def postgres_handler(self, postgres_driver: None) -> DBRomsHandler:
-        return db_rom_handler
+    """The suite runs on a single driver at a time, so PostgreSQL's spelling is
+    pinned by compiling for it."""
 
     @pytest.mark.parametrize("verified", [True, False])
-    def test_every_key_is_coalesced_to_false(
-        self, postgres_handler: DBRomsHandler, verified: bool
-    ):
-        query, _ = postgres_handler.get_roms_query()
-        filtered = postgres_handler.filter_roms(
+    def test_every_key_is_coalesced_to_false(self, verified: bool):
+        query, _ = db_rom_handler.get_roms_query()
+        filtered = db_rom_handler.filter_roms(
             query=query, filters=RomFilterParams(verified=verified)
         )
 
-        sql = str(filtered.compile(compile_kwargs={"literal_binds": True}))
+        sql = str(
+            filtered.compile(
+                dialect=POSTGRESQL_DIALECT, compile_kwargs={"literal_binds": True}
+            )
+        )
 
         for key in [*LEGACY_KEYS, "mame_redump_match"]:
-            assert f"COALESCE((hasheous_metadata->>'{key}')::boolean, false)" in sql
+            assert (
+                f"coalesce(CAST((roms.hasheous_metadata ->> '{key}') AS BOOLEAN), "
+                "false)"
+            ) in sql
