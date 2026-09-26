@@ -560,3 +560,27 @@ async def test_promotion_racing_across_workers_does_not_destroy_the_folder(
     inside = real_library / f"{platform.slug}/roms/sf2ce/sf2ce.zip"
     assert inside.exists(), "the loser destroyed the winner's folder"
     assert inside.read_bytes() == b"romdata"
+
+
+def test_convert_a_disc_a_playlist_lists_returns_409(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+):
+    rom = _lone_disc(platform, admin_user, real_library)
+    roms_dir = real_library / rom.fs_path
+    (roms_dir / "Game.m3u").write_text(f"{DISC_1}\nGame (Disc 2).chd\n")
+
+    response = client.post(
+        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert "Game.m3u" in response.json()["detail"]
+    assert (roms_dir / DISC_1).read_bytes() == b"romdata"
+    assert not (roms_dir / "Game (Disc 1)").exists()
+    after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
+    assert after.fs_name == DISC_1

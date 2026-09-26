@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from handler import cd_audio
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.rom_files import RomFilesRefresh
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
 from models.user import User
@@ -375,14 +376,10 @@ def test_extracts_every_disc_of_a_set(
     assert first_disc.disc == 1
 
 
-def test_refuses_to_move_a_lone_disc_a_playlist_lists(
-    client: TestClient,
-    access_token: str,
-    admin_user: User,
-    platform: Platform,
-    real_library: Path,
-    tmp_path: Path,
-):
+def _add_playlist_listed_chd(
+    admin_user: User, platform: Platform, real_library: Path, tmp_path: Path
+) -> tuple[Rom, Path]:
+    """A lone CHD in the platform folder that an .m3u beside it lists."""
     fs_path = f"{platform.slug}/roms"
     (real_library / fs_path).mkdir(parents=True)
     write_cue_disc(tmp_path / "source")
@@ -394,6 +391,18 @@ def test_refuses_to_move_a_lone_disc_a_playlist_lists(
     rom = _add_disc_rom(
         admin_user, platform, chd.name, {chd.name: chd.stat().st_size}, fs_path
     )
+    return rom, chd
+
+
+def test_refuses_to_move_a_lone_disc_a_playlist_lists(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+    tmp_path: Path,
+):
+    rom, chd = _add_playlist_listed_chd(admin_user, platform, real_library, tmp_path)
 
     response = client.post(
         f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
@@ -402,6 +411,43 @@ def test_refuses_to_move_a_lone_disc_a_playlist_lists(
     assert response.status_code == status.HTTP_409_CONFLICT
     assert "Disc Game.m3u" in response.json()["detail"]
     assert chd.is_file()
+
+
+def test_counting_marks_a_lone_disc_a_playlist_lists_unextractable(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+    tmp_path: Path,
+):
+    rom, _ = _add_playlist_listed_chd(admin_user, platform, real_library, tmp_path)
+
+    response = client.get(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"tracks": 2, "extracted": 0, "extractable": False}
+
+
+def test_counting_marks_a_sheet_loose_in_the_platform_folder_unextractable(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+):
+    fs_path = f"{platform.slug}/roms"
+    write_cue_disc(real_library / fs_path)
+    rom = _add_disc_rom(admin_user, platform, "Disc.cue", {"Disc.cue": 10}, fs_path)
+
+    response = client.get(
+        f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"tracks": 2, "extracted": 0, "extractable": False}
 
 
 def test_moves_a_lone_chd_into_its_own_folder(
@@ -539,6 +585,58 @@ def test_registers_the_tracks_written_before_a_failure(
     assert set(_soundtrack_metas(cd_rom.id)) == {"Disc - Track 02.flac"}
 
 
+def test_asks_for_a_scan_when_the_tracks_cannot_be_registered(
+    client: TestClient,
+    access_token: str,
+    cd_rom: Rom,
+    real_library: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    async def refresh_fails(rom: Rom) -> RomFilesRefresh:
+        raise RuntimeError("lock timeout")
+
+    monkeypatch.setattr(cd_audio, "refresh_rom_files", refresh_fails)
+
+    response = client.post(
+        f"/api/roms/{cd_rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert "quick scan" in response.json()["detail"]
+    soundtrack = real_library / cd_rom.full_path / "soundtrack"
+    assert (soundtrack / "Disc - Track 02.flac").is_file()
+    assert (soundtrack / "Disc - Track 03.flac").is_file()
+
+
+def test_keeps_the_encode_error_when_registering_also_fails(
+    client: TestClient,
+    access_token: str,
+    cd_rom: Rom,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    real_encode = cd_audio.encode_track
+
+    async def fail_on_third(
+        source: cd_audio.AudioSource, output: Path, album: str | None
+    ) -> None:
+        if source.number == 3:
+            raise cd_audio.CdAudioEncodeException("boom")
+        await real_encode(source, output, album)
+
+    async def refresh_fails(rom: Rom) -> RomFilesRefresh:
+        raise RuntimeError("lock timeout")
+
+    monkeypatch.setattr(cd_audio, "encode_track", fail_on_third)
+    monkeypatch.setattr(cd_audio, "refresh_rom_files", refresh_fails)
+
+    response = client.post(
+        f"/api/roms/{cd_rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
+    )
+
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert response.json()["detail"] == "There was an error extracting the CD audio"
+
+
 def test_leaves_no_partial_file_when_the_image_cannot_be_read(
     client: TestClient,
     access_token: str,
@@ -586,8 +684,8 @@ def test_counts_the_audio_tracks_before_and_after_extraction(
     after = client.get(url, headers=_auth(access_token))
 
     assert before.status_code == status.HTTP_200_OK
-    assert before.json() == {"tracks": 2, "extracted": 0}
-    assert after.json() == {"tracks": 2, "extracted": 2}
+    assert before.json() == {"tracks": 2, "extracted": 0, "extractable": True}
+    assert after.json() == {"tracks": 2, "extracted": 2, "extractable": True}
 
 
 def test_counts_no_tracks_on_a_data_only_disc(
@@ -617,7 +715,7 @@ def test_counts_no_tracks_on_a_data_only_disc(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.json() == {"tracks": 0, "extracted": 0}
+    assert response.json() == {"tracks": 0, "extracted": 0, "extractable": True}
 
 
 def test_counts_no_tracks_without_a_disc_image(
@@ -629,7 +727,7 @@ def test_counts_no_tracks_without_a_disc_image(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.json() == {"tracks": 0, "extracted": 0}
+    assert response.json() == {"tracks": 0, "extracted": 0, "extractable": False}
 
 
 def test_counting_reports_missing_chd_support(
@@ -709,7 +807,7 @@ def test_extracts_a_disc_kept_as_both_a_sheet_and_a_chd_once(
     metas = _soundtrack_metas(rom.id)
     assert metas["Disc - Track 02.flac"] is not None
     assert metas["Disc - Track 02.flac"].title == "Opening"
-    assert counted.json() == {"tracks": 2, "extracted": 2}
+    assert counted.json() == {"tracks": 2, "extracted": 2, "extractable": True}
 
 
 def test_skips_a_track_a_concurrent_extraction_finished_first(
@@ -803,7 +901,7 @@ def test_falls_back_to_the_chd_when_the_sheet_lost_its_tracks(
     counted = client.get(url, headers=_auth(access_token))
     extracted = client.post(url, headers=_auth(access_token))
 
-    assert counted.json() == {"tracks": 2, "extracted": 0}
+    assert counted.json() == {"tracks": 2, "extracted": 0, "extractable": True}
     assert extracted.json()["extracted"] == [
         "Disc - Track 02.flac",
         "Disc - Track 03.flac",
@@ -895,7 +993,7 @@ def test_takes_each_gdi_track_file_and_number_once(
         f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
     )
 
-    assert response.json() == {"tracks": 1, "extracted": 0}
+    assert response.json() == {"tracks": 1, "extracted": 0, "extractable": True}
 
 
 def test_refuses_a_sheet_too_large_to_be_one(

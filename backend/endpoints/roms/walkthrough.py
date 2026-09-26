@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import os
 import re
@@ -12,13 +13,16 @@ from fastapi.responses import Response
 from decorators.auth import protected_route
 from endpoints.roms.upload import receive_rom_file
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from exceptions.fs_exceptions import RomAlreadyExistsException
+from exceptions.fs_exceptions import (
+    RomAlreadyExistsException,
+    RomListedByPlaylistException,
+)
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
-from handler.rom_conversion import promote_single_file_to_folder
-from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS, assert_promotable
+from handler.rom_conversion import assert_promotable, promote_single_file_to_folder
+from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS
 from handler.walkthrough import fetch_gamefaqs_guide, validate_gamefaqs_url
 from handler.walkthrough.gamefaqs import GameFAQsFetchError
 from logger.formatter import BLUE
@@ -128,8 +132,9 @@ async def add_rom_gamefaqs_walkthrough(
     url = (body.get("url") or "").strip()
     try:
         validate_gamefaqs_url(url)
-        assert_promotable(rom)
-    except ValueError as exc:
+        # Checked before the remote fetch, though promotion checks it again.
+        await asyncio.to_thread(assert_promotable, rom)
+    except (ValueError, RomListedByPlaylistException) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
@@ -144,6 +149,10 @@ async def add_rom_gamefaqs_walkthrough(
     if rom.has_simple_single_file:
         try:
             rom = await promote_single_file_to_folder(rom)
+        except RomListedByPlaylistException as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
         except RomAlreadyExistsException as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT, detail=str(exc)

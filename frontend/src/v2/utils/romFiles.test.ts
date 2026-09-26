@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RomFileSchema } from "@/__generated__";
-import { hasDiscImage, romFileUrl, versionedRomFileUrl } from "./romFiles";
+import { romFileUrl, versionedRomFileUrl } from "./romFiles";
 
 const file: RomFileSchema = {
   id: 7,
@@ -40,58 +40,5 @@ describe("versionedRomFileUrl", () => {
   it("changes when the file row is updated", () => {
     const replaced = { ...file, updated_at: "2024-03-01T00:00:00+00:00" };
     expect(versionedRomFileUrl(replaced)).not.toBe(versionedRomFileUrl(file));
-  });
-});
-
-describe("hasDiscImage", () => {
-  function disc(
-    files: Partial<RomFileSchema>[],
-    hasSimpleSingleFile = false,
-  ): Parameters<typeof hasDiscImage>[0] {
-    return {
-      has_simple_single_file: hasSimpleSingleFile,
-      files: files.map((overrides) => ({ ...file, ...overrides })),
-    };
-  }
-
-  it("finds a game cue sheet in a disc folder", () => {
-    expect(
-      hasDiscImage(
-        disc([
-          { file_name: "Game.CUE", category: "game" },
-          { file_name: "Game (Track 1).bin", category: "game" },
-        ]),
-      ),
-    ).toBe(true);
-    expect(
-      hasDiscImage(disc([{ file_name: "Game.cue", category: null }])),
-    ).toBe(true);
-  });
-
-  it("finds a Dreamcast .gdi sheet in a disc folder", () => {
-    expect(
-      hasDiscImage(disc([{ file_name: "disc.gdi", category: "game" }])),
-    ).toBe(true);
-    expect(
-      hasDiscImage(disc([{ file_name: "disc.gdi", category: "game" }], true)),
-    ).toBe(false);
-  });
-
-  it("finds a CHD, even alone in the platform folder", () => {
-    expect(
-      hasDiscImage(disc([{ file_name: "Game.chd", category: "game" }], true)),
-    ).toBe(true);
-  });
-
-  it("ignores cue sheets outside the game files", () => {
-    expect(
-      hasDiscImage(disc([{ file_name: "Game.cue", category: "soundtrack" }])),
-    ).toBe(false);
-  });
-
-  it("refuses a sheet loose in the platform folder", () => {
-    expect(
-      hasDiscImage(disc([{ file_name: "Game.cue", category: "game" }], true)),
-    ).toBe(false);
   });
 });

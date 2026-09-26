@@ -10,14 +10,14 @@ from pathlib import Path
 
 from anyio import Path as AnyioPath
 
+from exceptions.fs_exceptions import RomListedByPlaylistException
 from handler.filesystem import fs_rom_handler
-from handler.rom_conversion import promote_single_file_to_folder
+from handler.rom_conversion import assert_promotable, promote_single_file_to_folder
 from handler.rom_files import refresh_rom_files
 from handler.rom_upload import (
     CATEGORY_UPLOAD_FOLDERS,
     UploadConflictException,
-    UploadRejectedException,
-    assert_promotable,
+    UploadNotRegisteredException,
     move_into_place,
     prepare_upload_destination,
     staging_path,
@@ -336,6 +336,8 @@ class PlannedTrack:
 class CdAudioStatus:
     tracks: int
     extracted: int
+    # False when extraction would be refused, such as for a loose sheet.
+    extractable: bool
 
 
 def _disc_sources(images: list[RomFile], lib: ctypes.CDLL | None) -> list[AudioSource]:
@@ -402,6 +404,23 @@ def _plan_tracks(
     return planned
 
 
+def _lone_sheet(rom: Rom, discs: list[list[RomFile]]) -> bool:
+    # A CHD is self-contained, but a lone sheet would leave its tracks behind.
+    first = discs[0][0].file_name.lower()
+    return rom.has_simple_single_file and not first.endswith(".chd")
+
+
+def _extractable(rom: Rom, discs: list[list[RomFile]]) -> bool:
+    """Whether extraction's folder checks would let the discs through."""
+    if _lone_sheet(rom, discs):
+        return False
+    try:
+        assert_promotable(rom)
+    except RomListedByPlaylistException:
+        return False
+    return True
+
+
 async def cd_audio_status(rom: Rom) -> CdAudioStatus:
     """Count a ROM's CD audio tracks and how many are already in its soundtrack.
 
@@ -411,8 +430,9 @@ async def cd_audio_status(rom: Rom) -> CdAudioStatus:
     """
     discs = _discs(rom)
     if not discs:
-        return CdAudioStatus(tracks=0, extracted=0)
+        return CdAudioStatus(tracks=0, extracted=0, extractable=False)
     planned = await asyncio.to_thread(_plan_tracks, discs, load_libchdr())
+    extractable = await asyncio.to_thread(_extractable, rom, discs)
     soundtrack = {
         file.file_name
         for file in rom.files
@@ -421,6 +441,7 @@ async def cd_audio_status(rom: Rom) -> CdAudioStatus:
     return CdAudioStatus(
         tracks=len(planned),
         extracted=sum(track.file_name in soundtrack for track in planned),
+        extractable=extractable,
     )
 
 
@@ -432,11 +453,14 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
 
     Raises:
         CdAudioUnavailableException: flac, or libchdr for a CHD, isn't installed.
-        CdAudioNeedsFolderException: A sheet, or a disc an .m3u lists, sits loose
-            in the platform folder.
+        CdAudioNeedsFolderException: A sheet sits loose in the platform folder.
+        RomListedByPlaylistException: A lone CHD an .m3u lists can't be moved
+            into a folder.
         CdAudioEncodeException: A track couldn't be encoded.
         UploadRejectedException: A track's file name can't go in the soundtrack
             folder, such as one the scanner excludes.
+        UploadNotRegisteredException: The tracks were written, but the ROM's
+            files could not be refreshed.
     """
     if shutil.which(FLAC_BINARY) is None:
         raise CdAudioUnavailableException("The flac encoder is not installed")
@@ -447,9 +471,7 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
         return result
 
     lib = load_libchdr()
-    lone = rom.has_simple_single_file
-    # A CHD is self-contained, but a lone sheet would leave its tracks behind.
-    if lone and not discs[0][0].file_name.lower().endswith(".chd"):
+    if _lone_sheet(rom, discs):
         raise CdAudioNeedsFolderException(
             "Move the disc into a folder of its own to extract its audio"
         )
@@ -458,41 +480,56 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
     if not planned:
         return result
 
-    if lone:
-        try:
-            await asyncio.to_thread(assert_promotable, rom)
-        except UploadRejectedException as exc:
-            raise CdAudioNeedsFolderException(str(exc)) from exc
+    if rom.has_simple_single_file:
         rom = await promote_single_file_to_folder(rom)
         planned = await asyncio.to_thread(_plan_tracks, _discs(rom), lib)
 
-    folder = CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK]
     try:
-        for track in planned:
-            try:
-                destination = await prepare_upload_destination(
-                    rom, folder, track.file_name
-                )
-            except UploadConflictException:
-                result.skipped.append(track.file_name)
-                continue
-            staged = staging_path(destination.location)
-            await encode_track(track.source, staged, rom.name)
-            try:
-                await asyncio.to_thread(
-                    move_into_place, destination.location, staged, overwrite=False
-                )
-            except UploadConflictException:
-                # A concurrent extraction of the same disc got there first.
-                result.skipped.append(track.file_name)
-                continue
-            result.extracted.append(track.file_name)
-    finally:
-        # Register whatever landed, even when a later track failed.
+        await _write_tracks(rom, planned, result)
+    except BaseException:
+        # Register whatever landed, without replacing the error that stopped it.
         if result.extracted:
-            await refresh_rom_files(rom)
-            log.info(
-                f"Extracted {len(result.extracted)} CD audio tracks from "
-                f"{hl(rom.fs_name)}"
-            )
+            try:
+                await _register(rom, result)
+            except Exception as exc:
+                log.error(f"Error registering CD audio for ROM {rom.id}", exc_info=exc)
+        raise
+    if result.extracted:
+        try:
+            await _register(rom, result)
+        except Exception as exc:
+            log.error(f"Error registering CD audio for ROM {rom.id}", exc_info=exc)
+            raise UploadNotRegisteredException(
+                "Tracks extracted but not registered yet, run a quick scan"
+            ) from exc
     return result
+
+
+async def _write_tracks(
+    rom: Rom, planned: list[PlannedTrack], result: CdAudioExtraction
+) -> None:
+    folder = CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK]
+    for track in planned:
+        try:
+            destination = await prepare_upload_destination(rom, folder, track.file_name)
+        except UploadConflictException:
+            result.skipped.append(track.file_name)
+            continue
+        staged = staging_path(destination.location)
+        await encode_track(track.source, staged, rom.name)
+        try:
+            await asyncio.to_thread(
+                move_into_place, destination.location, staged, overwrite=False
+            )
+        except UploadConflictException:
+            # A concurrent extraction of the same disc got there first.
+            result.skipped.append(track.file_name)
+            continue
+        result.extracted.append(track.file_name)
+
+
+async def _register(rom: Rom, result: CdAudioExtraction) -> None:
+    await refresh_rom_files(rom)
+    log.info(
+        f"Extracted {len(result.extracted)} CD audio tracks from {hl(rom.fs_name)}"
+    )

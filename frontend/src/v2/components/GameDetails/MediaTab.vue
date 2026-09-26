@@ -33,7 +33,6 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSoundtrackActions } from "@/v2/composables/useSoundtrackActions";
 import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
 import { errorMessage } from "@/v2/utils/errorMessage";
-import { hasDiscImage } from "@/v2/utils/romFiles";
 
 const ManualSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ManualSubtab.vue"),
@@ -125,7 +124,7 @@ const canUploadSoundtrack = computed(
 );
 // Re-probed on any file change, so the action hides once every track is out.
 const cdAudioProbeKey = computed(() =>
-  subTab.value === "soundtrack" && canEdit.value && hasDiscImage(props.rom)
+  subTab.value === "soundtrack" && canEdit.value
     ? `${props.rom.id}:${(props.rom.files ?? [])
         .map((f) => `${f.id}@${f.updated_at}`)
         .join(",")}`
@@ -141,7 +140,9 @@ watch(
     try {
       const { data } = await romApi.getCdAudioStatus({ romId: props.rom.id });
       if (alive.value && cdAudioProbeKey.value === key) {
-        pendingCdAudioTracks.value = data.tracks - data.extracted;
+        pendingCdAudioTracks.value = data.extractable
+          ? data.tracks - data.extracted
+          : 0;
       }
     } catch {
       // An unreadable disc just offers nothing to extract.

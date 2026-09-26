@@ -5,5 +5,6 @@
 export type CdAudioStatusSchema = {
     tracks: number;
     extracted: number;
+    extractable: boolean;
 };
 

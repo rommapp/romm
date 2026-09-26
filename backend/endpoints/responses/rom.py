@@ -293,6 +293,7 @@ class CdAudioExtractionSchema(BaseModel):
 class CdAudioStatusSchema(BaseModel):
     tracks: int
     extracted: int
+    extractable: bool
 
 
 class RomMetadataSchema(BaseModel):

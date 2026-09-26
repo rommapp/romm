@@ -47,7 +47,10 @@ from endpoints.responses.rom import (
     SimpleRomSchema,
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from exceptions.fs_exceptions import RomAlreadyExistsException
+from exceptions.fs_exceptions import (
+    RomAlreadyExistsException,
+    RomListedByPlaylistException,
+)
 from handler.audit_handler import (
     AuditActor,
     AuditDraft,
@@ -2310,7 +2313,8 @@ async def convert_rom_to_folder(
     """Promote a single-file ROM to a folder ROM in place.
 
     Keeps the same id and all relations; no rescan. A no-op (clean success) if
-    the ROM is already folder-based. Returns 409 on a folder-name collision.
+    the ROM is already folder-based. Returns 409 on a folder-name collision, or
+    when an .m3u beside the file lists it.
     """
     rom = db_rom_handler.get_rom(id)
     if not rom:
@@ -2320,7 +2324,7 @@ async def convert_rom_to_folder(
 
     try:
         rom = await promote_single_file_to_folder(rom)
-    except RomAlreadyExistsException as exc:
+    except (RomAlreadyExistsException, RomListedByPlaylistException) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from exc

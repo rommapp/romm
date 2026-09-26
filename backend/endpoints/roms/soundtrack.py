@@ -16,7 +16,10 @@ from endpoints.responses.rom import (
 )
 from endpoints.roms.upload import receive_rom_file
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from exceptions.fs_exceptions import RomAlreadyExistsException
+from exceptions.fs_exceptions import (
+    RomAlreadyExistsException,
+    RomListedByPlaylistException,
+)
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.cd_audio import (
@@ -28,7 +31,11 @@ from handler.cd_audio import (
 )
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
-from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS, UploadRejectedException
+from handler.rom_upload import (
+    CATEGORY_UPLOAD_FOLDERS,
+    UploadNotRegisteredException,
+    UploadRejectedException,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -148,7 +155,11 @@ async def get_rom_cd_audio_status(
     with _cd_audio_errors(id, "reading the disc images"):
         result = await cd_audio_status(rom)
 
-    return CdAudioStatusSchema(tracks=result.tracks, extracted=result.extracted)
+    return CdAudioStatusSchema(
+        tracks=result.tracks,
+        extracted=result.extracted,
+        extractable=result.extractable,
+    )
 
 
 @protected_route(
@@ -181,9 +192,17 @@ async def extract_rom_cd_audio(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
-    except (CdAudioNeedsFolderException, RomAlreadyExistsException) as exc:
+    except (
+        CdAudioNeedsFolderException,
+        RomAlreadyExistsException,
+        RomListedByPlaylistException,
+    ) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    except UploadNotRegisteredException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         ) from exc
 
     return CdAudioExtractionSchema(extracted=result.extracted, skipped=result.skipped)
