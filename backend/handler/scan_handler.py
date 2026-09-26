@@ -1136,12 +1136,16 @@ async def scan_rom(
                     f"{hl(str(h_ra_id), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
+                return await meta_ra_handler.get_rom_by_id(
+                    rom=rom, ra_id=h_ra_id, ra_hash=rom_attrs["ra_hash"]
+                )
 
             if (scan_type == ScanType.UPDATE and rom.ra_id) or (
                 scan_type == ScanType.UNMATCHED and rom.ra_id and not rom.ra_metadata
             ):
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=rom.ra_id)
+                return await meta_ra_handler.get_rom_by_id(
+                    rom=rom, ra_id=rom.ra_id, ra_hash=rom_attrs["ra_hash"]
+                )
             else:
                 return await meta_ra_handler.get_rom(
                     rom=rom, ra_hash=rom_attrs["ra_hash"]

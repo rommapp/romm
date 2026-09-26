@@ -3,9 +3,9 @@
 //   1. File info — name, size, and the platform-native ids when present.
 //   2. Hashes — SHA-1, MD5, CRC, RA, all mono. RTag with eyebrow label.
 //      Same order as the files list so the two tabs read alike.
-//   3. Verification — RTag per database; tone="success" for match,
-//      neutral for miss. Same source of truth (Hasheous match flags) as
-//      the "Verified" badge in the header, via `VERIFICATION_DATABASES`.
+//   3. Verification: RTag per database; tone="success" for match,
+//      neutral for miss. Same source of truth as the "Verified" badge in
+//      the header, via `VERIFICATION_DATABASES`.
 //   4. Metadata sources — ProviderGrid (linked + unlinked).
 import { RTag } from "@v2/lib";
 import { computed } from "vue";
@@ -66,7 +66,7 @@ type Verification = { label: string; match: boolean };
 // Per-database match badges, driven by the shared VERIFICATION_DATABASES
 // so this list stays in lockstep with the header badge and the backend
 // filter. A match means the ROM's hash was found in that database (via
-// Hasheous), which is what "verified" communicates.
+// Hasheous or the RA hash lookup), which is what "verified" communicates.
 const verifications = computed<Verification[]>(() =>
   VERIFICATION_DATABASES.map((db) => ({
     label: db.label,

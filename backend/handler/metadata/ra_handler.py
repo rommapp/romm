@@ -56,6 +56,8 @@ class RAMetadata(TypedDict):
     publishers: list[str]
     developers: list[str]
     achievements: list[RAGameRomAchievement]
+    # The ROM's RA hash is one RetroAchievements lists for this game.
+    hash_match: NotRequired[bool]
 
 
 class RAGameRom(BaseRom):
@@ -85,7 +87,7 @@ class RAUserProgression(TypedDict):
 
 
 def extract_metadata_from_rom_details(
-    rom: Rom, rom_details: RAGameExtendedDetails
+    rom: Rom, rom_details: RAGameExtendedDetails, hash_match: bool
 ) -> RAMetadata:
     def parse_release_timestamp():
         release_date_str = rom_details.get("Released")
@@ -126,6 +128,7 @@ def extract_metadata_from_rom_details(
             )
             for achievement in rom_details.get("Achievements", {}).values()
         ],
+        hash_match=hash_match,
     )
 
 
@@ -217,6 +220,11 @@ class RAHandler(MetadataHandler):
 
         return hash_index.get(ra_hash.lower())
 
+    async def _hash_matches(self, rom: Rom, ra_hash: str | None, ra_id: int) -> bool:
+        if not ra_hash:
+            return False
+        return await self._search_rom(rom, ra_hash) == ra_id
+
     def get_platform(self, slug: str) -> RAGamesPlatform:
         if slug not in RA_PLATFORM_LIST:
             return RAGamesPlatform(ra_id=None, slug=slug)
@@ -237,7 +245,9 @@ class RAHandler(MetadataHandler):
         ra_id_from_tag = self.extract_ra_id_from_filename(rom.fs_name)
         if ra_id_from_tag:
             log.debug(f"Found RetroAchievements ID tag in filename: {ra_id_from_tag}")
-            rom_by_id = await self.get_rom_by_id(rom=rom, ra_id=ra_id_from_tag)
+            rom_by_id = await self.get_rom_by_id(
+                rom=rom, ra_id=ra_id_from_tag, ra_hash=ra_hash
+            )
             if rom_by_id["ra_id"]:
                 log.debug(
                     f"Successfully matched ROM by RetroAchievements ID tag: {rom.fs_name} -> {ra_id_from_tag}"
@@ -276,15 +286,20 @@ class RAHandler(MetadataHandler):
                         )
                     ]
                 ),
-                ra_metadata=extract_metadata_from_rom_details(rom, rom_details),
+                ra_metadata=extract_metadata_from_rom_details(
+                    rom, rom_details, hash_match=True
+                ),
             )
         except KeyError:
             return RAGameRom(ra_id=None)
 
-    async def get_rom_by_id(self, rom: Rom, ra_id: int) -> RAGameRom:
+    async def get_rom_by_id(
+        self, rom: Rom, ra_id: int, ra_hash: str | None = None
+    ) -> RAGameRom:
         if not ra_id:
             return RAGameRom(ra_id=None)
 
+        hash_match = await self._hash_matches(rom, ra_hash, ra_id)
         try:
             rom_details = await self.ra_service.get_game_extended_details(ra_id)
             return RAGameRom(
@@ -304,7 +319,9 @@ class RAHandler(MetadataHandler):
                         )
                     ]
                 ),
-                ra_metadata=extract_metadata_from_rom_details(rom, rom_details),
+                ra_metadata=extract_metadata_from_rom_details(
+                    rom, rom_details, hash_match=hash_match
+                ),
             )
         except KeyError:
             return RAGameRom(ra_id=None)

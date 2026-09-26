@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RomHasheousMetadata } from "@/__generated__";
+import type { RomHasheousMetadata, RomRAMetadata } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import {
   isRomVerified,
@@ -8,9 +8,11 @@ import {
   VERIFICATION_KEYS,
 } from "./romVerification";
 
-// Only `hasheous_metadata` is read; cast a minimal stub to SimpleRom.
-const rom = (hasheous_metadata?: RomHasheousMetadata | null): SimpleRom =>
-  ({ hasheous_metadata }) as SimpleRom;
+// Only the match blobs are read; cast a minimal stub to SimpleRom.
+const rom = (
+  hasheous_metadata?: RomHasheousMetadata | null,
+  merged_ra_metadata?: RomRAMetadata | null,
+): SimpleRom => ({ hasheous_metadata, merged_ra_metadata }) as SimpleRom;
 
 describe("isRomVerified", () => {
   it("is false when there is no hasheous metadata", () => {
@@ -62,6 +64,29 @@ describe("matchesDatabase", () => {
     )!;
     expect(ra.keys).toEqual(["ra_match"]);
     expect(matchesDatabase(rom({ ra_match: true }), ra.keys)).toBe(true);
+  });
+
+  it("counts a scan-time RA hash match when Hasheous has no RA flag", () => {
+    const ra = VERIFICATION_DATABASES.find(
+      (db) => db.label === "RetroAchievements",
+    )!;
+    const raHashMatch = rom({ ra_match: false }, { hash_match: true });
+    expect(matchesDatabase(raHashMatch, ra.keys)).toBe(true);
+    expect(matchesDatabase(rom(null, { hash_match: true }), ra.keys)).toBe(
+      true,
+    );
+    expect(matchesDatabase(rom(null, { hash_match: false }), ra.keys)).toBe(
+      false,
+    );
+  });
+
+  it("does not credit an RA hash match to other databases", () => {
+    const raHashMatch = rom(null, { hash_match: true });
+    for (const db of VERIFICATION_DATABASES) {
+      if (db.label === "RetroAchievements") continue;
+      expect(matchesDatabase(raHashMatch, db.keys)).toBe(false);
+    }
+    expect(isRomVerified(raHashMatch)).toBe(true);
   });
 });
 

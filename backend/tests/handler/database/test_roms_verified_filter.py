@@ -1,4 +1,4 @@
-"""The `verified` filter over the Hasheous signature-match flags.
+"""The `verified` filter over the Hasheous signature-match flags and RA hash match.
 
 `hasheous_metadata` is a JSON blob whose keys grow as RomM maps more of
 Hasheous' signature sources (`mame_redump_match` was the latest addition), so
@@ -12,13 +12,13 @@ driver at a time, hence the compiled-SQL check below.
 """
 
 import pytest
-from tests.sql_dialects import POSTGRESQL_DIALECT, compile_sql
 
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from tests.sql_dialects import POSTGRESQL_DIALECT, compile_sql
 
 # The keys as they were written before `mame_redump_match` joined them.
 LEGACY_KEYS = [
@@ -34,7 +34,13 @@ LEGACY_KEYS = [
 ]
 
 
-def _add_rom(platform: Platform, user: User, name: str, metadata: dict) -> Rom:
+def _add_rom(
+    platform: Platform,
+    user: User,
+    name: str,
+    metadata: dict,
+    ra_metadata: dict | None = None,
+) -> Rom:
     rom = db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,
@@ -46,6 +52,7 @@ def _add_rom(platform: Platform, user: User, name: str, metadata: dict) -> Rom:
             fs_extension="zip",
             fs_path=f"{platform.slug}/roms",
             hasheous_metadata=metadata,
+            ra_metadata=ra_metadata,
         )
     )
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=user.id)
@@ -84,6 +91,30 @@ def chd_verified_rom(platform: Platform, admin_user: User) -> Rom:
     )
 
 
+@pytest.fixture
+def ra_hash_verified_rom(platform: Platform, admin_user: User) -> Rom:
+    """Hasheous flagged nothing, but the ROM's RA hash is in RA's list."""
+    return _add_rom(
+        platform,
+        admin_user,
+        "ra_hash_verified",
+        {key: False for key in LEGACY_KEYS},
+        ra_metadata={"achievements": [], "hash_match": True},
+    )
+
+
+@pytest.fixture
+def ra_id_only_rom(platform: Platform, admin_user: User) -> Rom:
+    """Linked to an RA game whose hash list doesn't carry this ROM's RA hash."""
+    return _add_rom(
+        platform,
+        admin_user,
+        "ra_id_only",
+        {key: False for key in LEGACY_KEYS},
+        ra_metadata={"achievements": [], "hash_match": False},
+    )
+
+
 class TestVerifiedFilter:
     def test_unverified_keeps_roms_missing_the_newest_key(
         self,
@@ -116,6 +147,20 @@ class TestVerifiedFilter:
 
         assert [r.id for r in roms] == [rom.id]
 
+    def test_verified_includes_an_ra_hash_match(
+        self,
+        admin_user: User,
+        ra_hash_verified_rom: Rom,
+        ra_id_only_rom: Rom,
+    ):
+        verified = db_rom_handler.get_roms_scalar(user_id=admin_user.id, verified=True)
+        unverified = db_rom_handler.get_roms_scalar(
+            user_id=admin_user.id, verified=False
+        )
+
+        assert [r.id for r in verified] == [ra_hash_verified_rom.id]
+        assert [r.id for r in unverified] == [ra_id_only_rom.id]
+
 
 class TestVerifiedPostgresPredicate:
     @pytest.mark.parametrize("verified", [True, False])
@@ -132,3 +177,6 @@ class TestVerifiedPostgresPredicate:
                 f"coalesce(CAST((roms.hasheous_metadata ->> '{key}') AS BOOLEAN), "
                 "false)"
             ) in sql
+        assert (
+            "coalesce(CAST((roms.ra_metadata ->> 'hash_match') AS BOOLEAN), false)"
+        ) in sql

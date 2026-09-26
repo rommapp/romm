@@ -1,8 +1,9 @@
-// romVerification — single source of truth for what "verified" means: a
-// ROM whose file hash matched a known ROM database (via Hasheous). Mirrors
-// the backend's `_filter_by_verified` (roms_handler.py) so the header
-// badge, the per-database chips in the Metadata tab, and the library
-// "verified" filter all agree. Merely having a computed hash
+// romVerification: single source of truth for what "verified" means, a
+// ROM whose file hash matched a known ROM database (via Hasheous, or the
+// RetroAchievements hash lookup at scan time). Mirrors the backend's
+// `_filter_by_verified` (roms_handler.py) so the header badge, the
+// per-database chips in the Metadata tab, and the library "verified"
+// filter all agree. Merely having a computed hash
 // (crc/md5/sha1) does NOT make a ROM verified.
 import type { RomHasheousMetadata } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
@@ -36,8 +37,11 @@ export function matchesDatabase(
   keys: (keyof RomHasheousMetadata)[],
 ): boolean {
   const h = rom.hasheous_metadata;
-  if (!h) return false;
-  return keys.some((key) => Boolean(h[key]));
+  if (h && keys.some((key) => Boolean(h[key]))) return true;
+  // RA hashes only part of some ROMs (NDS, PSP), which Hasheous can't match.
+  return (
+    keys.includes("ra_match") && Boolean(rom.merged_ra_metadata?.hash_match)
+  );
 }
 
 // Whether the ROM is verified against any known database.

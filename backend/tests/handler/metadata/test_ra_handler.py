@@ -129,3 +129,62 @@ class TestSearchRom:
         rom.platform.ra_id = None
 
         assert await handler._search_rom(rom, "abcdef") is None
+
+
+class TestHashMatch:
+    """`hash_match` says whether RA lists the ROM's RA hash for the matched game."""
+
+    GAME_DETAILS = {"ID": 17353, "Title": "Game", "Achievements": {}}
+
+    @pytest.fixture
+    def rom(self) -> MagicMock:
+        rom = MagicMock()
+        rom.fs_name = "game.nds"
+        rom.platform.id = 1
+        rom.platform.ra_id = 18
+        return rom
+
+    @pytest.fixture(autouse=True)
+    def _stub_service(self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(
+            handler.ra_service,
+            "get_game_extended_details",
+            AsyncMock(return_value=self.GAME_DETAILS),
+        )
+        monkeypatch.setattr(
+            handler,
+            "_search_rom",
+            AsyncMock(side_effect=lambda _rom, ra_hash: {"abcdef": 17353}.get(ra_hash)),
+        )
+
+    async def test_a_hash_lookup_match_is_a_hash_match(
+        self, handler: RAHandler, rom: MagicMock
+    ):
+        result = await handler.get_rom(rom, ra_hash="abcdef")
+
+        assert result["ra_id"] == 17353
+        assert result["ra_metadata"]["hash_match"] is True
+
+    async def test_an_id_match_whose_hash_ra_lists_is_a_hash_match(
+        self, handler: RAHandler, rom: MagicMock
+    ):
+        """A Hasheous-supplied RA id still counts when RA lists the ROM's hash."""
+        result = await handler.get_rom_by_id(rom, ra_id=17353, ra_hash="abcdef")
+
+        assert result["ra_metadata"]["hash_match"] is True
+
+    @pytest.mark.parametrize("ra_hash", [None, "", "ffffff"])
+    async def test_an_id_match_without_a_listed_hash_is_not(
+        self, handler: RAHandler, rom: MagicMock, ra_hash: str | None
+    ):
+        result = await handler.get_rom_by_id(rom, ra_id=17353, ra_hash=ra_hash)
+
+        assert result["ra_id"] == 17353
+        assert result["ra_metadata"]["hash_match"] is False
+
+    async def test_a_hash_listed_for_another_game_is_not(
+        self, handler: RAHandler, rom: MagicMock
+    ):
+        result = await handler.get_rom_by_id(rom, ra_id=1, ra_hash="abcdef")
+
+        assert result["ra_metadata"]["hash_match"] is False
