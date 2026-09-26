@@ -209,6 +209,8 @@ async def update_permission_group(
             else None
         ),
     )
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     # Grant changes alter every member's effective permissions.
     for member_id in db_permission_handler.get_group_member_ids(id):
         await emit_permissions_changed(member_id)

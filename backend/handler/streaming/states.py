@@ -36,7 +36,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.filesystem import fs_asset_handler
-from handler.streaming import broker, commands
+from handler.streaming import broker, commands, webstation
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import set_session_disc
 from logger.logger import log
@@ -57,13 +57,16 @@ _SLOT_PATTERNS = {
     # RetroArch leaves the number off its default slot: "GAME.state" is slot 0
     # and "GAME.state3" is slot 3.
     "retroarch": re.compile(r"\.state(\d{0,2})$"),
+    # DuckStation and RPCS3 write one exit state per game with no slot in the
+    # name, so the empty group reads as the working slot 0.
+    "duckstation": re.compile(r"()\.sav$"),
+    "rpcs3": re.compile(r"()\.SAVESTAT(?:\.zst|\.gz)?$"),
 }
 
 
-# Lowest slot each emulator's broker will actually address. Everything but
-# RetroArch counts from 1, so a "0" in one of their names is a filename that
-# happens to look like a state, not a slot they could load.
-_MIN_SLOT = {"retroarch": 0}
+# Lowest slot each emulator's broker addresses. The rest count from 1, so a "0"
+# in one of their names is a filename that looks like a state, not a slot.
+_MIN_SLOT = {"duckstation": 0, "retroarch": 0, "rpcs3": 0}
 
 
 def slot_from_state_filename(emulator: str, filename: str) -> int | None:
@@ -110,13 +113,13 @@ def container_state_filename(filename: str) -> str:
 
 def resolve_resume_state(
     user_id: int, rom: Rom, container: ResolvedContainer, state_id: int
-) -> tuple[State, int]:
-    """Validate a resume-from-state pick and return (state, slot).
+) -> tuple[State, int, bool]:
+    """Validate a resume-from-state pick and return (state, slot, is_foreign).
 
     Visibility follows the same rule as the state list the picker was built
     from: the claiming user's own states plus other users' public ones.
-    Raises 404 for anything invisible, 400 when the state cannot drive a
-    resume on this container.
+    Raises 404 for anything invisible, 400 for a foreign state the broker
+    will not import.
     """
     state = next(
         (
@@ -132,19 +135,26 @@ def resolve_resume_state(
         raise HTTPException(status_code=404, detail="State not found")
 
     emulator = container.emulator
-    if (state.emulator or "").lower() != emulator:
+    native = (state.emulator or "").lower() == emulator
+    if native:
+        slot = slot_from_state_filename(emulator, state.file_name)
+        if slot is not None:
+            return state, slot, False
+
+    spec = webstation.import_spec(container, emulator, container.platform)
+    import_slot = spec.resume_slot() if spec is not None else None
+    if import_slot is not None:
+        return state, import_slot, True
+
+    if not native:
         raise HTTPException(
             status_code=400,
             detail="State was made by a different emulator",
         )
-
-    slot = slot_from_state_filename(emulator, state.file_name)
-    if slot is None:
-        raise HTTPException(
-            status_code=400,
-            detail="State filename carries no recognizable slot number",
-        )
-    return state, slot
+    raise HTTPException(
+        status_code=400,
+        detail="State filename carries no recognizable slot number",
+    )
 
 
 def fetch_state_file(
@@ -482,9 +492,10 @@ async def hydrate_states_to_broker(
 
     For the same reason, a resume pick already sent at claim time means there is
     nothing to add here: any push would overwrite it before the broker's
-    deferred load fires.
+    deferred load fires. A container that resumes from its save archive takes no
+    state file at all, and the archive already carries the newest exit state.
     """
-    if resume_pushed:
+    if resume_pushed or container.resumes_from_archive:
         return 0
 
     user = db_user_handler.get_user(user_id)

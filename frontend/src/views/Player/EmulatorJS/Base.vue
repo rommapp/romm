@@ -629,6 +629,7 @@ function openCacheDialog() {
           :state="selectedState"
           :save="selectedSave"
           :bios="selectedFirmware"
+          :firmware="firmwareOptions"
           :core="selectedCore"
           :disc="selectedDisc"
         />

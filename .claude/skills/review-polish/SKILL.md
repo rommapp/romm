@@ -1,6 +1,6 @@
 ---
 name: review-polish
-description: The before-review and before-handoff pass for RomM, covering both stacks. First shapes the code the checks can't see — comment and docstring discipline (the single most-corrected thing in this repo), duplicated constants/types/getters, imprecise names, loose typing in tests. Then runs the verification gate that keeps CI green — frontend (typecheck/lint/test/build/i18n/tokens), backend (pytest/alembic/trunk), the OpenAPI regen step, and (for UI) manual browser/theme/input/Storybook checks. Ends with what the PR description owes a reviewer: screenshots of a UI change, a mermaid diagram of an architectural one. Use after the code works, right before committing, opening a PR, or telling the user a change is done.
+description: "The before-review and before-handoff pass for RomM, covering both stacks. First shapes the code the checks can't see: comment and docstring discipline (the single most-corrected thing in this repo), duplicated constants/types/getters, imprecise names, loose typing in tests. Then runs the verification gate that keeps CI green: frontend (typecheck/lint/test/build/i18n/tokens), backend (pytest/alembic/trunk), the OpenAPI regen step, and (for UI) manual browser/theme/input/Storybook checks. Ends with what the PR description owes a reviewer: screenshots of a UI change, a mermaid diagram of an architectural one. Use after the code works, right before committing, opening a PR, or telling the user a change is done."
 ---
 
 # RomM: Review Polish & Verification
@@ -106,7 +106,7 @@ short a word.
 
 ## D. Tests: strict typing is part of the test
 
-Trunk runs mypy over `backend/tests/`, and `vue-tsc` covers frontend tests. Both
+mypy covers `backend/tests/`, and `vue-tsc` covers frontend tests. Both
 catch these, but only after the contributor has handed the PR over.
 
 - **Narrow optionals before attribute access.** `mock.await_args` is
@@ -145,7 +145,7 @@ Run from `frontend/`:
 1. `npm run typecheck`: zero errors (`vue-tsc --noEmit`).
 2. `npm run typecheck:scripts`: zero errors (`tsc -p tsconfig.node.json`, covers `scripts/`).
 3. `npm run lint` _(if present)_ / ESLint clean. Trunk also runs ESLint + Prettier in CI.
-4. `npm run test`: zero failures (Vitest + happy-dom; runs unit tests **and** every `/lib` story's `play()` via `composeStories`).
+4. `npm run test`: zero failures (Vitest + happy-dom; runs unit tests **and** every `/lib` and `components/shared` story's `play()` via `composeStories`).
 5. `npm run build`: zero failures (CI sanity check).
 
 **If you touched the backend API:** start the backend, run `npm run generate`, then re-`typecheck`.
@@ -181,13 +181,14 @@ With `uiVersion = "v2"`:
 Run from `backend/`:
 
 1. `uv run pytest <path/file>` — zero failures on the tests affected by the diff. Never run the whole suite locally (20+ minutes); see [AGENTS.md](../../../AGENTS.md) for how to pick targets. CI runs it in full.
-2. `trunk fmt && trunk check` — ruff/black/isort/mypy/bandit clean (CI enforces Trunk).
-3. **If you added a migration:** `uv run alembic upgrade head` then `uv run alembic downgrade -1` to prove both directions; it must work on MariaDB **and** PostgreSQL (CI runs both).
-4. **If a response schema or route signature changed:** regenerate frontend types (`npm run generate`) and typecheck the frontend.
+2. `trunk fmt && trunk check`: ruff/black/isort/bandit clean (CI enforces Trunk).
+3. `uv run mypy --config-file ../.trunk/configs/mypy.ini .`: zero errors across the backend (CI enforces it).
+4. **If you added a migration:** `uv run alembic upgrade head` then `uv run alembic downgrade -1` to prove both directions; it must work on MariaDB **and** PostgreSQL (CI runs both).
+5. **If a response schema or route signature changed:** regenerate frontend types (`npm run generate`) and typecheck the frontend.
 
 ### CI gates this mirrors
 
-`typecheck.yml` (vue-tsc + lockfile lint), `frontend.yml` (vitest + build), `i18n.yml` (locale check), `pytest.yml` (pytest on MariaDB + PostgreSQL), `migrations.yml` (alembic on both DBs), `trunk-check.yml` (Trunk across the repo). Green locally → green in CI.
+`typecheck.yml` (vue-tsc + lockfile lint), `frontend.yml` (vitest + build), `i18n.yml` (locale check), `pytest.yml` (pytest on MariaDB + PostgreSQL), `migrations.yml` (alembic on both DBs), `mypy.yml` (mypy across the backend), `trunk-check.yml` (Trunk across the repo). Green locally → green in CI.
 
 ### Don't
 

@@ -7,6 +7,7 @@ import AssetStrip from "./AssetStrip.vue";
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key, locale: "en_US" }),
 }));
+vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 const RTag = {
   props: { text: { type: String, default: "" } },
@@ -48,6 +49,29 @@ describe("AssetStrip grouped by core", () => {
     expect(wrapper.findAll(".tag").map((el) => el.text())).toEqual([
       "play.latest-version",
     ]);
+  });
+
+  it("heads a group with the emulator's display name", () => {
+    const wrapper = mountStrip({
+      groupBy: "emulator",
+      assets: [state(5, "play", "2026-09-16T10:00:00Z")],
+    });
+
+    expect(wrapper.get(".r-asset-group-head__title").text()).toBe("Play!");
+  });
+
+  it("groups an emulator configured in another case with its own", () => {
+    const wrapper = mountStrip({
+      groupBy: "emulator",
+      assets: [
+        state(5, "play", "2026-09-16T10:00:00Z"),
+        state(6, "Play", "2026-09-15T10:00:00Z"),
+      ],
+    });
+
+    expect(
+      wrapper.findAll(".r-asset-group-head__title").map((el) => el.text()),
+    ).toEqual(["Play!"]);
   });
 
   it("tags exactly one Latest tile when timestamps tie", () => {

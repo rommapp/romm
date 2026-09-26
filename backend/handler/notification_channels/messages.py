@@ -16,6 +16,11 @@ class OutboundMessage:
     # Absolute, or None when ROMM_BASE_URL doesn't point anywhere shareable.
     url: str | None
 
+    @property
+    def text(self) -> str:
+        """The body and link as plain text, or the title when there are neither."""
+        return "\n\n".join(part for part in (self.body, self.url) if part) or self.title
+
 
 def _text(value: Any) -> str | None:
     return value if isinstance(value, str) and value else None

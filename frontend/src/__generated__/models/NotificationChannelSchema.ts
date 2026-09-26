@@ -5,7 +5,6 @@
 import type { NotificationChannelMinLevel } from './NotificationChannelMinLevel';
 import type { NotificationChannelType } from './NotificationChannelType';
 import type { NotificationTopic } from './NotificationTopic';
-import type { WebhookFormat } from './WebhookFormat';
 export type NotificationChannelSchema = {
     id: number;
     type: NotificationChannelType;
@@ -14,7 +13,10 @@ export type NotificationChannelSchema = {
     min_level: NotificationChannelMinLevel;
     topics: (Array<NotificationTopic> | null);
     target: string;
-    format: (WebhookFormat | null);
+    service: (string | null);
+    service_name: (string | null);
+    fields: (Record<string, (boolean | number | string | Array<string>)> | null);
+    stored_secrets: (Array<string> | null);
     has_secret: boolean;
     confirmed: boolean;
     last_delivered_at: (string | null);

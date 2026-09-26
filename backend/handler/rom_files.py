@@ -53,10 +53,16 @@ class RomFilesRefresh:
     new_files: int
     updated_files: int
     removed_files: int
+    identity_changed: bool = False
 
     @property
     def changed(self) -> bool:
-        return bool(self.new_files or self.updated_files or self.removed_files)
+        return bool(
+            self.new_files
+            or self.updated_files
+            or self.removed_files
+            or self.identity_changed
+        )
 
 
 def loaded_rom_files(rom: Rom) -> list[RomFile]:
@@ -81,6 +87,9 @@ async def refresh_rom_files(rom: Rom) -> RomFilesRefresh:
 
 async def _refresh(rom: Rom) -> RomFilesRefresh:
     existing = loaded_rom_files(rom)
+    # Extraction can settle a reused row's category in place, so that row is
+    # compared against the category it was loaded with.
+    reused_categories = {id(f): f.category for f in existing}
     cnfg = cm.get_config()
     calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
     parsed = await fs_rom_handler.get_rom_files(
@@ -98,11 +107,13 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
         return RomFilesRefresh(0, 0, 0)
 
     existing_keys = {rom_file_key(f) for f in existing}
-    reused_ids = {id(f) for f in existing}
     new_keys: set[RomFileKey] = set()
     updated_keys: set[RomFileKey] = set()
     for scanned in parsed.rom_files:
-        if id(scanned) in reused_ids:
+        if (
+            id(scanned) in reused_categories
+            and reused_categories[id(scanned)] == scanned.category
+        ):
             continue
         key = rom_file_key(scanned)
         (updated_keys if key in existing_keys else new_keys).add(key)
@@ -128,9 +139,12 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
             if value != (getattr(rom, column) or ""):
                 rom_updates[column] = value
     # Only written when the parse actually read an id, so a refresh that read
-    # none (extraction disabled, or every file unchanged) leaves the stored
-    # triple alone rather than blanking it.
-    if parsed.identity.title_id and parsed.identity != RomIdentity.from_rom(rom):
+    # none (extraction disabled, or no readable file) leaves the stored triple
+    # alone rather than blanking it.
+    identity_changed = bool(
+        parsed.identity.title_id and parsed.identity != RomIdentity.from_rom(rom)
+    )
+    if identity_changed:
         rom_updates.update(parsed.identity.as_rom_attrs())
     if rom.missing_from_fs:
         rom_updates["missing_from_fs"] = False
@@ -141,4 +155,5 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
         new_files=len(new_keys),
         updated_files=len(updated_keys),
         removed_files=len(removed_keys),
+        identity_changed=identity_changed,
     )

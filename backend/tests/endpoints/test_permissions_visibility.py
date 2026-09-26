@@ -393,6 +393,7 @@ def test_delete_requires_delete_grant_even_with_write_scope(
     )
     db_user_handler.update_user(viewer_user.id, {"permission_group_id": gid})
     user = db_user_handler.get_user(viewer_user.id)
+    assert user is not None
 
     # Coarse PLATFORMS_WRITE is present (projected from the write grant), so the
     # request passes the scope gate and is rejected by the fine delete check.

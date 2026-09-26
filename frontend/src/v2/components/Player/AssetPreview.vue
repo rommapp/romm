@@ -6,6 +6,7 @@ import { RIcon, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
+import { useStreamingStore } from "@/stores/streaming";
 import { formatBytes } from "@/utils";
 import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetLabels from "@/v2/components/shared/AssetLabels.vue";
@@ -44,6 +45,7 @@ defineEmits<{
 }>();
 
 const { t } = useI18n();
+const { emulatorLabel } = useStreamingStore();
 
 const screenshotUrl = computed(() => {
   if (!props.asset) return null;
@@ -177,7 +179,7 @@ const emptyText = computed(() =>
             v-if="type === 'state' && asset.emulator"
             tone="warning"
             size="x-small"
-            :text="asset.emulator"
+            :text="emulatorLabel(asset.emulator)"
           />
           <span class="r-asset-preview__chip">
             {{ formatBytes(asset.file_size_bytes) }}

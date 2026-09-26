@@ -12,6 +12,7 @@ vi.mock("vue-i18n", () => ({
     locale: "en_US",
   }),
 }));
+vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 const RBtn = {
   emits: ["click"],

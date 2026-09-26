@@ -5,8 +5,13 @@ import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import { useSaveStateTabs } from "./index";
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    t: (key: string, params?: { emulator?: string }) =>
+      params?.emulator ? `${key}:${params.emulator}` : key,
+  }),
 }));
+
+vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 function makeSave(overrides: Partial<SaveSchema> = {}): SaveSchema {
   return saveFixture({ id: 1, file_name: "1.srm", ...overrides });
@@ -50,12 +55,31 @@ describe("useSaveStateTabs", () => {
     );
 
     expect(stateDisabledReason(makeState("bsnes"))).toBe(
-      "play.state-incompatible-core",
+      "play.state-incompatible-core:bsnes",
     );
     expect(stateDisabledReason(makeState("snes9x"))).toBeNull();
 
     core.value = "bsnes";
     expect(compatibleStates.value).toHaveLength(1);
     expect(stateDisabledReason(makeState("bsnes"))).toBeNull();
+  });
+
+  it("loads a state its core wrote under another case", () => {
+    const { stateDisabledReason, allStatesCompatible } = useSaveStateTabs(
+      [],
+      [makeState("SNES9x")],
+      "snes9x",
+    );
+
+    expect(stateDisabledReason(makeState("SNES9x"))).toBeNull();
+    expect(allStatesCompatible.value).toBe(true);
+  });
+
+  it("names another emulator's state the way the backend labels it", () => {
+    const { stateDisabledReason } = useSaveStateTabs([], [], "snes9x");
+
+    expect(stateDisabledReason(makeState("retroarch"))).toBe(
+      "play.state-incompatible-core:RetroArch",
+    );
   });
 });

@@ -5,6 +5,7 @@ import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
+import { platformIconManifest } from "./scripts/platformIconManifest";
 import { playerIsolationHeaders } from "./scripts/playerIsolationHeaders";
 import { precompress } from "./scripts/precompress";
 
@@ -70,6 +71,21 @@ export default defineConfig(({ mode }) => {
   const httpsMode = env.DEV_HTTPS === "true";
   const pwaDevEnabled = env.DEV_PWA === "true";
 
+  const proxyTarget = env.DEV_PROXY_TARGET || `http://127.0.0.1:${backendPort}`;
+  const remote = Boolean(env.DEV_PROXY_TARGET);
+  const upstream = {
+    target: proxyTarget,
+    changeOrigin: remote,
+    secure: remote,
+  };
+  const proxy = {
+    "/api": upstream,
+    "^/(?:ws|netplay)": { ...upstream, ws: true },
+    "/openapi.json": upstream,
+    // Local dev serves covers from the frontend/assets symlink.
+    ...(remote ? { "/assets/romm": upstream } : {}),
+  };
+
   return {
     optimizeDeps: {
       include: VUETIFY_COMPONENTS,
@@ -107,6 +123,7 @@ export default defineConfig(({ mode }) => {
       }),
       precompress(),
       playerIsolationHeaders(),
+      platformIconManifest(),
       httpsMode &&
         mkcert({
           savePath: "/app/.vite-plugin-mkcert",
@@ -143,23 +160,7 @@ export default defineConfig(({ mode }) => {
           "**/assets/pico8/**",
         ],
       },
-      proxy: {
-        "/api": {
-          target: `http://127.0.0.1:${backendPort}`,
-          changeOrigin: false,
-          secure: false,
-        },
-        "^/(?:ws|netplay)": {
-          target: `http://127.0.0.1:${backendPort}`,
-          changeOrigin: false,
-          ws: true,
-        },
-        "/openapi.json": {
-          target: `http://127.0.0.1:${backendPort}`,
-          changeOrigin: false,
-          rewrite: (path) => path.replace(/^\/openapi.json/, "/openapi.json"),
-        },
-      },
+      proxy,
       port: httpsMode ? 8443 : 3000,
       allowedHosts: ["localhost", "127.0.0.1", "romm.dev"],
       ...(httpsMode
@@ -170,6 +171,9 @@ export default defineConfig(({ mode }) => {
             },
           }
         : {}),
+    },
+    preview: {
+      proxy,
     },
   };
 });

@@ -128,7 +128,7 @@ uv run python3 main.py
 
 #### - Run the task workers
 
-A manual task run is refused, and a scheduled job stays queued, until an RQ worker listens on its queue; scans have a worker of their own. Each command is a foreground process, so run them in separate terminals. `-c config` reads the Redis connection from the same `REDIS_*` settings in `.env` the backend uses.
+A manual task run is refused, and a scheduled job stays queued, until an RQ worker listens on its queue; scans and streaming teardowns each have a worker of their own. Each command is a foreground process, so run them in separate terminals. `-c config` reads the Redis connection from the same `REDIS_*` settings in `.env` the backend uses.
 
 ```sh
 cd backend
@@ -138,6 +138,11 @@ uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-sc
 ```sh
 cd backend
 uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-scheduler scans
+```
+
+```sh
+cd backend
+uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-scheduler streaming
 ```
 
 `--with-scheduler` releases delayed jobs, such as the rescans the filesystem watcher waits out, so each worker needs it. The recurring schedule is registered by the RQ cron process, which the workers then execute:
@@ -178,10 +183,14 @@ Component docs and visual QA for `frontend/src/v2/` (port 6006):
 
 ```sh
 npm run storybook
-npm run storybook:test   # composeStories + play() + a11y (v2 /lib stories)
+npm run storybook:test   # composeStories + play() + a11y (v2 /lib and components/shared stories)
 ```
 
 For responsive layouts, use the viewport toolbar presets from `.storybook/rommViewports.ts`.
+
+#### - Optional: local frontend against a remote RomM
+
+To run `npm run dev` or `npm run preview` against another RomM instance (for example a home server with a full library), set `DEV_PROXY_TARGET` in the repo-root `.env` to its origin, such as `https://romm.example.com`. Vite then proxies `/api`, `/ws` and `/assets/romm` there instead of the local backend. Leave it empty to keep the default `http://127.0.0.1:${DEV_PORT}`. The remote's TLS certificate must be valid. Sign in with a username and password: OIDC login does not work through the proxy, because the identity provider redirects to the remote's `OIDC_REDIRECT_URI`, so the session never reaches localhost.
 
 ## Setting up the linter
 
@@ -198,6 +207,13 @@ Alternative installation methods can be found [in their docs](https://docs.trunk
 ```sh
 trunk fmt
 trunk check
+```
+
+Type checking runs separately from Trunk, against the project's own environment. CI type-checks the whole backend on every backend change; to run it locally:
+
+```sh
+cd backend
+uv run mypy --config-file ../.trunk/configs/mypy.ini .
 ```
 
 **Failing to install and run the linter will result in a failed CI check, which won't allow us to merge your PR.**

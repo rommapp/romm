@@ -10,6 +10,7 @@ import {
 } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { useStreamingStore } from "@/stores/streaming";
 import AssetChips from "@/v2/components/shared/AssetChips.vue";
 import AssetFavoriteMark from "@/v2/components/shared/AssetFavoriteMark.vue";
 import AssetGroupHead from "@/v2/components/shared/AssetGroupHead.vue";
@@ -20,6 +21,7 @@ import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import { useGroupFold } from "@/v2/composables/useGroupFold";
 import {
   byFavoriteFirst,
+  emulatorKey,
   ownerOf,
   screenshotOf,
   staggerIndex,
@@ -74,6 +76,7 @@ defineSlots<{
 }>();
 
 const { t } = useI18n();
+const { emulatorLabel } = useStreamingStore();
 
 const emptyLabel = computed(() =>
   props.type === "save"
@@ -113,12 +116,12 @@ const groups = computed<AssetGroup[]>(() => {
   }
   const byKey = new Map<string, AssetGroup>();
   for (const asset of props.assets) {
-    const key = asset.emulator ?? "";
+    const key = emulatorKey(asset.emulator);
     let group = byKey.get(key);
     if (!group) {
       group = {
         key,
-        label: key || t("play.any-core"),
+        label: emulatorLabel(asset.emulator) || t("play.any-core"),
         assets: [],
         disabled: true,
         newest: "",

@@ -1,4 +1,7 @@
 import type {
+  AppriseChannelCreatePayload,
+  AppriseServiceSchema,
+  AppriseUrlFieldsSchema,
   EmailChannelCreatePayload,
   NotificationChannelSchema,
   NotificationChannelTestResult,
@@ -7,13 +10,29 @@ import type {
 } from "@/__generated__";
 import api from "@/services/api";
 
+export type NotificationChannelCreatePayload =
+  | AppriseChannelCreatePayload
+  | WebhookChannelCreatePayload
+  | EmailChannelCreatePayload;
+
 async function getChannels() {
   return api.get<NotificationChannelSchema[]>("/notification-channels");
 }
 
-async function create(
-  payload: WebhookChannelCreatePayload | EmailChannelCreatePayload,
-) {
+async function getAppriseServices() {
+  return api.get<AppriseServiceSchema[]>(
+    "/notification-channels/apprise-services",
+  );
+}
+
+async function parseAppriseUrl(url: string) {
+  return api.post<AppriseUrlFieldsSchema>(
+    "/notification-channels/apprise-services/parse",
+    { url },
+  );
+}
+
+async function create(payload: NotificationChannelCreatePayload) {
   return api.post<NotificationChannelSchema>("/notification-channels", payload);
 }
 
@@ -47,6 +66,8 @@ async function resendCode(id: number) {
 
 export default {
   getChannels,
+  getAppriseServices,
+  parseAppriseUrl,
   create,
   update,
   remove,

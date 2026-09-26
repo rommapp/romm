@@ -34,6 +34,7 @@ from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.audit_event import AuditEvent
 from models.client_token import ClientToken
 from models.container_adoption import StreamingContainerAdoption
+from models.deleted_asset import DeletedAsset
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.firmware import Firmware
@@ -145,6 +146,7 @@ def clear_database():
         s.query(MemoryCardVersion).delete(synchronize_session="evaluate")
         s.query(MemoryCard).delete(synchronize_session="evaluate")
         s.query(StreamingContainerAdoption).delete(synchronize_session="evaluate")
+        s.query(DeletedAsset).delete(synchronize_session="evaluate")
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")

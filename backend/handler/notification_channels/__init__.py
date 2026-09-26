@@ -1,1 +1,1 @@
-"""Forwarding a user's notifications to their webhooks and email addresses."""
+"""Forwarding a user's notifications to Apprise services, webhooks and email addresses."""

@@ -1,15 +1,20 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from handler.notification_channels import delivery
+from handler.notification_channels import apprise_channel, delivery, webhook
+from handler.notification_channels.apprise_channel import AppriseError
+from handler.notification_channels.config import seal_config
 from handler.notification_channels.delivery import (
     deliver_to_channel,
     enqueue_channel_deliveries,
     forwards,
+    sample_message,
+    send_to_channel,
 )
 from handler.notification_channels.webhook import WebhookError
 from models.notification import NotificationKind, NotificationLevel, NotificationTopic
+from models.notification_channel import NotificationChannelType
 from models.user import Role
 
 from .fixtures import make_notification
@@ -86,6 +91,44 @@ class TestEnqueue:
         )
 
         enqueue_channel_deliveries([(5, make_notification())])
+
+
+class TestSendToChannel:
+    async def test_an_apprise_channel_goes_out_through_apprise(self, mocker):
+        send = mocker.patch.object(apprise_channel, "send")
+        channel = _channel(
+            type=NotificationChannelType.APPRISE,
+            config=seal_config({"service": "ntfy", "fields": {"targets": ["romm"]}}),
+        )
+        message = sample_message()
+
+        await send_to_channel(channel, message, allow_private=True)
+
+        send.assert_called_once_with("ntfy", {"targets": ["romm"]}, message)
+
+    async def test_only_an_admins_apprise_channel_goes_out(self, mocker):
+        send = mocker.patch.object(apprise_channel, "send")
+        channel = _channel(
+            type=NotificationChannelType.APPRISE,
+            config=seal_config({"service": "ntfy", "fields": {"targets": ["romm"]}}),
+        )
+
+        with pytest.raises(AppriseError, match="Only admins"):
+            await send_to_channel(channel, sample_message(), allow_private=False)
+
+        send.assert_not_called()
+
+    async def test_a_webhook_gets_its_url_and_secret(self, mocker):
+        send = mocker.patch.object(webhook, "send", AsyncMock())
+        channel = _channel(
+            type=NotificationChannelType.WEBHOOK,
+            config=seal_config({"url": "https://hooks.example.com", "secret": "k"}),
+        )
+
+        await send_to_channel(channel, sample_message(), allow_private=False)
+
+        config, _ = send.await_args.args
+        assert config == {"url": "https://hooks.example.com", "secret": "k"}
 
 
 class TestDeliverToChannel:

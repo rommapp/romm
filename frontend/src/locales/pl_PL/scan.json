@@ -33,7 +33,7 @@
   "info-full-docs": "Pełna dokumentacja",
   "info-hashes-desc": "Przelicza skróty dla wszystkich plików na wybranych platformach.",
   "info-new-platforms-desc": "Będzie szukać tylko platform, których jeszcze nie ma w RomM.",
-  "info-quick-scan-desc": "Skanuje gry, których jeszcze nie ma w bibliotece, oraz wykrywa pliki dodane do folderów gier już w niej obecnych, na dowolnym poziomie zagnieżdżenia.",
+  "info-quick-scan-desc": "Skanuje gry, których jeszcze nie ma w bibliotece, wykrywa pliki dodane do folderów gier już w niej obecnych, na dowolnym poziomie zagnieżdżenia, i ponownie odczytuje identyfikatory tytułów gier już w niej obecnych.",
   "info-unmatched-games-desc": "Próbuje dopasować gry, które nie są dopasowane do wybranych źródeł metadanych.\n\nNa przykład wybór IGDB i ScreenScraper przeskanuje gry, które nie są dopasowane do IGDB lub ScreenScraper.",
   "info-update-metadata-desc": "Aktualizuje metadane dla gier, które zostały dopasowane do wybranych źródeł metadanych przy użyciu zewnętrznego ID (np. IGDB ID).\n\nNa przykład wybór IGDB i ScreenScraper zaktualizuje metadane dla gier dopasowanych do IGDB lub ScreenScraper i użyje igdb_id i/lub ssfr_id do ponownego pobrania metadanych od odpowiednich dostawców.",
   "live-progress": "Postęp na żywo",

@@ -21,7 +21,6 @@ import {
   RCollapsible,
   REmptyState,
   RIcon,
-  RPlatformIcon,
   RSliderBtnGroup,
   RTag,
   RTextField,
@@ -31,6 +30,7 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SetupLibraryInfo } from "@/services/api/setup";
 import type { Platform } from "@/stores/platforms";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -392,7 +392,7 @@ const detectedPlatformCount = computed(
               class="r-setup-platforms__item"
               data-state="detected"
             >
-              <RPlatformIcon
+              <PlatformIcon
                 :slug="platform.slug"
                 :fs-slug="platform.fs_slug"
                 :name="platform.name"
@@ -527,7 +527,7 @@ const detectedPlatformCount = computed(
                     (v) => togglePlatform(platform.fs_slug, v)
                   "
                 />
-                <RPlatformIcon
+                <PlatformIcon
                   :slug="platform.slug"
                   :fs-slug="platform.fs_slug"
                   :name="platform.name"
@@ -626,7 +626,7 @@ const detectedPlatformCount = computed(
                         (v) => togglePlatform(platform.fs_slug, v)
                       "
                     />
-                    <RPlatformIcon
+                    <PlatformIcon
                       :slug="platform.slug"
                       :fs-slug="platform.fs_slug"
                       :name="platform.name"

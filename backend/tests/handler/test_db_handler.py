@@ -32,9 +32,9 @@ def test_platforms():
     platforms = db_platform_handler.get_platforms()
     assert len(platforms) == 1
 
-    platform = db_platform_handler.get_platform_by_fs_slug(platform.fs_slug)
-    assert platform is not None
-    assert platform.name == "test_platform"
+    fetched = db_platform_handler.get_platform_by_fs_slug(platform.fs_slug)
+    assert fetched is not None
+    assert fetched.name == "test_platform"
 
     db_platform_handler.mark_missing_platforms([])
     platforms = db_platform_handler.get_platforms()
@@ -509,13 +509,17 @@ def test_primary_region_mirrors_the_first_parsed_region(platform: Platform):
     """The generated column tracks regions[0] without the scan writing it."""
     rom = _add_sibling(platform, "(USA, Europe)", 4321, ["USA", "Europe"])
 
-    assert db_rom_handler.get_rom(rom.id).generated_primary_region == "USA"
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.generated_primary_region == "USA"
 
 
 def test_primary_region_is_null_without_region_tags(platform: Platform):
     rom = _add_sibling(platform, "(Unknown)", 4322, [])
 
-    assert db_rom_handler.get_rom(rom.id).generated_primary_region is None
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.generated_primary_region is None
 
 
 def test_group_by_meta_id_prefers_the_higher_priority_region(platform: Platform):
@@ -759,17 +763,21 @@ def test_bulk_mark_present_skips_already_present(platform: Platform):
         )
     )
 
-    present_updated_at = db_rom_handler.get_rom(present.id).updated_at
+    present_before = db_rom_handler.get_rom(present.id)
+    assert present_before is not None
+    present_updated_at = present_before.updated_at
 
     db_rom_handler.bulk_mark_present(platform.id, [present.id, missing.id])
 
     # Already-present ROM is not re-stamped.
     present_after = db_rom_handler.get_rom(present.id)
+    assert present_after is not None
     assert present_after.missing_from_fs is False
     assert present_after.updated_at == present_updated_at
 
     # Actually-missing ROM is flipped to present.
     missing_after = db_rom_handler.get_rom(missing.id)
+    assert missing_after is not None
     assert missing_after.missing_from_fs is False
 
 
