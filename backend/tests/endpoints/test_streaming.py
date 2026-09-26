@@ -5525,6 +5525,56 @@ def test_build_import_archive_expands_a_foreign_zips_own_members():
         assert zf.read(".import/save/save.mcr") == b"card-bytes"
 
 
+def test_build_import_archive_keeps_a_zip_shaped_state_whole():
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    inner = io.BytesIO()
+    with zipfile.ZipFile(inner, "w") as izf:
+        izf.writestr("eeMemory.bin", b"ee-bytes")
+    member = imports.ForeignMember(
+        kind="state",
+        name="SLUS-20062 (ABCD1234).01.p2s",
+        content=inner.getvalue(),
+        origin="standalone",
+    )
+    zip_bytes, carried = imports.build_import_archive(
+        rom_id=7, base=None, members=[member]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        assert zf.read(".import/state/SLUS-20062 (ABCD1234).01.p2s") == inner.getvalue()
+    assert [f["path"] for f in carried] == [
+        ".import/state/SLUS-20062 (ABCD1234).01.p2s"
+    ]
+
+
+def test_build_import_archive_names_a_carried_entry_by_its_staged_path():
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        bzf.writestr("saves\\Game.srm", b"native-save-bytes")
+        bzf.writestr(
+            ".broker-manifest.json",
+            json.dumps(
+                {"version": 1, "files": [{"path": "saves\\Game.srm", "kind": "save"}]}
+            ),
+        )
+    _zip_bytes, carried = imports.build_import_archive(
+        rom_id=7,
+        base=("Game.saves.zip", base_zip.getvalue()),
+        members=[
+            imports.ForeignMember(
+                kind="state", name="Game.00.pcsx2", content=b"s", origin="standalone"
+            )
+        ],
+    )
+    assert {"path": "saves/Game.srm", "kind": "save"} in carried
+
+
 def test_build_import_archive_keeps_a_native_base_alongside_a_foreign_state():
     """One native save and one foreign state in the same launch: the save
     stays entirely on its own v1 entry, only the state gets an import
@@ -5722,6 +5772,71 @@ def test_build_import_archive_rejects_a_foreign_member_over_the_expanded_byte_bu
     ):
         with pytest.raises(ValueError):
             imports.build_import_archive(rom_id=7, base=None, members=[member])
+
+
+def _understated_zip(name: str, content: bytes, declared_size: int) -> bytes:
+    """A one-entry zip whose central directory understates the entry's size."""
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(name, content)
+    raw = bytearray(buf.getvalue())
+    central = raw.rindex(b"PK\x01\x02")
+    raw[central + 24 : central + 28] = declared_size.to_bytes(4, "little")
+    return bytes(raw)
+
+
+def test_build_import_archive_does_not_inflate_past_a_members_declared_size():
+    import tracemalloc
+
+    bomb = _understated_zip("Game.srm", b"\0" * (64 * 1024 * 1024), 16)
+    tracemalloc.start()
+    try:
+        with pytest.raises(zipfile.BadZipFile):
+            imports.build_import_archive(
+                rom_id=7, base=("Game.saves.zip", bomb), members=[]
+            )
+        _current, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 16 * 1024 * 1024
+
+
+def test_manifest_files_ignores_a_manifest_over_the_size_cap():
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    manifest = {"files": [{"path": "Game.srm", "kind": "save"}], "pad": "x" * 64}
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(".broker-manifest.json", json.dumps(manifest))
+    with (
+        patch("handler.streaming.imports._MAX_MANIFEST_BYTES", 32),
+        zipfile.ZipFile(buf) as zf,
+    ):
+        assert imports._manifest_files(zf) == {}
+
+
+def test_build_import_archive_rebuilds_a_symlink_entry_as_a_regular_file():
+    import stat
+
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        link = zipfile.ZipInfo("Game.srm")
+        link.external_attr = (stat.S_IFLNK | 0o777) << 16
+        bzf.writestr(link, b"/etc/passwd")
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7, base=("Game.saves.zip", base_zip.getvalue()), members=[]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        mode = zf.getinfo("Game.srm").external_attr >> 16
+    assert stat.S_ISREG(mode)
+    assert stat.S_IMODE(mode) == 0o777
 
 
 def test_hydrate_import_archive_uploads_a_foreign_save_with_no_native_base(
@@ -7391,6 +7506,43 @@ def test_an_older_exit_state_stays_off_the_import_path_without_broker_support(
     assert run_launch_mock.call_args.kwargs["archive_path"] == "/romm/saves/archive.zip"
 
 
+def test_a_rewritten_older_state_is_still_not_the_archives_capture(
+    client, access_token, rom: Rom, admin_user: User
+):
+    older = db_state_handler.add_state(
+        _state_for(
+            rom,
+            admin_user,
+            "SLUS-00594_resume.20260917-010000000000.sav",
+            "duckstation",
+        )
+    )
+    db_state_handler.add_state(
+        _state_for(
+            rom,
+            admin_user,
+            "SLUS-00594_resume.20260918-010000000000.sav",
+            "duckstation",
+        )
+    )
+    db_state_handler.update_state(
+        older.id, {"updated_at": datetime.now(timezone.utc) + timedelta(days=1)}
+    )
+    run_launch_mock = AsyncMock()
+    with _streaming({**_webstation_for(rom), "emulator": "duckstation"}):
+        with (
+            patch("handler.streaming.webstation.import_spec", return_value=None),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.zip"),
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(client, access_token, rom.id, state_id=older.id)
+    assert r.status_code == 202
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "lost"
+
+
 def _duckstation_pairing(rom: Rom, user: User) -> tuple[Save, Save, State]:
     """An older and a newer DuckStation archive, plus the newest capture."""
     older, newer = (
@@ -8029,6 +8181,51 @@ def test_raise_http_error_raises_import_refused_as_a_typed_error():
     assert len(raised.value.refusals) == 1
     assert raised.value.refusals[0].reason == "shape_mismatch"
     assert raised.value.refusals[0].member == ".import/save/Game.mcr"
+
+
+def test_raise_http_error_parses_a_refusal_list_at_the_brokers_cap():
+    import http.client
+    import urllib.error
+
+    refusal = {
+        "reason": "unrecognised_layout",
+        "expected": "<card>/" + "x" * 200,
+        "detail": "plan is partial: other members were refused",
+        "suggest_emulator": None,
+        "docs": "/docs/api/imports#unrecognised-layout",
+    }
+    payload = json.dumps(
+        {
+            "detail": {
+                "error": "import_refused",
+                "refusals": [
+                    {**refusal, "member": f".import/save/card/{i:04d}/" + "y" * 100}
+                    for i in range(200)
+                ],
+                "truncated": 40,
+            }
+        }
+    ).encode()
+    assert len(payload) > 64 * 1024
+    exc = urllib.error.HTTPError(
+        "http://broker/activate",
+        422,
+        "err",
+        http.client.HTTPMessage(),
+        io.BytesIO(payload),
+    )
+    with pytest.raises(broker.ImportRefusedError) as raised:
+        broker.raise_http_error(exc)
+    assert len(raised.value.refusals) == 200
+    assert raised.value.truncated == 40
+
+
+def test_raise_http_error_keeps_a_long_plain_error_out_of_the_502_detail():
+    exc = _http_error(500)
+    with patch.object(exc, "read", return_value=b"x" * (100 * 1024)):
+        with pytest.raises(HTTPException) as raised:
+            broker.raise_http_error(exc)
+    assert len(raised.value.detail) < 9 * 1024
 
 
 def test_raise_http_error_still_raises_502_for_a_plain_broker_error():

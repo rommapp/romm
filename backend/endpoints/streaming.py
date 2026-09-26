@@ -855,19 +855,20 @@ async def claim_session(
     container = await _win_container(request, candidates, session, platform)
     session_key = container.key
 
-    # On an archive-resume container (DuckStation, RPCS3) the save archive
-    # carries its own exit state, and only the newest archive carries the newest
-    # capture, so any other state and save pairing needs the state imported.
+    # An archive-resume container's newest archive carries only the newest capture,
+    # so any other state and save pairing needs the state imported.
     state_off_archive = False
     if (
         resume_state is not None
         and not resume_foreign
         and container.resumes_from_archive
     ):
-        newest_states = await asyncio.to_thread(
+        own_states = await asyncio.to_thread(
             states.user_states_for_emulator, request.user.id, rom.id, container.emulator
         )
-        state_off_archive = not newest_states or newest_states[0].id != resume_state.id
+        # Capture order, like the archive pick: replacing a state's bytes bumps updated_at.
+        newest_state = max(own_states, key=lambda s: (s.created_at, s.id), default=None)
+        state_off_archive = newest_state is None or newest_state.id != resume_state.id
         if not state_off_archive and picked_save is not None:
             newest_save = None
             if not save_foreign:

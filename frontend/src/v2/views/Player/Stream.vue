@@ -733,13 +733,16 @@ useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   errorType.value = "server";
   if (payload.refusals?.length) {
     errorMessage.value = t("play.stream-error-import-refused");
-    const hints = payload.refusals
-      .map((r) =>
-        r.suggest_emulator
-          ? streamingStore.emulatorLabel(r.suggest_emulator)
-          : r.reason,
-      )
-      .join(", ");
+    // One refusal per rejected member, so a large archive repeats each reason.
+    const hints = [
+      ...new Set(
+        payload.refusals.map((r) =>
+          r.suggest_emulator
+            ? streamingStore.emulatorLabel(r.suggest_emulator)
+            : r.reason,
+        ),
+      ),
+    ].join(", ");
     const truncated = payload.refusals_truncated;
     errorHint.value = truncated
       ? `${hints} (${t("play.import-refusals-truncated", truncated)})`

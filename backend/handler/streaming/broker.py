@@ -96,9 +96,10 @@ def broker_headers(container: ResolvedContainer) -> dict[str, str]:
 _BROKER_READ_CHUNK = 1024 * 1024
 # Control responses are small; a JSON body past this is a broker fault.
 _BROKER_JSON_MAX_BYTES = 4 * 1024 * 1024
-# An error body only ever reaches a log line and a 502 detail, except an
-# import refusal, which can carry one entry per rejected member.
-_BROKER_ERROR_MAX_BYTES = 64 * 1024
+# An import refusal lists every rejected member and only parses whole, so the
+# read takes all of it; the log line and 502 detail keep just the head.
+_BROKER_ERROR_MAX_BYTES = 1024 * 1024
+_BROKER_ERROR_SHOWN_CHARS = 8 * 1024
 
 
 def broker_error_body(exc: urllib.error.HTTPError) -> str:
@@ -312,7 +313,9 @@ def raise_http_error(exc: urllib.error.HTTPError) -> NoReturn:
     """Translate a broker error response into the 502 the frontend parses, or
     an ImportRefusedError when the broker refused a declared import."""
     error_body = broker_error_body(exc)
-    log.error("broker HTTP error %d: %s", exc.code, error_body)
+    log.error(
+        "broker HTTP error %d: %s", exc.code, error_body[:_BROKER_ERROR_SHOWN_CHARS]
+    )
     try:
         detail: Any = json.loads(error_body)
     except Exception:
@@ -341,7 +344,8 @@ def raise_http_error(exc: urllib.error.HTTPError) -> NoReturn:
         truncated = truncated_raw if isinstance(truncated_raw, int) else 0
         raise ImportRefusedError(refusals, truncated) from exc
     raise HTTPException(
-        status_code=502, detail=f"Broker returned {exc.code}: {detail}"
+        status_code=502,
+        detail=f"Broker returned {exc.code}: {str(detail)[:_BROKER_ERROR_SHOWN_CHARS]}",
     ) from exc
 
 
