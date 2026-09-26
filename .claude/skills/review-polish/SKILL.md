@@ -158,7 +158,7 @@ Run from `frontend/`:
 
 1. `npm run typecheck`: zero errors (`vue-tsc --noEmit`).
 2. `npm run typecheck:scripts`: zero errors (`tsc -p tsconfig.node.json`, covers `scripts/`).
-3. `trunk check`: ESLint clean on the changed files (same config, same CI gate). For a whole-tree sweep, such as sizing a new rule, use `trunk check --all --filter=eslint`.
+3. `trunk check`: ESLint clean on the changed files.
 4. `npm run test`: zero failures (Vitest + happy-dom; runs unit tests **and** every `/lib` and `components/shared` story's `play()` via `composeStories`).
 5. `npm run build`: zero failures (CI sanity check).
 
