@@ -1,13 +1,14 @@
 import json
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Final, NotRequired, TypedDict, cast
+from typing import Any, Final, NotRequired, TypedDict
 
 import httpx
 import pydash
 import yarl
 from fastapi import status
 
+from adapters.services.response_validation import validate_response
 from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
 from handler.filesystem.base_handler import (
     normalize_provider_values,
@@ -283,7 +284,7 @@ class HasheousHandler(MetadataHandler):
 
             res = await httpx_client.request(method, **request_kwargs)
             res.raise_for_status()
-            return cast(dict[str, Any], res.json())
+            return validate_response(dict[str, Any], res.json(), source="Hasheous")
         except httpx.HTTPStatusError as exc:
             # Check if its a 404 error
             if exc.response.status_code == status.HTTP_404_NOT_FOUND:

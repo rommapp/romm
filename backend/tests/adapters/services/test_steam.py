@@ -58,12 +58,17 @@ async def test_search_apps_handles_empty_payload(session):
 
 async def test_get_app_details_unwraps_envelope(session):
     session.get.return_value = _response(
-        {"400": {"success": True, "data": {"type": "game", "name": "Portal"}}}
+        {
+            "400": {
+                "success": True,
+                "data": {"type": "game", "name": "Portal", "steam_appid": 400},
+            }
+        }
     )
 
     details = await SteamService().get_app_details(400)
 
-    expected: dict[str, object] = {"type": "game", "name": "Portal"}
+    expected: dict[str, object] = {"type": "game", "name": "Portal", "steam_appid": 400}
     assert details == expected
 
 
@@ -147,7 +152,14 @@ async def test_request_raises_on_connection_error(session):
 
 
 async def test_get_app_details_passes_filters(session):
-    session.get.return_value = _response({"220": {"success": True, "data": {}}})
+    session.get.return_value = _response(
+        {
+            "220": {
+                "success": True,
+                "data": {"type": "game", "name": "Half-Life 2", "steam_appid": 220},
+            }
+        }
+    )
 
     await SteamService().get_app_details(220, filters="basic")
 

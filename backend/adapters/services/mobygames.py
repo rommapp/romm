@@ -2,7 +2,7 @@ import asyncio
 import http
 import json
 from collections.abc import Collection
-from typing import Any, Final, Literal, cast, overload
+from typing import Any, Final, Literal, overload
 
 import aiohttp
 import yarl
@@ -10,6 +10,7 @@ from aiohttp.client import ClientTimeout
 from fastapi import HTTPException, status
 
 from adapters.services.mobygames_types import MobyGame, MobyGameBrief, MobyOutputFormat
+from adapters.services.response_validation import validate_response
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
 from utils import get_version
@@ -60,7 +61,9 @@ class MobyGamesService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return cast(dict[str, Any], await res.json())
+            return validate_response(
+                dict[str, Any], await res.json(), source="MobyGames"
+            )
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             log.debug("Request to URL=%s timed out. Retrying...", url)
@@ -101,7 +104,9 @@ class MobyGamesService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return cast(dict[str, Any], await res.json())
+            return validate_response(
+                dict[str, Any], await res.json(), source="MobyGames"
+            )
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as exc:
             if (
                 isinstance(exc, aiohttp.ClientResponseError)
@@ -126,7 +131,9 @@ class MobyGamesService:
 
         url = self.url.joinpath("groups").with_query(**params)
         response = await self._request(str(url))
-        return cast(list[dict[str, Any]], response.get("groups", []))
+        return validate_response(
+            list[dict[str, Any]], response.get("groups", []), source="MobyGames groups"
+        )
 
     @overload
     async def list_games(
@@ -206,6 +213,11 @@ class MobyGamesService:
 
         url = self.url.joinpath("games").with_query(**params)
         response = await self._request(str(url))
-        return cast(
-            list[int] | list[MobyGameBrief] | list[MobyGame], response.get("games", [])
-        )
+        games = response.get("games", [])
+        if output_format == "id":
+            return validate_response(list[int], games, source="MobyGames games")
+        if output_format == "brief":
+            return validate_response(
+                list[MobyGameBrief], games, source="MobyGames games"
+            )
+        return validate_response(list[MobyGame], games, source="MobyGames games")

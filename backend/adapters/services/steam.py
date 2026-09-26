@@ -1,13 +1,14 @@
 import asyncio
 import http
 import json
-from typing import Any, Final, cast
+from typing import Any, Final
 
 import aiohttp
 import yarl
 from aiohttp.client import ClientTimeout
 from fastapi import HTTPException, status
 
+from adapters.services.response_validation import validate_response
 from adapters.services.steam_types import (
     SteamAppDetails,
     SteamAppDetailsEnvelope,
@@ -119,7 +120,11 @@ class SteamService:
         url = self.url.joinpath("storesearch").with_query(
             term=term, cc=country, l=language
         )
-        response = cast(SteamStoreSearchResponse, await self._request(str(url)))
+        response = validate_response(
+            SteamStoreSearchResponse,
+            await self._request(str(url)),
+            source="Steam storesearch",
+        )
         return response.get("items", []) or []
 
     async def get_app_details(
@@ -142,11 +147,16 @@ class SteamService:
         envelope = response.get(str(app_id))
         if envelope is None and len(response) == 1:
             envelope = self._envelope_keyed_by_another_id(response, app_id)
-        envelope = cast(SteamAppDetailsEnvelope | None, envelope)
-        if not envelope or not envelope.get("success"):
+        if not envelope:
             return None
 
-        return envelope.get("data")
+        details = validate_response(
+            SteamAppDetailsEnvelope, envelope, source="Steam appdetails"
+        )
+        if not details.get("success"):
+            return None
+
+        return details.get("data")
 
     @staticmethod
     def _envelope_keyed_by_another_id(

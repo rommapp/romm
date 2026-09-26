@@ -14,8 +14,30 @@ from adapters.services.mobygames import (
     MobyGamesService,
     auth_middleware,
 )
+from adapters.services.mobygames_types import MobyGame
 
 INVALID_GAME_ID = 999999
+
+GAME: MobyGame = {
+    "alternate_titles": [],
+    "description": "",
+    "game_id": 1,
+    "genres": [],
+    "moby_score": 0.0,
+    "moby_url": "https://www.mobygames.com/game/1",
+    "num_votes": 0,
+    "official_url": None,
+    "platforms": [],
+    "sample_cover": {
+        "height": 1,
+        "image": "https://example.com/cover.png",
+        "platforms": [],
+        "thumbnail_image": "https://example.com/thumb.png",
+        "width": 1,
+    },
+    "sample_screenshots": [],
+    "title": "Test Game",
+}
 
 MockResponse = dict[str, list[dict[str, int]]]
 
@@ -265,14 +287,14 @@ class TestMobyGamesServiceUnit:
     @pytest.mark.asyncio
     async def test_list_games_default_parameters(self, service):
         """Test list_games with default parameters."""
-        mock_response = {"games": [{"game_id": 1, "title": "Test Game"}]}
+        mock_response = {"games": [GAME]}
 
         with patch.object(
             service, "_request", return_value=mock_response
         ) as mock_request:
             result = await service.list_games()
 
-        assert result == [{"game_id": 1, "title": "Test Game"}]
+        assert result == [GAME]
         mock_request.assert_called_once()
         call_args = mock_request.call_args[0][0]
         assert "https://api.mobygames.com/v1/games" in call_args
@@ -280,14 +302,15 @@ class TestMobyGamesServiceUnit:
     @pytest.mark.asyncio
     async def test_list_games_with_game_id(self, service):
         """Test list_games with specific game ID."""
-        mock_response = {"games": [{"game_id": 123, "title": "Specific Game"}]}
+        game: MobyGame = {**GAME, "game_id": 123, "title": "Specific Game"}
+        mock_response = {"games": [game]}
 
         with patch.object(
             service, "_request", return_value=mock_response
         ) as mock_request:
             result = await service.list_games(game_id=123)
 
-        assert result == [{"game_id": 123, "title": "Specific Game"}]
+        assert result == [game]
         call_args = mock_request.call_args[0][0]
         assert "id=123" in call_args
 
@@ -636,7 +659,7 @@ class TestMobyGamesServicePerformance:
     @pytest.mark.asyncio
     async def test_concurrent_requests(self, service):
         """Test multiple concurrent API requests."""
-        mock_response = {"games": [{"game_id": 1, "title": "Test Game"}]}
+        mock_response = {"games": [GAME]}
 
         with patch.object(
             service, "_request", return_value=mock_response

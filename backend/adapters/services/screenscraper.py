@@ -16,6 +16,7 @@ import yarl
 from aiohttp.client import ClientTimeout
 from fastapi import HTTPException, status
 
+from adapters.services.response_validation import validate_response
 from adapters.services.screenscraper_types import SSGame, SSUser
 from config import (
     SCAN_WORKERS,
@@ -547,7 +548,9 @@ def _update_account_limits(response: dict[str, Any]) -> None:
     if not isinstance(ssuser, dict):
         return
 
-    limits = _read_account_limits(cast(SSUser, ssuser))
+    limits = _read_account_limits(
+        validate_response(SSUser, ssuser, source="ScreenScraper ssuser")
+    )
     _state.account_limits = limits
 
     _apply_thread_allowance(limits.max_threads)
@@ -716,7 +719,7 @@ class ScreenScraperService:
         # A response means the wall the counter was tracking is not there.
         _state.daily_quota_errors = 0
         _update_account_limits(data)
-        return cast(dict[str, Any], data)
+        return validate_response(dict[str, Any], data, source="ScreenScraper")
 
     async def _recheck_daily_quota(self) -> bool:
         """Ask the free account endpoint whether the scrape allowance is back.
@@ -881,7 +884,7 @@ class ScreenScraperService:
         data = response.get("response", {}).get("jeu", {})
         if not data:
             return None
-        return cast(SSGame, data)
+        return validate_response(SSGame, data, source="ScreenScraper jeuInfos")
 
     async def search_games(
         self,
@@ -903,4 +906,6 @@ class ScreenScraperService:
         # If no roms are returned, "jeux" is a list with an empty dict.
         if len(data) == 1 and not data[0]:
             data = []
-        return cast(list[SSGame], data)
+        return validate_response(
+            list[SSGame], data, source="ScreenScraper jeuRecherche"
+        )
