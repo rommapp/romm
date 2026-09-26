@@ -127,11 +127,14 @@ catch these, but only after the contributor has handed the PR over.
 ## Encode what you fixed twice
 
 If polish turned up a mechanical pattern (you fixed the same kind of thing
-twice), encode it instead of relying on the next reviewer: enable a stock rule
-in `eslint.config.js`, or add `frontend/eslint-plugin-romm/rules/<name>.js` plus
-`<name>.test.ts` (`RuleTester`, valid and invalid cases), register it in the
-plugin's `index.js`, and turn it on in `eslint.config.js`. Test with
-`npx vitest run eslint-plugin-romm` and `npm run typecheck:scripts`.
+twice), propose a check as a named follow-up instead of relying on the next
+reviewer. For the frontend, that is a stock rule in `eslint.config.js`, or
+`frontend/eslint-plugin-romm/rules/<name>.js` plus `<name>.test.ts`
+(`RuleTester`, valid and invalid cases), registered in the plugin's `index.js`
+and turned on in `eslint.config.js`. Test with `npx vitest run
+eslint-plugin-romm` and `npm run typecheck:scripts`. A plain text pattern across
+the repo can be a Trunk regex linter instead (see `no-emdash` in
+`.trunk/trunk.yaml`).
 
 ---
 

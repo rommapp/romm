@@ -92,10 +92,9 @@ reason. Repo rules are a valid source: Greptile enforces the comment discipline
 from `CLAUDE.md` and `review-polish`, and those findings stand.
 
 For every valid finding, ask whether a static check could have caught it. If it
-is pattern-shaped (a banned import, character, CSS value, or SFC shape), add or
-enable the ESLint rule in the fix commit (`frontend/eslint-plugin-romm/` for
-custom rules, with a `RuleTester` test), or name the rule as a follow-up in the
-reply. A bot catching the same thing twice is a missing rule.
+is pattern-shaped (a banned import, character, CSS value, or SFC shape), name
+the stock or `frontend/eslint-plugin-romm/` rule as a follow-up in the reply. A
+bot catching the same thing twice is a missing rule.
 
 Suggestion blocks are a starting point, not a patch to apply blindly. Check they
 are complete and not duplicating a call a neighbouring branch already makes.

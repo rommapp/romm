@@ -33,6 +33,7 @@ lint:
     - black@26.5.1
     - checkov@3.3.8
     - git-diff-check
+    - no-emdash
     - isort@8.0.1
     - mypy@2.3.0
     - osv-scanner@2.3.3
@@ -76,6 +77,20 @@ lint:
     - name: vue
       extensions: [vue]
   definitions:
+    # ESLint's romm/no-emdash-in-comment covers the frontend; Python string
+    # literals are left alone since some carry em dashes as test data.
+    - name: no-emdash
+      files: [markdown, python]
+      commands:
+        - name: lint
+          output: regex
+          parse_regex: ((?P<path>.*):(?P<line>\d+):(?P<col>\d+) - (?P<message>.*))
+          read_output_from: stdout
+          run: >-
+            awk '(FILENAME ~ /\.md$/ ? /—/ : /#.*—/) { print FILENAME ":" FNR ":" index($0, "—")
+            " - Replace the em dash with a comma, parentheses, or a separate sentence." }'
+            ${target}
+          success_codes: [0]
     - name: eslint
       files:
         - javascript
