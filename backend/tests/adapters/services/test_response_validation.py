@@ -8,7 +8,7 @@ import pytest
 
 from adapters.services.response_validation import (
     ResponseMismatchError,
-    validate_response,
+    parse_response,
 )
 
 
@@ -29,66 +29,62 @@ class Parent(TypedDict):
     score: NotRequired[float]
 
 
-def test_matching_payload_comes_back_as_sent():
-    data = {
-        "id": 1,
-        "kind": 1,
-        "child": {"id": 2, "extra": "kept"},
-        "score": 80,
-        "other": [1],
-    }
+def test_matching_reply_decodes_to_what_was_sent():
+    body = '{"id": 1, "kind": 1, "child": {"id": 2, "extra": "kept"}, "other": [1]}'
 
-    assert validate_response(Parent, data, source="test") is data
+    result = parse_response(Parent, body, source="test")
+
+    assert result == json.loads(body)
+    assert result is not None
+    assert type(result["kind"]) is int
 
 
-def test_list_payload_is_validated_per_item():
-    data = [{"id": 1}, {"id": 2}]
+def test_whole_number_for_a_float_matches():
+    result = parse_response(
+        Parent, b'{"id": 1, "kind": 0, "child": {"id": 2}, "score": 80}', source="test"
+    )
 
-    assert validate_response(list[Child], data, source="test") == data
-
-
-@pytest.mark.parametrize("empty", [{}, []])
-def test_empty_error_payload_skips_validation(empty: object):
-    assert validate_response(Parent, empty, source="test") is empty
+    assert result is not None
+    assert result.get("score") == 80
 
 
-@pytest.mark.parametrize("falsy", [None, False, 0, ""])
-def test_other_falsy_payloads_are_validated(falsy: object):
+def test_list_reply_is_validated_per_item():
+    assert parse_response(list[Child], b'[{"id": 1}, {"id": 2}]', source="test") == [
+        {"id": 1},
+        {"id": 2},
+    ]
+
+
+@pytest.mark.parametrize("body", [b"null", b"false", b"0", b'""', b"{}", b"[]"])
+def test_a_reply_of_the_wrong_shape_is_a_mismatch(body: bytes):
     with pytest.raises(ResponseMismatchError):
-        validate_response(Parent, falsy, source="test")
+        parse_response(Parent, body, source="test")
 
 
-def test_mismatch_raises_when_strict():
+def test_a_value_that_fits_only_after_coercion_is_a_mismatch():
     with pytest.raises(ResponseMismatchError, match="id"):
-        validate_response(Parent, {"id": "x"}, source="test")
+        parse_response(
+            Parent, b'{"id": "1", "kind": 0, "child": {"id": 2}}', source="test"
+        )
+
+
+def test_invalid_json_raises_a_decode_error():
+    with pytest.raises(json.JSONDecodeError):
+        parse_response(Parent, b"<html>", source="test")
 
 
 def test_mismatch_is_not_swallowed_by_a_broad_except():
     with pytest.raises(ResponseMismatchError), contextlib.suppress(Exception):
-        validate_response(Parent, {"id": "x"}, source="test")
+        parse_response(Parent, b'{"id": "x"}', source="test")
 
 
-def test_nan_is_not_a_coercion():
-    data = json.loads('{"id": 1, "kind": 0, "child": {"id": 2}, "score": NaN}')
+def test_mismatch_returns_the_reply_as_sent_and_logs_once(lenient: MagicMock):
+    body = b'[{"id": 1, "kind": 9, "child": {"id": 2}}]'
 
-    assert validate_response(Parent, data, source="test") is data
+    first = parse_response(list[Parent], body, source="Provider endpoint")
+    second = parse_response(list[Parent], body, source="Provider endpoint")
 
-
-def test_value_that_fits_only_after_coercion_is_a_mismatch():
-    data = {"id": "1", "kind": 0, "child": {"id": 2}}
-
-    with pytest.raises(ResponseMismatchError, match="id: matches only after coercion"):
-        validate_response(Parent, data, source="test")
-
-
-def test_mismatch_returns_raw_payload_and_logs_once(lenient: MagicMock):
-    data = [{"id": 1, "kind": 9, "child": {"id": 2}}]
-
-    first = validate_response(list[Parent], data, source="Provider endpoint")
-    second = validate_response(list[Parent], data, source="Provider endpoint")
-
-    assert first is data
-    assert second is data
+    assert first == second == json.loads(body)
     lenient.warning.assert_called_once()
     message = lenient.warning.call_args.args[0] % lenient.warning.call_args.args[1:]
     assert "Provider endpoint" in message
@@ -96,8 +92,8 @@ def test_mismatch_returns_raw_payload_and_logs_once(lenient: MagicMock):
 
 
 def test_id_keyed_entries_share_one_warning(lenient: MagicMock):
-    validate_response(dict[str, Child], {"101": {"id": "x"}}, source="test")
-    validate_response(dict[str, Child], {"202": {"id": "y"}}, source="test")
+    parse_response(dict[str, Child], b'{"101": {"id": "x"}}', source="test")
+    parse_response(dict[str, Child], b'{"202": {"id": "y"}}', source="test")
 
     lenient.warning.assert_called_once()
 
@@ -105,8 +101,13 @@ def test_id_keyed_entries_share_one_warning(lenient: MagicMock):
 def test_known_problems_in_a_new_combination_are_not_logged_again(
     lenient: MagicMock,
 ):
-    validate_response(list[Child], [{"id": "x"}], source="test")
-    validate_response(list[Child], [{"id": None}], source="test")
-    validate_response(list[Child], [{"id": "x"}, {"id": None}], source="test")
+    parse_response(list[Child], b'[{"id": "x"}]', source="test")
+    parse_response(list[Child], b"[{}]", source="test")
+    parse_response(list[Child], b'[{"id": "x"}, {}]', source="test")
 
     assert lenient.warning.call_count == 2
+
+
+def test_a_reply_whose_top_level_is_the_wrong_type_reads_as_none(lenient: MagicMock):
+    assert parse_response(Parent, b"[1, 2]", source="test") is None
+    lenient.warning.assert_called_once()

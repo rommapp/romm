@@ -8,7 +8,7 @@ import httpx
 import yarl
 from fastapi import status
 
-from adapters.services.response_validation import validate_response
+from adapters.services.response_validation import parse_response
 from config import PLAYMATCH_API_ENABLED, PLAYMATCH_API_URL
 from handler.metadata.base_handler import MetadataHandler, unavailable
 from logger.logger import log
@@ -189,7 +189,10 @@ class PlaymatchHandler(MetadataHandler):
                     str(url_with_query), headers=headers, timeout=60
                 )
                 res.raise_for_status()
-                return validate_response(dict[str, Any], res.json(), source="Playmatch")
+                return (
+                    parse_response(dict[str, Any], res.content, source="Playmatch")
+                    or {}
+                )
             except (
                 httpx.HTTPStatusError,
                 httpx.ConnectError,

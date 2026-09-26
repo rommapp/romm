@@ -8,7 +8,7 @@ import pydash
 import yarl
 from fastapi import status
 
-from adapters.services.response_validation import validate_response
+from adapters.services.response_validation import parse_response
 from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
 from handler.filesystem.base_handler import (
     normalize_provider_values,
@@ -284,7 +284,7 @@ class HasheousHandler(MetadataHandler):
 
             res = await httpx_client.request(method, **request_kwargs)
             res.raise_for_status()
-            return validate_response(dict[str, Any], res.json(), source="Hasheous")
+            return parse_response(dict[str, Any], res.content, source="Hasheous") or {}
         except httpx.HTTPStatusError as exc:
             # Check if its a 404 error
             if exc.response.status_code == status.HTTP_404_NOT_FOUND:

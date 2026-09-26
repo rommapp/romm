@@ -8,7 +8,7 @@ import httpx
 import pydash
 from fastapi import HTTPException, status
 
-from adapters.services.response_validation import validate_response
+from adapters.services.response_validation import parse_response
 from config import HLTB_API_ENABLED
 from logger.logger import log
 from utils.context import ctx_httpx_client
@@ -467,8 +467,9 @@ class HLTBHandler(MetadataHandler):
                     url, json=body, headers=headers, timeout=60
                 )
                 res.raise_for_status()
-                return validate_response(
-                    dict[str, Any], res.json(), source="HowLongToBeat"
+                return (
+                    parse_response(dict[str, Any], res.content, source="HowLongToBeat")
+                    or {}
                 )
             except httpx.HTTPStatusError as exc:
                 status_code = exc.response.status_code
