@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from adapters.services import response_validation
 from adapters.services.response_validation import (
     ResponseMismatchError,
     validate_response,
@@ -28,12 +27,6 @@ class Parent(TypedDict):
     child: Child
     note: NotRequired[str]
     score: NotRequired[float]
-
-
-@pytest.fixture
-def lenient(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(response_validation, "RAISE_ON_MISMATCH", False)
-    monkeypatch.setattr(response_validation, "_reported", set())
 
 
 def test_matching_payload_comes_back_as_sent():
@@ -88,10 +81,7 @@ def test_value_that_fits_only_after_coercion_is_a_mismatch():
         validate_response(Parent, data, source="test")
 
 
-@pytest.mark.usefixtures("lenient")
-def test_mismatch_returns_raw_payload_and_logs_once(monkeypatch: pytest.MonkeyPatch):
-    log = MagicMock()
-    monkeypatch.setattr(response_validation, "log", log)
+def test_mismatch_returns_raw_payload_and_logs_once(lenient: MagicMock):
     data = [{"id": 1, "kind": 9, "child": {"id": 2}}]
 
     first = validate_response(list[Parent], data, source="Provider endpoint")
@@ -99,32 +89,24 @@ def test_mismatch_returns_raw_payload_and_logs_once(monkeypatch: pytest.MonkeyPa
 
     assert first is data
     assert second is data
-    log.warning.assert_called_once()
-    message = log.warning.call_args.args[0] % log.warning.call_args.args[1:]
+    lenient.warning.assert_called_once()
+    message = lenient.warning.call_args.args[0] % lenient.warning.call_args.args[1:]
     assert "Provider endpoint" in message
     assert "*.kind" in message
 
 
-@pytest.mark.usefixtures("lenient")
-def test_id_keyed_entries_share_one_warning(monkeypatch: pytest.MonkeyPatch):
-    log = MagicMock()
-    monkeypatch.setattr(response_validation, "log", log)
-
+def test_id_keyed_entries_share_one_warning(lenient: MagicMock):
     validate_response(dict[str, Child], {"101": {"id": "x"}}, source="test")
     validate_response(dict[str, Child], {"202": {"id": "y"}}, source="test")
 
-    log.warning.assert_called_once()
+    lenient.warning.assert_called_once()
 
 
-@pytest.mark.usefixtures("lenient")
 def test_known_problems_in_a_new_combination_are_not_logged_again(
-    monkeypatch: pytest.MonkeyPatch,
+    lenient: MagicMock,
 ):
-    log = MagicMock()
-    monkeypatch.setattr(response_validation, "log", log)
-
     validate_response(list[Child], [{"id": "x"}], source="test")
     validate_response(list[Child], [{"id": None}], source="test")
     validate_response(list[Child], [{"id": "x"}, {"id": None}], source="test")
 
-    assert log.warning.call_count == 2
+    assert lenient.warning.call_count == 2

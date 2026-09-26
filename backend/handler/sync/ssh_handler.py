@@ -70,7 +70,7 @@ class SSHSyncHandler:
         """
         explicit = sync_config.get("ssh_key_path")
         if explicit and os.path.isfile(explicit):
-            return cast(str | None, explicit)
+            return cast(str, explicit)
 
         convention_path = self.keys_path / f"{device_id}.pem"
         if convention_path.is_file():

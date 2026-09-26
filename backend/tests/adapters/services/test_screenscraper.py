@@ -11,7 +11,6 @@ import yarl
 from fastapi import HTTPException, status
 
 import adapters.services.screenscraper as ss_module
-from adapters.services import response_validation
 from adapters.services.screenscraper import (
     LOGIN_ERROR_CHECK,
     SS_DEFAULT_MAX_THREADS,
@@ -37,6 +36,7 @@ from adapters.services.screenscraper import (
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
 INVALID_GAME_ID = 999999
+INVALID_SYSTEM_ID = 999999
 
 GAME = {
     "id": "1",
@@ -46,7 +46,6 @@ GAME = {
     "rotation": "0",
     "medias": [],
 }
-INVALID_SYSTEM_ID = 999999
 
 # Fast enough that the module's pacing never adds real sleeps to a test.
 UNTHROTTLED_RATE = 10_000
@@ -330,8 +329,8 @@ class TestScreenScraperServiceUnit:
         assert ss_module._concurrency_limiter.max_concurrency == 5
 
     @pytest.mark.asyncio
-    async def test_request_reads_a_non_object_body_as_empty(self, service, monkeypatch):
-        monkeypatch.setattr(response_validation, "RAISE_ON_MISMATCH", False)
+    @pytest.mark.usefixtures("lenient")
+    async def test_request_reads_a_non_object_body_as_empty(self, service):
         response = _ok_response({})
         response.json = AsyncMock(return_value=[{"jeu": {}}])
         _, context = _session(response)

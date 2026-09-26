@@ -156,7 +156,7 @@ class RemoteSource:
         for candidate in candidates:
             entry = await hget_json(LAUNCHBOX_MAME_KEY, candidate)
             if entry:
-                return cast(dict[str, Any] | None, entry)
+                return cast(dict[str, Any], entry)
 
         return None
 

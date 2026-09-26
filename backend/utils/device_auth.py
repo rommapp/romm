@@ -212,4 +212,4 @@ def consume_approved(device_code: str) -> dict[str, Any] | None:
             json.dumps(data),
         )
         return None
-    return cast(dict[str, Any] | None, data)
+    return cast(dict[str, Any], data)

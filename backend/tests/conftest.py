@@ -6,6 +6,7 @@ import socket
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from unittest.mock import MagicMock
 
 import alembic.config
 import pytest
@@ -132,6 +133,16 @@ def _ensure_database_exists() -> None:
 @pytest.fixture(autouse=True)
 def raise_on_response_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(response_validation, "RAISE_ON_MISMATCH", True)
+
+
+@pytest.fixture
+def lenient(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Production mode: mismatches log to the returned mock instead of raising."""
+    log = MagicMock()
+    monkeypatch.setattr(response_validation, "RAISE_ON_MISMATCH", False)
+    monkeypatch.setattr(response_validation, "_reported", set())
+    monkeypatch.setattr(response_validation, "log", log)
+    return log
 
 
 @pytest.fixture(scope="session", autouse=True)

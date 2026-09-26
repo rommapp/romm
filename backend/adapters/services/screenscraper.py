@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, fields
 from math import isclose
-from typing import Any, Final, cast
+from typing import Any, Final
 from urllib.parse import urlparse
 
 import aiohttp
@@ -42,7 +42,7 @@ LOGIN_ERROR_CHECK: Final = "Erreur de login"
 _INVALID_ESCAPE_RE: Final = re.compile(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})')
 
 
-def _loads_lenient(text: str) -> dict[str, Any]:
+def _loads_lenient(text: str) -> Any:
     """Parse a ScreenScraper JSON payload, repairing invalid escapes on failure.
 
     A single unescaped backslash would otherwise sink an entire response (and thus
@@ -50,9 +50,9 @@ def _loads_lenient(text: str) -> dict[str, Any]:
     JSON escape and try once more.
     """
     try:
-        return cast(dict[str, Any], json.loads(text))
+        return json.loads(text)
     except json.JSONDecodeError:
-        return cast(dict[str, Any], json.loads(_INVALID_ESCAPE_RE.sub(r"\\\\", text)))
+        return json.loads(_INVALID_ESCAPE_RE.sub(r"\\\\", text))
 
 
 # ScreenScraper enforces a per-account *thread* (concurrency) cap. Because a

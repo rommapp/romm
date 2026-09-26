@@ -19,12 +19,12 @@ class ResponseMismatchError(BaseException):
     pass
 
 
-def _adapter[T](tp: type[T]) -> TypeAdapter[tuple[T]]:
+def _adapter(tp: object) -> TypeAdapter[tuple[Any]]:
     # TypeAdapter refuses `config` for a bare TypedDict; inside a tuple the
     # config applies to it and to every TypedDict nested in it.
     if tp not in _adapters:
         _adapters[tp] = TypeAdapter(tuple[tp], config=_CONFIG)  # type: ignore[valid-type]
-    return cast(TypeAdapter[tuple[T]], _adapters[tp])
+    return _adapters[tp]
 
 
 def _path(loc: tuple[int | str, ...]) -> str:
@@ -56,9 +56,10 @@ def _first_difference(
                 return found
         return None
     # JSON writes a whole float as an integer, which typing accepts as a float.
-    if type(validated) is float and type(raw) is int:
-        return None if validated == raw else loc
-    return None if type(validated) is type(raw) and validated == raw else loc
+    same_type = type(validated) is type(raw) or (
+        type(validated) is float and type(raw) is int
+    )
+    return None if same_type and validated == raw else loc
 
 
 def validate_response[T](tp: type[T], data: object, *, source: str) -> T:
