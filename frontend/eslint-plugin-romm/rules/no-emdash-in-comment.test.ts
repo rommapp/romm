@@ -28,7 +28,7 @@ ruleTester.run("no-emdash-in-comment", rule, {
       code: '<script setup lang="ts"></script>\n<template><RTag text="—" /></template>\n',
       filename: "A.vue",
     },
-    { code: sfc('.a::after { content: "—"; }'), filename: "A.vue" },
+    sfc('.a::after { content: "—"; }'),
   ],
   invalid: [
     {
@@ -62,8 +62,7 @@ ruleTester.run("no-emdash-in-comment", rule, {
       errors: [{ ...error, line: 2 }],
     },
     {
-      code: sfc('/* Glass — dark */\n.a { content: "—"; }'),
-      filename: "A.vue",
+      ...sfc('/* Glass — dark */\n.a { content: "—"; }'),
       errors: [{ ...error, line: 4 }],
     },
   ],

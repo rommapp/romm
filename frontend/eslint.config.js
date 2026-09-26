@@ -97,7 +97,7 @@ export default tseslint.config(
       "import-x/resolver-next": [
         createTypeScriptImportResolver({
           project: "./tsconfig.json",
-          extensions: [".ts", ".tsx", ".vue", ".js", ".mjs", ".json"],
+          extensions: [".ts", ".d.ts", ".tsx", ".vue", ".js", ".mjs", ".json"],
         }),
       ],
     },
@@ -114,12 +114,8 @@ export default tseslint.config(
       ],
     },
   },
-  {
-    // vue-tsc checks undefined names; without type info this rule misreads
-    // DOM type names (`EventListener`, `ScrollBehavior`) as undefined.
-    files: ["**/*.vue"],
-    rules: { "no-undef": "off" },
-  },
+  // typescript-eslint scopes these TS-redundant core rules to .ts files only.
+  { ...tseslint.configs.eslintRecommended, files: ["**/*.vue"] },
   {
     // Frozen v1: two cycles between the console theme helpers predate the
     // rule and cannot be refactored under the freeze.
@@ -141,55 +137,52 @@ export default tseslint.config(
               message:
                 "Primitives take text via props, slots, or useChromeLabels().",
             },
-            {
-              name: "@/locales",
-              message:
-                "Primitives take text via props, slots, or useChromeLabels().",
-            },
             { name: "axios", message: "Primitives do not fetch." },
             {
               name: "vue-router",
               importNames: ["useRouter", "useRoute"],
               message: "Primitives accept a RouterLink `to`, not the router.",
             },
-            {
-              name: "@/plugins/router",
-              message: "Primitives accept a RouterLink `to`, not the router.",
-            },
           ],
-          patterns: [
+        },
+      ],
+      // Matches resolved files, so every alias and relative spelling is covered.
+      "import-x/no-restricted-paths": [
+        "error",
+        {
+          zones: [
             {
-              group: [
-                "@/services/*",
-                "@/services/**",
-                "@/stores/*",
-                "@/stores/**",
-              ],
+              from: ["./src/services", "./src/stores"],
               message:
                 "Primitives do not use services or stores; move this to a shared or feature composite.",
             },
             {
-              group: ["@/__generated__", "@/__generated__/**"],
+              from: "./src/__generated__",
               message:
                 "Backend types are product domain; primitives take generic props.",
             },
             {
-              group: ["@/types/emitter"],
+              from: "./src/types/emitter.d.ts",
               message: "Primitives do not use the emitter.",
             },
             {
-              group: [
-                "@/v2/components/**",
-                "@v2/components/**",
-                "@/v2/composables/usePlatformIconCache",
-                "@/v2/composables/usePlatformIconCache/**",
-                "@v2/composables/usePlatformIconCache",
-                "@v2/composables/usePlatformIconCache/**",
+              from: "./src/locales",
+              message:
+                "Primitives take text via props, slots, or useChromeLabels().",
+            },
+            {
+              from: "./src/plugins/router.ts",
+              message: "Primitives accept a RouterLink `to`, not the router.",
+            },
+            {
+              from: [
+                "./src/v2/components",
+                "./src/v2/composables/usePlatformIconCache",
               ],
               message:
                 "Primitives cannot depend on composites or domain composables.",
             },
-          ],
+          ].map((zone) => ({ target: "./src/v2/lib", ...zone })),
         },
       ],
     },

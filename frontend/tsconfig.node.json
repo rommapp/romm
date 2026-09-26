@@ -10,9 +10,5 @@
     "checkJs": true,
     "types": ["node"]
   },
-  "include": [
-    "scripts/**/*.ts",
-    "eslint-plugin-romm/**/*.js",
-    "eslint-plugin-romm/**/*.ts"
-  ]
+  "include": ["scripts/**/*.ts", "eslint-plugin-romm"]
 }

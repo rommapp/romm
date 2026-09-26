@@ -1,11 +1,13 @@
 // @ts-check
+import postcss from "postcss";
 
 /**
- * @typedef {{ text: string, start: number }} StyleBlock
+ * @typedef {{ root: import("postcss").Root, start: number }} StyleRoot
  * @typedef {{ type: string, name?: string, range: [number, number], children?: SfcNode[], comments?: SfcNode[] }} SfcNode
  */
 
-const CSS_COMMENT = /\/\*[\s\S]*?\*\//g;
+/** @type {WeakMap<import("eslint").SourceCode, StyleRoot[]>} */
+const parsed = new WeakMap();
 
 /**
  * The SFC document fragment, or null for files that are not SFCs.
@@ -21,52 +23,44 @@ export function sfcFragment(context) {
 }
 
 /**
- * The raw text and offset of each `<style>` block in an SFC.
+ * Each `<style>` block of an SFC parsed once per file, with its source offset.
  * @param {import("eslint").Rule.RuleContext} context
- * @returns {StyleBlock[]}
+ * @returns {StyleRoot[]}
  */
-function rawStyleBlocks(context) {
-  const fragment = sfcFragment(context);
-  if (!fragment?.children) return [];
+export function sfcStyleRoots(context) {
+  const { sourceCode } = context;
+  const cached = parsed.get(sourceCode);
+  if (cached) return cached;
 
-  /** @type {StyleBlock[]} */
-  const blocks = [];
-  for (const node of fragment.children) {
+  /** @type {StyleRoot[]} */
+  const roots = [];
+  for (const node of sfcFragment(context)?.children ?? []) {
     if (node.type !== "VElement" || node.name !== "style") continue;
     const body = node.children?.[0];
     if (!body) continue;
     const [start, end] = body.range;
-    blocks.push({ text: context.sourceCode.text.slice(start, end), start });
-  }
-  return blocks;
-}
-
-/**
- * The `<style>` blocks of a Vue SFC (none for other files), with comments
- * blanked out so offsets still map to the source.
- * @param {import("eslint").Rule.RuleContext} context
- * @returns {StyleBlock[]}
- */
-export function sfcStyleBlocks(context) {
-  return rawStyleBlocks(context).map((block) => ({
-    start: block.start,
-    text: block.text.replace(CSS_COMMENT, (c) => c.replace(/[^\n]/g, " ")),
-  }));
-}
-
-/**
- * Absolute source ranges of the CSS comments in an SFC's `<style>` blocks.
- * @param {import("eslint").Rule.RuleContext} context
- * @returns {[number, number][]}
- */
-export function sfcStyleCommentRanges(context) {
-  /** @type {[number, number][]} */
-  const ranges = [];
-  for (const block of rawStyleBlocks(context)) {
-    for (const match of block.text.matchAll(CSS_COMMENT)) {
-      const start = block.start + (match.index ?? 0);
-      ranges.push([start, start + match[0].length]);
+    try {
+      roots.push({
+        root: postcss.parse(sourceCode.text.slice(start, end)),
+        start,
+      });
+    } catch {
+      // Vite reports CSS it cannot parse, so the lint rules skip the block.
     }
   }
-  return ranges;
+  parsed.set(sourceCode, roots);
+  return roots;
+}
+
+/**
+ * Absolute source range of a node inside a parsed style block.
+ * @param {StyleRoot} block
+ * @param {import("postcss").AnyNode} node
+ * @returns {[number, number]}
+ */
+export function rangeOf(block, node) {
+  return [
+    block.start + (node.source?.start?.offset ?? 0),
+    block.start + (node.source?.end?.offset ?? 0),
+  ];
 }

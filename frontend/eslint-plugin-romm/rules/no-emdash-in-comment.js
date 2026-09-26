@@ -1,5 +1,6 @@
 // @ts-check
-import { sfcFragment, sfcStyleCommentRanges } from "../utils/sfcStyles.js";
+import { reportAt } from "../utils/report.js";
+import { rangeOf, sfcFragment, sfcStyleRoots } from "../utils/sfcStyles.js";
 
 const EM_DASH = "—";
 
@@ -15,7 +16,11 @@ function commentRanges(context) {
     if (c.range) ranges.push(c.range);
   }
   for (const c of sfcFragment(context)?.comments ?? []) ranges.push(c.range);
-  ranges.push(...sfcStyleCommentRanges(context));
+  for (const block of sfcStyleRoots(context)) {
+    block.root.walkComments((c) => {
+      ranges.push(rangeOf(block, c));
+    });
+  }
   return ranges;
 }
 
@@ -36,21 +41,13 @@ export default {
   create(context) {
     return {
       Program() {
-        const { sourceCode } = context;
-        const { text } = sourceCode;
+        const { text } = context.sourceCode;
         if (!text.includes(EM_DASH)) return;
         for (const [start, end] of commentRanges(context)) {
           const comment = text.slice(start, end);
           let offset = comment.indexOf(EM_DASH);
           while (offset !== -1) {
-            const index = start + offset;
-            context.report({
-              loc: {
-                start: sourceCode.getLocFromIndex(index),
-                end: sourceCode.getLocFromIndex(index + 1),
-              },
-              messageId: "emDash",
-            });
+            reportAt(context, start + offset, 1, "emDash");
             offset = comment.indexOf(EM_DASH, offset + 1);
           }
         }

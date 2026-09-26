@@ -1,7 +1,7 @@
 // @ts-check
-import { sfcStyleBlocks } from "../utils/sfcStyles.js";
+import { reportAt } from "../utils/report.js";
+import { rangeOf, sfcStyleRoots } from "../utils/sfcStyles.js";
 
-const MEDIA_RULE = /@media\b([^{;]*)/gi;
 // Whatever is left after removing these is a condition the rule rejects.
 const ALLOWED_PARTS =
   /\(\s*prefers-reduced-motion\b[^)]*\)|\b(?:print|screen|all|only|not|and|or)\b|[\s,]/gi;
@@ -23,21 +23,17 @@ export default {
   create(context) {
     return {
       Program() {
-        const { sourceCode } = context;
-        for (const block of sfcStyleBlocks(context)) {
-          for (const rule of block.text.matchAll(MEDIA_RULE)) {
-            if (rule[1].replace(ALLOWED_PARTS, "") === "") continue;
-            const index = block.start + (rule.index ?? 0);
-            context.report({
-              loc: {
-                start: sourceCode.getLocFromIndex(index),
-                end: sourceCode.getLocFromIndex(
-                  index + rule[0].trimEnd().length,
-                ),
-              },
-              messageId: "layoutMedia",
-            });
-          }
+        for (const block of sfcStyleRoots(context)) {
+          block.root.walkAtRules("media", (rule) => {
+            if (rule.params.replace(ALLOWED_PARTS, "") === "") return;
+            const prelude = `@${rule.name}${rule.raws.afterName ?? ""}${rule.params}`;
+            reportAt(
+              context,
+              rangeOf(block, rule)[0],
+              prelude.length,
+              "layoutMedia",
+            );
+          });
         }
       },
     };

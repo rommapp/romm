@@ -1,9 +1,7 @@
 // @ts-check
-import { sfcStyleBlocks } from "../utils/sfcStyles.js";
+import { reportAt } from "../utils/report.js";
+import { rangeOf, sfcStyleRoots } from "../utils/sfcStyles.js";
 
-// A declaration follows `{`, `;` or a nested block's `}` and ends at `;` or
-// `}`. A selector ends at `{`, so `a:not(#abc) {` is never read as a value.
-const DECLARATION = /(?<=[{;}]\s*)(--[\w-]+|[a-z-]+)\s*:([^;{}]*)(?=[;}])/gi;
 const URL_OR_STRING = /url\([^)]*\)|"[^"]*"|'[^']*'/gi;
 const COLOR_LITERAL =
   /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|device-cmyk)\(/gi;
@@ -25,27 +23,26 @@ export default {
   create(context) {
     return {
       Program() {
-        const { sourceCode } = context;
-        for (const block of sfcStyleBlocks(context)) {
-          for (const decl of block.text.matchAll(DECLARATION)) {
-            const value = decl[2];
+        for (const block of sfcStyleRoots(context)) {
+          block.root.walkDecls((decl) => {
+            const value = decl.raws.value?.raw ?? decl.value;
             const valueStart =
-              block.start + (decl.index ?? 0) + decl[0].length - value.length;
+              rangeOf(block, decl)[0] +
+              decl.prop.length +
+              (decl.raws.between ?? "").length;
             const scanned = value.replace(URL_OR_STRING, (u) =>
               " ".repeat(u.length),
             );
             for (const hit of scanned.matchAll(COLOR_LITERAL)) {
-              const index = valueStart + (hit.index ?? 0);
-              context.report({
-                loc: {
-                  start: sourceCode.getLocFromIndex(index),
-                  end: sourceCode.getLocFromIndex(index + hit[0].length),
-                },
-                messageId: "colorLiteral",
-                data: { literal: hit[0] },
-              });
+              reportAt(
+                context,
+                valueStart + (hit.index ?? 0),
+                hit[0].length,
+                "colorLiteral",
+                { literal: hit[0] },
+              );
             }
-          }
+          });
         }
       },
     };

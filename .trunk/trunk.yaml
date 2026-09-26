@@ -92,6 +92,7 @@ lint:
             " - Replace the em dash with a comma, parentheses, or a separate sentence." }'
             ${target}
           success_codes: [0]
+          batch: true
     - name: eslint
       files:
         - javascript

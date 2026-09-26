@@ -17,6 +17,9 @@ export const ruleTester = new RuleTester({
   },
 });
 
-export function sfc(style: string): string {
-  return `<script setup lang="ts"></script>\n<template><div /></template>\n<style scoped>\n${style}\n</style>\n`;
+export function sfc(style: string): { code: string; filename: string } {
+  return {
+    code: `<script setup lang="ts"></script>\n<template><div /></template>\n<style scoped>\n${style}\n</style>\n`,
+    filename: "A.vue",
+  };
 }

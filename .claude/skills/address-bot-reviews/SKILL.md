@@ -91,10 +91,8 @@ undo a behaviour the maintainer asked for is a decline, with that intent as the
 reason. Repo rules are a valid source: Greptile enforces the comment discipline
 from `CLAUDE.md` and `review-polish`, and those findings stand.
 
-For every valid finding, ask whether a static check could have caught it. If it
-is pattern-shaped (a banned import, character, CSS value, or SFC shape), name
-the stock or `frontend/eslint-plugin-romm/` rule as a follow-up in the reply. A
-bot catching the same thing twice is a missing rule.
+A valid finding that is pattern-shaped is a missing check: name one as a
+follow-up in the reply (see `review-polish`, "Encode what you fixed twice").
 
 Suggestion blocks are a starting point, not a patch to apply blindly. Check they
 are complete and not duplicating a call a neighbouring branch already makes.
