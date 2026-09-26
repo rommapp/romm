@@ -34,3 +34,32 @@ export function resolveInitialFirmware<T extends FirmwareLike>({
 
   return fromStorage ?? fromConfig ?? fromSingleOption ?? null;
 }
+
+const SYSTEM_DIRECTORY = "/home/web_user/retroarch/userdata/system";
+const UNSAFE_FILE_NAME = /^\.{1,2}$|[\\/]/;
+// EJS_externalFiles writes an archive to a file key raw (4.2.3) or as its first
+// entry (nightly), so archives keep loading through EJS_biosUrl.
+const ARCHIVE_EXTENSION = /\.(zip|7z|rar)$/i;
+
+/** Every platform firmware file for PUAE, as EJS_externalFiles entries. */
+export function firmwareExternalFiles(
+  core: string,
+  firmware: readonly FirmwareLike[],
+): Record<string, string> {
+  // PUAE picks among several Kickstarts by name for each game.
+  if (core !== "puae") return {};
+
+  return Object.fromEntries(
+    firmware
+      .filter(
+        ({ file_name, missing_from_fs }) =>
+          !missing_from_fs &&
+          !UNSAFE_FILE_NAME.test(file_name) &&
+          !ARCHIVE_EXTENSION.test(file_name),
+      )
+      .map(({ id, file_name }) => [
+        `${SYSTEM_DIRECTORY}/${file_name}`,
+        `/api/firmware/${id}/content/${encodeURIComponent(file_name)}`,
+      ]),
+  );
+}

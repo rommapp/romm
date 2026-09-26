@@ -20,6 +20,7 @@ from tests.streaming_stubs import exit_pulls_spawned_inline
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import streaming
+from endpoints.responses.streaming import ImportRefusalSchema
 from endpoints.streaming import platform_capabilities
 from handler.activity_handler import activity_handler
 from handler.auth import oauth_handler
@@ -41,6 +42,8 @@ from handler.streaming import (
     access,
     broker,
     commands,
+    imports,
+    launch,
     lifecycle,
     memory_cards,
     saves,
@@ -68,7 +71,7 @@ from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.notification import NotificationKind
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, SaveTargetLayout
 from models.user import User
 from utils.memory_cards import content_hash_of_bytes
 
@@ -105,6 +108,13 @@ def clear_streaming_sessions():
     """Streaming sessions live in Redis (fakeredis under pytest), start clean."""
     asyncio.run(async_cache.flushall())
     yield
+
+
+@pytest.fixture(autouse=True)
+def clear_import_spec_cache():
+    """The import-spec cache is process-wide, so one case's answer must not leak."""
+    with patch.dict(webstation._import_spec_cache, clear=True):
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -497,6 +507,47 @@ def test_get_config_reports_save_picker_support(client, access_token, rom: Rom):
     # Restoring is the legacy broker's own business, so RomM cannot promise a
     # pick survives it.
     assert supported["gba"] is False
+
+
+def test_get_config_reports_the_foreign_picks_each_broker_imports(
+    client, access_token, rom: Rom
+):
+    """The picker only offers a foreign pick the claim would take, so a broker
+    that declares no imports, or cannot be asked, reports none."""
+    importing = {**_webstation_for(rom), "emulator": "duckstation"}
+    silent = {**_webstation_for(rom), "platform": "ps2", "emulator": "pcsx2"}
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"save", "state"}), state_channel="archive", state_slot=0
+    )
+
+    def answer(container, _emulator, _platform):
+        return spec if container.platform == rom.platform_slug else None
+
+    with _streaming(importing, silent):
+        with patch("handler.streaming.webstation.import_spec", side_effect=answer):
+            response = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert response.status_code == 200
+    kinds = {c["platform"]: c["import_kinds"] for c in response.json()["containers"]}
+    assert kinds[rom.platform_slug] == ["save", "state"]
+    assert kinds["ps2"] == []
+
+
+@pytest.mark.parametrize(
+    ("kinds", "channel", "slot", "expected"),
+    [
+        ({"save", "state"}, "archive", 0, ["save", "state"]),
+        ({"state"}, "none", 0, []),
+        ({"state"}, "push", None, []),
+        ({"save", "memcard"}, "none", None, ["save"]),
+    ],
+)
+def test_import_spec_pickable_kinds_match_what_the_claim_accepts(
+    kinds, channel, slot, expected
+):
+    spec = webstation.ImportSpec(
+        kinds=frozenset(kinds), state_channel=channel, state_slot=slot
+    )
+    assert spec.pickable_kinds() == expected
 
 
 def test_clears_stale_saves_overrides_the_emulator_default(client, access_token, rom):
@@ -2873,7 +2924,9 @@ def test_heartbeat_for_a_session_reassigned_mid_request_reports_ended(
 
         async def find_then_reassign(*args, **kwargs):
             found = await real_find(*args, **kwargs)
-            session = json.loads(await async_cache.get(key))
+            raw = await async_cache.get(key)
+            assert raw is not None
+            session = json.loads(raw)
             session["user_id"] = viewer_user.id
             await async_cache.set(key, json.dumps(session))
             return found
@@ -2905,7 +2958,9 @@ def test_heartbeat_for_a_claim_restamped_mid_request_reports_ended(
 
         async def find_then_restamp(*args, **kwargs):
             found = await real_find(*args, **kwargs)
-            session = json.loads(await async_cache.get(key))
+            raw = await async_cache.get(key)
+            assert raw is not None
+            session = json.loads(raw)
             session["claimed_at"] = "2099-01-01T00:00:00+00:00"
             await async_cache.set(key, json.dumps(session))
             return found
@@ -4741,6 +4796,7 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
     state = db_state_handler.get_state_by_filename(
         user_id=admin_user.id, rom_id=rom.id, file_name="Game.03.p2s"
     )
+    assert state is not None
     assert state.screenshot is not None
     assert state.screenshot.file_name == "Game.03.png"
     assert state.screenshot.is_gallery is False
@@ -4763,6 +4819,7 @@ def test_store_state_screenshot_rejects_non_png(admin_user: User, rom: Rom):
     state = db_state_handler.get_state_by_filename(
         user_id=admin_user.id, rom_id=rom.id, file_name="Game.05.p2s"
     )
+    assert state is not None
     assert state.screenshot is None
 
 
@@ -4790,6 +4847,7 @@ def test_store_state_asset_binds_screenshot(admin_user: User, rom: Rom):
     state = db_state_handler.get_state_by_filename(
         user_id=admin_user.id, rom_id=rom.id, file_name="Game.03.p2s"
     )
+    assert state is not None
     assert state.screenshot is not None
     assert state.screenshot.file_name == "Game.03.png"
 
@@ -4853,6 +4911,7 @@ def test_store_state_asset_collision_keeps_disc_file_id_in_sync(
             )
         )
     updated = db_state_handler.get_state_by_id(existing.id)
+    assert updated is not None
     assert updated.disc_file_id == disc.id
     assert updated.file_size_bytes == 999
 
@@ -5074,10 +5133,11 @@ def test_resolve_save_archive_accepts_the_players_own_archive(
     archive = db_save_handler.add_save(
         _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
     )
-    resolved = saves.resolve_save_archive(
+    resolved, is_foreign = saves.resolve_save_archive(
         admin_user.id, rom, _resolved(_clearing_webstation(rom)), archive.id
     )
     assert resolved.id == archive.id
+    assert is_foreign is False
 
 
 def test_resolve_save_archive_rejects_a_save_that_is_not_the_players(
@@ -5117,10 +5177,11 @@ def test_resolve_save_archive_rejects_another_emulators_archive(
     other = db_save_handler.add_save(
         _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     )
-    with pytest.raises(HTTPException) as exc:
-        saves.resolve_save_archive(
-            admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
-        )
+    with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
+        with pytest.raises(HTTPException) as exc:
+            saves.resolve_save_archive(
+                admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+            )
     assert exc.value.status_code == 400
     assert exc.value.detail == "Save was made by a different emulator"
 
@@ -5130,10 +5191,11 @@ def test_resolve_save_archive_rejects_a_bare_save_file(rom: Rom, admin_user: Use
     loose = db_save_handler.add_save(
         _save_for(rom, admin_user, "Game.srm", "retroarch", "h1")
     )
-    with pytest.raises(HTTPException) as exc:
-        saves.resolve_save_archive(
-            admin_user.id, rom, _resolved(_clearing_webstation(rom)), loose.id
-        )
+    with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
+        with pytest.raises(HTTPException) as exc:
+            saves.resolve_save_archive(
+                admin_user.id, rom, _resolved(_clearing_webstation(rom)), loose.id
+            )
     assert exc.value.status_code == 400
     assert exc.value.detail == "Save is not a restorable archive"
 
@@ -5152,6 +5214,523 @@ def test_resolve_save_archive_rejects_a_pick_where_it_would_not_land(
         )
     assert exc.value.status_code == 400
     assert exc.value.detail == "This emulator always restores the newest save"
+
+
+def test_resolve_save_archive_accepts_a_foreign_pick_the_broker_will_import(
+    rom: Rom, admin_user: User
+):
+    """A pick that fails the native check is not turned away outright: it is
+    checked against the broker's own import-spec first."""
+    other = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"save"}),
+        state_channel="archive",
+        state_slot=0,
+    )
+    with patch("handler.streaming.saves.webstation.import_spec", return_value=spec):
+        save, is_foreign = saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+        )
+    assert save.id == other.id
+    assert is_foreign is True
+
+
+def test_resolve_save_archive_still_refuses_when_the_broker_has_no_import_spec(
+    rom: Rom, admin_user: User
+):
+    other = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
+        with pytest.raises(HTTPException) as exc:
+            saves.resolve_save_archive(
+                admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+            )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Save was made by a different emulator"
+
+
+def test_resolve_resume_state_accepts_the_players_own_state(rom: Rom, admin_user: User):
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
+    )
+    resolved, slot, is_foreign = states.resolve_resume_state(
+        admin_user.id, rom, _resolved(_webstation_for(rom)), state.id
+    )
+    assert resolved.id == state.id
+    assert slot == 1
+    assert is_foreign is False
+
+
+def test_resolve_resume_state_rejects_a_state_that_is_not_visible(
+    rom: Rom, admin_user: User, viewer_user: User
+):
+    state = db_state_handler.add_state(
+        _state_for(rom, viewer_user, "Game.01.p2s", "pcsx2")
+    )
+    with pytest.raises(HTTPException) as exc:
+        states.resolve_resume_state(
+            admin_user.id, rom, _resolved(_webstation_for(rom)), state.id
+        )
+    assert exc.value.status_code == 404
+
+
+def test_resolve_resume_state_accepts_a_foreign_pick_on_an_archive_channel(
+    rom: Rom, admin_user: User
+):
+    """A pick from an emulator the container does not natively read is not
+    turned away: the broker's import-spec supplies the slot to resume from."""
+    other = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
+    )
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"state"}),
+        state_channel="archive",
+        state_slot=2,
+    )
+    with patch("handler.streaming.states.webstation.import_spec", return_value=spec):
+        resolved, slot, is_foreign = states.resolve_resume_state(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+        )
+    assert resolved.id == other.id
+    assert slot == 2
+    assert is_foreign is True
+
+
+def test_resolve_resume_state_accepts_a_foreign_pick_on_a_push_channel(
+    rom: Rom, admin_user: User
+):
+    other = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
+    )
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"state"}),
+        state_channel="push",
+        state_slot=1,
+    )
+    with patch("handler.streaming.states.webstation.import_spec", return_value=spec):
+        resolved, slot, is_foreign = states.resolve_resume_state(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+        )
+    assert slot == 1
+    assert is_foreign is True
+
+
+def test_resolve_resume_state_refuses_a_foreign_pick_when_the_channel_is_none(
+    rom: Rom, admin_user: User
+):
+    other = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
+    )
+    spec = webstation.ImportSpec(
+        kinds=frozenset(), state_channel="none", state_slot=None
+    )
+    with patch("handler.streaming.states.webstation.import_spec", return_value=spec):
+        with pytest.raises(HTTPException) as exc:
+            states.resolve_resume_state(
+                admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
+            )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "State was made by a different emulator"
+
+
+def test_resolve_resume_state_rejects_an_unrecognized_slot_when_no_import_spec(
+    rom: Rom, admin_user: User
+):
+    """A same-emulator state whose filename carries no slot, and no broker
+    import-spec to fall back on, is refused for its slot."""
+    weird = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.state", "pcsx2")
+    )
+    with patch("handler.streaming.states.webstation.import_spec", return_value=None):
+        with pytest.raises(HTTPException) as exc:
+            states.resolve_resume_state(
+                admin_user.id, rom, _resolved(_webstation_for(rom)), weird.id
+            )
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "State filename carries no recognizable slot number"
+
+
+def test_origin_of_tags_a_device_capture_as_hardware():
+    assert imports.origin_of("retroarch", "device-123") == "hardware"
+
+
+def test_origin_of_tags_an_untagged_save_as_unknown():
+    assert imports.origin_of(None, None) == "unknown"
+    assert imports.origin_of("", None) == "unknown"
+
+
+def test_origin_of_tags_a_streaming_emulator_as_standalone():
+    assert imports.origin_of("retroarch", None) == "standalone"
+
+
+def test_origin_of_tags_anything_else_as_emulatorjs():
+    assert imports.origin_of("mgba-wasm", None) == "emulatorjs"
+
+
+def test_build_import_archive_wraps_a_foreign_save_with_no_base():
+    """A foreign save pick with no native base builds a fresh zip: no v1
+    entries to carry over, one `.import/save/...` member."""
+    member = imports.ForeignMember(
+        kind="save", name="Game.srm", content=b"save-bytes", origin="standalone"
+    )
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7, base=None, members=[member]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = zf.namelist()
+        assert ".import/save/Game.srm" in names
+        assert zf.read(".import/save/Game.srm") == b"save-bytes"
+        manifest = json.loads(zf.read(".broker-manifest.json"))
+    assert manifest["version"] == 2
+    assert manifest["import"] == {"source": "romm", "rom_id": 7}
+    assert manifest["files"] == [
+        {"path": ".import/save/Game.srm", "kind": "save", "origin": "standalone"}
+    ]
+
+
+def test_build_import_archive_expands_a_foreign_zips_own_members():
+    """A foreign pick that is itself a zip has its members unpacked under the
+    import prefix, not nested as a zip-within-zip."""
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    inner = io.BytesIO()
+    with zipfile.ZipFile(inner, "w") as izf:
+        izf.writestr("save.mcr", b"card-bytes")
+    member = imports.ForeignMember(
+        kind="save", name="Game.saves.zip", content=inner.getvalue(), origin="hardware"
+    )
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7, base=None, members=[member]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        assert ".import/save/save.mcr" in zf.namelist()
+        assert zf.read(".import/save/save.mcr") == b"card-bytes"
+
+
+def test_build_import_archive_keeps_a_native_base_alongside_a_foreign_state():
+    """One native save and one foreign state in the same launch: the save
+    stays entirely on its own v1 entry, only the state gets an import
+    member. This is the mixed-kind case Appendix A(e) describes."""
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        bzf.writestr("Game.srm", b"native-save-bytes")
+        bzf.writestr(
+            ".broker-manifest.json",
+            json.dumps({"version": 1, "files": [{"path": "Game.srm", "kind": "save"}]}),
+        )
+    state_member = imports.ForeignMember(
+        kind="state", name="Game.00.pcsx2", content=b"state-bytes", origin="standalone"
+    )
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7, base=("Game.saves.zip", base_zip.getvalue()), members=[state_member]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = zf.namelist()
+        assert "Game.srm" in names
+        assert zf.read("Game.srm") == b"native-save-bytes"
+        assert ".import/state/Game.00.pcsx2" in names
+        manifest = json.loads(zf.read(".broker-manifest.json"))
+    assert manifest["version"] == 2
+    paths = {f["path"] for f in manifest["files"]}
+    assert paths == {"Game.srm", ".import/state/Game.00.pcsx2"}
+
+
+def test_build_import_archive_strips_the_bases_own_state_member_when_importing_a_foreign_state():
+    """The base's own v1 state entry is stripped whenever a foreign state
+    rides in the same zip, so the two never collide on the emulator's one
+    state slot."""
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        bzf.writestr("Game.srm", b"native-save-bytes")
+        bzf.writestr("Game.00.pcsx2", b"native-state-bytes")
+        bzf.writestr(
+            ".broker-manifest.json",
+            json.dumps(
+                {
+                    "version": 1,
+                    "files": [
+                        {"path": "Game.srm", "kind": "save"},
+                        {"path": "Game.00.pcsx2", "kind": "state"},
+                    ],
+                }
+            ),
+        )
+    state_member = imports.ForeignMember(
+        kind="state",
+        name="Game.00.dolphin",
+        content=b"foreign-state",
+        origin="standalone",
+    )
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7, base=("Game.saves.zip", base_zip.getvalue()), members=[state_member]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = zf.namelist()
+        assert "Game.srm" in names
+        assert "Game.00.pcsx2" not in names
+        assert ".import/state/Game.00.dolphin" in names
+
+
+def test_build_import_archive_leaves_a_foreign_save_archives_own_state_out():
+    """Another emulator's save archive also carries its exit state, which a
+    save pick must not import as a save."""
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    inner = io.BytesIO()
+    with zipfile.ZipFile(inner, "w") as izf:
+        izf.writestr("memcards/Game.mcd", b"card-bytes")
+        izf.writestr("savestates/Game.sav", b"state-bytes")
+        izf.writestr(
+            ".broker-manifest.json",
+            json.dumps(
+                {
+                    "version": 1,
+                    "files": [
+                        {"path": "memcards/Game.mcd", "kind": "save"},
+                        {"path": "savestates/Game.sav", "kind": "state"},
+                    ],
+                }
+            ),
+        )
+    member = imports.ForeignMember(
+        kind="save",
+        name="Game [duckstation a].saves.zip",
+        content=inner.getvalue(),
+        origin="standalone",
+    )
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7, base=None, members=[member]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = zf.namelist()
+    assert ".import/save/memcards/Game.mcd" in names
+    assert not any(name.endswith("Game.sav") for name in names)
+
+
+def test_build_import_archive_keeps_a_base_members_timestamp():
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        bzf.writestr(
+            zipfile.ZipInfo("Game.srm", date_time=(2024, 1, 2, 3, 4, 6)), b"native"
+        )
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7,
+        base=("Game.saves.zip", base_zip.getvalue()),
+        members=[
+            imports.ForeignMember(
+                kind="state", name="Game.00.pcsx2", content=b"s", origin="standalone"
+            )
+        ],
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        assert zf.getinfo("Game.srm").date_time == (2024, 1, 2, 3, 4, 6)
+
+
+def test_build_import_archive_strips_dotfiles_and_macosx_junk():
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        bzf.writestr("Game.srm", b"native-save-bytes")
+        bzf.writestr("__MACOSX/._Game.srm", b"junk")
+        bzf.writestr(".DS_Store", b"junk")
+        bzf.writestr(
+            ".broker-manifest.json",
+            json.dumps({"version": 1, "files": [{"path": "Game.srm", "kind": "save"}]}),
+        )
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7,
+        base=("Game.saves.zip", base_zip.getvalue()),
+        members=[
+            imports.ForeignMember(
+                kind="state", name="Game.00.pcsx2", content=b"s", origin="standalone"
+            )
+        ],
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = zf.namelist()
+        assert not any(
+            "__MACOSX" in n
+            or n.split("/")[-1].startswith(".")
+            and n != ".broker-manifest.json"
+            for n in names
+        )
+
+
+def test_archive_budget_charges_bytes_and_members():
+    budget = imports._ArchiveBudget(bytes_left=10, members_left=2)
+    budget.charge(4)
+    assert budget.bytes_left == 6
+    assert budget.members_left == 1
+
+
+def test_archive_budget_raises_once_the_byte_budget_is_exceeded():
+    budget = imports._ArchiveBudget(bytes_left=10, members_left=2000)
+    with pytest.raises(ValueError):
+        budget.charge(11)
+
+
+def test_archive_budget_raises_once_the_member_budget_is_exceeded():
+    budget = imports._ArchiveBudget(bytes_left=1_000_000, members_left=1)
+    budget.charge(1)
+    with pytest.raises(ValueError):
+        budget.charge(1)
+
+
+def test_build_import_archive_rejects_a_foreign_member_over_the_expanded_byte_budget():
+    """A member's own byte length is charged before it is staged, so an
+    oversized upload is rejected rather than fully expanded in memory."""
+    member = imports.ForeignMember(
+        kind="save", name="Game.srm", content=b"x" * 10, origin="standalone"
+    )
+    real_budget = imports._ArchiveBudget
+    with patch(
+        "handler.streaming.imports._ArchiveBudget",
+        lambda: real_budget(bytes_left=5, members_left=2000),
+    ):
+        with pytest.raises(ValueError):
+            imports.build_import_archive(rom_id=7, base=None, members=[member])
+
+
+def test_hydrate_import_archive_uploads_a_foreign_save_with_no_native_base(
+    rom: Rom, admin_user: User
+):
+    save = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    upload = MagicMock(return_value="rom-1.zip")
+    with (
+        patch(
+            "handler.streaming.imports.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=b"picked-bytes"),
+        ),
+        patch("handler.streaming.imports.webstation.upload_archive", upload),
+    ):
+        result = asyncio.run(
+            imports.hydrate_import_archive(
+                admin_user.id,
+                rom,
+                _resolved(_clearing_webstation(rom)),
+                save=save,
+                save_is_foreign=True,
+                state=None,
+            )
+        )
+    assert result.path == "rom-1.zip"
+    assert result.state_imported is False
+    upload.assert_called_once()
+    uploaded_bytes = upload.call_args.args[2]
+    with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
+        assert f".import/save/{save.file_name}" in zf.namelist()
+
+
+def test_hydrate_import_archive_falls_back_to_the_newest_native_save_as_base(
+    rom: Rom, admin_user: User
+):
+    """A state-only foreign pick (no save_id) still carries the newest
+    native save as the base, as a launch with no pick does."""
+    db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.pcsx2", "pcsx2")
+    )
+    upload = MagicMock(return_value="rom-1.zip")
+    with (
+        patch(
+            "handler.streaming.imports.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=lambda path: path.encode()),
+        ),
+        patch("handler.streaming.imports.webstation.upload_archive", upload),
+    ):
+        result = asyncio.run(
+            imports.hydrate_import_archive(
+                admin_user.id,
+                rom,
+                _resolved(_clearing_webstation(rom)),
+                save=None,
+                save_is_foreign=False,
+                state=state,
+            )
+        )
+    assert result.path == "rom-1.zip"
+    assert result.state_imported is True
+    uploaded_bytes = upload.call_args.args[2]
+    with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
+        assert ".import/state/Game.00.pcsx2" in zf.namelist()
+
+
+def test_hydrate_import_archive_falls_through_when_the_only_foreign_read_fails(
+    rom: Rom, admin_user: User
+):
+    """A native save plus a foreign state whose bytes are missing on disk:
+    there is nothing foreign to carry, so this must not upload a base-only
+    import archive. The caller falls back to ordinary save hydration."""
+    save = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.pcsx2", "pcsx2")
+    )
+    upload = MagicMock(return_value="rom-1.zip")
+    with (
+        patch(
+            "handler.streaming.imports.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=FileNotFoundError),
+        ),
+        patch("handler.streaming.imports.webstation.upload_archive", upload),
+    ):
+        result = asyncio.run(
+            imports.hydrate_import_archive(
+                admin_user.id,
+                rom,
+                _resolved(_clearing_webstation(rom)),
+                save=save,
+                save_is_foreign=False,
+                state=state,
+            )
+        )
+    assert result == imports.ImportHydration()
+    upload.assert_not_called()
+
+
+def test_hydrate_import_archive_returns_none_when_nothing_is_foreign(
+    rom: Rom, admin_user: User
+):
+    save = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    )
+    result = asyncio.run(
+        imports.hydrate_import_archive(
+            admin_user.id,
+            rom,
+            _resolved(_clearing_webstation(rom)),
+            save=save,
+            save_is_foreign=False,
+            state=None,
+        )
+    )
+    assert result.path is None
+    assert result.state_imported is False
 
 
 def test_claim_hydrates_the_picked_save(
@@ -5180,6 +5759,172 @@ def test_claim_hydrates_the_picked_save(
     assert activate.call_args.kwargs["archive_path"] == "/config/picked.zip"
 
 
+def test_claim_hydrates_a_foreign_save_through_the_import_path(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """A foreign save pick must be uploaded through imports.hydrate_import_archive,
+    not the native hydrate_saves_to_webstation path."""
+    foreign = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"save"}),
+        state_channel="archive",
+        state_slot=0,
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    hydrate_import = AsyncMock(return_value=imports.ImportHydration("rom-1.zip", False))
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.saves.webstation.import_spec", return_value=spec),
+            patch("endpoints.streaming.webstation.import_spec", return_value=spec),
+            patch("handler.streaming.imports.hydrate_import_archive", hydrate_import),
+            patch("handler.streaming.background.spawn_sync_task"),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
+        ):
+            resp = _claim(client, access_token, rom.id, save_id=foreign.id)
+    assert resp.status_code == 202
+    hydrate_import.assert_called_once()
+    call_kwargs = hydrate_import.call_args.kwargs
+    assert call_kwargs["save_is_foreign"] is True
+    assert call_kwargs["save"].id == foreign.id
+
+
+def test_claim_hydrates_a_foreign_resume_state_through_the_import_path(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """A foreign resume pick must actually land in the uploaded archive, not
+    just be trusted to: this is what proves resume_via_import is only ever
+    set once the state import genuinely succeeded."""
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
+    )
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"state"}),
+        state_channel="archive",
+        state_slot=0,
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    upload = MagicMock(return_value="rom-1.zip")
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.states.webstation.import_spec", return_value=spec),
+            patch("endpoints.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.imports.fs_asset_handler.read_file",
+                new=AsyncMock(side_effect=lambda path: path.encode()),
+            ),
+            patch("handler.streaming.imports.webstation.upload_archive", upload),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id, state_id=state.id)
+    assert r.status_code == 202
+    upload.assert_called_once()
+    uploaded_bytes = upload.call_args.args[2]
+    with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
+        assert any(name.startswith(".import/state/") for name in zf.namelist())
+    assert [event for event, _ in sent] == ["streaming:launch-ready"]
+    assert _launch_ready(sent)["resume"] is True
+
+
+def test_a_missing_foreign_state_does_not_falsely_claim_resume_via_import(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The foreign state's bytes are missing on disk, so the import archive
+    never actually carries it. the resume must not reach run_launch as
+    imported on the strength of the pre-win check alone, and the native save
+    hydration path must still get its turn."""
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
+    )
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"state"}),
+        state_channel="archive",
+        state_slot=0,
+    )
+    native_hydrate = AsyncMock(return_value=None)
+    run_launch_mock = AsyncMock()
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.states.webstation.import_spec", return_value=spec),
+            patch("endpoints.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.imports.fs_asset_handler.read_file",
+                new=AsyncMock(side_effect=FileNotFoundError),
+            ),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation", native_hydrate
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(client, access_token, rom.id, state_id=state.id)
+    assert r.status_code == 202
+    run_launch_mock.assert_called_once()
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "lost"
+    native_hydrate.assert_called_once()
+
+
+def test_claim_refuses_a_foreign_save_the_won_container_will_not_import(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The won container's own import-spec decides: a pick it will not take is
+    refused and the claim released, never uploaded as a native archive."""
+    foreign = db_save_handler.add_save(
+        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    )
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"save"}),
+        state_channel="archive",
+        state_slot=0,
+    )
+    native_hydrate = AsyncMock(return_value=None)
+    run_launch_mock = AsyncMock()
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.import_spec", side_effect=[spec, None]),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation", native_hydrate
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(client, access_token, rom.id, save_id=foreign.id)
+        assert _session_raw(_clearing_webstation(rom)) is None
+    assert r.status_code == 400
+    native_hydrate.assert_not_called()
+    run_launch_mock.assert_not_called()
+
+
+def test_claim_refuses_a_foreign_state_the_won_container_will_not_import(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """A foreign state the won container will not take must not fall through to
+    the native push, where the emulator would load another emulator's bytes."""
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
+    )
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"state"}),
+        state_channel="archive",
+        state_slot=0,
+    )
+    push = AsyncMock(return_value=True)
+    run_launch_mock = AsyncMock()
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.import_spec", side_effect=[spec, None]),
+            patch("handler.streaming.states.push_resume_state", push),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(client, access_token, rom.id, state_id=state.id)
+        assert _session_raw(_clearing_webstation(rom)) is None
+    assert r.status_code == 400
+    push.assert_not_called()
+    run_launch_mock.assert_not_called()
+
+
 def test_claim_with_an_unrestorable_pick_never_reserves_a_container(
     client, access_token, rom: Rom, admin_user: User
 ):
@@ -5192,6 +5937,7 @@ def test_claim_with_an_unrestorable_pick_never_reserves_a_container(
     with _streaming(_clearing_webstation(rom)):
         with (
             patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.saves.webstation.import_spec", return_value=None),
             _spawns_nothing(),
         ):
             refused = _claim(client, access_token, rom.id, save_id=loose.id)
@@ -5222,6 +5968,268 @@ def test_claim_hydrates_saves_before_launch(client, access_token, rom: Rom):
     assert r.status_code == 202
     hydrate_saves.assert_awaited_once()
     assert call_order == ["saves", "launch"]
+
+
+def test_run_launch_sends_rom_identity_fields(rom: Rom, admin_user: User):
+    """The broker needs the ROM's identity triple to answer import-spec and
+    to fold a foreign pick's members against the right title."""
+    rom.title_id = "SLUS-12345"
+    rom.save_target = "SLUS-12345"
+    rom.save_target_layout = SaveTargetLayout.FOLDER_EXACT
+    activate = MagicMock(return_value={"url": "/room/x"})
+    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    with (
+        patch("handler.streaming.launch.webstation.activate", activate),
+        patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
+        patch(
+            "handler.streaming.launch.lifecycle.publish_session_activity",
+            new=AsyncMock(),
+        ),
+        patch("handler.streaming.launch.stamp_launched", new=AsyncMock()),
+        patch("handler.streaming.launch.push_to_user", new=AsyncMock()),
+        patch("handler.streaming.launch.background.spawn_sync_task"),
+        patch(
+            "handler.streaming.launch.states.hydrate_states_to_broker", new=AsyncMock()
+        ),
+    ):
+        asyncio.run(
+            launch.run_launch(
+                container=_resolved(_webstation_for(rom)),
+                session_key="k1",
+                session=session,
+                user=admin_user,
+                rom=rom,
+                platform=rom.platform_slug,
+                rom_name=rom.name or rom.fs_name_no_ext,
+                rom_path="rom/path",
+                rom_language=None,
+                gui_language=None,
+                archive_path=None,
+                resume_state=None,
+                resume_slot=None,
+                resume_pushed=False,
+                resume_after_launch=False,
+                resume_import="none",
+                memory_card_synced=False,
+                multiplayer=False,
+                blank_card_id=None,
+            )
+        )
+    sent_rom = activate.call_args.kwargs["rom"]
+    assert sent_rom["title_id"] == "SLUS-12345"
+    assert sent_rom["save_target"] == "SLUS-12345"
+    assert sent_rom["save_target_layout"] == "folder-exact"
+
+
+def test_run_launch_pushes_refusals_when_the_broker_refuses_an_import(
+    rom: Rom, admin_user: User
+):
+    """An import refusal must reach the player's tabs as structured refusal
+    data, not just a flattened error string."""
+    refusal = ImportRefusalSchema(
+        reason="shape_mismatch",
+        member=".import/save/Game.mcr",
+        expected="folder",
+        detail=None,
+        suggest_emulator=None,
+        docs=None,
+    )
+    activate = MagicMock(side_effect=broker.ImportRefusedError([refusal], 2))
+    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    pushed = AsyncMock()
+    with (
+        patch("handler.streaming.launch.webstation.activate", activate),
+        patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
+        patch("handler.streaming.launch.lifecycle.abort_claim", new=AsyncMock()),
+        patch("handler.streaming.launch.push_to_user", pushed),
+    ):
+        asyncio.run(
+            launch.run_launch(
+                container=_resolved(_webstation_for(rom)),
+                session_key="k1",
+                session=session,
+                user=admin_user,
+                rom=rom,
+                platform=rom.platform_slug,
+                rom_name=rom.name or rom.fs_name_no_ext,
+                rom_path="rom/path",
+                rom_language=None,
+                gui_language=None,
+                archive_path=None,
+                resume_state=None,
+                resume_slot=None,
+                resume_pushed=False,
+                resume_after_launch=False,
+                resume_import="none",
+                memory_card_synced=False,
+                multiplayer=False,
+                blank_card_id=None,
+            )
+        )
+    payload = pushed.call_args.args[2]
+    assert payload["refusals"] == [
+        {
+            "reason": "shape_mismatch",
+            "member": ".import/save/Game.mcr",
+            "expected": "folder",
+            "detail": None,
+            "suggest_emulator": None,
+            "docs": None,
+        }
+    ]
+    assert payload["refusals_truncated"] == 2
+    assert "shape_mismatch" in payload["detail"]
+
+
+def test_activate_refusal_frees_the_container_for_a_new_claim(
+    client, access_token, rom: Rom
+):
+    """An import refusal at activate time must release the claim, not just
+    report it: a second claim on the same container has to succeed too, not
+    only see `streaming:launch-failed` and an emptied session record."""
+    refusal = ImportRefusalSchema(
+        reason="shape_mismatch",
+        member=".import/save/Game.mcr",
+        expected="folder",
+        detail=None,
+        suggest_emulator=None,
+        docs=None,
+    )
+    with _streaming(_webstation_for(rom)):
+        with (
+            patch(
+                "handler.streaming.webstation.activate",
+                side_effect=broker.ImportRefusedError([refusal], 0),
+            ),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation", new=AsyncMock()
+            ),
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id)
+        assert [event for event, _ in sent] == ["streaming:launch-failed"]
+        assert _session_raw(_webstation_for(rom)) is None
+
+        with (
+            patch(
+                "handler.streaming.webstation.activate",
+                return_value={"url": "/room/x"},
+            ),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation", new=AsyncMock()
+            ),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            r2 = _claim(client, access_token, rom.id)
+    assert r.status_code == 202
+    assert r2.status_code == 202
+    assert _session_raw(_webstation_for(rom)) is not None
+
+
+def test_run_launch_skips_the_state_push_when_resuming_via_import(
+    rom: Rom, admin_user: User
+):
+    """A foreign state folded into the import archive must not also be
+    pushed through the ordinary state-file PUT."""
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    push_resume = AsyncMock()
+    with (
+        patch("handler.streaming.launch.webstation.activate", activate),
+        patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
+        patch(
+            "handler.streaming.launch.lifecycle.publish_session_activity",
+            new=AsyncMock(),
+        ),
+        patch("handler.streaming.launch.stamp_launched", new=AsyncMock()),
+        patch("handler.streaming.launch.push_to_user", new=AsyncMock()),
+        patch("handler.streaming.launch.background.spawn_sync_task"),
+        patch(
+            "handler.streaming.launch.states.hydrate_states_to_broker", new=AsyncMock()
+        ),
+        patch("handler.streaming.launch.states.push_resume_state", push_resume),
+    ):
+        asyncio.run(
+            launch.run_launch(
+                container=_resolved(_webstation_for(rom)),
+                session_key="k1",
+                session=session,
+                user=admin_user,
+                rom=rom,
+                platform=rom.platform_slug,
+                rom_name=rom.name or rom.fs_name_no_ext,
+                rom_path="rom/path",
+                rom_language=None,
+                gui_language=None,
+                archive_path="rom-1.zip",
+                resume_state=state,
+                resume_slot=0,
+                resume_pushed=False,
+                resume_after_launch=True,
+                resume_import="imported",
+                memory_card_synced=False,
+                multiplayer=False,
+                blank_card_id=None,
+            )
+        )
+    push_resume.assert_not_called()
+
+
+def test_run_launch_sends_no_resume_slot_when_the_import_was_lost(
+    rom: Rom, admin_user: User
+):
+    """A pick that never made it into its import archive must not have the
+    broker load that slot anyway, from whatever the archive does carry."""
+    state = db_state_handler.add_state(
+        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
+    )
+    activate = MagicMock(return_value={"url": "/room/x"})
+    session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
+    push_resume = AsyncMock()
+    with (
+        patch("handler.streaming.launch.webstation.activate", activate),
+        patch("handler.streaming.launch.lifecycle.hold_session_claim", new=AsyncMock()),
+        patch(
+            "handler.streaming.launch.lifecycle.publish_session_activity",
+            new=AsyncMock(),
+        ),
+        patch("handler.streaming.launch.stamp_launched", new=AsyncMock()),
+        patch("handler.streaming.launch.background.spawn_sync_task"),
+        patch(
+            "handler.streaming.launch.states.hydrate_states_to_broker", new=AsyncMock()
+        ),
+        patch("handler.streaming.launch.states.push_resume_state", push_resume),
+    ):
+        with _pushes() as sent:
+            asyncio.run(
+                launch.run_launch(
+                    container=_resolved(_webstation_for(rom)),
+                    session_key="k1",
+                    session=session,
+                    user=admin_user,
+                    rom=rom,
+                    platform=rom.platform_slug,
+                    rom_name=rom.name or rom.fs_name_no_ext,
+                    rom_path="rom/path",
+                    rom_language=None,
+                    gui_language=None,
+                    archive_path="rom-1.zip",
+                    resume_state=state,
+                    resume_slot=0,
+                    resume_pushed=False,
+                    resume_after_launch=True,
+                    resume_import="lost",
+                    memory_card_synced=False,
+                    multiplayer=False,
+                    blank_card_id=None,
+                )
+            )
+    assert activate.call_args.kwargs["resume_slot"] is None
+    push_resume.assert_not_called()
+    assert _launch_ready(sent)["resume"] is False
 
 
 def test_release_spawns_saves_pull(client, access_token, rom: Rom):
@@ -5993,7 +7001,8 @@ def test_claim_with_wrong_emulator_state_400(
     state = db_state_handler.add_state(
         _state_for(rom, admin_user, "Game.state", "retroarch")
     )
-    r = _resume_claim(client, access_token, rom, state.id).response
+    with patch("handler.streaming.states.webstation.import_spec", return_value=None):
+        r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 400
 
 
@@ -6001,7 +7010,8 @@ def test_claim_with_unparseable_slot_400(
     client, access_token, rom: Rom, admin_user: User
 ):
     state = db_state_handler.add_state(_state_for(rom, admin_user, "Game.p2s", "pcsx2"))
-    r = _resume_claim(client, access_token, rom, state.id).response
+    with patch("handler.streaming.states.webstation.import_spec", return_value=None):
+        r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 400
 
 
@@ -6171,6 +7181,207 @@ def test_an_exit_state_resume_is_the_activate_slot_alone(
     push.assert_not_called()
     assert _launch_ready(sent)["resume"] is True
     assert hydrate.call_args.kwargs["resume_pushed"] is True
+
+
+@pytest.mark.parametrize(
+    ("emulator", "older_name", "newer_name"),
+    [
+        (
+            "duckstation",
+            "SLUS-00594_resume.20260917-010000000000.sav",
+            "SLUS-00594_resume.20260918-010000000000.sav",
+        ),
+        (
+            "rpcs3",
+            "BLUS30443_1.20260917-010000000000.SAVESTAT",
+            "BLUS30443_1.20260918-010000000000.SAVESTAT",
+        ),
+    ],
+)
+def test_an_older_exit_state_resume_rides_the_import_archive(
+    client, access_token, rom: Rom, admin_user: User, emulator, older_name, newer_name
+):
+    """Picking anything but the newest capture on one of these containers must
+    still reach the game: the save archive on its own only ever carries the
+    newest exit state, so an older pick needs the import channel or it is
+    silently swapped for a state the player never chose."""
+    older = db_state_handler.add_state(
+        _state_for(rom, admin_user, older_name, emulator)
+    )
+    db_state_handler.add_state(_state_for(rom, admin_user, newer_name, emulator))
+    activate = MagicMock(return_value={"url": "/room/x"})
+    upload = MagicMock(return_value="rom-1.zip")
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"state"}),
+        state_channel="archive",
+        state_slot=0,
+    )
+    with _streaming({**_webstation_for(rom), "emulator": emulator}):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.imports.fs_asset_handler.read_file",
+                new=AsyncMock(side_effect=lambda path: path.encode()),
+            ),
+            patch("handler.streaming.imports.webstation.upload_archive", upload),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            with _pushes() as sent:
+                r = _claim(client, access_token, rom.id, state_id=older.id)
+    assert r.status_code == 202
+    upload.assert_called_once()
+    uploaded_bytes = upload.call_args.args[2]
+    with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
+        assert any(name.startswith(".import/state/") for name in zf.namelist())
+    assert _launch_ready(sent)["resume"] is True
+
+
+def test_an_older_exit_state_stays_off_the_import_path_without_broker_support(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """A broker that predates imports would never place an `.import/` member,
+    so the archive goes out untouched and the resume is reported lost rather
+    than claiming the archive's own exit state was the pick."""
+    older = db_state_handler.add_state(
+        _state_for(
+            rom,
+            admin_user,
+            "SLUS-00594_resume.20260917-010000000000.sav",
+            "duckstation",
+        )
+    )
+    db_state_handler.add_state(
+        _state_for(
+            rom,
+            admin_user,
+            "SLUS-00594_resume.20260918-010000000000.sav",
+            "duckstation",
+        )
+    )
+    hydrate_import = AsyncMock()
+    run_launch_mock = AsyncMock()
+    with _streaming({**_webstation_for(rom), "emulator": "duckstation"}):
+        with (
+            patch("handler.streaming.webstation.import_spec", return_value=None),
+            patch("handler.streaming.imports.hydrate_import_archive", hydrate_import),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.zip"),
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(client, access_token, rom.id, state_id=older.id)
+    assert r.status_code == 202
+    hydrate_import.assert_not_called()
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "lost"
+    assert run_launch_mock.call_args.kwargs["archive_path"] == "/romm/saves/archive.zip"
+
+
+def _duckstation_pairing(rom: Rom, user: User) -> tuple[Save, Save, State]:
+    """An older and a newer DuckStation archive, plus the newest capture."""
+    older, newer = (
+        db_save_handler.add_save(
+            _save_for(
+                rom, user, f"Game [duckstation {tag}].saves.zip", "duckstation", tag
+            )
+        )
+        for tag in ("a", "b")
+    )
+    state = db_state_handler.add_state(
+        _state_for(rom, user, "SLUS-00594_resume.sav", "duckstation")
+    )
+    return older, newer, state
+
+
+def _clearing_duckstation(rom: Rom) -> dict:
+    return {
+        **_webstation_for(rom),
+        "emulator": "duckstation",
+        "clears_stale_saves": True,
+    }
+
+
+def test_an_older_save_with_the_newest_state_imports_the_picked_state(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The older archive only carries its own exit state, so the picked state
+    rides the import archive on top of it instead of being silently swapped."""
+    older, _, state = _duckstation_pairing(rom, admin_user)
+    activate = MagicMock(return_value={"url": "/room/x"})
+    upload = MagicMock(return_value="rom-1.zip")
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"state"}), state_channel="archive", state_slot=0
+    )
+    with _streaming(_clearing_duckstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch("handler.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.imports.fs_asset_handler.read_file",
+                new=AsyncMock(side_effect=lambda path: path.encode()),
+            ),
+            patch("handler.streaming.imports.webstation.upload_archive", upload),
+            patch("handler.streaming.background.spawn_sync_task"),
+        ):
+            with _pushes() as sent:
+                r = _claim(
+                    client, access_token, rom.id, state_id=state.id, save_id=older.id
+                )
+    assert r.status_code == 202
+    with zipfile.ZipFile(io.BytesIO(upload.call_args.args[2])) as zf:
+        assert any(name.startswith(".import/state/") for name in zf.namelist())
+    assert _launch_ready(sent)["resume"] is True
+
+
+def test_an_older_save_with_the_newest_state_reports_the_resume_lost_without_imports(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """Without an import channel the older archive's own exit state would load,
+    so the launch must not report the picked state as resumed."""
+    older, _, state = _duckstation_pairing(rom, admin_user)
+    run_launch_mock = AsyncMock()
+    with _streaming(_clearing_duckstation(rom)):
+        with (
+            patch("handler.streaming.webstation.import_spec", return_value=None),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.zip"),
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(
+                client, access_token, rom.id, state_id=state.id, save_id=older.id
+            )
+    assert r.status_code == 202
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "lost"
+
+
+def test_the_newest_save_with_the_newest_state_resumes_from_the_archive(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """Naming the newest archive explicitly is the default pairing, so the
+    archive's own exit state is the pick and nothing is imported."""
+    _, newer, state = _duckstation_pairing(rom, admin_user)
+    hydrate_import = AsyncMock()
+    run_launch_mock = AsyncMock()
+    with _streaming(_clearing_duckstation(rom)):
+        with (
+            patch("handler.streaming.webstation.import_spec") as spec,
+            patch("handler.streaming.imports.hydrate_import_archive", hydrate_import),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.zip"),
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(
+                client, access_token, rom.id, state_id=state.id, save_id=newer.id
+            )
+    assert r.status_code == 202
+    spec.assert_not_called()
+    hydrate_import.assert_not_called()
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "none"
 
 
 def test_an_exit_state_resume_with_no_archive_reports_the_resume_lost(
@@ -6584,7 +7795,9 @@ def test_store_memory_card_version_stores_new(admin_user: User):
         )
     assert stored is not None
     wf.assert_awaited_once()
-    assert db_memory_card_handler.get_latest_version(card.id).content_hash == "hash-new"
+    latest = db_memory_card_handler.get_latest_version(card.id)
+    assert latest is not None
+    assert latest.content_hash == "hash-new"
 
 
 def test_store_memory_card_version_dedups_identical(admin_user: User):
@@ -6676,6 +7889,46 @@ def _http_error(code: int, headers: dict[str, str] | None = None):
     return urllib.error.HTTPError("http://broker/memory-card", code, "err", hdrs, None)
 
 
+def test_raise_http_error_raises_import_refused_as_a_typed_error():
+    """A refused import must reach the caller as structured data, not folded
+    into the generic 502 string every other broker error becomes."""
+    payload = json.dumps(
+        {
+            "detail": {
+                "error": "import_refused",
+                "refusals": [
+                    {
+                        "reason": "shape_mismatch",
+                        "member": ".import/save/Game.mcr",
+                        "expected": "folder",
+                        "detail": "wanted a directory member",
+                        "suggest_emulator": None,
+                        "docs": None,
+                    }
+                ],
+                "truncated": 0,
+            }
+        }
+    ).encode()
+    exc = _http_error(422)
+    with patch.object(exc, "read", return_value=payload):
+        with pytest.raises(broker.ImportRefusedError) as raised:
+            broker.raise_http_error(exc)
+    assert raised.value.truncated == 0
+    assert len(raised.value.refusals) == 1
+    assert raised.value.refusals[0].reason == "shape_mismatch"
+    assert raised.value.refusals[0].member == ".import/save/Game.mcr"
+
+
+def test_raise_http_error_still_raises_502_for_a_plain_broker_error():
+    """An ordinary broker error (not an import refusal) is still a plain 502."""
+    exc = _http_error(500)
+    with patch.object(exc, "read", return_value=b"boom"):
+        with pytest.raises(HTTPException) as raised:
+            broker.raise_http_error(exc)
+    assert raised.value.status_code == 502
+
+
 def test_fetch_memory_card_returns_bytes(rom: Rom):
     resp = MagicMock()
     resp.__enter__.return_value.read.side_effect = _reads(b"card-bytes")
@@ -6721,6 +7974,85 @@ def test_fetch_memory_card_transport_error_raises(rom: Rom):
     ):
         with pytest.raises(memory_cards.MemoryCardUnavailable):
             memory_cards.fetch_card(_resolved(_mc_container_for(rom)))
+
+
+def test_import_spec_parses_the_brokers_discovery_response(rom: Rom):
+    body = json.dumps(
+        {
+            "import_api": 1,
+            "manifest_version": 2,
+            "kinds": [
+                {
+                    "kind": "save",
+                    "shapes": ["folder"],
+                    "requires_resume_slot": False,
+                    "max_members": 8,
+                },
+                {
+                    "kind": "state",
+                    "shapes": ["file"],
+                    "requires_resume_slot": True,
+                    "max_members": 1,
+                },
+            ],
+            "state_channel": "archive",
+            "state_slot": 0,
+        }
+    ).encode()
+    resp = MagicMock()
+    resp.__enter__.return_value.read.side_effect = _reads(body)
+    resp.__enter__.return_value.status = 200
+    with patch("handler.streaming.broker.urllib.request.urlopen", return_value=resp):
+        spec = webstation.import_spec(
+            _resolved(_webstation_for(rom)), "dolphin", rom.platform_slug
+        )
+    assert spec is not None
+    assert spec.state_channel == "archive"
+    assert spec.state_slot == 0
+    assert spec.accepts("save")
+    assert spec.accepts("state")
+    assert not spec.accepts("memcard")
+
+
+def test_import_spec_returns_none_and_caches_on_404(rom: Rom):
+    """A broker that predates imports answers 404; that answer is stable for
+    the worker's life, so it is cached rather than re-checked every claim."""
+    container = _resolved(_webstation_for(rom))
+    with patch(
+        "handler.streaming.broker.urllib.request.urlopen",
+        side_effect=_http_error(404),
+    ) as urlopen:
+        first = webstation.import_spec(container, "dolphin", rom.platform_slug)
+        second = webstation.import_spec(container, "dolphin", rom.platform_slug)
+    assert first is None
+    assert second is None
+    assert urlopen.call_count == 1
+
+
+def test_import_spec_never_asks_a_legacy_broker(rom: Rom):
+    """Declared imports are a webstation contract; a per-emulator broker is
+    never asked, so a foreign pick there is refused without a round trip."""
+    with patch("handler.streaming.broker.urllib.request.urlopen") as urlopen:
+        spec = webstation.import_spec(
+            _resolved(_container_for(rom)), "pcsx2", rom.platform_slug
+        )
+    assert spec is None
+    urlopen.assert_not_called()
+
+
+def test_import_spec_returns_none_uncached_on_a_transient_failure(rom: Rom):
+    """A network blip is not the same stable answer a 404/422 is, so it must
+    never be cached (a future call should try again)."""
+    container = _resolved(_webstation_for(rom))
+    with patch(
+        "handler.streaming.broker.urllib.request.urlopen",
+        side_effect=OSError("unreachable"),
+    ) as urlopen:
+        first = webstation.import_spec(container, "dolphin", rom.platform_slug)
+        second = webstation.import_spec(container, "dolphin", rom.platform_slug)
+    assert first is None
+    assert second is None
+    assert urlopen.call_count == 2
 
 
 def test_claim_hydrates_memory_card_before_launch(client, access_token, rom: Rom):
@@ -7426,7 +8758,9 @@ def test_concurrent_adopts_record_one_decision(admin_user: User, rom: Rom):
     )
     assert first is not None
     assert second is None
-    assert db_container_adoption_handler.get_adoption(key).outcome == "adopt"
+    adoption = db_container_adoption_handler.get_adoption(key)
+    assert adoption is not None
+    assert adoption.outcome == "adopt"
 
 
 # ── Playtime ──────────────────────────────────────────────────────────────────
@@ -8059,7 +9393,9 @@ def test_joining_walks_past_a_session_on_another_platform(
     with _streaming(member, _ws_pool_member(rom, 1)):
         _claim_multiplayer(client, access_token, rom.id)
         key = session_store.session_redis_key(_key_of(member))
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        raw = asyncio.run(async_cache.get(key))
+        assert raw is not None
+        session = json.loads(raw)
         session["platform"] = "ngc"
         asyncio.run(async_cache.set(key, json.dumps(session)))
         _claim_multiplayer(client, editor_access_token, second_rom.id)
@@ -8081,7 +9417,9 @@ def test_joining_a_named_container_busy_with_another_platform_is_a_404(
     with _streaming(member):
         _claim_multiplayer(client, access_token, rom.id)
         key = session_store.session_redis_key(_key_of(member))
-        session = json.loads(asyncio.run(async_cache.get(key)))
+        raw = asyncio.run(async_cache.get(key))
+        assert raw is not None
+        session = json.loads(raw)
         session["platform"] = "ngc"
         asyncio.run(async_cache.set(key, json.dumps(session)))
         with _joined_room():

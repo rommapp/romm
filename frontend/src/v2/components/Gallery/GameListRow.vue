@@ -17,7 +17,6 @@ import {
   RChip,
   RIcon,
   RMarquee,
-  RPlatformIcon,
   RSkeletonBlock,
   RTooltip,
 } from "@v2/lib";
@@ -32,6 +31,7 @@ import ProviderBadges from "@/v2/components/Gallery/ProviderBadges.vue";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
@@ -395,7 +395,7 @@ function onRowPointerDown(e: PointerEvent) {
             </div>
             <div class="r-list-compact__facts">
               <template v-if="platformName">
-                <RPlatformIcon
+                <PlatformIcon
                   class="game-list-row__facts-icon"
                   :slug="rom.platform_slug"
                   :fs-slug="rom.platform_fs_slug"
@@ -558,7 +558,7 @@ function onRowPointerDown(e: PointerEvent) {
           v-if="showPlatformColumn"
           class="game-list-row__cell game-list-row__platform"
         >
-          <RPlatformIcon
+          <PlatformIcon
             v-if="platformMeta?.slug"
             :slug="platformMeta.slug"
             :size="24"

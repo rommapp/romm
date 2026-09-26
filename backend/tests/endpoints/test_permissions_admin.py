@@ -7,6 +7,7 @@ from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
+from handler.database.permissions_handler import DBPermissionsHandler
 from models.permission import PermissionGroup
 
 
@@ -17,6 +18,7 @@ def _bearer(token):
 def _fresh_user_auth(user_id):
     # Mint a token from the user's CURRENT (post-change) projected scopes.
     user = db_user_handler.get_user(user_id)
+    assert user is not None
     return _bearer(
         oauth_handler.create_access_token(
             data={
@@ -36,7 +38,7 @@ def _me_actions(client, user_id):
 
 def _cleanup():
     with sync_session.begin() as s:
-        s.query(PermissionGroup).filter(PermissionGroup.is_system.is_(False)).delete(
+        s.query(PermissionGroup).filter(PermissionGroup.system_key.is_(None)).delete(
             synchronize_session="evaluate"
         )
 
@@ -57,6 +59,14 @@ def test_catalog_lists_vocabulary(client, access_token):
     body = client.get("/api/permissions/catalog", headers=_bearer(access_token)).json()
     assert "roms" in body["entities"] and "platforms" in body["entities"]
     assert set(body["actions"]) == {"read", "write", "delete"}
+
+
+def test_groups_expose_the_system_key(client, access_token):
+    groups = client.get("/api/permissions/groups", headers=_bearer(access_token)).json()
+    keys = {g["name"]: g["system_key"] for g in groups}
+    assert keys["Viewer"] == "viewer"
+    assert keys["Editor"] == "editor"
+    assert "is_system" not in groups[0]
 
 
 def test_group_create_assign_and_effective_permissions(
@@ -170,6 +180,25 @@ def test_cannot_delete_default_group(client, access_token):
     assert resp.status_code == 400
 
 
+def test_update_group_deleted_mid_update_returns_404(client, access_token, mocker):
+    try:
+        gid = client.post(
+            "/api/permissions/groups",
+            headers=_bearer(access_token),
+            json={"name": "Vanishing"},
+        ).json()["id"]
+        mocker.patch.object(DBPermissionsHandler, "update_group", return_value=None)
+
+        resp = client.put(
+            f"/api/permissions/groups/{gid}",
+            headers=_bearer(access_token),
+            json={"description": "renamed"},
+        )
+        assert resp.status_code == 404
+    finally:
+        _cleanup()
+
+
 def test_delete_group_falls_members_back(client, access_token, viewer_user):
     gid = client.post(
         "/api/permissions/groups",
@@ -189,6 +218,7 @@ def test_delete_group_falls_members_back(client, access_token, viewer_user):
 
     # FK SET NULL -> user falls back to the default (viewer) matrix.
     user = db_user_handler.get_user(viewer_user.id)
+    assert user is not None
     assert user.permission_group_id is None
     actions, _ = _me_actions(client, viewer_user.id)
     assert "collection.create" in actions  # default viewer behaviour restored

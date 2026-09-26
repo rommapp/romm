@@ -9,7 +9,7 @@ import os
 from collections.abc import Sequence
 from io import BytesIO
 from tempfile import SpooledTemporaryFile
-from typing import Any, BinaryIO, TypeAlias
+from typing import Any, BinaryIO, TypeAlias, cast
 
 from fastapi import HTTPException, UploadFile, status
 
@@ -324,8 +324,12 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
                     thumbnail.id, {"file_name": thumbnail_name}, session=session
                 )
             if isinstance(asset, Save):
-                return db_save_handler.update_save(
-                    asset.id, {"file_name": new_name}, touch=False, session=session
+                # Redundant only in mypy's AssetT=Save pass; the State pass needs it.
+                return cast(  # type: ignore[redundant-cast]
+                    AssetT,
+                    db_save_handler.update_save(
+                        asset.id, {"file_name": new_name}, touch=False, session=session
+                    ),
                 )
             return db_state_handler.update_state(
                 asset.id, {"file_name": new_name}, touch=False, session=session

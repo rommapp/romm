@@ -385,7 +385,9 @@ def _folder_rom(
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     for rel, data in files.items():
         _add_row(rom, lib, f"{ROM_FOLDER}/{rel}", data)
-    return db_rom_handler.get_rom(rom.id)
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    return refreshed
 
 
 def _single_file_rom(platform: Platform, admin_user: User, lib: Path) -> Rom:
@@ -402,7 +404,9 @@ def _single_file_rom(platform: Platform, admin_user: User, lib: Path) -> Rom:
     rom = db_rom_handler.add_rom(rom)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     _add_row(rom, lib, "solo.zip", b"romdata")
-    return db_rom_handler.get_rom(rom.id)
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    return refreshed
 
 
 def _start_into_rom(
@@ -612,7 +616,9 @@ def test_overwrite_replaces_an_existing_file(
     assert response.status_code == status.HTTP_201_CREATED, response.json()
     on_disk = rom_upload_fs / rom.fs_path / ROM_FOLDER / "hack" / "x.ips"
     assert on_disk.read_bytes() == b"new"
-    rows = [f for f in db_rom_handler.get_rom(rom.id).files if f.file_name == "x.ips"]
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    rows = [f for f in refreshed.files if f.file_name == "x.ips"]
     assert len(rows) == 1
     assert rows[0].file_size_bytes == 3
 
@@ -644,6 +650,7 @@ def test_complete_registers_nested_file(
     on_disk = rom_upload_fs / rom.fs_path / ROM_FOLDER / "patches/v2/fix.ips"
     assert on_disk.read_bytes() == b"patch bytes"
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     new = next(f for f in after.files if f.file_name == "fix.ips")
     assert new.file_path == f"{rom.fs_path}/{ROM_FOLDER}/patches/v2"
     assert new.category == RomFileCategory.PATCH
@@ -669,6 +676,7 @@ def test_complete_top_level_file_updates_rom_hashes(
 
     assert response.status_code == status.HTTP_201_CREATED
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert {f.file_name for f in after.files} == {"game.bin", "extra.bin"}
     assert after.md5_hash != "stored-md5"
     expected = hashlib.md5(usedforsecurity=False)
@@ -698,6 +706,7 @@ def test_complete_into_single_file_rom_promotes_it_to_a_folder(
 
     assert response.status_code == status.HTTP_201_CREATED
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "solo"
     folder = f"{rom.fs_path}/solo"
     assert {(f.file_path, f.file_name) for f in after.files} == {
@@ -752,7 +761,9 @@ def test_start_into_single_file_rom_rejects_its_own_name(
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT
-    assert db_rom_handler.get_rom(rom.id).fs_name == "solo.zip"
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.fs_name == "solo.zip"
 
 
 def test_start_into_a_file_a_playlist_lists_returns_400(
@@ -800,6 +811,7 @@ def test_complete_collision_does_not_promote_a_single_file_rom(
 
     assert response.status_code == status.HTTP_409_CONFLICT
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "solo.zip"
     assert (rom_upload_fs / rom.fs_path / "solo.zip").read_bytes() == b"romdata"
 

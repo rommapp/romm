@@ -183,7 +183,7 @@ Component docs and visual QA for `frontend/src/v2/` (port 6006):
 
 ```sh
 npm run storybook
-npm run storybook:test   # composeStories + play() + a11y (v2 /lib stories)
+npm run storybook:test   # composeStories + play() + a11y (v2 /lib and components/shared stories)
 ```
 
 For responsive layouts, use the viewport toolbar presets from `.storybook/rommViewports.ts`.
@@ -207,6 +207,13 @@ Alternative installation methods can be found [in their docs](https://docs.trunk
 ```sh
 trunk fmt
 trunk check
+```
+
+Type checking runs separately from Trunk, against the project's own environment. CI type-checks the whole backend on every backend change; to run it locally:
+
+```sh
+cd backend
+uv run mypy --config-file ../.trunk/configs/mypy.ini .
 ```
 
 **Failing to install and run the linter will result in a failed CI check, which won't allow us to merge your PR.**

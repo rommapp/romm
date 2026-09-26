@@ -25,7 +25,9 @@ def test_lookup_returns_the_exactly_named_folder_when_one_exists():
         Platform(name="PlayStation", slug="psx", fs_slug="psx")
     )
 
-    assert db_platform_handler.get_platform_by_fs_slug("psx").id == exact.id
+    found = db_platform_handler.get_platform_by_fs_slug("psx")
+    assert found is not None
+    assert found.id == exact.id
 
 
 def test_rescan_preserves_user_authored_fields(platform):
