@@ -38,6 +38,7 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
+import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import {
   saveSave,
   captureScreenshot,
@@ -78,6 +79,7 @@ const props = defineProps<{
   save: SaveSchema | null;
   state: StateSchema | null;
   bios: FirmwareSchema | null;
+  firmware: FirmwareSchema[];
   core: string | null;
   disc: number | null;
   /** Slot for new saves when the loaded save has none; defaults to autosave. */
@@ -335,6 +337,10 @@ window.EJS_gameUrl = getDownloadPath({
 window.EJS_biosUrl = props.bios
   ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
   : "";
+window.EJS_externalFiles = firmwareExternalFiles(
+  window.EJS_core,
+  props.firmware,
+);
 window.EJS_player = "#game";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
