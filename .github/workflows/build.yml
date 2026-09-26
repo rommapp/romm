@@ -13,9 +13,19 @@ on:
 permissions:
   contents: read
 
-# `build` pushes digests here and `merge` tags them from here; the two must agree.
 env:
+  CHANNEL: ${{ github.event_name == 'schedule' && 'nightly' || 'release' }}
+  # `build` pushes digests here and `merge` tags them from here; the two must agree.
   DIGEST_IMAGE: ghcr.io/${{ github.repository_owner }}/romm
+  IMAGES: |
+    name=rommapp/romm
+    name=ghcr.io/rommapp/romm
+  # `build` and `merge` must derive the same tag set.
+  TAGS: |
+    type=semver,pattern={{version}}
+    type=semver,pattern={{major}}.{{minor}}
+    type=semver,pattern={{major}}
+    type=schedule,pattern=nightly
   # Labels on each platform image, annotations on the index. metadata-action fills in
   # the version itself (with `-slim`) and would render a `{{version}}` here as empty.
   OCI_METADATA: |
@@ -38,7 +48,7 @@ jobs:
         env:
           TAG: ${{ github.event.release.tag_name }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "schedule" || "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
+          if [[ "$CHANNEL" == "nightly" || "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
             echo "valid=true" >>"$GITHUB_OUTPUT"
           else
             echo "valid=false" >>"$GITHUB_OUTPUT"
@@ -65,9 +75,6 @@ jobs:
       packages: write
     env:
       CACHE_IMAGE: ghcr.io/${{ github.repository_owner }}/romm-buildcache
-      # Nightly reads the release cache but writes its own, so master layers never
-      # seed a release image.
-      CACHE_SCOPE: ${{ github.event_name == 'schedule' && 'nightly' || 'release' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -94,31 +101,19 @@ jobs:
         id: meta-slim
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
+          images: ${{ env.IMAGES }}
           flavor: |
             latest=auto
             suffix=-slim,onlatest=true
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=schedule,pattern=nightly
+          tags: ${{ env.TAGS }}
           labels: ${{ env.OCI_METADATA }}
 
       - name: Generate Docker metadata (full)
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=schedule,pattern=nightly
+          images: ${{ env.IMAGES }}
+          tags: ${{ env.TAGS }}
           labels: ${{ env.OCI_METADATA }}
 
       # Nightly builds carry the short commit so each one is identifiable and busts
@@ -127,7 +122,7 @@ jobs:
         env:
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+          if [[ "$CHANNEL" == "nightly" ]]; then
             VERSION="${VERSION}-${GITHUB_SHA::7}"
           fi
           sed -i "s/<version>/$VERSION/" backend/__version__.py
@@ -151,7 +146,7 @@ jobs:
           # built from PR head content and must not reach a release image.
           cache-from: |
             type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
-            ${{ env.CACHE_SCOPE == 'nightly' && format('type=registry,ref={0}:nightly-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
+            ${{ env.CHANNEL == 'nightly' && format('type=registry,ref={0}:nightly-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
             SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
@@ -172,8 +167,10 @@ jobs:
           no-cache-filters: python-runtime,production-stage
           cache-from: |
             type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
-            ${{ env.CACHE_SCOPE == 'nightly' && format('type=registry,ref={0}:nightly-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
-          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:${{ env.CACHE_SCOPE }}-${{ matrix.arch }},mode=max
+            ${{ env.CHANNEL == 'nightly' && format('type=registry,ref={0}:nightly-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
+          # Nightly reads the release cache but writes its own, so master layers
+          # never seed a release image.
+          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:${{ env.CHANNEL }}-${{ matrix.arch }},mode=max
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
             SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
@@ -206,6 +203,8 @@ jobs:
   merge:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      DOCKER_METADATA_ANNOTATIONS_LEVELS: index
     permissions:
       contents: read
       packages: write
@@ -243,36 +242,20 @@ jobs:
       - name: Generate Docker metadata (slim)
         id: meta-slim
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        env:
-          DOCKER_METADATA_ANNOTATIONS_LEVELS: index
         with:
-          images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
+          images: ${{ env.IMAGES }}
           flavor: |
             latest=auto
             suffix=-slim,onlatest=true
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=schedule,pattern=nightly
+          tags: ${{ env.TAGS }}
           annotations: ${{ env.OCI_METADATA }}
 
       - name: Generate Docker metadata (full)
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        env:
-          DOCKER_METADATA_ANNOTATIONS_LEVELS: index
         with:
-          images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=schedule,pattern=nightly
+          images: ${{ env.IMAGES }}
+          tags: ${{ env.TAGS }}
           annotations: ${{ env.OCI_METADATA }}
 
       # Tags spanning both registries are fine here: `imagetools create` copies
