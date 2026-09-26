@@ -538,6 +538,8 @@ class TestPlaySessionRomUserUpdates:
         )
 
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
+        assert rom_user.last_played is not None
         expected_latest = later + timedelta(minutes=30)
         last_played_utc = to_utc(rom_user.last_played)
         assert abs((last_played_utc - expected_latest).total_seconds()) < 2
@@ -566,6 +568,7 @@ class TestPlaySessionRomUserUpdates:
         )
 
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
         assert rom_user.status == RomUserStatus.INCOMPLETE
 
     def test_finished_status_rewound_to_incomplete(
@@ -580,6 +583,7 @@ class TestPlaySessionRomUserUpdates:
         )
 
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
         assert rom_user.status == RomUserStatus.INCOMPLETE
 
     @pytest.mark.parametrize(
@@ -602,6 +606,7 @@ class TestPlaySessionRomUserUpdates:
         )
 
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
         # now_playing is orthogonal, so it still flips on...
         assert rom_user.now_playing is True
         # ...but the deliberate enum status is left untouched.
@@ -617,6 +622,7 @@ class TestPlaySessionRomUserUpdates:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
         db_rom_handler.update_rom_user(
             rom_user.id, {"now_playing": False, "status": RomUserStatus.FINISHED}
         )
@@ -629,6 +635,7 @@ class TestPlaySessionRomUserUpdates:
         )
 
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
         assert rom_user.now_playing is False
         assert rom_user.status == RomUserStatus.FINISHED
 

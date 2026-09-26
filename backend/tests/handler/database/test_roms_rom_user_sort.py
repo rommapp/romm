@@ -6,6 +6,7 @@ to 0 in an existing row, which renders as unset and sorts as unset.
 """
 
 from datetime import datetime, timezone
+from typing import Any
 
 import pytest
 from tests.handler.database.conftest import MARIADB_DIALECT, compile_sql
@@ -47,7 +48,7 @@ def _set_rom_user_fields(rom: Rom, user: User, fields: dict[str, object]) -> Non
 
 
 def _ordered_names(
-    user: User, order_by: str, order_dir: str, *, attr: str = "name", **kwargs: object
+    user: User, order_by: str, order_dir: str, *, attr: str = "name", **kwargs: Any
 ) -> list[str]:
     return [
         getattr(rom, attr)

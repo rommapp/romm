@@ -92,7 +92,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(MemoryCard).filter_by(id=id).one_or_none()
+        return session.scalars(select(MemoryCard).filter_by(id=id)).one_or_none()
 
     @begin_session
     def delete_card(
