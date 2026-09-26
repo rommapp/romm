@@ -41,14 +41,14 @@ class PlatformSchema(BaseModel):
     is_identified: bool
     missing_from_fs: bool
 
-    @computed_field  # type: ignore
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def display_name(self) -> str:
         return self.custom_name or self.name
 
     # Counts every row like `rom_count` does; callers wanting only usable
     # BIOS filter the `firmware` list that ships alongside it.
-    @computed_field  # type: ignore
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def firmware_count(self) -> int:
         return len(self.firmware)

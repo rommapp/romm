@@ -31,6 +31,9 @@ class StreamingContainerSchema(BaseModel):
     supports_memory_cards: bool
     supports_save_picker: bool
     supports_live_states: bool
+    import_kinds: list[Literal["save", "state"]]
+    """Which foreign-emulator picks the broker declares it can import, empty
+    when it declares none or cannot be asked."""
 
 
 class StreamingConfigSchema(BaseModel):
@@ -96,6 +99,17 @@ class LaunchReadyPayload(BaseModel):
     pushed and the session started fresh."""
 
 
+class ImportRefusalSchema(BaseModel):
+    """One `.import/` member the broker's activate declined to place."""
+
+    reason: str
+    member: str | None = None
+    expected: str | None = None
+    detail: str | None = None
+    suggest_emulator: str | None = None
+    docs: str | None = None
+
+
 class LaunchFailedPayload(BaseModel):
     """`streaming:launch-failed`. The claim is already released."""
 
@@ -103,6 +117,8 @@ class LaunchFailedPayload(BaseModel):
     container: str
     claimed_at: str
     detail: str
+    refusals: list[ImportRefusalSchema] | None = None
+    refusals_truncated: int = 0
 
 
 class LaunchPhasePayload(BaseModel):

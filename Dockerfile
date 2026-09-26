@@ -14,6 +14,61 @@ RUN git clone --depth 1 --branch "${GME_VERSION}" https://github.com/libgme/game
     && test "$(git -C /libgme rev-parse HEAD)" = "${GME_COMMIT}" \
     && /romm-gme/build.sh /libgme /gme
 
+# Browser player runtimes. Keep the pins in sync with the emulator stage of docker/Dockerfile.
+FROM ubuntu:22.04 AS emulator-download
+
+# trunk-ignore(hadolint/DL3008)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    7zip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG EMULATORJS_VERSION=4.2.3
+ARG EMULATORJS_SHA256=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b
+
+ADD --checksum=sha256:${EMULATORJS_SHA256} \
+    "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" \
+    /downloads/emulatorjs.7z
+RUN 7zz x -y /downloads/emulatorjs.7z -o/emulators/emulatorjs
+
+ARG RUFFLE_VERSION=nightly-2025-08-14
+ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
+ARG RUFFLE_SHA256=178870c5e7dd825a8df35920dfc5328d83e53f3c4d5d95f70b1ea9cd13494151
+
+ADD --checksum=sha256:${RUFFLE_SHA256} \
+    "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" \
+    /downloads/ruffle.zip
+RUN 7zz x -y /downloads/ruffle.zip -o/emulators/ruffle
+
+ARG JSDOS_VERSION=8.4.1
+ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
+
+ADD --checksum=sha256:${JSDOS_SHA256} \
+    "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" \
+    /downloads/jsdos.zip
+# The bundled index.html is a js-dos demo page that would be served unauthenticated;
+# source maps, Emscripten symbol files and type declarations are unused at runtime.
+RUN 7zz x -y /downloads/jsdos.zip -o/tmp/jsdos \
+    && mv /tmp/jsdos/dist /emulators/jsdos \
+    && rm -rf /emulators/jsdos/index.html /emulators/jsdos/emulators/types \
+    && find /emulators/jsdos \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
+
+# FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
+# which compiled them. Pinned by commit and checksum: that tree has no tags.
+ARG FAKE08_P3A_COMMIT=6519efd9dd1ca853e5c66f7ae9146ace0b7073dc
+ARG FAKE08_JS_SHA256=fd2cd4677956037e41a91dbd40fc1a9c4f5979355d55ce3f9312400e11da463e
+ARG FAKE08_WASM_SHA256=4339a77e0aa5aa6f4a5bce9fd8286053eedf7f23f2d853db7f4900f6fff4c93a
+
+# Created first, or ADD --chmod would also apply to the directory it creates.
+RUN mkdir -p /emulators/pico8
+ADD --checksum=sha256:${FAKE08_JS_SHA256} --chmod=644 \
+    "https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8/fake08.js" \
+    /emulators/pico8/fake08.js
+ADD --checksum=sha256:${FAKE08_WASM_SHA256} --chmod=644 \
+    "https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8/fake08.wasm" \
+    /emulators/pico8/fake08.wasm
+
+
 FROM ubuntu:22.04
 
 # Prevent interactive prompts during installation
@@ -58,62 +113,15 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | b
 ENV PATH="$NVM_DIR/versions/node/v24.16.0/bin:$PATH"
 
 # Build and install RAHasher (optional for RA hashes)
-RUN git clone --recursive --branch 1.8.3 --depth 1 https://github.com/RetroAchievements/RALibretro.git /tmp/RALibretro
+# Tag 1.8.3. Keep the pin in sync with docker/Dockerfile.
+ARG RALIBRETRO_COMMIT=8ab61f745ab753a70b5482f2a0ccb6a4ced5193f
+RUN git clone --filter=blob:none https://github.com/RetroAchievements/RALibretro.git /tmp/RALibretro \
+    && git -C /tmp/RALibretro checkout "${RALIBRETRO_COMMIT}" \
+    && git -C /tmp/RALibretro submodule update --init --recursive
 WORKDIR /tmp/RALibretro
 RUN make HAVE_CHD=1 -f ./Makefile.RAHasher \
     && cp ./bin64/RAHasher /usr/bin/RAHasher
 RUN rm -rf /tmp/RALibretro
-
-# Browser player runtimes, kept outside /app/frontend because the ./frontend
-# bind mount hides it; entrypoint.sh links them into the assets tree at startup.
-# Keep the pins in sync with the emulator stage of docker/Dockerfile.
-ENV EMULATOR_ASSETS_DIR="/opt/romm/emulators"
-
-ARG EMULATORJS_VERSION=4.2.3
-ARG EMULATORJS_SHA256=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b
-
-RUN curl -fsSL -o /tmp/emulatorjs.7z "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" \
-    && echo "${EMULATORJS_SHA256}  /tmp/emulatorjs.7z" | sha256sum -c - \
-    && 7zz x -y /tmp/emulatorjs.7z -o"${EMULATOR_ASSETS_DIR}/emulatorjs" \
-    && rm -f /tmp/emulatorjs.7z
-
-ARG RUFFLE_VERSION=nightly-2025-08-14
-ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
-ARG RUFFLE_SHA256=178870c5e7dd825a8df35920dfc5328d83e53f3c4d5d95f70b1ea9cd13494151
-
-RUN curl -fsSL -o /tmp/ruffle.zip "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" \
-    && echo "${RUFFLE_SHA256}  /tmp/ruffle.zip" | sha256sum -c - \
-    && 7zz x -y /tmp/ruffle.zip -o"${EMULATOR_ASSETS_DIR}/ruffle" \
-    && rm -f /tmp/ruffle.zip
-
-ARG JSDOS_VERSION=8.4.1
-ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
-
-# The bundled index.html is a js-dos demo page that would be served unauthenticated;
-# source maps, Emscripten symbol files and type declarations are unused at runtime.
-RUN curl -fsSL -o /tmp/jsdos.zip "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" \
-    && echo "${JSDOS_SHA256}  /tmp/jsdos.zip" | sha256sum -c - \
-    && 7zz x -y /tmp/jsdos.zip -o/tmp/jsdos \
-    && mkdir -p "${EMULATOR_ASSETS_DIR}" \
-    && mv /tmp/jsdos/dist "${EMULATOR_ASSETS_DIR}/jsdos" \
-    && rm -rf /tmp/jsdos.zip /tmp/jsdos \
-    && rm -rf "${EMULATOR_ASSETS_DIR}/jsdos/index.html" "${EMULATOR_ASSETS_DIR}/jsdos/emulators/types" \
-    && find "${EMULATOR_ASSETS_DIR}/jsdos" \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
-
-ARG FAKE08_P3A_COMMIT=6519efd9dd1ca853e5c66f7ae9146ace0b7073dc
-ARG FAKE08_JS_SHA256=fd2cd4677956037e41a91dbd40fc1a9c4f5979355d55ce3f9312400e11da463e
-ARG FAKE08_WASM_SHA256=4339a77e0aa5aa6f4a5bce9fd8286053eedf7f23f2d853db7f4900f6fff4c93a
-ARG FAKE08_P3A_RAW=https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8
-
-# FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
-# which compiled them. Pinned by commit and checksum: that tree has no tags.
-RUN mkdir -p "${EMULATOR_ASSETS_DIR}/pico8" \
-    && curl -fsSL -o "${EMULATOR_ASSETS_DIR}/pico8/fake08.js" "${FAKE08_P3A_RAW}/fake08.js" \
-    && curl -fsSL -o "${EMULATOR_ASSETS_DIR}/pico8/fake08.wasm" "${FAKE08_P3A_RAW}/fake08.wasm" \
-    && echo "${FAKE08_JS_SHA256}  ${EMULATOR_ASSETS_DIR}/pico8/fake08.js" | sha256sum -c - \
-    && echo "${FAKE08_WASM_SHA256}  ${EMULATOR_ASSETS_DIR}/pico8/fake08.wasm" | sha256sum -c -
-
-COPY --from=gme-build /gme "${EMULATOR_ASSETS_DIR}/gme"
 
 # Install frontend dependencies
 COPY frontend/package.json /app/frontend/
@@ -160,6 +168,12 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git /tm
     && cp ./sigil/*.py ./sigil/_sigil.*.so "${SITE_PACKAGES}/sigil/" \
     && rm -rf /tmp/argosy-sigil
 WORKDIR /app
+
+# Kept outside /app/frontend because the ./frontend bind mount hides it;
+# entrypoint.sh links the runtimes into the assets tree at startup.
+ENV EMULATOR_ASSETS_DIR="/opt/romm/emulators"
+COPY --from=emulator-download /emulators "${EMULATOR_ASSETS_DIR}"
+COPY --from=gme-build /gme "${EMULATOR_ASSETS_DIR}/gme"
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh

@@ -98,3 +98,6 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
 frontend/.last-run.json
+
+# mypy
+.mypy_cache

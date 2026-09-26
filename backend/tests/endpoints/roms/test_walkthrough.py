@@ -169,6 +169,7 @@ def test_add_gamefaqs_walkthrough_success(
     assert len(files) == 1
     created = files[0]
     assert created.file_name == "chrono-trigger-faq.txt"
+    assert created.doc_meta is not None
     assert created.doc_meta.source == DocSource.GAMEFAQS
     assert created.doc_meta.source_url == GAMEFAQS_URL
     assert created.doc_meta.author == "Jane Roe"

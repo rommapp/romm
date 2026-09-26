@@ -251,7 +251,7 @@ def _is_restorable(save: Save, emulator: str) -> bool:
     return _written_by(save, emulator) and _is_archive(save)
 
 
-def _newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
+def newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
     """The user's most recent restorable archive for this emulator."""
     archives = [
         save
@@ -265,11 +265,11 @@ def _newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
 
 def resolve_save_archive(
     user_id: int, rom: Rom, container: ResolvedContainer, save_id: int
-) -> Save:
-    """Validate a pick from the launch screen's save list and return the save.
+) -> tuple[Save, bool]:
+    """Validate a launch-screen save pick and return (save, is_foreign).
 
     Raises 404 for a save that is not the claiming user's own on this ROM, and
-    400 when it cannot be restored on this container.
+    400 for one neither restorable here nor accepted as an import.
     """
     save = db_save_handler.get_save(user_id=user_id, id=save_id)
     # Same 404 for another user's save and another ROM's, so neither leaks.
@@ -281,20 +281,25 @@ def resolve_save_archive(
             status_code=400,
             detail="This emulator always restores the newest save",
         )
-    if not _written_by(save, container.emulator):
-        raise HTTPException(
-            status_code=400,
-            detail="Save was made by a different emulator",
-        )
+    if _is_restorable(save, container.emulator):
+        return save, False
+
+    spec = webstation.import_spec(container, container.emulator, container.platform)
+    if spec is not None and spec.accepts("save"):
+        return save, True
+
     if not _is_archive(save):
         raise HTTPException(
             status_code=400,
             detail="Save is not a restorable archive",
         )
-    return save
+    raise HTTPException(
+        status_code=400,
+        detail="Save was made by a different emulator",
+    )
 
 
-async def _read_archive(save: Save) -> tuple[str, bytes] | None:
+async def read_restorable_archive(save: Save) -> tuple[str, bytes] | None:
     """The archive's (file name, content), or None when it is gone off disk."""
     try:
         content = await fs_asset_handler.read_file(f"{save.file_path}/{save.file_name}")
@@ -315,10 +320,10 @@ async def hydrate_saves_to_broker(
     if db_user_handler.get_user(user_id) is None or rom is None:
         return False
 
-    newest = _newest_restorable(user_id, rom_id, container.emulator)
+    newest = newest_restorable(user_id, rom_id, container.emulator)
     if newest is None:
         return False
-    archive = await _read_archive(newest)
+    archive = await read_restorable_archive(newest)
     if archive is None:
         return False
     file_name, content = archive
@@ -337,10 +342,10 @@ async def hydrate_saves_to_webstation(
     The webstation broker restores as part of activate, so hydration only gets
     the bytes into place. `save` is the player's pick, newest when absent.
     """
-    picked = save or _newest_restorable(user_id, rom_id, container.emulator)
+    picked = save or newest_restorable(user_id, rom_id, container.emulator)
     if picked is None:
         return None
-    archive = await _read_archive(picked)
+    archive = await read_restorable_archive(picked)
     if archive is None:
         return None
     file_name, content = archive

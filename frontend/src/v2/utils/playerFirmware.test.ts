@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveInitialFirmware } from "./playerFirmware";
+import {
+  firmwareExternalFiles,
+  resolveInitialFirmware,
+} from "./playerFirmware";
 
 // Only these three fields are read; minimal stubs stand in for FirmwareSchema.
 const fw = (id: number, file_name: string, missing_from_fs = false) => ({
@@ -94,5 +97,45 @@ describe("resolveInitialFirmware", () => {
         configBiosFile: undefined,
       }),
     ).toBeNull();
+  });
+});
+
+const firmware = [
+  fw(1, "kick34005.A500"),
+  fw(2, "kick40068.A1200"),
+  fw(3, "gone.rom", true),
+  fw(4, "bios.zip"),
+];
+
+describe("firmwareExternalFiles", () => {
+  it("places every available Kickstart in the PUAE system directory", () => {
+    expect(firmwareExternalFiles("puae", firmware)).toEqual({
+      "/home/web_user/retroarch/userdata/system/kick34005.A500":
+        "/api/firmware/1/content/kick34005.A500",
+      "/home/web_user/retroarch/userdata/system/kick40068.A1200":
+        "/api/firmware/2/content/kick40068.A1200",
+    });
+  });
+
+  it("does not change firmware loading for another core", () => {
+    expect(firmwareExternalFiles("pcsx_rearmed", firmware)).toEqual({});
+  });
+
+  it("ignores unsafe filenames", () => {
+    expect(
+      firmwareExternalFiles("puae", [
+        fw(1, "../other.rom"),
+        fw(2, "folder\\file.rom"),
+        fw(3, ".."),
+        fw(4, "."),
+      ]),
+    ).toEqual({});
+  });
+
+  it("encodes the name in the URL but keeps it verbatim in the path", () => {
+    expect(firmwareExternalFiles("puae", [fw(5, "kick #1?.rom")])).toEqual({
+      "/home/web_user/retroarch/userdata/system/kick #1?.rom":
+        "/api/firmware/5/content/kick%20%231%3F.rom",
+    });
   });
 });

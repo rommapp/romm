@@ -39,7 +39,7 @@ def _make_rom(platform: Platform, fs_name: str, **metadata) -> Rom:
 
 
 def _filtered_names(**kwargs) -> set[str]:
-    return {rom.name for rom in db_rom_handler.get_roms_scalar(**kwargs)}
+    return {rom.name or "" for rom in db_rom_handler.get_roms_scalar(**kwargs)}
 
 
 @pytest.fixture
@@ -96,7 +96,7 @@ class TestLengthSort:
             page = db_rom_handler.get_roms_scalar(order_by="hltb_main_story")[
                 offset : offset + 3
             ]
-            paged.extend(rom.name for rom in page)
+            paged.extend(rom.name or "" for rom in page)
 
         assert sorted(paged) == sorted(f"tied-{i}" for i in range(10))
 

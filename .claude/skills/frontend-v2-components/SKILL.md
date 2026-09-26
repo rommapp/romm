@@ -45,7 +45,7 @@ If any fails: **shared composite** if generic across features, **feature composi
 ### Primitive boundaries
 
 - **Can use**: tokens, other primitives, Vue, generic composables (`useInput*`, `useFocus*`).
-- **Cannot use**: Pinia stores, API services, `emitter`, `router` (a `RouterLink` may be accepted as a prop), `i18n` directly. **No `$t()` in primitives** — text comes via props or slots.
+- **Cannot use**: Pinia stores, API services, `emitter`, `router` (a `RouterLink` may be accepted as a prop), `i18n` directly. **No `$t()` in primitives**: text comes via props or slots. ESLint enforces the import side for `src/v2/lib` (`no-restricted-imports` for packages, `import-x/no-restricted-paths` for app modules). Domain knowledge that is not an import (a hardcoded `/assets/...` path, domain-named props) still needs review.
 - **Chrome labels** are the exception to "via props": the accessible name
   of a control the primitive renders for itself (a dialog's close button, a
   chip's remove X, a date field's steppers, a stepper's "Step 2 of 5") is
@@ -72,6 +72,7 @@ If any fails: **shared composite** if generic across features, **feature composi
 - `defineOptions({ inheritAttrs: false })` on every wrapper, paired with `v-bind="$attrs"` and slot passthrough (without the bind, attrs vanish silently).
 - Props via `defineProps<Props>()` (interface), never runtime declarations. Emits via `defineEmits<{...}>()`. Slots with payload via `defineSlots<{}>()`.
 - Order: `<script setup>` → `<template>` → `<style scoped>`. Unscoped `<style>` (teleport overrides only) goes after the scoped block.
+- ESLint enforces `lang="ts"`, `<script setup>`, block order, and type-based `defineProps`/`defineEmits` on `src/v2/**/*.vue`.
 
 ### Import order & aliases
 
@@ -107,7 +108,7 @@ import { useCan } from "@/v2/composables/useCan";
 - Every primitive ships at least one story with controls and at least one variant per theme.
 - A new interactive primitive that warrants gamepad navigation ships a `play()` interaction.
 - Modified primitive: existing story must still render and its interactions still pass.
-- `npm run test` runs Vitest **and** every `/lib` story's `play()` via `composeStories`. Don't duplicate coverage between Vitest (pure logic) and Storybook `play()` (components).
+- `npm run test` runs Vitest **and** every `/lib` and `components/shared` story's `play()` via `composeStories`. Don't duplicate coverage between Vitest (pure logic) and Storybook `play()` (components).
 - **Responsive QA:** `.storybook/rommViewports.ts` + viewport globals in `preview.ts`; see `frontend-v2-input` for `data-bp` vs iframe width.
 
 ---

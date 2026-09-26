@@ -82,8 +82,9 @@ export function resolveSoundtrackGameArtwork(
   const logoPath = rom.ss_metadata?.logo_path;
   if (logoPath) return `${FRONTEND_RESOURCES_PATH}/${logoPath}`;
 
+  // The backend sends "" rather than null for a ROM without a cover.
   return (
-    rom.path_cover_large ?? rom.path_cover_small ?? rom.url_cover ?? undefined
+    rom.path_cover_large || rom.path_cover_small || rom.url_cover || undefined
   );
 }
 

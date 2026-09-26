@@ -145,4 +145,13 @@ describe("playerCoverUrl", () => {
     expect(playerCoverUrl({ gameArtworkUrl: "/game.jpg" })).toBe("/game.jpg");
     expect(playerCoverUrl({})).toBe("/assets/default/album_cover.jpg");
   });
+
+  it("skips empty URLs instead of rendering a broken image", () => {
+    expect(
+      playerCoverUrl({ coverUrl: "", folderCoverUrl: "", gameArtworkUrl: "" }),
+    ).toBe("/assets/default/album_cover.jpg");
+    expect(playerCoverUrl({ coverUrl: "", gameArtworkUrl: "/game.jpg" })).toBe(
+      "/game.jpg",
+    );
+  });
 });

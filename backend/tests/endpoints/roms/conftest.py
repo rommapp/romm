@@ -64,4 +64,6 @@ def game_folder_rom(admin_user: User, platform: Platform) -> Rom:
             category=RomFileCategory.GAME,
         )
     )
-    return db_rom_handler.get_rom(rom.id)
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    return refreshed

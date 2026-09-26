@@ -81,7 +81,7 @@ def _group_schema(group: PermissionGroup) -> PermissionGroupSchema:
         name=group.name,
         description=group.description,
         is_default=group.is_default,
-        is_system=group.is_system,
+        system_key=group.system_key,
         color=group.color,
         grants=[
             GrantSchemaIO(entity=g.entity, action=g.action, own_only=g.own_only)
@@ -209,6 +209,8 @@ async def update_permission_group(
             else None
         ),
     )
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     # Grant changes alter every member's effective permissions.
     for member_id in db_permission_handler.get_group_member_ids(id):
         await emit_permissions_changed(member_id)

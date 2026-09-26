@@ -67,6 +67,7 @@ def test_upload_manual_to_resources_success(
     assert written.exists()
     assert written.read_bytes() == PDF_BYTES
     refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
     assert refreshed.path_manual == f"{rom.fs_resources_path}/manual/{rom.id}.pdf"
     assert refreshed.locked_fields == ["url_manual"]
 
@@ -88,6 +89,7 @@ def test_upload_markdown_manual_to_resources_preserves_extension(
     assert written.exists()
     assert written.read_bytes() == MD_BYTES
     refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
     assert refreshed.path_manual == f"{rom.fs_resources_path}/manual/{rom.id}.md"
 
 
@@ -165,6 +167,7 @@ def test_upload_manual_to_folder_success(
     assert written.read_bytes() == PDF_BYTES
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     manual_files = [f for f in rom_after.files if f.category == RomFileCategory.MANUAL]
     assert len(manual_files) == 1
     assert manual_files[0].file_name == "english.pdf"
@@ -187,6 +190,7 @@ def test_upload_manual_to_folder_upserts_on_reupload(
         assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     manual_files = [f for f in rom_after.files if f.category == RomFileCategory.MANUAL]
     assert len(manual_files) == 1
 
@@ -254,6 +258,7 @@ def test_redownload_manual_success(
 
     assert response.status_code == status.HTTP_200_OK
     refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
     assert refreshed.path_manual == fake_path
     assert refreshed.locked_fields == []
 
@@ -311,6 +316,7 @@ def test_delete_manual_success(
     assert response.status_code == status.HTTP_200_OK
     remove_mock.assert_awaited_once()
     refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
     assert refreshed.path_manual == ""
     assert refreshed.url_manual == ""
     assert refreshed.locked_fields == []

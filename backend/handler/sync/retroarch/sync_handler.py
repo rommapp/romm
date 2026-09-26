@@ -11,7 +11,7 @@ from collections.abc import Awaitable, Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
-from typing import Literal, NamedTuple, cast
+from typing import Literal, NamedTuple
 
 from handler.database import (
     db_rom_handler,
@@ -88,7 +88,7 @@ def parse_retroarch_sync_path(path: str) -> RetroArchSyncPath | None:
 
     if segments[0] not in ASSET_ROOTS:
         return None
-    kind = cast(AssetKind, segments[0])
+    kind = segments[0]
 
     emulator = None
     if len(segments) == 3:
@@ -407,7 +407,7 @@ class ManifestAsset(NamedTuple):
 
 def _manifest_assets(
     user: User, can_see: Callable[[Rom], bool], tree: AssetKind | None = None
-) -> tuple[list[ManifestAsset], list[Save]]:
+) -> tuple[list[ManifestAsset], Sequence[Save]]:
     """The manifest's saves and states (only `tree`'s when given), plus the unslotted saves its PSP bundles come from."""
     # Slotted saves are RomM's timestamped history, which no core would load.
     saves = (

@@ -74,7 +74,7 @@ _GRANT_SCOPES: dict[tuple[PermEntity, PermAction], frozenset[Scope]] = {
 }
 
 # --- Legacy group matrices ----------------------------------------------------
-# "Viewer (legacy)" == today's default user (WRITE_SCOPES): read the library;
+# "Viewer" == today's default user (WRITE_SCOPES): read the library;
 # create/modify/delete only OWN collections/assets/devices.
 LEGACY_VIEWER_GRANTS: tuple[Grant, ...] = (
     (PermEntity.ROMS, PermAction.READ, False),
@@ -94,7 +94,7 @@ LEGACY_VIEWER_GRANTS: tuple[Grant, ...] = (
     (PermEntity.DEVICES, PermAction.DELETE, True),
 )
 
-# "Editor (legacy)" == EDIT_SCOPES: viewer + library-wide write AND delete of
+# "Editor" == EDIT_SCOPES: viewer + library-wide write AND delete of
 # roms/platforms/firmware. Delete is True here because today's delete endpoints
 # gate on *_WRITE -- editors can already delete, so preserving that is required
 # to avoid silently revoking access on upgrade.

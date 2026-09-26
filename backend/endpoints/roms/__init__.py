@@ -117,7 +117,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.audit_event import AuditAction, AuditTargetType
-from models.collection import VirtualCollection
+from models.collection import Collection, SmartCollection, VirtualCollection
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
@@ -874,6 +874,7 @@ def _bulk_download_target(
         return AuditTarget(
             AuditTargetType.VIRTUAL_COLLECTION, virtual_collection_id, name
         )
+    collection: Collection | SmartCollection | None
     if collection_id:
         collection = db_collection_handler.get_collection(collection_id)
     elif smart_collection_id:

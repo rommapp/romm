@@ -18,6 +18,7 @@ from models.permission import (
     PermEntity,
     PermissionGroup,
     PermissionGroupGrant,
+    SystemGroupKey,
     UserPermissionOverride,
 )
 from models.user import User
@@ -30,14 +31,14 @@ def _cleanup_non_system_groups():
     # so drop them (cascading their grants + group-hidden rows) after each test.
     yield
     with sync_session.begin() as s:
-        s.query(PermissionGroup).filter(PermissionGroup.is_system.is_(False)).delete(
+        s.query(PermissionGroup).filter(PermissionGroup.system_key.is_(None)).delete(
             synchronize_session="evaluate"
         )
 
 
 def _make_group(name, grants, *, is_default=False):
     with sync_session.begin() as s:
-        group = PermissionGroup(name=name, is_default=is_default, is_system=False)
+        group = PermissionGroup(name=name, is_default=is_default)
         s.add(group)
         s.flush()
         gid = group.id
@@ -52,7 +53,9 @@ def _make_group(name, grants, *, is_default=False):
 
 def _set_group(user: User, group_id: int) -> User:
     db_user_handler.update_user(user.id, {"permission_group_id": group_id})
-    return db_user_handler.get_user(user.id)
+    refreshed = db_user_handler.get_user(user.id)
+    assert refreshed is not None
+    return refreshed
 
 
 def _add_override(user_id, entity, action, *, granted, own_only=False):
@@ -107,6 +110,7 @@ def test_kiosk_leaves_logged_in_users_alone(
 def test_kiosk_honors_write_override_on_logged_in_user(kiosk_mode, viewer_user):
     _add_override(viewer_user.id, PermEntity.ROMS, PermAction.WRITE, granted=True)
     user = db_user_handler.get_user(viewer_user.id)
+    assert user is not None
     assert "roms.write" in {s.value for s in user.oauth_scopes}
     assert resolve_permissions(user).allows(PermEntity.ROMS, PermAction.WRITE)
 
@@ -144,6 +148,7 @@ def test_explicit_group_overrides_role_fallback(editor_user):
 def test_override_grants_extra_capability(viewer_user):
     _add_override(viewer_user.id, PermEntity.ROMS, PermAction.WRITE, granted=True)
     user = db_user_handler.get_user(viewer_user.id)
+    assert user is not None
     assert "roms.write" in {s.value for s in user.oauth_scopes}
     perms = resolve_permissions(user)
     assert perms.allows(PermEntity.ROMS, PermAction.WRITE)
@@ -155,6 +160,7 @@ def test_override_revokes_group_capability(viewer_user):
         viewer_user.id, PermEntity.COLLECTIONS, PermAction.WRITE, granted=False
     )
     user = db_user_handler.get_user(viewer_user.id)
+    assert user is not None
     assert "collections.write" not in {s.value for s in user.oauth_scopes}
 
 
@@ -210,9 +216,9 @@ def test_admin_sees_everything_despite_hides(admin_user):
     assert perms.can_see_platform(5)
 
 
-def test_default_group_is_viewer_legacy():
+def test_default_group_is_viewer():
     from handler.database import db_permission_handler
 
     group = db_permission_handler.get_default_group()
     assert group is not None
-    assert group.name == "Viewer (legacy)"
+    assert group.system_key == SystemGroupKey.VIEWER

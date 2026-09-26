@@ -36,7 +36,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.filesystem import fs_asset_handler
-from handler.streaming import broker, commands
+from handler.streaming import broker, commands, webstation
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import set_session_disc
 from logger.logger import log
@@ -113,13 +113,13 @@ def container_state_filename(filename: str) -> str:
 
 def resolve_resume_state(
     user_id: int, rom: Rom, container: ResolvedContainer, state_id: int
-) -> tuple[State, int]:
-    """Validate a resume-from-state pick and return (state, slot).
+) -> tuple[State, int, bool]:
+    """Validate a resume-from-state pick and return (state, slot, is_foreign).
 
     Visibility follows the same rule as the state list the picker was built
     from: the claiming user's own states plus other users' public ones.
-    Raises 404 for anything invisible, 400 when the state cannot drive a
-    resume on this container.
+    Raises 404 for anything invisible, 400 for a foreign state the broker
+    will not import.
     """
     state = next(
         (
@@ -135,19 +135,26 @@ def resolve_resume_state(
         raise HTTPException(status_code=404, detail="State not found")
 
     emulator = container.emulator
-    if (state.emulator or "").lower() != emulator:
+    native = (state.emulator or "").lower() == emulator
+    if native:
+        slot = slot_from_state_filename(emulator, state.file_name)
+        if slot is not None:
+            return state, slot, False
+
+    spec = webstation.import_spec(container, emulator, container.platform)
+    import_slot = spec.resume_slot() if spec is not None else None
+    if import_slot is not None:
+        return state, import_slot, True
+
+    if not native:
         raise HTTPException(
             status_code=400,
             detail="State was made by a different emulator",
         )
-
-    slot = slot_from_state_filename(emulator, state.file_name)
-    if slot is None:
-        raise HTTPException(
-            status_code=400,
-            detail="State filename carries no recognizable slot number",
-        )
-    return state, slot
+    raise HTTPException(
+        status_code=400,
+        detail="State filename carries no recognizable slot number",
+    )
 
 
 def fetch_state_file(

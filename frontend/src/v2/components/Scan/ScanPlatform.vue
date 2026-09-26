@@ -9,12 +9,13 @@
 // overflow. The scroller stays in the loop anyway because its
 // transform-based row positioning avoids reflowing existing rows
 // as new ones stream in during a live scan.
-import { RCollapsible, RPlatformIcon, RTag, RVirtualScroller } from "@v2/lib";
+import { RCollapsible, RTag, RVirtualScroller } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SimpleRom } from "@/stores/roms";
 import type { ScanningPlatform } from "@/stores/scanning";
 import ScanPlatformRow from "@/v2/components/Scan/ScanPlatformRow.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -64,7 +65,7 @@ function getItemKey(item: unknown) {
     @update:model-value="(v) => $emit('update:open', v)"
   >
     <template #header-prepend>
-      <RPlatformIcon
+      <PlatformIcon
         v-if="platform.slug"
         :key="platform.slug"
         :slug="platform.slug"
