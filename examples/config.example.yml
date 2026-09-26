@@ -225,7 +225,7 @@
 #     - protocol: webstation
 #       host: https://192.168.1.56:3010  # browser-facing UI, must be https
 #       subfolder: /streaming            # matches the container's SUBFOLDER
-#       library_path: /romm              # where it mounts your ROM library
+#       # library_path: /mnt/games/library  # only if the container can't mount the library at /romm/library
 #       broker_secret: change-me         # matches the container's BROKER_SECRET
 #       label: Emulation station
 #       broker_host: http://192.168.1.56:3010  # server-to-broker URL, when RomM can't dial `host` itself

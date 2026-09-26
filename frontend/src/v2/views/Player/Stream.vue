@@ -362,12 +362,11 @@ const nativeStreamStates = computed<UserStateSchema[]>(() => {
 
 // Every state regardless of which emulator wrote it where the broker declares
 // it can import one, which routes a foreign pick through the import path.
-const pickableStates = computed<UserStateSchema[]>(() => {
-  if (!rom.value) return [];
-  return container.value?.import_kinds.includes("state")
-    ? (rom.value.all_user_states ?? [])
-    : nativeStreamStates.value;
-});
+const pickableStates = computed<UserStateSchema[]>(() =>
+  container.value?.import_kinds.includes("state")
+    ? (rom.value?.all_user_states ?? [])
+    : nativeStreamStates.value,
+);
 
 // Every capture is kept, so a heavy save-stater ends up with a history the
 // horizontal strip buries. Grid and list trade thumbnail size for how many
@@ -733,13 +732,16 @@ useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   errorType.value = "server";
   if (payload.refusals?.length) {
     errorMessage.value = t("play.stream-error-import-refused");
-    const hints = payload.refusals
-      .map((r) =>
-        r.suggest_emulator
-          ? streamingStore.emulatorLabel(r.suggest_emulator)
-          : r.reason,
-      )
-      .join(", ");
+    // One refusal per rejected member, so a large archive repeats each reason.
+    const hints = [
+      ...new Set(
+        payload.refusals.map((r) =>
+          r.suggest_emulator
+            ? streamingStore.emulatorLabel(r.suggest_emulator)
+            : r.reason,
+        ),
+      ),
+    ].join(", ");
     const truncated = payload.refusals_truncated;
     errorHint.value = truncated
       ? `${hints} (${t("play.import-refusals-truncated", truncated)})`
@@ -978,18 +980,17 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         });
         errorHint.value = t("play.error-hint-not-configured");
       }
-    } else if (status === 400 && typeof detail === "string") {
-      // A refused save/state pick carries a reason worth more than the generic hint.
-      errorType.value = "server";
-      errorMessage.value = t("play.stream-error-generic");
-      errorHint.value = detail;
     } else {
       errorType.value = "server";
       // The axios message ("Request failed with status code 502") is English
       // and says nothing the hint does not, so the title stays translated and
       // the status carries the detail.
       errorMessage.value = t("play.stream-error-generic");
-      errorHint.value = hintForStatus(status);
+      // A refused save/state pick carries a reason worth more than the generic hint.
+      errorHint.value =
+        status === 400 && typeof detail === "string"
+          ? detail
+          : hintForStatus(status);
     }
   }
 

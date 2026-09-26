@@ -82,6 +82,7 @@ type DesktopVm = { state: string; errorMessage: string; endedReason: string };
 let mounted: VueWrapper | null = null;
 
 const CLAIMED_AT = "2026-09-17T10:00:00";
+const KEY = "http://webstation-dev:8000";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -104,6 +105,7 @@ async function mountDesktop(): Promise<VueWrapper> {
 async function openDesktop(): Promise<VueWrapper> {
   mocks.claimDesktop.mockResolvedValue({
     data: {
+      container: KEY,
       host: "http://webstation-dev:8080",
       label: "PS2",
       platform: "ps2",
@@ -139,7 +141,7 @@ describe("Desktop session-ended notices", () => {
     const wrapper = await openDesktop();
     expect(vmOf(wrapper).state).toBe("running");
 
-    endSession({ platform: "ps2", container: "WEBSTATION-DEV" });
+    endSession({ platform: "ps2", container: KEY });
     await flushPromises();
 
     expect(vmOf(wrapper).state).toBe("error");
@@ -151,7 +153,7 @@ describe("Desktop session-ended notices", () => {
 
     endSession({
       platform: "ps2",
-      container: "WEBSTATION-DEV",
+      container: KEY,
       reason: "Maintenance",
     });
     await flushPromises();
@@ -173,7 +175,7 @@ describe("Desktop session-ended notices", () => {
 
     endSession({
       platform: "ps2",
-      container: "WEBSTATION-DEV",
+      container: KEY,
       claimed_at: "2026-09-17T09:55:00",
     });
     await flushPromises();
@@ -186,7 +188,7 @@ describe("Desktop session-ended notices", () => {
     // container next.
     await openDesktop();
 
-    endSession({ platform: "ps2", container: "WEBSTATION-DEV" });
+    endSession({ platform: "ps2", container: KEY });
     await flushPromises();
     window.dispatchEvent(new Event("pagehide"));
 
@@ -204,11 +206,7 @@ describe("Desktop heartbeats", () => {
 
     await mocks.heartbeatTick?.();
 
-    expect(mocks.heartbeatSession).toHaveBeenCalledWith(
-      "ps2",
-      "WEBSTATION-DEV",
-      CLAIMED_AT,
-    );
+    expect(mocks.heartbeatSession).toHaveBeenCalledWith("ps2", KEY, CLAIMED_AT);
     expect(vmOf(wrapper).state).toBe("running");
   });
 
@@ -268,7 +266,7 @@ describe("Desktop releases", () => {
     expect(mocks.releaseSession).toHaveBeenCalledWith(
       "ps2",
       undefined,
-      "WEBSTATION-DEV",
+      KEY,
       undefined,
       CLAIMED_AT,
     );
@@ -281,7 +279,7 @@ describe("Desktop releases", () => {
 
     expect(mocks.releaseSessionKeepalive).toHaveBeenCalledWith(
       "ps2",
-      "WEBSTATION-DEV",
+      KEY,
       CLAIMED_AT,
     );
   });
@@ -318,5 +316,32 @@ describe("Desktop refused claims", () => {
     });
 
     expect(vmOf(wrapper).errorMessage).toBe("play.stream-occupied-draining");
+  });
+});
+
+describe("Desktop container naming", () => {
+  it("claims by the URL's name", async () => {
+    await openDesktop();
+
+    expect(mocks.claimDesktop).toHaveBeenCalledWith("WEBSTATION-DEV");
+  });
+
+  it("beats, releases and listens under the key the claim answered with", async () => {
+    const wrapper = await openDesktop();
+
+    mocks.heartbeatSession.mockResolvedValue({ status: "active" });
+    await mocks.heartbeatTick?.();
+    expect(mocks.heartbeatSession).toHaveBeenCalledWith("ps2", KEY, CLAIMED_AT);
+
+    endSession({ platform: "ps2", container: "WEBSTATION-DEV" });
+    await flushPromises();
+    expect(vmOf(wrapper).state).toBe("running");
+
+    window.dispatchEvent(new Event("pagehide"));
+    expect(mocks.releaseSessionKeepalive).toHaveBeenCalledWith(
+      "ps2",
+      KEY,
+      CLAIMED_AT,
+    );
   });
 });

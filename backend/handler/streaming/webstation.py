@@ -42,7 +42,7 @@ class ImportSpec:
     """What one (emulator, platform) pair accepts through a declared import."""
 
     kinds: frozenset[str]
-    state_channel: str
+    state_channel: Literal["archive", "push", "none"]
     state_slot: int | None
 
     def accepts(self, kind: str) -> bool:
@@ -67,7 +67,7 @@ class ImportSpec:
 # Per container, so one broker's answer never speaks for another. A 404 or 422
 # holds for the worker's life, an answer for one claim's checks, a failure not at all.
 _IMPORT_SPEC_TTL = 30.0
-_import_spec_cache: dict[tuple[str, str, str], tuple[float, "ImportSpec | None"]] = {}
+_import_spec_cache: dict[tuple[str, str, str], tuple[float, ImportSpec | None]] = {}
 
 
 def _parse_import_spec(body: dict[str, Any]) -> ImportSpec | None:
