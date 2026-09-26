@@ -1,4 +1,6 @@
-from typing import Literal, NotRequired, TypedDict
+from typing import Annotated, Literal, NotRequired, TypedDict
+
+from pydantic import BeforeValidator
 
 
 # Per-account limits returned in `response.ssuser`
@@ -137,3 +139,27 @@ class SSGame(TypedDict):
     familles: NotRequired[list[SSGameFranchise]]
     medias: list[SSGameMedia]
     roms: NotRequired[list[SSGameRom]]
+
+
+# Every reply carries the account's allowances alongside its payload.
+class SSResult(TypedDict):
+    ssuser: NotRequired[SSUser]
+
+
+class SSGameInfoResult(SSResult):
+    jeu: NotRequired[SSGame]
+
+
+def _drop_no_match_placeholder(games: object) -> object:
+    # With no match, jeuRecherche sends a list holding one empty object.
+    return [game for game in games if game] if isinstance(games, list) else games
+
+
+class SSSearchResult(SSResult):
+    jeux: NotRequired[
+        Annotated[list[SSGame], BeforeValidator(_drop_no_match_placeholder)]
+    ]
+
+
+class SSResponse[T](TypedDict):
+    response: T

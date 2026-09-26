@@ -877,7 +877,7 @@ class SSHandler(MetadataHandler):
             log.error("Error checking ScreenScraper API: %s", e)
             return False
 
-        return bool(response.get("response", {}))
+        return bool(response and response.get("response"))
 
     @staticmethod
     def extract_ss_id_from_filename(fs_name: str) -> int | None:

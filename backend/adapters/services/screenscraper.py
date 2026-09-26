@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, fields
 from math import isclose
-from typing import Any, Final
+from typing import Final, cast
 from urllib.parse import urlparse
 
 import aiohttp
@@ -16,8 +16,15 @@ import yarl
 from aiohttp.client import ClientTimeout
 from fastapi import HTTPException, status
 
-from adapters.services.response_validation import validate_response
-from adapters.services.screenscraper_types import SSGame, SSUser
+from adapters.services.response_validation import parse_response
+from adapters.services.screenscraper_types import (
+    SSGame,
+    SSGameInfoResult,
+    SSResponse,
+    SSResult,
+    SSSearchResult,
+    SSUser,
+)
 from config import (
     SCAN_WORKERS,
     SCREENSCRAPER_DEV_ID,
@@ -42,17 +49,18 @@ LOGIN_ERROR_CHECK: Final = "Erreur de login"
 _INVALID_ESCAPE_RE: Final = re.compile(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})')
 
 
-def _loads_lenient(text: str) -> Any:
-    """Parse a ScreenScraper JSON payload, repairing invalid escapes on failure.
+def _parse_lenient[T](tp: type[T], text: str, *, source: str) -> T | None:
+    """Parse a ScreenScraper reply, repairing invalid escapes on failure.
 
     A single unescaped backslash would otherwise sink an entire response (and thus
     the match), so on a decode error we double any backslash that isn't a valid
     JSON escape and try once more.
     """
     try:
-        return json.loads(text)
+        return parse_response(tp, text, source=source)
     except json.JSONDecodeError:
-        return json.loads(_INVALID_ESCAPE_RE.sub(r"\\\\", text))
+        repaired = _INVALID_ESCAPE_RE.sub(r"\\\\", text)
+        return parse_response(tp, repaired, source=source)
 
 
 # ScreenScraper enforces a per-account *thread* (concurrency) cap. Because a
@@ -342,11 +350,11 @@ def _reject_credentials(url: str, message: str = "") -> ScreenScraperCredentials
 
 def _handle_client_error(
     url: str, err: aiohttp.ClientResponseError, generation: int
-) -> dict[str, Any]:
+) -> None:
     """Map one of ScreenScraper's documented statuses onto a clear error.
 
-    Returns an empty response for the ones a scan can carry on through, and
-    raises for the ones a caller has to hear about.
+    Returns None for the ones a scan can carry on through, and raises for the
+    ones a caller has to hear about.
 
     Args:
         generation: the quota generation the refused request was sent under.
@@ -360,7 +368,7 @@ def _handle_client_error(
             "ScreenScraper closed the API to non-members and inactive members; "
             "it gives server saturation (CPU >60%) as the cause"
         )
-        return {}
+        return None
     elif err.status == 423:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -381,10 +389,10 @@ def _handle_client_error(
         # This ROM did not match *and* the account has proposed its daily maximum
         # of unknown ROMs for review. Only the first half concerns the scan.
         _note_submission_limit()
-        return {}
+        return None
 
     log.error(err)
-    return {}
+    return None
 
 
 def reset_scan_state() -> None:
@@ -534,23 +542,19 @@ def _warn_on_low_quota(limits: SSAccountLimits) -> None:
         )
 
 
-def _update_account_limits(response: dict[str, Any]) -> None:
+def _update_account_limits(response: object) -> None:
     """Read the account allowances ScreenScraper attaches to every response.
 
     They govern how fast we may scrape (threads and requests per minute), how
     much of the daily quota is left, and how slowly media will download.
     """
-    payload = response.get("response")
-    if not isinstance(payload, dict):
-        return
-
-    ssuser = payload.get("ssuser")
+    payload = response.get("response") if isinstance(response, dict) else None
+    ssuser = payload.get("ssuser") if isinstance(payload, dict) else None
     if not isinstance(ssuser, dict):
         return
 
-    limits = _read_account_limits(
-        validate_response(SSUser, ssuser, source="ScreenScraper ssuser")
-    )
+    # Checked against SSUser with the rest of the reply, since SSResult declares it.
+    limits = _read_account_limits(cast(SSUser, ssuser))
     _state.account_limits = limits
 
     _apply_thread_allowance(limits.max_threads)
@@ -681,7 +685,9 @@ class ScreenScraperService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://api.screenscraper.fr/api2")
 
-    async def _attempt_request(self, url: str, request_timeout: int) -> dict[str, Any]:
+    async def _attempt_request[T](
+        self, url: str, tp: type[T], request_timeout: int
+    ) -> T | None:
         """Make one request, and read the account allowances riding along on it.
 
         A refusal explains itself in the body, so the body is read before the
@@ -714,14 +720,12 @@ class ScreenScraperService:
                     raise _reject_credentials(url, _error_message(res_text)) from err
                 raise
 
-            data = await res.json(loads=_loads_lenient)
+            response = _parse_lenient(
+                tp, res_text, source=f"ScreenScraper {yarl.URL(url).name}"
+            )
 
         # A response means the wall the counter was tracking is not there.
         _state.daily_quota_errors = 0
-        response = validate_response(dict[str, Any], data, source="ScreenScraper")
-        # Callers only ever read mappings.
-        if not isinstance(response, dict):
-            return {}
         _update_account_limits(response)
         return response
 
@@ -747,7 +751,9 @@ class ScreenScraperService:
             # checked. wait_for bounds the wait for a concurrency slot too, which
             # a media download can hold for minutes.
             await asyncio.wait_for(
-                self._attempt_request(url, SS_QUOTA_RECHECK_TIMEOUT),
+                self._attempt_request(
+                    url, SSResponse[SSResult], SS_QUOTA_RECHECK_TIMEOUT
+                ),
                 SS_QUOTA_RECHECK_TIMEOUT,
             )
         except (
@@ -773,7 +779,9 @@ class ScreenScraperService:
         reset_daily_quota()
         return True
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict[str, Any]:
+    async def _request[T](
+        self, url: str, tp: type[T], request_timeout: int = 120
+    ) -> T | None:
         # Credentials already refused: the answer will not change until they are
         # corrected, which takes a restart to pick up. Checked ahead of the quota
         # so a re-check never spends a request on credentials already refused.
@@ -790,7 +798,7 @@ class ScreenScraperService:
 
         generation = _state.quota_generation
         try:
-            return await self._attempt_request(url, request_timeout)
+            return await self._attempt_request(url, tp, request_timeout)
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             pass
@@ -804,20 +812,21 @@ class ScreenScraperService:
             ) from exc
         except aiohttp.ClientResponseError as err:
             if err.status != http.HTTPStatus.TOO_MANY_REQUESTS:
-                return _handle_client_error(url, err, generation)
+                _handle_client_error(url, err, generation)
+                return None
 
             log.warning("ScreenScraper: rate limit hit, retrying after 2s")
             await asyncio.sleep(2)
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
-            return {}
+            return None
 
         generation = _state.quota_generation
         try:
-            return await self._attempt_request(url, request_timeout)
+            return await self._attempt_request(url, tp, request_timeout)
         except aiohttp.ServerTimeoutError as err:
             log.error(err)
-            return {}
+            return None
         except aiohttp.ClientResponseError as err:
             if err.status == http.HTTPStatus.TOO_MANY_REQUESTS:
                 # The pacing is behind the account's  per-minute budget.
@@ -825,26 +834,27 @@ class ScreenScraperService:
                 # of quietly saved without our metadata.
                 raise ScreenScraperRateLimitError() from err
 
-            return _handle_client_error(url, err, generation)
+            _handle_client_error(url, err, generation)
+            return None
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
-            return {}
+            return None
 
-    async def get_user_info(self) -> dict[str, Any]:
+    async def get_user_info(self) -> SSResponse[SSResult] | None:
         """Retrieve the account's allowances and quota counters.
 
         Reference: https://api.screenscraper.fr/webapi2.php#ssuserInfos
         """
         url = self.url.joinpath("ssuserInfos.php")
-        return await self._request(str(url))
+        return await self._request(str(url), SSResponse[SSResult])
 
-    async def get_infra_info(self) -> dict[str, Any]:
+    async def get_infra_info(self) -> SSResponse[SSResult] | None:
         """Retrieve information about the infrastructure.
 
         Reference: https://api.screenscraper.fr/webapi2.php#infraInfos
         """
         url = self.url.joinpath("ssinfraInfos.php")
-        return await self._request(str(url))
+        return await self._request(str(url), SSResponse[SSResult])
 
     async def get_game_info(
         self,
@@ -884,11 +894,8 @@ class ScreenScraperService:
             params["gameid"] = [str(game_id)]
 
         url = self.url.joinpath("jeuInfos.php").with_query(**params)
-        response = await self._request(str(url))
-        data = response.get("response", {}).get("jeu", {})
-        if not data:
-            return None
-        return validate_response(SSGame, data, source="ScreenScraper jeuInfos")
+        response = await self._request(str(url), SSResponse[SSGameInfoResult])
+        return (response["response"].get("jeu") or None) if response else None
 
     async def search_games(
         self,
@@ -905,11 +912,7 @@ class ScreenScraperService:
             params["systemeid"] = [str(system_id)]
 
         url = self.url.joinpath("jeuRecherche.php").with_query(**params)
-        response = await self._request(str(url))
-        data = response.get("response", {}).get("jeux", [])
-        # If no roms are returned, "jeux" is a list with an empty dict.
-        if len(data) == 1 and not data[0]:
-            data = []
-        return validate_response(
-            list[SSGame], data, source="ScreenScraper jeuRecherche"
-        )
+        response = await self._request(str(url), SSResponse[SSSearchResult])
+        games = response["response"].get("jeux", []) if response else []
+        # A reply kept as sent (see parse_response) still holds the placeholder.
+        return [game for game in games if game]
