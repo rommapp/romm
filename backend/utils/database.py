@@ -1,15 +1,12 @@
-import json
 from datetime import date
 from typing import Any, Sequence
 from uuid import uuid4
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
-from sqlalchemy.orm import Session
-from sqlalchemy.sql import ColumnElement, func
+from sqlalchemy.sql import ColumnElement
 
-# What `Session.get_bind()` returns; these helpers only read `.engine`, which
-# an Engine answers with itself.
+# These helpers only read `.engine`, which an Engine answers with itself.
 type DatabaseBind = sa.Engine | sa.Connection
 
 # Single-column foreign keys that MariaDB/MySQL index implicitly but PostgreSQL
@@ -118,35 +115,44 @@ def _exact_collation(dialect: sa.Dialect) -> str | None:
     return MYSQL_EXACT_COLLATION
 
 
-def is_db_version_compatible(
-    conn: DatabaseBind,
-    min_version: tuple[int, ...] | None = None,
-) -> bool:
-    """Check if the database server version complies with the given version constraints."""
-    if min_version is None:
-        return True
-    server_version = conn.engine.dialect.server_version_info
-    return bool(server_version and server_version >= min_version)
+def is_postgresql(conn: DatabaseBind) -> bool:
+    return conn.engine.name == "postgresql"
 
 
-def is_postgresql(
-    conn: DatabaseBind, min_version: tuple[int, ...] | None = None
-) -> bool:
-    if conn.engine.name != "postgresql":
-        return False
-    return is_db_version_compatible(conn, min_version=min_version)
+def is_mysql(conn: DatabaseBind) -> bool:
+    return conn.engine.name == "mysql"
 
 
-def is_mysql(conn: DatabaseBind, min_version: tuple[int, ...] | None = None) -> bool:
-    if conn.engine.name != "mysql":
-        return False
-    return is_db_version_compatible(conn, min_version=min_version)
+def is_mariadb(conn: DatabaseBind) -> bool:
+    return conn.engine.name == "mariadb"
 
 
-def is_mariadb(conn: DatabaseBind, min_version: tuple[int, ...] | None = None) -> bool:
-    if conn.engine.name != "mariadb":
-        return False
-    return is_db_version_compatible(conn, min_version=min_version)
+# Queries use JSON_OVERLAPS (MariaDB 10.9, MySQL 8.0.17); 10.11 is the oldest
+# MariaDB LTS still receiving fixes.
+MIN_MARIADB_VERSION = (10, 11)
+MIN_MYSQL_VERSION = (8, 0, 17)
+
+
+def unsupported_server_version(dialect: sa.Dialect) -> str | None:
+    """Why the connected server is too old for RomM, or None when it is supported."""
+    if dialect.name not in ("mysql", "mariadb") or not dialect.server_version_info:
+        return None
+
+    # A MariaDB server reached through the mysql driver still reports as MariaDB.
+    engine, minimum = (
+        ("MariaDB", MIN_MARIADB_VERSION)
+        if getattr(dialect, "is_mariadb", False)
+        else ("MySQL", MIN_MYSQL_VERSION)
+    )
+    version = tuple(p for p in dialect.server_version_info if isinstance(p, int))
+    if version >= minimum:
+        return None
+
+    return (
+        f"RomM needs {engine} {'.'.join(map(str, minimum))} or newer, but the "
+        f"database server runs {'.'.join(map(str, version))}. Upgrade the server, "
+        "then start RomM again. See https://docs.romm.app/latest/install/databases/"
+    )
 
 
 # Error 1419, which MariaDB and MySQL raise for every trigger statement while
@@ -227,91 +233,6 @@ def full_path_digest_sql(conn: sa.Connection) -> str:
             "COALESCE(fs_name, ''), 'UTF8')), 'hex')"
         )
     return "SHA2(CONCAT(COALESCE(fs_path, ''), '/', COALESCE(fs_name, '')), 256)"
-
-
-def json_array_contains_value(
-    column: sa.Column | Any, value: str | int, *, session: Session
-) -> ColumnElement:
-    """Check if a JSON array column contains the given value."""
-    conn = session.get_bind()
-    if is_postgresql(conn):
-        # In PostgreSQL, string values can be checked for containment using the `?` operator.
-        # For other types, we use the `@>` operator.
-        if isinstance(value, str):
-            return sa.type_coerce(column, sa_pg.JSONB).has_key(value)
-        return sa.type_coerce(column, sa_pg.JSONB).contains(
-            func.cast(sa.literal(value, sa_pg.JSONB), sa_pg.JSONB)
-        )
-    elif is_mysql(conn) or is_mariadb(conn):
-        # In MySQL and MariaDB, JSON_CONTAINS requires a JSON-formatted string (even if it's an int).
-        return func.json_contains(column, json.dumps(value))
-
-    raise NotImplementedError(
-        f"json_array_contains_value is not implemented for engine: {conn.engine.name}"
-    )
-
-
-def json_array_contains_any(
-    column: sa.Column | Any, values: Sequence[str] | Sequence[int], *, session: Session
-) -> ColumnElement:
-    """Check if a JSON array column contains any of the given values."""
-    if not values:
-        return sa.false()
-
-    # Optimize for single value case
-    if len(values) == 1:
-        return json_array_contains_value(column, values[0], session=session)
-
-    conn = session.get_bind()
-    if is_postgresql(conn):
-        # In PostgreSQL, string arrays can be checked for overlap using the `?|` operator.
-        # For other types, we combine element-wise checks with OR.
-        if isinstance(values[0], str):
-            return sa.type_coerce(column, sa_pg.JSONB).has_any(
-                sa.type_coerce(values, sa_pg.ARRAY(sa_pg.TEXT))
-            )
-        return sa.or_(
-            *[json_array_contains_value(column, v, session=session) for v in values]
-        )
-    elif is_mysql(conn) or is_mariadb(conn, min_version=(10, 9)):
-        # In MySQL and MariaDB, JSON_OVERLAPS requires a JSON-formatted string (even if it's an int).
-        return func.json_overlaps(column, json.dumps(values))
-    elif is_mariadb(conn):
-        # MariaDB before 10.9 does not have JSON_OVERLAPS, so we fall back to element-wise checks.
-        return sa.or_(
-            *[json_array_contains_value(column, v, session=session) for v in values]
-        )
-
-    raise NotImplementedError(
-        f"json_array_contains_any is not implemented for engine: {conn.engine.name}"
-    )
-
-
-def json_array_contains_all(
-    column: sa.Column | Any, values: Sequence[Any], *, session: Session
-) -> ColumnElement:
-    """Check if a JSON array column contains all of the given values."""
-    if not values:
-        return sa.false()
-
-    conn = session.get_bind()
-    if is_postgresql(conn):
-        # In PostgreSQL, string arrays can be checked for containment using the `?&` operator.
-        # For other types, we combine element-wise checks with AND.
-        if isinstance(values[0], str):
-            return sa.type_coerce(column, sa_pg.JSONB).has_all(
-                sa.type_coerce(values, sa_pg.ARRAY(sa_pg.TEXT))
-            )
-        return sa.and_(
-            *[json_array_contains_value(column, v, session=session) for v in values]
-        )
-    elif is_mysql(conn) or is_mariadb(conn):
-        # In MySQL and MariaDB, JSON_CONTAINS requires a JSON-formatted string (even if it's an int).
-        return func.json_contains(column, json.dumps(values))
-
-    raise NotImplementedError(
-        f"json_array_contains_all is not implemented for engine: {conn.engine.name}"
-    )
 
 
 MS_PER_DAY = 86_400_000
