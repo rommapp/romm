@@ -7,8 +7,7 @@
 // MediaTab, performs the actions):
 //   * edit:     when `editable` and owned, opens its visibility (top-right)
 //   * delete:   when `deletable` and the item is owned (top-right, hover)
-//   * pin:      when `isPinned` is given (bottom-right, always shown while
-//               pinned)
+//   * pin:      when `isPinned` is given (bottom-right, hover)
 //   * username: community items (others' public shots) show an owner chip
 import { RAvatar, RBtn, RCarousel } from "@v2/lib";
 import { computed, ref } from "vue";
@@ -138,7 +137,6 @@ function canEdit(shot: ScreenshotItem): boolean {
       <MediaPinBtn
         v-if="isPinned"
         class="r-v2-det-shots__pin"
-        :class="{ 'r-v2-det-shots__pin--shown': isPinned(shot.pinKey) }"
         :pinned="isPinned(shot.pinKey)"
         @toggle="emit('toggle-pin', shot.pinKey)"
       />
@@ -225,7 +223,6 @@ function canEdit(shot: ScreenshotItem): boolean {
   opacity: 0;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-v2-det-shots__pin--shown,
 .r-v2-det-shots__cell:hover .r-v2-det-shots__actions,
 .r-v2-det-shots__cell:focus-within .r-v2-det-shots__actions,
 .r-v2-det-shots__cell:hover .r-v2-det-shots__pin,

@@ -283,7 +283,6 @@ const coverSource = computed(() => {
         v-if="pinnedMedia.length"
         :items="pinnedMedia"
         compact
-        pin-on-hover
         :is-pinned="isPinned"
         @toggle-pin="togglePin"
       />

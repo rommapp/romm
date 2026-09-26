@@ -20,8 +20,6 @@ const props = defineProps<{
   captions?: boolean;
   compact?: boolean;
   isPinned?: (key: string) => boolean;
-  /** Hide the pin until hover even on pinned items. */
-  pinOnHover?: boolean;
 }>();
 const emit = defineEmits<{ "toggle-pin": [key: string] }>();
 
@@ -85,9 +83,6 @@ function close() {
           <MediaPinBtn
             v-if="isPinned"
             class="r-v2-media-shelf__pin"
-            :class="{
-              'r-v2-media-shelf__pin--shown': isPinned(item.key) && !pinOnHover,
-            }"
             :pinned="isPinned(item.key)"
             @toggle="emit('toggle-pin', item.key)"
           />
@@ -206,7 +201,6 @@ function close() {
   opacity: 0;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-v2-media-shelf__pin--shown,
 .r-v2-media-shelf__cell:hover .r-v2-media-shelf__pin,
 .r-v2-media-shelf__cell:focus-within .r-v2-media-shelf__pin {
   opacity: 1;
