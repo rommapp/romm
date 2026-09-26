@@ -739,9 +739,7 @@ def extract_tags_from_ss_dump(dump: SSGameRom) -> list[str]:
     """Tags of one dump, from the flags it raises."""
     # ScreenScraper sends these flags as "1", not 1.
     return [
-        tag
-        for key, tag in _SS_DUMP_FLAG_TAGS
-        if str(dump.get(key, "")).strip() == "1"  # type: ignore[literal-required]
+        tag for key, tag in _SS_DUMP_FLAG_TAGS if str(dump.get(key, "")).strip() == "1"
     ]
 
 

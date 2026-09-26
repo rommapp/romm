@@ -50,7 +50,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         rom_id: int,
         slot: str,
         content_hash: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> DeletedAsset:
         record = DeletedAsset(
             user_id=user_id,
@@ -69,7 +69,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         rom_id: int,
         slot: str,
         content_hash: str,
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> DeletedAsset | None:
         """Add this version to the slot's record, or None when it has none yet."""
         record = session.scalar(
@@ -91,7 +91,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_ids: Collection[int],
-        session: Session = None,  # type: ignore
+        session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[DeletedAsset]:
         """Every slot of these ROMs this user emptied."""
         if not rom_ids:
