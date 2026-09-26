@@ -184,7 +184,7 @@ class SteamGridDBService:
         """
         url = self.url.joinpath("search/autocomplete", term)
         response = await self._request(str(url), SGDBResponse[list[SGDBGame]])
-        return response.get("data", []) if response else []
+        return (response.get("data") or []) if response else []
 
     async def get_game_by_id(self, game_id: int) -> SGDBGame | None:
         """Get game details by ID.

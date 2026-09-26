@@ -135,7 +135,7 @@ class MobyGamesService:
 
         url = self.url.joinpath("groups").with_query(**params)
         response = await self._request(str(url), MobyGroupsResponse)
-        return response.get("groups", []) if response else []
+        return (response.get("groups") or []) if response else []
 
     @overload
     async def list_games(
@@ -216,9 +216,9 @@ class MobyGamesService:
         url = self.url.joinpath("games").with_query(**params)
         if output_format == "id":
             ids = await self._request(str(url), MobyGamesResponse[int])
-            return ids.get("games", []) if ids else []
+            return (ids.get("games") or []) if ids else []
         if output_format == "brief":
             briefs = await self._request(str(url), MobyGamesResponse[MobyGameBrief])
-            return briefs.get("games", []) if briefs else []
+            return (briefs.get("games") or []) if briefs else []
         games = await self._request(str(url), MobyGamesResponse[MobyGame])
-        return games.get("games", []) if games else []
+        return (games.get("games") or []) if games else []

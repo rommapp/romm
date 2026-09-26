@@ -895,7 +895,8 @@ class ScreenScraperService:
 
         url = self.url.joinpath("jeuInfos.php").with_query(**params)
         response = await self._request(str(url), SSResponse[SSGameInfoResult])
-        return (response["response"].get("jeu") or None) if response else None
+        payload = response.get("response") if response else None
+        return (payload.get("jeu") or None) if isinstance(payload, dict) else None
 
     async def search_games(
         self,
@@ -913,6 +914,7 @@ class ScreenScraperService:
 
         url = self.url.joinpath("jeuRecherche.php").with_query(**params)
         response = await self._request(str(url), SSResponse[SSSearchResult])
-        games = response["response"].get("jeux", []) if response else []
+        payload = response.get("response") if response else None
+        games = (payload.get("jeux") or []) if isinstance(payload, dict) else []
         # A reply kept as sent (see parse_response) still holds the placeholder.
         return [game for game in games if game]

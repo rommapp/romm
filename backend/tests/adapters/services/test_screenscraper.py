@@ -941,6 +941,13 @@ class TestScreenScraperServiceUnit:
         assert result is None
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("reply", [{}, {"response": None}])
+    async def test_a_reply_without_its_envelope_is_no_match(self, service, reply):
+        with patch.object(service, "_request", AsyncMock(return_value=reply)):
+            assert await service.get_game_info(game_id=1) is None
+            assert await service.search_games(term="x") == []
+
+    @pytest.mark.asyncio
     async def test_get_game_info_empty_jeu_data(self, service):
         """Test get_game_info when jeu data is empty."""
         mock_response: dict[str, dict[str, Any]] = {"response": {"jeu": {}}}
