@@ -4,6 +4,7 @@ from typing import Any, Sequence
 from uuid import uuid4
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import mysql as sa_mysql
 from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
@@ -85,6 +86,34 @@ AUTOGENERATE_EXEMPT_INDEX_NAMES = (
 def CustomJSON(**kwargs: Any) -> sa.JSON:
     """Custom SQLAlchemy JSON type that uses JSONB on PostgreSQL."""
     return sa.JSON(**kwargs).with_variant(sa_pg.JSONB(**kwargs), "postgresql")
+
+
+# Byte for byte and NO PAD, so case, accents and trailing spaces all count.
+MARIADB_EXACT_COLLATION = "utf8mb4_nopad_bin"
+MYSQL_EXACT_COLLATION = "utf8mb4_0900_bin"
+
+
+def ExactString(length: int) -> sa.String:
+    """A VARCHAR that MariaDB and MySQL compare exactly, as PostgreSQL and Python do."""
+    return (
+        sa.String(length)
+        .with_variant(
+            sa_mysql.VARCHAR(length, collation=MARIADB_EXACT_COLLATION), "mariadb"
+        )
+        .with_variant(
+            sa_mysql.VARCHAR(length, collation=MYSQL_EXACT_COLLATION), "mysql"
+        )
+    )
+
+
+def exact_collation(conn: DatabaseBind) -> str | None:
+    """The collation `ExactString` needs on this server, None on PostgreSQL."""
+    if conn.engine.dialect.name == "postgresql":
+        return None
+    # The dialect is named `mysql` when the MySQL driver reaches a MariaDB server.
+    if getattr(conn.engine.dialect, "is_mariadb", False):
+        return MARIADB_EXACT_COLLATION
+    return MYSQL_EXACT_COLLATION
 
 
 def is_db_version_compatible(

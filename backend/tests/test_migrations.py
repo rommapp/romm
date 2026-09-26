@@ -27,6 +27,7 @@ from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     POSTGRESQL_FK_INDEXES,
     SORTABLE_NULLABLE_ROM_COLUMNS,
+    exact_collation,
     full_path_digest_sql,
     has_column,
     is_mariadb,
@@ -235,6 +236,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0132_audit_events.py", "audit_events"),
         ("0135_drop_play_session_sync_link.py", "play_sessions"),
         ("0136_deleted_assets.py", "deleted_assets"),
+        ("0137_exact_save_slots.py", "saves"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -268,6 +270,47 @@ def test_the_play_session_sync_link_revision_reverses_and_replays():
 
         assert not has_column(connection, "play_sessions", "sync_session_id")
         assert _schema_of(connection, "play_sessions") == before
+
+
+def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:
+    inspector = sa.inspect(connection)
+    collations = {}
+    for table in ("saves", "deleted_assets"):
+        [slot_type] = [
+            column["type"]
+            for column in inspector.get_columns(table)
+            if column["name"] == "slot"
+        ]
+        assert isinstance(slot_type, sa.String)
+        collations[table] = slot_type.collation
+    return collations
+
+
+def test_save_slots_are_compared_exactly():
+    """Both slot columns match as sync negotiation pairs them in Python."""
+    with sync_engine.connect() as connection:
+        expected = exact_collation(connection)
+        assert _slot_collations(connection) == {
+            "saves": expected,
+            "deleted_assets": expected,
+        }
+
+
+def test_the_exact_save_slots_revision_reverses_and_replays():
+    migration = _load_migration("0137_exact_save_slots.py")
+
+    with sync_engine.begin() as connection:
+        exact = exact_collation(connection)
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            if exact is not None:
+                assert _slot_collations(connection)["saves"] != exact
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _slot_collations(connection)["saves"] == exact
 
 
 def test_the_rom_similarity_revision_fills_in_a_missing_index():

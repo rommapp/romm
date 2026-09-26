@@ -5,6 +5,8 @@ This module tests the platform filtering fixes for DBSavesHandler to ensure
 it properly filters by platform_id through the Rom relationship.
 """
 
+import pytest
+
 from handler.database import db_save_handler
 from models.assets import Save
 from models.platform import Platform
@@ -295,6 +297,41 @@ class TestDBSavesHandlerSlotFiltering:
         )
         assert len(slot_b_saves) == 1
         assert slot_b_saves[0].slot == "Slot B"
+
+    @pytest.mark.parametrize(
+        "slot,sibling",
+        [("autosave", "Autosave"), ("Cafe", "Café"), ("autosave", "autosave ")],
+        ids=["case", "accent", "trailing-space"],
+    )
+    def test_a_slot_is_matched_exactly(
+        self, admin_user: User, rom: Rom, slot: str, sibling: str
+    ):
+        """Sync pairs slots in Python, so the database must not fold them."""
+        for index, name in enumerate((slot, sibling)):
+            db_save_handler.add_save(
+                Save(
+                    rom_id=rom.id,
+                    user_id=admin_user.id,
+                    file_name=f"exact_{index}.sav",
+                    file_name_no_tags=f"exact_{index}",
+                    file_name_no_ext=f"exact_{index}",
+                    file_extension="sav",
+                    file_path=f"{rom.platform_slug}/saves",
+                    file_size_bytes=100,
+                    slot=name,
+                )
+            )
+
+        [found] = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], slot=slot
+        )
+        assert found.slot == slot
+
+        db_save_handler.prune_slot(
+            user_id=admin_user.id, rom_id=rom.id, slot=slot, keep=0
+        )
+        [kept] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        assert kept.slot == sibling
 
     def test_get_saves_with_null_slot_filter(self, admin_user: User, rom: Rom):
         save_with_slot = Save(

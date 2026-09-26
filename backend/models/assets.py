@@ -14,7 +14,7 @@ from models.base import (
     BaseModel,
     compute_file_name_parts,
 )
-from utils.database import CustomJSON
+from utils.database import CustomJSON, ExactString
 
 if TYPE_CHECKING:
     from models.device_save_sync import DeviceSaveSync
@@ -108,8 +108,9 @@ class Save(RomAsset):
     )
 
     emulator: Mapped[str | None] = mapped_column(String(length=EMULATOR_MAX_LENGTH))
+    # Exact, so the database pairs slots as sync negotiation does in Python.
     slot: Mapped[str | None] = mapped_column(
-        String(length=SAVE_SLOT_MAX_LENGTH), index=True
+        ExactString(SAVE_SLOT_MAX_LENGTH), index=True
     )
     content_hash: Mapped[str | None] = mapped_column(String(length=32))
     origin_device_id: Mapped[str | None] = mapped_column(

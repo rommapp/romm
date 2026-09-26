@@ -40,6 +40,20 @@ class TestRecordDeletion:
         }
         assert slots == {"autosave", "main_quest"}
 
+    def test_a_slot_differing_only_in_case_is_its_own_record(
+        self, rom: Rom, admin_user: User
+    ):
+        for slot in ("Autosave", "autosave"):
+            _record(admin_user, rom, slot, slot)
+
+        records = {
+            record.slot: record.content_hashes
+            for record in db_deleted_asset_handler.get_deletions(
+                user_id=admin_user.id, rom_ids=[rom.id]
+            )
+        }
+        assert records == {"Autosave": ["Autosave"], "autosave": ["autosave"]}
+
 
 class TestGetDeletions:
     def test_an_empty_scope_asks_about_nothing(self, rom: Rom, admin_user: User):

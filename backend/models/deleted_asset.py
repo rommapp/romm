@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Index, String
+from sqlalchemy import ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.assets import SAVE_SLOT_MAX_LENGTH
 from models.base import BaseModel
-from utils.database import CustomJSON
+from utils.database import CustomJSON, ExactString
 
 # Trimming drops the oldest, which a long-offline device is likeliest to hold;
 # past the bound that device is answered `upload` rather than `delete`.
@@ -29,7 +29,8 @@ class DeletedAsset(BaseModel):
     rom_id: Mapped[int] = mapped_column(
         ForeignKey("roms.id", ondelete="CASCADE"), index=True
     )
-    slot: Mapped[str] = mapped_column(String(length=SAVE_SLOT_MAX_LENGTH))
+    # Exact, like `Save.slot`, so the unique index keys what negotiation looks up.
+    slot: Mapped[str] = mapped_column(ExactString(SAVE_SLOT_MAX_LENGTH))
     # Every version the slot lost, matched by identity rather than by time:
     # a device's clock is not the server's.
     content_hashes: Mapped[list[str]] = mapped_column(CustomJSON(), default=list)

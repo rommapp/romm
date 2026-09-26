@@ -107,6 +107,39 @@ class TestSyncNegotiate:
         assert data[f"total_{expected_action}"] == 1
         assert data["operations"][0]["action"] == expected_action
 
+    def test_negotiate_a_deleted_slot_matches_its_exact_name(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        """Slots differing only in case keep their own deletion records."""
+        device = db_device_handler.add_device(
+            Device(id="neg-dev-deleted-case", user_id=admin_user.id, sync_enabled=True)
+        )
+        for slot, content_hash in (("Autosave", "upper"), ("autosave", "lower")):
+            db_deleted_asset_handler.record_deletion(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                slot=slot,
+                content_hash=content_hash,
+            )
+
+        data = _negotiate(
+            client,
+            access_token,
+            device.id,
+            [
+                {
+                    "rom_id": rom.id,
+                    "file_name": "test_save.sav",
+                    "slot": "autosave",
+                    "content_hash": "lower",
+                    "updated_at": "2026-01-09T00:00:00Z",
+                    "file_size_bytes": 1024,
+                }
+            ],
+        )
+
+        assert data["operations"][0]["action"] == "delete"
+
     def test_negotiate_server_has_save_client_doesnt(
         self, client, access_token: str, admin_user: User, save: Save
     ):
