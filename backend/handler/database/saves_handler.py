@@ -10,7 +10,7 @@ from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
 from models.base import with_file_name_parts
 from models.rom import Rom
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 from .deleted_assets_handler import DBDeletedAssetsHandler
 
 _deleted_assets = DBDeletedAssetsHandler()
@@ -288,10 +288,26 @@ class DBSavesHandler(DBBaseHandler):
         self,
         id: int,
         content_hash: str,
+        replacing: str | None,
         session: Session = None,  # type: ignore[assignment]
-    ) -> Save:
-        """Store a recomputed hash of the same bytes, so no version leaves the slot."""
-        return self._write(id, {"content_hash": content_hash}, True, session)
+    ) -> bool:
+        """Store a recomputed hash of the same bytes, so no version leaves the slot.
+
+        Args:
+            content_hash: The recomputed hash.
+            replacing: The hash it was computed against; a row holding another
+                was rewritten meanwhile and keeps its own.
+
+        Returns:
+            Whether the row still held ``replacing`` and took the new hash.
+        """
+        result = session.execute(
+            update(Save)
+            .where(Save.id == id, Save.content_hash.is_not_distinct_from(replacing))
+            .values(content_hash=content_hash)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) == 1
 
     @staticmethod
     def _write(id: int, data: dict, touch: bool, session: Session) -> Save:

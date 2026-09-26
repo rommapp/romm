@@ -360,6 +360,50 @@ class TestRecomputeSaveContentHashesTask:
         assert refreshed is not None
         assert refreshed.content_hash == original_hash
 
+    async def test_a_row_rewritten_while_hashed_keeps_its_own_hash(
+        self,
+        task: RecomputeSaveContentHashesTask,
+        isolated_assets_dir: Path,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        mocker,
+    ):
+        rel_dir = f"{platform.fs_slug}/saves/test_emulator"
+        file_name = "fixture_a.zip"
+        _write_fixture_a_zip(isolated_assets_dir / rel_dir / file_name)
+        save = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name=file_name,
+                file_name_no_tags="fixture_a",
+                file_name_no_ext="fixture_a",
+                file_extension="zip",
+                emulator="test_emulator",
+                slot="autosave",
+                file_path=rel_dir,
+                file_size_bytes=1,
+                content_hash="00000000000000000000000000000000",
+            )
+        )
+
+        async def upload_lands_mid_hash(_path: str) -> str:
+            db_save_handler.update_save(save.id, {"content_hash": "uploaded_meanwhile"})
+            return FIXTURE_A_PINNED_HASH
+
+        mocker.patch.object(
+            fs_asset_handler, "compute_content_hash", side_effect=upload_lands_mid_hash
+        )
+
+        stats = await task.run()
+
+        assert stats["saves_updated"] == 0
+        assert stats["saves_unchanged"] == 1
+        refreshed = db_save_handler.get_save(user_id=admin_user.id, id=save.id)
+        assert refreshed is not None
+        assert refreshed.content_hash == "uploaded_meanwhile"
+
     async def test_update_save_failure_increments_errors(
         self,
         task: RecomputeSaveContentHashesTask,

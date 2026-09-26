@@ -336,6 +336,24 @@ def test_the_exact_save_slots_revision_fixes_an_early_deleted_assets_table():
         assert _slot_collations(connection)["deleted_assets"] == exact
 
 
+def test_the_exact_save_slots_revision_rebuilds_no_table_already_exact():
+    """A replay after a run that died partway skips the collations it finished."""
+    migration = _load_migration("0137_exact_save_slots.py")
+    statements: list[str] = []
+
+    with sync_engine.begin() as connection:
+
+        @sa.event.listens_for(connection, "before_cursor_execute")
+        def _record(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+            if re.match(r"ALTER TABLE \S+ MODIFY", statement.lstrip(), re.I):
+                statements.append(statement)
+
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+
+    assert statements == []
+
+
 def test_the_rom_similarity_revision_fills_in_a_missing_index():
     """0122 meets its own table on a replay, with only some of its indexes.
 

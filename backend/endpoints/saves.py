@@ -13,11 +13,16 @@ from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummar
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from handler.asset_store import release_thumbnail, remove_asset_file, rename_asset
+from handler.asset_store import (
+    prune_save_slot,
+    release_thumbnail,
+    remove_asset_file,
+    remove_save,
+    rename_asset,
+)
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import (
-    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_rom_handler,
@@ -105,43 +110,6 @@ def _syncs_for_save(
 
 
 DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
-
-
-async def _delete_save(save: Save) -> None:
-    """Drop a save row with its file and screenshot."""
-    content_hash = None
-    if save.slot and not save.content_hash:
-        content_hash = await fs_asset_handler.compute_content_hash(save.full_path)
-    db_save_handler.delete_save(save.id, content_hash=content_hash)
-    await remove_asset_file(save.full_path, "Save file")
-    await release_thumbnail(save.screenshot)
-
-
-async def _prune_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
-    """Drop every version of ``slot`` past the ``keep`` newest, files included."""
-    pruned = db_save_handler.prune_slot(
-        user_id=user_id, rom_id=rom_id, slot=slot, keep=keep
-    )
-    # A version never hashed could not be recorded, so its file is hashed first.
-    for version in reversed(pruned):
-        if not version.content_hash:
-            content_hash = await fs_asset_handler.compute_content_hash(
-                f"{version.file_path}/{version.file_name}"
-            )
-            if content_hash:
-                db_deleted_asset_handler.record_deletion(
-                    user_id, rom_id, slot, content_hash
-                )
-    for version in pruned:
-        await remove_asset_file(f"{version.file_path}/{version.file_name}", "Save file")
-        await release_thumbnail(
-            db_screenshot_handler.get_screenshot(
-                rom_id=rom_id,
-                user_id=user_id,
-                file_name=version.file_name,
-                file_name_no_ext=version.file_name_no_ext,
-            )
-        )
 
 
 def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
@@ -335,7 +303,7 @@ async def add_save(
                 pass
             # A retry still counts as an upload to the slot, so the cap applies.
             if keep is not None:
-                await _prune_slot(request.user.id, rom.id, slot, keep)
+                await prune_save_slot(request.user.id, rom.id, slot, keep)
             return _build_save_schema(
                 existing_by_hash, _syncs_for_save(existing_by_hash.id, device), device
             )
@@ -395,7 +363,7 @@ async def add_save(
         _increment_session_counter(session_id, request.user.id)
 
     if slot and keep is not None:
-        await _prune_slot(request.user.id, rom.id, slot, keep)
+        await prune_save_slot(request.user.id, rom.id, slot, keep)
 
     if screenshotFile and screenshotFile.filename:
         try:
@@ -853,7 +821,7 @@ async def delete_saves(
         log.info(
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
-        await _delete_save(save)
+        await remove_save(save)
 
     refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 

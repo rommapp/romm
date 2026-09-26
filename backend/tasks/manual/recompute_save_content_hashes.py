@@ -111,7 +111,13 @@ class RecomputeSaveContentHashesTask(Task):
                     continue
 
                 try:
-                    db_save_handler.rehash_save(save.id, new_hash)
+                    if not db_save_handler.rehash_save(
+                        save.id, new_hash, replacing=save.content_hash
+                    ):
+                        # Rewritten while hashed, so the row's own hash stands.
+                        stats.saves_unchanged += 1
+                        self._maybe_flush(stats)
+                        continue
                     stats.saves_updated += 1
                     log.debug(
                         f"Rewrote content_hash for save {save.id} "

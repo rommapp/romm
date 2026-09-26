@@ -1212,9 +1212,19 @@ class TestDBSavesHandlerRecordsLostVersions:
     ):
         save = self._add(admin_user, rom, "rehashed", "autosave", "raw_md5")
 
-        db_save_handler.rehash_save(save.id, "entries_md5")
-
+        assert db_save_handler.rehash_save(save.id, "entries_md5", replacing="raw_md5")
         assert self._lost(admin_user, rom) == {}
+
+    def test_a_recomputed_hash_never_replaces_a_newer_one(
+        self, admin_user: User, rom: Rom
+    ):
+        save = self._add(admin_user, rom, "rewritten", "autosave", "newer")
+
+        assert not db_save_handler.rehash_save(
+            save.id, "entries_md5", replacing="read_before"
+        )
+        [kept] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        assert kept.content_hash == "newer"
 
     @pytest.mark.parametrize(
         "data",

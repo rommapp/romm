@@ -14,6 +14,7 @@ from typing import Any, BinaryIO, TypeAlias, cast
 from fastapi import HTTPException, UploadFile, status
 
 from handler.database import (
+    db_deleted_asset_handler,
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
@@ -151,6 +152,43 @@ async def release_thumbnail(screenshot: Screenshot | None) -> None:
     ):
         return
     await remove_asset_file(path, "Screenshot file")
+
+
+async def remove_save(save: Save) -> None:
+    """Drop a save row with its file and screenshot."""
+    content_hash = None
+    if save.slot and not save.content_hash:
+        content_hash = await fs_asset_handler.compute_content_hash(save.full_path)
+    db_save_handler.delete_save(save.id, content_hash=content_hash)
+    await remove_asset_file(save.full_path, "Save file")
+    await release_thumbnail(save.screenshot)
+
+
+async def prune_save_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
+    """Drop every version of ``slot`` past the ``keep`` newest, files included."""
+    pruned = db_save_handler.prune_slot(
+        user_id=user_id, rom_id=rom_id, slot=slot, keep=keep
+    )
+    # A version never hashed could not be recorded, so its file is hashed first.
+    for version in reversed(pruned):
+        if not version.content_hash:
+            content_hash = await fs_asset_handler.compute_content_hash(
+                f"{version.file_path}/{version.file_name}"
+            )
+            if content_hash:
+                db_deleted_asset_handler.record_deletion(
+                    user_id, rom_id, slot, content_hash
+                )
+    for version in pruned:
+        await remove_asset_file(f"{version.file_path}/{version.file_name}", "Save file")
+        await release_thumbnail(
+            db_screenshot_handler.get_screenshot(
+                rom_id=rom_id,
+                user_id=user_id,
+                file_name=version.file_name,
+                file_name_no_ext=version.file_name_no_ext,
+            )
+        )
 
 
 def _name_taken(file_name: str) -> HTTPException:

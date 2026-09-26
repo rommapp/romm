@@ -18,6 +18,10 @@ down_revision = "0136_deleted_assets"
 branch_labels = None
 depends_on = None
 
+# Each slot column and its nullability. deleted_assets is included for
+# databases that ran 0136 before it created the column exact.
+SLOT_COLUMNS = (("saves", True), ("deleted_assets", False))
+
 
 def upgrade() -> None:
     op.create_index(
@@ -36,27 +40,23 @@ def upgrade() -> None:
     collation = exact_collation(op.get_bind())
     if collation is None:
         return
-    op.alter_column(
-        "saves",
-        "slot",
-        existing_type=sa.String(length=SAVE_SLOT_MAX_LENGTH),
-        type_=sa.String(length=SAVE_SLOT_MAX_LENGTH, collation=collation),
-        existing_nullable=True,
-    )
-    # Some databases created this column with the table's folding collation.
-    op.alter_column(
-        "deleted_assets",
-        "slot",
-        existing_type=sa.String(length=SAVE_SLOT_MAX_LENGTH),
-        type_=sa.String(length=SAVE_SLOT_MAX_LENGTH, collation=collation),
-        existing_nullable=False,
-    )
+    for table, nullable in SLOT_COLUMNS:
+        # Skipped once done, so a run that died partway resumes without a rebuild.
+        if _slot_collation(table) != collation:
+            op.alter_column(
+                table,
+                "slot",
+                existing_type=sa.String(length=SAVE_SLOT_MAX_LENGTH),
+                type_=sa.String(length=SAVE_SLOT_MAX_LENGTH, collation=collation),
+                existing_nullable=nullable,
+            )
 
 
 def downgrade() -> None:
     op.drop_column("deleted_assets", "removed_at", if_exists=True)
     op.drop_index(SAVE_SLOT_VERSIONS_INDEX, table_name="saves", if_exists=True)
-    if exact_collation(op.get_bind()) is None:
+    collation = exact_collation(op.get_bind())
+    if collation is None or _slot_collation("saves") != collation:
         return
     # Without a collation the column takes the table's default back.
     op.alter_column(
@@ -66,3 +66,12 @@ def downgrade() -> None:
         type_=sa.String(length=SAVE_SLOT_MAX_LENGTH),
         existing_nullable=True,
     )
+
+
+def _slot_collation(table: str) -> str | None:
+    [column] = [
+        column
+        for column in sa.inspect(op.get_bind()).get_columns(table)
+        if column["name"] == "slot"
+    ]
+    return column["type"].collation
