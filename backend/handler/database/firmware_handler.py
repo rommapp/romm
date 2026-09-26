@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 
 from sqlalchemy import Select, and_, delete, select, update
 from sqlalchemy.orm import Session, noload
@@ -32,7 +32,7 @@ class DBFirmwareHandler(DBBaseHandler):
         *,
         platform_ids: Sequence[int] | None = None,
         missing: bool | None = None,
-        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
     ) -> Select[tuple[Firmware]]:
         query = select(Firmware).order_by(Firmware.file_name.asc())
 
@@ -55,7 +55,7 @@ class DBFirmwareHandler(DBBaseHandler):
         *,
         platform_ids: Sequence[int] | None = None,
         missing: bool | None = None,
-        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[Firmware]:
         query = self._firmware_query(
@@ -73,7 +73,7 @@ class DBFirmwareHandler(DBBaseHandler):
         *,
         platform_ids: Sequence[int] | None = None,
         missing: bool | None = None,
-        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> list[int]:
         """Ids only, so no `Firmware` is built and no eager platform join fires."""
@@ -110,7 +110,7 @@ class DBFirmwareHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Firmware).filter_by(id=id).one()
+        return session.scalars(select(Firmware).filter_by(id=id)).one()
 
     @begin_session
     def delete_firmware(

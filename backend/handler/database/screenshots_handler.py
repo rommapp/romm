@@ -185,7 +185,7 @@ class DBScreenshotsHandler(DBBaseHandler):
             .values(**with_file_name_parts(data))
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Screenshot).filter_by(id=id).one()
+        return session.scalars(select(Screenshot).filter_by(id=id)).one()
 
     @begin_session
     def delete_screenshot(

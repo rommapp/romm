@@ -49,7 +49,7 @@ def _make_rom(platform: Platform, fs_name: str, **metadata) -> Rom:
 
 
 def _ordered_names(**kwargs) -> list[str]:
-    return [rom.name for rom in db_rom_handler.get_roms_scalar(**kwargs)]
+    return [rom.name or "" for rom in db_rom_handler.get_roms_scalar(**kwargs)]
 
 
 class TestMetadataSortQueryShape:

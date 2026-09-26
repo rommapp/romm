@@ -84,7 +84,7 @@ class DBUsersHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(User).filter_by(id=id).one()
+        return session.scalars(select(User).filter_by(id=id)).one()
 
     @begin_session
     def get_users(
