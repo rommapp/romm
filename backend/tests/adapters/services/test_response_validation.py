@@ -57,6 +57,12 @@ def test_empty_error_payload_skips_validation(empty: object):
     assert validate_response(Parent, empty, source="test") is empty
 
 
+@pytest.mark.parametrize("falsy", [None, False, 0, ""])
+def test_other_falsy_payloads_are_validated(falsy: object):
+    with pytest.raises(ResponseMismatchError):
+        validate_response(Parent, falsy, source="test")
+
+
 def test_mismatch_raises_when_strict():
     with pytest.raises(ResponseMismatchError, match="id"):
         validate_response(Parent, {"id": "x"}, source="test")

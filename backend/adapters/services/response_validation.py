@@ -65,8 +65,8 @@ def validate_response[T](tp: type[T], data: object, *, source: str) -> T:
         data: The decoded JSON payload.
         source: Provider and endpoint, for the log line.
     """
-    # Adapters return an empty payload on request errors; that is not drift.
-    if not data:
+    # Adapters return {} or [] on request errors; that is not drift.
+    if data == {} or data == []:
         return cast(T, data)
 
     try:

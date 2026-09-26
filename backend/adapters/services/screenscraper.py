@@ -718,8 +718,10 @@ class ScreenScraperService:
 
         # A response means the wall the counter was tracking is not there.
         _state.daily_quota_errors = 0
-        _update_account_limits(data)
-        return validate_response(dict[str, Any], data, source="ScreenScraper")
+        response = validate_response(dict[str, Any], data, source="ScreenScraper")
+        if isinstance(response, dict):
+            _update_account_limits(response)
+        return response
 
     async def _recheck_daily_quota(self) -> bool:
         """Ask the free account endpoint whether the scrape allowance is back.
