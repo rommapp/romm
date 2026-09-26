@@ -849,8 +849,7 @@ class FSRomsHandler(FSHandler):
                 _hash_archive_entries, rom_crc_c, rom_md5_h, rom_sha1_h
             )
 
-            # RAHasher extracts the ROM on its own, so a member read that timed
-            # out or failed doesn't cost the game its RetroAchievements match.
+            # RAHasher extracts the ROM itself, independent of the member read.
             if calculate_hashes:
                 ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
                 if ra_platform and ra_platform["ra_id"]:
