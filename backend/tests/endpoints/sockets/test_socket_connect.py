@@ -3,14 +3,16 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from endpoints.sockets import logs
+from handler.database import db_user_handler
 from handler.socket_handler import socket_handler
 from models.user import Role
+from utils import auth as auth_utils
 
 
 @pytest.fixture
 def user(mocker):
     user = MagicMock(id=3, enabled=True, role=Role.USER)
-    mocker.patch.object(logs.db_user_handler, "get_user_by_username", return_value=user)
+    mocker.patch.object(db_user_handler, "get_user_by_username", return_value=user)
     return user
 
 
@@ -27,7 +29,7 @@ def bind(mocker):
 
 def _session(mocker, **session):
     mocker.patch.object(
-        logs, "get_session_from_environ", AsyncMock(return_value=session)
+        auth_utils, "get_session_from_environ", AsyncMock(return_value=session)
     )
 
 
