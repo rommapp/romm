@@ -1,7 +1,7 @@
 import json
 import shutil
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 from anyio import Path as AsyncPath
@@ -65,7 +65,7 @@ def _expected_chunk_size(total_size: int, total_chunks: int, chunk_index: int) -
     return total_size - (chunk_size * (total_chunks - 1))
 
 
-async def _get_session(upload_id: str) -> dict:
+async def _get_session(upload_id: str) -> dict[str, Any]:
     raw = await async_cache.get(_session_key(upload_id))
     if not raw:
         raise HTTPException(
@@ -75,7 +75,7 @@ async def _get_session(upload_id: str) -> dict:
     return json.loads(raw)
 
 
-async def _save_session(upload_id: str, session: dict) -> None:
+async def _save_session(upload_id: str, session: dict[str, Any]) -> None:
     await async_cache.set(
         _session_key(upload_id), json.dumps(session), ex=ROM_UPLOAD_TTL
     )
@@ -97,7 +97,7 @@ def _validate_upload_id(upload_id: str) -> None:
         ) from exc
 
 
-def _validate_session_owner(session: dict, user_id: int) -> None:
+def _validate_session_owner(session: dict[str, Any], user_id: int) -> None:
     if session["user_id"] != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -172,7 +172,7 @@ def _upload_target(rom: Rom | None, platform_id: int) -> AuditTarget | None:
     return AuditTarget.of_platform(platform) if platform else None
 
 
-def _record_upload(request: Request, rom: Rom | None, session: dict) -> None:
+def _record_upload(request: Request, rom: Rom | None, session: dict[str, Any]) -> None:
     record(
         AuditAction.ROM_UPLOAD,
         request,
@@ -230,7 +230,9 @@ async def receive_rom_file(
     return await _commit(destination, staged, overwrite=True)
 
 
-async def _resolve_destination(request: Request, session: dict) -> UploadDestination:
+async def _resolve_destination(
+    request: Request, session: dict[str, Any]
+) -> UploadDestination:
     """Where a completed upload lands, with its directory created."""
     filename = session["filename"]
     rom_id = session.get("rom_id")
@@ -299,7 +301,7 @@ async def start_chunked_upload(
         Header(alias="x-upload-total-chunks", ge=0),
     ],
     target: UploadTargetPayload | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Initiate a chunked ROM upload session."""
 
     # Only an empty file takes no chunks, and it goes straight to /complete.
@@ -392,7 +394,7 @@ async def upload_chunk(
         int,
         Header(alias="x-chunk-index", ge=0),
     ],
-) -> dict:
+) -> dict[str, Any]:
     """Upload a single chunk of a ROM file."""
 
     _validate_upload_id(upload_id)
@@ -467,7 +469,9 @@ async def upload_chunk(
     return {"received": received_count, "total": session["total_chunks"]}
 
 
-async def _assemble_chunks(upload_id: str, session: dict, staged: Path) -> None:
+async def _assemble_chunks(
+    upload_id: str, session: dict[str, Any], staged: Path
+) -> None:
     """Concatenate the received chunks into the staged file, dropping it on
     any failure."""
     total_chunks = session["total_chunks"]

@@ -32,7 +32,9 @@ from utils.filesystem import sanitize_filename
 
 # What `fs_asset_handler.write_file` accepts: an upload straight off a request,
 # or bytes a sync already holds.
-AssetContent: TypeAlias = UploadFile | BinaryIO | BytesIO | bytes | SpooledTemporaryFile
+AssetContent: TypeAlias = (
+    UploadFile | BinaryIO | BytesIO | bytes | SpooledTemporaryFile[bytes]
+)
 
 
 async def store_state_file(

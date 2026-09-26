@@ -1,4 +1,5 @@
 import json
+from typing import Any
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import httpx
@@ -73,7 +74,9 @@ def _rom_file(*, is_top_level: bool = True, **kwargs) -> RomFile:
     return file
 
 
-async def _captured_lookup_payload(handler: PlaymatchHandler, files) -> dict | None:
+async def _captured_lookup_payload(
+    handler: PlaymatchHandler, files
+) -> dict[str, Any] | None:
     with (
         patch.object(handler, "is_enabled", return_value=True),
         patch.object(handler, "_request", new_callable=AsyncMock) as mock_request,
@@ -234,7 +237,7 @@ async def test_lookup_rom_asks_about_an_unhashed_single_file_by_name():
     assert payload["fileName"] == rom.fs_name
 
 
-async def _captured_suggestion_payload(rom: Rom) -> dict | None:
+async def _captured_suggestion_payload(rom: Rom) -> dict[str, Any] | None:
     handler = PlaymatchHandler()
     mock_client = AsyncMock()
     mock_client.post.return_value = MagicMock()

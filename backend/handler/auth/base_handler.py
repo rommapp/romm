@@ -426,7 +426,9 @@ class OAuthHandler:
         pass
 
     def _create_oauth_token(
-        self, data: dict, expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY
+        self,
+        data: dict[str, Any],
+        expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY,
     ) -> str:
         to_encode = data.copy()
         expire = int((datetime.now(timezone.utc) + expires_delta).timestamp())
@@ -439,13 +441,17 @@ class OAuthHandler:
         )
 
     def create_access_token(
-        self, data: dict, expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY
+        self,
+        data: dict[str, Any],
+        expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY,
     ) -> str:
         to_encode = data.copy()
         to_encode["type"] = "access"
         return self._create_oauth_token(to_encode, expires_delta)
 
-    def create_refresh_token(self, data: dict, expires_delta: timedelta) -> str:
+    def create_refresh_token(
+        self, data: dict[str, Any], expires_delta: timedelta
+    ) -> str:
         if expires_delta <= timedelta(0):
             raise ValueError("expires_delta must be positive for refresh tokens")
 

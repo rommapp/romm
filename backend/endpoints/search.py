@@ -234,7 +234,7 @@ async def search_rom(
             list,
         )
 
-    merged_dict: dict[str, dict] = {}
+    merged_dict: dict[str, dict[str, Any]] = {}
 
     source_configs: dict[
         MetadataSource, tuple[Sequence[Mapping[str, Any]], MetadataHandler, str, str]
@@ -335,13 +335,13 @@ async def search_rom(
                 "libretro_url_cover": libretro_rom.get("url_cover", ""),
             }
 
-    matched_roms: list = list(merged_dict.values())
+    matched_roms = list(merged_dict.values())
 
     log.info("Results:")
     for m_rom in matched_roms:
         log.info(f"\t - {m_rom['name']}")
 
-    return matched_roms
+    return [SearchRomSchema.model_validate(m_rom) for m_rom in matched_roms]
 
 
 @protected_route(router.get, "/cover", [Scope.ROMS_READ])

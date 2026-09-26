@@ -464,7 +464,9 @@ async def parse_rom_update_form(
     )
 
 
-def parse_raw_metadata(form_data: RomUpdateForm, form_key: str) -> dict | None:
+def parse_raw_metadata(
+    form_data: RomUpdateForm, form_key: str
+) -> dict[str, Any] | None:
     if form_key not in form_data.model_fields_set:
         return None
 

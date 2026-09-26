@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Literal, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from pydash import compact
 
@@ -55,7 +55,7 @@ def _apply_play_to_rom_user(
         if current is not None and latest_end_time <= current:
             continue
 
-        updates: dict = {"last_played": latest_end_time, "now_playing": True}
+        updates: dict[str, Any] = {"last_played": latest_end_time, "now_playing": True}
         # Playing again counts as active: rewind an empty or "finished" status
         # to "incomplete", but leave statuses the user set on purpose
         # (completed_100 / retired / never_playing) untouched.

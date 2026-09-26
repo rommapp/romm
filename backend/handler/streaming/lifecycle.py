@@ -65,7 +65,7 @@ async def abort_claim(
 
 def _hold_reservation(
     session_key: str, token: str | None, claim: dict[str, Any]
-) -> asyncio.Future:
+) -> asyncio.Future[None]:
     """Keep a container reserved while a teardown runs.
 
     The drain marker holds it where one landed; where it did not, nothing took

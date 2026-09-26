@@ -202,7 +202,7 @@ def _container_for(rom: Rom, broker_host="http://192.168.1.10:8000"):
     }
 
 
-def _resolved(entry: dict | ResolvedContainer) -> ResolvedContainer:
+def _resolved(entry: dict[str, Any] | ResolvedContainer) -> ResolvedContainer:
     """The record the resolver builds for one raw entry, for a unit test that
     calls an internal directly. A record passes straight through."""
     if not isinstance(entry, dict):
@@ -1386,7 +1386,7 @@ async def test_concurrent_claim_only_one_succeeds(access_token, rom: Rom):
 # ── Container pool ────────────────────────────────────────────────────────────
 
 
-def _pool_member(rom: Rom, index: int) -> dict:
+def _pool_member(rom: Rom, index: int) -> dict[str, Any]:
     """One member of a pool serving the ROM's platform. Distinct hosts, so both
     the session key and the claim response say which member served. No label,
     since the emulator falls back to it and pool members must agree on that."""
@@ -1406,12 +1406,12 @@ def _volume(client, token, platform: str, level: int = 42, params=None):
     )
 
 
-def _session_raw(container: dict):
+def _session_raw(container: dict[str, Any]):
     key = session_store.session_redis_key(_key_of(container))
     return asyncio.run(async_cache.get(key))
 
 
-def _drain(container: dict) -> None:
+def _drain(container: dict[str, Any]) -> None:
     session = _load_session(session_store.session_redis_key(_key_of(container)))
     token = asyncio.run(session_store.claim_drain_marker(_key_of(container), session))
     assert token is not None
@@ -1765,7 +1765,7 @@ def test_admin_release_rejects_a_container_that_serves_another_platform(
     assert r.status_code == 404
 
 
-def _in_a_later_ps2_pool() -> dict:
+def _in_a_later_ps2_pool() -> dict[str, Any]:
     """A second webstation that disagrees with `_webstation()` on the ps2
     emulator, so it forms a later ps2 pool."""
     return _webstation(
@@ -2713,7 +2713,7 @@ def _webstation_ps2():
         return _first_container("ps2")
 
 
-def _webstation_json(body: dict):
+def _webstation_json(body: dict[str, Any]):
     """urlopen stub answering one webstation broker call with `body`."""
     resp = MagicMock()
     resp.__enter__.return_value.read.side_effect = _reads(json.dumps(body).encode())
@@ -2803,7 +2803,7 @@ def test_swap_disc_broker_has_nothing_to_call_on_a_legacy_container():
 # ── Staleness / heartbeat ─────────────────────────────────────────────────────
 
 
-def _age_session_on(container: dict, seconds: int) -> None:
+def _age_session_on(container: dict[str, Any], seconds: int) -> None:
     """Rewrite one container's stored session last_seen to `seconds` ago."""
     key = session_store.session_redis_key(_key_of(container))
     session = _load_session(key)
@@ -3576,7 +3576,7 @@ def test_reclaim_clears_termination_notice(
 # ── Launch progress ───────────────────────────────────────────────────────────
 
 
-def _unstamp_launch(container: dict) -> None:
+def _unstamp_launch(container: dict[str, Any]) -> None:
     """Drop the launched_at stamp, leaving the record in the state a claim
     holds while its activate is still running."""
     key = session_store.session_redis_key(_key_of(container))
@@ -3772,7 +3772,7 @@ def test_save_state_by_other_user_is_forbidden(
     assert r.status_code == 403
 
 
-async def _run_spawned(tasks: list) -> None:
+async def _run_spawned(tasks: list[object]) -> None:
     """Run what the route handed to the mocked _spawn_sync_task."""
     for task in tasks:
         if asyncio.iscoroutine(task):
@@ -3792,7 +3792,7 @@ def test_save_and_exit_releases_session_once_the_state_is_pulled(
 ):
     """The broker keeps the exited session's state only until the next
     activate, so the claim holds while the pull runs and goes when it lands."""
-    spawned: list = []
+    spawned: list[object] = []
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
@@ -4258,7 +4258,7 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
     assert 0 < ttl <= STREAMING_SESSION_DRAIN_SECONDS
 
 
-def _session_at(key: str, **fields) -> dict:
+def _session_at(key: str, **fields) -> dict[str, Any]:
     """Put a session on the key and hand back the claim a route would hold."""
     session = {"user_id": 1, "claimed_at": "2026-01-01T00:00:00+00:00", **fields}
     asyncio.run(
@@ -5177,7 +5177,7 @@ def test_hydrate_saves_no_matching_save_returns_false(rom: Rom, admin_user: User
     push.assert_not_called()
 
 
-def _clearing_webstation(rom: Rom) -> dict:
+def _clearing_webstation(rom: Rom) -> dict[str, Any]:
     """A webstation container whose emulator empties the save tree before a
     restore, the only kind that honours a pick other than the newest."""
     return {
@@ -6761,7 +6761,7 @@ def test_a_webstation_save_and_exit_takes_one_answer_only_once_its_exit_answers(
     client,
     access_token,
     rom: Rom,
-    exit_report: dict | None,
+    exit_report: dict[str, Any] | None,
     wait: bool,
     attempts: int,
 ):
@@ -6857,7 +6857,7 @@ def test_a_force_release_keeps_asking_while_the_emulator_flushes(
     assert fetch.call_count == broker.PULL_ATTEMPTS
 
 
-def _broker_saves(body: dict):
+def _broker_saves(body: dict[str, Any]):
     """A broker whose save-and-exit answers with `body`, and nothing else."""
     return lambda _container, path, *args, **kwargs: (
         body if path == "/save-and-exit" else None
@@ -7298,7 +7298,7 @@ def test_claim_without_state_reports_no_resume(client, access_token, rom: Rom):
 # ── Webstation state sync ─────────────────────────────────────────────────────
 
 
-def _webstation_for(rom: Rom) -> dict:
+def _webstation_for(rom: Rom) -> dict[str, Any]:
     """The container a claim for this ROM's platform lands on, webstation side."""
     return {**_container_for(rom), "protocol": "webstation", "label": "PCSX2"}
 
@@ -7586,7 +7586,7 @@ def _duckstation_pairing(rom: Rom, user: User) -> tuple[Save, Save, State]:
     return older, newer, state
 
 
-def _clearing_duckstation(rom: Rom) -> dict:
+def _clearing_duckstation(rom: Rom) -> dict[str, Any]:
     return {
         **_webstation_for(rom),
         "emulator": "duckstation",
@@ -7914,7 +7914,7 @@ def _mc_container_for(rom: Rom, broker_host="http://192.168.1.10:8000"):
 
 
 def _mc_claim(client, token, rom_id, memory_card_id=None, card_import=None):
-    body: dict = {"rom_id": rom_id}
+    body: dict[str, Any] = {"rom_id": rom_id}
     if memory_card_id is not None:
         body["memory_card_id"] = memory_card_id
     if card_import is not None:
@@ -9155,7 +9155,7 @@ def test_record_play_session_ignores_malformed_session(admin_user: User, rom: Ro
 # ── Activity board ────────────────────────────────────────────────────────────
 
 
-def _activity_entry(container: dict, user: User):
+def _activity_entry(container: dict[str, Any], user: User):
     return asyncio.run(activity_handler.get_active(user.id, _key_of(container)))
 
 
@@ -9310,7 +9310,7 @@ def test_the_activate_body_carries_the_multiplayer_flag(client, access_token, ro
     assert request.call_args.kwargs["body"]["multiplayer"] is True
 
 
-def _activate_body(client, token, rom: Rom) -> dict:
+def _activate_body(client, token, rom: Rom) -> dict[str, Any]:
     """Claim through the webstation protocol and return the activate body."""
     with _streaming(_ws_for(rom)):
         with patch(
@@ -9669,7 +9669,7 @@ def test_joining_a_rom_on_a_hidden_platform_is_404_masked(
     join_broker.assert_not_called()
 
 
-def _ws_pool_member(rom: Rom, index: int, **overrides) -> dict:
+def _ws_pool_member(rom: Rom, index: int, **overrides) -> dict[str, Any]:
     """One member of a pool of webstation containers, the broker a joiner needs,
     on a distinct host so the room URL says which member answered."""
     return _webstation(
@@ -9850,7 +9850,7 @@ def test_joining_requires_auth(client, rom: Rom):
 # ── Container expansion ───────────────────────────────────────────────────────
 
 
-def _expand(entry: dict) -> list[ResolvedContainer]:
+def _expand(entry: dict[str, Any]) -> list[ResolvedContainer]:
     """The records the resolver builds for one raw config entry."""
     with _streaming(entry):
         return list(resolve_containers())
@@ -9926,7 +9926,7 @@ def test_expand_platform_value_that_is_neither_name_nor_block_is_skipped():
 # ── Broker host derivation ────────────────────────────────────────────────────
 
 
-def _broker_host_of(entry: dict) -> str | None:
+def _broker_host_of(entry: dict[str, Any]) -> str | None:
     return _derive_broker_host(
         entry, protocol_for(entry.get("protocol"), entry.get("subfolder"))
     )
@@ -10199,7 +10199,7 @@ def test_resuming_a_state_with_no_disc_swaps_nothing(
 # ── _restore_session_disc (direct) ──────────────────────────────────────────
 
 
-def _session_for(container: dict, rom: Rom, user: User) -> str:
+def _session_for(container: dict[str, Any], rom: Rom, user: User) -> str:
     """Seed a redis session for `container` and return its (unprefixed)
     session key, the form `_restore_session_disc` and friends take."""
     session_key = _key_of(container)

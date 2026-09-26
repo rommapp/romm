@@ -6,6 +6,7 @@ memory and writing it back on every read (see #4029).
 """
 
 from collections.abc import Sequence
+from typing import Any
 
 from handler.database import db_collection_handler, db_rom_handler, db_save_handler
 from models.assets import Save
@@ -20,7 +21,7 @@ def _add_rom(
     name: str,
     *,
     cover: str = "",
-    manual_metadata: dict | None = None,
+    manual_metadata: dict[str, Any] | None = None,
     regions: list[str] | None = None,
 ) -> Rom:
     slug = name.lower().replace(" ", "_")
@@ -43,7 +44,11 @@ def _add_rom(
 
 
 def _add_smart_collection(
-    user: User, criteria: dict, *, name: str = "Smart", is_public: bool = False
+    user: User,
+    criteria: dict[str, Any],
+    *,
+    name: str = "Smart",
+    is_public: bool = False,
 ) -> SmartCollection:
     return db_collection_handler.add_smart_collection(
         SmartCollection(

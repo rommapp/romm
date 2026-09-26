@@ -43,7 +43,7 @@ def exit_pull_queue():
 
 
 @contextmanager
-def _streaming(*containers: dict, enabled: bool = True) -> Iterator[None]:
+def _streaming(*containers: dict[str, Any], enabled: bool = True) -> Iterator[None]:
     cfg = MagicMock()
     cfg.STREAMING_ENABLED = enabled
     cfg.STREAMING_CONTAINERS = list(containers)
@@ -55,7 +55,7 @@ def _streaming(*containers: dict, enabled: bool = True) -> Iterator[None]:
             reset_cache()
 
 
-def _resolved(entry: dict) -> ResolvedContainer:
+def _resolved(entry: dict[str, Any]) -> ResolvedContainer:
     container = resolve_entry(entry)
     assert container is not None
     return container
@@ -65,7 +65,9 @@ def _ago(seconds: int) -> str:
     return (datetime.now(timezone.utc) - timedelta(seconds=seconds)).isoformat()
 
 
-async def _hold(entry: dict, *, idle_seconds: int, **fields: Any) -> dict[str, Any]:
+async def _hold(
+    entry: dict[str, Any], *, idle_seconds: int, **fields: Any
+) -> dict[str, Any]:
     """Store a claim on `entry` whose heartbeat is `idle_seconds` old."""
     session = {
         "user_id": 1,
@@ -87,7 +89,7 @@ def _stub_teardown(teardown: Any = None) -> Any:
     )
 
 
-async def _stored(entry: dict) -> dict[str, Any] | None:
+async def _stored(entry: dict[str, Any]) -> dict[str, Any] | None:
     return await session_store.get_session(_resolved(entry).key)
 
 

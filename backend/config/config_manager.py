@@ -550,7 +550,7 @@ class ConfigManager:
     """
 
     _self = None
-    _raw_config: dict = {}
+    _raw_config: dict[str, Any] = {}
     _config_file_mounted: bool = False
     _config_file_writable: bool = False
     _config_file_parse_error: str | None = None
@@ -584,7 +584,7 @@ class ConfigManager:
             self._parse_config()
             self._validate_config()
 
-    def _safe_load_yaml(self, cf: TextIO) -> dict:
+    def _safe_load_yaml(self, cf: TextIO) -> dict[str, Any]:
         """Load YAML, falling back to an empty config on syntax errors so the
         app can still boot with defaults rather than crashing."""
         try:

@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -70,7 +71,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def update_playlist(
         self,
         id: int,
-        data: dict,
+        data: dict[str, Any],
         session: Session = None,  # type: ignore[assignment]
     ) -> MusicPlaylist:
         session.execute(

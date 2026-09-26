@@ -1,6 +1,7 @@
 import asyncio
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -34,7 +35,9 @@ def _handler() -> HLTBHandler:
     return handler
 
 
-def _response(status_code: int = 200, json_body: dict | None = None) -> MagicMock:
+def _response(
+    status_code: int = 200, json_body: dict[str, Any] | None = None
+) -> MagicMock:
     response = MagicMock()
     response.status_code = status_code
     if status_code >= 400:
@@ -528,7 +531,9 @@ async def test_heartbeat_sends_the_user_agent_hltb_requires(mock_ctx_httpx_clien
     assert headers["Referer"] == "https://howlongtobeat.com"
 
 
-def _game(game_id: int, name: str, *, alias: str = "", timed: bool = True) -> dict:
+def _game(
+    game_id: int, name: str, *, alias: str = "", timed: bool = True
+) -> dict[str, Any]:
     """A search result carrying only the fields matching depends on."""
     time = 3600 if timed else 0
     return {
@@ -559,7 +564,7 @@ async def test_series_prefix_the_catalogue_omits_still_matches():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(term: str, _platform_slug: str) -> list[dict[str, Any]]:
         searched.append(term)
         return [_game(7467, "Quantum of Solace")]
 
@@ -580,7 +585,7 @@ async def test_separator_the_catalogue_omits_still_matches():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(term: str, _platform_slug: str) -> list[dict[str, Any]]:
         searched.append(term)
         if term == "pokemon emerald version":
             return [_game(6966, "Pokémon Emerald Version")]
@@ -598,7 +603,7 @@ async def test_full_term_match_does_not_trigger_a_second_search():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(term: str, _platform_slug: str) -> list[dict[str, Any]]:
         searched.append(term)
         return [_game(4806, "James Bond 007: Agent Under Fire")]
 
@@ -616,7 +621,7 @@ async def test_term_without_a_separator_is_not_searched_twice():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(term: str, _platform_slug: str) -> list[dict[str, Any]]:
         searched.append(term)
         return []
 
@@ -633,7 +638,7 @@ async def test_hyphen_inside_a_word_does_not_trigger_a_retry():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(term: str, _platform_slug: str) -> list[dict[str, Any]]:
         searched.append(term)
         return []
 
@@ -649,7 +654,7 @@ async def test_retry_still_requires_recorded_times():
     """A catalogue entry nobody has submitted a time for is not a match."""
     handler = _handler()
 
-    async def search_games(_term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(_term: str, _platform_slug: str) -> list[dict[str, Any]]:
         return [_game(7467, "Quantum of Solace", timed=False)]
 
     with patch.object(handler, "search_games", side_effect=search_games):
@@ -718,7 +723,7 @@ async def test_an_alias_does_not_outrank_another_game_with_that_name():
     assert rom["hltb_id"] == 5773
 
 
-def _game_page(game: dict | None) -> MagicMock:
+def _game_page(game: dict[str, Any] | None) -> MagicMock:
     """A game page carrying its record in the Next.js hydration payload."""
     games = [game] if game is not None else []
     payload = json.dumps({"props": {"pageProps": {"game": {"data": {"game": games}}}}})

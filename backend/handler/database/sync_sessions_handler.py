@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import NoResultFound
@@ -71,7 +72,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
     def update_session(
         self,
         session_id: int,
-        data: dict,
+        data: dict[str, Any],
         session: Session = None,  # type: ignore[assignment]
     ) -> SyncSession:
         session.execute(

@@ -27,8 +27,8 @@ class CSRFMiddleware:
         app: ASGIApp,
         secret: str,
         *,
-        required_urls: Optional[list[Pattern]] = None,
-        exempt_urls: Optional[list[Pattern]] = None,
+        required_urls: Optional[list[Pattern[str]]] = None,
+        exempt_urls: Optional[list[Pattern[str]]] = None,
         sensitive_cookies: Optional[set[str]] = None,
         safe_methods: Optional[set[str]] = None,
         cookie_name: str = "csrftoken",
@@ -108,7 +108,7 @@ class CSRFMiddleware:
             message.setdefault("headers", [])
             headers = MutableHeaders(scope=message)
 
-            cookie: http.cookies.BaseCookie = http.cookies.SimpleCookie()
+            cookie: http.cookies.BaseCookie[str] = http.cookies.SimpleCookie()
             cookie_name = self.cookie_name
             cookie[cookie_name] = self._generate_csrf_token(current_user_id)
             cookie[cookie_name]["path"] = self.cookie_path

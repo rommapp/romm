@@ -1,6 +1,7 @@
 import logging
 import re
 from contextlib import contextmanager
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -591,7 +592,7 @@ async def test_scan_rom_unmatched_no_match_uses_parsed_name(
 
 
 def _scraped_cover_rom(platform: Platform, **overrides) -> Rom:
-    attrs: dict = {
+    attrs: dict[str, Any] = {
         "platform_id": platform.id,
         "fs_name": "game.sfc",
         "fs_path": "snes",

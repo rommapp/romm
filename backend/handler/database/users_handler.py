@@ -76,7 +76,7 @@ class DBUsersHandler(DBBaseHandler):
     def update_user(
         self,
         id: int,
-        data: dict,
+        data: dict[str, Any],
         session: Session = None,  # type: ignore[assignment]
     ) -> User:
         session.execute(
@@ -95,7 +95,7 @@ class DBUsersHandler(DBBaseHandler):
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
         has_ra_username: bool | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
+        only_fields: Sequence[QueryableAttribute[Any]] | None = None,
         session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[User]:
         query = self.filter(

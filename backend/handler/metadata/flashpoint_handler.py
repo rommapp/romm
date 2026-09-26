@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 import httpx
 import pydash
@@ -111,13 +111,13 @@ class FlashpointHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return FLASHPOINT_API_ENABLED
 
-    async def _request(self, url: str, query: dict) -> dict:
+    async def _request(self, url: str, query: dict[str, Any]) -> Any:
         """
         Sends a request to Flashpoint API.
 
         :param url: The API endpoint URL.
         :param query: A dictionary containing the query parameters.
-        :return: A dictionary with the json result.
+        :return: The decoded JSON body.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
         httpx_client = ctx_httpx_client.get()

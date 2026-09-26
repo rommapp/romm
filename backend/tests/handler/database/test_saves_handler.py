@@ -1327,7 +1327,7 @@ class TestDBSavesHandlerRecordsLostVersions:
         ids=["same-bytes", "annotation"],
     )
     def test_an_update_that_keeps_the_version_records_nothing(
-        self, admin_user: User, rom: Rom, data: dict
+        self, admin_user: User, rom: Rom, data: dict[str, Any]
     ):
         save = self._add(admin_user, rom, "kept", "autosave", "same")
 

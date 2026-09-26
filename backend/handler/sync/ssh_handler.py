@@ -59,7 +59,9 @@ class SSHSyncHandler:
                 "to a writable location, to use push-pull sync."
             ) from e
 
-    def _resolve_key_path(self, device_id: str, sync_config: dict) -> str | None:
+    def _resolve_key_path(
+        self, device_id: str, sync_config: dict[str, Any]
+    ) -> str | None:
         """Resolve the SSH key path for a device.
 
         Checks, in order:
@@ -77,7 +79,7 @@ class SSHSyncHandler:
         return None
 
     async def connect(
-        self, sync_config: dict, device_id: str | None = None
+        self, sync_config: dict[str, Any], device_id: str | None = None
     ) -> asyncssh.SSHClientConnection:
         """Establish an SSH connection using device sync_config.
 
@@ -128,7 +130,7 @@ class SSHSyncHandler:
     async def list_remote_saves(
         self,
         conn: asyncssh.SSHClientConnection,
-        save_directories: list[dict],
+        save_directories: list[dict[str, Any]],
     ) -> list[RemoteSaveInfo]:
         """List save files on a remote device.
 

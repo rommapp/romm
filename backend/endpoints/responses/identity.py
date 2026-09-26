@@ -1,4 +1,4 @@
-from typing import NotRequired, TypedDict, get_type_hints
+from typing import Any, NotRequired, TypedDict, get_type_hints
 
 from pydantic import ConfigDict
 from starlette.requests import Request
@@ -32,7 +32,7 @@ class UserSchema(BaseModel):
     last_active: UTCDatetime | None
     ra_username: str | None = None
     ra_progression: RAProgression | None = None
-    ui_settings: dict | None = None
+    ui_settings: dict[str, Any] | None = None
     current_device_id: str | None = None
 
     created_at: UTCDatetime

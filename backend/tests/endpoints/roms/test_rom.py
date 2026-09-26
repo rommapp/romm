@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timezone
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 from urllib.parse import unquote
 
@@ -84,7 +84,7 @@ def test_get_rom_simple_missing_returns_404(client: TestClient, access_token: st
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-def _user_collections_by_name(body: dict) -> dict:
+def _user_collections_by_name(body: dict[str, Any]) -> dict[str, Any]:
     return {c["name"]: c for c in body["user_collections"]}
 
 

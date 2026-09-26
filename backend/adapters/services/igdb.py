@@ -3,7 +3,7 @@ import http
 import json
 from collections.abc import Sequence
 from functools import partial
-from typing import TYPE_CHECKING, Final, TypedDict
+from typing import TYPE_CHECKING, Any, Final, TypedDict
 
 import aiohttp
 import yarl
@@ -77,7 +77,7 @@ class IGDBService:
         where: str | None = None,
         limit: int | None = None,
         request_timeout: int = 120,
-    ) -> list:
+    ) -> list[Any]:
         aiohttp_session = ctx_aiohttp_session.get()
 
         content = ""
@@ -199,7 +199,7 @@ class IGDBService:
         fields: Sequence[str] | None = None,
         where: str | None = None,
         limit: int | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Search for different entities.
 
         Reference: https://api-docs.igdb.com/#search

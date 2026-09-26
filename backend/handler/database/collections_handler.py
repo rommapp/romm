@@ -39,6 +39,7 @@ from models.rom import Rom
 from utils.sql_dialect import json_array_contains_value
 
 from .base_handler import DBBaseHandler, affected_rows
+from .roms_handler import RomSelect
 
 MAX_VIRTUAL_COLLECTION_COVERS = 5
 
@@ -155,7 +156,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def update_collection(
         self,
         id: int,
-        data: dict,
+        data: dict[str, Any],
         rom_ids: list[int] | None = None,
         query: Select[tuple[Collection]] = None,  # type: ignore[assignment]
         session: Session = None,  # type: ignore[assignment]
@@ -290,7 +291,7 @@ class DBCollectionsHandler(DBBaseHandler):
         if not collections:
             return
 
-        def covers_select(collection: VirtualCollection) -> Select:
+        def covers_select(collection: VirtualCollection) -> Select[Any]:
             return (
                 select(
                     VirtualCollectionRom.type,
@@ -348,7 +349,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         type: str,
         limit: int | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
+        only_fields: Sequence[QueryableAttribute[Any]] | None = None,
         session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[VirtualCollection]:
         query = (
@@ -368,7 +369,7 @@ class DBCollectionsHandler(DBBaseHandler):
 
         return collections
 
-    def get_virtual_collection_rom_ids(self, id: str) -> Select:
+    def get_virtual_collection_rom_ids(self, id: str) -> Select[tuple[int]]:
         """Select the rom ids of a virtual collection, as an indexed subquery."""
         name, type = VirtualCollection.from_id(id)
         return select(VirtualCollectionRom.rom_id).where(
@@ -515,11 +516,11 @@ class DBCollectionsHandler(DBBaseHandler):
     def build_smart_collection_query(
         self,
         *,
-        query: Select,
+        query: RomSelect,
         smart_collection: SmartCollection,
         user_id: int | None,
         session: Session,
-    ) -> Select:
+    ) -> RomSelect:
         """Apply a smart collection's stored criteria to a ROM query.
 
         The criteria are `filter_roms`'s own vocabulary, so membership composes

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import HTTPException, Request, Response, status
 from pydantic import BaseModel, model_validator
@@ -28,7 +29,7 @@ class DeviceCreatePayload(BaseModel):
     mac_address: str | None = None
     hostname: str | None = None
     sync_mode: SyncMode | None = None
-    sync_config: dict | None = None
+    sync_config: dict[str, Any] | None = None
     allow_existing: bool = True
     allow_duplicate: bool = False
     reset_syncs: bool = False
@@ -50,7 +51,7 @@ class DeviceUpdatePayload(BaseModel):
     hostname: str | None = None
     sync_enabled: bool | None = None
     sync_mode: SyncMode | None = None
-    sync_config: dict | None = None
+    sync_config: dict[str, Any] | None = None
 
 
 @protected_route(router.post, "", [Scope.DEVICES_WRITE])

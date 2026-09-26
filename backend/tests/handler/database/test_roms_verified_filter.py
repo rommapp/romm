@@ -11,6 +11,8 @@ A coalesce folds that NULL to false on every engine. The suite runs against one
 driver at a time, hence the compiled-SQL check below.
 """
 
+from typing import Any
+
 import pytest
 from tests.sql_dialects import POSTGRESQL_DIALECT, compile_sql
 
@@ -34,7 +36,9 @@ LEGACY_KEYS = [
 ]
 
 
-def _add_rom(platform: Platform, user: User, name: str, metadata: dict) -> Rom:
+def _add_rom(
+    platform: Platform, user: User, name: str, metadata: dict[str, Any]
+) -> Rom:
     rom = db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,

@@ -297,8 +297,8 @@ def release_day_ranges(
 
 
 def epoch_ms_in_ranges(
-    column: sa.Column | Any, ranges: Sequence[tuple[int, int]]
-) -> ColumnElement:
+    column: sa.Column[Any] | Any, ranges: Sequence[tuple[int, int]]
+) -> ColumnElement[Any]:
     """Match an epoch-millisecond column against any of the given half-open ranges."""
     if not ranges:
         return sa.false()
