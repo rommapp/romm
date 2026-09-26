@@ -276,7 +276,19 @@ async def add_save(
         f"Uploading save {hl(actual_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
-    replaced_hash = await unrecorded_hash(db_save) if db_save else None
+    # Looked up before the write, which replaces a colliding save's bytes.
+    colliding_save = (
+        None
+        if db_save
+        else db_save_handler.get_save_by_path(
+            user_id=request.user.id,
+            rom_id=rom.id,
+            file_path=saves_path,
+            file_name=actual_filename,
+        )
+    )
+    replaced = db_save or colliding_save
+    replaced_hash = await unrecorded_hash(replaced) if replaced else None
     await fs_asset_handler.write_file(
         file=saveFile, path=saves_path, filename=actual_filename
     )
@@ -308,16 +320,9 @@ async def add_save(
                 existing_by_hash, _syncs_for_save(existing_by_hash.id, device), device
             )
 
-    if db_save is None:
-        # Refresh hash if the file already exists to avoid mismatched metadata.
-        colliding_save = db_save_handler.get_save_by_path(
-            user_id=request.user.id,
-            rom_id=rom.id,
-            file_path=scanned_save.file_path,
-            file_name=actual_filename,
-        )
-        if colliding_save and colliding_save.content_hash != scanned_save.content_hash:
-            db_save = colliding_save
+    # Refresh hash if the file already exists to avoid mismatched metadata.
+    if colliding_save and colliding_save.content_hash != scanned_save.content_hash:
+        db_save = colliding_save
 
     if db_save:
         # Track file path and emulator to prevent hash-content drift.
