@@ -5,8 +5,6 @@ volumes:
 
 services:
   romm:
-    # `nightly` tracks master and is unstable. Once it migrates the database,
-    # `latest` won't start until a release ships those migrations.
     image: rommapp/romm:latest
     container_name: romm
     restart: unless-stopped
