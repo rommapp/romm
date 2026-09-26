@@ -154,8 +154,30 @@ async def test_hybrid_auth_backend_bearer_invalid_token(editor_user: User):
     backend = HybridAuthBackend()
     conn = MockConnection()
 
-    with pytest.raises(HTTPException):
-        await backend.authenticate(conn)
+    result = await backend.authenticate(conn)
+    assert result is None
+
+
+async def test_hybrid_auth_backend_bearer_expired_token(editor_user: User):
+    expired_token = oauth_handler.create_access_token(
+        data={
+            "sub": editor_user.username,
+            "iss": "romm:oauth",
+            "scopes": " ".join(editor_user.oauth_scopes),
+        },
+        expires_delta=timedelta(seconds=-1),
+    )
+
+    class MockConnection(HTTPConnection):
+        def __init__(self):
+            self.scope: dict[str, dict] = {"session": {}}
+            self._headers = Headers({"Authorization": f"Bearer {expired_token}"})
+
+    backend = HybridAuthBackend()
+    conn = MockConnection()
+
+    result = await backend.authenticate(conn)
+    assert result is None
 
 
 async def test_hybrid_auth_backend_basic_auth_header(editor_user: User):
@@ -189,8 +211,8 @@ async def test_hybrid_auth_backend_basic_auth_header_unencoded(editor_user: User
     backend = HybridAuthBackend()
     conn = MockConnection()
 
-    with pytest.raises(HTTPException):
-        await backend.authenticate(conn)
+    result = await backend.authenticate(conn)
+    assert result is None
 
 
 async def test_hybrid_auth_backend_invalid_scheme():

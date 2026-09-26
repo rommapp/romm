@@ -64,7 +64,10 @@ def test_heartbeat(client):
     assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
 
 
-@pytest.mark.parametrize("authorization_header", ["Bearer ", "Foo", "a b c"])
+@pytest.mark.parametrize(
+    "authorization_header",
+    ["Bearer ", "Foo", "a b c", "Bearer bogus", "Basic not_base64"],
+)
 def test_heartbeat_with_malformed_authorization_header(
     client, authorization_header: str
 ):
