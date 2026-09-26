@@ -61,7 +61,10 @@ from handler.streaming.config import (
     ResolvedContainer,
     _derive_broker_host,
     configured_emulator,
+    container_for_session,
     container_names,
+    containers_by_key,
+    containers_for_platform,
     emulator_display_label,
     key_for_name,
     pools_for_platform,
@@ -70,6 +73,12 @@ from handler.streaming.config import (
     resolve_entry,
 )
 from handler.streaming.protocol import protocol_for
+from handler.streaming.session_store import (
+    STREAMING_SESSION_DRAIN_SECONDS,
+    STREAMING_SESSION_TTL_SECONDS,
+    StreamingSessionContended,
+    release_own_session,
+)
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.notification import NotificationKind
 from models.permission import HiddenEntity, PermEntity
@@ -205,7 +214,7 @@ def _resolved(entry: dict | ResolvedContainer) -> ResolvedContainer:
 
 def _first_container(platform: str):
     """The container a claim for this platform would try first, or None."""
-    candidates = streaming.containers_for_platform(platform)
+    candidates = containers_for_platform(platform)
     return candidates[0] if candidates else None
 
 
@@ -697,7 +706,7 @@ def test_a_container_that_disagrees_on_clearing_saves_is_a_pool_of_its_own(caplo
     try:
         with _streaming(first, second):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert [c.clears_stale_saves for c in candidates] == [True]
@@ -719,7 +728,7 @@ def test_legacy_containers_still_pool_under_an_inert_clearing_flag():
         "clears_stale_saves": False,
     }
     with _streaming(first, second):
-        candidates = streaming.containers_for_platform("ps2")
+        candidates = containers_for_platform("ps2")
     assert len(candidates) == 2
 
 
@@ -1288,7 +1297,7 @@ async def test_claim_sets_session_ttl(access_token, rom: Rom):
     key = session_store.session_redis_key(_key_of(_container_for(rom)))
     ttl = await async_cache.ttl(key)
     assert ttl > 0
-    assert ttl <= streaming.STREAMING_SESSION_TTL_SECONDS
+    assert ttl <= STREAMING_SESSION_TTL_SECONDS
 
 
 def test_second_claim_on_same_container_rejected(client, access_token, rom: Rom):
@@ -1774,7 +1783,7 @@ def test_admin_release_ends_a_session_on_a_container_in_a_later_pool(
     later = _in_a_later_ps2_pool()
     with _streaming(_webstation(), later):
         key = _key_of(later)
-        assert key not in [c.key for c in streaming.containers_for_platform("ps2")]
+        assert key not in [c.key for c in containers_for_platform("ps2")]
         assert _desktop(client, access_token, key)[0].status_code == 200
         with _stub_stop():
             r = client.delete(
@@ -1986,7 +1995,7 @@ def test_a_container_that_disagrees_on_the_emulator_is_a_later_pool(caplog):
         with _streaming(first, second, third):
             with caplog.at_level(logging.WARNING, logger="romm"):
                 pools = pools_for_platform("ps2")
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert [[c.emulator for c in pool] for pool in pools] == [
@@ -2018,9 +2027,9 @@ def test_a_fresh_process_does_not_repeat_the_later_pool_warning(caplog):
     try:
         with caplog.at_level(logging.WARNING, logger="romm"):
             with _streaming(first, second):
-                streaming.containers_for_platform("ps2")
+                containers_for_platform("ps2")
             with _streaming(first, second):
-                streaming.containers_for_platform("ps2")
+                containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert caplog.text.count("never claimed for a game") == 1
@@ -2055,7 +2064,7 @@ def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog
     try:
         with _streaming(first, second):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert [c.broker_host for c in candidates] == [
@@ -2081,7 +2090,7 @@ def test_a_proxied_host_disagreeing_with_its_subfolder_cannot_be_claimed(caplog)
     try:
         with _streaming(entry):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
                 listed = resolve_containers()
     finally:
         romm_logger.removeHandler(caplog.handler)
@@ -2106,7 +2115,7 @@ def test_a_subfolder_left_to_its_default_is_caught_against_the_mount_path(caplog
     try:
         with _streaming(entry):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert candidates == []
@@ -2124,7 +2133,7 @@ def test_a_container_mounted_at_the_root_agrees_with_an_empty_subfolder():
         "emulator": "pcsx2",
     }
     with _streaming(entry):
-        candidates = streaming.containers_for_platform("ps2")
+        candidates = containers_for_platform("ps2")
     assert [c.broker_host for c in candidates] == ["http://192.168.1.11:8000"]
 
 
@@ -2140,7 +2149,7 @@ def test_a_bare_origin_host_may_differ_from_its_subfolder():
         "emulator": "pcsx2",
     }
     with _streaming(entry):
-        candidates = streaming.containers_for_platform("ps2")
+        candidates = containers_for_platform("ps2")
     assert [c.broker_host for c in candidates] == ["http://192.168.1.11:8000"]
 
 
@@ -2160,7 +2169,7 @@ def test_a_cross_origin_mount_path_is_checked_against_the_subfolder(caplog):
     try:
         with _streaming(entry):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert candidates == []
@@ -2198,16 +2207,16 @@ def test_the_session_platform_picks_the_config_entry_for_its_container():
     platform under one key, so the admin views must not read an arbitrary one:
     the platform-keyed fields (emulator, card sync) differ between them."""
     with _streaming(_nested()):
-        grouped = streaming.containers_by_key()
+        grouped = containers_by_key()
         key = _key_of(_first_container("ps2"))
     assert len(grouped[key]) == 2
     for platform in ("ps2", "ngc"):
-        entry = streaming.container_for_session(grouped, key, platform)
+        entry = container_for_session(grouped, key, platform)
         assert entry is not None
         assert entry.platform == platform
     # A session predating the platform field still resolves to a real entry.
-    assert streaming.container_for_session(grouped, key, None) is not None
-    assert streaming.container_for_session(grouped, "http://nope:8000", "ps2") is None
+    assert container_for_session(grouped, key, None) is not None
+    assert container_for_session(grouped, "http://nope:8000", "ps2") is None
 
 
 # ── Container names ───────────────────────────────────────────────────────────
@@ -4213,11 +4222,7 @@ def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
     # dying mid-pull does not park the container for the length of a transfer
     # nobody is doing.
     assert session_store.DRAIN_MARKER_TTL > 2 * session_store._DRAIN_MARKER_REFRESH
-    assert (
-        streaming.STREAMING_SESSION_DRAIN_SECONDS
-        < ttl
-        <= session_store.DRAIN_MARKER_TTL
-    )
+    assert STREAMING_SESSION_DRAIN_SECONDS < ttl <= session_store.DRAIN_MARKER_TTL
 
 
 def test_save_and_exit_without_a_rom_drains_only_briefly(
@@ -4233,9 +4238,7 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
         session = _load_session(key)
         session.pop("rom_id")
         asyncio.run(
-            async_cache.set(
-                key, json.dumps(session), ex=streaming.STREAMING_SESSION_TTL_SECONDS
-            )
+            async_cache.set(key, json.dumps(session), ex=STREAMING_SESSION_TTL_SECONDS)
         )
         with (
             patch(
@@ -4252,16 +4255,14 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
     assert r.status_code == 200
     spawn.assert_not_called()
     ttl = asyncio.run(async_cache.ttl(key))
-    assert 0 < ttl <= streaming.STREAMING_SESSION_DRAIN_SECONDS
+    assert 0 < ttl <= STREAMING_SESSION_DRAIN_SECONDS
 
 
 def _session_at(key: str, **fields) -> dict:
     """Put a session on the key and hand back the claim a route would hold."""
     session = {"user_id": 1, "claimed_at": "2026-01-01T00:00:00+00:00", **fields}
     asyncio.run(
-        async_cache.set(
-            key, json.dumps(session), ex=streaming.STREAMING_SESSION_TTL_SECONDS
-        )
+        async_cache.set(key, json.dumps(session), ex=STREAMING_SESSION_TTL_SECONDS)
     )
     return session
 
@@ -4358,7 +4359,7 @@ def test_a_write_that_lands_on_nothing_is_contention_not_success():
             return False
 
     with patch.object(async_cache, "pipeline", lambda: _NoOpPipe()):
-        with pytest.raises(streaming.StreamingSessionContended):
+        with pytest.raises(StreamingSessionContended):
             asyncio.run(
                 session_store.claim_drain_marker(
                     "cas-noop", {"user_id": 1, "claimed_at": "x"}
@@ -6933,7 +6934,7 @@ def test_save_and_exit_marks_the_save_pull_before_giving_up_the_key(
     it the moment it goes and has to find the pull already pending."""
     key = saves._save_pull_redis_key(admin_user.id, rom.id)
     pending_at_release: list[int] = []
-    real_release = streaming.release_own_session
+    real_release = release_own_session
 
     async def release_after_looking(*args, **kwargs):
         pending_at_release.append(await async_cache.exists(key))

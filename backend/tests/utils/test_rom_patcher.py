@@ -12,6 +12,7 @@ from utils.rom_patcher import (
     apply_patch,
 )
 from utils.rom_patcher import patcher as rom_patcher
+from utils.zip_cache import ensure_zipfile_writable
 
 
 def _write_zip(
@@ -20,7 +21,7 @@ def _write_zip(
     *,
     comment: bytes = b"",
 ) -> None:
-    rom_patcher.ensure_zipfile_writable()
+    ensure_zipfile_writable()
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.comment = comment
         for name, content in members.items():
@@ -224,7 +225,7 @@ async def test_apply_patch_reports_zip_input_oserror_as_input_error(
     def raise_input_error(*_args: object, **_kwargs: object) -> None:
         raise OSError("input read failed")
 
-    monkeypatch.setattr(rom_patcher.zipfile, "ZipFile", raise_input_error)
+    monkeypatch.setattr(zipfile, "ZipFile", raise_input_error)
 
     with pytest.raises(PatcherInputError, match="could not be read"):
         await apply_patch(source, tmp_path / "patch.bps", tmp_path / "patched.zip")

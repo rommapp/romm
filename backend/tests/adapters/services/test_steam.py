@@ -63,7 +63,8 @@ async def test_get_app_details_unwraps_envelope(session):
 
     details = await SteamService().get_app_details(400)
 
-    assert details == {"type": "game", "name": "Portal"}
+    expected: dict[str, object] = {"type": "game", "name": "Portal"}
+    assert details == expected
 
 
 async def test_get_app_details_unwraps_envelope_keyed_by_another_id(session):

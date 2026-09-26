@@ -6,11 +6,10 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from endpoints import netplay as netplay_endpoints
 from handler.auth import oauth_handler
 from handler.auth.constants import Scope
 from handler.database.base_handler import sync_session
-from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom
+from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom, netplay_handler
 from models.permission import HiddenEntity, PermEntity
 from models.user import User
 
@@ -55,9 +54,7 @@ def _room(rom_id: int) -> NetplayRoom:
 
 @pytest.fixture
 def rooms(mocker) -> Mock:
-    return mocker.patch.object(
-        netplay_endpoints.netplay_handler, "get_all", AsyncMock(return_value={})
-    )
+    return mocker.patch.object(netplay_handler, "get_all", AsyncMock(return_value={}))
 
 
 def test_listing_shows_rooms_for_a_visible_rom(client, viewer_user, rom, rooms):

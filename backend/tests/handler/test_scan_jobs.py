@@ -11,6 +11,7 @@ from tests.scan_job_stubs import (
 
 import handler.scan_jobs as scan_jobs
 from endpoints.sockets.scan import scan_platforms
+from handler.redis_handler import low_prio_queue, scan_queue
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 
 
@@ -167,4 +168,4 @@ class TestScheduledScanRegistries:
     def test_reads_the_scan_queue_and_the_low_queue(self):
         names = [registry.name for registry in scan_jobs._scheduled_scan_registries()]
 
-        assert names == [scan_jobs.scan_queue.name, scan_jobs.low_prio_queue.name]
+        assert names == [scan_queue.name, low_prio_queue.name]

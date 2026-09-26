@@ -17,7 +17,8 @@ from sqlalchemy.orm import sessionmaker
 from config import ROMM_DB_DRIVER
 from config.config_manager import ConfigManager
 from handler.auth import auth_handler
-from handler.auth.base_handler import ALGORITHM, oct_key
+from handler.auth.base_handler import oct_key
+from handler.auth.constants import ALGORITHM
 from handler.database import (
     db_firmware_handler,
     db_memory_card_handler,

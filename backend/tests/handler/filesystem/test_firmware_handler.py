@@ -6,7 +6,8 @@ from unittest.mock import patch
 import pytest
 from anyio import open_file
 
-from config.config_manager import LIBRARY_BASE_PATH, Config
+from config import LIBRARY_BASE_PATH
+from config.config_manager import Config
 from exceptions.fs_exceptions import FirmwareNotFoundException
 from handler.filesystem.firmware_handler import FSFirmwareHandler
 from utils.hashing import crc32_to_hex

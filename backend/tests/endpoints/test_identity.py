@@ -21,7 +21,7 @@ from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_notification_handler
 from handler.database.users_handler import DBUsersHandler
-from handler.redis_handler import async_cache
+from handler.redis_handler import async_cache, redis_client
 from models.notification import NotificationKind
 from models.user import Role, User
 
@@ -371,7 +371,7 @@ def test_overlapping_registrations_spend_one_invite_once(client, access_token: s
     # Hold each request at the token check until the other arrives, so the only
     # thing that can keep the second out is the consume being one operation.
     rendezvous = threading.Barrier(2)
-    live_redis = auth_handler_module.redis_client
+    live_redis = redis_client
 
     class _RendezvousRedis:
         def get(self, key, *args, **kwargs):

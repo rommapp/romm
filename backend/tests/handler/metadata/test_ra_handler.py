@@ -12,6 +12,7 @@ from fastapi import HTTPException
 from tests.handler.metadata.conftest import local_timezone
 
 from adapters.services.retroachievements_types import RAGameExtendedDetails
+from handler.filesystem import fs_resource_handler
 from handler.metadata import ra_handler
 from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAHandler
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -65,23 +66,23 @@ class TestSearchRom:
             (tmp_path / filename).write_bytes(file)
 
         monkeypatch.setattr(
-            ra_handler.fs_resource_handler,
+            fs_resource_handler,
             "get_platform_resources_path",
             lambda _platform_id: "roms/1",
         )
         monkeypatch.setattr(
-            ra_handler.fs_resource_handler,
+            fs_resource_handler,
             "file_exists",
             AsyncMock(side_effect=lambda file_path: resolve(file_path).is_file()),
         )
-        monkeypatch.setattr(ra_handler.fs_resource_handler, "validate_path", resolve)
+        monkeypatch.setattr(fs_resource_handler, "validate_path", resolve)
         monkeypatch.setattr(
-            ra_handler.fs_resource_handler,
+            fs_resource_handler,
             "read_file",
             AsyncMock(side_effect=lambda file_path: resolve(file_path).read_bytes()),
         )
         monkeypatch.setattr(
-            ra_handler.fs_resource_handler,
+            fs_resource_handler,
             "write_file",
             AsyncMock(side_effect=write_file),
         )
