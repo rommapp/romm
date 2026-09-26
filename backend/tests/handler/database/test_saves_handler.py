@@ -1108,7 +1108,9 @@ class TestDBSavesHandlerRecordsLostVersions:
             db_save_handler.update_save(save.id, {"content_hash": "v1"})
 
         assert pre_read.call_count == 2
-        assert db_save_handler.get_save(admin_user.id, save.id).content_hash == "v1"
+        current = db_save_handler.get_save(admin_user.id, save.id)
+        assert current is not None
+        assert current.content_hash == "v1"
         assert self._lost(admin_user, rom)["autosave"] == ["v0"]
 
     def test_a_version_that_keeps_moving_gives_up(self, admin_user: User, rom: Rom):
@@ -1125,7 +1127,9 @@ class TestDBSavesHandlerRecordsLostVersions:
         ):
             db_save_handler.delete_save(save.id)
 
-        assert db_save_handler.get_save(admin_user.id, save.id).content_hash == "v0"
+        current = db_save_handler.get_save(admin_user.id, save.id)
+        assert current is not None
+        assert current.content_hash == "v0"
 
     def test_a_prune_that_fails_records_nothing(self, admin_user: User, rom: Rom):
         """The record commits with the removal, so no negotiation sees one alone."""
