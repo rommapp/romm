@@ -1,6 +1,5 @@
-// Stable keys for every piece of media a ROM page can show, persisted in
-// `rom_user.pinned_media`. Kept in sync with the backend's
-// PINNED_MEDIA_KEY_PATTERN.
+// Stable media keys persisted in `rom_user.pinned_media`. Keep in sync with
+// PINNED_MEDIA_KEY_PATTERN in backend/models/rom.py.
 export const mediaKey = {
   scraped: (url: string) => `scraped:${url}`,
   file: (id: number) => `file:${id}`,

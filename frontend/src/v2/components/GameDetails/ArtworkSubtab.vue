@@ -1,10 +1,6 @@
 <script setup lang="ts">
-// ArtworkSubtab: the Media tab's Artwork panel. A gallery of every art asset
-// that doesn't already get its own surface (screenshots have their own
-// subtab, manual + soundtrack their own subtabs). Surfaces the cover,
-// bezel / logo / marquee / box art / fan art / mix images / title screen plus
-// the scraped videos, and any image/video files sitting in the game folder
-// in the library. Each can be pinned to the Overview tab.
+// ArtworkSubtab: the Media tab's Artwork panel, every art asset and video
+// without a subtab of its own, each pinnable to the Overview tab.
 import { REmptyState } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";

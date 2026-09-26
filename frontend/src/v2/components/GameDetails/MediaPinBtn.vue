@@ -19,9 +19,18 @@ const label = computed(() =>
     size="small"
     variant="flat"
     :color="pinned ? 'primary' : undefined"
+    :class="{ 'r-v2-media-pin--idle': !pinned }"
     :aria-pressed="pinned"
     :aria-label="label"
     :tooltip="label"
     @click="emit('toggle')"
   />
 </template>
+
+<style scoped>
+/* Sits on artwork, so it needs the fixed overlay scrim to stay legible. */
+.r-btn.r-v2-media-pin--idle {
+  background: var(--r-color-overlay-scrim-strong);
+  color: var(--r-color-overlay-fg);
+}
+</style>

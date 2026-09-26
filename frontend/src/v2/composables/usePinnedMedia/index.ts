@@ -1,6 +1,5 @@
-// usePinnedMedia: read and toggle what the Overview tab shows for one ROM.
-// Writes are optimistic and chained per ROM across every caller, so rapid
-// toggles reach the server in click order and the last one wins.
+// usePinnedMedia: what the Overview tab shows for one ROM. Writes are
+// optimistic and chained per ROM, so toggles land in click order.
 import { computed, toValue, type MaybeRefOrGetter } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
