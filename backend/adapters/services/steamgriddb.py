@@ -2,20 +2,21 @@ import http
 import itertools
 import json
 from collections.abc import AsyncIterator, Collection
-from typing import Any, Literal
+from typing import Literal
 
 import aiohttp
 import aiohttp.client_exceptions
 import yarl
 from aiohttp.client import ClientTimeout
 
-from adapters.services.response_validation import validate_response
+from adapters.services.response_validation import parse_response
 from adapters.services.steamgriddb_types import (
     SGDBDimension,
     SGDBGame,
     SGDBGrid,
     SGDBGridList,
     SGDBMime,
+    SGDBResponse,
     SGDBStyle,
     SGDBTag,
     SGDBType,
@@ -47,7 +48,11 @@ class SteamGridDBService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://steamgriddb.com/api/v2")
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict[str, Any]:
+    async def _request[T](
+        self, url: str, tp: type[T], request_timeout: int = 120
+    ) -> T | None:
+        # /api/v2/<resource>/<lookup>/<id or term>: the id or term is left out.
+        source = "SteamGridDB " + "/".join(yarl.URL(url).parts[3:5])
         aiohttp_session = ctx_aiohttp_session.get()
         log.debug(
             "API request: URL=%s, Timeout=%s",
@@ -62,23 +67,20 @@ class SteamGridDBService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return validate_response(
-                dict[str, Any], await res.json(), source="SteamGridDB"
-            )
+            return parse_response(tp, await res.read(), source=source)
         except aiohttp.client_exceptions.ClientResponseError as exc:
             log.warning(f"Request failed with status {exc.status} for URL: {url}")
             if exc.status == http.HTTPStatus.UNAUTHORIZED:
                 log.warning("Invalid API key or unauthorized access.")
                 raise SGDBInvalidAPIKeyException from exc
-            # Log the error and return an empty dict if the request fails with a different code
             log.error(exc)
-            return {}
+            return None
         except json.decoder.JSONDecodeError as exc:
             log.error(
                 "Failed to decode JSON response from SteamGridDB: %s",
                 str(exc),
             )
-            return {}
+            return None
 
     async def get_grids_for_game(
         self,
@@ -123,7 +125,7 @@ class SteamGridDBService:
 
         base_url = self.url.joinpath("grids/game", str(game_id))
         url = base_url.with_query(**params) if params else base_url
-        response = await self._request(str(url))
+        response = await self._request(str(url), SGDBGridList)
         if not response:
             return SGDBGridList(
                 page=0,
@@ -131,7 +133,7 @@ class SteamGridDBService:
                 limit=limit or 50,
                 data=[],
             )
-        return validate_response(SGDBGridList, response, source="SteamGridDB grids")
+        return response
 
     async def iter_grids_for_game(
         self,
@@ -181,10 +183,8 @@ class SteamGridDBService:
         Reference: https://www.steamgriddb.com/api/v2#tag/SEARCH/operation/searchGrids
         """
         url = self.url.joinpath("search/autocomplete", term)
-        response = await self._request(str(url))
-        return validate_response(
-            list[SGDBGame], response.get("data", []), source="SteamGridDB search"
-        )
+        response = await self._request(str(url), SGDBResponse[list[SGDBGame]])
+        return response.get("data", []) if response else []
 
     async def get_game_by_id(self, game_id: int) -> SGDBGame | None:
         """Get game details by ID.
@@ -192,7 +192,5 @@ class SteamGridDBService:
         Reference: https://www.steamgriddb.com/api/v2#tag/GAMES/operation/getGameById
         """
         url = self.url.joinpath("games/id", str(game_id))
-        response = await self._request(str(url))
-        if not response or "data" not in response:
-            return None
-        return validate_response(SGDBGame, response["data"], source="SteamGridDB game")
+        response = await self._request(str(url), SGDBResponse[SGDBGame])
+        return response.get("data") if response else None
