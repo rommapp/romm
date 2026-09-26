@@ -37,6 +37,8 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.urls import get_public_base_url
 
+type UserWithClaims = tuple[models.user.User, dict[str, Any]]
+
 oct_key = OctKey.import_key(ROMM_AUTH_SECRET_KEY)
 
 # Anyone who knows a username can ask for its reset link, so its inbox gets at
@@ -466,9 +468,7 @@ class OAuthHandler:
 
         return token
 
-    async def consume_refresh_token(
-        self, token: str
-    ) -> tuple[models.user.User, dict[str, Any]]:
+    async def consume_refresh_token(self, token: str) -> UserWithClaims:
         from handler.database import db_user_handler
 
         try:
@@ -505,7 +505,7 @@ class OAuthHandler:
 
     async def get_current_active_user_from_bearer_token(
         self, token: str
-    ) -> tuple[models.user.User, dict[str, Any]] | tuple[None, None]:
+    ) -> UserWithClaims | tuple[None, None]:
         from handler.database import db_user_handler
 
         try:
@@ -538,7 +538,7 @@ class OAuthHandler:
 class OpenIDHandler:
     async def get_current_active_user_from_openid_token(
         self, token: Any
-    ) -> tuple[models.user.User, dict[str, Any]] | tuple[None, None]:
+    ) -> UserWithClaims | tuple[None, None]:
         from handler.audit_handler import SYSTEM_ACTOR, AuditActor, AuditTarget, record
         from handler.database import db_user_handler
         from models.audit_event import AuditAction

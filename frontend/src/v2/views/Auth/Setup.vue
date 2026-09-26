@@ -9,10 +9,10 @@ import { RBtn, RIcon, RImg, RSpinner, RSteps } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import type { SetupLibraryResponse } from "@/__generated__";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import setupApi from "@/services/api/setup";
-import type { SetupLibraryInfo } from "@/services/api/setup";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -37,13 +37,13 @@ const step = ref<1 | 2 | 3>(1);
 const stepDirection = ref<"forward" | "back">("forward");
 
 // Step 1 — library + platforms
-const EMPTY_LIBRARY_INFO: SetupLibraryInfo = {
+const EMPTY_LIBRARY_INFO: SetupLibraryResponse = {
   library_ready: false,
   library_structure: "",
   existing_platforms: [],
   supported_platforms: [],
 };
-const libraryInfo = ref<SetupLibraryInfo>({ ...EMPTY_LIBRARY_INFO });
+const libraryInfo = ref<SetupLibraryResponse>({ ...EMPTY_LIBRARY_INFO });
 // Starts true so the first paint shows the spinner, not an empty flash.
 const loadingLibrary = ref(true);
 // Non-null when the library probe failed — the step 1 body swaps to an inline

@@ -89,7 +89,9 @@ class SetupExistingPlatform(TypedDict):
 
 
 class SetupLibraryResponse(TypedDict):
+    # Whether the configured platforms folder exists on disk.
     library_ready: bool
+    # The configured `filesystem.structure.default` template.
     library_structure: str
     existing_platforms: list[SetupExistingPlatform]
     supported_platforms: list[PlatformSchema]

@@ -280,16 +280,12 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
     Only accessible during initial setup (no admin users) or with authentication.
 
     Returns:
-        - library_ready: whether the configured platforms folder exists on disk
-        - library_structure: the configured `filesystem.structure.default` template
-        - existing_platforms: list of objects with fs_slug and rom_count
-        - supported_platforms: list of all supported platforms with metadata
+        SetupLibraryResponse: The library folder state and the platforms to offer.
     """
 
     # Check authentication - only allow public access if no admin users
     # If admin users exist, this would need authentication (but won't be called during setup)
 
-    # If there are admin users already, enforce the PLATFORMS_READ scope.
     if (
         Scope.PLATFORMS_READ not in request.auth.scopes
         and len(db_user_handler.get_admin_users()) > 0
@@ -384,12 +380,9 @@ async def create_setup_platforms(
         platform_slugs: List of platform fs_slugs to create
 
     Returns:
-        - success: bool
-        - created_count: number of platforms created
-        - message: success or error message
+        SetupPlatformsResponse: How many platform folders were created.
     """
 
-    # If there are admin users already, enforce the PLATFORMS_WRITE scope.
     if (
         Scope.PLATFORMS_WRITE not in request.auth.scopes
         and len(db_user_handler.get_admin_users()) > 0

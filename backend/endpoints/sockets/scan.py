@@ -1513,7 +1513,7 @@ async def authorize_scan(sid: str) -> User | None:
 
 
 @socket_handler.socket_server.on("scan")
-async def scan_handler(sid: str, options: dict[str, Any]) -> ScanStats | Job | None:
+async def scan_handler(sid: str, options: dict[str, Any]) -> None:
     """Scan socket endpoint
 
     Args:
@@ -1522,7 +1522,7 @@ async def scan_handler(sid: str, options: dict[str, Any]) -> ScanStats | Job | N
 
     user = await authorize_scan(sid)
     if user is None:
-        return None
+        return
 
     platform_ids = options.get("platforms", [])
     platform_fs_slugs = options.get("platform_fs_slugs", [])
@@ -1541,7 +1541,7 @@ async def scan_handler(sid: str, options: dict[str, Any]) -> ScanStats | Job | N
                 message,
                 to=sid,
             )
-            return None
+            return
 
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
@@ -1549,7 +1549,7 @@ async def scan_handler(sid: str, options: dict[str, Any]) -> ScanStats | Job | N
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
 
     if DEV_MODE:
-        return await scan_platforms(
+        await scan_platforms(
             platform_ids=platform_ids,
             metadata_sources=metadata_sources,
             scan_type=scan_type,
@@ -1558,8 +1558,9 @@ async def scan_handler(sid: str, options: dict[str, Any]) -> ScanStats | Job | N
             platform_fs_slugs=platform_fs_slugs,
             started_by_user_id=user.id,
         )
+        return
 
-    return scan_queue.enqueue(
+    scan_queue.enqueue(
         scan_platforms,
         # A scan of named roms resolves its work from the database and is done
         # in seconds, so it goes ahead of any library scan already waiting.

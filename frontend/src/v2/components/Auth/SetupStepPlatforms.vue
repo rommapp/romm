@@ -28,14 +28,14 @@ import {
 import type { SliderBtnGroupItem } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SetupLibraryInfo } from "@/services/api/setup";
+import type { SetupLibraryResponse } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
 import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  libraryInfo: SetupLibraryInfo;
+  libraryInfo: SetupLibraryResponse;
   selectedNewPlatforms: string[];
 }
 

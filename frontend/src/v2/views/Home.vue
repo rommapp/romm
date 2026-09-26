@@ -12,7 +12,10 @@ import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type { RecommendedRomSchema } from "@/__generated__";
+import type {
+  RecommendedRomSchema,
+  SetupLibraryResponse,
+} from "@/__generated__";
 import { useUISettings } from "@/composables/useUISettings";
 import { ROUTES } from "@/plugins/router";
 import romApi, {
@@ -20,7 +23,7 @@ import romApi, {
   RECENT_ROMS_LIMIT,
   RECOMMENDED_ROMS_LIMIT,
 } from "@/services/api/rom";
-import setupApi, { type SetupLibraryInfo } from "@/services/api/setup";
+import setupApi from "@/services/api/setup";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -221,7 +224,7 @@ const phase = useLoadingPhase(
 // faith. Fetched lazily the first time the empty state appears; the
 // endpoint requires PLATFORMS_READ scope so we fail silently for
 // users without it (the chips just stay hidden).
-const libraryInfo = ref<SetupLibraryInfo | null>(null);
+const libraryInfo = ref<SetupLibraryResponse | null>(null);
 const fetchingLibraryInfo = ref(false);
 
 const detectedPlatformCount = computed(

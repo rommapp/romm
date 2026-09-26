@@ -110,11 +110,7 @@ def _resolve_grant_map(
     return base
 
 
-def resolve_permissions(
-    user: User,
-    *,
-    session: Session = None,  # type: ignore[assignment]
-) -> ResolvedPermissions:
+def resolve_permissions(user: User) -> ResolvedPermissions:
     # Admins bypass everything -- no DB access needed.
     if user.role == Role.ADMIN:
         return ResolvedPermissions(
@@ -124,7 +120,7 @@ def resolve_permissions(
             hidden_platform_ids=frozenset(),
             hidden_rom_ids=frozenset(),
         )
-    return _resolve_non_admin(user, session=session)
+    return _resolve_non_admin(user)
 
 
 @begin_session
@@ -164,11 +160,7 @@ def _resolve_non_admin(
     )
 
 
-def compute_oauth_scopes(
-    user: User,
-    *,
-    session: Session = None,  # type: ignore[assignment]
-) -> list[Scope]:
+def compute_oauth_scopes(user: User) -> list[Scope]:
     """Project a user's effective grants onto the coarse legacy ``Scope`` set.
 
     Admins get the full set; the anonymous ``KIOSK_MODE`` visitor is capped to
@@ -179,7 +171,7 @@ def compute_oauth_scopes(
     # FULL_SCOPES order (same as the non-admin path) to avoid token churn.
     if user.role == Role.ADMIN:
         return order_scopes(FULL_SCOPES)
-    return _compute_non_admin_scopes(user, session=session)
+    return _compute_non_admin_scopes(user)
 
 
 @begin_session
