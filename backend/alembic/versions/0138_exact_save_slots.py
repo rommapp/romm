@@ -1,7 +1,7 @@
 """Compare save slots exactly, index a slot's versions, and time their removal
 
-Revision ID: 0137_exact_save_slots
-Revises: 0136_deleted_assets
+Revision ID: 0138_exact_save_slots
+Revises: 0137_rename_system_groups
 Create Date: 2026-09-26 00:00:00.000000
 
 """
@@ -13,8 +13,8 @@ from models.assets import SAVE_SLOT_MAX_LENGTH, SAVE_SLOT_VERSIONS_INDEX
 from utils.database import CustomJSON, exact_collation
 
 # revision identifiers, used by Alembic.
-revision = "0137_exact_save_slots"
-down_revision = "0136_deleted_assets"
+revision = "0138_exact_save_slots"
+down_revision = "0137_rename_system_groups"
 branch_labels = None
 depends_on = None
 

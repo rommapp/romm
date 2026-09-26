@@ -236,7 +236,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0132_audit_events.py", "audit_events"),
         ("0135_drop_play_session_sync_link.py", "play_sessions"),
         ("0136_deleted_assets.py", "deleted_assets"),
-        ("0137_exact_save_slots.py", "saves"),
+        ("0138_exact_save_slots.py", "saves"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -297,7 +297,7 @@ def test_save_slots_are_compared_exactly():
 
 
 def test_the_exact_save_slots_revision_reverses_and_replays():
-    migration = _load_migration("0137_exact_save_slots.py")
+    migration = _load_migration("0138_exact_save_slots.py")
 
     with sync_engine.begin() as connection:
         exact = exact_collation(connection)
@@ -315,7 +315,7 @@ def test_the_exact_save_slots_revision_reverses_and_replays():
 
 def test_the_exact_save_slots_revision_fixes_an_early_deleted_assets_table():
     """A deleted_assets slot left with the table's folding collation is made exact."""
-    migration = _load_migration("0137_exact_save_slots.py")
+    migration = _load_migration("0138_exact_save_slots.py")
 
     with sync_engine.begin() as connection:
         exact = exact_collation(connection)
@@ -338,7 +338,7 @@ def test_the_exact_save_slots_revision_fixes_an_early_deleted_assets_table():
 
 def test_the_exact_save_slots_revision_rebuilds_no_table_already_exact():
     """A replay after a run that died partway skips the collations it finished."""
-    migration = _load_migration("0137_exact_save_slots.py")
+    migration = _load_migration("0138_exact_save_slots.py")
     statements: list[str] = []
 
     with sync_engine.begin() as connection:
