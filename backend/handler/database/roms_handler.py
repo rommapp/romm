@@ -977,7 +977,7 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     def _filter_by_virtual_collection_id(
-        self, query: Select, session: Session, virtual_collection_id: str
+        self, query: Select, virtual_collection_id: str
     ):
         from . import db_collection_handler
 
@@ -1165,7 +1165,7 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(predicate)
 
     def _filter_by_favorite(
-        self, query: Select, session: Session, value: bool, user_id: int | None
+        self, query: Select, value: bool, user_id: int | None
     ) -> Select:
         """Filter based on whether the rom is in the user's favorites collection."""
         if not user_id:
@@ -1289,7 +1289,6 @@ class DBRomsHandler(DBBaseHandler):
         self,
         query: Select,
         *,
-        session: Session,
         values: Sequence[str],
         match_all: bool = False,
         match_none: bool = False,
@@ -1472,7 +1471,7 @@ class DBRomsHandler(DBBaseHandler):
 
         if filters.virtual_collection_id:
             query = self._filter_by_virtual_collection_id(
-                query, session, filters.virtual_collection_id
+                query, filters.virtual_collection_id
             )
 
         if filters.smart_collection_id:
@@ -1488,7 +1487,7 @@ class DBRomsHandler(DBBaseHandler):
 
         if filters.favorite is not None:
             query = self._filter_by_favorite(
-                query, session=session, value=filters.favorite, user_id=user_id
+                query, value=filters.favorite, user_id=user_id
             )
 
         if filters.duplicate is not None:
@@ -1758,7 +1757,6 @@ class DBRomsHandler(DBBaseHandler):
         if filters.statuses and user_id:
             query = self._filter_by_status(
                 query,
-                session=session,
                 values=filters.statuses,
                 match_all=(filters.statuses_logic == "all"),
                 match_none=(filters.statuses_logic == "none"),
@@ -1816,7 +1814,6 @@ class DBRomsHandler(DBBaseHandler):
             if clause is not None
         ]
 
-    @begin_session
     def get_roms_query(
         self,
         *,
@@ -1824,7 +1821,6 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         search_term: str | None = None,
         user_id: int | None = None,
-        session: Session = None,  # type: ignore
     ) -> tuple[RomSelect, _GallerySortKey]:
         query = self._join_rom_user(select(Rom), user_id)
         order_dir = order_dir.lower()
@@ -1860,7 +1856,6 @@ class DBRomsHandler(DBBaseHandler):
             order_dir=order_dir,
             search_term=kwargs.get("search_term", None),
             user_id=user_id,
-            session=session,
         )
 
         return self.filter_roms(

@@ -566,7 +566,6 @@ class DBCollectionsHandler(DBBaseHandler):
             order_dir=criteria.get("order_dir", "asc"),
             search_term=criteria.get("search_term"),
             user_id=user_id,
-            session=session,
         )
         covers_query = self.build_smart_collection_query(
             query=query,
