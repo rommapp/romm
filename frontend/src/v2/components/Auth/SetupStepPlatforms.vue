@@ -1,18 +1,18 @@
 <script setup lang="ts">
-// SetupStepPlatforms — Step 1 of the setup wizard.
+// SetupStepPlatforms: Step 1 of the setup wizard.
 //
 // Layout:
-//   1. Structure banner — what folder layout is in use or will be created.
-//   2. Detected platforms — read-only, always rendered (folders that
+//   1. Structure banner: what folder layout is in use or will be created.
+//   2. Detected platforms: read-only, always rendered (folders that
 //      already exist on disk). Bundled with any unidentified folders so
 //      the user knows nothing of theirs got lost.
-//   3. Supported platforms — every platform RomM knows about, grouped
+//   3. Supported platforms: every platform RomM knows about, grouped
 //      by manufacturer. Groups are CLOSED by default and their bodies
-//      are gated with v-if (not v-show), so first-render is tiny —
-//      otherwise the catalogue's ~300 entries blow up DOM cost.
-//   4. Search — when non-empty, replaces the grouped browse with a flat,
+//      are gated with v-if (not v-show), so first-render is tiny.
+//      Otherwise the catalogue's ~300 entries blow up DOM cost.
+//   4. Search: when non-empty, replaces the grouped browse with a flat,
 //      capped result list across every supported platform.
-//   5. Summary line — restates how many new folders the wizard will
+//   5. Summary line: restates how many new folders the wizard will
 //      create under which pattern, so the directory creation effect
 //      is never a surprise.
 import {
@@ -59,7 +59,7 @@ const SEARCH_LIMIT = 80;
 //
 // "Detected" = on disk. We split into identified (matches a supported
 // platform → we have a nice display name + icon) and unidentified
-// (a folder that doesn't match — likely a typo or an unsupported
+// (a folder that doesn't match, likely a typo or an unsupported
 // platform). Both get shown in the same section so nothing slips
 // through the cracks.
 
@@ -161,7 +161,7 @@ const filteredDetectedPlatforms = computed(() => {
 
 // ── Supported (selectable) platforms ───────────────────────────────
 //
-// Filter out anything already on disk — those are shown in the detected
+// Filter out anything already on disk, since those are shown in the detected
 // section. We never present the same fs_slug twice.
 
 const supportedAvailable = computed<Platform[]>(() =>
@@ -851,7 +851,7 @@ html[data-bp~="sm-and-down"] .r-setup-platforms__pane-scroll {
   gap: var(--r-space-1);
 }
 
-/* Inside the manufacturer-group collapsible — rows go edge-to-edge,
+/* Inside the manufacturer-group collapsible, rows go edge-to-edge,
    no outer inset. Each row strips its card chrome (border, radius,
    background) and switches to a top-border separator so the body of
    the collapsible reads as a flat list rather than a stack of small

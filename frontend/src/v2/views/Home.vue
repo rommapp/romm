@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Home dashboard — composed of primitives + feature components. Each
+// Home dashboard, composed of primitives + feature components. Each
 // section is a CardRow with its own tile type in the default slot.
 //
 // Gamepad / keyboard arrow navigation: the root is registered with
@@ -219,7 +219,7 @@ const phase = useLoadingPhase(
   () => !hasContent.value,
 );
 
-// Filesystem snapshot for the empty state — shows the user what RomM
+// Filesystem snapshot for the empty state. Shows the user what RomM
 // can already see on disk so the "run a scan" CTA isn't a leap of
 // faith. Fetched lazily the first time the empty state appears; the
 // endpoint requires PLATFORMS_READ scope so we fail silently for
@@ -255,7 +255,7 @@ watch(phase, (value) => {
   if (value === "empty") void loadLibraryInfo();
 });
 
-// Favorite ROMs — derived from the Favorites collection's rom_ids.
+// Favorite ROMs, derived from the Favorites collection's rom_ids.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- false positive: used in <template>; @typescript-eslint+projectService doesn't see Vue templates
 const favoriteRoms = computed<SimpleRom[]>(() => {
   const favIds = favoriteCollection.value?.rom_ids ?? [];
@@ -282,7 +282,7 @@ function collectionCovers(c: {
 
 <template>
   <div ref="gridRoot" class="r-v2-home">
-    <!-- Empty library state — shown when nothing has been ingested
+    <!-- Empty library state, shown when nothing has been ingested
          yet. Hides every section underneath so the user lands on a
          decision (upload vs scan), not on a row of skeletons. -->
     <section v-if="phase === 'empty'" class="r-v2-home-empty r-v2-asset-fade">
@@ -297,7 +297,7 @@ function collectionCovers(c: {
         </h2>
         <p class="r-v2-home-empty__hint">{{ t("home.empty-hint") }}</p>
 
-        <!-- Filesystem snapshot — only rendered once /setup/library
+        <!-- Filesystem snapshot, only rendered once /setup/library
              has resolved. Mirrors the chip pair from setup wizard
              step 1 so the user sees the same "RomM detected this on
              disk" telemetry from both entry points. -->
@@ -375,7 +375,7 @@ function collectionCovers(c: {
     </section>
 
     <template v-else-if="phase !== 'idle'">
-      <!-- Widget bar — random pick, library snapshot, future RA widgets.
+      <!-- Widget bar: random pick, library snapshot, future RA widgets.
            Hidden when the master toggle is off; the bar itself also
            drops out when every individual widget is disabled. -->
       <WidgetBar v-if="showHomeWidgets" />
@@ -673,7 +673,7 @@ function collectionCovers(c: {
    Two-step layout: hero (icon + headline + hint) on top, then a
    two-pane "how do you want to add games" panel split by a vertical
    divider. Each pane is a router-link so the whole panel is the hit
-   target — no nested buttons. */
+   target (no nested buttons). */
 .r-v2-home-empty {
   display: flex;
   flex-direction: column;
@@ -750,7 +750,7 @@ html[data-bp~="sm-and-down"] .r-v2-home-empty__divider {
 }
 
 /* Each choice is a router-link rendered as a card. The "feel" is
-   close to a primary CTA — brand-tinted halo on hover, the trailing
+   close to a primary CTA: brand-tinted halo on hover, the trailing
    chevron in the CTA line nudges right so the click target reads
    actionable without needing a separate <RBtn>. */
 .r-v2-home-empty__choice {
