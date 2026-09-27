@@ -39,9 +39,12 @@ def _image_pin(dockerfile: str, pattern: str) -> str:
     return match.group(1)
 
 
-def test_required_version_is_a_bounded_range() -> None:
+def test_required_version_caps_at_the_next_minor() -> None:
     lower, upper = _required_range()
-    assert lower < upper, "required-version range is empty"
+    next_minor = (lower[0], lower[1] + 1)
+    assert (
+        upper == next_minor
+    ), f"required-version upper bound must be {'.'.join(map(str, next_minor))}"
 
 
 @pytest.mark.parametrize(("dockerfile", "pattern"), IMAGE_PINS.items())
