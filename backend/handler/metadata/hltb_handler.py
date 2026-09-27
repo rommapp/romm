@@ -4,7 +4,7 @@ import re
 import time
 from typing import Any, Final, NotRequired, TypedDict
 
-import httpx
+import httpx2
 import pydash
 from fastapi import HTTPException, status
 
@@ -471,7 +471,7 @@ class HLTBHandler(MetadataHandler):
                     parse_response(dict[str, Any], res.content, source="HowLongToBeat")
                     or {}
                 )
-            except httpx.HTTPStatusError as exc:
+            except httpx2.HTTPStatusError as exc:
                 status_code = exc.response.status_code
                 is_last_attempt = attempt == HLTB_MAX_REQUEST_ATTEMPTS - 1
 
@@ -500,7 +500,7 @@ class HLTBHandler(MetadataHandler):
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail=_unavailable_detail(status_code),
                 ) from exc
-            except (httpx.ConnectError, httpx.ReadTimeout) as exc:
+            except (httpx2.ConnectError, httpx2.ReadTimeout) as exc:
                 log.warning(
                     "Connection error: can't connect to HowLongToBeat API",
                     exc_info=True,
@@ -729,7 +729,7 @@ class HLTBHandler(MetadataHandler):
                 timeout=60,
             )
             res.raise_for_status()
-        except httpx.HTTPStatusError as exc:
+        except httpx2.HTTPStatusError as exc:
             status_code = exc.response.status_code
             if status_code == status.HTTP_404_NOT_FOUND:
                 log.debug("HowLongToBeat has no game with ID %s", hltb_id)
@@ -744,7 +744,7 @@ class HLTBHandler(MetadataHandler):
             ) from exc
         # Broader than the search path's catch: a connect timeout is the likely
         # failure here, and it would otherwise escape update_rom as a bare 500.
-        except httpx.RequestError as exc:
+        except httpx2.RequestError as exc:
             log.warning(
                 "Connection error: can't connect to HowLongToBeat", exc_info=True
             )

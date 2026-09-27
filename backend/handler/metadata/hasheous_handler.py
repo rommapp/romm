@@ -3,7 +3,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any, Final, NotRequired, TypedDict
 
-import httpx
+import httpx2
 import pydash
 import yarl
 from fastapi import status
@@ -285,7 +285,7 @@ class HasheousHandler(MetadataHandler):
             res = await httpx_client.request(method, **request_kwargs)
             res.raise_for_status()
             return parse_response(dict[str, Any], res.content, source="Hasheous") or {}
-        except httpx.HTTPStatusError as exc:
+        except httpx2.HTTPStatusError as exc:
             # Check if its a 404 error
             if exc.response.status_code == status.HTTP_404_NOT_FOUND:
                 log.debug("Game not found in Hasheous API")
@@ -297,14 +297,14 @@ class HasheousHandler(MetadataHandler):
                 exc.response.text,
             )
             raise unavailable("Hasheous") from exc
-        except httpx.NetworkError as exc:
+        except httpx2.NetworkError as exc:
             log.critical("Connection error: can't connect to Hasheous")
             raise unavailable("Hasheous") from exc
         except json.decoder.JSONDecodeError as exc:
             # Log the error and return an empty dict if the response is not valid JSON
             log.error(exc)
             return {}
-        except httpx.TimeoutException as exc:
+        except httpx2.TimeoutException as exc:
             log.error("Hasheous API timed out: %s", exc)
             raise unavailable("Hasheous") from exc
 

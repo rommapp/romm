@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import json
 
-import httpx
+import httpx2
 import pytest
 
 from handler.notification_channels import webhook
@@ -83,7 +83,7 @@ def _serve(mocker, handler) -> None:
     mocker.patch.object(
         webhook,
         "_client",
-        return_value=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        return_value=httpx2.AsyncClient(transport=httpx2.MockTransport(handler)),
     )
 
 
@@ -94,15 +94,15 @@ class TestSend:
     @pytest.fixture
     def respond(self, mocker):
         def install(status_code: int, text: str = ""):
-            calls: list[httpx.Request] = []
+            calls: list[httpx2.Request] = []
 
             async def body():
                 yield text.encode()
 
             # Streamed, as a response off the network is.
-            def handler(request: httpx.Request) -> httpx.Response:
+            def handler(request: httpx2.Request) -> httpx2.Response:
                 calls.append(request)
-                return httpx.Response(status_code, content=body())
+                return httpx2.Response(status_code, content=body())
 
             _serve(mocker, handler)
             return calls
@@ -129,7 +129,7 @@ class TestSend:
     async def test_a_redirect_is_a_delivery_that_did_not_land(self, mocker):
         _serve(
             mocker,
-            lambda request: httpx.Response(
+            lambda request: httpx2.Response(
                 301, headers={"Location": "https://hooks.example.com/new"}
             ),
         )
@@ -145,7 +145,7 @@ class TestSend:
             while True:
                 yield b"x" * 4096
 
-        _serve(mocker, lambda request: httpx.Response(500, content=endless()))
+        _serve(mocker, lambda request: httpx2.Response(500, content=endless()))
 
         with pytest.raises(WebhookError) as caught:
             await send(_CONFIG, _message(), allow_private=False)
@@ -155,9 +155,9 @@ class TestSend:
         )
 
     async def test_gives_up_on_a_host_that_never_answers(self, mocker):
-        async def handler(request: httpx.Request) -> httpx.Response:
+        async def handler(request: httpx2.Request) -> httpx2.Response:
             await asyncio.sleep(10)
-            return httpx.Response(204)
+            return httpx2.Response(204)
 
         mocker.patch.object(webhook, "TIMEOUT_SECONDS", 0.05)
         _serve(mocker, handler)
@@ -166,8 +166,8 @@ class TestSend:
             await send(_CONFIG, _message(), allow_private=False)
 
     async def test_an_unreachable_host_is_a_webhook_error(self, mocker):
-        def handler(request: httpx.Request) -> httpx.Response:
-            raise httpx.ConnectError("Connection refused")
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            raise httpx2.ConnectError("Connection refused")
 
         _serve(mocker, handler)
 

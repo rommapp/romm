@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-import httpx
+import httpx2
 from anyio import Path as AnyioPath
 from fastapi import status
 from PIL import Image, ImageFile, UnidentifiedImageError
@@ -65,7 +65,7 @@ def _content_type_essence(header_value: str) -> str:
 
 
 def _check_content_type(
-    response: httpx.Response, allowed_prefixes: tuple[str, ...], label: str
+    response: httpx2.Response, allowed_prefixes: tuple[str, ...], label: str
 ) -> bool:
     raw = response.headers.get("content-type", "")
     essence = _content_type_essence(raw)
@@ -271,7 +271,7 @@ class FSResourcesHandler(FSHandler):
                                         await f.write(chunk)
 
                             downloaded = True
-            except httpx.TransportError as exc:
+            except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
                 return None
             except OSError as exc:
@@ -501,7 +501,7 @@ class FSResourcesHandler(FSHandler):
                                     await f.write(chunk)
 
                         return True
-            except httpx.TransportError as exc:
+            except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
                 return False
             except OSError as exc:
@@ -627,7 +627,7 @@ class FSResourcesHandler(FSHandler):
                                 # Content is not gzipped, stream directly
                                 async for chunk in response.aiter_raw():
                                     await f.write(chunk)
-            except httpx.TransportError as exc:
+            except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
                 return None
             except OSError as exc:
@@ -691,7 +691,7 @@ class FSResourcesHandler(FSHandler):
                     ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
-        except httpx.TransportError as exc:
+        except httpx2.TransportError as exc:
             log.error(f"Unable to fetch badge at {url}: {str(exc)}")
         except OSError as exc:
             log.error(f"Unable to write badge for {url}: {str(exc)}")
@@ -763,7 +763,7 @@ class FSResourcesHandler(FSHandler):
                             ) as f:
                                 async for chunk in response.aiter_raw():
                                     await f.write(chunk)
-                except httpx.TransportError as exc:
+                except httpx2.TransportError as exc:
                     log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
                     return False
                 except OSError as exc:

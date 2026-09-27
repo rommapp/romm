@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from enum import Enum
 from typing import Any, Final, Literal, NotRequired, TypedDict, TypeIs, get_args
 
-import httpx
+import httpx2
 import yarl
 from fastapi import status
 
@@ -194,13 +194,13 @@ class PlaymatchHandler(MetadataHandler):
                     or {}
                 )
             except (
-                httpx.HTTPStatusError,
-                httpx.ConnectError,
-                httpx.ReadTimeout,
+                httpx2.HTTPStatusError,
+                httpx2.ConnectError,
+                httpx2.ReadTimeout,
             ) as exc:
                 if (
                     attempt == 0
-                    and isinstance(exc, httpx.HTTPStatusError)
+                    and isinstance(exc, httpx2.HTTPStatusError)
                     and exc.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
                 ):
                     log.warning("Playmatch: rate limit hit, retrying after 2s")

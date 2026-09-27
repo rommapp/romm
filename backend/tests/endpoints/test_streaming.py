@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, NamedTuple, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -1285,8 +1285,8 @@ async def test_claim_sets_session_ttl(access_token, rom: Rom):
     the container instead of wedging it forever."""
     with _streaming(_container_for(rom)):
         with patch("handler.streaming.commands.launch"):
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            async with httpx2.AsyncClient(
+                transport=httpx2.ASGITransport(app=app), base_url="http://test"
             ) as ac:
                 r = await ac.post(
                     "/api/streaming/sessions",
@@ -1364,8 +1364,8 @@ async def test_concurrent_claim_only_one_succeeds(access_token, rom: Rom):
     """Two concurrent claims on one container: exactly one 200 and one 409."""
     with _streaming(_container_for(rom)):
         with patch("handler.streaming.commands.launch"):
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            async with httpx2.AsyncClient(
+                transport=httpx2.ASGITransport(app=app), base_url="http://test"
             ) as ac:
                 headers = _auth(access_token)
                 r1, r2 = await asyncio.gather(
@@ -7172,7 +7172,7 @@ def test_stamped_exit_state_filename_round_trips(emulator, name, shape):
 
 
 class _ResumeClaim(NamedTuple):
-    response: httpx.Response
+    response: httpx2.Response
     ready: dict[str, Any]
     push: MagicMock
     call_broker: MagicMock

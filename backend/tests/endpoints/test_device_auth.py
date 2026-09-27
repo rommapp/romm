@@ -6,7 +6,7 @@ from typing import Any, cast
 
 from fastapi import status
 from fastapi.testclient import TestClient
-from httpx import Response
+from httpx2 import Response
 
 from handler.auth.constants import Scope
 from handler.database import db_client_token_handler, db_device_handler
@@ -59,21 +59,15 @@ def _approve(
         body["device_name"] = device_name
     if expires_in is not None:
         body["expires_in"] = expires_in
-    return cast(
-        Response,
-        client.post(
-            "/api/auth/device/approve",
-            json=body,
-            headers={"Authorization": f"Bearer {access_token}"},
-        ),
+    return client.post(
+        "/api/auth/device/approve",
+        json=body,
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
 
 def _poll_token(client: TestClient, device_code: str) -> Response:
-    return cast(
-        Response,
-        client.post("/api/auth/device/token", json={"device_code": device_code}),
-    )
+    return client.post("/api/auth/device/token", json={"device_code": device_code})
 
 
 class TestAuthorize:
