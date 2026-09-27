@@ -451,6 +451,8 @@ async def upload_chunk(
             chunk_path.unlink()
         if isinstance(exc, HTTPException):
             raise
+        # A cancel that removed the directory mid-write gets the session's 404.
+        await _get_session(upload_id)
         log.error(
             f"Error writing chunk {chunk_index} for upload {upload_id}", exc_info=exc
         )
@@ -579,8 +581,7 @@ async def cancel_chunked_upload(
     session = json.loads(raw)
     _validate_session_owner(session, request.user.id)
 
-    # The session goes first, so a chunk PUT racing the cancel gets a 404
-    # rather than a 500 from writing into a directory already removed.
+    # The session goes first, so a chunk PUT arriving mid-cancel is refused.
     await async_cache.delete(_session_key(upload_id), _chunks_key(upload_id))
     _cleanup_tmp(upload_id)
 

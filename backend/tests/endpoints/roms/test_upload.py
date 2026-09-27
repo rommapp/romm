@@ -332,6 +332,30 @@ def test_cancel_closes_the_session_before_removing_its_files(
     assert session_open_during_cleanup == [False]
 
 
+def test_a_chunk_written_while_the_upload_is_cancelled_returns_404(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    upload_id = _start_upload(client, access_token, platform.id).json()["upload_id"]
+
+    async def cancelled_mid_write(*args: Any, **kwargs: Any) -> Any:
+        sync_cache.delete(upload_endpoint._session_key(upload_id))
+        raise FileNotFoundError("upload directory removed")
+
+    monkeypatch.setattr(upload_endpoint, "open_file", cancelled_mid_write)
+
+    response = client.put(
+        f"/api/roms/upload/{upload_id}",
+        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        content=b"ABCDEF",
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_an_uploaded_chunk_set_expires(
     client: TestClient,
     access_token: str,
