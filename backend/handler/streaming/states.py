@@ -23,8 +23,9 @@ import os
 import re
 import zipfile
 import zlib
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import NamedTuple
+from typing import Any, NamedTuple
 from urllib.parse import quote
 
 from fastapi import HTTPException
@@ -138,6 +139,13 @@ def resolve_resume_state(
     emulator = container.emulator
     native = (state.emulator or "").lower() == emulator
     if native:
+        # Another core's file would land where this one's quick-load reads it.
+        core = state_core_for(container)
+        if core is not None and not core.matches(state.core):
+            raise HTTPException(
+                status_code=400,
+                detail="State was made by a different RetroArch core",
+            )
         slot = slot_from_state_filename(emulator, state.file_name)
         if slot is not None:
             return state, slot, False
@@ -287,12 +295,54 @@ async def store_state_screenshot(
     )
 
 
-def user_states_for_emulator(user_id: int, rom_id: int, emulator: str) -> list[State]:
-    """The user's states for this ROM and emulator, newest first."""
+@dataclass(frozen=True)
+class StateCore:
+    """Which stored states a RetroArch container's core can load."""
+
+    expected: str
+    # Whether `expected` is the platform's default core, which wrote every
+    # state stored before cores were recorded.
+    default_matches: bool
+
+    def matches(self, core: str | None) -> bool:
+        return core == self.expected or (core is None and self.default_matches)
+
+
+def state_core_for(
+    container: ResolvedContainer, launched: dict[str, Any] | None = None
+) -> StateCore | None:
+    """The core filter for this container's states, None to filter nothing.
+
+    `launched` is the activate reply, which names the running core once the
+    game is up. Before that the broker is asked for its default, so this
+    blocks and belongs off the event loop.
+    """
+    if not container.is_webstation or container.emulator.lower() != "retroarch":
+        return None
+    reply = launched if isinstance(launched, dict) else {}
+    booted = reply.get("core")
+    if isinstance(booted, str) and booted:
+        return StateCore(booted, reply.get("core_tier") == "default")
+    default = webstation.default_core(container)
+    expected = container.core or default
+    if expected is None:
+        return None
+    return StateCore(expected, default is not None and expected == default)
+
+
+def user_states_for_emulator(
+    user_id: int, rom_id: int, emulator: str, core: StateCore | None = None
+) -> list[State]:
+    """The user's states for this ROM and emulator, newest first.
+
+    `core` narrows them to what a RetroArch core can load. Prune and dedup
+    leave it out: they work on the whole history, whichever core wrote it.
+    """
     states = [
         s
         for s in db_state_handler.get_states(user_id=user_id, rom_ids=[rom_id])
         if (s.emulator or "").lower() == emulator
+        and (core is None or core.matches(s.core))
     ]
     # Ties on id, because updated_at only has second resolution: two captures
     # in the same second would otherwise order arbitrarily, and only the first
@@ -484,6 +534,13 @@ async def push_resume_state(
     Best-effort: a failure means the session just starts fresh, which the claim
     response reports through `resume`.
     """
+    if state_core is not None and not state_core.matches(resume_state.core):
+        log.warning(
+            "resume state is %s's, core %s booted, launching fresh",
+            resume_state.core,
+            state_core.expected,
+        )
+        return False
     try:
         content = await fs_asset_handler.read_file(
             f"{resume_state.file_path}/{resume_state.file_name}"
@@ -496,6 +553,8 @@ async def push_resume_state(
         container,
         container_state_filename(resume_state.file_name),
         content,
+        # So the broker refuses it too when RomM could not tell which core runs.
+        resume_state.core or (state_core.expected if state_core is not None else None),
     )
     if not pushed:
         log.warning("resume state not pushed, launching fresh")
@@ -507,7 +566,7 @@ async def hydrate_states_to_broker(
     rom_id: int,
     container: ResolvedContainer,
     resume_pushed: bool = False,
-    core_tier: str | None = None,
+    state_core: StateCore | None = None,
 ) -> int:
     """Background task: push the newest stored state for this ROM down to the
     freshly claimed container. Emulators read state files lazily, so pushing
@@ -524,13 +583,9 @@ async def hydrate_states_to_broker(
     """
     if resume_pushed or container.resumes_from_archive:
         return 0
-    # Stored states don't record their core, so each is presumed the default's.
-    if container.core is not None and core_tier != "default":
-        log.info(
-            "not hydrating states into core %s (%s), they were made by the default",
-            container.core,
-            core_tier,
-        )
+    # A configured core with no filter means the launch never named what runs.
+    if container.core is not None and state_core is None:
+        log.info("not hydrating states into core %s, it is unconfirmed", container.core)
         return 0
 
     user = db_user_handler.get_user(user_id)
@@ -539,7 +594,7 @@ async def hydrate_states_to_broker(
         return 0
     emulator = container.emulator
 
-    states = user_states_for_emulator(user_id, rom_id, emulator)
+    states = user_states_for_emulator(user_id, rom_id, emulator, state_core)
     if not states:
         return 0
 
@@ -556,6 +611,7 @@ async def hydrate_states_to_broker(
         container,
         container_state_filename(newest.file_name),
         content,
+        state_core.expected if state_core is not None else None,
     )
     if ok:
         log.info("hydrated newest state to container, rom=%s", rom.name)

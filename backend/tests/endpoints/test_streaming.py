@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import re
+import threading
 import time
 import zipfile
 from collections.abc import Iterator
@@ -127,6 +128,13 @@ def clear_streaming_sessions():
 def clear_import_spec_cache():
     """The import-spec cache is process-wide, so one case's answer must not leak."""
     with patch.dict(webstation._import_spec_cache, clear=True):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def clear_default_core_cache():
+    """Isolate webstation's default-core cache per test."""
+    with patch.dict(webstation._default_core_cache, clear=True):
         yield
 
 
@@ -388,6 +396,48 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
     caps = r.json()["containers"][0]["capabilities"]
     assert caps["has_autosave"] is True
     assert caps["autosave_slot"] == 10
+
+
+def test_config_ships_the_state_core_rule(client, access_token):
+    with _streaming(_webstation(platforms={"snes": "retroarch:bsnes"})):
+        with (
+            patch("handler.streaming.webstation.import_spec", return_value=None),
+            patch("handler.streaming.webstation.default_core", return_value="snes9x"),
+        ):
+            body = client.get(
+                "/api/streaming/config", headers=_auth(access_token)
+            ).json()
+    (snes,) = [c for c in body["containers"] if c["platform"] == "snes"]
+    assert snes["state_core"] == {"expected": "bsnes", "default_matches": False}
+
+
+def test_config_asks_a_broker_its_spec_and_core_at_once(client, access_token):
+    """So an unreachable broker costs the play screen one timeout, not two."""
+    both = threading.Barrier(2, timeout=5)
+
+    def meet(*_args, value=None):
+        both.wait()
+        return value
+
+    with _streaming(_webstation(platforms={"snes": "retroarch"})):
+        with (
+            patch("handler.streaming.webstation.import_spec", side_effect=meet),
+            patch(
+                "handler.streaming.webstation.default_core",
+                side_effect=lambda c: meet(value="snes9x"),
+            ),
+        ):
+            r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+
+
+def test_config_has_no_state_core_outside_retroarch(client, access_token):
+    with _streaming(_webstation()):
+        with patch("handler.streaming.webstation.import_spec", return_value=None):
+            body = client.get(
+                "/api/streaming/config", headers=_auth(access_token)
+            ).json()
+    assert all(c["state_core"] is None for c in body["containers"])
 
 
 def test_get_config_labels_each_platform_by_its_emulator(client, access_token):
@@ -4846,11 +4896,86 @@ def test_hydrate_skips_states_missing_on_disk(rom: Rom, admin_user: User):
     push.assert_not_called()
 
 
-def _hydrate_ra(rom: Rom, user: User, value, core_tier):
-    """Hydrate a RetroArch container serving `rom` as `value`, returning the
-    count and the push mock."""
-    db_state_handler.add_state(_state_for(rom, user, "Game.state", "retroarch"))
-    container = _resolved(_webstation(platforms={rom.platform_slug: value}))
+def _hydrate_core(rom: Rom, user: User, value, state_core):
+    """Hydrate a RetroArch container serving the ROM as `value`, returning the
+    push mock."""
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=b"state-bytes"),
+        ),
+        patch("handler.streaming.states.push_state_file", return_value=True) as push,
+    ):
+        asyncio.run(
+            states.hydrate_states_to_broker(
+                user.id, rom.id, _snes(value), state_core=state_core
+            )
+        )
+    return push
+
+
+def test_hydrate_pushes_an_unrecorded_state_into_the_default_core(
+    rom: Rom, admin_user: User
+):
+    """Every state stored before cores were recorded is NULL and was written by
+    the default, so an upgrade must keep hydrating it."""
+    _core_state(rom, admin_user, "Game.state", None)
+    push = _hydrate_core(rom, admin_user, "retroarch", states.StateCore("snes9x", True))
+    push.assert_called_once()
+    assert push.call_args.args[1:] == ("Game.state", b"state-bytes", "snes9x")
+
+
+def test_hydrate_skips_a_newer_state_from_another_core(rom: Rom, admin_user: User):
+    """The newest matching state, not the newest overall."""
+    _core_state(rom, admin_user, "Old.state", "bsnes")
+    _core_state(rom, admin_user, "New.state", None)
+    push = _hydrate_core(
+        rom, admin_user, "retroarch:bsnes", states.StateCore("bsnes", False)
+    )
+    assert push.call_args.args[1:] == ("Old.state", b"state-bytes", "bsnes")
+
+
+def test_hydrate_pushes_nothing_when_no_state_matches(rom: Rom, admin_user: User):
+    _core_state(rom, admin_user, "Game.state", None)
+    push = _hydrate_core(
+        rom, admin_user, "retroarch:bsnes", states.StateCore("bsnes", False)
+    )
+    push.assert_not_called()
+
+
+def test_hydrate_filters_nothing_when_the_core_is_unknown(rom: Rom, admin_user: User):
+    """No configured core and a broker that can't name its default is how every
+    RetroArch launch ran before cores were recorded."""
+    _core_state(rom, admin_user, "Game.state", "whatever")
+    push = _hydrate_core(rom, admin_user, "retroarch", None)
+    assert push.call_args.args[1:] == ("Game.state", b"state-bytes", None)
+
+
+def test_hydrate_pushes_nothing_into_a_configured_core_it_cannot_match(
+    rom: Rom, admin_user: User
+):
+    """No filter with a core configured means the launch never said what runs,
+    so nothing goes rather than something that may be the wrong core's."""
+    _core_state(rom, admin_user, "Game.state", "bsnes")
+    push = _hydrate_core(rom, admin_user, "retroarch:bsnes", None)
+    push.assert_not_called()
+
+
+def test_the_launch_hands_hydration_the_core_activate_booted(
+    client, access_token, rom: Rom
+):
+    with patch(
+        "handler.streaming.states.hydrate_states_to_broker",
+        new=AsyncMock(return_value=0),
+    ) as hydrate:
+        _ra_claim(client, access_token, rom, "retroarch:bsnes", _BSNES_REPLY)
+    assert hydrate.call_args.kwargs["state_core"] == states.StateCore("bsnes", False)
+
+
+def _push_resume(rom: Rom, user: User, recorded, state_core):
+    """Push a resume state recorded as written by `recorded`, returning
+    (pushed, push mock)."""
+    state = _core_state(rom, user, "Game.state", recorded)
     with (
         patch(
             "handler.filesystem.fs_asset_handler.read_file",
@@ -4859,43 +4984,73 @@ def _hydrate_ra(rom: Rom, user: User, value, core_tier):
         patch("handler.streaming.states.push_state_file", return_value=True) as push,
     ):
         pushed = asyncio.run(
-            states.hydrate_states_to_broker(
-                user.id, rom.id, container, core_tier=core_tier
-            )
+            states.push_resume_state(_snes("retroarch:bsnes"), state, state_core)
         )
     return pushed, push
 
 
-@pytest.mark.parametrize("tier", ["vetted", "untested", "blocked", None])
-def test_hydrate_pushes_nothing_into_a_non_default_core(
-    rom: Rom, admin_user: User, tier
+@pytest.mark.parametrize(
+    ("recorded", "state_core", "label"),
+    [
+        ("bsnes", states.StateCore("bsnes", False), "bsnes"),
+        (None, states.StateCore("snes9x", True), "snes9x"),
+        # The broker's check is the backstop when RomM can't tell the core.
+        ("bsnes", None, "bsnes"),
+        (None, None, None),
+    ],
+)
+def test_a_resume_push_names_the_core_that_wrote_the_state(
+    rom: Rom, admin_user: User, recorded, state_core, label
 ):
-    """Stored states don't record their core yet, so every one is presumed the
-    default's; pushed into another core it lands where quick-load reads it."""
-    pushed, push = _hydrate_ra(rom, admin_user, "retroarch:bsnes", tier)
-    assert pushed == 0
+    pushed, push = _push_resume(rom, admin_user, recorded, state_core)
+    assert pushed is True
+    assert push.call_args.args[3] == label
+
+
+@pytest.mark.parametrize("recorded", ["snes9x", None])
+def test_a_resume_push_skips_a_state_the_booted_core_cannot_load(
+    rom: Rom, admin_user: User, recorded
+):
+    """The claim's check can disagree with the core activate booted, and the
+    session then starts fresh rather than quick-loading the wrong core's file."""
+    pushed, push = _push_resume(
+        rom, admin_user, recorded, states.StateCore("bsnes", False)
+    )
+    assert pushed is False
     push.assert_not_called()
 
 
-def test_hydrate_still_pushes_when_the_configured_core_is_the_default(
+def test_resume_refuses_a_state_another_core_wrote(rom: Rom, admin_user: User):
+    """A picker opened before the config change still lists it, and the claim
+    is the last place to stop it."""
+    state = _core_state(rom, admin_user, "Game.state", "snes9x")
+    with patch("handler.streaming.webstation.default_core", return_value="snes9x"):
+        with pytest.raises(HTTPException) as err:
+            states.resolve_resume_state(
+                admin_user.id, rom, _snes("retroarch:bsnes"), state.id
+            )
+    assert err.value.status_code == 400
+    assert "different RetroArch core" in err.value.detail
+
+
+def test_resume_takes_a_state_its_core_wrote(rom: Rom, admin_user: User):
+    state = _core_state(rom, admin_user, "Game.state3", "bsnes")
+    with patch("handler.streaming.webstation.default_core", return_value="snes9x"):
+        picked, slot, foreign = states.resolve_resume_state(
+            admin_user.id, rom, _snes("retroarch:bsnes"), state.id
+        )
+    assert (picked.id, slot, foreign) == (state.id, 3, False)
+
+
+def test_resume_takes_an_unrecorded_state_on_the_default_core(
     rom: Rom, admin_user: User
 ):
-    pushed, _ = _hydrate_ra(rom, admin_user, "retroarch:snes9x", "default")
-    assert pushed == 1
-
-
-def test_hydrate_is_unchanged_without_a_core(rom: Rom, admin_user: User):
-    pushed, _ = _hydrate_ra(rom, admin_user, "retroarch", None)
-    assert pushed == 1
-
-
-def test_the_launch_hands_the_core_tier_to_hydration(client, access_token, rom: Rom):
-    with patch(
-        "handler.streaming.states.hydrate_states_to_broker",
-        new=AsyncMock(return_value=0),
-    ) as hydrate:
-        _ra_claim(client, access_token, rom, "retroarch:bsnes", _BSNES_REPLY)
-    assert hydrate.call_args.kwargs["core_tier"] == "untested"
+    state = _core_state(rom, admin_user, "Game.state", None)
+    with patch("handler.streaming.webstation.default_core", return_value="snes9x"):
+        _, slot, _ = states.resolve_resume_state(
+            admin_user.id, rom, _snes("retroarch"), state.id
+        )
+    assert slot == 0
 
 
 def _add_state_at(rom: Rom, user: User, file_name: str, day: int) -> State:
@@ -7647,6 +7802,110 @@ def test_a_pulled_state_is_stored_with_its_core(rom: Rom, admin_user: User):
     assert ok is True
     stored = states.user_states_for_emulator(admin_user.id, rom.id, "retroarch")
     assert [s.core for s in stored] == ["bsnes"]
+
+
+_CORES_REPLY = {"platform": "snes", "default": "snes9x", "cores": []}
+
+
+def test_default_core_asks_the_broker_cores_route():
+    with patch(
+        "handler.streaming.broker.request", return_value=_CORES_REPLY
+    ) as request:
+        assert webstation.default_core(_snes("retroarch")) == "snes9x"
+    assert request.call_args.args[1] == "/streaming/api/retroarch/cores?platform=snes"
+
+
+def test_default_core_answers_from_cache_within_the_ttl():
+    with patch(
+        "handler.streaming.broker.request", return_value=_CORES_REPLY
+    ) as request:
+        webstation.default_core(_snes("retroarch"))
+        webstation.default_core(_snes("retroarch"))
+    assert request.call_count == 1
+
+
+def test_default_core_asks_again_once_a_404_expires():
+    """An upgraded broker gains the route, so an old one's 404 must not outlive
+    the TTL."""
+    with (
+        patch("handler.streaming.webstation._DEFAULT_CORE_TTL", 0.0),
+        patch(
+            "handler.streaming.broker.request", side_effect=_http_error(404)
+        ) as request,
+    ):
+        assert webstation.default_core(_snes("retroarch")) is None
+        webstation.default_core(_snes("retroarch"))
+    assert request.call_count == 2
+
+
+def test_default_core_is_not_asked_outside_retroarch():
+    with patch("handler.streaming.broker.request") as request:
+        assert webstation.default_core(_resolved(_webstation())) is None
+    request.assert_not_called()
+
+
+def test_state_core_matches_its_own_core_and_unrecorded_default_states():
+    assert states.StateCore("bsnes", False).matches("bsnes")
+    assert not states.StateCore("bsnes", False).matches(None)
+    assert not states.StateCore("bsnes", False).matches("snes9x")
+    assert states.StateCore("snes9x", True).matches(None)
+
+
+def test_state_core_takes_the_core_activate_booted():
+    """Once the game is up, the reply says what runs; no second request."""
+    with patch("handler.streaming.webstation.default_core") as default_core:
+        booted = states.state_core_for(
+            _snes("retroarch:bsnes"), {"core": "bsnes", "core_tier": "untested"}
+        )
+        default = states.state_core_for(
+            _snes("retroarch"), {"core": "snes9x", "core_tier": "default"}
+        )
+    assert booted == states.StateCore("bsnes", default_matches=False)
+    assert default == states.StateCore("snes9x", default_matches=True)
+    default_core.assert_not_called()
+
+
+def test_state_core_asks_for_the_default_before_launch():
+    with patch("handler.streaming.webstation.default_core", return_value="snes9x"):
+        configured = states.state_core_for(_snes("retroarch:bsnes"))
+        default = states.state_core_for(_snes("retroarch"))
+    assert configured == states.StateCore("bsnes", default_matches=False)
+    assert default == states.StateCore("snes9x", default_matches=True)
+
+
+def test_state_core_is_unknown_when_the_broker_cannot_say():
+    """An older broker has no cores route; filtering nothing is what RomM did
+    before it knew about cores."""
+    with patch("handler.streaming.webstation.default_core", return_value=None):
+        assert states.state_core_for(_snes("retroarch")) is None
+
+
+def test_a_configured_core_still_filters_when_the_default_is_unknown():
+    """A NULL row is the default's, and the default is not known to be this
+    core, so it stays hidden rather than risk a quick-load of the wrong file."""
+    with patch("handler.streaming.webstation.default_core", return_value=None):
+        core = states.state_core_for(_snes("retroarch:bsnes"))
+    assert core == states.StateCore("bsnes", default_matches=False)
+
+
+def test_no_state_core_outside_retroarch():
+    assert states.state_core_for(_resolved(_webstation())) is None
+
+
+def test_user_states_narrow_to_a_core(rom: Rom, admin_user: User):
+    _core_state(rom, admin_user, "A.state", None)
+    _core_state(rom, admin_user, "B.state", "bsnes")
+    _core_state(rom, admin_user, "C.state", "snes9x")
+
+    def names(core):
+        found = states.user_states_for_emulator(
+            admin_user.id, rom.id, "retroarch", core
+        )
+        return sorted(s.file_name for s in found)
+
+    assert names(None) == ["A.state", "B.state", "C.state"]
+    assert names(states.StateCore("bsnes", False)) == ["B.state"]
+    assert names(states.StateCore("snes9x", True)) == ["A.state", "C.state"]
 
 
 def test_pull_state_to_library_runs_for_a_webstation_container(
