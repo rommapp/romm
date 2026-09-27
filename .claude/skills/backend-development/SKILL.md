@@ -37,7 +37,7 @@ alembic/          Migrations (env.py + versions/)
 ## Conventions
 
 - **Naming:** Classes `PascalCase`; functions/vars `snake_case`; constants `UPPER_SNAKE_CASE`; private `_prefixed`.
-- **DB sessions:** decorate handler methods with `@begin_session`; it injects and manages the SQLAlchemy session/transaction. Don't open sessions ad hoc.
+- **DB sessions:** decorate handler methods with `@begin_session`; it injects and manages the SQLAlchemy session/transaction, and nested decorated calls join the open one. Group several handler calls into one unit of work with `with transaction():`; use `@begin_isolated_session` only for work that must commit on its own. Don't open sessions ad hoc.
 - **Async:** I/O-bound endpoints and tasks use `async/await`. Per-request `httpx2`/`aiohttp` clients come from context vars (`utils/context.py`), not new clients per call.
 - **Imports:** stdlib → third-party → local; explicit (no wildcards); `TYPE_CHECKING` blocks to break circular imports.
 - **Errors:** raise the custom exceptions in `exceptions/` (e.g. `RomNotFoundInDatabaseException`), not bare `HTTPException`, where a typed one exists.

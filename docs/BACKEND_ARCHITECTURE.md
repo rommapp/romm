@@ -445,7 +445,7 @@ sync_engine = create_engine(
 sync_session = sessionmaker(bind=sync_engine, expire_on_commit=False)
 ```
 
-Sessions are injected via the `@begin_session` decorator, which wraps handlers in a transaction context.
+Sessions are injected via the `@begin_session` decorator, which wraps handlers in a transaction context. A decorated call made while a transaction is open joins it, whether that transaction came from an outer decorated call, an explicit `session=` argument, or a `with transaction():` block. `@begin_isolated_session` always begins its own transaction instead, for work that has to commit before the caller takes locks.
 
 ### Base Model
 

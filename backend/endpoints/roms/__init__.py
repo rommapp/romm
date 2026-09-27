@@ -38,6 +38,7 @@ from config import (
     LIBRARY_BASE_PATH,
 )
 from decorators.auth import protected_route
+from decorators.database import transaction
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
 from endpoints.responses.recommendation import SimilarRomSchema
@@ -71,7 +72,6 @@ from handler.database import (
     db_rom_handler,
     db_save_handler,
 )
-from handler.database.base_handler import sync_session
 from handler.database.rom_filters import RomFilterParams, RomFiltersDict
 from handler.database.roms_handler import (
     sorts_by_rom_user_column,
@@ -714,7 +714,7 @@ def get_roms(
         )
 
     # Hydrate the requested page and its additional data
-    with sync_session.begin() as session:
+    with transaction() as session:
 
         def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
             rom_ids = [i.id for i in items]

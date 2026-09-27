@@ -5,7 +5,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from decorators.database import INJECTED_SESSION, begin_session
+from decorators.database import (
+    INJECTED_SESSION,
+    begin_isolated_session,
+    begin_session,
+    in_transaction,
+)
 from models.deleted_asset import MAX_REMEMBERED_HASHES, DeletedAsset
 
 from .base_handler import DBBaseHandler
@@ -23,7 +28,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         except IntegrityError:
             pass  # A concurrent deletion of the same slot inserted first.
 
-    @begin_session
+    @begin_isolated_session
     def _exists(
         self,
         user_id: int,
@@ -69,15 +74,17 @@ class DBDeletedAssetsHandler(DBBaseHandler):
             slot: The slot itself.
             content_hashes: What those versions held, oldest first.
             session: The transaction losing the versions, so both commit
-                together. Its caller runs `ensure_record` before taking locks.
+                together; an open transaction counts too. Its caller runs
+                `ensure_record` before taking locks.
 
         Returns:
             The record a negotiation will read.
         """
-        if session is None:
+        if session is not None:
+            return self._append(user_id, rom_id, slot, content_hashes, session=session)
+        if not in_transaction():
             self.ensure_record(user_id, rom_id, slot)
-            return self._append(user_id, rom_id, slot, content_hashes)
-        return self._append(user_id, rom_id, slot, content_hashes, session=session)
+        return self._append(user_id, rom_id, slot, content_hashes)
 
     @begin_session
     def _append(
@@ -113,7 +120,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         session.flush()
         return record
 
-    @begin_session
+    @begin_isolated_session
     def _insert(
         self,
         user_id: int,

@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, Request, status
 
 from decorators.auth import protected_route
+from decorators.database import transaction
 from endpoints.responses.device_auth import (
     DeviceAuthApprovePayload,
     DeviceAuthApproveResponse,
@@ -31,7 +32,6 @@ from handler.audit_handler import AuditTarget, record
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_client_token_handler, db_device_handler
-from handler.database.base_handler import sync_session
 from logger.logger import log
 from models.audit_event import AuditAction, AuditTargetType
 from models.client_token import ClientToken
@@ -190,7 +190,7 @@ def approve(
     raw_token = auth_handler.generate_client_token()
 
     # Create/update the Device and its bound ClientToken in a single unit of work
-    with sync_session.begin() as session:
+    with transaction() as session:
         existing = db_device_handler.get_device_by_client_identifier(
             user_id=request.user.id,
             client_device_identifier=data["client_device_identifier"],

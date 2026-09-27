@@ -6,7 +6,11 @@ from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select, updat
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
-from decorators.database import INJECTED_SESSION, begin_session
+from decorators.database import (
+    INJECTED_SESSION,
+    begin_isolated_session,
+    begin_session,
+)
 from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
 from models.base import with_file_name_parts
 from models.rom import Rom
@@ -274,7 +278,7 @@ class DBSavesHandler(DBBaseHandler):
             latest.setdefault(save.rom_id, save)
         return latest
 
-    @begin_session
+    @begin_isolated_session
     def _slot_version(
         self,
         id: int,
@@ -435,7 +439,7 @@ class DBSavesHandler(DBBaseHandler):
             )
         return rows
 
-    @begin_session
+    @begin_isolated_session
     def _any(
         self,
         query: Select[Any],

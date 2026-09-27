@@ -13,12 +13,12 @@ from typing import Any, BinaryIO, TypeAlias, cast
 
 from fastapi import HTTPException, UploadFile, status
 
+from decorators.database import transaction
 from handler.database import (
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
 )
-from handler.database.base_handler import sync_session
 from handler.database.saves_handler import UnhashedVersions
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_screenshot, scan_state
@@ -350,7 +350,7 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
         ) from exc
 
     try:
-        with sync_session.begin() as session:
+        with transaction() as session:
             if thumbnail and copy_thumbnail:
                 db_screenshot_handler.add_screenshot(
                     Screenshot(
