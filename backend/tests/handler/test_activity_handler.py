@@ -1,10 +1,12 @@
 import asyncio
 import json
 from contextlib import contextmanager
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from handler.activity_handler import activity_handler
-from handler.redis_handler import async_cache
+from handler.redis_handler import async_cache, sync_cache
 from handler.socket_handler import socket_handler
 from models.rom import Rom
 from models.user import User
@@ -152,38 +154,64 @@ def test_clearing_broadcasts_only_when_there_was_something_to_clear(
     )
 
 
-def test_active_for_rom_reads_every_session_at_once_and_drops_stale_members():
-    # A stub, since the test fakeredis returns bytes and members are parsed as str.
-    entry = {"user_id": 1, "device_id": "live", "rom_id": 7}
-    cache = MagicMock()
-    cache.smembers = AsyncMock(
-        return_value=["1:live", "1:expired", "1:corrupt", "not-a-member"]
+@pytest.fixture
+def clean_cache():
+    sync_cache.flushall()
+    yield
+    sync_cache.flushall()
+
+
+def _session(device_id: str, rom_id: int) -> dict[str, object]:
+    return {"user_id": 1, "device_id": device_id, "rom_id": rom_id}
+
+
+async def _seed(rom_id: int, sessions: dict[str, object], *members: str) -> None:
+    for device_id, value in sessions.items():
+        raw = value if isinstance(value, str) else json.dumps(value)
+        await async_cache.set(f"activity:user:1:{device_id}", raw)
+    await async_cache.sadd(f"activity:rom:{rom_id}", *members)
+
+
+def test_active_for_rom_reads_every_session_at_once_and_drops_stale_members(
+    clean_cache,
+):
+    live = _session("live", 7)
+    asyncio.run(
+        _seed(
+            7,
+            {
+                "live": live,
+                "corrupt": "not-json",
+                "listed": "[]",
+                "moved": _session("moved", 9),
+            },
+            "1:live",
+            "1:expired",
+            "1:corrupt",
+            "1:listed",
+            "1:moved",
+            "not-a-member",
+        )
     )
-    cache.mget = AsyncMock(return_value=[json.dumps(entry), None, "not-json"])
-    cache.get = AsyncMock()
-    cache.srem = AsyncMock()
 
-    with patch("handler.activity_handler.async_cache", cache):
-        assert asyncio.run(activity_handler.get_active_for_rom(7)) == [entry]
+    with patch.object(async_cache, "get", wraps=async_cache.get) as get:
+        assert asyncio.run(activity_handler.get_active_for_rom(7)) == [live]
 
-    cache.mget.assert_awaited_once_with(
-        ["activity:user:1:live", "activity:user:1:expired", "activity:user:1:corrupt"]
-    )
-    cache.get.assert_not_awaited()
-    cache.srem.assert_awaited_once_with(
-        "activity:rom:7", "not-a-member", "1:expired", "1:corrupt"
-    )
+    get.assert_not_called()
+    assert asyncio.run(async_cache.smembers("activity:rom:7")) == {b"1:live"}
 
 
-def test_active_for_rom_drops_a_device_that_moved_to_another_rom():
-    cache = MagicMock()
-    cache.smembers = AsyncMock(return_value=["1:switched"])
-    cache.mget = AsyncMock(
-        return_value=[json.dumps({"user_id": 1, "device_id": "switched", "rom_id": 9})]
-    )
-    cache.srem = AsyncMock()
+def test_active_for_rom_spares_a_member_a_heartbeat_revived(clean_cache):
+    """A device that moves back to the ROM mid-read keeps its index entry."""
+    asyncio.run(_seed(7, {"dev": _session("dev", 9)}, "1:dev"))
+    real_mget = async_cache.mget
 
-    with patch("handler.activity_handler.async_cache", cache):
+    async def mget_then_heartbeat(keys):
+        raws = await real_mget(keys)
+        await async_cache.set("activity:user:1:dev", json.dumps(_session("dev", 7)))
+        return raws
+
+    with patch.object(async_cache, "mget", side_effect=mget_then_heartbeat):
         assert asyncio.run(activity_handler.get_active_for_rom(7)) == []
 
-    cache.srem.assert_awaited_once_with("activity:rom:7", "1:switched")
+    assert asyncio.run(async_cache.smembers("activity:rom:7")) == {b"1:dev"}
