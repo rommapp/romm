@@ -285,19 +285,39 @@ def extract_media_from_gamelist_rom(
     path_elem = game.find("path")
     if path_elem is not None and path_elem.text:
         rom_name = os.path.basename(path_elem.text)
-        # ES-DE names a directory's media after its full name, a file's after its stem
-        rom_names = (rom_name, os.path.splitext(rom_name)[0])
+        rom_stem = os.path.splitext(rom_name)[0]
+        is_directory: bool | None = None
 
         for media_key in ESDE_MEDIA_MAP:
             if gamelist_media[media_key]:
                 continue
 
             files = media_files[media_key]
-            gamelist_media[media_key] = next(
-                (files[name] for name in rom_names if name in files), None
-            )
+            if rom_name in files and rom_stem in files:
+                # ES-DE names a directory's media after its full name, a file's
+                # after its stem, so only a name both could match needs the disk.
+                if is_directory is None:
+                    is_directory = _is_directory_entry(
+                        game, platform_dir, path_elem.text
+                    )
+                name = rom_name if is_directory else rom_stem
+            else:
+                name = rom_name if rom_name in files else rom_stem
+            gamelist_media[media_key] = files.get(name)
 
     return gamelist_media
+
+
+def _is_directory_entry(game: Element, platform_dir: str, raw_path: str) -> bool:
+    """Whether a gamelist entry names a directory rather than a file."""
+    if game.tag == "folder":
+        return True
+    try:
+        return fs_platform_handler.validate_path(
+            os.path.join(platform_dir, gamelist_path_to_rel_path(raw_path))
+        ).is_dir()
+    except ValueError:
+        return False
 
 
 def extract_metadata_from_gamelist_rom(

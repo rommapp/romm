@@ -10,6 +10,7 @@ from config.config_manager import MetadataMediaType
 from handler.filesystem import fs_platform_handler
 from handler.metadata.gamelist_handler import (
     GamelistHandler,
+    GamelistMetadataMedia,
     build_media_file_index,
     extract_media_from_gamelist_rom,
     extract_metadata_from_gamelist_rom,
@@ -259,7 +260,9 @@ def _write_media(root: Path, platform: Platform, folder: str, name: str) -> None
     (media_dir / name).write_bytes(b"")
 
 
-def _extract_media(tmp_path: Path, platform: Platform, game_xml: str):
+def _extract_media(
+    tmp_path: Path, platform: Platform, game_xml: str
+) -> GamelistMetadataMedia:
     with patch.object(fs_platform_handler, "base_path", tmp_path):
         return extract_media_from_gamelist_rom(
             ET.fromstring(game_xml), platform, build_media_file_index(platform)
@@ -330,6 +333,12 @@ def test_build_media_file_index_follows_esde_extension_order(
             "<folder><path>./Dr. Mario</path></folder>",
             "covers/Dr. Mario.png",
         ),
+        # A file keeps its stem when media exists under both names
+        (
+            ["Game.png", "Game.zip.png"],
+            "<game><path>./Game.zip</path></game>",
+            "covers/Game.png",
+        ),
         # An explicit tag wins over the media folder
         (
             ["Game.png"],
@@ -352,6 +361,22 @@ def test_extract_media_matches_the_rom_name(
 
     assert media["box2d_url"] == (
         f"file://{_platform_dir(platform)}/{expected}" if expected else None
+    )
+
+
+def test_extract_media_names_a_game_directory_in_full(
+    tmp_path: Path, platform: Platform
+):
+    for name in ("Final Fantasy VII.png", "Final Fantasy VII.m3u.png"):
+        _write_media(tmp_path, platform, "covers", name)
+    (tmp_path / _platform_dir(platform) / "Final Fantasy VII.m3u").mkdir()
+
+    media = _extract_media(
+        tmp_path, platform, "<game><path>./Final Fantasy VII.m3u</path></game>"
+    )
+
+    assert media["box2d_url"] == (
+        f"file://{_platform_dir(platform)}/covers/Final Fantasy VII.m3u.png"
     )
 
 
