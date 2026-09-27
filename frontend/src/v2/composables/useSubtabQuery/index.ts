@@ -18,6 +18,13 @@ export function useSubtabQuery<T extends string>(
     return isValid(raw) ? (raw as T) : null;
   }
 
+  function urlSubtabIsInvalid(): boolean {
+    const raw = route.query.subtab;
+    return (
+      route.query.tab === tabId && typeof raw === "string" && !isValid(raw)
+    );
+  }
+
   // `shallowRef` cannot resolve its unwrap type for a generic `T`.
   const subtab = shallowRef(fromRoute() ?? fallback) as Ref<T>;
 
@@ -29,6 +36,18 @@ export function useSubtabQuery<T extends string>(
     const value = fromRoute();
     if (value !== null && value !== subtab.value) subtab.value = value;
   });
+
+  // A subtab the URL names but the view can't show (a stale deep link, or one
+  // carried to a game without it) is rewritten to the one on screen.
+  watch(
+    [() => route.path, urlSubtabIsInvalid],
+    ([, invalid]) => {
+      if (invalid && isValid(subtab.value)) {
+        patchQuery(router, { subtab: subtab.value });
+      }
+    },
+    { immediate: true },
+  );
 
   return subtab;
 }
