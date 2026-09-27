@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Callable, Coroutine
 
 import httpx2
 import pytest
@@ -52,7 +52,7 @@ def test_other_urls_are_rejected(url: str):
 
 
 async def _fetch_with(
-    respond: Callable[[httpx2.Request], Awaitable[httpx2.Response]],
+    respond: Callable[[httpx2.Request], Coroutine[None, None, httpx2.Response]],
     url: str = "https://images.igdb.com/a.jpg",
 ):
     client = httpx2.AsyncClient(transport=httpx2.MockTransport(respond))

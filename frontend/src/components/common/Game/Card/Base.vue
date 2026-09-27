@@ -35,7 +35,6 @@ import {
   getUnmatchedCoverImage,
   EXTENSION_REGEX,
 } from "@/utils/covers";
-import { providerImageUrl } from "@/utils/providerImage";
 
 // Tilt 3D effect logic
 interface TiltHTMLElement extends HTMLElement {
@@ -179,13 +178,12 @@ const largeCover = computed(() => {
   if (boxartStyleCover.value)
     return `${FRONTEND_RESOURCES_PATH}/${boxartStyleCover.value}`;
   if (!romsStore.isSimpleRom(props.rom)) {
-    return providerImageUrl(
+    return (
       props.rom.igdb_url_cover ||
-        props.rom.moby_url_cover ||
-        props.rom.ss_url_cover ||
-        props.rom.launchbox_url_cover ||
-        props.rom.flashpoint_url_cover ||
-        "",
+      props.rom.moby_url_cover ||
+      props.rom.ss_url_cover ||
+      props.rom.launchbox_url_cover ||
+      props.rom.flashpoint_url_cover
     );
   }
   const pathCoverLarge = isWebpEnabled.value

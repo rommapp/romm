@@ -11,7 +11,6 @@ import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { providerImageUrl } from "@/utils/providerImage";
 
 type MatchedSource = {
   url_cover: string | undefined;
@@ -644,7 +643,7 @@ onBeforeUnmount(() => {
                     is_identified: true,
                     is_unidentified: false,
                   }"
-                  :cover-src="providerImageUrl(source.url_cover ?? '')"
+                  :cover-src="source.url_cover"
                   :width="xs ? 150 : 220"
                   transform-scale
                   pointer-on-hover
