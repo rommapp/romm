@@ -351,9 +351,8 @@ export default defineStore("roms", {
       this.continuePlayingRoms = this.continuePlayingRoms.map((value) =>
         value.id === rom.id ? rom : value,
       );
-      // An optimistic mutation on a SimpleRom from the gallery (status
-      // toggle, favourite, ...) would otherwise leave the detail view
-      // rendering stale `rom_user` data until the next route entry.
+      // A gallery toggle (status, favourite) would otherwise leave the detail
+      // view on stale `rom_user` data until the next route entry.
       this.mergeIntoDetailedRom(rom);
     },
     remove(roms: SimpleRom[]) {
