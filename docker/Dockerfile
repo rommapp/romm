@@ -24,8 +24,8 @@ ARG NODE_VERSION=24.16
 ARG NODE_ALPINE_SHA256=21f403ab171f2dc89bad4dd69d7721bfd15f084ccb46cdd225f31f2bc59b5c9a
 ARG NGINX_VERSION=1.30.5
 ARG NGINX_SHA256=a5f2157a0302eb0c5e300415effb63a9e70ed1eb9c107283819bf6d149ab607c
-ARG UV_VERSION=0.12.13
-ARG UV_SHA256=eb47c391d3a252d9d912270dd2b5e234af5493e92039fedb483f1dd1cb5659ce
+ARG UV_VERSION=0.12.19
+ARG UV_SHA256=b165481b747c340b4b3b820f6e453c3aea939c8b583cbfc01c4e99ec61181bc2
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
@@ -60,7 +60,7 @@ COPY ./backend/utils/rom_patcher/package*.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
 
 
-# https://github.com/astral-sh/uv/pkgs/container/uv/452595714
+# https://github.com/astral-sh/uv/pkgs/container/uv
 FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${UV_SHA256} AS uv-stage
 
 
