@@ -144,10 +144,10 @@ def pair_token(request: Request, token_id: int) -> ClientTokenPairSchema:
 
     code = generate_pair_code()
     redis_key = f"pair:{code}"
-    sync_cache.setex(
+    sync_cache.set(
         redis_key,
-        PAIR_CODE_TTL_SECONDS,
         json.dumps({"token_id": token_id, "user_id": request.user.id}),
+        ex=PAIR_CODE_TTL_SECONDS,
     )
     return ClientTokenPairSchema(code=code, expires_in=PAIR_CODE_TTL_SECONDS)
 

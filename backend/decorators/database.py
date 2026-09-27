@@ -1,11 +1,16 @@
 import functools
 from collections.abc import Callable
+from typing import cast
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.orm import Session
 
 from handler.database.base_handler import sync_session
 from logger.logger import log
+
+# Default for a `session` parameter that begin_session fills before the body runs.
+INJECTED_SESSION = cast(Session, None)
 
 
 def begin_session[**P, R](func: Callable[P, R]) -> Callable[P, R]:

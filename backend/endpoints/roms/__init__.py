@@ -2215,18 +2215,9 @@ async def update_rom(
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
-        for ach in cleaned_data.get("ra_metadata", {}).get("achievements", []):
-            # Store both normal and locked version
-            badge_url_lock = ach.get("badge_url_lock", None)
-            badge_path_lock = ach.get("badge_path_lock", None)
-            if badge_url_lock and badge_path_lock:
-                await fs_resource_handler.store_ra_badge(
-                    badge_url_lock, badge_path_lock
-                )
-            badge_url = ach.get("badge_url", None)
-            badge_path = ach.get("badge_path", None)
-            if badge_url and badge_path:
-                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
+        await fs_resource_handler.store_ra_badges(
+            cleaned_data.get("ra_metadata", {}).get("achievements", [])
+        )
 
     # Handle special media files from Screenscraper when the ID has changed
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:

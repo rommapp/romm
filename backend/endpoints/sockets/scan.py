@@ -131,7 +131,7 @@ def _scan_reported_itself(job: Job) -> bool:
 
 def report_scan_failure(
     job: Job,
-    connection: Redis[bytes],
+    connection: Redis,
     exc_type: type,
     exc_value: BaseException,
     tb: Any,

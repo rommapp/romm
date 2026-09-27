@@ -558,6 +558,7 @@ class TestToken:
         second = _poll_token(client, body["device_code"])
         assert second.status_code == status.HTTP_400_BAD_REQUEST
         assert second.json()["detail"] == "slow_down"
+        assert sync_cache.ttl(df._KEY_POLL_LAST.format(body["device_code"])) > 0
 
     def test_per_ip_rate_limit(self, client):
         # Per-IP cap is 60/60s on /token. Use a single device_code with fast

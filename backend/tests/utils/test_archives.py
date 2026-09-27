@@ -602,6 +602,28 @@ class TestZipAndTarReadFailures:
             list(archives._iter_chunks(_FailingReader(), Path("/fake.tar.gz"), "a.bin"))
 
 
+class TestReadTarFile:
+    def _write_tar(self, path: Path, members: dict[str, bytes]) -> None:
+        with tarfile.open(path, "w") as tf:
+            for name, data in members.items():
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tf.addfile(info, io.BytesIO(data))
+
+    def test_streams_the_largest_member(self, tmp_path):
+        path = tmp_path / "game.tar"
+        self._write_tar(path, {"small.bin": b"S" * 16, "large.bin": b"L" * 64})
+
+        assert b"".join(archives.read_tar_file(path)) == b"L" * 64
+
+    def test_member_without_a_stream_yields_nothing(self, tmp_path):
+        path = tmp_path / "game.tar"
+        self._write_tar(path, {"game.bin": b"G" * 16})
+
+        with patch.object(tarfile.TarFile, "extractfile", return_value=None):
+            assert list(archives.read_tar_file(path)) == []
+
+
 class TestZipUndecodableCompression:
     """Zips using a method zipfile can't decode must be read through 7zz, not
     hashed as a container (GitHub issue #4159)."""

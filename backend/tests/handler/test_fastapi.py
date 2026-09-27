@@ -1300,11 +1300,13 @@ async def test_lookup_rom_sends_all_top_level_file_hashes(
     assert result["hasheous_id"] is None
     # Hasheous answered, it just knows nothing about these hashes.
     assert conclusive is True
-    mock_request.assert_called_once()
-    sent_data = mock_request.call_args.kwargs["data"]
-    assert sent_data == [
-        {"mD5": "md5one", "shA1": "sha1one", "crc": "crcone"},
-        {"shA1": "chdsha1"},
+    disc1 = {"mD5": "md5one", "shA1": "sha1one", "crc": "crcone"}
+    disc2 = {"shA1": "chdsha1"}
+    # The missed batch is retried one file at a time.
+    assert [call.kwargs["data"] for call in mock_request.call_args_list] == [
+        [disc1, disc2],
+        [disc1],
+        [disc2],
     ]
 
 
