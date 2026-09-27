@@ -72,7 +72,6 @@ dev = [
   "types-defusedxml ~= 0.7",
   "types-passlib ~= 1.7",
   "types-pyyaml ~= 6.0",
-  "types-redis ~= 4.6",
 ]
 test = [
   "fakeredis ~= 2.38",

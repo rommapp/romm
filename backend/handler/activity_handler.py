@@ -209,7 +209,7 @@ class ActivityHandler:
     async def get_active_for_rom(self, rom_id: int) -> list[ActivityEntry]:
         """Get all active play sessions for a specific ROM."""
         rom_key = self._rom_index_key(rom_id)
-        members = await async_cache.smembers(rom_key)
+        members = cast(set[str], await async_cache.smembers(rom_key))
         entries: list[ActivityEntry] = []
         stale_members: list[str] = []
 

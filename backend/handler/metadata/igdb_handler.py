@@ -1053,7 +1053,7 @@ class TwitchAuth(MetadataHandler):
             return ""
 
         # Fetch the token cache
-        token = await async_cache.get("romm:twitch_token")
+        token = cast(str | None, await async_cache.get("romm:twitch_token"))
         if not token:
             log.info("Twitch token invalid: fetching a new one...")
             return await self._update_twitch_token()

@@ -139,11 +139,11 @@ async def start_log_forwarder() -> None:
                         continue
             finally:
                 await pubsub.unsubscribe(LOG_CHANNEL)
-                await pubsub.aclose()  # type: ignore[attr-defined]
+                await pubsub.aclose()
                 pubsub = None
     except asyncio.CancelledError:
         if pubsub is not None:
-            await pubsub.aclose()  # type: ignore[attr-defined]
+            await pubsub.aclose()
         # Release the lock on shutdown so a restart (e.g. uvicorn --reload)
         # resumes forwarding immediately instead of waiting out the TTL.
         await _release_lock(lock_id)
