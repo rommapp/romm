@@ -60,9 +60,9 @@ class RAGameExtendedDetails(TypedDict):
     ImageTitle: str
     ImageIngame: str
     ImageBoxArt: str
-    Publisher: str
-    Developer: str
-    Genre: str
+    Publisher: str | None
+    Developer: str | None
+    Genre: str | None
     Released: str | None  # ISO 8601 date format
     ReleasedAtGranularity: RAGameReleasedAtGranularity | None
     RichPresencePatch: str
@@ -129,9 +129,9 @@ class RAGameInfoAndUserProgress(TypedDict):
     ImageTitle: str
     ImageIngame: str
     ImageBoxArt: str
-    Publisher: str
-    Developer: str
-    Genre: str
+    Publisher: str | None
+    Developer: str | None
+    Genre: str | None
     Released: str | None  # ISO 8601 date format
     ReleasedAtGranularity: RAGameReleasedAtGranularity | None
     RichPresencePatch: str

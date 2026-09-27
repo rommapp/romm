@@ -15,6 +15,41 @@ from adapters.services.retroachievements import (
 
 INVALID_GAME_ID = 999999
 
+# RA sends null credits for games without them, such as homebrew and hacks.
+UNCREDITED_GAME = {
+    "ID": 1,
+    "Title": "Homebrew",
+    "ConsoleID": 1,
+    "ForumTopicID": None,
+    "ImageIcon": "",
+    "ImageTitle": "",
+    "ImageIngame": "",
+    "ImageBoxArt": "",
+    "Publisher": None,
+    "Developer": None,
+    "Genre": None,
+    "Released": None,
+    "ReleasedAtGranularity": None,
+    "RichPresencePatch": "",
+    "GuideURL": None,
+    "ConsoleName": "Genesis/Mega Drive",
+    "ParentGameID": None,
+    "NumDistinctPlayers": 0,
+    "NumAchievements": 0,
+    "Achievements": {},
+}
+
+
+def _session_returning(body: dict[str, object]) -> MagicMock:
+    mock_response = MagicMock()
+    mock_response.read = AsyncMock(return_value=json.dumps(body).encode())
+    mock_response.raise_for_status.return_value = None
+    mock_session = AsyncMock()
+    mock_session.get.return_value = mock_response
+    mock_context = MagicMock()
+    mock_context.get.return_value = mock_session
+    return mock_context
+
 
 class TestAuthMiddleware:
     @patch("adapters.services.retroachievements.RETROACHIEVEMENTS_API_KEY", "test_key")
@@ -113,6 +148,39 @@ class TestRetroAchievementsServiceUnit:
             "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
         ):
             assert await service.get_game_extended_details(999999) is None
+
+    @pytest.mark.asyncio
+    async def test_game_extended_details_accept_missing_credits(self, service):
+        body = {
+            **UNCREDITED_GAME,
+            "Updated": "2025-07-06T16:20:59.000000Z",
+            "NumDistinctPlayersCasual": 0,
+            "NumDistinctPlayersHardcore": 0,
+        }
+
+        with patch(
+            "adapters.services.retroachievements.ctx_aiohttp_session",
+            _session_returning(body),
+        ):
+            assert await service.get_game_extended_details(1) == body
+
+    @pytest.mark.asyncio
+    async def test_user_game_progress_accepts_missing_credits(self, service):
+        body = {
+            **UNCREDITED_GAME,
+            "NumAwardedToUser": 0,
+            "NumAwardedToUserHardcore": 0,
+            "NumDistinctPlayersCasual": 0,
+            "NumDistinctPlayersHardcore": 0,
+            "UserCompletion": "0.00%",
+            "UserCompletionHardcore": "0.00%",
+        }
+
+        with patch(
+            "adapters.services.retroachievements.ctx_aiohttp_session",
+            _session_returning(body),
+        ):
+            assert await service.get_user_game_progress("user", 1) == body
 
     @pytest.mark.asyncio
     async def test_a_failed_progress_page_aborts_the_iteration(self, service):
