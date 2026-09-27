@@ -69,7 +69,9 @@ class ImportSpec:
 # Per container, so one broker's answer never speaks for another. A 404 or 422
 # holds for the worker's life, an answer for one claim's checks, a failure not at all.
 _IMPORT_SPEC_TTL = 30.0
-_import_spec_cache: dict[tuple[str, str, str], tuple[float, ImportSpec | None]] = {}
+_import_spec_cache: dict[
+    tuple[str, str, str, str | None, bool], tuple[float, ImportSpec | None]
+] = {}
 
 
 def _parse_import_spec(body: dict[str, Any]) -> ImportSpec | None:
@@ -104,13 +106,25 @@ def import_spec(
     """What this broker accepts as a declared import, or None when nothing or unknown."""
     if not container.is_webstation:
         return None
-    cache_key = (container.key, emulator, platform)
+    # The core is part of the key: a refusal is cached for the worker's life,
+    # and a config edit that changes the core must be asked about afresh.
+    cache_key = (
+        container.key,
+        emulator,
+        platform,
+        container.core,
+        container.experimental_cores,
+    )
     cached = _import_spec_cache.get(cache_key)
     if cached is not None and cached[0] > time.monotonic():
         return cached[1]
-    path = container.protocol.session_route(
-        f"/import-spec?emulator={quote(emulator, safe='')}&platform={quote(platform, safe='')}"
-    )
+    query = f"emulator={quote(emulator, safe='')}&platform={quote(platform, safe='')}"
+    if container.core:
+        # Discovery has to answer for the core activate will boot.
+        query += f"&core={quote(container.core, safe='')}"
+        if container.experimental_cores:
+            query += "&experimental_cores=1"
+    path = container.protocol.session_route(f"/import-spec?{query}")
     try:
         resp = broker.request(container, path, method="GET", timeout=ACK_TIMEOUT)
     except urllib.error.HTTPError as exc:

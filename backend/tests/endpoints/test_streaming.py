@@ -8561,6 +8561,46 @@ def test_import_spec_returns_none_and_caches_on_404(rom: Rom):
     assert urlopen.call_count == 1
 
 
+def _spec_path(container) -> str:
+    """The path import_spec asks the broker for."""
+    with patch(
+        "handler.streaming.broker.request", side_effect=_http_error(404)
+    ) as request:
+        webstation.import_spec(container, "retroarch", "snes")
+    return request.call_args.args[1]
+
+
+def test_import_spec_asks_about_the_configured_core():
+    """Discovery must answer for the core activate boots, or the picker offers
+    imports that core refuses."""
+    path = _spec_path(_snes("retroarch:bsnes"))
+    assert "&core=bsnes" in path
+    assert "experimental_cores" not in path
+
+
+def test_import_spec_carries_the_opt_in():
+    opted = _snes("retroarch:bsnes", experimental_cores=True)
+    assert _spec_path(opted).endswith("&core=bsnes&experimental_cores=1")
+
+
+def test_import_spec_query_is_unchanged_without_a_core():
+    assert "core=" not in _spec_path(_snes("retroarch"))
+
+
+def test_import_spec_asks_again_when_the_core_changes():
+    """Review Focus 1: a 404/422 is cached for the worker's life, so a key
+    without the core would keep the old core's answer after a config edit."""
+    with patch(
+        "handler.streaming.broker.request", side_effect=_http_error(404)
+    ) as request:
+        webstation.import_spec(_snes("retroarch:bsnes"), "retroarch", "snes")
+        webstation.import_spec(_snes("retroarch"), "retroarch", "snes")
+        webstation.import_spec(
+            _snes("retroarch:bsnes", experimental_cores=True), "retroarch", "snes"
+        )
+    assert request.call_count == 3
+
+
 def test_import_spec_never_asks_a_legacy_broker(rom: Rom):
     """Declared imports are a webstation contract; a per-emulator broker is
     never asked, so a foreign pick there is refused without a round trip."""
