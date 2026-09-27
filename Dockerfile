@@ -111,8 +111,7 @@ RUN make HAVE_CHD=1 -f ./Makefile.RAHasher \
     && cp ./bin64/RAHasher /usr/bin/RAHasher
 RUN rm -rf /tmp/RALibretro
 
-# Install rom-converto (optional ROM conversion/decryption/metadata tool).
-# The musl builds are fully static, so they run on this glibc image.
+# Install rom-converto (optional); its static musl build runs on this glibc image.
 # Keep the version and both sums in sync with docker/Dockerfile.
 ARG TARGETARCH
 RUN ROM_CONVERTO_VERSION=v0.21.0 \

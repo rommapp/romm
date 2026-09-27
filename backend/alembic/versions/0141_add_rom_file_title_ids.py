@@ -1,8 +1,5 @@
 """Add the per-file title id columns on rom_files: title_id and title_version.
 
-Rom-level title_id landed in 0116_sigil_title_ids; these columns hold the
-identity of every file in a multi-part rom, extracted by rom-converto.
-
 Revision ID: 0141_add_rom_file_title_ids
 Revises: 0140_device_save_sync_baseline
 Create Date: 2026-09-03 00:00:00.000000

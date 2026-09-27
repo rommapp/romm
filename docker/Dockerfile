@@ -146,8 +146,7 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
 
 
 # ROM-CONVERTO CLI
-# The musl builds are fully static. Keep the version and both sums in sync
-# with the dev image's copy in ../Dockerfile.
+# Keep the version and both sums in sync with the dev image's copy in ../Dockerfile.
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
 ARG TARGETARCH
 ARG ROM_CONVERTO_VERSION=v0.21.0
