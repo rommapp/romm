@@ -7,7 +7,7 @@ import re
 import struct
 import zlib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Final, NotRequired, TypedDict
 
@@ -362,7 +362,7 @@ def _rom_level_identity(
     extractions: list[SigilExtractionResult],
     rom_files: list[RomFile],
 ) -> RomIdentity:
-    """The rom's identity, from sigil when it read one, else rom-converto's file ids."""
+    """The rom's identity: sigil's extraction (holding rom-converto's id where it read one), else rom-converto's file ids."""
     is_switch = platform_slug in SWITCH_PLATFORM_SLUGS
     if extractions:
         chosen = next(
@@ -622,12 +622,11 @@ class FSRomsHandler(FSHandler):
     async def _read_converto_title_ids(
         self, sources: list[tuple[Path, RomFile]]
     ) -> None:
-        """Fill title ids sigil left unset from one rom-converto batch."""
-        pending = [(path, f) for path, f in sources if not f.title_id]
-        if not pending:
+        """Write rom-converto's title ids onto new or changed files from one batch."""
+        if not sources:
             return
-        infos = await rom_converto_service.read_infos([p for p, _ in pending])
-        for path, rom_file in pending:
+        infos = await rom_converto_service.read_infos([p for p, _ in sources])
+        for path, rom_file in sources:
             info = infos.get(path)
             if info is not None and info.title_id:
                 rom_file.title_id = info.title_id
@@ -668,8 +667,8 @@ class FSRomsHandler(FSHandler):
         # non-hashable platforms like Switch.
         sigil_platform = extract_title_ids and rom.platform_slug in SIGIL_PLATFORM_SLUGS
         is_switch = rom.platform_slug in SWITCH_PLATFORM_SLUGS
-        # rom-converto only fills per-file ids sigil left unset, on new or
-        # changed files; sigil stays authoritative and owns save targets.
+        # rom-converto reads the per-file ids of new or changed files first;
+        # sigil fills the ids it left unset and owns save targets.
         converto_active = extract_title_ids and await self._converto_active(rom)
         converto_sources: list[tuple[Path, RomFile]] = []
         is_multi_part = await self.directory_exists(rom.full_path)
@@ -698,8 +697,20 @@ class FSRomsHandler(FSHandler):
             )
             if extraction is None:
                 return
-            source.rom_file.title_id = extraction.title_id or None
-            source.rom_file.title_version = extraction.version
+            if source.rom_file.title_id:
+                # rom-converto's id wins; sigil keeps its save target and content type.
+                extraction = replace(
+                    extraction,
+                    title_id=source.rom_file.title_id,
+                    version=(
+                        source.rom_file.title_version
+                        if source.rom_file.title_version is not None
+                        else extraction.version
+                    ),
+                )
+            else:
+                source.rom_file.title_id = extraction.title_id or None
+                source.rom_file.title_version = extraction.version
             if extraction.content_type is not None:
                 category = switch.CONTENT_TYPE_CATEGORIES.get(extraction.content_type)
                 if category is not None:
@@ -997,14 +1008,14 @@ class FSRomsHandler(FSHandler):
             _record_title_id_source(rom_dir, rom_file)
             _record_converto_source(rom_dir, rom_file)
 
+        await self._read_converto_title_ids(converto_sources)
+
         # Listings come in no fixed order; a ROM is identified by its first disc,
         # and only Switch reads past it for each file's content type.
         for source in sorted(title_id_sources, key=_TitleIdSource.order):
             await _extract_title_id(source)
             if sigil_extractions and not is_switch:
                 break
-
-        await self._read_converto_title_ids(converto_sources)
 
         if top_level_changed:
             crc_hash = crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else ""
