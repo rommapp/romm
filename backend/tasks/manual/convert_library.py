@@ -1,8 +1,9 @@
+import asyncio
+import contextlib
 from dataclasses import asdict, dataclass
 
-from adapters.services.rom_converto import resolve_operation, rom_converto_service
+from adapters.services.rom_converto import resolve_operation
 from config import SCAN_TIMEOUT
-from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from logger.logger import log
@@ -10,7 +11,12 @@ from models.rom import RomFile
 from tasks.scheduled.convert_images_to_webp import ConversionStats
 from tasks.tasks import Task, TaskType
 from utils.context import initialize_context
-from utils.conversion_cache import get_or_convert, has_room_for
+from utils.conversion_cache import (
+    cache_size_bytes,
+    conversion_target,
+    fits_in_cache,
+    get_or_convert,
+)
 
 
 @dataclass
@@ -40,24 +46,12 @@ class ConvertLibraryTask(Task):
         log.info(f"Starting {self.title} task...")
 
         stats = ConvertLibraryStats(platform_id=platform_id)
-        converto = cm.get_config().CONVERTO
-        if (
-            not converto.download_conversion_enabled
-            or not converto.platform_formats
-            or not await rom_converto_service.is_enabled()
-        ):
-            log.info(
-                "Download conversion is not enabled or no platform formats "
-                "configured, skipping"
-            )
-            return asdict(stats)
-
         # (rom id, rom fs name, file, platform slug, target)
         candidates: list[tuple[int, str, RomFile, str, str]] = []
         for platform in db_platform_handler.get_platforms():
             if platform_id is not None and platform.id != platform_id:
                 continue
-            target = converto.platform_formats.get(platform.slug)
+            target = await conversion_target(platform.slug)
             if not target:
                 continue
 
@@ -86,27 +80,30 @@ class ConvertLibraryTask(Task):
 
         progress = ConversionStats()
         progress.update(total=len(candidates))
+        # Walked once, then tracked, so the cap check isn't a walk per rom.
+        used = await asyncio.to_thread(cache_size_bytes)
         for index, (rom_id, fs_name, rom_file, slug, target) in enumerate(candidates):
-            if not has_room_for(rom_file.file_size_bytes or 0):
+            if not fits_in_cache(used, rom_file.file_size_bytes or 0):
                 log.warning(
                     "Conversion cache is full, stopping the pre-warm; raise "
                     "ROM_CONVERTO_CACHE_MAX_SIZE_GB to convert more"
                 )
                 stats.skipped += len(candidates) - index
-                return self._finish(stats)
+                break
             log.info(
                 f"Pre-warming conversion of '{fs_name}' [ID: {rom_id}] to {target}"
             )
-            result = await get_or_convert(rom_id, rom_file, slug, target)
+            result = await get_or_convert(
+                rom_id, rom_file, slug, target, check_room=False
+            )
             if result is None:
                 stats.failed += 1
             else:
                 stats.converted += 1
+                with contextlib.suppress(OSError):
+                    used += result.stat().st_size
             progress.update(processed=index + 1, errors=stats.failed)
 
-        return self._finish(stats)
-
-    def _finish(self, stats: ConvertLibraryStats) -> dict[str, int | None]:
         log.info(
             f"{self.title} completed: {stats.converted} converted, "
             f"{stats.skipped} skipped, {stats.failed} failed"

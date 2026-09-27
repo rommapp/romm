@@ -205,7 +205,7 @@ class TestReadInfos:
         assert listed == ["/roms/game.nsp", "/roms/junk.bin"]
         assert infos == {
             Path("/roms/game.nsp"): RomConvertoInfo(
-                kind="nx", title_id="0100ABCD12345000", title_version=65536
+                title_id="0100ABCD12345000", title_version=65536
             )
         }
 
@@ -245,6 +245,17 @@ class TestReadInfos:
         with patch("asyncio.create_subprocess_exec") as spawn:
             assert await service.read_infos([Path("/roms/bad\nname.iso")]) == {}
         spawn.assert_not_called()
+
+
+class TestReadInfosFailures:
+    @pytest.mark.parametrize(
+        "error", [RomConvertoTimeoutError("slow"), OSError(8, "Exec format error")]
+    )
+    async def test_run_failure_returns_empty(
+        self, service: RomConvertoService, error: Exception
+    ):
+        with patch.object(rom_converto, "_run", side_effect=error):
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
 
 
 class TestUpdateCheck:
@@ -291,16 +302,14 @@ class TestParseInfo:
 
         info = rom_converto._parse_info(payload)
 
-        assert info == RomConvertoInfo(kind="nx", title_id=None, title_version=None)
+        assert info == RomConvertoInfo(title_id=None, title_version=None)
 
     def test_chd_inner_disc_flattens_content(self):
         payload = {"kind": "chd", "content": {"kind": "psx", "title_id": "SLUS-00594"}}
 
         info = rom_converto._parse_info(payload)
 
-        assert info == RomConvertoInfo(
-            kind="chd", title_id="SLUS-00594", title_version=None
-        )
+        assert info == RomConvertoInfo(title_id="SLUS-00594", title_version=None)
 
     def test_dol_hex_encodes_game_id(self):
         payload = {"kind": "dol", "game_id": "GZLE01"}
@@ -398,7 +407,7 @@ class TestConvert:
 
         assert recorded == [["chd", "compress", str(src), str(out)]]
 
-    async def test_nonzero_raises_operation_error_with_stderr(
+    async def test_nonzero_raises_operation_error_with_diagnostic(
         self, service: RomConvertoService, tmp_path: Path
     ):
         async def fake_run(argv: list[str], timeout_seconds: float):
@@ -412,8 +421,6 @@ class TestConvert:
         ):
             await service.convert(self._op(), src, out)
 
-        assert exc_info.value.returncode == 1
-        assert exc_info.value.stderr == "error: bad disc key"
         assert "bad disc key" in str(exc_info.value)
 
 

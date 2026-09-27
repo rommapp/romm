@@ -14,7 +14,7 @@ import yaml
 from sqlalchemy import URL
 from yaml.loader import SafeLoader
 
-from adapters.services.rom_converto import TARGETS_BY_PLATFORM
+from adapters.services.rom_converto import normalize_platform_formats
 from config import (
     DB_HOST,
     DB_NAME,
@@ -1346,31 +1346,15 @@ class ConfigManager:
             )
             sys.exit(3)
 
-        if not isinstance(self.config.CONVERTO.platform_formats, dict):
-            log.critical(
-                "Invalid config.yml: converto.platform_formats must be a dictionary"
+        try:
+            self.config.CONVERTO.platform_formats = normalize_platform_formats(
+                self._validated_platform_map(
+                    self.config.CONVERTO.platform_formats, "converto.platform_formats"
+                )
             )
+        except ValueError as exc:
+            log.critical(f"Invalid config.yml: converto.platform_formats: {exc}")
             sys.exit(3)
-
-        self.config.CONVERTO.platform_formats = {
-            str(slug).lower(): str(target).lower()
-            for slug, target in self.config.CONVERTO.platform_formats.items()
-        }
-        for slug, target in self.config.CONVERTO.platform_formats.items():
-            targets = TARGETS_BY_PLATFORM.get(slug)
-            if targets is None:
-                log.critical(
-                    f"Invalid config.yml: converto.platform_formats.{slug}: "
-                    f"rom-converto has no conversions for this platform. "
-                    f"Supported: {sorted(TARGETS_BY_PLATFORM)}."
-                )
-                sys.exit(3)
-            if target not in targets:
-                log.critical(
-                    f"Invalid config.yml: converto.platform_formats.{slug} has an "
-                    f"invalid target {target!r}. Valid options: {sorted(targets)}."
-                )
-                sys.exit(3)
 
     def get_config(self) -> Config:
         try:
@@ -1457,12 +1441,7 @@ class ConfigManager:
                     "export": self.config.PEGASUS_AUTO_EXPORT_ON_SCAN,
                 },
             },
-            "converto": {
-                "download_conversion_enabled": self.config.CONVERTO.download_conversion_enabled,
-                "scan_metadata": self.config.CONVERTO.scan_metadata,
-                "cache_ttl_hours": self.config.CONVERTO.cache_ttl_hours,
-                "platform_formats": self.config.CONVERTO.platform_formats,
-            },
+            "converto": dataclasses.asdict(self.config.CONVERTO),
         }
 
         # The streaming section isn't editable at runtime, but it must survive
@@ -1597,21 +1576,9 @@ class ConfigManager:
         self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
         self._update_config_file()
 
-    def update_converto_settings(
-        self,
-        *,
-        download_conversion_enabled: bool,
-        scan_metadata: bool,
-        cache_ttl_hours: int,
-        platform_formats: dict[str, str],
-    ) -> None:
+    def update_converto_settings(self, converto: ConvertoConfig) -> None:
         """Replace the whole converto.* section and persist it to config.yml."""
-        self.config.CONVERTO = ConvertoConfig(
-            download_conversion_enabled=download_conversion_enabled,
-            scan_metadata=scan_metadata,
-            cache_ttl_hours=cache_ttl_hours,
-            platform_formats=platform_formats,
-        )
+        self.config.CONVERTO = converto
         self._update_config_file()
 
 

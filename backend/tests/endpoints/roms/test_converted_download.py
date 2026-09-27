@@ -18,7 +18,7 @@ CONVERTED = Path(ROM_CONVERTO_CACHE_PATH) / "1-abc" / "test_rom.chd"
 def conversion(mocker):
     """Enable download conversion for the test platform with every step mocked."""
     mocker.patch(
-        "endpoints.roms.cm.get_config",
+        "utils.conversion_cache.cm.get_config",
         return_value=SimpleNamespace(
             CONVERTO=SimpleNamespace(
                 download_conversion_enabled=True,
@@ -27,13 +27,15 @@ def conversion(mocker):
         ),
     )
     mocker.patch(
-        "endpoints.roms.rom_converto_service.is_enabled",
+        "utils.conversion_cache.rom_converto_service.is_enabled",
         AsyncMock(return_value=True),
     )
     return SimpleNamespace(
-        cached=mocker.patch("endpoints.roms.get_cached_converted", return_value=None),
+        cached=mocker.patch(
+            "utils.conversion_cache.get_cached_converted", return_value=None
+        ),
         convert=mocker.patch(
-            "endpoints.roms.get_or_convert", AsyncMock(return_value=CONVERTED)
+            "utils.conversion_cache.get_or_convert", AsyncMock(return_value=CONVERTED)
         ),
     )
 
@@ -76,7 +78,7 @@ def test_opt_in_serves_the_converted_copy(
 def test_opt_in_serves_a_prewarmed_copy_over_the_sync_cap(
     client: TestClient, access_token: str, rom: Rom, rom_file, conversion, mocker
 ):
-    mocker.patch("endpoints.roms.ROM_CONVERTO_MAX_SYNC_SIZE_MB", 0)
+    mocker.patch("utils.conversion_cache.ROM_CONVERTO_MAX_SYNC_SIZE_MB", 0)
     conversion.cached.return_value = CONVERTED
 
     response = client.get(
@@ -94,7 +96,7 @@ def test_opt_in_serves_a_prewarmed_copy_over_the_sync_cap(
 def test_opt_in_over_the_sync_cap_serves_the_original(
     client: TestClient, access_token: str, rom: Rom, rom_file, conversion, mocker
 ):
-    mocker.patch("endpoints.roms.ROM_CONVERTO_MAX_SYNC_SIZE_MB", 0)
+    mocker.patch("utils.conversion_cache.ROM_CONVERTO_MAX_SYNC_SIZE_MB", 0)
 
     response = client.get(
         f"/api/roms/{rom.id}/content/test_rom.zip",
@@ -110,7 +112,7 @@ def test_opt_in_over_the_sync_cap_serves_the_original(
 def test_opt_in_past_the_deadline_serves_the_original(
     client: TestClient, access_token: str, rom: Rom, rom_file, conversion, mocker
 ):
-    mocker.patch("endpoints.roms.SYNC_CONVERSION_DEADLINE_SECONDS", 0.01)
+    mocker.patch("utils.conversion_cache.SYNC_CONVERSION_DEADLINE_SECONDS", 0.01)
 
     async def slow_convert(*args, **kwargs):
         await asyncio.sleep(0.2)

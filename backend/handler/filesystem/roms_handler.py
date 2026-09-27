@@ -375,7 +375,9 @@ def _rom_level_identity(
             save_target_layout=_parse_save_target_layout(chosen.usage),
         )
     else:
-        title_ids = [f.title_id for f in rom_files if f.title_id]
+        title_ids = [
+            f.title_id for f in sorted(rom_files, key=_rom_file_order) if f.title_id
+        ]
         identity = RomIdentity(
             title_id=next(
                 (t for t in title_ids if is_switch and switch.is_base_title_id(t)),
@@ -620,15 +622,11 @@ class FSRomsHandler(FSHandler):
     async def _read_converto_title_ids(
         self, sources: list[tuple[Path, RomFile]]
     ) -> None:
-        """Fill title ids sigil left unset from one rom-converto batch, never raising."""
+        """Fill title ids sigil left unset from one rom-converto batch."""
         pending = [(path, f) for path, f in sources if not f.title_id]
         if not pending:
             return
-        try:
-            infos = await rom_converto_service.read_infos([p for p, _ in pending])
-        except Exception as exc:  # noqa: BLE001
-            log.warning(f"rom-converto title id extraction failed: {exc}")
-            return
+        infos = await rom_converto_service.read_infos([p for p, _ in pending])
         for path, rom_file in pending:
             info = infos.get(path)
             if info is not None and info.title_id:
@@ -1040,7 +1038,7 @@ class FSRomsHandler(FSHandler):
             identity=_rom_level_identity(
                 rom.platform_slug,
                 sigil_extractions,
-                sorted(rom_files, key=_rom_file_order) if converto_active else [],
+                rom_files if converto_active else [],
             ),
             embed_candidates=embed_candidates,
         )

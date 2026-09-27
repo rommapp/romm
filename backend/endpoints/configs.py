@@ -1,7 +1,10 @@
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, field_validator
 
-from adapters.services.rom_converto import TARGETS_BY_PLATFORM
+from adapters.services.rom_converto import (
+    TARGETS_BY_PLATFORM,
+    normalize_platform_formats,
+)
 from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
@@ -10,6 +13,7 @@ from config.config_manager import (
     VALID_GAMELIST_IMAGE_TYPES,
     VALID_GAMELIST_THUMBNAIL_TYPES,
     VALID_SCAN_PRIORITY_SOURCES,
+    ConvertoConfig,
     ExclusionType,
     MetadataMediaType,
 )
@@ -136,14 +140,7 @@ class ConvertoSettingsPayload(BaseModel):
     @field_validator("platform_formats")
     @classmethod
     def validate_platform_formats(cls, value: dict[str, str]) -> dict[str, str]:
-        cleaned = {
-            slug.strip().lower(): target.strip().lower()
-            for slug, target in value.items()
-        }
-        for slug, target in cleaned.items():
-            if target not in TARGETS_BY_PLATFORM.get(slug, ()):
-                raise ValueError(f"{target!r} is not a conversion target for {slug}")
-        return cleaned
+        return normalize_platform_formats(value)
 
 
 @router.get("")
@@ -380,12 +377,7 @@ async def update_converto_settings(
     """Replace the converto.* section of the configuration"""
 
     try:
-        cm.update_converto_settings(
-            download_conversion_enabled=payload.download_conversion_enabled,
-            scan_metadata=payload.scan_metadata,
-            cache_ttl_hours=payload.cache_ttl_hours,
-            platform_formats=payload.platform_formats,
-        )
+        cm.update_converto_settings(ConvertoConfig(**payload.model_dump()))
     except ConfigNotWritableException as exc:
         log.critical(exc.message)
         raise HTTPException(

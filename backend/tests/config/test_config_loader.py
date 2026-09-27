@@ -11,6 +11,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
     DEFAULT_EXCLUDED_PLATFORM_DIRS,
     ConfigManager,
+    ConvertoConfig,
     parse_firmware_template,
     parse_platform_templates,
     parse_structure_template,
@@ -707,10 +708,12 @@ def test_update_converto_settings_round_trip(tmp_path):
     loader = ConfigManager(str(config_file))
 
     loader.update_converto_settings(
-        download_conversion_enabled=True,
-        scan_metadata=True,
-        cache_ttl_hours=72,
-        platform_formats={"psp": "iso", "ngc": "rvz"},
+        ConvertoConfig(
+            download_conversion_enabled=True,
+            scan_metadata=True,
+            cache_ttl_hours=72,
+            platform_formats={"psp": "iso", "ngc": "rvz"},
+        )
     )
 
     reloaded = ConfigManager(str(config_file))

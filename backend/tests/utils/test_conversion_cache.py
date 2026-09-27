@@ -165,7 +165,7 @@ class TestGetOrConvert:
         key_dir = converted_file_path(1, f, operation, input_ext).parent
 
         async def convert(op, src, out) -> None:
-            raise RomConvertoOperationError("boom", returncode=1, stderr="boom")
+            raise RomConvertoOperationError("boom")
 
         mocker.patch(
             "utils.conversion_cache.rom_converto_service.convert", side_effect=convert
@@ -181,7 +181,7 @@ class TestGetOrConvert:
 
         async def convert(op, src, out) -> None:
             out.write_bytes(b"partial")
-            raise RomConvertoOperationError("boom", returncode=1, stderr="boom")
+            raise RomConvertoOperationError("boom")
 
         mocker.patch(
             "utils.conversion_cache.rom_converto_service.convert", side_effect=convert

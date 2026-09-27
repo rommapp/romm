@@ -7,7 +7,6 @@ from typing import Any
 import pytest
 
 from adapters.services.rom_converto import (
-    RomConvertoError,
     RomConvertoInfo,
     rom_converto_service,
 )
@@ -22,7 +21,6 @@ from utils import switch
 
 def _info(**overrides) -> RomConvertoInfo:
     defaults: dict[str, Any] = {
-        "kind": "psx",
         "title_id": "SCUS-94163",
         "title_version": None,
     }
@@ -117,16 +115,6 @@ class TestReadConvertoTitleIds:
 
         assert (unknown.title_id, unknown.title_version) == (None, None)
         assert (idless.title_id, idless.title_version) == (None, None)
-
-    @pytest.mark.parametrize("error", [RomConvertoError("boom"), RuntimeError("boom")])
-    @pytest.mark.asyncio
-    async def test_error_does_not_fail_scan(self, handler, mocker, error):
-        rom_file = RomFile(file_name="game.chd", file_path="psx/roms")
-        _patch_service(mocker, mocker.AsyncMock(side_effect=error))
-
-        await handler._read_converto_title_ids([(Path("/lib/game.chd"), rom_file)])
-
-        assert rom_file.title_id is None
 
 
 PS2_PLATFORM = Platform(name="PlayStation 2", slug="ps2", fs_slug="ps2")
@@ -454,8 +442,8 @@ class TestRomLevelIdentity:
         # These ids are shaped like Switch update/base ids, but the platform
         # is not Switch, so the base-id preference must not kick in.
         files = [
-            _rom_file("update.bin", title_id="0100ABCD12340800"),
-            _rom_file("base.bin", title_id="0100ABCD12340000"),
+            _rom_file("disc1.bin", title_id="0100ABCD12340800"),
+            _rom_file("disc2.bin", title_id="0100ABCD12340000"),
         ]
         identity = _rom_level_identity("psx", [], files)
         assert identity.title_id == "0100ABCD12340800"

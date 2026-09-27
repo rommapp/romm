@@ -8,6 +8,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_FILES,
     DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
     DEFAULT_EXCLUDED_PLATFORM_DIRS,
+    ConvertoConfig,
     ExclusionType,
 )
 from config.config_manager import config_manager as cm
@@ -285,10 +286,12 @@ def test_update_converto_settings_normalizes_formats(client, access_token: str):
 
     assert response.status_code == status.HTTP_200_OK
     update_converto_settings.assert_called_once_with(
-        download_conversion_enabled=True,
-        scan_metadata=True,
-        cache_ttl_hours=24,
-        platform_formats={"psp": "cso"},
+        ConvertoConfig(
+            download_conversion_enabled=True,
+            scan_metadata=True,
+            cache_ttl_hours=24,
+            platform_formats={"psp": "cso"},
+        )
     )
 
 

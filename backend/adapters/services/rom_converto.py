@@ -57,17 +57,11 @@ class RomConvertoTimeoutError(RomConvertoError): ...
 
 
 class RomConvertoOperationError(RomConvertoError):
-    """A conversion command exited nonzero; carries the CLI's diagnostic."""
-
-    def __init__(self, message: str, returncode: int, stderr: str):
-        super().__init__(message)
-        self.returncode = returncode
-        self.stderr = stderr
+    """A conversion command exited nonzero."""
 
 
 @dataclass(frozen=True)
 class RomConvertoInfo:
-    kind: str
     # Rendered the way sigil renders the same platform's id, so either
     # extractor can fill `Rom.title_id` interchangeably.
     title_id: str | None
@@ -162,6 +156,31 @@ TARGETS_BY_PLATFORM: Final[dict[str, frozenset[str]]] = {
     slug: frozenset(op.target for op in OPERATIONS if slug in op.platforms)
     for slug in sorted({slug for op in OPERATIONS for slug in op.platforms})
 }
+
+
+def normalize_platform_formats(raw: dict[str, str]) -> dict[str, str]:
+    """`raw` with slugs and targets trimmed and lowercased.
+
+    Raises:
+        ValueError: A platform has no conversions, or a target isn't one of them.
+    """
+    cleaned = {
+        str(slug).strip().lower(): str(target).strip().lower()
+        for slug, target in raw.items()
+    }
+    for slug, target in cleaned.items():
+        targets = TARGETS_BY_PLATFORM.get(slug)
+        if targets is None:
+            raise ValueError(
+                f"rom-converto has no conversions for {slug!r}. "
+                f"Supported: {sorted(TARGETS_BY_PLATFORM)}."
+            )
+        if target not in targets:
+            raise ValueError(
+                f"{target!r} is not a conversion target for {slug}. "
+                f"Valid options: {sorted(targets)}."
+            )
+    return cleaned
 
 
 def resolve_operation(
@@ -261,7 +280,6 @@ def _parse_info(payload: dict[str, Any]) -> RomConvertoInfo:
     kind = str(flat.get("kind") or "")
     title_version = flat.get("title_version")
     return RomConvertoInfo(
-        kind=kind,
         title_id=_title_id(kind, flat),
         title_version=title_version if isinstance(title_version, int) else None,
     )
@@ -327,7 +345,7 @@ class RomConvertoService:
         return path.suffix.lower() in self._info_extensions
 
     async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
-        """Inspect files in one `info --paths-file` run, keyed by the paths it recognized."""
+        """Inspect files in one `info --paths-file` run, keyed by the paths it recognized; never raises."""
         # The paths file is line-based, so a name holding a newline can't be listed.
         paths = [p for p in paths if "\n" not in str(p)]
         if not paths:
@@ -341,6 +359,9 @@ class RomConvertoService:
             code, stdout, stderr = await _run(
                 ["info", "--json", "--paths-file", fh.name], ROM_CONVERTO_TIMEOUT
             )
+        except (RomConvertoError, OSError) as exc:
+            log.warning(f"rom-converto info failed: {exc}")
+            return {}
         finally:
             os.unlink(fh.name)
         if code != 0:
@@ -376,9 +397,7 @@ class RomConvertoService:
         if code != 0:
             diagnostic = _tail(stderr) or _tail(stdout)
             raise RomConvertoOperationError(
-                f"rom-converto {' '.join(operation.argv)} failed with code {code}: {diagnostic}",
-                returncode=code,
-                stderr=stderr,
+                f"rom-converto {' '.join(operation.argv)} failed with code {code}: {diagnostic}"
             )
 
 

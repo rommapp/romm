@@ -1,7 +1,5 @@
-import asyncio
 import binascii
 import json
-import pathlib
 import re
 from base64 import b64encode
 from dataclasses import replace
@@ -33,15 +31,12 @@ from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
-from adapters.services.rom_converto import rom_converto_service
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
-    ROM_CONVERTO_MAX_SYNC_SIZE_MB,
 )
-from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
@@ -131,7 +126,6 @@ from models.rom import (
     PINNED_MEDIA_MAX_ITEMS,
     TITLE_ID_MAX_LENGTH,
     Rom,
-    RomFile,
     RomIdentity,
     RomUserStatus,
     SaveTargetLayout,
@@ -140,11 +134,7 @@ from models.rom import (
 )
 from utils import switch
 from utils.background_tasks import fire_and_forget
-from utils.conversion_cache import (
-    get_cached_converted,
-    get_or_convert,
-    get_redirect_path,
-)
+from utils.conversion_cache import get_redirect_path, resolve_converted_download
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
@@ -1309,9 +1299,6 @@ def get_rom(
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
-# Kept under the proxy_read_timeout nginx applies to /api (300s).
-SYNC_CONVERSION_DEADLINE_SECONDS: Final = 240
-
 ConvertedQuery = Annotated[
     bool,
     Query(
@@ -1393,7 +1380,7 @@ async def head_rom_content(
         # Report a cached conversion, but never start one: HEAD may be
         # unauthenticated and a conversion is minutes of CPU.
         converted_path = (
-            await _maybe_converted_download(rom, files[0], start_conversion=False)
+            await resolve_converted_download(rom, files[0], start_conversion=False)
             if converted
             else None
         )
@@ -1427,43 +1414,6 @@ async def head_rom_content(
             "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
         },
     )
-
-
-async def _maybe_converted_download(
-    rom: Rom, file: RomFile, *, start_conversion: bool
-) -> pathlib.Path | None:
-    """The converted copy of a single-file download, or None to serve the original.
-
-    Args:
-        start_conversion: Convert in-request when nothing is cached and the
-            file is within ROM_CONVERTO_MAX_SYNC_SIZE_MB.
-    """
-    converto = cm.get_config().CONVERTO
-    target = converto.platform_formats.get(rom.platform_slug)
-    if (
-        not converto.download_conversion_enabled
-        or not target
-        or not await rom_converto_service.is_enabled()
-    ):
-        return None
-
-    # A pre-warmed copy is served whatever its size.
-    cached = get_cached_converted(
-        rom.id, file, rom.platform_slug, target, touch=start_conversion
-    )
-    if cached or not start_conversion:
-        return cached
-    if (
-        file.file_size_bytes or rom.fs_size_bytes
-    ) > ROM_CONVERTO_MAX_SYNC_SIZE_MB * 1024 * 1024:
-        return None
-    # Past the deadline the original is served and the conversion finishes
-    # into the cache, instead of nginx answering 504.
-    conversion = fire_and_forget(
-        get_or_convert(rom.id, file, rom.platform_slug, target)
-    )
-    done, _ = await asyncio.wait({conversion}, timeout=SYNC_CONVERSION_DEADLINE_SECONDS)
-    return conversion.result() if done else None
 
 
 @protected_route(
@@ -1647,7 +1597,7 @@ async def get_rom_content(
         # Only an authenticated caller may spend minutes of CPU on a
         # conversion, since DISABLE_DOWNLOAD_ENDPOINT_AUTH opens this route.
         converted_path = (
-            await _maybe_converted_download(
+            await resolve_converted_download(
                 rom, file, start_conversion=request.user.is_authenticated
             )
             if converted

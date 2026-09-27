@@ -18,17 +18,21 @@ from config import (
     LIBRARY_BASE_PATH,
     ROM_CONVERTO_CACHE_MAX_SIZE_GB,
     ROM_CONVERTO_CACHE_PATH,
+    ROM_CONVERTO_MAX_SYNC_SIZE_MB,
     ROMM_BASE_PATH,
 )
 from config.config_manager import config_manager as cm
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.background_tasks import fire_and_forget
 from utils.zip_cache import CACHE_KEY_LENGTH, SECONDS_PER_HOUR
 
 if TYPE_CHECKING:
-    from models.rom import RomFile
+    from models.rom import Rom, RomFile
 
 BYTES_PER_GB = 1024**3
+# Kept under the proxy_read_timeout nginx applies to /api (300s).
+SYNC_CONVERSION_DEADLINE_SECONDS = 240
 # A fresher sentinel means another worker is actively converting.
 PARTIAL_STALE_SECONDS = 6 * SECONDS_PER_HOUR
 SENTINEL_NAME = ".partial"
@@ -68,18 +72,62 @@ def _dir_size(files: list[Path]) -> int:
     return total
 
 
+def _sentinel_is_fresh(sentinel: Path, now: float) -> bool:
+    """Whether a `.partial` sentinel marks a conversion still in flight."""
+    return sentinel.stat().st_mtime >= now - PARTIAL_STALE_SECONDS
+
+
+def cache_size_bytes() -> int:
+    """Bytes every key dir holds on disk, in-flight temporaries included."""
+    cache_root = Path(ROM_CONVERTO_CACHE_PATH)
+    if not cache_root.exists():
+        return 0
+    return sum(_dir_size(_cached_files(d)) for d in cache_root.iterdir() if d.is_dir())
+
+
+def fits_in_cache(used_bytes: int, size_bytes: int) -> bool:
+    """Whether adding `size_bytes` to `used_bytes` stays under ROM_CONVERTO_CACHE_MAX_SIZE_GB."""
+    max_bytes = ROM_CONVERTO_CACHE_MAX_SIZE_GB * BYTES_PER_GB
+    return not max_bytes or used_bytes + size_bytes <= max_bytes
+
+
 def has_room_for(size_bytes: int) -> bool:
     """Whether adding `size_bytes` keeps the cache under ROM_CONVERTO_CACHE_MAX_SIZE_GB."""
-    max_bytes = ROM_CONVERTO_CACHE_MAX_SIZE_GB * BYTES_PER_GB
-    if not max_bytes:
-        return True
-    cache_root = Path(ROM_CONVERTO_CACHE_PATH)
-    used = (
-        sum(_dir_size(_cached_files(d)) for d in cache_root.iterdir() if d.is_dir())
-        if cache_root.exists()
-        else 0
-    )
-    return used + size_bytes <= max_bytes
+    return fits_in_cache(cache_size_bytes(), size_bytes)
+
+
+async def conversion_target(platform_slug: str) -> str | None:
+    """The format downloads on this platform convert to, or None when conversion is off."""
+    converto = cm.get_config().CONVERTO
+    target = converto.platform_formats.get(platform_slug)
+    if (
+        not converto.download_conversion_enabled
+        or not target
+        or not await rom_converto_service.is_enabled()
+    ):
+        return None
+    return target
+
+
+def _lookup(
+    rom_id: int, rom_file: RomFile, platform_slug: str, target: str
+) -> tuple[Operation, Path] | None:
+    """The operation bringing `rom_file` to `target` and its cache path."""
+    resolved = resolve_operation(platform_slug, target, rom_file.file_name)
+    if resolved is None:
+        return None
+    operation, input_ext = resolved
+    return operation, converted_file_path(rom_id, rom_file, operation, input_ext)
+
+
+def _serve_cached(final_path: Path, *, touch: bool) -> Path | None:
+    if not final_path.exists():
+        return None
+    if touch:
+        # Keep a served file fresh so TTL cleanup measures demand.
+        with contextlib.suppress(OSError):
+            os.utime(final_path)
+    return final_path
 
 
 def get_cached_converted(
@@ -95,61 +143,92 @@ def get_cached_converted(
     Args:
         touch: Refresh its mtime so TTL cleanup measures demand.
     """
-    resolved = resolve_operation(platform_slug, target, rom_file.file_name)
-    if resolved is None:
+    found = _lookup(rom_id, rom_file, platform_slug, target)
+    return _serve_cached(found[1], touch=touch) if found else None
+
+
+async def resolve_converted_download(
+    rom: Rom, file: RomFile, *, start_conversion: bool
+) -> Path | None:
+    """The converted copy of a single-file download, or None to serve the original.
+
+    Args:
+        start_conversion: Convert in-request when nothing is cached and the
+            file is within ROM_CONVERTO_MAX_SYNC_SIZE_MB.
+    """
+    target = await conversion_target(rom.platform_slug)
+    if target is None:
         return None
-    final_path = converted_file_path(rom_id, rom_file, *resolved)
-    if not final_path.exists():
+
+    # A pre-warmed copy is served whatever its size.
+    cached = get_cached_converted(
+        rom.id, file, rom.platform_slug, target, touch=start_conversion
+    )
+    if cached or not start_conversion:
+        return cached
+    if (
+        file.file_size_bytes or rom.fs_size_bytes
+    ) > ROM_CONVERTO_MAX_SYNC_SIZE_MB * 1024 * 1024:
         return None
-    if touch:
-        with contextlib.suppress(OSError):
-            os.utime(final_path)
-    return final_path
+    # Past the deadline the original is served and the conversion finishes
+    # into the cache, instead of nginx answering 504.
+    conversion = fire_and_forget(
+        get_or_convert(rom.id, file, rom.platform_slug, target)
+    )
+    done, _ = await asyncio.wait({conversion}, timeout=SYNC_CONVERSION_DEADLINE_SECONDS)
+    return conversion.result() if done else None
 
 
 async def get_or_convert(
-    rom_id: int, rom_file: RomFile, platform_slug: str, target: str
+    rom_id: int,
+    rom_file: RomFile,
+    platform_slug: str,
+    target: str,
+    *,
+    check_room: bool = True,
 ) -> Path | None:
-    """The converted file, converting it once under a `.partial` sentinel, or None to serve the original."""
-    resolved = resolve_operation(platform_slug, target, rom_file.file_name)
-    if resolved is None:
+    """The converted file, converting it once under a `.partial` sentinel, or None to serve the original.
+
+    Args:
+        check_room: Measure the cache against its cap first; a caller
+            tracking its own budget passes False.
+    """
+    found = _lookup(rom_id, rom_file, platform_slug, target)
+    if found is None:
         return None
-    operation, input_ext = resolved
-    final_path = converted_file_path(rom_id, rom_file, operation, input_ext)
+    operation, final_path = found
     key_dir = final_path.parent
     sentinel = key_dir / SENTINEL_NAME
 
     try:
-        if final_path.exists():
-            # Keep a served file fresh so TTL cleanup measures demand.
-            os.utime(final_path)
-            return final_path
+        if cached := _serve_cached(final_path, touch=True):
+            return cached
 
-        if not await asyncio.to_thread(has_room_for, rom_file.file_size_bytes or 0):
+        if check_room and not await asyncio.to_thread(
+            has_room_for, rom_file.file_size_bytes or 0
+        ):
             log.info(
                 f"Conversion cache is full, not converting ROM {rom_id} (target {hl(target)})"
             )
             return None
 
         key_dir.mkdir(parents=True, exist_ok=True)
-        stale_sentinel = None
         try:
             fd = os.open(sentinel, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
-            if sentinel.stat().st_mtime >= time.time() - PARTIAL_STALE_SECONDS:
+            if _sentinel_is_fresh(sentinel, time.time()):
                 # Another worker is converting; serve the original meanwhile.
                 return None
             # Stale sentinel from a crashed run: rename it aside atomically so
             # the key dir never disappears under a worker that lost the race.
-            stale_sentinel = sentinel.with_name(
+            stale = sentinel.with_name(
                 f"{SENTINEL_NAME}.stale-{os.getpid()}-{time.time_ns()}"
             )
-            os.replace(sentinel, stale_sentinel)
+            os.replace(sentinel, stale)
             fd = os.open(sentinel, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        os.close(fd)
-        if stale_sentinel is not None:
             with contextlib.suppress(OSError):
-                stale_sentinel.unlink()
+                stale.unlink()
+        os.close(fd)
     except Exception as e:
         log.warning(
             f"Conversion cache unavailable for ROM {rom_id} (target {hl(target)}): {e}; serving original"
@@ -204,15 +283,15 @@ def cleanup_stale_conversions() -> int:
             files = _cached_files(key_dir)
             if not files:
                 # Only an in-flight sentinel makes an empty dir meaningful.
-                if sentinel.exists() and sentinel.stat().st_mtime >= (
-                    now - PARTIAL_STALE_SECONDS
-                ):
+                if sentinel.exists() and _sentinel_is_fresh(sentinel, now):
                     continue
             else:
-                last_served = max(p.stat().st_mtime for p in files)
+                stats = [p.stat() for p in files]
+                last_served = max(st.st_mtime for st in stats)
                 if last_served >= now - ttl_seconds:
                     if not sentinel.exists():
-                        kept.append((last_served, _dir_size(files), key_dir))
+                        size = sum(st.st_size for st in stats)
+                        kept.append((last_served, size, key_dir))
                     continue
         except FileNotFoundError:
             continue

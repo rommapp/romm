@@ -16,7 +16,7 @@ def converto_config(mocker):
     """Point the task's config at a policy covering both test platforms."""
     formats = {"test_platform_slug": "chd", "psp": "chd"}
     mocker.patch(
-        "tasks.manual.convert_library.cm",
+        "utils.conversion_cache.cm",
         mocker.Mock(
             **{
                 "get_config.return_value.CONVERTO.platform_formats": formats,
@@ -29,7 +29,7 @@ def converto_config(mocker):
 @pytest.fixture
 def conversion_enabled(mocker):
     mocker.patch(
-        "tasks.manual.convert_library.rom_converto_service.is_enabled",
+        "utils.conversion_cache.rom_converto_service.is_enabled",
         new_callable=mocker.AsyncMock,
         return_value=True,
     )
@@ -40,7 +40,7 @@ def fake_convert(mocker):
     """Fake get_or_convert; returns a cache path per rom."""
     return mocker.patch(
         "tasks.manual.convert_library.get_or_convert",
-        side_effect=lambda rom_id, rom_file, platform_slug, target: Path(
+        side_effect=lambda rom_id, rom_file, platform_slug, target, **_: Path(
             f"/cache/{rom_id}"
         ),
     )
@@ -99,7 +99,7 @@ class TestConvertLibraryTask:
         self, task, mocker, converto_config, fake_convert, rom, rom_file
     ):
         mocker.patch(
-            "tasks.manual.convert_library.rom_converto_service.is_enabled",
+            "utils.conversion_cache.rom_converto_service.is_enabled",
             new_callable=mocker.AsyncMock,
             return_value=False,
         )
@@ -113,7 +113,7 @@ class TestConvertLibraryTask:
         self, task, mocker, conversion_enabled, fake_convert, rom, rom_file
     ):
         mocker.patch(
-            "tasks.manual.convert_library.cm",
+            "utils.conversion_cache.cm",
             mocker.Mock(**{"get_config.return_value.CONVERTO.platform_formats": {}}),
         )
 
@@ -126,7 +126,7 @@ class TestConvertLibraryTask:
         self, task, mocker, conversion_enabled, fake_convert, rom, rom_file
     ):
         mocker.patch(
-            "tasks.manual.convert_library.cm",
+            "utils.conversion_cache.cm",
             mocker.Mock(
                 **{
                     "get_config.return_value.CONVERTO.platform_formats": {
@@ -261,7 +261,7 @@ class TestConvertLibraryTask:
         psp_rom,
         psp_rom_file,
     ):
-        mocker.patch("tasks.manual.convert_library.has_room_for", return_value=False)
+        mocker.patch("tasks.manual.convert_library.fits_in_cache", return_value=False)
 
         stats = await task.run()
 
