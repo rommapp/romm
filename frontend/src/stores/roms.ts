@@ -25,6 +25,10 @@ export type SimpleRom = SimpleRomSchema;
 export type SearchRom = SearchRomSchema;
 export type DetailedRom = DetailedRomSchema;
 
+// Enough for the page on screen plus the one a navigation is loading, with
+// headroom for the player views that reuse a details page's record.
+const DETAILED_ROM_CACHE_SIZE = 10;
+
 const orderByStorage = useLocalStorage<string>("roms.orderBy", "");
 const orderDirStorage = useLocalStorage("roms.orderDir", "asc");
 
@@ -46,6 +50,8 @@ const defaultRomsState = {
   currentVirtualCollection: null as VirtualCollection | null,
   /** @deprecated v2: use `useGalleryRoms().currentSmartCollection`. */
   currentSmartCollection: null as SmartCollection | null,
+  /** @deprecated v2: read the route's ROM with `useRouteRom()`, which
+   * looks it up in `detailedRoms`. */
   currentRom: null as DetailedRom | null,
   /** @deprecated v2: rooms live in a sparse `byPosition` map on
    * `useGalleryRoms()`; iterate via `getRomAt(position)`. */
@@ -77,9 +83,15 @@ const defaultRomsState = {
 };
 
 export default defineStore("roms", {
-  state: () => ({ ...defaultRomsState }),
+  state: () => ({
+    ...defaultRomsState,
+    /** Detailed ROMs by id, most recently cached last. */
+    detailedRoms: new Map<number, DetailedRom>(),
+  }),
 
   getters: {
+    getDetailedRom: (state) => (id: number) =>
+      state.detailedRoms.get(id) ?? null,
     filteredRoms: (state) => state._allRoms,
     selectedRoms: (state) =>
       state._allRoms.filter((rom) => state.selectedIDs.has(rom.id)),
@@ -104,6 +116,24 @@ export default defineStore("roms", {
     },
     setCurrentRom(rom: DetailedRom) {
       this.currentRom = rom;
+      this.cacheDetailedRom(rom);
+    },
+    cacheDetailedRom(rom: DetailedRom) {
+      this.detailedRoms.delete(rom.id);
+      this.detailedRoms.set(rom.id, rom);
+      for (const id of this.detailedRoms.keys()) {
+        if (this.detailedRoms.size <= DETAILED_ROM_CACHE_SIZE) break;
+        this.detailedRoms.delete(id);
+      }
+    },
+    /** Spread `rom` over the cached record so its detailed-only fields
+     * survive a SimpleRom write. A no-op for an id nothing has cached. */
+    mergeIntoDetailedRom(rom: SimpleRom) {
+      if (this.currentRom?.id === rom.id) {
+        this.currentRom = { ...this.currentRom, ...rom };
+      }
+      const cached = this.detailedRoms.get(rom.id);
+      if (cached) this.detailedRoms.set(rom.id, { ...cached, ...rom });
     },
     setRecentRoms(roms: SimpleRom[]) {
       this.recentRoms = roms;
@@ -321,15 +351,10 @@ export default defineStore("roms", {
       this.continuePlayingRoms = this.continuePlayingRoms.map((value) =>
         value.id === rom.id ? rom : value,
       );
-      // Keep `currentRom` in sync too, otherwise an optimistic mutation
-      // on a SimpleRom from the gallery (status toggle from a GameCard
-      // badge, favourite, …) leaves the detail view rendering stale
-      // `rom_user` data until the next route entry. Spread merges the
-      // SimpleRom shape over the cached DetailedRom so detailed-only
-      // fields (metadatum, screenshots, related games, …) survive.
-      if (this.currentRom?.id === rom.id) {
-        this.currentRom = { ...this.currentRom, ...rom };
-      }
+      // An optimistic mutation on a SimpleRom from the gallery (status
+      // toggle, favourite, ...) would otherwise leave the detail view
+      // rendering stale `rom_user` data until the next route entry.
+      this.mergeIntoDetailedRom(rom);
     },
     remove(roms: SimpleRom[]) {
       this._allRoms = this._allRoms.filter((value) => {

@@ -37,8 +37,8 @@ export function useSubtabQuery<T extends string>(
     if (value !== null && value !== subtab.value) subtab.value = value;
   });
 
-  // A subtab the URL names but the view can't show (a stale deep link, or one
-  // carried to a game without it) is rewritten to the one on screen.
+  // A subtab the URL names but the view can't show (a stale or hand-edited
+  // link) is rewritten to the one on screen.
   watch(
     [() => route.path, urlSubtabIsInvalid],
     ([, invalid]) => {

@@ -192,10 +192,11 @@ const morphRomId = computed(() => {
 
 // Seed synchronously so the hero cover is already in the DOM when the view
 // transition captures this view (same pattern as the EmulatorJS view).
-const seededRom = storeRoms().currentRom;
-if (seededRom && String(seededRom.id) === morphRomId.value) {
-  rom.value = seededRom;
-}
+const seededRom =
+  morphRomId.value == null
+    ? null
+    : storeRoms().getDetailedRom(Number(morphRomId.value));
+if (seededRom) rom.value = seededRom;
 const heroSeed = ref<SimpleRom | null>(null);
 if (!rom.value && morphRomId.value != null) {
   heroSeed.value = storeGalleryRoms().getRomById(Number(morphRomId.value));

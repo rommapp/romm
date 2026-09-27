@@ -1,14 +1,14 @@
 <script setup lang="ts">
-// FilesTab — browse + interact with the individual files that make up
+// FilesTab: browse + interact with the individual files that make up
 // a (potentially multi-file) ROM.
 //
 // Layout mirrors ScreenshotsSubtab / SaveDataTab / MediaTab: a vertical
-// subtab list on the left (navigation only — no inline action panel),
+// subtab list on the left (navigation only, no inline action panel),
 // and a content column on the right with a section header that hosts
 // the Upload button plus a Patch button (multi-file ROMs only). On phones
 // the list collapses into a folder picker in that same header row. Bulk
 // download / copy-link affordances live in the selection toolbar
-// instead — pair them with select-all.
+// instead: pair them with select-all.
 //
 // Grouping is **folder-based**: every direct subfolder of the ROM
 // becomes its own subtab, plus a "Root" subtab for files sitting
@@ -26,9 +26,9 @@
 //
 // Content column:
 //   * Section header (Upload + Patch)
-//   * ROM-info card (size, revision, ROM-level hashes — click to copy)
-//   * Selection toolbar (select-all + per-selection Download / Copy-link
-//     — also the path for "download everything in this subtab": select
+//   * ROM-info card (size, revision, ROM-level hashes, click to copy)
+//   * Selection toolbar (select-all + per-selection Download / Copy-link,
+//     which is also the path for "download everything in this subtab": select
 //     all then act).
 //   * One row per file with checkbox, relative path, category chip,
 //     size, per-file hashes (click to copy), and per-row Download +
@@ -91,7 +91,7 @@ const canDelete = computed(() => hasDeleteGrant.value && canUpload.value);
 
 // ---------- Category metadata ----------
 // Drives per-file category chips (one per `RomFileCategory` enum
-// value). Folder→icon resolution lives in `FOLDER_META` below — it
+// value). Folder→icon resolution lives in `FOLDER_META` below, it
 // extends this with plural names and a couple of well-known folders
 // (e.g. `screenshots/`) that aren't backend categories.
 const CATEGORY_META = computed<
@@ -141,7 +141,7 @@ interface FolderMeta {
 const FOLDER_META = computed<Record<string, FolderMeta>>(() => {
   const c = CATEGORY_META.value;
   return {
-    // Backend categories — singular and plural variants.
+    // Backend categories: singular and plural variants.
     game: c.game,
     games: c.game,
     dlc: c.dlc,
@@ -211,7 +211,7 @@ function relativePath(file: RomFileSchema): string {
 }
 
 // Path rendered in each row. Inside a folder subtab the folder name is
-// already the subtab title — strip the prefix so rows lead with the
+// already the subtab title, strip the prefix so rows lead with the
 // filename. The full relative path stays available via `relativePath`
 // for aria-labels / hover titles.
 function displayPath(file: RomFileSchema): string {
@@ -354,7 +354,7 @@ const {
   clear: clearSelection,
 } = useIdSelection(() => filteredFiles.value);
 
-// Reset selection whenever the active subtab or the rom changes —
+// Reset selection whenever the active subtab or the rom changes:
 // keeping selections across categories would let the user "Download
 // selected" with files invisible to them, which is surprising.
 // Getters, not the refs: `subTab` is a shallowRef, and a shallow source makes
@@ -455,7 +455,7 @@ async function deleteFiles(toDelete: RomFileSchema[]) {
 
   // Redirect to the gallery if no files remain after deletion.
   const platformSlug = route.params["platform"] as string | undefined;
-  if (romsStore.currentRom && romsStore.currentRom.files?.length === 0) {
+  if (romsStore.getDetailedRom(props.rom.id)?.files?.length === 0) {
     if (platformSlug) {
       await router.push({
         name: "platform",
@@ -590,7 +590,7 @@ async function refreshRom() {
 
       <FilesSummary :rom="rom" />
 
-      <!-- Selection toolbar — pinned above the list. Always visible
+      <!-- Selection toolbar: pinned above the list. Always visible
            so the select-all checkbox stays predictable; the per-
            selection action buttons fade in only when something is
            checked. -->
@@ -701,7 +701,7 @@ async function refreshRom() {
   gap: 24px;
   /* Anchor the FilesTab to `.r-v2-det__panel`'s visible viewport
      via absolute positioning rather than `height: 100%`. The panel
-     has `overflow-y: auto`, which is a scroll container — percentage
+     has `overflow-y: auto`, which is a scroll container, percentage
      heights against such a parent flake (resolve to min-content when
      the descendant grid's intrinsic height grows under many files),
      and the file list ends up pushing the panel's outer scrollbar.
@@ -753,7 +753,7 @@ async function refreshRom() {
   /* Grid (auto / auto / auto / 1fr) instead of flex column: the `1fr`
      row forces the list to clip + scroll internally even with many
      files. Flex `min-height: 0` + `overflow-y: auto` on the list was
-     unreliable here — the list's intrinsic min-content kept leaking
+     unreliable here: the list's intrinsic min-content kept leaking
      through and pushed `.r-v2-det__panel` into showing its outer
      scrollbar. Rows: section header, summary, selection toolbar, list. */
   display: grid;
@@ -798,10 +798,10 @@ async function refreshRom() {
   gap: 4px;
 }
 
-/* File rows — sole scrollable area. Sits in the grid's `1fr` track,
+/* File rows: sole scrollable area. Sits in the grid's `1fr` track,
    so the track width determines its size; `min-height: 0` lets the
    grid track shrink under min-content and `overflow-y: auto` keeps
-   the rows scrolling inside. No `flex: 1` — grid items don't honour
+   the rows scrolling inside. No `flex: 1`, grid items don't honour
    flex shorthand and it muddies the contract. */
 .r-v2-files__list {
   display: flex;

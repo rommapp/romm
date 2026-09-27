@@ -7,7 +7,6 @@
 // sub-component under components/GameDetails/.
 import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { formatReleaseDate } from "@v2/utils/time";
-import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
@@ -37,6 +36,7 @@ import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useRomScanRefresh } from "@/v2/composables/useRomScanRefresh";
+import { romIdFromRoute, useRouteRom } from "@/v2/composables/useRouteRom";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
@@ -47,7 +47,7 @@ const router = useRouter();
 const romsStore = storeRoms();
 const authStore = storeAuth();
 const streamingStore = useStreamingStore();
-const { currentRom } = storeToRefs(romsStore);
+const currentRom = useRouteRom();
 const { toWebp } = useWebpSupport();
 const { showRecommendations } = useUISettings();
 const { locale, t } = useI18n();
@@ -55,13 +55,9 @@ const { smAndDown } = useBreakpoint();
 
 const setBgArt = useBackgroundArt();
 
-// Param-change navigation guard, the route's `beforeEnter` in
-// `plugins/router.ts` only fires on initial entry; navigating between
-// `/rom/123` and `/rom/456` reuses this component, so currentRom
-// would stay stale (e.g. clicking an "Owned" related game card
-// wouldn't refresh the view). Mirror the beforeEnter logic here for
-// param updates, then scroll the panel back to the top so the new
-// ROM's overview doesn't start halfway down where the user clicked.
+// The route's `beforeEnter` in `plugins/router.ts` only fires on initial
+// entry, and `/rom/123` to `/rom/456` reuses this component, so the param
+// update guard below loads the next game and scrolls the panel back up.
 const panelEl = ref<HTMLElement | null>(null);
 
 // Right stick scrolls the tab panel, D-pad / A move focus across the
@@ -69,7 +65,7 @@ const panelEl = ref<HTMLElement | null>(null);
 // without needing to leave the ribbon focus.
 useRightStickScroll(panelEl);
 
-// The files badge and every tab read `currentRom`, so the view owns the
+// The files badge and every tab read the route's ROM, so the view owns the
 // post-scan refetch rather than the Files tab.
 useRomScanRefresh();
 
@@ -92,21 +88,22 @@ watch(
   { immediate: true },
 );
 
-onBeforeRouteUpdate(async (to) => {
-  const nextId = parseInt(to.params.rom as string);
-  if (Number.isNaN(nextId)) return;
-  const sameRom = romsStore.currentRom?.id === nextId;
-  if (!sameRom) {
+onBeforeRouteUpdate(async (to, from) => {
+  const nextId = romIdFromRoute(to);
+  if (nextId === null) return;
+  // Cached under its own id, so this page keeps rendering its game until
+  // the route commits.
+  if (nextId !== romIdFromRoute(from)) {
     try {
       const { data } = await romApi.getRom({ romId: nextId });
-      romsStore.setCurrentRom(data);
+      romsStore.cacheDetailedRom(data);
     } catch (error) {
       console.error(error);
     }
   }
-  // Reset the per-view scroll on every navigation (even if the
-  // currentRom hasn't changed, e.g. re-entering the same ROM from
-  // its own page): the panel is the sole scroll context here.
+  // Reset the per-view scroll on every navigation (even if the ROM hasn't
+  // changed, e.g. re-entering the same ROM from its own page): the panel is
+  // the sole scroll context here.
   panelEl.value?.scrollTo({ top: 0, behavior: "smooth" });
 });
 
@@ -272,7 +269,7 @@ const igdb = computed(() => currentRom.value?.igdb_metadata ?? null);
 // hold and absent entirely for anything IGDB never matched.
 const similarRoms = ref<SimilarRomSchema[]>([]);
 
-// Keyed on the id rather than the ROM: `currentRom` is reassigned wholesale
+// Keyed on the id rather than the ROM: the cached record is replaced wholesale
 // by every optimistic mutation, which would blank the grid mid-interaction.
 watch(
   [() => currentRom.value?.id, showRecommendations],
