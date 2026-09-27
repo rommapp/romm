@@ -54,7 +54,7 @@ def _partition(
 
 
 async def _transact[T](
-    attempt: Callable[[Pipeline[str]], Awaitable[T]], exhausted: str
+    attempt: Callable[[Pipeline], Awaitable[T]], exhausted: str
 ) -> T:
     """Run ``attempt`` in a watched transaction, retrying when a watched key changes."""
     async with async_cache.pipeline(transaction=True) as pipe:
@@ -112,7 +112,7 @@ class DeviceInstallHandler:
         )
         active_key = _active_key(request)
 
-        async def attempt(pipe: Pipeline[str]) -> tuple[InstallRequestSchema, bool]:
+        async def attempt(pipe: Pipeline) -> tuple[InstallRequestSchema, bool]:
             await pipe.watch(active_key)
             active_id = await pipe.get(active_key)
             if active_id is not None:
@@ -151,7 +151,7 @@ class DeviceInstallHandler:
         """
         device_key = _device_key(device_id)
 
-        async def attempt(pipe: Pipeline[str]) -> InstallClaim:
+        async def attempt(pipe: Pipeline) -> InstallClaim:
             await pipe.watch(device_key)
             ids = [as_text(i) for i in await pipe.smembers(device_key)]
             if ids:
@@ -229,7 +229,7 @@ class DeviceInstallHandler:
         from_statuses: frozenset[InstallStatus],
         reason: str | None,
     ) -> InstallRequestSchema:
-        async def attempt(pipe: Pipeline[str]) -> InstallRequestSchema:
+        async def attempt(pipe: Pipeline) -> InstallRequestSchema:
             await pipe.watch(_request_key(request_id))
             [current] = await self._read(pipe, [request_id])
             if current is None:
@@ -254,7 +254,7 @@ class DeviceInstallHandler:
         return await _transact(attempt, "The request kept changing while it was ended")
 
     async def _read(
-        self, client: Redis[str], request_ids: list[str]
+        self, client: Redis, request_ids: list[str]
     ) -> list[InstallRequestSchema | None]:
         """The stored requests in ``request_ids`` order, None where one is gone."""
         if not request_ids:
@@ -273,7 +273,7 @@ class DeviceInstallHandler:
         return _oldest_first(live)
 
     async def _owns_active_keys(
-        self, pipe: Pipeline[str], requests: list[InstallRequestSchema]
+        self, pipe: Pipeline, requests: list[InstallRequestSchema]
     ) -> list[bool]:
         """Whether each rom's dedupe key still names its request, watching the keys."""
         active_keys = [_active_key(request) for request in requests]
@@ -285,7 +285,7 @@ class DeviceInstallHandler:
         ]
 
     def _stage_write(
-        self, pipe: Pipeline[str], request: InstallRequestSchema, owns_active_key: bool
+        self, pipe: Pipeline, request: InstallRequestSchema, owns_active_key: bool
     ) -> None:
         """Queue the request's write; each index lives as long as its newest request."""
         device_key = _device_key(request.device_id)
@@ -302,7 +302,7 @@ class DeviceInstallHandler:
             pipe.expire(rom_key, self.ttl_seconds)
 
     def _stage_delete(
-        self, pipe: Pipeline[str], request: InstallRequestSchema, owns_active_key: bool
+        self, pipe: Pipeline, request: InstallRequestSchema, owns_active_key: bool
     ) -> None:
         pipe.delete(_request_key(request.id))
         pipe.srem(_device_key(request.device_id), request.id)

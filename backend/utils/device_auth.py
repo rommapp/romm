@@ -100,7 +100,7 @@ def polled_too_fast(device_code: str, interval_seconds: int) -> bool:
     prev_raw = sync_cache.set(
         key, str(now_ms), ex=max(interval_seconds * 4, 30), get=True
     )
-    if prev_raw is None:
+    if prev_raw is None or isinstance(prev_raw, bool):
         return False
     try:
         prev_ms = int(as_text(prev_raw))
