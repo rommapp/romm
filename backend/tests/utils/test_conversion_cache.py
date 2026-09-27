@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from adapters.services.rom_converto import RomConvertoOperationError, resolve_operation
+from adapters.services.rom_converto import (
+    Operation,
+    RomConvertoOperationError,
+    resolve_operation,
+)
 from config import ROMM_BASE_PATH
 from models.rom import RomFile
 from utils import conversion_cache
@@ -29,6 +33,12 @@ def _rom_file(**overrides) -> RomFile:
     return RomFile(**defaults)
 
 
+def _resolved(rom_file: RomFile) -> tuple[Operation, str]:
+    resolved = resolve_operation("psp", "chd", rom_file.file_name)
+    assert resolved is not None
+    return resolved
+
+
 @pytest.fixture
 def cache_root(tmp_path, mocker):
     mocker.patch.object(conversion_cache, "ROM_CONVERTO_CACHE_PATH", str(tmp_path))
@@ -42,8 +52,8 @@ def fake_convert(mocker):
     async def convert(operation, src, out) -> None:
         out.write_bytes(b"converted")
 
-    return mocker.patch.object(
-        conversion_cache.rom_converto_service, "convert", side_effect=convert
+    return mocker.patch(
+        "utils.conversion_cache.rom_converto_service.convert", side_effect=convert
     )
 
 
@@ -61,7 +71,7 @@ class TestGetOrConvert:
         self, cache_root, fake_convert
     ):
         f = _rom_file()
-        operation, input_ext = resolve_operation("psp", "chd", f.file_name)
+        operation, input_ext = _resolved(f)
         final = converted_file_path(1, f, operation, input_ext)
         final.parent.mkdir(parents=True)
         final.write_bytes(b"cached")
@@ -74,9 +84,17 @@ class TestGetOrConvert:
         assert os.stat(final).st_mtime > old
         fake_convert.assert_not_called()
 
+    async def test_full_cache_serves_original_without_converting(
+        self, cache_root, fake_convert, mocker
+    ):
+        mocker.patch.object(conversion_cache, "has_room_for", return_value=False)
+
+        assert await get_or_convert(1, _rom_file(), "psp", "chd") is None
+        fake_convert.assert_not_called()
+
     async def test_fresh_sentinel_returns_none(self, cache_root, fake_convert):
         f = _rom_file()
-        operation, input_ext = resolve_operation("psp", "chd", f.file_name)
+        operation, input_ext = _resolved(f)
         key_dir = converted_file_path(1, f, operation, input_ext).parent
         key_dir.mkdir(parents=True)
         (key_dir / SENTINEL_NAME).touch()
@@ -86,7 +104,7 @@ class TestGetOrConvert:
 
     async def test_stale_sentinel_is_reclaimed(self, cache_root, fake_convert):
         f = _rom_file()
-        operation, input_ext = resolve_operation("psp", "chd", f.file_name)
+        operation, input_ext = _resolved(f)
         final = converted_file_path(1, f, operation, input_ext)
         key_dir = final.parent
         key_dir.mkdir(parents=True)
@@ -103,7 +121,7 @@ class TestGetOrConvert:
 
     async def test_success_writes_via_tmp_then_final(self, cache_root, mocker):
         f = _rom_file()
-        operation, input_ext = resolve_operation("psp", "chd", f.file_name)
+        operation, input_ext = _resolved(f)
         final = converted_file_path(1, f, operation, input_ext)
         seen_out: list[Path] = []
 
@@ -111,8 +129,8 @@ class TestGetOrConvert:
             seen_out.append(out)
             out.write_bytes(b"converted")
 
-        mocker.patch.object(
-            conversion_cache.rom_converto_service, "convert", side_effect=convert
+        mocker.patch(
+            "utils.conversion_cache.rom_converto_service.convert", side_effect=convert
         )
 
         result = await get_or_convert(1, f, "psp", "chd")
@@ -128,7 +146,7 @@ class TestGetOrConvert:
         self, cache_root, fake_convert
     ):
         f = _rom_file()
-        operation, input_ext = resolve_operation("psp", "chd", f.file_name)
+        operation, input_ext = _resolved(f)
         final = converted_file_path(1, f, operation, input_ext)
         final.parent.mkdir(parents=True)
         tmp = final.with_name(f"{final.stem}.tmp{os.getpid()}{final.suffix}")
@@ -143,14 +161,14 @@ class TestGetOrConvert:
         self, cache_root, mocker
     ):
         f = _rom_file()
-        operation, input_ext = resolve_operation("psp", "chd", f.file_name)
+        operation, input_ext = _resolved(f)
         key_dir = converted_file_path(1, f, operation, input_ext).parent
 
         async def convert(op, src, out) -> None:
             raise RomConvertoOperationError("boom", returncode=1, stderr="boom")
 
-        mocker.patch.object(
-            conversion_cache.rom_converto_service, "convert", side_effect=convert
+        mocker.patch(
+            "utils.conversion_cache.rom_converto_service.convert", side_effect=convert
         )
 
         assert await get_or_convert(1, f, "psp", "chd") is None
@@ -158,15 +176,15 @@ class TestGetOrConvert:
 
     async def test_conversion_failure_leaves_no_partial_tmp(self, cache_root, mocker):
         f = _rom_file()
-        operation, input_ext = resolve_operation("psp", "chd", f.file_name)
+        operation, input_ext = _resolved(f)
         key_dir = converted_file_path(1, f, operation, input_ext).parent
 
         async def convert(op, src, out) -> None:
             out.write_bytes(b"partial")
             raise RomConvertoOperationError("boom", returncode=1, stderr="boom")
 
-        mocker.patch.object(
-            conversion_cache.rom_converto_service, "convert", side_effect=convert
+        mocker.patch(
+            "utils.conversion_cache.rom_converto_service.convert", side_effect=convert
         )
 
         assert await get_or_convert(1, f, "psp", "chd") is None
@@ -186,12 +204,44 @@ class TestGetCachedConverted:
 
     def test_returns_final_path_when_cached(self, cache_root):
         f = _rom_file()
-        operation, input_ext = resolve_operation("psp", "chd", f.file_name)
+        operation, input_ext = _resolved(f)
         final = converted_file_path(1, f, operation, input_ext)
         final.parent.mkdir(parents=True)
         final.write_bytes(b"cached")
 
         assert get_cached_converted(1, f, "psp", "chd") == final
+
+    @pytest.mark.parametrize("touch", [False, True])
+    def test_touch_refreshes_mtime_only_when_asked(self, cache_root, touch):
+        f = _rom_file()
+        operation, input_ext = _resolved(f)
+        final = converted_file_path(1, f, operation, input_ext)
+        final.parent.mkdir(parents=True)
+        final.write_bytes(b"cached")
+        old = time.time() - 3600
+        os.utime(final, (old, old))
+
+        get_cached_converted(1, f, "psp", "chd", touch=touch)
+
+        assert (os.stat(final).st_mtime > old) is touch
+
+
+class TestHasRoomFor:
+    def test_unbounded_when_cap_is_zero(self, cache_root, mocker):
+        mocker.patch.object(conversion_cache, "ROM_CONVERTO_CACHE_MAX_SIZE_GB", 0)
+
+        assert conversion_cache.has_room_for(10 * conversion_cache.BYTES_PER_GB)
+
+    def test_counts_cached_bytes_against_the_cap(self, cache_root, mocker):
+        mocker.patch.object(conversion_cache, "ROM_CONVERTO_CACHE_MAX_SIZE_GB", 1)
+        mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
+        key_dir = cache_root / "1-a"
+        key_dir.mkdir()
+        (key_dir / "game.chd").write_bytes(b"x" * 60)
+        (key_dir / SENTINEL_NAME).touch()
+
+        assert conversion_cache.has_room_for(40)
+        assert not conversion_cache.has_room_for(41)
 
 
 class TestGetRedirectPath:
@@ -206,9 +256,8 @@ class TestCleanupStaleConversions:
     @pytest.fixture
     def cleanup_cache_root(self, tmp_path, mocker):
         mocker.patch.object(conversion_cache, "ROM_CONVERTO_CACHE_PATH", str(tmp_path))
-        mocker.patch.object(
-            conversion_cache.cm,
-            "get_config",
+        mocker.patch(
+            "utils.conversion_cache.cm.get_config",
             return_value=mocker.Mock(**{"CONVERTO.cache_ttl_hours": 24}),
         )
         return tmp_path
@@ -262,3 +311,35 @@ class TestCleanupStaleConversions:
 
         assert deleted == 1
         assert not leaked.exists()
+
+    def test_evicts_least_recently_served_over_the_cap(
+        self, cleanup_cache_root, mocker
+    ):
+        mocker.patch.object(conversion_cache, "ROM_CONVERTO_CACHE_MAX_SIZE_GB", 1)
+        mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
+        now = time.time()
+        dirs = {}
+        for name, age in (("1-old", 300), ("1-mid", 200), ("1-new", 100)):
+            key_dir = cleanup_cache_root / name
+            key_dir.mkdir()
+            (key_dir / "game.chd").write_bytes(b"x" * 40)
+            os.utime(key_dir / "game.chd", (now - age, now - age))
+            dirs[name] = key_dir
+
+        deleted = conversion_cache.cleanup_stale_conversions()
+
+        assert deleted == 1
+        assert not dirs["1-old"].exists()
+        assert dirs["1-mid"].exists()
+        assert dirs["1-new"].exists()
+
+    def test_never_evicts_an_in_flight_conversion(self, cleanup_cache_root, mocker):
+        mocker.patch.object(conversion_cache, "ROM_CONVERTO_CACHE_MAX_SIZE_GB", 1)
+        mocker.patch.object(conversion_cache, "BYTES_PER_GB", 10)
+        key_dir = cleanup_cache_root / "1-busy"
+        key_dir.mkdir()
+        (key_dir / "game.tmp1.chd").write_bytes(b"x" * 40)
+        (key_dir / SENTINEL_NAME).touch()
+
+        assert conversion_cache.cleanup_stale_conversions() == 0
+        assert key_dir.exists()

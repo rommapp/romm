@@ -7,7 +7,7 @@ from handler.database.base_handler import sync_session
 from logger.logger import log
 from tasks.tasks import Task, TaskType, update_job_meta
 from utils.context import initialize_context
-from utils.conversion_cache import get_or_convert
+from utils.conversion_cache import get_or_convert, has_room_for
 
 
 @dataclass
@@ -19,7 +19,7 @@ class ConvertLibraryStats:
 
 
 class ConvertLibraryTask(Task):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Convert library to target formats",
             description="Pre-warm the conversion cache for ROMs covered by the per-platform format policy",
@@ -30,7 +30,7 @@ class ConvertLibraryTask(Task):
         )
 
     @initialize_context()
-    async def run(self, platform_id: int | None = None) -> dict:
+    async def run(self, platform_id: int | None = None) -> dict[str, int | None]:
         """Pre-warm the conversion cache for every eligible single-file ROM."""
         log.info(f"Starting {self.title} task...")
 
@@ -77,7 +77,15 @@ class ConvertLibraryTask(Task):
                         continue
                     candidates.append((rom, files[0]))
 
-            for rom, rom_file in candidates:
+            for index, (rom, rom_file) in enumerate(candidates):
+                if not has_room_for(rom_file.file_size_bytes or 0):
+                    log.warning(
+                        "Conversion cache is full, stopping the pre-warm; raise "
+                        "ROM_CONVERTO_CACHE_MAX_SIZE_GB to convert more"
+                    )
+                    stats.skipped += len(candidates) - index
+                    update_job_meta({"conversion_stats": asdict(stats)})
+                    return self._finish(stats)
                 log.info(
                     f"Pre-warming conversion of '{rom.fs_name}' [ID: {rom.id}] to {target}"
                 )
@@ -88,6 +96,9 @@ class ConvertLibraryTask(Task):
                     stats.converted += 1
                 update_job_meta({"conversion_stats": asdict(stats)})
 
+        return self._finish(stats)
+
+    def _finish(self, stats: ConvertLibraryStats) -> dict[str, int | None]:
         log.info(
             f"{self.title} completed: {stats.converted} converted, "
             f"{stats.skipped} skipped, {stats.failed} failed"

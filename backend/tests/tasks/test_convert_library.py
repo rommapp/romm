@@ -228,3 +228,21 @@ class TestConvertLibraryTask:
         assert stats["platform_id"] == psp_rom.platform_id
         assert stats["converted"] == 1
         assert all(call.args[0] == psp_rom.id for call in fake_convert.call_args_list)
+
+    async def test_stops_when_the_cache_is_full(
+        self,
+        task,
+        converto_config,
+        conversion_enabled,
+        fake_convert,
+        mocker,
+        psp_rom,
+        psp_rom_file,
+    ):
+        mocker.patch("tasks.manual.convert_library.has_room_for", return_value=False)
+
+        stats = await task.run()
+
+        assert stats["converted"] == 0
+        assert stats["skipped"] == 1
+        fake_convert.assert_not_called()

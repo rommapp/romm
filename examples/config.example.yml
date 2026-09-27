@@ -243,7 +243,8 @@
 #           clears_stale_saves: true
 
 # converto:
-#   # Serve single-file downloads converted by rom-converto (needs ROM_CONVERTO_ENABLED)
+#   # Serve converted single-file downloads when a client asks with ?converted=true
+#   # (needs ROM_CONVERTO_ENABLED)
 #   download_conversion_enabled: false
 #   # Read title ids and serials with rom-converto during scans
 #   scan_metadata: true

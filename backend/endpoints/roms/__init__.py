@@ -13,9 +13,20 @@ from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
 import pydash
 from anyio import Path, open_file
-from fastapi import Body, Depends, File, Form, HTTPException
+from fastapi import (
+    Body,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+)
 from fastapi import Path as PathVar
-from fastapi import Query, Request, UploadFile, status
+from fastapi import (
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import Response
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 from sqlalchemy.exc import IntegrityError
@@ -1297,6 +1308,16 @@ def get_rom(
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
+ConvertedQuery = Annotated[
+    bool,
+    Query(
+        description="Serve a single-file rom in the format the admin configured "
+        "for its platform, when download conversion is enabled. Falls back to "
+        "the original file whenever a converted copy can't be served."
+    ),
+]
+
+
 @protected_route(
     router.head,
     "/{id}/content/{file_name}",
@@ -1313,6 +1334,7 @@ async def head_rom_content(
             description="Comma-separated list of file ids to download for multi-part roms."
         ),
     ] = None,
+    converted: ConvertedQuery = False,
 ) -> Response:
     """Retrieve head information for a rom file download."""
 
@@ -1366,7 +1388,11 @@ async def head_rom_content(
     if len(files) == 1:
         # Report a cached conversion, but never start one: HEAD may be
         # unauthenticated and a conversion is minutes of CPU.
-        converted_path = await _maybe_converted_download(rom, files[0], convert=False)
+        converted_path = (
+            await _maybe_converted_download(rom, files[0], start_conversion=False)
+            if converted
+            else None
+        )
         if converted_path:
             return FileRedirectResponse(
                 download_path=get_redirect_path(converted_path),
@@ -1400,24 +1426,33 @@ async def head_rom_content(
 
 
 async def _maybe_converted_download(
-    rom: Rom, file: RomFile, *, convert: bool = True
+    rom: Rom, file: RomFile, *, start_conversion: bool
 ) -> pathlib.Path | None:
-    """The converted file's disk path for a single-file download, or None
-    to serve the original. Every failure path falls back to the original."""
+    """The converted copy of a single-file download, or None to serve the original.
+
+    Args:
+        start_conversion: Convert in-request when nothing is cached and the
+            file is within ROM_CONVERTO_MAX_SYNC_SIZE_MB.
+    """
     converto = cm.get_config().CONVERTO
     target = converto.platform_formats.get(rom.platform_slug)
     if (
         not converto.download_conversion_enabled
         or not target
-        or ROM_CONVERTO_MAX_SYNC_SIZE_MB <= 0
-        or (file.file_size_bytes or rom.fs_size_bytes)
-        > ROM_CONVERTO_MAX_SYNC_SIZE_MB * 1024 * 1024
         or not await rom_converto_service.is_enabled()
     ):
         return None
 
-    if not convert:
-        return get_cached_converted(rom.id, file, rom.platform_slug, target)
+    # A pre-warmed copy is served whatever its size.
+    cached = get_cached_converted(
+        rom.id, file, rom.platform_slug, target, touch=start_conversion
+    )
+    if cached or not start_conversion:
+        return cached
+    if (
+        file.file_size_bytes or rom.fs_size_bytes
+    ) > ROM_CONVERTO_MAX_SYNC_SIZE_MB * 1024 * 1024:
+        return None
     return await get_or_convert(rom.id, file, rom.platform_slug, target)
 
 
@@ -1444,6 +1479,7 @@ async def get_rom_content(
             "recorded as a player load rather than a download."
         ),
     ] = "download",
+    converted: ConvertedQuery = False,
 ) -> Response:
     """Download a rom.
 
@@ -1598,7 +1634,11 @@ async def get_rom_content(
     # Otherwise proxy through nginx
     if len(files) == 1:
         file = files[0]
-        converted_path = await _maybe_converted_download(rom, file)
+        converted_path = (
+            await _maybe_converted_download(rom, file, start_conversion=True)
+            if converted
+            else None
+        )
         if converted_path:
             return served(
                 FileRedirectResponse(
