@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from config import DEVICE_INSTALL_ENABLED
 from decorators.auth import protected_route
-from endpoints.responses.device_install import (
+from endpoints.responses.device.install import (
     InstallReason,
     InstallRequestSchema,
     InstallStatus,
@@ -29,12 +29,12 @@ from exceptions.endpoint_exceptions import (
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_device_handler, db_rom_handler
-from handler.device_install_handler import (
+from handler.device_install import (
     InstallRequestNotFoundError,
     InstallTransitionError,
     device_install_handler,
 )
-from handler.device_install_policy import (
+from handler.device_install.policy import (
     InstallNotAllowedError,
     accepts_remote_install,
     is_installable_platform,

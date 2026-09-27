@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from .base import BaseModel, UTCDatetime
+from ..base import BaseModel, UTCDatetime
 
 
 class InstallStatus(enum.StrEnum):

@@ -1,7 +1,7 @@
 import pytest
 
-from handler import device_install_policy as policy_module
-from handler.device_install_policy import (
+from handler.device_install import policy as policy_module
+from handler.device_install.policy import (
     InstallNotAllowedError,
     is_installable_platform,
     select_install_files,

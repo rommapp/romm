@@ -6,7 +6,7 @@ from fastapi import status
 
 from endpoints import device as device_endpoints
 from handler.database import db_device_handler
-from handler.device_install_handler import device_install_handler
+from handler.device_install import device_install_handler
 from handler.redis_handler import sync_cache
 from models.device import Device
 from models.user import User

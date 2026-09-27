@@ -7,7 +7,7 @@ from typing import Any, Final, NamedTuple
 from socketio import exceptions as socketio_exceptions
 
 from config import DEVICE_INSTALL_ENABLED, SESSION_MAX_AGE_SECONDS
-from endpoints.responses.device_install import InstallRequestSchema
+from endpoints.responses.device.install import InstallRequestSchema
 from handler.auth.constants import CLIENT_TOKEN_PREFIX, Scope
 from handler.auth.hybrid_auth import resolve_client_token
 from handler.database import db_client_token_handler, db_device_handler

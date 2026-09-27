@@ -10,7 +10,7 @@ from redis.asyncio.client import Pipeline
 from redis.exceptions import WatchError
 
 from config import DEVICE_INSTALL_REQUEST_TTL_DAYS
-from endpoints.responses.device_install import InstallRequestSchema, InstallStatus
+from endpoints.responses.device.install import InstallRequestSchema, InstallStatus
 from handler.redis_handler import as_text, async_cache
 from logger.logger import log
 

@@ -5,7 +5,7 @@ from fastapi import Request, status
 
 from config import DEVICE_INSTALL_ENABLED
 from decorators.auth import protected_route
-from endpoints.responses.device_install import InstallRequestSchema
+from endpoints.responses.device.install import InstallRequestSchema
 from exceptions.endpoint_exceptions import (
     DeviceInstallDisabledException,
     RomNotFoundInDatabaseException,
@@ -13,7 +13,7 @@ from exceptions.endpoint_exceptions import (
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
-from handler.device_install_handler import device_install_handler
+from handler.device_install import device_install_handler
 from utils.router import APIRouter
 
 router = APIRouter()

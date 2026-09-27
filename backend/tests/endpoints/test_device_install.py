@@ -4,11 +4,11 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 
-from endpoints import device_install
-from endpoints.responses.device_install import InstallRequestSchema, InstallStatus
+from endpoints.device import install as device_install
+from endpoints.responses.device.install import InstallRequestSchema, InstallStatus
 from handler.database import db_device_handler, db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
-from handler.device_install_handler import device_install_handler
+from handler.device_install import device_install_handler
 from models.device import Device
 from models.notification import NotificationKind, NotificationLevel
 from models.permission import HiddenEntity, PermEntity

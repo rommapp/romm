@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from socketio import exceptions as socketio_exceptions
 
-from endpoints.responses.device_install import InstallRequestSchema, InstallStatus
+from endpoints.responses.device.install import InstallRequestSchema, InstallStatus
 from endpoints.sockets import devices
 from handler.auth.hybrid_auth import resolve_client_token
 from handler.database import db_client_token_handler, db_device_handler

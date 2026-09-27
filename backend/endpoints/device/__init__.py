@@ -20,7 +20,7 @@ from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
 )
-from handler.device_install_handler import device_install_handler
+from handler.device_install import device_install_handler
 from handler.filesystem import get_fs_sync_handler
 from handler.socket_handler import close_client_token_sockets
 from logger.logger import log

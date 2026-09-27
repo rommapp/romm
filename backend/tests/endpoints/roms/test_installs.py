@@ -2,10 +2,10 @@ import asyncio
 
 from fastapi import status
 
-from endpoints.responses.device_install import InstallRequestSchema
+from endpoints.responses.device.install import InstallRequestSchema
 from endpoints.roms import installs
 from handler.database.base_handler import sync_session
-from handler.device_install_handler import device_install_handler
+from handler.device_install import device_install_handler
 from models.permission import HiddenEntity, PermEntity
 from models.rom import Rom
 from models.user import User

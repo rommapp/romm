@@ -180,7 +180,9 @@ backend/
 │   ├── platform.py            # Platform CRUD
 │   ├── collections.py         # Collection management
 │   ├── configs.py             # App configuration
-│   ├── device.py              # Device registration
+│   ├── device/                # Devices
+│   │   ├── __init__.py        # Device registration
+│   │   └── install.py         # Push-to-device install queue
 │   ├── export.py              # ES-DE gamelist.xml + Pegasus exports
 │   ├── feeds.py               # Tinfoil, WebRcade, PKGi feeds
 │   ├── firmware.py            # BIOS/firmware management
@@ -229,6 +231,9 @@ backend/
 │   ├── netplay_handler.py     # Netplay room state
 │   ├── redis_handler.py       # Redis clients & queues
 │   ├── scan_jobs.py           # Finding & pruning in-flight scan jobs
+│   ├── device_install/        # Push-to-device install requests
+│   │   ├── __init__.py        # Redis-backed install queue
+│   │   └── policy.py          # Which roms and files may be pushed
 │   ├── auth/                  # Authentication subsystem
 │   │   ├── base_handler.py    # Auth, OAuth, OIDC handlers
 │   │   ├── hybrid_auth.py     # Multi-method auth backend

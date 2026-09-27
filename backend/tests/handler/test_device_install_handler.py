@@ -1,7 +1,7 @@
 import pytest
 
-from endpoints.responses.device_install import InstallRequestSchema, InstallStatus
-from handler.device_install_handler import (
+from endpoints.responses.device.install import InstallRequestSchema, InstallStatus
+from handler.device_install import (
     DeviceInstallHandler,
     InstallTransitionError,
 )

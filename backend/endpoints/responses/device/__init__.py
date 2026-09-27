@@ -4,7 +4,7 @@ from pydantic import ConfigDict, field_serializer
 
 from models.device import SyncMode
 
-from .base import BaseModel, UTCDatetime
+from ..base import BaseModel, UTCDatetime
 
 SENSITIVE_SYNC_CONFIG_KEYS = {"ssh_password", "ssh_key_path"}
 

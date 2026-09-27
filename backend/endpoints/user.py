@@ -25,7 +25,7 @@ from handler.database import (
     db_device_handler,
     db_user_handler,
 )
-from handler.device_install_handler import device_install_handler
+from handler.device_install import device_install_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import (
     build_asset_file_response,

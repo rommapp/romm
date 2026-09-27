@@ -27,7 +27,7 @@ from handler.database import (
     db_notification_handler,
 )
 from handler.database.users_handler import DBUsersHandler
-from handler.device_install_handler import device_install_handler
+from handler.device_install import device_install_handler
 from handler.redis_handler import async_cache, redis_client
 from models.device import Device
 from models.notification import NotificationKind

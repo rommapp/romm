@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from endpoints.responses.device_install import InstallStatus
+from endpoints.responses.device.install import InstallStatus
 from endpoints.responses.notification import NotificationSchema
 from models.notification import NotificationKind
 from utils.urls import get_public_base_url
