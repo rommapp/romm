@@ -93,9 +93,14 @@ onBeforeRouteUpdate(async (to, from) => {
   if (nextId === null) return;
   // Cached under its own id, so this page keeps rendering its game until
   // the route commits.
-  if (nextId !== romIdFromRoute(from)) {
+  const fromId = romIdFromRoute(from);
+  if (nextId !== fromId) {
     try {
       const { data } = await romApi.getRom({ romId: nextId });
+      // Refresh the shown game's recency so a burst of superseded
+      // navigations can't evict it before the route commits.
+      const shown = fromId === null ? null : romsStore.getDetailedRom(fromId);
+      if (shown) romsStore.cacheDetailedRom(shown);
       romsStore.cacheDetailedRom(data);
     } catch (error) {
       console.error(error);
