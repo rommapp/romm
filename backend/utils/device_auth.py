@@ -97,8 +97,9 @@ def polled_too_fast(device_code: str, interval_seconds: int) -> bool:
     """
     key = _KEY_POLL_LAST.format(device_code)
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-    prev_raw = sync_cache.getset(key, str(now_ms))
-    sync_cache.expire(key, max(interval_seconds * 4, 30))
+    prev_raw = sync_cache.set(
+        key, str(now_ms), ex=max(interval_seconds * 4, 30), get=True
+    )
     if prev_raw is None:
         return False
     try:
