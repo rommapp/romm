@@ -286,7 +286,7 @@ def extract_media_from_gamelist_rom(
     if path_elem is not None and path_elem.text:
         rom_name = os.path.basename(path_elem.text)
         # ES-DE names a directory's media after its full name, a file's after its stem
-        rom_stems = (rom_name, os.path.splitext(rom_name)[0])
+        rom_names = (rom_name, os.path.splitext(rom_name)[0])
 
         for media_key in ESDE_MEDIA_MAP:
             if gamelist_media[media_key]:
@@ -294,7 +294,7 @@ def extract_media_from_gamelist_rom(
 
             files = media_files[media_key]
             gamelist_media[media_key] = next(
-                (files[stem] for stem in rom_stems if stem in files), None
+                (files[name] for name in rom_names if name in files), None
             )
 
     return gamelist_media
