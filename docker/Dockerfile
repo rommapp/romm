@@ -152,8 +152,10 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
 # The WebAssembly output is the same on every platform, so it builds with the
 # builder's own emsdk, which ships as a separate image per architecture.
 # Keep the pins below in sync with the dev image's copies in ../Dockerfile.
-FROM emscripten/emsdk:${EMSDK_VERSION}@sha256:${EMSDK_AMD64_SHA256} AS emsdk-amd64
-FROM emscripten/emsdk:${EMSDK_VERSION}-arm64@sha256:${EMSDK_ARM64_SHA256} AS emsdk-arm64
+# trunk-ignore(hadolint/DL3029)
+FROM --platform=linux/amd64 emscripten/emsdk:${EMSDK_VERSION}@sha256:${EMSDK_AMD64_SHA256} AS emsdk-amd64
+# trunk-ignore(hadolint/DL3029)
+FROM --platform=linux/arm64 emscripten/emsdk:${EMSDK_VERSION}-arm64@sha256:${EMSDK_ARM64_SHA256} AS emsdk-arm64
 
 # trunk-ignore(hadolint/DL3006,checkov/CKV_DOCKER_7)
 FROM emsdk-${BUILDARCH} AS gme-build
@@ -161,10 +163,10 @@ FROM emsdk-${BUILDARCH} AS gme-build
 ARG GME_VERSION=0.6.5
 ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
 
-COPY ./docker/gme /romm-gme
 RUN git clone --depth 1 --branch "${GME_VERSION}" https://github.com/libgme/game-music-emu.git /libgme && \
-    test "$(git -C /libgme rev-parse HEAD)" = "${GME_COMMIT}" && \
-    /romm-gme/build.sh /libgme /gme
+    test "$(git -C /libgme rev-parse HEAD)" = "${GME_COMMIT}"
+COPY ./docker/gme /romm-gme
+RUN /romm-gme/build.sh /libgme /gme
 
 
 # FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08

@@ -3,16 +3,18 @@
 # trunk-ignore-all(hadolint/DL4006)
 
 # Keep the pins in sync with the gme-build stage of docker/Dockerfile.
-FROM emscripten/emsdk:4.0.12@sha256:744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6 AS emsdk-amd64
-FROM emscripten/emsdk:4.0.12-arm64@sha256:369a4cb655aa1066e6e450dde774243c502d999b1d93fb4890a9d1428daa9280 AS emsdk-arm64
+# trunk-ignore(hadolint/DL3029)
+FROM --platform=linux/amd64 emscripten/emsdk:4.0.12@sha256:744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6 AS emsdk-amd64
+# trunk-ignore(hadolint/DL3029)
+FROM --platform=linux/arm64 emscripten/emsdk:4.0.12-arm64@sha256:369a4cb655aa1066e6e450dde774243c502d999b1d93fb4890a9d1428daa9280 AS emsdk-arm64
 # trunk-ignore(hadolint/DL3006)
 FROM emsdk-${BUILDARCH} AS gme-build
 ARG GME_VERSION=0.6.5
 ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
-COPY docker/gme /romm-gme
 RUN git clone --depth 1 --branch "${GME_VERSION}" https://github.com/libgme/game-music-emu.git /libgme \
-    && test "$(git -C /libgme rev-parse HEAD)" = "${GME_COMMIT}" \
-    && /romm-gme/build.sh /libgme /gme
+    && test "$(git -C /libgme rev-parse HEAD)" = "${GME_COMMIT}"
+COPY docker/gme /romm-gme
+RUN /romm-gme/build.sh /libgme /gme
 
 # Browser player runtimes. Keep the pins in sync with the emulator stage of docker/Dockerfile.
 FROM ubuntu:22.04 AS emulator-download
