@@ -78,30 +78,14 @@ unrelated first, so each step's edits stay attributable.
 3. **`simplify`**, after the correctness fixes so it can simplify those too.
 4. **`review-polish`**: its verification gate has to cover everything the
    earlier steps rewrote.
-5. **`humanizer`** last, in file mode, over the prose `$BASE..HEAD` adds or
-   changes, so what steps 2 to 4 committed is covered: the Markdown paragraphs
-   it touches, and comments and docstrings on added lines. The rest of each file
-   stays as it is. It skips string literals, locale files, generated and
-   vendored paths, test fixtures, and lint or type directives (`# noqa`,
-   `# type: ignore`, `eslint-disable`), whose dash separators are syntax. Run it
-   in embedded mode on the PR description in the summary too, keeping the AI
-   disclosure and the template headings. Two RomM rules win over its patterns:
-   rewritten comments and Markdown still meet `review-polish` §A, so cut rather
-   than lengthen, and a file's existing headings and bold labels are its house
-   style, so its "Bold as decoration" and "Decorative headings" patterns apply
-   only where new prose breaks that style. Those names come from the vendored
-   copy in `.claude/skills/humanizer/`, and a personal install of the same name
-   takes precedence over it, so read that file directly if a different version
-   loads. It edits only prose, so re-run `trunk fmt && trunk check` on the files
-   it touched instead of the full gate, plus `npm run generate` (see
-   `review-polish` §E) when it touched a response schema docstring, since those
-   reach `frontend/src/__generated__/`.
+5. **`humanizer`** last, over the prose `$BASE..HEAD` adds or changes (not
+   `$RANGE`, so it covers what steps 2 to 4 committed). See "Step 5 scope" below.
 
 Commit after each step that changes files, naming the step in the message. A bad
 automated fix is then one `git revert` away instead of tangled with the other
 passes.
 
-Finish with one consolidated summary rather than one transcript per step: the
+Finish with one consolidated summary rather than per-step transcripts: the
 security verdict, what steps 2 to 5 changed by area, which checks ran and their
 results, and anything still needing a human decision.
 
@@ -112,3 +96,20 @@ boundary.
 
 The whole gauntlet in one session is a lot of context. For a very large diff,
 run the steps in separate sessions against the same `$RANGE`.
+
+## Step 5 scope
+
+Read `.claude/skills/humanizer/SKILL.md` and apply it rather than invoking the
+skill, since a personal install of the same name would load instead. In file
+mode it edits the Markdown paragraphs the range touches, and comments and
+docstrings on added lines. Skip locale files, paths in the `.trunk/trunk.yaml`
+`ignore` list, test fixtures, response schema docstrings (they are API contract
+text), and lint or type directives (`# noqa`, `# type: ignore`,
+`eslint-disable`), whose dash separators are syntax. In embedded mode it edits
+the PR description in the summary, keeping the AI disclosure and what
+`review-polish` §F requires.
+
+RomM rules win: rewritten text still meets `review-polish` §A, and a file's
+existing headings and bold labels stay (skip "Bold as decoration" and
+"Decorative headings" there). Then run `trunk fmt && trunk check` on the files
+it touched.
