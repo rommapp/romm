@@ -75,9 +75,8 @@ _EMULATOR_DISPLAY_NAMES: dict[str, str] = {
     "xenia": "Xenia",
 }
 
-# Display name of the libretro core the broker's RetroArch launcher picks for
-# each platform (its retroarch_platforms.json). Display only: RomM never
-# selects cores. A platform missing here is labelled by its slug instead.
+# Display name of the core the broker's RetroArch launcher boots for each
+# platform when config.yml sets none (its retroarch_platforms.json).
 _RETROARCH_CORE_NAMES: dict[str, str] = {
     "3do": "Opera",
     "3ds": "Azahar",
@@ -422,9 +421,11 @@ def _resolve_one(
             platform,
             core,
         )
+        if label == emulator_display_label(emulator, platform, core):
+            label = None
         core = None
     opt_in = entry.get("experimental_cores")
-    if opt_in is not None and not isinstance(opt_in, bool):
+    if core is not None and opt_in is not None and not isinstance(opt_in, bool):
         log.warning(
             "container for platform '%s' sets experimental_cores to %r, only an "
             "unquoted true opts in",
@@ -447,9 +448,8 @@ def _resolve_one(
         capabilities=capabilities,
         state_transfer=state_transfer_limits(emulator),
         core=core,
-        # Only a real boolean opts in: this runs cores known to be broken, and
-        # a quoted "false" is truthy to bool(). Without a core it is never
-        # sent, so it must not tell pool members apart either.
+        # Only a real boolean opts in (a quoted "false" is truthy to bool()),
+        # and only beside a core, the one place it is ever sent.
         experimental_cores=opt_in is True and core is not None,
     )
 
@@ -705,9 +705,9 @@ def _warn_about_later_pools(
         later = [c.key for pool in pools[1:] for c in pool]
         if later:
             log.warning(
-                "containers for platform '%s' disagree on emulator, memory card "
-                "sync, save picker or protocol, so game claims only use the first "
-                "pool; never claimed for a game: %s",
+                "containers for platform '%s' disagree on emulator, core, memory "
+                "card sync, save picker or protocol, so game claims only use the "
+                "first pool; never claimed for a game: %s",
                 pools[0][0].platform,
                 ", ".join(later),
             )

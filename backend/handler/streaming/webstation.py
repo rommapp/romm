@@ -183,12 +183,14 @@ def activate(
         "emulator": emulator,
         "multiplayer": multiplayer,
     }
+    # A romless launch (the desktop) boots no core, whatever the platform sets.
+    core = container.core if rom is not None else None
     if rom is not None:
         body["rom"] = rom
-        if container.core:
+        if core:
             # Only a configured core goes out, so an unconfigured platform's
             # body is what a broker without core support has always read.
-            body["rom"] = {**rom, "core": container.core}
+            body["rom"] = {**rom, "core": core}
             if container.experimental_cores:
                 body["rom"]["experimental_cores"] = True
     if gui_language:
@@ -225,22 +227,20 @@ def activate(
 
     resp = resp if isinstance(resp, dict) else {}
     log.info("broker activated session, %s", resp)
-    if container.core and resp.get("core") != container.core:
-        # A broker older than core support drops the field and boots its
-        # default core. Saving on the way out would file that core's files
-        # under this platform's archive, so the exit asks for no dump. It is
-        # best-effort and an old broker may not honour save=0.
+    if core and resp.get("core") != core:
+        # An older broker drops the field and boots its default; a dump at exit
+        # would file that core's saves under this platform, so ask for none.
         log.warning(
             "broker booted core %s, not the configured %s, ending the session",
             resp.get("core"),
-            container.core,
+            core,
         )
         exit_session(container, 0, save=False)
         raise HTTPException(
             status_code=502,
             detail=(
                 "This broker doesn't support `core:`. Upgrade the container, "
-                f"or remove `core: {container.core}` from the "
+                f"or remove `core: {core}` from the "
                 f"{container.platform} platform in config.yml."
             ),
         )
