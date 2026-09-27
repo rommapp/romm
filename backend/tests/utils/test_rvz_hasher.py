@@ -4,6 +4,7 @@ import lzma
 import struct
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import cast
 
 import pytest
 import zstandard
@@ -102,7 +103,7 @@ def _read_padded(data: bytes, offset: int, length: int) -> bytes:
 
 
 def _be32(data: bytes, offset: int = 0) -> int:
-    return struct.unpack_from(">I", data, offset)[0]
+    return cast(int, struct.unpack_from(">I", data, offset)[0])
 
 
 def reference_gamecube_hash(disc: bytes) -> str:

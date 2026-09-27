@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import cache, cached_property
-from typing import Any, Final, Literal, get_args
+from typing import Any, Final, Literal, cast, get_args
 from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit
 
 from apprise import (
@@ -590,7 +590,7 @@ def _read(field: AppriseField, text: str, quoted: bool) -> FieldValue | None:
         return [unquote(item) if quoted else item for item in items if item]
     text = unquote(text) if quoted else text
     if field.type == "bool":
-        return parse_bool(text)
+        return cast(FieldValue | None, parse_bool(text))
     if field.type in ("int", "float"):
         try:
             return int(text) if field.type == "int" else float(text)

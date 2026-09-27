@@ -63,8 +63,8 @@ class RAGameExtendedDetails(TypedDict):
     Publisher: str
     Developer: str
     Genre: str
-    Released: str  # ISO 8601 date format
-    ReleasedAtGranularity: RAGameReleasedAtGranularity
+    Released: str | None  # ISO 8601 date format
+    ReleasedAtGranularity: RAGameReleasedAtGranularity | None
     RichPresencePatch: str
     GuideURL: str | None
     Updated: str  # ISO 8601 datetime format
@@ -90,8 +90,8 @@ class RAUserCompletionProgressResult(TypedDict):
     NumAwarded: int
     NumAwardedHardcore: int
     MostRecentAwardedDate: str  # ISO 8601 datetime format
-    HighestAwardKind: RAUserCompletionProgressKind  # e.g., "beaten-hardcore"
-    HighestAwardDate: str  # ISO 8601 datetime format
+    HighestAwardKind: RAUserCompletionProgressKind | None  # e.g., "beaten-hardcore"
+    HighestAwardDate: str | None  # ISO 8601 datetime format
 
 
 # https://api-docs.retroachievements.org/v1/get-user-completion-progress.html#response
@@ -114,7 +114,7 @@ class RAGameInfoAndUserProgressAchievement(TypedDict):
     BadgeName: str
     DisplayOrder: int
     MemAddr: str
-    type: RAGameAchievementType | None
+    type: NotRequired[RAGameAchievementType | None]
     DateEarnedHardcore: NotRequired[str]  # ISO 8601 datetime format
     DateEarned: NotRequired[str]  # ISO 8601 datetime format
 
@@ -132,10 +132,10 @@ class RAGameInfoAndUserProgress(TypedDict):
     Publisher: str
     Developer: str
     Genre: str
-    Released: str  # ISO 8601 date format
-    ReleasedAtGranularity: RAGameReleasedAtGranularity
+    Released: str | None  # ISO 8601 date format
+    ReleasedAtGranularity: RAGameReleasedAtGranularity | None
     RichPresencePatch: str
-    GuideURL: str | None
+    GuideURL: NotRequired[str | None]
     ConsoleName: str
     ParentGameID: int | None
     NumDistinctPlayers: int
@@ -149,8 +149,8 @@ class RAGameInfoAndUserProgress(TypedDict):
     NumDistinctPlayersHardcore: int
     UserCompletion: str  # e.g., "100.00%"
     UserCompletionHardcore: str  # e.g., "100.00%"
-    HighestAwardKind: NotRequired[RAUserCompletionProgressKind]
-    HighestAwardDate: NotRequired[str]  # ISO 8601 datetime format
+    HighestAwardKind: NotRequired[RAUserCompletionProgressKind | None]
+    HighestAwardDate: NotRequired[str | None]  # ISO 8601 datetime format
 
 
 # https://api-docs.retroachievements.org/v1/get-game-list.html#response
@@ -163,6 +163,6 @@ class RAGameListItem(TypedDict):
     NumAchievements: int
     NumLeaderboards: int
     Points: int
-    DateModified: str  # ISO 8601 datetime format
+    DateModified: str | None  # ISO 8601 datetime format
     ForumTopicID: int | None
     Hashes: NotRequired[list[str]]

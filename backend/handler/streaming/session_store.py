@@ -20,7 +20,7 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from enum import Enum, auto
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, cast
 
 from redis.exceptions import WatchError
 
@@ -118,7 +118,7 @@ async def get_session(session_key: str) -> dict[str, Any] | None:
     if raw is None:
         return None
     try:
-        return json.loads(raw)
+        return cast(dict[str, Any] | None, json.loads(raw))
     except TypeError, json.JSONDecodeError:
         # Corrupt entry, drop it rather than wedging the container forever.
         await async_cache.delete(session_redis_key(session_key))
@@ -678,7 +678,7 @@ async def get_termination(session_key: str, user_id: int) -> dict[str, Any] | No
     if raw is None:
         return None
     try:
-        return json.loads(raw)
+        return cast(dict[str, Any] | None, json.loads(raw))
     except TypeError, json.JSONDecodeError:
         await async_cache.delete(_termination_redis_key(session_key, user_id))
         return None

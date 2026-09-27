@@ -1,13 +1,14 @@
 import asyncio
 import http
 import json
-from typing import Any, Final, cast
+from typing import Final
 
 import aiohttp
 import yarl
 from aiohttp.client import ClientTimeout
 from fastapi import HTTPException, status
 
+from adapters.services.response_validation import parse_response
 from adapters.services.steam_types import (
     SteamAppDetails,
     SteamAppDetailsEnvelope,
@@ -50,7 +51,9 @@ class SteamService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://store.steampowered.com/api")
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict[str, Any]:
+    async def _request[T](
+        self, url: str, tp: type[T], request_timeout: int = 120
+    ) -> T | None:
         aiohttp_session = ctx_aiohttp_session.get()
 
         for attempt in range(STEAM_MAX_REQUEST_ATTEMPTS):
@@ -69,10 +72,11 @@ class SteamService:
                     timeout=ClientTimeout(total=request_timeout),
                 )
                 res.raise_for_status()
-                payload = await res.json()
-                # A throttled storefront answers 200 with a bare `null`, and the
-                # callers only ever read mappings.
-                return payload if isinstance(payload, dict) else {}
+                body = await res.read()
+                # A throttled storefront answers 200 with a bare `null`.
+                if body.strip() == b"null":
+                    return None
+                return parse_response(tp, body, source=f"Steam {yarl.URL(url).name}")
             # A `total` timeout surfaces as a bare asyncio.TimeoutError, not as
             # aiohttp's ServerTimeoutError, so catch the base class.
             except TimeoutError:
@@ -98,12 +102,12 @@ class SteamService:
                     continue
 
                 log.error(exc)
-                return {}
+                return None
             except json.JSONDecodeError as exc:
                 log.error("Error decoding JSON response from Steam: %s", exc)
-                return {}
+                return None
 
-        return {}
+        return None
 
     async def search_apps(
         self,
@@ -119,8 +123,8 @@ class SteamService:
         url = self.url.joinpath("storesearch").with_query(
             term=term, cc=country, l=language
         )
-        response = cast(SteamStoreSearchResponse, await self._request(str(url)))
-        return response.get("items", []) or []
+        response = await self._request(str(url), SteamStoreSearchResponse)
+        return (response.get("items") or []) if response else []
 
     async def get_app_details(
         self,
@@ -138,11 +142,13 @@ class SteamService:
         if filters:
             query["filters"] = filters
         url = self.url.joinpath("appdetails").with_query(query)
-        response = await self._request(str(url))
+        response = await self._request(str(url), dict[str, SteamAppDetailsEnvelope])
+        if not response:
+            return None
+
         envelope = response.get(str(app_id))
         if envelope is None and len(response) == 1:
             envelope = self._envelope_keyed_by_another_id(response, app_id)
-        envelope = cast(SteamAppDetailsEnvelope | None, envelope)
         if not envelope or not envelope.get("success"):
             return None
 
@@ -150,8 +156,8 @@ class SteamService:
 
     @staticmethod
     def _envelope_keyed_by_another_id(
-        response: dict[str, Any], app_id: int
-    ) -> dict[str, Any] | None:
+        response: dict[str, SteamAppDetailsEnvelope], app_id: int
+    ) -> SteamAppDetailsEnvelope | None:
         """Steam keys some apps' envelope by another ID, e.g. one of their DLC."""
         envelope = next(iter(response.values()))
         if not isinstance(envelope, dict):

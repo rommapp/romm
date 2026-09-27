@@ -3,7 +3,7 @@ from __future__ import annotations
 import mimetypes
 import os
 import re
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 import mutagen
 from mutagen.flac import FLAC, Picture
@@ -224,7 +224,7 @@ def _open_mutagen(full_path: str) -> mutagen.FileType | None:
         return None
 
     try:
-        return mutagen.File(full_path)
+        return cast(mutagen.FileType | None, mutagen.File(full_path))
     except Exception as exc:
         log.warning(f"[audio_tags] parse failed for {full_path}: {exc}")
         return None

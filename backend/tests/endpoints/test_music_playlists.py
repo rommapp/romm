@@ -1,3 +1,5 @@
+from typing import cast
+
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -24,7 +26,7 @@ def playlist_id(
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_200_OK
-    return r.json()["id"]
+    return cast(int, r.json()["id"])
 
 
 def _add_tracks(client: TestClient, token: str, playlist: int, titles: list[str]):

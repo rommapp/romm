@@ -1,5 +1,5 @@
 import itertools
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import pytest
 from fastapi import Depends, FastAPI, Request
@@ -55,7 +55,9 @@ class TestAsQueryDependency:
 
         app = FastAPI()
         app.include_router(router)
-        return app.openapi()["paths"]["/things"]["get"]["parameters"]
+        return cast(
+            list[dict[str, Any]], app.openapi()["paths"]["/things"]["get"]["parameters"]
+        )
 
     def test_fields_stay_flat_alongside_another_query_parameter(self):
         """The reason this helper exists: `Annotated[Model, Query()]` collapses
