@@ -729,6 +729,41 @@ def test_retired_folder_keys_exit_with_the_replacement(
     assert expected in critical()
 
 
+@pytest.mark.parametrize(
+    ("block", "rom_structure", "firmware_structure"),
+    [
+        (
+            "  roms_folder: roms\n  firmware_folder: bios\n",
+            "roms/{platform}/{game}",
+            "bios/{platform}",
+        ),
+        (
+            "  roms_folder: retro_games\n"
+            '  structure:\n    default: "games/{platform}/{game}"\n',
+            "games/{platform}/{game}",
+            "bios/{platform}",
+        ),
+        (
+            '  firmware_folder: fw\n  structure:\n    firmware: "fw/{platform}"\n',
+            "roms/{platform}/{game}",
+            "fw/{platform}",
+        ),
+    ],
+)
+def test_retired_folder_keys_are_ignored_when_they_change_nothing(
+    tmp_path, mocker, block, rom_structure, firmware_structure
+):
+    """Older releases wrote both keys with their defaults on every settings save,
+    so an upgraded config must still load."""
+    warning = mocker.patch("config.config_manager.log.warning")
+    config = _write_filesystem_config(tmp_path, block).get_config()
+
+    assert "no longer supported" in str(warning.call_args[0][0])
+
+    assert config.default_structure_pattern == rom_structure
+    assert config.firmware_structure == parse_firmware_template(firmware_structure)
+
+
 def test_an_override_may_not_move_the_platform_folder(tmp_path, critical):
     """A platform outside the folder platforms are enumerated in would never be
     discovered."""

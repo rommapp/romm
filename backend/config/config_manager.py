@@ -937,21 +937,35 @@ class ConfigManager:
     def _check_retired_filesystem_keys(self) -> None:
         """Exit if config.yml still sets a folder name that a template replaced.
 
-        Ignoring one would relocate the library under the user.
+        Ignoring one would relocate the library under the user, unless it names
+        the default folder or the layout it maps to is already declared.
         """
-        retired: dict[str, tuple[str, Callable[[str], str]]] = {
+        retired: dict[str, tuple[str, str, Callable[[str], str]]] = {
             "filesystem.roms_folder": (
                 STRUCTURE_DEFAULT_KEY,
+                DEFAULT_ROM_STRUCTURE,
                 lambda folder: f"{folder}/{{platform}}/{{game}}",
             ),
             "filesystem.firmware_folder": (
                 STRUCTURE_FIRMWARE_KEY,
+                DEFAULT_FIRMWARE_STRUCTURE,
                 lambda folder: f"{folder}/{{platform}}",
             ),
         }
-        for key, (structure_key, to_template) in retired.items():
+        structure = pydash.get(self._raw_config, "filesystem.structure")
+        declared = structure if isinstance(structure, dict) else {}
+        for key, (structure_key, default, to_template) in retired.items():
             folder = pydash.get(self._raw_config, key)
             if folder is None:
+                continue
+            # Older releases wrote both keys with their defaults on every settings
+            # save, so most upgraded configs carry them.
+            if to_template(folder) == default or structure_key in declared:
+                log.warning(
+                    f"config.yml sets {hl(key)}, which is no longer supported "
+                    f"and is ignored. Remove it; the layout comes from "
+                    f"filesystem.structure.{structure_key}. See {STRUCTURE_DOCS_URL}."
+                )
                 continue
             log.critical(
                 f"Invalid config.yml: {key} is no longer supported. Replace it "
