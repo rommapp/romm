@@ -4943,12 +4943,25 @@ def test_hydrate_pushes_nothing_when_no_state_matches(rom: Rom, admin_user: User
     push.assert_not_called()
 
 
-def test_hydrate_filters_nothing_when_the_core_is_unknown(rom: Rom, admin_user: User):
+def test_hydrate_pushes_an_unrecorded_state_when_the_core_is_unknown(
+    rom: Rom, admin_user: User
+):
     """No configured core and a broker that can't name its default is how every
     RetroArch launch ran before cores were recorded."""
-    _core_state(rom, admin_user, "Game.state", "whatever")
+    _core_state(rom, admin_user, "Game.state", None)
     push = _hydrate_core(rom, admin_user, "retroarch", None)
     assert push.call_args.args[1:] == ("Game.state", b"state-bytes", None)
+
+
+def test_hydrate_pushes_nothing_recorded_when_the_core_is_unknown(
+    rom: Rom, admin_user: User
+):
+    """A broker too old to name its core doesn't refuse another core's state
+    either, so a newest state with a recorded core stays home."""
+    _core_state(rom, admin_user, "Old.state", None)
+    _core_state(rom, admin_user, "New.state", "bsnes")
+    push = _hydrate_core(rom, admin_user, "retroarch", None)
+    push.assert_not_called()
 
 
 def test_hydrate_pushes_nothing_into_a_configured_core_it_cannot_match(

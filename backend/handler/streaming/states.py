@@ -599,6 +599,10 @@ async def hydrate_states_to_broker(
         return 0
 
     newest = states[0]
+    # A broker that can't name its core doesn't refuse another core's state.
+    if state_core is None and newest.core is not None:
+        log.info("not hydrating a %s state into an unnamed core", newest.core)
+        return 0
     try:
         content = await fs_asset_handler.read_file(
             f"{newest.file_path}/{newest.file_name}"
