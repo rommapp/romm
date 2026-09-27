@@ -76,13 +76,11 @@ class Operation:
     platforms: frozenset[str]
     argv: tuple[str, ...]
     input_exts: frozenset[str]
-    # None keeps the input's extension (decrypt/encrypt rewrite in place).
-    output_ext: str | None
+    output_ext: str
 
     def output_name(self, src: Path, input_ext: str) -> str:
         """`src` renamed from the matched lowercase `input_ext` to the output extension."""
-        cut = len(src.name) - len(input_ext)
-        return f"{src.name[:cut]}{self.output_ext or src.name[cut:]}"
+        return f"{src.name[: len(src.name) - len(input_ext)]}{self.output_ext}"
 
 
 def _op(
@@ -90,7 +88,7 @@ def _op(
     platforms: set[UPS],
     argv: str,
     input_exts: str,
-    output_ext: str | None,
+    output_ext: str,
 ) -> Operation:
     return Operation(
         target=target,
@@ -104,12 +102,10 @@ def _op(
 _DVD_PLATFORMS = {UPS.PSP, UPS.PS2}
 _CD_PLATFORMS = {UPS.PSX, UPS.SATURN, UPS.SEGACD, UPS.DC}
 
-# Every single-file operation the CLI offers. Directory-shaped ones (Wii U
-# packs, Switch merge/split, `extract`, Xbox 360 GoD) have no file to serve.
+# The CLI's single-file format conversions. Decrypt/encrypt and directory-shaped
+# operations (Wii U packs, Switch merge/split, `extract`, Xbox 360 GoD) are left out.
 OPERATIONS: Final[tuple[Operation, ...]] = (
     # 3DS
-    _op("decrypted", {UPS.N3DS}, "ctr decrypt", ".cia .3ds .cci .cxi", None),
-    _op("encrypted", {UPS.N3DS}, "ctr encrypt", ".cia .3ds .cci .cxi", None),
     _op("z3ds", {UPS.N3DS}, "ctr compress", ".cia", ".zcia"),
     _op("z3ds", {UPS.N3DS}, "ctr compress", ".cci .3ds", ".zcci"),
     _op("z3ds", {UPS.N3DS}, "ctr compress", ".cxi", ".zcxi"),
@@ -117,9 +113,6 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     _op("cia", {UPS.N3DS}, "ctr convert", ".3ds .cci", ".cia"),
     _op("cci", {UPS.N3DS}, "ctr decompress", ".zcci", ".cci"),
     _op("cci", {UPS.N3DS}, "ctr convert", ".cia", ".cci"),
-    # NDS
-    _op("decrypted", {UPS.NDS}, "nds decrypt", ".nds", None),
-    _op("encrypted", {UPS.NDS}, "nds encrypt", ".nds", None),
     # Sony discs
     _op("iso", _DVD_PLATFORMS, "cso decompress", ".cso .zso .dax", ".iso"),
     # CD-mode CHDs extract to .bin/.cue, so only DVD platforms get this.
@@ -132,7 +125,6 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     _op("zso", _DVD_PLATFORMS, "chd to-cso --format zso", ".chd", ".zso"),
     _op("chd", _DVD_PLATFORMS | _CD_PLATFORMS, "chd compress", ".cue .iso", ".chd"),
     _op("chd", _DVD_PLATFORMS, "cso to-chd", ".cso .zso .dax", ".chd"),
-    _op("decrypted", {UPS.PS3}, "ps3 decrypt", ".iso", None),
     # GameCube / Wii
     _op("rvz", {UPS.NGC}, "dol compress", ".iso .gcm", ".rvz"),
     _op("rvz", {UPS.NGC}, "dol migrate", ".gcz .nkit.iso .nkit.gcz", ".rvz"),

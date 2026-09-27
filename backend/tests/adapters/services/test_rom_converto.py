@@ -451,11 +451,11 @@ class TestResolveOperation:
         op, ext = resolved
         assert op.output_name(Path("Game.rvz"), ext) == "Game.wbfs"
 
-    def test_3ds_decrypted_output_name_keeps_source_ext_casing(self):
-        resolved = resolve_operation("3ds", "decrypted", "Game.CIA")
+    def test_output_name_swaps_an_uppercase_extension(self):
+        resolved = resolve_operation("3ds", "cci", "My Game.CIA")
         assert resolved is not None
         op, ext = resolved
-        assert op.output_name(Path("Game.CIA"), ext) == "Game.CIA"
+        assert op.output_name(Path("My Game.CIA"), ext) == "My Game.cci"
 
     def test_3ds_z3ds_output_name(self):
         resolved = resolve_operation("3ds", "z3ds", "Game.3ds")
@@ -474,6 +474,10 @@ class TestTargetsByPlatform:
     def test_psp_targets(self):
         assert TARGETS_BY_PLATFORM["psp"] == {"chd", "cso", "iso", "zso"}
 
-    def test_wiiu_and_psvita_have_no_conversions(self):
-        assert "wiiu" not in TARGETS_BY_PLATFORM
-        assert "psvita" not in TARGETS_BY_PLATFORM
+    def test_platforms_without_format_conversions(self):
+        for slug in ("wiiu", "psvita", "nds", "ps3"):
+            assert slug not in TARGETS_BY_PLATFORM
+
+    def test_no_decrypt_or_encrypt_targets(self):
+        targets = set().union(*TARGETS_BY_PLATFORM.values())
+        assert not targets & {"decrypted", "encrypted"}
