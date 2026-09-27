@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import secrets
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -44,7 +45,14 @@ PLATFORM_OVERRIDE_KEYS = (
     "label",
     "memory_card_sync",
     "clears_stale_saves",
+    "core",
+    "experimental_cores",
 )
+
+# A libretro core as the broker's catalog names it, e.g. "parallel_n64". Only
+# the shape is checked here: the broker owns the list and refuses an unknown
+# core at activate with the options.
+_CORE_NAME = re.compile(r"^[a-z0-9_]+$")
 
 # Play-button text per emulator, used when a platform block sets no `label`
 # of its own. Keyed by emulator name as the broker registers it (lowercase).
@@ -135,13 +143,19 @@ def emulator_labels() -> dict[str, str]:
     return dict(_EMULATOR_DISPLAY_NAMES)
 
 
-def emulator_display_label(emulator: str, platform: str) -> str:
+def emulator_display_label(
+    emulator: str, platform: str, core: str | None = None
+) -> str:
     """Play-button text for an emulator serving a platform, e.g. "PCSX2" or
-    "RA PPSSPP". Unknown emulators fall back to their configured name."""
+    "RA PPSSPP". A configured RetroArch core names itself, since the default's
+    display name would be wrong. Unknown emulators fall back to their
+    configured name."""
     key = emulator.strip().lower()
     if key == "retroarch":
-        core = _RETROARCH_CORE_NAMES.get(platform.lower(), platform.upper())
-        return f"RA {core}"
+        if core:
+            return f"RA {core}"
+        name = _RETROARCH_CORE_NAMES.get(platform.lower(), platform.upper())
+        return f"RA {name}"
     return _EMULATOR_DISPLAY_NAMES.get(key, emulator.strip())
 
 
@@ -177,6 +191,10 @@ class ResolvedContainer:
     """Where the container sees the ROM library, when it differs from RomM's."""
     capabilities: PlatformCapabilities
     state_transfer: StateTransferLimits
+    core: str | None = None
+    """The libretro core the platform asks for, None for the broker's default."""
+    experimental_cores: bool = False
+    """Whether a core the broker lists as known broken may run anyway."""
 
     @property
     def is_webstation(self) -> bool:
@@ -211,6 +229,10 @@ class ResolvedContainer:
             # Same-origin pool members are each proxied at their own path, so
             # they never carry the same protocol object.
             and self.protocol.name == other.protocol.name
+            # A member on another core would boot the game on it and file its
+            # states where the rest of the pool never looks.
+            and self.core == other.core
+            and self.experimental_cores == other.experimental_cores
         )
 
     def memory_card_route(self) -> str:
@@ -326,6 +348,22 @@ def _emulator_namespace(entry: dict[str, Any]) -> str:
     return str(value).strip().lower()
 
 
+def _core_problem(emulator: str, core: Any) -> str | None:
+    """Why a configured core can't go to the broker, or None when it can.
+
+    Worded to follow "container platform '<slug>'" in a warning.
+    """
+    if core is None or (isinstance(core, str) and not core.strip()):
+        return "sets an empty core"
+    if not isinstance(core, str):
+        return "sets a core that is not a name"
+    if emulator.strip().lower() != "retroarch":
+        return f"sets core '{core.strip()}' but only retroarch takes a core"
+    if not _CORE_NAME.match(core.strip()):
+        return f"sets core '{core.strip()}', which must match {_CORE_NAME.pattern}"
+    return None
+
+
 def _resolve_one(
     entry: dict[str, Any], platform: str, container_label: Any
 ) -> ResolvedContainer:
@@ -374,6 +412,7 @@ def _resolve_one(
         capabilities = {**capabilities, "supports_disc_swap": False}
 
     label = entry.get("label")
+    core = entry.get("core") or None
     return ResolvedContainer(
         key=broker_host or "",
         host=raw_host,
@@ -381,7 +420,7 @@ def _resolve_one(
         protocol=protocol,
         platform=platform,
         emulator=emulator,
-        label=str(label) if label else emulator_display_label(emulator, platform),
+        label=str(label) if label else emulator_display_label(emulator, platform, core),
         container_label=container_label if isinstance(container_label, str) else None,
         memory_card_sync=card_sync,
         clears_stale_saves=clears_stale_saves,
@@ -389,6 +428,10 @@ def _resolve_one(
         library_path=str(entry.get("library_path") or LIBRARY_BASE_PATH).rstrip("/"),
         capabilities=capabilities,
         state_transfer=state_transfer_limits(emulator),
+        core=core,
+        # Only a real boolean opts in: this runs cores known to be broken, and
+        # a quoted "false" is truthy to bool().
+        experimental_cores=entry.get("experimental_cores") is True,
     )
 
 
@@ -406,6 +449,12 @@ def _platform_entries(entry: dict[str, Any]) -> list[tuple[dict[str, Any], str]]
                 "container missing platform/host, skipping: %s", _loggable(entry)
             )
             return []
+        if "core" in entry:
+            problem = _core_problem(_emulator_namespace(entry), entry["core"])
+            if problem is not None:
+                log.warning("container platform '%s' %s, skipping", platform, problem)
+                return []
+            entry = {**entry, "core": entry["core"].strip()}
         return [(entry, platform)]
 
     if not isinstance(platforms, dict):
@@ -422,7 +471,15 @@ def _platform_entries(entry: dict[str, Any]) -> list[tuple[dict[str, Any], str]]
             _loggable(entry),
         )
 
-    base = {k: v for k, v in entry.items() if k != "platforms"}
+    if "core" in entry:
+        # One core serves one platform; inheriting it would boot every
+        # platform in the map on it.
+        log.warning(
+            "container sets `core` beside `platforms`, ignoring it; set it on "
+            "the platform instead: %s",
+            _loggable(entry),
+        )
+    base = {k: v for k, v in entry.items() if k not in ("platforms", "core")}
     rows: list[tuple[dict[str, Any], str]] = []
     for platform, options in platforms.items():
         if not isinstance(platform, str) or not platform.strip():
@@ -441,16 +498,22 @@ def _platform_overrides(
 
     `options` is either the emulator name or a block overriding container keys.
     """
+    core: Any = None
     if isinstance(options, str):
-        emulator = options.strip()
+        # "retroarch:bsnes" is shorthand for a block naming both.
+        name, colon, core = options.partition(":")
+        emulator = name.strip()
+        has_core = bool(colon)
         overrides: dict[str, Any] = {}
     elif isinstance(options, dict):
         raw = options.get("emulator")
         emulator = raw.strip() if isinstance(raw, str) else ""
+        has_core = "core" in options
+        core = options.get("core")
         overrides = {
             k: v
             for k, v in options.items()
-            if k in PLATFORM_OVERRIDE_KEYS and k != "emulator"
+            if k in PLATFORM_OVERRIDE_KEYS and k not in ("emulator", "core")
         }
         for key in options:
             if key not in PLATFORM_OVERRIDE_KEYS:
@@ -473,16 +536,28 @@ def _platform_overrides(
         log.warning("container platform '%s' has no emulator, skipping", platform)
         return None
 
+    if has_core:
+        problem = _core_problem(emulator, core)
+        if problem is not None:
+            log.warning("container platform '%s' %s, skipping", platform, problem)
+            return None
+        core = core.strip()
+    else:
+        core = None
+
     # A platform block's own `label` wins; otherwise the emulator names the
     # button, not the container, so "Stream on PCSX2" rather than the box.
-    label = overrides.get("label") or emulator_display_label(emulator, platform)
-    return {
+    label = overrides.get("label") or emulator_display_label(emulator, platform, core)
+    row = {
         **base,
         **overrides,
         "platform": platform,
         "emulator": emulator,
         "label": label,
     }
+    if core is not None:
+        row["core"] = core
+    return row
 
 
 def resolve_entry(entry: dict[str, Any]) -> ResolvedContainer | None:

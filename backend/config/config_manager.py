@@ -423,6 +423,11 @@ class StreamingPlatformOverride(TypedDict):
     label: NotRequired[str]
     memory_card_sync: NotRequired[bool]
     clears_stale_saves: NotRequired[bool]
+    # RetroArch only: the libretro core to boot instead of the broker's
+    # default, e.g. "bsnes". Shorthand: `snes: retroarch:bsnes`.
+    core: NotRequired[str]
+    # Lets a core the broker lists as known broken run anyway.
+    experimental_cores: NotRequired[bool]
 
 
 class StreamingContainer(TypedDict):
@@ -448,6 +453,12 @@ class StreamingContainer(TypedDict):
     # Whether this broker empties the save tree before restoring an archive,
     # which is what lets the launch screen offer a save other than the newest.
     clears_stale_saves: NotRequired[bool]
+    # A single-platform entry's RetroArch core. Beside `platforms` it is
+    # ignored: set it on the platform instead.
+    core: NotRequired[str]
+    # Default for every platform this container serves; a platform block's
+    # own value wins.
+    experimental_cores: NotRequired[bool]
     # Broker dialect. Omitted (or "broker") is the per-emulator mod contract;
     # "webstation" is the LSIO webstation container's activate/exit contract.
     protocol: NotRequired[str]

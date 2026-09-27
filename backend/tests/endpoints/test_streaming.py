@@ -430,6 +430,140 @@ def test_a_platform_entry_wins_over_the_emulator_fallback():
         assert streaming.platform_capabilities("ngc")["max_slots"] == 7
 
 
+# ── RetroArch core override ──────────────────────────────────────────────────
+
+
+def _snes(value, **container) -> ResolvedContainer:
+    """The snes record of a webstation container serving snes as `value`."""
+    return _resolved(_webstation(platforms={"snes": value}, **container))
+
+
+def _warnings_of(caplog, build):
+    """Run `build` with the romm logger captured, returning its result."""
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="romm"):
+            return build()
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+
+
+def test_the_shorthand_names_the_emulator_and_the_core():
+    container = _snes("retroarch:bsnes")
+    assert (container.emulator, container.core) == ("retroarch", "bsnes")
+    assert container.label == "RA bsnes"
+
+
+def test_the_shorthand_tolerates_spaces_around_the_colon():
+    assert _snes(" retroarch : bsnes ").core == "bsnes"
+
+
+def test_the_block_form_names_the_core():
+    container = _snes({"emulator": "retroarch", "core": "parallel_n64"})
+    assert (container.emulator, container.core) == ("retroarch", "parallel_n64")
+
+
+def test_a_platform_label_wins_over_the_core_label():
+    assert (
+        _snes({"emulator": "retroarch", "core": "bsnes", "label": "SNES"}).label
+        == "SNES"
+    )
+
+
+def test_no_core_leaves_the_record_as_it_was():
+    container = _snes("retroarch")
+    assert (container.core, container.experimental_cores) == (None, False)
+    assert container.label == "RA Snes9x"
+
+
+def test_a_flat_entry_takes_a_core():
+    entry = {
+        "platform": "snes",
+        "protocol": "webstation",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "emulator": "retroarch",
+        "core": "bsnes",
+    }
+    assert _resolved(entry).core == "bsnes"
+
+
+@pytest.mark.parametrize(
+    ("value", "reason"),
+    [
+        ("pcsx2:bsnes", "only retroarch takes a core"),
+        ("retroarch:", "sets an empty core"),
+        ("retroarch:BSNES", "must match"),
+        ({"emulator": "dolphin", "core": "bsnes"}, "only retroarch takes a core"),
+        ({"emulator": "retroarch", "core": ""}, "sets an empty core"),
+        ({"emulator": "retroarch", "core": None}, "sets an empty core"),
+        ({"emulator": "retroarch", "core": 5}, "not a name"),
+        ({"emulator": "retroarch", "core": "../x"}, "must match"),
+    ],
+)
+def test_a_bad_core_skips_the_platform_with_a_warning(caplog, value, reason):
+    """Booting the default instead would hide the typo behind a working game."""
+    resolved = _warnings_of(
+        caplog, lambda: resolve_entry(_webstation(platforms={"snes": value}))
+    )
+    assert resolved is None
+    assert "container platform 'snes'" in caplog.text
+    assert reason in caplog.text
+
+
+def test_a_bad_core_on_a_flat_entry_skips_it(caplog):
+    entry = {
+        "platform": "snes",
+        "host": "http://192.168.1.10:3000",
+        "emulator": "retroarch",
+        "core": "Bad Name",
+    }
+    assert _warnings_of(caplog, lambda: resolve_entry(entry)) is None
+    assert "must match" in caplog.text
+
+
+def test_a_container_level_core_is_ignored_beside_platforms(caplog):
+    """Review Focus 5: one core serves one platform, so inheriting it would
+    boot every platform in the map on it."""
+    container = _warnings_of(caplog, lambda: _snes("retroarch", core="bsnes"))
+    assert container.core is None
+    assert "`core` beside `platforms`" in caplog.text
+
+
+def test_a_quoted_false_does_not_opt_in():
+    """Review Focus 4: bool("false") is True, and this opt-in runs cores
+    known to be broken."""
+    container = _snes(
+        {"emulator": "retroarch", "core": "bsnes", "experimental_cores": "false"}
+    )
+    assert container.experimental_cores is False
+
+
+def test_the_platform_opt_in_wins_over_the_container():
+    inherited = _snes("retroarch:bsnes", experimental_cores=True)
+    overridden = _snes(
+        {"emulator": "retroarch", "core": "bsnes", "experimental_cores": False},
+        experimental_cores=True,
+    )
+    assert inherited.experimental_cores is True
+    assert overridden.experimental_cores is False
+
+
+def test_containers_on_different_cores_are_not_one_pool():
+    """Review Focus 2: a claim landing on either would boot a different core
+    and file its states where the other never looks."""
+    assert not _snes("retroarch:bsnes").interchangeable_with(_snes("retroarch"))
+    assert _snes("retroarch:bsnes").interchangeable_with(_snes("retroarch:bsnes"))
+    opted = _snes("retroarch:bsnes", experimental_cores=True)
+    assert not opted.interchangeable_with(_snes("retroarch:bsnes"))
+
+
+def test_emulator_display_label_names_a_configured_core():
+    assert emulator_display_label("retroarch", "snes", "bsnes") == "RA bsnes"
+    assert emulator_display_label("retroarch", "snes", None) == "RA Snes9x"
+
+
 def test_an_unconfigured_platform_still_has_no_states():
     """The fallback keys off a configured container, so a platform nobody
     streams stays out of the save-state UI."""
