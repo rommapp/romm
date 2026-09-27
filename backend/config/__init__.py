@@ -353,6 +353,23 @@ SYNC_RETROARCH_PSP_SERIAL_MAP: Final[dict[str, str]] = json.loads(
     _get_env("SYNC_RETROARCH_PSP_SERIAL_MAP", "{}")
 )
 
+# DEVICE INSTALL
+DEVICE_INSTALL_ENABLED: Final[bool] = safe_str_to_bool(
+    _get_env("DEVICE_INSTALL_ENABLED", "true")
+)
+# Days an unfinished install request lives after its last change; 0 or less never expires.
+DEVICE_INSTALL_REQUEST_TTL_DAYS: Final[int] = safe_int(
+    _get_env("DEVICE_INSTALL_REQUEST_TTL_DAYS"), 2
+)
+# Platforms whose roms cannot be pushed to a device for install.
+DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset(
+    slug.strip().lower()
+    for slug in _get_env(
+        "DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS", "win,win3x,win9x,windows-apps"
+    ).split(",")
+    if slug.strip()
+)
+
 # EMULATION
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))
 DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))

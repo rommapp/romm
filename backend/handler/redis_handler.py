@@ -101,6 +101,11 @@ def __get_async_binary_cache() -> AsyncRedis:
 async_binary_cache = __get_async_binary_cache()
 
 
+def as_text(value: bytes | str) -> str:
+    """A cached value as text, since the fake caches return bytes where Redis decodes."""
+    return value.decode() if isinstance(value, bytes) else value
+
+
 def get_job_func_name(job: Job, fallback: str = "") -> str:
     """Safely get the function name from an RQ job, handling DeserializationError.
 

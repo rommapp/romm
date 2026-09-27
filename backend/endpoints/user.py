@@ -20,7 +20,12 @@ from handler.audit_handler import (
 )
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
-from handler.database import db_user_handler
+from handler.database import (
+    db_client_token_handler,
+    db_device_handler,
+    db_user_handler,
+)
+from handler.device_install import device_install_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import (
     build_asset_file_response,
@@ -29,6 +34,7 @@ from handler.filesystem.assets_handler import (
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
+from handler.socket_handler import close_client_token_sockets
 from logger.logger import log
 from models.audit_event import AuditAction
 from models.notification import NotificationKind, NotificationLevel
@@ -556,6 +562,11 @@ async def update_user(
                     actor_id=request.user.id,
                 )
 
+        if cleaned_data.get("enabled") is False:
+            await close_client_token_sockets(
+                db_client_token_handler.get_token_ids_by_users([id])
+            )
+
     before = db_user
     db_user = db_user_handler.get_user(id)
     if not db_user:
@@ -602,7 +613,12 @@ async def delete_user(
             status_code=400, detail="You cannot delete the last admin user"
         )
 
+    token_ids = db_client_token_handler.get_token_ids_by_users([id])
+    device_ids = [device.id for device in db_device_handler.get_devices(user_id=id)]
     db_user_handler.delete_user(id)
+    await close_client_token_sockets(token_ids)
+    for device_id in device_ids:
+        await device_install_handler.discard_for_device(device_id)
     record(
         AuditAction.USER_DELETE,
         request,

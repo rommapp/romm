@@ -13,7 +13,7 @@ from typing import Any, Final, cast
 from fastapi import Request
 from yarl import URL
 
-from handler.redis_handler import sync_cache
+from handler.redis_handler import as_text, sync_cache
 from utils.client_tokens import PAIR_ALPHABET
 from utils.rate_limit import enforce_rate_limit, get_client_ip
 
@@ -100,10 +100,10 @@ def polled_too_fast(device_code: str, interval_seconds: int) -> bool:
     prev_raw = sync_cache.set(
         key, str(now_ms), ex=max(interval_seconds * 4, 30), get=True
     )
-    if prev_raw is None:
+    if prev_raw is None or isinstance(prev_raw, bool):
         return False
     try:
-        prev_ms = int(prev_raw.decode() if isinstance(prev_raw, bytes) else prev_raw)
+        prev_ms = int(as_text(prev_raw))
     except ValueError, AttributeError:
         return False
     return (now_ms - prev_ms) < (interval_seconds * 1000)
@@ -132,7 +132,7 @@ def resolve_device_code_from_user_code(user_code: str) -> str | None:
     raw = sync_cache.get(_KEY_UC.format(user_code))
     if not raw:
         return None
-    return raw.decode() if isinstance(raw, bytes) else raw
+    return as_text(raw)
 
 
 def pending_expires_at(device_code: str) -> datetime:

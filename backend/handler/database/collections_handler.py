@@ -1,7 +1,7 @@
 import functools
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import (
     Select,
@@ -25,7 +25,7 @@ from sqlalchemy.orm import (
 )
 
 from config import FRONTEND_RESOURCES_PATH
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from handler.database.rom_filters import RomFilterParams
 from models.collection import (
     SMART_COLLECTION_MAX_COVERS,
@@ -58,6 +58,10 @@ def _roms_load_options() -> list[Any]:
     ]
 
 
+# Default for a `query` parameter that with_roms fills before the body runs.
+INJECTED_COLLECTION_QUERY = cast(Select[tuple[Collection]], None)
+
+
 def with_roms[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -73,8 +77,8 @@ class DBCollectionsHandler(DBBaseHandler):
     def add_collection(
         self,
         collection: Collection,
-        query: Select[tuple[Collection]] = None,  # type: ignore[assignment]
-        session: Session = None,  # type: ignore[assignment]
+        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Collection:
         collection = session.merge(collection)
         session.flush()
@@ -86,8 +90,8 @@ class DBCollectionsHandler(DBBaseHandler):
     def get_collection(
         self,
         id: int,
-        query: Select[tuple[Collection]] = None,  # type: ignore[assignment]
-        session: Session = None,  # type: ignore[assignment]
+        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Collection | None:
         return session.scalar(query.filter_by(id=id).limit(1))
 
@@ -97,8 +101,8 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         name: str,
         user_id: int,
-        query: Select[tuple[Collection]] = None,  # type: ignore[assignment]
-        session: Session = None,  # type: ignore[assignment]
+        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Collection | None:
         return session.scalar(query.filter_by(name=name, user_id=user_id).limit(1))
 
@@ -107,8 +111,8 @@ class DBCollectionsHandler(DBBaseHandler):
     def get_favorite_collection(
         self,
         user_id: int,
-        query: Select[tuple[Collection]] = None,  # type: ignore[assignment]
-        session: Session = None,  # type: ignore[assignment]
+        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Collection | None:
         return session.scalar(
             query.filter_by(is_favorite=True, user_id=user_id).limit(1)
@@ -129,7 +133,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def get_collections(
         self,
         updated_after: datetime | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Collection]:
         query = self._collections_query(updated_after=updated_after)
         return session.scalars(query.options(*_roms_load_options())).unique().all()
@@ -138,7 +142,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def get_collection_ids(
         self,
         updated_after: datetime | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> list[Row[tuple[int, int, bool]]]:
         """Id, owner and visibility only, so neither eager load fires."""
         query = self._collections_query(updated_after=updated_after)
@@ -157,8 +161,8 @@ class DBCollectionsHandler(DBBaseHandler):
         id: int,
         data: dict[str, Any],
         rom_ids: list[int] | None = None,
-        query: Select[tuple[Collection]] = None,  # type: ignore[assignment]
-        session: Session = None,  # type: ignore[assignment]
+        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Collection:
         session.execute(
             update(Collection)
@@ -196,8 +200,8 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         id: int,
         rom_ids: list[int],
-        query: Select[tuple[Collection]] = None,  # type: ignore[assignment]
-        session: Session = None,  # type: ignore[assignment]
+        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Collection:
         if rom_ids:
             valid_rom_ids = set(
@@ -239,8 +243,8 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         id: int,
         rom_ids: list[int],
-        query: Select[tuple[Collection]] = None,  # type: ignore[assignment]
-        session: Session = None,  # type: ignore[assignment]
+        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Collection:
         if rom_ids:
             result = session.execute(
@@ -263,7 +267,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def delete_collection(
         self,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             delete(Collection)
@@ -332,7 +336,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def get_virtual_collection(
         self,
         id: str,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> VirtualCollection | None:
         name, type = VirtualCollection.from_id(id)
         collection = session.scalar(
@@ -349,7 +353,7 @@ class DBCollectionsHandler(DBBaseHandler):
         type: str,
         limit: int | None = None,
         only_fields: Sequence[QueryableAttribute[Any]] | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[VirtualCollection]:
         query = (
             select(VirtualCollection)
@@ -380,7 +384,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def add_smart_collection(
         self,
         smart_collection: SmartCollection,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> SmartCollection:
         smart_collection = session.merge(smart_collection)
         session.flush()
@@ -393,7 +397,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def get_smart_collection(
         self,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> SmartCollection | None:
         return session.scalar(select(SmartCollection).filter_by(id=id).limit(1))
 
@@ -402,7 +406,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         name: str,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> SmartCollection | None:
         return session.scalar(
             select(SmartCollection).filter_by(name=name, user_id=user_id).limit(1)
@@ -431,7 +435,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         user_id: int | None = None,
         updated_after: datetime | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[SmartCollection]:
         query = self._smart_collections_query(
             user_id=user_id, updated_after=updated_after
@@ -443,7 +447,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         user_id: int | None = None,
         updated_after: datetime | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> list[int]:
         """Ids only, so no `SmartCollection` is built and no eager user join fires."""
         query = self._smart_collections_query(
@@ -456,7 +460,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         rom_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[SmartCollection]:
         # Membership is a cached JSON array of rom ids on the collection, so
         # push containment + visibility into SQL rather than loading every
@@ -489,7 +493,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         id: int,
         data: dict[str, Any],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> SmartCollection:
         session.execute(
             update(SmartCollection)
@@ -504,7 +508,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def delete_smart_collection(
         self,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             delete(SmartCollection)
@@ -551,7 +555,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         smart_collection: SmartCollection,
         user_id: int | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Row[tuple[int, str | None, str | None]]]:
         """Every member's id and cover paths, in the collection's own order.
 
@@ -580,7 +584,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def refresh_smart_collection(
         self,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> SmartCollection | None:
         """Recompute a smart collection's cached membership columns.
 
@@ -637,7 +641,7 @@ class DBCollectionsHandler(DBBaseHandler):
     @begin_session
     def refresh_smart_collections(
         self,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> int:
         """Refresh every smart collection, e.g. once the library has changed."""
         ids = session.scalars(select(SmartCollection.id)).all()
@@ -651,7 +655,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         rom_ids: Sequence[int],
         membership_only: bool = False,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         """Refresh the collections a handful of changed ROMs touch.
 

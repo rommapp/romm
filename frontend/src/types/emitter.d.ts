@@ -103,6 +103,7 @@ export type Events = {
   // and the NDS/download helpers all accept SimpleRom, so gallery surfaces
   // (which only ever hold SimpleRom) can trigger it too.
   showQRCodeDialog: SimpleRom;
+  showInstallOnDeviceDialog: SimpleRom;
   selectSaveDialog: DetailedRom;
   selectStateDialog: DetailedRom;
   saveSelected: SaveSchema;

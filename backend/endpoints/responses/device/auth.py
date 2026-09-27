@@ -2,7 +2,7 @@ from pydantic import Field, field_validator
 
 from handler.auth.constants import Scope
 
-from .base import BaseModel, UTCDatetime
+from ..base import BaseModel, UTCDatetime
 
 # A request can never legitimately ask for more than every known scope.
 _MAX_REQUESTED_SCOPES = len(Scope)
