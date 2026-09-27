@@ -135,6 +135,13 @@ async def run_launch(
 
     log.info("session claimed, platform=%s rom=%s", platform, rom_name)
     host = container.protocol.stream_url(container.host, launch_result)
+    # Only a configured core is worth a word to the player: the broker reports
+    # its default's tier on every RetroArch launch.
+    core_tier = (
+        launch_result.get("core_tier")
+        if container.core and isinstance(launch_result, dict)
+        else None
+    )
     await stamp_launched(session_key, session, host=host)
     await lifecycle.publish_session_activity(session_key, session)
 
@@ -161,6 +168,8 @@ async def run_launch(
             claimed_at=session["claimed_at"],
             host=host,
             resume=resume_pushed if resume_state is not None else None,
+            core=container.core,
+            core_tier=core_tier,
         ).model_dump(),
     )
 

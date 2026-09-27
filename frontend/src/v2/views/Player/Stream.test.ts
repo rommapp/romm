@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   presenceTick: null as (() => Promise<void>) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
   query: {} as Record<string, string>,
+  snackbar: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -140,7 +141,7 @@ vi.mock("@/v2/composables/usePlaySession", () => ({
 }));
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
-  useSnackbar: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }),
+  useSnackbar: () => mocks.snackbar,
 }));
 
 vi.mock("@/v2/composables/useSocketEvent", () => ({
@@ -874,6 +875,37 @@ describe("Stream launch recovery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
+  });
+
+  it("warns when the broker booted an untested core", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchReady({ core: "bsnes", core_tier: "untested" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledWith("play.core-untested");
+    expect(vmOf(wrapper).playerState).toBe("playing");
+  });
+
+  it("warns when the broker booted a known-broken core", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchReady({ core: "bsnes", core_tier: "blocked" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledWith("play.core-blocked");
+  });
+
+  it("says nothing about a default or vetted core", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchReady({ core: "bsnes", core_tier: "vetted" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).not.toHaveBeenCalled();
   });
 
   it("enters the stream when the poll finds the game already up", async () => {

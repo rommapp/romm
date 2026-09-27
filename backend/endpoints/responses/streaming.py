@@ -97,6 +97,11 @@ class LaunchReadyPayload(BaseModel):
     # None when no resume was asked for; False means the state could not be pushed and the
     # session started fresh.
     resume: bool | None = None
+    # The libretro core the platform asked for, None when it names none.
+    core: str | None = None
+    # How far the broker vouches for that core: "default", "vetted",
+    # "untested" or "blocked". None when no core was asked for.
+    core_tier: str | None = None
 
 
 class ImportRefusalSchema(BaseModel):

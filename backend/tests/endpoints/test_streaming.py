@@ -9480,6 +9480,21 @@ def test_a_broker_that_echoes_the_core_launches(client, access_token, rom: Rom):
     assert _launch_ready(sent) != {}
 
 
+def test_launch_ready_names_the_core_and_its_tier(client, access_token, rom: Rom):
+    _, sent, _ = _ra_claim(client, access_token, rom, "retroarch:bsnes", _BSNES_REPLY)
+    ready = _launch_ready(sent)
+    assert (ready["core"], ready["core_tier"]) == ("bsnes", "untested")
+
+
+def test_launch_ready_has_no_tier_without_a_core(client, access_token, rom: Rom):
+    """A new broker reports the default's tier on every RetroArch launch; with
+    no core configured there is nothing to warn about."""
+    reply = {"url": "/room/x", "core": "snes9x", "core_tier": "default"}
+    _, sent, _ = _ra_claim(client, access_token, rom, "retroarch", reply)
+    ready = _launch_ready(sent)
+    assert (ready["core"], ready["core_tier"]) == (None, None)
+
+
 # ── multiplayer flag ─────────────────────────────────────────────────────────
 
 
