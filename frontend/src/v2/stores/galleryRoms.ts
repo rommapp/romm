@@ -320,7 +320,7 @@ export default defineStore("v2GalleryRoms", {
     },
 
     /** Read a ROM at a position, or null if its window hasn't been
-     * loaded yet. Returns null without triggering a fetch, fetching is
+     * loaded yet. Returns null without triggering a fetch; fetching is
      * the view's responsibility (driven by row visibility). */
     getRomAt(position: number): SimpleRom | null {
       return this.byPosition.get(position) ?? null;
@@ -358,7 +358,7 @@ export default defineStore("v2GalleryRoms", {
       this.selectingAll = false;
     },
 
-    /** Drop the loaded windows but keep the gallery context, used when
+    /** Drop the loaded windows but keep the gallery context. Used when
      * search / filter changes within the same gallery and we need to
      * re-fetch from offset 0. */
     invalidateWindows() {
@@ -625,7 +625,7 @@ export default defineStore("v2GalleryRoms", {
         // Place items at their absolute positions (offset .. offset + N).
         // We rely on Vue 3's reactive Map: `set(k, v)` triggers per-key
         // dependents. Earlier passes reassigned `this.byPosition` to a
-        // new Map after each window which DEFEATED that, every
+        // new Map after each window, which DEFEATED that: every
         // `getRomAt(p)` reader was invalidated, and the gallery
         // virtualItems computed (which iterates positions) had to
         // rebuild end-to-end on every window response. That blocked the
@@ -646,7 +646,7 @@ export default defineStore("v2GalleryRoms", {
 
         // A context switch during the frame-yielded apply may have
         // superseded us partway through. Marking the window loaded now would
-        // leave it partially applied yet skipped by later syncs, permanent
+        // leave it partially applied yet skipped by later syncs, leaving permanent
         // skeletons for the fresh context. Bail unless we're still current.
         if (inFlightControllers.get(ctrlKey) !== controller) return;
 
@@ -654,7 +654,7 @@ export default defineStore("v2GalleryRoms", {
         // Recovered: drop any retry bookkeeping for this window.
         clearRetry(offset);
       } catch (err) {
-        // An explicit abort isn't a failure, keep `failedWindows`
+        // An explicit abort isn't a failure, so keep `failedWindows`
         // clean so the window is eligible to refetch under the new
         // gallery context without the UI flagging it as broken.
         if (axios.isCancel(err)) return;
@@ -685,7 +685,7 @@ export default defineStore("v2GalleryRoms", {
           inFlightControllers.delete(ctrlKey);
           this.pendingWindows.delete(offset);
           if (offset === 0) this.initialFetching = false;
-          // A slot freed up, start the next queued window, if any.
+          // A slot freed up, so start the next queued window, if any.
           this._drainWindowQueue();
         }
       }
@@ -761,7 +761,7 @@ export default defineStore("v2GalleryRoms", {
      * inside `fetchWindowAt`) and aborts any in-flight or retry-pending
      * window that no longer covers one. Without the abort, scrolling
      * through a large library would leave every window it passed
-     * downloading and applying in the background, the exact wasted
+     * downloading and applying in the background: the exact wasted
      * network / backend / render work this store exists to avoid on
      * low-power devices. Driven by the shell's debounced viewport sync. */
     syncVisibleWindows(positions: Iterable<number>) {

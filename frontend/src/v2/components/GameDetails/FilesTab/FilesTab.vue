@@ -89,7 +89,7 @@ const canDelete = computed(() => hasDeleteGrant.value && canUpload.value);
 
 // ---------- Category metadata ----------
 // Drives per-file category chips (one per `RomFileCategory` enum
-// value). Folder→icon resolution lives in `FOLDER_META` below, it
+// value). Folder→icon resolution lives in `FOLDER_META` below; it
 // extends this with plural names and a couple of well-known folders
 // (e.g. `screenshots/`) that aren't backend categories.
 const CATEGORY_META = computed<

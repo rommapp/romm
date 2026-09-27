@@ -50,8 +50,8 @@ export function installQueryNavigationGuard(router: Router): () => void {
   const removeBeforeEach = router.beforeEach((to) => {
     inFlightByRouter.set(router, to);
   });
-  // Cancelled ones end after their successor started. Anything else settles,
-  // including a redirect onto this page, a duplicate that skips `beforeEach`.
+  // A cancelled navigation ends after its successor starts. Any other end
+  // settles, including a redirect onto this page that skipped `beforeEach`.
   const removeAfterEach = router.afterEach((_to, _from, failure) => {
     if (!isNavigationFailure(failure, NavigationFailureType.cancelled)) {
       settle();
