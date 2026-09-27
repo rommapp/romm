@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qsl, urlparse
 
-import httpx
+import httpx2
 import pytest
 from tests.handler.metadata.conftest import schema_stamp_get
 
@@ -832,12 +832,12 @@ async def test_fetch_capped_abandons_an_oversized_body_mid_stream(monkeypatch):
             sent += 1
             yield b"A" * 512
 
-    async def respond(request: httpx.Request) -> httpx.Response:
+    async def respond(request: httpx2.Request) -> httpx2.Response:
         if "big" in str(request.url):
-            return httpx.Response(200, content=endless())
-        return httpx.Response(200, content=b"small")
+            return httpx2.Response(200, content=endless())
+        return httpx2.Response(200, content=b"small")
 
-    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(respond))
     token = ctx_httpx_client.set(client)
     try:
         handler = _CappedHandler()

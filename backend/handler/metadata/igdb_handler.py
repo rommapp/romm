@@ -2,7 +2,7 @@ import re
 from collections.abc import Sequence
 from typing import Any, Final, NotRequired, TypedDict, cast
 
-import httpx
+import httpx2
 import pydash
 from fastapi import status
 
@@ -1030,7 +1030,7 @@ class TwitchAuth(MetadataHandler):
             response_json = res.json()
             token = response_json.get("access_token", "")
             expires_in = response_json.get("expires_in", 0)
-        except httpx.NetworkError:
+        except httpx2.NetworkError:
             log.critical("Can't connect to IGDB, check your internet connection.")
             return ""
 

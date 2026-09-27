@@ -2,7 +2,7 @@ import json
 from typing import Any, cast
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 
 from handler.metadata.playmatch_handler import PlaymatchHandler
 from models.rom import Rom, RomFile
@@ -44,7 +44,7 @@ async def test_heartbeat_returns_false_on_http_error(mock_ctx_httpx_client):
     handler = PlaymatchHandler()
     mock_client = AsyncMock()
     mock_response = MagicMock()
-    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+    mock_response.raise_for_status.side_effect = httpx2.HTTPStatusError(
         "Service Unavailable", request=MagicMock(), response=MagicMock()
     )
     mock_client.get.return_value = mock_response

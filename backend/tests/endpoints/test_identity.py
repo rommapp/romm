@@ -6,7 +6,7 @@ from http import HTTPStatus
 from typing import Any, cast
 from unittest import mock
 
-import httpx
+import httpx2
 import pytest
 from authlib.integrations.base_client.errors import MismatchingStateError, OAuthError
 from fastapi import status
@@ -383,7 +383,7 @@ def test_overlapping_registrations_spend_one_invite_once(client, access_token: s
         def __getattr__(self, name):
             return getattr(live_redis, name)
 
-    responses: list[httpx.Response] = []
+    responses: list[httpx2.Response] = []
 
     def register(index: int) -> None:
         responses.append(
@@ -729,7 +729,7 @@ def _rejected_oidc_callback(
     client: TestClient,
     error: Exception | None = None,
     headers: dict[str, str] | None = None,
-) -> httpx.Response:
+) -> httpx2.Response:
     fake_oauth = mock.MagicMock()
     fake_oauth.openid.authorize_access_token = mock.AsyncMock(
         side_effect=error or MismatchingStateError()
@@ -738,13 +738,10 @@ def _rejected_oidc_callback(
         mock.patch("endpoints.auth.OIDC_ENABLED", True),
         mock.patch("endpoints.auth.oauth", fake_oauth),
     ):
-        return cast(
-            httpx.Response,
-            client.get(
-                "/api/oauth/openid?code=new&state=spent",
-                headers=headers,
-                follow_redirects=False,
-            ),
+        return client.get(
+            "/api/oauth/openid?code=new&state=spent",
+            headers=headers,
+            follow_redirects=False,
         )
 
 

@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
 
-import httpx
+import httpx2
 
 from config import DEMOZOO_API_ENABLED
 from logger.logger import log
@@ -514,7 +514,7 @@ class DemozooHandler(MetadataHandler):
         }
         try:
             body = await self._fetch_capped(url, headers=headers)
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
+        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
             log.warning("Can't connect to Demozoo API", extra={"exception": str(exc)})
             raise unavailable("Demozoo API") from exc
         if body is None:

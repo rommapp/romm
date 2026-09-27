@@ -1,7 +1,7 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 from fastapi import status
 from main import app
@@ -124,8 +124,8 @@ async def test_heartbeat_metadata_concurrent_misses_probe_once(client):
         new_callable=AsyncMock,
         side_effect=slow_probe,
     ) as mock_populated:
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        async with httpx2.AsyncClient(
+            transport=httpx2.ASGITransport(app=app), base_url="http://test"
         ) as async_client:
             responses = await asyncio.gather(
                 *(

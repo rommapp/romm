@@ -12,7 +12,7 @@ import re
 from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
 
-import httpx
+import httpx2
 
 from config import POUET_API_ENABLED
 from logger.logger import log
@@ -311,7 +311,7 @@ class PouetHandler(MetadataHandler):
         }
         try:
             body = await self._fetch_capped(url, headers=headers)
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
+        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
             log.warning("Can't connect to Pouët API", extra={"exception": str(exc)})
             raise unavailable("Pouët API") from exc
         if body is None:
@@ -366,7 +366,7 @@ class PouetHandler(MetadataHandler):
                 if res.status_code not in {301, 302, 303, 307, 308}:
                     return None
                 return pouet_id_from_location(res.headers.get("location") or "")
-        except (httpx.ConnectError, httpx.ReadTimeout) as exc:
+        except (httpx2.ConnectError, httpx2.ReadTimeout) as exc:
             log.warning("Pouët title search failed: %s", exc)
             raise unavailable("Pouët API") from exc
 

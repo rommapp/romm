@@ -1,4 +1,4 @@
-import httpx
+import httpx2
 import pytest
 
 from handler.walkthrough import (
@@ -73,20 +73,20 @@ def test_validate_accepts_gamefaqs_urls(url):
 
 def _response(
     status: int, headers: dict[str, str], content: bytes = b""
-) -> httpx.Response:
-    return httpx.Response(
+) -> httpx2.Response:
+    return httpx2.Response(
         status_code=status,
         headers=headers,
         content=content,
         # raise_for_status() needs the originating request attached.
-        request=httpx.Request("GET", "https://gamefaqs.gamespot.com/x"),
+        request=httpx2.Request("GET", "https://gamefaqs.gamespot.com/x"),
     )
 
 
 class _StreamingClient:
     """Minimal stand-in for the shared httpx client's streaming interface."""
 
-    def __init__(self, response: httpx.Response) -> None:
+    def __init__(self, response: httpx2.Response) -> None:
         self._response = response
 
     def build_request(self, *_args, **_kwargs):

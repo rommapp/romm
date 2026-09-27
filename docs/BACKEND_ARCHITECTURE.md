@@ -322,7 +322,7 @@ backend/
 │   ├── __init__.py            # get_version()
 │   ├── cache.py               # Redis fixture loading
 │   ├── hashing.py             # CRC32, file hashing
-│   ├── context.py             # Async context vars (aiohttp, httpx)
+│   ├── context.py             # Async context vars (aiohttp, httpx2)
 │   ├── database.py            # JSON/JSONB helpers, DB detection
 │   ├── filesystem.py          # Path sanitization
 │   ├── validation.py          # Input validation
@@ -369,7 +369,7 @@ backend/
 3. uvicorn.run("main:app")       # Start ASGI server
    └── FastAPI lifespan
        ├── Create aiohttp.ClientSession
-       ├── Create httpx.AsyncClient
+       ├── Create httpx2.AsyncClient
        └── Store in app.state + context vars
 ```
 
@@ -386,7 +386,7 @@ Response ← CORS ← CSRF ← Authentication ← Session (Redis) ← Context Va
 | 2     | `CSRFMiddleware`           | Token-based CSRF protection (cookie + header)     |
 | 3     | `AuthenticationMiddleware` | `HybridAuthBackend`: Basic, Bearer, Session, OIDC |
 | 4     | `RedisSessionMiddleware`   | Cookie-based sessions stored in Redis             |
-| 5     | `set_context_middleware`   | Inject aiohttp/httpx clients into context vars    |
+| 5     | `set_context_middleware`   | Inject aiohttp/httpx2 clients into context vars   |
 
 ### Request Flow
 

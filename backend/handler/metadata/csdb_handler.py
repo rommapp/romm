@@ -13,7 +13,7 @@ from typing import Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlparse
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 
-import httpx
+import httpx2
 from defusedxml import ElementTree as ET
 
 from config import CSDB_API_ENABLED
@@ -176,7 +176,7 @@ class CsdbHandler(MetadataHandler):
         }
         try:
             body = await self._fetch_capped(url, headers=headers)
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
+        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
             log.warning(
                 "Can't connect to CSDb webservice", extra={"exception": str(exc)}
             )

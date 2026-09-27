@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 from unittest.mock import AsyncMock, Mock, patch
 
-import httpx
+import httpx2
 import pytest
 from PIL import Image, ImageSequence
 from PIL.PngImagePlugin import Blend
@@ -106,11 +106,11 @@ class TestCheckContentType:
     """Tests for the _check_content_type helper."""
 
     @staticmethod
-    def _make_response(content_type: str | None) -> httpx.Response:
+    def _make_response(content_type: str | None) -> httpx2.Response:
         headers = {}
         if content_type is not None:
             headers["content-type"] = content_type
-        return httpx.Response(200, headers=headers)
+        return httpx2.Response(200, headers=headers)
 
     def test_valid_image_prefix(self):
         resp = self._make_response("image/png")
@@ -160,7 +160,7 @@ class TestCheckContentType:
 
     def test_bom_still_matches(self):
         # httpx rejects non-ASCII header values, so mock the response
-        resp = Mock(spec=httpx.Response)
+        resp = Mock(spec=httpx2.Response)
         resp.headers = {"content-type": "\ufeffimage/png"}
         assert _check_content_type(resp, ("image/",), "cover") is True
 
@@ -998,7 +998,7 @@ class TestStoreMediaFileResult:
 
         with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
             client = Mock()
-            client.stream.side_effect = httpx.ConnectError("no route")
+            client.stream.side_effect = httpx2.ConnectError("no route")
             mock_ctx.get.return_value = client
             stored = await handler.store_media_file(
                 "http://example.com/x.png", "roms/1/1/box2d_back/box2d_back.png"
@@ -1165,7 +1165,7 @@ class _DroppedResponse:
 
     async def aiter_raw(self):
         yield b"partial"
-        raise httpx.ReadError("connection reset")
+        raise httpx2.ReadError("connection reset")
 
 
 class _FakeStreamContext:
