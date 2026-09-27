@@ -9,8 +9,9 @@ https://csdb.dk/webservice/
 from __future__ import annotations
 
 import re
-from typing import Final, NotRequired, TypedDict, cast
+from typing import Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlparse
+from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 
 import httpx
 from defusedxml import ElementTree as ET
@@ -76,13 +77,13 @@ def csdb_id_from_url(url: str) -> int | None:
     return None
 
 
-def _text(node: ET.Element | None, tag: str) -> str:
+def _text(node: Element | None, tag: str) -> str:
     if node is None:
         return ""
     found = node.find(tag)
     if found is None or found.text is None:
         return ""
-    return cast(str, found.text.strip())
+    return found.text.strip()
 
 
 def _year_unix(year: str) -> int | None:

@@ -2379,7 +2379,9 @@ dev = [
     { name = "memray" },
     { name = "mypy" },
     { name = "pyinstrument" },
+    { name = "types-authlib" },
     { name = "types-colorama" },
+    { name = "types-defusedxml" },
     { name = "types-passlib" },
     { name = "types-pyyaml" },
     { name = "types-redis" },
@@ -2451,7 +2453,9 @@ requires-dist = [
     { name = "starlette", specifier = "~=1.6.0" },
     { name = "streaming-form-data", specifier = "~=1.19" },
     { name = "strsimpy", specifier = "~=0.2" },
+    { name = "types-authlib", marker = "extra == 'dev'", specifier = "~=1.6.9" },
     { name = "types-colorama", marker = "extra == 'dev'", specifier = "~=0.4" },
+    { name = "types-defusedxml", marker = "extra == 'dev'", specifier = "~=0.7" },
     { name = "types-passlib", marker = "extra == 'dev'", specifier = "~=1.7" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = "~=6.0" },
     { name = "types-redis", marker = "extra == 'dev'", specifier = "~=4.6" },
@@ -2677,6 +2681,18 @@ wheels = [
 ]
 
 [[package]]
+name = "types-authlib"
+version = "1.6.11.20260518"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9e/30/19a552613eda35189e13784693cf98374153700378d6082cd89e35c96ae2/types_authlib-1.6.11.20260518.tar.gz", hash = "sha256:15b9a257e849e740241baa2113dd868c1b295cdc32449e54b109e9fc0105b556", size = 47147, upload-time = "2026-05-18T06:06:40.793Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/75/62/503ca34fd9d92a79694fa2f1b6897f1603c5d9e4aa86b219b232de204578/types_authlib-1.6.11.20260518-py3-none-any.whl", hash = "sha256:e9c873dbc61d87f57cda25b8eb6d35610eb1cae2f5f2b74a8faf94c5e5f01b90", size = 104066, upload-time = "2026-05-18T06:06:39.553Z" },
+]
+
+[[package]]
 name = "types-cffi"
 version = "1.17.0.20250523"
 source = { registry = "https://pypi.org/simple" }
@@ -2695,6 +2711,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/59/73/0fb0b9fe4964b45b2a06ed41b60c352752626db46aa0fb70a49a9e283a75/types-colorama-0.4.15.20240311.tar.gz", hash = "sha256:a28e7f98d17d2b14fb9565d32388e419f4108f557a7d939a66319969b2b99c7a", size = 5608, upload-time = "2024-03-11T02:15:51.557Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/83/6944b4fa01efb2e63ac62b791a8ddf0fee358f93be9f64b8f152648ad9d3/types_colorama-0.4.15.20240311-py3-none-any.whl", hash = "sha256:6391de60ddc0db3f147e31ecb230006a6823e81e380862ffca1e4695c13a0b8e", size = 5840, upload-time = "2024-03-11T02:15:50.43Z" },
+]
+
+[[package]]
+name = "types-defusedxml"
+version = "0.7.0.20260504"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/da/d2/4553c8fa9cdebfe1e84b950cf790a4d2376a97fa016e43f7c65323fa6c7d/types_defusedxml-0.7.0.20260504.tar.gz", hash = "sha256:2ab2828a3f97111ba1c16cee273ad4124a831fc9198c41bf8368ff6ea48ad300", size = 10729, upload-time = "2026-05-04T05:22:50.192Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/2d/8a4b5ba1d732b8bc691f0efbb1c6f77cb5f6f473b2afe181d83d910773c5/types_defusedxml-0.7.0.20260504-py3-none-any.whl", hash = "sha256:a959e3a0a43b93e464bd625d91ec9193a2703ddc10443bdd627792485fae0b10", size = 13467, upload-time = "2026-05-04T05:22:49.319Z" },
 ]
 
 [[package]]
