@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -104,6 +105,28 @@ def test_opt_in_over_the_sync_cap_serves_the_original(
 
     assert _redirect(response) == f"/library/{rom_file.full_path}"
     conversion.convert.assert_not_called()
+
+
+def test_opt_in_past_the_deadline_serves_the_original(
+    client: TestClient, access_token: str, rom: Rom, rom_file, conversion, mocker
+):
+    mocker.patch("endpoints.roms.SYNC_CONVERSION_DEADLINE_SECONDS", 0.01)
+
+    async def slow_convert(*args, **kwargs):
+        await asyncio.sleep(0.2)
+        return CONVERTED
+
+    conversion.convert.side_effect = slow_convert
+
+    response = client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"converted": "true"},
+        follow_redirects=False,
+    )
+
+    assert _redirect(response) == f"/library/{rom_file.full_path}"
+    conversion.convert.assert_called_once()
 
 
 def test_head_reports_a_cached_copy_but_never_converts(

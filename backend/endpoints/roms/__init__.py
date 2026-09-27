@@ -1,3 +1,4 @@
+import asyncio
 import binascii
 import json
 import pathlib
@@ -1308,6 +1309,9 @@ def get_rom(
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
+# Kept under the proxy_read_timeout nginx applies to /api (300s).
+SYNC_CONVERSION_DEADLINE_SECONDS: Final = 240
+
 ConvertedQuery = Annotated[
     bool,
     Query(
@@ -1453,7 +1457,13 @@ async def _maybe_converted_download(
         file.file_size_bytes or rom.fs_size_bytes
     ) > ROM_CONVERTO_MAX_SYNC_SIZE_MB * 1024 * 1024:
         return None
-    return await get_or_convert(rom.id, file, rom.platform_slug, target)
+    # Past the deadline the original is served and the conversion finishes
+    # into the cache, instead of nginx answering 504.
+    conversion = fire_and_forget(
+        get_or_convert(rom.id, file, rom.platform_slug, target)
+    )
+    done, _ = await asyncio.wait({conversion}, timeout=SYNC_CONVERSION_DEADLINE_SECONDS)
+    return conversion.result() if done else None
 
 
 @protected_route(
@@ -1634,8 +1644,12 @@ async def get_rom_content(
     # Otherwise proxy through nginx
     if len(files) == 1:
         file = files[0]
+        # Only an authenticated caller may spend minutes of CPU on a
+        # conversion, since DISABLE_DOWNLOAD_ENDPOINT_AUTH opens this route.
         converted_path = (
-            await _maybe_converted_download(rom, file, start_conversion=True)
+            await _maybe_converted_download(
+                rom, file, start_conversion=request.user.is_authenticated
+            )
             if converted
             else None
         )

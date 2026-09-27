@@ -226,6 +226,67 @@ class TestGetRomFilesWithConverto:
         assert parsed.identity.title_id == "SLUS-00001"
         assert parsed.identity.save_target is None
 
+    @pytest.mark.asyncio
+    async def test_converto_identity_is_the_first_disc_whatever_the_listing(
+        self, scan_env, mocker
+    ):
+        mocker.patch(
+            "adapters.services.sigil.SigilService.extract_title_id",
+            mocker.AsyncMock(return_value=None),
+        )
+        list_rom_dir = FSRomsHandler._list_rom_dir
+        mocker.patch.object(
+            FSRomsHandler,
+            "_list_rom_dir",
+            lambda self, *args: sorted(list_rom_dir(self, *args), reverse=True),
+        )
+        disc1 = scan_env.rom_dir / "Game (Disc 1).iso"
+        disc2 = scan_env.rom_dir / "Game (Disc 2).iso"
+        mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(
+                return_value={
+                    disc1: _info(title_id="SLUS-00001"),
+                    disc2: _info(title_id="SLUS-00002"),
+                }
+            ),
+        )
+
+        parsed = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False
+        )
+
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.asyncio
+    async def test_stored_ids_give_no_identity_when_extraction_is_skipped(
+        self, scan_env, mocker
+    ):
+        mocker.patch(
+            "adapters.services.sigil.SigilService.extract_title_id",
+            mocker.AsyncMock(return_value=None),
+        )
+        disc1 = scan_env.rom_dir / "Game (Disc 1).iso"
+        mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(return_value={disc1: _info(title_id="SLUS-00001")}),
+        )
+        first = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False
+        )
+
+        rescan = await scan_env.handler.get_rom_files(
+            scan_env.rom,
+            calculate_hashes=False,
+            extract_title_ids=False,
+            existing_files=first.rom_files,
+        )
+
+        assert {f.title_id for f in rescan.rom_files} >= {"SLUS-00001"}
+        assert rescan.identity == RomIdentity()
+
 
 async def test_converto_active_for_supported_platform(handler, psx_rom, mocker):
     _patch_service(mocker)

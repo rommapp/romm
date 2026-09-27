@@ -339,6 +339,12 @@ class _TitleIdSource:
         return self.path.parent, compute_name_sort_key(self.path.name), self.path.name
 
 
+def _rom_file_order(rom_file: RomFile) -> tuple[str, str, str]:
+    """`_TitleIdSource.order` for a row, so a multi-disc ROM falls back to its first disc."""
+    name = rom_file.file_name
+    return rom_file.file_path, compute_name_sort_key(name), name
+
+
 # Exclusion patterns holding one of these need fnmatch; the rest match literally.
 _GLOB_CHARS_RE: Final = re.compile(r"[*?\[]")
 
@@ -1029,8 +1035,12 @@ class FSRomsHandler(FSHandler):
             sha1_hash=sha1_hash,
             ra_hash=ra_hash,
             top_level_changed=top_level_changed,
+            # Stored ids stand in only when extraction ran, so a rescan that
+            # skipped it can't blank the save target sigil wrote.
             identity=_rom_level_identity(
-                rom.platform_slug, sigil_extractions, rom_files
+                rom.platform_slug,
+                sigil_extractions,
+                sorted(rom_files, key=_rom_file_order) if converto_active else [],
             ),
             embed_candidates=embed_candidates,
         )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import hashlib
 import os
@@ -22,12 +23,11 @@ from config import (
 from config.config_manager import config_manager as cm
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.zip_cache import CACHE_KEY_LENGTH, SECONDS_PER_HOUR
 
 if TYPE_CHECKING:
     from models.rom import RomFile
 
-CACHE_KEY_LENGTH = 16
-SECONDS_PER_HOUR = 3600
 BYTES_PER_GB = 1024**3
 # A fresher sentinel means another worker is actively converting.
 PARTIAL_STALE_SECONDS = 6 * SECONDS_PER_HOUR
@@ -125,7 +125,7 @@ async def get_or_convert(
             os.utime(final_path)
             return final_path
 
-        if not has_room_for(rom_file.file_size_bytes or 0):
+        if not await asyncio.to_thread(has_room_for, rom_file.file_size_bytes or 0):
             log.info(
                 f"Conversion cache is full, not converting ROM {rom_id} (target {hl(target)})"
             )
@@ -197,20 +197,25 @@ def cleanup_stale_conversions() -> int:
     for key_dir in cache_root.iterdir():
         if not key_dir.is_dir():
             continue
-        files = _cached_files(key_dir)
         sentinel = key_dir / SENTINEL_NAME
-        if not files:
-            # Only an in-flight sentinel makes an empty dir meaningful.
-            if sentinel.exists() and sentinel.stat().st_mtime >= (
-                now - PARTIAL_STALE_SECONDS
-            ):
-                continue
-        else:
-            last_served = max(p.stat().st_mtime for p in files)
-            if last_served >= now - ttl_seconds:
-                if not sentinel.exists():
-                    kept.append((last_served, _dir_size(files), key_dir))
-                continue
+        # A conversion finishing or a download racing this pass can rename or
+        # remove a file between listing and stat; leave that dir to next run.
+        try:
+            files = _cached_files(key_dir)
+            if not files:
+                # Only an in-flight sentinel makes an empty dir meaningful.
+                if sentinel.exists() and sentinel.stat().st_mtime >= (
+                    now - PARTIAL_STALE_SECONDS
+                ):
+                    continue
+            else:
+                last_served = max(p.stat().st_mtime for p in files)
+                if last_served >= now - ttl_seconds:
+                    if not sentinel.exists():
+                        kept.append((last_served, _dir_size(files), key_dir))
+                    continue
+        except FileNotFoundError:
+            continue
         shutil.rmtree(key_dir, ignore_errors=True)
         deleted += 1
 

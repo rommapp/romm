@@ -65,6 +65,21 @@ class TestRun:
             await rom_converto._run(["info", "--json", "x"], timeout_seconds=0.01)
         assert proc.killed is True
 
+    async def test_cancellation_kills_process(self) -> None:
+        proc = FakeProc(delay=5.0)
+        with (
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            run = asyncio.create_task(
+                rom_converto._run(["info", "--json", "x"], timeout_seconds=10)
+            )
+            await asyncio.sleep(0.01)
+            run.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await run
+        assert proc.killed is True
+
 
 class TestIsEnabled:
     async def test_disabled_when_config_disabled(self, service: RomConvertoService):
@@ -82,6 +97,29 @@ class TestIsEnabled:
             nonlocal spawn_count
             spawn_count += 1
             return proc
+
+        with (
+            patch.object(rom_converto, "ROM_CONVERTO_ENABLED", True),
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            assert await service.is_enabled() is False
+            assert await service.is_enabled() is False
+        assert spawn_count == 1
+
+    @pytest.mark.parametrize(
+        "error",
+        [OSError(8, "Exec format error"), RomConvertoTimeoutError("timed out")],
+    )
+    async def test_probe_that_cannot_run_is_cached_false(
+        self, service: RomConvertoService, error: Exception
+    ):
+        spawn_count = 0
+
+        async def spawn(*args, **kwargs):
+            nonlocal spawn_count
+            spawn_count += 1
+            raise error
 
         with (
             patch.object(rom_converto, "ROM_CONVERTO_ENABLED", True),

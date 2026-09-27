@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from config import SCAN_TIMEOUT
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile
@@ -92,6 +93,7 @@ class TestConvertLibraryTask:
         assert task.manual_run is True
         assert task.can_run_manually is True
         assert task.cron_string is None
+        assert task.timeout == SCAN_TIMEOUT
 
     async def test_gating_noop_when_conversion_disabled(
         self, task, mocker, converto_config, fake_convert, rom, rom_file
@@ -190,6 +192,26 @@ class TestConvertLibraryTask:
             "psp",
             "chd",
         )
+
+    async def test_publishes_progress_in_the_conversion_stats_shape(
+        self,
+        task,
+        converto_config,
+        conversion_enabled,
+        fake_convert,
+        mocker,
+        psp_rom,
+        psp_rom_file,
+    ):
+        update_job_meta = mocker.patch(
+            "tasks.scheduled.convert_images_to_webp.update_job_meta"
+        )
+
+        await task.run()
+
+        assert update_job_meta.call_args.args[0] == {
+            "conversion_stats": {"processed": 1, "errors": 0, "total": 1}
+        }
 
     async def test_counts_failed_conversions(
         self, task, converto_config, conversion_enabled, mocker, psp_rom, psp_rom_file

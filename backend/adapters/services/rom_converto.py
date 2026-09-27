@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import os
 import shutil
@@ -18,9 +19,8 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-# Platform slugs whose files rom-converto's `info` can identify with a
-# title id or serial. Wider than the conversion targets on purpose:
-# extraction only reads headers, so every inspector counts.
+# Wider than the conversion targets: `info` only reads headers, so every
+# platform it can pull a title id or serial from counts.
 CONVERTO_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset(
     {
         UPS.N3DS,
@@ -110,10 +110,8 @@ def _op(
 _DVD_PLATFORMS = {UPS.PSP, UPS.PS2}
 _CD_PLATFORMS = {UPS.PSX, UPS.SATURN, UPS.SEGACD, UPS.DC}
 
-# Every single-file operation the CLI offers, keyed by the target a platform
-# can be configured with. Directory-shaped operations (Wii U packs, Switch
-# merge/split, the `extract` family, Xbox 360 GoD) have no single output
-# file to serve, so they are not here.
+# Every single-file operation the CLI offers. Directory-shaped ones (Wii U
+# packs, Switch merge/split, `extract`, Xbox 360 GoD) have no file to serve.
 OPERATIONS: Final[tuple[Operation, ...]] = (
     # 3DS
     _op("decrypted", {UPS.N3DS}, "ctr decrypt", ".cia .3ds .cci .cxi", None),
@@ -204,18 +202,27 @@ async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout_seconds)
     except TimeoutError as err:
-        proc.kill()
+        _kill(proc)
         # Drain the pipes so the transport closes instead of leaking its fds.
         await proc.communicate()
         raise RomConvertoTimeoutError(
             f"rom-converto {' '.join(argv[:2])} timed out after {timeout_seconds}s"
         ) from err
+    except BaseException:
+        # A cancelled caller must not leave a conversion running unowned.
+        _kill(proc)
+        raise
 
     return (
         proc.returncode or 0,
         stdout.decode("utf-8", errors="replace"),
         stderr.decode("utf-8", errors="replace"),
     )
+
+
+def _kill(proc: asyncio.subprocess.Process) -> None:
+    with contextlib.suppress(ProcessLookupError):
+        proc.kill()
 
 
 def _first_str(data: dict[str, Any], *keys: str) -> str | None:
@@ -244,9 +251,8 @@ def _title_id(kind: str, flat: dict[str, Any]) -> str | None:
 
 
 def _parse_info(payload: dict[str, Any]) -> RomConvertoInfo:
-    # `kind` is the serde tag of InfoResult. Consoles nest their header
-    # (Xbox `xbe`, 360 `xex`, Switch `full`, CHD/CSO inner disc `content`);
-    # top-level keys win on conflict.
+    # Consoles nest their header (Xbox `xbe`, 360 `xex`, Switch `full`,
+    # CHD/CSO inner disc `content`); top-level keys win on conflict.
     flat = dict(payload)
     for key in ("xbe", "xex", "full", "content"):
         nested = payload.get(key)
@@ -278,17 +284,21 @@ class RomConvertoService:
         async with self._probe_lock:
             if self._available is not None:
                 return self._available
-            # A stale, corrupt, or wrong-arch binary passes which(); prove it
-            # runs once with the cheap capabilities manifest. A missing binary
-            # stays uncached so the integration picks it up without a restart.
+            # A corrupt or wrong-arch binary passes which(); a missing one
+            # stays uncached so installing it needs no restart.
+            failure: str | None
             try:
                 code, stdout, _ = await _run(["capabilities"], _PROBE_TIMEOUT_SECONDS)
             except RomConvertoBinaryNotFoundError:
                 return False
-            if code != 0:
+            except (RomConvertoTimeoutError, OSError) as exc:
+                failure = str(exc)
+            else:
+                failure = f"code {code}" if code != 0 else None
+            if failure is not None:
                 log.warning(
                     f"rom-converto at {hl(ROM_CONVERTO_PATH)} failed its capability "
-                    f"probe (code {code}); disabling integration until restart"
+                    f"probe ({failure}); disabling integration until restart"
                 )
                 self._available = False
                 return False

@@ -1,11 +1,14 @@
 from dataclasses import asdict, dataclass
 
 from adapters.services.rom_converto import resolve_operation, rom_converto_service
+from config import SCAN_TIMEOUT
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from logger.logger import log
-from tasks.tasks import Task, TaskType, update_job_meta
+from models.rom import RomFile
+from tasks.scheduled.convert_images_to_webp import ConversionStats
+from tasks.tasks import Task, TaskType
 from utils.context import initialize_context
 from utils.conversion_cache import get_or_convert, has_room_for
 
@@ -27,6 +30,8 @@ class ConvertLibraryTask(Task):
             enabled=True,
             manual_run=True,
             cron_string=None,
+            # One conversion after another, each up to ROM_CONVERTO_TIMEOUT.
+            timeout=SCAN_TIMEOUT,
         )
 
     @initialize_context()
@@ -47,8 +52,9 @@ class ConvertLibraryTask(Task):
             )
             return asdict(stats)
 
-        platforms = db_platform_handler.get_platforms()
-        for platform in platforms:
+        # (rom id, rom fs name, file, platform slug, target)
+        candidates: list[tuple[int, str, RomFile, str, str]] = []
+        for platform in db_platform_handler.get_platforms():
             if platform_id is not None and platform.id != platform_id:
                 continue
             target = converto.platform_formats.get(platform.slug)
@@ -62,7 +68,6 @@ class ConvertLibraryTask(Task):
                 files_by_rom = db_rom_handler.get_files_for_roms(
                     [rom.id for rom in roms], session=session
                 )
-                candidates = []
                 for rom in roms:
                     files = files_by_rom.get(rom.id, [])
                     # Equivalent of `has_simple_single_file` (exactly one file
@@ -75,26 +80,29 @@ class ConvertLibraryTask(Task):
                     ):
                         stats.skipped += 1
                         continue
-                    candidates.append((rom, files[0]))
-
-            for index, (rom, rom_file) in enumerate(candidates):
-                if not has_room_for(rom_file.file_size_bytes or 0):
-                    log.warning(
-                        "Conversion cache is full, stopping the pre-warm; raise "
-                        "ROM_CONVERTO_CACHE_MAX_SIZE_GB to convert more"
+                    candidates.append(
+                        (rom.id, rom.fs_name, files[0], platform.slug, target)
                     )
-                    stats.skipped += len(candidates) - index
-                    update_job_meta({"conversion_stats": asdict(stats)})
-                    return self._finish(stats)
-                log.info(
-                    f"Pre-warming conversion of '{rom.fs_name}' [ID: {rom.id}] to {target}"
+
+        progress = ConversionStats()
+        progress.update(total=len(candidates))
+        for index, (rom_id, fs_name, rom_file, slug, target) in enumerate(candidates):
+            if not has_room_for(rom_file.file_size_bytes or 0):
+                log.warning(
+                    "Conversion cache is full, stopping the pre-warm; raise "
+                    "ROM_CONVERTO_CACHE_MAX_SIZE_GB to convert more"
                 )
-                result = await get_or_convert(rom.id, rom_file, platform.slug, target)
-                if result is None:
-                    stats.failed += 1
-                else:
-                    stats.converted += 1
-                update_job_meta({"conversion_stats": asdict(stats)})
+                stats.skipped += len(candidates) - index
+                return self._finish(stats)
+            log.info(
+                f"Pre-warming conversion of '{fs_name}' [ID: {rom_id}] to {target}"
+            )
+            result = await get_or_convert(rom_id, rom_file, slug, target)
+            if result is None:
+                stats.failed += 1
+            else:
+                stats.converted += 1
+            progress.update(processed=index + 1, errors=stats.failed)
 
         return self._finish(stats)
 

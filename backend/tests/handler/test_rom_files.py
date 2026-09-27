@@ -312,3 +312,23 @@ async def test_a_category_settled_on_a_reused_row_is_persisted(
 
     assert result.updated_files == 1
     assert _files_by_name(rom.id)["game.bin"].category == RomFileCategory.DLC
+
+
+async def test_a_title_id_read_off_a_reused_row_is_persisted(
+    platform, admin_user, library
+):
+    """Extraction writes a file's title id onto the row it reused."""
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+
+    async def read_title_id(*_args, **_kwargs) -> ParsedRomFiles:
+        parsed = _unchanged_parse(rom, RomIdentity())
+        parsed.rom_files[0].title_id = "ULUS-10041"
+        parsed.rom_files[0].title_version = 1
+        return parsed
+
+    with patch.object(fs_rom_handler, "get_rom_files", read_title_id):
+        result = await refresh_rom_files(rom)
+
+    stored = _files_by_name(rom.id)["game.bin"]
+    assert result.updated_files == 1
+    assert (stored.title_id, stored.title_version) == ("ULUS-10041", 1)
