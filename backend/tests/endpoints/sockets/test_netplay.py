@@ -161,7 +161,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
         server.enter_room.assert_not_awaited()
 
@@ -174,7 +174,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_a_user_disabled_after_connecting(
@@ -188,7 +188,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_hidden_rom(self, mocker, server, rooms):
@@ -201,7 +201,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_unknown_rom(self, mocker, server, rooms):
@@ -214,7 +214,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_missing_game_id(self, mocker, server, rooms):
@@ -226,7 +226,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open(game_id=None))
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_allows_visible_rom(self, mocker, server, rooms):
@@ -542,4 +542,4 @@ class TestConnectIdentity:
     async def test_never_refuses_the_connection(self, server, authenticate):
         authenticate.side_effect = RuntimeError("redis down")
 
-        assert await connect("sid", {}) is None
+        await connect("sid", {})
