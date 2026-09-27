@@ -9396,6 +9396,90 @@ def test_kiosk_mode_can_still_read_config(client):
         assert client.get("/api/streaming/config").status_code == 200
 
 
+# ── RetroArch core on activate ──────────────────────────────────────────────
+
+
+def _ra_claim(client, token, rom: Rom, value, reply: dict[str, Any]):
+    """Claim `rom` on a webstation container serving its platform as `value`,
+    with the broker transport answering `reply`. Returns the activate body,
+    what the launch pushed, and the exit_session mock. Stubs the transport
+    rather than `activate`, like `_activate_body`: the body is the point."""
+    with _streaming(_webstation(platforms={rom.platform_slug: value})):
+        with (
+            _pushes() as sent,
+            patch("handler.streaming.broker.request", return_value=reply) as request,
+            patch("handler.streaming.webstation.exit_session") as exit_session,
+            _spawns_nothing(),
+        ):
+            client.post(
+                "/api/streaming/sessions",
+                json={"rom_id": rom.id},
+                headers=_auth(token),
+            )
+    activate = next(
+        c for c in request.call_args_list if c.args[1].endswith("/activate")
+    )
+    return activate.kwargs["body"], sent, exit_session
+
+
+_BSNES_REPLY: dict[str, Any] = {
+    "url": "/room/x",
+    "core": "bsnes",
+    "core_tier": "untested",
+}
+
+
+def test_the_activate_body_carries_a_configured_core(client, access_token, rom: Rom):
+    body, _, _ = _ra_claim(client, access_token, rom, "retroarch:bsnes", _BSNES_REPLY)
+    assert body["rom"]["core"] == "bsnes"
+    assert "experimental_cores" not in body["rom"]
+
+
+def test_the_activate_body_carries_the_opt_in(client, access_token, rom: Rom):
+    value = {"emulator": "retroarch", "core": "bsnes", "experimental_cores": True}
+    body, _, _ = _ra_claim(client, access_token, rom, value, _BSNES_REPLY)
+    assert body["rom"]["experimental_cores"] is True
+
+
+def test_no_core_leaves_the_activate_body_unchanged(client, access_token, rom: Rom):
+    """An opt-in alone means nothing without a core, so it stays home too."""
+    body, _, exit_session = _ra_claim(
+        client,
+        access_token,
+        rom,
+        {"emulator": "retroarch", "experimental_cores": True},
+        {"url": "/room/x"},
+    )
+    assert "core" not in body["rom"]
+    assert "experimental_cores" not in body["rom"]
+    exit_session.assert_not_called()
+
+
+def test_an_older_broker_that_drops_the_core_is_exited_without_saving(
+    client, access_token, rom: Rom
+):
+    """Review Focus 3: pydantic drops the unknown field and the broker boots
+    its default, which would file this session's saves under the wrong core."""
+    _, sent, exit_session = _ra_claim(
+        client, access_token, rom, "retroarch:bsnes", {"url": "/room/x"}
+    )
+    exit_session.assert_called_once()
+    assert exit_session.call_args.args[1] == 0
+    assert exit_session.call_args.kwargs == {"save": False}
+    failed = next(p for event, p in sent if event == "streaming:launch-failed")
+    assert "doesn't support `core:`" in failed["detail"]
+    assert f"the {rom.platform_slug} platform" in failed["detail"]
+    assert _launch_ready(sent) == {}
+
+
+def test_a_broker_that_echoes_the_core_launches(client, access_token, rom: Rom):
+    _, sent, exit_session = _ra_claim(
+        client, access_token, rom, "retroarch:bsnes", _BSNES_REPLY
+    )
+    exit_session.assert_not_called()
+    assert _launch_ready(sent) != {}
+
+
 # ── multiplayer flag ─────────────────────────────────────────────────────────
 
 

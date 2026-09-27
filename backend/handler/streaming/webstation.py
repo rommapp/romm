@@ -29,6 +29,8 @@ from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import quote
 
+from fastapi import HTTPException
+
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
@@ -164,6 +166,12 @@ def activate(
     }
     if rom is not None:
         body["rom"] = rom
+        if container.core:
+            # Only a configured core goes out, so an unconfigured platform's
+            # body is what a broker without core support has always read.
+            body["rom"] = {**rom, "core": container.core}
+            if container.experimental_cores:
+                body["rom"]["experimental_cores"] = True
     if gui_language:
         # Describes the player, not the rom, so it goes alongside `rom` rather
         # than inside it and is sent for a romless launch too.
@@ -198,6 +206,24 @@ def activate(
 
     resp = resp if isinstance(resp, dict) else {}
     log.info("broker activated session, %s", resp)
+    if container.core and resp.get("core") != container.core:
+        # A broker older than core support drops the field and boots its
+        # default core. Saving on the way out would file that core's files
+        # under this platform's archive, so the session ends without a dump.
+        log.warning(
+            "broker booted core %s, not the configured %s, ending the session",
+            resp.get("core"),
+            container.core,
+        )
+        exit_session(container, 0, save=False)
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "This broker doesn't support `core:`. Upgrade the container, "
+                f"or remove `core: {container.core}` from the "
+                f"{container.platform} platform in config.yml."
+            ),
+        )
     return resp
 
 
