@@ -3,6 +3,7 @@
 // variant renders results + the per-match cover / rename picker in
 // its own visual language.
 import type { SearchRom } from "@/stores/roms";
+import { providerImageUrl } from "@/utils/providerImage";
 
 export type SourceName =
   | "IGDB"
@@ -16,6 +17,8 @@ export type SourceName =
 
 export interface MatchedSource {
   url_cover: string;
+  /** Same-origin `url_cover` for display; `url_cover` is what gets saved. */
+  preview_url: string;
   name: SourceName;
   logo_path: string;
 }
@@ -78,7 +81,12 @@ export function getMatchSources(matchedRom: SearchRom): MatchedSource[] {
   for (const def of SOURCE_DEFS) {
     const url = matchedRom[def.urlKey] as string | undefined | null;
     if (url) {
-      out.push({ url_cover: url, name: def.name, logo_path: def.logo });
+      out.push({
+        url_cover: url,
+        preview_url: providerImageUrl(url),
+        name: def.name,
+        logo_path: def.logo,
+      });
     }
   }
   return out;
@@ -88,14 +96,9 @@ export function matchKey(rom: SearchRom): string {
   return `${rom.igdb_id ?? "_"}-${rom.moby_id ?? "_"}-${rom.ss_id ?? "_"}-${rom.name}`;
 }
 
-// Default cover URL for a search result — used when rendering the
-// match as a card. SearchRom carries only `*_url_cover` per provider
-// (no `path_cover_*` / `url_cover` like SimpleRom), so cards fed to
-// GameCard need `cover-src` set explicitly. First available provider
-// cover wins; null means no provider has a cover at all (placeholder).
-// Uses a truthy filter (not `??`) because the backend sometimes returns
-// empty strings for absent providers — `??` would treat "" as "present"
-// and short-circuit before reaching the actually-populated provider.
+// Preview URL (same-origin) of a search result's first provider cover, for
+// GameCard's `cover-src`, since SearchRom has no `path_cover_*`. Absent
+// providers come back as "", hence the truthy filter rather than `??`.
 export function firstAvailableCover(r: SearchRom): string | null {
   const candidates: Array<string | undefined> = [
     r.igdb_url_cover,
@@ -107,7 +110,8 @@ export function firstAvailableCover(r: SearchRom): string | null {
     r.libretro_url_cover,
     r.steam_url_cover,
   ];
-  return candidates.find((c): c is string => Boolean(c)) ?? null;
+  const cover = candidates.find((c): c is string => Boolean(c));
+  return cover ? providerImageUrl(cover) : null;
 }
 
 export interface ConfirmPayload {

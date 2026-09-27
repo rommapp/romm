@@ -2,7 +2,7 @@ import asyncio
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, TypeVar
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Query, Request, Response, status
 
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
@@ -24,6 +24,7 @@ from handler.metadata.base_handler import CoverResult, MetadataHandler
 from handler.metadata.demozoo_handler import DemozooRom
 from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
+from handler.metadata.image_proxy import fetch_provider_image, is_provider_image_url
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.moby_handler import MobyGamesRom
@@ -390,3 +391,38 @@ async def search_cover(
         )
 
     return covers
+
+
+@protected_route(
+    router.get,
+    "/image",
+    [Scope.ROMS_READ],
+    response_class=Response,
+    responses={status.HTTP_200_OK: {"content": {"image/*": {}}}},
+)
+async def search_image(
+    request: Request,
+    url: str = Query(description="Provider image URL to fetch."),
+) -> Response:
+    """Serve a provider image same-origin, so COEP `require-corp` pages can embed it."""
+    if not is_provider_image_url(url):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="URL is not a known metadata provider image",
+        )
+
+    image = await fetch_provider_image(url)
+    if image is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Provider image unavailable",
+        )
+
+    return Response(
+        content=image.content,
+        media_type=image.media_type,
+        headers={
+            "Cache-Control": "private, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )

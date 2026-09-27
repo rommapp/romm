@@ -69,7 +69,7 @@ const show = ref(false);
 const searching = ref(false);
 const searchText = ref("");
 const covers = ref<SearchCoverSchema[]>([]);
-// Source rom for the in-flight search — drives the optional
+// Source rom for the in-flight search, drives the optional
 // `/search/roms` companion call. Reset on close so a follow-up open
 // without a `rom` payload (e.g. from CollectionSettingsDrawer) doesn't
 // inherit a stale rom.
@@ -101,7 +101,7 @@ function gridProviderLogo(key: CoverProvider): string {
 // Client-side filtering + sorting over the two fetched lists. The
 // backend returns every content variant (NSFW / humor / epilepsy) with
 // its per-cover metadata in one call, so the controls just narrow the
-// already-loaded results — no re-fetch.
+// already-loaded results, no re-fetch.
 const {
   coverType,
   resolutionFilter,
@@ -138,7 +138,7 @@ const sortLabel = computed(
   () => sortItems.value.find((item) => item.id === sortMode.value)?.label,
 );
 
-// SGDB animated covers ship their `thumb` as a `.webm` clip — an `<img>`
+// SGDB animated covers ship their `thumb` as a `.webm` clip, an `<img>`
 // element can't render those (broken-image icon). Detect by type or
 // extension and swap to a `<video>` for those resources so the preview
 // actually plays.
@@ -247,8 +247,8 @@ async function doSearch() {
     ) {
       const results = providersResult.value.data;
       // Prefer the result that shares the most IDs with our rom (the
-      // same identified game). When no result matches by ID — e.g. an
-      // unidentified rom — fall back to the first one so the user
+      // same identified game). When no result matches by ID, e.g. an
+      // unidentified rom, fall back to the first one so the user
       // still gets something. `0` score with a populated `results`
       // array still picks `results[0]`.
       const best = [...results]
@@ -291,7 +291,7 @@ function pickCover(url: string, provider: CoverProvider) {
 }
 
 // Provider covers (IGDB / Moby / SS / …) already come at full
-// resolution from `/search/roms`, so no thumb-→-grid swap — just hand
+// resolution from `/search/roms`, so no thumb-→-grid swap, just hand
 // the URL off to the consumer.
 function pickProviderCover(url: string) {
   emitter?.emit("updateUrlCover", url);
@@ -505,7 +505,7 @@ function closeDialog() {
         </div>
 
         <div v-else-if="hasResults" class="r-v2-sgdb__results">
-          <!-- Provider covers — one card per metadata source that
+          <!-- Provider covers, one card per metadata source that
                returned a URL for this rom. Renders only when the
                dialog was opened with a `rom` payload; the provider
                logo overlays the card so the user can read at a
@@ -526,7 +526,7 @@ function closeDialog() {
                 @click="pickProviderCover(src.url_cover)"
               >
                 <img
-                  :src="src.url_cover"
+                  :src="src.preview_url"
                   :alt="src.name"
                   loading="lazy"
                   class="r-v2-sgdb__cover-img"
@@ -696,7 +696,7 @@ html[data-bp~="xs"] .r-v2-sgdb__content-toggles {
   gap: 10px;
 }
 
-/* Flow-pack of cover cards — each tile adopts its cover's natural aspect
+/* Flow-pack of cover cards, each tile adopts its cover's natural aspect
    (fixed height, width follows the art), like the gallery cards, instead of
    a rigid uniform-width grid. */
 .r-v2-sgdb__grid {
@@ -730,7 +730,7 @@ html[data-bp~="xs"] .r-v2-sgdb__content-toggles {
 }
 .r-v2-sgdb__cover-img {
   display: block;
-  /* Fixed height, natural width — the card takes the cover's true aspect,
+  /* Fixed height, natural width, the card takes the cover's true aspect,
      never cropped. `max-width` caps the rare ultra-wide cover to the tile so
      it letterboxes instead of overflowing past its rounded corners. */
   height: 180px;
@@ -739,7 +739,7 @@ html[data-bp~="xs"] .r-v2-sgdb__content-toggles {
   object-fit: contain;
 }
 
-/* Provider logo overlay — top-right corner badge on the cover so the
+/* Provider logo overlay, top-right corner badge on the cover so the
    user sees at a glance which metadata source the artwork belongs to. */
 .r-v2-sgdb__cover-provider {
   position: absolute;

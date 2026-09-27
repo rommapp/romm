@@ -13,6 +13,7 @@ from fastapi import HTTPException, status
 from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
 from handler.metadata.base_handler import CoverResource, CoverResult
 from handler.metadata.igdb_handler import IGDBRom
+from handler.metadata.image_proxy import ProviderImage
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.ss_handler import SSRom
 from handler.metadata.steam_handler import SteamRom
@@ -268,3 +269,59 @@ def test_cover_search_needs_one_cover_provider(client, access_token):
         )
 
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+_IGDB_COVER = "https://images.igdb.com/igdb/image/upload/t_cover_big/co1.jpg"
+
+
+def _get_image(client, token: str | None, url: str):
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    return client.get("/api/search/image", params={"url": url}, headers=headers)
+
+
+def test_image_proxy_serves_a_provider_image(client, viewer_access_token):
+    fetch = AsyncMock(return_value=ProviderImage(b"jpeg-bytes", "image/jpeg"))
+    with patch("endpoints.search.fetch_provider_image", new=fetch):
+        response = _get_image(client, viewer_access_token, _IGDB_COVER)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.content == b"jpeg-bytes"
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    fetch.assert_awaited_once_with(_IGDB_COVER)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://evil.example/cover.jpg",
+        "https://images.igdb.com.evil.example/cover.jpg",
+        "http://127.0.0.1:3000/api/heartbeat",
+        "http://images.igdb.com/cover.jpg",
+    ],
+)
+def test_image_proxy_refuses_urls_off_the_allowlist(client, access_token, url):
+    fetch = AsyncMock()
+    with patch("endpoints.search.fetch_provider_image", new=fetch):
+        response = _get_image(client, access_token, url)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    fetch.assert_not_awaited()
+
+
+def test_image_proxy_reports_an_unavailable_image(client, access_token):
+    with patch(
+        "endpoints.search.fetch_provider_image", new=AsyncMock(return_value=None)
+    ):
+        response = _get_image(client, access_token, _IGDB_COVER)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_image_proxy_requires_authentication(client):
+    fetch = AsyncMock()
+    with patch("endpoints.search.fetch_provider_image", new=fetch):
+        response = _get_image(client, None, _IGDB_COVER)
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    fetch.assert_not_awaited()
