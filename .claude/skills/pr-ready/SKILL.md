@@ -7,16 +7,16 @@ disable-model-invocation: true
 
 # PR-ready gauntlet
 
-Run the five review passes RomM applies to every non-trivial PR, in this order,
+Run the review passes RomM applies to every non-trivial PR, in this order,
 over one fixed range. Do not skip a step or reorder them.
 
 ## Target
 
 `$ARGUMENTS` is a PR number, a branch, or nothing (the current branch). Resolve
-it to a fetched target and derive `$RANGE` before step 1, then reuse `$RANGE`
-for every step. `HEAD` is the right target only when `$ARGUMENTS` is empty, so
-run the dispatch rather than assuming it: skip it and all five passes review the
-current checkout instead of what was asked for.
+it to a fetched target and derive `$BASE` and `$RANGE` before step 1, then
+reuse `$RANGE` for every step but the last. `HEAD` is the right target only when
+`$ARGUMENTS` is empty, so run the dispatch rather than assuming it: skip it and
+every pass reviews the current checkout instead of what was asked for.
 
 ```bash
 set -eu
@@ -30,7 +30,8 @@ case "$ARGUMENTS" in
 *) git fetch origin "pull/$ARGUMENTS/head"; TARGET="$(git rev-parse FETCH_HEAD)" ;;
 esac
 
-RANGE="$(git merge-base origin/master "$TARGET")..$TARGET"
+BASE="$(git merge-base origin/master "$TARGET")"
+RANGE="$BASE..$TARGET"
 ```
 
 An all-digit argument is a PR number, anything else is a branch.
@@ -39,7 +40,7 @@ An all-digit argument is a PR number, anything else is a branch.
 fetch that dies on the network, an argument that resolves to nothing, a missing
 merge base: each leaves a side of `$RANGE` empty, and git reads an empty side as
 `HEAD`, so `..$TARGET` is a valid range over the wrong commits rather than an
-error. Abort on the first failure instead of handing five passes a range built
+error. Abort on the first failure instead of handing every pass a range built
 without the thing you asked them to review.
 
 ## Before steps 2 to 5
@@ -77,29 +78,37 @@ unrelated first, so each step's edits stay attributable.
 3. **`simplify`**, after the correctness fixes so it can simplify those too.
 4. **`review-polish`**: its verification gate has to cover everything the
    earlier steps rewrote.
-5. **`humanizer`** last, in file mode, over the prose `$RANGE` adds or changes:
-   Markdown files, and comments and docstrings on added lines. It skips string
-   literals, locale files, generated and vendored paths, and test fixtures. Run
-   it in embedded mode on the PR description in the summary too, keeping the AI
+5. **`humanizer`** last, in file mode, over the prose `$BASE..HEAD` adds or
+   changes, so what steps 2 to 4 committed is covered: the Markdown paragraphs
+   it touches, and comments and docstrings on added lines. The rest of each file
+   stays as it is. It skips string literals, locale files, generated and
+   vendored paths, test fixtures, and lint or type directives (`# noqa`,
+   `# type: ignore`, `eslint-disable`), whose dash separators are syntax. Run it
+   in embedded mode on the PR description in the summary too, keeping the AI
    disclosure and the template headings. Two RomM rules win over its patterns:
-   a rewritten comment still meets `review-polish` §A, so cut rather than
-   lengthen, and a file's existing headings and bold labels are its house style,
-   so §19 and §20 apply only where new prose breaks that style. It edits only
-   prose, so re-run `trunk fmt && trunk check` on the files it touched instead
-   of the full gate.
+   rewritten comments and Markdown still meet `review-polish` §A, so cut rather
+   than lengthen, and a file's existing headings and bold labels are its house
+   style, so its "Bold as decoration" and "Decorative headings" patterns apply
+   only where new prose breaks that style. Those names come from the vendored
+   copy in `.claude/skills/humanizer/`, and a personal install of the same name
+   takes precedence over it, so read that file directly if a different version
+   loads. It edits only prose, so re-run `trunk fmt && trunk check` on the files
+   it touched instead of the full gate, plus `npm run generate` (see
+   `review-polish` §E) when it touched a response schema docstring, since those
+   reach `frontend/src/__generated__/`.
 
 Commit after each step that changes files, naming the step in the message. A bad
-automated fix is then one `git revert` away instead of tangled with four other
+automated fix is then one `git revert` away instead of tangled with the other
 passes.
 
-Finish with one consolidated summary rather than five transcripts: the security
-verdict, what steps 2, 3 and 5 changed by area, which checks ran and their results,
-and anything still needing a human decision.
+Finish with one consolidated summary rather than one transcript per step: the
+security verdict, what steps 2 to 5 changed by area, which checks ran and their
+results, and anything still needing a human decision.
 
 The summary also carries what the PR description needs and the transcripts hold: the
 screenshots step 4 captured, which the PR body references and `gh ... --attach` uploads
 under the `Screenshots` heading, and the `mermaid` block for a change that moved a
 boundary.
 
-Five passes in one session is a lot of context. For a very large diff, run the
-steps in separate sessions against the same `$RANGE`.
+The whole gauntlet in one session is a lot of context. For a very large diff,
+run the steps in separate sessions against the same `$RANGE`.

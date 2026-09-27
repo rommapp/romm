@@ -2,4 +2,5 @@ Vendored unmodified from https://github.com/blader/humanizer
 Commit: 9862685f575c65a8247f90369951df1b3416e3d6 (v3.0.0)
 
 To update, copy SKILL.md and LICENSE from a newer commit, review the diff, and
-bump the commit above. Keep RomM-specific rules in the calling skill, not here.
+bump the commit above. Keep RomM-specific rules in the calling skill, not here,
+and check that the pattern names pr-ready step 5 cites still exist.

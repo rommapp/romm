@@ -57,7 +57,7 @@ lint:
         - docker/nginx/js/**
         # Vendored patcherjs library
         - backend/utils/rom_patcher/patcher.js
-        # Vendored humanizer skill, whose examples quote em dashes to remove
+        # Vendored humanizer skill, kept byte-identical to upstream (it quotes em dashes)
         - .claude/skills/humanizer/**
         # Intentionally malformed YAML, used as a test fixture
         - backend/tests/config/fixtures/config/malformed_config.yml
