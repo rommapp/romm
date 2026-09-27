@@ -71,6 +71,9 @@ class SessionStatusSchema(BaseModel):
     # The room URL of a launched session, for a tab that missed launch-ready, reported by
     # the status poll only and left None by a heartbeat.
     host: str | None = None
+    # The launch's core warning, for that same tab.
+    core: str | None = None
+    core_tier: str | None = None
     termination: SessionTerminationSchema | None = None
 
 

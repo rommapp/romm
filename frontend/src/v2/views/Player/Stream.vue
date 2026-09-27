@@ -591,7 +591,16 @@ async function enterStream(host: string): Promise<void> {
 async function enterRunningSession(status: SessionStatus): Promise<void> {
   if (playerState.value !== "loading" || !status.host) return;
   launchPhase.value = null;
+  warnOfCore(status.core, status.core_tier);
   await enterStream(status.host);
+}
+
+// The broker boots an untested or opted-in broken core rather than refuse
+// it, so this is where the player learns it may misbehave.
+function warnOfCore(core?: string | null, tier?: string | null): void {
+  if (tier === "untested") snackbar.warning(t("play.core-untested", { core }));
+  else if (tier === "blocked")
+    snackbar.warning(t("play.core-blocked", { core }));
 }
 
 function dismissEndedDialog(): void {
@@ -717,15 +726,10 @@ useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
     return;
   }
   if (payload.resume === false) snackbar.warning(t("play.resume-failed"));
-  // The broker boots an untested or opted-in broken core rather than refuse
-  // it, so this is where the player learns it may misbehave.
-  if (payload.core_tier === "untested")
-    snackbar.warning(t("play.core-untested", { core: payload.core }));
-  else if (payload.core_tier === "blocked")
-    snackbar.warning(t("play.core-blocked", { core: payload.core }));
   // A status poll can land between the launch stamp and this push and enter
-  // first; entering again would force fullscreen back on.
+  // first, core warning included; entering again would force fullscreen back on.
   if (playerState.value === "playing") return;
+  warnOfCore(payload.core, payload.core_tier);
   await enterStream(payload.host);
 });
 

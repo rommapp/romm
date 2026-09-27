@@ -147,7 +147,9 @@ async def run_launch(
         if container.core and isinstance(launch_result, dict)
         else None
     )
-    await stamp_launched(session_key, session, host=host)
+    await stamp_launched(
+        session_key, session, host=host, core=container.core, core_tier=core_tier
+    )
     await lifecycle.publish_session_activity(session_key, session)
 
     # The webstation broker's deferred load waits for its emulator to report

@@ -3416,6 +3416,8 @@ def test_status_reports_active_for_owner(client, access_token, rom: Rom):
         "extraction_phase": None,
         "termination": None,
         "host": container["host"],
+        "core": None,
+        "core_tier": None,
     }
 
 
@@ -9598,6 +9600,29 @@ def test_the_activate_body_carries_a_configured_core(client, access_token, rom: 
     assert "experimental_cores" not in body["rom"]
 
 
+def test_status_warns_a_tab_that_missed_launch_ready_of_its_core(
+    client, access_token, rom: Rom
+):
+    platforms = {rom.platform_slug: "retroarch:bsnes"}
+    with _streaming(_webstation(platforms=platforms)):
+        with (
+            _pushes(),
+            patch("handler.streaming.broker.request", return_value=_BSNES_REPLY),
+            _spawns_nothing(),
+        ):
+            client.post(
+                "/api/streaming/sessions",
+                json={"rom_id": rom.id},
+                headers=_auth(access_token),
+            )
+            r = client.get(
+                f"/api/streaming/sessions/{rom.platform_slug}/status",
+                headers=_auth(access_token),
+            )
+    assert r.json()["core"] == "bsnes"
+    assert r.json()["core_tier"] == "untested"
+
+
 def test_the_activate_body_carries_the_opt_in(client, access_token, rom: Rom):
     value = {"emulator": "retroarch", "core": "bsnes", "experimental_cores": True}
     body, _, _ = _ra_claim(client, access_token, rom, value, _BSNES_REPLY)
@@ -9633,6 +9658,27 @@ def test_an_older_broker_that_drops_the_core_is_exited_asking_for_no_save(
     assert "doesn't support `core:`" in failed["detail"]
     assert f"the {rom.platform_slug} platform" in failed["detail"]
     assert _launch_ready(sent) == {}
+
+
+def test_a_wrong_core_is_exited_again_when_the_first_exit_fails():
+    """The broker refuses every activate while that game runs, so one lost exit
+    would wedge the container once the claim is released."""
+    with (
+        patch("handler.streaming.broker.request", return_value={"url": "/room/x"}),
+        patch(
+            "handler.streaming.webstation.exit_session",
+            side_effect=[None, {"state_saved": False}],
+        ) as exit_session,
+        pytest.raises(HTTPException),
+    ):
+        webstation.activate(
+            _snes("retroarch:bsnes"),
+            session_id="s",
+            user=MagicMock(id=1, username="u"),
+            emulator="retroarch",
+            rom={"id": 1, "name": "Game", "platform": "snes"},
+        )
+    assert exit_session.call_count == 2
 
 
 def test_a_broker_that_drops_the_core_logs_no_traceback(

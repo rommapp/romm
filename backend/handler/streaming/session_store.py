@@ -433,7 +433,11 @@ async def hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
 
 
 async def stamp_launched(
-    session_key: str, claim: dict[str, Any], host: str | None
+    session_key: str,
+    claim: dict[str, Any],
+    host: str | None,
+    core: str | None = None,
+    core_tier: str | None = None,
 ) -> None:
     """Record that the activate returned, so the status poll stops asking the
     broker for an extraction phase.
@@ -449,6 +453,8 @@ async def stamp_launched(
     Args:
         host: a game's room URL, for the status poll to hand a tab that missed
             the push; None for a desktop, whose POST is the only reader.
+        core, core_tier: the configured core and its tier, so that tab still
+            hears the warning launch-ready carried.
     """
     try:
         await mutate_session(
@@ -456,6 +462,7 @@ async def stamp_launched(
             {
                 "launched_at": datetime.now(timezone.utc).isoformat(),
                 **({"host": host} if host else {}),
+                **({"core": core, "core_tier": core_tier} if core_tier else {}),
             },
             require=lambda current: same_claim(current, claim),
         )

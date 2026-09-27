@@ -940,6 +940,47 @@ describe("Stream launch recovery", () => {
     );
   });
 
+  it("warns of the core when the poll finds the game already up", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.fetchSessionStatus.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: "http://webstation-dev:8080/room/x",
+      core: "bsnes",
+      core_tier: "untested",
+    });
+
+    await pollStatus();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledExactlyOnceWith(
+      "play.core-untested",
+    );
+    expect(mocks.t).toHaveBeenCalledWith("play.core-untested", {
+      core: "bsnes",
+    });
+  });
+
+  it("warns of the core once when launch-ready follows the poll", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.fetchSessionStatus.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: "http://webstation-dev:8080/room/x",
+      core: "bsnes",
+      core_tier: "blocked",
+    });
+    await pollStatus();
+
+    await launchReady({ core: "bsnes", core_tier: "blocked" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledExactlyOnceWith(
+      "play.core-blocked",
+    );
+  });
+
   it("leaves a stream the poll entered alone when launch-ready follows", async () => {
     const wrapper = await launch({ picker: false });
     await vmOf(wrapper).onPlay();

@@ -236,7 +236,12 @@ def activate(
             resp.get("core"),
             core,
         )
-        exit_session(container, 0, save=False)
+        # The broker refuses every activate while this game runs, and releasing
+        # the claim leaves nothing behind to stop it, so one lost exit is retried.
+        if exit_session(container, 0, save=False) is None and (
+            exit_session(container, 0, save=False) is None
+        ):
+            log.error("wrong-core game on %s is still running", container.key)
         raise HTTPException(
             status_code=502,
             detail=(
