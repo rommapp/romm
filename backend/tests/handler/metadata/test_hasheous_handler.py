@@ -244,14 +244,14 @@ class TestLookupRom:
         assert self._sent(request) == [[{"shA1": "disc1"}]]
 
     @pytest.mark.asyncio
-    async def test_retries_each_file_largest_first_when_the_batch_misses(self):
+    async def test_retries_each_file_alone_when_the_batch_misses(self):
         # One unknown hash in the batch is enough for Hasheous to miss it.
-        request = AsyncMock(side_effect=[{}, {}, FF7_MATCH])
+        request = AsyncMock(side_effect=[{}, FF7_MATCH, FF7_MATCH, {}])
         rom, conclusive = await self._lookup(
             [
-                _rom_file("readme", 10, "txt"),
-                _rom_file("disc2", 600),
                 _rom_file("disc1", 700),
+                _rom_file("disc2", 600),
+                _rom_file("readme", 10, "txt"),
             ],
             request,
         )
@@ -262,7 +262,25 @@ class TestLookupRom:
             [{"shA1": "disc1"}, {"shA1": "disc2"}, {"shA1": "readme"}],
             [{"shA1": "disc1"}],
             [{"shA1": "disc2"}],
+            [{"shA1": "readme"}],
         ]
+
+    @pytest.mark.asyncio
+    async def test_files_matching_different_games_match_neither(self):
+        other_game = {**FF7_MATCH, "id": 1, "name": "Tobal No. 1"}
+        request = AsyncMock(side_effect=[{}, FF7_MATCH, other_game, FF7_MATCH])
+        rom, conclusive = await self._lookup(
+            [
+                _rom_file("disc1", 700),
+                _rom_file("demo", 600),
+                _rom_file("disc2", 500),
+            ],
+            request,
+        )
+
+        assert not conclusive
+        assert rom["hasheous_id"] is None
+        assert request.await_count == 3
 
     @pytest.mark.asyncio
     async def test_a_file_no_database_knows_is_a_conclusive_miss(self):

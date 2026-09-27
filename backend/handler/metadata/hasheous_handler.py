@@ -355,25 +355,18 @@ class HasheousHandler(MetadataHandler):
         if not self.is_enabled():
             return fallback_rom, False
 
-        # Largest first, so the per-file retry below tries the game itself
-        # before its smaller companions.
-        filtered_files = sorted(
-            (
-                file
-                for file in files
-                if file.file_size_bytes > 0
-                and file.is_top_level
-                and file.file_extension.lower() != "m3u"
-                and (
-                    UPS(platform_slug)
-                    not in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
-                    or file.file_extension
-                    in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[UPS(platform_slug)]
-                )
-            ),
-            key=lambda file: file.file_size_bytes,
-            reverse=True,
-        )
+        filtered_files = [
+            file
+            for file in files
+            if file.file_size_bytes > 0
+            and file.is_top_level
+            and file.file_extension.lower() != "m3u"
+            and (
+                UPS(platform_slug) not in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
+                or file.file_extension
+                in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[UPS(platform_slug)]
+            )
+        ]
 
         # One request carries every top-level file's hashes, but Hasheous only
         # answers it when it knows all of them.
@@ -400,15 +393,28 @@ class HasheousHandler(MetadataHandler):
 
         try:
             hasheous_game = await self._lookup_by_hashes(data)
-            # A sidecar file or an off-set disc hides the match the rest would make.
+            # A sidecar file or an off-set disc hides the match the rest would
+            # make, so each file is asked alone and every answer must agree.
+            per_file_games: dict[Any, dict[str, Any]] = {}
             if not hasheous_game and len(data) > 1:
                 for file_hashes in data:
-                    hasheous_game = await self._lookup_by_hashes([file_hashes])
-                    if hasheous_game:
+                    game = await self._lookup_by_hashes([file_hashes])
+                    if game:
+                        per_file_games[game.get("id")] = game
+                    if len(per_file_games) > 1:
                         break
         except Exception as exc:
             log.error("Hasheous hash lookup failed, skipping: %s", exc)
             return fallback_rom, False
+
+        if len(per_file_games) > 1:
+            log.warning(
+                "Hasheous matched files of one rom to different games %s, skipping",
+                list(per_file_games),
+            )
+            return fallback_rom, False
+        if per_file_games:
+            hasheous_game = next(iter(per_file_games.values()))
 
         if not hasheous_game:
             return fallback_rom, True
