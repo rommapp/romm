@@ -281,6 +281,27 @@ class TestDiscardForDevice:
 
         assert not await async_cache.exists("install:device:dev-1")
 
+    async def test_a_request_created_during_the_discard_stays_findable(
+        self, mocker, handler
+    ):
+        list_for_device = handler.list_for_device
+        late: list[InstallRequestSchema] = []
+
+        async def list_then_create(device_id: str) -> list[InstallRequestSchema]:
+            listed = await list_for_device(device_id)
+            late.append(await _create(handler, rom_id=9))
+            return listed
+
+        patched = mocker.patch.object(
+            handler, "list_for_device", side_effect=list_then_create
+        )
+        await handler.discard_for_device("dev-1")
+        mocker.stop(patched)
+
+        assert [r.id for r in await handler.list_for_device("dev-1")] == [late[0].id]
+        await handler.discard_for_device("dev-1")
+        await _assert_gone(late[0])
+
     async def test_a_broker_failure_leaves_the_device_deletion_standing(
         self, mocker, handler
     ):

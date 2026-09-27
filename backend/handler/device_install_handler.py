@@ -22,6 +22,10 @@ class InstallTransitionError(Exception):
     """The request is not in the status the operation needs, or kept changing."""
 
 
+class InstallRequestNotFoundError(KeyError):
+    """The request is gone, ended or expired."""
+
+
 class InstallClaim(NamedTuple):
     """Every request the device holds taken, oldest first, and those this claim took."""
 
@@ -184,7 +188,7 @@ class DeviceInstallHandler:
         """End a taken request with the device's outcome, returning it as it ended.
 
         Raises:
-            KeyError: The request is gone.
+            InstallRequestNotFoundError: The request is gone.
             InstallTransitionError: The request is not taken.
         """
         return await self._end(request_id, outcome, REPORTABLE_FROM, reason)
@@ -193,7 +197,7 @@ class DeviceInstallHandler:
         """End a pending or taken request as cancelled, returning it as it ended.
 
         Raises:
-            KeyError: The request is gone.
+            InstallRequestNotFoundError: The request is gone.
             InstallTransitionError: The request kept changing.
         """
         return await self._end(
@@ -204,10 +208,11 @@ class DeviceInstallHandler:
         """Drop a deleted device's live requests and their index, logging a failure."""
         try:
             requests = await self.list_for_device(device_id)
+            # Dropping only the listed ids keeps a request created meanwhile
+            # indexed, for the create's own device recheck to find.
             async with async_cache.pipeline(transaction=True) as pipe:
                 for request in requests:
                     self._stage_delete(pipe, request, owns_active_key=True)
-                pipe.delete(_device_key(device_id))
                 await pipe.execute()
         except Exception:  # noqa: BLE001
             log.warning(
@@ -229,7 +234,7 @@ class DeviceInstallHandler:
                     await pipe.watch(key)
                     [current] = await self._read(pipe, [request_id])
                     if current is None:
-                        raise KeyError(request_id)
+                        raise InstallRequestNotFoundError(request_id)
                     if current.status not in from_statuses:
                         raise InstallTransitionError(
                             f"Cannot move a {current.status} request to {status}"

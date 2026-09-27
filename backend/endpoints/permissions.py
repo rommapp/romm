@@ -51,9 +51,12 @@ async def emit_permissions_changed(user_id: int) -> None:
         )
     except Exception as e:  # noqa: BLE001
         log.warning(f"Failed to broadcast permissions:changed for user {user_id}: {e}")
-    await close_client_token_sockets(
-        db_client_token_handler.get_token_ids_by_user(user_id)
-    )
+    try:
+        token_ids = db_client_token_handler.get_token_ids_by_user(user_id)
+    except Exception:  # noqa: BLE001
+        log.warning(f"Failed to look up the tokens of user {user_id}", exc_info=True)
+        return
+    await close_client_token_sockets(token_ids)
 
 
 @protected_route(router.get, "/me", [Scope.ME_READ])

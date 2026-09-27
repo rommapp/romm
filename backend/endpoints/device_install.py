@@ -29,6 +29,7 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_device_handler, db_rom_handler
 from handler.device_install_handler import (
+    InstallRequestNotFoundError,
     InstallTransitionError,
     device_install_handler,
 )
@@ -109,7 +110,7 @@ def _install_errors() -> Iterator[None]:
     """A gone request as a 404, a request in the wrong status as a 409."""
     try:
         yield
-    except KeyError as exc:
+    except InstallRequestNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Install request {exc.args[0]} not found",
@@ -179,8 +180,10 @@ async def create_install_request(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Roms for {rom.platform_slug} cannot be installed on a device",
         )
+    # A rescan flags only the rom when its path is gone, never its file rows.
+    files = [] if rom.missing_from_fs else db_rom_handler.rom_files_for_rom_id(rom.id)
     try:
-        file_ids = select_install_files(db_rom_handler.rom_files_for_rom_id(rom.id))
+        file_ids = select_install_files(files)
     except InstallNotAllowedError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)

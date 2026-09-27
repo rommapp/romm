@@ -18,6 +18,7 @@ from handler.socket_handler import (
     socket_handler,
 )
 from logger.logger import log
+from utils.background_tasks import fire_and_forget
 from utils.datetime import to_utc
 
 CLIENT_TOKEN_ID_KEY: Final = "client_token_id"
@@ -129,7 +130,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     await socket_handler.socket_server.enter_room(
         sid, device_room(device_id), namespace=DEVICES_NAMESPACE
     )
-    socket_handler.socket_server.start_background_task(_keep_tracked, sid, bound)
+    fire_and_forget(_keep_tracked(sid, bound))
 
 
 @socket_handler.on("disconnect", namespace=DEVICES_NAMESPACE)

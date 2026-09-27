@@ -44,9 +44,10 @@ def socket_session(mocker) -> dict[str, Any]:
 
 @pytest.fixture
 def background(mocker) -> MagicMock:
-    start = MagicMock()
-    mocker.patch.object(socket_handler.socket_server, "start_background_task", start)
-    return start
+    """The ``_keep_tracked`` a connect schedules, without running it."""
+    keep_tracked = mocker.patch.object(devices, "_keep_tracked", MagicMock())
+    mocker.patch.object(devices, "fire_and_forget")
+    return keep_tracked
 
 
 @pytest.fixture
@@ -136,10 +137,9 @@ class TestConnect:
         await devices.connect("sid-1", {}, {"token": raw})
 
         background.assert_called_once_with(
-            devices._keep_tracked,
-            "sid-1",
-            devices.BoundToken(token.id, "dev-socket", None),
+            "sid-1", devices.BoundToken(token.id, "dev-socket", None)
         )
+        devices.fire_and_forget.assert_called_once_with(background.return_value)
 
     async def test_bumps_the_tokens_last_use(
         self, enter_room, admin_user, device_token

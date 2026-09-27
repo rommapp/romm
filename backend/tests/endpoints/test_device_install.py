@@ -198,6 +198,16 @@ class TestCreate:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_rejects_a_rom_missing_from_the_filesystem(
+        self, client, headers, device, rom, rom_files, emits
+    ):
+        db_rom_handler.update_rom(rom.id, {"missing_from_fs": True})
+
+        response = _create(client, headers, rom.id)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        emits["queued"].assert_not_awaited()
+
     def test_rejects_an_excluded_platform(self, client, headers, device):
         platform = db_platform_handler.add_platform(
             Platform(name="Windows", slug="win", fs_slug="win")

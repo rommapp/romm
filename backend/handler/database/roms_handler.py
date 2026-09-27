@@ -782,7 +782,12 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomInstallTarget | None:
         """The columns a device install request checks, in one query."""
         row = session.execute(
-            select(Rom.id, Rom.platform_id, Platform.slug.label("platform_slug"))
+            select(
+                Rom.id,
+                Rom.platform_id,
+                Platform.slug.label("platform_slug"),
+                Rom.missing_from_fs,
+            )
             .join(Platform, Rom.platform_id == Platform.id)
             .where(Rom.id == id)
         ).one_or_none()
@@ -791,7 +796,10 @@ class DBRomsHandler(DBBaseHandler):
             return None
 
         return RomInstallTarget(
-            id=row.id, platform_id=row.platform_id, platform_slug=row.platform_slug
+            id=row.id,
+            platform_id=row.platform_id,
+            platform_slug=row.platform_slug,
+            missing_from_fs=row.missing_from_fs,
         )
 
     @begin_session

@@ -614,11 +614,12 @@ class RomVisibilityLabel(NamedTuple):
 
 
 class RomInstallTarget(NamedTuple):
-    """`RomVisibility` plus the platform slug a device install request is checked against."""
+    """`RomVisibility` plus what a device install request is checked against."""
 
     id: int
     platform_id: int
     platform_slug: str
+    missing_from_fs: bool
 
 
 class RomDeletionTarget(NamedTuple):
