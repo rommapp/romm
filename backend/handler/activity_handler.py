@@ -212,6 +212,8 @@ class ActivityHandler:
         members = await async_cache.smembers(rom_key)
         entries: list[ActivityEntry] = []
         stale_members: list[str] = []
+        live_members: list[str] = []
+        keys: list[str] = []
 
         for member in members:
             try:
@@ -220,8 +222,11 @@ class ActivityHandler:
             except ValueError, AttributeError:
                 stale_members.append(member)
                 continue
+            live_members.append(member)
+            keys.append(self._activity_key(user_id, device_id))
 
-            raw = await async_cache.get(self._activity_key(user_id, device_id))
+        raws = await async_cache.mget(keys) if keys else []
+        for member, raw in zip(live_members, raws, strict=True):
             if not raw:
                 # Key expired; clean up the stale set member.
                 stale_members.append(member)

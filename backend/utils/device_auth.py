@@ -114,16 +114,18 @@ def store_pending(device_code: str, user_code: str, data: dict[str, Any]) -> Non
         "status": FlowStatus.PENDING,
         "user_code": user_code,
     }
-    sync_cache.setex(
-        _KEY_DC.format(device_code),
-        PENDING_TTL_SECONDS,
-        json.dumps(payload),
-    )
-    sync_cache.setex(
-        _KEY_UC.format(user_code),
-        PENDING_TTL_SECONDS,
-        device_code,
-    )
+    with sync_cache.pipeline() as pipe:
+        pipe.setex(
+            _KEY_DC.format(device_code),
+            PENDING_TTL_SECONDS,
+            json.dumps(payload),
+        )
+        pipe.setex(
+            _KEY_UC.format(user_code),
+            PENDING_TTL_SECONDS,
+            device_code,
+        )
+        pipe.execute()
 
 
 def load_pending(device_code: str) -> dict[str, Any] | None:

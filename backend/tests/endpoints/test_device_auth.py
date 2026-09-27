@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from httpx2 import Response
@@ -928,3 +929,28 @@ class TestSyncNegotiateBoundTokenInference:
             json={"saves": []},
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_store_pending_writes_neither_key_when_one_write_fails(mocker):
+    # A device code without its user code is a flow nobody can approve.
+    real_pipeline = sync_cache.pipeline
+
+    def failing_pipeline(*args, **kwargs):
+        pipe = real_pipeline(*args, **kwargs)
+        queue_setex = pipe.setex
+
+        def setex(name, *rest):
+            if name.startswith("device_auth:uc:"):
+                raise ConnectionError("valkey went away")
+            return queue_setex(name, *rest)
+
+        mocker.patch.object(pipe, "setex", side_effect=setex)
+        return pipe
+
+    mocker.patch.object(sync_cache, "pipeline", side_effect=failing_pipeline)
+
+    with pytest.raises(ConnectionError):
+        df.store_pending("dc-atomic", "UCATOMIC", {})
+
+    assert sync_cache.get("device_auth:dc:dc-atomic") is None
+    assert sync_cache.get("device_auth:uc:UCATOMIC") is None

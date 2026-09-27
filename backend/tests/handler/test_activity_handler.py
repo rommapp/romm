@@ -1,6 +1,7 @@
 import asyncio
+import json
 from contextlib import contextmanager
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from handler.activity_handler import activity_handler
 from handler.redis_handler import async_cache
@@ -148,4 +149,26 @@ def test_clearing_broadcasts_only_when_there_was_something_to_clear(
     assert (
         asyncio.run(async_cache.get(f"activity:user:{admin_user.id}:container-1"))
         is None
+    )
+
+
+def test_active_for_rom_reads_every_session_at_once_and_drops_stale_members():
+    entry = {"user_id": 1, "device_id": "live", "rom_id": 7}
+    cache = MagicMock()
+    cache.smembers = AsyncMock(
+        return_value=["1:live", "1:expired", "1:corrupt", "not-a-member"]
+    )
+    cache.mget = AsyncMock(return_value=[json.dumps(entry), None, "not-json"])
+    cache.get = AsyncMock()
+    cache.srem = AsyncMock()
+
+    with patch("handler.activity_handler.async_cache", cache):
+        assert asyncio.run(activity_handler.get_active_for_rom(7)) == [entry]
+
+    cache.mget.assert_awaited_once_with(
+        ["activity:user:1:live", "activity:user:1:expired", "activity:user:1:corrupt"]
+    )
+    cache.get.assert_not_awaited()
+    cache.srem.assert_awaited_once_with(
+        "activity:rom:7", "not-a-member", "1:expired", "1:corrupt"
     )
