@@ -177,7 +177,11 @@ async def run_launch(
     # background, the stream should not wait on file transfers.
     background.spawn_sync_task(
         states.hydrate_states_to_broker(
-            user.id, rom.id, container, resume_pushed=resume_pushed
+            user.id,
+            rom.id,
+            container,
+            resume_pushed=resume_pushed,
+            core_tier=core_tier,
         )
     )
 

@@ -4771,6 +4771,58 @@ def test_hydrate_skips_states_missing_on_disk(rom: Rom, admin_user: User):
     push.assert_not_called()
 
 
+def _hydrate_ra(rom: Rom, user: User, value, core_tier):
+    """Hydrate a RetroArch container serving `rom` as `value`, returning the
+    count and the push mock."""
+    db_state_handler.add_state(_state_for(rom, user, "Game.state", "retroarch"))
+    container = _resolved(_webstation(platforms={rom.platform_slug: value}))
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=b"state-bytes"),
+        ),
+        patch("handler.streaming.states.push_state_file", return_value=True) as push,
+    ):
+        pushed = asyncio.run(
+            states.hydrate_states_to_broker(
+                user.id, rom.id, container, core_tier=core_tier
+            )
+        )
+    return pushed, push
+
+
+@pytest.mark.parametrize("tier", ["vetted", "untested", "blocked", None])
+def test_hydrate_pushes_nothing_into_a_non_default_core(
+    rom: Rom, admin_user: User, tier
+):
+    """Stored states don't record their core yet, so every one is presumed the
+    default's; pushed into another core it lands where quick-load reads it."""
+    pushed, push = _hydrate_ra(rom, admin_user, "retroarch:bsnes", tier)
+    assert pushed == 0
+    push.assert_not_called()
+
+
+def test_hydrate_still_pushes_when_the_configured_core_is_the_default(
+    rom: Rom, admin_user: User
+):
+    pushed, _ = _hydrate_ra(rom, admin_user, "retroarch:snes9x", "default")
+    assert pushed == 1
+
+
+def test_hydrate_is_unchanged_without_a_core(rom: Rom, admin_user: User):
+    pushed, _ = _hydrate_ra(rom, admin_user, "retroarch", None)
+    assert pushed == 1
+
+
+def test_the_launch_hands_the_core_tier_to_hydration(client, access_token, rom: Rom):
+    with patch(
+        "handler.streaming.states.hydrate_states_to_broker",
+        new=AsyncMock(return_value=0),
+    ) as hydrate:
+        _ra_claim(client, access_token, rom, "retroarch:bsnes", _BSNES_REPLY)
+    assert hydrate.call_args.kwargs["core_tier"] == "untested"
+
+
 def _add_state_at(rom: Rom, user: User, file_name: str, day: int) -> State:
     """Add a state with an explicit updated_at, so history order is deterministic."""
     state = _state_for(rom, user, file_name, "pcsx2")

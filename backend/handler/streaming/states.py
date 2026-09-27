@@ -481,6 +481,7 @@ async def hydrate_states_to_broker(
     rom_id: int,
     container: ResolvedContainer,
     resume_pushed: bool = False,
+    core_tier: str | None = None,
 ) -> int:
     """Background task: push the newest stored state for this ROM down to the
     freshly claimed container. Emulators read state files lazily, so pushing
@@ -494,8 +495,21 @@ async def hydrate_states_to_broker(
     nothing to add here: any push would overwrite it before the broker's
     deferred load fires. A container that resumes from its save archive takes no
     state file at all, and the archive already carries the newest exit state.
+
+    A container on a configured core other than the broker's default gets
+    nothing: stored states don't record which core wrote them, so each one is
+    presumed to be the default's, and pushing it lands where the other core's
+    quick-load reads it. `core_tier` is what the activate reply said; None
+    means it said nothing, which is treated as not the default.
     """
     if resume_pushed or container.resumes_from_archive:
+        return 0
+    if container.core is not None and core_tier != "default":
+        log.info(
+            "not hydrating states into core %s (%s), they were made by the default",
+            container.core,
+            core_tier,
+        )
         return 0
 
     user = db_user_handler.get_user(user_id)
