@@ -275,8 +275,8 @@ async function removeNote(note: UserNoteSchema) {
 }
 
 function selectNote(id: number) {
-  // Switching notes silently drops an unsaved draft — user picked a
-  // different note, the intent is clear.
+  // Switching notes silently drops an unsaved draft: the user picked a
+  // different note, so the intent is clear.
   if (editForm.value) editForm.value = null;
   selectedNoteId.value = id;
 }
@@ -702,7 +702,7 @@ function fmtDate(iso: string): string {
 .r-v2-notes__pane-foot {
   font-size: var(--r-font-size-sm);
   color: var(--r-color-fg-muted);
-  /* No border / extra padding — the markdown surface above already
+  /* No border / extra padding: the markdown surface above already
      provides the visual separation via its glass background. */
 }
 
@@ -763,7 +763,7 @@ function fmtDate(iso: string): string {
   color: var(--r-color-fg) !important;
 }
 
-/* Empty preview state — when md-preview gets no content it still renders
+/* Empty preview state: when md-preview gets no content it still renders
    an empty wrapper. Add a quiet hint line so the right pane isn't blank. */
 .r-v2-notes__preview :deep(.md-editor-preview):empty::before {
   content: "(empty)";

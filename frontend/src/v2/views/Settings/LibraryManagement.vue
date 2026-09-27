@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// LibraryManagement — v2-native rewrite. Uses the shared `RTabNav`
+// LibraryManagement: v2-native rewrite. Uses the shared `RTabNav`
 // primitive for the underline tabs (same component Game Details uses)
 // and keeps the `?tab=` query param so deep links still work.
 import { RAlert, RTabNav, type RTabNavItem } from "@v2/lib";

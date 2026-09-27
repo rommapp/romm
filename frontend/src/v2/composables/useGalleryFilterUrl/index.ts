@@ -1,9 +1,9 @@
-// useGalleryFilterUrl — bookmarkable gallery filters via URL query
+// useGalleryFilterUrl: bookmarkable gallery filters via URL query
 // params. Round-trips between Vue Router's `route.query` and the
 // canonical `galleryFilter` Pinia store.
 //
 // Why: per constitution §VI.D, "active filters / search query / sort"
-// are bookmarkable session state — they belong in the URL so anyone
+// are bookmarkable session state: they belong in the URL so anyone
 // copying a link reproduces what they see.
 //
 // URL schema is intentionally identical to v1's `FilterDrawer/Base.vue`
@@ -44,7 +44,7 @@
 //     Writes are debounced so a flood of toggles produces one URL update.
 //   * On mount we apply the URL value once so the gallery's setup reads
 //     the correct store state before its first render.
-//   * Platforms are looked up by ID against `platformsStore` — if the
+//   * Platforms are looked up by ID against `platformsStore`. If the
 //     store isn't populated yet, the lookup retries when platforms load.
 import { debounce } from "lodash";
 import { storeToRefs } from "pinia";
@@ -56,7 +56,7 @@ import storeGalleryFilter, {
 import storePlatforms from "@/stores/platforms";
 import { patchQuery } from "@/v2/utils/routeQuery";
 
-// Pure helpers — no Vue context. Easier to reason about and test if we
+// Pure helpers: no Vue context. Easier to reason about and test if we
 // ever want to.
 
 function qStr(v: LocationQueryValue | LocationQueryValue[]): string | null {
@@ -224,7 +224,7 @@ export function useGalleryFilterUrl() {
     if (url.filterSoundtrack !== filterSoundtrack.value)
       filterSoundtrack.value = url.filterSoundtrack;
 
-    // Platforms — lookup objects from IDs. If the platform store hasn't
+    // Platforms: lookup objects from IDs. If the platform store hasn't
     // hydrated yet, the watch below retries when it does.
     if (url.platformIds.length > 0) {
       const looked = url.platformIds
@@ -232,7 +232,7 @@ export function useGalleryFilterUrl() {
         .filter((p): p is NonNullable<typeof p> => Boolean(p));
       const currentIds = selectedPlatforms.value.map((p) => p.id);
       if (!eqStrArr(currentIds.map(String), url.platformIds.map(String))) {
-        // Only push the lookup result if we got every platform — partial
+        // Only push the lookup result if we got every platform: partial
         // matches would silently drop filters the user expects to see.
         if (looked.length === url.platformIds.length) {
           filter.setSelectedFilterPlatforms(looked);
@@ -457,8 +457,8 @@ export function useGalleryFilterUrl() {
         : String(selectedLengthMaxHours.value),
     );
 
-    // Skip the push if nothing actually changed — keeps router from
-    // emitting a route-update for an identical URL.
+    // Skip the push if nothing actually changed, so the router skips
+    // a route-update for an identical URL.
     const changed = Object.entries(patch).some(
       ([key, value]) => route.query[key] !== value,
     );

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// Collection view — owns the regular / virtual / smart collection
+// Collection view: owns the regular / virtual / smart collection
 // load flow and the two-tab surface that sits above the gallery:
-//   • Library  — the gallery (delegated to `GalleryShell`).
-//   • Settings — `CollectionSettingsTab` (cover artwork + details +
+//   • Library: the gallery (delegated to `GalleryShell`).
+//   • Settings: `CollectionSettingsTab` (cover artwork + details +
 //     smart criteria + danger zone). Hidden for virtual collections
 //     since they have no editable fields.
 //
@@ -65,7 +65,7 @@ const canDownload = useCan("rom.download");
 
 usePageTitle(() => currentCollection.value?.name ?? null);
 
-// Virtual collections are computed (no editable fields) — only
+// Virtual collections are computed (no editable fields), so only
 // regular / smart get the Settings tab.
 const editableKind = computed<CollectionKind | null>(() => {
   if (currentKind.value === "regular") return "regular";
@@ -74,7 +74,7 @@ const editableKind = computed<CollectionKind | null>(() => {
 });
 
 // Ownership gate for the Settings tab. v1 only renders the drawer's
-// edit/delete affordances for owners with `collections.write` — if the
+// edit/delete affordances for owners with `collections.write`. If the
 // user can do neither, hide the tab entirely so they don't land on an
 // inert form. Mirrors the gate the tab body re-applies internally.
 const isOwner = computed(() => {
@@ -88,7 +88,7 @@ const showSettingsTab = computed(
     auth.scopes.includes("collections.write"),
 );
 
-// Narrowed reference for the Settings tab — `editableKind` rules out
+// Narrowed reference for the Settings tab: `editableKind` rules out
 // the virtual branch, so we can hand a `Collection | SmartCollection`
 // to the tab without per-template casts.
 const editableCollection = computed<Collection | SmartCollection | null>(() =>
@@ -99,7 +99,7 @@ const editableCollection = computed<Collection | SmartCollection | null>(() =>
 
 // ── Tabs ─────────────────────────────────────────────────────────
 // URL-persistent via `?tab=` (mirrors Platform / GameDetails). Virtual
-// collections never see the Settings tab — clamp invalid persisted
+// collections never see the Settings tab, so clamp invalid persisted
 // values back to `library`.
 type TabId = "library" | "settings";
 const VALID_TABS = new Set<TabId>(["library", "settings"]);
@@ -125,7 +125,7 @@ watch(
   },
 );
 // Switching to a virtual collection (no Settings tab) while sitting on
-// `settings` — bounce back to Library so the user isn't staring at an
+// `settings`: bounce back to Library so the user isn't staring at an
 // empty body.
 watch(showSettingsTab, (allowed) => {
   if (!allowed && tab.value === "settings") tab.value = "library";
@@ -400,7 +400,7 @@ async function onDelete() {
 </script>
 
 <template>
-  <!-- LIBRARY — full GalleryShell with CollectionHead in #header so
+  <!-- LIBRARY: full GalleryShell with CollectionHead in #header so
        the head band scrolls naturally with the cards and the toolbar
        pins below it. -->
   <GalleryShell

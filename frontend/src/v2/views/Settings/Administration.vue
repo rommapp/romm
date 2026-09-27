@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Administration — v2-native page chrome for the admin-only sections.
+// Administration: v2-native page chrome for the admin-only sections.
 // Uses the shared `RTabNav` primitive (same one Library Management
 // uses) to expose Users / Groups / Tasks / Streaming as sibling tabs,
 // keeping the `?tab=` query param so deep links survive a reload.
