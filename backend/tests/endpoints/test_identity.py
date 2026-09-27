@@ -9,9 +9,9 @@ from unittest import mock
 import httpx
 import pytest
 from authlib.integrations.base_client.errors import MismatchingStateError, OAuthError
-from authlib.jose.errors import InvalidClaimError
 from fastapi import status
 from fastapi.testclient import TestClient
+from joserfc.errors import InvalidClaimError
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import auth_handler
