@@ -1,3 +1,5 @@
+from typing import cast
+
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -374,7 +376,9 @@ def test_facet_excludes_hidden_platform(music_library):
 
 def _track_id(client: TestClient, token: str, title: str) -> int:
     body = client.get("/api/music/tracks", headers=_auth(token)).json()
-    return next(i["rom_file_id"] for i in body["items"] if i["title"] == title)
+    return cast(
+        int, next(i["rom_file_id"] for i in body["items"] if i["title"] == title)
+    )
 
 
 def test_favorites_add_list_remove(

@@ -9,7 +9,7 @@ https://csdb.dk/webservice/
 from __future__ import annotations
 
 import re
-from typing import Final, NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict, cast
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -82,7 +82,7 @@ def _text(node: ET.Element | None, tag: str) -> str:
     found = node.find(tag)
     if found is None or found.text is None:
         return ""
-    return found.text.strip()
+    return cast(str, found.text.strip())
 
 
 def _year_unix(year: str) -> int | None:

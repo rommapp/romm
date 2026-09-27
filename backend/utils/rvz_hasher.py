@@ -26,7 +26,7 @@ import io
 import lzma
 import os
 import struct
-from typing import TYPE_CHECKING, Any, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO, cast
 
 import zstandard
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -682,7 +682,7 @@ def _open_reader(file_path: str) -> _RvzReader:
 
 
 def _be32(data: bytes, offset: int = 0) -> int:
-    return struct.unpack_from(">I", data, offset)[0]
+    return cast(int, struct.unpack_from(">I", data, offset)[0])
 
 
 def _hash_chunked(md5: HASH, reader: _RvzReader, offset: int, size: int) -> None:

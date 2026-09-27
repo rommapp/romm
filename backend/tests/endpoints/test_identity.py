@@ -3,7 +3,7 @@ import json
 import threading
 from datetime import timedelta
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
 import httpx
@@ -299,7 +299,7 @@ def _invite_token(client, access_token: str) -> str:
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == HTTPStatus.CREATED
-    return response.json()["token"]
+    return cast(str, response.json()["token"])
 
 
 def test_register_with_a_bad_token_does_not_disclose_existing_accounts(
@@ -738,10 +738,13 @@ def _rejected_oidc_callback(
         mock.patch("endpoints.auth.OIDC_ENABLED", True),
         mock.patch("endpoints.auth.oauth", fake_oauth),
     ):
-        return client.get(
-            "/api/oauth/openid?code=new&state=spent",
-            headers=headers,
-            follow_redirects=False,
+        return cast(
+            httpx.Response,
+            client.get(
+                "/api/oauth/openid?code=new&state=spent",
+                headers=headers,
+                follow_redirects=False,
+            ),
         )
 
 

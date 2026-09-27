@@ -561,7 +561,7 @@ def _version_query(id: int) -> Select[Any]:
 
 def _loses_version(version: Row[Any], data: dict[str, Any]) -> bool:
     """Whether writing `data` takes this version out of its slot."""
-    return (
+    return bool(
         data.get("slot", version.slot) != version.slot
         or data.get("content_hash", version.content_hash) != version.content_hash
     )

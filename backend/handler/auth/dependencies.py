@@ -16,7 +16,7 @@ Typical use inside a handler::
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from fastapi import HTTPException, Request, status
 
@@ -37,7 +37,7 @@ def get_permissions(request: Request) -> ResolvedPermissions:
     """Resolve (and cache for the request) the caller's effective permissions."""
     cached = getattr(request.state, "permissions", None)
     if cached is not None:
-        return cached
+        return cast(ResolvedPermissions, cached)
     perms = resolve_permissions(request.user)
     request.state.permissions = perms
     return perms

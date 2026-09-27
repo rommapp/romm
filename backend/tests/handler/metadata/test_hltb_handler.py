@@ -46,6 +46,7 @@ def _response(
         )
     else:
         response.json.return_value = json_body or {}
+        response.content = json.dumps(json_body or {}).encode()
     return response
 
 
