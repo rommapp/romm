@@ -542,4 +542,5 @@ class TestConnectIdentity:
     async def test_never_refuses_the_connection(self, server, authenticate):
         authenticate.side_effect = RuntimeError("redis down")
 
-        await connect("sid", {})
+        # socketio refuses the connection when the handler returns False.
+        assert await connect("sid", {}) is None  # type: ignore[func-returns-value]
