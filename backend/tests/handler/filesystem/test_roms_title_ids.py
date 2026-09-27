@@ -1,6 +1,8 @@
 """Tests for rom-converto title id extraction during scan."""
 
+from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -10,8 +12,8 @@ from adapters.services.rom_converto import (
     rom_converto_service,
 )
 from adapters.services.sigil import SigilExtractionResult
-from handler import scan_handler as scan_handler_module
-from handler.filesystem.roms_handler import FSRomsHandler, _rom_level_identity
+from config.config_manager import Config, ConvertoConfig
+from handler.filesystem.roms_handler import FSRom, FSRomsHandler, _rom_level_identity
 from handler.scan_handler import ScanType, scan_rom
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomIdentity, SaveTargetLayout
@@ -19,7 +21,7 @@ from utils import switch
 
 
 def _info(**overrides) -> RomConvertoInfo:
-    defaults = {
+    defaults: dict[str, Any] = {
         "kind": "psx",
         "title_id": "SCUS-94163",
         "title_version": None,
@@ -44,95 +46,185 @@ def psx_rom() -> Rom:
     )
 
 
-def _patch_service(mocker, read_info=None, enabled: bool = True, scan_metadata=True):
+def _patch_service(mocker, read_infos=None, enabled: bool = True, scan_metadata=True):
     mocker.patch.object(
         rom_converto_service, "is_enabled", mocker.AsyncMock(return_value=enabled)
     )
-    if read_info is not None:
-        mocker.patch.object(rom_converto_service, "read_info", read_info)
+    if read_infos is not None:
+        mocker.patch.object(rom_converto_service, "read_infos", read_infos)
     mocker.patch(
         "handler.filesystem.roms_handler.cm.get_config",
         lambda: SimpleNamespace(CONVERTO=SimpleNamespace(scan_metadata=scan_metadata)),
     )
 
 
-class TestReadConvertoTitleId:
+class TestReadConvertoTitleIds:
     @pytest.mark.asyncio
-    async def test_sets_title_id_and_version(self, handler, psx_rom, mocker):
+    async def test_fills_title_id_and_version(self, handler, mocker):
         rom_file = RomFile(file_name="game.chd", file_path="psx/roms")
+        path = Path("/romm/library/psx/roms/game.chd")
+        read_infos = mocker.AsyncMock(return_value={path: _info(title_version=65536)})
+        _patch_service(mocker, read_infos)
 
-        async def read_info(path):
-            return _info(title_version=65536)
-
-        _patch_service(mocker, read_info)
-
-        await handler._read_converto_title_id(rom_file)
+        await handler._read_converto_title_ids([(path, rom_file)])
 
         assert rom_file.title_id == "SCUS-94163"
         assert rom_file.title_version == 65536
 
     @pytest.mark.asyncio
-    async def test_no_title_id_leaves_column_none(self, handler, psx_rom, mocker):
-        rom_file = RomFile(file_name="game.chd", file_path="psx/roms")
+    async def test_skips_files_sigil_identified(self, handler, mocker):
+        sigil_file = RomFile(file_name="disc1.chd", file_path="psx/roms")
+        sigil_file.title_id = "SIGIL-ID"
+        other_file = RomFile(file_name="disc2.chd", file_path="psx/roms")
+        sigil_path = Path("/lib/disc1.chd")
+        other_path = Path("/lib/disc2.chd")
+        read_infos = mocker.AsyncMock(
+            return_value={other_path: _info(title_id="SLUS-00002")}
+        )
+        _patch_service(mocker, read_infos)
 
-        async def read_info(path):
-            return _info(title_id=None)
+        await handler._read_converto_title_ids(
+            [(sigil_path, sigil_file), (other_path, other_file)]
+        )
 
-        _patch_service(mocker, read_info)
-
-        await handler._read_converto_title_id(rom_file)
-
-        assert rom_file.title_id is None
-        assert rom_file.title_version is None
-
-    @pytest.mark.asyncio
-    async def test_unrecognized_file_is_skipped(self, handler, psx_rom, mocker):
-        rom_file = RomFile(file_name="game.chd", file_path="psx/roms")
-
-        async def read_info(path):
-            return None
-
-        _patch_service(mocker, read_info)
-
-        await handler._read_converto_title_id(rom_file)
-
-        assert rom_file.title_id is None
-        assert rom_file.title_version is None
+        read_infos.assert_awaited_once_with([other_path])
+        assert sigil_file.title_id == "SIGIL-ID"
+        assert other_file.title_id == "SLUS-00002"
 
     @pytest.mark.asyncio
-    async def test_error_does_not_fail_scan(self, handler, psx_rom, mocker):
-        rom_files = [
-            RomFile(file_name="game.chd", file_path="psx/roms"),
-            RomFile(file_name="game2.chd", file_path="psx/roms"),
-        ]
+    async def test_nothing_pending_skips_the_subprocess(self, handler, mocker):
+        rom_file = RomFile(file_name="game.chd", file_path="psx/roms")
+        rom_file.title_id = "SIGIL-ID"
+        read_infos = mocker.AsyncMock()
+        _patch_service(mocker, read_infos)
 
-        async def read_info(path):
-            if "game.chd" in str(path):
-                raise RomConvertoError("boom")
-            return _info(title_id="TITLE-2")
+        await handler._read_converto_title_ids([(Path("/lib/game.chd"), rom_file)])
 
-        _patch_service(mocker, read_info)
-
-        for rom_file in rom_files:
-            await handler._read_converto_title_id(rom_file)
-
-        assert rom_files[0].title_id is None
-        assert rom_files[0].title_version is None
-        assert rom_files[1].title_id == "TITLE-2"
+        read_infos.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_unexpected_error_does_not_fail_scan(self, handler, psx_rom, mocker):
+    async def test_unrecognized_or_idless_file_stays_unset(self, handler, mocker):
+        unknown = RomFile(file_name="a.chd", file_path="psx/roms")
+        idless = RomFile(file_name="b.chd", file_path="psx/roms")
+        read_infos = mocker.AsyncMock(
+            return_value={Path("/lib/b.chd"): _info(title_id=None, title_version=3)}
+        )
+        _patch_service(mocker, read_infos)
+
+        await handler._read_converto_title_ids(
+            [(Path("/lib/a.chd"), unknown), (Path("/lib/b.chd"), idless)]
+        )
+
+        assert (unknown.title_id, unknown.title_version) == (None, None)
+        assert (idless.title_id, idless.title_version) == (None, None)
+
+    @pytest.mark.parametrize("error", [RomConvertoError("boom"), RuntimeError("boom")])
+    @pytest.mark.asyncio
+    async def test_error_does_not_fail_scan(self, handler, mocker, error):
         rom_file = RomFile(file_name="game.chd", file_path="psx/roms")
+        _patch_service(mocker, mocker.AsyncMock(side_effect=error))
 
-        async def read_info(path):
-            raise RuntimeError("boom")
-
-        _patch_service(mocker, read_info)
-
-        await handler._read_converto_title_id(rom_file)
+        await handler._read_converto_title_ids([(Path("/lib/game.chd"), rom_file)])
 
         assert rom_file.title_id is None
-        assert rom_file.title_version is None
+
+
+PS2_PLATFORM = Platform(name="PlayStation 2", slug="ps2", fs_slug="ps2")
+
+
+class TestGetRomFilesWithConverto:
+    """rom-converto only fills what sigil left unset, in one batch per rom."""
+
+    @pytest.fixture
+    def scan_env(self, tmp_path, mocker):
+        config = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=[],
+            EXCLUDED_MULTI_PARTS_EXT=[],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            STRUCTURE_TEMPLATES={
+                "default": "{platform}/roms/{game}",
+                "firmware": "{platform}/bios",
+            },
+            CONVERTO=ConvertoConfig(scan_metadata=True),
+        )
+        mocker.patch(
+            "handler.filesystem.roms_handler.cm.get_config", return_value=config
+        )
+        mocker.patch.object(
+            rom_converto_service, "is_enabled", mocker.AsyncMock(return_value=True)
+        )
+        mocker.patch.object(
+            rom_converto_service, "_info_extensions", frozenset({".iso"})
+        )
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        rom_dir = tmp_path / "ps2" / "roms" / "Game"
+        rom_dir.mkdir(parents=True)
+        for name in ("Game (Disc 1).iso", "Game (Disc 2).iso", "readme.nfo"):
+            (rom_dir / name).write_bytes(b"rom-bytes")
+        rom = Rom(
+            id=1,
+            fs_name="Game",
+            fs_extension="",
+            fs_path="ps2/roms",
+            platform=PS2_PLATFORM,
+        )
+        return SimpleNamespace(handler=handler, rom=rom, rom_dir=rom_dir)
+
+    @pytest.mark.asyncio
+    async def test_sigil_id_wins_and_converto_fills_the_rest(self, scan_env, mocker):
+        mocker.patch(
+            "adapters.services.sigil.SigilService.extract_title_id",
+            mocker.AsyncMock(
+                return_value=SigilExtractionResult(
+                    title_id="SLUS-00001",
+                    save_target="SLUS-00001",
+                    usage="folder-prefix",
+                )
+            ),
+        )
+        disc2 = scan_env.rom_dir / "Game (Disc 2).iso"
+        read_infos = mocker.AsyncMock(
+            return_value={disc2: _info(title_id="SLUS-00002", title_version=1)}
+        )
+        mocker.patch.object(rom_converto_service, "read_infos", read_infos)
+
+        parsed = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False
+        )
+
+        # Sigil stops after disc 1 off Switch; the nfo has no inspectable extension.
+        read_infos.assert_awaited_once_with([disc2])
+        ids = {f.file_name: (f.title_id, f.title_version) for f in parsed.rom_files}
+        assert ids["Game (Disc 1).iso"] == ("SLUS-00001", None)
+        assert ids["Game (Disc 2).iso"] == ("SLUS-00002", 1)
+        assert ids["readme.nfo"] == (None, None)
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.asyncio
+    async def test_converto_identity_when_sigil_reads_nothing(self, scan_env, mocker):
+        mocker.patch(
+            "adapters.services.sigil.SigilService.extract_title_id",
+            mocker.AsyncMock(return_value=None),
+        )
+        disc1 = scan_env.rom_dir / "Game (Disc 1).iso"
+        mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(return_value={disc1: _info(title_id="SLUS-00001")}),
+        )
+
+        parsed = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False
+        )
+
+        assert parsed.identity.title_id == "SLUS-00001"
+        assert parsed.identity.save_target is None
 
 
 async def test_converto_active_for_supported_platform(handler, psx_rom, mocker):
@@ -170,11 +262,11 @@ async def test_converto_active_false_for_unsupported_platform(handler, mocker):
 
 def _fs_rom(
     files: list[RomFile], sha1_hash: str, identity: RomIdentity | None = None
-) -> dict:
-    fs_rom = {
+) -> FSRom:
+    fs_rom: FSRom = {
         "fs_name": "PaRappa the Rapper (USA).chd",
+        "fs_path": "psx/roms",
         "flat": True,
-        "nested": False,
         "files": files,
         "crc_hash": "",
         "md5_hash": "",
@@ -192,12 +284,11 @@ def _rom_file(name: str, **kwargs) -> RomFile:
 
 @pytest.fixture
 def patched_scan_env(mocker):
-    mocker.patch.object(
-        scan_handler_module.db_rom_handler, "add_rom", side_effect=lambda rom: rom
+    mocker.patch(
+        "handler.scan_handler.db_rom_handler.add_rom", side_effect=lambda rom: rom
     )
-    mocker.patch.object(
-        scan_handler_module.cm,
-        "get_config",
+    mocker.patch(
+        "handler.scan_handler.cm.get_config",
         return_value=SimpleNamespace(
             SCAN_METADATA_PRIORITY=[],
             SCAN_ARTWORK_PRIORITY=[],

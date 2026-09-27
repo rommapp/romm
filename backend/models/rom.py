@@ -304,7 +304,7 @@ class RomFile(BaseModel):
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
-    title_id: Mapped[str | None] = mapped_column(String(length=100))
+    title_id: Mapped[str | None] = mapped_column(String(length=TITLE_ID_MAX_LENGTH))
     # BigInteger because Switch title versions exceed int32
     title_version: Mapped[int | None] = mapped_column(BigInteger, default=None)
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
