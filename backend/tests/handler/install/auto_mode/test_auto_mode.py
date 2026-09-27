@@ -404,3 +404,25 @@ class TestFalsePositives:
             h.now = t
             results.append(h.driver.tick())
         assert results.count(True) == 2
+
+
+class TestFinishNeverFuzzyMatches:
+    def test_ocr_noise_does_not_fuzzy_match_exit_or_finish(self):
+        # Real false positive: "Sali" (a garbled OCR fragment on an
+        # unrelated mid-wizard page) fuzzy-matched "Salir" (one deletion)
+        # and was pressed as Exit while the install had barely started.
+        words = screen(line("Sali", 300, 300, 1))
+        assert find_matches(words, CATALOG) == []
+        assert plan_action(words, CATALOG, ScreenMemory(), installing=True)[0] is None
+
+    def test_ocr_noise_does_not_fuzzy_match_plain_finish(self):
+        words = screen(line("Finis", 300, 300, 1))
+        assert find_matches(words, CATALOG) == []
+
+    def test_the_real_word_still_matches_exactly(self):
+        words = screen(line("Exit", 300, 400, 1))
+        (m,) = find_matches(words, CATALOG)
+        assert m.entry.category == "finish" and m.entry.late
+
+    def test_other_categories_still_tolerate_one_typo(self):
+        assert find_matches(screen(line("Instal", 300, 400, 1)), CATALOG)

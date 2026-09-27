@@ -120,11 +120,15 @@ def _is_isolated(line: list[Word], start: int, end: int) -> bool:
 
 
 def _label_matches(
-    candidate: str, label: str, whole_line: bool, isolated: bool
+    candidate: str,
+    label: str,
+    whole_line: bool,
+    isolated: bool,
+    fuzzy: bool = True,
 ) -> bool:
     if candidate == label:
         return whole_line or isolated
-    if len(label) >= FUZZY_LABEL_LEN and (whole_line or isolated):
+    if fuzzy and len(label) >= FUZZY_LABEL_LEN and (whole_line or isolated):
         return _edit_distance_at_most_one(candidate, label)
     return False
 
@@ -154,6 +158,13 @@ def find_matches(words: list[Word], catalog: Catalog) -> list[Match]:
 
 
 def _match_line(line: list[Word], line_text: str, entry: ButtonEntry) -> Match | None:
+    # "finish" ends the installer (Finish, or a "late" Exit once files were
+    # written). A one-typo-tolerant match on ordinary page text is common
+    # enough (a short label is just as likely to be a garbled fragment of
+    # something else) that the risk of quitting a live install over it is
+    # not worth it - require the genuine word there, unlike every other
+    # category, where a false positive just fails to advance the page.
+    fuzzy = entry.category != "finish"
     for label in entry.normalized_labels:
         if (
             (entry.toggle or entry.category == "key")
@@ -170,7 +181,9 @@ def _match_line(line: list[Word], line_text: str, entry: ButtonEntry) -> Match |
                 if len(joined) > len(label) + 1:
                     break
                 whole = start == 0 and end == len(line)
-                if _label_matches(joined, label, whole, _is_isolated(line, start, end)):
+                if _label_matches(
+                    joined, label, whole, _is_isolated(line, start, end), fuzzy
+                ):
                     return _build(entry, label, line, start, end)
     return None
 
