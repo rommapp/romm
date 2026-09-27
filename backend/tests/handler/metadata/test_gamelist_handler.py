@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
@@ -9,7 +10,10 @@ from defusedxml import ElementTree as ET
 from config.config_manager import MetadataMediaType
 from handler.filesystem import fs_platform_handler
 from handler.metadata.gamelist_handler import (
+    ESDE_MEDIA_MAP,
     GamelistHandler,
+    build_media_file_index,
+    extract_media_from_gamelist_rom,
     extract_metadata_from_gamelist_rom,
     populate_rom_specific_paths,
 )
@@ -242,9 +246,102 @@ def test_extract_metadata_from_gamelist_rom_includes_sort_name(platform: Platfor
         "handler.metadata.gamelist_handler.extract_media_from_gamelist_rom",
         return_value=MOCK_MEDIA,
     ):
-        metadata = extract_metadata_from_gamelist_rom(game, platform)
+        metadata = extract_metadata_from_gamelist_rom(game, platform, {})
 
     assert metadata["sort_name"] == "Akumajou Dracula"
+
+
+def _write_media(root: Path, platform: Platform, folder: str, name: str) -> None:
+    media_dir = root / fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+    (media_dir / folder).mkdir(parents=True, exist_ok=True)
+    (media_dir / folder / name).write_bytes(b"")
+
+
+def test_build_media_file_index_maps_stems_to_uris(tmp_path: Path, platform: Platform):
+    _write_media(tmp_path, platform, "covers", "Game.png")
+    _write_media(tmp_path, platform, "videos", "Game.mp4")
+    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+    (tmp_path / platform_dir / "covers" / "Other.d").mkdir()
+
+    with patch.object(fs_platform_handler, "base_path", tmp_path):
+        index = build_media_file_index(platform)
+
+    assert index["box2d_url"] == {"Game": f"file://{platform_dir}/covers/Game.png"}
+    assert index["video_url"] == {"Game": f"file://{platform_dir}/videos/Game.mp4"}
+    assert index["manual_url"] == {}
+
+
+def test_extract_media_matches_the_exact_rom_stem(tmp_path: Path, platform: Platform):
+    _write_media(tmp_path, platform, "covers", "Super Mario Bros. 3.png")
+    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+
+    with patch.object(fs_platform_handler, "base_path", tmp_path):
+        index = build_media_file_index(platform)
+        smb = extract_media_from_gamelist_rom(
+            ET.fromstring("<game><path>./Super Mario Bros.zip</path></game>"),
+            platform,
+            index,
+        )
+        smb3 = extract_media_from_gamelist_rom(
+            ET.fromstring("<game><path>./Super Mario Bros. 3.zip</path></game>"),
+            platform,
+            index,
+        )
+
+    assert smb["box2d_url"] is None
+    assert smb3["box2d_url"] == f"file://{platform_dir}/covers/Super Mario Bros. 3.png"
+
+
+def test_extract_media_prefers_the_gamelist_tag(tmp_path: Path, platform: Platform):
+    _write_media(tmp_path, platform, "covers", "Game.png")
+    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+
+    with patch.object(fs_platform_handler, "base_path", tmp_path):
+        media = extract_media_from_gamelist_rom(
+            ET.fromstring(
+                "<game><path>./Game.zip</path><cover>./art/box.png</cover></game>"
+            ),
+            platform,
+            build_media_file_index(platform),
+        )
+
+    assert media["box2d_url"] == f"file://{platform_dir}/art/box.png"
+
+
+def test_parse_gamelist_xml_lists_each_media_folder_once(
+    tmp_path: Path, platform: Platform
+):
+    platform_dir = tmp_path / fs_platform_handler.get_platform_fs_structure(
+        platform.fs_slug
+    )
+    for name in ("One", "Two", "Three"):
+        _write_media(tmp_path, platform, "covers", f"{name}.png")
+    gamelist_path = platform_dir / "gamelist.xml"
+    gamelist_path.write_text(
+        """<?xml version="1.0"?>
+<gameList>
+  <game><path>./One.zip</path></game>
+  <game><path>./Two.zip</path></game>
+  <game><path>./Three.zip</path></game>
+</gameList>""",
+        encoding="utf-8",
+    )
+    handler = GamelistHandler()
+
+    with (
+        patch.object(fs_platform_handler, "base_path", tmp_path),
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+        patch(
+            "handler.metadata.gamelist_handler.os.scandir", wraps=os.scandir
+        ) as scandir,
+    ):
+        roms_data = handler._parse_gamelist_xml(gamelist_path, platform)
+
+    assert scandir.call_count == len(ESDE_MEDIA_MAP)
+    assert roms_data["Two.zip"].get("url_cover", "").endswith("/covers/Two.png")
 
 
 @pytest.mark.parametrize(
