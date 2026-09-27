@@ -38,10 +38,7 @@ class SocketHandler:
         self._write_manager_loop: asyncio.AbstractEventLoop | None = None
 
     def on[F: Callable[..., Awaitable[object]]](self, event: str) -> Callable[[F], F]:
-        """Register the decorated function as the handler of a socket event.
-
-        Unlike `socket_server.on`, the decorated function keeps its signature.
-        """
+        """Register a socket event handler without changing its signature."""
 
         def register(handler: F) -> F:
             self.socket_server.on(event, handler)
