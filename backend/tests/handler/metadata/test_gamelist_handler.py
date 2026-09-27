@@ -249,16 +249,36 @@ def test_extract_metadata_from_gamelist_rom_includes_sort_name(platform: Platfor
     assert metadata["sort_name"] == "Akumajou Dracula"
 
 
+def _platform_dir(platform: Platform) -> str:
+    return fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+
+
 def _write_media(root: Path, platform: Platform, folder: str, name: str) -> None:
-    media_dir = root / fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
-    (media_dir / folder).mkdir(parents=True, exist_ok=True)
-    (media_dir / folder / name).write_bytes(b"")
+    media_dir = root / _platform_dir(platform) / folder
+    media_dir.mkdir(parents=True, exist_ok=True)
+    (media_dir / name).write_bytes(b"")
+
+
+def _extract_media(tmp_path: Path, platform: Platform, game_xml: str):
+    with patch.object(fs_platform_handler, "base_path", tmp_path):
+        return extract_media_from_gamelist_rom(
+            ET.fromstring(game_xml), platform, build_media_file_index(platform)
+        )
+
+
+def _write_gamelist(tmp_path: Path, platform: Platform, games_xml: str) -> Path:
+    gamelist_path = tmp_path / _platform_dir(platform) / "gamelist.xml"
+    gamelist_path.parent.mkdir(parents=True, exist_ok=True)
+    gamelist_path.write_text(
+        f'<?xml version="1.0"?>\n<gameList>{games_xml}</gameList>', encoding="utf-8"
+    )
+    return gamelist_path
 
 
 def test_build_media_file_index_maps_stems_to_uris(tmp_path: Path, platform: Platform):
     _write_media(tmp_path, platform, "covers", "Game.png")
     _write_media(tmp_path, platform, "videos", "Game.mp4")
-    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+    platform_dir = _platform_dir(platform)
     (tmp_path / platform_dir / "covers" / "Other.d").mkdir()
 
     with patch.object(fs_platform_handler, "base_path", tmp_path):
@@ -269,60 +289,82 @@ def test_build_media_file_index_maps_stems_to_uris(tmp_path: Path, platform: Pla
     assert index["manual_url"] == {}
 
 
-def test_extract_media_matches_the_exact_rom_stem(tmp_path: Path, platform: Platform):
-    _write_media(tmp_path, platform, "covers", "Super Mario Bros. 3.png")
-    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+def test_build_media_file_index_follows_esde_extension_order(
+    tmp_path: Path, platform: Platform
+):
+    for name in ("Game.jpg", "Game.png", "Game.webp"):
+        _write_media(tmp_path, platform, "covers", name)
+    for name in ("Game.avi", "Game.mkv", "Game.mp4"):
+        _write_media(tmp_path, platform, "videos", name)
+    platform_dir = _platform_dir(platform)
 
     with patch.object(fs_platform_handler, "base_path", tmp_path):
         index = build_media_file_index(platform)
-        smb = extract_media_from_gamelist_rom(
-            ET.fromstring("<game><path>./Super Mario Bros.zip</path></game>"),
-            platform,
-            index,
-        )
-        smb3 = extract_media_from_gamelist_rom(
-            ET.fromstring("<game><path>./Super Mario Bros. 3.zip</path></game>"),
-            platform,
-            index,
-        )
 
-    assert smb["box2d_url"] is None
-    assert smb3["box2d_url"] == f"file://{platform_dir}/covers/Super Mario Bros. 3.png"
+    assert index["box2d_url"]["Game"] == f"file://{platform_dir}/covers/Game.png"
+    assert index["video_url"]["Game"] == f"file://{platform_dir}/videos/Game.mp4"
 
 
-def test_extract_media_prefers_the_gamelist_tag(tmp_path: Path, platform: Platform):
-    _write_media(tmp_path, platform, "covers", "Game.png")
-    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+@pytest.mark.parametrize(
+    "media_names, game_xml, expected",
+    [
+        # A name with a dot in it isn't a prefix of a longer title
+        (
+            ["Super Mario Bros. 3.png"],
+            "<game><path>./Super Mario Bros.zip</path></game>",
+            None,
+        ),
+        (
+            ["Super Mario Bros. 3.png"],
+            "<game><path>./Super Mario Bros. 3.zip</path></game>",
+            "covers/Super Mario Bros. 3.png",
+        ),
+        # Directories are named in full
+        (
+            ["Final Fantasy VII.m3u.png"],
+            "<game><path>./Final Fantasy VII.m3u</path></game>",
+            "covers/Final Fantasy VII.m3u.png",
+        ),
+        (
+            ["Dr.png", "Dr. Mario.png"],
+            "<folder><path>./Dr. Mario</path></folder>",
+            "covers/Dr. Mario.png",
+        ),
+        # An explicit tag wins over the media folder
+        (
+            ["Game.png"],
+            "<game><path>./Game.zip</path><cover>./art/box.png</cover></game>",
+            "art/box.png",
+        ),
+    ],
+)
+def test_extract_media_matches_the_rom_name(
+    tmp_path: Path,
+    platform: Platform,
+    media_names: list[str],
+    game_xml: str,
+    expected: str | None,
+):
+    for name in media_names:
+        _write_media(tmp_path, platform, "covers", name)
 
-    with patch.object(fs_platform_handler, "base_path", tmp_path):
-        media = extract_media_from_gamelist_rom(
-            ET.fromstring(
-                "<game><path>./Game.zip</path><cover>./art/box.png</cover></game>"
-            ),
-            platform,
-            build_media_file_index(platform),
-        )
+    media = _extract_media(tmp_path, platform, game_xml)
 
-    assert media["box2d_url"] == f"file://{platform_dir}/art/box.png"
+    assert media["box2d_url"] == (
+        f"file://{_platform_dir(platform)}/{expected}" if expected else None
+    )
 
 
 def test_parse_gamelist_xml_indexes_media_once(tmp_path: Path, platform: Platform):
-    platform_dir = tmp_path / fs_platform_handler.get_platform_fs_structure(
-        platform.fs_slug
-    )
     for name in ("One", "Two", "Three"):
         _write_media(tmp_path, platform, "covers", f"{name}.png")
-    gamelist_path = platform_dir / "gamelist.xml"
-    gamelist_path.write_text(
-        """<?xml version="1.0"?>
-<gameList>
-  <game><path>./One.zip</path></game>
-  <game><path>./Two.zip</path></game>
-  <game><path>./Three.zip</path></game>
-</gameList>""",
-        encoding="utf-8",
+    gamelist_path = _write_gamelist(
+        tmp_path,
+        platform,
+        "<game><path>./One.zip</path></game>"
+        "<game><path>./Two.zip</path></game>"
+        "<game><path>./Three.zip</path></game>",
     )
-    handler = GamelistHandler()
 
     with (
         patch.object(fs_platform_handler, "base_path", tmp_path),
@@ -335,66 +377,21 @@ def test_parse_gamelist_xml_indexes_media_once(tmp_path: Path, platform: Platfor
             wraps=build_media_file_index,
         ) as build_index,
     ):
-        roms_data = handler._parse_gamelist_xml(gamelist_path, platform)
+        roms_data = GamelistHandler()._parse_gamelist_xml(gamelist_path, platform)
 
     build_index.assert_called_once_with(platform)
     assert roms_data["Two.zip"].get("url_cover", "").endswith("/covers/Two.png")
 
 
-def test_build_media_file_index_follows_esde_extension_order(
-    tmp_path: Path, platform: Platform
-):
-    for name in ("Game.jpg", "Game.png", "Game.webp"):
-        _write_media(tmp_path, platform, "covers", name)
-    for name in ("Game.avi", "Game.mkv", "Game.mp4"):
-        _write_media(tmp_path, platform, "videos", name)
-    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
-
-    with patch.object(fs_platform_handler, "base_path", tmp_path):
-        index = build_media_file_index(platform)
-
-    assert index["box2d_url"]["Game"] == f"file://{platform_dir}/covers/Game.png"
-    assert index["video_url"]["Game"] == f"file://{platform_dir}/videos/Game.mp4"
-
-
-@pytest.mark.parametrize(
-    "rom_path, media_name",
-    [
-        ("./Final Fantasy VII.m3u", "Final Fantasy VII.m3u.png"),
-        ("./Dr. Mario", "Dr. Mario.png"),
-    ],
-)
-def test_extract_media_matches_directory_names(
-    tmp_path: Path, platform: Platform, rom_path: str, media_name: str
-):
-    _write_media(tmp_path, platform, "covers", media_name)
-    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
-
-    with patch.object(fs_platform_handler, "base_path", tmp_path):
-        media = extract_media_from_gamelist_rom(
-            ET.fromstring(f"<game><path>{rom_path}</path></game>"),
-            platform,
-            build_media_file_index(platform),
-        )
-
-    assert media["box2d_url"] == f"file://{platform_dir}/covers/{media_name}"
-
-
 def test_parse_gamelist_xml_skips_media_tags_outside_the_library(
     tmp_path: Path, platform: Platform
 ):
-    platform_dir = tmp_path / fs_platform_handler.get_platform_fs_structure(
-        platform.fs_slug
-    )
     _write_media(tmp_path, platform, "covers", "One.png")
-    gamelist_path = platform_dir / "gamelist.xml"
-    gamelist_path.write_text(
-        """<?xml version="1.0"?>
-<gameList>
-  <game><path>./One.zip</path><cover>/home/pi/covers/One.png</cover></game>
-  <game><path>./Two.zip</path></game>
-</gameList>""",
-        encoding="utf-8",
+    gamelist_path = _write_gamelist(
+        tmp_path,
+        platform,
+        "<game><path>./One.zip</path><cover>/home/pi/covers/One.png</cover></game>"
+        "<game><path>./Two.zip</path></game>",
     )
 
     with (

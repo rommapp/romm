@@ -203,11 +203,17 @@ ESDE_MEDIA_EXTENSION_PRIORITY: Final = (
 )
 
 
+_ESDE_MEDIA_EXTENSION_RANK: Final = {
+    extension: rank for rank, extension in enumerate(ESDE_MEDIA_EXTENSION_PRIORITY)
+}
+
+
 def _esde_media_rank(file_name: str) -> tuple[int, str]:
     extension = os.path.splitext(file_name)[1].lower()
-    if extension in ESDE_MEDIA_EXTENSION_PRIORITY:
-        return ESDE_MEDIA_EXTENSION_PRIORITY.index(extension), file_name
-    return len(ESDE_MEDIA_EXTENSION_PRIORITY), file_name
+    return (
+        _ESDE_MEDIA_EXTENSION_RANK.get(extension, len(_ESDE_MEDIA_EXTENSION_RANK)),
+        file_name,
+    )
 
 
 def build_media_file_index(platform: Platform) -> MediaFileIndex:
@@ -279,14 +285,14 @@ def extract_media_from_gamelist_rom(
     path_elem = game.find("path")
     if path_elem is not None and path_elem.text:
         rom_name = os.path.basename(path_elem.text)
-        # ES-DE names a directory's media after its full name, not a stem
-        rom_stems = (os.path.splitext(rom_name)[0], rom_name)
+        # ES-DE names a directory's media after its full name, a file's after its stem
+        rom_stems = (rom_name, os.path.splitext(rom_name)[0])
 
         for media_key in ESDE_MEDIA_MAP:
             if gamelist_media[media_key]:
                 continue
 
-            files = media_files.get(media_key, {})
+            files = media_files[media_key]
             gamelist_media[media_key] = next(
                 (files[stem] for stem in rom_stems if stem in files), None
             )
