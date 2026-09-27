@@ -122,6 +122,11 @@ class InstallSession(BaseModel):
     auto_mode: Mapped[bool] = mapped_column(
         Boolean(), default=False, server_default=sa_false(), nullable=False
     )
+    # Per-install manual mode override: forces AWAITING_INSTALLER even when
+    # candidates exist, so the user can pick the installer themselves.
+    manual_mode: Mapped[bool] = mapped_column(
+        Boolean(), default=False, server_default=sa_false(), nullable=False
+    )
     # What auto mode is doing ("running" / "needs_manual", see
     # handler.install.auto_mode.driver) and its last action. NULL when off.
     auto_status: Mapped[str | None] = mapped_column(String(32), default=None)

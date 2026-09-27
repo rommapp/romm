@@ -19,6 +19,9 @@ FUZZY_LABEL_LEN = 5
 # the same OCR line exceeds this many times the text height.
 ISOLATION_GAP_FACTOR = 2.0
 MIN_WORD_CONF = 30
+# Button and checkbox labels are UI-font sized; a taller match is a page
+# title ("Installation") or artwork text, and clicking it does nothing.
+MAX_LABEL_HEIGHT = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,7 +85,17 @@ def _group_lines(words: list[Word]) -> list[list[Word]]:
     for w in words:
         if w.conf >= MIN_WORD_CONF and normalize(w.text):
             lines.setdefault(w.line_id, []).append(w)
-    return [sorted(ws, key=lambda w: w.left) for ws in lines.values()]
+    grouped = []
+    for ws in lines.values():
+        ws = sorted(ws, key=lambda w: w.left)
+        # The border of a button is read as "|" or "[": symbols at the ends of
+        # a line are frame, not text (a "|" inside a line is an "I").
+        while len(ws) > 1 and not any(c.isalnum() for c in ws[0].text):
+            ws.pop(0)
+        while len(ws) > 1 and not any(c.isalnum() for c in ws[-1].text):
+            ws.pop()
+        grouped.append(ws)
+    return grouped
 
 
 def screen_lines(words: list[Word]) -> list[str]:
@@ -135,7 +148,7 @@ def find_matches(words: list[Word], catalog: Catalog) -> list[Match]:
             if entry.category == "deny":
                 continue
             found = _match_line(line, line_text, entry)
-            if found is not None:
+            if found is not None and found.height <= MAX_LABEL_HEIGHT:
                 matches.append(found)
     return matches
 

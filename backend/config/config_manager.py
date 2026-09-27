@@ -583,10 +583,16 @@ class ConfigManager:
             INSTALL_STREAM_UNCOMPLETED_FILES=pydash.get(
                 self._raw_config, "install.stream_uncompleted_files", False
             ),
-            INSTALL_CACHE_TTL_DAYS=pydash.get(
-                self._raw_config,
-                "install.cache_ttl_days",
-                _default_cache_ttl_days(),
+            # Env var takes precedence over config.yml (for container rebuilds),
+            # then config.yml value, then default (0 = unlimited).
+            INSTALL_CACHE_TTL_DAYS=(
+                int(os.environ["INSTALL_CACHE_DEFAULT_TTL"]) // SECONDS_PER_DAY
+                if "INSTALL_CACHE_DEFAULT_TTL" in os.environ
+                else pydash.get(
+                    self._raw_config,
+                    "install.cache_ttl_days",
+                    _default_cache_ttl_days(),
+                )
             ),
             INSTALL_CUSTOM_PROTON_BUILDS=pydash.get(
                 self._raw_config, "install.custom_proton_builds", []

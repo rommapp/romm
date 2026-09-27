@@ -12,6 +12,8 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from PIL import Image
+
 from config import INSTALL_AUTO_STUCK_SECONDS
 from logger.logger import log
 
@@ -19,7 +21,7 @@ from .capture import active_window_box, click, grab_screen, press_key
 from .catalog import Catalog
 from .engine import Action, ScreenMemory, is_license_page, plan_action, same_screen
 from .matcher import Word, find_matches, screen_lines
-from .ocr import LIGHT_BAND_HEIGHT, ocr_bottom_blocks, ocr_words
+from .ocr import ocr_words
 
 STATUS_RUNNING = "running"
 STATUS_NEEDS_MANUAL = "needs_manual"
@@ -27,6 +29,9 @@ STATUS_NEEDS_MANUAL = "needs_manual"
 POLL_INTERVAL = 2.0
 # Give the installer this long to repaint after a click before looking again.
 SETTLE_SECONDS = 1.5
+# A page that ignored every attempt (still animating, or a button that was not
+# ready) gets its buttons tried again after this long.
+RETRY_AFTER_SECONDS = 25.0
 # Hard cap so an OCR jitter loop can never click forever.
 MAX_ACTIONS = 300
 
@@ -45,6 +50,7 @@ class AutoModeDriver:
     memory: ScreenMemory = field(default_factory=ScreenMemory)
     actions_done: int = 0
     _idle_since: float | None = None
+    _last_action_at: float = 0.0
     _logged_lines: frozenset[str] = frozenset()
     _last_progress: int = -1
     _status: str | None = None
@@ -95,9 +101,21 @@ class AutoModeDriver:
             self.actions_done += 1
             log.info(f"Install auto mode: {action.describe()}")
             self.act(action)
+            self._last_action_at = now
             self._idle_since = now
             self._set(STATUS_RUNNING, action.describe())
             return True
+
+        if (
+            matches
+            and self._last_action_at
+            and now - self._last_action_at >= RETRY_AFTER_SECONDS
+        ):
+            # Not for radio/checkbox toggles: a repeated click undoes them.
+            for m in matches:
+                if not m.entry.toggle:
+                    self.memory.attempts.pop(f"{m.entry.category}:{m.label}", None)
+            self._last_action_at = now
 
         if now - self._idle_since >= self.stuck_seconds:
             self._set(STATUS_NEEDS_MANUAL, "No known button on screen")
@@ -125,37 +143,45 @@ def _needs_deep_pass(words: list[Word], catalog: Catalog) -> bool:
     return is_license_page(screen_lines(words), catalog) and "agree" not in categories
 
 
+def _ocr_region(image: Image.Image, catalog: Catalog) -> list[Word]:
+    """Read ``image``, looking closer while no usable button was found.
+
+    Three preprocessing modes, cheapest first: plain dark-on-light text,
+    then a bright-on-dark mask (a white tile caption), then an edge mask
+    (everything else - a mid-brightness "ghost button" drawn over artwork,
+    or text on a solid colored tile, that neither of the first two reads).
+    """
+    words = ocr_words(image)
+    if _needs_deep_pass(words, catalog):
+        words += ocr_words(image, mode="light")
+    if _needs_deep_pass(words, catalog):
+        words += ocr_words(image, mode="edge")
+    return words
+
+
 def make_x11_observer(
     display: str, catalog: Catalog
 ) -> Callable[[], list[Word] | None]:
-    """OCR the focused window (or the whole screen) of ``display``, returning
-    words in absolute screen coordinates."""
+    """OCR the focused window of ``display``, or the whole screen when nothing
+    usable is found there (an overlay such as "Press up to unlock" can sit
+    outside the focused window). Words come back in screen coordinates."""
 
     def observe() -> list[Word] | None:
         screen = grab_screen(display)
         if screen is None:
             return None
         left, top, right, bottom = active_window_box(display, screen.size)
-        crop = screen.crop((left, top, right, bottom))
-        words = ocr_words(crop)
-        if _needs_deep_pass(words, catalog):
-            words += ocr_words(crop, light_text=True)
-        if _needs_deep_pass(words, catalog):
-            words += ocr_bottom_blocks(crop)
-        if _needs_deep_pass(words, catalog):
-            words += ocr_bottom_blocks(crop, band_height=LIGHT_BAND_HEIGHT, light=True)
-        return [
+        words = _ocr_region(screen.crop((left, top, right, bottom)), catalog)
+        words = [
             Word(
-                w.text,
-                w.left + left,
-                w.top + top,
-                w.width,
-                w.height,
-                w.conf,
-                w.line_id,
+                w.text, w.left + left, w.top + top, w.width, w.height, w.conf, w.line_id
             )
             for w in words
         ]
+        covers_screen = (right - left, bottom - top) == screen.size
+        if not covers_screen and not find_matches(words, catalog):
+            words += ocr_words(screen)
+        return words
 
     return observe
 

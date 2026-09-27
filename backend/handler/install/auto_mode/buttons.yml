@@ -64,7 +64,7 @@ buttons:
       - "我接受许可协议中的条款"
   - category: install
     mnemonic: i
-    labels: ["Install", "Installa", "Installieren", "Installer", "Instalar", "インストール", "安装", "安裝"]
+    labels: ["Install", "Installa", "Installieren", "Instalar", "インストール", "安装", "安裝"]
   - category: finish
     mnemonic: f
     labels: ["Finish", "Fine", "Fertig", "Terminer", "Finalizar", "完了", "完成"]

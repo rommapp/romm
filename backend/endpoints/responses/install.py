@@ -129,6 +129,9 @@ class InstallSessionSchema(BaseModel):
     # can press: the user should continue by hand through the VNC page);
     # auto_detail is its last action. Both None while auto mode is off.
     auto_mode: bool = False
+    # Per-install manual mode override (forces AWAITING_INSTALLER even when
+    # candidates exist so the user can pick the installer themselves).
+    manual_mode: bool = False
     auto_status: str | None = None
     auto_detail: str | None = None
     vnc_url: str | None = None

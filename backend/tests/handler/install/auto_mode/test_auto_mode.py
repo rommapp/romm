@@ -1,3 +1,4 @@
+from handler.install.auto_mode import capture
 from handler.install.auto_mode.catalog import load_catalog, normalize
 from handler.install.auto_mode.driver import (
     STATUS_NEEDS_MANUAL,
@@ -293,3 +294,113 @@ class TestKeyPromptsAndExit:
         assert h.driver.tick() is False
         h.driver.progress = lambda: 1000
         assert h.driver.tick() is True
+
+
+class TestKeyFocus:
+    # Real layout of the DODI "press up to unlock" splash under IceWM.
+    WINDOWS = {
+        "1": ("Frame", "0,63,800,448"),
+        "2": ("Container", "0,63,800,448"),
+        "3": ("Setup", "400,300,1,1"),
+        "4": ("TaskBar", "0,574,800,26"),
+        "5": ("WindowList", "100,100,600,300"),
+    }
+
+    def fake_xdotool(self, calls):
+        def run(display, *args):
+            calls.append(args)
+            if args[-1] == "^IceStatus$":
+                return ""
+            if args[:3] == ("search", "--onlyvisible", "--name"):
+                return " ".join(self.WINDOWS)
+            if args[0] == "getwindowname":
+                return self.WINDOWS[args[1]][0]
+            if args[0] == "getwindowgeometry":
+                x, y, w, h = self.WINDOWS[args[-1]][1].split(",")
+                return f"X={x}\nY={y}\nWIDTH={w}\nHEIGHT={h}\n"
+            return ""
+
+        return run
+
+    def test_main_window_ignores_tiny_helpers_taskbar_and_window_list(self):
+        windows = [
+            (wid, name, tuple(int(v) for v in rect.split(",")))
+            for wid, (name, rect) in self.WINDOWS.items()
+        ]
+        assert capture.pick_main_window(windows) == (0, 63, 800, 448)
+        assert capture.pick_main_window([("1", "Setup", (0, 0, 1, 1))]) is None
+
+    @staticmethod
+    def actions(calls):
+        return [
+            c
+            for c in calls
+            if c[0] in ("mousemove", "key") or c[:1] == ("windowfocus",)
+        ]
+
+    def test_bare_key_clicks_the_window_center_first(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(capture, "_xdotool", self.fake_xdotool(calls))
+        monkeypatch.setattr(capture.time, "sleep", lambda s: None)
+        capture.press_key(":1", "Up", alt=False)
+        assert self.actions(calls) == [
+            ("mousemove", "400", "287", "click", "1"),
+            ("key", "--clearmodifiers", "Up"),
+        ]
+
+    def test_mnemonic_is_sent_without_an_extra_click(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(capture, "_xdotool", self.fake_xdotool(calls))
+        monkeypatch.setattr(capture.time, "sleep", lambda s: None)
+        capture.press_key(":1", "n")
+        assert self.actions(calls) == [("key", "--clearmodifiers", "alt+n")]
+
+    def test_a_window_move_left_by_a_stray_click_is_cancelled_first(self, monkeypatch):
+        calls = []
+        base = self.fake_xdotool(calls)
+
+        def with_move_mode(display, *args):
+            if args[0] == "search" and args[-1] == "^IceStatus$":
+                calls.append(args)
+                return "99" if not any(c[0] == "key" for c in calls) else ""
+            return base(display, *args)
+
+        monkeypatch.setattr(capture, "_xdotool", with_move_mode)
+        monkeypatch.setattr(capture.time, "sleep", lambda s: None)
+        capture.click(":1", 235, 236)
+        assert self.actions(calls) == [
+            ("key", "Escape"),
+            ("mousemove", "235", "236", "click", "1"),
+        ]
+
+
+class TestFalsePositives:
+    def test_page_title_is_not_a_button(self):
+        title = Word("Install", 236, 89, 93, 46, 90, (1, 1, 1))
+        assert find_matches([title], CATALOG) == []
+
+    def test_button_sized_label_still_matches(self):
+        button = Word("Install", 715, 470, 40, 14, 90, (1, 1, 1))
+        assert [m.entry.category for m in find_matches([button], CATALOG)] == [
+            "install"
+        ]
+
+    def test_exhausted_button_is_retried_after_a_while(self):
+        h = Harness([screen(line("Next >", 400, 400, 1))])
+        results = []
+        for t in (0, 1, 2, 3, 26, 27, 28):
+            h.now = t
+            results.append(h.driver.tick())
+        assert results == [True, True, False, False, False, True, True]
+
+    def test_checkbox_toggle_is_never_retried_by_the_cooldown(self):
+        words = screen(
+            line("License Agreement", 20, 20, 1),
+            line("I accept the agreement", 20, 200, 2),
+        )
+        h = Harness([words])
+        results = []
+        for t in (0, 1, 2, 30, 31):
+            h.now = t
+            results.append(h.driver.tick())
+        assert results.count(True) == 2

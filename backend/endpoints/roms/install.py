@@ -124,6 +124,10 @@ class InstallStartForm(BaseModel):
     # Experimental auto mode: OCR the installer and press its buttons. ``None``
     # uses the configured default (off unless enabled in the settings).
     auto_mode: bool | None = None
+    # Force manual mode for this install (AWAITING_INSTALLER), even when
+    # candidates exist. Useful when the user wants to pick the installer
+    # themselves. Does not change the global setting.
+    manual_mode: bool | None = None
 
 
 class InstallAutoModeForm(BaseModel):
@@ -291,6 +295,9 @@ async def start_install_session(
       with no candidate at all sits in AWAITING_INSTALLER with
       `manual_install_url` set - "manual mode": a person has to pick a file
       through the web Install page.
+    - `manual_mode` forces AWAITING_INSTALLER even when candidates exist,
+      so the user can pick the installer themselves. Does not change the
+      global setting.
     - `auto_mode` (default from the settings, off unless enabled) makes the
       worker OCR the installer and press its buttons (see
       handler.install.auto_mode); it can be flipped later through
@@ -315,6 +322,7 @@ async def start_install_session(
 
     installer_path = data.installer_path
     source_path = data.source_path
+    manual_mode = data.manual_mode if data.manual_mode is not None else False
     if is_installable and installer_path is None and source_path is None:
         candidates = fs_rom_handler.get_installer_candidates(rom)
         default = pick_default_installer(candidates)
@@ -323,7 +331,7 @@ async def start_install_session(
                 source_path = default.path
             else:
                 installer_path = default.path
-    needs_manual_pick = is_installable and not installer_path and not source_path
+    needs_manual_pick = is_installable and (manual_mode or (not installer_path and not source_path))
 
     # Resolved now (not left NULL for the worker to decide implicitly) so the
     # client can poll /install/proton/{id}/progress and show "Downloading
@@ -351,6 +359,7 @@ async def start_install_session(
                 "phase_detail": None,
                 "proton_build": proton_build,
                 "auto_mode": auto_mode,
+                "manual_mode": manual_mode,
                 "auto_status": None,
                 "auto_detail": None,
                 "state": initial_state,
@@ -377,6 +386,7 @@ async def start_install_session(
                 source_path=source_path,
                 proton_build=proton_build,
                 auto_mode=auto_mode,
+                manual_mode=manual_mode,
                 expires_at=resolve_expires_at(data.ttl_seconds),
             )
         )
@@ -1056,7 +1066,11 @@ async def install_vnc_ws(
         for p in (websocket.headers.get("sec-websocket-protocol") or "").split(",")
         if p.strip()
     ]
-    upstream_url = f"ws://{INSTALL_WORKER_HOST}:{port}/{path}"
+    # The install-sandbox's websockify serves static files at specific paths
+    # (vnc.html, JS, CSS) but accepts WebSocket connections at /websockify.
+    # The `path` parameter here includes the proxy prefix (e.g. api/roms/install/vnc/6900/websockify)
+    # which websockify doesn't know about. Strip to just the websockify endpoint.
+    upstream_url = f"ws://{INSTALL_WORKER_HOST}:{port}/websockify"
 
     async with aiohttp.ClientSession() as session:
         try:
