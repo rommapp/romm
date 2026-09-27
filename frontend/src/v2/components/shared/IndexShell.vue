@@ -89,6 +89,14 @@ html[data-bp~="xs"] .r-v2-idx-shell {
   z-index: 3;
 }
 
+/* Tiles scrolled into view by keyboard or pad nav land clear of the fixed bars. */
+.r-v2-idx-shell :deep([data-focus-key]) {
+  scroll-margin-top: calc(var(--r-nav-h) + var(--r-v2-idx-shell-toolbar-h));
+  scroll-margin-bottom: calc(
+    var(--r-bottom-nav-h) + env(safe-area-inset-bottom)
+  );
+}
+
 /* List mode: the column header and the rows run to the screen edges and keep
    the shell's gutter as padding, so only the separators and row fill move. */
 .r-v2-idx-shell {

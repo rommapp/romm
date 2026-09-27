@@ -14,6 +14,7 @@ These tests pin down that machinery:
 """
 
 import json
+from collections.abc import Iterable
 from datetime import datetime, timezone
 
 import pytest
@@ -49,7 +50,7 @@ def _flush_cache():
     sync_cache.flushall()
 
 
-def _decode_members(raw_members: set) -> set[str]:
+def _decode_members(raw_members: Iterable[bytes | str]) -> set[str]:
     return {m.decode() if isinstance(m, bytes) else m for m in raw_members}
 
 

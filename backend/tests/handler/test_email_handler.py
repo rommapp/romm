@@ -1,8 +1,9 @@
+import smtplib
 from unittest.mock import MagicMock
 
 import pytest
 
-from handler import email_handler
+import config
 from handler.email_handler import EmailError, build_message, send_email
 
 
@@ -18,7 +19,7 @@ def smtp_settings(mocker):
             "SMTP_PASSWORD": "hunter2",
             "SMTP_SECURITY": security,
         }.items():
-            mocker.patch.object(email_handler.config, name, value)
+            mocker.patch.object(config, name, value)
 
     return configure
 
@@ -41,7 +42,7 @@ def test_speaks_the_configured_security(
 ):
     smtp_settings(security=security)
     server = MagicMock()
-    connect = mocker.patch.object(email_handler.smtplib, client, return_value=server)
+    connect = mocker.patch.object(smtplib, client, return_value=server)
 
     send_email("a@example.com", "Hi", "There")
 
@@ -54,7 +55,7 @@ def test_speaks_the_configured_security(
 def test_logs_in_only_with_a_username(mocker, smtp_settings):
     smtp_settings(username="")
     server = MagicMock()
-    mocker.patch.object(email_handler.smtplib, "SMTP", return_value=server)
+    mocker.patch.object(smtplib, "SMTP", return_value=server)
 
     send_email("a@example.com", "Hi", "There")
 
@@ -63,16 +64,14 @@ def test_logs_in_only_with_a_username(mocker, smtp_settings):
 
 def test_a_refused_message_is_an_email_error(mocker, smtp_settings):
     smtp_settings()
-    mocker.patch.object(
-        email_handler.smtplib, "SMTP", side_effect=ConnectionRefusedError("refused")
-    )
+    mocker.patch.object(smtplib, "SMTP", side_effect=ConnectionRefusedError("refused"))
 
     with pytest.raises(EmailError, match="refused"):
         send_email("a@example.com", "Hi", "There")
 
 
 def test_nothing_goes_out_without_a_server(mocker):
-    mocker.patch.object(email_handler.config, "EMAIL_ENABLED", False)
+    mocker.patch.object(config, "EMAIL_ENABLED", False)
 
     with pytest.raises(EmailError, match="isn't set up"):
         send_email("a@example.com", "Hi", "There")
@@ -80,7 +79,7 @@ def test_nothing_goes_out_without_a_server(mocker):
 
 def test_an_unknown_security_is_refused_not_sent_in_the_clear(mocker, smtp_settings):
     smtp_settings(security="ssl")
-    connect = mocker.patch.object(email_handler.smtplib, "SMTP")
+    connect = mocker.patch.object(smtplib, "SMTP")
 
     with pytest.raises(EmailError, match="SMTP_SECURITY is 'ssl'"):
         send_email("a@example.com", "Hi", "There")

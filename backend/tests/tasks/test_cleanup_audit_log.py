@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from handler.database import db_audit_event_handler
 from tasks.scheduled import cleanup_audit_log
 from tasks.scheduled.cleanup_audit_log import CleanupAuditLogTask
 
@@ -21,7 +22,7 @@ class TestCleanupAuditLogTask:
         mocker.patch.object(cleanup_audit_log, "AUDIT_LOG_RETENTION_DAYS", 90)
         mocker.patch.object(cleanup_audit_log, "DELETE_BATCH_SIZE", 2)
         delete = mocker.patch.object(
-            cleanup_audit_log.db_audit_event_handler,
+            db_audit_event_handler,
             "delete_batch_before",
             side_effect=[2, 2, 1],
         )
@@ -36,9 +37,7 @@ class TestCleanupAuditLogTask:
         assert abs(cutoff - expected) < timedelta(minutes=1)
 
     async def test_run_disabled_skips_the_cleanup(self, mocker):
-        delete = mocker.patch.object(
-            cleanup_audit_log.db_audit_event_handler, "delete_batch_before"
-        )
+        delete = mocker.patch.object(db_audit_event_handler, "delete_batch_before")
         task = CleanupAuditLogTask()
         task.enabled = False
 

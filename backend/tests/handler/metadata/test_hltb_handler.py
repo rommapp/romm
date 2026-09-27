@@ -1,9 +1,10 @@
 import asyncio
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 from fastapi import HTTPException, status
 
@@ -34,15 +35,18 @@ def _handler() -> HLTBHandler:
     return handler
 
 
-def _response(status_code: int = 200, json_body: dict | None = None) -> MagicMock:
+def _response(
+    status_code: int = 200, json_body: dict[str, Any] | None = None
+) -> MagicMock:
     response = MagicMock()
     response.status_code = status_code
     if status_code >= 400:
-        response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        response.raise_for_status.side_effect = httpx2.HTTPStatusError(
             "error", request=MagicMock(), response=response
         )
     else:
         response.json.return_value = json_body or {}
+        response.content = json.dumps(json_body or {}).encode()
     return response
 
 
@@ -272,7 +276,7 @@ async def test_bundled_endpoint_is_kept_when_github_and_discovery_fail(
     handler = HLTBHandler()
     bundled = handler.search_url
     mock_client = AsyncMock()
-    mock_client.get.side_effect = httpx.ConnectError("GitHub unreachable")
+    mock_client.get.side_effect = httpx2.ConnectError("GitHub unreachable")
     mock_ctx_httpx_client.get.return_value = mock_client
 
     await handler._fetch_search_endpoint()
@@ -293,7 +297,7 @@ async def test_a_discovery_error_keeps_the_bundled_endpoint(
     handler = HLTBHandler()
     bundled = handler.search_url
     mock_client = AsyncMock()
-    mock_client.get.side_effect = httpx.ConnectError("GitHub unreachable")
+    mock_client.get.side_effect = httpx2.ConnectError("GitHub unreachable")
     mock_ctx_httpx_client.get.return_value = mock_client
 
     # A failed discovery must not abort the scan that initializes the handler.
@@ -397,7 +401,7 @@ async def test_rotated_endpoint_reports_404_cause(mock_ctx_httpx_client):
 async def test_connect_error_still_reports_connectivity(mock_ctx_httpx_client):
     handler = _handler()
     mock_client = AsyncMock()
-    mock_client.post.side_effect = httpx.ConnectError("no route")
+    mock_client.post.side_effect = httpx2.ConnectError("no route")
     mock_ctx_httpx_client.get.return_value = mock_client
 
     with pytest.raises(HTTPException) as exc_info:
@@ -528,7 +532,9 @@ async def test_heartbeat_sends_the_user_agent_hltb_requires(mock_ctx_httpx_clien
     assert headers["Referer"] == "https://howlongtobeat.com"
 
 
-def _game(game_id: int, name: str, *, alias: str = "", timed: bool = True) -> dict:
+def _game(
+    game_id: int, name: str, *, alias: str = "", timed: bool = True
+) -> dict[str, Any]:
     """A search result carrying only the fields matching depends on."""
     time = 3600 if timed else 0
     return {
@@ -559,7 +565,7 @@ async def test_series_prefix_the_catalogue_omits_still_matches():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(term: str, _platform_slug: str) -> list[dict[str, Any]]:
         searched.append(term)
         return [_game(7467, "Quantum of Solace")]
 
@@ -580,7 +586,7 @@ async def test_separator_the_catalogue_omits_still_matches():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(term: str, _platform_slug: str) -> list[dict[str, Any]]:
         searched.append(term)
         if term == "pokemon emerald version":
             return [_game(6966, "Pokémon Emerald Version")]
@@ -598,7 +604,7 @@ async def test_full_term_match_does_not_trigger_a_second_search():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(term: str, _platform_slug: str) -> list[dict[str, Any]]:
         searched.append(term)
         return [_game(4806, "James Bond 007: Agent Under Fire")]
 
@@ -616,7 +622,7 @@ async def test_term_without_a_separator_is_not_searched_twice():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(term: str, _platform_slug: str) -> list[dict[str, Any]]:
         searched.append(term)
         return []
 
@@ -633,7 +639,7 @@ async def test_hyphen_inside_a_word_does_not_trigger_a_retry():
     handler = _handler()
     searched: list[str] = []
 
-    async def search_games(term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(term: str, _platform_slug: str) -> list[dict[str, Any]]:
         searched.append(term)
         return []
 
@@ -649,7 +655,7 @@ async def test_retry_still_requires_recorded_times():
     """A catalogue entry nobody has submitted a time for is not a match."""
     handler = _handler()
 
-    async def search_games(_term: str, _platform_slug: str) -> list[dict]:
+    async def search_games(_term: str, _platform_slug: str) -> list[dict[str, Any]]:
         return [_game(7467, "Quantum of Solace", timed=False)]
 
     with patch.object(handler, "search_games", side_effect=search_games):
@@ -718,7 +724,7 @@ async def test_an_alias_does_not_outrank_another_game_with_that_name():
     assert rom["hltb_id"] == 5773
 
 
-def _game_page(game: dict | None) -> MagicMock:
+def _game_page(game: dict[str, Any] | None) -> MagicMock:
     """A game page carrying its record in the Next.js hydration payload."""
     games = [game] if game is not None else []
     payload = json.dumps({"props": {"pageProps": {"game": {"data": {"game": games}}}}})
@@ -933,10 +939,10 @@ async def test_the_live_page_shape_still_parses():
 @pytest.mark.parametrize(
     "transport_error",
     [
-        httpx.ConnectTimeout("timed out"),
-        httpx.PoolTimeout("pool exhausted"),
-        httpx.ReadError("reset"),
-        httpx.RemoteProtocolError("bad framing"),
+        httpx2.ConnectTimeout("timed out"),
+        httpx2.PoolTimeout("pool exhausted"),
+        httpx2.ReadError("reset"),
+        httpx2.RemoteProtocolError("bad framing"),
     ],
 )
 @patch("handler.metadata.hltb_handler.HLTB_API_ENABLED", True)

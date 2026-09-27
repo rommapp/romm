@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from handler.database import db_notification_channel_handler
 from handler.notification_channels import apprise_channel, delivery, webhook
 from handler.notification_channels.apprise_channel import AppriseError
 from handler.notification_channels.config import seal_config
@@ -13,6 +14,7 @@ from handler.notification_channels.delivery import (
     send_to_channel,
 )
 from handler.notification_channels.webhook import WebhookError
+from handler.redis_handler import low_prio_queue
 from models.notification import NotificationKind, NotificationLevel, NotificationTopic
 from models.notification_channel import NotificationChannelType
 from models.user import Role
@@ -65,7 +67,7 @@ class TestForwards:
 class TestEnqueue:
     def test_queues_each_channel_that_wants_it(self, mocker):
         mocker.patch.object(
-            delivery.db_notification_channel_handler,
+            db_notification_channel_handler,
             "get_deliverable_channels",
             return_value=[
                 _channel(id=1, user_id=5),
@@ -73,7 +75,7 @@ class TestEnqueue:
                 _channel(id=3, user_id=6),
             ],
         )
-        enqueue = mocker.patch.object(delivery.low_prio_queue, "enqueue")
+        enqueue = mocker.patch.object(low_prio_queue, "enqueue")
 
         enqueue_channel_deliveries([(5, make_notification())])
 
@@ -85,7 +87,7 @@ class TestEnqueue:
 
     def test_never_raises_into_the_inbox(self, mocker):
         mocker.patch.object(
-            delivery.db_notification_channel_handler,
+            db_notification_channel_handler,
             "get_deliverable_channels",
             side_effect=RuntimeError("database gone"),
         )

@@ -7,6 +7,8 @@ is what keeps it out of a filtered result. The sort's query shape is pinned
 with the other metadata sorts in `test_roms_metadata_sort.py`.
 """
 
+from typing import Any
+
 import pytest
 
 from handler.database import db_collection_handler, db_rom_handler
@@ -63,7 +65,7 @@ class TestGeneratedColumn:
         ],
     )
     def test_derives_the_main_story_seconds(
-        self, platform: Platform, metadata: dict, expected: int | None
+        self, platform: Platform, metadata: dict[str, Any], expected: int | None
     ):
         rom = _make_rom(platform, "derived", hltb_metadata=metadata)
 

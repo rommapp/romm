@@ -1,11 +1,12 @@
 import asyncio
 import enum
 import functools
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 import pydash
 import socketio
 
+from adapters.services.igdb import IGDB_PLATFORM_LIST
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
@@ -47,7 +48,7 @@ from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST, Flashp
 from handler.metadata.gamelist_handler import GamelistRom
 from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST, HasheousRom
 from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST, HLTBRom
-from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST, IGDBRom
+from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.launchbox_handler.types import LaunchboxRom
@@ -223,7 +224,7 @@ def build_hashless_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
     return build_empty_fs_rom(fs_name, fs_path, flat=flat)
 
 
-def get_main_platform_igdb_id(platform: Platform):
+def get_main_platform_igdb_id(platform: Platform) -> int | None:
     cnfg = cm.get_config()
 
     main_platform_slug = cnfg.PLATFORMS_VERSIONS.get(platform.fs_slug.lower())
@@ -1136,12 +1137,16 @@ async def scan_rom(
                     f"{hl(str(h_ra_id), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
+                return await meta_ra_handler.get_rom_by_id(
+                    rom=rom, ra_id=h_ra_id, ra_hash=rom_attrs["ra_hash"]
+                )
 
             if (scan_type == ScanType.UPDATE and rom.ra_id) or (
                 scan_type == ScanType.UNMATCHED and rom.ra_id and not rom.ra_metadata
             ):
-                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=rom.ra_id)
+                return await meta_ra_handler.get_rom_by_id(
+                    rom=rom, ra_id=rom.ra_id, ra_hash=rom_attrs["ra_hash"]
+                )
             else:
                 return await meta_ra_handler.get_rom(
                     rom=rom, ra_hash=rom_attrs["ra_hash"]
@@ -1324,7 +1329,7 @@ async def scan_rom(
                 if merged_csdb:
                     blob["summary"] = merged_csdb
 
-    metadata_handlers: dict[MetadataSource, dict] = {
+    metadata_handlers: dict[MetadataSource, dict[str, Any]] = {
         MetadataSource.IGDB: {
             "handler": igdb_handler_rom,
             "id_field": "igdb_id",
@@ -1465,6 +1470,16 @@ async def scan_rom(
     ):
         rom_attrs["hasheous_id"] = None
         rom_attrs["hasheous_metadata"] = {}
+
+    # Same for the RA hash match, once an RA lookup that ran found nothing.
+    ra_metadata = rom_attrs.get("ra_metadata") or {}
+    if (
+        scan_type == ScanType.HASHES
+        and MetadataSource.RA in attempted_sources
+        and not ra_handler_rom.get("ra_id")
+        and ra_metadata.get("hash_match")
+    ):
+        rom_attrs["ra_metadata"] = {**ra_metadata, "hash_match": False}
 
     # A skipped source's tags can't be told apart on the row, so each hash source
     # keeps the ones its dump gave in its own blob.
@@ -1817,11 +1832,20 @@ async def download_rom_resources(
                 await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
 
-async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False):
+class ScannedAsset(TypedDict):
+    file_path: str
+    file_name: str
+    file_size_bytes: int
+    content_hash: NotRequired[str | None]
+
+
+async def _scan_asset(
+    file_name: str, asset_path: str, should_hash: bool = False
+) -> ScannedAsset:
     file_path = f"{asset_path}/{file_name}"
     file_size = await fs_asset_handler.get_file_size(file_path)
 
-    result = {
+    result: ScannedAsset = {
         "file_path": asset_path,
         "file_name": file_name,
         "file_size_bytes": file_size,

@@ -1046,6 +1046,30 @@ describe("Stream launch recovery", () => {
 
     expect(vmOf(wrapper).errorHint).toBe("shape_mismatch");
   });
+
+  it("names each refusal reason once however many members share it", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    const refusal = (member: string, reason: string) => ({
+      reason,
+      member,
+      expected: null,
+      detail: null,
+      suggest_emulator: null,
+      docs: null,
+    });
+    await launchFailed({
+      refusals: [
+        refusal(".import/save/a.bin", "unrecognised_layout"),
+        refusal(".import/save/b.bin", "unrecognised_layout"),
+        refusal(".import/save/c.bin", "too_large"),
+      ],
+      refusals_truncated: 0,
+    });
+
+    expect(vmOf(wrapper).errorHint).toBe("unrecognised_layout, too_large");
+  });
 });
 
 describe("Stream join", () => {

@@ -3,15 +3,15 @@ import json
 import threading
 from datetime import timedelta
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
-import httpx
+import httpx2
 import pytest
 from authlib.integrations.base_client.errors import MismatchingStateError, OAuthError
-from authlib.jose.errors import InvalidClaimError
 from fastapi import status
 from fastapi.testclient import TestClient
+from joserfc.errors import InvalidClaimError
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import auth_handler
@@ -21,7 +21,7 @@ from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_notification_handler
 from handler.database.users_handler import DBUsersHandler
-from handler.redis_handler import async_cache
+from handler.redis_handler import async_cache, redis_client
 from models.notification import NotificationKind
 from models.user import Role, User
 
@@ -299,7 +299,7 @@ def _invite_token(client, access_token: str) -> str:
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == HTTPStatus.CREATED
-    return response.json()["token"]
+    return cast(str, response.json()["token"])
 
 
 def test_register_with_a_bad_token_does_not_disclose_existing_accounts(
@@ -371,7 +371,7 @@ def test_overlapping_registrations_spend_one_invite_once(client, access_token: s
     # Hold each request at the token check until the other arrives, so the only
     # thing that can keep the second out is the consume being one operation.
     rendezvous = threading.Barrier(2)
-    live_redis = auth_handler_module.redis_client
+    live_redis = redis_client
 
     class _RendezvousRedis:
         def get(self, key, *args, **kwargs):
@@ -383,7 +383,7 @@ def test_overlapping_registrations_spend_one_invite_once(client, access_token: s
         def __getattr__(self, name):
             return getattr(live_redis, name)
 
-    responses: list = []
+    responses: list[httpx2.Response] = []
 
     def register(index: int) -> None:
         responses.append(
@@ -564,7 +564,7 @@ async def test_sessions_are_revoked_on_both_sides_of_the_write(
     real_update = DBUsersHandler.update_user
 
     def record_update(
-        self: DBUsersHandler, id: int, data: dict, *args: Any, **kwargs: Any
+        self: DBUsersHandler, id: int, data: dict[str, Any], *args: Any, **kwargs: Any
     ) -> User:
         # `set_last_active` writes on every authenticated request; only the
         # credential write is being ordered here.
@@ -729,7 +729,7 @@ def _rejected_oidc_callback(
     client: TestClient,
     error: Exception | None = None,
     headers: dict[str, str] | None = None,
-) -> httpx.Response:
+) -> httpx2.Response:
     fake_oauth = mock.MagicMock()
     fake_oauth.openid.authorize_access_token = mock.AsyncMock(
         side_effect=error or MismatchingStateError()

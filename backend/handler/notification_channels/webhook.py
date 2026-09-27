@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Final
 from urllib.parse import urlsplit
 
-import httpx
+import httpx2
 
 from config import has_proxy_env
 from utils.context import create_httpx_async_client
@@ -94,15 +94,15 @@ def build_request(config: WebhookConfig, message: OutboundMessage) -> WebhookReq
     return WebhookRequest(url=config["url"], content=content, headers=headers)
 
 
-def _client(allow_private: bool) -> httpx.AsyncClient:
+def _client(allow_private: bool) -> httpx2.AsyncClient:
     if allow_private:
-        return httpx.AsyncClient(trust_env=has_proxy_env(), timeout=TIMEOUT_SECONDS)
+        return httpx2.AsyncClient(trust_env=has_proxy_env(), timeout=TIMEOUT_SECONDS)
     client = create_httpx_async_client()
-    client.timeout = httpx.Timeout(TIMEOUT_SECONDS)
+    client.timeout = httpx2.Timeout(TIMEOUT_SECONDS)
     return client
 
 
-async def _error_detail(response: httpx.Response) -> str:
+async def _error_detail(response: httpx2.Response) -> str:
     body = b""
     async for chunk in response.aiter_raw():
         body += chunk
@@ -147,6 +147,6 @@ async def send(
         ) from exc
     except ValidationError as exc:
         raise WebhookError(exc.message) from exc
-    except httpx.HTTPError as exc:
+    except httpx2.HTTPError as exc:
         reason = str(exc) or type(exc).__name__
         raise WebhookError(f"Could not reach {host}: {reason}") from exc

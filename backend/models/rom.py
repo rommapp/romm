@@ -59,6 +59,11 @@ FULL_PATH_HASH_LENGTH = 64
 AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
+# Limits on `RomUser.pinned_media`, a list of keys like `file:12` naming the
+# media shown on the user's overview.
+PINNED_MEDIA_MAX_ITEMS = 100
+PINNED_MEDIA_KEY_MAX_LENGTH = 1024
+PINNED_MEDIA_KEY_PATTERN = r"^(scraped|file|screenshot|artwork):\S"
 # Articles ignored when sorting or bucketing a title, across the languages
 # No-Intro and LaunchBox name games in. Both patterns built from this are
 # anchored on the right, so "la" preceding "las" costs nothing.
@@ -99,7 +104,7 @@ def compute_full_path_hash(fs_path: str | None, fs_name: str | None) -> str:
     ).hexdigest()
 
 
-def _ra_achievement_sort_key(achievement: dict) -> tuple[int, int]:
+def _ra_achievement_sort_key(achievement: dict[str, Any]) -> tuple[int, int]:
     """Orders achievements by RetroAchievements' "Display Order", ties by id."""
     order = achievement.get("display_order")
     ra_id = achievement.get("ra_id")
@@ -1170,7 +1175,7 @@ class Rom(BaseModel):
         )
 
     @cached_property
-    def merged_ra_metadata(self) -> dict[str, list] | None:
+    def merged_ra_metadata(self) -> dict[str, Any] | None:
         if self.ra_metadata and "achievements" in self.ra_metadata:
             # Create a deep copy to avoid mutating the original metadata
             # This ensures that badge paths remain relative for filesystem operations
@@ -1281,7 +1286,7 @@ HAS_FILE_ON_DISK_FILTERS: Final[HasFileOnDiskFilters] = {
 # matched that source. Shared by the stats coverage breakdown and the gallery
 # "metadata provider" filter. Sources without a per-ROM match id (e.g. sgdb
 # covers, playmatch) are intentionally absent.
-METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
+METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "igdb": Rom.igdb_id,
     "ss": Rom.ss_id,
     "moby": Rom.moby_id,
@@ -1301,7 +1306,7 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
 
 # Same slugs mapped to the `roms_facets` mirror columns. The stats coverage
 # breakdown counts these off the narrow mirror instead of scanning `roms`.
-METADATA_SOURCE_FACET_COLUMNS: dict[str, InstrumentedAttribute] = {
+METADATA_SOURCE_FACET_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "igdb": RomFacets.igdb_id,
     "ss": RomFacets.ss_id,
     "moby": RomFacets.moby_id,
@@ -1390,6 +1395,10 @@ class RomUser(BaseModel):
     completion: Mapped[int] = mapped_column(default=0, info={"zero_is_unset": True})
     status: Mapped[RomUserStatus | None] = mapped_column(
         Enum(RomUserStatus), default=None
+    )
+    # NULL means the default selection; an empty list pins nothing.
+    pinned_media: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(none_as_null=True), default=None, nullable=True
     )
 
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))

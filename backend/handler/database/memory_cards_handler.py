@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import Any
 
 from sqlalchemy import delete, desc, or_, select, update
 from sqlalchemy.orm import Session
@@ -82,7 +83,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
     def update_card(
         self,
         id: int,
-        data: dict,
+        data: dict[str, Any],
         session: Session = None,  # type: ignore[assignment]
     ) -> MemoryCard | None:
         """Returns None when the row was deleted concurrently."""

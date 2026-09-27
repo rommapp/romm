@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
@@ -118,7 +119,7 @@ class DBDevicesHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        data: dict,
+        data: dict[str, Any],
         session: Session = None,  # type: ignore[assignment]
     ) -> Device | None:
         session.execute(

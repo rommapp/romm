@@ -352,7 +352,7 @@ class TestSend:
                     log()
                 return result
 
-            mocker.patch.object(apprise_channel.Apprise, "notify", fake)
+            mocker.patch.object(Apprise, "notify", fake)
             return calls
 
         return install

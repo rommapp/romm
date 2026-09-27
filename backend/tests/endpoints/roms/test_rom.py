@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timezone
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 from urllib.parse import unquote
 
@@ -26,7 +26,13 @@ from handler.metadata.steam_handler import SteamHandler, SteamRom
 from models.collection import Collection, SmartCollection
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
-from models.rom import Rom, RomFile, compute_name_sort_key
+from models.rom import (
+    PINNED_MEDIA_KEY_MAX_LENGTH,
+    PINNED_MEDIA_MAX_ITEMS,
+    Rom,
+    RomFile,
+    compute_name_sort_key,
+)
 from models.user import User
 
 MOCK_IGDB_ID = 11111
@@ -78,7 +84,7 @@ def test_get_rom_simple_missing_returns_404(client: TestClient, access_token: st
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-def _user_collections_by_name(body: dict) -> dict:
+def _user_collections_by_name(body: dict[str, Any]) -> dict[str, Any]:
     return {c["name"]: c for c in body["user_collections"]}
 
 
@@ -1493,6 +1499,63 @@ def test_update_rom_user_props_last_played_flags(
     assert clear_played_response.json()["last_played"] is None
 
 
+def test_update_rom_user_props_pinned_media(
+    client: TestClient, access_token: str, rom: Rom
+):
+    headers = {"Authorization": f"Bearer {access_token}"}
+    pinned = ["file:12", "artwork:bezel", "screenshot:3"]
+
+    response = client.put(
+        f"/api/roms/{rom.id}/props", headers=headers, json={"pinned_media": pinned}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["pinned_media"] == pinned
+
+    unrelated = client.put(
+        f"/api/roms/{rom.id}/props", headers=headers, json={"rating": 4}
+    )
+    assert unrelated.json()["pinned_media"] == pinned
+
+    reset = client.put(
+        f"/api/roms/{rom.id}/props", headers=headers, json={"pinned_media": None}
+    )
+    assert reset.status_code == status.HTTP_200_OK
+    assert reset.json()["pinned_media"] is None
+
+
+def test_update_rom_user_props_dedupes_pinned_media(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.put(
+        f"/api/roms/{rom.id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"pinned_media": ["file:2", "file:1", "file:2"]},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["pinned_media"] == ["file:2", "file:1"]
+
+
+@pytest.mark.parametrize(
+    "pinned_media",
+    [
+        ["bogus:1"],
+        ["file:"],
+        ["file:" + "1" * PINNED_MEDIA_KEY_MAX_LENGTH],
+        [f"file:{i}" for i in range(PINNED_MEDIA_MAX_ITEMS + 1)],
+    ],
+)
+def test_update_rom_user_props_rejects_invalid_pinned_media(
+    client: TestClient, access_token: str, rom: Rom, pinned_media: list[str]
+):
+    response = client.put(
+        f"/api/roms/{rom.id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"pinned_media": pinned_media},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
 class TestUpdateMetadataIDs:
     @patch.object(
         IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=MOCK_IGDB_ID)
@@ -1666,6 +1729,31 @@ class TestUpdateMetadataIDs:
         body = response.json()
         assert body["ra_id"] == MOCK_RA_ID
         assert get_rom_by_id_mock.called
+
+    @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=None))
+    def test_update_rom_ra_id_drops_the_previous_games_hash_match(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A relink RA can't resolve keeps the old blob, but not its verification."""
+        db_rom_handler.update_rom(
+            rom.id,
+            {"ra_id": 1, "ra_metadata": {"achievements": [], "hash_match": True}},
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"ra_id": str(MOCK_RA_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["ra_id"] == MOCK_RA_ID
+        assert body["merged_ra_metadata"]["hash_match"] is False
 
     @patch.object(
         LaunchboxHandler,

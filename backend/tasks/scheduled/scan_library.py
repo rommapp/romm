@@ -28,7 +28,7 @@ from tasks.tasks import PeriodicTask, TaskType
 
 
 class ScanLibraryTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled rescan",
             description="Rescans the entire library",

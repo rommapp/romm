@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Final, Literal, Optional
+from typing import Annotated, Final, Literal, Optional, cast
 from urllib.parse import urlencode
 
 from authlib.common.errors import AuthlibBaseError
 from fastapi import BackgroundTasks, Body, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
-from fastapi.security.http import HTTPBasic
+from fastapi.security.http import HTTPBasic, HTTPBasicCredentials
+from joserfc.errors import JoseError
 
 from config import (
     OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
@@ -117,7 +118,7 @@ def _record_password_reset_request(ip_address: str | None, user: User) -> None:
 @router.post("/login")
 def login(
     request: Request,
-    credentials=Depends(HTTPBasic()),  # noqa
+    credentials: HTTPBasicCredentials = Depends(HTTPBasic()),  # noqa
 ) -> None:
     """Session login endpoint
 
@@ -208,6 +209,7 @@ async def token(
         TokenResponse: TypedDict with the new generated token info
     """
 
+    user: User | None
     # Support refreshing access tokens
     if form_data.grant_type == "refresh_token":
         token = form_data.refresh_token
@@ -326,7 +328,7 @@ async def token(
 
 # OIDC login and callback endpoints
 @router.get("/login/openid")
-async def login_via_openid(request: Request):
+async def login_via_openid(request: Request) -> RedirectResponse:
     """OIDC login endpoint
 
     Args:
@@ -346,11 +348,14 @@ async def login_via_openid(request: Request):
     if not oauth.openid:
         raise OIDCNotConfiguredException
 
-    return await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI)
+    return cast(
+        RedirectResponse,
+        await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI),
+    )
 
 
 @router.get("/oauth/openid")
-async def auth_openid(request: Request):
+async def auth_openid(request: Request) -> RedirectResponse:
     """OIDC callback endpoint
 
     Args:
@@ -372,9 +377,10 @@ async def auth_openid(request: Request):
     if not oauth.openid:
         raise OIDCNotConfiguredException
 
+    # Authlib verifies the ID token with joserfc, whose errors are not Authlib's.
     try:
         token = await oauth.openid.authorize_access_token(request)
-    except AuthlibBaseError as exc:
+    except (AuthlibBaseError, JoseError) as exc:
         # repr() because error and description can come from the query string
         log.warning(f"OIDC callback rejected: {exc.error!r}: {exc.description!r}")
         if request.user.is_authenticated and not request.user.is_kiosk_guest:

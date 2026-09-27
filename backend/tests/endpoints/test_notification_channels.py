@@ -1,4 +1,5 @@
 import re
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -19,14 +20,16 @@ def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _webhook(url: str = "https://hooks.example.com/romm/token", **fields) -> dict:
+def _webhook(
+    url: str = "https://hooks.example.com/romm/token", **fields
+) -> dict[str, Any]:
     return {"type": "webhook", "name": "Hook", "url": url, **fields}
 
 
 _DISCORD = {"webhook_id": "1234567890", "webhook_token": "abcdefghijklmnop"}
 
 
-def _apprise(service: str = "discord", **fields) -> dict:
+def _apprise(service: str = "discord", **fields) -> dict[str, Any]:
     return {
         "type": "apprise",
         "name": "Discord",

@@ -74,9 +74,11 @@ from handler.streaming.capabilities import (
     slot_capabilities,
 )
 from handler.streaming.config import (
+    CONTAINER_NAME_MAX_LENGTH,
     ResolvedContainer,
     configured_emulator,
     container_for_session,
+    container_names,
     containers_by_key,
     containers_for_platform,
     emulator_labels,
@@ -175,21 +177,20 @@ class LoadStateRequest(BaseModel):
     slot: Annotated[int, Field(ge=1, le=MAX_SLOT)] = 1
 
 
-CONTAINER_KEY_MAX_LENGTH = 300
 CLAIMED_AT_MAX_LENGTH = 64
 
 # A claim is named by its container and the stamp it was taken at.
 ContainerQuery = Annotated[
-    str | None, Query(alias="container", max_length=CONTAINER_KEY_MAX_LENGTH)
+    str | None, Query(alias="container", max_length=CONTAINER_NAME_MAX_LENGTH)
 ]
 ClaimedAtQuery = Annotated[str | None, Query(max_length=CLAIMED_AT_MAX_LENGTH)]
 
 
 class DesktopStreamingSessionRequest(BaseModel):
-    # The container to open, named by the key GET /streaming/containers
+    # The container to open, by the name or key GET /streaming/containers
     # reports. Named rather than pooled: an admin configuring a container
     # needs that one, not whichever is free.
-    container: Annotated[str, Field(min_length=1, max_length=CONTAINER_KEY_MAX_LENGTH)]
+    container: Annotated[str, Field(min_length=1, max_length=CONTAINER_NAME_MAX_LENGTH)]
 
 
 def platform_capabilities(platform: str) -> PlatformCapabilities:
@@ -854,28 +855,28 @@ async def claim_session(
     container = await _win_container(request, candidates, session, platform)
     session_key = container.key
 
-    # On an archive-resume container (DuckStation, RPCS3) the save archive
-    # carries its own exit state, and only the newest archive carries the newest
-    # capture, so any other state and save pairing needs the state imported.
+    # An archive-resume container's newest archive carries only the newest capture,
+    # so any other state and save pairing needs the state imported.
     state_off_archive = False
     if (
         resume_state is not None
         and not resume_foreign
         and container.resumes_from_archive
     ):
-        newest_states = await asyncio.to_thread(
+        own_states = await asyncio.to_thread(
             states.user_states_for_emulator, request.user.id, rom.id, container.emulator
         )
-        state_off_archive = not newest_states or newest_states[0].id != resume_state.id
+        # Capture order, like the archive pick: replacing a state's bytes bumps updated_at.
+        newest_state = max(own_states, key=lambda s: (s.created_at, s.id), default=None)
+        state_off_archive = newest_state is None or newest_state.id != resume_state.id
         if not state_off_archive and picked_save is not None:
-            newest_save = None
-            if not save_foreign:
-                newest_save = await asyncio.to_thread(
-                    saves.newest_restorable,
-                    request.user.id,
-                    rom.id,
-                    container.emulator,
+            newest_save = (
+                None
+                if save_foreign
+                else await asyncio.to_thread(
+                    saves.newest_restorable, request.user.id, rom.id, container.emulator
                 )
+            )
             state_off_archive = newest_save is None or newest_save.id != picked_save.id
 
     # The pre-win checks asked the pool's reference; the won container's own
@@ -885,19 +886,17 @@ async def claim_session(
         spec = await asyncio.to_thread(
             webstation.import_spec, container, container.emulator, container.platform
         )
-    if resume_foreign:
-        import_slot = spec.resume_slot() if spec is not None else None
-        if import_slot is None:
-            await lifecycle.abort_claim(session_key, session)
-            raise HTTPException(
-                status_code=400, detail="This container cannot resume the picked state"
-            )
-        resume_slot = import_slot
-    if save_foreign and (spec is None or not spec.accepts("save")):
+    import_slot = spec.resume_slot() if spec is not None else None
+    refusal = None
+    if resume_foreign and import_slot is None:
+        refusal = "This container cannot resume the picked state"
+    elif save_foreign and (spec is None or not spec.accepts("save")):
+        refusal = "This container cannot restore the picked save"
+    if refusal is not None:
         await lifecycle.abort_claim(session_key, session)
-        raise HTTPException(
-            status_code=400, detail="This container cannot restore the picked save"
-        )
+        raise HTTPException(status_code=400, detail=refusal)
+    if resume_foreign:
+        resume_slot = import_slot
     resume_via_import = (
         (resume_foreign or state_off_archive)
         and spec is not None
@@ -1501,6 +1500,7 @@ async def list_containers(request: Request) -> AdminContainersResponse:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     containers: list[AdminContainerSchema] = []
+    names = container_names()
     for container_key, entries in containers_by_key().items():
         first = entries[0]
         held = await get_session(container_key) if container_key else None
@@ -1513,6 +1513,7 @@ async def list_containers(request: Request) -> AdminContainersResponse:
         containers.append(
             AdminContainerSchema(
                 container=container_key,
+                name=names.get(container_key, ""),
                 label=first.container_label or first.label,
                 host=first.host,
                 platforms=[e.platform for e in entries],
@@ -1561,7 +1562,7 @@ async def claim_desktop_session(
     if request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    container, platform = access.container_by_key(req.container)
+    container, platform = access.container_by_name(req.container)
     if not container.protocol.supports_desktop:
         raise HTTPException(
             status_code=400,

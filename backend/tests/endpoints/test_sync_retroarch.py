@@ -1,5 +1,6 @@
 import hashlib
 from collections.abc import Sequence
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -8,14 +9,16 @@ from fastapi.testclient import TestClient
 from redis.exceptions import RedisError
 
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
 )
-from handler.filesystem import fs_asset_handler
+from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
+from handler.redis_handler import async_cache
 from handler.sync.retroarch import psp, sync_handler
 from handler.sync.retroarch.device import CLIENT_DEVICE_IDENTIFIER
 from handler.sync.retroarch.emulator_names import (
@@ -56,6 +59,18 @@ def _retroarch_upload_cap(client: TestClient, max_size: int):
             return mock.patch.object(layer, "max_size", max_size)
         layer = getattr(layer, "app", None)
     raise AssertionError("No upload size limit guards /api/sync/retroarch")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_sync_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Keep blobs and pending PSP files per test, since user ids repeat across test databases."""
+    for handler, name in (
+        (fs_retroarch_sync_handler, "retroarch_sync"),
+        (psp.fs_psp_pending_handler, "psp_pending"),
+    ):
+        base = (tmp_path / name).resolve()
+        base.mkdir()
+        monkeypatch.setattr(handler, "base_path", base)
 
 
 @pytest.fixture
@@ -726,6 +741,50 @@ class TestRetroArchSyncUpload:
         assert saves[0].file_size_bytes == 7
 
     @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.compute_content_hash",
+        new_callable=mock.AsyncMock,
+        return_value="hash_of_old_file",
+    )
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch("endpoints.sync.retroarch.scan_save", new_callable=mock.AsyncMock)
+    def test_overwriting_a_slotted_save_never_hashed_records_its_file_hash(
+        self,
+        mock_scan_save: mock.AsyncMock,
+        _mock_write_file: mock.AsyncMock,
+        _mock_hash: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        saves_path: str,
+        synced_save: Save,
+    ):
+        db_save_handler.update_save(synced_save.id, {"slot": "autosave"})
+        mock_scan_save.return_value = Save(
+            file_name=synced_save.file_name,
+            file_path=synced_save.file_path,
+            file_size_bytes=7,
+            content_hash="9a0364b9e99bb480dd25e1f0284c8555",
+        )
+
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
+            content=b"newdata",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        [record] = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        assert (record.slot, record.content_hashes) == (
+            "autosave",
+            ["hash_of_old_file"],
+        )
+
+    @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.write_file",
         new_callable=mock.AsyncMock,
     )
@@ -937,6 +996,78 @@ class TestRetroArchSyncDelete:
         assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
 
     @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.compute_content_hash",
+        new_callable=mock.AsyncMock,
+        return_value="hash_of_file",
+    )
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_deleting_a_slotted_save_never_hashed_records_its_file_hash(
+        self,
+        _mock_remove_file: mock.AsyncMock,
+        _mock_hash: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        synced_save: Save,
+    ):
+        db_save_handler.update_save(synced_save.id, {"slot": "autosave"})
+
+        response = client.request(
+            "DELETE",
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        [record] = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        assert (record.slot, record.content_hashes) == ("autosave", ["hash_of_file"])
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_deleting_a_slotted_save_records_the_deletion(
+        self,
+        _mock_remove_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        saves_path: str,
+    ):
+        """A device still holding the save must be told it was deleted, not asked for it."""
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="test_rom.srm",
+                file_path=saves_path,
+                file_size_bytes=4,
+                emulator="snes9x",
+                slot="autosave",
+                content_hash="0123456789abcdef0123456789abcdef",
+            )
+        )
+
+        response = client.request(
+            "DELETE",
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        deletions = db_deleted_asset_handler.get_deletions(
+            user_id=admin_user.id, rom_ids=[rom.id]
+        )
+        assert [(d.slot, d.content_hashes) for d in deletions] == [
+            ("autosave", ["0123456789abcdef0123456789abcdef"])
+        ]
+
+    @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.remove_file",
         new_callable=mock.AsyncMock,
     )
@@ -1086,7 +1217,7 @@ class TestRetroArchSyncPsp:
             auth=ADMIN_AUTH,
         )
 
-        with mock.patch.object(psp.async_cache, "get") as get:
+        with mock.patch.object(async_cache, "get") as get:
             response = client.get(
                 "/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH
             )
@@ -1103,7 +1234,7 @@ class TestRetroArchSyncPsp:
     def test_upload_succeeds_when_priming_the_cache_fails(
         self, client, admin_user: User
     ):
-        with mock.patch.object(psp.async_cache, "set", side_effect=RedisError("down")):
+        with mock.patch.object(async_cache, "set", side_effect=RedisError("down")):
             response = client.put(
                 "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
                 content=b"data",
@@ -1688,14 +1819,14 @@ class TestRetroArchSyncBrowsing:
     ):
         with (
             mock.patch.object(
-                sync_handler.db_save_handler,
+                db_save_handler,
                 "get_saves",
-                wraps=sync_handler.db_save_handler.get_saves,
+                wraps=db_save_handler.get_saves,
             ) as get_saves,
             mock.patch.object(
-                sync_handler.db_state_handler,
+                db_state_handler,
                 "get_states",
-                wraps=sync_handler.db_state_handler.get_states,
+                wraps=db_state_handler.get_states,
             ) as get_states,
         ):
             client.request(

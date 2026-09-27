@@ -1,7 +1,7 @@
 """Tests for the ScreenScraper metadata handler."""
 
 import json
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
@@ -680,7 +680,7 @@ class TestBuildSSGame:
         rom.regions = regions
         return rom
 
-    def _make_media(self, media_type: str) -> dict:
+    def _make_media(self, media_type: str) -> dict[str, Any]:
         return {
             "type": media_type,
             "parent": "jeu",
@@ -1954,7 +1954,7 @@ class TestSearchTermEncoding:
     ):
         """``_search_rom`` hands the service a term that is not pre-encoded."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -1971,7 +1971,7 @@ class TestSearchTermEncoding:
     async def test_search_rom_still_transliterates_unicode(self):
         """Unidecode is still applied so accented titles match ScreenScraper."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -1986,7 +1986,7 @@ class TestSearchTermEncoding:
     async def test_get_matched_roms_by_name_passes_unencoded_term(self):
         """``get_matched_roms_by_name`` also avoids pre-encoding the term."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -2008,7 +2008,7 @@ class TestSearchTermEncoding:
         """End-to-end through the real service: a ``+`` is encoded exactly once
         in the request URL (``%2B``), never doubly (``%252B``)."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture_request(url, *args, **kwargs):
             captured["url"] = url
@@ -2118,7 +2118,7 @@ class TestExtractFromSSDump:
     # Shaped after a real jeuInfos payload, trimmed to the keys read here.
     ROMS = [
         {
-            "id": 4219,
+            "id": "4219",
             "romfilename": "Super Mario Bros.",
             "rommd5": "B330314E19126D87D156D0618C4657B0",
             "romsha1": "8EE8032491DEE422534B82F107DE0E9F5F9D44F9",
@@ -2127,7 +2127,7 @@ class TestExtractFromSSDump:
             "regions": {"regions_shortname": ["wor"], "regions_en": ["World"]},
         },
         {
-            "id": 154585,
+            "id": "154585",
             "romfilename": "Super Mario Bros. (W) [T Fre].nes",
             "rommd5": "811B027EAF99C2DEF7B933C5208636DE",
             "romsha1": "",
@@ -2140,7 +2140,7 @@ class TestExtractFromSSDump:
 
     def _game(self) -> SSGame:
         # `romid` names a dump that is not ours, which is why hashes decide.
-        return cast(SSGame, {"id": 1245, "romid": "999999", "roms": self.ROMS})
+        return cast(SSGame, {"id": "1245", "romid": "999999", "roms": self.ROMS})
 
     def test_the_dump_is_found_by_md5_whatever_romid_says(self):
         dump = find_ss_dump(
@@ -2149,7 +2149,7 @@ class TestExtractFromSSDump:
         )
 
         assert dump is not None
-        assert dump["id"] == 154585
+        assert dump["id"] == "154585"
 
     def test_the_dump_is_found_by_sha1(self):
         dump = find_ss_dump(
@@ -2160,7 +2160,7 @@ class TestExtractFromSSDump:
         )
 
         assert dump is not None
-        assert dump["id"] == 4219
+        assert dump["id"] == "4219"
 
     def test_a_hash_no_dump_carries_matches_nothing(self):
         assert (

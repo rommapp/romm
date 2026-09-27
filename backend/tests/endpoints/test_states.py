@@ -1,6 +1,7 @@
 import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -157,7 +158,7 @@ def test_sharing_state_syncs_thumbnail_visibility(
     ids=["state-file", "screenshot-file"],
 )
 def test_add_state_rejects_oversized_uploads(
-    client, access_token: str, rom: Rom, files: dict
+    client, access_token: str, rom: Rom, files: dict[str, Any]
 ):
     with mock.patch.object(uploads, "MAX_ASSET_UPLOAD_SIZE_BYTES", 32):
         response = client.post(

@@ -19,7 +19,6 @@ from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
-from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
 from endpoints.sockets.activity import get_authenticated_user
@@ -89,7 +88,7 @@ from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from models.user import User
-from tasks.tasks import update_job_meta
+from tasks.tasks import TaskType, update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
@@ -131,7 +130,11 @@ def _scan_reported_itself(job: Job) -> bool:
 
 
 def report_scan_failure(
-    job: Job, connection: Redis, exc_type: type, exc_value: BaseException, tb: Any
+    job: Job,
+    connection: Redis[bytes],
+    exc_type: type,
+    exc_value: BaseException,
+    tb: Any,
 ) -> None:
     """Tell the clients a scan is over when the scan could not say so itself.
 
@@ -199,7 +202,7 @@ class ScanStats:
     updated_roms: int = 0
     new_files: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # Lock for thread-safe updates
         self._lock = asyncio.Lock()
         self._unpublished = False
@@ -225,7 +228,9 @@ class ScanStats:
         update_job_meta({"scan_stats": stats})
         await socket_manager.emit("scan:update_stats", stats)
 
-    async def update(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
+    async def update(
+        self, socket_manager: socketio.AsyncRedisManager, **kwargs: int
+    ) -> None:
         async with self._lock:
             for key, value in kwargs.items():
                 if hasattr(self, key):
@@ -235,7 +240,9 @@ class ScanStats:
             # to report as they happen.
             await self._publish(socket_manager, force=True)
 
-    async def increment(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
+    async def increment(
+        self, socket_manager: socketio.AsyncRedisManager, **kwargs: int
+    ) -> None:
         async with self._lock:
             for key, value in kwargs.items():
                 if hasattr(self, key):
@@ -1343,7 +1350,7 @@ async def scan_platforms(
         total_roms=total_roms,
     )
 
-    async def stop_scan():
+    async def stop_scan() -> None:
         log.info(f"{emoji.EMOJI_STOP_SIGN} Scan stopped manually")
         await finish("scan:done", scan_stats.to_dict(), stopped=True)
         redis_client.delete(STOP_SCAN_FLAG)
@@ -1508,8 +1515,8 @@ async def authorize_scan(sid: str) -> User | None:
     return None
 
 
-@socket_handler.socket_server.on("scan")
-async def scan_handler(sid: str, options: dict[str, Any]):
+@socket_handler.on("scan")
+async def scan_handler(sid: str, options: dict[str, Any]) -> None:
     """Scan socket endpoint
 
     Args:
@@ -1545,7 +1552,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
 
     if DEV_MODE:
-        return await scan_platforms(
+        await scan_platforms(
             platform_ids=platform_ids,
             metadata_sources=metadata_sources,
             scan_type=scan_type,
@@ -1554,8 +1561,9 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             platform_fs_slugs=platform_fs_slugs,
             started_by_user_id=user.id,
         )
+        return
 
-    return scan_queue.enqueue(
+    scan_queue.enqueue(
         scan_platforms,
         # A scan of named roms resolves its work from the database and is done
         # in seconds, so it goes ahead of any library scan already waiting.
@@ -1574,8 +1582,8 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     )
 
 
-@socket_handler.socket_server.on("scan:stop")
-async def stop_scan_handler(sid: str):
+@socket_handler.on("scan:stop")
+async def stop_scan_handler(sid: str) -> None:
     """Stop scan socket endpoint"""
 
     user = await authorize_scan(sid)

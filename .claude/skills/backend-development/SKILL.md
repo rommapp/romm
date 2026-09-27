@@ -38,10 +38,11 @@ alembic/          Migrations (env.py + versions/)
 
 - **Naming:** Classes `PascalCase`; functions/vars `snake_case`; constants `UPPER_SNAKE_CASE`; private `_prefixed`.
 - **DB sessions:** decorate handler methods with `@begin_session`; it injects and manages the SQLAlchemy session/transaction. Don't open sessions ad hoc.
-- **Async:** I/O-bound endpoints and tasks use `async/await`. Per-request `httpx`/`aiohttp` clients come from context vars (`utils/context.py`), not new clients per call.
+- **Async:** I/O-bound endpoints and tasks use `async/await`. Per-request `httpx2`/`aiohttp` clients come from context vars (`utils/context.py`), not new clients per call.
 - **Imports:** stdlib → third-party → local; explicit (no wildcards); `TYPE_CHECKING` blocks to break circular imports.
 - **Errors:** raise the custom exceptions in `exceptions/` (e.g. `RomNotFoundInDatabaseException`), not bare `HTTPException`, where a typed one exists.
 - **Validation/SSRF:** sanitize filenames/paths before filesystem use (`utils/`); paths are rooted at `LIBRARY_BASE_PATH`/`RESOURCES_BASE_PATH`/`ASSETS_BASE_PATH` from config.
+- **Engine-specific query SQL:** reach for a portable SQLAlchemy expression first. If the engines need different SQL, build both with `DialectCase(postgresql=..., mysql=...)` from `utils/sql_dialect.py` (or add a helper or `@compiles` construct there) rather than branching on `ROMM_DB_DRIVER` in a handler. `@compiles(..., "mysql")` alone misses MariaDB; use `_compiles_on_mysql_family`. Pin each spelling in tests by compiling for `MARIADB_DIALECT`/`POSTGRESQL_DIALECT` from `tests/sql_dialects.py`.
 
 ## Auth & scopes
 
@@ -102,5 +103,5 @@ uv run pytest <path/file>         # tests - affected files only, NEVER the whole
 
 - Tests: pytest + pytest-asyncio, isolated per `pytest-xdist` worker (per-worker DBs); `fakeredis`; `pytest-recording` VCR cassettes mock external APIs; Hypothesis for property tests. Mirror the `backend/<area>/` layout under `backend/tests/`. First-time test DB setup: `docker exec -i romm-db-dev mariadb -uroot -p<pw> < backend/romm_test/setup.sql`.
 - **Lint / format run through Trunk** (ruff, black, isort, bandit): `trunk fmt && trunk check`. CI enforces Trunk on every PR. Never bypass with `--no-verify`.
-- **Type-check with mypy**, outside Trunk so it sees the project's packages: `uv run mypy --config-file ../.trunk/configs/mypy.ini .` from `backend/`. CI's `mypy.yml` requires zero errors.
+- **Type-check with mypy**, outside Trunk so it sees the project's packages: `uv run mypy --config-file ../.trunk/configs/mypy.ini .` from `backend/`. CI's `mypy.yml` requires zero errors. The config is `strict = True` minus the flags it lists as not yet clean: every function outside `tests/` needs full annotations, every `# type: ignore` names its error code, and a name is imported from the module that defines it, not one that merely imports it.
 - New/changed logic needs a test; new endpoints need endpoint tests.

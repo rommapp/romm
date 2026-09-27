@@ -10,7 +10,7 @@ class UpdateStats:
     processed: int = 0
     total: int = 0
 
-    def update(self, **kwargs) -> None:
+    def update(self, **kwargs: int) -> None:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)

@@ -435,7 +435,10 @@ def _stream_archive_members(
             ) from e
 
     if timed_out:
-        raise ArchiveReadError(f"Extraction timed out reading members of {file_path}")
+        raise ArchiveReadError(
+            f"Extraction timed out after {SEVEN_ZIP_TIMEOUT}s reading members of "
+            f"{file_path}; raise SEVEN_ZIP_TIMEOUT for large archives"
+        )
 
 
 def read_7z_archive_files(
@@ -653,7 +656,11 @@ def _extract_member_to_dir(
                 while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
                     if time.monotonic() > deadline:
                         process.terminate()
-                        log.error(f"Extraction of {member} from {file_path} timed out")
+                        log.error(
+                            f"Extraction of {member} from {file_path} timed out "
+                            f"after {SEVEN_ZIP_TIMEOUT}s; raise SEVEN_ZIP_TIMEOUT "
+                            "for large archives"
+                        )
                         dest_path.unlink(missing_ok=True)
                         return None
                     dest_file.write(chunk)

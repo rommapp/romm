@@ -3,11 +3,12 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any, Final, NotRequired, TypedDict
 
-import httpx
+import httpx2
 import pydash
 import yarl
 from fastapi import status
 
+from adapters.services.response_validation import parse_response
 from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
 from handler.filesystem.base_handler import (
     normalize_provider_values,
@@ -246,9 +247,9 @@ class HasheousHandler(MetadataHandler):
         self,
         url: str,
         method: str = "POST",
-        params: dict | None = None,
-        data: dict | list | None = None,
-    ) -> dict:
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | list[Any] | None = None,
+    ) -> dict[str, Any]:
         httpx_client = ctx_httpx_client.get()
 
         # Normalize method to uppercase
@@ -283,8 +284,8 @@ class HasheousHandler(MetadataHandler):
 
             res = await httpx_client.request(method, **request_kwargs)
             res.raise_for_status()
-            return res.json()
-        except httpx.HTTPStatusError as exc:
+            return parse_response(dict[str, Any], res.content, source="Hasheous") or {}
+        except httpx2.HTTPStatusError as exc:
             # Check if its a 404 error
             if exc.response.status_code == status.HTTP_404_NOT_FOUND:
                 log.debug("Game not found in Hasheous API")
@@ -296,14 +297,14 @@ class HasheousHandler(MetadataHandler):
                 exc.response.text,
             )
             raise unavailable("Hasheous") from exc
-        except httpx.NetworkError as exc:
+        except httpx2.NetworkError as exc:
             log.critical("Connection error: can't connect to Hasheous")
             raise unavailable("Hasheous") from exc
         except json.decoder.JSONDecodeError as exc:
             # Log the error and return an empty dict if the response is not valid JSON
             log.error(exc)
             return {}
-        except httpx.TimeoutException as exc:
+        except httpx2.TimeoutException as exc:
             log.error("Hasheous API timed out: %s", exc)
             raise unavailable("Hasheous") from exc
 
@@ -357,7 +358,7 @@ class HasheousHandler(MetadataHandler):
         # The lookup endpoint accepts the hashes of all top-level files, which
         # increases the accuracy of metadata lookups by letting Hasheous match
         # against any of them.
-        data: list[dict] = []
+        data: list[dict[str, Any]] = []
         for file in filtered_files:
             hashes = file.lookup_hashes
             file_hashes: dict[str, str | None] = {

@@ -1,7 +1,7 @@
 """Guards the cross-origin defaults the API is served with."""
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI
@@ -17,7 +17,7 @@ LISTED_ORIGIN = "https://romm.example"
 
 
 def _cors_middleware() -> Middleware:
-    return next(m for m in app.user_middleware if m.cls is CORSMiddleware)
+    return next(m for m in app.user_middleware if cast(object, m.cls) is CORSMiddleware)
 
 
 def _scratch_app(**kwargs: Any) -> TestClient:

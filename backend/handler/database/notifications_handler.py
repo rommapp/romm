@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.interfaces import LoaderOption
 
 from decorators.database import begin_session
 from models.notification import MAX_NOTIFICATIONS_PER_USER, Notification
@@ -11,7 +12,7 @@ from models.user import User
 from .base_handler import DBBaseHandler, affected_rows
 
 
-def _with_actor():
+def _with_actor() -> LoaderOption:
     # Name and avatar only, the rest of a user row is large JSON. Built per query,
     # as touching `User` columns at import configures the mappers too early.
     return joinedload(Notification.actor).load_only(

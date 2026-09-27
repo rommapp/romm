@@ -14,8 +14,30 @@ from adapters.services.mobygames import (
     MobyGamesService,
     auth_middleware,
 )
+from adapters.services.mobygames_types import MobyGame
 
 INVALID_GAME_ID = 999999
+
+GAME: MobyGame = {
+    "alternate_titles": [],
+    "description": "",
+    "game_id": 1,
+    "genres": [],
+    "moby_score": 0.0,
+    "moby_url": "https://www.mobygames.com/game/1",
+    "num_votes": 0,
+    "official_url": None,
+    "platforms": [],
+    "sample_cover": {
+        "height": 1,
+        "image": "https://example.com/cover.png",
+        "platforms": [],
+        "thumbnail_image": "https://example.com/thumb.png",
+        "width": 1,
+    },
+    "sample_screenshots": [],
+    "title": "Test Game",
+}
 
 MockResponse = dict[str, list[dict[str, int]]]
 
@@ -89,8 +111,10 @@ class TestMobyGamesServiceUnit:
         """Test successful API request."""
         mock_session = AsyncMock()
         mock_response = MagicMock()
-        mock_response.json = AsyncMock(
-            return_value={"games": [{"game_id": 1, "title": "Test Game"}]},
+        mock_response.read = AsyncMock(
+            return_value=json.dumps(
+                {"games": [{"game_id": 1, "title": "Test Game"}]}
+            ).encode()
         )
         mock_response.raise_for_status.return_value = None
         mock_session.get.return_value = mock_response
@@ -99,18 +123,20 @@ class TestMobyGamesServiceUnit:
         mock_context.get.return_value = mock_session
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
-            result = await service._request("https://api.mobygames.com/v1/games")
+            result = await service._request(
+                "https://api.mobygames.com/v1/games", object
+            )
 
         assert result == {"games": [{"game_id": 1, "title": "Test Game"}]}
         mock_session.get.assert_called_once()
         mock_response.raise_for_status.assert_called_once()
-        mock_response.json.assert_called_once()
+        mock_response.read.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_request_acquires_rate_limiter(self, service):
         """Test that the request reserves a rate-limiter slot before sending."""
         mock_response = MagicMock()
-        mock_response.json = AsyncMock(return_value={"games": []})
+        mock_response.read = AsyncMock(return_value=json.dumps({"games": []}).encode())
         mock_response.raise_for_status.return_value = None
 
         # Record the order in which the rate limiter is acquired and the request is sent
@@ -129,7 +155,7 @@ class TestMobyGamesServiceUnit:
         mock_context.get.return_value = mock_session
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
-            await service._request("https://api.mobygames.com/v1/games")
+            await service._request("https://api.mobygames.com/v1/games", object)
 
         # The rate-limiter slot must be reserved, and before the request is sent.
         acquire_mock.assert_awaited_once()
@@ -151,7 +177,7 @@ class TestMobyGamesServiceUnit:
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
             with pytest.raises(HTTPException) as exc_info:
-                await service._request("https://api.mobygames.com/v1/games")
+                await service._request("https://api.mobygames.com/v1/games", object)
 
         assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         assert "Can't connect to MobyGames" in exc_info.value.detail
@@ -161,7 +187,7 @@ class TestMobyGamesServiceUnit:
         """Test request timeout with successful retry."""
         mock_session = AsyncMock()
         mock_response = MagicMock()
-        mock_response.json = AsyncMock(return_value={"games": []})
+        mock_response.read = AsyncMock(return_value=json.dumps({"games": []}).encode())
         mock_response.raise_for_status.return_value = None
 
         # First call times out, second succeeds
@@ -174,7 +200,9 @@ class TestMobyGamesServiceUnit:
         mock_context.get.return_value = mock_session
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
-            result = await service._request("https://api.mobygames.com/v1/games")
+            result = await service._request(
+                "https://api.mobygames.com/v1/games", object
+            )
 
         assert result == {"games": []}
         assert mock_session.get.call_count == 2
@@ -194,16 +222,18 @@ class TestMobyGamesServiceUnit:
         mock_context.get.return_value = mock_session
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
-            result = await service._request("https://api.mobygames.com/v1/games")
+            result = await service._request(
+                "https://api.mobygames.com/v1/games", object
+            )
 
-        assert result == {}
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_request_rate_limit_with_retry(self, service):
         """Test rate limit handling with retry."""
         mock_session = AsyncMock()
         mock_response = MagicMock()
-        mock_response.json = AsyncMock(return_value={"games": []})
+        mock_response.read = AsyncMock(return_value=json.dumps({"games": []}).encode())
         mock_response.raise_for_status.return_value = None
 
         # First call hits rate limit, second succeeds
@@ -219,7 +249,9 @@ class TestMobyGamesServiceUnit:
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
             with patch("asyncio.sleep") as mock_sleep:
-                result = await service._request("https://api.mobygames.com/v1/games")
+                result = await service._request(
+                    "https://api.mobygames.com/v1/games", object
+                )
 
         assert result == {
             "games": []
@@ -232,16 +264,18 @@ class TestMobyGamesServiceUnit:
         mock_session = AsyncMock()
         mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
-        mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "", 0)
+        mock_response.read = AsyncMock(return_value=b"not json")
         mock_session.get.return_value = mock_response
 
         mock_context = MagicMock()
         mock_context.get.return_value = mock_session
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
-            result = await service._request("https://api.mobygames.com/v1/games")
+            result = await service._request(
+                "https://api.mobygames.com/v1/games", object
+            )
 
-        assert result == {}
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_request_other_client_error(self, service):
@@ -258,21 +292,23 @@ class TestMobyGamesServiceUnit:
         mock_context.get.return_value = mock_session
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
-            result = await service._request("https://api.mobygames.com/v1/games")
+            result = await service._request(
+                "https://api.mobygames.com/v1/games", object
+            )
 
-        assert result == {}
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_list_games_default_parameters(self, service):
         """Test list_games with default parameters."""
-        mock_response = {"games": [{"game_id": 1, "title": "Test Game"}]}
+        mock_response = {"games": [GAME]}
 
         with patch.object(
             service, "_request", return_value=mock_response
         ) as mock_request:
             result = await service.list_games()
 
-        assert result == [{"game_id": 1, "title": "Test Game"}]
+        assert result == [GAME]
         mock_request.assert_called_once()
         call_args = mock_request.call_args[0][0]
         assert "https://api.mobygames.com/v1/games" in call_args
@@ -280,14 +316,15 @@ class TestMobyGamesServiceUnit:
     @pytest.mark.asyncio
     async def test_list_games_with_game_id(self, service):
         """Test list_games with specific game ID."""
-        mock_response = {"games": [{"game_id": 123, "title": "Specific Game"}]}
+        game: MobyGame = {**GAME, "game_id": 123, "title": "Specific Game"}
+        mock_response = {"games": [game]}
 
         with patch.object(
             service, "_request", return_value=mock_response
         ) as mock_request:
             result = await service.list_games(game_id=123)
 
-        assert result == [{"game_id": 123, "title": "Specific Game"}]
+        assert result == [game]
         call_args = mock_request.call_args[0][0]
         assert "id=123" in call_args
 
@@ -636,7 +673,7 @@ class TestMobyGamesServicePerformance:
     @pytest.mark.asyncio
     async def test_concurrent_requests(self, service):
         """Test multiple concurrent API requests."""
-        mock_response = {"games": [{"game_id": 1, "title": "Test Game"}]}
+        mock_response = {"games": [GAME]}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -658,7 +695,9 @@ class TestMobyGamesServicePerformance:
         # Simulate timeout on first call, success on retry
         timeout_error = aiohttp.ServerTimeoutError("Request timeout")
         success_response = MagicMock()
-        success_response.json = AsyncMock(return_value={"games": []})
+        success_response.read = AsyncMock(
+            return_value=json.dumps({"games": []}).encode()
+        )
         success_response.raise_for_status.return_value = None
 
         mock_session.get.side_effect = [timeout_error, success_response]
@@ -668,7 +707,7 @@ class TestMobyGamesServicePerformance:
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
             result = await service._request(
-                "https://api.mobygames.com/v1/games", request_timeout=1
+                "https://api.mobygames.com/v1/games", object, request_timeout=1
             )
 
         assert result == {"games": []}
@@ -753,7 +792,7 @@ class TestMobyGamesServiceEdgeCases:
         """Test request with custom timeout."""
         mock_session = AsyncMock()
         mock_response = MagicMock()
-        mock_response.json = AsyncMock(return_value={"games": []})
+        mock_response.read = AsyncMock(return_value=json.dumps({"games": []}).encode())
         mock_response.raise_for_status.return_value = None
         mock_session.get.return_value = mock_response
 
@@ -762,7 +801,7 @@ class TestMobyGamesServiceEdgeCases:
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
             result = await service._request(
-                "https://api.mobygames.com/v1/games", request_timeout=30
+                "https://api.mobygames.com/v1/games", object, request_timeout=30
             )
 
         assert result == {"games": []}

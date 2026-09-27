@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-import httpx
+import httpx2
 from anyio import Path as AnyioPath
 from fastapi import status
 from PIL import Image, ImageFile, UnidentifiedImageError
@@ -65,7 +65,7 @@ def _content_type_essence(header_value: str) -> str:
 
 
 def _check_content_type(
-    response: httpx.Response, allowed_prefixes: tuple[str, ...], label: str
+    response: httpx2.Response, allowed_prefixes: tuple[str, ...], label: str
 ) -> bool:
     raw = response.headers.get("content-type", "")
     essence = _content_type_essence(raw)
@@ -271,7 +271,7 @@ class FSResourcesHandler(FSHandler):
                                         await f.write(chunk)
 
                             downloaded = True
-            except httpx.TransportError as exc:
+            except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
                 return None
             except OSError as exc:
@@ -376,7 +376,7 @@ class FSResourcesHandler(FSHandler):
 
         return path_cover_s, path_cover_l
 
-    async def remove_cover(self, entity: Rom | Collection | None):
+    async def remove_cover(self, entity: Rom | Collection | None) -> dict[str, str]:
         if not entity:
             return {"path_cover_s": "", "path_cover_l": ""}
 
@@ -501,7 +501,7 @@ class FSResourcesHandler(FSHandler):
                                     await f.write(chunk)
 
                         return True
-            except httpx.TransportError as exc:
+            except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
                 return False
             except OSError as exc:
@@ -515,7 +515,7 @@ class FSResourcesHandler(FSHandler):
         full_path = self.validate_path(f"{rom.fs_resources_path}/screenshots")
         return {path.stem for path in full_path.glob("*.jpg")}
 
-    def _get_screenshot_path(self, rom: Rom, idx: str):
+    def _get_screenshot_path(self, rom: Rom, idx: str) -> str:
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
@@ -525,7 +525,7 @@ class FSResourcesHandler(FSHandler):
         return f"{rom.fs_resources_path}/screenshots/{idx}.jpg"
 
     async def get_rom_screenshots(
-        self, rom: Rom, overwrite: bool, url_screenshots: list | None
+        self, rom: Rom, overwrite: bool, url_screenshots: list[str] | None
     ) -> list[str]:
         """Get rom screenshots from filesystem
 
@@ -568,7 +568,7 @@ class FSResourcesHandler(FSHandler):
             for ext in ALLOWED_MANUAL_EXTENSIONS
         )
 
-    async def _store_manual(self, rom: Rom, url_manual: str):
+    async def _store_manual(self, rom: Rom, url_manual: str) -> None:
         manual_path = f"{rom.fs_resources_path}/manual"
         await self.make_directory(manual_path)
 
@@ -627,7 +627,7 @@ class FSResourcesHandler(FSHandler):
                                 # Content is not gzipped, stream directly
                                 async for chunk in response.aiter_raw():
                                     await f.write(chunk)
-            except httpx.TransportError as exc:
+            except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
                 return None
             except OSError as exc:
@@ -665,7 +665,7 @@ class FSResourcesHandler(FSHandler):
         await self._store_manual(rom, url_manual)
         return self._get_manual_path(rom)
 
-    async def remove_manual(self, rom: Rom):
+    async def remove_manual(self, rom: Rom) -> None:
         await self.remove_directory(f"{rom.fs_resources_path}/manual")
 
     # Retroachievements
@@ -691,7 +691,7 @@ class FSResourcesHandler(FSHandler):
                     ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
-        except httpx.TransportError as exc:
+        except httpx2.TransportError as exc:
             log.error(f"Unable to fetch badge at {url}: {str(exc)}")
         except OSError as exc:
             log.error(f"Unable to write badge for {url}: {str(exc)}")
@@ -763,7 +763,7 @@ class FSResourcesHandler(FSHandler):
                             ) as f:
                                 async for chunk in response.aiter_raw():
                                     await f.write(chunk)
-                except httpx.TransportError as exc:
+                except httpx2.TransportError as exc:
                     log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
                     return False
                 except OSError as exc:

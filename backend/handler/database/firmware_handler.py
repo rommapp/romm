@@ -1,4 +1,5 @@
 from collections.abc import Collection, Sequence
+from typing import Any
 
 from sqlalchemy import Select, and_, delete, select, update
 from sqlalchemy.orm import Session, noload
@@ -90,7 +91,7 @@ class DBFirmwareHandler(DBBaseHandler):
         platform_id: int,
         file_name: str,
         session: Session = None,  # type: ignore[assignment]
-    ):
+    ) -> Firmware | None:
         return session.scalar(
             select(Firmware)
             .filter_by(platform_id=platform_id, file_name=file_name)
@@ -101,7 +102,7 @@ class DBFirmwareHandler(DBBaseHandler):
     def update_firmware(
         self,
         id: int,
-        data: dict,
+        data: dict[str, Any],
         session: Session = None,  # type: ignore[assignment]
     ) -> Firmware:
         session.execute(

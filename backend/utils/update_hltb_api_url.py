@@ -7,7 +7,7 @@ import re
 import sys
 import time
 
-import httpx
+import httpx2
 
 from logger.logger import log
 from utils.context import create_httpx_client
@@ -33,7 +33,7 @@ API_ROUTE_REGEX = re.compile(r'["\'](?P<route>/api/[^"\']*)["\']')
 VALIDATION_SEARCH_TERM = "mario"
 
 
-def fetch_build_manifest(client: httpx.Client, base_url: str) -> str | None:
+def fetch_build_manifest(client: httpx2.Client, base_url: str) -> str | None:
     """Fetch the Next.js build manifest linked from the homepage."""
     headers = base_headers(base_url)
     homepage_url = f"{base_url}/"
@@ -46,7 +46,7 @@ def fetch_build_manifest(client: httpx.Client, base_url: str) -> str | None:
         log.warning("Could not locate the Next.js build manifest")
         return None
 
-    manifest_url = str(httpx.URL(homepage_url).join(match.group("path")))
+    manifest_url = str(httpx2.URL(homepage_url).join(match.group("path")))
     log.info("Located build manifest: %s", manifest_url)
 
     response = client.get(manifest_url, headers=headers, timeout=15)
@@ -68,7 +68,7 @@ def candidate_search_routes(manifest: str) -> list[str]:
 
 
 def _mint_session(
-    client: httpx.Client, base_url: str, search_url: str
+    client: httpx2.Client, base_url: str, search_url: str
 ) -> HLTBSession | None:
     """Mint a session at the candidate's /init, or None if it does not issue one."""
     response = client.get(
@@ -83,7 +83,7 @@ def _mint_session(
 
 
 def _rejection_reason(
-    client: httpx.Client, base_url: str, search_url: str
+    client: httpx2.Client, base_url: str, search_url: str
 ) -> str | None:
     try:
         session = _mint_session(client, base_url, search_url)
@@ -102,7 +102,7 @@ def _rejection_reason(
         if not isinstance(body, dict):
             return "search did not return a JSON object"
         results = body.get("data")
-    except (httpx.RequestError, httpx.HTTPStatusError, ValueError) as e:
+    except (httpx2.RequestError, httpx2.HTTPStatusError, ValueError) as e:
         return str(e)
 
     # The same shape search_games() reads.
@@ -118,7 +118,7 @@ def _rejection_reason(
     return None
 
 
-def serves_game_search(client: httpx.Client, base_url: str, search_url: str) -> bool:
+def serves_game_search(client: httpx2.Client, base_url: str, search_url: str) -> bool:
     """Check the candidate answers the search HLTBHandler sends, not just /init."""
     reason = _rejection_reason(client, base_url, search_url)
     if reason:
@@ -152,12 +152,12 @@ def discover_hltb_endpoint(base_url: str = HLTB_BASE_URL) -> str | None:
 
             log.warning("No candidate HLTB route served game search")
             return None
-    except (httpx.RequestError, httpx.HTTPStatusError) as e:
+    except (httpx2.RequestError, httpx2.HTTPStatusError) as e:
         log.warning("Error discovering HLTB endpoint: %s", e)
         return None
 
 
-def main():
+def main() -> None:
     """Main function to discover and update the HLTB API URL."""
     print("Starting HLTB API URL discovery...")
 

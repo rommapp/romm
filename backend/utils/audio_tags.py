@@ -3,12 +3,13 @@ from __future__ import annotations
 import mimetypes
 import os
 import re
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 import mutagen
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3
 from mutagen.mp4 import MP4
+from mutagen.ogg import OggFileType
 from mutagen.oggopus import OggOpus
 from mutagen.oggvorbis import OggVorbis
 
@@ -252,7 +253,7 @@ def _open_mutagen(full_path: str) -> mutagen.FileType | None:
         return None
 
     try:
-        return mutagen.File(full_path)
+        return cast(mutagen.FileType | None, mutagen.File(full_path))
     except Exception as exc:
         log.warning(f"[audio_tags] parse failed for {full_path}: {exc}")
         return None
@@ -311,7 +312,7 @@ def _extract_picture_from_flac(audio: FLAC) -> tuple[bytes, str] | None:
     return None
 
 
-def _extract_picture_from_ogg(audio: OggVorbis | OggOpus) -> tuple[bytes, str] | None:
+def _extract_picture_from_ogg(audio: OggFileType) -> tuple[bytes, str] | None:
     import base64
 
     pics = audio.get("metadata_block_picture") or []

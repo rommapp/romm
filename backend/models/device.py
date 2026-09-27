@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import JSON, TIMESTAMP, Boolean, Enum, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -72,7 +72,7 @@ class Device(BaseModel):
 
     sync_mode: Mapped[SyncMode] = mapped_column(Enum(SyncMode), default=SyncMode.API)
     sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    sync_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    sync_config: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
     last_seen: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), index=True

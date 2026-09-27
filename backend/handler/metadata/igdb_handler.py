@@ -1,8 +1,8 @@
 import re
 from collections.abc import Sequence
-from typing import Any, Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict, cast
 
-import httpx
+import httpx2
 import pydash
 from fastapi import status
 
@@ -988,7 +988,7 @@ class IGDBHandler(MetadataHandler):
 
 
 class TwitchAuth(MetadataHandler):
-    def __init__(self):
+    def __init__(self) -> None:
         self.BASE_URL = "https://id.twitch.tv/oauth2/token"
         self.params = {
             "client_id": IGDB_CLIENT_ID,
@@ -1030,7 +1030,7 @@ class TwitchAuth(MetadataHandler):
             response_json = res.json()
             token = response_json.get("access_token", "")
             expires_in = response_json.get("expires_in", 0)
-        except httpx.NetworkError:
+        except httpx2.NetworkError:
             log.critical("Can't connect to IGDB, check your internet connection.")
             return ""
 
@@ -1042,7 +1042,7 @@ class TwitchAuth(MetadataHandler):
 
         log.info("Twitch token fetched!")
 
-        return token
+        return cast(str, token)
 
     async def get_oauth_token(self) -> str:
         # Use a fake token when running tests

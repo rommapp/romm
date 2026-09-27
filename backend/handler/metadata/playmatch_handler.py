@@ -2,12 +2,13 @@ import asyncio
 import json
 from collections.abc import Iterable
 from enum import Enum
-from typing import Final, Literal, NotRequired, TypedDict, TypeIs, get_args
+from typing import Any, Final, Literal, NotRequired, TypedDict, TypeIs, get_args
 
-import httpx
+import httpx2
 import yarl
 from fastapi import status
 
+from adapters.services.response_validation import parse_response
 from config import PLAYMATCH_API_ENABLED, PLAYMATCH_API_URL
 from handler.metadata.base_handler import MetadataHandler, unavailable
 from logger.logger import log
@@ -123,7 +124,7 @@ class PlaymatchHandler(MetadataHandler):
     Handler for [Playmatch](https://github.com/RetroRealm/playmatch), a service for matching ROMs by Hashes.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_url = PLAYMATCH_API_URL
         self.identify_url = f"{self.base_url}/identify/ids"
         self.healthcheck_url = f"{self.base_url}/health"
@@ -154,7 +155,7 @@ class PlaymatchHandler(MetadataHandler):
 
         return True
 
-    async def _request(self, url: str, query: dict) -> dict:
+    async def _request(self, url: str, query: dict[str, Any]) -> dict[str, Any]:
         """
         Sends a Request to Playmatch API.
 
@@ -188,15 +189,18 @@ class PlaymatchHandler(MetadataHandler):
                     str(url_with_query), headers=headers, timeout=60
                 )
                 res.raise_for_status()
-                return res.json()
+                return (
+                    parse_response(dict[str, Any], res.content, source="Playmatch")
+                    or {}
+                )
             except (
-                httpx.HTTPStatusError,
-                httpx.ConnectError,
-                httpx.ReadTimeout,
+                httpx2.HTTPStatusError,
+                httpx2.ConnectError,
+                httpx2.ReadTimeout,
             ) as exc:
                 if (
                     attempt == 0
-                    and isinstance(exc, httpx.HTTPStatusError)
+                    and isinstance(exc, httpx2.HTTPStatusError)
                     and exc.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
                 ):
                     log.warning("Playmatch: rate limit hit, retrying after 2s")
@@ -243,6 +247,15 @@ class PlaymatchHandler(MetadataHandler):
             return fallback_rom
 
         hashes = match_file.lookup_hashes
+
+        # Folder ROM members carry generic names (a Wii U title's 00000005.app),
+        # so name and size alone match an unrelated game.
+        if not any(hashes) and match_file.full_path != match_file.rom.full_path:
+            log.debug(
+                "Skipping Playmatch lookup for %s: no hashes to identify it by",
+                match_file.full_path,
+            )
+            return fallback_rom
 
         try:
             response = await self._request(

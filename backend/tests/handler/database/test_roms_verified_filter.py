@@ -1,4 +1,4 @@
-"""The `verified` filter over the Hasheous signature-match flags.
+"""The `verified` filter over the Hasheous signature-match flags and RA hash match.
 
 `hasheous_metadata` is a JSON blob whose keys grow as RomM maps more of
 Hasheous' signature sources (`mame_redump_match` was the latest addition), so
@@ -7,17 +7,17 @@ key yields NULL, and an OR chain containing a NULL is NULL rather than false,
 which makes `NOT (...)` NULL too: the unverified side would drop every row it
 should have returned.
 
-The JSON path already collapses a missing key into false (SQLAlchemy compiles
-`as_boolean()` to a CASE whose ELSE branch catches it), so only the PostgreSQL
-`->>` extraction needs the coalesce. The suite runs against one driver at a
-time, hence the compiled-SQL check below.
+A coalesce folds that NULL to false on every engine. The suite runs against one
+driver at a time, hence the compiled-SQL check below.
 """
 
+from typing import Any
+
 import pytest
+from tests.sql_dialects import POSTGRESQL_DIALECT, compile_sql
 
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
-from handler.database.roms_handler import DBRomsHandler
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -36,7 +36,13 @@ LEGACY_KEYS = [
 ]
 
 
-def _add_rom(platform: Platform, user: User, name: str, metadata: dict) -> Rom:
+def _add_rom(
+    platform: Platform,
+    user: User,
+    name: str,
+    metadata: dict[str, Any],
+    ra_metadata: dict[str, Any] | None = None,
+) -> Rom:
     rom = db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,
@@ -48,6 +54,7 @@ def _add_rom(platform: Platform, user: User, name: str, metadata: dict) -> Rom:
             fs_extension="zip",
             fs_path=f"{platform.slug}/roms",
             hasheous_metadata=metadata,
+            ra_metadata=ra_metadata,
         )
     )
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=user.id)
@@ -86,6 +93,30 @@ def chd_verified_rom(platform: Platform, admin_user: User) -> Rom:
     )
 
 
+@pytest.fixture
+def ra_hash_verified_rom(platform: Platform, admin_user: User) -> Rom:
+    """Hasheous flagged nothing, but the ROM's RA hash is in RA's list."""
+    return _add_rom(
+        platform,
+        admin_user,
+        "ra_hash_verified",
+        {key: False for key in LEGACY_KEYS},
+        ra_metadata={"achievements": [], "hash_match": True},
+    )
+
+
+@pytest.fixture
+def ra_id_only_rom(platform: Platform, admin_user: User) -> Rom:
+    """Linked to an RA game whose hash list doesn't carry this ROM's RA hash."""
+    return _add_rom(
+        platform,
+        admin_user,
+        "ra_id_only",
+        {key: False for key in LEGACY_KEYS},
+        ra_metadata={"achievements": [], "hash_match": False},
+    )
+
+
 class TestVerifiedFilter:
     def test_unverified_keeps_roms_missing_the_newest_key(
         self,
@@ -118,25 +149,36 @@ class TestVerifiedFilter:
 
         assert [r.id for r in roms] == [rom.id]
 
+    def test_verified_includes_an_ra_hash_match(
+        self,
+        admin_user: User,
+        ra_hash_verified_rom: Rom,
+        ra_id_only_rom: Rom,
+    ):
+        verified = db_rom_handler.get_roms_scalar(user_id=admin_user.id, verified=True)
+        unverified = db_rom_handler.get_roms_scalar(
+            user_id=admin_user.id, verified=False
+        )
+
+        assert [r.id for r in verified] == [ra_hash_verified_rom.id]
+        assert [r.id for r in unverified] == [ra_id_only_rom.id]
+
 
 class TestVerifiedPostgresPredicate:
-    """The PostgreSQL branch builds raw SQL, so it can only be checked by
-    compiling it (the suite runs on a single driver at a time)."""
-
-    @pytest.fixture
-    def postgres_handler(self, postgres_driver: None) -> DBRomsHandler:
-        return db_rom_handler
-
     @pytest.mark.parametrize("verified", [True, False])
-    def test_every_key_is_coalesced_to_false(
-        self, postgres_handler: DBRomsHandler, verified: bool
-    ):
-        query, _ = postgres_handler.get_roms_query()
-        filtered = postgres_handler.filter_roms(
+    def test_every_key_is_coalesced_to_false(self, verified: bool):
+        query, _ = db_rom_handler.get_roms_query()
+        filtered = db_rom_handler.filter_roms(
             query=query, filters=RomFilterParams(verified=verified)
         )
 
-        sql = str(filtered.compile(compile_kwargs={"literal_binds": True}))
+        sql = compile_sql(filtered, POSTGRESQL_DIALECT, literal_binds=True)
 
         for key in [*LEGACY_KEYS, "mame_redump_match"]:
-            assert f"COALESCE((hasheous_metadata->>'{key}')::boolean, false)" in sql
+            assert (
+                f"coalesce(CAST((roms.hasheous_metadata ->> '{key}') AS BOOLEAN), "
+                "false)"
+            ) in sql
+        assert (
+            "coalesce(CAST((roms.ra_metadata ->> 'hash_match') AS BOOLEAN), false)"
+        ) in sql

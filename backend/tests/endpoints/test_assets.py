@@ -27,11 +27,11 @@ def test_delete_saves(client, access_token, save):
     assert len(body) == 1
 
     # No hash and no file to take one from, so nothing a device could match.
-    assert (
-        db_deleted_asset_handler.get_deletions(
+    assert not any(
+        record.content_hashes
+        for record in db_deleted_asset_handler.get_deletions(
             user_id=save.user_id, rom_ids=[save.rom_id]
         )
-        == []
     )
 
 

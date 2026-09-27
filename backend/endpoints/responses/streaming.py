@@ -31,17 +31,17 @@ class StreamingContainerSchema(BaseModel):
     supports_memory_cards: bool
     supports_save_picker: bool
     supports_live_states: bool
+    # Which foreign-emulator picks the broker declares it can import, empty when it
+    # declares none or cannot be asked.
     import_kinds: list[Literal["save", "state"]]
-    """Which foreign-emulator picks the broker declares it can import, empty
-    when it declares none or cannot be asked."""
 
 
 class StreamingConfigSchema(BaseModel):
     enabled: bool
     containers: list[StreamingContainerSchema]
+    # Display name per emulator id, so a save or state tagged with one can be labelled
+    # without a second copy of the map on the frontend.
     emulator_labels: dict[str, str]
-    """Display name per emulator id, so a save or state tagged with one can be
-    labelled without a second copy of the map on the frontend."""
 
 
 class SessionTerminationSchema(BaseModel):
@@ -65,12 +65,12 @@ class SessionTerminationSchema(BaseModel):
 class SessionStatusSchema(BaseModel):
     status: Literal["active", "ended"]
     platform: str
+    # Set while a webstation broker unpacks a pkg or archive, which is the part of a
+    # launch long enough that the player needs to see something.
     extraction_phase: str | None = None
-    """Set while a webstation broker unpacks a pkg or archive, which is the
-    part of a launch long enough that the player needs to see something."""
+    # The room URL of a launched session, for a tab that missed launch-ready, reported by
+    # the status poll only and left None by a heartbeat.
     host: str | None = None
-    """The room URL of a launched session, for a tab that missed launch-ready,
-    reported by the status poll only and left None by a heartbeat."""
     termination: SessionTerminationSchema | None = None
 
 
@@ -91,12 +91,12 @@ class LaunchReadyPayload(BaseModel):
 
     platform: str
     container: str
+    # The claim's stamp, since a re-claim of the same container shares its key.
     claimed_at: str
-    """The claim's stamp, since a re-claim of the same container shares its key."""
     host: str
+    # None when no resume was asked for; False means the state could not be pushed and the
+    # session started fresh.
     resume: bool | None = None
-    """None when no resume was asked for; False means the state could not be
-    pushed and the session started fresh."""
 
 
 class ImportRefusalSchema(BaseModel):
@@ -134,10 +134,10 @@ class ContainerBusyDetail(BaseModel):
     """The 409 body when a claim finds its container held."""
 
     message: str
+    # A previous session is still shutting down, rather than anyone holding it.
     draining: bool
-    """A previous session is still shutting down, rather than anyone holding it."""
+    # The game holding it, None when the caller may not see which.
     rom_name: str | None
-    """The game holding it, None when the caller may not see which."""
     claimed_at: str | None
 
 
@@ -264,16 +264,18 @@ class ContainerSessionSchema(BaseModel):
 
 class AdminContainerSchema(BaseModel):
     container: str
+    # What URLs call this container: its own label when unique, else the key.
+    name: str = ""
     label: str | None = None
     host: str
     platforms: list[str]
     supports_desktop: bool
+    # False for a container with no usable broker address: it can never be claimed, and
+    # saying so beats listing it as idle.
     configured: bool
-    """False for a container with no usable broker address: it can never be
-    claimed, and saying so beats listing it as idle."""
+    # The previous session's exit work is still running, so the container is held by
+    # nobody and about to come free.
     draining: bool = False
-    """The previous session's exit work is still running, so the container is
-    held by nobody and about to come free."""
     session: ContainerSessionSchema | None = None
 
 

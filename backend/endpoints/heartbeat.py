@@ -33,7 +33,12 @@ from config import (
 )
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
-from endpoints.responses.heartbeat import HeartbeatResponse
+from endpoints.responses.heartbeat import (
+    HeartbeatResponse,
+    SetupExistingPlatform,
+    SetupLibraryResponse,
+    SetupPlatformsResponse,
+)
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.base_handler import reset_link_base_url
 from handler.auth.constants import Scope
@@ -269,22 +274,18 @@ async def _probe_metadata_source(metadata_source: MetadataSource) -> bool:
     "/setup/library",
     [],
 )
-async def get_setup_library_info(request: Request):
+async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
     """Get library structure information for setup wizard.
 
     Only accessible during initial setup (no admin users) or with authentication.
 
     Returns:
-        - library_ready: whether the configured platforms folder exists on disk
-        - library_structure: the configured `filesystem.structure.default` template
-        - existing_platforms: list of objects with fs_slug and rom_count
-        - supported_platforms: list of all supported platforms with metadata
+        SetupLibraryResponse: The library folder state and the platforms to offer.
     """
 
     # Check authentication - only allow public access if no admin users
     # If admin users exist, this would need authentication (but won't be called during setup)
 
-    # If there are admin users already, enforce the USERS_WRITE scope.
     if (
         Scope.PLATFORMS_READ not in request.auth.scopes
         and len(db_user_handler.get_admin_users()) > 0
@@ -316,7 +317,7 @@ async def get_setup_library_info(request: Request):
         existing_platform_slugs = []
 
     # Build existing platforms with rom counts
-    existing_platforms = []
+    existing_platforms: list[SetupExistingPlatform] = []
     if library_ready and existing_platform_slugs:
         for fs_slug in existing_platform_slugs:
             rom_count = 0
@@ -368,7 +369,9 @@ async def get_setup_library_info(request: Request):
     [],
     status_code=status.HTTP_201_CREATED,
 )
-async def create_setup_platforms(request: Request, platform_slugs: list[str]):
+async def create_setup_platforms(
+    request: Request, platform_slugs: list[str]
+) -> SetupPlatformsResponse:
     """Create platform folders during setup wizard.
 
     Only accessible during initial setup (no admin users) or with authentication.
@@ -377,12 +380,9 @@ async def create_setup_platforms(request: Request, platform_slugs: list[str]):
         platform_slugs: List of platform fs_slugs to create
 
     Returns:
-        - success: bool
-        - created_count: number of platforms created
-        - message: success or error message
+        SetupPlatformsResponse: How many platform folders were created.
     """
 
-    # If there are admin users already, enforce the USERS_WRITE scope.
     if (
         Scope.PLATFORMS_WRITE not in request.auth.scopes
         and len(db_user_handler.get_admin_users()) > 0

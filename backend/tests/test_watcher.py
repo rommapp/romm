@@ -8,7 +8,10 @@ from rq.job import Job
 from watcher import EventType, get_pending_scan_coverage, process_changes
 
 from config import LIBRARY_BASE_PATH
-from config.config_manager import parse_structure_template
+from config.config_manager import config_manager, parse_structure_template
+from handler.database import db_platform_handler
+from handler.metadata import meta_igdb_handler
+from handler.redis_handler import scan_queue
 from handler.scan_handler import ScanType
 
 _job_ids = count()
@@ -136,16 +139,14 @@ class TestProcessChanges:
         config.EXCLUDED_SINGLE_FILES = []
         config.EXCLUDED_MULTI_FILES = []
         config.EXCLUDED_MULTI_PARTS_FILES = []
-        mocker.patch.object(watcher_module.cm, "get_config", return_value=config)
-        mocker.patch.object(
-            watcher_module.meta_igdb_handler, "is_enabled", return_value=True
-        )
+        mocker.patch.object(config_manager, "get_config", return_value=config)
+        mocker.patch.object(meta_igdb_handler, "is_enabled", return_value=True)
 
     @pytest.fixture
     def platform(self, mocker):
         db_platform = MagicMock(id=1, fs_slug="gba")
         mocker.patch.object(
-            watcher_module.db_platform_handler,
+            db_platform_handler,
             "get_platform_by_fs_slug",
             return_value=db_platform,
         )
@@ -153,7 +154,7 @@ class TestProcessChanges:
 
     @pytest.fixture
     def enqueue_in(self, mocker):
-        return mocker.patch.object(watcher_module.scan_queue, "enqueue_in")
+        return mocker.patch.object(scan_queue, "enqueue_in")
 
     def rom_change(self, fs_slug: str = "gba"):
         return (EventType.ADDED, f"{LIBRARY_BASE_PATH}/roms/{fs_slug}/game.gba")
@@ -234,7 +235,7 @@ class TestProcessChanges:
     def test_a_platform_missing_from_the_database_is_skipped(self, mocker, enqueue_in):
         patch_pending_jobs(mocker)
         mocker.patch.object(
-            watcher_module.db_platform_handler,
+            db_platform_handler,
             "get_platform_by_fs_slug",
             return_value=None,
         )

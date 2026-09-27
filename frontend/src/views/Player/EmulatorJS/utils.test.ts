@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SaveSchema } from "@/__generated__";
-import type { StateSchema } from "@/__generated__";
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import { sessionStateName } from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
 import {
@@ -178,6 +177,51 @@ describe("installEJSDefaultOptionsTrap", () => {
     const patched = emulator.preGetSetting;
     window.EJS_emulator = emulator;
     expect(emulator.preGetSetting).toBe(patched);
+  });
+
+  it("assigns pads the gamepad handler saw before its listener to players", () => {
+    const emulator = makeEmulator({});
+    emulator.gamepadSelection = ["", "", "", ""];
+    type Listener = (arg: { gamepadIndex: number }) => void;
+    const listeners: Record<string, Listener> = {};
+    emulator.gamepad = {
+      gamepads: [{ index: 0, id: "pad" }, null, { index: 2, id: "pad" }],
+      on(name: string, cb: Listener) {
+        listeners[name] = cb;
+      },
+      dispatchEvent(name: string, arg: { gamepadIndex: number }) {
+        listeners[name]?.(arg);
+      },
+    };
+    // Mirrors EmulatorJS 4.2.3's listener: fill the first free player slot.
+    const onConnected: Listener = ({ gamepadIndex }) => {
+      const pad = emulator.gamepad.gamepads[gamepadIndex];
+      const slot = emulator.gamepadSelection.indexOf("");
+      if (slot !== -1)
+        emulator.gamepadSelection[slot] = `${pad.id}_${pad.index}`;
+    };
+    emulator.gamepad.on("connected", onConnected);
+    window.EJS_emulator = emulator;
+    window.EJS_emulator = emulator;
+
+    expect(emulator.gamepadSelection).toEqual(["pad_0", "pad_2", "", ""]);
+  });
+
+  it("keeps booting when a replayed connected handler throws", () => {
+    const emulator = makeEmulator({});
+    emulator.gamepad = {
+      gamepads: [{ index: 1, id: "pad" }],
+      dispatchEvent() {
+        throw new TypeError("no such gamepad");
+      },
+    };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(() => {
+      window.EJS_emulator = emulator;
+    }).not.toThrow();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
 

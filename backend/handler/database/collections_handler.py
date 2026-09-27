@@ -36,7 +36,7 @@ from models.collection import (
     VirtualCollectionRom,
 )
 from models.rom import Rom
-from utils.database import json_array_contains_value
+from utils.sql_dialect import json_array_contains_value
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -155,7 +155,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def update_collection(
         self,
         id: int,
-        data: dict,
+        data: dict[str, Any],
         rom_ids: list[int] | None = None,
         query: Select[tuple[Collection]] = None,  # type: ignore[assignment]
         session: Session = None,  # type: ignore[assignment]
@@ -290,7 +290,7 @@ class DBCollectionsHandler(DBBaseHandler):
         if not collections:
             return
 
-        def covers_select(collection: VirtualCollection) -> Select:
+        def covers_select(collection: VirtualCollection) -> Select[Any]:
             return (
                 select(
                     VirtualCollectionRom.type,
@@ -348,7 +348,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         type: str,
         limit: int | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
+        only_fields: Sequence[QueryableAttribute[Any]] | None = None,
         session: Session = None,  # type: ignore[assignment]
     ) -> Sequence[VirtualCollection]:
         query = (
@@ -368,7 +368,7 @@ class DBCollectionsHandler(DBBaseHandler):
 
         return collections
 
-    def get_virtual_collection_rom_ids(self, id: str) -> Select:
+    def get_virtual_collection_rom_ids(self, id: str) -> Select[tuple[int]]:
         """Select the rom ids of a virtual collection, as an indexed subquery."""
         name, type = VirtualCollection.from_id(id)
         return select(VirtualCollectionRom.rom_id).where(
@@ -465,9 +465,7 @@ class DBCollectionsHandler(DBBaseHandler):
             session.scalars(
                 select(SmartCollection)
                 .where(
-                    json_array_contains_value(
-                        SmartCollection.rom_ids, rom_id, session=session
-                    ),
+                    json_array_contains_value(SmartCollection.rom_ids, rom_id),
                     or_(
                         SmartCollection.user_id == user_id,
                         SmartCollection.is_public,
@@ -514,14 +512,14 @@ class DBCollectionsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-    def build_smart_collection_query(
+    def build_smart_collection_query[S: Select[Any]](
         self,
         *,
-        query: Select,
+        query: S,
         smart_collection: SmartCollection,
         user_id: int | None,
         session: Session,
-    ) -> Select:
+    ) -> S:
         """Apply a smart collection's stored criteria to a ROM query.
 
         The criteria are `filter_roms`'s own vocabulary, so membership composes
@@ -568,7 +566,6 @@ class DBCollectionsHandler(DBBaseHandler):
             order_dir=criteria.get("order_dir", "asc"),
             search_term=criteria.get("search_term"),
             user_id=user_id,
-            session=session,
         )
         covers_query = self.build_smart_collection_query(
             query=query,
@@ -655,7 +652,7 @@ class DBCollectionsHandler(DBBaseHandler):
         rom_ids: Sequence[int],
         membership_only: bool = False,
         session: Session = None,  # type: ignore[assignment]
-    ):
+    ) -> None:
         """Refresh the collections a handful of changed ROMs touch.
 
         Editing one ROM rarely moves any collection, and asking whether given

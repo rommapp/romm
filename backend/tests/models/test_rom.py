@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 
 from handler.database import db_rom_handler
@@ -282,7 +284,7 @@ class TestFullPathHash:
         assert root.full_path_hash != nested.full_path_hash
 
 
-def _achievement(ra_id: int | None, display_order: int | None) -> dict:
+def _achievement(ra_id: int | None, display_order: int | None) -> dict[str, Any]:
     return {
         "ra_id": ra_id,
         "display_order": display_order,

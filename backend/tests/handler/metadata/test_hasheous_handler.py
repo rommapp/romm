@@ -1,7 +1,7 @@
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-import httpx
+import httpx2
 import pytest
 from fastapi import HTTPException
 
@@ -56,14 +56,14 @@ def test_involvements_are_optional():
 @pytest.mark.parametrize(
     "failure",
     [
-        httpx.HTTPStatusError(
+        httpx2.HTTPStatusError(
             "boom",
-            request=httpx.Request("POST", "https://hasheous.org/api"),
-            response=httpx.Response(
-                500, request=httpx.Request("POST", "https://hasheous.org/api")
+            request=httpx2.Request("POST", "https://hasheous.org/api"),
+            response=httpx2.Response(
+                500, request=httpx2.Request("POST", "https://hasheous.org/api")
             ),
         ),
-        httpx.TimeoutException("too slow"),
+        httpx2.TimeoutException("too slow"),
     ],
     ids=["server_error", "timeout"],
 )

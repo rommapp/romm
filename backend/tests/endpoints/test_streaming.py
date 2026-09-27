@@ -8,10 +8,10 @@ import zipfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -57,16 +57,28 @@ from handler.streaming.capabilities import (
     state_transfer_limits,
 )
 from handler.streaming.config import (
+    CONTAINER_NAME_MAX_LENGTH,
     ResolvedContainer,
     _derive_broker_host,
     configured_emulator,
+    container_for_session,
+    container_names,
+    containers_by_key,
+    containers_for_platform,
     emulator_display_label,
+    key_for_name,
     pools_for_platform,
     reset_cache,
     resolve_containers,
     resolve_entry,
 )
 from handler.streaming.protocol import protocol_for
+from handler.streaming.session_store import (
+    STREAMING_SESSION_DRAIN_SECONDS,
+    STREAMING_SESSION_TTL_SECONDS,
+    StreamingSessionContended,
+    release_own_session,
+)
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.notification import NotificationKind
 from models.permission import HiddenEntity, PermEntity
@@ -190,7 +202,7 @@ def _container_for(rom: Rom, broker_host="http://192.168.1.10:8000"):
     }
 
 
-def _resolved(entry: dict | ResolvedContainer) -> ResolvedContainer:
+def _resolved(entry: dict[str, Any] | ResolvedContainer) -> ResolvedContainer:
     """The record the resolver builds for one raw entry, for a unit test that
     calls an internal directly. A record passes straight through."""
     if not isinstance(entry, dict):
@@ -202,7 +214,7 @@ def _resolved(entry: dict | ResolvedContainer) -> ResolvedContainer:
 
 def _first_container(platform: str):
     """The container a claim for this platform would try first, or None."""
-    candidates = streaming.containers_for_platform(platform)
+    candidates = containers_for_platform(platform)
     return candidates[0] if candidates else None
 
 
@@ -245,7 +257,7 @@ def _load_session(key: str) -> dict[str, Any]:
     """The session stored at `key`, failing the test if nothing is there."""
     raw = asyncio.run(async_cache.get(key))
     assert raw is not None, f"no session stored at {key}"
-    return json.loads(raw)
+    return cast(dict[str, Any], json.loads(raw))
 
 
 def _claim(client, token, rom_id, state_id=None, save_id=None):
@@ -694,7 +706,7 @@ def test_a_container_that_disagrees_on_clearing_saves_is_a_pool_of_its_own(caplo
     try:
         with _streaming(first, second):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert [c.clears_stale_saves for c in candidates] == [True]
@@ -716,7 +728,7 @@ def test_legacy_containers_still_pool_under_an_inert_clearing_flag():
         "clears_stale_saves": False,
     }
     with _streaming(first, second):
-        candidates = streaming.containers_for_platform("ps2")
+        candidates = containers_for_platform("ps2")
     assert len(candidates) == 2
 
 
@@ -1273,8 +1285,8 @@ async def test_claim_sets_session_ttl(access_token, rom: Rom):
     the container instead of wedging it forever."""
     with _streaming(_container_for(rom)):
         with patch("handler.streaming.commands.launch"):
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            async with httpx2.AsyncClient(
+                transport=httpx2.ASGITransport(app=app), base_url="http://test"
             ) as ac:
                 r = await ac.post(
                     "/api/streaming/sessions",
@@ -1285,7 +1297,7 @@ async def test_claim_sets_session_ttl(access_token, rom: Rom):
     key = session_store.session_redis_key(_key_of(_container_for(rom)))
     ttl = await async_cache.ttl(key)
     assert ttl > 0
-    assert ttl <= streaming.STREAMING_SESSION_TTL_SECONDS
+    assert ttl <= STREAMING_SESSION_TTL_SECONDS
 
 
 def test_second_claim_on_same_container_rejected(client, access_token, rom: Rom):
@@ -1352,8 +1364,8 @@ async def test_concurrent_claim_only_one_succeeds(access_token, rom: Rom):
     """Two concurrent claims on one container: exactly one 200 and one 409."""
     with _streaming(_container_for(rom)):
         with patch("handler.streaming.commands.launch"):
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            async with httpx2.AsyncClient(
+                transport=httpx2.ASGITransport(app=app), base_url="http://test"
             ) as ac:
                 headers = _auth(access_token)
                 r1, r2 = await asyncio.gather(
@@ -1374,7 +1386,7 @@ async def test_concurrent_claim_only_one_succeeds(access_token, rom: Rom):
 # ── Container pool ────────────────────────────────────────────────────────────
 
 
-def _pool_member(rom: Rom, index: int) -> dict:
+def _pool_member(rom: Rom, index: int) -> dict[str, Any]:
     """One member of a pool serving the ROM's platform. Distinct hosts, so both
     the session key and the claim response say which member served. No label,
     since the emulator falls back to it and pool members must agree on that."""
@@ -1394,12 +1406,12 @@ def _volume(client, token, platform: str, level: int = 42, params=None):
     )
 
 
-def _session_raw(container: dict):
+def _session_raw(container: dict[str, Any]):
     key = session_store.session_redis_key(_key_of(container))
     return asyncio.run(async_cache.get(key))
 
 
-def _drain(container: dict) -> None:
+def _drain(container: dict[str, Any]) -> None:
     session = _load_session(session_store.session_redis_key(_key_of(container)))
     token = asyncio.run(session_store.claim_drain_marker(_key_of(container), session))
     assert token is not None
@@ -1753,13 +1765,16 @@ def test_admin_release_rejects_a_container_that_serves_another_platform(
     assert r.status_code == 404
 
 
-def _in_a_later_ps2_pool() -> dict:
+def _in_a_later_ps2_pool() -> dict[str, Any]:
     """A second webstation that disagrees with `_webstation()` on the ps2
     emulator, so it forms a later ps2 pool."""
-    return _webstation(
-        host="http://192.168.1.11:3000",
-        broker_host="http://192.168.1.11:8000",
-        platforms={"ps2": "play", "ngc": "dolphin"},
+    return cast(
+        dict[str, Any],
+        _webstation(
+            host="http://192.168.1.11:3000",
+            broker_host="http://192.168.1.11:8000",
+            platforms={"ps2": "play", "ngc": "dolphin"},
+        ),
     )
 
 
@@ -1771,7 +1786,7 @@ def test_admin_release_ends_a_session_on_a_container_in_a_later_pool(
     later = _in_a_later_ps2_pool()
     with _streaming(_webstation(), later):
         key = _key_of(later)
-        assert key not in [c.key for c in streaming.containers_for_platform("ps2")]
+        assert key not in [c.key for c in containers_for_platform("ps2")]
         assert _desktop(client, access_token, key)[0].status_code == 200
         with _stub_stop():
             r = client.delete(
@@ -1983,7 +1998,7 @@ def test_a_container_that_disagrees_on_the_emulator_is_a_later_pool(caplog):
         with _streaming(first, second, third):
             with caplog.at_level(logging.WARNING, logger="romm"):
                 pools = pools_for_platform("ps2")
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert [[c.emulator for c in pool] for pool in pools] == [
@@ -2015,9 +2030,9 @@ def test_a_fresh_process_does_not_repeat_the_later_pool_warning(caplog):
     try:
         with caplog.at_level(logging.WARNING, logger="romm"):
             with _streaming(first, second):
-                streaming.containers_for_platform("ps2")
+                containers_for_platform("ps2")
             with _streaming(first, second):
-                streaming.containers_for_platform("ps2")
+                containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert caplog.text.count("never claimed for a game") == 1
@@ -2052,7 +2067,7 @@ def test_webstation_pool_members_at_different_subfolders_are_still_a_pool(caplog
     try:
         with _streaming(first, second):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert [c.broker_host for c in candidates] == [
@@ -2078,7 +2093,7 @@ def test_a_proxied_host_disagreeing_with_its_subfolder_cannot_be_claimed(caplog)
     try:
         with _streaming(entry):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
                 listed = resolve_containers()
     finally:
         romm_logger.removeHandler(caplog.handler)
@@ -2103,7 +2118,7 @@ def test_a_subfolder_left_to_its_default_is_caught_against_the_mount_path(caplog
     try:
         with _streaming(entry):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert candidates == []
@@ -2121,7 +2136,7 @@ def test_a_container_mounted_at_the_root_agrees_with_an_empty_subfolder():
         "emulator": "pcsx2",
     }
     with _streaming(entry):
-        candidates = streaming.containers_for_platform("ps2")
+        candidates = containers_for_platform("ps2")
     assert [c.broker_host for c in candidates] == ["http://192.168.1.11:8000"]
 
 
@@ -2137,7 +2152,7 @@ def test_a_bare_origin_host_may_differ_from_its_subfolder():
         "emulator": "pcsx2",
     }
     with _streaming(entry):
-        candidates = streaming.containers_for_platform("ps2")
+        candidates = containers_for_platform("ps2")
     assert [c.broker_host for c in candidates] == ["http://192.168.1.11:8000"]
 
 
@@ -2157,7 +2172,7 @@ def test_a_cross_origin_mount_path_is_checked_against_the_subfolder(caplog):
     try:
         with _streaming(entry):
             with caplog.at_level(logging.WARNING, logger="romm"):
-                candidates = streaming.containers_for_platform("ps2")
+                candidates = containers_for_platform("ps2")
     finally:
         romm_logger.removeHandler(caplog.handler)
     assert candidates == []
@@ -2195,16 +2210,112 @@ def test_the_session_platform_picks_the_config_entry_for_its_container():
     platform under one key, so the admin views must not read an arbitrary one:
     the platform-keyed fields (emulator, card sync) differ between them."""
     with _streaming(_nested()):
-        grouped = streaming.containers_by_key()
+        grouped = containers_by_key()
         key = _key_of(_first_container("ps2"))
     assert len(grouped[key]) == 2
     for platform in ("ps2", "ngc"):
-        entry = streaming.container_for_session(grouped, key, platform)
+        entry = container_for_session(grouped, key, platform)
         assert entry is not None
         assert entry.platform == platform
     # A session predating the platform field still resolves to a real entry.
-    assert streaming.container_for_session(grouped, key, None) is not None
-    assert streaming.container_for_session(grouped, "http://nope:8000", "ps2") is None
+    assert container_for_session(grouped, key, None) is not None
+    assert container_for_session(grouped, "http://nope:8000", "ps2") is None
+
+
+# ── Container names ───────────────────────────────────────────────────────────
+
+
+def _labelled(label: str | None, index: int) -> dict[str, Any]:
+    """A webstation container on its own host, with the given label."""
+    return {
+        "host": f"http://192.168.1.{index}:3000",
+        "broker_host": f"http://192.168.1.{index}:8000",
+        "protocol": "webstation",
+        "platforms": {"ps2": "pcsx2"},
+        **({"label": label} if label is not None else {}),
+    }
+
+
+def test_a_labelled_container_is_named_by_its_label():
+    entry = _labelled("WEBSTATION-DEV", 10)
+    with _streaming(entry):
+        names = container_names()
+        key = key_for_name("WEBSTATION-DEV")
+    assert names == {_key_of(entry): "WEBSTATION-DEV"}
+    assert key == _key_of(entry)
+
+
+def test_an_unlabelled_container_is_named_by_its_key():
+    entry = _labelled(None, 10)
+    with _streaming(entry):
+        assert container_names() == {_key_of(entry): _key_of(entry)}
+
+
+def test_a_name_matches_its_label_in_any_case():
+    entry = _labelled("Emulation station", 10)
+    with _streaming(entry):
+        assert key_for_name("emulation STATION") == _key_of(entry)
+
+
+def test_a_key_still_names_a_labelled_container():
+    """Links from before names existed carry the key."""
+    entry = _labelled("WEBSTATION-DEV", 10)
+    with _streaming(entry):
+        assert key_for_name(_key_of(entry)) == _key_of(entry)
+
+
+def test_an_unknown_name_matches_nothing():
+    with _streaming(_labelled("WEBSTATION-DEV", 10)):
+        assert key_for_name("WEBSTATION-OTHER") is None
+
+
+def test_a_shared_label_names_neither_container(caplog):
+    first = _labelled("Webstation", 10)
+    second = _labelled("webstation", 11)
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with _streaming(first, second):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                names = container_names()
+                key = key_for_name("Webstation")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+    assert names == {_key_of(first): _key_of(first), _key_of(second): _key_of(second)}
+    assert key is None
+    assert "share the label" in caplog.text
+
+
+def test_a_label_cannot_take_another_containers_key():
+    """A label spelled like another container's key must not redirect it."""
+    target = _labelled("Target", 10)
+    impostor = _labelled(_key_of(target), 11)
+    with _streaming(target, impostor):
+        names = container_names()
+        key = key_for_name(_key_of(target))
+    assert names[_key_of(impostor)] == _key_of(impostor)
+    assert key == _key_of(target)
+
+
+def test_a_label_matching_another_containers_key_in_any_case_names_neither():
+    target = _labelled("Target", 10)
+    impostor = _labelled(_key_of(target).upper(), 11)
+    with _streaming(target, impostor):
+        names = container_names()
+    assert names[_key_of(impostor)] == _key_of(impostor)
+
+
+def test_a_label_too_long_for_a_url_names_nothing():
+    entry = _labelled("x" * (CONTAINER_NAME_MAX_LENGTH + 1), 10)
+    with _streaming(entry):
+        assert container_names() == {_key_of(entry): _key_of(entry)}
+
+
+def test_an_unclaimable_container_has_no_name():
+    broken = _labelled("Broken", 10) | {"host": "192.168.1.10:3000", "broker_host": ""}
+    with _streaming(broken):
+        assert container_names() == {}
+        assert key_for_name("Broken") is None
 
 
 # ── Desktop sessions ──────────────────────────────────────────────────────────
@@ -2237,7 +2348,7 @@ def _key_of(container) -> str:
     """The session key a container is claimed under, from either a raw config
     entry or a resolved record."""
     if not isinstance(container, dict):
-        return container.key
+        return cast(str, container.key)
     protocol = protocol_for(container.get("protocol"), container.get("subfolder"))
     return _derive_broker_host(container, protocol) or ""
 
@@ -2314,6 +2425,43 @@ def test_containers_shows_what_is_running(client, access_token):
     assert session["rom_name"] == ps2_rom.name
     assert session["desktop"] is False
     assert session["username"] == "test_admin"
+
+
+def test_containers_reports_each_containers_name(client, access_token):
+    labelled = _webstation(label="WEBSTATION-DEV")
+    unlabelled = _webstation(
+        label=None,
+        host="http://192.168.1.11:3000",
+        broker_host="http://192.168.1.11:8000",
+    )
+    with _streaming(labelled, unlabelled):
+        rows = _containers(client, access_token).json()["containers"]
+    assert [row["name"] for row in rows] == ["WEBSTATION-DEV", _key_of(unlabelled)]
+    assert rows[0]["container"] == _key_of(labelled)
+
+
+def test_desktop_opens_by_label(client, access_token):
+    container = _webstation(label="Emulation station")
+    with _streaming(container):
+        response, activate = _desktop(client, access_token, "emulation station")
+    assert response.status_code == 200
+    assert response.json()["container"] == _key_of(container)
+    activate.assert_called_once()
+
+
+def test_desktop_still_opens_by_key(client, access_token):
+    container = _webstation(label="WEBSTATION-DEV")
+    with _streaming(container):
+        response, _ = _desktop(client, access_token, _key_of(container))
+    assert response.status_code == 200
+    assert response.json()["container"] == _key_of(container)
+
+
+def test_desktop_refuses_an_unknown_name(client, access_token):
+    with _streaming(_webstation(label="WEBSTATION-DEV")):
+        response, activate = _desktop(client, access_token, "WEBSTATION-OTHER")
+    assert response.status_code == 404
+    activate.assert_not_called()
 
 
 def test_containers_is_admin_only(client, viewer_access_token):
@@ -2568,7 +2716,7 @@ def _webstation_ps2():
         return _first_container("ps2")
 
 
-def _webstation_json(body: dict):
+def _webstation_json(body: dict[str, Any]):
     """urlopen stub answering one webstation broker call with `body`."""
     resp = MagicMock()
     resp.__enter__.return_value.read.side_effect = _reads(json.dumps(body).encode())
@@ -2658,7 +2806,7 @@ def test_swap_disc_broker_has_nothing_to_call_on_a_legacy_container():
 # ── Staleness / heartbeat ─────────────────────────────────────────────────────
 
 
-def _age_session_on(container: dict, seconds: int) -> None:
+def _age_session_on(container: dict[str, Any], seconds: int) -> None:
     """Rewrite one container's stored session last_seen to `seconds` ago."""
     key = session_store.session_redis_key(_key_of(container))
     session = _load_session(key)
@@ -3431,7 +3579,7 @@ def test_reclaim_clears_termination_notice(
 # ── Launch progress ───────────────────────────────────────────────────────────
 
 
-def _unstamp_launch(container: dict) -> None:
+def _unstamp_launch(container: dict[str, Any]) -> None:
     """Drop the launched_at stamp, leaving the record in the state a claim
     holds while its activate is still running."""
     key = session_store.session_redis_key(_key_of(container))
@@ -3627,7 +3775,7 @@ def test_save_state_by_other_user_is_forbidden(
     assert r.status_code == 403
 
 
-async def _run_spawned(tasks: list) -> None:
+async def _run_spawned(tasks: list[object]) -> None:
     """Run what the route handed to the mocked _spawn_sync_task."""
     for task in tasks:
         if asyncio.iscoroutine(task):
@@ -3647,7 +3795,7 @@ def test_save_and_exit_releases_session_once_the_state_is_pulled(
 ):
     """The broker keeps the exited session's state only until the next
     activate, so the claim holds while the pull runs and goes when it lands."""
-    spawned: list = []
+    spawned: list[object] = []
     with _streaming(_container_for(rom)):
         _claim_ok(client, access_token, rom.id)
         with (
@@ -3933,7 +4081,7 @@ def _written_screenshot(write_file: AsyncMock) -> bytes:
         c for c in write_file.await_args_list if c.kwargs["filename"].endswith(".png")
     ]
     assert len(calls) == 1, "expected exactly one screenshot write"
-    return calls[0].kwargs["file"]
+    return cast(bytes, calls[0].kwargs["file"])
 
 
 def test_claim_spawns_state_hydration(client, access_token, rom: Rom):
@@ -4077,11 +4225,7 @@ def test_save_and_exit_holds_the_container_until_the_state_is_pulled(
     # dying mid-pull does not park the container for the length of a transfer
     # nobody is doing.
     assert session_store.DRAIN_MARKER_TTL > 2 * session_store._DRAIN_MARKER_REFRESH
-    assert (
-        streaming.STREAMING_SESSION_DRAIN_SECONDS
-        < ttl
-        <= session_store.DRAIN_MARKER_TTL
-    )
+    assert STREAMING_SESSION_DRAIN_SECONDS < ttl <= session_store.DRAIN_MARKER_TTL
 
 
 def test_save_and_exit_without_a_rom_drains_only_briefly(
@@ -4097,9 +4241,7 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
         session = _load_session(key)
         session.pop("rom_id")
         asyncio.run(
-            async_cache.set(
-                key, json.dumps(session), ex=streaming.STREAMING_SESSION_TTL_SECONDS
-            )
+            async_cache.set(key, json.dumps(session), ex=STREAMING_SESSION_TTL_SECONDS)
         )
         with (
             patch(
@@ -4116,16 +4258,14 @@ def test_save_and_exit_without_a_rom_drains_only_briefly(
     assert r.status_code == 200
     spawn.assert_not_called()
     ttl = asyncio.run(async_cache.ttl(key))
-    assert 0 < ttl <= streaming.STREAMING_SESSION_DRAIN_SECONDS
+    assert 0 < ttl <= STREAMING_SESSION_DRAIN_SECONDS
 
 
-def _session_at(key: str, **fields) -> dict:
+def _session_at(key: str, **fields) -> dict[str, Any]:
     """Put a session on the key and hand back the claim a route would hold."""
     session = {"user_id": 1, "claimed_at": "2026-01-01T00:00:00+00:00", **fields}
     asyncio.run(
-        async_cache.set(
-            key, json.dumps(session), ex=streaming.STREAMING_SESSION_TTL_SECONDS
-        )
+        async_cache.set(key, json.dumps(session), ex=STREAMING_SESSION_TTL_SECONDS)
     )
     return session
 
@@ -4222,7 +4362,7 @@ def test_a_write_that_lands_on_nothing_is_contention_not_success():
             return False
 
     with patch.object(async_cache, "pipeline", lambda: _NoOpPipe()):
-        with pytest.raises(streaming.StreamingSessionContended):
+        with pytest.raises(StreamingSessionContended):
             asyncio.run(
                 session_store.claim_drain_marker(
                     "cas-noop", {"user_id": 1, "claimed_at": "x"}
@@ -5040,7 +5180,7 @@ def test_hydrate_saves_no_matching_save_returns_false(rom: Rom, admin_user: User
     push.assert_not_called()
 
 
-def _clearing_webstation(rom: Rom) -> dict:
+def _clearing_webstation(rom: Rom) -> dict[str, Any]:
     """A webstation container whose emulator empties the save tree before a
     restore, the only kind that honours a pick other than the newest."""
     return {
@@ -5412,6 +5552,56 @@ def test_build_import_archive_expands_a_foreign_zips_own_members():
         assert zf.read(".import/save/save.mcr") == b"card-bytes"
 
 
+def test_build_import_archive_keeps_a_zip_shaped_state_whole():
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    inner = io.BytesIO()
+    with zipfile.ZipFile(inner, "w") as izf:
+        izf.writestr("eeMemory.bin", b"ee-bytes")
+    member = imports.ForeignMember(
+        kind="state",
+        name="SLUS-20062 (ABCD1234).01.p2s",
+        content=inner.getvalue(),
+        origin="standalone",
+    )
+    zip_bytes, carried = imports.build_import_archive(
+        rom_id=7, base=None, members=[member]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        assert zf.read(".import/state/SLUS-20062 (ABCD1234).01.p2s") == inner.getvalue()
+    assert [f["path"] for f in carried] == [
+        ".import/state/SLUS-20062 (ABCD1234).01.p2s"
+    ]
+
+
+def test_build_import_archive_names_a_carried_entry_by_its_staged_path():
+    from tests._zipfile_shim import reload_zipfile
+
+    # zipfile-inflate64 in the import chain breaks writestr; restore stdlib first.
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        bzf.writestr("saves\\Game.srm", b"native-save-bytes")
+        bzf.writestr(
+            ".broker-manifest.json",
+            json.dumps(
+                {"version": 1, "files": [{"path": "saves\\Game.srm", "kind": "save"}]}
+            ),
+        )
+    _zip_bytes, carried = imports.build_import_archive(
+        rom_id=7,
+        base=("Game.saves.zip", base_zip.getvalue()),
+        members=[
+            imports.ForeignMember(
+                kind="state", name="Game.00.pcsx2", content=b"s", origin="standalone"
+            )
+        ],
+    )
+    assert {"path": "saves/Game.srm", "kind": "save"} in carried
+
+
 def test_build_import_archive_keeps_a_native_base_alongside_a_foreign_state():
     """One native save and one foreign state in the same launch: the save
     stays entirely on its own v1 entry, only the state gets an import
@@ -5609,6 +5799,74 @@ def test_build_import_archive_rejects_a_foreign_member_over_the_expanded_byte_bu
     ):
         with pytest.raises(ValueError):
             imports.build_import_archive(rom_id=7, base=None, members=[member])
+
+
+def _understated_zip(name: str, content: bytes, declared_size: int) -> bytes:
+    """A one-entry zip whose central directory understates the entry's size."""
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(name, content)
+    raw = bytearray(buf.getvalue())
+    central = raw.rindex(b"PK\x01\x02")
+    raw[central + 24 : central + 28] = declared_size.to_bytes(4, "little")
+    return bytes(raw)
+
+
+def test_build_import_archive_does_not_inflate_past_a_members_declared_size():
+    import tracemalloc
+
+    bomb = _understated_zip("Game.srm", b"\0" * (64 * 1024 * 1024), 16)
+    tracemalloc.start()
+    try:
+        with pytest.raises(zipfile.BadZipFile):
+            imports.build_import_archive(
+                rom_id=7, base=("Game.saves.zip", bomb), members=[]
+            )
+        _current, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 16 * 1024 * 1024
+
+
+def test_manifest_files_rejects_a_manifest_over_the_size_cap():
+    """Dropping it would lose which entries are states, so a replaced state
+    would ride along as a save."""
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    manifest = {"files": [{"path": "Game.srm", "kind": "save"}], "pad": "x" * 64}
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(".broker-manifest.json", json.dumps(manifest))
+    with (
+        patch("handler.streaming.imports._MAX_MANIFEST_BYTES", 32),
+        zipfile.ZipFile(buf) as zf,
+        pytest.raises(ValueError),
+    ):
+        imports._manifest_files(zf)
+
+
+def test_build_import_archive_rebuilds_a_symlink_entry_as_a_regular_file():
+    import stat
+
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    base_zip = io.BytesIO()
+    with zipfile.ZipFile(base_zip, "w") as bzf:
+        link = zipfile.ZipInfo("Game.srm")
+        link.external_attr = (stat.S_IFLNK | 0o777) << 16
+        bzf.writestr(link, b"/etc/passwd")
+    zip_bytes, _carried = imports.build_import_archive(
+        rom_id=7, base=("Game.saves.zip", base_zip.getvalue()), members=[]
+    )
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        mode = zf.getinfo("Game.srm").external_attr >> 16
+    assert stat.S_ISREG(mode)
+    assert stat.S_IMODE(mode) == 0o777
 
 
 def test_hydrate_import_archive_uploads_a_foreign_save_with_no_native_base(
@@ -6506,7 +6764,7 @@ def test_a_webstation_save_and_exit_takes_one_answer_only_once_its_exit_answers(
     client,
     access_token,
     rom: Rom,
-    exit_report: dict | None,
+    exit_report: dict[str, Any] | None,
     wait: bool,
     attempts: int,
 ):
@@ -6602,7 +6860,7 @@ def test_a_force_release_keeps_asking_while_the_emulator_flushes(
     assert fetch.call_count == broker.PULL_ATTEMPTS
 
 
-def _broker_saves(body: dict):
+def _broker_saves(body: dict[str, Any]):
     """A broker whose save-and-exit answers with `body`, and nothing else."""
     return lambda _container, path, *args, **kwargs: (
         body if path == "/save-and-exit" else None
@@ -6679,7 +6937,7 @@ def test_save_and_exit_marks_the_save_pull_before_giving_up_the_key(
     it the moment it goes and has to find the pull already pending."""
     key = saves._save_pull_redis_key(admin_user.id, rom.id)
     pending_at_release: list[int] = []
-    real_release = streaming.release_own_session
+    real_release = release_own_session
 
     async def release_after_looking(*args, **kwargs):
         pending_at_release.append(await async_cache.exists(key))
@@ -6914,7 +7172,7 @@ def test_stamped_exit_state_filename_round_trips(emulator, name, shape):
 
 
 class _ResumeClaim(NamedTuple):
-    response: httpx.Response
+    response: httpx2.Response
     ready: dict[str, Any]
     push: MagicMock
     call_broker: MagicMock
@@ -7043,7 +7301,7 @@ def test_claim_without_state_reports_no_resume(client, access_token, rom: Rom):
 # ── Webstation state sync ─────────────────────────────────────────────────────
 
 
-def _webstation_for(rom: Rom) -> dict:
+def _webstation_for(rom: Rom) -> dict[str, Any]:
     """The container a claim for this ROM's platform lands on, webstation side."""
     return {**_container_for(rom), "protocol": "webstation", "label": "PCSX2"}
 
@@ -7278,6 +7536,43 @@ def test_an_older_exit_state_stays_off_the_import_path_without_broker_support(
     assert run_launch_mock.call_args.kwargs["archive_path"] == "/romm/saves/archive.zip"
 
 
+def test_a_rewritten_older_state_is_still_not_the_archives_capture(
+    client, access_token, rom: Rom, admin_user: User
+):
+    older = db_state_handler.add_state(
+        _state_for(
+            rom,
+            admin_user,
+            "SLUS-00594_resume.20260917-010000000000.sav",
+            "duckstation",
+        )
+    )
+    db_state_handler.add_state(
+        _state_for(
+            rom,
+            admin_user,
+            "SLUS-00594_resume.20260918-010000000000.sav",
+            "duckstation",
+        )
+    )
+    db_state_handler.update_state(
+        older.id, {"updated_at": datetime.now(timezone.utc) + timedelta(days=1)}
+    )
+    run_launch_mock = AsyncMock()
+    with _streaming({**_webstation_for(rom), "emulator": "duckstation"}):
+        with (
+            patch("handler.streaming.webstation.import_spec", return_value=None),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.zip"),
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(client, access_token, rom.id, state_id=older.id)
+    assert r.status_code == 202
+    assert run_launch_mock.call_args.kwargs["resume_import"] == "lost"
+
+
 def _duckstation_pairing(rom: Rom, user: User) -> tuple[Save, Save, State]:
     """An older and a newer DuckStation archive, plus the newest capture."""
     older, newer = (
@@ -7294,7 +7589,7 @@ def _duckstation_pairing(rom: Rom, user: User) -> tuple[Save, Save, State]:
     return older, newer, state
 
 
-def _clearing_duckstation(rom: Rom) -> dict:
+def _clearing_duckstation(rom: Rom) -> dict[str, Any]:
     return {
         **_webstation_for(rom),
         "emulator": "duckstation",
@@ -7622,7 +7917,7 @@ def _mc_container_for(rom: Rom, broker_host="http://192.168.1.10:8000"):
 
 
 def _mc_claim(client, token, rom_id, memory_card_id=None, card_import=None):
-    body: dict = {"rom_id": rom_id}
+    body: dict[str, Any] = {"rom_id": rom_id}
     if memory_card_id is not None:
         body["memory_card_id"] = memory_card_id
     if card_import is not None:
@@ -7911,7 +8206,7 @@ def test_raise_http_error_raises_import_refused_as_a_typed_error():
         }
     ).encode()
     exc = _http_error(422)
-    with patch.object(exc, "read", return_value=payload):
+    with patch.object(exc, "read", side_effect=_reads(payload)):
         with pytest.raises(broker.ImportRefusedError) as raised:
             broker.raise_http_error(exc)
     assert raised.value.truncated == 0
@@ -7920,13 +8215,67 @@ def test_raise_http_error_raises_import_refused_as_a_typed_error():
     assert raised.value.refusals[0].member == ".import/save/Game.mcr"
 
 
+def test_raise_http_error_parses_a_refusal_list_at_the_brokers_cap():
+    import http.client
+    import urllib.error
+
+    refusal = {
+        "reason": "unrecognised_layout",
+        "expected": "<card>/" + "x" * 200,
+        "detail": "plan is partial: other members were refused",
+        "suggest_emulator": None,
+        "docs": "/docs/api/imports#unrecognised-layout",
+    }
+    payload = json.dumps(
+        {
+            "detail": {
+                "error": "import_refused",
+                "refusals": [
+                    {**refusal, "member": f".import/save/card/{i:04d}/" + "y" * 100}
+                    for i in range(200)
+                ],
+                "truncated": 40,
+            }
+        }
+    ).encode()
+    assert len(payload) > 64 * 1024
+    exc = urllib.error.HTTPError(
+        "http://broker/activate",
+        422,
+        "err",
+        http.client.HTTPMessage(),
+        io.BytesIO(payload),
+    )
+    with pytest.raises(broker.ImportRefusedError) as raised:
+        broker.raise_http_error(exc)
+    assert len(raised.value.refusals) == 200
+    assert raised.value.truncated == 40
+
+
+def test_raise_http_error_keeps_a_long_plain_error_out_of_the_502_detail():
+    exc = _http_error(500)
+    with patch.object(exc, "read", side_effect=_reads(b"x" * (100 * 1024))):
+        with pytest.raises(HTTPException) as raised:
+            broker.raise_http_error(exc)
+    assert len(raised.value.detail) < 9 * 1024
+
+
 def test_raise_http_error_still_raises_502_for_a_plain_broker_error():
     """An ordinary broker error (not an import refusal) is still a plain 502."""
     exc = _http_error(500)
-    with patch.object(exc, "read", return_value=b"boom"):
+    with patch.object(exc, "read", side_effect=_reads(b"boom")):
         with pytest.raises(HTTPException) as raised:
             broker.raise_http_error(exc)
     assert raised.value.status_code == 502
+
+
+def test_broker_error_body_gives_up_on_a_slow_body():
+    exc = _http_error(500)
+    with (
+        patch.object(exc, "read", side_effect=_reads(b"boom")),
+        patch("handler.streaming.broker._BROKER_ERROR_READ_SECONDS", -1),
+    ):
+        assert broker.broker_error_body(exc) == ""
 
 
 def test_fetch_memory_card_returns_bytes(rom: Rom):
@@ -8809,7 +9158,7 @@ def test_record_play_session_ignores_malformed_session(admin_user: User, rom: Ro
 # ── Activity board ────────────────────────────────────────────────────────────
 
 
-def _activity_entry(container: dict, user: User):
+def _activity_entry(container: dict[str, Any], user: User):
     return asyncio.run(activity_handler.get_active(user.id, _key_of(container)))
 
 
@@ -8964,7 +9313,7 @@ def test_the_activate_body_carries_the_multiplayer_flag(client, access_token, ro
     assert request.call_args.kwargs["body"]["multiplayer"] is True
 
 
-def _activate_body(client, token, rom: Rom) -> dict:
+def _activate_body(client, token, rom: Rom) -> dict[str, Any]:
     """Claim through the webstation protocol and return the activate body."""
     with _streaming(_ws_for(rom)):
         with patch(
@@ -8975,7 +9324,7 @@ def _activate_body(client, token, rom: Rom) -> dict:
                 json={"rom_id": rom.id},
                 headers=_auth(token),
             )
-    return request.call_args.kwargs["body"]
+    return cast(dict[str, Any], request.call_args.kwargs["body"])
 
 
 def test_the_activate_body_carries_the_rom_language(client, access_token, rom: Rom):
@@ -9323,16 +9672,19 @@ def test_joining_a_rom_on_a_hidden_platform_is_404_masked(
     join_broker.assert_not_called()
 
 
-def _ws_pool_member(rom: Rom, index: int, **overrides) -> dict:
+def _ws_pool_member(rom: Rom, index: int, **overrides) -> dict[str, Any]:
     """One member of a pool of webstation containers, the broker a joiner needs,
     on a distinct host so the room URL says which member answered."""
-    return _webstation(
-        **{
-            "host": f"http://192.168.1.1{index}:3000",
-            "broker_host": f"http://192.168.1.1{index}:8000",
-            "platforms": {rom.platform_slug: "pcsx2"},
-            **overrides,
-        }
+    return cast(
+        dict[str, Any],
+        _webstation(
+            **{
+                "host": f"http://192.168.1.1{index}:3000",
+                "broker_host": f"http://192.168.1.1{index}:8000",
+                "platforms": {rom.platform_slug: "pcsx2"},
+                **overrides,
+            }
+        ),
     )
 
 
@@ -9504,7 +9856,7 @@ def test_joining_requires_auth(client, rom: Rom):
 # ── Container expansion ───────────────────────────────────────────────────────
 
 
-def _expand(entry: dict) -> list[ResolvedContainer]:
+def _expand(entry: dict[str, Any]) -> list[ResolvedContainer]:
     """The records the resolver builds for one raw config entry."""
     with _streaming(entry):
         return list(resolve_containers())
@@ -9580,7 +9932,7 @@ def test_expand_platform_value_that_is_neither_name_nor_block_is_skipped():
 # ── Broker host derivation ────────────────────────────────────────────────────
 
 
-def _broker_host_of(entry: dict) -> str | None:
+def _broker_host_of(entry: dict[str, Any]) -> str | None:
     return _derive_broker_host(
         entry, protocol_for(entry.get("protocol"), entry.get("subfolder"))
     )
@@ -9853,7 +10205,7 @@ def test_resuming_a_state_with_no_disc_swaps_nothing(
 # ── _restore_session_disc (direct) ──────────────────────────────────────────
 
 
-def _session_for(container: dict, rom: Rom, user: User) -> str:
+def _session_for(container: dict[str, Any], rom: Rom, user: User) -> str:
     """Seed a redis session for `container` and return its (unprefixed)
     session key, the form `_restore_session_disc` and friends take."""
     session_key = _key_of(container)

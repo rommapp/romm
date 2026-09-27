@@ -86,7 +86,7 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
 
 
 class SyncRetroAchievementsProgressTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled RetroAchievements progress sync",
             task_type=TaskType.UPDATE,

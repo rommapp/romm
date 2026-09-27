@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Upload — Library Tools view that posts ROM files to a chosen
+// Upload: Library Tools view that posts ROM files to a chosen
 // platform. Replaces the old emitter-driven `UploadRomDialog`; entry
 // points (UserMenu, Platform.vue kebab) now navigate here with the
 // `?platform=<id>` query param when they have a preselection.
@@ -7,36 +7,36 @@
 // Flow mirrors the dialog version that came before it:
 //   1. On mount, fetch the supported-platforms catalogue (v1's
 //      sentinel id=-1 "the fs_slug exists but no Platform record yet"
-//      is preserved — uploading auto-creates the platform via
+//      is preserved, uploading auto-creates the platform via
 //      `platformApi.uploadPlatform({ fsSlug })`).
 //   2. User picks a platform (PlatformSelect handles search +
 //      iconography) and adds files via drop zone or native picker.
 //   3. Upload streams through `romApi.uploadRoms` (already wired to
-//      `storeUpload` — the v2 UploadProgressToast shows the bar). On
-//      success we stay on the view (this is a tool — users will often
+//      `storeUpload`, the v2 UploadProgressToast shows the bar). On
+//      success we stay on the view (this is a tool, users will often
 //      upload more) but clear the file list. A scan is kicked off
-//      automatically so newly arrived files get matched.
+//      automatically, unless one is already running, so newly arrived
+//      files get matched.
 import { RBtn, RChip, RDropzone, RIcon } from "@v2/lib";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
-import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Platform } from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const { t } = useI18n();
 const route = useRoute();
 const snackbar = useSnackbar();
 const heartbeatStore = storeHeartbeat();
-const scanningStore = storeScanning();
 const uploadStore = storeUpload();
+const { startScan } = useScanTrigger();
 
 const files = ref<File[]>([]);
 const supportedPlatforms = ref<Platform[]>([]);
@@ -110,7 +110,7 @@ const selectedPlatform = computed<Platform | null>(() => {
 // ── File handling ───────────────────────────────────────────────
 function addFiles(picked: File[]) {
   if (!picked.length) return;
-  // De-dupe by name — matches v1 behaviour.
+  // De-dupe by name, matches v1 behaviour.
   const seen = new Set(files.value.map((f) => f.name));
   const fresh = picked.filter((f) => !seen.has(f.name));
   if (fresh.length > 0) {
@@ -132,7 +132,7 @@ async function upload() {
 
   try {
     // Sentinel id=-1: fs_slug exists but no Platform yet. Create one
-    // before pushing ROMs into it — same approach as v1.
+    // before pushing ROMs into it, same approach as v1.
     if (platformId === -1) {
       const { data: created } = await platformApi.uploadPlatform({
         fsSlug: platform.fs_slug,
@@ -165,15 +165,17 @@ async function upload() {
       );
 
       // Give the backend a beat to finish writing before we ask it to
-      // scan — v1 uses a 2s buffer for the same reason.
-      scanningStore.setScanning(true);
-      if (!socket.connected) socket.connect();
+      // scan, v1 uses a 2s buffer for the same reason.
       setTimeout(() => {
-        socket.emit("scan", {
-          platforms: [platformId],
-          type: "quick",
-          apis: heartbeatStore.getEnabledMetadataOptions().map((s) => s.value),
-        });
+        startScan([
+          {
+            platforms: [platformId],
+            type: "quick",
+            apis: heartbeatStore
+              .getEnabledMetadataOptions()
+              .map((s) => s.value),
+          },
+        ]);
       }, 2000);
 
       // Clear the list so the next batch starts fresh; keep the
@@ -234,7 +236,7 @@ async function upload() {
       </RBtn>
     </div>
 
-    <!-- Drop zone — CTA when empty, file list (with drag overlay) when
+    <!-- Drop zone, CTA when empty, file list (with drag overlay) when
            populated. -->
     <RDropzone
       v-if="files.length === 0"

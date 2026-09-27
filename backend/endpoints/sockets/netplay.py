@@ -76,7 +76,7 @@ async def _playable_rom_id(sid: str, game_id: Any) -> int | None:
 
     try:
         rom_id = int(game_id)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
     rom = db_rom_handler.get_rom_visibility(rom_id)
@@ -104,7 +104,7 @@ def _socket_room(session_id: str) -> str:
     return f"netplay-room:{session_id}"
 
 
-@netplay_socket_handler.socket_server.on("connect")
+@netplay_socket_handler.on("connect")
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     """Accept every socket, since guests join by password, storing the session's user."""
     try:
@@ -126,7 +126,9 @@ def _player_info(
     )
 
 
-async def _enter_room(sid: str, session_id: str, player_id: str, room: NetplayRoom):
+async def _enter_room(
+    sid: str, session_id: str, player_id: str, room: NetplayRoom
+) -> None:
     await netplay_socket_handler.socket_server.enter_room(sid, _socket_room(session_id))
     await _save_session(
         sid, {ROOM_SESSION_KEY: session_id, PLAYER_SESSION_KEY: player_id}
@@ -136,8 +138,8 @@ async def _enter_room(sid: str, session_id: str, player_id: str, room: NetplayRo
     )
 
 
-@netplay_socket_handler.socket_server.on("open-room")
-async def open_room(sid: str, data: RoomData):
+@netplay_socket_handler.on("open-room")
+async def open_room(sid: str, data: RoomData) -> str | None:
     extra_data = data["extra"]
 
     session_id = extra_data.get("sessionid")
@@ -173,10 +175,13 @@ async def open_room(sid: str, data: RoomData):
     )
     await netplay_handler.set(session_id, new_room)
     await _enter_room(sid, session_id, player_id, new_room)
+    return None
 
 
-@netplay_socket_handler.socket_server.on("join-room")
-async def join_room(sid: str, data: RoomData):
+@netplay_socket_handler.on("join-room")
+async def join_room(
+    sid: str, data: RoomData
+) -> str | tuple[None, dict[str, NetplayPlayerInfo]]:
     extra_data = data["extra"]
 
     session_id = extra_data.get("sessionid")
@@ -224,7 +229,7 @@ async def _is_room_peer(sid: str, target: str) -> bool:
     return sid in peers and target in peers
 
 
-async def _handle_leave(sid: str, session_id: str, player_id: str):
+async def _handle_leave(sid: str, session_id: str, player_id: str) -> None:
     current_room = await netplay_handler.get(session_id)
     if not current_room:
         return
@@ -247,7 +252,7 @@ async def _handle_leave(sid: str, session_id: str, player_id: str):
     )
 
 
-@netplay_socket_handler.socket_server.on("leave-room")
+@netplay_socket_handler.on("leave-room")
 async def leave_room(sid: str) -> None:
     session = await netplay_socket_handler.get_session(sid)
     session_id = session.pop(ROOM_SESSION_KEY, None)
@@ -261,8 +266,8 @@ async def leave_room(sid: str) -> None:
         await netplay_socket_handler.socket_server.save_session(sid, session)
 
 
-@netplay_socket_handler.socket_server.on("webrtc-signal")
-async def webrtc_signal(sid: str, data: WebRTCSignalData):
+@netplay_socket_handler.on("webrtc-signal")
+async def webrtc_signal(sid: str, data: WebRTCSignalData) -> None:
     target = data.get("target")
     # Signals relay only between peers of one room, so a client cannot inject an
     # offer or answer into a session it never joined.
@@ -283,18 +288,18 @@ async def webrtc_signal(sid: str, data: WebRTCSignalData):
     await netplay_socket_handler.socket_server.emit("webrtc-signal", payload, to=target)
 
 
-@netplay_socket_handler.socket_server.on("webrtc-signal-error")
-async def webrtc_signal_error(_sid: str, _error: str, _data: Any):
+@netplay_socket_handler.on("webrtc-signal-error")
+async def webrtc_signal_error(_sid: str, _error: str, _data: Any) -> None:
     pass
 
 
-@netplay_socket_handler.socket_server.on("disconnect")
-async def disconnect(sid: str):
+@netplay_socket_handler.on("disconnect")
+async def disconnect(sid: str) -> None:
     await netplay_socket_handler.unbind_from_login_session(sid)
     await leave_room(sid)
 
 
-async def _broadcast_to_room(sid: str, event: str, data: Any):
+async def _broadcast_to_room(sid: str, event: str, data: Any) -> None:
     session_id = (await netplay_socket_handler.get_session(sid)).get(ROOM_SESSION_KEY)
     if session_id:
         await netplay_socket_handler.socket_server.emit(
@@ -302,16 +307,16 @@ async def _broadcast_to_room(sid: str, event: str, data: Any):
         )
 
 
-@netplay_socket_handler.socket_server.on("data-message")
-async def data_message(sid: str, data: Any):
+@netplay_socket_handler.on("data-message")
+async def data_message(sid: str, data: Any) -> None:
     await _broadcast_to_room(sid, "data-message", data)
 
 
-@netplay_socket_handler.socket_server.on("snapshot")
-async def snapshot(sid: str, data: Any):
+@netplay_socket_handler.on("snapshot")
+async def snapshot(sid: str, data: Any) -> None:
     await _broadcast_to_room(sid, "snapshot", data)
 
 
-@netplay_socket_handler.socket_server.on("input")
-async def input(sid: str, data: Any):
+@netplay_socket_handler.on("input")
+async def input(sid: str, data: Any) -> None:
     await _broadcast_to_room(sid, "input", data)
