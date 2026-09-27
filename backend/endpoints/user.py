@@ -564,7 +564,7 @@ async def update_user(
 
         if cleaned_data.get("enabled") is False:
             await close_client_token_sockets(
-                db_client_token_handler.get_token_ids_by_user(id)
+                db_client_token_handler.get_token_ids_by_users([id])
             )
 
     before = db_user
@@ -613,7 +613,7 @@ async def delete_user(
             status_code=400, detail="You cannot delete the last admin user"
         )
 
-    token_ids = db_client_token_handler.get_token_ids_by_user(id)
+    token_ids = db_client_token_handler.get_token_ids_by_users([id])
     device_ids = [device.id for device in db_device_handler.get_devices(user_id=id)]
     db_user_handler.delete_user(id)
     await close_client_token_sockets(token_ids)

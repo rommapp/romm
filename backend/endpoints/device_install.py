@@ -44,6 +44,7 @@ from handler.notification_handler import notify
 from logger.logger import log
 from models.device import Device
 from models.notification import NotificationKind, NotificationLevel
+from utils.auth import token_device_id
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -78,7 +79,7 @@ def _require_device(
     request: Request, device_id: str, device_only: bool = False
 ) -> Device:
     """The caller's device, 404 when not theirs and 403 under ``device_only`` for another caller."""
-    bound_device_id = getattr(request.state, "device_id", None)
+    bound_device_id = token_device_id(request)
     owned = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if owned is None or bound_device_id not in (None, device_id):
         raise HTTPException(

@@ -154,6 +154,43 @@ def test_a_permission_change_closes_the_users_device_sockets(
     close.assert_awaited_once_with([token.id])
 
 
+def test_a_group_edit_closes_every_members_device_sockets_at_once(
+    mocker, client, access_token, viewer_user, editor_user, add_device_token
+):
+    try:
+        gid = client.post(
+            "/api/permissions/groups",
+            headers=_bearer(access_token),
+            json={"name": "Handhelds"},
+        ).json()["id"]
+        for user in (viewer_user, editor_user):
+            client.put(
+                f"/api/permissions/users/{user.id}",
+                headers=_bearer(access_token),
+                json={"set_group": True, "permission_group_id": gid},
+            )
+        viewer_token, _ = add_device_token(viewer_user, None, scopes="devices.read")
+        editor_token, _ = add_device_token(editor_user, None, scopes="devices.read")
+        close = mocker.patch.object(
+            permissions_endpoints, "close_client_token_sockets", AsyncMock()
+        )
+
+        response = client.put(
+            f"/api/permissions/groups/{gid}",
+            headers=_bearer(access_token),
+            json={"grants": [{"entity": "roms", "action": "read"}]},
+        )
+
+        assert response.status_code == 200
+        close.assert_awaited_once()
+        assert close.await_args is not None
+        assert sorted(close.await_args.args[0]) == sorted(
+            [viewer_token.id, editor_token.id]
+        )
+    finally:
+        _cleanup()
+
+
 def test_hide_entity_for_user(client, access_token, viewer_user):
     resp = client.post(
         "/api/permissions/hidden",

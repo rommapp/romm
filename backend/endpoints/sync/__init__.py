@@ -40,6 +40,7 @@ from models.assets import Save
 from models.deleted_asset import DeletedAsset
 from models.device import SyncMode
 from models.sync_session import SyncSessionStatus
+from utils.auth import token_device_id
 from utils.datetime import to_utc
 from utils.router import APIRouter
 from utils.validation import MAX_ROM_IDS_PER_QUERY, RomIdScope
@@ -182,9 +183,7 @@ def negotiate_sync(
     intentional, since saves can be cloned across slots and null slots overlap
     with manual uploads.
     """
-    device_id: str | None = payload.device_id or getattr(
-        request.state, "device_id", None
-    )
+    device_id: str | None = payload.device_id or token_device_id(request)
     if not device_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

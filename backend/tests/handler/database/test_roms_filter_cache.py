@@ -33,7 +33,7 @@ from handler.database.roms_handler import (
     user_sibling_cache_version,
     user_sort_cache_version,
 )
-from handler.redis_handler import sync_cache
+from handler.redis_handler import as_text, sync_cache
 from models.rom import Rom
 from models.user import User
 
@@ -51,7 +51,7 @@ def _flush_cache():
 
 
 def _decode_members(raw_members: Iterable[bytes | str]) -> set[str]:
-    return {m.decode() if isinstance(m, bytes) else m for m in raw_members}
+    return {as_text(m) for m in raw_members}
 
 
 def _set_rom_genres(rom_id: int, genres: list[str]) -> None:
