@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
@@ -10,7 +9,6 @@ from defusedxml import ElementTree as ET
 from config.config_manager import MetadataMediaType
 from handler.filesystem import fs_platform_handler
 from handler.metadata.gamelist_handler import (
-    ESDE_MEDIA_MAP,
     GamelistHandler,
     build_media_file_index,
     extract_media_from_gamelist_rom,
@@ -308,9 +306,7 @@ def test_extract_media_prefers_the_gamelist_tag(tmp_path: Path, platform: Platfo
     assert media["box2d_url"] == f"file://{platform_dir}/art/box.png"
 
 
-def test_parse_gamelist_xml_lists_each_media_folder_once(
-    tmp_path: Path, platform: Platform
-):
+def test_parse_gamelist_xml_indexes_media_once(tmp_path: Path, platform: Platform):
     platform_dir = tmp_path / fs_platform_handler.get_platform_fs_structure(
         platform.fs_slug
     )
@@ -335,13 +331,83 @@ def test_parse_gamelist_xml_lists_each_media_folder_once(
             return_value=[],
         ),
         patch(
-            "handler.metadata.gamelist_handler.os.scandir", wraps=os.scandir
-        ) as scandir,
+            "handler.metadata.gamelist_handler.build_media_file_index",
+            wraps=build_media_file_index,
+        ) as build_index,
     ):
         roms_data = handler._parse_gamelist_xml(gamelist_path, platform)
 
-    assert scandir.call_count == len(ESDE_MEDIA_MAP)
+    build_index.assert_called_once_with(platform)
     assert roms_data["Two.zip"].get("url_cover", "").endswith("/covers/Two.png")
+
+
+def test_build_media_file_index_follows_esde_extension_order(
+    tmp_path: Path, platform: Platform
+):
+    for name in ("Game.jpg", "Game.png", "Game.webp"):
+        _write_media(tmp_path, platform, "covers", name)
+    for name in ("Game.avi", "Game.mkv", "Game.mp4"):
+        _write_media(tmp_path, platform, "videos", name)
+    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+
+    with patch.object(fs_platform_handler, "base_path", tmp_path):
+        index = build_media_file_index(platform)
+
+    assert index["box2d_url"]["Game"] == f"file://{platform_dir}/covers/Game.png"
+    assert index["video_url"]["Game"] == f"file://{platform_dir}/videos/Game.mp4"
+
+
+@pytest.mark.parametrize(
+    "rom_path, media_name",
+    [
+        ("./Final Fantasy VII.m3u", "Final Fantasy VII.m3u.png"),
+        ("./Dr. Mario", "Dr. Mario.png"),
+    ],
+)
+def test_extract_media_matches_directory_names(
+    tmp_path: Path, platform: Platform, rom_path: str, media_name: str
+):
+    _write_media(tmp_path, platform, "covers", media_name)
+    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+
+    with patch.object(fs_platform_handler, "base_path", tmp_path):
+        media = extract_media_from_gamelist_rom(
+            ET.fromstring(f"<game><path>{rom_path}</path></game>"),
+            platform,
+            build_media_file_index(platform),
+        )
+
+    assert media["box2d_url"] == f"file://{platform_dir}/covers/{media_name}"
+
+
+def test_parse_gamelist_xml_skips_media_tags_outside_the_library(
+    tmp_path: Path, platform: Platform
+):
+    platform_dir = tmp_path / fs_platform_handler.get_platform_fs_structure(
+        platform.fs_slug
+    )
+    _write_media(tmp_path, platform, "covers", "One.png")
+    gamelist_path = platform_dir / "gamelist.xml"
+    gamelist_path.write_text(
+        """<?xml version="1.0"?>
+<gameList>
+  <game><path>./One.zip</path><cover>/home/pi/covers/One.png</cover></game>
+  <game><path>./Two.zip</path></game>
+</gameList>""",
+        encoding="utf-8",
+    )
+
+    with (
+        patch.object(fs_platform_handler, "base_path", tmp_path),
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+    ):
+        roms_data = GamelistHandler()._parse_gamelist_xml(gamelist_path, platform)
+
+    assert roms_data["One.zip"].get("url_cover", "").endswith("/covers/One.png")
+    assert "Two.zip" in roms_data
 
 
 @pytest.mark.parametrize(

@@ -187,6 +187,28 @@ def _split_comma_separated_values(value: str | None) -> list[str]:
 
 MediaFileIndex = dict[MediaUrlKey, dict[str, str]]
 
+# The order ES-DE probes extensions in when a ROM has media in several formats
+ESDE_MEDIA_EXTENSION_PRIORITY: Final = (
+    ".png",
+    ".jpg",
+    ".webp",
+    ".mp4",
+    ".mkv",
+    ".avi",
+    ".wmv",
+    ".mov",
+    ".webm",
+    ".m4v",
+    ".pdf",
+)
+
+
+def _esde_media_rank(file_name: str) -> tuple[int, str]:
+    extension = os.path.splitext(file_name)[1].lower()
+    if extension in ESDE_MEDIA_EXTENSION_PRIORITY:
+        return ESDE_MEDIA_EXTENSION_PRIORITY.index(extension), file_name
+    return len(ESDE_MEDIA_EXTENSION_PRIORITY), file_name
+
 
 def build_media_file_index(platform: Platform) -> MediaFileIndex:
     """Index each ES-DE media folder's files by stem, listing each folder once.
@@ -198,23 +220,24 @@ def build_media_file_index(platform: Platform) -> MediaFileIndex:
     index: MediaFileIndex = {}
 
     for media_key, folder_name in ESDE_MEDIA_MAP.items():
-        folder = fs_platform_handler.validate_path(
-            os.path.join(platform_dir, folder_name)
-        )
+        # Media is only a fallback, so an unusable folder must not fail the parse
         try:
+            folder = fs_platform_handler.validate_path(
+                os.path.join(platform_dir, folder_name)
+            )
+            uri_prefix = f"file://{folder.relative_to(fs_platform_handler.base_path)}"
             with os.scandir(folder) as it:
-                entries = sorted(
-                    (entry for entry in it if entry.is_file()), key=lambda e: e.name
+                file_names = sorted(
+                    (entry.name for entry in it if entry.is_file()),
+                    key=_esde_media_rank,
                 )
-        except OSError:
-            entries = []
+        except OSError, ValueError:
+            file_names = []
 
         stems: dict[str, str] = {}
-        for entry in entries:
-            stem = os.path.splitext(entry.name)[0]
+        for file_name in file_names:
             stems.setdefault(
-                stem,
-                f"file://{Path(entry.path).relative_to(fs_platform_handler.base_path)}",
+                os.path.splitext(file_name)[0], f"{uri_prefix}/{file_name}"
             )
         index[media_key] = stems
 
@@ -247,20 +270,26 @@ def extract_media_from_gamelist_rom(
     for media_key, xml_tag in XML_TAG_MAP.items():
         elem = game.find(xml_tag)
         if elem is not None and elem.text:
-            gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)
+            try:
+                gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)
+            except ValueError as e:
+                log.debug(f"Skipping gamelist <{xml_tag}> outside the library: {e}")
 
     # Fallback to the media folders' files named after the ROM
     path_elem = game.find("path")
     if path_elem is not None and path_elem.text:
-        rom_stem = os.path.splitext(os.path.basename(path_elem.text))[0]
+        rom_name = os.path.basename(path_elem.text)
+        # ES-DE names a directory's media after its full name, not a stem
+        rom_stems = (os.path.splitext(rom_name)[0], rom_name)
 
         for media_key in ESDE_MEDIA_MAP:
             if gamelist_media[media_key]:
                 continue
 
-            found = media_files.get(media_key, {}).get(rom_stem)
-            if found:
-                gamelist_media[media_key] = found
+            files = media_files.get(media_key, {})
+            gamelist_media[media_key] = next(
+                (files[stem] for stem in rom_stems if stem in files), None
+            )
 
     return gamelist_media
 
