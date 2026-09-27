@@ -18,7 +18,6 @@ import storePlaying from "@/stores/playing";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
-import { bootDiscId, defaultDisc } from "@/v2/utils/playerDisc";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { exitEmulatorOnce, installIOSFullscreenShim } from "./utils";
@@ -235,7 +234,7 @@ onMounted(async () => {
     selectedDisc.value = storedDiscId;
   } else {
     if (storedDisc) localStorage.removeItem(`player:${rom.value.id}:disc`);
-    selectedDisc.value = bootDiscId(defaultDisc(rom.value.files));
+    selectedDisc.value = rom.value.files[0]?.id ?? null;
   }
 
   const storedCore = localStorage.getItem(
