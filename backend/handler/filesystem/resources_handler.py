@@ -18,7 +18,7 @@ from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
-from utils.background_tasks import gather_all
+from utils.concurrency import gather_all
 from utils.context import ctx_httpx_client
 from utils.images import frame_durations, is_animated, webp_loop
 from utils.rate_limiter import ConcurrencyLimiter
@@ -681,9 +681,6 @@ class FSResourcesHandler(FSHandler):
     async def store_ra_badge(self, url: str, path: str) -> None:
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
-
-        # Ensure destination directory exists
-        await self.make_directory(directory)
 
         if await self.file_exists(path):
             log.debug(f"Badge {path} already exists, skipping download")

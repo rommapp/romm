@@ -81,7 +81,7 @@ from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
-from utils.background_tasks import gather_all
+from utils.concurrency import gather_all
 from utils.filesystem import sanitize_filename
 from utils.platform_aliases import (
     resolve_fs_folder,
@@ -1791,40 +1791,32 @@ async def download_rom_resources(
         else []
     )
 
-    cover = asyncio.create_task(
+    # ScreenScraper media and RA badges are bounded by their own limiters.
+    (
+        (path_cover_s, path_cover_l),
+        path_manual,
+        path_screenshots,
+        media_updates,
+        _,
+    ) = await gather_all(
         fs_resource_handler.get_cover(
             entity=added_rom,
             overwrite=added_rom.url_cover != previous_url_cover,
             url_cover=add_ss_auth_to_url(added_rom.url_cover),
-        )
-    )
-    manual = asyncio.create_task(
+        ),
         fs_resource_handler.get_manual(
             rom=added_rom,
             overwrite=added_rom.url_manual != previous_url_manual,
             url_manual=add_ss_auth_to_url(added_rom.url_manual),
-        )
-    )
-    screenshots = asyncio.create_task(
+        ),
         fs_resource_handler.get_rom_screenshots(
             rom=added_rom,
             overwrite=bool(screenshots_changed),
             url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
-        )
-    )
-    media = asyncio.create_task(store_provider_media())
-    # ScreenScraper media and RA badges are bounded by their own limiters.
-    await gather_all(
-        cover,
-        manual,
-        screenshots,
-        media,
+        ),
+        store_provider_media(),
         fs_resource_handler.store_ra_badges(achievements),
     )
-
-    path_cover_s, path_cover_l = cover.result()
-    path_manual = manual.result()
-    path_screenshots = screenshots.result()
 
     added_rom.path_cover_s = path_cover_s
     added_rom.path_cover_l = path_cover_l
@@ -1838,7 +1830,7 @@ async def download_rom_resources(
             "path_cover_l": path_cover_l,
             "path_screenshots": path_screenshots,
             "path_manual": path_manual,
-            **media.result(),
+            **media_updates,
         },
     )
 

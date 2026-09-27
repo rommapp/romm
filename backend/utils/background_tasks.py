@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Awaitable, Coroutine
+from collections.abc import Coroutine
 from typing import Any
 
 from logger.logger import log
@@ -24,12 +24,3 @@ async def wait_for_background_tasks() -> None:
         for outcome in await asyncio.gather(*pending, return_exceptions=True):
             if isinstance(outcome, Exception):
                 log.error("background task failed", exc_info=outcome)
-
-
-async def gather_all[T](*aws: Awaitable[T]) -> list[T]:
-    """Await every awaitable, leaving none running, then raise the first failure."""
-    results = await asyncio.gather(*aws, return_exceptions=True)
-    for result in results:
-        if isinstance(result, BaseException):
-            raise result
-    return [result for result in results if not isinstance(result, BaseException)]

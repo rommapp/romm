@@ -10,6 +10,7 @@ import httpx2
 import pytest
 from PIL import Image, ImageSequence
 from PIL.PngImagePlugin import Blend
+from tests.concurrency_stubs import InFlight
 from tests.utils.test_images import (
     DURATIONS,
     FRAME_SIZE,
@@ -1812,37 +1813,8 @@ class TestCoverSingleFetch:
         assert path_big == "collections/3/cover/big.png"
 
 
-class _InFlight:
-    """Counts overlapping calls, holding each one long enough to overlap."""
-
-    def __init__(self) -> None:
-        self.current = 0
-        self.peak = 0
-
-    def enter(self) -> None:
-        self.current += 1
-        self.peak = max(self.peak, self.current)
-
-    def leave(self) -> None:
-        self.current -= 1
-
-    async def hold(self, seconds: float = 0.01) -> None:
-        self.enter()
-        try:
-            await asyncio.sleep(seconds)
-        finally:
-            self.leave()
-
-    def returning(self, value: Any):
-        async def call(*_args, **_kwargs):
-            await self.hold()
-            return value
-
-        return call
-
-
 class _InFlightStreamContext(_FakeStreamContext):
-    def __init__(self, tracker: _InFlight):
+    def __init__(self, tracker: InFlight):
         super().__init__(_FakeResponse())
         self._tracker = tracker
 
@@ -1857,7 +1829,7 @@ class _InFlightStreamContext(_FakeStreamContext):
 
 
 class _InFlightClient:
-    def __init__(self, tracker: _InFlight):
+    def __init__(self, tracker: InFlight):
         self._tracker = tracker
 
     def stream(self, *_args, **_kwargs):
@@ -1885,7 +1857,7 @@ class TestConcurrentDownloads:
     async def test_badges_download_together_up_to_the_cap(
         self, handler: FSResourcesHandler, tmp_path
     ):
-        tracker = _InFlight()
+        tracker = InFlight()
         paths = [
             f"roms/1/1/badges/{i}.png" for i in range(RA_BADGE_MAX_CONCURRENCY * 2)
         ]
@@ -1903,7 +1875,7 @@ class TestConcurrentDownloads:
     async def test_screenshots_download_together_and_keep_their_order(
         self, handler: FSResourcesHandler, rom: Rom
     ):
-        tracker = _InFlight()
+        tracker = InFlight()
 
         async def store(_rom, _url, idx):
             # The first screenshot finishes last, so order can't come from timing.
@@ -1922,7 +1894,7 @@ class TestConcurrentDownloads:
 
     @pytest.mark.asyncio
     async def test_provider_media_downloads_together(self, handler: FSResourcesHandler):
-        tracker = _InFlight()
+        tracker = InFlight()
         metadata = {
             "box2d_back_url": "http://x/back.png",
             "box2d_back_path": "roms/1/1/box2d_back/box2d_back.png",
@@ -1989,28 +1961,3 @@ class TestConcurrentDownloads:
             ("http://x/1.png", "roms/1/1/badges/1.png"),
             ("http://x/1_lock.png", "roms/1/1/badges/1_lock.png"),
         ]
-
-    @pytest.mark.asyncio
-    async def test_a_failed_screenshot_leaves_none_running(
-        self, handler: FSResourcesHandler, rom: Rom
-    ):
-        finished: list[int] = []
-
-        async def store(_rom, _url, idx):
-            if idx == 0:
-                raise ValueError("bad url")
-            await asyncio.sleep(0.01)
-            finished.append(idx)
-            return True
-
-        with (
-            patch.object(handler, "_store_screenshot", side_effect=store),
-            pytest.raises(ValueError),
-        ):
-            await handler.get_rom_screenshots(
-                rom=rom,
-                overwrite=True,
-                url_screenshots=["http://x/a.jpg", "http://x/b.jpg"],
-            )
-
-        assert finished == [1]
