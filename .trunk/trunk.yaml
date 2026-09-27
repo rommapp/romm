@@ -57,6 +57,8 @@ lint:
         - docker/nginx/js/**
         # Vendored patcherjs library
         - backend/utils/rom_patcher/patcher.js
+        # Vendored humanizer skill, whose examples quote em dashes to remove
+        - .claude/skills/humanizer/**
         # Intentionally malformed YAML, used as a test fixture
         - backend/tests/config/fixtures/config/malformed_config.yml
     # The v1 UI is frozen and the freeze check blocks changes to these paths,
