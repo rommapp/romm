@@ -1818,21 +1818,21 @@ class _InFlightStreamContext(_FakeStreamContext):
         super().__init__(_FakeResponse())
         self._tracker = tracker
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Any:
         self._tracker.enter()
         await asyncio.sleep(0.01)
         return await super().__aenter__()
 
-    async def __aexit__(self, *exc):
+    async def __aexit__(self, *exc: Any) -> bool:
         self._tracker.leave()
-        return await super().__aexit__(*exc)
+        return bool(await super().__aexit__(*exc))
 
 
 class _InFlightClient:
     def __init__(self, tracker: InFlight):
         self._tracker = tracker
 
-    def stream(self, *_args, **_kwargs):
+    def stream(self, *_args: Any, **_kwargs: Any) -> _InFlightStreamContext:
         return _InFlightStreamContext(self._tracker)
 
 

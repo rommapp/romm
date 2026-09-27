@@ -1791,32 +1791,37 @@ async def download_rom_resources(
         else []
     )
 
-    # ScreenScraper media and RA badges are bounded by their own limiters.
-    (
-        (path_cover_s, path_cover_l),
-        path_manual,
-        path_screenshots,
-        media_updates,
-        _,
-    ) = await gather_all(
-        fs_resource_handler.get_cover(
-            entity=added_rom,
-            overwrite=added_rom.url_cover != previous_url_cover,
-            url_cover=add_ss_auth_to_url(added_rom.url_cover),
+    # ScreenScraper media and RA badges are bounded by their own limiters. A
+    # failed provider or badge download must not lose the paths that did land.
+    outcomes: tuple[list[Any] | BaseException, ...] = await asyncio.gather(
+        gather_all(
+            fs_resource_handler.get_cover(
+                entity=added_rom,
+                overwrite=added_rom.url_cover != previous_url_cover,
+                url_cover=add_ss_auth_to_url(added_rom.url_cover),
+            ),
+            fs_resource_handler.get_manual(
+                rom=added_rom,
+                overwrite=added_rom.url_manual != previous_url_manual,
+                url_manual=add_ss_auth_to_url(added_rom.url_manual),
+            ),
+            fs_resource_handler.get_rom_screenshots(
+                rom=added_rom,
+                overwrite=bool(screenshots_changed),
+                url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
+            ),
         ),
-        fs_resource_handler.get_manual(
-            rom=added_rom,
-            overwrite=added_rom.url_manual != previous_url_manual,
-            url_manual=add_ss_auth_to_url(added_rom.url_manual),
+        gather_all(
+            store_provider_media(),
+            fs_resource_handler.store_ra_badges(achievements),
         ),
-        fs_resource_handler.get_rom_screenshots(
-            rom=added_rom,
-            overwrite=bool(screenshots_changed),
-            url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
-        ),
-        store_provider_media(),
-        fs_resource_handler.store_ra_badges(achievements),
+        return_exceptions=True,
     )
+    paths, extras = outcomes
+    if isinstance(paths, BaseException):
+        raise paths
+    (path_cover_s, path_cover_l), path_manual, path_screenshots = paths
+    media_updates = {} if isinstance(extras, BaseException) else extras[0]
 
     added_rom.path_cover_s = path_cover_s
     added_rom.path_cover_l = path_cover_l
@@ -1833,6 +1838,8 @@ async def download_rom_resources(
             **media_updates,
         },
     )
+    if isinstance(extras, BaseException):
+        raise extras
 
 
 class ScannedAsset(TypedDict):

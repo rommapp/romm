@@ -142,3 +142,17 @@ async def test_a_failed_download_leaves_none_running(resources: SimpleNamespace)
 
     finished.assert_called_once()
     resources.update_rom.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_provider_download_still_saves_the_paths_that_landed(
+    resources: SimpleNamespace,
+):
+    resources.get_cover.return_value = ("small.png", "big.png")
+    resources.store_ra_badge.side_effect = OSError("disk full")
+
+    with pytest.raises(OSError):
+        await _download(_rom(), [MetadataSource.RA])
+
+    written = resources.update_rom.call_args.args[1]
+    assert written["path_cover_l"] == "big.png"
