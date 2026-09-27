@@ -28,6 +28,7 @@ from handler.sync.comparison import compare_save_state
 from models.assets import (
     ASSET_LABEL_MAX_LENGTH,
     ASSET_LABELS_MAX,
+    EMULATOR_MAX_LENGTH,
     Save,
     Screenshot,
     State,
@@ -2585,6 +2586,39 @@ class TestUploadSizeLimit:
             )
 
         assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
+
+
+class TestEmulatorValidation:
+    def _upload(self, client, access_token: str, rom: Rom, emulator: str):
+        return client.post(
+            "/api/saves",
+            params={"rom_id": rom.id, "emulator": emulator},
+            files={
+                "saveFile": ("save.sav", BytesIO(b"SAVE"), "application/octet-stream")
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    @pytest.mark.parametrize(
+        "emulator", ["../../escape", "nested/dir", "back\\slash", "..", ".", " padded"]
+    )
+    def test_rejects_emulator_that_is_not_one_folder(
+        self, client, access_token: str, rom: Rom, emulator: str
+    ):
+        with mock.patch(
+            "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+        ) as mock_write:
+            response = self._upload(client, access_token, rom, emulator)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        mock_write.assert_not_awaited()
+
+    def test_rejects_overlong_emulator(self, client, access_token: str, rom: Rom):
+        response = self._upload(
+            client, access_token, rom, "e" * (EMULATOR_MAX_LENGTH + 1)
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 class TestSavesSummaryEndpoint:
