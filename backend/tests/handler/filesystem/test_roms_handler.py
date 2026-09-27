@@ -23,6 +23,7 @@ from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
     _TitleIdSource,
+    category_for_path_parts,
     category_matches,
     mtime_matches,
 )
@@ -560,7 +561,7 @@ class TestFSRomsHandler:
     def test_build_rom_file_with_category(self, rom_multi: Rom, handler: FSRomsHandler):
         """Test _build_rom_file with category detection"""
         # Test with DLC category
-        rom_path = Path(rom_multi.fs_path, "dlc")
+        rom_path = Path(rom_multi.full_path, "dlc")
         file_name = "test_dlc.n64"
         file_hash = FileHash(
             {
@@ -3442,6 +3443,51 @@ class TestIncrementalRomFiles:
         assert by_name["game.n64"].category is None
         assert by_name["part1 (Hack).bin"].category == RomFileCategory.HACK
         assert by_name["fix.ips"].category == RomFileCategory.PATCH
+
+    async def test_category_comes_from_the_folder_below_the_rom_root(
+        self, handler, platform
+    ):
+        rom = self._rom(platform)
+        self._write(handler, f"{self.ROM_DIR}/dlc/foo.bin", b"dlc")
+        self._write(handler, f"{self.ROM_DIR}/update/content/game/x.bin", b"update")
+        self._write(
+            handler,
+            f"{self.ROM_DIR}/Sonic [Update]/content/Game/Stats/archive.bin",
+            b"stats",
+        )
+        self._write(handler, f"{self.ROM_DIR}/content/CMCmn/demo/effect.szs", b"fx")
+
+        parsed = await handler.get_rom_files(rom)
+
+        by_name = {f.file_name: f for f in parsed.rom_files}
+        assert by_name["foo.bin"].category == RomFileCategory.DLC
+        assert by_name["x.bin"].category == RomFileCategory.UPDATE
+        assert by_name["archive.bin"].category is None
+        assert by_name["effect.szs"].category is None
+
+    async def test_rom_folder_named_like_a_category_is_not_a_category(self, handler):
+        platform = Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
+        rom = self._rom(platform, fs_name="Demo")
+        self._write(handler, "n64/roms/Demo/game.n64", b"game")
+
+        parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].category is None
+
+    @pytest.mark.parametrize(
+        "parts, expected",
+        [
+            ([], None),
+            (["dlc"], RomFileCategory.DLC),
+            (["update", "x"], RomFileCategory.UPDATE),
+            (["patches", "v2"], RomFileCategory.PATCH),
+            (["update", "content", "game"], RomFileCategory.UPDATE),
+            (["some game [update]", "content", "game", "stats"], None),
+            (["content", "cmcmn", "demo"], None),
+        ],
+    )
+    def test_category_for_path_parts(self, parts, expected):
+        assert category_for_path_parts(parts) == expected
 
     def test_category_matches_plural_forms(self):
         assert category_matches("patch", ["patches"])

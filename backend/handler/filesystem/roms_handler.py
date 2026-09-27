@@ -149,12 +149,15 @@ def category_matches(category: str, path_parts: list[str]) -> bool:
 
 
 def category_for_path_parts(path_parts_lower: list[str]) -> RomFileCategory | None:
-    """The file category a folder path implies, from its lowercased parts."""
+    """The file category of a folder, from its lowercased parts below the ROM root."""
+    # Only the top folder counts, so a dump's inner `content/game` never matches.
+    if not path_parts_lower:
+        return None
     return next(
         (
             category
             for category in RomFileCategory
-            if category_matches(category.value, path_parts_lower)
+            if category_matches(category.value, path_parts_lower[:1])
         ),
         None,
     )
@@ -527,8 +530,14 @@ class FSRomsHandler(FSHandler):
     ) -> RomFile:
         abs_file_path = Path(self.base_path, rom_path, file_name)
 
+        rom_root = Path(rom.full_path)
+        rom_relative_parts = (
+            rom_path.relative_to(rom_root).parts
+            if rom_path.is_relative_to(rom_root)
+            else ()
+        )
         matching_category = category_for_path_parts(
-            list(map(str.lower, rom_path.parts))
+            list(map(str.lower, rom_relative_parts))
         )
 
         track_meta = None
