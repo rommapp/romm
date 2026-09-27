@@ -72,7 +72,8 @@ class RetroAchievementsService:
     ) -> T | None:
         """Fetch one endpoint, raising a 503 when the request fails.
 
-        Returns None only when RA answers that it has no such entity.
+        Returns:
+            The decoded reply, or None when RA has no such entity.
         """
         source = f"RetroAchievements {yarl.URL(url).name}"
         aiohttp_session = ctx_aiohttp_session.get()
