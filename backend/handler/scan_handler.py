@@ -1,6 +1,7 @@
 import asyncio
 import enum
 import functools
+from collections.abc import Callable
 from typing import Any, NotRequired, TypedDict
 
 import pydash
@@ -1753,26 +1754,86 @@ async def download_rom_resources(
     Shared by the scan socket flow and the manual physical-game endpoint. Only
     re-downloads when the source URL changed, then stores the resulting paths.
     """
-    path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-        entity=added_rom,
-        overwrite=added_rom.url_cover != previous_url_cover,
-        url_cover=add_ss_auth_to_url(added_rom.url_cover),
-    )
-
-    path_manual = await fs_resource_handler.get_manual(
-        rom=added_rom,
-        overwrite=added_rom.url_manual != previous_url_manual,
-        url_manual=add_ss_auth_to_url(added_rom.url_manual),
-    )
-
     screenshots_changed = pydash.xor(
         added_rom.url_screenshots or [], previous_url_screenshots or []
     )
     url_screenshots = added_rom.url_screenshots or []
-    path_screenshots = await fs_resource_handler.get_rom_screenshots(
-        rom=added_rom,
-        overwrite=bool(screenshots_changed),
-        url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
+
+    # Provider media dicts from ScreenScraper, ES-DE gamelist.xml and LaunchBox.
+    # Media that didn't land on disk has its recorded path cleared, so those
+    # dicts are written back when that happens.
+    preferred_media_types = get_preferred_media_types()
+    provider_media: list[tuple[str, dict[str, Any], Callable[[str], str] | None]] = [
+        (column, metadata, url_transform)
+        for column, metadata, source, url_transform in (
+            (
+                "ss_metadata",
+                added_rom.ss_metadata,
+                MetadataSource.SS,
+                add_ss_auth_to_url,
+            ),
+            (
+                "gamelist_metadata",
+                added_rom.gamelist_metadata,
+                MetadataSource.GAMELIST,
+                None,
+            ),
+            (
+                "launchbox_metadata",
+                added_rom.launchbox_metadata,
+                MetadataSource.LAUNCHBOX,
+                None,
+            ),
+        )
+        if metadata and source in metadata_sources
+    ]
+
+    # Normal and locked achievement badges from RetroAchievements
+    badges: list[tuple[str, str]] = []
+    if added_rom.ra_metadata and MetadataSource.RA in metadata_sources:
+        for ach in added_rom.ra_metadata.get("achievements", []):
+            for url_key, path_key in (
+                ("badge_url_lock", "badge_path_lock"),
+                ("badge_url", "badge_path"),
+            ):
+                if ach.get(url_key) and ach.get(path_key):
+                    badges.append((ach[url_key], ach[path_key]))
+
+    # Every file lands in its own path, so they are fetched together; the
+    # ScreenScraper and badge limiters keep each host within its allowance.
+    (
+        (path_cover_s, path_cover_l),
+        path_manual,
+        path_screenshots,
+        media_changed,
+        _,
+    ) = await asyncio.gather(
+        fs_resource_handler.get_cover(
+            entity=added_rom,
+            overwrite=added_rom.url_cover != previous_url_cover,
+            url_cover=add_ss_auth_to_url(added_rom.url_cover),
+        ),
+        fs_resource_handler.get_manual(
+            rom=added_rom,
+            overwrite=added_rom.url_manual != previous_url_manual,
+            url_manual=add_ss_auth_to_url(added_rom.url_manual),
+        ),
+        fs_resource_handler.get_rom_screenshots(
+            rom=added_rom,
+            overwrite=bool(screenshots_changed),
+            url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
+        ),
+        asyncio.gather(
+            *(
+                fs_resource_handler.store_metadata_media(
+                    metadata, preferred_media_types, url_transform
+                )
+                for _, metadata, url_transform in provider_media
+            )
+        ),
+        asyncio.gather(
+            *(fs_resource_handler.store_ra_badge(url, path) for url, path in badges)
+        ),
     )
 
     added_rom.path_cover_s = path_cover_s
@@ -1787,49 +1848,15 @@ async def download_rom_resources(
             "path_cover_l": path_cover_l,
             "path_screenshots": path_screenshots,
             "path_manual": path_manual,
+            **{
+                column: metadata
+                for (column, metadata, _), changed in zip(
+                    provider_media, media_changed, strict=True
+                )
+                if changed
+            },
         },
     )
-
-    # Handle special media files from Screenscraper, ES-DE gamelist.xml and
-    # LaunchBox. Media that didn't land on disk has its recorded path cleared, so
-    # write those dicts back when that happens.
-    preferred_media_types = get_preferred_media_types()
-    media_updates: dict[str, Any] = {}
-
-    if added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            added_rom.ss_metadata, preferred_media_types, add_ss_auth_to_url
-        ):
-            media_updates["ss_metadata"] = added_rom.ss_metadata
-
-    if added_rom.gamelist_metadata and MetadataSource.GAMELIST in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            added_rom.gamelist_metadata, preferred_media_types
-        ):
-            media_updates["gamelist_metadata"] = added_rom.gamelist_metadata
-
-    if added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            added_rom.launchbox_metadata, preferred_media_types
-        ):
-            media_updates["launchbox_metadata"] = added_rom.launchbox_metadata
-
-    if media_updates:
-        db_rom_handler.update_rom(added_rom.id, media_updates)
-
-    # Store normal and locked achievement badges from RetroAchievements
-    if added_rom.ra_metadata and MetadataSource.RA in metadata_sources:
-        for ach in added_rom.ra_metadata.get("achievements", []):
-            badge_url_lock = ach.get("badge_url_lock", None)
-            badge_path_lock = ach.get("badge_path_lock", None)
-            if badge_url_lock and badge_path_lock:
-                await fs_resource_handler.store_ra_badge(
-                    badge_url_lock, badge_path_lock
-                )
-            badge_url = ach.get("badge_url", None)
-            badge_path = ach.get("badge_path", None)
-            if badge_url and badge_path:
-                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
 
 class ScannedAsset(TypedDict):

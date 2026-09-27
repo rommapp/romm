@@ -10,13 +10,6 @@ import httpx2
 import pytest
 from PIL import Image, ImageSequence
 from PIL.PngImagePlugin import Blend
-from tests.utils.test_images import (
-    DURATIONS,
-    FRAME_SIZE,
-    animated_image_bytes,
-    encode_animation,
-    truncated_animation_bytes,
-)
 
 import adapters.services.screenscraper as ss_module
 from adapters.services.screenscraper import (
@@ -27,6 +20,7 @@ from config import RESOURCES_BASE_PATH
 from config.config_manager import MetadataMediaType
 from handler.filesystem.base_handler import CoverSize
 from handler.filesystem.resources_handler import (
+    RA_BADGE_MAX_CONCURRENCY,
     FSResourcesHandler,
     _check_content_type,
     _content_type_essence,
@@ -34,6 +28,13 @@ from handler.filesystem.resources_handler import (
 )
 from models.collection import Collection
 from models.rom import Rom
+from tests.utils.test_images import (
+    DURATIONS,
+    FRAME_SIZE,
+    animated_image_bytes,
+    encode_animation,
+    truncated_animation_bytes,
+)
 from utils.images import frame_durations
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
@@ -1809,3 +1810,130 @@ class TestCoverSingleFetch:
         assert client.requests == [COVER_URL]
         assert path_small == "collections/3/cover/small.png"
         assert path_big == "collections/3/cover/big.png"
+
+
+class _InFlight:
+    """Counts overlapping calls, holding each one long enough to overlap."""
+
+    def __init__(self) -> None:
+        self.current = 0
+        self.peak = 0
+
+    async def hold(self, seconds: float = 0.01) -> None:
+        self.current += 1
+        self.peak = max(self.peak, self.current)
+        try:
+            await asyncio.sleep(seconds)
+        finally:
+            self.current -= 1
+
+
+class _InFlightStreamContext:
+    def __init__(self, tracker: _InFlight):
+        self._tracker = tracker
+
+    async def __aenter__(self):
+        self._tracker.current += 1
+        self._tracker.peak = max(self._tracker.peak, self._tracker.current)
+        await asyncio.sleep(0.01)
+        return _FakeResponse()
+
+    async def __aexit__(self, *_exc):
+        self._tracker.current -= 1
+        return False
+
+
+class _InFlightClient:
+    def __init__(self, tracker: _InFlight):
+        self._tracker = tracker
+
+    def stream(self, *_args, **_kwargs):
+        return _InFlightStreamContext(self._tracker)
+
+
+class TestConcurrentDownloads:
+    """A rom's media files are fetched together rather than one at a time."""
+
+    @pytest.fixture
+    def handler(self, tmp_path):
+        handler = FSResourcesHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    @pytest.fixture
+    def rom(self):
+        rom = Mock(spec=Rom)
+        rom.id = 1
+        rom.platform_id = 1
+        rom.fs_resources_path = "roms/1/1"
+        return rom
+
+    @pytest.mark.asyncio
+    async def test_badges_download_together_up_to_the_cap(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        tracker = _InFlight()
+        paths = [
+            f"roms/1/1/badges/{i}.png" for i in range(RA_BADGE_MAX_CONCURRENCY * 2)
+        ]
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _InFlightClient(tracker)
+            await asyncio.gather(
+                *(handler.store_ra_badge("http://x/badge.png", p) for p in paths)
+            )
+
+        assert tracker.peak == RA_BADGE_MAX_CONCURRENCY
+        assert all((tmp_path / p).exists() for p in paths)
+
+    @pytest.mark.asyncio
+    async def test_screenshots_download_together_and_keep_their_order(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        tracker = _InFlight()
+
+        async def store(_rom, _url, idx):
+            # The first screenshot finishes last, so order can't come from timing.
+            await tracker.hold(0.03 if idx == 0 else 0.01)
+            return idx != 1
+
+        with patch.object(handler, "_store_screenshot", side_effect=store):
+            paths = await handler.get_rom_screenshots(
+                rom=rom,
+                overwrite=True,
+                url_screenshots=["http://x/a.jpg", "http://x/b.jpg", "http://x/c.jpg"],
+            )
+
+        assert tracker.peak == 3
+        assert paths == ["roms/1/1/screenshots/0.jpg", "roms/1/1/screenshots/2.jpg"]
+
+    @pytest.mark.asyncio
+    async def test_provider_media_downloads_together(self, handler: FSResourcesHandler):
+        tracker = _InFlight()
+        metadata = {
+            "box2d_back_url": "http://x/back.png",
+            "box2d_back_path": "roms/1/1/box2d_back/box2d_back.png",
+            "fanart_url": "http://x/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+            "video_url": "http://x/video.mp4",
+            "video_path": "roms/1/1/video/video.mp4",
+        }
+
+        async def store(_url: str, dest_path: str) -> bool:
+            await tracker.hold()
+            return "video" not in dest_path
+
+        with patch.object(handler, "store_media_file", side_effect=store):
+            changed = await handler.store_metadata_media(
+                metadata,
+                [
+                    MetadataMediaType.BOX2D_BACK,
+                    MetadataMediaType.FANART,
+                    MetadataMediaType.VIDEO,
+                ],
+            )
+
+        assert tracker.peak == 3
+        assert changed is True
+        assert metadata["video_path"] is None
+        assert metadata["fanart_path"] == "roms/1/1/fanart/fanart.png"
