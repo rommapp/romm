@@ -413,6 +413,24 @@ def _resolve_one(
 
     label = entry.get("label")
     core = entry.get("core") or None
+    if core is not None and protocol.name != "webstation":
+        # Only the webstation broker is sent a core; the label would name one
+        # the legacy container never boots.
+        log.warning(
+            "container for platform '%s' sets core '%s' but only a webstation "
+            "container takes one, booting the default core instead",
+            platform,
+            core,
+        )
+        core = None
+    opt_in = entry.get("experimental_cores")
+    if opt_in is not None and not isinstance(opt_in, bool):
+        log.warning(
+            "container for platform '%s' sets experimental_cores to %r, only an "
+            "unquoted true opts in",
+            platform,
+            opt_in,
+        )
     return ResolvedContainer(
         key=broker_host or "",
         host=raw_host,
@@ -430,8 +448,9 @@ def _resolve_one(
         state_transfer=state_transfer_limits(emulator),
         core=core,
         # Only a real boolean opts in: this runs cores known to be broken, and
-        # a quoted "false" is truthy to bool().
-        experimental_cores=entry.get("experimental_cores") is True,
+        # a quoted "false" is truthy to bool(). Without a core it is never
+        # sent, so it must not tell pool members apart either.
+        experimental_cores=opt_in is True and core is not None,
     )
 
 

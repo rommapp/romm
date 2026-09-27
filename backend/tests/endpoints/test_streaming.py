@@ -540,6 +540,34 @@ def test_a_quoted_false_does_not_opt_in():
     assert container.experimental_cores is False
 
 
+def test_a_quoted_true_warns_that_it_does_not_opt_in(caplog):
+    """The broker's refusal tells the operator to set experimental_cores, which
+    they believe they did, so the log has to say why it didn't count."""
+    container = _warnings_of(
+        caplog,
+        lambda: _snes(
+            {"emulator": "retroarch", "core": "bsnes", "experimental_cores": "true"}
+        ),
+    )
+    assert container.experimental_cores is False
+    assert "experimental_cores" in caplog.text
+
+
+def test_a_core_on_a_legacy_container_is_dropped_with_a_warning(caplog):
+    """Only the webstation broker is sent a core, so a legacy container boots
+    its default whatever is configured; the label must not claim otherwise."""
+    entry = {
+        "platform": "snes",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "emulator": "retroarch",
+        "core": "bsnes",
+    }
+    resolved = _warnings_of(caplog, lambda: _expand(entry))
+    assert (resolved[0].core, resolved[0].label) == (None, "RA Snes9x")
+    assert "core" in caplog.text
+
+
 def test_the_platform_opt_in_wins_over_the_container():
     inherited = _snes("retroarch:bsnes", experimental_cores=True)
     overridden = _snes(
@@ -557,6 +585,13 @@ def test_containers_on_different_cores_are_not_one_pool():
     assert _snes("retroarch:bsnes").interchangeable_with(_snes("retroarch:bsnes"))
     opted = _snes("retroarch:bsnes", experimental_cores=True)
     assert not opted.interchangeable_with(_snes("retroarch:bsnes"))
+
+
+def test_an_opt_in_without_a_core_does_not_split_a_pool():
+    """The opt-in only goes out beside a core, so without one it changes
+    nothing a claim could land on."""
+    opted = _snes("retroarch", experimental_cores=True)
+    assert opted.interchangeable_with(_snes("retroarch"))
 
 
 def test_emulator_display_label_names_a_configured_core():
@@ -8601,6 +8636,20 @@ def test_import_spec_asks_again_when_the_core_changes():
     assert request.call_count == 3
 
 
+def test_import_spec_asks_again_after_refusing_a_core():
+    """A refused core is fixed by upgrading the broker, which must not take a
+    RomM restart to notice."""
+    container = _snes("retroarch:bsnes")
+    later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
+    with patch(
+        "handler.streaming.broker.request", side_effect=_http_error(422)
+    ) as request:
+        webstation.import_spec(container, "retroarch", "snes")
+        with patch("handler.streaming.webstation.time.monotonic", return_value=later):
+            webstation.import_spec(container, "retroarch", "snes")
+    assert request.call_count == 2
+
+
 def test_import_spec_never_asks_a_legacy_broker(rom: Rom):
     """Declared imports are a webstation contract; a per-emulator broker is
     never asked, so a foreign pick there is refused without a round trip."""
@@ -9547,7 +9596,7 @@ def test_no_core_leaves_the_activate_body_unchanged(client, access_token, rom: R
     exit_session.assert_not_called()
 
 
-def test_an_older_broker_that_drops_the_core_is_exited_without_saving(
+def test_an_older_broker_that_drops_the_core_is_exited_asking_for_no_save(
     client, access_token, rom: Rom
 ):
     """Review Focus 3: pydantic drops the unknown field and the broker boots
@@ -9562,6 +9611,21 @@ def test_an_older_broker_that_drops_the_core_is_exited_without_saving(
     assert "doesn't support `core:`" in failed["detail"]
     assert f"the {rom.platform_slug} platform" in failed["detail"]
     assert _launch_ready(sent) == {}
+
+
+def test_a_broker_that_drops_the_core_logs_no_traceback(
+    client, access_token, rom: Rom, caplog
+):
+    """The 502 is a config message for the operator, not a crash."""
+    _warnings_of(
+        caplog,
+        lambda: _ra_claim(
+            client, access_token, rom, "retroarch:bsnes", {"url": "/room/x"}
+        ),
+    )
+    failed = [r for r in caplog.records if r.getMessage().startswith("launch failed")]
+    assert failed
+    assert all(r.exc_info is None for r in failed)
 
 
 def test_a_broker_that_echoes_the_core_launches(client, access_token, rom: Rom):

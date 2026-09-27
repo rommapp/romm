@@ -113,7 +113,12 @@ async def run_launch(
                 resume_slot if resume_pushed else None,
             )
     except Exception as exc:
-        log.exception("launch failed, platform=%s", platform)
+        if isinstance(exc, HTTPException):
+            # A deliberate refusal whose detail says what to fix; a traceback
+            # would dress it up as a crash.
+            log.warning("launch failed, platform=%s: %s", platform, exc.detail)
+        else:
+            log.exception("launch failed, platform=%s", platform)
         await lifecycle.abort_claim(session_key, session, blank_card_id)
         refused = exc if isinstance(exc, broker.ImportRefusedError) else None
         await push_to_user(

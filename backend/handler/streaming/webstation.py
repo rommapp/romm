@@ -67,7 +67,8 @@ class ImportSpec:
 
 
 # Per container, so one broker's answer never speaks for another. A 404 or 422
-# holds for the worker's life, an answer for one claim's checks, a failure not at all.
+# holds for the worker's life, an answer or a refused core for one claim's
+# checks, a failure not at all.
 _IMPORT_SPEC_TTL = 30.0
 _import_spec_cache: dict[
     tuple[str, str, str, str | None, bool], tuple[float, ImportSpec | None]
@@ -106,8 +107,8 @@ def import_spec(
     """What this broker accepts as a declared import, or None when nothing or unknown."""
     if not container.is_webstation:
         return None
-    # The core is part of the key: a refusal is cached for the worker's life,
-    # and a config edit that changes the core must be asked about afresh.
+    # The core is part of the key, so a config edit that changes the core is
+    # asked about afresh rather than read from the old core's answer.
     cache_key = (
         container.key,
         emulator,
@@ -131,7 +132,11 @@ def import_spec(
         code = exc.code
         exc.close()
         if code in (404, 422):
-            _import_spec_cache[cache_key] = (math.inf, None)
+            # A refused core is fixed by upgrading the broker, so that answer
+            # expires like any other rather than lasting until a restart.
+            refused_core = code == 422 and container.core is not None
+            expires = time.monotonic() + _IMPORT_SPEC_TTL if refused_core else math.inf
+            _import_spec_cache[cache_key] = (expires, None)
             return None
         log.warning("import-spec check failed with HTTP %d, treating as unknown", code)
         return None
@@ -223,7 +228,8 @@ def activate(
     if container.core and resp.get("core") != container.core:
         # A broker older than core support drops the field and boots its
         # default core. Saving on the way out would file that core's files
-        # under this platform's archive, so the session ends without a dump.
+        # under this platform's archive, so the exit asks for no dump. It is
+        # best-effort and an old broker may not honour save=0.
         log.warning(
             "broker booted core %s, not the configured %s, ending the session",
             resp.get("core"),
