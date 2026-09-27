@@ -4,6 +4,7 @@ import glob
 import json
 import os
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, NotRequired, Self, TextIO, TypedDict
@@ -938,7 +939,7 @@ class ConfigManager:
 
         Ignoring one would relocate the library under the user.
         """
-        retired = {
+        retired: dict[str, tuple[str, Callable[[str], str]]] = {
             "filesystem.roms_folder": (
                 STRUCTURE_DEFAULT_KEY,
                 lambda folder: f"{folder}/{{platform}}/{{game}}",

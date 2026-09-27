@@ -1515,7 +1515,7 @@ async def authorize_scan(sid: str) -> User | None:
     return None
 
 
-@socket_handler.socket_server.on("scan")
+@socket_handler.on("scan")
 async def scan_handler(sid: str, options: dict[str, Any]) -> None:
     """Scan socket endpoint
 
@@ -1582,7 +1582,7 @@ async def scan_handler(sid: str, options: dict[str, Any]) -> None:
     )
 
 
-@socket_handler.socket_server.on("scan:stop")
+@socket_handler.on("scan:stop")
 async def stop_scan_handler(sid: str) -> None:
     """Stop scan socket endpoint"""
 
