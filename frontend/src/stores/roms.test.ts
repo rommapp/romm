@@ -1,13 +1,10 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
-import storeRoms, {
-  DETAILED_ROM_CACHE_SIZE,
-  type DetailedRom,
-  type SimpleRom,
-} from "@/stores/roms";
+import storeRoms, { DETAILED_ROM_CACHE_SIZE } from "@/stores/roms";
+import { makeDetailedRom, makeRom } from "@/utils/rom.fixtures";
 
-function detailed(id: number, overrides: Partial<DetailedRom> = {}) {
-  return { id, name: `Game ${id}`, ...overrides } as DetailedRom;
+function detailed(id: number, summary?: string) {
+  return makeDetailedRom({ id, name: `Game ${id}`, summary });
 }
 
 describe("detailed rom cache", () => {
@@ -53,9 +50,9 @@ describe("detailed rom cache", () => {
 
   it("merges a SimpleRom write over the detailed record", () => {
     const roms = storeRoms();
-    roms.cacheDetailedRom(detailed(5, { summary: "detailed" }));
+    roms.cacheDetailedRom(detailed(5, "detailed"));
 
-    roms.update({ id: 5, name: "Renamed" } as SimpleRom);
+    roms.update(makeRom({ id: 5, name: "Renamed" }));
 
     expect(roms.getDetailedRom(5)).toMatchObject({
       name: "Renamed",
@@ -66,8 +63,28 @@ describe("detailed rom cache", () => {
   it("caches nothing for a write to a game it doesn't hold", () => {
     const roms = storeRoms();
 
-    roms.mergeIntoDetailedRom({ id: 6, name: "Elsewhere" } as SimpleRom);
+    roms.mergeIntoDetailedRom(makeRom({ id: 6, name: "Elsewhere" }));
 
     expect(roms.getDetailedRom(6)).toBeNull();
+  });
+
+  it("forgets deleted games", () => {
+    const roms = storeRoms();
+    roms.cacheDetailedRom(detailed(7));
+    roms.cacheDetailedRom(detailed(8));
+
+    roms.forgetDetailedRoms([7]);
+
+    expect(roms.getDetailedRom(7)).toBeNull();
+    expect(roms.getDetailedRom(8)).not.toBeNull();
+  });
+
+  it("empties the cache on reset, so logout keeps no record", () => {
+    const roms = storeRoms();
+    roms.setCurrentRom(detailed(9));
+
+    roms.reset();
+
+    expect(roms.getDetailedRom(9)).toBeNull();
   });
 });

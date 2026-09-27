@@ -126,6 +126,10 @@ export default defineStore("roms", {
         if (oldest !== undefined) this.detailedRoms.delete(oldest);
       }
     },
+    /** Drop records for games that no longer exist. */
+    forgetDetailedRoms(ids: number[]) {
+      for (const id of ids) this.detailedRoms.delete(id);
+    },
     /** Spread `rom` over the cached record so its detailed-only fields
      * survive a SimpleRom write. */
     mergeIntoDetailedRom(rom: SimpleRom) {
@@ -369,6 +373,7 @@ export default defineStore("roms", {
       this.currentVirtualCollection = null;
       this.currentSmartCollection = null;
       this.currentRom = null;
+      this.detailedRoms.clear();
       this._allRoms = [];
       this.selectedIDs = new Set<number>();
       this.lastSelectedIndex = -1;

@@ -11,6 +11,7 @@ import {
   patchQuery,
   type QueryRouter,
   replaceQuery,
+  syncQueryParam,
 } from "./routeQuery";
 
 // Minimal router stub reproducing the trait that causes the bug: `replace`
@@ -88,6 +89,27 @@ describe("patchQuery", () => {
       path: "/",
       query: { show: "all", search: "zelda" },
     });
+  });
+});
+
+describe("syncQueryParam", () => {
+  it("writes a value switched back before the queued write lands", async () => {
+    const router = fakeRouter();
+
+    syncQueryParam(router, "tab", "send");
+    syncQueryParam(router, "tab", undefined);
+    await nextTick();
+
+    expect(router.replace).toHaveBeenCalledWith({ path: "/", query: {} });
+  });
+
+  it("skips a value the URL already holds", async () => {
+    const router = fakeRouter({ tab: "send" });
+
+    syncQueryParam(router, "tab", "send");
+    await nextTick();
+
+    expect(router.replace).not.toHaveBeenCalled();
   });
 });
 
@@ -229,6 +251,38 @@ describe("patchQuery during a navigation", () => {
         search: "zelda",
       }),
     );
+  });
+
+  it("keeps waiting when an older navigation aborts after a newer one started", async () => {
+    await setup();
+    let abort: (() => void) | undefined;
+    const removeAborting = router.beforeEach(
+      (to) =>
+        new Promise<boolean | void>((resolve) => {
+          if (to.path !== "/slow") return resolve();
+          abort = () => resolve(false);
+        }),
+    );
+
+    let aborted = false;
+    const removeWatch = router.afterEach((to) => {
+      if (to.path === "/slow") aborted = true;
+    });
+
+    void router.push("/slow");
+    await vi.waitFor(() => expect(abort).toBeDefined());
+    await hold(() => router.push("/c"));
+    abort?.();
+    await vi.waitFor(() => expect(aborted).toBe(true));
+    removeAborting();
+    removeWatch();
+    patchQuery(router, { tab: "files" });
+    await nextTick();
+    release();
+
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe("/c"));
+    await nextTick();
+    expect(router.currentRoute.value.fullPath).toBe("/c");
   });
 
   it("applies a write once a failed navigation settles", async () => {

@@ -50,10 +50,13 @@ export function installQueryNavigationGuard(router: Router): () => void {
   const removeBeforeEach = router.beforeEach((to) => {
     inFlightByRouter.set(router, to);
   });
-  // A cancelled navigation ends after its successor starts. Any other end
-  // settles, including a redirect onto this page that skipped `beforeEach`.
-  const removeAfterEach = router.afterEach((_to, _from, failure) => {
-    if (!isNavigationFailure(failure, NavigationFailureType.cancelled)) {
+  // Only the tracked navigation settles, since an older one can end after its
+  // successor started; a redirect onto this page ends as an untracked duplicate.
+  const removeAfterEach = router.afterEach((to, _from, failure) => {
+    if (
+      inFlightByRouter.get(router) === to ||
+      isNavigationFailure(failure, NavigationFailureType.duplicated)
+    ) {
       settle();
     }
   });
@@ -114,14 +117,25 @@ export function replaceQuery(
 }
 
 /** Write one URL-backed value, `undefined` dropping the param. The compare
- *  against the live query is what stops a loop with the watcher reading it. */
+ *  against the upcoming value is what stops a loop with the watcher reading it. */
 export function syncQueryParam(
   router: QueryRouter,
   key: string,
   value: string | undefined,
 ): void {
-  const raw = router.currentRoute.value.query[key];
-  const current = typeof raw === "string" ? raw : undefined;
-  if (value === current) return;
+  if (value === upcomingValue(router, key)) return;
   patchQuery(router, { [key]: value });
+}
+
+// What `key` will hold once the queued write lands, so a control switched
+// back before then still gets written.
+function upcomingValue(router: QueryRouter, key: string): string | undefined {
+  const current = router.currentRoute.value;
+  const pending = pendingByRouter.get(router);
+  if (pending && pending.path === current.path) {
+    if (key in pending.patch) return pending.patch[key];
+    if (pending.replace) return undefined;
+  }
+  const raw = current.query[key];
+  return typeof raw === "string" ? raw : undefined;
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// DeleteRomDialog — single or multi-ROM delete flow. Each row has a
+// DeleteRomDialog: single or multi-ROM delete flow. Each row has a
 // "also remove file from disk" checkbox; a global "exclude on delete" flag
 // adds deleted filenames to the scan exclusion list so they don't re-appear.
 import { RBtn, RCheckbox, RDialog, RIcon } from "@v2/lib";
@@ -132,11 +132,13 @@ async function deleteRoms() {
     closeDialog();
     // Only leave the single-ROM route when that ROM was actually deleted.
     if (route.name === "rom" && deletedRoms.length > 0) {
-      router.push({
+      await router.push({
         name: ROUTES.PLATFORM,
         params: { platform: targetPlatformId },
       });
     }
+    // After leaving, since the details page renders its record until then.
+    romsStore.forgetDetailedRoms(deletedRoms.map((rom) => rom.id));
   } catch (error: unknown) {
     console.error(error);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
