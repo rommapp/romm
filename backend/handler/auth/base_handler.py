@@ -28,7 +28,12 @@ from config import (
 )
 from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
-from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
+from handler.auth.constants import (
+    ALGORITHM,
+    CLIENT_TOKEN_PREFIX,
+    DEFAULT_OAUTH_TOKEN_EXPIRY,
+    TokenPurpose,
+)
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.email_handler import EmailError, send_email
 from handler.redis_handler import redis_client
@@ -106,7 +111,7 @@ class AuthHandler:
 
     @staticmethod
     def generate_client_token() -> str:
-        return "rmm_" + secrets.token_hex(32)
+        return CLIENT_TOKEN_PREFIX + secrets.token_hex(32)
 
     @staticmethod
     def hash_client_token(raw: str) -> str:

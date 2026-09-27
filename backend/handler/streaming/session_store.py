@@ -25,7 +25,7 @@ from typing import Any, NamedTuple, cast
 from redis.exceptions import WatchError
 
 from handler.notification_handler import notify
-from handler.redis_handler import async_cache
+from handler.redis_handler import as_text, async_cache
 from handler.socket_handler import socket_handler
 from logger.logger import log
 from models.notification import NotificationKind, NotificationLevel
@@ -141,9 +141,7 @@ async def get_live_session(session_key: str) -> dict[str, Any] | None:
 async def iter_session_keys() -> AsyncIterator[str]:
     """Every container key with a session row in the cache."""
     async for key in async_cache.scan_iter(match=f"{SESSION_KEY_PREFIX}*"):
-        # scan_iter yields bytes unless the client decodes responses.
-        key_str = key.decode() if isinstance(key, bytes) else key
-        yield key_str.removeprefix(SESSION_KEY_PREFIX)
+        yield as_text(key).removeprefix(SESSION_KEY_PREFIX)
 
 
 async def iter_live_sessions() -> AsyncIterator[tuple[str, dict[str, Any]]]:

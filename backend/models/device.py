@@ -73,6 +73,7 @@ class Device(BaseModel):
     sync_mode: Mapped[SyncMode] = mapped_column(Enum(SyncMode), default=SyncMode.API)
     sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     sync_config: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    capabilities: Mapped[dict[str, bool] | None] = mapped_column(JSON, nullable=True)
 
     last_seen: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), index=True

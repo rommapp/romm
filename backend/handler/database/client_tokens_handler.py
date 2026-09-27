@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, func, select, update
@@ -42,6 +42,26 @@ class DBClientTokensHandler(DBBaseHandler):
             select(ClientToken)
             .where(ClientToken.user_id == user_id)
             .order_by(ClientToken.created_at.desc())
+        ).all()
+
+    @begin_session
+    def get_token_ids_by_users(
+        self,
+        user_ids: Iterable[int],
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Sequence[int]:
+        return session.scalars(
+            select(ClientToken.id).where(ClientToken.user_id.in_(list(user_ids)))
+        ).all()
+
+    @begin_session
+    def get_token_ids_by_device(
+        self,
+        device_id: str,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Sequence[int]:
+        return session.scalars(
+            select(ClientToken.id).where(ClientToken.device_id == device_id)
         ).all()
 
     @begin_session

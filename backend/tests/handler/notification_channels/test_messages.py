@@ -87,6 +87,37 @@ def base_url(mocker):
             "discord.com answered 404",
             "https://romm.example.com/notifications?tab=channels",
         ),
+        (
+            NotificationKind.DEVICE_INSTALL_COMPLETED,
+            {
+                "rom_name": "Zelda",
+                "rom_id": 12,
+                "device_name": "Thor",
+                "status": "done",
+            },
+            "Zelda was added to downloads on Thor",
+            None,
+            "https://romm.example.com/rom/12",
+        ),
+        (
+            NotificationKind.DEVICE_INSTALL_COMPLETED,
+            {
+                "rom_name": "Zelda",
+                "rom_id": 12,
+                "device_name": "Thor",
+                "status": "already_installed",
+            },
+            "Zelda is already installed on Thor",
+            None,
+            "https://romm.example.com/rom/12",
+        ),
+        (
+            NotificationKind.DEVICE_INSTALL_FAILED,
+            {"rom_name": "Zelda", "rom_id": 12, "reason": "No space left"},
+            "Zelda could not be installed on your device",
+            "No space left",
+            "https://romm.example.com/rom/12",
+        ),
     ],
 )
 def test_words_romms_own_kinds_in_english(kind, data, title, body, url):
