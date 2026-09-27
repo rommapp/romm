@@ -50,7 +50,7 @@ def __get_fake_server() -> Any:
 
     # One keyspace for both caches, as one Redis serves both outside tests, so
     # a flush between tests clears what either of them wrote.
-    return FakeServer(version=7)
+    return FakeServer(version=(7,))
 
 
 _fake_server = __get_fake_server() if IS_PYTEST_RUN else None
