@@ -1,5 +1,5 @@
-from typing import Any, cast
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import httpx2
 import pytest
@@ -14,7 +14,7 @@ from handler.metadata.hasheous_handler import (
     _tags_from_signatures,
     extract_metadata_from_igdb_rom,
 )
-from models.rom import LookupHashes, RomFile
+from models.rom import RomFile
 
 # The proxy keys expanded collections by id and returns `company` as a bare id,
 # unlike IGDB's own list-of-objects shape.
@@ -199,25 +199,28 @@ FF7_MATCH = {
 }
 
 
-def _rom_file(sha1: str, size: int, extension: str = "chd") -> MagicMock:
-    file = MagicMock()
-    file.file_size_bytes = size
-    file.is_top_level = True
-    file.file_extension = extension
-    file.lookup_hashes = LookupHashes(crc=None, md5=None, sha1=sha1)
+def _rom_file(sha1: str, size: int, extension: str = "chd") -> RomFile:
+    file = RomFile(
+        file_name=f"{sha1}.{extension}",
+        file_path="psx/Game",
+        file_size_bytes=size,
+        sha1_hash=sha1,
+    )
+    # Pre-seeded so the file passes the top-level filter without a persisted rom.
+    file.__dict__["is_top_level"] = True
     return file
 
 
 class TestLookupRom:
     async def _lookup(
-        self, files: list[MagicMock], request: AsyncMock
+        self, files: list[RomFile], request: AsyncMock
     ) -> tuple[HasheousRom, bool]:
         handler = HasheousHandler()
         with (
             patch.object(HasheousHandler, "is_enabled", return_value=True),
             patch.object(handler, "_request", request),
         ):
-            return await handler.lookup_rom("psx", cast(list[RomFile], files))
+            return await handler.lookup_rom("psx", files)
 
     @staticmethod
     def _sent(request: AsyncMock) -> list[list[dict[str, str]]]:
