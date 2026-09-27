@@ -306,6 +306,32 @@ def test_cancel_upload_cleans_temp_files(
     )
 
 
+def test_cancel_closes_the_session_before_removing_its_files(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    upload_id = _start_upload(client, access_token, platform.id).json()["upload_id"]
+    session_open_during_cleanup: list[bool] = []
+    real_cleanup = upload_endpoint._cleanup_tmp
+
+    def cleanup(upload_id: str) -> None:
+        session_open_during_cleanup.append(
+            bool(sync_cache.exists(upload_endpoint._session_key(upload_id)))
+        )
+        real_cleanup(upload_id)
+
+    monkeypatch.setattr(upload_endpoint, "_cleanup_tmp", cleanup)
+
+    client.post(
+        f"/api/roms/upload/{upload_id}/cancel", headers=_auth_headers(access_token)
+    )
+
+    assert session_open_during_cleanup == [False]
+
+
 def test_an_uploaded_chunk_set_expires(
     client: TestClient,
     access_token: str,

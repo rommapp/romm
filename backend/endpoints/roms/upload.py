@@ -579,7 +579,9 @@ async def cancel_chunked_upload(
     session = json.loads(raw)
     _validate_session_owner(session, request.user.id)
 
-    _cleanup_tmp(upload_id)
+    # The session goes first, so a chunk PUT racing the cancel gets a 404
+    # rather than a 500 from writing into a directory already removed.
     await async_cache.delete(_session_key(upload_id), _chunks_key(upload_id))
+    _cleanup_tmp(upload_id)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
