@@ -559,6 +559,7 @@ class TestToken:
         second = _poll_token(client, body["device_code"])
         assert second.status_code == status.HTTP_400_BAD_REQUEST
         assert second.json()["detail"] == "slow_down"
+        assert sync_cache.ttl(df._KEY_POLL_LAST.format(body["device_code"])) > 0
 
     def test_per_ip_rate_limit(self, client):
         # Per-IP cap is 60/60s on /token. Use a single device_code with fast
@@ -937,14 +938,14 @@ def test_store_pending_writes_neither_key_when_one_write_fails(mocker):
 
     def failing_pipeline(*args, **kwargs):
         pipe = real_pipeline(*args, **kwargs)
-        queue_setex = pipe.setex
+        queue_set = pipe.set
 
-        def setex(name, *rest):
+        def set_(name, *args, **kwargs):
             if name.startswith("device_auth:uc:"):
                 raise ConnectionError("valkey went away")
-            return queue_setex(name, *rest)
+            return queue_set(name, *args, **kwargs)
 
-        mocker.patch.object(pipe, "setex", side_effect=setex)
+        mocker.patch.object(pipe, "set", side_effect=set_)
         return pipe
 
     mocker.patch.object(sync_cache, "pipeline", side_effect=failing_pipeline)

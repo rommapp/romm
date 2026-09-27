@@ -1,6 +1,7 @@
 """Startup script to run tasks before the main application is started."""
 
 import asyncio
+from typing import cast
 
 import sentry_sdk
 from opentelemetry import trace
@@ -141,7 +142,9 @@ def _drop_legacy_scheduler_state() -> None:
     try:
         legacy_job_ids = {
             as_text(job_id)
-            for job_id in redis_client.zrange(LEGACY_SCHEDULED_JOBS_KEY, 0, -1)
+            for job_id in cast(
+                list[bytes], redis_client.zrange(LEGACY_SCHEDULED_JOBS_KEY, 0, -1)
+            )
         }
 
         if legacy_job_ids:

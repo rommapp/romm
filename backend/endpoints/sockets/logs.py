@@ -159,7 +159,7 @@ async def _forward_while_locked(
     finally:
         # Closing drops the subscription too, and unlike UNSUBSCRIBE it does
         # not need a live connection.
-        await pubsub.aclose()  # type: ignore[attr-defined]
+        await pubsub.aclose()
 
 
 async def _release_lock(lock_id: str) -> None:

@@ -1,22 +1,22 @@
 ---
 name: pr-ready
-description: Run the pre-submit gauntlet (security-audit, code-review, simplify, review-polish) over a change before opening or merging a PR.
+description: Run the pre-submit gauntlet (security-audit, code-review, simplify, review-polish, humanizer) over a change before opening or merging a PR.
 argument-hint: "[PR number | branch | nothing for the current branch]"
 disable-model-invocation: true
 ---
 
 # PR-ready gauntlet
 
-Run the four review passes RomM applies to every non-trivial PR, in this order,
+Run the review passes RomM applies to every non-trivial PR, in this order,
 over one fixed range. Do not skip a step or reorder them.
 
 ## Target
 
 `$ARGUMENTS` is a PR number, a branch, or nothing (the current branch). Resolve
-it to a fetched target and derive `$RANGE` before step 1, then reuse `$RANGE`
-for every step. `HEAD` is the right target only when `$ARGUMENTS` is empty, so
-run the dispatch rather than assuming it: skip it and all four passes review the
-current checkout instead of what was asked for.
+it to a fetched target and derive `$BASE` and `$RANGE` before step 1, then
+reuse `$RANGE` for every step but the last. `HEAD` is the right target only when
+`$ARGUMENTS` is empty, so run the dispatch rather than assuming it: skip it and
+every pass reviews the current checkout instead of what was asked for.
 
 ```bash
 set -eu
@@ -30,7 +30,8 @@ case "$ARGUMENTS" in
 *) git fetch origin "pull/$ARGUMENTS/head"; TARGET="$(git rev-parse FETCH_HEAD)" ;;
 esac
 
-RANGE="$(git merge-base origin/master "$TARGET")..$TARGET"
+BASE="$(git merge-base origin/master "$TARGET")"
+RANGE="$BASE..$TARGET"
 ```
 
 An all-digit argument is a PR number, anything else is a branch.
@@ -39,16 +40,16 @@ An all-digit argument is a PR number, anything else is a branch.
 fetch that dies on the network, an argument that resolves to nothing, a missing
 merge base: each leaves a side of `$RANGE` empty, and git reads an empty side as
 `HEAD`, so `..$TARGET` is a valid range over the wrong commits rather than an
-error. Abort on the first failure instead of handing four passes a range built
+error. Abort on the first failure instead of handing every pass a range built
 without the thing you asked them to review.
 
-## Before steps 2 to 4
+## Before steps 2 to 5
 
 Step 1 is read-only and runs against `$RANGE` from wherever you are. The rest
 are not: they rewrite files and run the repository's own code from the target
 ref, including test runners, builds, `trunk`, package lifecycle scripts, and git
 hooks. A clean step 1 verdict is no substitute for that, since an audit can miss
-what it is looking for. So run steps 2 to 4 only on a ref you trust. On anything
+what it is looking for. So run steps 2 to 5 only on a ref you trust. On anything
 else, stop after step 1 and report, or run the rest in an isolated environment
 with no credentials and no network.
 
@@ -75,21 +76,40 @@ unrelated first, so each step's edits stay attributable.
 2. **`code-review` at `xhigh` with `--fix`**, targeting the resolved target
    rather than "the current diff", so it sees the whole change.
 3. **`simplify`**, after the correctness fixes so it can simplify those too.
-4. **`review-polish`** last: its verification gate has to cover everything the
-   earlier steps rewrote, and `trunk fmt` has to run after the final edit.
+4. **`review-polish`**: its verification gate has to cover everything the
+   earlier steps rewrote.
+5. **`humanizer`** last, over the prose `$BASE..HEAD` adds or changes (not
+   `$RANGE`, so it covers what steps 2 to 4 committed). See "Step 5 scope" below.
 
 Commit after each step that changes files, naming the step in the message. A bad
-automated fix is then one `git revert` away instead of tangled with three other
+automated fix is then one `git revert` away instead of tangled with the other
 passes.
 
-Finish with one consolidated summary rather than four transcripts: the security
-verdict, what steps 2 and 3 changed by area, which checks ran and their results,
-and anything still needing a human decision.
+Finish with one consolidated summary rather than per-step transcripts: the
+security verdict, what steps 2 to 5 changed by area, which checks ran and their
+results, and anything still needing a human decision.
 
 The summary also carries what the PR description needs and the transcripts hold: the
 screenshots step 4 captured, which the PR body references and `gh ... --attach` uploads
 under the `Screenshots` heading, and the `mermaid` block for a change that moved a
 boundary.
 
-Four passes in one session is a lot of context. For a very large diff, run the
-steps in separate sessions against the same `$RANGE`.
+The whole gauntlet in one session is a lot of context. For a very large diff,
+run the steps in separate sessions against the same `$RANGE`.
+
+## Step 5 scope
+
+Read `.claude/skills/humanizer/SKILL.md` and apply it rather than invoking the
+skill, since a personal install of the same name would load instead. In file
+mode it edits the Markdown paragraphs the range touches, and comments and
+docstrings on added lines. Skip locale files, paths in the `.trunk/trunk.yaml`
+`ignore` list, test fixtures, response schema docstrings (they are API contract
+text), and lint or type directives (`# noqa`, `# type: ignore`,
+`eslint-disable`), whose dash separators are syntax. In embedded mode it edits
+the PR description in the summary, keeping the AI disclosure and what
+`review-polish` §F requires.
+
+RomM rules win: rewritten text still meets `review-polish` §A, and a file's
+existing headings and bold labels stay (skip "Bold as decoration" and
+"Decorative headings" there). Then run `trunk fmt && trunk check` on the files
+it touched.
