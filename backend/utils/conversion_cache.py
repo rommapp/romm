@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import fcntl
 import hashlib
 import os
 import shutil
 import time
+from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -31,9 +33,8 @@ if TYPE_CHECKING:
 BYTES_PER_GB = 1024**3
 # Kept under the proxy_read_timeout nginx applies to /api (300s).
 SYNC_CONVERSION_DEADLINE_SECONDS = 240
-# A fresher sentinel means another worker is actively converting.
-PARTIAL_STALE_SECONDS = 6 * SECONDS_PER_HOUR
-SENTINEL_NAME = ".partial"
+# Partial output is hidden so cleanup never takes it for a served copy.
+PARTIAL_PREFIX = "."
 
 
 def converted_file_path(
@@ -53,15 +54,6 @@ def get_redirect_path(converted_path: Path) -> Path:
     return Path("/") / converted_path.relative_to(ROMM_BASE_PATH)
 
 
-def _cached_files(key_dir: Path) -> list[Path]:
-    """Every file a key dir holds on disk, in-flight temporaries included."""
-    return [
-        p
-        for p in key_dir.iterdir()
-        if p.is_file() and not p.name.startswith(SENTINEL_NAME)
-    ]
-
-
 def _dir_size(files: list[Path]) -> int:
     total = 0
     for p in files:
@@ -70,17 +62,31 @@ def _dir_size(files: list[Path]) -> int:
     return total
 
 
-def _sentinel_is_fresh(sentinel: Path, now: float) -> bool:
-    """Whether a `.partial` sentinel marks a conversion still in flight."""
-    return sentinel.stat().st_mtime >= now - PARTIAL_STALE_SECONDS
+def _files(key_dir: Path) -> list[Path]:
+    return [p for p in key_dir.iterdir() if p.is_file()]
+
+
+@contextlib.contextmanager
+def _try_lock(key_dir: Path) -> Generator[bool]:
+    """Lock `key_dir` unless another task or process holds it; the kernel frees it if the holder dies."""
+    fd = os.open(key_dir, os.O_RDONLY)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            yield False
+            return
+        yield True
+    finally:
+        os.close(fd)
 
 
 def cache_size_bytes() -> int:
-    """Bytes every key dir holds on disk, in-flight temporaries included."""
+    """Bytes every key dir holds on disk, partial output included."""
     cache_root = Path(ROM_CONVERTO_CACHE_PATH)
     if not cache_root.exists():
         return 0
-    return sum(_dir_size(_cached_files(d)) for d in cache_root.iterdir() if d.is_dir())
+    return sum(_dir_size(_files(d)) for d in cache_root.iterdir() if d.is_dir())
 
 
 def has_room_for(size_bytes: int) -> bool:
@@ -170,13 +176,11 @@ async def get_or_convert(
     platform_slug: str,
     target: str,
 ) -> Path | None:
-    """The converted file, converting it once under a `.partial` sentinel, or None to serve the original."""
+    """The converted file, converting it under a lock on its key dir, or None to serve the original."""
     found = _lookup(rom_id, rom_file, platform_slug, target)
     if found is None:
         return None
     operation, final_path = found
-    key_dir = final_path.parent
-    sentinel = key_dir / SENTINEL_NAME
 
     try:
         if cached := _serve_cached(final_path, touch=True):
@@ -188,35 +192,31 @@ async def get_or_convert(
             )
             return None
 
-        key_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            fd = os.open(sentinel, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            if _sentinel_is_fresh(sentinel, time.time()):
+        final_path.parent.mkdir(parents=True, exist_ok=True)
+        with _try_lock(final_path.parent) as locked:
+            if not locked:
                 # Another worker is converting; serve the original meanwhile.
                 return None
-            # Stale sentinel from a crashed run: rename it aside atomically so
-            # the key dir never disappears under a worker that lost the race.
-            stale = sentinel.with_name(
-                f"{SENTINEL_NAME}.stale-{os.getpid()}-{time.time_ns()}"
-            )
-            os.replace(sentinel, stale)
-            fd = os.open(sentinel, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            with contextlib.suppress(OSError):
-                stale.unlink()
-        os.close(fd)
+            # A conversion may have finished between the check above and the lock.
+            if cached := _serve_cached(final_path, touch=True):
+                return cached
+            return await _convert(rom_id, rom_file, target, operation, final_path)
     except Exception as e:
         log.warning(
             f"Conversion cache unavailable for ROM {rom_id} (target {hl(target)}): {e}; serving original"
         )
         return None
 
-    # A per-process temporary name hides partial output from readers and from
-    # the worker a stale-sentinel takeover displaced.
+
+async def _convert(
+    rom_id: int, rom_file: RomFile, target: str, operation: Operation, final_path: Path
+) -> Path | None:
+    """Convert into a partial file and rename it into place; the caller holds the key dir lock."""
     produced = final_path.with_name(
-        f"{final_path.stem}.tmp{os.getpid()}{final_path.suffix}"
+        f"{PARTIAL_PREFIX}{final_path.stem}.tmp{final_path.suffix}"
     )
     try:
+        # A crashed run can leave its partial output behind.
         produced.unlink(missing_ok=True)
         await rom_converto_service.convert(
             operation, src=Path(LIBRARY_BASE_PATH) / rom_file.full_path, out=produced
@@ -230,11 +230,7 @@ async def get_or_convert(
     finally:
         with contextlib.suppress(OSError):
             produced.unlink(missing_ok=True)
-            sentinel.unlink()
-
-    # The file can vanish (e.g. TTL cleanup) between the replace and here;
-    # only return a path that actually exists right now.
-    return final_path if final_path.exists() else None
+    return final_path
 
 
 def cleanup_stale_conversions() -> int:
@@ -253,35 +249,34 @@ def cleanup_stale_conversions() -> int:
     for key_dir in cache_root.iterdir():
         if not key_dir.is_dir():
             continue
-        sentinel = key_dir / SENTINEL_NAME
-        # A conversion finishing or a download racing this pass can rename or
-        # remove a file between listing and stat; leave that dir to next run.
-        try:
-            files = _cached_files(key_dir)
-            if not files:
-                # Only an in-flight sentinel makes an empty dir meaningful.
-                if sentinel.exists() and _sentinel_is_fresh(sentinel, now):
-                    continue
-            else:
-                stats = [p.stat() for p in files]
-                last_served = max(st.st_mtime for st in stats)
-                if last_served >= now - ttl_seconds:
-                    if not sentinel.exists():
-                        size = sum(st.st_size for st in stats)
-                        kept.append((last_served, size, key_dir))
-                    continue
-        except FileNotFoundError:
-            continue
-        shutil.rmtree(key_dir, ignore_errors=True)
-        deleted += 1
+        # A download racing this pass can remove a file between listing and
+        # stat; leave that dir to the next run.
+        with contextlib.suppress(FileNotFoundError), _try_lock(key_dir) as locked:
+            if not locked:
+                continue
+            stats = [
+                p.stat()
+                for p in _files(key_dir)
+                if not p.name.startswith(PARTIAL_PREFIX)
+            ]
+            last_served = max((st.st_mtime for st in stats), default=0.0)
+            if last_served >= now - ttl_seconds:
+                kept.append((last_served, sum(st.st_size for st in stats), key_dir))
+                continue
+            # Expired, or holding only a crashed run's partial output.
+            shutil.rmtree(key_dir, ignore_errors=True)
+            deleted += 1
 
     max_bytes = converto.cache_max_size_gb * BYTES_PER_GB
     used = sum(size for _, size, _ in kept)
     for _, size, key_dir in sorted(kept):
         if not max_bytes or used <= max_bytes:
             break
-        shutil.rmtree(key_dir, ignore_errors=True)
-        used -= size
-        deleted += 1
+        with contextlib.suppress(FileNotFoundError), _try_lock(key_dir) as locked:
+            if not locked:
+                continue
+            shutil.rmtree(key_dir, ignore_errors=True)
+            used -= size
+            deleted += 1
 
     return deleted
