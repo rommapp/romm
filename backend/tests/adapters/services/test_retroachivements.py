@@ -115,6 +115,46 @@ class TestRetroAchievementsServiceUnit:
             assert await service.get_game_extended_details(999999) is None
 
     @pytest.mark.asyncio
+    async def test_game_extended_details_accept_missing_credits(self, service):
+        body = {
+            "ID": 1,
+            "Title": "Homebrew",
+            "ConsoleID": 1,
+            "ForumTopicID": None,
+            "ImageIcon": "",
+            "ImageTitle": "",
+            "ImageIngame": "",
+            "ImageBoxArt": "",
+            "Publisher": None,
+            "Developer": None,
+            "Genre": None,
+            "Released": None,
+            "ReleasedAtGranularity": None,
+            "RichPresencePatch": "",
+            "GuideURL": None,
+            "Updated": "2025-07-06T16:20:59.000000Z",
+            "ConsoleName": "Genesis/Mega Drive",
+            "ParentGameID": None,
+            "NumDistinctPlayers": 0,
+            "NumAchievements": 0,
+            "Achievements": {},
+            "NumDistinctPlayersCasual": 0,
+            "NumDistinctPlayersHardcore": 0,
+        }
+        mock_response = MagicMock()
+        mock_response.read = AsyncMock(return_value=json.dumps(body).encode())
+        mock_response.raise_for_status.return_value = None
+        mock_session = AsyncMock()
+        mock_session.get.return_value = mock_response
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch(
+            "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
+        ):
+            assert await service.get_game_extended_details(1) == body
+
+    @pytest.mark.asyncio
     async def test_a_failed_progress_page_aborts_the_iteration(self, service):
         first_page = {"Count": 500, "Total": 1000, "Results": [{}] * 500}
         unavailable = HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
