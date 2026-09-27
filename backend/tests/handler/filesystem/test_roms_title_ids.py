@@ -276,24 +276,20 @@ class TestGetRomFilesWithConverto:
         assert rescan.identity == RomIdentity()
 
 
-async def test_converto_active_for_supported_platform(handler, psx_rom, mocker):
-    _patch_service(mocker)
-
-    assert await handler._converto_active(psx_rom) is True
-
-
-async def test_converto_active_false_when_service_disabled(handler, psx_rom, mocker):
-    _patch_service(mocker, enabled=False)
-
-    assert await handler._converto_active(psx_rom) is False
-
-
-async def test_converto_active_false_when_scan_metadata_disabled(
-    handler, psx_rom, mocker
+@pytest.mark.parametrize(
+    ("service_state", "expected"),
+    [
+        pytest.param({}, True, id="enabled"),
+        pytest.param({"enabled": False}, False, id="service-disabled"),
+        pytest.param({"scan_metadata": False}, False, id="scan-metadata-off"),
+    ],
+)
+async def test_converto_active_for_supported_platform(
+    handler, psx_rom, mocker, service_state: dict[str, bool], expected: bool
 ):
-    _patch_service(mocker, scan_metadata=False)
+    _patch_service(mocker, **service_state)
 
-    assert await handler._converto_active(psx_rom) is False
+    assert await handler._converto_active(psx_rom) is expected
 
 
 async def test_converto_active_false_for_unsupported_platform(handler, mocker):

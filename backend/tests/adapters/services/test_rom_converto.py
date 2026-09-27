@@ -1,6 +1,7 @@
 import asyncio
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import anyio
@@ -297,88 +298,74 @@ class TestCanInspect:
 
 
 class TestParseInfo:
-    def test_nx_without_prod_keys_has_no_title_id(self):
-        payload = {"kind": "nx", "container_kind": "nsp"}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info == RomConvertoInfo(title_id=None, title_version=None)
-
-    def test_chd_inner_disc_flattens_content(self):
-        payload = {"kind": "chd", "content": {"kind": "psx", "title_id": "SLUS-00594"}}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info == RomConvertoInfo(title_id="SLUS-00594", title_version=None)
-
-    def test_dol_hex_encodes_game_id(self):
-        payload = {"kind": "dol", "game_id": "GZLE01"}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "475A4C45"
-
-    def test_rvl_hex_encodes_game_id(self):
-        payload = {"kind": "rvl", "game_id": "RZTE01"}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "525A5445"
-
-    def test_wup_takes_last_8_of_title_id_hex(self):
-        payload = {
-            "kind": "wup",
-            "title_id_hex": "0005000010143500",
-            "title_version": 16,
-        }
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "10143500"
-        assert info.title_version == 16
-
-    def test_xbox_uses_nested_xbe_title_id_code(self):
-        payload = {
-            "kind": "xbox",
-            "xbe": {"title_id_code": "TT-027", "title_id_hex": "5454001B"},
-        }
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "TT-027"
-
-    def test_xenon_uses_nested_xex_title_id_hex(self):
-        payload = {"kind": "xenon", "xex": {"title_id_hex": "4D5307DC"}}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "4D5307DC"
-
-    def test_ctr_title_id_ignores_product_code(self):
-        payload = {
-            "kind": "ctr",
-            "title_id": "0004000000123456",
-            "product_code": "CTR-P-AXXE",
-        }
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "0004000000123456"
-
-    def test_nds_falls_back_to_game_code(self):
-        payload = {"kind": "nds", "game_code": "AXXE"}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "AXXE"
-
-    def test_ps3_string_version_is_none(self):
-        payload = {"kind": "ps3", "title_id": "BLUS31426", "version": "01.00"}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "BLUS31426"
-        assert info.title_version is None
+    @pytest.mark.parametrize(
+        ("payload", "expected"),
+        [
+            pytest.param(
+                {"kind": "nx", "container_kind": "nsp"},
+                RomConvertoInfo(title_id=None, title_version=None),
+                id="nx-without-prod-keys",
+            ),
+            pytest.param(
+                {"kind": "chd", "content": {"kind": "psx", "title_id": "SLUS-00594"}},
+                RomConvertoInfo(title_id="SLUS-00594", title_version=None),
+                id="chd-flattens-inner-disc",
+            ),
+            pytest.param(
+                {"kind": "dol", "game_id": "GZLE01"},
+                RomConvertoInfo(title_id="475A4C45", title_version=None),
+                id="dol-hex-encodes-game-id",
+            ),
+            pytest.param(
+                {"kind": "rvl", "game_id": "RZTE01"},
+                RomConvertoInfo(title_id="525A5445", title_version=None),
+                id="rvl-hex-encodes-game-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "wup",
+                    "title_id_hex": "0005000010143500",
+                    "title_version": 16,
+                },
+                RomConvertoInfo(title_id="10143500", title_version=16),
+                id="wup-last-8-of-title-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "xbox",
+                    "xbe": {"title_id_code": "TT-027", "title_id_hex": "5454001B"},
+                },
+                RomConvertoInfo(title_id="TT-027", title_version=None),
+                id="xbox-nested-xbe-code",
+            ),
+            pytest.param(
+                {"kind": "xenon", "xex": {"title_id_hex": "4D5307DC"}},
+                RomConvertoInfo(title_id="4D5307DC", title_version=None),
+                id="xenon-nested-xex-hex",
+            ),
+            pytest.param(
+                {
+                    "kind": "ctr",
+                    "title_id": "0004000000123456",
+                    "product_code": "CTR-P-AXXE",
+                },
+                RomConvertoInfo(title_id="0004000000123456", title_version=None),
+                id="ctr-ignores-product-code",
+            ),
+            pytest.param(
+                {"kind": "nds", "game_code": "AXXE"},
+                RomConvertoInfo(title_id="AXXE", title_version=None),
+                id="nds-falls-back-to-game-code",
+            ),
+            pytest.param(
+                {"kind": "ps3", "title_id": "BLUS31426", "version": "01.00"},
+                RomConvertoInfo(title_id="BLUS31426", title_version=None),
+                id="ps3-string-version-is-none",
+            ),
+        ],
+    )
+    def test_parse_info(self, payload: dict[str, Any], expected: RomConvertoInfo):
+        assert rom_converto._parse_info(payload) == expected
 
 
 class TestConvert:
@@ -425,49 +412,51 @@ class TestConvert:
 
 
 class TestResolveOperation:
-    def test_ngc_rvz_nkit_iso_picks_dol_migrate(self):
-        resolved = resolve_operation("ngc", "rvz", "Game.nkit.iso")
+    @pytest.mark.parametrize(
+        ("platform", "target", "file_name", "argv", "input_ext", "output_name"),
+        [
+            (
+                "ngc",
+                "rvz",
+                "Game.nkit.iso",
+                ("dol", "migrate"),
+                ".nkit.iso",
+                "Game.rvz",
+            ),
+            ("ngc", "rvz", "Game.iso", ("dol", "compress"), ".iso", "Game.rvz"),
+            ("wii", "wbfs", "Game.rvz", ("rvl", "decompress"), ".rvz", "Game.wbfs"),
+            ("3ds", "z3ds", "Game.3ds", ("ctr", "compress"), ".3ds", "Game.zcci"),
+            ("3ds", "cci", "My Game.CIA", ("ctr", "convert"), ".cia", "My Game.cci"),
+            ("psp", "chd", "Game.ISO", ("chd", "compress"), ".iso", "Game.chd"),
+        ],
+    )
+    def test_resolves_operation_and_output_name(
+        self,
+        platform: str,
+        target: str,
+        file_name: str,
+        argv: tuple[str, ...],
+        input_ext: str,
+        output_name: str,
+    ):
+        resolved = resolve_operation(platform, target, file_name)
+
         assert resolved is not None
         op, ext = resolved
-        assert op.argv == ("dol", "migrate")
-        assert ext == ".nkit.iso"
+        assert (op.argv, ext) == (argv, input_ext)
+        assert op.output_name(Path(file_name), ext) == output_name
 
-    def test_ngc_rvz_plain_iso_picks_dol_compress(self):
-        resolved = resolve_operation("ngc", "rvz", "Game.iso")
-        assert resolved is not None
-        op, ext = resolved
-        assert op.argv == ("dol", "compress")
-        assert ext == ".iso"
-
-    def test_psp_iso_already_target_returns_none(self):
-        assert resolve_operation("psp", "iso", "Game.iso") is None
-
-    def test_psx_chd_has_no_extract_operation(self):
-        assert resolve_operation("psx", "iso", "Game.chd") is None
-
-    def test_wii_wbfs_output_name(self):
-        resolved = resolve_operation("wii", "wbfs", "Game.rvz")
-        assert resolved is not None
-        op, ext = resolved
-        assert op.output_name(Path("Game.rvz"), ext) == "Game.wbfs"
-
-    def test_output_name_swaps_an_uppercase_extension(self):
-        resolved = resolve_operation("3ds", "cci", "My Game.CIA")
-        assert resolved is not None
-        op, ext = resolved
-        assert op.output_name(Path("My Game.CIA"), ext) == "My Game.cci"
-
-    def test_3ds_z3ds_output_name(self):
-        resolved = resolve_operation("3ds", "z3ds", "Game.3ds")
-        assert resolved is not None
-        op, ext = resolved
-        assert op.output_name(Path("Game.3ds"), ext) == "Game.zcci"
-
-    def test_case_insensitive_ext_match(self):
-        resolved = resolve_operation("psp", "chd", "Game.ISO")
-        assert resolved is not None
-        _, ext = resolved
-        assert ext == ".iso"
+    @pytest.mark.parametrize(
+        ("platform", "target", "file_name"),
+        [
+            pytest.param("psp", "iso", "Game.iso", id="already-in-target-format"),
+            pytest.param("psx", "iso", "Game.chd", id="cd-chd-has-no-extract"),
+        ],
+    )
+    def test_returns_none_when_nothing_applies(
+        self, platform: str, target: str, file_name: str
+    ):
+        assert resolve_operation(platform, target, file_name) is None
 
 
 class TestTargetsByPlatform:
