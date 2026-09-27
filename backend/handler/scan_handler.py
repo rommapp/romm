@@ -1773,17 +1773,18 @@ async def download_rom_resources(
             ("launchbox_metadata", added_rom.launchbox_metadata, None)
         )
 
-    async def store_provider_media() -> dict[str, dict[str, Any]]:
+    # Filled as each provider finishes, so a later one failing keeps the rest.
+    media_updates: dict[str, dict[str, Any]] = {}
+
+    async def store_provider_media() -> None:
         # Providers share media paths, so they take turns: a later one finds the
         # file an earlier one landed on disk and keeps it.
-        media_updates: dict[str, dict[str, Any]] = {}
         for column, metadata, url_transform in provider_media:
             # Paths of media that didn't land are cleared, so the dict is written back.
             if await fs_resource_handler.store_metadata_media(
                 metadata, preferred_media_types, url_transform
             ):
                 media_updates[column] = metadata
-        return media_updates
 
     achievements = (
         added_rom.ra_metadata.get("achievements", [])
@@ -1791,9 +1792,9 @@ async def download_rom_resources(
         else []
     )
 
-    # ScreenScraper media and RA badges are bounded by their own limiters. A
-    # failed provider or badge download must not lose the paths that did land.
-    outcomes: tuple[list[Any] | BaseException, ...] = await asyncio.gather(
+    # ScreenScraper media and RA badges are bounded by their own limiters. What
+    # landed is saved even when another download failed, then that failure raised.
+    outcomes: tuple[Any, ...] = await asyncio.gather(
         gather_all(
             fs_resource_handler.get_cover(
                 entity=added_rom,
@@ -1811,35 +1812,31 @@ async def download_rom_resources(
                 url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
             ),
         ),
-        gather_all(
-            store_provider_media(),
-            fs_resource_handler.store_ra_badges(achievements),
-        ),
+        store_provider_media(),
+        fs_resource_handler.store_ra_badges(achievements),
         return_exceptions=True,
     )
-    paths, extras = outcomes
-    if isinstance(paths, BaseException):
-        raise paths
-    (path_cover_s, path_cover_l), path_manual, path_screenshots = paths
-    media_updates = {} if isinstance(extras, BaseException) else extras[0]
+    paths = outcomes[0]
 
-    added_rom.path_cover_s = path_cover_s
-    added_rom.path_cover_l = path_cover_l
-    added_rom.path_screenshots = path_screenshots
-    added_rom.path_manual = path_manual
+    updates: dict[str, Any] = dict(media_updates)
+    if not isinstance(paths, BaseException):
+        (path_cover_s, path_cover_l), path_manual, path_screenshots = paths
+        added_rom.path_cover_s = path_cover_s
+        added_rom.path_cover_l = path_cover_l
+        added_rom.path_screenshots = path_screenshots
+        added_rom.path_manual = path_manual
+        updates.update(
+            path_cover_s=path_cover_s,
+            path_cover_l=path_cover_l,
+            path_screenshots=path_screenshots,
+            path_manual=path_manual,
+        )
+    if updates:
+        db_rom_handler.update_rom(added_rom.id, updates)
 
-    db_rom_handler.update_rom(
-        added_rom.id,
-        {
-            "path_cover_s": path_cover_s,
-            "path_cover_l": path_cover_l,
-            "path_screenshots": path_screenshots,
-            "path_manual": path_manual,
-            **media_updates,
-        },
-    )
-    if isinstance(extras, BaseException):
-        raise extras
+    for outcome in outcomes:
+        if isinstance(outcome, BaseException):
+            raise outcome
 
 
 class ScannedAsset(TypedDict):

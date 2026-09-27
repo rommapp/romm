@@ -8,10 +8,11 @@ import pytest
 from tests.concurrency_stubs import InFlight
 
 from handler.scan_handler import MetadataSource, download_rom_resources
+from models.rom import Rom
 
 
-def _rom() -> Any:
-    return SimpleNamespace(
+def _rom() -> Rom:
+    return Rom(
         id=7,
         url_cover="http://x/cover.png",
         url_manual="http://x/manual.pdf",
@@ -50,7 +51,7 @@ def resources() -> Iterator[SimpleNamespace]:
         yield SimpleNamespace(update_rom=update_rom, **downloads)
 
 
-async def _download(rom: Any, metadata_sources: list[str]) -> None:
+async def _download(rom: Rom, metadata_sources: list[str]) -> None:
     await download_rom_resources(
         added_rom=rom,
         previous_url_cover=None,
@@ -156,3 +157,20 @@ async def test_a_failed_provider_download_still_saves_the_paths_that_landed(
 
     written = resources.update_rom.call_args.args[1]
     assert written["path_cover_l"] == "big.png"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_badge_download_still_saves_changed_provider_media(
+    resources: SimpleNamespace,
+):
+    rom = _rom()
+    resources.store_metadata_media.side_effect = (
+        lambda metadata, *_args: metadata is rom.gamelist_metadata
+    )
+    resources.store_ra_badge.side_effect = OSError("disk full")
+
+    with pytest.raises(OSError):
+        await _download(rom, [MetadataSource.GAMELIST, MetadataSource.RA])
+
+    written = resources.update_rom.call_args.args[1]
+    assert written["gamelist_metadata"] is rom.gamelist_metadata
