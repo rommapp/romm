@@ -212,8 +212,7 @@ class ActivityHandler:
         members = cast(set[str], await async_cache.smembers(rom_key))
         entries: list[ActivityEntry] = []
         stale_members: list[str] = []
-        live_members: list[str] = []
-        keys: list[str] = []
+        keys_by_member: dict[str, str] = {}
 
         for member in members:
             try:
@@ -222,22 +221,20 @@ class ActivityHandler:
             except ValueError, AttributeError:
                 stale_members.append(member)
                 continue
-            live_members.append(member)
-            keys.append(self._activity_key(user_id, device_id))
+            keys_by_member[member] = self._activity_key(user_id, device_id)
 
-        raws = await async_cache.mget(keys) if keys else []
-        for member, raw in zip(live_members, raws, strict=True):
-            if not raw:
-                # Key expired; clean up the stale set member.
-                stale_members.append(member)
-                continue
+        raws = (
+            await async_cache.mget(list(keys_by_member.values()))
+            if keys_by_member
+            else []
+        )
+        for member, raw in zip(keys_by_member, raws, strict=True):
             try:
-                entry = json.loads(raw)
+                entry = json.loads(raw) if raw else None
             except ValueError:
-                stale_members.append(member)
-                continue
-            # The device may have moved on to another ROM since joining this index.
-            if entry.get("rom_id") != rom_id:
+                entry = None
+            # Expired, corrupt, or the device has since moved to another ROM.
+            if entry is None or entry.get("rom_id") != rom_id:
                 stale_members.append(member)
                 continue
             entries.append(entry)
