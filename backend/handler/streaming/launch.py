@@ -147,10 +147,6 @@ async def run_launch(
         if container.core and isinstance(launch_result, dict)
         else None
     )
-    if not isinstance(core_tier, str):
-        # The payload model takes a str only; a malformed tier must not
-        # strand an already running session without its launch-ready.
-        core_tier = None
     await stamp_launched(session_key, session, host=host)
     await lifecycle.publish_session_activity(session_key, session)
 

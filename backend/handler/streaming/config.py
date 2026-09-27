@@ -49,9 +49,8 @@ PLATFORM_OVERRIDE_KEYS = (
     "experimental_cores",
 )
 
-# A libretro core as the broker's catalog names it, e.g. "parallel_n64". Only
-# the shape is checked here: the broker owns the list and refuses an unknown
-# core at activate with the options.
+# A libretro core as the broker's catalog names it, e.g. "parallel_n64". The
+# broker owns the list and refuses an unknown one.
 _CORE_NAME = re.compile(r"^[a-z0-9_]+$")
 
 # Play-button text per emulator, used when a platform block sets no `label`
@@ -146,11 +145,10 @@ def emulator_display_label(
     emulator: str, platform: str, core: str | None = None
 ) -> str:
     """Play-button text for an emulator serving a platform, e.g. "PCSX2" or
-    "RA PPSSPP". A configured RetroArch core names itself, since the default's
-    display name would be wrong. Unknown emulators fall back to their
-    configured name."""
+    "RA PPSSPP". Unknown emulators fall back to their configured name."""
     key = emulator.strip().lower()
     if key == "retroarch":
+        # A configured core names itself; the default's display name would be wrong.
         if core:
             return f"RA {core}"
         name = _RETROARCH_CORE_NAMES.get(platform.lower(), platform.upper())
@@ -421,8 +419,6 @@ def _resolve_one(
             platform,
             core,
         )
-        if label == emulator_display_label(emulator, platform, core):
-            label = None
         core = None
     opt_in = entry.get("experimental_cores")
     if core is not None and opt_in is not None and not isinstance(opt_in, bool):
@@ -566,13 +562,12 @@ def _platform_overrides(
 
     # A platform block's own `label` wins; otherwise the emulator names the
     # button, not the container, so "Stream on PCSX2" rather than the box.
-    label = overrides.get("label") or emulator_display_label(emulator, platform, core)
     row = {
         **base,
         **overrides,
         "platform": platform,
         "emulator": emulator,
-        "label": label,
+        "label": overrides.get("label"),
     }
     if core is not None:
         row["core"] = core

@@ -27,7 +27,7 @@ import time
 import urllib.error
 from dataclasses import dataclass
 from typing import Any, Literal
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from fastapi import HTTPException
 
@@ -66,9 +66,8 @@ class ImportSpec:
         return kinds
 
 
-# Per container, so one broker's answer never speaks for another. A 404 or 422
-# holds for the worker's life, an answer or a refused core for one claim's
-# checks, a failure not at all.
+# Per container and core. A 404 or 422 holds for the worker's life, an answer
+# or a refused core for one claim's checks, a failure not at all.
 _IMPORT_SPEC_TTL = 30.0
 _import_spec_cache: dict[
     tuple[str, str, str, str | None, bool], tuple[float, ImportSpec | None]
@@ -119,13 +118,13 @@ def import_spec(
     cached = _import_spec_cache.get(cache_key)
     if cached is not None and cached[0] > time.monotonic():
         return cached[1]
-    query = f"emulator={quote(emulator, safe='')}&platform={quote(platform, safe='')}"
+    params = {"emulator": emulator, "platform": platform}
     if container.core:
         # Discovery has to answer for the core activate will boot.
-        query += f"&core={quote(container.core, safe='')}"
+        params["core"] = container.core
         if container.experimental_cores:
-            query += "&experimental_cores=1"
-    path = container.protocol.session_route(f"/import-spec?{query}")
+            params["experimental_cores"] = "1"
+    path = container.protocol.session_route(f"/import-spec?{urlencode(params)}")
     try:
         resp = broker.request(container, path, method="GET", timeout=ACK_TIMEOUT)
     except urllib.error.HTTPError as exc:
@@ -183,16 +182,16 @@ def activate(
         "emulator": emulator,
         "multiplayer": multiplayer,
     }
-    # A romless launch (the desktop) boots no core, whatever the platform sets.
-    core = container.core if rom is not None else None
+    # The core belongs to the platform's emulator; the desktop boots none.
+    core = (
+        container.core if rom is not None and emulator == container.emulator else None
+    )
     if rom is not None:
-        body["rom"] = rom
-        if core:
-            # Only a configured core goes out, so an unconfigured platform's
-            # body is what a broker without core support has always read.
-            body["rom"] = {**rom, "core": core}
-            if container.experimental_cores:
-                body["rom"]["experimental_cores"] = True
+        # Only a configured core goes out, so an unconfigured platform's body is
+        # what a broker without core support has always read.
+        body["rom"] = {**rom, "core": core} if core else rom
+        if core and container.experimental_cores:
+            body["rom"]["experimental_cores"] = True
     if gui_language:
         # Describes the player, not the rom, so it goes alongside `rom` rather
         # than inside it and is sent for a romless launch too.
@@ -227,6 +226,8 @@ def activate(
 
     resp = resp if isinstance(resp, dict) else {}
     log.info("broker activated session, %s", resp)
+    if not isinstance(resp.get("core_tier"), str):
+        resp.pop("core_tier", None)
     if core and resp.get("core") != core:
         # An older broker drops the field and boots its default; a dump at exit
         # would file that core's saves under this platform, so ask for none.

@@ -495,12 +495,10 @@ async def hydrate_states_to_broker(
     nothing to add here: any push would overwrite it before the broker's
     deferred load fires. A container that resumes from its save archive takes no
     state file at all, and the archive already carries the newest exit state.
-
-    A configured core gets nothing unless the activate reply's `core_tier`
-    says it is the default, since stored states are presumed to be the default's.
     """
     if resume_pushed or container.resumes_from_archive:
         return 0
+    # Stored states don't record their core, so each is presumed the default's.
     if container.core is not None and core_tier != "default":
         log.info(
             "not hydrating states into core %s (%s), they were made by the default",
