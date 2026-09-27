@@ -250,6 +250,11 @@
 #   scan_metadata: true
 #   # Hours a converted download stays cached after it was last downloaded
 #   cache_ttl_hours: 24
+#   # Cache size before the least recently downloaded copies are evicted (0: unbounded)
+#   cache_max_size_gb: 20
+#   # Largest file (MB) a download waits on while it converts; larger files are
+#   # served as-is and converted in the background for the next download (0: never wait)
+#   max_sync_size_mb: 512
 #   # Platform slug -> target format. Targets per platform:
 #   #   3ds: cci, cia, z3ds
 #   #   psp, ps2: chd, cso, iso, zso

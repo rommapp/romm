@@ -16,9 +16,7 @@ from adapters.services.rom_converto import (
 )
 from config import (
     LIBRARY_BASE_PATH,
-    ROM_CONVERTO_CACHE_MAX_SIZE_GB,
     ROM_CONVERTO_CACHE_PATH,
-    ROM_CONVERTO_MAX_SYNC_SIZE_MB,
     ROMM_BASE_PATH,
 )
 from config.config_manager import config_manager as cm
@@ -86,8 +84,8 @@ def cache_size_bytes() -> int:
 
 
 def has_room_for(size_bytes: int) -> bool:
-    """Whether adding `size_bytes` keeps the cache under ROM_CONVERTO_CACHE_MAX_SIZE_GB."""
-    max_bytes = ROM_CONVERTO_CACHE_MAX_SIZE_GB * BYTES_PER_GB
+    """Whether adding `size_bytes` keeps the cache under `converto.cache_max_size_gb`."""
+    max_bytes = cm.get_config().CONVERTO.cache_max_size_gb * BYTES_PER_GB
     return not max_bytes or cache_size_bytes() + size_bytes <= max_bytes
 
 
@@ -136,7 +134,7 @@ async def resolve_converted_download(
 
     Args:
         start_conversion: Convert when nothing is cached, waiting for files
-            within ROM_CONVERTO_MAX_SYNC_SIZE_MB and converting larger ones
+            within `converto.max_sync_size_mb` and converting larger ones
             in the background for the next download.
     """
     converto = cm.get_config().CONVERTO
@@ -160,7 +158,7 @@ async def resolve_converted_download(
     )
     if (
         file.file_size_bytes or rom.fs_size_bytes
-    ) > ROM_CONVERTO_MAX_SYNC_SIZE_MB * 1024 * 1024:
+    ) > converto.max_sync_size_mb * 1024 * 1024:
         return None
     done, _ = await asyncio.wait({conversion}, timeout=SYNC_CONVERSION_DEADLINE_SECONDS)
     return conversion.result() if done else None
@@ -245,7 +243,8 @@ def cleanup_stale_conversions() -> int:
     if not cache_root.exists():
         return 0
 
-    ttl_seconds = cm.get_config().CONVERTO.cache_ttl_hours * SECONDS_PER_HOUR
+    converto = cm.get_config().CONVERTO
+    ttl_seconds = converto.cache_ttl_hours * SECONDS_PER_HOUR
     now = time.time()
     deleted = 0
     # (last served, size, key dir) for the dirs that survive the TTL pass.
@@ -276,7 +275,7 @@ def cleanup_stale_conversions() -> int:
         shutil.rmtree(key_dir, ignore_errors=True)
         deleted += 1
 
-    max_bytes = ROM_CONVERTO_CACHE_MAX_SIZE_GB * BYTES_PER_GB
+    max_bytes = converto.cache_max_size_gb * BYTES_PER_GB
     used = sum(size for _, size, _ in kept)
     for _, size, key_dir in sorted(kept):
         if not max_bytes or used <= max_bytes:

@@ -689,6 +689,8 @@ def test_converto_config_from_yaml(tmp_path):
         "  download_conversion_enabled: true\n"
         "  scan_metadata: false\n"
         "  cache_ttl_hours: 48\n"
+        "  cache_max_size_gb: 0\n"
+        "  max_sync_size_mb: 128\n"
         "  platform_formats:\n"
         "    PSP: iso\n"
         "    ngc: rvz\n"
@@ -696,47 +698,52 @@ def test_converto_config_from_yaml(tmp_path):
     loader = ConfigManager(str(config_file))
 
     # Slugs and targets are normalized to lowercase.
-    assert loader.config.CONVERTO.download_conversion_enabled is True
-    assert loader.config.CONVERTO.scan_metadata is False
-    assert loader.config.CONVERTO.cache_ttl_hours == 48
-    assert loader.config.CONVERTO.platform_formats == {"psp": "iso", "ngc": "rvz"}
+    assert loader.config.CONVERTO == ConvertoConfig(
+        download_conversion_enabled=True,
+        scan_metadata=False,
+        cache_ttl_hours=48,
+        cache_max_size_gb=0,
+        max_sync_size_mb=128,
+        platform_formats={"psp": "iso", "ngc": "rvz"},
+    )
 
 
 def test_update_converto_settings_round_trip(tmp_path):
     config_file = tmp_path / "config.yml"
     config_file.write_text("converto:\n  cache_ttl_hours: 12\n")
     loader = ConfigManager(str(config_file))
-
-    loader.update_converto_settings(
-        ConvertoConfig(
-            download_conversion_enabled=True,
-            scan_metadata=True,
-            cache_ttl_hours=72,
-            platform_formats={"psp": "iso", "ngc": "rvz"},
-        )
+    converto = ConvertoConfig(
+        download_conversion_enabled=True,
+        scan_metadata=True,
+        cache_ttl_hours=72,
+        cache_max_size_gb=50,
+        max_sync_size_mb=1024,
+        platform_formats={"psp": "iso", "ngc": "rvz"},
     )
 
-    reloaded = ConfigManager(str(config_file))
-    assert reloaded.config.CONVERTO.download_conversion_enabled is True
-    assert reloaded.config.CONVERTO.scan_metadata is True
-    assert reloaded.config.CONVERTO.cache_ttl_hours == 72
-    assert reloaded.config.CONVERTO.platform_formats == {"psp": "iso", "ngc": "rvz"}
+    loader.update_converto_settings(converto)
+
+    assert ConfigManager(str(config_file)).config.CONVERTO == converto
 
 
-def test_converto_invalid_platform_slug_exits(tmp_path):
+@pytest.mark.parametrize(
+    "block",
+    [
+        "  platform_formats:\n    psvita: iso\n",
+        "  platform_formats:\n    psp: rvz\n",
+        "  cache_ttl_hours: 0\n",
+        "  cache_max_size_gb: -1\n",
+        "  max_sync_size_mb: true\n",
+    ],
+)
+def test_invalid_converto_setting_exits(tmp_path, block):
     config_file = tmp_path / "config.yml"
-    config_file.write_text("converto:\n  platform_formats:\n    psvita: iso\n")
+    config_file.write_text(f"converto:\n{block}")
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         ConfigManager(str(config_file))
 
-
-def test_converto_invalid_target_format_exits(tmp_path):
-    config_file = tmp_path / "config.yml"
-    config_file.write_text("converto:\n  platform_formats:\n    psp: rvz\n")
-
-    with pytest.raises(SystemExit):
-        ConfigManager(str(config_file))
+    assert excinfo.value.code == 3
 
 
 def _write_emulatorjs_config(tmp_path: Path, emulatorjs_block: str) -> ConfigManager:

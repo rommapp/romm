@@ -407,7 +407,19 @@ class ConvertoConfig:
     download_conversion_enabled: bool = False
     scan_metadata: bool = True
     cache_ttl_hours: int = 24
+    # 0 leaves the cache unbounded.
+    cache_max_size_gb: int = 20
+    # Largest file a download waits on while it converts; 0 never waits.
+    max_sync_size_mb: int = 512
     platform_formats: dict[str, str] = dataclasses.field(default_factory=dict)
+
+
+# The smallest value each integer converto.* setting accepts.
+CONVERTO_INT_MINIMUMS: Final[dict[str, int]] = {
+    "cache_ttl_hours": 1,
+    "cache_max_size_gb": 0,
+    "max_sync_size_mb": 0,
+}
 
 
 class EjsControls(TypedDict):
@@ -878,18 +890,14 @@ class ConfigManager:
                 self._raw_config, "streaming.containers", []
             ),
             CONVERTO=ConvertoConfig(
-                download_conversion_enabled=pydash.get(
-                    self._raw_config, "converto.download_conversion_enabled", False
-                ),
-                scan_metadata=pydash.get(
-                    self._raw_config, "converto.scan_metadata", True
-                ),
-                cache_ttl_hours=pydash.get(
-                    self._raw_config, "converto.cache_ttl_hours", 24
-                ),
-                platform_formats=pydash.get(
-                    self._raw_config, "converto.platform_formats", {}
-                ),
+                **{
+                    field.name: pydash.get(
+                        self._raw_config,
+                        f"converto.{field.name}",
+                        getattr(ConvertoConfig(), field.name),
+                    )
+                    for field in dataclasses.fields(ConvertoConfig)
+                }
             ),
             STRUCTURE_TEMPLATES=pydash.get(
                 self._raw_config, "filesystem.structure", {}
@@ -1337,14 +1345,13 @@ class ConfigManager:
             log.critical("Invalid config.yml: converto.scan_metadata must be a boolean")
             sys.exit(3)
 
-        if (
-            not isinstance(self.config.CONVERTO.cache_ttl_hours, int)
-            or self.config.CONVERTO.cache_ttl_hours < 1
-        ):
-            log.critical(
-                "Invalid config.yml: converto.cache_ttl_hours must be an integer >= 1"
-            )
-            sys.exit(3)
+        for key, minimum in CONVERTO_INT_MINIMUMS.items():
+            value = getattr(self.config.CONVERTO, key)
+            if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+                log.critical(
+                    f"Invalid config.yml: converto.{key} must be an integer >= {minimum}"
+                )
+                sys.exit(3)
 
         try:
             self.config.CONVERTO.platform_formats = normalize_platform_formats(

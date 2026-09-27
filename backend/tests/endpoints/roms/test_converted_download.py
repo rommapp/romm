@@ -9,6 +9,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from config import ROM_CONVERTO_CACHE_PATH
+from config.config_manager import ConvertoConfig
 from models.rom import Rom
 
 CONVERTED = Path(ROM_CONVERTO_CACHE_PATH) / "1-abc" / "test_rom.chd"
@@ -17,20 +18,20 @@ CONVERTED = Path(ROM_CONVERTO_CACHE_PATH) / "1-abc" / "test_rom.chd"
 @pytest.fixture
 def conversion(mocker):
     """Enable download conversion for the test platform with every step mocked."""
+    converto = ConvertoConfig(
+        download_conversion_enabled=True,
+        platform_formats={"test_platform_slug": "chd"},
+    )
     mocker.patch(
         "utils.conversion_cache.cm.get_config",
-        return_value=SimpleNamespace(
-            CONVERTO=SimpleNamespace(
-                download_conversion_enabled=True,
-                platform_formats={"test_platform_slug": "chd"},
-            )
-        ),
+        return_value=SimpleNamespace(CONVERTO=converto),
     )
     mocker.patch(
         "utils.conversion_cache.rom_converto_service.is_enabled",
         AsyncMock(return_value=True),
     )
     return SimpleNamespace(
+        converto=converto,
         cached=mocker.patch(
             "utils.conversion_cache.get_cached_converted", return_value=None
         ),
@@ -78,7 +79,7 @@ def test_opt_in_serves_the_converted_copy(
 def test_opt_in_serves_a_cached_copy_over_the_sync_cap(
     client: TestClient, access_token: str, rom: Rom, rom_file, conversion, mocker
 ):
-    mocker.patch("utils.conversion_cache.ROM_CONVERTO_MAX_SYNC_SIZE_MB", 0)
+    conversion.converto.max_sync_size_mb = 0
     conversion.cached.return_value = CONVERTED
 
     response = client.get(
@@ -96,7 +97,7 @@ def test_opt_in_serves_a_cached_copy_over_the_sync_cap(
 def test_opt_in_over_the_sync_cap_converts_in_the_background(
     client: TestClient, access_token: str, rom: Rom, rom_file, conversion, mocker
 ):
-    mocker.patch("utils.conversion_cache.ROM_CONVERTO_MAX_SYNC_SIZE_MB", 0)
+    conversion.converto.max_sync_size_mb = 0
 
     response = client.get(
         f"/api/roms/{rom.id}/content/test_rom.zip",

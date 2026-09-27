@@ -1,6 +1,7 @@
 import os
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -10,6 +11,7 @@ from adapters.services.rom_converto import (
     resolve_operation,
 )
 from config import ROMM_BASE_PATH
+from config.config_manager import ConvertoConfig
 from models.rom import RomFile
 from utils import conversion_cache
 from utils.conversion_cache import (
@@ -37,6 +39,17 @@ def _resolved(rom_file: RomFile) -> tuple[Operation, str]:
     resolved = resolve_operation("psp", "chd", rom_file.file_name)
     assert resolved is not None
     return resolved
+
+
+@pytest.fixture(autouse=True)
+def converto(mocker) -> ConvertoConfig:
+    """The converto.* settings every cache function reads, editable per test."""
+    config = ConvertoConfig()
+    mocker.patch(
+        "utils.conversion_cache.cm.get_config",
+        return_value=SimpleNamespace(CONVERTO=config),
+    )
+    return config
 
 
 @pytest.fixture
@@ -227,13 +240,13 @@ class TestGetCachedConverted:
 
 
 class TestHasRoomFor:
-    def test_unbounded_when_cap_is_zero(self, cache_root, mocker):
-        mocker.patch.object(conversion_cache, "ROM_CONVERTO_CACHE_MAX_SIZE_GB", 0)
+    def test_unbounded_when_cap_is_zero(self, cache_root, converto):
+        converto.cache_max_size_gb = 0
 
         assert conversion_cache.has_room_for(10 * conversion_cache.BYTES_PER_GB)
 
-    def test_counts_cached_bytes_against_the_cap(self, cache_root, mocker):
-        mocker.patch.object(conversion_cache, "ROM_CONVERTO_CACHE_MAX_SIZE_GB", 1)
+    def test_counts_cached_bytes_against_the_cap(self, cache_root, converto, mocker):
+        converto.cache_max_size_gb = 1
         mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
         key_dir = cache_root / "1-a"
         key_dir.mkdir()
@@ -256,10 +269,6 @@ class TestCleanupStaleConversions:
     @pytest.fixture
     def cleanup_cache_root(self, tmp_path, mocker):
         mocker.patch.object(conversion_cache, "ROM_CONVERTO_CACHE_PATH", str(tmp_path))
-        mocker.patch(
-            "utils.conversion_cache.cm.get_config",
-            return_value=mocker.Mock(**{"CONVERTO.cache_ttl_hours": 24}),
-        )
         return tmp_path
 
     def test_missing_root_is_noop(self, tmp_path, mocker):
@@ -313,9 +322,9 @@ class TestCleanupStaleConversions:
         assert not leaked.exists()
 
     def test_evicts_least_recently_served_over_the_cap(
-        self, cleanup_cache_root, mocker
+        self, cleanup_cache_root, converto, mocker
     ):
-        mocker.patch.object(conversion_cache, "ROM_CONVERTO_CACHE_MAX_SIZE_GB", 1)
+        converto.cache_max_size_gb = 1
         mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
         now = time.time()
         dirs = {}
@@ -333,8 +342,10 @@ class TestCleanupStaleConversions:
         assert dirs["1-mid"].exists()
         assert dirs["1-new"].exists()
 
-    def test_never_evicts_an_in_flight_conversion(self, cleanup_cache_root, mocker):
-        mocker.patch.object(conversion_cache, "ROM_CONVERTO_CACHE_MAX_SIZE_GB", 1)
+    def test_never_evicts_an_in_flight_conversion(
+        self, cleanup_cache_root, converto, mocker
+    ):
+        converto.cache_max_size_gb = 1
         mocker.patch.object(conversion_cache, "BYTES_PER_GB", 10)
         key_dir = cleanup_cache_root / "1-busy"
         key_dir.mkdir()

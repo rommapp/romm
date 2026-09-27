@@ -270,6 +270,8 @@ def _converto_payload(**overrides):
         "download_conversion_enabled": True,
         "scan_metadata": True,
         "cache_ttl_hours": 24,
+        "cache_max_size_gb": 20,
+        "max_sync_size_mb": 512,
         "platform_formats": {"psp": "cso"},
     }
     payload.update(overrides)
@@ -290,6 +292,8 @@ def test_update_converto_settings_normalizes_formats(client, access_token: str):
             download_conversion_enabled=True,
             scan_metadata=True,
             cache_ttl_hours=24,
+            cache_max_size_gb=20,
+            max_sync_size_mb=512,
             platform_formats={"psp": "cso"},
         )
     )
@@ -306,6 +310,8 @@ def test_update_converto_settings_requires_auth(client):
         {"platform_formats": {"psp": "rvz"}},
         {"platform_formats": {"psvita": "iso"}},
         {"cache_ttl_hours": 0},
+        {"cache_max_size_gb": -1},
+        {"max_sync_size_mb": -1},
     ],
 )
 def test_update_converto_settings_rejects_invalid_values(

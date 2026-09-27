@@ -1,11 +1,12 @@
 from fastapi import HTTPException, Request, status
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from adapters.services.rom_converto import (
     TARGETS_BY_PLATFORM,
     normalize_platform_formats,
 )
 from config.config_manager import (
+    CONVERTO_INT_MINIMUMS,
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
     DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
@@ -127,15 +128,10 @@ class ConvertoSettingsPayload(BaseModel):
 
     download_conversion_enabled: bool
     scan_metadata: bool
-    cache_ttl_hours: int
+    cache_ttl_hours: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_ttl_hours"])
+    cache_max_size_gb: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_max_size_gb"])
+    max_sync_size_mb: int = Field(ge=CONVERTO_INT_MINIMUMS["max_sync_size_mb"])
     platform_formats: dict[str, str]
-
-    @field_validator("cache_ttl_hours")
-    @classmethod
-    def validate_cache_ttl(cls, value: int) -> int:
-        if value < 1:
-            raise ValueError("cache_ttl_hours must be an integer >= 1")
-        return value
 
     @field_validator("platform_formats")
     @classmethod
