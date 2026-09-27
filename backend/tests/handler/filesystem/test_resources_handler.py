@@ -10,6 +10,13 @@ import httpx2
 import pytest
 from PIL import Image, ImageSequence
 from PIL.PngImagePlugin import Blend
+from tests.utils.test_images import (
+    DURATIONS,
+    FRAME_SIZE,
+    animated_image_bytes,
+    encode_animation,
+    truncated_animation_bytes,
+)
 
 import adapters.services.screenscraper as ss_module
 from adapters.services.screenscraper import (
@@ -28,13 +35,6 @@ from handler.filesystem.resources_handler import (
 )
 from models.collection import Collection
 from models.rom import Rom
-from tests.utils.test_images import (
-    DURATIONS,
-    FRAME_SIZE,
-    animated_image_bytes,
-    encode_animation,
-    truncated_animation_bytes,
-)
 from utils.images import frame_durations
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
