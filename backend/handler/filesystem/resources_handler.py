@@ -18,6 +18,7 @@ from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
+from utils.background_tasks import gather_all
 from utils.context import ctx_httpx_client
 from utils.images import frame_durations, is_animated, webp_loop
 from utils.rate_limiter import ConcurrencyLimiter
@@ -556,7 +557,7 @@ class FSResourcesHandler(FSHandler):
                 return None
             return self._get_screenshot_path(rom, str(idx))
 
-        paths = await asyncio.gather(
+        paths = await gather_all(
             *(screenshot_path(idx, url) for idx, url in enumerate(url_screenshots))
         )
         return [path for path in paths if path]
@@ -707,6 +708,22 @@ class FSResourcesHandler(FSHandler):
         except OSError as exc:
             log.error(f"Unable to write badge for {url}: {str(exc)}")
 
+    async def store_ra_badges(self, achievements: Iterable[dict[str, Any]]) -> None:
+        """Fetch the normal and locked badge of every achievement."""
+        # Keyed by path, since achievements can share a badge image.
+        badges: dict[str, str] = {}
+        for ach in achievements:
+            for url_key, path_key in (
+                ("badge_url_lock", "badge_path_lock"),
+                ("badge_url", "badge_path"),
+            ):
+                if ach.get(url_key) and ach.get(path_key):
+                    badges.setdefault(ach[path_key], ach[url_key])
+
+        await gather_all(
+            *(self.store_ra_badge(url, path) for path, url in badges.items())
+        )
+
     def get_ra_resources_path(self, platform_id: int, rom_id: int) -> str:
         return os.path.join(
             "roms",
@@ -818,16 +835,18 @@ class FSResourcesHandler(FSHandler):
             # scan already stored the file.
             return await self.file_exists(media_path)
 
-        recorded = [
-            (f"{media_type.value}_path", metadata.get(f"{media_type.value}_url"))
-            for media_type in media_types
-        ]
-        recorded = [(key, url) for key, url in recorded if metadata.get(key)]
-        stored = await asyncio.gather(
-            *(store(metadata[key], url) for key, url in recorded)
+        # Keyed by path key, so a media type listed twice is fetched once.
+        recorded: dict[str, str | None] = {}
+        for media_type in media_types:
+            path_key = f"{media_type.value}_path"
+            if metadata.get(path_key):
+                recorded[path_key] = metadata.get(f"{media_type.value}_url")
+
+        stored = await gather_all(
+            *(store(metadata[key], url) for key, url in recorded.items())
         )
 
-        missing = [key for (key, _), ok in zip(recorded, stored, strict=True) if not ok]
+        missing = [key for key, ok in zip(recorded, stored, strict=True) if not ok]
         for path_key in missing:
             metadata[path_key] = None
         return bool(missing)

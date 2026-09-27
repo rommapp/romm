@@ -1819,28 +1819,41 @@ class _InFlight:
         self.current = 0
         self.peak = 0
 
-    async def hold(self, seconds: float = 0.01) -> None:
+    def enter(self) -> None:
         self.current += 1
         self.peak = max(self.peak, self.current)
+
+    def leave(self) -> None:
+        self.current -= 1
+
+    async def hold(self, seconds: float = 0.01) -> None:
+        self.enter()
         try:
             await asyncio.sleep(seconds)
         finally:
-            self.current -= 1
+            self.leave()
+
+    def returning(self, value: Any):
+        async def call(*_args, **_kwargs):
+            await self.hold()
+            return value
+
+        return call
 
 
-class _InFlightStreamContext:
+class _InFlightStreamContext(_FakeStreamContext):
     def __init__(self, tracker: _InFlight):
+        super().__init__(_FakeResponse())
         self._tracker = tracker
 
     async def __aenter__(self):
-        self._tracker.current += 1
-        self._tracker.peak = max(self._tracker.peak, self._tracker.current)
+        self._tracker.enter()
         await asyncio.sleep(0.01)
-        return _FakeResponse()
+        return await super().__aenter__()
 
-    async def __aexit__(self, *_exc):
-        self._tracker.current -= 1
-        return False
+    async def __aexit__(self, *exc):
+        self._tracker.leave()
+        return await super().__aexit__(*exc)
 
 
 class _InFlightClient:
@@ -1937,3 +1950,67 @@ class TestConcurrentDownloads:
         assert changed is True
         assert metadata["video_path"] is None
         assert metadata["fanart_path"] == "roms/1/1/fanart/fanart.png"
+
+    @pytest.mark.asyncio
+    async def test_media_type_listed_twice_is_fetched_once(
+        self, handler: FSResourcesHandler
+    ):
+        metadata = {
+            "fanart_url": "http://x/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+        }
+        store = AsyncMock(return_value=True)
+
+        with patch.object(handler, "store_media_file", store):
+            await handler.store_metadata_media(
+                metadata, [MetadataMediaType.FANART, MetadataMediaType.FANART]
+            )
+
+        store.assert_awaited_once_with(
+            "http://x/fanart.png", "roms/1/1/fanart/fanart.png"
+        )
+
+    @pytest.mark.asyncio
+    async def test_badges_shared_by_achievements_are_fetched_once(
+        self, handler: FSResourcesHandler
+    ):
+        badge = {
+            "badge_url": "http://x/1.png",
+            "badge_path": "roms/1/1/badges/1.png",
+            "badge_url_lock": "http://x/1_lock.png",
+            "badge_path_lock": "roms/1/1/badges/1_lock.png",
+        }
+        store = AsyncMock()
+
+        with patch.object(handler, "store_ra_badge", store):
+            await handler.store_ra_badges([badge, dict(badge), {"badge_url": "x"}])
+
+        assert sorted(call.args for call in store.await_args_list) == [
+            ("http://x/1.png", "roms/1/1/badges/1.png"),
+            ("http://x/1_lock.png", "roms/1/1/badges/1_lock.png"),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_failed_screenshot_leaves_none_running(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        finished: list[int] = []
+
+        async def store(_rom, _url, idx):
+            if idx == 0:
+                raise ValueError("bad url")
+            await asyncio.sleep(0.01)
+            finished.append(idx)
+            return True
+
+        with (
+            patch.object(handler, "_store_screenshot", side_effect=store),
+            pytest.raises(ValueError),
+        ):
+            await handler.get_rom_screenshots(
+                rom=rom,
+                overwrite=True,
+                url_screenshots=["http://x/a.jpg", "http://x/b.jpg"],
+            )
+
+        assert finished == [1]

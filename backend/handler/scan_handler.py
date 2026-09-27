@@ -81,6 +81,7 @@ from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
+from utils.background_tasks import gather_all
 from utils.filesystem import sanitize_filename
 from utils.platform_aliases import (
     resolve_fs_folder,
@@ -1759,82 +1760,71 @@ async def download_rom_resources(
     )
     url_screenshots = added_rom.url_screenshots or []
 
-    # Provider media dicts from ScreenScraper, ES-DE gamelist.xml and LaunchBox.
-    # Media that didn't land on disk has its recorded path cleared, so those
-    # dicts are written back when that happens.
     preferred_media_types = get_preferred_media_types()
-    provider_media: list[tuple[str, dict[str, Any], Callable[[str], str] | None]] = [
-        (column, metadata, url_transform)
-        for column, metadata, source, url_transform in (
-            (
-                "ss_metadata",
-                added_rom.ss_metadata,
-                MetadataSource.SS,
-                add_ss_auth_to_url,
-            ),
-            (
-                "gamelist_metadata",
-                added_rom.gamelist_metadata,
-                MetadataSource.GAMELIST,
-                None,
-            ),
-            (
-                "launchbox_metadata",
-                added_rom.launchbox_metadata,
-                MetadataSource.LAUNCHBOX,
-                None,
-            ),
+    provider_media: list[tuple[str, dict[str, Any], Callable[[str], str] | None]] = []
+    if added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
+        provider_media.append(
+            ("ss_metadata", added_rom.ss_metadata, add_ss_auth_to_url)
         )
-        if metadata and source in metadata_sources
-    ]
+    if added_rom.gamelist_metadata and MetadataSource.GAMELIST in metadata_sources:
+        provider_media.append(("gamelist_metadata", added_rom.gamelist_metadata, None))
+    if added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
+        provider_media.append(
+            ("launchbox_metadata", added_rom.launchbox_metadata, None)
+        )
 
-    # Normal and locked achievement badges from RetroAchievements
-    badges: list[tuple[str, str]] = []
-    if added_rom.ra_metadata and MetadataSource.RA in metadata_sources:
-        for ach in added_rom.ra_metadata.get("achievements", []):
-            for url_key, path_key in (
-                ("badge_url_lock", "badge_path_lock"),
-                ("badge_url", "badge_path"),
+    async def store_provider_media() -> dict[str, dict[str, Any]]:
+        # Providers share media paths, so they take turns: a later one finds the
+        # file an earlier one landed on disk and keeps it.
+        media_updates: dict[str, dict[str, Any]] = {}
+        for column, metadata, url_transform in provider_media:
+            # Paths of media that didn't land are cleared, so the dict is written back.
+            if await fs_resource_handler.store_metadata_media(
+                metadata, preferred_media_types, url_transform
             ):
-                if ach.get(url_key) and ach.get(path_key):
-                    badges.append((ach[url_key], ach[path_key]))
+                media_updates[column] = metadata
+        return media_updates
 
-    # Every file lands in its own path, so they are fetched together; the
-    # ScreenScraper and badge limiters keep each host within its allowance.
-    (
-        (path_cover_s, path_cover_l),
-        path_manual,
-        path_screenshots,
-        media_changed,
-        _,
-    ) = await asyncio.gather(
+    achievements = (
+        added_rom.ra_metadata.get("achievements", [])
+        if added_rom.ra_metadata and MetadataSource.RA in metadata_sources
+        else []
+    )
+
+    cover = asyncio.create_task(
         fs_resource_handler.get_cover(
             entity=added_rom,
             overwrite=added_rom.url_cover != previous_url_cover,
             url_cover=add_ss_auth_to_url(added_rom.url_cover),
-        ),
+        )
+    )
+    manual = asyncio.create_task(
         fs_resource_handler.get_manual(
             rom=added_rom,
             overwrite=added_rom.url_manual != previous_url_manual,
             url_manual=add_ss_auth_to_url(added_rom.url_manual),
-        ),
+        )
+    )
+    screenshots = asyncio.create_task(
         fs_resource_handler.get_rom_screenshots(
             rom=added_rom,
             overwrite=bool(screenshots_changed),
             url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
-        ),
-        asyncio.gather(
-            *(
-                fs_resource_handler.store_metadata_media(
-                    metadata, preferred_media_types, url_transform
-                )
-                for _, metadata, url_transform in provider_media
-            )
-        ),
-        asyncio.gather(
-            *(fs_resource_handler.store_ra_badge(url, path) for url, path in badges)
-        ),
+        )
     )
+    media = asyncio.create_task(store_provider_media())
+    # ScreenScraper media and RA badges are bounded by their own limiters.
+    await gather_all(
+        cover,
+        manual,
+        screenshots,
+        media,
+        fs_resource_handler.store_ra_badges(achievements),
+    )
+
+    path_cover_s, path_cover_l = cover.result()
+    path_manual = manual.result()
+    path_screenshots = screenshots.result()
 
     added_rom.path_cover_s = path_cover_s
     added_rom.path_cover_l = path_cover_l
@@ -1848,13 +1838,7 @@ async def download_rom_resources(
             "path_cover_l": path_cover_l,
             "path_screenshots": path_screenshots,
             "path_manual": path_manual,
-            **{
-                column: metadata
-                for (column, metadata, _), changed in zip(
-                    provider_media, media_changed, strict=True
-                )
-                if changed
-            },
+            **media.result(),
         },
     )
 
