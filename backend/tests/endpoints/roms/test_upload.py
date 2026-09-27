@@ -8,7 +8,7 @@ from uuid import UUID
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from tests.redis_stubs import fail_expire
+from tests.redis_stubs import fail_expire, record_pipelines
 
 from endpoints.roms import upload as upload_endpoint
 from handler import rom_upload
@@ -321,6 +321,25 @@ def test_an_uploaded_chunk_set_expires(
     )
 
     assert sync_cache.ttl(upload_endpoint._chunks_key(upload_id)) > 0
+
+
+def test_a_chunk_is_recorded_in_one_transaction(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict[str, Any],
+    mocker,
+):
+    upload_id = _start_upload(client, access_token, platform.id).json()["upload_id"]
+    executed = record_pipelines(mocker)
+
+    client.put(
+        f"/api/roms/upload/{upload_id}",
+        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        content=b"ABCDEF",
+    )
+
+    assert executed == [(True, ["SADD", "EXPIRE", "SCARD"])]
 
 
 def test_a_failed_chunk_record_leaves_no_set_without_a_ttl(

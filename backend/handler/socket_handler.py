@@ -95,20 +95,30 @@ class SocketHandler:
             return None
 
         session_id = session.get("session_id")
-        if session_id:
-            await self.bind_to_login_session(sid, session_id)
+        if session_id and not await self.bind_to_login_session(sid, session_id):
+            return None
         return user
 
-    async def bind_to_login_session(self, sid: str, session_id: str) -> None:
-        """Record which login session opened a socket, so revoking it closes the socket."""
+    async def bind_to_login_session(self, sid: str, session_id: str) -> bool:
+        """Record which login session opened a socket, so revoking it closes the socket.
+
+        Returns:
+            False when the session was revoked first, leaving the socket unbound
+        """
         key = self._login_session_sockets_key(session_id)
-        # One transaction, so the set never exists without its TTL.
+        # Revocation deletes the session before reading this set, so a session
+        # still there after the SADD means revocation will see this socket.
         async with async_cache.pipeline() as pipe:
             await pipe.sadd(key, sid)
             await pipe.expire(key, SESSION_MAX_AGE_SECONDS)
-            await pipe.execute()
+            await pipe.exists(f"session:{session_id}")
+            *_, session_live = await pipe.execute()
+        if not session_live:
+            await async_cache.srem(key, sid)
+            return False
         async with self.socket_server.session(sid) as session:
             session[LOGIN_SESSION_ID_KEY] = session_id
+        return True
 
     async def unbind_from_login_session(self, sid: str) -> None:
         """Forget a disconnecting socket, logging a failure."""

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import socketio
-from tests.redis_stubs import fail_expire
+from tests.redis_stubs import fail_expire, record_pipelines
 
 from handler.database import db_user_handler
 from handler.redis_handler import async_cache, sync_cache
@@ -81,13 +81,56 @@ class TestLoginSessionSockets:
             yield socket_session
 
         mocker.patch.object(handler.socket_server, "session", session)
+        await cache.set("session:s1", "{}")
 
-        await handler.bind_to_login_session("sid-1", "s1")
+        assert await handler.bind_to_login_session("sid-1", "s1")
 
         key = "session_sockets:socketio:s1"
         assert await cache.smembers(key) == {b"sid-1"}
         assert await cache.ttl(key) > 0
         assert socket_session == {LOGIN_SESSION_ID_KEY: "s1"}
+
+    async def test_binding_is_one_transaction(self, mocker, cache):
+        handler = SocketHandler(path="/test")
+
+        @asynccontextmanager
+        async def session(sid: str):
+            yield {}
+
+        mocker.patch.object(handler.socket_server, "session", session)
+        await cache.set("session:s1", "{}")
+        executed = record_pipelines(mocker)
+
+        await handler.bind_to_login_session("sid-1", "s1")
+
+        assert executed == [(True, ["SADD", "EXPIRE", "EXISTS"])]
+
+    async def test_binding_to_a_revoked_session_binds_nothing(self, mocker, cache):
+        """A socket that authenticated just before its session was revoked."""
+        handler = SocketHandler(path="/test")
+        socket_session: dict[str, str] = {}
+
+        @asynccontextmanager
+        async def session(sid: str):
+            yield socket_session
+
+        mocker.patch.object(handler.socket_server, "session", session)
+
+        assert not await handler.bind_to_login_session("sid-1", "s1")
+
+        assert not await cache.exists("session_sockets:socketio:s1")
+        assert socket_session == {}
+
+    async def test_closing_a_session_reads_and_deletes_in_one_transaction(
+        self, mocker, cache
+    ):
+        handler = SocketHandler(path="/test")
+        mocker.patch.object(handler.socket_server, "disconnect", AsyncMock())
+        executed = record_pipelines(mocker)
+
+        await handler.close_login_sessions(["s1"])
+
+        assert executed == [(True, ["SMEMBERS", "DEL"])]
 
     async def test_a_failed_binding_leaves_no_set_without_a_ttl(self, mocker, cache):
         handler = SocketHandler(path="/test")
@@ -156,6 +199,7 @@ class TestLoginSessionSockets:
             yield {}
 
         mocker.patch.object(handler.socket_server, "session", session)
+        await cache.set("session:s1", "{}")
 
         await handler.bind_to_login_session("sid-1", "s1")
 
@@ -184,7 +228,9 @@ class TestAuthenticate:
     def bind(self, mocker, handler) -> AsyncMock:
         return cast(
             AsyncMock,
-            mocker.patch.object(handler, "bind_to_login_session", AsyncMock()),
+            mocker.patch.object(
+                handler, "bind_to_login_session", AsyncMock(return_value=True)
+            ),
         )
 
     @pytest.fixture
@@ -205,6 +251,14 @@ class TestAuthenticate:
 
         assert await handler.authenticate("sid-1", {}) is user
         bind.assert_awaited_once_with("sid-1", "s1")
+
+    async def test_rejects_a_session_revoked_while_binding(
+        self, mocker, handler, bind, user
+    ):
+        bind.return_value = False
+        self._session(mocker, iss="romm:auth", sub="sam", session_id="s1")
+
+        assert await handler.authenticate("sid-1", {}) is None
 
     async def test_rejects_a_foreign_issuer(self, mocker, handler, bind, user):
         self._session(mocker, iss="other", sub="sam", session_id="s1")

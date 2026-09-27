@@ -459,7 +459,7 @@ async def upload_chunk(
             detail="Error writing chunk to disk",
         ) from exc
 
-    # One transaction, so the set never exists without its TTL.
+    # One transaction, so a dropped connection cannot leave the set without its TTL.
     async with async_cache.pipeline() as pipe:
         await pipe.sadd(_chunks_key(upload_id), chunk_index)
         await pipe.expire(_chunks_key(upload_id), ROM_UPLOAD_TTL)
@@ -526,10 +526,11 @@ async def complete_chunked_upload(
 
     total_chunks = session["total_chunks"]
 
-    received_chunks = {
-        int(chunk) for chunk in await async_cache.smembers(_chunks_key(upload_id))
-    }
-    if len(received_chunks) != total_chunks:
+    received_count = await async_cache.scard(_chunks_key(upload_id))
+
+    if received_count != total_chunks:
+        received_chunks_bytes = await async_cache.smembers(_chunks_key(upload_id))
+        received_chunks = {int(chunk) for chunk in received_chunks_bytes}
         missing = sorted(set(range(total_chunks)) - received_chunks)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -578,7 +579,7 @@ async def cancel_chunked_upload(
     session = json.loads(raw)
     _validate_session_owner(session, request.user.id)
 
-    await async_cache.delete(_session_key(upload_id), _chunks_key(upload_id))
     _cleanup_tmp(upload_id)
+    await async_cache.delete(_session_key(upload_id), _chunks_key(upload_id))
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
