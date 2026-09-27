@@ -7,7 +7,6 @@ from fastapi import status
 from endpoints import device as device_endpoints
 from handler.database import db_device_handler
 from handler.device_install import device_install_handler
-from handler.redis_handler import sync_cache
 from models.device import Device
 from models.user import User
 
@@ -342,28 +341,6 @@ class TestDeviceCapabilities:
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-
-
-class TestDevicePresence:
-    def test_lists_the_callers_devices_holding_a_socket(
-        self, client, access_token: str, admin_user: User, editor_user: User
-    ):
-        for device_id, user in (
-            ("dev-online", admin_user),
-            ("dev-offline", admin_user),
-            ("dev-editor", editor_user),
-        ):
-            db_device_handler.add_device(Device(id=device_id, user_id=user.id))
-        sync_cache.sadd("device_presence:dev-online", "sid-1")
-        sync_cache.sadd("device_presence:dev-editor", "sid-2")
-
-        response = client.get(
-            "/api/devices/online",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json() == ["dev-online"]
 
 
 class TestDeviceUserIsolation:

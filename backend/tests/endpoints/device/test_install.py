@@ -9,6 +9,7 @@ from endpoints.responses.device.install import InstallRequestSchema, InstallStat
 from handler.database import db_device_handler, db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.device_install import device_install_handler
+from handler.redis_handler import sync_cache
 from models.device import Device
 from models.notification import NotificationKind, NotificationLevel
 from models.permission import HiddenEntity, PermEntity
@@ -287,6 +288,32 @@ class TestCreate:
         mocker.patch.object(device_install, "DEVICE_INSTALL_ENABLED", False)
 
         response = _create(client, headers, rom.id)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestOnline:
+    def test_lists_the_callers_devices_holding_a_socket(
+        self, client, headers, admin_user: User, editor_user: User
+    ):
+        for device_id, user in (
+            ("dev-online", admin_user),
+            ("dev-offline", admin_user),
+            ("dev-editor", editor_user),
+        ):
+            db_device_handler.add_device(Device(id=device_id, user_id=user.id))
+        sync_cache.sadd("device_presence:dev-online", "sid-1")
+        sync_cache.sadd("device_presence:dev-editor", "sid-2")
+
+        response = client.get("/api/devices/online", headers=headers)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == ["dev-online"]
+
+    def test_is_not_found_while_disabled(self, mocker, client, headers):
+        mocker.patch.object(device_install, "DEVICE_INSTALL_ENABLED", False)
+
+        response = client.get("/api/devices/online", headers=headers)
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 

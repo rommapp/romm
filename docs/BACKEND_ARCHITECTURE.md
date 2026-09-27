@@ -182,6 +182,7 @@ backend/
 │   ├── configs.py             # App configuration
 │   ├── device/                # Devices
 │   │   ├── __init__.py        # Device registration
+│   │   ├── auth.py            # Device pairing flow (RFC 8628)
 │   │   └── install.py         # Push-to-device install queue
 │   ├── export.py              # ES-DE gamelist.xml + Pegasus exports
 │   ├── feeds.py               # Tinfoil, WebRcade, PKGi feeds
@@ -1586,7 +1587,8 @@ owner is deleted, its owner is disabled, or its owner's permissions change,
 and within 30 seconds of the token's `expires_at`. Each open socket refreshes `device_presence:{device_id}` and its token's
 `device_token_sockets:{id}` every 30 seconds. The presence key lapses 90
 seconds after the last refresh and loses the socket on disconnect;
-`GET /api/devices/online` lists the caller's devices whose key is live. The
+`GET /api/devices/online` lists the caller's devices whose key is live (404
+while `DEVICE_INSTALL_ENABLED` is off). The
 per-token socket sets exist only to close sockets on revocation and never
 answer presence.
 

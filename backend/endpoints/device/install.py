@@ -21,6 +21,7 @@ from endpoints.sockets.devices import (
     emit_install_cancelled,
     emit_install_queued,
     emit_install_updated,
+    online_device_ids,
 )
 from exceptions.endpoint_exceptions import (
     DeviceInstallDisabledException,
@@ -47,10 +48,7 @@ from models.notification import NotificationKind, NotificationLevel
 from utils.auth import token_device_id
 from utils.router import APIRouter
 
-router = APIRouter(
-    prefix="/devices",
-    tags=["devices"],
-)
+router = APIRouter()
 
 DEVICE_REPORTS: Final = frozenset(
     {InstallStatus.DONE, InstallStatus.ALREADY_INSTALLED, InstallStatus.FAILED}
@@ -142,6 +140,22 @@ async def _notify_outcome(install: InstallRequestSchema, device: Device) -> None
             "reason": install.reason,
         },
     )
+
+
+@protected_route(
+    router.get,
+    "/online",
+    [Scope.DEVICES_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def get_online_devices(request: Request) -> list[str]:
+    """Ids of the caller's devices holding an open device socket."""
+    if not DEVICE_INSTALL_ENABLED:
+        raise DeviceInstallDisabledException()
+    device_ids = [
+        device.id for device in db_device_handler.get_devices(user_id=request.user.id)
+    ]
+    return await online_device_ids(device_ids)
 
 
 @protected_route(

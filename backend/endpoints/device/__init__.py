@@ -13,7 +13,6 @@ from pydantic import (
 
 from decorators.auth import protected_route
 from endpoints.responses.device import DeviceCreateResponse, DeviceSchema
-from endpoints.sockets.devices import online_device_ids
 from handler.auth.constants import Scope
 from handler.database import (
     db_client_token_handler,
@@ -27,10 +26,14 @@ from logger.logger import log
 from models.device import Device, SyncMode
 from utils.router import APIRouter
 
+from .install import router as install_router
+
 router = APIRouter(
     prefix="/devices",
     tags=["devices"],
 )
+
+router.include_router(install_router)
 
 # Flags a device reports about itself, such as {"remote_install": true}.
 DeviceCapabilities = Annotated[
@@ -167,15 +170,6 @@ def register_device(
 def get_devices(request: Request) -> list[DeviceSchema]:
     devices = db_device_handler.get_devices(user_id=request.user.id)
     return [DeviceSchema.model_validate(device) for device in devices]
-
-
-@protected_route(router.get, "/online", [Scope.DEVICES_READ])
-async def get_online_devices(request: Request) -> list[str]:
-    """Ids of the caller's devices holding an open device socket."""
-    device_ids = [
-        device.id for device in db_device_handler.get_devices(user_id=request.user.id)
-    ]
-    return await online_device_ids(device_ids)
 
 
 @protected_route(router.get, "/{device_id}", [Scope.DEVICES_READ])
