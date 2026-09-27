@@ -6,7 +6,7 @@ from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.sync_session import SyncSession, SyncSessionStatus
 
 from .base_handler import DBBaseHandler, affected_rows
@@ -22,7 +22,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> SyncSession:
         sync_session = SyncSession(
             device_id=device_id,
@@ -39,7 +39,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> SyncSession | None:
         return session.scalar(
             select(SyncSession).filter_by(id=session_id, user_id=user_id).limit(1)
@@ -50,7 +50,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> SyncSession | None:
         return session.scalar(
             select(SyncSession)
@@ -73,7 +73,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         data: dict[str, Any],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> SyncSession:
         session.execute(
             update(SyncSession)
@@ -91,7 +91,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             update(SyncSession)
@@ -108,7 +108,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         session_id: int,
         operations_completed: int = 0,
         operations_failed: int = 0,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> SyncSession | None:
         """Complete a session that is still open, or that the cleanup expired.
 
@@ -163,7 +163,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         error_message: str | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> SyncSession:
         session.execute(
             update(SyncSession)
@@ -184,7 +184,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
     def fail_stale_sessions(
         self,
         older_than: datetime,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> int:
         """Fail every session opened before ``older_than`` and never closed.
 
@@ -221,7 +221,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         device_id: str | None = None,
         status: SyncSessionStatus | None = None,
         limit: int = 50,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[SyncSession]:
         query = select(SyncSession).filter_by(user_id=user_id)
 

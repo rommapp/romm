@@ -61,6 +61,11 @@ class NotificationsDict(TypedDict):
     EMAILS_RESET_LINKS: bool
 
 
+class DeviceInstallDict(TypedDict):
+    ENABLED: bool
+    EXCLUDED_PLATFORM_SLUGS: list[str]
+
+
 class TasksDict(TypedDict):
     ENABLE_SCHEDULED_RESCAN: bool
     SCHEDULED_RESCAN_CRON: str
@@ -80,6 +85,7 @@ class HeartbeatResponse(TypedDict):
     FRONTEND: FrontendDict
     OIDC: OIDCDict
     NOTIFICATIONS: NotificationsDict
+    DEVICE_INSTALL: DeviceInstallDict
     TASKS: TasksDict
 
 

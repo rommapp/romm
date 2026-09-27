@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import NamedTuple
 
 from fastapi import HTTPException
 from fastapi.security.http import HTTPBasic
@@ -12,10 +13,40 @@ from handler.database import (
     db_device_handler,
     db_user_handler,
 )
+from models.client_token import ClientToken
 from models.user import User
 from utils.datetime import to_utc
 
-from .constants import READ_SCOPES
+from .constants import CLIENT_TOKEN_PREFIX, READ_SCOPES
+
+
+class ClientTokenIdentity(NamedTuple):
+    token: ClientToken
+    user: User
+    scopes: list[str]
+
+
+def resolve_client_token(raw_token: str) -> ClientTokenIdentity | None:
+    """The live client token behind a raw one, its enabled owner, and the scopes both hold."""
+    client_token = db_client_token_handler.get_token_by_hash(
+        auth_handler.hash_client_token(raw_token)
+    )
+    if client_token is None:
+        return None
+
+    if client_token.expires_at and to_utc(client_token.expires_at) < datetime.now(
+        timezone.utc
+    ):
+        return None
+
+    user = db_user_handler.get_user(client_token.user_id)
+    if user is None or not user.enabled:
+        return None
+
+    token_scopes = set(client_token.scopes.split())
+    return ClientTokenIdentity(
+        client_token, user, list(token_scopes & set(user.oauth_scopes))
+    )
 
 
 class HybridAuthBackend(AuthenticationBackend):
@@ -57,25 +88,12 @@ class HybridAuthBackend(AuthenticationBackend):
 
             # Check if bearer auth header is valid
             if scheme.lower() == "bearer":
-                # Client API tokens use the rmm_ prefix
-                if token.startswith("rmm_"):
-                    hashed = auth_handler.hash_client_token(token)
-                    client_token = db_client_token_handler.get_token_by_hash(hashed)
-                    if client_token is None:
+                if token.startswith(CLIENT_TOKEN_PREFIX):
+                    identity = resolve_client_token(token)
+                    if identity is None:
                         return None
 
-                    if client_token.expires_at and to_utc(
-                        client_token.expires_at
-                    ) < datetime.now(timezone.utc):
-                        return None
-
-                    user = db_user_handler.get_user(client_token.user_id)
-                    if user is None or not user.enabled:
-                        return None
-
-                    token_scopes = set(client_token.scopes.split())
-                    effective_scopes = list(token_scopes & set(user.oauth_scopes))
-
+                    client_token, user, effective_scopes = identity
                     db_client_token_handler.update_last_used(client_token.id)
                     user.set_last_active()
                     conn.state.client_token_id = client_token.id

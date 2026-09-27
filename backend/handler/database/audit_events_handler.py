@@ -6,7 +6,7 @@ from sqlalchemy import ColumnElement, Select, String, cast, delete, func, or_, s
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.interfaces import LoaderOption
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.audit_event import AuditCategory, AuditEvent, actions_in
 from models.device import Device
 from models.rom import Rom
@@ -58,7 +58,7 @@ class DBAuditEventsHandler(DBBaseHandler):
     def add_events(
         self,
         events: Sequence[AuditEvent],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.add_all(events)
 
@@ -68,7 +68,7 @@ class DBAuditEventsHandler(DBBaseHandler):
         filters: AuditEventFilters,
         limit: int,
         offset: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> tuple[list[tuple[AuditEvent, str | None]], int, int | None]:
         """A page of events, newest first, each with its device's name, the total,
         and the highest id among the matches for later pages to be pinned to."""
@@ -144,7 +144,7 @@ class DBAuditEventsHandler(DBBaseHandler):
         self,
         cutoff: datetime,
         batch_size: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> int:
         """Delete up to `batch_size` of the oldest events from before `cutoff`."""
         # Ids first: MySQL refuses a LIMIT inside an IN subquery.
