@@ -44,7 +44,8 @@ class RomMWorker(Worker):
     def handle_work_horse_killed(
         self, job: Job, retpid: int, ret_val: int, rusage: Any
     ) -> None:
-        super().handle_work_horse_killed(job, retpid, ret_val, rusage)
+        # mypy's untyped_calls_exclude cannot name the receiver of a super() call.
+        super().handle_work_horse_killed(job, retpid, ret_val, rusage)  # type: ignore[no-untyped-call]
         # RQ runs neither the failure callback nor the exception handlers for a
         # killed horse, only for a job whose whole worker died.
         exc_info = (AbandonedJobError, AbandonedJobError(), None)
