@@ -1,6 +1,10 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
-import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
+import storeRoms, {
+  DETAILED_ROM_CACHE_SIZE,
+  type DetailedRom,
+  type SimpleRom,
+} from "@/stores/roms";
 
 function detailed(id: number, overrides: Partial<DetailedRom> = {}) {
   return { id, name: `Game ${id}`, ...overrides } as DetailedRom;
@@ -24,16 +28,18 @@ describe("detailed rom cache", () => {
 
   it("drops the least recently cached game past its bound", () => {
     const roms = storeRoms();
-    for (let id = 1; id <= 10; id++) roms.cacheDetailedRom(detailed(id));
+    for (let id = 1; id <= DETAILED_ROM_CACHE_SIZE; id++) {
+      roms.cacheDetailedRom(detailed(id));
+    }
 
     // Re-caching game 1 makes game 2 the oldest.
     roms.cacheDetailedRom(detailed(1));
-    roms.cacheDetailedRom(detailed(11));
+    roms.cacheDetailedRom(detailed(99));
 
     expect(roms.getDetailedRom(1)).not.toBeNull();
     expect(roms.getDetailedRom(2)).toBeNull();
-    expect(roms.getDetailedRom(11)).not.toBeNull();
-    expect(roms.detailedRoms.size).toBe(10);
+    expect(roms.getDetailedRom(99)).not.toBeNull();
+    expect(roms.detailedRoms.size).toBe(DETAILED_ROM_CACHE_SIZE);
   });
 
   it("caches the rom the route guard sets as current", () => {

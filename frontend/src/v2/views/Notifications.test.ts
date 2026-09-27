@@ -56,7 +56,12 @@ describe("Notifications view", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     route.query = {};
-    replace.mockClear();
+    replace.mockReset();
+    replace.mockImplementation(
+      ({ query }: { query: Record<string, string> }) => {
+        route.query = query;
+      },
+    );
   });
 
   it("gives a user the inbox and their channels, never the form", () => {

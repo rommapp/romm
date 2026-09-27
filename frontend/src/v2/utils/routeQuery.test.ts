@@ -10,6 +10,7 @@ import {
   installQueryNavigationGuard,
   patchQuery,
   type QueryRouter,
+  replaceQuery,
 } from "./routeQuery";
 
 // Minimal router stub reproducing the trait that causes the bug: `replace`
@@ -86,6 +87,34 @@ describe("patchQuery", () => {
     expect(router.replace).toHaveBeenLastCalledWith({
       path: "/",
       query: { show: "all", search: "zelda" },
+    });
+  });
+});
+
+describe("replaceQuery", () => {
+  it("drops every param the new query doesn't name", async () => {
+    const router = fakeRouter({ q: "steam", category: "security" });
+
+    replaceQuery(router, { tab: "logs" });
+    await nextTick();
+
+    expect(router.replace).toHaveBeenCalledWith({
+      path: "/",
+      query: { tab: "logs" },
+    });
+  });
+
+  it("keeps a same-tick patch made after it", async () => {
+    const router = fakeRouter({ q: "steam" });
+
+    replaceQuery(router, {});
+    patchQuery(router, { tab: "events" });
+    await nextTick();
+
+    expect(router.replace).toHaveBeenCalledTimes(1);
+    expect(router.replace).toHaveBeenCalledWith({
+      path: "/",
+      query: { tab: "events" },
     });
   });
 });
@@ -183,6 +212,22 @@ describe("patchQuery during a navigation", () => {
 
     await vi.waitFor(() =>
       expect(router.currentRoute.value.fullPath).toBe("/b?search=zelda"),
+    );
+  });
+
+  it("applies a held write when the guard is removed", async () => {
+    await setup();
+
+    await hold(() => router.replace({ path: "/b", query: { show: "all" } }));
+    patchQuery(router, { search: "zelda" });
+    await nextTick();
+    removeGuard();
+    release();
+
+    await vi.waitFor(() =>
+      expect(router.currentRoute.value.query).toMatchObject({
+        search: "zelda",
+      }),
     );
   });
 

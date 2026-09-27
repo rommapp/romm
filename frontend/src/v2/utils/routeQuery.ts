@@ -31,31 +31,24 @@ type QueryPatch = Record<string, string | undefined>;
 interface PendingWrite {
   path: string;
   patch: QueryPatch;
-}
-
-interface InFlightNavigation {
-  to: unknown;
-  waiters: (() => void)[];
+  /** Build on an empty query instead of the current one. */
+  replace: boolean;
 }
 
 // Keyed by router so two router instances (tests, nested apps) never share
-// state.
+// state. The in-flight value is the target of the navigation under way.
 const pendingByRouter = new WeakMap<QueryRouter, PendingWrite>();
-const inFlightByRouter = new WeakMap<QueryRouter, InFlightNavigation>();
+const inFlightByRouter = new WeakMap<QueryRouter, unknown>();
 
 /** Track the router's in-flight navigation so query writes wait it out.
  *  Returns the remove function. */
 export function installQueryNavigationGuard(router: Router): () => void {
   function settle() {
-    const inFlight = inFlightByRouter.get(router);
-    if (!inFlight) return;
-    inFlightByRouter.delete(router);
-    inFlight.waiters.forEach((run) => run());
+    if (inFlightByRouter.delete(router)) flush(router);
   }
 
   const removeBeforeEach = router.beforeEach((to) => {
-    const waiters = inFlightByRouter.get(router)?.waiters ?? [];
-    inFlightByRouter.set(router, { to, waiters });
+    inFlightByRouter.set(router, to);
   });
   // Cancelled ones end after their successor started. Anything else settles,
   // including a redirect onto this page, a duplicate that skips `beforeEach`.
@@ -66,32 +59,27 @@ export function installQueryNavigationGuard(router: Router): () => void {
   });
   // A guard that throws skips `afterEach`.
   const removeOnError = router.onError((_error, to) => {
-    if (inFlightByRouter.get(router)?.to === to) settle();
+    if (inFlightByRouter.get(router) === to) settle();
   });
 
   return () => {
     removeBeforeEach();
     removeAfterEach();
     removeOnError();
-    inFlightByRouter.delete(router);
+    settle();
   };
 }
 
+// A write held back by a navigation is flushed again when it settles.
 function flush(router: QueryRouter): void {
   const write = pendingByRouter.get(router);
-  if (!write) return;
-
-  const inFlight = inFlightByRouter.get(router);
-  if (inFlight) {
-    inFlight.waiters.push(() => flush(router));
-    return;
-  }
+  if (!write || inFlightByRouter.has(router)) return;
 
   pendingByRouter.delete(router);
   const current = router.currentRoute.value;
   if (current.path !== write.path) return;
 
-  const query: LocationQuery = { ...current.query };
+  const query: LocationQuery = write.replace ? {} : { ...current.query };
   for (const [key, value] of Object.entries(write.patch)) {
     if (value === undefined) delete query[key];
     else query[key] = value;
@@ -99,15 +87,30 @@ function flush(router: QueryRouter): void {
   void router.replace({ path: write.path, query });
 }
 
-/** Merge `patch` into the current query; `undefined` drops the param. */
-export function patchQuery(router: QueryRouter, patch: QueryPatch): void {
+function queueWrite(router: QueryRouter, patch: QueryPatch, replace: boolean) {
   const path = router.currentRoute.value.path;
   const pending = pendingByRouter.get(router);
   // A write left over from a page the route has since moved off is stale.
-  const merged = pending && pending.path === path ? pending.patch : {};
-  pendingByRouter.set(router, { path, patch: { ...merged, ...patch } });
+  const base = pending && pending.path === path && !replace ? pending : null;
+  pendingByRouter.set(router, {
+    path,
+    patch: { ...base?.patch, ...patch },
+    replace: replace || (base?.replace ?? false),
+  });
+  if (!pending) void nextTick(() => flush(router));
+}
 
-  void nextTick(() => flush(router));
+/** Merge `patch` into the current query; `undefined` drops the param. */
+export function patchQuery(router: QueryRouter, patch: QueryPatch): void {
+  queueWrite(router, patch, false);
+}
+
+/** Replace the whole query, dropping every param `query` doesn't name. */
+export function replaceQuery(
+  router: QueryRouter,
+  query: Record<string, string>,
+): void {
+  queueWrite(router, query, true);
 }
 
 /** Write one URL-backed value, `undefined` dropping the param. The compare

@@ -48,7 +48,6 @@ import type {
   RomFileSchema,
 } from "@/__generated__";
 import romApi from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getDownloadLink } from "@/utils";
 import SubtabNav, {
@@ -80,7 +79,6 @@ const emitter = inject<Emitter<Events>>("emitter");
 const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
-const romsStore = storeRoms();
 const { refetchRom } = useRomSync();
 const { smAndDown } = useBreakpoint();
 
@@ -451,11 +449,11 @@ async function deleteFiles(toDelete: RomFileSchema[]) {
     );
   }
 
-  await refreshRom();
+  const refreshed = await refreshRom();
 
   // Redirect to the gallery if no files remain after deletion.
   const platformSlug = route.params["platform"] as string | undefined;
-  if (romsStore.getDetailedRom(props.rom.id)?.files?.length === 0) {
+  if (refreshed?.files?.length === 0) {
     if (platformSlug) {
       await router.push({
         name: "platform",
@@ -524,8 +522,8 @@ async function uploadFiles(folder: string, picked: File[]) {
   if (landed && validSubtabIds.value.has(landed)) subTab.value = landed;
 }
 
-async function refreshRom() {
-  await refetchRom(props.rom.id);
+function refreshRom() {
+  return refetchRom(props.rom.id);
 }
 </script>
 

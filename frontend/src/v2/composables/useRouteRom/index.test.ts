@@ -2,7 +2,7 @@ import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
 import { type ComputedRef, defineComponent } from "vue";
-import { createMemoryHistory, createRouter, type Router } from "vue-router";
+import { createMemoryHistory, createRouter } from "vue-router";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import { romIdFromRoute, useRouteRom } from "./index";
 
@@ -60,7 +60,7 @@ describe("useRouteRom", () => {
     roms.cacheDetailedRom(detailed(1));
     const { router, rom } = await mountAt("/rom/1");
     let seenMidNavigation: number | undefined;
-    (router as Router).beforeResolve(() => {
+    router.beforeResolve(() => {
       roms.cacheDetailedRom(detailed(2));
       seenMidNavigation = rom.value?.id;
     });

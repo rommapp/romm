@@ -55,9 +55,8 @@ const { smAndDown } = useBreakpoint();
 
 const setBgArt = useBackgroundArt();
 
-// The route's `beforeEnter` in `plugins/router.ts` only fires on initial
-// entry, and `/rom/123` to `/rom/456` reuses this component, so the param
-// update guard below loads the next game and scrolls the panel back up.
+// `/rom/123` to `/rom/456` reuses this component and skips the route's
+// `beforeEnter`, so the param update guard below loads the next game.
 const panelEl = ref<HTMLElement | null>(null);
 
 // Right stick scrolls the tab panel, D-pad / A move focus across the
@@ -93,22 +92,19 @@ onBeforeRouteUpdate(async (to, from) => {
   if (nextId === null) return;
   // Cached under its own id, so this page keeps rendering its game until
   // the route commits.
-  const fromId = romIdFromRoute(from);
-  if (nextId !== fromId) {
+  if (nextId !== romIdFromRoute(from)) {
     try {
       const { data } = await romApi.getRom({ romId: nextId });
-      // Refresh the shown game's recency so a burst of superseded
-      // navigations can't evict it before the route commits.
-      const shown = fromId === null ? null : romsStore.getDetailedRom(fromId);
-      if (shown) romsStore.cacheDetailedRom(shown);
+      // Re-cache the shown game first so a burst of superseded hops can't
+      // evict it before the route commits.
+      if (currentRom.value) romsStore.cacheDetailedRom(currentRom.value);
       romsStore.cacheDetailedRom(data);
     } catch (error) {
       console.error(error);
     }
   }
-  // Reset the per-view scroll on every navigation (even if the ROM hasn't
-  // changed, e.g. re-entering the same ROM from its own page): the panel is
-  // the sole scroll context here.
+  // The panel is the sole scroll context here, so every navigation resets
+  // it, re-entering the same ROM from its own page included.
   panelEl.value?.scrollTo({ top: 0, behavior: "smooth" });
 });
 

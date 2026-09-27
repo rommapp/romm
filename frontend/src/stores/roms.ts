@@ -25,9 +25,9 @@ export type SimpleRom = SimpleRomSchema;
 export type SearchRom = SearchRomSchema;
 export type DetailedRom = DetailedRomSchema;
 
-// Enough for the page on screen plus the one a navigation is loading, with
-// headroom for the player views that reuse a details page's record.
-const DETAILED_ROM_CACHE_SIZE = 10;
+// The page on screen, the game a navigation is loading, and one to spare for
+// the player view that picks up the details page's record.
+export const DETAILED_ROM_CACHE_SIZE = 3;
 
 const orderByStorage = useLocalStorage<string>("roms.orderBy", "");
 const orderDirStorage = useLocalStorage("roms.orderDir", "asc");
@@ -121,13 +121,13 @@ export default defineStore("roms", {
     cacheDetailedRom(rom: DetailedRom) {
       this.detailedRoms.delete(rom.id);
       this.detailedRoms.set(rom.id, rom);
-      for (const id of this.detailedRoms.keys()) {
-        if (this.detailedRoms.size <= DETAILED_ROM_CACHE_SIZE) break;
-        this.detailedRoms.delete(id);
+      if (this.detailedRoms.size > DETAILED_ROM_CACHE_SIZE) {
+        const oldest = this.detailedRoms.keys().next().value;
+        if (oldest !== undefined) this.detailedRoms.delete(oldest);
       }
     },
     /** Spread `rom` over the cached record so its detailed-only fields
-     * survive a SimpleRom write. A no-op for an id nothing has cached. */
+     * survive a SimpleRom write. */
     mergeIntoDetailedRom(rom: SimpleRom) {
       if (this.currentRom?.id === rom.id) {
         this.currentRom = { ...this.currentRom, ...rom };

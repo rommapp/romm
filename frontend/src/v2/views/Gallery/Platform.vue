@@ -42,7 +42,7 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import type { StatRow } from "@/v2/types/stats";
-import { patchQuery } from "@/v2/utils/routeQuery";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -97,11 +97,7 @@ const memoryCardEmulator = computed<string | null>(() => {
 });
 
 const tab = ref<TabId>(parseTab(route.query.tab));
-watch(tab, (value) => {
-  if (route.query.tab !== value) {
-    patchQuery(router, { tab: value });
-  }
-});
+watch(tab, (value) => syncQueryParam(router, "tab", value));
 watch(
   () => route.query.tab,
   (value) => {

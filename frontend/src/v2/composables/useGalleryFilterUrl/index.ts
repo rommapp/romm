@@ -54,7 +54,7 @@ import storeGalleryFilter, {
   type FilterLogicOperator,
 } from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
-import { patchQuery } from "@/v2/utils/routeQuery";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 // Pure helpers: no Vue context. Easier to reason about and test if we
 // ever want to.
@@ -457,12 +457,11 @@ export function useGalleryFilterUrl() {
         : String(selectedLengthMaxHours.value),
     );
 
-    // Skip the push if nothing actually changed, so the router skips
-    // a route-update for an identical URL.
-    const changed = Object.entries(patch).some(
-      ([key, value]) => route.query[key] !== value,
-    );
-    if (changed) patchQuery(router, patch);
+    // Only changed keys are written, so a write held back by a same-page
+    // navigation can't restore values that navigation replaced.
+    for (const [key, value] of Object.entries(patch)) {
+      syncQueryParam(router, key, value);
+    }
   }
   const pushDebounced = debounce(pushToUrl, 250);
   // Once the gallery is gone its store state no longer describes the URL.

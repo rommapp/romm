@@ -1,6 +1,5 @@
-// useRouteRom: the DetailedRom the route's `:rom` param names. Keyed on the
-// committed route, so a navigation that prefetches the next game in a guard
-// leaves this page on its own until the route actually changes.
+// useRouteRom: the DetailedRom the committed route's `:rom` param names, so a
+// guard that prefetches the next game leaves this page on its own until then.
 import { computed, type ComputedRef } from "vue";
 import { type RouteLocationNormalizedLoaded, useRoute } from "vue-router";
 import storeRoms, { type DetailedRom } from "@/stores/roms";

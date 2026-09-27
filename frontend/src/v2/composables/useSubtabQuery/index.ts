@@ -1,7 +1,7 @@
 // Binds a details tab's active subtab to the route's `?subtab=` param.
 import { shallowRef, watch, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { patchQuery } from "@/v2/utils/routeQuery";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 export function useSubtabQuery<T extends string>(
   tabId: string,
@@ -12,25 +12,20 @@ export function useSubtabQuery<T extends string>(
   const router = useRouter();
 
   // A tab mounting mid-switch still sees the previous tab's subtab in the URL.
-  function fromRoute(): T | null {
+  function urlSubtab(): string | null {
     const raw = route.query.subtab;
-    if (route.query.tab !== tabId || typeof raw !== "string") return null;
-    return isValid(raw) ? (raw as T) : null;
+    return route.query.tab === tabId && typeof raw === "string" ? raw : null;
   }
 
-  function urlSubtabIsInvalid(): boolean {
-    const raw = route.query.subtab;
-    return (
-      route.query.tab === tabId && typeof raw === "string" && !isValid(raw)
-    );
+  function fromRoute(): T | null {
+    const raw = urlSubtab();
+    return raw !== null && isValid(raw) ? (raw as T) : null;
   }
 
   // `shallowRef` cannot resolve its unwrap type for a generic `T`.
   const subtab = shallowRef(fromRoute() ?? fallback) as Ref<T>;
 
-  watch(subtab, (value) => {
-    if (route.query.subtab !== value) patchQuery(router, { subtab: value });
-  });
+  watch(subtab, (value) => syncQueryParam(router, "subtab", value));
 
   watch([() => route.query.tab, () => route.query.subtab], () => {
     const value = fromRoute();
@@ -40,10 +35,13 @@ export function useSubtabQuery<T extends string>(
   // A subtab the URL names but the view can't show (a stale or hand-edited
   // link) is rewritten to the one on screen.
   watch(
-    [() => route.path, urlSubtabIsInvalid],
-    ([, invalid]) => {
+    () => {
+      const raw = urlSubtab();
+      return raw !== null && !isValid(raw);
+    },
+    (invalid) => {
       if (invalid && isValid(subtab.value)) {
-        patchQuery(router, { subtab: subtab.value });
+        syncQueryParam(router, "subtab", subtab.value);
       }
     },
     { immediate: true },

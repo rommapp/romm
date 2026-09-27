@@ -23,7 +23,7 @@ import StreamingSection from "@/v2/components/Settings/StreamingSection.vue";
 import TasksSection from "@/v2/components/Settings/TasksSection.vue";
 import UsersSection from "@/v2/components/Settings/UsersSection.vue";
 import { useCan } from "@/v2/composables/useCan";
-import { patchQuery } from "@/v2/utils/routeQuery";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -41,9 +41,7 @@ const tab = ref<Tab>(
     : "users",
 );
 
-watch(tab, (newTab) => {
-  patchQuery(router, { tab: newTab });
-});
+watch(tab, (newTab) => syncQueryParam(router, "tab", newTab));
 
 watch(
   () => route.query.tab,

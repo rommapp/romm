@@ -118,10 +118,6 @@ function readNoteFromQuery(): number | null {
   return allNotes.value.some((x) => x.id === n) ? n : null;
 }
 
-function writeNoteToQuery(id: number | null) {
-  syncQueryParam(router, "note", id === null ? undefined : String(id));
-}
-
 function defaultSelection(): number | null {
   if (myNotes.value.length > 0) return myNotes.value[0].id;
   if (communityNotes.value.length > 0) return communityNotes.value[0].id;
@@ -130,7 +126,9 @@ function defaultSelection(): number | null {
 
 selectedNoteId.value = readNoteFromQuery() ?? defaultSelection();
 
-watch(selectedNoteId, (id) => writeNoteToQuery(id));
+watch(selectedNoteId, (id) =>
+  syncQueryParam(router, "note", id === null ? undefined : String(id)),
+);
 
 // React to URL changes (back/forward, external nav).
 watch(
