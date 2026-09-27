@@ -9,7 +9,6 @@ from exceptions.task_exceptions import TaskNotFoundException
 from handler.redis_handler import low_prio_queue, scan_queue
 from tasks.manual.cleanup_missing_firmware import cleanup_missing_firmware_task
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
-from tasks.manual.convert_library import convert_library_task
 from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
@@ -60,7 +59,6 @@ MANUAL_TASKS: Final[dict[str, Task]] = {
     "cleanup_missing_firmware": cleanup_missing_firmware_task,
     "sync_folder_scan": sync_folder_scan_task,
     "recompute_save_content_hashes": recompute_save_content_hashes_task,
-    "convert_library": convert_library_task,
 }
 
 

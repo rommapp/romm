@@ -85,28 +85,10 @@ def cache_size_bytes() -> int:
     return sum(_dir_size(_cached_files(d)) for d in cache_root.iterdir() if d.is_dir())
 
 
-def fits_in_cache(used_bytes: int, size_bytes: int) -> bool:
-    """Whether adding `size_bytes` to `used_bytes` stays under ROM_CONVERTO_CACHE_MAX_SIZE_GB."""
-    max_bytes = ROM_CONVERTO_CACHE_MAX_SIZE_GB * BYTES_PER_GB
-    return not max_bytes or used_bytes + size_bytes <= max_bytes
-
-
 def has_room_for(size_bytes: int) -> bool:
     """Whether adding `size_bytes` keeps the cache under ROM_CONVERTO_CACHE_MAX_SIZE_GB."""
-    return fits_in_cache(cache_size_bytes(), size_bytes)
-
-
-async def conversion_target(platform_slug: str) -> str | None:
-    """The format downloads on this platform convert to, or None when conversion is off."""
-    converto = cm.get_config().CONVERTO
-    target = converto.platform_formats.get(platform_slug)
-    if (
-        not converto.download_conversion_enabled
-        or not target
-        or not await rom_converto_service.is_enabled()
-    ):
-        return None
-    return target
+    max_bytes = ROM_CONVERTO_CACHE_MAX_SIZE_GB * BYTES_PER_GB
+    return not max_bytes or cache_size_bytes() + size_bytes <= max_bytes
 
 
 def _lookup(
@@ -153,28 +135,33 @@ async def resolve_converted_download(
     """The converted copy of a single-file download, or None to serve the original.
 
     Args:
-        start_conversion: Convert in-request when nothing is cached and the
-            file is within ROM_CONVERTO_MAX_SYNC_SIZE_MB.
+        start_conversion: Convert when nothing is cached, waiting for files
+            within ROM_CONVERTO_MAX_SYNC_SIZE_MB and converting larger ones
+            in the background for the next download.
     """
-    target = await conversion_target(rom.platform_slug)
-    if target is None:
+    converto = cm.get_config().CONVERTO
+    target = converto.platform_formats.get(rom.platform_slug)
+    if (
+        not converto.download_conversion_enabled
+        or not target
+        or not await rom_converto_service.is_enabled()
+    ):
         return None
 
-    # A pre-warmed copy is served whatever its size.
     cached = get_cached_converted(
         rom.id, file, rom.platform_slug, target, touch=start_conversion
     )
     if cached or not start_conversion:
         return cached
+    # The conversion always finishes into the cache; past the size cap or
+    # the deadline the original is served meanwhile, instead of a 504.
+    conversion = fire_and_forget(
+        get_or_convert(rom.id, file, rom.platform_slug, target)
+    )
     if (
         file.file_size_bytes or rom.fs_size_bytes
     ) > ROM_CONVERTO_MAX_SYNC_SIZE_MB * 1024 * 1024:
         return None
-    # Past the deadline the original is served and the conversion finishes
-    # into the cache, instead of nginx answering 504.
-    conversion = fire_and_forget(
-        get_or_convert(rom.id, file, rom.platform_slug, target)
-    )
     done, _ = await asyncio.wait({conversion}, timeout=SYNC_CONVERSION_DEADLINE_SECONDS)
     return conversion.result() if done else None
 
@@ -184,15 +171,8 @@ async def get_or_convert(
     rom_file: RomFile,
     platform_slug: str,
     target: str,
-    *,
-    check_room: bool = True,
 ) -> Path | None:
-    """The converted file, converting it once under a `.partial` sentinel, or None to serve the original.
-
-    Args:
-        check_room: Measure the cache against its cap first; a caller
-            tracking its own budget passes False.
-    """
+    """The converted file, converting it once under a `.partial` sentinel, or None to serve the original."""
     found = _lookup(rom_id, rom_file, platform_slug, target)
     if found is None:
         return None
@@ -204,9 +184,7 @@ async def get_or_convert(
         if cached := _serve_cached(final_path, touch=True):
             return cached
 
-        if check_room and not await asyncio.to_thread(
-            has_room_for, rom_file.file_size_bytes or 0
-        ):
+        if not await asyncio.to_thread(has_room_for, rom_file.file_size_bytes or 0):
             log.info(
                 f"Conversion cache is full, not converting ROM {rom_id} (target {hl(target)})"
             )

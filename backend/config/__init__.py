@@ -76,8 +76,8 @@ ROM_CONVERTO_MAX_CONCURRENCY: Final[int] = max(
 )
 # Disk cache for converted downloads, under the tree nginx serves at /cache/.
 ROM_CONVERTO_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/converts"
-# Max source file size (MB) converted in-request on download; 0 disables
-# in-request conversion entirely and serves the original file.
+# Largest file (MB) a download waits on while it converts; larger ones are
+# served as-is and converted in the background. 0 never waits.
 ROM_CONVERTO_MAX_SYNC_SIZE_MB: Final[int] = safe_int(
     _get_env("ROM_CONVERTO_MAX_SYNC_SIZE_MB"), 512
 )

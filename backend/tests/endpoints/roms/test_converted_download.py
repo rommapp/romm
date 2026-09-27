@@ -75,7 +75,7 @@ def test_opt_in_serves_the_converted_copy(
     conversion.convert.assert_awaited_once()
 
 
-def test_opt_in_serves_a_prewarmed_copy_over_the_sync_cap(
+def test_opt_in_serves_a_cached_copy_over_the_sync_cap(
     client: TestClient, access_token: str, rom: Rom, rom_file, conversion, mocker
 ):
     mocker.patch("utils.conversion_cache.ROM_CONVERTO_MAX_SYNC_SIZE_MB", 0)
@@ -93,7 +93,7 @@ def test_opt_in_serves_a_prewarmed_copy_over_the_sync_cap(
     conversion.convert.assert_not_called()
 
 
-def test_opt_in_over_the_sync_cap_serves_the_original(
+def test_opt_in_over_the_sync_cap_converts_in_the_background(
     client: TestClient, access_token: str, rom: Rom, rom_file, conversion, mocker
 ):
     mocker.patch("utils.conversion_cache.ROM_CONVERTO_MAX_SYNC_SIZE_MB", 0)
@@ -106,7 +106,7 @@ def test_opt_in_over_the_sync_cap_serves_the_original(
     )
 
     assert _redirect(response) == f"/library/{rom_file.full_path}"
-    conversion.convert.assert_not_called()
+    conversion.convert.assert_called_once()
 
 
 def test_opt_in_past_the_deadline_serves_the_original(
