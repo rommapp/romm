@@ -172,3 +172,17 @@ def test_active_for_rom_reads_every_session_at_once_and_drops_stale_members():
     cache.srem.assert_awaited_once_with(
         "activity:rom:7", "not-a-member", "1:expired", "1:corrupt"
     )
+
+
+def test_active_for_rom_drops_a_device_that_moved_to_another_rom():
+    cache = MagicMock()
+    cache.smembers = AsyncMock(return_value=["1:switched"])
+    cache.mget = AsyncMock(
+        return_value=[json.dumps({"user_id": 1, "device_id": "switched", "rom_id": 9})]
+    )
+    cache.srem = AsyncMock()
+
+    with patch("handler.activity_handler.async_cache", cache):
+        assert asyncio.run(activity_handler.get_active_for_rom(7)) == []
+
+    cache.srem.assert_awaited_once_with("activity:rom:7", "1:switched")

@@ -232,9 +232,15 @@ class ActivityHandler:
                 stale_members.append(member)
                 continue
             try:
-                entries.append(json.loads(raw))
+                entry = json.loads(raw)
             except ValueError:
                 stale_members.append(member)
+                continue
+            # The device may have moved on to another ROM since joining this index.
+            if entry.get("rom_id") != rom_id:
+                stale_members.append(member)
+                continue
+            entries.append(entry)
 
         if stale_members:
             await async_cache.srem(rom_key, *stale_members)

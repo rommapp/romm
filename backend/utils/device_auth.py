@@ -167,13 +167,15 @@ def mark_approved(
     remaining = sync_cache.ttl(_KEY_DC.format(device_code))
     if remaining is None or remaining < 1:
         remaining = PENDING_TTL_SECONDS
-    sync_cache.set(
-        _KEY_DC.format(device_code),
-        json.dumps(approved),
-        ex=min(remaining, PENDING_TTL_SECONDS),
-    )
-    if user_code:
-        sync_cache.delete(_KEY_UC.format(user_code))
+    with sync_cache.pipeline() as pipe:
+        pipe.set(
+            _KEY_DC.format(device_code),
+            json.dumps(approved),
+            ex=min(remaining, PENDING_TTL_SECONDS),
+        )
+        if user_code:
+            pipe.delete(_KEY_UC.format(user_code))
+        pipe.execute()
 
 
 def mark_denied(device_code: str) -> None:
@@ -182,11 +184,11 @@ def mark_denied(device_code: str) -> None:
         return
     user_code = pending.get("user_code")
     denied = {"status": FlowStatus.DENIED}
-    sync_cache.set(
-        _KEY_DC.format(device_code), json.dumps(denied), ex=DENIED_TTL_SECONDS
-    )
-    if user_code:
-        sync_cache.delete(_KEY_UC.format(user_code))
+    with sync_cache.pipeline() as pipe:
+        pipe.set(_KEY_DC.format(device_code), json.dumps(denied), ex=DENIED_TTL_SECONDS)
+        if user_code:
+            pipe.delete(_KEY_UC.format(user_code))
+        pipe.execute()
 
 
 def consume_approved(device_code: str) -> dict[str, Any] | None:
