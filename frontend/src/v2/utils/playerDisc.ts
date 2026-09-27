@@ -87,10 +87,19 @@ export function selectableDiscFiles<T extends DiscFile>(
   return bootableFiles(files).filter((f) => !isM3uFile(f));
 }
 
-// A set shipping its own .m3u is a curated multi-disc release, so boot it whole;
-// anything else boots one file to avoid pulling hundreds of unused MB.
+// Sheets that point at sibling track files, so neither the sheet nor a track
+// boots alone (issue #4209). Kept in step with backend/utils/m3u.py.
+const DESCRIPTOR_EXTENSIONS: readonly string[] = ["cue", "gdi", "ccd", "mds"];
+
+function isDescriptorFile(file: DiscFile): boolean {
+  const extension = file.file_name.toLowerCase().split(".").pop() ?? "";
+  return isM3uFile(file) || DESCRIPTOR_EXTENSIONS.includes(extension);
+}
+
+// A set carrying a playlist or disc sheet only boots whole; anything else boots
+// one file to avoid pulling hundreds of unused MB.
 export function defaultDisc(files: readonly DiscFile[]): DiscSelection {
-  if (files.length > 1 && files.some(isM3uFile)) return ALL_DISCS;
+  if (files.length > 1 && files.some(isDescriptorFile)) return ALL_DISCS;
   return bootableFiles(files)[0]?.id ?? null;
 }
 
