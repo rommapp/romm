@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+import anyio
 import pytest
 
 from adapters.services import rom_converto
@@ -92,7 +93,7 @@ class TestIsEnabled:
         assert spawn_count == 1
 
     async def test_probe_ok_logs_version(self, service: RomConvertoService, mocker):
-        log_info = mocker.patch.object(rom_converto.log, "info")
+        log_info = mocker.patch("adapters.services.rom_converto.log.info")
         proc = FakeProc(stdout=b'{"version": "0.21.0"}')
         with (
             patch.object(rom_converto, "ROM_CONVERTO_ENABLED", True),
@@ -118,47 +119,132 @@ class TestIsEnabled:
             assert await service.is_enabled() is True
 
 
-class TestReadInfo:
-    async def test_nonzero_returns_none(self, service: RomConvertoService):
-        proc = FakeProc(
-            returncode=1,
-            stderr=b"error: could not detect console for path: /roms/junk.bin",
-        )
-        with (
-            patch("shutil.which", return_value="rc"),
-            patch("asyncio.create_subprocess_exec", return_value=proc),
-        ):
-            assert await service.read_info(Path("/roms/junk.bin")) is None
+def _capture_spawn(proc: FakeProc, calls: list[tuple[str, ...]]):
+    async def spawn(*args, **kwargs):
+        calls.append(args)
+        return proc
 
-    async def test_non_json_output_returns_none(self, service: RomConvertoService):
-        proc = FakeProc(returncode=0, stdout=b"not json at all")
-        with (
-            patch("shutil.which", return_value="rc"),
-            patch("asyncio.create_subprocess_exec", return_value=proc),
-        ):
-            assert await service.read_info(Path("/roms/game.iso")) is None
+    return spawn
 
-    async def test_parses_nx_payload(self, service: RomConvertoService):
-        payload = json.dumps(
+
+class TestReadInfos:
+    async def test_batches_paths_and_keys_recognized_files(
+        self, service: RomConvertoService
+    ):
+        records = [
             {
-                "kind": "nx",
-                "container_kind": "nsp",
-                "full": {
-                    "application_title_id_hex": "0100ABCD12345000",
-                    "title_version": 65536,
+                "path": "/roms/game.nsp",
+                "ok": True,
+                "info": {
+                    "kind": "nx",
+                    "full": {
+                        "application_title_id_hex": "0100ABCD12345000",
+                        "title_version": 65536,
+                    },
                 },
-            }
-        )
-        proc = FakeProc(stdout=payload.encode())
+            },
+            {"path": "/roms/junk.bin", "ok": False, "error": "could not detect"},
+        ]
+        calls: list[tuple[str, ...]] = []
+        listed: list[str] = []
+        proc = FakeProc(stdout=json.dumps(records).encode())
+
+        async def spawn(*args, **kwargs):
+            calls.append(args)
+            paths_file = anyio.Path(args[args.index("--paths-file") + 1])
+            listed.extend((await paths_file.read_text()).split())
+            return proc
+
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            infos = await service.read_infos(
+                [Path("/roms/game.nsp"), Path("/roms/junk.bin")]
+            )
+
+        assert len(calls) == 1
+        assert listed == ["/roms/game.nsp", "/roms/junk.bin"]
+        assert infos == {
+            Path("/roms/game.nsp"): RomConvertoInfo(
+                kind="nx", title_id="0100ABCD12345000", title_version=65536
+            )
+        }
+
+    async def test_paths_file_is_removed(self, service: RomConvertoService):
+        calls: list[tuple[str, ...]] = []
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch(
+                "asyncio.create_subprocess_exec",
+                _capture_spawn(FakeProc(stdout=b"[]"), calls),
+            ),
+        ):
+            await service.read_infos([Path("/roms/game.iso")])
+
+        paths_file = calls[0][calls[0].index("--paths-file") + 1]
+        assert not await anyio.Path(paths_file).exists()
+
+    async def test_nonzero_returns_empty(self, service: RomConvertoService):
+        proc = FakeProc(returncode=2, stderr=b"error: bad arguments")
         with (
             patch("shutil.which", return_value="rc"),
             patch("asyncio.create_subprocess_exec", return_value=proc),
         ):
-            info = await service.read_info(Path("/roms/game.nsp"))
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
 
-        assert info == RomConvertoInfo(
-            kind="nx", title_id="0100ABCD12345000", title_version=65536
+    async def test_non_json_output_returns_empty(self, service: RomConvertoService):
+        proc = FakeProc(stdout=b"not json at all")
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
+
+    async def test_no_listable_paths_skips_the_subprocess(
+        self, service: RomConvertoService
+    ):
+        with patch("asyncio.create_subprocess_exec") as spawn:
+            assert await service.read_infos([Path("/roms/bad\nname.iso")]) == {}
+        spawn.assert_not_called()
+
+
+class TestUpdateCheck:
+    async def test_every_run_disables_the_update_check(self):
+        calls: list[tuple[str, ...]] = []
+        with (
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", _capture_spawn(FakeProc(), calls)),
+        ):
+            await rom_converto._run(["capabilities"], timeout_seconds=1)
+
+        assert calls[0][:3] == (
+            "/usr/bin/rom-converto",
+            "--no-update-check",
+            "capabilities",
         )
+
+
+class TestCanInspect:
+    async def test_manifest_extensions_gate_inspection(
+        self, service: RomConvertoService
+    ):
+        proc = FakeProc(
+            stdout=b'{"version": "0.21.0", "info_extensions": ["ISO", "nsp"]}'
+        )
+        with (
+            patch.object(rom_converto, "ROM_CONVERTO_ENABLED", True),
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            assert await service.is_enabled() is True
+
+        assert service.can_inspect(Path("/roms/Game.iso")) is True
+        assert service.can_inspect(Path("/roms/game.NSP")) is True
+        assert service.can_inspect(Path("/roms/readme.nfo")) is False
+
+    def test_unknown_manifest_inspects_everything(self, service: RomConvertoService):
+        assert service.can_inspect(Path("/roms/anything.xyz")) is True
 
 
 class TestParseInfo:

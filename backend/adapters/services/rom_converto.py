@@ -1,9 +1,11 @@
 import asyncio
 import json
+import os
 import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from config import (
     ROM_CONVERTO_ENABLED,
@@ -74,9 +76,7 @@ class RomConvertoInfo:
 
 @dataclass(frozen=True)
 class Operation:
-    """One rom-converto subcommand that turns a file of `input_exts` into
-    the `target` format. `argv` is the subcommand plus fixed flags; the
-    source and output paths are appended positionally."""
+    """A subcommand bringing `input_exts` files to `target`; source and output are appended to `argv`."""
 
     target: str
     platforms: frozenset[str]
@@ -86,15 +86,14 @@ class Operation:
     output_ext: str | None
 
     def output_name(self, src: Path, input_ext: str) -> str:
-        """`src` renamed to the output extension; `input_ext` is the
-        lowercased extension `resolve_operation` matched."""
+        """`src` renamed from the matched lowercase `input_ext` to the output extension."""
         cut = len(src.name) - len(input_ext)
         return f"{src.name[:cut]}{self.output_ext or src.name[cut:]}"
 
 
 def _op(
     target: str,
-    platforms: set[str],
+    platforms: set[UPS],
     argv: str,
     input_exts: str,
     output_ext: str | None,
@@ -170,9 +169,7 @@ TARGETS_BY_PLATFORM: Final[dict[str, frozenset[str]]] = {
 def resolve_operation(
     platform_slug: str, target: str, file_name: str
 ) -> tuple[Operation, str] | None:
-    """The operation that brings `file_name` to `target` on this platform,
-    with the input extension it matched, or None when the file is already
-    there or no subcommand accepts it."""
+    """The operation and matched extension bringing `file_name` to `target`, or None if none applies."""
     name = file_name.lower()
     best: tuple[Operation, str] | None = None
     for op in OPERATIONS:
@@ -196,8 +193,10 @@ async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
         raise RomConvertoBinaryNotFoundError(
             f"rom-converto binary not found at {ROM_CONVERTO_PATH}"
         )
+    # The CLI otherwise asks api.github.com for a newer release on every run.
     proc = await asyncio.create_subprocess_exec(
         binary,
+        "--no-update-check",
         *argv,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -219,7 +218,7 @@ async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
     )
 
 
-def _first_str(data: dict, *keys: str) -> str | None:
+def _first_str(data: dict[str, Any], *keys: str) -> str | None:
     for key in keys:
         value = data.get(key)
         if isinstance(value, str) and value:
@@ -227,7 +226,7 @@ def _first_str(data: dict, *keys: str) -> str | None:
     return None
 
 
-def _title_id(kind: str, flat: dict) -> str | None:
+def _title_id(kind: str, flat: dict[str, Any]) -> str | None:
     if kind in ("dol", "rvl"):
         # Sigil keys GameCube and Wii by the hex-encoded 4-char game id.
         game_id = flat.get("game_id")
@@ -244,7 +243,7 @@ def _title_id(kind: str, flat: dict) -> str | None:
     return _first_str(flat, "application_title_id_hex", "title_id", "game_code")
 
 
-def _parse_info(payload: dict) -> RomConvertoInfo:
+def _parse_info(payload: dict[str, Any]) -> RomConvertoInfo:
     # `kind` is the serde tag of InfoResult. Consoles nest their header
     # (Xbox `xbe`, 360 `xex`, Switch `full`, CHD/CSO inner disc `content`);
     # top-level keys win on conflict.
@@ -267,6 +266,8 @@ class RomConvertoService:
 
     def __init__(self) -> None:
         self._available: bool | None = None
+        # None when the manifest predates `info_extensions`: inspect everything.
+        self._info_extensions: frozenset[str] | None = None
         self._probe_lock = asyncio.Lock()
         # Each conversion reads and writes whole disc images.
         self._convert_semaphore = asyncio.Semaphore(ROM_CONVERTO_MAX_CONCURRENCY)
@@ -292,41 +293,73 @@ class RomConvertoService:
                 self._available = False
                 return False
             try:
-                version = json.loads(stdout)["version"]
-            except (json.JSONDecodeError, KeyError, TypeError):
-                version = "unknown version"
+                manifest = json.loads(stdout)
+            except json.JSONDecodeError:
+                manifest = {}
+            if not isinstance(manifest, dict):
+                manifest = {}
+            version = manifest.get("version") or "unknown version"
+            extensions = manifest.get("info_extensions")
+            if isinstance(extensions, list):
+                self._info_extensions = frozenset(
+                    f".{ext.lower()}" for ext in extensions if isinstance(ext, str)
+                )
             log.info(
                 f"Detected {hl('rom-converto', color=LIGHTMAGENTA)} {hl(str(version))}"
             )
             self._available = True
             return True
 
-    async def read_info(self, path: Path) -> RomConvertoInfo | None:
-        """Inspect a ROM with `rom-converto info --json`, or None when the
-        tool does not recognize the file."""
+    def can_inspect(self, path: Path) -> bool:
+        """Whether `info` recognizes this file's extension."""
+        if self._info_extensions is None:
+            return True
+        return path.suffix.lower() in self._info_extensions
+
+    async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
+        """Inspect files in one `info --paths-file` run, keyed by the paths it recognized."""
+        # The paths file is line-based, so a name holding a newline can't be listed.
+        paths = [p for p in paths if "\n" not in str(p)]
+        if not paths:
+            return {}
         log.debug(
-            f"Executing {hl('rom-converto', color=LIGHTMAGENTA)} info on {hl(str(path))}"
+            f"Executing {hl('rom-converto', color=LIGHTMAGENTA)} info on {len(paths)} file(s)"
         )
-        code, stdout, stderr = await _run(
-            ["info", "--json", str(path)], ROM_CONVERTO_TIMEOUT
-        )
-        if code != 0:
-            log.debug(
-                f"rom-converto info did not recognize {path} (code {code}): {_tail(stderr)}"
-            )
-            return None
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as fh:
+            fh.write("".join(f"{p}\n" for p in paths))
         try:
-            payload = json.loads(stdout)
+            code, stdout, stderr = await _run(
+                ["info", "--json", "--paths-file", fh.name], ROM_CONVERTO_TIMEOUT
+            )
+        finally:
+            os.unlink(fh.name)
+        if code != 0:
+            log.warning(f"rom-converto info failed (code {code}): {_tail(stderr)}")
+            return {}
+        try:
+            records = json.loads(stdout)
         except json.JSONDecodeError:
-            log.debug(f"rom-converto info returned non-JSON output for {path}")
-            return None
-        if not isinstance(payload, dict):
-            return None
-        return _parse_info(payload)
+            log.warning("rom-converto info returned non-JSON output")
+            return {}
+        if not isinstance(records, list):
+            return {}
+
+        infos: dict[Path, RomConvertoInfo] = {}
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            payload = record.get("info")
+            if record.get("ok") and isinstance(payload, dict):
+                infos[Path(str(record.get("path")))] = _parse_info(payload)
+            else:
+                log.debug(
+                    f"rom-converto did not recognize {record.get('path')}: "
+                    f"{record.get('error')}"
+                )
+        return infos
 
     async def convert(self, operation: Operation, src: Path, out: Path) -> None:
-        """Run `operation` on `src`, writing `out`. Bounded by the service
-        semaphore and ROM_CONVERTO_TIMEOUT."""
+        """Run `operation` on `src`, writing `out`."""
         argv = [*operation.argv, str(src), str(out)]
         async with self._convert_semaphore:
             code, stdout, stderr = await _run(argv, ROM_CONVERTO_TIMEOUT)
