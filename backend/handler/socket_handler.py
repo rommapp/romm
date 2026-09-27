@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from typing import TYPE_CHECKING, Any, Final
 
 import socketio
@@ -36,6 +36,15 @@ class SocketHandler:
 
         self._write_manager: socketio.AsyncRedisManager | None = None
         self._write_manager_loop: asyncio.AbstractEventLoop | None = None
+
+    def on[F: Callable[..., Awaitable[object]]](self, event: str) -> Callable[[F], F]:
+        """Register a socket event handler without changing its signature."""
+
+        def register(handler: F) -> F:
+            self.socket_server.on(event, handler)
+            return handler
+
+        return register
 
     def _login_session_sockets_key(self, session_id: str) -> str:
         # Per channel, since a sid only means something to the server that issued it.

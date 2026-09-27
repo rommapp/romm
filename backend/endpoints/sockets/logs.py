@@ -30,7 +30,7 @@ FORWARDER_LOCK_KEY: Final = "romm:logs:forwarder"
 FORWARDER_LOCK_TTL: Final = 30  # seconds
 
 
-@socket_handler.socket_server.on("connect")
+@socket_handler.on("connect")
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     """Resolve the authenticated user on socket connect.
 
@@ -57,7 +57,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
 
 
 # A server takes one handler per event, so this one does every module's cleanup.
-@socket_handler.socket_server.on("disconnect")
+@socket_handler.on("disconnect")
 async def disconnect(sid: str) -> None:
     """Undo what ``connect`` and the activity events tied to the socket."""
     await socket_handler.unbind_from_login_session(sid)
