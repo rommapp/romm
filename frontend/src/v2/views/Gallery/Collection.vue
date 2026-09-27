@@ -41,6 +41,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
+import { patchQuery } from "@/v2/utils/routeQuery";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 
@@ -113,10 +114,7 @@ function parseTab(v: unknown): TabId {
 const tab = ref<TabId>(parseTab(route.query.tab));
 watch(tab, (value) => {
   if (route.query.tab !== value) {
-    router.replace({
-      path: route.path,
-      query: { ...route.query, tab: value },
-    });
+    patchQuery(router, { tab: value });
   }
 });
 watch(

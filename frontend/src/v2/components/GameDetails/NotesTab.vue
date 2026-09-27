@@ -32,6 +32,7 @@ import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
@@ -118,14 +119,7 @@ function readNoteFromQuery(): number | null {
 }
 
 function writeNoteToQuery(id: number | null) {
-  const next = { ...route.query };
-  if (id === null) {
-    delete next.note;
-  } else {
-    next.note = String(id);
-  }
-  if (route.query.note === next.note) return;
-  router.replace({ path: route.path, query: next });
+  syncQueryParam(router, "note", id === null ? undefined : String(id));
 }
 
 function defaultSelection(): number | null {

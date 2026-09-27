@@ -12,6 +12,7 @@ import ExcludedSection from "@/v2/components/Settings/ExcludedSection.vue";
 import FolderMappingsSection from "@/v2/components/Settings/FolderMappingsSection.vue";
 import MissingFirmwareSection from "@/v2/components/Settings/MissingFirmwareSection.vue";
 import MissingGamesSection from "@/v2/components/Settings/MissingGamesSection.vue";
+import { patchQuery } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -29,10 +30,7 @@ const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 
 watch(tab, (newTab) => {
-  router.replace({
-    path: route.path,
-    query: { ...route.query, tab: newTab },
-  });
+  patchQuery(router, { tab: newTab });
 });
 
 watch(

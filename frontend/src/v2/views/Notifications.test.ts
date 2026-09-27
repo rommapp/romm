@@ -2,17 +2,20 @@
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, reactive } from "vue";
+import { defineComponent, nextTick, reactive } from "vue";
 import storePermissions from "@/stores/permissions";
 import Notifications from "./Notifications.vue";
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
-const route = reactive<{ query: Record<string, string> }>({ query: {} });
+const route = reactive<{ path: string; query: Record<string, string> }>({
+  path: "/notifications",
+  query: {},
+});
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => route,
-  useRouter: () => ({ replace }),
+  useRouter: () => ({ replace, currentRoute: { value: route } }),
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -129,11 +132,19 @@ describe("Notifications view", () => {
     await wrapper
       .findComponent({ name: "RTabNav" })
       .vm.$emit("update:modelValue", "send");
-    expect(replace).toHaveBeenLastCalledWith({ query: { tab: "send" } });
+    await nextTick();
+    expect(replace).toHaveBeenLastCalledWith({
+      path: "/notifications",
+      query: { tab: "send" },
+    });
 
     await wrapper
       .findComponent({ name: "RTabNav" })
       .vm.$emit("update:modelValue", "inbox");
-    expect(replace).toHaveBeenLastCalledWith({ query: { tab: undefined } });
+    await nextTick();
+    expect(replace).toHaveBeenLastCalledWith({
+      path: "/notifications",
+      query: {},
+    });
   });
 });

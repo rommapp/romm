@@ -49,6 +49,7 @@ import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
 import { installStageActiveClass } from "@/v2/composables/useStageActive";
 import { installSyncConflictToast } from "@/v2/composables/useSyncConflictToast";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
+import { installQueryNavigationGuard } from "@/v2/utils/routeQuery";
 
 // The server joins a socket to its user's rooms when it connects, so one left
 // open across a logout would still get the last user's pushes.
@@ -182,6 +183,7 @@ const router = useRouter();
 let removeBackMorph: (() => void) | null = null;
 let removeGalleryProvenance: (() => void) | null = null;
 let removeOverlayRouteDismiss: (() => void) | null = null;
+let removeQueryNavigationGuard: (() => void) | null = null;
 
 onMounted(() => {
   installInputModality();
@@ -190,6 +192,8 @@ onMounted(() => {
   // Dialogs and drawers are mounted above the router view, so nothing else
   // dismisses them when the route changes under them (browser back included).
   removeOverlayRouteDismiss = installOverlayRouteDismiss(router);
+  // URL-backed view state must not write into a navigation still in flight.
+  removeQueryNavigationGuard = installQueryNavigationGuard(router);
   // Mirror morph: GameDetails cover → destination card on back/navbar/popstate.
   // Forward direction is handled at the source side in GameCard.
   removeBackMorph = installBackMorph(router);
@@ -236,6 +240,8 @@ onBeforeUnmount(() => {
   removeGalleryProvenance = null;
   removeOverlayRouteDismiss?.();
   removeOverlayRouteDismiss = null;
+  removeQueryNavigationGuard?.();
+  removeQueryNavigationGuard = null;
   if (bgTimer !== null) {
     clearTimeout(bgTimer);
     bgTimer = null;
