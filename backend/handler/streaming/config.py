@@ -411,8 +411,7 @@ def _resolve_one(
     label = entry.get("label")
     core = entry.get("core") or None
     if core is not None and protocol.name != "webstation":
-        # Only the webstation broker is sent a core; the label would name one
-        # the legacy container never boots.
+        # Only the webstation broker is sent a core.
         log.warning(
             "container for platform '%s' sets core '%s' but only a webstation "
             "container takes one, booting the default core instead",

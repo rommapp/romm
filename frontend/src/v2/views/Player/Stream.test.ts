@@ -29,10 +29,11 @@ const mocks = vi.hoisted(() => ({
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
   query: {} as Record<string, string>,
   snackbar: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+  t: vi.fn((key: string) => key),
 }));
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: mocks.t }),
 }));
 
 vi.mock("vue-router", () => ({
@@ -885,6 +886,9 @@ describe("Stream launch recovery", () => {
     await flushPromises();
 
     expect(mocks.snackbar.warning).toHaveBeenCalledWith("play.core-untested");
+    expect(mocks.t).toHaveBeenCalledWith("play.core-untested", {
+      core: "bsnes",
+    });
     expect(vmOf(wrapper).playerState).toBe("playing");
   });
 
@@ -896,6 +900,9 @@ describe("Stream launch recovery", () => {
     await flushPromises();
 
     expect(mocks.snackbar.warning).toHaveBeenCalledWith("play.core-blocked");
+    expect(mocks.t).toHaveBeenCalledWith("play.core-blocked", {
+      core: "bsnes",
+    });
   });
 
   it("says nothing about a default or vetted core", async () => {
