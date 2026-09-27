@@ -76,6 +76,7 @@ from models.rom import (
     RomFileDocMeta,
     RomFileUser,
     RomIdentityKey,
+    RomInstallTarget,
     RomMetadata,
     RomNote,
     RomUser,
@@ -770,6 +771,27 @@ class DBRomsHandler(DBBaseHandler):
 
         return RomVisibilityLabel(
             id=row.id, platform_id=row.platform_id, name=row.name, fs_name=row.fs_name
+        )
+
+    @begin_session
+    def get_rom_install_target(
+        self,
+        id: int,
+        *,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> RomInstallTarget | None:
+        """The columns a device install request checks, in one query."""
+        row = session.execute(
+            select(Rom.id, Rom.platform_id, Platform.slug.label("platform_slug"))
+            .join(Platform, Rom.platform_id == Platform.id)
+            .where(Rom.id == id)
+        ).one_or_none()
+
+        if row is None:
+            return None
+
+        return RomInstallTarget(
+            id=row.id, platform_id=row.platform_id, platform_slug=row.platform_slug
         )
 
     @begin_session

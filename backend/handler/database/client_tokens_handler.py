@@ -45,6 +45,26 @@ class DBClientTokensHandler(DBBaseHandler):
         ).all()
 
     @begin_session
+    def get_token_ids_by_user(
+        self,
+        user_id: int,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Sequence[int]:
+        return session.scalars(
+            select(ClientToken.id).where(ClientToken.user_id == user_id)
+        ).all()
+
+    @begin_session
+    def get_token_ids_by_device(
+        self,
+        device_id: str,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Sequence[int]:
+        return session.scalars(
+            select(ClientToken.id).where(ClientToken.device_id == device_id)
+        ).all()
+
+    @begin_session
     def get_all_tokens(
         self,
         session: Session = None,  # type: ignore[assignment]

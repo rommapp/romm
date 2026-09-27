@@ -914,6 +914,12 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 | GET    | `/{id}/files`                | ROMS_READ | Get ROM file metadata                   |
 | GET    | `/{id}/files/content/{name}` | ROMS_READ | Download file (nginx X-Accel or direct) |
 
+#### ROM Installs
+
+| Method | Path             | Scope                   | Description                                    |
+| ------ | ---------------- | ----------------------- | ---------------------------------------------- |
+| GET    | `/{id}/installs` | DEVICES_READ, ROMS_READ | The caller's live install requests for the ROM |
+
 ### 6.6 Music (`/api/music`)
 
 Music-first read API over soundtrack `track_meta`, for external music-player clients. All routes are visibility-filtered (hidden platforms/ROMs excluded).
@@ -1020,13 +1026,21 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 
 ### 6.11 Devices (`/api/devices`)
 
-| Method | Path    | Scope         | Description                         |
-| ------ | ------- | ------------- | ----------------------------------- |
-| POST   | `/`     | DEVICES_WRITE | Register device (fingerprint dedup) |
-| GET    | `/`     | DEVICES_READ  | List devices                        |
-| GET    | `/{id}` | DEVICES_READ  | Get device                          |
-| PUT    | `/{id}` | DEVICES_WRITE | Update device                       |
-| DELETE | `/{id}` | DEVICES_WRITE | Delete device                       |
+| Method | Path                      | Scope                    | Description                                                   |
+| ------ | ------------------------- | ------------------------ | ------------------------------------------------------------- |
+| POST   | `/`                       | DEVICES_WRITE            | Register device (fingerprint dedup)                           |
+| GET    | `/`                       | DEVICES_READ             | List devices                                                  |
+| GET    | `/online`                 | DEVICES_READ             | Ids of devices with a live device socket                      |
+| GET    | `/{id}`                   | DEVICES_READ             | Get device                                                    |
+| PUT    | `/{id}`                   | DEVICES_WRITE            | Update device                                                 |
+| DELETE | `/{id}`                   | DEVICES_WRITE            | Delete device                                                 |
+| POST   | `/{id}/installs`          | DEVICES_WRITE, ROMS_READ | Queue a rom for install on the device                         |
+| GET    | `/{id}/installs`          | DEVICES_READ             | List pending and taken install requests                       |
+| POST   | `/{id}/installs/claim`    | DEVICES_WRITE, ROMS_READ | Device-bound token takes every pending one, returns all taken |
+| PUT    | `/{id}/installs/{req_id}` | DEVICES_WRITE            | Device-bound token reports a taken outcome                    |
+| DELETE | `/{id}/installs/{req_id}` | DEVICES_WRITE            | Cancel a pending or taken request                             |
+
+Register and update take `capabilities`, boolean flags such as `{"remote_install": true}`, stored on `devices.capabilities`. A register or update that omits the field leaves the stored flags as they are.
 
 ### 6.12 Collections (`/api/collections`)
 
@@ -1396,7 +1410,7 @@ Manages two Socket.IO servers:
 | `socket_handler`         | `/ws`      | Scan progress, general notifications |
 | `netplay_socket_handler` | `/netplay` | Netplay room management              |
 
-Both use Redis as the message queue backend for horizontal scaling, each on its own channel: netplay clients are unauthenticated and name their own rooms, so they must never see the `user:{id}` or `admin` rooms. `socket_handler.emit_to_user(user_id, event, payload)` pushes to one user's open tabs from the web process or a worker.
+Both use Redis as the message queue backend for horizontal scaling, each on its own channel: netplay clients are unauthenticated and name their own rooms, so they must never see the `user:{id}` or `admin` rooms. `socket_handler.emit_to_user(user_id, event, payload)` pushes to one user's open tabs from the web process or a worker. Registered devices connect to the `/devices` namespace of the `/ws` server (see Devices below); rooms and events are per namespace, so the web UI never receives device traffic.
 
 **Scan Progress Events:**
 
@@ -1553,6 +1567,68 @@ relay.
 
 Redis-backed for horizontal scaling across multiple server instances.
 
+### Devices (namespace `/devices` on `/ws/socket.io`)
+
+Only a registered device connects, with a client token bound to it
+(`ClientToken.device_id`) that holds `devices.read`, sent as `token` in the
+handshake auth payload or as an `Authorization: Bearer` header. A browser
+session is never accepted, and every connection is refused while
+`DEVICE_INSTALL_ENABLED` is off. Connecting bumps the token's `last_used_at`
+and the device's `last_seen`; capabilities travel over the device REST
+endpoints. The socket joins `device:{device_id}` in the namespace and is
+closed when its token is deleted, regenerated or re-paired, its device or
+owner is deleted, its owner is disabled, or its owner's permissions change,
+and within 30 seconds of the token's `expires_at`. Each open socket refreshes `device_presence:{device_id}` and its token's
+`device_token_sockets:{id}` every 30 seconds. The presence key lapses 90
+seconds after the last refresh and loses the socket on disconnect;
+`GET /api/devices/online` lists the caller's devices whose key is live. The
+per-token socket sets exist only to close sockets on revocation and never
+answer presence.
+
+| Event               | Direction              | Description                                                |
+| ------------------- | ---------------------- | ---------------------------------------------------------- |
+| `install:queued`    | Server to device       | `{id, rom_id}`: an install request is waiting              |
+| `install:cancelled` | Server to device       | `{id, rom_id}`: the owner cancelled a pending or taken one |
+| `install:updated`   | Server to owner on `/` | An `InstallRequestSchema` changed status                   |
+
+An install request exists only while it is `pending` or `taken`. It lives in
+Redis as JSON under `install:req:{id}`, indexed by `install:device:{device_id}`
+and `install:rom:{user_id}:{rom_id}`;
+`install:active:{user_id}:{device_id}:{rom_id}` names the one live request per
+rom and device, so a second create returns it. A live request expires
+`DEVICE_INSTALL_REQUEST_TTL_DAYS` after its last change (never when that is 0),
+which bounds an abandoned one. A request carries the rom's game, update and DLC
+files on disk; a rom without any, a rom on a platform in
+`DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS`, or a device whose `capabilities` lack
+`remote_install`, is a 400.
+
+The owner creates requests (`POST /api/devices/{device_id}/installs`), reads a
+rom's live ones (`GET /api/roms/{id}/installs`) and cancels one still pending or
+taken (`DELETE /api/devices/{device_id}/installs/{id}`).
+
+Every client drains its queue through `POST
+/api/devices/{device_id}/installs/claim`, which moves all pending requests to
+`taken` in one Redis transaction and returns every request the device holds
+taken, so a device that lost a claim's response gets them back on its next
+claim. Only newly taken requests emit `install:updated`. The socket is optional: a
+client holding it claims on `install:queued`, and one that cannot hold a socket
+polls claim on its own schedule. Only a client token bound to the device claims
+or reports. A report (`PUT /api/devices/{device_id}/installs/{id}`) names
+`done`, `already_installed` or `failed` for a taken request.
+
+Each operation checks the status it needs and writes inside one Redis `WATCH`
+transaction: claim takes only pending requests, a report needs a taken one, and
+a cancel a pending or taken one. A request in another live status is a 409.
+A report or a cancel ends the request: the server emits `install:updated` with
+the final status, deletes the request, its index entries and its
+`install:active` key in the same transaction, and for a report notifies the
+owner (`device_install_completed` or `device_install_failed`, with the reason).
+A report or cancel for a request that no longer exists is a 404, so a device
+treats a 404 on a retried report as already handled, and a cancel racing a
+report cannot both succeed. A cancel racing a claim either keeps the request
+out of that claim or cancels it after the claim took it. Deleting a device, or its owner, drops
+the device's live requests.
+
 ---
 
 ## 11. Background Tasks & Scheduling
@@ -1700,26 +1776,32 @@ Falls back to `FakeRedis` in test mode.
 
 ### Cache Key Patterns
 
-| Pattern                           | TTL             | Content                             |
-| --------------------------------- | --------------- | ----------------------------------- |
-| `session:{id}`                    | 14 days         | Session JSON                        |
-| `user_sessions:{username}`        | 14 days         | Set of session IDs                  |
-| `session_sockets:{channel}:{id}`  | 14 days         | Socket IDs a session opened         |
-| `notification-channel:{id}:code`  | 30 min          | Hash of an email confirmation code  |
-| `notification-channel-cooldown:*` | 1 min           | A user's and an address's last code |
-| `reset-email:{user_id}`           | 1 min           | A user's last emailed reset link    |
-| `reset-jti:{jti}`                 | 10 min          | Password reset token (one-time)     |
-| `invite-jti:{jti}`                | 10 min          | Invite token (one-time)             |
-| `refresh-jti:{jti}`               | 7 days          | Refresh token validation            |
-| `romm:mame_index`                 | Permanent       | MAME game index                     |
-| `romm:scummvm_index`              | Permanent       | ScummVM game index                  |
-| `romm:ps1_serials`                | Permanent       | PS1 serial codes                    |
-| `romm:ps2_serials`                | Permanent       | PS2 serial codes                    |
-| `romm:psp_serials`                | Permanent       | PSP serial codes                    |
-| `romm:switch_titledb`             | Refreshed daily | Switch TitleDB                      |
-| `romm:known_bios`                 | Permanent       | Verified BIOS hashes                |
-| Upload sessions                   | 24 hours        | Chunked upload state                |
-| Netplay rooms                     | Dynamic         | Active room state                   |
+| Pattern                             | TTL             | Content                             |
+| ----------------------------------- | --------------- | ----------------------------------- |
+| `session:{id}`                      | 14 days         | Session JSON                        |
+| `user_sessions:{username}`          | 14 days         | Set of session IDs                  |
+| `session_sockets:{channel}:{id}`    | 14 days         | Socket IDs a session opened         |
+| `device_token_sockets:{id}`         | 14 days         | Device socket IDs a token opened    |
+| `device_presence:{device_id}`       | 90 s            | A device's recently live socket IDs |
+| `install:req:{id}`                  | 2 days          | A live install request (JSON)       |
+| `install:active:{u}:{device}:{rom}` | 2 days          | The pending or taken request's id   |
+| `install:device:{device_id}`        | 2 days          | A device's install requests         |
+| `install:rom:{user_id}:{rom_id}`    | 2 days          | A user's install requests for a rom |
+| `notification-channel:{id}:code`    | 30 min          | Hash of an email confirmation code  |
+| `notification-channel-cooldown:*`   | 1 min           | A user's and an address's last code |
+| `reset-email:{user_id}`             | 1 min           | A user's last emailed reset link    |
+| `reset-jti:{jti}`                   | 10 min          | Password reset token (one-time)     |
+| `invite-jti:{jti}`                  | 10 min          | Invite token (one-time)             |
+| `refresh-jti:{jti}`                 | 7 days          | Refresh token validation            |
+| `romm:mame_index`                   | Permanent       | MAME game index                     |
+| `romm:scummvm_index`                | Permanent       | ScummVM game index                  |
+| `romm:ps1_serials`                  | Permanent       | PS1 serial codes                    |
+| `romm:ps2_serials`                  | Permanent       | PS2 serial codes                    |
+| `romm:psp_serials`                  | Permanent       | PSP serial codes                    |
+| `romm:switch_titledb`               | Refreshed daily | Switch TitleDB                      |
+| `romm:known_bios`                   | Permanent       | Verified BIOS hashes                |
+| Upload sessions                     | 24 hours        | Chunked upload state                |
+| Netplay rooms                       | Dynamic         | Active room state                   |
 
 ---
 
@@ -1846,6 +1928,14 @@ Falls back to `FakeRedis` in test mode.
 | `SYNC_SSH_KEYS_PATH`            |         | SSH keys path                           |
 | `SYNC_SSH_KNOWN_HOSTS_PATH`     |         | SSH known hosts path                    |
 | `SYNC_RETROARCH_PSP_SERIAL_MAP` | `{}`    | JSON map of PSP serial to ROM file name |
+
+#### Device Install
+
+| Variable                                 | Default                        | Description                                                   |
+| ---------------------------------------- | ------------------------------ | ------------------------------------------------------------- |
+| `DEVICE_INSTALL_ENABLED`                 | `true`                         | Let users push a ROM to one of their devices                  |
+| `DEVICE_INSTALL_REQUEST_TTL_DAYS`        | `2`                            | Unfinished request lifetime after its last change; 0 keeps it |
+| `DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS` | `win,win3x,win9x,windows-apps` | Platforms that can never be pushed                            |
 
 ### YAML Configuration (`config.yml`)
 

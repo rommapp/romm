@@ -1,6 +1,13 @@
+import asyncio
+from unittest.mock import AsyncMock
+
+import pytest
 from fastapi import status
 
+from endpoints import device as device_endpoints
 from handler.database import db_device_handler
+from handler.device_install_handler import device_install_handler
+from handler.redis_handler import sync_cache
 from models.device import Device
 from models.user import User
 
@@ -169,6 +176,194 @@ class TestDeviceEndpoints:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["client_device_identifier"] == "install-uuid-abc123"
+
+    def test_deleting_a_device_closes_its_token_sockets(
+        self, mocker, client, access_token: str, admin_user: User, add_device_token
+    ):
+        device = db_device_handler.add_device(
+            Device(id="test-device-sockets", user_id=admin_user.id, name="Handheld")
+        )
+        token, _ = add_device_token(admin_user, device.id, scopes="devices.read")
+        close = mocker.patch.object(
+            device_endpoints, "close_client_token_sockets", AsyncMock()
+        )
+
+        response = client.delete(
+            f"/api/devices/{device.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        close.assert_awaited_once_with([token.id])
+
+    def test_deleting_a_device_drops_its_install_requests(
+        self, client, access_token: str, admin_user: User
+    ):
+        device = db_device_handler.add_device(
+            Device(id="test-device-installs", user_id=admin_user.id, name="Handheld")
+        )
+        install, _ = asyncio.run(
+            device_install_handler.create(
+                user_id=admin_user.id, device_id=device.id, rom_id=7, file_ids=[1]
+            )
+        )
+
+        response = client.delete(
+            f"/api/devices/{device.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert asyncio.run(device_install_handler.get(install.id)) is None
+        assert asyncio.run(device_install_handler.list_for_rom(admin_user.id, 7)) == []
+
+
+class TestDeviceCapabilities:
+    def test_registering_stores_the_reported_capabilities(
+        self, client, access_token: str, admin_user: User
+    ):
+        response = client.post(
+            "/api/devices",
+            json={"name": "Handheld", "capabilities": {"remote_install": True}},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        stored = db_device_handler.get_device(
+            device_id=response.json()["device_id"], user_id=admin_user.id
+        )
+        assert stored is not None
+        assert stored.capabilities == {"remote_install": True}
+
+    def test_registering_again_replaces_the_capabilities(
+        self, client, access_token: str, admin_user: User
+    ):
+        body = {"name": "Handheld", "hostname": "thor", "platform": "android"}
+        headers = {"Authorization": f"Bearer {access_token}"}
+        first = client.post(
+            "/api/devices",
+            json={**body, "capabilities": {"remote_install": False}},
+            headers=headers,
+        )
+
+        again = client.post(
+            "/api/devices",
+            json={**body, "capabilities": {"remote_install": True}},
+            headers=headers,
+        )
+
+        assert again.status_code == status.HTTP_200_OK
+        assert again.json()["device_id"] == first.json()["device_id"]
+        stored = db_device_handler.get_device(
+            device_id=first.json()["device_id"], user_id=admin_user.id
+        )
+        assert stored is not None
+        assert stored.capabilities == {"remote_install": True}
+
+    def test_updating_replaces_the_capabilities(
+        self, client, access_token: str, admin_user: User
+    ):
+        device = db_device_handler.add_device(
+            Device(id="test-device-caps", user_id=admin_user.id, name="Handheld")
+        )
+
+        response = client.put(
+            f"/api/devices/{device.id}",
+            json={"capabilities": {"remote_install": True}},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["capabilities"] == {"remote_install": True}
+
+    def test_an_update_without_capabilities_keeps_them(
+        self, client, access_token: str, admin_user: User
+    ):
+        device = db_device_handler.add_device(
+            Device(id="test-device-keep-caps", user_id=admin_user.id, name="Handheld")
+        )
+        headers = {"Authorization": f"Bearer {access_token}"}
+        client.put(
+            f"/api/devices/{device.id}",
+            json={"capabilities": {"remote_install": True}},
+            headers=headers,
+        )
+
+        response = client.put(
+            f"/api/devices/{device.id}",
+            json={"name": "Renamed", "client_version": "2.18.0"},
+            headers=headers,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["capabilities"] == {"remote_install": True}
+        stored = db_device_handler.get_device(
+            device_id=device.id, user_id=admin_user.id
+        )
+        assert stored is not None
+        assert stored.capabilities == {"remote_install": True}
+
+    def test_registering_again_without_capabilities_keeps_them(
+        self, client, access_token: str, admin_user: User
+    ):
+        body = {"name": "Handheld", "hostname": "thor", "platform": "android"}
+        headers = {"Authorization": f"Bearer {access_token}"}
+        first = client.post(
+            "/api/devices",
+            json={**body, "capabilities": {"remote_install": True}},
+            headers=headers,
+        )
+
+        again = client.post("/api/devices", json=body, headers=headers)
+
+        assert again.status_code == status.HTTP_200_OK
+        stored = db_device_handler.get_device(
+            device_id=first.json()["device_id"], user_id=admin_user.id
+        )
+        assert stored is not None
+        assert stored.capabilities == {"remote_install": True}
+
+    @pytest.mark.parametrize(
+        "capabilities",
+        [
+            {"remote_install": "yes"},
+            {"": True},
+            {"x" * 65: True},
+            {f"flag{i}": True for i in range(33)},
+        ],
+    )
+    def test_rejects_capabilities_that_are_not_named_flags(
+        self, client, access_token: str, capabilities
+    ):
+        response = client.post(
+            "/api/devices",
+            json={"name": "Handheld", "capabilities": capabilities},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+class TestDevicePresence:
+    def test_lists_the_callers_devices_holding_a_socket(
+        self, client, access_token: str, admin_user: User, editor_user: User
+    ):
+        for device_id, user in (
+            ("dev-online", admin_user),
+            ("dev-offline", admin_user),
+            ("dev-editor", editor_user),
+        ):
+            db_device_handler.add_device(Device(id=device_id, user_id=user.id))
+        sync_cache.sadd("device_presence:dev-online", "sid-1")
+        sync_cache.sadd("device_presence:dev-editor", "sid-2")
+
+        response = client.get(
+            "/api/devices/online",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == ["dev-online"]
 
 
 class TestDeviceUserIsolation:

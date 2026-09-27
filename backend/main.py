@@ -13,6 +13,7 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 from startup import main
 
 import endpoints.sockets.activity  # noqa
+import endpoints.sockets.devices  # noqa
 import endpoints.sockets.logs  # noqa
 import endpoints.sockets.netplay  # noqa
 import endpoints.sockets.scan  # noqa
@@ -38,6 +39,7 @@ from endpoints.collections import router as collections_router
 from endpoints.configs import router as configs_router
 from endpoints.device import router as device_router
 from endpoints.device_auth import router as device_auth_router
+from endpoints.device_install import router as device_install_router
 from endpoints.export import router as export_router
 from endpoints.feeds import router as feeds_router
 from endpoints.firmware import router as firmware_router
@@ -197,6 +199,7 @@ app.include_router(notifications_router, prefix="/api")
 app.include_router(notification_channels_router, prefix="/api")
 app.include_router(device_router, prefix="/api")
 app.include_router(device_auth_router, prefix="/api")
+app.include_router(device_install_router, prefix="/api")
 app.include_router(play_sessions_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
 app.include_router(rom_router, prefix="/api")

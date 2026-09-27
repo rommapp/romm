@@ -15,6 +15,7 @@ from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_client_token_handler
 from handler.redis_handler import sync_cache
+from handler.socket_handler import close_client_token_sockets
 from models.audit_event import AuditAction, AuditTargetType
 from models.client_token import ClientToken
 from utils.client_tokens import (
@@ -94,7 +95,7 @@ def list_tokens(request: Request) -> list[ClientTokenSchema]:
 
 
 @protected_route(router.delete, "/{token_id}", [Scope.ME_WRITE])
-def delete_token(request: Request, token_id: int) -> None:
+async def delete_token(request: Request, token_id: int) -> None:
     token = db_client_token_handler.get_token(
         token_id=token_id, user_id=request.user.id
     )
@@ -107,10 +108,11 @@ def delete_token(request: Request, token_id: int) -> None:
             detail="Token not found",
         )
     _record_token(request, AuditAction.CLIENT_TOKEN_REVOKE, token)
+    await close_client_token_sockets([token_id])
 
 
 @protected_route(router.put, "/{token_id}/regenerate", [Scope.ME_WRITE])
-def regenerate_token(request: Request, token_id: int) -> ClientTokenCreateSchema:
+async def regenerate_token(request: Request, token_id: int) -> ClientTokenCreateSchema:
     raw_token = auth_handler.generate_client_token()
     new_hash = auth_handler.hash_client_token(raw_token)
 
@@ -125,6 +127,7 @@ def regenerate_token(request: Request, token_id: int) -> ClientTokenCreateSchema
             detail="Token not found",
         )
     _record_token(request, AuditAction.CLIENT_TOKEN_REGENERATE, token)
+    await close_client_token_sockets([token_id])
     return build_create_schema(token, raw_token)
 
 
@@ -161,11 +164,13 @@ def pair_status(code: str) -> None:
 
 
 @router.post("/exchange")
-def exchange_pair_code(
+async def exchange_pair_code(
     request: Request,
     payload: ClientTokenExchangePayload,
 ) -> ClientTokenCreateSchema:
-    return exchange(request, payload.code)
+    token = exchange(request, payload.code)
+    await close_client_token_sockets([token.id])
+    return token
 
 
 @protected_route(router.get, "/all", [Scope.USERS_READ])
@@ -175,7 +180,7 @@ def list_all_tokens(request: Request) -> list[ClientTokenAdminSchema]:
 
 
 @protected_route(router.delete, "/{token_id}/admin", [Scope.USERS_WRITE])
-def admin_delete_token(request: Request, token_id: int) -> None:
+async def admin_delete_token(request: Request, token_id: int) -> None:
     token = db_client_token_handler.get_token(token_id=token_id)
     rows = db_client_token_handler.delete_token(token_id=token_id)
     if rows == 0 or token is None:
@@ -184,3 +189,4 @@ def admin_delete_token(request: Request, token_id: int) -> None:
             detail="Token not found",
         )
     _record_token(request, AuditAction.CLIENT_TOKEN_REVOKE, token)
+    await close_client_token_sockets([token_id])

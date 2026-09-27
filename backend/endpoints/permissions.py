@@ -20,12 +20,13 @@ from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_admin, get_permissions
 from handler.database import (
+    db_client_token_handler,
     db_permission_handler,
     db_platform_handler,
     db_rom_handler,
     db_user_handler,
 )
-from handler.socket_handler import socket_handler
+from handler.socket_handler import close_client_token_sockets, socket_handler
 from logger.logger import log
 from models.audit_event import AuditAction, AuditTargetType
 from models.permission import PermAction, PermEntity, PermissionGroup
@@ -50,6 +51,9 @@ async def emit_permissions_changed(user_id: int) -> None:
         )
     except Exception as e:  # noqa: BLE001
         log.warning(f"Failed to broadcast permissions:changed for user {user_id}: {e}")
+    await close_client_token_sockets(
+        db_client_token_handler.get_token_ids_by_user(user_id)
+    )
 
 
 @protected_route(router.get, "/me", [Scope.ME_READ])
