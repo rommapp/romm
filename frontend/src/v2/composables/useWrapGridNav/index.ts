@@ -24,21 +24,16 @@
 // auto-focus while in pad modality, reactivity to modality flipping to
 // pad mid-session.
 //
+// A key that would leave the grid is left unclaimed, so `useSpatialNav`
+// carries focus to the next region (the toolbar, the top bar).
+//
 // Integration: this is plain keyboard code; `useGamepad` dispatches
 // synthetic Arrow events so gamepad users transparently benefit.
 import { onBeforeUnmount, onMounted, watch, type Ref } from "vue";
 import { useRoute } from "vue-router";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import storeFocusRestoration from "@/v2/stores/focusRestoration";
-
-const FOCUSABLE_SELECTOR = [
-  "a[href]",
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  "[tabindex]:not([tabindex='-1'])",
-].join(",");
+import { FOCUSABLE_SELECTOR } from "@/v2/utils/spatialNav";
 
 // Within this many CSS pixels two cells are considered to share a row.
 // Tile heights are uniform per grid so anything within a couple of px is
@@ -257,7 +252,7 @@ export function useWrapGridNav(
   }
 
   onMounted(() => {
-    window.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey);
     window.addEventListener("focusin", onFocusIn);
     if (rootRef.value) {
       observer = new MutationObserver(() => maybeAutofocus());
@@ -267,7 +262,7 @@ export function useWrapGridNav(
   });
 
   onBeforeUnmount(() => {
-    window.removeEventListener("keydown", onKey);
+    document.removeEventListener("keydown", onKey);
     window.removeEventListener("focusin", onFocusIn);
     observer?.disconnect();
     observer = null;
