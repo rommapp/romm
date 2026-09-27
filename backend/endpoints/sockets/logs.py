@@ -131,9 +131,8 @@ async def _forward_while_locked(
         log.info("Log stream forwarder started")
         while True:
             if loop.time() - last_refresh >= refresh_interval:
-                # Heartbeat the lock, but only while we still own it. If
-                # another worker took it (after a stall / Redis hiccup), stop
-                # forwarding to avoid duplicate lines.
+                # Another worker took the lock after a stall, so stop before
+                # both relay every line.
                 if await async_cache.get(FORWARDER_LOCK_KEY) != lock_id:
                     return
                 await async_cache.set(
@@ -157,8 +156,7 @@ async def _forward_while_locked(
             except Exception:  # noqa: BLE001 - keep forwarding  # nosec B112
                 continue
     finally:
-        # Closing drops the subscription too, and unlike UNSUBSCRIBE it does
-        # not need a live connection.
+        # Closing drops the subscription and works on a dead connection.
         await pubsub.aclose()
 
 

@@ -153,6 +153,7 @@ def test_clearing_broadcasts_only_when_there_was_something_to_clear(
 
 
 def test_active_for_rom_reads_every_session_at_once_and_drops_stale_members():
+    # A stub, since the test fakeredis returns bytes and members are parsed as str.
     entry = {"user_id": 1, "device_id": "live", "rom_id": 7}
     cache = MagicMock()
     cache.smembers = AsyncMock(

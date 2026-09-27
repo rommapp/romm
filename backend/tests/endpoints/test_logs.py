@@ -91,7 +91,7 @@ def test_get_recent_logs_returns_oldest_first_and_skips_malformed():
 
 
 def _fake_lock_cache() -> MagicMock:
-    """An async_cache stub whose GET/SET/DELETE share one in-memory store."""
+    """A str-valued lock store, since the test fakeredis returns bytes."""
     store: dict[str, Any] = {}
 
     async def set_(key, value, nx=False, ex=None):
