@@ -124,10 +124,10 @@ def test_log_forwarder_resumes_after_a_redis_error():
     healthy.aclose = AsyncMock()
     messages = [{"data": json_module.dumps(SAMPLE_ENTRY)}]
 
-    async def get_message(ignore_subscribe_messages, timeout):
+    async def get_message(**kwargs):
         if messages:
             return messages.pop()
-        await asyncio.sleep(timeout)
+        await asyncio.sleep(kwargs["timeout"])
         return None
 
     healthy.get_message = AsyncMock(side_effect=get_message)
