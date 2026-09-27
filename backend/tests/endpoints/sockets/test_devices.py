@@ -10,20 +10,13 @@ from endpoints.responses.device_install import InstallRequestSchema, InstallStat
 from endpoints.sockets import devices
 from handler.auth.hybrid_auth import resolve_client_token
 from handler.database import db_client_token_handler, db_device_handler
-from handler.redis_handler import as_text, async_cache, sync_cache
+from handler.redis_handler import as_text, async_cache
 from handler.socket_handler import DEVICES_NAMESPACE, socket_handler
 from models.client_token import ClientToken
 from models.device import Device
 from models.user import User
 
 NAMESPACE = DEVICES_NAMESPACE
-
-
-@pytest.fixture(autouse=True)
-def clear_cache():
-    sync_cache.flushall()
-    yield
-    sync_cache.flushall()
 
 
 async def _members(key: str) -> set[str]:
@@ -43,10 +36,17 @@ def socket_session(mocker) -> dict[str, Any]:
 
 
 @pytest.fixture
-def background(mocker) -> MagicMock:
+def fire_and_forget(mocker) -> MagicMock:
+    schedule = MagicMock()
+    mocker.patch.object(devices, "fire_and_forget", schedule)
+    return schedule
+
+
+@pytest.fixture
+def background(mocker, fire_and_forget) -> MagicMock:
     """The ``_keep_tracked`` a connect schedules, without running it."""
-    keep_tracked = mocker.patch.object(devices, "_keep_tracked", MagicMock())
-    mocker.patch.object(devices, "fire_and_forget")
+    keep_tracked = MagicMock()
+    mocker.patch.object(devices, "_keep_tracked", keep_tracked)
     return keep_tracked
 
 
@@ -130,7 +130,7 @@ class TestConnect:
         enter_room.assert_not_awaited()
 
     async def test_keeps_the_tracking_fresh_while_connected(
-        self, enter_room, background, admin_user, device_token
+        self, enter_room, background, fire_and_forget, admin_user, device_token
     ):
         token, raw = device_token(admin_user)
 
@@ -139,7 +139,7 @@ class TestConnect:
         background.assert_called_once_with(
             "sid-1", devices.BoundToken(token.id, "dev-socket", None)
         )
-        devices.fire_and_forget.assert_called_once_with(background.return_value)
+        fire_and_forget.assert_called_once_with(background.return_value)
 
     async def test_bumps_the_tokens_last_use(
         self, enter_room, admin_user, device_token

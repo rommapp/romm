@@ -1,6 +1,7 @@
 """Install requests a user pushes to one of their devices, held in Redis while live."""
 
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Final, NamedTuple
 
@@ -39,13 +40,30 @@ def _oldest_first(
     return sorted(requests, key=lambda request: request.created_at)
 
 
-def _claim(
-    already_taken: list[InstallRequestSchema], newly_taken: list[InstallRequestSchema]
-) -> InstallClaim:
-    return InstallClaim(
-        taken=_oldest_first(already_taken + newly_taken),
-        newly_taken=_oldest_first(newly_taken),
-    )
+def _partition(
+    ids: list[str], stored: list[InstallRequestSchema | None]
+) -> tuple[list[InstallRequestSchema], list[str]]:
+    """The live requests, and the ids whose request is gone."""
+    live = [request for request in stored if request is not None]
+    gone = [
+        request_id
+        for request_id, request in zip(ids, stored, strict=True)
+        if request is None
+    ]
+    return live, gone
+
+
+async def _transact[T](
+    attempt: Callable[[Pipeline[str]], Awaitable[T]], exhausted: str
+) -> T:
+    """Run ``attempt`` in a watched transaction, retrying when a watched key changes."""
+    async with async_cache.pipeline(transaction=True) as pipe:
+        for _ in range(TRANSACTION_ATTEMPTS):
+            try:
+                return await attempt(pipe)
+            except WatchError:
+                continue
+    raise InstallTransitionError(exhausted)
 
 
 def _request_key(request_id: str) -> str:
@@ -93,24 +111,22 @@ class DeviceInstallHandler:
             updated_at=now,
         )
         active_key = _active_key(request)
-        async with async_cache.pipeline(transaction=True) as pipe:
-            for _ in range(TRANSACTION_ATTEMPTS):
-                try:
-                    await pipe.watch(active_key)
-                    active_id = await pipe.get(active_key)
-                    if active_id is not None:
-                        [existing] = await self._read(pipe, [as_text(active_id)])
-                        if existing is not None:
-                            return existing, False
 
-                    pipe.multi()
-                    self._stage_write(pipe, request, owns_active_key=True)
-                    await pipe.execute()
-                    return request, True
-                except WatchError:
-                    continue
-        raise InstallTransitionError(
-            "Another request for this rom was queued at the same time"
+        async def attempt(pipe: Pipeline[str]) -> tuple[InstallRequestSchema, bool]:
+            await pipe.watch(active_key)
+            active_id = await pipe.get(active_key)
+            if active_id is not None:
+                [existing] = await self._read(pipe, [as_text(active_id)])
+                if existing is not None:
+                    return existing, False
+
+            pipe.multi()
+            self._stage_write(pipe, request, owns_active_key=True)
+            await pipe.execute()
+            return request, True
+
+        return await _transact(
+            attempt, "Another request for this rom was queued at the same time"
         )
 
     async def get(self, request_id: str) -> InstallRequestSchema | None:
@@ -134,52 +150,38 @@ class DeviceInstallHandler:
             InstallTransitionError: Other writers kept changing the requests.
         """
         device_key = _device_key(device_id)
-        async with async_cache.pipeline(transaction=True) as pipe:
-            for _ in range(TRANSACTION_ATTEMPTS):
-                try:
-                    await pipe.watch(device_key)
-                    ids = [as_text(i) for i in await pipe.smembers(device_key)]
-                    if ids:
-                        await pipe.watch(*[_request_key(i) for i in ids])
-                    stored = await self._read(pipe, ids)
-                    gone = [
-                        request_id
-                        for request_id, request in zip(ids, stored, strict=True)
-                        if request is None
-                    ]
-                    live = [request for request in stored if request is not None]
-                    already_taken = [
-                        request
-                        for request in live
-                        if request.status == InstallStatus.TAKEN
-                    ]
-                    pending = [
-                        request
-                        for request in live
-                        if request.status == InstallStatus.PENDING
-                    ]
-                    owned = (
-                        await self._owns_active_keys(pipe, pending) if pending else []
-                    )
-                    now = datetime.now(timezone.utc)
-                    taken = [
-                        request.model_copy(
-                            update={"status": InstallStatus.TAKEN, "updated_at": now}
-                        )
-                        for request in pending
-                    ]
-                    if gone or taken:
-                        pipe.multi()
-                        if gone:
-                            pipe.srem(device_key, *gone)
-                        for request, owns_active_key in zip(taken, owned, strict=True):
-                            self._stage_write(pipe, request, owns_active_key)
-                        await pipe.execute()
-                    return _claim(already_taken, taken)
-                except WatchError:
-                    continue
-        raise InstallTransitionError(
-            "The device's requests kept changing while they were being claimed"
+
+        async def attempt(pipe: Pipeline[str]) -> InstallClaim:
+            await pipe.watch(device_key)
+            ids = [as_text(i) for i in await pipe.smembers(device_key)]
+            if ids:
+                await pipe.watch(*[_request_key(i) for i in ids])
+            live, gone = _partition(ids, await self._read(pipe, ids))
+            already_taken = [r for r in live if r.status == InstallStatus.TAKEN]
+            pending = [r for r in live if r.status == InstallStatus.PENDING]
+            owned = await self._owns_active_keys(pipe, pending) if pending else []
+            now = datetime.now(timezone.utc)
+            taken = [
+                request.model_copy(
+                    update={"status": InstallStatus.TAKEN, "updated_at": now}
+                )
+                for request in pending
+            ]
+            if gone or taken:
+                pipe.multi()
+                if gone:
+                    pipe.srem(device_key, *gone)
+                for request, owns_active_key in zip(taken, owned, strict=True):
+                    self._stage_write(pipe, request, owns_active_key)
+                await pipe.execute()
+            return InstallClaim(
+                taken=_oldest_first(already_taken + taken),
+                newly_taken=_oldest_first(taken),
+            )
+
+        return await _transact(
+            attempt,
+            "The device's requests kept changing while they were being claimed",
         )
 
     async def report(
@@ -227,33 +229,29 @@ class DeviceInstallHandler:
         from_statuses: frozenset[InstallStatus],
         reason: str | None,
     ) -> InstallRequestSchema:
-        key = _request_key(request_id)
-        async with async_cache.pipeline(transaction=True) as pipe:
-            for _ in range(TRANSACTION_ATTEMPTS):
-                try:
-                    await pipe.watch(key)
-                    [current] = await self._read(pipe, [request_id])
-                    if current is None:
-                        raise InstallRequestNotFoundError(request_id)
-                    if current.status not in from_statuses:
-                        raise InstallTransitionError(
-                            f"Cannot move a {current.status} request to {status}"
-                        )
+        async def attempt(pipe: Pipeline[str]) -> InstallRequestSchema:
+            await pipe.watch(_request_key(request_id))
+            [current] = await self._read(pipe, [request_id])
+            if current is None:
+                raise InstallRequestNotFoundError(request_id)
+            if current.status not in from_statuses:
+                raise InstallTransitionError(
+                    f"Cannot move a {current.status} request to {status}"
+                )
 
-                    [owns_active_key] = await self._owns_active_keys(pipe, [current])
-                    pipe.multi()
-                    self._stage_delete(pipe, current, owns_active_key)
-                    await pipe.execute()
-                    return current.model_copy(
-                        update={
-                            "status": status,
-                            "reason": reason,
-                            "updated_at": datetime.now(timezone.utc),
-                        }
-                    )
-                except WatchError:
-                    continue
-        raise InstallTransitionError("The request kept changing while it was ended")
+            [owns_active_key] = await self._owns_active_keys(pipe, [current])
+            pipe.multi()
+            self._stage_delete(pipe, current, owns_active_key)
+            await pipe.execute()
+            return current.model_copy(
+                update={
+                    "status": status,
+                    "reason": reason,
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            )
+
+        return await _transact(attempt, "The request kept changing while it was ended")
 
     async def _read(
         self, client: Redis[str], request_ids: list[str]
@@ -269,15 +267,10 @@ class DeviceInstallHandler:
 
     async def _load(self, set_key: str) -> list[InstallRequestSchema]:
         ids = [as_text(i) for i in await async_cache.smembers(set_key)]
-        stored = await self._read(async_cache, ids)
-        gone = [
-            request_id
-            for request_id, request in zip(ids, stored, strict=True)
-            if request is None
-        ]
+        live, gone = _partition(ids, await self._read(async_cache, ids))
         if gone:
             await async_cache.srem(set_key, *gone)
-        return _oldest_first([request for request in stored if request is not None])
+        return _oldest_first(live)
 
     async def _owns_active_keys(
         self, pipe: Pipeline[str], requests: list[InstallRequestSchema]

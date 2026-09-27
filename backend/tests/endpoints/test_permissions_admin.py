@@ -6,11 +6,10 @@ from unittest.mock import AsyncMock
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import permissions as permissions_endpoints
-from handler.auth import auth_handler, oauth_handler
-from handler.database import db_client_token_handler, db_user_handler
+from handler.auth import oauth_handler
+from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
 from handler.database.permissions_handler import DBPermissionsHandler
-from models.client_token import ClientToken
 from models.permission import PermissionGroup
 
 
@@ -138,16 +137,9 @@ def test_user_override_adds_capability(client, access_token, viewer_user):
 
 
 def test_a_permission_change_closes_the_users_device_sockets(
-    mocker, client, access_token, viewer_user
+    mocker, client, access_token, viewer_user, add_device_token
 ):
-    token = db_client_token_handler.add_token(
-        ClientToken(
-            user_id=viewer_user.id,
-            name="Handheld",
-            hashed_token=auth_handler.hash_client_token("rmm_regrouped_user_device"),
-            scopes="devices.read",
-        )
-    )
+    token, _ = add_device_token(viewer_user, None, scopes="devices.read")
     close = mocker.patch.object(
         permissions_endpoints, "close_client_token_sockets", AsyncMock()
     )

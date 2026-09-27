@@ -8,7 +8,7 @@ import {
   RSpinner,
 } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   DeviceSchema,
@@ -66,6 +66,10 @@ const installableDevices = computed(() =>
     .sort((a, b) => lastSeenTime(b) - lastSeenTime(a)),
 );
 
+function isCurrent(romId: number): boolean {
+  return alive.value && rom.value?.id === romId;
+}
+
 function applyRequest(request: InstallRequestSchema) {
   const current = requests.value.get(request.device_id);
   if (current && current.created_at > request.created_at) return;
@@ -100,16 +104,16 @@ async function load(target: SimpleRom) {
         deviceApi.fetchOnlineDeviceIds(),
         deviceInstallApi.fetchRomInstalls(target.id),
       ]);
-    if (!alive.value || rom.value?.id !== target.id) return;
+    if (!isCurrent(target.id)) return;
     devices.value = devicesResponse.data;
     onlineIds.value = new Set(onlineResponse.data);
     installsResponse.data.forEach(applyRequest);
   } catch (error) {
-    if (alive.value && rom.value?.id === target.id) {
+    if (isCurrent(target.id)) {
       loadError.value = errorMessage(error);
     }
   } finally {
-    if (alive.value && rom.value?.id === target.id) loading.value = false;
+    if (isCurrent(target.id)) loading.value = false;
   }
 }
 
@@ -133,10 +137,6 @@ onBeforeUnmount(() => {
   sendPendingNow();
 });
 
-watch(show, (open) => {
-  if (!open) sendPendingNow();
-});
-
 useSocketEvent<InstallRequestSchema>("install:updated", (request) => {
   if (rom.value?.id === request.rom_id) applyRequest(request);
 });
@@ -148,7 +148,7 @@ async function send(deviceId: string, target: SimpleRom) {
     const { data } = await deviceInstallApi.createInstall(deviceId, {
       rom_id: target.id,
     });
-    if (alive.value && rom.value?.id === target.id) applyRequest(data);
+    if (isCurrent(target.id)) applyRequest(data);
   } catch (error) {
     if (!alive.value) return;
     snackbar.error(
@@ -180,7 +180,7 @@ async function cancel(request: InstallRequestSchema) {
       request.device_id,
       request.id,
     );
-    if (alive.value && rom.value?.id === data.rom_id) applyRequest(data);
+    if (isCurrent(data.rom_id)) applyRequest(data);
   } catch (error) {
     if (!alive.value) return;
     snackbar.error(

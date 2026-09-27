@@ -288,7 +288,7 @@ class TestDiscardForDevice:
         late: list[InstallRequestSchema] = []
 
         async def list_then_create(device_id: str) -> list[InstallRequestSchema]:
-            listed = await list_for_device(device_id)
+            listed: list[InstallRequestSchema] = await list_for_device(device_id)
             late.append(await _create(handler, rom_id=9))
             return listed
 

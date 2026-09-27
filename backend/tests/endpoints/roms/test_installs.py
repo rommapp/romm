@@ -1,6 +1,5 @@
 import asyncio
 
-import pytest
 from fastapi import status
 
 from endpoints.responses.device_install import InstallRequestSchema
@@ -10,16 +9,6 @@ from handler.device_install_handler import device_install_handler
 from models.permission import HiddenEntity, PermEntity
 from models.rom import Rom
 from models.user import User
-
-
-@pytest.fixture
-def headers(access_token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {access_token}"}
-
-
-@pytest.fixture
-def editor_headers(editor_access_token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {editor_access_token}"}
 
 
 def _queue(user: User, rom: Rom, device_id: str) -> InstallRequestSchema:

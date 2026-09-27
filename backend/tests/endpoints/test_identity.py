@@ -23,14 +23,12 @@ from handler.auth import oauth_handler
 from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import (
-    db_client_token_handler,
     db_device_handler,
     db_notification_handler,
 )
 from handler.database.users_handler import DBUsersHandler
 from handler.device_install_handler import device_install_handler
 from handler.redis_handler import async_cache, redis_client
-from models.client_token import ClientToken
 from models.device import Device
 from models.notification import NotificationKind
 from models.user import Role, User
@@ -472,16 +470,9 @@ def test_delete_user(client, access_token: str, editor_user: User):
 
 
 def test_delete_user_closes_their_device_sockets(
-    mocker, client, access_token: str, editor_user: User
+    mocker, client, access_token: str, editor_user: User, add_device_token
 ):
-    token = db_client_token_handler.add_token(
-        ClientToken(
-            user_id=editor_user.id,
-            name="Handheld",
-            hashed_token=auth_handler.hash_client_token("rmm_deleted_user_device"),
-            scopes="devices.read",
-        )
-    )
+    token, _ = add_device_token(editor_user, None, scopes="devices.read")
     close = mocker.patch.object(
         user_endpoints, "close_client_token_sockets", mock.AsyncMock()
     )
@@ -519,21 +510,10 @@ def test_delete_user_drops_their_install_requests(
     assert asyncio.run(device_install_handler.get(install.id)) is None
 
 
-def _editor_device_token(editor_user: User) -> ClientToken:
-    return db_client_token_handler.add_token(
-        ClientToken(
-            user_id=editor_user.id,
-            name="Handheld",
-            hashed_token=auth_handler.hash_client_token("rmm_updated_user_device"),
-            scopes="devices.read",
-        )
-    )
-
-
 def test_disabling_a_user_closes_their_device_sockets(
-    mocker, client, access_token: str, editor_user: User
+    mocker, client, access_token: str, editor_user: User, add_device_token
 ):
-    token = _editor_device_token(editor_user)
+    token, _ = add_device_token(editor_user, None, scopes="devices.read")
     close = mocker.patch.object(
         user_endpoints, "close_client_token_sockets", mock.AsyncMock()
     )
@@ -549,9 +529,9 @@ def test_disabling_a_user_closes_their_device_sockets(
 
 
 def test_changing_a_users_role_closes_their_device_sockets(
-    mocker, client, access_token: str, editor_user: User
+    mocker, client, access_token: str, editor_user: User, add_device_token
 ):
-    token = _editor_device_token(editor_user)
+    token, _ = add_device_token(editor_user, None, scopes="devices.read")
     close = mocker.patch.object(
         permissions_endpoints, "close_client_token_sockets", mock.AsyncMock()
     )
@@ -568,9 +548,9 @@ def test_changing_a_users_role_closes_their_device_sockets(
 
 @pytest.mark.parametrize("form", [{"ra_username": "someone"}, {"enabled": "true"}])
 def test_other_user_edits_leave_their_device_sockets_open(
-    mocker, client, access_token: str, editor_user: User, form
+    mocker, client, access_token: str, editor_user: User, form, add_device_token
 ):
-    _editor_device_token(editor_user)
+    add_device_token(editor_user, None, scopes="devices.read")
     close = mocker.patch.object(
         user_endpoints, "close_client_token_sockets", mock.AsyncMock()
     )

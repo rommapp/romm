@@ -68,16 +68,6 @@ def device_headers(
 
 
 @pytest.fixture
-def headers(access_token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {access_token}"}
-
-
-@pytest.fixture
-def editor_headers(editor_access_token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {editor_access_token}"}
-
-
-@pytest.fixture
 def editor_device(editor_user: User) -> Device:
     return db_device_handler.add_device(
         Device(

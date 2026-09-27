@@ -76,6 +76,16 @@ def editor_access_token(editor_user):  # noqa
 
 
 @pytest.fixture
+def headers(access_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture
+def editor_headers(editor_access_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {editor_access_token}"}
+
+
+@pytest.fixture
 def viewer_access_token(viewer_user):  # noqa
     return oauth_handler.create_access_token(
         data={

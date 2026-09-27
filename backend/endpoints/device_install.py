@@ -1,5 +1,6 @@
 """Install requests: the web UI queues and cancels them, the device claims and reports them."""
 
+import asyncio
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Annotated, Final
@@ -213,8 +214,7 @@ async def create_install_request(
         )
 
     log.info(f"Queued rom {rom.id} for install on device {device_id}")
-    await emit_install_queued(install)
-    await emit_install_updated(install)
+    await asyncio.gather(emit_install_queued(install), emit_install_updated(install))
     return install
 
 
@@ -258,8 +258,7 @@ async def claim_install_requests(
     with _install_errors():
         claim = await device_install_handler.claim(device_id)
 
-    for install in claim.newly_taken:
-        await emit_install_updated(install)
+    await asyncio.gather(*(emit_install_updated(i) for i in claim.newly_taken))
     return claim.taken
 
 
@@ -315,6 +314,5 @@ async def cancel_install_request(
     with _install_errors():
         ended = await device_install_handler.cancel(request_id)
 
-    await emit_install_cancelled(ended)
-    await emit_install_updated(ended)
+    await asyncio.gather(emit_install_cancelled(ended), emit_install_updated(ended))
     return ended
