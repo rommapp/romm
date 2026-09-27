@@ -6,6 +6,7 @@ from authlib.common.errors import AuthlibBaseError
 from fastapi import BackgroundTasks, Body, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic, HTTPBasicCredentials
+from joserfc.errors import JoseError
 
 from config import (
     OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
@@ -376,9 +377,10 @@ async def auth_openid(request: Request) -> RedirectResponse:
     if not oauth.openid:
         raise OIDCNotConfiguredException
 
+    # Authlib verifies the ID token with joserfc, whose errors are not Authlib's.
     try:
         token = await oauth.openid.authorize_access_token(request)
-    except AuthlibBaseError as exc:
+    except (AuthlibBaseError, JoseError) as exc:
         # repr() because error and description can come from the query string
         log.warning(f"OIDC callback rejected: {exc.error!r}: {exc.description!r}")
         if request.user.is_authenticated and not request.user.is_kiosk_guest:
