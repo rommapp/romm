@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # trunk-ignore-all(trivy)
 # trunk-ignore-all(checkov)
 # trunk-ignore-all(hadolint/DL4006)
@@ -11,8 +12,7 @@ FROM --platform=linux/arm64 emscripten/emsdk:4.0.12-arm64@sha256:369a4cb655aa106
 FROM emsdk-${BUILDARCH} AS gme-build
 ARG GME_VERSION=0.6.5
 ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
-RUN git clone --depth 1 --branch "${GME_VERSION}" https://github.com/libgme/game-music-emu.git /libgme \
-    && test "$(git -C /libgme rev-parse HEAD)" = "${GME_COMMIT}"
+ADD --checksum=${GME_COMMIT} "https://github.com/libgme/game-music-emu.git#${GME_VERSION}" /libgme
 COPY docker/gme /romm-gme
 RUN /romm-gme/build.sh /libgme /gme
 

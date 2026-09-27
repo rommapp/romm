@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Stages:
 #   - python-runtime: Patch the Python image's libraries before they ship
 #   - frontend-build: Build frontend
@@ -163,8 +164,10 @@ FROM emsdk-${BUILDARCH} AS gme-build
 ARG GME_VERSION=0.6.5
 ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
 
-RUN git clone --depth 1 --branch "${GME_VERSION}" https://github.com/libgme/game-music-emu.git /libgme && \
-    test "$(git -C /libgme rev-parse HEAD)" = "${GME_COMMIT}"
+# checkov:skip=CKV_DOCKER_4:the ADD below is a Git URL pinned to a commit by --checksum
+ADD --checksum=${GME_COMMIT} \
+    "https://github.com/libgme/game-music-emu.git#${GME_VERSION}" \
+    /libgme
 COPY ./docker/gme /romm-gme
 RUN /romm-gme/build.sh /libgme /gme
 
