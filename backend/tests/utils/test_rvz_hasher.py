@@ -2,12 +2,12 @@ import bz2
 import hashlib
 import lzma
 import struct
+from compression import zstd
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
 
 import pytest
-import zstandard
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from utils.rvz_hasher import (
@@ -309,7 +309,7 @@ class RvzBuilder:
         if self.compression == COMPRESSION_LZMA2:
             return lzma.compress(data, format=lzma.FORMAT_RAW, filters=_LZMA2_FILTERS)
         if self.compression == COMPRESSION_ZSTD:
-            return zstandard.ZstdCompressor(level=3).compress(data)
+            return zstd.compress(data, level=3)
         raise ValueError(f"unsupported compression {self.compression}")
 
     @property
