@@ -2454,7 +2454,7 @@ requires-dist = [
     { name = "starlette", specifier = "~=1.6.0" },
     { name = "streaming-form-data", specifier = "~=1.19" },
     { name = "strsimpy", specifier = "~=0.2" },
-    { name = "types-authlib", marker = "extra == 'dev'", specifier = "~=1.6.9" },
+    { name = "types-authlib", marker = "extra == 'dev'", specifier = "~=1.8.0" },
     { name = "types-colorama", marker = "extra == 'dev'", specifier = "~=0.4" },
     { name = "types-defusedxml", marker = "extra == 'dev'", specifier = "~=0.7" },
     { name = "types-passlib", marker = "extra == 'dev'", specifier = "~=1.7" },
@@ -2683,14 +2683,14 @@ wheels = [
 
 [[package]]
 name = "types-authlib"
-version = "1.6.11.20260518"
+version = "1.8.0.20260911"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9e/30/19a552613eda35189e13784693cf98374153700378d6082cd89e35c96ae2/types_authlib-1.6.11.20260518.tar.gz", hash = "sha256:15b9a257e849e740241baa2113dd868c1b295cdc32449e54b109e9fc0105b556", size = 47147, upload-time = "2026-05-18T06:06:40.793Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/d8/e78ecbe9a5a077f5ccfec1f284ace4e8ae55ce204ec8bd1b00d86a83974a/types_authlib-1.8.0.20260911.tar.gz", hash = "sha256:cde5e55bca5e908438facc8fc701197bf540af880dff7b8ca8cf40a08258a62a", size = 51835, upload-time = "2026-09-11T06:45:26.216Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/75/62/503ca34fd9d92a79694fa2f1b6897f1603c5d9e4aa86b219b232de204578/types_authlib-1.6.11.20260518-py3-none-any.whl", hash = "sha256:e9c873dbc61d87f57cda25b8eb6d35610eb1cae2f5f2b74a8faf94c5e5f01b90", size = 104066, upload-time = "2026-05-18T06:06:39.553Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/65/d9206c38d65602867f15bda7836b1248295b31f3187a09cc1f6195539ebe/types_authlib-1.8.0.20260911-py3-none-any.whl", hash = "sha256:0617c4a2361a605144bae0850f70c18edd5265abec11af66235a02a1b415444e", size = 111525, upload-time = "2026-09-11T06:45:25.033Z" },
 ]
 
 [[package]]
