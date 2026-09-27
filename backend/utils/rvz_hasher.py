@@ -22,13 +22,12 @@ Format references:
 
 import bz2
 import hashlib
-import io
 import lzma
 import os
 import struct
+from compression import zstd
 from typing import TYPE_CHECKING, Any, BinaryIO, cast
 
-import zstandard
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from logger.formatter import LIGHTMAGENTA
@@ -85,7 +84,7 @@ _PARSE_ERRORS = (
     EOFError,
     struct.error,
     lzma.LZMAError,
-    zstandard.ZstdError,
+    zstd.ZstdError,
 )
 
 
@@ -344,14 +343,7 @@ class _RvzReader:
             return lzma.LZMADecompressor(
                 format=lzma.FORMAT_RAW, filters=filters
             ).decompress(blob, max_length=max_output)
-        reader = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(blob))
-        out = bytearray()
-        while len(out) < max_output:
-            chunk = reader.read(min(1 << 20, max_output - len(out)))
-            if not chunk:
-                break
-            out += chunk
-        return bytes(out)
+        return zstd.ZstdDecompressor().decompress(blob, max_length=max_output)
 
     def _decompress_blob(self, offset: int, size: int, expected: int) -> bytes:
         self._fh.seek(offset)
