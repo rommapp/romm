@@ -178,6 +178,11 @@ class State(RomAsset):
         default=None,
         index=True,
     )
+    # The libretro core that wrote this RetroArch state. NULL is the platform's
+    # default core, which wrote every state stored before cores were recorded.
+    core: Mapped[str | None] = mapped_column(
+        String(length=EMULATOR_MAX_LENGTH), nullable=True, default=None
+    )
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="states")
     user: Mapped[User] = relationship(lazy="joined", back_populates="states")

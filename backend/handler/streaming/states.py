@@ -24,6 +24,7 @@ import re
 import zipfile
 import zlib
 from datetime import datetime, timezone
+from typing import NamedTuple
 from urllib.parse import quote
 
 from fastapi import HTTPException
@@ -157,10 +158,17 @@ def resolve_resume_state(
     )
 
 
-def fetch_state_file(
-    container: ResolvedContainer, slot: int
-) -> tuple[str, bytes] | None:
-    """GET /state-file from the broker. Returns (filename, content) or None.
+class PulledState(NamedTuple):
+    """A state file as the broker handed it over."""
+
+    filename: str
+    content: bytes
+    # The libretro core that wrote it; None from a broker too old to say.
+    core: str | None = None
+
+
+def fetch_state_file(container: ResolvedContainer, slot: int) -> PulledState | None:
+    """GET /state-file from the broker, or None when there is none.
 
     The broker blocks while a save is in flight, so a generous timeout stands
     in for save-completion polling. 404 means no state exists for the slot.
@@ -180,13 +188,20 @@ def fetch_state_file(
     if not filename:
         log.warning("broker state-file response missing a filename")
         return None
-    return filename, content
+    return PulledState(filename, content, headers.get("X-State-Core") or None)
 
 
 def push_state_file(
-    container: ResolvedContainer, filename: str, content: bytes
+    container: ResolvedContainer,
+    filename: str,
+    content: bytes,
+    core: str | None = None,
 ) -> bool:
-    """PUT /state-file to the broker. Best-effort, logs but never raises."""
+    """PUT /state-file to the broker. Best-effort, logs but never raises.
+
+    `core` names the libretro core that wrote the state, so a broker running
+    another one refuses it rather than file it where quick-load reads.
+    """
     return broker.put_binary(
         container,
         container.protocol.transfer_route(
@@ -196,6 +211,7 @@ def push_state_file(
         "state-file PUT",
         content_type="application/octet-stream",
         timeout=container.state_transfer["timeout"],
+        extra_headers={"X-State-Core": core} if core else None,
     )
 
 
@@ -363,6 +379,7 @@ async def store_state_asset(
     content: bytes,
     screenshot: bytes | None = None,
     disc_file_id: int | None = None,
+    core: str | None = None,
 ) -> None:
     """Store a pulled state file as a new entry in the ROM's state history.
 
@@ -378,7 +395,12 @@ async def store_state_asset(
     stamped = stamped_state_filename(emulator, filename, datetime.now(timezone.utc))
     existing_names = {state.file_name for state in history}
     stored = await store_state_file(
-        user, rom, emulator, content, stamped, fields={"disc_file_id": disc_file_id}
+        user,
+        rom,
+        emulator,
+        content,
+        stamped,
+        fields={"disc_file_id": disc_file_id, "core": core},
     )
     if stamped not in existing_names:
         # The capture is the newest, so it heads the list the prune below reads.
@@ -419,7 +441,7 @@ async def pull_state_to_library(
         result = await asyncio.to_thread(fetch_state_file, container, slot)
         if result is None:
             continue
-        filename, content = result
+        filename, content, core = result
         try:
             filename = sanitize_filename(filename)
         except ValueError:
@@ -435,7 +457,7 @@ async def pull_state_to_library(
             )
         try:
             await store_state_asset(
-                user, rom, emulator, filename, content, screenshot, disc_file_id
+                user, rom, emulator, filename, content, screenshot, disc_file_id, core
             )
         except Exception:
             log.exception("failed to store pulled state %s", filename)
@@ -452,7 +474,11 @@ async def pull_state_to_library(
     return False
 
 
-async def push_resume_state(container: ResolvedContainer, resume_state: State) -> bool:
+async def push_resume_state(
+    container: ResolvedContainer,
+    resume_state: State,
+    state_core: StateCore | None = None,
+) -> bool:
     """Send the state a player picked to resume from down to the container.
 
     Best-effort: a failure means the session just starts fresh, which the claim

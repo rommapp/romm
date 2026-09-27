@@ -20,6 +20,7 @@ from tests.streaming_stubs import exit_pulls_spawned_inline
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import streaming
+from endpoints.responses.assets import StateSchema
 from endpoints.responses.streaming import ImportRefusalSchema
 from endpoints.streaming import platform_capabilities
 from handler.activity_handler import activity_handler
@@ -4253,6 +4254,20 @@ def _state_for(rom: Rom, user: User, file_name: str, emulator: str) -> State:
     )
 
 
+def _core_state(rom: Rom, user: User, file_name: str, core: str | None) -> State:
+    """A stored RetroArch state recorded as written by `core`."""
+    state = _state_for(rom, user, file_name, "retroarch")
+    state.core = core
+    return db_state_handler.add_state(state)
+
+
+def test_a_state_keeps_the_core_that_wrote_it(rom: Rom, admin_user: User):
+    stored = _core_state(rom, admin_user, "Game.state", "bsnes")
+    reread = db_state_handler.get_state_by_id(stored.id)
+    assert reread is not None and reread.core == "bsnes"
+    assert StateSchema.model_fields["core"].default is None
+
+
 def _screenshot_for(rom: Rom, stem: str) -> Screenshot:
     """A scan_screenshot() stand-in on `stem`, the name State.screenshot matches."""
     return Screenshot(
@@ -4636,7 +4651,7 @@ def test_pull_state_to_library_stores_state(rom: Rom, admin_user: User):
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
-            return_value=("Game.03.p2s", b"state-bytes"),
+            return_value=states.PulledState("Game.03.p2s", b"state-bytes"),
         ),
         patch("handler.streaming.states.fetch_state_screenshot", return_value=None),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
@@ -4667,7 +4682,7 @@ def test_pull_state_takes_the_broker_screenshot(rom: Rom, admin_user: User):
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
-            return_value=("Game.s03", b"state-bytes"),
+            return_value=states.PulledState("Game.s03", b"state-bytes"),
         ),
         patch(
             "handler.streaming.states.fetch_state_screenshot", return_value=_PNG
@@ -4702,7 +4717,7 @@ def test_pull_state_prefers_broker_screenshot_over_embedded(rom: Rom, admin_user
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
-            return_value=("Game.05.p2s", _p2s_bytes(embedded)),
+            return_value=states.PulledState("Game.05.p2s", _p2s_bytes(embedded)),
         ),
         patch(
             "handler.streaming.states.fetch_state_screenshot", return_value=_PNG
@@ -4730,7 +4745,7 @@ def test_pull_state_falls_back_to_embedded_screenshot(rom: Rom, admin_user: User
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
-            return_value=("Game.06.p2s", _p2s_bytes(_PNG)),
+            return_value=states.PulledState("Game.06.p2s", _p2s_bytes(_PNG)),
         ),
         patch(
             "handler.streaming.states.fetch_state_screenshot", return_value=None
@@ -4757,7 +4772,7 @@ def test_pull_state_asks_the_broker_for_a_screenshot_once(rom: Rom, admin_user: 
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
-            return_value=("Game.state5", b"state-bytes"),
+            return_value=states.PulledState("Game.state5", b"state-bytes"),
         ),
         patch(
             "handler.streaming.states.fetch_state_screenshot", return_value=None
@@ -4778,7 +4793,8 @@ def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
     """A broker filename that sanitizes to nothing must be dropped, not stored."""
     with (
         patch(
-            "handler.streaming.states.fetch_state_file", return_value=("***", b"bytes")
+            "handler.streaming.states.fetch_state_file",
+            return_value=states.PulledState("***", b"bytes"),
         ),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
     ):
@@ -4970,7 +4986,7 @@ def test_pull_state_skips_capture_identical_to_previous(rom: Rom, admin_user: Us
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
-            return_value=("Game.03.p2s", content),
+            return_value=states.PulledState("Game.03.p2s", content),
         ),
         patch("handler.streaming.states.fetch_state_screenshot", return_value=None),
         patch(
@@ -5107,9 +5123,8 @@ def test_fetch_state_file_reads_and_waits_to_the_emulator_limits(rom: Rom):
     with patch(
         "handler.streaming.broker.urllib.request.urlopen", return_value=resp
     ) as urlopen:
-        assert states.fetch_state_file(_resolved(container), 1) == (
-            "game.xemu.state",
-            b"state-bytes",
+        assert states.fetch_state_file(_resolved(container), 1) == states.PulledState(
+            "game.xemu.state", b"state-bytes"
         )
 
     limits = state_transfer_limits("xemu")
@@ -7574,6 +7589,66 @@ def test_state_transfers_reach_the_webstation_broker_under_its_subfolder(rom: Ro
     ]
 
 
+def _state_file_response(headers: dict[str, str], body: bytes):
+    """A urlopen stand-in answering a state-file request."""
+    resp = MagicMock()
+    inner = resp.__enter__.return_value
+    inner.headers = headers
+    inner.read.side_effect = _reads(body)
+    return resp
+
+
+def test_a_pulled_state_names_its_core(rom: Rom):
+    resp = _state_file_response(
+        {"X-State-Filename": "Game.state", "X-State-Core": "bsnes"}, b"bytes"
+    )
+    with patch("handler.streaming.broker.urllib.request.urlopen", return_value=resp):
+        pulled = states.fetch_state_file(_resolved(_webstation_for(rom)), 0)
+    assert pulled == states.PulledState("Game.state", b"bytes", "bsnes")
+
+
+def test_a_pulled_state_from_an_older_broker_has_no_core(rom: Rom):
+    resp = _state_file_response({"X-State-Filename": "Game.state"}, b"bytes")
+    with patch("handler.streaming.broker.urllib.request.urlopen", return_value=resp):
+        pulled = states.fetch_state_file(_resolved(_webstation_for(rom)), 0)
+    assert pulled is not None and pulled.core is None
+
+
+def test_a_pushed_state_names_its_core(rom: Rom):
+    container = _resolved(_webstation_for(rom))
+    # One response each: a drained body answers EOF to the second call.
+    acks = [_state_file_response({}, b'{"status": "ok"}') for _ in range(2)]
+    with patch(
+        "handler.streaming.broker.urllib.request.urlopen", side_effect=acks
+    ) as urlopen:
+        assert states.push_state_file(container, "Game.state", b"x", "bsnes")
+        states.push_state_file(container, "Game.state", b"x")
+    with_core, without = (c.args[0] for c in urlopen.call_args_list)
+    assert with_core.get_header("X-state-core") == "bsnes"
+    assert without.get_header("X-state-core") is None
+
+
+def test_a_pulled_state_is_stored_with_its_core(rom: Rom, admin_user: User):
+    scanned = _state_for(rom, admin_user, "Game.state", "retroarch")
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=states.PulledState("Game.state", b"state-bytes", "bsnes"),
+        ),
+        patch("handler.streaming.states.fetch_state_screenshot", return_value=None),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.asset_store.scan_state", new=AsyncMock(return_value=scanned)),
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(
+                admin_user.id, rom.id, _snes("retroarch:bsnes"), 0
+            )
+        )
+    assert ok is True
+    stored = states.user_states_for_emulator(admin_user.id, rom.id, "retroarch")
+    assert [s.core for s in stored] == ["bsnes"]
+
+
 def test_pull_state_to_library_runs_for_a_webstation_container(
     rom: Rom, admin_user: User
 ):
@@ -7584,7 +7659,7 @@ def test_pull_state_to_library_runs_for_a_webstation_container(
     with (
         patch(
             "handler.streaming.states.fetch_state_file",
-            return_value=("Game.03.p2s", b"state-bytes"),
+            return_value=states.PulledState("Game.03.p2s", b"state-bytes"),
         ),
         patch("handler.streaming.states.fetch_state_screenshot", return_value=None),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
