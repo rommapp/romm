@@ -4,9 +4,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import socketio
+from tests.redis_stubs import fail_expire
 
-from handler import socket_handler as socket_handler_module
 from handler.database import db_user_handler
+from handler.redis_handler import async_cache, sync_cache
 from handler.socket_handler import (
     LOGIN_SESSION_ID_KEY,
     SocketHandler,
@@ -64,16 +65,10 @@ class TestEmitToUser:
 
 
 @pytest.fixture
-def cache(mocker):
-    cache = MagicMock(
-        sadd=AsyncMock(),
-        srem=AsyncMock(),
-        expire=AsyncMock(),
-        delete=AsyncMock(),
-        smembers=AsyncMock(return_value=set()),
-    )
-    mocker.patch.object(socket_handler_module, "async_cache", cache)
-    return cache
+def cache():
+    sync_cache.flushall()
+    yield async_cache
+    sync_cache.flushall()
 
 
 class TestLoginSessionSockets:
@@ -89,9 +84,19 @@ class TestLoginSessionSockets:
 
         await handler.bind_to_login_session("sid-1", "s1")
 
-        cache.sadd.assert_awaited_once_with("session_sockets:socketio:s1", "sid-1")
-        cache.expire.assert_awaited_once()
+        key = "session_sockets:socketio:s1"
+        assert await cache.smembers(key) == {b"sid-1"}
+        assert await cache.ttl(key) > 0
         assert socket_session == {LOGIN_SESSION_ID_KEY: "s1"}
+
+    async def test_a_failed_binding_leaves_no_set_without_a_ttl(self, mocker, cache):
+        handler = SocketHandler(path="/test")
+        fail_expire(mocker)
+
+        with pytest.raises(ConnectionError):
+            await handler.bind_to_login_session("sid-1", "s1")
+
+        assert not await cache.exists("session_sockets:socketio:s1")
 
     async def test_unbinding_forgets_the_socket(self, mocker, cache):
         handler = SocketHandler(path="/test")
@@ -100,31 +105,33 @@ class TestLoginSessionSockets:
             "get_session",
             AsyncMock(return_value={LOGIN_SESSION_ID_KEY: "s1"}),
         )
+        await cache.sadd("session_sockets:socketio:s1", "sid-1", "sid-2")
 
         await handler.unbind_from_login_session("sid-1")
 
-        cache.srem.assert_awaited_once_with("session_sockets:socketio:s1", "sid-1")
+        assert await cache.smembers("session_sockets:socketio:s1") == {b"sid-2"}
 
     async def test_unbinding_an_anonymous_socket_touches_nothing(self, mocker, cache):
         handler = SocketHandler(path="/test")
         mocker.patch.object(
             handler.socket_server, "get_session", AsyncMock(return_value={})
         )
+        await cache.sadd("session_sockets:socketio:s1", "sid-1")
 
         await handler.unbind_from_login_session("sid-1")
 
-        cache.srem.assert_not_awaited()
+        assert await cache.smembers("session_sockets:socketio:s1") == {b"sid-1"}
 
     async def test_closing_a_session_disconnects_its_sockets(self, mocker, cache):
         handler = SocketHandler(path="/test")
         disconnect = mocker.patch.object(
             handler.socket_server, "disconnect", AsyncMock()
         )
-        cache.smembers.return_value = {b"sid-1"}
+        await cache.sadd("session_sockets:socketio:s1", "sid-1")
 
         await handler.close_login_sessions(["s1"])
 
-        cache.delete.assert_awaited_once_with("session_sockets:socketio:s1")
+        assert not await cache.exists("session_sockets:socketio:s1")
         disconnect.assert_awaited_once_with("sid-1")
 
     async def test_a_broker_failure_moves_on_to_the_next_session(self, mocker, cache):
@@ -134,7 +141,8 @@ class TestLoginSessionSockets:
             "disconnect",
             AsyncMock(side_effect=[ConnectionError("redis"), None]),
         )
-        cache.smembers.side_effect = [{"sid-1"}, {"sid-2"}]
+        await cache.sadd("session_sockets:socketio:s1", "sid-1")
+        await cache.sadd("session_sockets:socketio:s2", "sid-2")
 
         await handler.close_login_sessions(["s1", "s2"])
 
@@ -151,7 +159,8 @@ class TestLoginSessionSockets:
 
         await handler.bind_to_login_session("sid-1", "s1")
 
-        cache.sadd.assert_awaited_once_with("session_sockets:netplay:s1", "sid-1")
+        assert await cache.smembers("session_sockets:netplay:s1") == {b"sid-1"}
+        assert not await cache.exists("session_sockets:socketio:s1")
 
 
 async def test_revoking_a_session_closes_its_sockets_on_every_server(mocker):

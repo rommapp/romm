@@ -102,8 +102,11 @@ class SocketHandler:
     async def bind_to_login_session(self, sid: str, session_id: str) -> None:
         """Record which login session opened a socket, so revoking it closes the socket."""
         key = self._login_session_sockets_key(session_id)
-        await async_cache.sadd(key, sid)
-        await async_cache.expire(key, SESSION_MAX_AGE_SECONDS)
+        # One transaction, so the set never exists without its TTL.
+        async with async_cache.pipeline() as pipe:
+            await pipe.sadd(key, sid)
+            await pipe.expire(key, SESSION_MAX_AGE_SECONDS)
+            await pipe.execute()
         async with self.socket_server.session(sid) as session:
             session[LOGIN_SESSION_ID_KEY] = session_id
 
@@ -125,8 +128,12 @@ class SocketHandler:
         for session_id in session_ids:
             key = self._login_session_sockets_key(session_id)
             try:
-                sids = await async_cache.smembers(key)
-                await async_cache.delete(key)
+                # One transaction, so a socket binding in between is not dropped
+                # from the set without being disconnected.
+                async with async_cache.pipeline() as pipe:
+                    await pipe.smembers(key)
+                    await pipe.delete(key)
+                    sids, _ = await pipe.execute()
                 for sid in sids:
                     # A socket on another worker is disconnected through the broker.
                     await self.socket_server.disconnect(

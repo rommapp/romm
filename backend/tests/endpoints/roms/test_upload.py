@@ -8,11 +8,13 @@ from uuid import UUID
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.redis_stubs import fail_expire
 
 from endpoints.roms import upload as upload_endpoint
 from handler import rom_upload
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.redis_handler import sync_cache
 from models.platform import Platform
 from models.rom import DocSource, Rom, RomFile, RomFileCategory
 from models.user import User
@@ -123,8 +125,8 @@ def test_upload_chunk_complete_success(
         headers=_auth_headers(access_token),
     )
 
-    assert first.status_code == status.HTTP_200_OK
-    assert second.status_code == status.HTTP_200_OK
+    assert first.json() == {"received": 1, "total": 2}
+    assert second.json() == {"received": 2, "total": 2}
     assert complete.status_code == status.HTTP_201_CREATED
 
     final_file = upload_fs["final_dir"] / "metroid.zip"
@@ -261,7 +263,7 @@ def test_complete_missing_chunks_returns_400(
 
     assert upload_response.status_code == status.HTTP_200_OK
     assert complete_response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "Missing chunks" in complete_response.json()["detail"]
+    assert complete_response.json()["detail"] == "Missing chunks: [1]"
 
 
 def test_complete_invalid_upload_id(client: TestClient, access_token: str):
@@ -299,6 +301,46 @@ def test_cancel_upload_cleans_temp_files(
     assert upload_response.status_code == status.HTTP_200_OK
     assert cancel_response.status_code == status.HTTP_204_NO_CONTENT
     assert not chunk_path.exists()
+    assert not sync_cache.exists(
+        upload_endpoint._session_key(upload_id), upload_endpoint._chunks_key(upload_id)
+    )
+
+
+def test_an_uploaded_chunk_set_expires(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict[str, Any],
+):
+    upload_id = _start_upload(client, access_token, platform.id).json()["upload_id"]
+
+    client.put(
+        f"/api/roms/upload/{upload_id}",
+        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        content=b"ABCDEF",
+    )
+
+    assert sync_cache.ttl(upload_endpoint._chunks_key(upload_id)) > 0
+
+
+def test_a_failed_chunk_record_leaves_no_set_without_a_ttl(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict[str, Any],
+    mocker,
+):
+    upload_id = _start_upload(client, access_token, platform.id).json()["upload_id"]
+    fail_expire(mocker)
+
+    with pytest.raises(ConnectionError):
+        client.put(
+            f"/api/roms/upload/{upload_id}",
+            headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+            content=b"ABCDEF",
+        )
+
+    assert not sync_cache.exists(upload_endpoint._chunks_key(upload_id))
 
 
 def test_complete_after_cancel_returns_404(

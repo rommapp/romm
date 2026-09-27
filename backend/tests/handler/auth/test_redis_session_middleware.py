@@ -13,6 +13,7 @@ from starlette.testclient import TestClient
 from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.middleware import redis_session_middleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.redis_handler import sync_cache
 
 USERNAME = "user_1"
 
@@ -76,6 +77,17 @@ class TestRedisSessionMiddleware:
         response = client.post("/login")
 
         assert response.cookies[SESSION_COOKIE_NAME] != "not-a-real-session"
+
+    def test_logging_out_forgets_the_session(self) -> None:
+        client = TestClient(create_test_app())
+        session_id = client.post("/login").cookies[SESSION_COOKIE_NAME]
+
+        client.post("/logout")
+
+        assert not sync_cache.exists(f"session:{session_id}")
+        assert session_id.encode() not in sync_cache.smembers(
+            f"user_sessions:{USERNAME}"
+        )
 
 
 class TestRevokedSessionsCloseTheirSockets:
