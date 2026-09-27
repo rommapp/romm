@@ -97,8 +97,9 @@ def polled_too_fast(device_code: str, interval_seconds: int) -> bool:
     """
     key = _KEY_POLL_LAST.format(device_code)
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-    prev_raw = sync_cache.getset(key, str(now_ms))
-    sync_cache.expire(key, max(interval_seconds * 4, 30))
+    prev_raw = sync_cache.set(
+        key, str(now_ms), ex=max(interval_seconds * 4, 30), get=True
+    )
     if prev_raw is None:
         return False
     try:
@@ -114,16 +115,10 @@ def store_pending(device_code: str, user_code: str, data: dict[str, Any]) -> Non
         "status": FlowStatus.PENDING,
         "user_code": user_code,
     }
-    sync_cache.setex(
-        _KEY_DC.format(device_code),
-        PENDING_TTL_SECONDS,
-        json.dumps(payload),
+    sync_cache.set(
+        _KEY_DC.format(device_code), json.dumps(payload), ex=PENDING_TTL_SECONDS
     )
-    sync_cache.setex(
-        _KEY_UC.format(user_code),
-        PENDING_TTL_SECONDS,
-        device_code,
-    )
+    sync_cache.set(_KEY_UC.format(user_code), device_code, ex=PENDING_TTL_SECONDS)
 
 
 def load_pending(device_code: str) -> dict[str, Any] | None:
@@ -170,10 +165,10 @@ def mark_approved(
     remaining = sync_cache.ttl(_KEY_DC.format(device_code))
     if remaining is None or remaining < 1:
         remaining = PENDING_TTL_SECONDS
-    sync_cache.setex(
+    sync_cache.set(
         _KEY_DC.format(device_code),
-        min(remaining, PENDING_TTL_SECONDS),
         json.dumps(approved),
+        ex=min(remaining, PENDING_TTL_SECONDS),
     )
     if user_code:
         sync_cache.delete(_KEY_UC.format(user_code))
@@ -185,10 +180,8 @@ def mark_denied(device_code: str) -> None:
         return
     user_code = pending.get("user_code")
     denied = {"status": FlowStatus.DENIED}
-    sync_cache.setex(
-        _KEY_DC.format(device_code),
-        DENIED_TTL_SECONDS,
-        json.dumps(denied),
+    sync_cache.set(
+        _KEY_DC.format(device_code), json.dumps(denied), ex=DENIED_TTL_SECONDS
     )
     if user_code:
         sync_cache.delete(_KEY_UC.format(user_code))
@@ -206,10 +199,8 @@ def consume_approved(device_code: str) -> dict[str, Any] | None:
         return None
     data = json.loads(raw)
     if data.get("status") != FlowStatus.APPROVED:
-        sync_cache.setex(
-            _KEY_DC.format(device_code),
-            PENDING_TTL_SECONDS,
-            json.dumps(data),
+        sync_cache.set(
+            _KEY_DC.format(device_code), json.dumps(data), ex=PENDING_TTL_SECONDS
         )
         return None
     return cast(dict[str, Any], data)

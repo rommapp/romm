@@ -1,7 +1,7 @@
 import os
 import sys
 from enum import Enum
-from typing import Any, Final, cast
+from typing import Any, Final
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
@@ -50,13 +50,13 @@ def __get_fake_server() -> Any:
 
     # One keyspace for both caches, as one Redis serves both outside tests, so
     # a flush between tests clears what either of them wrote.
-    return FakeServer(version=7)
+    return FakeServer(version=(7,))
 
 
 _fake_server = __get_fake_server() if IS_PYTEST_RUN else None
 
 
-def __get_sync_cache() -> Redis[str]:
+def __get_sync_cache() -> Redis:
     if IS_PYTEST_RUN:
         from fakeredis import FakeRedis
 
@@ -70,7 +70,7 @@ def __get_sync_cache() -> Redis[str]:
     return client
 
 
-def __get_async_cache() -> AsyncRedis[str]:
+def __get_async_cache() -> AsyncRedis:
     if IS_PYTEST_RUN:
         from fakeredis import FakeAsyncRedis
 
@@ -88,12 +88,12 @@ sync_cache = __get_sync_cache()
 async_cache = __get_async_cache()
 
 
-def __get_async_binary_cache() -> AsyncRedis[bytes]:
+def __get_async_binary_cache() -> AsyncRedis:
     """A client that leaves values as bytes, since `async_cache` decodes every
     response as UTF-8 and a zstd frame is not."""
     if IS_PYTEST_RUN:
         # The fake does not decode responses, which is what this client wants.
-        return cast("AsyncRedis[bytes]", async_cache)
+        return async_cache
 
     return AsyncRedis.from_url(REDIS_URL)
 

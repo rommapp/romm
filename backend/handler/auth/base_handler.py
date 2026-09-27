@@ -186,8 +186,10 @@ class AuthHandler:
             to_encode,
             oct_key,
         )
-        redis_client.setex(
-            f"reset-jti:{jti}", self.reset_passwd_token_expires_in_minutes * 60, "valid"
+        redis_client.set(
+            f"reset-jti:{jti}",
+            "valid",
+            ex=self.reset_passwd_token_expires_in_minutes * 60,
         )
         return token
 
@@ -368,7 +370,7 @@ class AuthHandler:
         log.info(
             f"Invite link created by {hl(user.username, color=CYAN)} (jti: {hl(jti)})"
         )
-        redis_client.setex(f"invite-jti:{jti}", expires_in, "valid")
+        redis_client.set(f"invite-jti:{jti}", "valid", ex=expires_in)
         return token
 
     def assert_invite_link_token_valid(self, token: str) -> None:
@@ -466,10 +468,8 @@ class OAuthHandler:
 
         token = self._create_oauth_token(to_encode, expires_delta)
 
-        redis_client.setex(
-            f"refresh-jti:{jti}",
-            int(expires_delta.total_seconds()),
-            "valid",
+        redis_client.set(
+            f"refresh-jti:{jti}", "valid", ex=int(expires_delta.total_seconds())
         )
 
         return token
