@@ -324,6 +324,9 @@ const hasLabel = computed(
 
 /* ── Label wrap — clickable region ───────────────────────────── */
 .r-checkbox {
+  /* Contains the absolute native input. Otherwise it escapes a scrolling
+     parent and focusing it scrolls an `overflow: hidden` ancestor. */
+  position: relative;
   display: inline-flex;
   align-items: center;
   /* Real gap between visible box and label — no tap-area illusion. */
