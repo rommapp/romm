@@ -23,7 +23,6 @@ The frontend talks to the backend over `/api/*` (REST) and `/ws` (Socket.IO). Ty
 - **`docs/FRONTEND_ARCHITECTURE.md`** - routing, stores, services, theming, build tooling.
 - **`DEVELOPER_SETUP.md`** - Docker and manual local setup (mock library, `.env`, services).
 - **`CONTRIBUTING.md`** - contribution flow, **AI-assistance disclosure**, translations.
-- **`TODO_romm-install-sandbox.md`** - working log for the server-side Windows-install/stream-install feature (bwrap sandbox, Proton/Wine, VNC bridge). Read it before touching `handler/install/`, `docker/Dockerfile.install-sandbox`, or the Install page - it tracks what's done, what's unverified, and open threads across sessions.
 
 ---
 
