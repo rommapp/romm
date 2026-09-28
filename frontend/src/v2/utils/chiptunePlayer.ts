@@ -109,21 +109,23 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
    * Args:
    *   url: where to fetch the file from.
    *   track: zero-based index of the song within the file.
+   *   m3uUrl: the sidecar playlist that orders the file's songs, if any.
    */
-  async load(url: string, track = 0): Promise<void> {
+  async load(url: string, track = 0, m3uUrl?: string): Promise<void> {
     // Silence the old track now, not once the new one has downloaded.
     this.unload();
     const token = this.loadToken;
     const download = new AbortController();
     this.download = download;
     try {
-      const [port, data] = await Promise.all([
+      const [port, data, m3u] = await Promise.all([
         this.ensurePort(),
         fetchTrackData(url, download.signal),
+        m3uUrl ? fetchTrackData(m3uUrl, download.signal) : undefined,
       ]);
       if (token !== this.loadToken) return;
-      const command: GmeCommand = { type: "load", id: token, data, track };
-      port.postMessage(command, [data]);
+      const command: GmeCommand = { type: "load", id: token, data, track, m3u };
+      port.postMessage(command, m3u ? [data, m3u] : [data]);
     } catch (error) {
       if (token !== this.loadToken) return;
       console.error("[chiptune] load failed", error);

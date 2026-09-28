@@ -15,6 +15,7 @@ import { computed, defineAsyncComponent, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import useMusicFavorites from "@/stores/musicFavorites";
 import useSoundtrackPlayer, {
+  playerTrackKey,
   type PlayerMeta,
   type PlayerTrack,
 } from "@/stores/soundtrackPlayer";
@@ -86,8 +87,8 @@ const rowVars = computed(() => ({
 function getItemHeight(): number {
   return rowHeight.value + ROW_GAP;
 }
-function getItemKey(item: unknown): number {
-  return (item as PanelTrack).id;
+function getItemKey(item: unknown): string {
+  return (item as PanelTrack).key;
 }
 
 const player = useSoundtrackPlayer();
@@ -103,18 +104,22 @@ const {
 
 const tracks = computed(() => props.tracks);
 
-function trackKey(romId: number, fileId: number): string {
-  return `${romId}:${fileId}`;
+function queueKey(romId: number, key: string): string {
+  return `${romId}/${key}`;
+}
+
+function isStoreTrack(track: PanelTrack, entry: PlayerTrack): boolean {
+  return track.romId === entry.romId && track.key === playerTrackKey(entry);
 }
 
 // The list follows the store's queue so what you see is what plays next.
 const displayedTracks = computed(() => {
   if (!isShuffled.value) return tracks.value;
   const byKey = new Map(
-    tracks.value.map((track) => [trackKey(track.romId, track.id), track]),
+    tracks.value.map((track) => [queueKey(track.romId, track.key), track]),
   );
   const ordered = playlist.value
-    .map((entry) => byKey.get(trackKey(entry.romId, entry.fileId)))
+    .map((entry) => byKey.get(queueKey(entry.romId, playerTrackKey(entry))))
     .filter((track): track is PanelTrack => Boolean(track));
   return ordered.length === tracks.value.length ? ordered : tracks.value;
 });
@@ -145,35 +150,32 @@ function toPlayerMeta(track: PanelTrack): PlayerMeta {
 
 function buildPlayerPayload(): {
   playerTracks: PlayerTrack[];
-  metas: Record<number, PlayerMeta>;
+  metas: Record<string, PlayerMeta>;
 } {
   const playerTracks: PlayerTrack[] = [];
-  const metas: Record<number, PlayerMeta> = {};
+  const metas: Record<string, PlayerMeta> = {};
   for (const track of tracks.value) {
     playerTracks.push({
       romId: track.romId,
       fileId: track.id,
+      song: track.song,
       fileName: track.fileName,
       url: track.url,
+      m3uUrl: track.m3uUrl,
     });
-    metas[track.id] = toPlayerMeta(track);
+    metas[track.key] = toPlayerMeta(track);
   }
   return { playerTracks, metas };
 }
 
-const activeTrackId = computed(() => {
+const activeTrack = computed(() => {
   const active = activeStoreTrack.value;
-  if (!active) return null;
-  return tracks.value.some(
-    (track) => track.id === active.fileId && track.romId === active.romId,
-  )
-    ? active.fileId
-    : null;
+  return active
+    ? tracks.value.find((track) => isStoreTrack(track, active))
+    : undefined;
 });
 
-const activeTrack = computed(() =>
-  tracks.value.find((track) => track.id === activeTrackId.value),
-);
+const activeTrackKey = computed(() => activeTrack.value?.key ?? null);
 
 // Before anything plays the header previews the queue's first track, so it
 // never changes shape when playback starts.
@@ -206,18 +208,18 @@ function onViewportRange(range: { first: number; last: number }) {
   emit("reached", range.last);
 }
 
-watch(activeTrackId, (fileId) => {
-  if (fileId == null) return;
-  const index = displayedTracks.value.findIndex((track) => track.id === fileId);
+watch(activeTrackKey, (key) => {
+  if (key == null) return;
+  const index = displayedTracks.value.findIndex((track) => track.key === key);
   if (index >= 0) emit("reached", index);
 });
 
 const panelRoot = ref<HTMLElement | null>(null);
-watch(activeTrackId, async (fileId, previousFileId) => {
-  if (fileId == null || fileId === previousFileId) return;
+watch(activeTrackKey, async (key, previousKey) => {
+  if (key == null || key === previousKey) return;
   await nextTick();
   panelRoot.value
-    ?.querySelector<HTMLElement>(`[data-track-id="${fileId}"]`)
+    ?.querySelector<HTMLElement>(`[data-track-key="${key}"]`)
     ?.scrollIntoView({ block: "nearest" });
 });
 
@@ -253,10 +255,7 @@ watch(
     if (next.length === 0) return;
     const active = activeStoreTrack.value;
     const stillListed =
-      active &&
-      next.some(
-        (track) => track.id === active.fileId && track.romId === active.romId,
-      );
+      active && next.some((track) => isStoreTrack(track, active));
     const { playerTracks, metas } = buildPlayerPayload();
     player.loadPlaylist(playerTracks, metas, props.playlistKey ?? null, true);
     if (shouldStartShuffled) {
@@ -268,13 +267,13 @@ watch(
   { immediate: true },
 );
 
-function selectTrack(fileId: number) {
+function selectTrack(key: string) {
   // Clicking the row that is already loaded toggles it instead of restarting.
-  if (fileId === activeTrackId.value) {
+  if (key === activeTrackKey.value) {
     player.togglePlayPause();
     return;
   }
-  if (!tracks.value.some((track) => track.id === fileId)) return;
+  if (!tracks.value.some((track) => track.key === key)) return;
   const { playerTracks, metas } = buildPlayerPayload();
   player.loadPlaylist(
     playerTracks,
@@ -282,20 +281,21 @@ function selectTrack(fileId: number) {
     props.playlistKey ?? null,
     isShuffled.value,
   );
-  const entry = playerTracks.find((p) => p.fileId === fileId);
+  const entry = playerTracks.find((p) => playerTrackKey(p) === key);
   if (!entry) return;
-  player.play(entry, metas[fileId]);
+  player.play(entry, metas[key]);
   if (shouldStartShuffled && !isShuffled.value) player.toggleShuffle();
   shouldStartShuffled = false;
 }
 
 function onDelete(track: PanelTrack) {
-  if (activeTrackId.value === track.id) player.stop();
+  // Deleting removes the whole file, so every song in it stops.
+  if (activeTrack.value?.id === track.id) player.stop();
   emit("delete-track", track.id, track.romId);
 }
 
 async function onToggleFavorite(track: PanelTrack) {
-  const next = await favorites.toggle(track.id);
+  const next = await favorites.toggle(track.id, track.song);
   if (next === null) {
     snackbar.error(t("common.soundtrack-favorite-failed"), {
       icon: "mdi-alert-circle-outline",
@@ -427,7 +427,7 @@ function downloadTrack(track: PanelTrack) {
                   ? t('rom.soundtrack-pause')
                   : t('rom.soundtrack-play')
               "
-              @click="headerTrack && selectTrack(headerTrack.id)"
+              @click="headerTrack && selectTrack(headerTrack.key)"
             />
             <RBtn
               icon="mdi-skip-next"
@@ -477,14 +477,14 @@ function downloadTrack(track: PanelTrack) {
             <TrackRow
               :track="item as PanelTrack"
               :index="index"
-              :active="activeTrackId === (item as PanelTrack).id"
+              :active="activeTrackKey === (item as PanelTrack).key"
               :playing="
-                activeTrackId === (item as PanelTrack).id &&
+                activeTrackKey === (item as PanelTrack).key &&
                 isPlaying &&
                 !isBuffering
               "
               :buffering="
-                activeTrackId === (item as PanelTrack).id && isBuffering
+                activeTrackKey === (item as PanelTrack).key && isBuffering
               "
               :deletable="deletable"
               :favoritable="canEditPlaylists"

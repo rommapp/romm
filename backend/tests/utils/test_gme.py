@@ -53,6 +53,7 @@ class TestReadSongs:
 
         assert songs is not None
         assert [song.index for song in songs] == [0]
+        assert songs[0].tags["track"] is None
 
     def test_hes_lists_its_playlist(self, tmp_path: Path):
         path = _write(tmp_path, "game.hes", hes_bytes())

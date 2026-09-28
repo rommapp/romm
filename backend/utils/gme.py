@@ -179,6 +179,9 @@ def read_songs(file_path: str, m3u_path: str | None = None) -> list[Song] | None
                 songs.append(Song(index, _song_tags(info.contents, index)))
             finally:
                 lib.gme_free_info(info)
+        if len(songs) == 1:
+            # A track number only means something among a file's other songs.
+            songs[0].tags["track"] = None
         return songs or None
     finally:
         lib.gme_delete(emu)

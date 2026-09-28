@@ -53,14 +53,16 @@ describe("panelTracksFromRom", () => {
   });
 
   it("prefers metadata for the title and builds an artist/album subtitle", () => {
-    const meta = new Map<number, TrackMetaSchema>([
+    const meta = new Map<number, TrackMetaSchema[]>([
       [
         1,
-        {
-          title: "Green Hill",
-          artist: "Nakamura",
-          album: "Sonic OST",
-        } as TrackMetaSchema,
+        [
+          {
+            title: "Green Hill",
+            artist: "Nakamura",
+            album: "Sonic OST",
+          } as TrackMetaSchema,
+        ],
       ],
     ]);
     const [track] = panelTracksFromRom(
@@ -78,6 +80,22 @@ describe("panelTracksFromRom", () => {
     );
     expect(track.title).toBe("01 - Theme");
     expect(track.subtitle).toBe("");
+  });
+
+  it("lists each song of a chiptune file, with its sidecar playlist", () => {
+    const songs = [
+      { song: 0, title: "Intro", m3u_file_id: 2 },
+      { song: 1, title: null, track: 2, m3u_file_id: 2 },
+    ] as TrackMetaSchema[];
+    const tracks = panelTracksFromRom(
+      rom([romFile(1, "Game.nsf"), romFile(2, "Game.m3u")]),
+      new Map([[1, songs]]),
+    );
+    expect(tracks.map((t) => [t.key, t.song, t.title])).toEqual([
+      ["1", 0, "Intro"],
+      ["1:1", 1, "Game #2"],
+    ]);
+    expect(tracks[1].m3uUrl).toContain("Game.m3u");
   });
 });
 

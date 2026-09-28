@@ -18,7 +18,7 @@ import {
 
 export function useRomSoundtrack(rom: MaybeRefOrGetter<DetailedRom | null>) {
   const favorites = useMusicFavorites();
-  const metaByFileId = ref<Map<number, TrackMetaSchema>>(new Map());
+  const songsByFileId = ref<Map<number, TrackMetaSchema[]>>(new Map());
   const loading = ref(false);
   const failed = ref(false);
   let abort: AbortController | null = null;
@@ -39,13 +39,13 @@ export function useRomSoundtrack(rom: MaybeRefOrGetter<DetailedRom | null>) {
   const tracks = computed<PanelTrack[]>(() => {
     const value = current.value;
     if (!value) return [];
-    return panelTracksFromRom(value, metaByFileId.value, gameArtworkUrl.value);
+    return panelTracksFromRom(value, songsByFileId.value, gameArtworkUrl.value);
   });
 
   async function load() {
     const value = current.value;
     if (!value) {
-      metaByFileId.value = new Map();
+      songsByFileId.value = new Map();
       return;
     }
     abort?.abort();
@@ -61,11 +61,11 @@ export function useRomSoundtrack(rom: MaybeRefOrGetter<DetailedRom | null>) {
         musicApi.getAllTracks({ romId: value.id }).catch(() => null),
       ]);
       if (signal.aborted) return;
-      const next = new Map<number, TrackMetaSchema>();
+      const next = new Map<number, TrackMetaSchema[]>();
       for (const row of meta.data as SoundtrackTrackMetaSchema[]) {
-        if (row.track_meta) next.set(row.file_id, row.track_meta);
+        if (row.songs?.length) next.set(row.file_id, row.songs);
       }
-      metaByFileId.value = next;
+      songsByFileId.value = next;
       if (catalog) favorites.merge(catalog);
     } catch (err) {
       if (axios.isCancel(err) || signal.aborted) return;

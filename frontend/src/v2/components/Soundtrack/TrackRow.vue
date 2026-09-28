@@ -20,7 +20,7 @@ const props = defineProps<{
   favoritable?: boolean;
 }>();
 const emit = defineEmits<{
-  (e: "select", fileId: number): void;
+  (e: "select", key: string): void;
   (e: "download", track: PanelTrack): void;
   (e: "delete", track: PanelTrack): void;
   (e: "toggle-favorite", track: PanelTrack): void;
@@ -29,13 +29,17 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const favorites = useMusicFavorites();
 
-const isFavorite = computed(() => favorites.isFavorite(props.track.id));
-const isPending = computed(() => favorites.isPending(props.track.id));
+const isFavorite = computed(() =>
+  favorites.isFavorite(props.track.id, props.track.song),
+);
+const isPending = computed(() =>
+  favorites.isPending(props.track.id, props.track.song),
+);
 </script>
 
 <template>
   <div
-    :data-track-id="track.id"
+    :data-track-key="track.key"
     class="r-v2-stp__row"
     :class="{
       'r-v2-stp__row--active': active,
@@ -46,7 +50,7 @@ const isPending = computed(() => favorites.isPending(props.track.id));
       type="button"
       class="r-v2-stp__row-btn"
       :aria-label="t('rom.play-track', { title: track.title })"
-      @click="emit('select', track.id)"
+      @click="emit('select', track.key)"
     >
       <span class="r-v2-stp__row-lead" aria-hidden="true">
         <RSpinner v-if="buffering" :size="14" :width="2" />
@@ -106,7 +110,7 @@ const isPending = computed(() => favorites.isPending(props.track.id));
         <RMenuItem
           icon="mdi-play"
           :label="t('rom.play')"
-          @click="emit('select', track.id)"
+          @click="emit('select', track.key)"
         />
         <RDivider />
         <RMenuItem

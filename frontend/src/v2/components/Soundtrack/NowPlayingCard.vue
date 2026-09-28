@@ -7,7 +7,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
+import useSoundtrackPlayer, { playerTrackKey } from "@/stores/soundtrackPlayer";
 import AmbientArt from "@/v2/components/Soundtrack/AmbientArt.vue";
 import NowPlayingChips from "@/v2/components/Soundtrack/NowPlayingChips.vue";
 import SeekBar from "@/v2/components/Soundtrack/SeekBar.vue";
@@ -72,7 +72,7 @@ function openRom() {
         <p class="r-v2-np-card__title" :title="title">{{ title }}</p>
         <p class="r-v2-np-card__caption" :title="caption">{{ caption }}</p>
         <NowPlayingChips
-          :key="track?.fileId"
+          :key="track ? playerTrackKey(track) : undefined"
           :tags="meta"
           :position="position"
           :total="playlist.length"

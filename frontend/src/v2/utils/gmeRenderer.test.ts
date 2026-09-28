@@ -30,6 +30,11 @@ function fakeGme() {
       }
       return 0;
     },
+    gme_load_m3u_data: vi.fn(
+      (_emu: number, data: number, size: number) =>
+        new TextDecoder().decode(new Uint8Array(memory.buffer, data, size))
+          .length,
+    ),
     gme_seek: vi.fn(),
     gme_tell: () => 1234,
     gme_track_ended: () => (state.ended ? 1 : 0),
@@ -191,5 +196,22 @@ describe("GmeRenderer", () => {
       id: 2,
       durationMs: 158000,
     });
+  });
+
+  it("orders the songs by the sidecar playlist before starting one", () => {
+    const target = renderer();
+    target.handle({
+      type: "load",
+      id: 1,
+      data: new Uint8Array([1]).buffer,
+      track: 2,
+      m3u: new TextEncoder().encode("Game.nsf::NSF,3").buffer,
+    });
+
+    expect(gme.exports.gme_load_m3u_data).toHaveReturnedWith(15);
+    expect(gme.exports.romm_gme_start).toHaveBeenCalledWith(7, 2);
+    expect(
+      gme.exports.gme_load_m3u_data.mock.invocationCallOrder[0],
+    ).toBeLessThan(gme.exports.romm_gme_start.mock.invocationCallOrder[0]);
   });
 });

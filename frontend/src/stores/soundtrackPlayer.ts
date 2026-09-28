@@ -22,8 +22,23 @@ export interface SoundtrackSink {
 export interface PlayerTrack {
   romId: number;
   fileId: number;
+  /** The song within the file, for chiptune files that hold several. */
+  song?: number;
   fileName: string;
   url: string;
+  /** The sidecar playlist a chiptune file is played with. */
+  m3uUrl?: string;
+}
+
+/** A track's identity within a ROM: its file, plus the song for all but the first. */
+export function playerTrackKey(
+  track: Pick<PlayerTrack, "fileId" | "song">,
+): string {
+  return track.song ? `${track.fileId}:${track.song}` : String(track.fileId);
+}
+
+function sameTrack(a: PlayerTrack, b: PlayerTrack): boolean {
+  return a.romId === b.romId && playerTrackKey(a) === playerTrackKey(b);
 }
 
 // Audio-tag fields are sourced from the generated schema; the rest (duration in
@@ -102,7 +117,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   const playlist = ref<PlayerTrack[]>([]);
   const originalPlaylist = ref<PlayerTrack[]>([]);
   const isShuffled = ref(false);
-  const playlistMeta = ref<Record<number, PlayerMeta>>({});
+  const playlistMeta = ref<Record<string, PlayerMeta>>({});
   const activePlaylistRomId = ref<number | null>(null);
 
   function setAudioRef(el: SoundtrackSink | null) {
@@ -159,7 +174,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
 
   function loadPlaylist(
     tracks: PlayerTrack[],
-    metas: Record<number, PlayerMeta>,
+    metas: Record<string, PlayerMeta>,
     romId: number | null = null,
     preserveShuffle = false,
   ) {
@@ -170,13 +185,13 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     activePlaylistRomId.value = romId;
 
     if (preserveShuffle && wasShuffled) {
-      const tracksByKey = new Map(
-        tracks.map((item) => [item.romId + ":" + item.fileId, item]),
-      );
+      const queueKey = (item: PlayerTrack) =>
+        item.romId + ":" + playerTrackKey(item);
+      const tracksByKey = new Map(tracks.map((item) => [queueKey(item), item]));
       const restored = previousOrder.flatMap((item) => {
-        const next = tracksByKey.get(item.romId + ":" + item.fileId);
+        const next = tracksByKey.get(queueKey(item));
         if (!next) return [];
-        tracksByKey.delete(item.romId + ":" + item.fileId);
+        tracksByKey.delete(queueKey(item));
         return [next];
       });
       // Freshly paged-in tracks join shuffled too, or playback would turn
@@ -195,7 +210,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   function loadPlaylistForRom(
     romId: number,
     tracks: PlayerTrack[],
-    metas: Record<number, PlayerMeta>,
+    metas: Record<string, PlayerMeta>,
   ) {
     loadPlaylist(tracks, metas, romId);
   }
@@ -209,10 +224,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
 
     const current = track.value;
     const remaining = originalPlaylist.value.filter(
-      (item) =>
-        !current ||
-        item.fileId !== current.fileId ||
-        item.romId !== current.romId,
+      (item) => !current || !sameTrack(item, current),
     );
     const shuffledRemaining = shuffled(remaining);
     playlist.value = current
@@ -235,9 +247,8 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
 
   const currentIndex = computed(() => {
     if (!track.value) return -1;
-    return playlist.value.findIndex(
-      (p) => p.fileId === track.value!.fileId && p.romId === track.value!.romId,
-    );
+    const current = track.value;
+    return playlist.value.findIndex((p) => sameTrack(p, current));
   });
 
   const hasPrevious = computed(() => currentIndex.value > 0);
@@ -249,13 +260,13 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   function next() {
     if (!hasNext.value) return;
     const nextTrack = playlist.value[currentIndex.value + 1];
-    play(nextTrack, playlistMeta.value[nextTrack.fileId] ?? {});
+    play(nextTrack, playlistMeta.value[playerTrackKey(nextTrack)] ?? {});
   }
 
   function previous() {
     if (!hasPrevious.value) return;
     const prevTrack = playlist.value[currentIndex.value - 1];
-    play(prevTrack, playlistMeta.value[prevTrack.fileId] ?? {});
+    play(prevTrack, playlistMeta.value[playerTrackKey(prevTrack)] ?? {});
   }
 
   function stop() {

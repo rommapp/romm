@@ -16,7 +16,14 @@ type GmeReplyBody =
 export type GmeReply = { id: number } & GmeReplyBody;
 
 export type GmeCommand =
-  | { type: "load"; id: number; data: ArrayBuffer; track: number }
+  | {
+      type: "load";
+      id: number;
+      data: ArrayBuffer;
+      track: number;
+      /** The sidecar playlist the track index counts through, if any. */
+      m3u?: ArrayBuffer;
+    }
   | { type: "play" }
   | { type: "pause" }
   | { type: "seek"; ms: number }
@@ -29,6 +36,7 @@ type GmeExports = {
   free: (pointer: number) => void;
   romm_gme_open: (data: number, size: number, sampleRate: number) => number;
   romm_gme_start: (emu: number, track: number) => number;
+  gme_load_m3u_data: (emu: number, data: number, size: number) => number;
   gme_play: (emu: number, count: number, out: number) => number;
   gme_seek: (emu: number, ms: number) => number;
   gme_tell: (emu: number) => number;
@@ -42,6 +50,7 @@ const GME_FUNCTIONS = [
   "free",
   "romm_gme_open",
   "romm_gme_start",
+  "gme_load_m3u_data",
   "gme_play",
   "gme_seek",
   "gme_tell",
@@ -100,7 +109,7 @@ export class GmeRenderer {
   handle(command: GmeCommand) {
     switch (command.type) {
       case "load":
-        this.load(command.id, command.data, command.track);
+        this.load(command.id, command.data, command.track, command.m3u);
         break;
       case "play":
         // Like `<audio>`, playing an ended track starts it over.
@@ -158,15 +167,23 @@ export class GmeRenderer {
     }
   }
 
-  private load(id: number, data: ArrayBuffer, track: number) {
+  private load(
+    id: number,
+    data: ArrayBuffer,
+    track: number,
+    m3u?: ArrayBuffer,
+  ) {
     this.unload();
     this.loadId = id;
-    const bytes = new Uint8Array(data);
-    const pointer = this.gme.malloc(bytes.length);
-    new Uint8Array(this.gme.memory.buffer, pointer, bytes.length).set(bytes);
-    // libgme copies the file into its own buffer, so ours is freed at once.
-    const emu = this.gme.romm_gme_open(pointer, bytes.length, this.sampleRate);
-    this.gme.free(pointer);
+    const emu = this.withBytes(data, (pointer, size) =>
+      this.gme.romm_gme_open(pointer, size, this.sampleRate),
+    );
+    // A playlist libgme can't parse leaves the file's own song order.
+    if (emu && m3u) {
+      this.withBytes(m3u, (pointer, size) =>
+        this.gme.gme_load_m3u_data(emu, pointer, size),
+      );
+    }
 
     const durationMs = emu ? this.gme.romm_gme_start(emu, track) : -1;
     if (durationMs < 0) {
@@ -177,6 +194,21 @@ export class GmeRenderer {
     this.emu = emu;
     this.track = track;
     this.reply({ type: "loaded", durationMs });
+  }
+
+  /** Copy data into wasm memory for one call; libgme keeps its own copy. */
+  private withBytes<T>(
+    data: ArrayBuffer,
+    call: (pointer: number, size: number) => T,
+  ): T {
+    const bytes = new Uint8Array(data);
+    const pointer = this.gme.malloc(bytes.length);
+    new Uint8Array(this.gme.memory.buffer, pointer, bytes.length).set(bytes);
+    try {
+      return call(pointer, bytes.length);
+    } finally {
+      this.gme.free(pointer);
+    }
   }
 
   private seek(ms: number) {

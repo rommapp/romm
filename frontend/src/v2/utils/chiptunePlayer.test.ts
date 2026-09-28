@@ -24,7 +24,14 @@ vi.mock("./gmeRenderer", () => ({
   },
 }));
 
-type Posted = { type: string; id?: number; data?: ArrayBuffer; ms?: number };
+type Posted = {
+  type: string;
+  id?: number;
+  data?: ArrayBuffer;
+  track?: number;
+  m3u?: ArrayBuffer;
+  ms?: number;
+};
 
 class FakePort {
   onmessage: ((event: MessageEvent) => void) | null = null;
@@ -139,6 +146,18 @@ describe("ChiptunePlayer", () => {
 
     const data = port.lastLoad()?.data ?? new ArrayBuffer(0);
     expect(new Uint8Array(data)).toEqual(NSF_BYTES);
+  });
+
+  it("sends the chosen song along with its sidecar playlist", async () => {
+    const m3u = new TextEncoder().encode("track.nsf::NSF,2");
+    bodies.set("/track.m3u", m3u);
+    const player = new ChiptunePlayer();
+
+    await player.load("/track.nsf", 3, "/track.m3u");
+
+    const load = port.lastLoad();
+    expect(load?.track).toBe(3);
+    expect(new Uint8Array(load?.m3u ?? new ArrayBuffer(0))).toEqual(m3u);
   });
 
   it("starts the worklet only once a play asked for early has a track", async () => {

@@ -2,13 +2,17 @@
 // own files, the music catalog) normalize into it here.
 import type { MusicTrackSchema, TrackMetaSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
-import type { PlayerMeta } from "@/stores/soundtrackPlayer";
+import { playerTrackKey, type PlayerMeta } from "@/stores/soundtrackPlayer";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { romFileUrl } from "@/v2/utils/romFiles";
 
 export interface PanelTrack {
-  /** `rom_file_id`, unique across the catalog. */
+  /** `rom_file_id`, shared by the songs of one file. */
   id: number;
+  /** The song within the file; 0 unless the file holds several. */
+  song: number;
+  /** Identifies the track within its ROM, song included. */
+  key: string;
   romId: number;
   fileName: string;
   /** Display title, already resolved from metadata or the file name. */
@@ -16,6 +20,8 @@ export interface PanelTrack {
   /** Artist · album · (game · platform), whatever the source could supply. */
   subtitle: string;
   url: string;
+  /** The sidecar playlist a chiptune file is played with. */
+  m3uUrl?: string;
   durationSeconds?: number;
   fileSizeBytes?: number;
   coverUrl?: string;
@@ -46,6 +52,8 @@ export const SOUNDTRACK_ACCEPT = [
   ".flac",
   ".opus",
   ...[...CHIPTUNE_EXTS].map((ext) => `.${ext}`),
+  // The playlist that names and orders a chiptune file's songs.
+  ".m3u",
 ].join(",");
 
 export function getExt(name: string): string {
@@ -74,37 +82,54 @@ function stripExtension(fileName: string): string {
   return fileName.replace(/\.[^.]+$/, "");
 }
 
+/** An untitled track's name: its file's, numbered among the file's songs. */
+function fallbackTitle(fileName: string, track?: number | null): string {
+  const name = stripExtension(fileName);
+  return track && isChiptuneFile(fileName) ? `${name} #${track}` : name;
+}
+
 function joinParts(parts: (string | null | undefined)[]): string {
   return parts.filter(Boolean).join(" · ");
 }
 
-/** A ROM's own soundtrack files, ordered by file name. */
+/** A ROM's own soundtrack, one track per song, ordered by file name. */
 export function panelTracksFromRom(
   rom: DetailedRom,
-  metaByFileId: Map<number, TrackMetaSchema>,
+  songsByFileId: Map<number, TrackMetaSchema[]>,
   gameArtworkUrl?: string,
 ): PanelTrack[] {
-  return (rom.files ?? [])
+  const files = rom.files ?? [];
+  const fileUrl = (id?: number | null) => {
+    const file = id ? files.find((f) => f.id === id) : undefined;
+    return file ? romFileUrl(file.id, file.file_name) : undefined;
+  };
+  return files
     .filter(
       (file) => file.category === "soundtrack" && isAudioFile(file.file_name),
     )
     .slice()
     .sort((a, b) => a.file_name.localeCompare(b.file_name))
-    .map((file) => {
-      const meta = metaByFileId.get(file.id);
-      return {
-        id: file.id,
-        romId: rom.id,
-        fileName: file.file_name,
-        title: meta?.title ?? stripExtension(file.file_name),
-        subtitle: joinParts([meta?.artist, meta?.album]),
-        url: romFileUrl(file.id, file.file_name),
-        durationSeconds: meta?.duration_seconds ?? undefined,
-        fileSizeBytes: file.file_size_bytes,
-        coverUrl: resourceUrl(meta?.cover_path),
-        gameArtworkUrl,
-        meta,
-      };
+    .flatMap((file) => {
+      const songs = songsByFileId.get(file.id);
+      return (songs?.length ? songs : [undefined]).map((meta) => {
+        const song = meta?.song ?? 0;
+        return {
+          id: file.id,
+          song,
+          key: playerTrackKey({ fileId: file.id, song }),
+          romId: rom.id,
+          fileName: file.file_name,
+          title: meta?.title ?? fallbackTitle(file.file_name, meta?.track),
+          subtitle: joinParts([meta?.artist, meta?.album]),
+          url: romFileUrl(file.id, file.file_name),
+          m3uUrl: fileUrl(meta?.m3u_file_id),
+          durationSeconds: meta?.duration_seconds ?? undefined,
+          fileSizeBytes: file.file_size_bytes,
+          coverUrl: resourceUrl(meta?.cover_path),
+          gameArtworkUrl,
+          meta,
+        };
+      });
     });
 }
 
@@ -113,9 +138,12 @@ export function panelTracksFromCatalog(
   tracks: MusicTrackSchema[],
 ): PanelTrack[] {
   return tracks.map((track) => {
-    const title = track.title || stripExtension(track.file_name);
+    const title = track.title || fallbackTitle(track.file_name, track.track);
+    const song = track.song ?? 0;
     return {
       id: track.rom_file_id,
+      song,
+      key: playerTrackKey({ fileId: track.rom_file_id, song }),
       romId: track.rom_id,
       fileName: track.file_name,
       title,
@@ -130,6 +158,7 @@ export function panelTracksFromCatalog(
         track.platform_name,
       ]),
       url: track.stream_url,
+      m3uUrl: track.m3u_url ?? undefined,
       durationSeconds: track.duration_seconds ?? undefined,
       coverUrl: track.cover_url ?? undefined,
       gameArtworkUrl: track.game_cover_url ?? undefined,

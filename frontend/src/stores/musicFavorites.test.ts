@@ -33,6 +33,20 @@ describe("music favorites store", () => {
     expect(store.count).toBe(2);
   });
 
+  it("tells the songs of one file apart", async () => {
+    const store = useMusicFavorites();
+    store.merge([{ rom_file_id: 7, song: 2, is_favorite: true }]);
+    expect(store.isFavorite(7, 2)).toBe(true);
+    expect(store.isFavorite(7)).toBe(false);
+
+    await store.toggle(7, 1);
+    expect(addFavorites).toHaveBeenCalledWith({
+      tracks: [{ rom_file_id: 7, song: 1 }],
+    });
+    expect(store.isFavorite(7, 1)).toBe(true);
+    expect(store.count).toBe(2);
+  });
+
   it("un-favorites a track that a later payload reports as not favorite", () => {
     const store = useMusicFavorites();
     store.merge([{ rom_file_id: 1, is_favorite: true }]);
@@ -44,11 +58,15 @@ describe("music favorites store", () => {
     const store = useMusicFavorites();
 
     await expect(store.toggle(4)).resolves.toBe(true);
-    expect(addFavorites).toHaveBeenCalledWith({ rom_file_ids: [4] });
+    expect(addFavorites).toHaveBeenCalledWith({
+      tracks: [{ rom_file_id: 4, song: 0 }],
+    });
     expect(store.isFavorite(4)).toBe(true);
 
     await expect(store.toggle(4)).resolves.toBe(false);
-    expect(removeFavorites).toHaveBeenCalledWith({ rom_file_ids: [4] });
+    expect(removeFavorites).toHaveBeenCalledWith({
+      tracks: [{ rom_file_id: 4, song: 0 }],
+    });
     expect(store.isFavorite(4)).toBe(false);
   });
 

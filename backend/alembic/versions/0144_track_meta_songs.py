@@ -71,7 +71,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Only a file's first song survives, as the old schema had one row per file.
     for table in _SONG_TABLES:
-        op.execute(f"DELETE FROM {table} WHERE song > 0")
+        song = sa.column("song")
+        op.execute(sa.table(table, song).delete().where(song > 0))
 
     _replace_playlist_unique("playlist_id, rom_file_id")
     _replace_primary_key("music_favorite_tracks", "user_id, rom_file_id")

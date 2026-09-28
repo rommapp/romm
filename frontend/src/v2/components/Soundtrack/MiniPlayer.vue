@@ -106,7 +106,7 @@ watch(track, async (t) => {
   activate(sink);
   if (sink instanceof ChiptunePlayer) {
     unloadAudio(el);
-    void sink.load(t.url);
+    void sink.load(t.url, t.song, t.m3uUrl);
   } else {
     chiptune?.unload();
     el.src = t.url;
