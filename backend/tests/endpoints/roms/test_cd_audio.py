@@ -88,7 +88,7 @@ def write_gdi_disc(folder: Path) -> dict[str, bytes]:
     return contents
 
 
-def _add_disc_rom(
+def add_disc_rom(
     admin_user: User,
     platform: Platform,
     fs_name: str,
@@ -138,7 +138,7 @@ def cd_rom(admin_user: User, platform: Platform, real_library: Path) -> Rom:
     """A disc folder with a data track and two audio tracks, written to disk."""
     fs_path = f"{platform.slug}/roms/Disc Game"
     contents = write_cue_disc(real_library / fs_path)
-    return _add_disc_rom(
+    return add_disc_rom(
         admin_user,
         platform,
         "Disc Game",
@@ -161,7 +161,7 @@ def _create_chd(source: Path, output: Path) -> None:
 def gdi_rom(admin_user: User, platform: Platform, real_library: Path) -> Rom:
     fs_path = f"{platform.slug}/roms/Disc Game"
     contents = write_gdi_disc(real_library / fs_path)
-    return _add_disc_rom(
+    return add_disc_rom(
         admin_user,
         platform,
         "Disc Game",
@@ -180,7 +180,7 @@ def gdrom_chd_rom(
     chd = real_library / fs_path / "disc.chd"
     write_gdi_disc(tmp_path / "source")
     _create_chd(tmp_path / "source" / "disc.gdi", chd)
-    return _add_disc_rom(
+    return add_disc_rom(
         admin_user, platform, "Disc Game", {"disc.chd": chd.stat().st_size}, fs_path
     )
 
@@ -195,7 +195,7 @@ def chd_rom(
     chd = real_library / fs_path / "Disc.chd"
     write_cue_disc(tmp_path / "source")
     _create_chd(tmp_path / "source" / "Disc.cue", chd)
-    return _add_disc_rom(
+    return add_disc_rom(
         admin_user, platform, "Disc Game", {"Disc.chd": chd.stat().st_size}, fs_path
     )
 
@@ -305,7 +305,7 @@ def test_names_the_tracks_of_discs_that_share_a_sheet_name(
     real_library: Path,
 ):
     fs_path = f"{platform.slug}/roms/Disc Game"
-    rom = _add_disc_rom(admin_user, platform, "Disc Game", {}, fs_path)
+    rom = add_disc_rom(admin_user, platform, "Disc Game", {}, fs_path)
     for disc in ("Disc 1", "Disc 2"):
         for name, data in write_gdi_disc(real_library / fs_path / disc).items():
             db_rom_handler.add_rom_file(
@@ -351,7 +351,7 @@ def test_extracts_every_disc_of_a_set(
     for disc in discs:
         _create_chd(tmp_path / "source" / "Disc.cue", folder / disc)
     (folder / "Disc Game.m3u").write_text("\n".join(discs))
-    rom = _add_disc_rom(
+    rom = add_disc_rom(
         admin_user,
         platform,
         "Disc Game",
@@ -388,7 +388,7 @@ def _add_playlist_listed_chd(
     (real_library / fs_path / "Disc Game.m3u").write_text(
         "Disc Game (Disc 1).chd\nDisc Game (Disc 2).chd\n"
     )
-    rom = _add_disc_rom(
+    rom = add_disc_rom(
         admin_user, platform, chd.name, {chd.name: chd.stat().st_size}, fs_path
     )
     return rom, chd
@@ -440,7 +440,7 @@ def test_counting_marks_a_sheet_loose_in_the_platform_folder_unextractable(
 ):
     fs_path = f"{platform.slug}/roms"
     write_cue_disc(real_library / fs_path)
-    rom = _add_disc_rom(admin_user, platform, "Disc.cue", {"Disc.cue": 10}, fs_path)
+    rom = add_disc_rom(admin_user, platform, "Disc.cue", {"Disc.cue": 10}, fs_path)
 
     response = client.get(
         f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
@@ -463,7 +463,7 @@ def test_moves_a_lone_chd_into_its_own_folder(
     write_cue_disc(tmp_path / "source")
     chd = real_library / fs_path / "Disc Game.chd"
     _create_chd(tmp_path / "source" / "Disc.cue", chd)
-    rom = _add_disc_rom(
+    rom = add_disc_rom(
         admin_user,
         platform,
         "Disc Game.chd",
@@ -536,7 +536,7 @@ def test_refuses_a_sheet_loose_in_the_platform_folder(
     sheet: str,
 ):
     fs_path = f"{platform.slug}/roms"
-    rom = _add_disc_rom(admin_user, platform, sheet, {sheet: 10}, fs_path)
+    rom = add_disc_rom(admin_user, platform, sheet, {sheet: 10}, fs_path)
 
     response = client.post(
         f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
@@ -702,7 +702,7 @@ def test_counts_no_tracks_on_a_data_only_disc(
         'FILE "Data.bin" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n'
     )
     (folder / "Data.bin").write_bytes(b"\x01" * AUDIO_SECTOR * 4)
-    rom = _add_disc_rom(
+    rom = add_disc_rom(
         admin_user,
         platform,
         "Data Game",
@@ -755,7 +755,7 @@ def test_counting_reports_an_unreadable_chd(
     fs_path = f"{platform.slug}/roms/Disc Game"
     (real_library / fs_path).mkdir(parents=True)
     (real_library / fs_path / "Disc.chd").write_bytes(b"not a chd")
-    rom = _add_disc_rom(admin_user, platform, "Disc Game", {"Disc.chd": 9}, fs_path)
+    rom = add_disc_rom(admin_user, platform, "Disc Game", {"Disc.chd": 9}, fs_path)
 
     response = client.get(
         f"/api/roms/{rom.id}/soundtracks/cd-audio", headers=_auth(access_token)
@@ -787,7 +787,7 @@ def test_extracts_a_disc_kept_as_both_a_sheet_and_a_chd_once(
     chd = real_library / fs_path / "Disc.chd"
     _create_chd(real_library / fs_path / "Disc.cue", chd)
     sizes = {name: len(data) for name, data in contents.items()}
-    rom = _add_disc_rom(
+    rom = add_disc_rom(
         admin_user,
         platform,
         "Disc Game",
@@ -889,7 +889,7 @@ def test_falls_back_to_the_chd_when_the_sheet_lost_its_tracks(
     write_cue_disc(tmp_path / "source")
     _create_chd(tmp_path / "source" / "Disc.cue", folder / "Disc.chd")
     (folder / "Disc.cue").write_text(CUE_SHEET)
-    rom = _add_disc_rom(
+    rom = add_disc_rom(
         admin_user,
         platform,
         "Disc Game",
@@ -919,7 +919,7 @@ def _add_sheet_rom(
     folder.mkdir(parents=True)
     for name, data in contents.items():
         (folder / name).write_bytes(data)
-    return _add_disc_rom(
+    return add_disc_rom(
         admin_user,
         platform,
         "Disc Game",
@@ -1055,7 +1055,7 @@ def test_leaves_a_lone_disc_without_audio_where_it_is(
     (tmp_path / "Data.bin").write_bytes(b"\x01" * AUDIO_SECTOR * 300)
     chd = real_library / fs_path / "Data Game.chd"
     _create_chd(tmp_path / "Data.cue", chd)
-    rom = _add_disc_rom(
+    rom = add_disc_rom(
         admin_user, platform, chd.name, {chd.name: chd.stat().st_size}, fs_path
     )
 

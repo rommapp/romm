@@ -23,5 +23,6 @@ export type ScanSettingsPayload = {
     gamelist_thumbnail: MetadataMediaType;
     gamelist_image: MetadataMediaType;
     pegasus_export: boolean;
+    cd_audio_extract: boolean;
 };
 

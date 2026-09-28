@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// ScanSettings — v2-native editor for the scan.* section of config.yml
+// ScanSettings: v2-native editor for the scan.* section of config.yml
 // (metadata/artwork priority, region & language priority, media types,
-// gamelist/pegasus export). Persists via PUT /config/scan.
+// gamelist/pegasus export, CD audio extraction). Persists via PUT /config/scan.
 //
 // Provider / region / language identifiers are proper nouns or codes, so
 // they stay as data constants; only descriptive prose goes through i18n.
@@ -28,7 +28,7 @@ const { config } = storeToRefs(configStore);
 const authStore = storeAuth();
 const snackbar = useSnackbar();
 
-// Provider brand names — identical across every locale, so not i18n'd.
+// Provider brand names are identical across every locale, so not i18n'd.
 const PROVIDER_LABELS: Record<string, string> = {
   igdb: "IGDB",
   moby: "MobyGames",
@@ -197,6 +197,7 @@ interface ScanForm {
   gamelistThumbnail: MetadataMediaType;
   gamelistImage: MetadataMediaType;
   pegasusExport: boolean;
+  cdAudioExtract: boolean;
 }
 
 function configToForm(cfg: Config): ScanForm {
@@ -221,6 +222,7 @@ function configToForm(cfg: Config): ScanForm {
     gamelistImage: (cfg.GAMELIST_MEDIA_IMAGE ??
       "screenshot") as MetadataMediaType,
     pegasusExport: cfg.PEGASUS_AUTO_EXPORT_ON_SCAN ?? false,
+    cdAudioExtract: cfg.CD_AUDIO_AUTO_EXTRACT_ON_SCAN ?? false,
   };
 }
 
@@ -238,6 +240,7 @@ function formToPayload(f: ScanForm): ScanSettingsPayload {
     gamelist_thumbnail: f.gamelistThumbnail,
     gamelist_image: f.gamelistImage,
     pegasus_export: f.pegasusExport,
+    cd_audio_extract: f.cdAudioExtract,
   };
 }
 
@@ -570,7 +573,20 @@ onBeforeUnmount(() =>
       </div>
     </SettingsSection>
 
-    <!-- Sticky save bar — appears once the form diverges from the saved
+    <SettingsSection :title="t('settings.scan-cd-audio')" icon="mdi-disc">
+      <div
+        class="r-v2-scan-settings__toggle-grid r-v2-scan-settings__toggle-grid--single"
+      >
+        <SettingsToggleRow
+          v-model="form.cdAudioExtract"
+          :title="t('settings.scan-cd-audio-extract')"
+          :description="t('settings.scan-cd-audio-extract-desc')"
+          :disabled="!canEdit"
+        />
+      </div>
+    </SettingsSection>
+
+    <!-- Sticky save bar, shown once the form diverges from the saved
          config. Hidden entirely when the user can't edit. -->
     <Transition name="r-v2-scan-settings__bar">
       <div v-if="dirty && canEdit" class="r-v2-scan-settings__bar">

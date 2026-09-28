@@ -13,6 +13,7 @@ JOB_FUNC_PATHS = (
     "tasks.tasks.run_task_by_name",
     "endpoints.sockets.scan.scan_platforms",
     "tasks.registry.enqueue_scheduled_scan",
+    "tasks.extract_cd_audio.extract_cd_audio_after_scan",
 )
 
 

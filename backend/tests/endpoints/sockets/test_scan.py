@@ -227,6 +227,7 @@ def patched(mocker):
     config = MagicMock()
     config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
     config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+    config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN = False
     mocker.patch.object(config_manager, "get_config", return_value=config)
 
     # Skip the actual per-platform scanning, returning the stats unchanged.
@@ -299,6 +300,47 @@ class TestScanEndNotification:
         await scan_platforms(platform_ids=[], metadata_sources=[], started_by_user_id=3)
 
         notify_scan_end.assert_not_awaited()
+
+
+class TestCdAudioExtractionAfterScan:
+    """A finished scan queues CD audio extraction when config.yml turns it on."""
+
+    @pytest.fixture
+    def queue(self, mocker):
+        mocker.patch.object(scan_module, "notify_scan_end", AsyncMock())
+        return mocker.patch.object(scan_module, "queue_cd_audio_extraction")
+
+    async def test_queues_the_scanned_platforms(self, patched, queue):
+        config_manager.get_config().CD_AUDIO_AUTO_EXTRACT_ON_SCAN = True
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        # Only "existing" has a database row to extract into.
+        queue.assert_called_once_with(platform_ids=[1], rom_ids=[])
+
+    async def test_off_by_default(self, patched, queue):
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        queue.assert_not_called()
+
+    async def test_a_failed_scan_queues_nothing(self, patched, queue, mocker):
+        config_manager.get_config().CD_AUDIO_AUTO_EXTRACT_ON_SCAN = True
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=RuntimeError("boom")
+        )
+
+        with pytest.raises(RuntimeError):
+            await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        queue.assert_not_called()
+
+    async def test_a_queueing_failure_still_finishes_the_scan(self, patched, queue):
+        config_manager.get_config().CD_AUDIO_AUTO_EXTRACT_ON_SCAN = True
+        queue.side_effect = RuntimeError("redis down")
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        assert patched.emit.await_args.args[0] == "scan:done"
 
 
 class TestScanAudit:
@@ -1936,6 +1978,7 @@ class TestScopedScanSkipsLibraryWork:
         config = MagicMock()
         config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
         config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+        config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN = False
         mocker.patch.object(config_manager, "get_config", return_value=config)
 
         platform = MagicMock(id=1, fs_slug="test")
@@ -1993,6 +2036,15 @@ class TestScopedScanSkipsLibraryWork:
         )
 
         notify_scan_end.assert_not_awaited()
+
+    async def test_queues_cd_audio_for_the_named_roms(self, patched, mocker):
+        mocker.patch.object(scan_module, "notify_scan_end", AsyncMock())
+        queue = mocker.patch.object(scan_module, "queue_cd_audio_extraction")
+        config_manager.get_config().CD_AUDIO_AUTO_EXTRACT_ON_SCAN = True
+
+        await scan_platforms(platform_ids=[1], metadata_sources=[], roms_ids=[7])
+
+        queue.assert_called_once_with(platform_ids=[1], rom_ids=[7])
 
     async def test_platform_pipeline_is_skipped(self, patched):
         result = await scan_platforms(

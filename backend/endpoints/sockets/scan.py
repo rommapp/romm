@@ -89,6 +89,7 @@ from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from models.user import User
+from tasks.extract_cd_audio import queue_cd_audio_extraction
 from tasks.tasks import TaskType, update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
@@ -1466,6 +1467,19 @@ async def scan_platforms(
                             f"Failed to auto-export metadata.pegasus.txt for platform {platform.name} after scan"
                         )
             log.info("Pegasus metadata auto-export completed.")
+
+        if config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN:
+            try:
+                queue_cd_audio_extraction(
+                    platform_ids=[
+                        db_platforms_by_slug[slug].id
+                        for slug in platform_list
+                        if slug in db_platforms_by_slug
+                    ],
+                    rom_ids=roms_ids,
+                )
+            except Exception as e:
+                log.error(f"Couldn't queue the CD audio extraction after the scan: {e}")
 
         await finish("scan:done", scan_stats.to_dict())
     except ScanStoppedException:

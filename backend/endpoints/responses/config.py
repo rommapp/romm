@@ -40,3 +40,4 @@ class ConfigResponse(TypedDict):
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
     PEGASUS_AUTO_EXPORT_ON_SCAN: bool
+    CD_AUDIO_AUTO_EXTRACT_ON_SCAN: bool

@@ -51,6 +51,7 @@ const defaultConfig = {
   GAMELIST_MEDIA_THUMBNAIL: "box2d",
   GAMELIST_MEDIA_IMAGE: "screenshot",
   PEGASUS_AUTO_EXPORT_ON_SCAN: false,
+  CD_AUDIO_AUTO_EXTRACT_ON_SCAN: false,
 } as ConfigResponse;
 
 export default defineStore("config", {

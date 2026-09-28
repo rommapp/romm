@@ -476,6 +476,7 @@ def test_update_scan_settings_round_trip(tmp_path):
         gamelist_thumbnail="box3d",
         gamelist_image="title_screen",
         pegasus_export=True,
+        cd_audio_extract=True,
     )
 
     config_text = config_file.read_text()
@@ -495,6 +496,7 @@ def test_update_scan_settings_round_trip(tmp_path):
     assert reloaded.config.GAMELIST_MEDIA_THUMBNAIL == "box3d"
     assert reloaded.config.GAMELIST_MEDIA_IMAGE == "title_screen"
     assert reloaded.config.PEGASUS_AUTO_EXPORT_ON_SCAN is True
+    assert reloaded.config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN is True
 
 
 def test_config_update_preserves_streaming_section(tmp_path):
