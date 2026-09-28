@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// Ruffle — v2 shell for Flash ROMs. The Ruffle injection (script loader,
+// Ruffle: v2 shell for Flash ROMs. The Ruffle injection (script loader,
 // createPlayer, fullscreen) is ported verbatim from
 // `src/views/Player/RuffleRS/Base.vue` so playback stays identical; only the
-// chrome is v2. No shared state with EJS — Flash has its own config.
+// chrome is v2. No shared state with EJS: Flash has its own config.
 import { RIcon, RSwitch } from "@v2/lib";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
