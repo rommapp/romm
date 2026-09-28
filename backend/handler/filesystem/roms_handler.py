@@ -47,8 +47,8 @@ from utils.archives import (
     ArchiveReadError,
     detect_mime_type,
     extract_chd_hash,
+    hash_largest_7z_member,
     is_chd_file,
-    process_7z_file,
     read_7z_archive_files,
     read_basic_file,
     read_bz2_file,
@@ -1027,10 +1027,20 @@ class FSRomsHandler(FSHandler):
                     update_hashes(chunk)
 
             elif extension == ".7z" or file_type == "application/x-7z-compressed":
-                process_7z_file(
-                    file_path=file_path,
-                    fn_hash_update=update_hashes,
+                # A failed extraction may have fed part of the member already,
+                # so the raw-archive fallback starts from the hashers' prior state.
+                snapshot = (
+                    crc_c,
+                    rom_crc_c,
+                    md5_h.copy(),
+                    sha1_h.copy(),
+                    rom_md5_h.copy() if accumulate else rom_md5_h,
+                    rom_sha1_h.copy() if accumulate else rom_sha1_h,
                 )
+                if not hash_largest_7z_member(file_path, update_hashes):
+                    crc_c, rom_crc_c, md5_h, sha1_h, rom_md5_h, rom_sha1_h = snapshot
+                    for chunk in read_basic_file(file_path):
+                        update_hashes(chunk)
 
             elif extension == ".bz2" or file_type == "application/x-bzip2":
                 for chunk in read_bz2_file(file_path):

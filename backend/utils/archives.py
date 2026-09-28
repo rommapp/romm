@@ -132,13 +132,14 @@ def read_gz_file(file_path: Path) -> Iterator[bytes]:
     return read_tar_file(file_path, "r:gz")
 
 
-def _process_largest_7z_member(
+def hash_largest_7z_member(
     file_path: Path,
     fn_hash_update: Callable[[bytes | bytearray], None],
 ) -> bool:
     """Stream the largest member of a 7z archive through `fn_hash_update`.
 
-    Returns True on success, False if listing/extraction fails or times out.
+    Returns True on success, False if listing/extraction fails or times out,
+    in which case `fn_hash_update` may already have seen part of the member.
     """
     try:
         result = subprocess.run(
@@ -214,15 +215,6 @@ def _process_largest_7z_member(
     ) as e:
         log.error(f"Error processing 7z file: {e}")
         return False
-
-
-def process_7z_file(
-    file_path: Path,
-    fn_hash_update: Callable[[bytes | bytearray], None],
-) -> None:
-    if not _process_largest_7z_member(file_path, fn_hash_update):
-        for chunk in read_basic_file(file_path):
-            fn_hash_update(chunk)
 
 
 def read_bz2_file(file_path: Path) -> Iterator[bytes]:

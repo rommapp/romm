@@ -1921,7 +1921,7 @@ Falls back to `FakeRedis` in test mode.
 | `SCHEDULED_RESCAN_CRON`                | `0 3 * * *` | Rescan schedule                 |
 | `ENABLE_RESCAN_ON_FILESYSTEM_CHANGE`   | `false`     | Watch for file changes          |
 | `RESCAN_ON_FILESYSTEM_CHANGE_DELAY`    | `5`         | Debounce delay (minutes)        |
-| `SEVEN_ZIP_TIMEOUT`                    |             | Timeout for 7-Zip extraction    |
+| `SEVEN_ZIP_TIMEOUT`                    | `180`       | Timeout for 7-Zip extraction    |
 | `REFRESH_RETROACHIEVEMENTS_CACHE_DAYS` |             | RA cache TTL (days)             |
 
 #### Device Sync

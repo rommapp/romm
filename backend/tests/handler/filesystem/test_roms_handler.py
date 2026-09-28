@@ -1,3 +1,4 @@
+import binascii
 import hashlib
 import os
 import shutil
@@ -1351,6 +1352,44 @@ class TestFSRomsHandler:
             # Clean up
             if test_file.exists():
                 test_file.unlink()
+
+    def test_failed_7z_extraction_hashes_only_the_raw_archive(
+        self, handler: FSRomsHandler, tmp_path
+    ):
+        """Bytes streamed before a 7z extraction fails must not leak into the
+        raw-archive fallback hash, nor into the ROM-level accumulators."""
+        archive_bytes = b"7z\xbc\xaf\x27\x1c raw archive bytes"
+        archive = tmp_path / "game.7z"
+        archive.write_bytes(archive_bytes)
+
+        def _partial_then_fail(_path, fn_hash_update):
+            fn_hash_update(b"partial inner member bytes")
+            return False
+
+        rom_md5_h = hashlib.md5(b"earlier file", usedforsecurity=False)
+        rom_sha1_h = hashlib.sha1(b"earlier file", usedforsecurity=False)
+        rom_crc_c = binascii.crc32(b"earlier file")
+
+        with patch(
+            "handler.filesystem.roms_handler.hash_largest_7z_member",
+            side_effect=_partial_then_fail,
+        ):
+            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
+                handler._calculate_rom_hashes(archive, rom_crc_c, rom_md5_h, rom_sha1_h)
+            )
+
+        assert crc_c == binascii.crc32(archive_bytes)
+        assert md5_h.hexdigest() == hashlib.md5(archive_bytes).hexdigest()
+        assert sha1_h.hexdigest() == hashlib.sha1(archive_bytes).hexdigest()
+        assert rom_crc_c == binascii.crc32(b"earlier file" + archive_bytes)
+        assert (
+            rom_md5_h.hexdigest()
+            == hashlib.md5(b"earlier file" + archive_bytes).hexdigest()
+        )
+        assert (
+            rom_sha1_h.hexdigest()
+            == hashlib.sha1(b"earlier file" + archive_bytes).hexdigest()
+        )
 
     async def test_compressed_file_handling(self, handler: FSRomsHandler):
         """Test handling of compressed ROM files"""
