@@ -2,6 +2,7 @@ import asyncio
 import errno
 import os
 import struct
+import threading
 import zlib
 from io import BytesIO
 from pathlib import Path
@@ -896,6 +897,27 @@ class TestChromaKeyDetection:
 
         assert discarded is False
         assert (tmp_path / rel).exists()
+
+    @pytest.mark.asyncio
+    async def test_discard_checks_the_image_off_the_event_loop(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        self._write_image(tmp_path / rel, (85, 62, 152))
+        threads: list[threading.Thread] = []
+
+        def record_thread(_path: Path) -> bool:
+            threads.append(threading.current_thread())
+            return False
+
+        with patch(
+            "handler.filesystem.resources_handler._is_chroma_key_placeholder",
+            side_effect=record_thread,
+        ):
+            await handler._discard_if_chroma_key(rel)
+
+        assert threads and threads[0] is not threading.main_thread()
 
     @pytest.mark.asyncio
     async def test_discard_missing_file_is_noop(

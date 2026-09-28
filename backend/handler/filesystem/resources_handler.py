@@ -253,7 +253,10 @@ class FSResourcesHandler(FSHandler):
         if not await self.file_exists(relative_path):
             return False
 
-        if not _is_chroma_key_placeholder(self.validate_path(relative_path)):
+        # Decoding the full image would otherwise stall the event loop
+        if not await asyncio.to_thread(
+            _is_chroma_key_placeholder, self.validate_path(relative_path)
+        ):
             return False
 
         log.debug(f"Discarding chroma-key placeholder image {relative_path}")
