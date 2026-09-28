@@ -20,7 +20,13 @@ from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.concurrency import gather_all
 from utils.context import ctx_httpx_client
-from utils.images import IMAGE_DECODE_ERRORS, frame_durations, is_animated, webp_loop
+from utils.images import (
+    IMAGE_DECODE_ERRORS,
+    MAX_TRIM_PIXELS,
+    frame_durations,
+    is_animated,
+    webp_loop,
+)
 from utils.rate_limiter import ConcurrencyLimiter
 
 from .base_handler import CoverSize, FSHandler
@@ -132,6 +138,9 @@ def _trim_transparent_border(image_path: Path) -> Image.Image | None:
                 return None
             # Any multi-frame image, since a crop keeps only the first frame
             if getattr(img, "is_animated", False):
+                return None
+            # The size comes from the header, so this runs before any decode
+            if img.width * img.height > MAX_TRIM_PIXELS:
                 return None
             # getbbox measures the alpha band alone, so only a palette or
             # colour-key image needs converting first

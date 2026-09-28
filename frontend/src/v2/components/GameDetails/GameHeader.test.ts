@@ -4,8 +4,9 @@ import { ref } from "vue";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
 import GameHeader from "./GameHeader.vue";
 
-const { showLogoTitle } = vi.hoisted(() => ({
+const { showLogoTitle, xs } = vi.hoisted(() => ({
   showLogoTitle: { value: false },
+  xs: { value: false },
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -17,7 +18,7 @@ vi.mock("@/composables/useUISettings", () => ({
 }));
 
 vi.mock("@/v2/composables/useBreakpoint", () => ({
-  useBreakpoint: () => ({ smAndDown: ref(false), xs: ref(false) }),
+  useBreakpoint: () => ({ smAndDown: ref(false), xs }),
 }));
 
 vi.mock("@/v2/composables/useGameActions", () => ({
@@ -62,6 +63,7 @@ function mountHeader(logoPath: string | null) {
 describe("GameHeader", () => {
   beforeEach(() => {
     showLogoTitle.value = false;
+    xs.value = false;
   });
 
   it("shows the title text when the logo setting is off", () => {
@@ -104,13 +106,16 @@ describe("GameHeader", () => {
 
   it.each([
     // Square: the height cap binds before the shared area does.
-    { width: 512, height: 512, expected: "176px" },
+    { phone: false, width: 512, height: 512, expected: "176px" },
     // Wide: sized to the shared area, so it ends up shorter than the cap.
-    { width: 1024, height: 256, expected: "400px" },
+    { phone: false, width: 1024, height: 256, expected: "400px" },
+    { phone: true, width: 512, height: 512, expected: "120px" },
+    { phone: true, width: 1024, height: 256, expected: "297px" },
   ])(
-    "sizes a $width x $height logo to $expected wide",
-    async ({ width, height, expected }) => {
+    "sizes a $width x $height logo to $expected wide (phone: $phone)",
+    async ({ phone, width, height, expected }) => {
       showLogoTitle.value = true;
+      xs.value = phone;
       const wrapper = mountHeader("roms/1/1/logo/logo.png");
       const img = wrapper.find("h1 img");
       Object.defineProperty(img.element, "naturalWidth", { value: width });

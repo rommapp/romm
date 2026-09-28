@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import httpx2
 import pytest
-from PIL import Image, ImageSequence
+from PIL import Image, ImageFile, ImageSequence
 from PIL.PngImagePlugin import Blend
 from tests.concurrency_stubs import InFlight
 from tests.utils.test_images import (
@@ -990,6 +990,18 @@ class TestTrimTransparentBorder:
         Image.new("RGBA", (40, 20), (0, 0, 0, 0)).save(logo)
 
         assert _trim_transparent_border(logo) is None
+
+    def test_skips_an_oversized_image_without_decoding_it(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        self._write_padded_logo(logo)
+
+        with (
+            patch("handler.filesystem.resources_handler.MAX_TRIM_PIXELS", 100),
+            patch.object(
+                ImageFile.ImageFile, "load", side_effect=AssertionError("decoded")
+            ),
+        ):
+            assert _trim_transparent_border(logo) is None
 
     def test_leaves_an_animated_logo_untouched(self, tmp_path):
         logo = tmp_path / "logo.png"

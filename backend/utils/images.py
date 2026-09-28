@@ -9,6 +9,9 @@ ANIMATED_FORMATS = frozenset({"GIF", "PNG", "WEBP"})
 # first frame, since re-encoding one holds every frame in memory.
 MAX_ANIMATION_PIXELS = 100_000_000
 
+# Largest image a logo trim decodes; real wheels are about half a million pixels.
+MAX_TRIM_PIXELS = 16_000_000
+
 # Largest loop count a WebP animation can store
 _MAX_WEBP_LOOP = 0xFFFF
 
