@@ -8,6 +8,7 @@ import type {
 } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { providerImageUrl } from "@/utils/providerImage";
 import SearchCoverDialog from "./SearchCoverDialog.vue";
 
 const { searchCover, searchRom, heartbeat } = vi.hoisted(() => ({
@@ -186,20 +187,22 @@ describe("SearchCoverDialog", () => {
     });
     const { wrapper } = await openDialog();
 
-    expect(gridThumbs(wrapper)).toEqual([
-      "https://sgdb/thumb/a.png",
-      "https://sgdb/thumb/b.png",
-    ]);
+    expect(gridThumbs(wrapper)).toEqual(
+      ["https://sgdb/thumb/a.png", "https://sgdb/thumb/b.png"].map(
+        providerImageUrl,
+      ),
+    );
 
     const byVotes = wrapper
       .findAll("button.menu-item")
       .find((item) => item.text() === "rom.cover-sort-votes");
     if (!byVotes) throw new Error("votes sort item not rendered");
     await byVotes.trigger("click");
-    expect(gridThumbs(wrapper)).toEqual([
-      "https://sgdb/thumb/b.png",
-      "https://sgdb/thumb/a.png",
-    ]);
+    expect(gridThumbs(wrapper)).toEqual(
+      ["https://sgdb/thumb/b.png", "https://sgdb/thumb/a.png"].map(
+        providerImageUrl,
+      ),
+    );
   });
 
   it("searches again on reopen and drops the search left running on close", async () => {
@@ -222,7 +225,9 @@ describe("SearchCoverDialog", () => {
     await flushPromises();
 
     expect(searchCover).toHaveBeenLastCalledWith({ searchTerm: "Doom" });
-    expect(gridThumbs(wrapper)).toEqual(["https://steam/doom.jpg"]);
+    expect(gridThumbs(wrapper)).toEqual([
+      providerImageUrl("https://steam/doom.jpg"),
+    ]);
   });
 
   it("keeps a provider's match cover in the row when its grid came back empty", async () => {
