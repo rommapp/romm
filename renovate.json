@@ -39,6 +39,15 @@
         "# renovate: datasource=(?<datasource>[a-z-]+?) depName=(?<depName>[^\\s]+?)\\s+-?\\s*[A-Za-z0-9_-]+?: [\"'](?<currentValue>[^\"'\\s]+)[\"']"
       ],
       "versioningTemplate": "docker"
+    },
+    {
+      "description": "The Trunk plugins release in .trunk/trunk.yaml, which no built-in manager reads. The CLI version publishes no release dates, so minimumReleaseAge can't gate it and it stays a manual bump.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.trunk/trunk\\.yaml$/"],
+      "matchStrings": [
+        "- id: trunk\\s+ref: (?<currentValue>v[^\\s]+)\\s+uri: https://github\\.com/(?<depName>trunk-io/plugins)\\s"
+      ],
+      "datasourceTemplate": "github-tags"
     }
   ]
 }
