@@ -10,7 +10,7 @@ import {
 
 const RES = "/assets/romm/resources";
 
-// Minimal rom factory — the pure helpers only read the cover-related
+// Minimal rom factory: the pure helpers only read the cover-related
 // fields, so we default the rest and let callers override. Single cast
 // from Partial (a supertype) to SimpleRom, scoped to the test.
 function rom(over: Partial<SimpleRom>): SimpleRom {

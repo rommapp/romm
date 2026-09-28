@@ -215,7 +215,7 @@ export default tseslint.config(
   },
   // Pre-existing violations. Drop a directory once its comments are clean.
   {
-    files: ["src/v2/components/**", "src/v2/composables/**", "src/v2/lib/**"],
+    files: ["src/v2/components/**", "src/v2/lib/**"],
     rules: { "romm/no-emdash-in-comment": "off" },
   },
   {

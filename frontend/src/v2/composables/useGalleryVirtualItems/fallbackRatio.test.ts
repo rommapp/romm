@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import { useGalleryVirtualItems, type GalleryItem } from "./index";
 
 // A 240px-tall card is 160px wide at box art (2/3) and 240px wide at square
-// (miximage / physical). In an 800px row that is 4 per row vs 3 per row —
+// (miximage / physical). In an 800px row that is 4 per row vs 3 per row,
 // pack a square-painted card as box art and the row overflows.
 const CARD_HEIGHT = 240;
 const ROW_WIDTH = 800;

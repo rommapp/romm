@@ -1,11 +1,11 @@
-// useNavDestinations — single source of truth for the four primary
+// useNavDestinations: single source of truth for the four primary
 // content destinations (Home / Platforms / Collections / Search) and the
 // route-path → active-tab derivation. Shared by `AppNav` (desktop top
 // pill) and `BottomNav` (mobile bottom bar) so the two never drift in
 // labels, icons, ordering, or active-state logic.
 //
 // Highlighting is derived from `route.path` (not route names) so gallery
-// subroutes — e.g. `/rom/:id` reached from a platform — still light up
+// subroutes, e.g. `/rom/:id` reached from a platform, still light up
 // their parent destination.
 import { computed } from "vue";
 import type { ComputedRef } from "vue";
@@ -50,7 +50,7 @@ export function useNavDestinations(): {
       id: "collections",
       label: t("common.collections"),
       ariaLabel: t("common.collections"),
-      // Same glyph GameCard uses for its "add to collection" action —
+      // Same glyph GameCard uses for its "add to collection" action,
       // keeps the icon stable across every generic "Collections" surface.
       icon: "mdi-bookmark-outline",
       to: "/collections",

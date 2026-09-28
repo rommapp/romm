@@ -2,11 +2,11 @@
 //
 // Universal gamepad support. Translates D-pad / left-stick presses into
 // synthetic KeyboardEvents so the normal DOM focus model and Vue click
-// handlers work out of the box on a controller — no bespoke spatial-nav
+// handlers work out of the box on a controller: no bespoke spatial-nav
 // engine required. Face buttons run direct actions (click the focused
 // element, open a menu, nav sections) because synthetic keyboard events
 // have `isTrusted=false` and don't trigger the default activation
-// behaviour on <a href> / <button type="submit"> — a direct .click() is
+// behaviour on <a href> / <button type="submit">: a direct .click() is
 // the only reliable path there.
 //
 // Mapping (Standard Gamepad):
@@ -18,16 +18,16 @@
 //   Start (9)                      → open user menu
 //   LB (4) / RB (5)                → AppNav section prev / next (cyclic)
 //
-// Action buttons (A/B/Back/Start/LB/RB) fire once per press — no repeat —
+// Action buttons (A/B/Back/Start/LB/RB) fire once per press, no repeat,
 // so a held face button doesn't shotgun actions. Synthetic-key buttons
 // (arrows) use the v1 console input cadence: 350ms initial delay, 120ms
 // repeat.
 //
 // Two contexts suppress this translation:
-//   * Game running (storePlaying.playing) — the emulator reads the pad
+//   * Game running (storePlaying.playing): the emulator reads the pad
 //     itself, so all translation is off. Otherwise B (shared by Circle /
 //     Nintendo-A in the standard mapping) would quit the game.
-//   * Controller-test screen (ACTIONS_DISABLED_PATHS) — built-in actions
+//   * Controller-test screen (ACTIONS_DISABLED_PATHS): built-in actions
 //     are muted so every button can be pressed and inspected in place.
 import { onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -38,7 +38,7 @@ import {
   hasOpenEscapable,
 } from "@/v2/lib/overlays/RDialog/escapeStack.js";
 
-// AppNav tab order — must match the `tabs` list in
+// AppNav tab order: must match the `tabs` list in
 // `src/v2/components/AppShell/AppNav.vue`. LB/RB cycle through these.
 const NAV_SECTIONS = ["/", "/platforms", "/collections", "/search"] as const;
 
@@ -162,7 +162,7 @@ export function useGamepad() {
     );
     // Not on a section at all (e.g. on /rom/:id). Jumping straight to
     // Home is more predictable than silently treating the current page
-    // as Home and stepping once — that used to take the user to
+    // as Home and stepping once: that used to take the user to
     // Platforms when pressing RB from a ROM detail view.
     if (matchIndex < 0) {
       if (currentPath !== "/") router.push("/");
@@ -176,12 +176,12 @@ export function useGamepad() {
 
   // Activates the currently focused element. Router-links, submit
   // buttons, custom [role=button] divs all navigate/trigger via .click()
-  // regardless of whether the event was trusted — that's the escape
+  // regardless of whether the event was trusted: that's the escape
   // hatch synthetic KeyboardEvents don't give us.
   function activateFocused() {
     const active = document.activeElement as HTMLElement | null;
     if (!active) return;
-    // Skip text inputs etc. — pressing A inside a text field shouldn't
+    // Skip text inputs etc.: pressing A inside a text field shouldn't
     // re-submit the form on every press.
     const tag = active.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
@@ -190,7 +190,7 @@ export function useGamepad() {
 
   // Opens the app-wide user menu. UserMenu.vue marks its activator with
   // `data-user-menu-trigger` so we can find it regardless of which view
-  // is mounted — the nav is always in the DOM.
+  // is mounted: the nav is always in the DOM.
   function openUserMenu() {
     const trigger = document.querySelector<HTMLElement>(
       "[data-user-menu-trigger]",
@@ -199,12 +199,12 @@ export function useGamepad() {
   }
 
   // Navigate backwards. If any v2 overlay (RDialog, RMenu, RDrawer, …)
-  // is currently open we close the topmost one first — one B press
+  // is currently open we close the topmost one first: one B press
   // shouldn't both dismiss an overlay AND pop a history entry. With
   // nothing open it falls through to `router.back()`.
   //
   // Source of truth is the shared escape stack in
-  // `lib/overlays/RDialog/escapeStack.ts` — every escapable surface
+  // `lib/overlays/RDialog/escapeStack.ts`: every escapable surface
   // pushes itself there while open, so this check is Vuetify-free and
   // doesn't depend on any DOM marker class.
   function goBack() {
@@ -218,12 +218,12 @@ export function useGamepad() {
   // Button-index → zero-argument action. Unlike BUTTON_MAP these don't
   // fire a repeat while held; one press = one action.
   const BUTTON_ACTIONS: Record<number, () => void> = {
-    0: activateFocused, //          A / Cross — activate (navigate/click)
-    1: goBack, //                   B / Circle — history back (or close modal)
-    4: () => cycleSection(-1), //   LB / L1 — previous AppNav section
-    5: () => cycleSection(1), //    RB / R1 — next AppNav section
-    8: goBack, //                   Back / Share — same as B
-    9: openUserMenu, //             Start / Options — open user menu
+    0: activateFocused, //          A / Cross: activate (navigate/click)
+    1: goBack, //                   B / Circle: history back (or close modal)
+    4: () => cycleSection(-1), //   LB / L1: previous AppNav section
+    5: () => cycleSection(1), //    RB / R1: next AppNav section
+    8: goBack, //                   Back / Share: same as B
+    9: openUserMenu, //             Start / Options: open user menu
   };
 
   // Buttons that stay live when an escapable overlay is open over a
@@ -247,7 +247,7 @@ export function useGamepad() {
     const onConnect = () => setModality("pad");
     window.addEventListener("gamepadconnected", onConnect);
 
-    // Initial poll — if the browser already exposes a pad at install time
+    // Initial poll: if the browser already exposes a pad at install time
     // (Firefox, or Chrome on a reload where a pad was previously used),
     // flip modality immediately so the grid-nav autofocus can land without
     // waiting for a first press. Chrome hides pads until first interaction
@@ -267,7 +267,7 @@ export function useGamepad() {
       const pads = navigator.getGamepads?.() ?? [];
       const t = performance.now();
 
-      // Keep checking while no pad has been seen yet — covers the case
+      // Keep checking while no pad has been seen yet: covers the case
       // where a pad appears partway through the session (plugged in
       // mid-browse, or Chrome exposes it once the user moves a stick).
       if (!everSawPad) detectPadPresence();
@@ -310,7 +310,7 @@ export function useGamepad() {
         // Buttons. Three tracks, evaluated in order:
         //   * BUTTON_MAP → synthetic keyboard event, with repeat cadence.
         //   * BUTTON_ACTIONS → one-shot callback, fires on press edge only.
-        //   * Always — emit a `gamepad:buttondown` CustomEvent so views
+        //   * Always: emit a `gamepad:buttondown` CustomEvent so views
         //     can opt into per-button bindings without needing to touch
         //     useGamepad (e.g. the Player view subscribes to Y to flip
         //     the saves/states tab).

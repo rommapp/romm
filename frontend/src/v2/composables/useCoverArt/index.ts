@@ -1,4 +1,4 @@
-// useCoverArt — single source of truth for what image a game cover shows
+// useCoverArt: single source of truth for what image a game cover shows
 // and at what aspect ratio.
 //
 // v1 spread this across three places: `stores/galleryView.getAspectRatio`
@@ -11,7 +11,7 @@
 // The `boxartStyle` user preference (gallery-wide) picks WHICH artwork a
 // card shows and therefore its canonical aspect ratio. The details page
 // and the play pages carry their own per-context style (legacy/unknown
-// stored values fall back to the gallery style) — see `useBoxartStyle`.
+// stored values fall back to the gallery style): see `useBoxartStyle`.
 // The four ratios map to known artwork sources:
 //   * cover_path    → 2/3   box art       (object-fit: cover)
 //   * box3d_path    → 3/4   3D box render (object-fit: contain)
@@ -59,7 +59,7 @@ export type BoxartContext = "gallery" | "details" | "player";
  *  exist on `RomGamelistMetadata`. */
 export type AltBoxartStyle = Exclude<BoxartStyle, "cover_path">;
 
-/** The cover-relevant slice of a rom — both `SimpleRom` (gallery) and
+/** The cover-relevant slice of a rom: both `SimpleRom` (gallery) and
  *  `DetailedRom` (detail page) satisfy it, so cover resolution works the
  *  same on every surface without coupling to one schema. */
 export type CoverArtRom = Pick<
@@ -73,7 +73,7 @@ export type CoverArtRom = Pick<
   | "platform_slug"
 >;
 
-/** Canonical width/height ratio per style — mirrors v1's
+/** Canonical width/height ratio per style: mirrors v1's
  *  `galleryView.getAspectRatio`. The ratio is purely style-driven (a
  *  rom missing its alt art still letterboxes the fallback cover in the
  *  style's box, matching v1). */
@@ -145,7 +145,7 @@ export function altArtPath(
 }
 
 export interface CoverArtDescriptor {
-  /** Primary image src — alt artwork, explicit override, or the local
+  /** Primary image src: alt artwork, explicit override, or the local
    *  cover chain. Null when the rom has no usable image (→ placeholder). */
   coverUrl: string | null;
   /** Secondary src tried on `coverUrl` load error (external provider). */
@@ -173,12 +173,12 @@ interface ComputeOptions {
   resourcesPath: string;
   supportsWebp: boolean;
   /** Explicit cover URL that bypasses the resolution chain (preview
-   *  blobs, external provider URLs). Treated as final — no webp rewrite,
+   *  blobs, external provider URLs). Treated as final: no webp rewrite,
    *  no alt-art swap. */
   coverSrc?: string | null;
 }
 
-/** Pure resolution core — no Vue, no stores. Exported for unit tests and
+/** Pure resolution core: no Vue, no stores. Exported for unit tests and
  *  for non-reactive call sites. */
 export function computeCoverArt(
   rom: CoverArtRom,
@@ -186,7 +186,7 @@ export function computeCoverArt(
   opts: ComputeOptions,
 ): CoverArtDescriptor {
   const ratio = coverRatio(style);
-  // Treat an empty string as "no override" — a preview field that hasn't
+  // Treat an empty string as "no override": a preview field that hasn't
   // been set yet (e.g. EditRomDialog opens `imagePreviewUrl = ""`) must
   // still resolve the rom's own cover, not blank out to the placeholder.
   const override =
@@ -234,11 +234,11 @@ export interface UseCoverArtOptions {
   /** Override the gallery-wide `boxartStyle` preference (stories,
    *  pickers that always show box art). */
   forceStyle?: MaybeRefOrGetter<BoxartStyle>;
-  /** The surface this cover renders on — resolves the per-context
+  /** The surface this cover renders on: resolves the per-context
    *  boxart-style override (details / play pages). Defaults to the
    *  gallery-wide preference. `forceStyle` still wins. */
   context?: MaybeRefOrGetter<BoxartContext | undefined>;
-  /** Explicit cover URL — see {@link ComputeOptions.coverSrc}. When set
+  /** Explicit cover URL: see {@link ComputeOptions.coverSrc}. When set
    *  without an explicit `forceStyle`, the style resolves to `cover_path`
    *  so preview blobs / external provider URLs render as plain box art
    *  (2/3, object-fit cover) regardless of the gallery's active style. */
@@ -260,7 +260,7 @@ export interface UseCoverArt {
   animateCD: ComputedRef<boolean>;
   animateCartridge: ComputedRef<boolean>;
   videoUrl: ComputedRef<string | null>;
-  /** False when the user disabled animations — the card multiplies this
+  /** False when the user disabled animations: the card multiplies this
    *  with `animateCD` / `animateCartridge` / video playback. */
   motionEnabled: ComputedRef<boolean>;
 }
@@ -284,7 +284,7 @@ export function useCoverArt(
     const forced = options.forceStyle ? toValue(options.forceStyle) : undefined;
     if (forced) return forced;
     // An explicit override URL is a plain cover (preview / provider art),
-    // not an alt-art style — present it as box art.
+    // not an alt-art style: present it as box art.
     if (coverSrc.value != null) return "cover_path";
     return contextStyle.value;
   });
@@ -297,7 +297,7 @@ export function useCoverArt(
   const descriptor = computed<CoverArtDescriptor>(() => {
     const r = toValue(rom);
     const s = style.value;
-    // No rom yet (e.g. detail / player view before the fetch resolves) —
+    // No rom yet (e.g. detail / player view before the fetch resolves),
     // surface a style-shaped empty descriptor so consumers still get the
     // right ratio / object-fit and any explicit override URL.
     if (!r) {
