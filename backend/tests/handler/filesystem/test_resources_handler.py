@@ -1148,7 +1148,7 @@ class TestStoreMetadataMedia:
 
     @pytest.mark.asyncio
     async def test_stores_every_extra_disc(self, handler: FSResourcesHandler):
-        metadata = {
+        metadata: dict[str, Any] = {
             "physical_url": "http://example.com/disc1.png",
             "physical_path": "roms/1/1/physical/physical.png",
             "physical_extra_discs": [
