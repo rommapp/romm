@@ -488,3 +488,40 @@ class TestGroupedRepresentativeVisibility:
         assert self._names(admin_user, platform, statuses=["now_playing"]) == [
             "Sonic (Japan)"
         ]
+
+    def test_non_matching_sibling_does_not_drive_the_group_sort(
+        self, admin_user: User, platform: Platform
+    ):
+        # Sonic's newest play belongs to the Japan sibling, which the status
+        # filter drops, so its group sorts by the matching USA play.
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="USA", igdb_id=100),
+            admin_user,
+            {
+                "now_playing": True,
+                "last_played": datetime(2020, 1, 1, tzinfo=timezone.utc),
+            },
+        )
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="Japan", igdb_id=100),
+            admin_user,
+            {"last_played": datetime(2026, 1, 1, tzinfo=timezone.utc)},
+        )
+        _set_rom_user_fields(
+            _make_rom(platform, "Tails", region="USA", igdb_id=200),
+            admin_user,
+            {
+                "now_playing": True,
+                "last_played": datetime(2024, 1, 1, tzinfo=timezone.utc),
+            },
+        )
+
+        assert _ordered_names(
+            admin_user,
+            "last_played",
+            "desc",
+            attr="fs_name_no_ext",
+            platform_ids=[platform.id],
+            group_by_meta_id=True,
+            statuses=["now_playing"],
+        ) == ["Tails (USA)", "Sonic (USA)"]
