@@ -17,7 +17,12 @@ from adapters.services.screenscraper import (
     prime_account_limits,
     reset_scan_state,
 )
-from adapters.services.screenscraper_types import SSGame, SSGameDate, SSGameRom
+from adapters.services.screenscraper_types import (
+    SSGame,
+    SSGameDate,
+    SSGameMedia,
+    SSGameRom,
+)
 from config import (
     SCREENSCRAPER_DEV_ID,
     SCREENSCRAPER_DEV_PASSWORD,
@@ -36,6 +41,7 @@ from handler.filesystem.base_handler import (
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import LookupHashes, Rom, RomFile
+from utils.database import safe_int
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
@@ -289,6 +295,12 @@ class SSAgeRating(TypedDict):
     category: str
 
 
+class SSPhysicalDisc(TypedDict):
+    disc: int
+    url: str
+    path: str | None
+
+
 class SSMetadataMedia(TypedDict):
     bezel_url: str | None  # bezel-16-9
     box2d_url: str | None  # box-2D
@@ -302,7 +314,9 @@ class SSMetadataMedia(TypedDict):
     marquee_url: str | None  # screenmarquee
     miximage_url: str | None  # miximage1 | miximage2 | mixrbv1
     miximage_v2_url: str | None  # mixrbv2
-    physical_url: str | None  # support-2D
+    physical_url: str | None  # support-2D of the first disc
+    physical_disc: int | None  # the disc physical_url shows
+    physical_extra_discs: list[SSPhysicalDisc]  # support-2D of every later disc
     screenshot_url: str | None  # ss
     steamgrid_url: str | None  # steamgrid
     title_screen_url: str | None  # sstitle
@@ -372,8 +386,14 @@ def _get_rom_type(file: RomFile) -> str:
     return "rom"
 
 
+def _ss_disc_number(media: SSGameMedia) -> int:
+    """The disc a media item shows; untagged or unreadable art belongs to the first."""
+    return max(safe_int(media.get("support"), default=1), 1)
+
+
 def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
     preferred_media_types = get_preferred_media_types()
+    physical_urls: dict[int, str] = {}
 
     ss_media = SSMetadataMedia(
         bezel_url=None,
@@ -389,6 +409,8 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         miximage_url=None,
         miximage_v2_url=None,
         physical_url=None,
+        physical_disc=None,
+        physical_extra_discs=[],
         screenshot_url=None,
         steamgrid_url=None,
         title_screen_url=None,
@@ -502,13 +524,11 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     ss_media["miximage_v2_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE_V2)}/miximage_v2.png"
                     )
-            elif media.get("type") == "support-2D" and not ss_media["physical_url"]:
-                ss_media["physical_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
-                )
-                if MetadataMediaType.PHYSICAL in preferred_media_types:
-                    ss_media["physical_path"] = (
-                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.PHYSICAL)}/physical.png"
+            elif media.get("type") == "support-2D":
+                disc = _ss_disc_number(media)
+                if disc not in physical_urls:
+                    physical_urls[disc] = strip_sensitive_query_params(
+                        media["url"], SENSITIVE_KEYS
                     )
             elif media.get("type") == "ss" and not ss_media["screenshot_url"]:
                 ss_media["screenshot_url"] = strip_sensitive_query_params(
@@ -561,6 +581,29 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     ss_media["video_normalized_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.VIDEO_NORMALIZED)}/video-normalized.mp4"
                     )
+
+    if physical_urls:
+        first_disc, *extra_discs = sorted(physical_urls)
+        store_physical = MetadataMediaType.PHYSICAL in preferred_media_types
+        physical_dir = fs_resource_handler.get_media_resources_path(
+            rom.platform_id, rom.id, MetadataMediaType.PHYSICAL
+        )
+        ss_media["physical_url"] = physical_urls[first_disc]
+        ss_media["physical_disc"] = first_disc
+        if store_physical:
+            ss_media["physical_path"] = f"{physical_dir}/physical.png"
+        ss_media["physical_extra_discs"] = [
+            SSPhysicalDisc(
+                disc=disc,
+                url=physical_urls[disc],
+                path=(
+                    f"{physical_dir}/physical_disc{disc}.png"
+                    if store_physical
+                    else None
+                ),
+            )
+            for disc in extra_discs
+        ]
 
     return ss_media
 
@@ -962,8 +1005,8 @@ class SSHandler(MetadataHandler):
 
         # Files on NON_HASHABLE_PLATFORMS (or any file when SKIP_HASH_CALCULATION
         # is enabled) have no hashes. jeuInfos can still identify the game from the
-        # filename (romnom) + platform (systemeid) — a stronger matcher than the
-        # jeuRecherche name search the get_rom fallback uses — so only bail out when
+        # filename (romnom) + platform (systemeid), which is a stronger matcher than the
+        # jeuRecherche name search the get_rom fallback uses, so only bail out when
         # we have neither a hash nor a filename to match on.
         if not (md5_hash or sha1_hash or crc_hash or rom_name):
             log.info(

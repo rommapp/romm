@@ -4,7 +4,7 @@ These drive a **real running RomM instance**, unlike the Vitest specs, which mou
 
 ## Running tests
 
-1. Have the app up and reachable (default `http://localhost:3000`, override with `E2E_BASE_URL`), with a populated library — the specs pick the first ROM they find.
+1. Have the app up and reachable (default `http://localhost:3000`, override with `E2E_BASE_URL`), with a populated library; the specs pick the first ROM they find.
 
 2. Seed the two fixture users, from the repo root:
 

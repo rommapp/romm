@@ -36,7 +36,6 @@ lint:
     - black@26.5.1
     - checkov@3.3.20
     - git-diff-check
-    - no-emdash
     - isort@9.0.1
     - osv-scanner@2.6.0
     - prettier@3.9.9:
@@ -58,7 +57,7 @@ lint:
         - docker/nginx/js/**
         # Vendored patcherjs library
         - backend/utils/rom_patcher/patcher.js
-        # Vendored humanizer skill, kept byte-identical to upstream (it quotes em dashes)
+        # Vendored humanizer skill, kept byte-identical to upstream
         - .claude/skills/humanizer/**
         # Intentionally malformed YAML, used as a test fixture
         - backend/tests/config/fixtures/config/malformed_config.yml
@@ -75,22 +74,6 @@ lint:
     - name: vue
       extensions: [vue]
   definitions:
-    # ESLint's romm/no-emdash-in-comment covers frontend/src/v2. In Python only
-    # text after a `#` is checked, since some string literals carry test data.
-    - name: no-emdash
-      files: [markdown, python]
-      commands:
-        - name: lint
-          output: regex
-          parse_regex: ((?P<path>.*):(?P<line>\d+):(?P<col>\d+) - (?P<message>.*))
-          read_output_from: stdout
-          run: >-
-            awk '{ s = FILENAME ~ /\.mdx?$/ ? 1 : index($0, "#"); i = s ? index(substr($0, s), "—") : 0 }
-            i { print FILENAME ":" FNR ":" (s + i - 1)
-            " - Replace the em dash with a comma, parentheses, or a separate sentence." }'
-            ${target}
-          success_codes: [0]
-          batch: true
     - name: eslint
       files:
         - javascript

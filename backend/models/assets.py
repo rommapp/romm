@@ -92,7 +92,7 @@ class Screenshot(RomAsset):
 
     # `is_gallery` distinguishes intentionally-uploaded gallery screenshots from
     # the auto-captured save/state thumbnails that also live in this table.
-    # `is_public` mirrors RomNote — lets other users browse a user's public
+    # `is_public` mirrors RomNote: it lets other users browse a user's public
     # screenshots (community). Both default false; save/state thumbnails keep the
     # defaults, only the gallery upload endpoint sets `is_gallery=True`.
     is_gallery: Mapped[bool] = mapped_column(default=False)
@@ -125,7 +125,7 @@ class Save(RomAsset):
         default=None,
         index=True,
     )
-    # `is_public` mirrors Screenshot/RomNote — lets other users browse and
+    # `is_public` mirrors Screenshot/RomNote: it lets other users browse and
     # download a user's public saves (community). Defaults false (private).
     is_public: Mapped[bool] = mapped_column(default=False)
     # Owner-only annotations: favorites sort ahead of the rest, labels tell
@@ -162,7 +162,7 @@ class State(RomAsset):
     )
 
     emulator: Mapped[str | None] = mapped_column(String(length=EMULATOR_MAX_LENGTH))
-    # `is_public` mirrors Screenshot/RomNote — lets other users browse and
+    # `is_public` mirrors Screenshot/RomNote: it lets other users browse and
     # download a user's public states (community). Defaults false (private).
     is_public: Mapped[bool] = mapped_column(default=False)
     # Owner-only annotations: favorites sort ahead of the rest, labels tell

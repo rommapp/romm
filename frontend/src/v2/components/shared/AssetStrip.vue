@@ -193,12 +193,18 @@ const fadeIndex = computed(() =>
 
       <RExpandTransition>
         <div v-show="isOpen(group)" class="r-asset-strip__fold">
-          <div class="r-asset-strip__track">
+          <!-- Static tiles host their own actions, so they read as a list;
+               selectable tiles are toggle buttons instead. -->
+          <div
+            class="r-asset-strip__track"
+            :role="selectable ? undefined : 'list'"
+          >
             <component
               :is="selectable ? 'button' : 'div'"
               v-for="asset in group.assets"
               :key="asset.id"
               :type="selectable ? 'button' : undefined"
+              :role="selectable ? undefined : 'listitem'"
               class="r-asset-strip__tile r-v2-asset-fade"
               :class="{
                 'r-asset-strip__tile--active':
@@ -442,9 +448,8 @@ const fadeIndex = computed(() =>
   background: transparent;
   padding: 0;
   flex: 0 0 140px;
-  /* Without min-width:0 the flex item's implicit `min-width: auto`
-     lets the inner nowrap filename push the tile wider than its
-     flex-basis — long names would visibly inflate that one card. */
+  /* The implicit `min-width: auto` would let a long nowrap filename push
+     the tile past its flex-basis. */
   min-width: 0;
   scroll-snap-align: start;
   display: flex;

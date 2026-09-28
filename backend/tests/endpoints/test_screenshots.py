@@ -205,19 +205,19 @@ def test_gallery_query_excludes_thumbnails_and_others_private(
     admin_user: User,
     editor_user: User,
 ):
-    # Own save/state thumbnail — not a gallery upload.
+    # Own save/state thumbnail, not a gallery upload.
     _add_screenshot(
         rom, platform, admin_user.id, "thumb", is_gallery=False, is_public=False
     )
-    # Own private gallery screenshot — visible to self.
+    # Own private gallery screenshot, visible to self.
     mine = _add_screenshot(
         rom, platform, admin_user.id, "mine", is_gallery=True, is_public=False
     )
-    # Another user's public gallery screenshot — visible (community).
+    # Another user's public gallery screenshot, visible (community).
     others_public = _add_screenshot(
         rom, platform, editor_user.id, "pub", is_gallery=True, is_public=True
     )
-    # Another user's private gallery screenshot — hidden.
+    # Another user's private gallery screenshot, hidden.
     _add_screenshot(
         rom, platform, editor_user.id, "priv", is_gallery=True, is_public=False
     )

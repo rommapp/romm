@@ -1,11 +1,11 @@
 ---
 name: frontend-v2-patterns
-description: Cross-cutting feature patterns for the RomM v2 frontend — error/snackbar handling, loading & skeleton states, real-time Socket.IO updates, UI state persistence (URL vs localStorage vs ephemeral), pagination/infinite scroll, forms & validation, permissions (useCan), and destructive confirmations. Use when wiring up a v2 feature's behavior (not just its markup). Trigger when implementing data flows, dialogs, forms, toggles, or permission gating under frontend/src/v2/.
+description: Cross-cutting feature patterns for the RomM v2 frontend: error/snackbar handling, loading & skeleton states, real-time Socket.IO updates, UI state persistence (URL vs localStorage vs ephemeral), pagination/infinite scroll, forms & validation, permissions (useCan), and destructive confirmations. Use when wiring up a v2 feature's behavior (not just its markup). Trigger when implementing data flows, dialogs, forms, toggles, or permission gating under frontend/src/v2/.
 ---
 
-# RomM v2 — Architecture Patterns
+# RomM v2: Architecture Patterns
 
-How v2 features behave. Each pattern has one canonical mechanism — don't invent a parallel one.
+How v2 features behave. Each pattern has one canonical mechanism; don't invent a parallel one.
 
 ---
 
@@ -13,7 +13,7 @@ How v2 features behave. Each pattern has one canonical mechanism — don't inven
 
 - Single channel: `useSnackbar()` (`src/v2/composables/useSnackbar/`) with `success | error | warning | info` methods. It emits `snackbarShow`; `NotificationHost` stacks toasts.
 - Something the user should still find after the toast fades (a background upload finished, a long job failed) passes `{ persist: true }`, or `{ persist: { body, link } }` with an in-app path: it also lands in their notifications.
-- The **call site** decides what's significant — no global "wrap-every-promise" magic.
+- The **call site** decides what's significant; no global "wrap-every-promise" magic.
 - Field validation errors render **in-place**, never as a snackbar.
 - Auth (401/403) is handled by the axios interceptor; no per-call-site checks.
 - Successful critical actions → `success` snackbar. Routine optimistic toggles → silent on success, `error` on failure.
@@ -21,22 +21,22 @@ How v2 features behave. Each pattern has one canonical mechanism — don't inven
 
 ## B. Loading states
 
-- **Skeleton** (`RSkeletonBlock`) for first load of a view with known layout — mimic the real shape so the layout doesn't jump.
+- **Skeleton** (`RSkeletonBlock`) for first load of a view with known layout; mimic the real shape so the layout doesn't jump.
 - **Inline `:loading` on the control itself** for in-flight actions (`RBtn`, `RTextField`, `RSelect`). Never put an external `RSpinner` next to a button that has its own `loading`.
 - **`RSpinner` inline** when what's loading isn't a control with native `loading`.
-- **Determinate progress (%)**: use `RProgressLinear` — no raw `v-progress-linear`.
+- **Determinate progress (%)**: use `RProgressLinear`, not raw `v-progress-linear`.
 - **Empty state ≠ loading state.** Zero items is its own UX (message, illustration, optional CTA).
 - **Optimistic toggles show no spinner**: flip immediately; on failure, revert + snackbar.
-- `RBtn` ships `loadingDebounce={200}` — actions resolving under 200ms never paint a spinner; loading→not-loading is immediate.
+- `RBtn` ships `loadingDebounce={200}`: actions resolving under 200ms never paint a spinner; loading→not-loading is immediate.
 
 ## C. Real-time updates (Socket.IO)
 
 - One instance: `src/services/socket.ts`. Never `new io()`.
 - Subscriptions go through `useSocketEvent(event, handler)` (`src/v2/composables/useSocketEvent/`): typed payload, auto-connect by default (`{ connect: false }` opts out), cleanup via `onScopeDispose` so it also works inside a store action or a manual `effectScope`. No v2 code wires `socket.on/off` by hand; don't start.
 - **Ownership rule:** state living only while a view is open → subscribe in the view; state that must outlive a view (e.g. scan badge in navbar) → a Pinia store subscribes globally and views just read.
-- Reconnection is socket.io's job — don't roll your own.
+- Reconnection is socket.io's job; don't roll your own.
 
-## D. UI state persistence — three layers
+## D. UI state persistence: three layers
 
 1. **Persistent preferences** (theme, language, gallery defaults like `groupRoms`/`boxartStyle`, Home panels) → `useUISettings` (localStorage + backend `user.ui_settings` two-way sync). Add a key to `UI_SETTINGS_KEYS`.
 2. **Bookmarkable session state** (active filters, search query, sort, current tab in detail views) → **URL query params**. Anyone copying the link reproduces what they see. **Active gallery filter must be in URL.**
@@ -84,7 +84,7 @@ Name a helper for what it touches: `syncCachedRom`, not `syncRom`, when it updat
 - **`useCan(action, scope?)`** returns `ComputedRef<boolean>`, reactive to `permissionsStore.grants`. Without scope: "can do this anywhere."
 - `stores/permissions.ts` holds normalised grants, hydrated from `authStore.user.role` via the role-map (`installPermissionsHydration()` in `AppLayout`); a future `/permissions/me` will replace it.
 - **`v-if`** to hide options a user shouldn't see; **`:disabled`** with tooltip when the option must be visible but blocked.
-- **Backend is source of truth** — frontend is a UX hint. Never bypass with inline `user.role === "..."`. All grants are pre-loaded (no `useCanAsync`).
+- **Backend is source of truth**: frontend is a UX hint. Never bypass with inline `user.role === "..."`. All grants are pre-loaded (no `useCanAsync`).
 
 ## H. Destructive confirmations
 
@@ -95,7 +95,7 @@ Three friction levels:
 
 Common rules:
 
-- All destruction goes through a dialog — no silent destructive action.
+- All destruction goes through a dialog; no silent destructive action.
 - Confirm button is danger-toned; **focus starts on Cancel**; Enter cancels.
 - Success → success snackbar or navigate away, dialog closes. Error → error snackbar, dialog stays open. During action → confirm shows `:loading`, cancel disabled.
 - The destructive control respects `useCan(action, scope)`.

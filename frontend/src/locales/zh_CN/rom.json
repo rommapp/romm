@@ -257,6 +257,7 @@
   "media-miximage": "混合图像",
   "media-miximage-v2": "混合图像（v2）",
   "media-physical": "实体媒介",
+  "media-physical-disc": "实体媒介（光盘 {n}）",
   "media-title-screen": "标题画面",
   "media-video": "视频",
   "media-video-normalized": "视频（标准化）",

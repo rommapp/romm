@@ -537,7 +537,7 @@ def test_delete_manual_file_tolerates_missing_disk_file(
     game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
-    # Don't create the file on disk — DELETE should still drop the row.
+    # Don't create the file on disk; DELETE should still drop the row.
     manual_file = db_rom_handler.add_rom_file(
         RomFile(
             rom_id=game_folder_rom.id,
