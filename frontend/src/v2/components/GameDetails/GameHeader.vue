@@ -189,14 +189,17 @@ watch(
 .r-v2-det-header__title--logo {
   display: flex;
 }
-/* Logos ship at wildly different aspect ratios, so cap both axes. */
+/* Logos vary wildly in aspect ratio, so cap both axes. A rim in the theme's
+   text colour keeps dark lettering readable on dark, and light on light. */
 .r-v2-det-header__logo {
+  --logo-rim: color-mix(in srgb, var(--r-color-fg) 50%, transparent);
   display: block;
   max-width: min(100%, 420px);
   max-height: 128px;
   object-fit: contain;
   object-position: left bottom;
-  filter: drop-shadow(0 2px 12px var(--r-color-title-shadow));
+  filter: drop-shadow(0 0 1px var(--logo-rim))
+    drop-shadow(0 0 1px var(--logo-rim));
 }
 
 .r-v2-det-header__meta {
