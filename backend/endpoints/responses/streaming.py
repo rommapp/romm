@@ -20,6 +20,14 @@ class SlotCapabilitiesSchema(BaseModel):
     has_manual_disc_swap: bool
 
 
+class StateCoreSchema(BaseModel):
+    """Which RetroArch states the container's core can load."""
+
+    expected: str
+    # Whether a state with no recorded core, the default's, matches too.
+    default_matches: bool
+
+
 class StreamingContainerSchema(BaseModel):
     """One platform the fleet can stream, as the play screen needs it."""
 
@@ -34,6 +42,9 @@ class StreamingContainerSchema(BaseModel):
     # Which foreign-emulator picks the broker declares it can import, empty when it
     # declares none or cannot be asked.
     import_kinds: list[Literal["save", "state"]]
+    # The picker's core filter, the same one hydration applies. None filters
+    # nothing: not RetroArch, or the broker can't say which core runs.
+    state_core: StateCoreSchema | None = None
 
 
 class StreamingConfigSchema(BaseModel):

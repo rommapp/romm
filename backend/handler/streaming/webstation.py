@@ -34,7 +34,7 @@ from fastapi import HTTPException
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
-from handler.streaming.protocol import ACK_TIMEOUT
+from handler.streaming.protocol import ACK_TIMEOUT, WebstationProtocol
 from logger.logger import log
 from models.user import User
 
@@ -152,6 +152,49 @@ def import_spec(
     if spec is not None:
         _import_spec_cache[cache_key] = (time.monotonic() + _IMPORT_SPEC_TTL, spec)
     return spec
+
+
+# Short-lived, 404s included: a broker upgrade adds the route and a restart can
+# change the default, and neither should need a RomM restart to be seen.
+_DEFAULT_CORE_TTL = 60.0
+_default_core_cache: dict[tuple[str, str], tuple[float, str | None]] = {}
+
+
+def default_core(container: ResolvedContainer) -> str | None:
+    """The core this broker boots for the platform when config names none.
+
+    None when it can't say: not RetroArch, a broker too old, or unreachable.
+    """
+    protocol = container.protocol
+    if (
+        not isinstance(protocol, WebstationProtocol)
+        or container.emulator.lower() != "retroarch"
+    ):
+        return None
+    cache_key = (container.key, container.platform)
+    cached = _default_core_cache.get(cache_key)
+    if cached is not None and cached[0] > time.monotonic():
+        return cached[1]
+    path = protocol.api_route(
+        f"/retroarch/cores?platform={quote(container.platform, safe='')}"
+    )
+    core: str | None = None
+    try:
+        resp = broker.request(container, path, method="GET", timeout=ACK_TIMEOUT)
+    except urllib.error.HTTPError as exc:
+        code = exc.code
+        exc.close()
+        if code != 404:
+            log.warning("retroarch cores check failed with HTTP %d", code)
+            return None
+    except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError):
+        log.warning("retroarch cores check unreachable, not filtering states by core")
+        return None
+    else:
+        value = resp.get("default") if isinstance(resp, dict) else None
+        core = value if isinstance(value, str) and value else None
+    _default_core_cache[cache_key] = (time.monotonic() + _DEFAULT_CORE_TTL, core)
+    return core
 
 
 def activate(

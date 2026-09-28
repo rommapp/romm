@@ -25,6 +25,7 @@ export type UserStateSchema = {
     created_at: string;
     updated_at: string;
     emulator: (string | null);
+    core?: (string | null);
     is_public?: boolean;
     screenshot: (ScreenshotSchema | null);
     username: string;

@@ -240,6 +240,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0139_rom_user_pinned_media.py", "rom_user"),
         ("0140_device_save_sync_baseline.py", "device_save_sync"),
         ("0141_device_capabilities.py", "devices"),
+        ("0142_state_core.py", "states"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -289,6 +290,22 @@ def test_the_device_capabilities_revision_reverses_and_replays():
             migration.upgrade()
 
         assert _schema_of(connection, "devices") == before
+
+
+def test_the_state_core_revision_reverses_and_replays():
+    migration = _load_migration("0142_state_core.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "states")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "states", "core")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "states") == before
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:

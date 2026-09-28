@@ -352,21 +352,34 @@ const selectedSave = computed<SaveSchema | null>(
     newestSave.value,
 );
 
+// A RetroArch state only loads in the core that wrote it. One stored before
+// cores were recorded has none, and was written by the platform's default.
+function coreMatches(state: UserStateSchema): boolean {
+  const core = container.value?.state_core;
+  if (!core) return true;
+  return state.core === core.expected || (!state.core && core.default_matches);
+}
+
 const nativeStreamStates = computed<UserStateSchema[]>(() => {
   const emulator = emulatorKey(container.value?.emulator);
   if (!rom.value || !emulator) return [];
   return (rom.value.all_user_states ?? []).filter(
-    (s) => emulatorKey(s.emulator) === emulator,
+    (s) => emulatorKey(s.emulator) === emulator && coreMatches(s),
   );
 });
 
 // Every state regardless of which emulator wrote it where the broker declares
-// it can import one, which routes a foreign pick through the import path.
-const pickableStates = computed<UserStateSchema[]>(() =>
-  container.value?.import_kinds.includes("state")
-    ? (rom.value?.all_user_states ?? [])
-    : nativeStreamStates.value,
-);
+// it can import one, which routes a foreign pick through the import path. This
+// emulator's own states still have to match the core, which the import refuses.
+const pickableStates = computed<UserStateSchema[]>(() => {
+  if (!rom.value) return [];
+  if (!container.value?.import_kinds.includes("state"))
+    return nativeStreamStates.value;
+  const emulator = emulatorKey(container.value?.emulator);
+  return (rom.value.all_user_states ?? []).filter(
+    (s) => emulatorKey(s.emulator) !== emulator || coreMatches(s),
+  );
+});
 
 // Every capture is kept, so a heavy save-stater ends up with a history the
 // horizontal strip buries. Grid and list trade thumbnail size for how many

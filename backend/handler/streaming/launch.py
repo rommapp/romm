@@ -147,6 +147,11 @@ async def run_launch(
         if container.core and isinstance(launch_result, dict)
         else None
     )
+    state_core = await asyncio.to_thread(
+        states.state_core_for,
+        container,
+        launch_result if isinstance(launch_result, dict) else None,
+    )
     await stamp_launched(
         session_key, session, host=host, core=container.core, core_tier=core_tier
     )
@@ -164,7 +169,9 @@ async def run_launch(
             # The pick is the newest capture, which the save archive carries.
             resume_pushed = resume_on_activate
         else:
-            resume_pushed = await states.push_resume_state(container, resume_state)
+            resume_pushed = await states.push_resume_state(
+                container, resume_state, state_core
+            )
 
     await push_to_user(
         session.get("user_id"),
@@ -188,7 +195,7 @@ async def run_launch(
             rom.id,
             container,
             resume_pushed=resume_pushed,
-            core_tier=core_tier,
+            state_core=state_core,
         )
     )
 
