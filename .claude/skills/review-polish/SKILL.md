@@ -21,7 +21,7 @@ fmt && trunk check` comes last of all, so nothing lands unformatted. If
 
 ## A. Comments and docstrings: the most-corrected thing in this repo
 
-`CLAUDE.md` already says keep comments short, don't restate the code, don't
+`AGENTS.md` already says keep comments short, don't restate the code, don't
 explain a change. In practice contributions still ship multi-paragraph
 rationale, and it gets cut. Cut it yourself.
 
