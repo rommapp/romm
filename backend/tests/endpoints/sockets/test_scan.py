@@ -2845,9 +2845,12 @@ class TestIdentifyRomEmitsNewFlag:
     """Clients bump live game counts off `is_new`, so a rescan of an existing
     rom must not report it as new."""
 
-    @pytest.mark.parametrize("existing, is_new", [(False, True), (True, False)])
+    @pytest.mark.parametrize(
+        "case, is_new",
+        [("new", True), ("existing", False), ("reassociated", False)],
+    )
     async def test_scanning_rom_payload_flags_new_roms(
-        self, mocker, identify_harness, existing, is_new
+        self, mocker, identify_harness, case, is_new
     ):
         dumped = Mock(model_dump=Mock(side_effect=lambda **_: {"id": 1}))
         mocker.patch.object(
@@ -2855,8 +2858,14 @@ class TestIdentifyRomEmitsNewFlag:
             "SimpleRomSchema",
             Mock(from_orm_with_factory=Mock(return_value=dumped)),
         )
+        # Identified, so both the post-scan and the post-download emits fire.
+        identify_harness.db.add_rom.return_value.is_identified = True
+        if case == "reassociated":
+            missing = identify_harness.existing_rom()
+            identify_harness.db.get_matching_missing_rom.return_value = missing
+            identify_harness.db.update_rom.return_value = missing
         socket_manager = AsyncMock()
-        rom = identify_harness.existing_rom() if existing else None
+        rom = identify_harness.existing_rom() if case == "existing" else None
 
         await identify_harness.run(
             rom, ScanType.COMPLETE, [], socket_manager=socket_manager
@@ -2867,8 +2876,7 @@ class TestIdentifyRomEmitsNewFlag:
             for call in socket_manager.emit.await_args_list
             if call.args[0] == "scan:scanning_rom"
         ]
-        assert payloads
-        assert all(payload["is_new"] is is_new for payload in payloads)
+        assert [payload["is_new"] for payload in payloads] == [is_new, is_new]
 
 
 class TestIdentifyRomIncrementalHashing:

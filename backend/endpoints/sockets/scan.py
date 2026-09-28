@@ -64,6 +64,7 @@ from handler.redis_handler import (
 )
 from handler.rom_files import loaded_rom_files, refresh_rom_files
 from handler.scan_handler import (
+    SCANNING_ROM_EXCLUDE,
     MetadataSource,
     ScanType,
     build_hashless_fs_rom,
@@ -360,17 +361,6 @@ async def _identify_firmware(
     db_firmware_handler.add_firmware(scanned_firmware)
 
     return 1 if not firmware else 0
-
-
-# `files` is left out so a scan does not ship every file row of every rom.
-SCANNING_ROM_EXCLUDE: Final = {
-    "created_at",
-    "updated_at",
-    "rom_user",
-    "last_modified",
-    "files",
-    "sibling_roms",
-}
 
 
 async def _emit_scanning_rom(

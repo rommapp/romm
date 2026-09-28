@@ -2,7 +2,7 @@ import asyncio
 import enum
 import functools
 from collections.abc import Callable
-from typing import Any, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 import pydash
 import socketio
@@ -537,6 +537,17 @@ async def resolve_steam_rom(
     return await meta_steam_handler.get_rom(fs_name, platform_slug)
 
 
+# `files` is left out so a scan does not ship every file row of every rom.
+SCANNING_ROM_EXCLUDE: Final = {
+    "created_at",
+    "updated_at",
+    "rom_user",
+    "last_modified",
+    "files",
+    "sibling_roms",
+}
+
+
 async def scan_rom(
     scan_type: ScanType,
     platform: Platform,
@@ -741,14 +752,7 @@ async def scan_rom(
             "scan:scanning_rom",
             {
                 **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                    exclude={
-                        "created_at",
-                        "updated_at",
-                        "rom_user",
-                        "last_modified",
-                        "files",
-                        "sibling_roms",
-                    }
+                    exclude=SCANNING_ROM_EXCLUDE
                 ),
                 "is_new": newly_added,
             },

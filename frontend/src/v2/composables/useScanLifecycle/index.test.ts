@@ -4,9 +4,11 @@ import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import type { ScanStats } from "@/__generated__";
+import platformApi from "@/services/api/platform";
 import taskApi from "@/services/api/task";
 import storeCollections from "@/stores/collections";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { installScanLifecycle } from "./index";
@@ -55,6 +57,9 @@ const getTaskStatus = vi.mocked(taskApi.getTaskStatus);
 
 /** Drain pending microtasks so the reconcile's promise chain has settled. */
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** Outlast the handler's 100ms batching debounce for `scan:scanning_rom`. */
+const drainRomBatch = () => new Promise((resolve) => setTimeout(resolve, 150));
 
 function makeStats(overrides: Partial<ScanStats> = {}): ScanStats {
   return {
@@ -186,10 +191,88 @@ describe("installScanLifecycle", () => {
     fire("scan:scanning_rom", scanningRom(2, false));
     fire("scan:scanning_rom", scanningRom(3, true));
     fire("scan:scanning_rom", scanningRom(3, true));
-    // Drain the handler's 100ms batching debounce.
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await drainRomBatch();
 
     expect(platforms.get(1)?.rom_count).toBe(3);
+  });
+
+  it("counts a new ROM once when a platform event rebuilds the live log", async () => {
+    install();
+    const platforms = storePlatforms();
+    platforms.set([{ id: 1, rom_count: 2 } as Platform]);
+    const newRom = {
+      id: 3,
+      platform_id: 1,
+      platform_fs_slug: "n64",
+      platform_display_name: "Nintendo 64",
+      is_new: true,
+    };
+
+    fire("scan:scanning_rom", newRom);
+    await drainRomBatch();
+    fire("scan:scanning_platform", {
+      id: 1,
+      name: "Nintendo 64",
+      display_name: "Nintendo 64",
+      slug: "n64",
+      fs_slug: "n64",
+      is_identified: true,
+      new_firmware_count: 0,
+    });
+    fire("scan:scanning_rom", newRom);
+    await drainRomBatch();
+
+    expect(platforms.get(1)?.rom_count).toBe(3);
+  });
+
+  it("applies the last ROM batch before reconciling counts on scan:done", async () => {
+    vi.mocked(platformApi.getPlatforms).mockResolvedValueOnce({
+      data: [{ id: 1, rom_count: 3 }],
+    } as never);
+    install();
+    const platforms = storePlatforms();
+    platforms.set([{ id: 1, rom_count: 2 } as Platform]);
+
+    fire("scan:scanning_rom", {
+      id: 3,
+      platform_id: 1,
+      platform_fs_slug: "n64",
+      is_new: true,
+    });
+    fire("scan:done", makeStats());
+    await drainRomBatch();
+
+    expect(platforms.get(1)?.rom_count).toBe(3);
+  });
+
+  it("puts only the ROMs a scan added at the top of the recent list", async () => {
+    install();
+    const roms = storeRoms();
+    roms.setRecentRoms([{ id: 1, name: "Old" } as SimpleRom]);
+
+    fire("scan:scanning_rom", {
+      id: 1,
+      name: "Rescanned",
+      platform_id: 1,
+      platform_fs_slug: "n64",
+      is_new: false,
+    });
+    fire("scan:scanning_rom", {
+      id: 2,
+      platform_id: 1,
+      platform_fs_slug: "n64",
+      is_new: false,
+    });
+    fire("scan:scanning_rom", {
+      id: 3,
+      platform_id: 1,
+      platform_fs_slug: "n64",
+      is_new: true,
+    });
+    await drainRomBatch();
+
+    expect(roms.recentRoms.map((r) => r.id)).toEqual([3, 1]);
+    expect(roms.recentRoms[1].name).toBe("Rescanned");
   });
 
   it("reconciles with a running scan job on install", async () => {

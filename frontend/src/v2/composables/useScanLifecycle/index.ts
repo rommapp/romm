@@ -84,10 +84,8 @@ export function installScanLifecycle() {
         is_identified,
       });
 
-      // Surface brand-new platforms in the canonical platforms store the
-      // moment the scan reaches them; previously they only appeared after
-      // a manual page refresh. The socket payload is a partial (8 fields),
-      // so fetch the full PlatformSchema before adding it to the store.
+      // Surface brand-new platforms the moment the scan reaches them. The
+      // socket payload is a partial, so fetch the full PlatformSchema.
       if (!platformsStore.has(id)) {
         platformApi
           .getPlatform(id)
@@ -103,6 +101,9 @@ export function installScanLifecycle() {
   // ROM. Queue drains every 100ms; matches the v1 behavior. Stored
   // outside the handler so multiple events share the same queue + flush.
   const romUpdateQueue: ScanningRom[] = [];
+  // A new ROM emits several times, and the live log can be rebuilt between
+  // them by a platform event, so count it by id instead of by first sighting.
+  const countedNewRomIds = new Set<number>();
   const refreshGallery = debounce(
     () => {
       galleryRomsStore.invalidateWindows();
@@ -114,11 +115,25 @@ export function installScanLifecycle() {
   const processRomUpdates = debounce(() => {
     if (romUpdateQueue.length === 0) return;
     const updates = romUpdateQueue.splice(0, romUpdateQueue.length);
-    updates.forEach((rom) => {
-      // Keep the global "recent" list fresh so any view watching it
-      // (Home) reflects the new ROM at the top.
-      romsStore.removeFromRecent(rom);
-      romsStore.addToRecent(rom);
+    updates.forEach(({ is_new: isNew, ...rom }) => {
+      // Home's "recently added" row takes new ROMs at the top; a rescanned
+      // one is refreshed where it already sits.
+      if (isNew) {
+        romsStore.removeFromRecent(rom);
+        romsStore.addToRecent(rom);
+      } else if (romsStore.recentRoms.some((r) => r.id === rom.id)) {
+        romsStore.recentRoms = romsStore.recentRoms.map((r) =>
+          r.id === rom.id ? rom : r,
+        );
+      }
+
+      if (isNew && !countedNewRomIds.has(rom.id)) {
+        countedNewRomIds.add(rom.id);
+        // The gallery/nav getters gate on `rom_count > 0`, so this is what
+        // makes a freshly-scanned platform render mid-scan.
+        const storePlatform = platformsStore.get(rom.platform_id);
+        if (storePlatform) storePlatform.rom_count += 1;
+      }
 
       // If the user is currently looking at the gallery of the platform
       // being scanned, refresh from the server to preserve sorting/filtering.
@@ -161,12 +176,6 @@ export function installScanLifecycle() {
       } else {
         // Newest ROM first, same as platforms, so the most recent stays on top.
         scannedPlatform.roms.unshift(rom);
-        // Keep the canonical platforms store's count live for genuinely new
-        // ROMs: the gallery/nav getters gate on `rom_count > 0`, so this is
-        // what makes a freshly-scanned platform actually render mid-scan.
-        // A rescan also emits every existing ROM, which is already counted.
-        const storePlatform = platformsStore.get(rom.platform_id);
-        if (storePlatform && rom.is_new) storePlatform.rom_count += 1;
       }
     });
   }, 100);
@@ -189,6 +198,9 @@ export function installScanLifecycle() {
 
   useSocketEvent<ScanStats>("scan:done", (stats) => {
     markScanEnded();
+    // Apply the last ROM batch now, or its count bumps would land on the
+    // platforms refetched below.
+    processRomUpdates.flush();
     const startedHere = scanningStore.startedInThisTab;
     scanningStore.setScanStats(stats);
     scanningStore.setScanning(false);
