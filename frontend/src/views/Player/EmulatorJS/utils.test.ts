@@ -14,6 +14,7 @@ import {
   bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
   loadEmulatorJSSave,
+  patchNetplaySocketIo,
   pollSaveFiles,
   resolveScreenshot,
   saveSave,
@@ -103,6 +104,36 @@ function saveSettings(settings: Record<string, unknown>) {
     JSON.stringify({ controlSettings: {}, settings, cheats: [] }),
   );
 }
+
+describe("patchNetplaySocketIo", () => {
+  afterEach(() => {
+    delete window.io;
+  });
+
+  it("connects netplay over websocket on the mounted path", () => {
+    const io = vi.fn();
+    window.io = io;
+    patchNetplaySocketIo();
+
+    window.io("https://romm.example", { transports: ["polling", "websocket"] });
+
+    expect(io).toHaveBeenCalledWith("https://romm.example", {
+      path: "/netplay/socket.io",
+      transports: ["websocket"],
+    });
+  });
+
+  it("wraps the global only once", () => {
+    const io = vi.fn();
+    window.io = io;
+    patchNetplaySocketIo();
+    patchNetplaySocketIo();
+
+    window.io("https://romm.example");
+
+    expect(io).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("installEJSDefaultOptionsTrap", () => {
   beforeEach(() => {
