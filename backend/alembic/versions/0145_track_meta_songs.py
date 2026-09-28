@@ -1,7 +1,7 @@
 """key soundtrack tracks by song, so a file can hold several
 
-Revision ID: 0144_track_meta_songs
-Revises: 0143_sibling_platform_names
+Revision ID: 0145_track_meta_songs
+Revises: 0144_user_oidc_sub
 Create Date: 2026-09-28 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ from alembic import op
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0144_track_meta_songs"
-down_revision = "0143_sibling_platform_names"
+revision = "0145_track_meta_songs"
+down_revision = "0144_user_oidc_sub"
 branch_labels = None
 depends_on = None
 
