@@ -6,6 +6,7 @@ import router, { applyRouteTitle, ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
+import { makeDetailedRom } from "@/utils/rom.fixtures";
 
 const { getRom, stubView } = vi.hoisted(() => ({
   getRom: vi.fn(),
@@ -24,11 +25,7 @@ vi.mock("@/v2/layouts/AppLayout.vue", stubView);
 vi.mock("@/v2/views/GameDetails.vue", stubView);
 
 function makeRom(overrides: Partial<DetailedRom> = {}): DetailedRom {
-  return {
-    id: 1,
-    name: "Chrono Trigger",
-    ...overrides,
-  } as unknown as DetailedRom;
+  return makeDetailedRom({ name: "Chrono Trigger", ...overrides });
 }
 
 describe("route titles", () => {

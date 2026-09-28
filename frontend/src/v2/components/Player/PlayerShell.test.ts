@@ -1,6 +1,7 @@
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
+import { makeRom } from "@/utils/rom.fixtures";
 import PlayerShell from "./PlayerShell.vue";
 
 const mocks = vi.hoisted(() => ({ setStageActive: vi.fn() }));
@@ -21,7 +22,7 @@ vi.mock("@/v2/components/shared/GameCover.vue", () => ({
   default: { template: "<div class='game-cover' />" },
 }));
 
-const heroRom = { id: 1, platform_id: 2 } as unknown as SimpleRom;
+const heroRom = makeRom({ id: 1, platform_id: 2 });
 
 function mountShell(
   props: Partial<{
@@ -106,7 +107,7 @@ describe("PlayerShell", () => {
 
   it("disables the gallery link when the hero carries no platform", () => {
     const { toPlatform } = backLinks(
-      mountShell({ heroRom: { id: 1 } as unknown as SimpleRom }),
+      mountShell({ heroRom: makeRom({ id: 1 }) }),
     );
 
     expect(toPlatform.props("to")).toBeUndefined();

@@ -213,6 +213,26 @@ export default tseslint.config(
       "romm/no-layout-media-query": "error",
     },
   },
+  {
+    files: ["src/**/*.test.ts"],
+    ignores: [
+      "src/views/**",
+      "src/components/**",
+      "src/console/**",
+      "src/layouts/**",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "TSAsExpression[expression.type='TSAsExpression'][expression.typeAnnotation.type='TSUnknownKeyword'][typeAnnotation.typeName.name=/^(DetailedRom|SimpleRom)$/]",
+          message:
+            "Build ROM fixtures with makeRom or makeDetailedRom from @/utils/rom.fixtures instead of `as unknown as`.",
+        },
+      ],
+    },
+  },
   // Keep last: Prettier owns formatting, so this switches off every
   // stylistic rule the two tools would otherwise fight over.
   prettierConfig,

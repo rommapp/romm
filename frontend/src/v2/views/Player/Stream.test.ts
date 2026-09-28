@@ -5,6 +5,7 @@ import { defineComponent, type Slots, type VNodeChild } from "vue";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
+import { makeDetailedRom } from "@/utils/rom.fixtures";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
@@ -214,19 +215,18 @@ const ARCHIVES = [
 ];
 
 function romWith(saves: SaveSchema[], states: StateSchema[] = []): DetailedRom {
-  return {
+  return makeDetailedRom({
     id: 3,
     name: "Archer Maclean's 3D Pool (USA)",
     platform_slug: "gba",
-    platform_name: "Game Boy Advance",
     platform_display_name: "Game Boy Advance",
     fs_name: "Archer Maclean's 3D Pool (USA).gba",
     files: [],
     user_saves: saves,
-    all_user_states: states,
+    all_user_states: states.map((state) => ({ ...state, username: "admin" })),
     user_screenshots: [],
-    metadatum: {},
-  } as unknown as DetailedRom;
+    metadatum: {} as DetailedRom["metadatum"],
+  });
 }
 
 // The view listens on document and window, so a mount left standing would
