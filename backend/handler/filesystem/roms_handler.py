@@ -149,12 +149,15 @@ def category_matches(category: str, path_parts: list[str]) -> bool:
 
 
 def category_for_path_parts(path_parts_lower: list[str]) -> RomFileCategory | None:
-    """The file category a folder path implies, from its lowercased parts."""
+    """The file category of a folder, from its lowercased parts below the ROM root."""
+    # Only the top folder counts, so a dump's inner `content/game` never matches.
+    if not path_parts_lower:
+        return None
     return next(
         (
             category
             for category in RomFileCategory
-            if category_matches(category.value, path_parts_lower)
+            if category_matches(category.value, path_parts_lower[:1])
         ),
         None,
     )
@@ -515,6 +518,17 @@ class FSRomsHandler(FSHandler):
 
         return kept_roms
 
+    @staticmethod
+    def _folder_category(rom: Rom, rom_path: Path) -> RomFileCategory | None:
+        """The category a file's folder gives it, relative to the ROM's own root."""
+        rom_root = Path(rom.full_path)
+        rom_relative_parts = (
+            rom_path.relative_to(rom_root).parts
+            if rom_path.is_relative_to(rom_root)
+            else ()
+        )
+        return category_for_path_parts(list(map(str.lower, rom_relative_parts)))
+
     def _build_rom_file(
         self,
         rom: Rom,
@@ -526,10 +540,7 @@ class FSRomsHandler(FSHandler):
         archive_members: list[dict[str, Any]] | None = None,
     ) -> RomFile:
         abs_file_path = Path(self.base_path, rom_path, file_name)
-
-        matching_category = category_for_path_parts(
-            list(map(str.lower, rom_path.parts))
-        )
+        matching_category = self._folder_category(rom, rom_path)
 
         track_meta = None
         if matching_category == RomFileCategory.SOUNDTRACK:
@@ -732,6 +743,8 @@ class FSRomsHandler(FSHandler):
                         hashable=hashable_platform,
                     )
                 ):
+                    # Title id extraction below may settle a content category.
+                    row.category = self._folder_category(rom, rel_dir)
                     rom_files.append(row)
                     _record_title_id_source(abs_file_path, row)
                     continue
