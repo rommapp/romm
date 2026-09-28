@@ -432,7 +432,7 @@ class FSHandler:
         full_path = Path(normalized_path)
 
         try:
-            # Detect a symlink anywhere in the path, not just at the leaf —
+            # Detect a symlink anywhere in the path, not just at the leaf:
             # users may symlink an intermediate directory (e.g. the library
             # root) to point at storage on another filesystem.
             has_symlink_in_path = full_path.is_symlink()

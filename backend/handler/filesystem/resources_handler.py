@@ -1,10 +1,10 @@
 import asyncio
 import gzip
 import os
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, NamedTuple, cast
 
 import httpx2
 from anyio import Path as AnyioPath
@@ -142,6 +142,27 @@ def _trim_transparent_border(image_path: Path) -> Image.Image | None:
             return img.crop(bbox)
     except IMAGE_DECODE_ERRORS:
         return None
+
+
+class RecordedMedia(NamedTuple):
+    """A media file a provider metadata dict records a path for."""
+
+    media_type: MetadataMediaType
+    # The provider dict itself, or one of its later-disc entries.
+    owner: dict[str, Any]
+    key: str
+    url: str | None
+
+    @property
+    def path(self) -> str:
+        return cast(str, self.owner[self.key])
+
+
+class _PathClaim(NamedTuple):
+    """Which provider a shared media path's file belongs to, and its source."""
+
+    provider: int
+    url: str | None
 
 
 class FSResourcesHandler(FSHandler):
@@ -850,6 +871,106 @@ class FSResourcesHandler(FSHandler):
                     f"Unable to trim transparent border of {relative_path}: {str(exc)}"
                 )
 
+    @staticmethod
+    def recorded_media(
+        metadata: dict[str, Any], media_types: Iterable[MetadataMediaType]
+    ) -> list[RecordedMedia]:
+        """Every media file a provider metadata dict records a path for.
+
+        Args:
+            metadata: The provider dict. Beside each ``<type>_path`` and
+                ``<type>_url``, a ``<type>_extra_discs`` list holds a ``path``
+                and ``url`` per later disc.
+            media_types: The types to look for; one listed twice counts once.
+
+        Returns:
+            One entry per recorded file.
+        """
+        recorded: list[RecordedMedia] = []
+        for media_type in dict.fromkeys(media_types):
+            path_key = f"{media_type.value}_path"
+            if metadata.get(path_key):
+                recorded.append(
+                    RecordedMedia(
+                        media_type,
+                        metadata,
+                        path_key,
+                        metadata.get(f"{media_type.value}_url"),
+                    )
+                )
+            recorded += [
+                RecordedMedia(media_type, disc, "path", disc.get("url"))
+                for disc in metadata.get(f"{media_type.value}_extra_discs") or []
+                if disc.get("path")
+            ]
+        return recorded
+
+    async def remove_recorded_media(
+        self,
+        platform_id: int,
+        rom_id: int,
+        metadata: dict[str, Any],
+        media_types: Iterable[MetadataMediaType],
+    ) -> None:
+        """Delete the media files a provider dict records for a rom.
+
+        Args:
+            platform_id: The rom's platform.
+            rom_id: The rom.
+            metadata: The provider dict whose files go.
+            media_types: The types to delete.
+        """
+        for media in self.recorded_media(metadata, media_types):
+            try:
+                if media.owner is metadata:
+                    await self.remove_media_resources_path(
+                        platform_id, rom_id, media.media_type
+                    )
+                else:
+                    # A later disc shares its type's folder with other
+                    # providers' files, so only the disc's own file goes.
+                    await self.remove_file(media.path)
+            except FileNotFoundError:
+                pass
+
+    async def remove_stale_media(
+        self,
+        previous: Sequence[dict[str, Any] | None],
+        current: Sequence[dict[str, Any] | None],
+        media_types: Iterable[MetadataMediaType],
+    ) -> None:
+        """Delete stored media whose owner or source changed, so it is fetched again.
+
+        Args:
+            previous: Every provider's dict before the scan, highest priority first.
+            current: The same providers' dicts about to be stored, in that order.
+            media_types: The types to compare.
+        """
+        media_types = list(media_types)
+
+        def claims(dicts: Sequence[dict[str, Any] | None]) -> dict[str, _PathClaim]:
+            # A shared path holds the file of the first provider that records it.
+            owned: dict[str, _PathClaim] = {}
+            for provider, metadata in enumerate(dicts):
+                for media in self.recorded_media(metadata or {}, media_types):
+                    owned.setdefault(media.path, _PathClaim(provider, media.url))
+            return owned
+
+        after = claims(current)
+        stale = [
+            path
+            for path, before in claims(previous).items()
+            # A current claim without a URL keeps what its provider stored.
+            if (claim := after.get(path)) is None
+            or claim.provider != before.provider
+            or claim.url not in (None, before.url)
+        ]
+        for path in stale:
+            try:
+                await self.remove_file(path)
+            except FileNotFoundError:
+                pass
+
     async def store_metadata_media(
         self,
         metadata: dict[str, Any],
@@ -883,27 +1004,14 @@ class FSResourcesHandler(FSHandler):
                 await self._trim_logo(media_path)
             return stored
 
-        # Keyed by path key, so a media type listed twice is fetched once.
-        recorded: dict[str, tuple[MetadataMediaType, str | None]] = {}
-        for media_type in media_types:
-            path_key = f"{media_type.value}_path"
-            if metadata.get(path_key):
-                recorded[path_key] = (
-                    media_type,
-                    metadata.get(f"{media_type.value}_url"),
-                )
-
+        targets = self.recorded_media(metadata, media_types)
         stored = await gather_all(
-            *(
-                store(media_type, metadata[key], url)
-                for key, (media_type, url) in recorded.items()
-            )
+            *(store(media.media_type, media.path, media.url) for media in targets)
         )
-
-        missing = [key for key, ok in zip(recorded, stored, strict=True) if not ok]
-        for path_key in missing:
-            metadata[path_key] = None
-        return bool(missing)
+        for media, ok in zip(targets, stored, strict=True):
+            if not ok:
+                media.owner[media.key] = None
+        return not all(stored)
 
     async def remove_media_resources_path(
         self,

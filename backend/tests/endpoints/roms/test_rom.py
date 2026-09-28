@@ -1690,6 +1690,54 @@ class TestUpdateMetadataIDs:
         assert body["ss_id"] == MOCK_SS_ID
         assert get_rom_by_id_mock.called
 
+    @patch.object(FSResourcesHandler, "remove_file", new_callable=AsyncMock)
+    @patch.object(
+        FSResourcesHandler, "remove_media_resources_path", new_callable=AsyncMock
+    )
+    @patch(
+        "endpoints.roms.get_preferred_media_types",
+        return_value=[MetadataMediaType.PHYSICAL],
+    )
+    @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=MOCK_SS_ID))
+    def test_update_rom_ss_id_clears_later_disc_art(
+        self,
+        _get_rom_by_id_mock: AsyncMock,
+        _get_preferred_media_mock: AsyncMock,
+        remove_media_mock: AsyncMock,
+        remove_file_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A rematch deletes the old game's later-disc files but keeps the shared folder."""
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "ss_metadata": {
+                    "physical_path": None,
+                    "physical_extra_discs": [
+                        {
+                            "disc": 2,
+                            "url": "https://example.com/disc2.png",
+                            "path": f"roms/{rom.platform_id}/{rom.id}/physical/physical_disc2.png",
+                        }
+                    ],
+                }
+            },
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"ss_id": str(MOCK_SS_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        remove_media_mock.assert_not_awaited()
+        remove_file_mock.assert_awaited_once_with(
+            f"roms/{rom.platform_id}/{rom.id}/physical/physical_disc2.png"
+        )
+
     @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=MOCK_RA_ID))
     def test_update_rom_ra_id(
         self,

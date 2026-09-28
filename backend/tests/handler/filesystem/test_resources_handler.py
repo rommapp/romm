@@ -1309,6 +1309,245 @@ class TestStoreMetadataMedia:
             "http://example.com/fanart.png?ssid=user", "roms/1/1/fanart/fanart.png"
         )
 
+    @pytest.mark.asyncio
+    async def test_stores_every_extra_disc(self, handler: FSResourcesHandler):
+        metadata: dict[str, Any] = {
+            "physical_url": "http://example.com/disc1.png",
+            "physical_path": "roms/1/1/physical/physical.png",
+            "physical_extra_discs": [
+                {
+                    "disc": 2,
+                    "url": "http://example.com/disc2.png",
+                    "path": "roms/1/1/physical/physical_disc2.png",
+                },
+                {
+                    "disc": 3,
+                    "url": "http://example.com/disc3.png",
+                    "path": "roms/1/1/physical/physical_disc3.png",
+                },
+            ],
+        }
+
+        async def fake_store(_url: str, dest_path: str) -> bool:
+            return "disc3" not in dest_path
+
+        with patch.object(
+            handler, "store_media_file", side_effect=fake_store
+        ) as store_mock:
+            changed = await handler.store_metadata_media(
+                metadata,
+                [MetadataMediaType.PHYSICAL],
+                lambda url: f"{url}?ssid=user",
+            )
+
+        assert store_mock.await_count == 3
+        store_mock.assert_any_await(
+            "http://example.com/disc2.png?ssid=user",
+            "roms/1/1/physical/physical_disc2.png",
+        )
+        assert changed is True
+        assert metadata["physical_path"] == "roms/1/1/physical/physical.png"
+        discs = metadata["physical_extra_discs"]
+        assert discs[0]["path"] == "roms/1/1/physical/physical_disc2.png"
+        assert discs[1]["path"] is None
+        assert discs[1]["url"] == "http://example.com/disc3.png"
+
+    @pytest.mark.asyncio
+    async def test_skips_extra_discs_when_physical_is_not_preferred(
+        self, handler: FSResourcesHandler
+    ):
+        metadata = {
+            "physical_extra_discs": [
+                {
+                    "disc": 2,
+                    "url": "http://example.com/disc2.png",
+                    "path": "roms/1/1/physical/physical_disc2.png",
+                }
+            ],
+        }
+
+        with patch.object(handler, "store_media_file") as store_mock:
+            changed = await handler.store_metadata_media(
+                metadata, [MetadataMediaType.FANART]
+            )
+
+        assert changed is False
+        store_mock.assert_not_called()
+
+
+class TestRemoveStaleMedia:
+    """Stored media whose owner or source changed is deleted before a store."""
+
+    shared = "roms/1/1/physical/physical.png"
+    disc2 = "roms/1/1/physical/physical_disc2.png"
+
+    @pytest.fixture
+    def handler(self, tmp_path):
+        handler = FSResourcesHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    @staticmethod
+    def _write(tmp_path, rel: str) -> None:
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_bytes(b"art")
+
+    @classmethod
+    def _physical(cls, url: str | None) -> dict[str, Any]:
+        return {"physical_url": url, "physical_path": cls.shared}
+
+    async def _remove(
+        self,
+        handler: FSResourcesHandler,
+        previous: list[dict[str, Any] | None],
+        current: list[dict[str, Any] | None],
+    ) -> None:
+        await handler.remove_stale_media(
+            previous, current, [MetadataMediaType.PHYSICAL]
+        )
+
+    @pytest.mark.asyncio
+    async def test_removes_a_file_whose_url_changed(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        self._write(tmp_path, self.shared)
+
+        await self._remove(
+            handler,
+            [self._physical("http://ss/disc2.png")],
+            [self._physical("http://ss/disc1.png")],
+        )
+
+        assert not (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_keeps_a_file_whose_url_is_unchanged_or_unknown(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        self._write(tmp_path, self.shared)
+
+        await self._remove(
+            handler, [self._physical("http://ss/disc1.png")], [self._physical(None)]
+        )
+
+        assert (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_removes_a_dropped_disc(self, handler: FSResourcesHandler, tmp_path):
+        self._write(tmp_path, self.disc2)
+        previous = {
+            "physical_extra_discs": [
+                {"disc": 2, "url": "http://ss/disc2.png", "path": self.disc2}
+            ]
+        }
+
+        await self._remove(handler, [previous], [{"physical_extra_discs": []}])
+
+        assert not (tmp_path / self.disc2).exists()
+
+    @pytest.mark.asyncio
+    async def test_a_lower_priority_change_keeps_a_higher_ones_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        self._write(tmp_path, self.shared)
+        screenscraper = self._physical("http://ss/disc1.png")
+
+        await self._remove(
+            handler,
+            [screenscraper, self._physical("file://old.png")],
+            [screenscraper, self._physical("file://new.png")],
+        )
+
+        assert (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_removes_a_file_a_higher_priority_provider_takes_over(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # The file on disk is gamelist's, so ScreenScraper's new claim refetches it.
+        self._write(tmp_path, self.shared)
+        gamelist = self._physical("file://gamelist.png")
+
+        await self._remove(
+            handler,
+            [{}, gamelist],
+            [self._physical("http://ss/disc1.png"), gamelist],
+        )
+
+        assert not (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_removes_a_file_a_lower_priority_provider_takes_over(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        self._write(tmp_path, self.shared)
+        gamelist = self._physical("file://gamelist.png")
+
+        await self._remove(
+            handler,
+            [self._physical("http://ss/disc1.png"), gamelist],
+            [{}, gamelist],
+        )
+
+        assert not (tmp_path / self.shared).exists()
+
+
+class TestRemoveRecordedMedia:
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.mark.asyncio
+    async def test_removes_the_folder_of_a_top_level_path(
+        self, handler: FSResourcesHandler
+    ):
+        with (
+            patch.object(
+                handler, "remove_media_resources_path", new_callable=AsyncMock
+            ) as remove_dir,
+            patch.object(handler, "remove_file", new_callable=AsyncMock) as remove_file,
+        ):
+            await handler.remove_recorded_media(
+                1,
+                7,
+                {"fanart_path": "roms/1/7/fanart/fanart.png"},
+                [MetadataMediaType.FANART],
+            )
+
+        remove_dir.assert_awaited_once_with(1, 7, MetadataMediaType.FANART)
+        remove_file.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_removes_only_the_file_of_a_later_disc(
+        self, handler: FSResourcesHandler
+    ):
+        disc2 = "roms/1/7/physical/physical_disc2.png"
+        with (
+            patch.object(
+                handler, "remove_media_resources_path", new_callable=AsyncMock
+            ) as remove_dir,
+            patch.object(
+                handler,
+                "remove_file",
+                new_callable=AsyncMock,
+                side_effect=FileNotFoundError,
+            ) as remove_file,
+        ):
+            await handler.remove_recorded_media(
+                1,
+                7,
+                {
+                    "physical_path": None,
+                    "physical_extra_discs": [
+                        {"disc": 2, "url": "http://example.com/2.png", "path": disc2}
+                    ],
+                },
+                [MetadataMediaType.PHYSICAL],
+            )
+
+        remove_dir.assert_not_awaited()
+        remove_file.assert_awaited_once_with(disc2)
+
 
 class _FakeResponse:
     """Minimal stand-in for an httpx streaming response."""

@@ -198,7 +198,7 @@ async def test_scan_rom_complete_clears_unselected_metadata(
             newly_added=False,
         )
 
-    # IGDB and RA were unselected — their id and metadata must be cleared.
+    # IGDB and RA were unselected; their id and metadata must be cleared.
     assert result.igdb_id is None
     assert result.igdb_metadata == {}
     assert result.ra_id is None

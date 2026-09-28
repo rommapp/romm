@@ -257,6 +257,7 @@
   "media-miximage": "Kombinált kép",
   "media-miximage-v2": "Kombinált kép (v2)",
   "media-physical": "Fizikai adathordozó",
+  "media-physical-disc": "Fizikai adathordozó ({n}. lemez)",
   "media-title-screen": "Címképernyő",
   "media-video": "Videó",
   "media-video-normalized": "Videó (szabványosított)",
