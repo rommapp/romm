@@ -1,5 +1,6 @@
 import logging
 import os
+from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -729,6 +730,21 @@ def test_retired_folder_keys_exit_with_the_replacement(
     assert expected in critical()
 
 
+def test_default_firmware_folder_under_a_platform_first_layout_exits(
+    tmp_path: Path, critical: Callable[[], str]
+):
+    block = (
+        "  firmware_folder: bios\n"
+        '  structure:\n    default: "{platform}/roms/{game}"\n'
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        _write_filesystem_config(tmp_path, block)
+
+    assert excinfo.value.code == 3
+    assert 'firmware: "{platform}/bios"' in critical()
+
+
 @pytest.mark.parametrize(
     ("block", "rom_structure", "firmware_structure"),
     [
@@ -753,8 +769,7 @@ def test_retired_folder_keys_exit_with_the_replacement(
 def test_retired_folder_keys_are_ignored_when_they_change_nothing(
     tmp_path, mocker, block, rom_structure, firmware_structure
 ):
-    """Older releases wrote both keys with their defaults on every settings save,
-    so an upgraded config must still load."""
+    """A retired key that names the default folder or a declared layout is ignored."""
     warning = mocker.patch("config.config_manager.log.warning")
     config = _write_filesystem_config(tmp_path, block).get_config()
 

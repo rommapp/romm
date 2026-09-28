@@ -940,6 +940,12 @@ class ConfigManager:
         Ignoring one would relocate the library under the user, unless it names
         the default folder or the layout it maps to is already declared.
         """
+        structure = pydash.get(self._raw_config, "filesystem.structure")
+        declared = structure if isinstance(structure, dict) else {}
+        # A `{platform}/roms` library kept its firmware beside the roms too.
+        platform_first = str(declared.get(STRUCTURE_DEFAULT_KEY, "")).startswith(
+            "{platform}/"
+        )
         retired: dict[str, tuple[str, str, Callable[[str], str]]] = {
             "filesystem.roms_folder": (
                 STRUCTURE_DEFAULT_KEY,
@@ -949,17 +955,17 @@ class ConfigManager:
             "filesystem.firmware_folder": (
                 STRUCTURE_FIRMWARE_KEY,
                 DEFAULT_FIRMWARE_STRUCTURE,
-                lambda folder: f"{folder}/{{platform}}",
+                (
+                    (lambda folder: f"{{platform}}/{folder}")
+                    if platform_first
+                    else (lambda folder: f"{folder}/{{platform}}")
+                ),
             ),
         }
-        structure = pydash.get(self._raw_config, "filesystem.structure")
-        declared = structure if isinstance(structure, dict) else {}
         for key, (structure_key, default, to_template) in retired.items():
             folder = pydash.get(self._raw_config, key)
             if folder is None:
                 continue
-            # Older releases wrote both keys with their defaults on every settings
-            # save, so most upgraded configs carry them.
             if to_template(folder) == default or structure_key in declared:
                 log.warning(
                     f"config.yml sets {hl(key)}, which is no longer supported "
