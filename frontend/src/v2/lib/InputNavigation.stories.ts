@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
+import { useSpatialNav } from "@/v2/composables/useSpatialNav";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 
 // Pick an input in the toolbar: "Keyboard" / "Gamepad" show the focus rings;
 // "Gamepad" and "Live" drive the grid from a connected controller (D-pad moves, A clicks).
+// Up from the first row leaves the grid for the toolbar, as it reaches the top bar in the app.
 
 const TITLES = [
   "Super Metroid",
@@ -28,10 +30,15 @@ const meta: Meta = {
       const gridRoot = ref<HTMLElement | null>(null);
       const lastPicked = ref<string | null>(null);
       useWrapGridNav(gridRoot, { cellSelector: ".input-nav-cell" });
+      useSpatialNav().install();
       return { gridRoot, lastPicked, TITLES };
     },
     template: `
       <div style="display: grid; gap: 16px; max-width: 560px">
+        <div style="display: flex; gap: 8px">
+          <RBtn variant="text" @click="lastPicked = 'Home'">Home</RBtn>
+          <RBtn variant="text" @click="lastPicked = 'Search'">Search</RBtn>
+        </div>
         <div
           ref="gridRoot"
           style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px"

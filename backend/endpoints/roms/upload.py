@@ -451,6 +451,8 @@ async def upload_chunk(
             chunk_path.unlink()
         if isinstance(exc, HTTPException):
             raise
+        # A cancel that removed the directory mid-write gets the session's 404.
+        await _get_session(upload_id)
         log.error(
             f"Error writing chunk {chunk_index} for upload {upload_id}", exc_info=exc
         )
@@ -459,12 +461,12 @@ async def upload_chunk(
             detail="Error writing chunk to disk",
         ) from exc
 
-    # Atomically add chunk to set and update TTL
-    await async_cache.sadd(_chunks_key(upload_id), chunk_index)
-    await async_cache.expire(_chunks_key(upload_id), ROM_UPLOAD_TTL)
-
-    # Get current chunk count
-    received_count = await async_cache.scard(_chunks_key(upload_id))
+    # One transaction, so a dropped connection cannot leave the set without its TTL.
+    async with async_cache.pipeline() as pipe:
+        await pipe.sadd(_chunks_key(upload_id), chunk_index)
+        await pipe.expire(_chunks_key(upload_id), ROM_UPLOAD_TTL)
+        await pipe.scard(_chunks_key(upload_id))
+        *_, received_count = await pipe.execute()
 
     return {"received": received_count, "total": session["total_chunks"]}
 
@@ -526,7 +528,6 @@ async def complete_chunked_upload(
 
     total_chunks = session["total_chunks"]
 
-    # Atomically get received chunk count and members from Redis set
     received_count = await async_cache.scard(_chunks_key(upload_id))
 
     if received_count != total_chunks:
@@ -580,7 +581,8 @@ async def cancel_chunked_upload(
     session = json.loads(raw)
     _validate_session_owner(session, request.user.id)
 
-    await async_cache.delete(_session_key(upload_id))
-    await _cleanup_upload_state(upload_id)
+    # The session goes first, so a chunk PUT arriving mid-cancel is refused.
+    await async_cache.delete(_session_key(upload_id), _chunks_key(upload_id))
+    _cleanup_tmp(upload_id)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

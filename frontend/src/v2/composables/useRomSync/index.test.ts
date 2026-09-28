@@ -50,14 +50,14 @@ describe("useRomSync", () => {
     romsStore.recentRoms = [makeRom({ name: "old" })];
     romsStore.continuePlayingRoms = [makeRom({ name: "old" })];
     // Detailed-only fields have to survive a SimpleRom write.
-    romsStore.currentRom = makeRom({ summary: "detailed" }) as DetailedRom;
+    romsStore.cacheDetailedRom(makeRom({ summary: "detailed" }) as DetailedRom);
 
     useRomSync().syncCachedRom(makeRom({ name: "new" }));
 
     expect(gallery.getRomAt(3)?.name).toBe("new");
     expect(romsStore.recentRoms[0].name).toBe("new");
     expect(romsStore.continuePlayingRoms[0].name).toBe("new");
-    expect(romsStore.currentRom).toMatchObject({
+    expect(romsStore.getDetailedRom(makeRom().id)).toMatchObject({
       name: "new",
       summary: "detailed",
     });
@@ -258,7 +258,7 @@ describe("useRomSync", () => {
 
     it("applies the fresh rom to the open view and the caches", async () => {
       const romsStore = storeRoms();
-      romsStore.setCurrentRom(detailed(1));
+      romsStore.cacheDetailedRom(detailed(1));
       const gallery = seedGallery(makeRom());
       const fresh = detailed(1);
       getRom.mockResolvedValue({ data: fresh });
@@ -267,22 +267,22 @@ describe("useRomSync", () => {
 
       expect(getRom).toHaveBeenCalledWith({ romId: 1 });
       expect(result).toBe(fresh);
-      expect(romsStore.currentRom).toStrictEqual(fresh);
+      expect(romsStore.getDetailedRom(1)).toStrictEqual(fresh);
       expect(gallery.getRomById(1)).toStrictEqual(fresh);
     });
 
     it("leaves a rom the user opened meanwhile alone", async () => {
       const romsStore = storeRoms();
-      romsStore.setCurrentRom(detailed(1));
+      romsStore.cacheDetailedRom(detailed(1));
       let resolve: (value: unknown) => void = () => {};
       getRom.mockReturnValue(new Promise((r) => (resolve = r)));
 
       const pending = useRomSync().refetchRom(1);
-      romsStore.setCurrentRom(detailed(2));
+      romsStore.cacheDetailedRom(detailed(2));
       resolve({ data: detailed(1) });
       await pending;
 
-      expect(romsStore.currentRom?.id).toBe(2);
+      expect(romsStore.getDetailedRom(2)).toStrictEqual(detailed(2));
     });
 
     it("reports a failed request rather than throwing at the caller", async () => {

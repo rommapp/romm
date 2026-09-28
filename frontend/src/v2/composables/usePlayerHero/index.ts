@@ -1,4 +1,4 @@
-// usePlayerHero — the seed / hero / title block a v2 player view opens with.
+// usePlayerHero: the seed / hero / title block a v2 player view opens with.
 // A player refetches the full ROM on mount, so the seed is synchronous: it puts
 // a cover in the DOM before that resolves, which is what the shared-element
 // morph from the gallery or details cover pairs with on entry.
@@ -25,10 +25,8 @@ export function usePlayerHero(rom: Ref<DetailedRom | null>): {
 
   const romId = Number(route.params.rom);
 
-  const seededRom = storeRoms().currentRom;
-  if (seededRom?.id === romId) {
-    rom.value = seededRom;
-  }
+  const seededRom = storeRoms().getDetailedRom(romId);
+  if (seededRom) rom.value = seededRom;
   const heroSeed = shallowRef<SimpleRom | null>(null);
   if (!rom.value) {
     heroSeed.value = storeGalleryRoms().getRomById(romId);
@@ -53,7 +51,7 @@ export function usePlayerHero(rom: Ref<DetailedRom | null>): {
       "",
   );
 
-  // Background art keeps the plain 2D cover — a blurred disc or cartridge
+  // Background art keeps the plain 2D cover: a blurred disc or cartridge
   // reads poorly as a full-bleed backdrop.
   watch(
     () => {

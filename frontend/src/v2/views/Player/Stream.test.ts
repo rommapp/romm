@@ -68,7 +68,7 @@ vi.mock("@/stores/playing", () => ({
 }));
 
 vi.mock("@/stores/roms", () => ({
-  default: () => ({ currentRom: null }),
+  default: () => ({ getDetailedRom: () => null }),
 }));
 
 vi.mock("@/v2/stores/galleryRoms", () => ({

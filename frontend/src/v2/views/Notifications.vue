@@ -10,6 +10,7 @@ import NotificationChannelsSection from "@/v2/components/Notifications/Notificat
 import NotificationInbox from "@/v2/components/Notifications/NotificationInbox.vue";
 import SendNotificationSection from "@/v2/components/Notifications/SendNotificationSection.vue";
 import { useCan } from "@/v2/composables/useCan";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 type Tab = "inbox" | "channels" | "send";
 
@@ -54,9 +55,7 @@ const tab = computed<Tab | null>(() => {
 const tabModel = computed<string>({
   get: () => tab.value ?? "send",
   set: (id) => {
-    void router.replace({
-      query: { ...route.query, tab: id === "inbox" ? undefined : id },
-    });
+    syncQueryParam(router, "tab", id === "inbox" ? undefined : id);
   },
 });
 </script>

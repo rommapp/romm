@@ -3,6 +3,7 @@
 import { uniqBy } from "lodash";
 import { onScopeDispose, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
 import {
   hasPendingAssets,
   syncPendingAssets,
@@ -11,8 +12,8 @@ import {
   type SyncedAsset,
 } from "@/services/pending-asset";
 import storePlaying from "@/stores/playing";
-import storeRoms from "@/stores/roms";
 import { useRomSync } from "@/v2/composables/useRomSync";
+import { romIdFromRoute } from "@/v2/composables/useRouteRom";
 import { useServerConnection } from "@/v2/composables/useServerConnection";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -63,7 +64,7 @@ async function exclusively(run: () => Promise<void>): Promise<boolean> {
 
 export function installPendingAssetSync() {
   const playingStore = storePlaying();
-  const romsStore = storeRoms();
+  const route = useRoute();
   const snackbar = useSnackbar();
   const { t } = useI18n();
   const { isOffline } = useServerConnection();
@@ -109,8 +110,8 @@ export function installPendingAssetSync() {
 
   // An asset that just landed is one the open details view is showing stale.
   async function refresh(synced: SyncedAsset[]) {
-    const current = romsStore.currentRom?.id;
-    if (current && synced.some((asset) => asset.romId === current)) {
+    const current = romIdFromRoute(route);
+    if (current !== null && synced.some((asset) => asset.romId === current)) {
       await refetchRom(current);
     }
   }

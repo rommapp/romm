@@ -155,10 +155,55 @@ def test_largest_member_hashing_terminates_switches_before_the_member():
         patch.object(subprocess, "run", return_value=listing),
         patch.object(subprocess, "Popen", popen),
     ):
-        assert archives._process_largest_7z_member(Path("/fake/game.7z"), MagicMock())
+        assert archives.hash_largest_7z_member(Path("/fake/game.7z"), MagicMock())
 
     command = popen.call_args[0][0]
     assert command[-2:] == ["--", "-x"]
+
+
+class TestStalledExtractorIsKilled:
+    """A read of a stalled extractor's stdout blocks, so the clock check
+    between chunks never runs; the deadline has to kill the process."""
+
+    @pytest.fixture
+    def stalling_7zz(self, tmp_path, monkeypatch):
+        script = tmp_path / "7zz"
+        script.write_text("#!/bin/sh\nprintf abc\nexec sleep 30\n")
+        script.chmod(0o755)
+        monkeypatch.setattr(archives, "SEVEN_ZIP_PATH", str(script))
+        monkeypatch.setattr(archives, "SEVEN_ZIP_TIMEOUT", 1)
+        listing = MagicMock(stdout=_fake_7z_listing_sized([("game.iso", 10)]))
+        with patch.object(subprocess, "run", return_value=listing):
+            yield
+
+    @pytest.mark.usefixtures("stalling_7zz")
+    def test_member_streaming_raises(self):
+        start = time.monotonic()
+        with pytest.raises(archives.ArchiveReadError, match="timed out"):
+            for _name, _size, chunks in archives.read_7z_archive_files(
+                Path("/fake.7z"), [], []
+            ):
+                list(chunks)
+        assert time.monotonic() - start < 10
+
+    @pytest.mark.usefixtures("stalling_7zz")
+    def test_largest_member_hashing_fails(self):
+        start = time.monotonic()
+        assert not archives._process_largest_7z_member(
+            Path("/fake/game.7z"), MagicMock()
+        )
+        assert time.monotonic() - start < 10
+
+    @pytest.mark.usefixtures("stalling_7zz")
+    def test_largest_member_extraction_leaves_no_file(self, tmp_path):
+        dest = tmp_path / "out"
+        dest.mkdir()
+        start = time.monotonic()
+        assert (
+            archives.extract_largest_archive_member(Path("/fake/game.7z"), dest) is None
+        )
+        assert time.monotonic() - start < 10
+        assert not any(dest.iterdir())
 
 
 class TestExtractLargestArchiveMember:

@@ -39,7 +39,7 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 | **UI Library**       | Vuetify 3.9.2 (Material Design), v1 only     |
 | **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only |
 | **State Management** | Pinia 3.0.1 (18 stores)                      |
-| **Routing**          | Vue Router 4.3.2                             |
+| **Routing**          | Vue Router 5.3.1                             |
 | **HTTP Client**      | Axios 1.15.0                                 |
 | **i18n**             | vue-i18n 11.1.10 (17 languages)              |
 | **Real-time**        | Socket.IO Client 4.7.5                       |
