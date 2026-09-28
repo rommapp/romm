@@ -334,8 +334,8 @@ export function useGalleryVirtualItems(opts: Options) {
 
     // List layout — one virtual item per ROM position. The view template
     // resolves each row via `getRomAt(position)` and renders skeleton vs real
-    // inside the same kind. Group-by-letter in list mode is deferred (see
-    // CLAUDE.md §X — list-mode MVP first).
+    // inside the same kind. Group-by-letter in list mode is deferred
+    // (list-mode MVP first).
     if (opts.layout.value === "list") {
       if (opts.loadingInitial.value && opts.total.value === 0) {
         // Bootstrap phase — placeholder rows give the scroller a shape while

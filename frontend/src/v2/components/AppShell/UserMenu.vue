@@ -62,7 +62,7 @@ const avatarSrc = computed(() =>
 
 const isAdmin = useCan("app.admin");
 // `library.scan` is an editor-up capability, so it stands in for
-// "editor or admin" without an inline role check (see CLAUDE.md §VI.G).
+// "editor or admin" without an inline role check (see the `frontend-v2-patterns` skill).
 const canSeeChangelog = useCan("library.scan");
 
 const canSeeProfile = computed(
@@ -323,7 +323,7 @@ async function onLogout() {
 
     <!-- About is visible to everyone; Changelog is gated to editor+ (it
            surfaces librarian-oriented release notes). Both remain dialogs
-           (no dedicated views) — see CLAUDE.md. -->
+           (no dedicated views). -->
     <RMenuItem
       icon="mdi-help-circle-outline"
       :label="t('common.about')"
