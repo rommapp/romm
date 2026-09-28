@@ -3,33 +3,40 @@
 // Used by every index view (PlatformsIndex, CollectionsIndex, Search,
 // Settings — future). Pass `count` for the default RTag pill; use the
 // `#count` slot when you want richer content (icon, custom tone, etc).
-// Default slot sits at the end of the header (filters, actions, etc.).
+// The `#prepend` slot sits left of the title (back button, icon);
+// default slot sits at the end of the header (filters, actions, etc.).
 //
 // No divider here — when used as a gallery hero (Search), the gallery
 // shell paints the divider between hero and toolbar so the three
 // gallery views (Platform / Collection / Search) share one separator
 // regardless of which header sits above it.
 import { RTag } from "@v2/lib";
+import { useAnimatedNumber } from "@/v2/composables/useAnimatedNumber";
 
 defineOptions({ inheritAttrs: false });
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     title: string;
     count?: number | string | null;
   }>(),
   { count: null },
 );
+
+// A numeric count rolls up to its value; a string one (a range, a label) is
+// printed as it comes.
+const countText = useAnimatedNumber(() => props.count);
 </script>
 
 <template>
   <header v-bind="$attrs" class="page-header">
     <div class="page-header__title-wrap">
+      <slot name="prepend" />
       <h1 class="page-header__title">
         {{ title }}
       </h1>
       <slot name="count">
-        <RTag v-if="count != null" :text="count" />
+        <RTag v-if="countText != null" :text="countText" />
       </slot>
     </div>
     <slot />

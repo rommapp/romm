@@ -106,7 +106,7 @@ function diffHidden(
 
 emitter?.on("showGroupFormDialog", async (group) => {
   editingId.value = group?.id ?? null;
-  isSystem.value = group?.is_system ?? false;
+  isSystem.value = group?.system_key != null;
   name.value = group?.name ?? "";
   description.value = group?.description ?? "";
   isDefault.value = group?.is_default ?? false;
@@ -190,6 +190,7 @@ async function save() {
     icon="mdi-shield-lock-outline"
     :width="720"
     scroll-content
+    cancelable
   >
     <template #header>
       <span class="r-v2-group-dialog__title">
@@ -294,8 +295,6 @@ async function save() {
       </div>
     </template>
     <template #footer>
-      <RBtn variant="text" @click="show = false">{{ t("common.cancel") }}</RBtn>
-      <div style="flex: 1" />
       <RBtn
         variant="flat"
         color="primary"

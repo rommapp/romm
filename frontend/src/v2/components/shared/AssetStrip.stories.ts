@@ -160,6 +160,46 @@ export const ManyStatesOverflow: Story = {
   }),
 };
 
+// Grid and list: a long save-state history, where the horizontal strip
+// buries the older entries behind a scroll.
+export const ManyStatesGrid: Story = {
+  name: "States \u00b7 30 (grid layout)",
+  render: () => ({
+    components: { AssetStrip },
+    setup() {
+      const states = manyStates(30);
+      const selectedId = ref<number | null>(states[0].id);
+      return {
+        states,
+        selectedId,
+        onSelect: (a: StateSchema) => (selectedId.value = a.id),
+      };
+    },
+    template: `
+      <AssetStrip :assets="states" type="state" :selected-id="selectedId" layout="grid" @select="onSelect" />
+    `,
+  }),
+};
+
+export const ManyStatesList: Story = {
+  name: "States \u00b7 30 (list layout)",
+  render: () => ({
+    components: { AssetStrip },
+    setup() {
+      const states = manyStates(30);
+      const selectedId = ref<number | null>(states[0].id);
+      return {
+        states,
+        selectedId,
+        onSelect: (a: StateSchema) => (selectedId.value = a.id),
+      };
+    },
+    template: `
+      <AssetStrip :assets="states" type="state" :selected-id="selectedId" layout="list" @select="onSelect" />
+    `,
+  }),
+};
+
 // States that never had a screenshot taken — gradient fallback with
 // the file icon. Still readable; the row doesn't feel broken.
 export const StatesNoScreenshots: Story = {
@@ -257,6 +297,77 @@ export const EmptyStates: Story = {
     components: { AssetStrip },
     template: `
       <AssetStrip :assets="[]" type="state" :selected-id="null" />
+    `,
+  }),
+};
+
+// States from another emulator stay listed, dimmed, but cannot be picked.
+export const IncompatibleStates: Story = {
+  name: "States · 6, half from another emulator",
+  render: () => ({
+    components: { AssetStrip },
+    setup() {
+      const states = manyStates(6).map((state, i) => ({
+        ...state,
+        emulator: i % 2 === 0 ? "snes9x" : "builtin",
+      }));
+      const selectedId = ref<number | null>(states[0].id);
+      const disabledReason = (asset: { emulator?: string | null }) =>
+        asset.emulator === "snes9x"
+          ? null
+          : `Saved with ${asset.emulator}, which the selected core cannot load.`;
+      return {
+        states,
+        selectedId,
+        disabledReason,
+        onSelect: (a: StateSchema) => (selectedId.value = a.id),
+      };
+    },
+    template: `
+      <AssetStrip
+        :assets="states"
+        type="state"
+        :selected-id="selectedId"
+        :disabled-reason="disabledReason"
+        @select="onSelect"
+      />
+    `,
+  }),
+};
+
+// One collapsible mini grid per core. The core that cannot load starts
+// closed and its tiles are greyed out when opened.
+export const GroupedByCore: Story = {
+  name: "States · grouped by core",
+  render: () => ({
+    components: { AssetStrip },
+    setup() {
+      const states = manyStates(9).map((state, i) => ({
+        ...state,
+        emulator: i % 3 === 0 ? "snes9x" : i % 3 === 1 ? "builtin" : null,
+      }));
+      const selectedId = ref<number | null>(states[0].id);
+      const disabledReason = (asset: { emulator?: string | null }) =>
+        asset.emulator === "builtin"
+          ? "Saved with builtin, which the selected core cannot load."
+          : null;
+      return {
+        states,
+        selectedId,
+        disabledReason,
+        onSelect: (a: StateSchema) => (selectedId.value = a.id),
+      };
+    },
+    template: `
+      <AssetStrip
+        :assets="states"
+        type="state"
+        layout="flow"
+        group-by="emulator"
+        :selected-id="selectedId"
+        :disabled-reason="disabledReason"
+        @select="onSelect"
+      />
     `,
   }),
 };

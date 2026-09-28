@@ -11,6 +11,7 @@
 // rendered beneath the silhouette so the data isn't lost.
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { GamepadSnapshot } from "./types";
 
 defineOptions({ inheritAttrs: false });
@@ -18,6 +19,8 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps<{
   pad: GamepadSnapshot;
 }>();
+
+const { t } = useI18n();
 
 const EMPTY_BTN = { pressed: false, value: 0 } as const;
 
@@ -251,7 +254,9 @@ function magnitude(x: number, y: number) {
 
     <!-- Extra buttons (anything past the standard 17) -->
     <div v-if="extras.length" class="r-v2-pad__extras">
-      <div class="r-v2-pad__extras-title">Extra buttons</div>
+      <div class="r-v2-pad__extras-title">
+        {{ t("settings.controller-debug-extra-buttons") }}
+      </div>
       <div class="r-v2-pad__extras-grid">
         <div
           v-for="b in extras"

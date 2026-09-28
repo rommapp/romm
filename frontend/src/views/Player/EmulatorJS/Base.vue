@@ -20,7 +20,7 @@ import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
-import { installIOSFullscreenShim } from "./utils";
+import { exitEmulatorOnce, installIOSFullscreenShim } from "./utils";
 
 const { t } = useI18n();
 const { xs, mdAndUp, smAndDown } = useDisplay();
@@ -66,7 +66,7 @@ async function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {
     romApi.updateUserRomProps({
       romId: rom.value.id,
-      data: rom.value.rom_user,
+      data: {},
       updateLastPlayed: true,
     });
   }
@@ -272,7 +272,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(async () => {
-  window.EJS_emulator?.callEvent("exit");
+  exitEmulatorOnce();
   removeIOSFullscreenShim.value?.();
   removeIOSFullscreenShim.value = null;
   emitter?.off("saveSelected", selectSave);
@@ -629,6 +629,7 @@ function openCacheDialog() {
           :state="selectedState"
           :save="selectedSave"
           :bios="selectedFirmware"
+          :firmware="firmwareOptions"
           :core="selectedCore"
           :disc="selectedDisc"
         />

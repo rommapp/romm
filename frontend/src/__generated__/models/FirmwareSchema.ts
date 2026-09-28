@@ -4,6 +4,7 @@
 /* eslint-disable */
 export type FirmwareSchema = {
     id: number;
+    platform_id: number;
     file_name: string;
     file_name_no_tags: string;
     file_name_no_ext: string;

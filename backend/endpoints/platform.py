@@ -9,6 +9,7 @@ from decorators.auth import protected_route
 from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from handler.audit_handler import AuditTarget, changed_fields, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
@@ -21,11 +22,11 @@ from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.permission import PermAction, PermEntity
 from models.platform import (
     CUSTOM_NAME_MAX_LENGTH,
     DESCRIPTION_MAX_LENGTH,
-    Platform,
 )
 from utils.platforms import get_filesystem_platforms, get_supported_platforms
 from utils.router import APIRouter
@@ -54,9 +55,14 @@ async def add_platform(
         log.info(f"Detected platform: {hl(fs_slug)}")
 
     scanned_platform = await scan_platform(fs_slug, [fs_slug])
-    return PlatformSchema.model_validate(
-        db_platform_handler.add_platform(scanned_platform)
+    platform = db_platform_handler.add_platform(scanned_platform)
+    record(
+        AuditAction.PLATFORM_CREATE,
+        request,
+        AuditTarget.of_platform(platform),
+        {"fs_slug": fs_slug},
     )
+    return PlatformSchema.model_validate(platform)
 
 
 @protected_route(router.get, "", [Scope.PLATFORMS_READ])
@@ -88,11 +94,9 @@ def get_platform_identifiers(
     """Retrieve platform identifiers."""
 
     perms = get_permissions(request)
-    platforms = db_platform_handler.get_platforms(
-        only_fields=[Platform.id],
+    return db_platform_handler.get_platform_ids(
         hidden_platform_ids=perms.hidden_platform_ids,
     )
-    return [p.id for p in platforms]
 
 
 @protected_route(router.get, "/supported", [Scope.PLATFORMS_READ])
@@ -161,11 +165,22 @@ async def update_platform(
         raise PlatformNotFoundInDatabaseException(id)
     assert_platform_visible(request, platform_db)
 
+    submitted = {"custom_name": custom_name, "description": description}
+    changed = changed_fields(
+        platform_db, {k: v for k, v in submitted.items() if v is not None}, submitted
+    )
     if custom_name is not None:
         platform_db.custom_name = custom_name
     if description is not None:
         platform_db.description = description
     platform_db = db_platform_handler.add_platform(platform_db)
+    if changed:
+        record(
+            AuditAction.PLATFORM_EDIT,
+            request,
+            AuditTarget.of_platform(platform_db),
+            {"changed": changed},
+        )
 
     return PlatformSchema.model_validate(platform_db)
 
@@ -193,3 +208,9 @@ async def delete_platform(
         f"Deleting {hl(platform.name, color=BLUE)} [{hl(platform.fs_slug)}] from database"
     )
     db_platform_handler.delete_platform(id)
+    record(
+        AuditAction.PLATFORM_DELETE,
+        request,
+        AuditTarget.of_platform(platform),
+        {"fs_slug": platform.fs_slug},
+    )

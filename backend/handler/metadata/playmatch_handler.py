@@ -1,14 +1,16 @@
 import asyncio
 import json
+from collections.abc import Iterable
 from enum import Enum
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, Literal, NotRequired, TypedDict, TypeIs, get_args
 
-import httpx
+import httpx2
 import yarl
-from fastapi import HTTPException, status
+from fastapi import status
 
+from adapters.services.response_validation import parse_response
 from config import PLAYMATCH_API_ENABLED, PLAYMATCH_API_URL
-from handler.metadata.base_handler import MetadataHandler
+from handler.metadata.base_handler import MetadataHandler, unavailable
 from logger.logger import log
 from models.rom import Rom, RomFile
 from utils import get_version
@@ -52,9 +54,13 @@ PLAYMATCH_TAG_TO_ATTR: Final[dict[str, str]] = {
 
 # Rom attrs the scan handler actually consumes from a Playmatch lookup.
 # Other tags exist only for outbound suggestions.
-PLAYMATCH_LOOKUP_ROM_ATTRS: frozenset[str] = frozenset(
-    {"igdb_id", "moby_id", "ss_id", "launchbox_id", "sgdb_id"}
-)
+PlaymatchLookupAttr = Literal["igdb_id", "moby_id", "ss_id", "launchbox_id", "sgdb_id"]
+PLAYMATCH_LOOKUP_ROM_ATTRS: Final = frozenset(get_args(PlaymatchLookupAttr))
+
+
+def _is_lookup_attr(attr: str | None) -> TypeIs[PlaymatchLookupAttr]:
+    return attr in PLAYMATCH_LOOKUP_ROM_ATTRS
+
 
 # MetadataSource values (StrEnum) for which Playmatch can return ids. Typed as
 # strings so this module stays free of scan_handler imports. EmuReady and
@@ -62,6 +68,21 @@ PLAYMATCH_LOOKUP_ROM_ATTRS: frozenset[str] = frozenset(
 PLAYMATCH_SUPPORTED_SOURCES: frozenset[str] = frozenset(
     {"igdb", "moby", "ss", "launchbox", "sgdb"}
 )
+
+
+def _select_lookup_file(files: Iterable[RomFile]) -> RomFile | None:
+    """The single file a ROM is identified by: the biggest top-level one, which
+    is how Hasheous and ScreenScraper choose theirs.
+
+    Equally sized files break the tie on path, so a two-disc set resolves to
+    disc 1. The scanner walks the filesystem unsorted, so without that two
+    machines scanning the same library ask about different files.
+    """
+    return min(
+        (file for file in files if file.file_size_bytes > 0 and file.is_top_level),
+        key=lambda file: (-file.file_size_bytes, file.full_path),
+        default=None,
+    )
 
 
 class GameMatchType(str, Enum):
@@ -103,7 +124,7 @@ class PlaymatchHandler(MetadataHandler):
     Handler for [Playmatch](https://github.com/RetroRealm/playmatch), a service for matching ROMs by Hashes.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_url = PLAYMATCH_API_URL
         self.identify_url = f"{self.base_url}/identify/ids"
         self.healthcheck_url = f"{self.base_url}/health"
@@ -134,7 +155,7 @@ class PlaymatchHandler(MetadataHandler):
 
         return True
 
-    async def _request(self, url: str, query: dict) -> dict:
+    async def _request(self, url: str, query: dict[str, Any]) -> dict[str, Any]:
         """
         Sends a Request to Playmatch API.
 
@@ -168,15 +189,18 @@ class PlaymatchHandler(MetadataHandler):
                     str(url_with_query), headers=headers, timeout=60
                 )
                 res.raise_for_status()
-                return res.json()
+                return (
+                    parse_response(dict[str, Any], res.content, source="Playmatch")
+                    or {}
+                )
             except (
-                httpx.HTTPStatusError,
-                httpx.ConnectError,
-                httpx.ReadTimeout,
+                httpx2.HTTPStatusError,
+                httpx2.ConnectError,
+                httpx2.ReadTimeout,
             ) as exc:
                 if (
                     attempt == 0
-                    and isinstance(exc, httpx.HTTPStatusError)
+                    and isinstance(exc, httpx2.HTTPStatusError)
                     and exc.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
                 ):
                     log.warning("Playmatch: rate limit hit, retrying after 2s")
@@ -185,10 +209,7 @@ class PlaymatchHandler(MetadataHandler):
                 log.warning(
                     "Connection error: can't connect to Playmatch", exc_info=True
                 )
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Can't connect to Playmatch, check your internet connection",
-                ) from exc
+                raise unavailable("Playmatch") from exc
             except json.JSONDecodeError as exc:
                 log.error("Error decoding JSON response from Playmatch: %s", exc)
                 return {}
@@ -221,22 +242,30 @@ class PlaymatchHandler(MetadataHandler):
         if not self.is_enabled():
             return fallback_rom
 
-        first_file = next(
-            (file for file in files if file.file_size_bytes > 0),
-            None,
-        )
-        if first_file is None:
+        match_file = _select_lookup_file(files)
+        if match_file is None:
+            return fallback_rom
+
+        hashes = match_file.lookup_hashes
+
+        # Folder ROM members carry generic names (a Wii U title's 00000005.app),
+        # so name and size alone match an unrelated game.
+        if not any(hashes) and match_file.full_path != match_file.rom.full_path:
+            log.debug(
+                "Skipping Playmatch lookup for %s: no hashes to identify it by",
+                match_file.full_path,
+            )
             return fallback_rom
 
         try:
             response = await self._request(
                 self.identify_url,
                 {
-                    "fileName": first_file.file_name,
-                    "fileSize": first_file.file_size_bytes,
-                    "md5": first_file.md5_hash,
-                    "sha1": first_file.sha1_hash,
-                    "crc": first_file.crc_hash,
+                    "fileName": match_file.file_name,
+                    "fileSize": match_file.file_size_bytes,
+                    "md5": hashes.md5,
+                    "sha1": hashes.sha1,
+                    "crc": hashes.crc,
                 },
             )
         except Exception as exc:
@@ -262,12 +291,12 @@ class PlaymatchHandler(MetadataHandler):
                 continue
 
             attr = PLAYMATCH_TAG_TO_ATTR.get(provider_name.upper())
-            if not attr or attr not in PLAYMATCH_LOOKUP_ROM_ATTRS:
+            if not _is_lookup_attr(attr):
                 continue
 
             try:
                 parsed_id = int(provider_game_id)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 log.debug(
                     "Playmatch returned non-int ID for %s: %r",
                     provider_name,
@@ -276,7 +305,7 @@ class PlaymatchHandler(MetadataHandler):
                 continue
 
             log.debug("Playmatch found %s match with id: %s", provider_name, parsed_id)
-            result[attr] = parsed_id  # trunk-ignore(mypy/literal-required)
+            result[attr] = parsed_id
 
         return result
 
@@ -302,27 +331,21 @@ class PlaymatchHandler(MetadataHandler):
             if not mappings:
                 return
 
-            first_file = next(
-                (f for f in rom.files if f.file_size_bytes > 0),
-                None,
-            )
-            if first_file is not None:
-                md5 = first_file.md5_hash
-                sha1 = first_file.sha1_hash
-                file_name = first_file.file_name
-                file_size: int | None = first_file.file_size_bytes
-            else:
-                md5 = rom.md5_hash
-                sha1 = rom.sha1_hash
-                file_name = rom.fs_name
-                file_size = rom.fs_size_bytes or None
+            # A suggestion writes a hash-to-game mapping into a public index.
+            # With no file to take one from, the ROM-level hash is a composite
+            # spanning every file or archive member, so there is nothing here
+            # worth contributing.
+            match_file = _select_lookup_file(rom.files)
+            if match_file is None:
+                return
 
+            hashes = match_file.lookup_hashes
             payload = {
-                "md5": md5,
-                "sha1": sha1,
+                "md5": hashes.md5,
+                "sha1": hashes.sha1,
                 "sha256": None,
-                "fileName": file_name,
-                "fileSize": file_size,
+                "fileName": match_file.file_name,
+                "fileSize": match_file.file_size_bytes,
                 "mappings": mappings,
             }
 

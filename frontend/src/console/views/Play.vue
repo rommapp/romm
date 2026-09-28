@@ -12,10 +12,7 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import type {
-  Body_add_state_api_states_post as AddStateInput,
-  FirmwareSchema,
-} from "@/__generated__";
+import type { FirmwareSchema } from "@/__generated__";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
@@ -35,8 +32,13 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
-import { buildFormInput } from "@/utils/formData";
+import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import {
+  buildStateFormData,
+  resolveScreenshot,
+} from "@/views/Player/EmulatorJS/utils";
+import {
+  bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
   invalidateEmulatorJSRomCacheIfRenamed,
 } from "@/views/Player/EmulatorJS/utils";
@@ -230,14 +232,9 @@ async function uploadState(
   screenshotFile: ArrayBuffer,
 ) {
   if (!romRef.value) return;
-  const filename = `${romRef.value.fs_name_no_ext.trim()} [${new Date()
-    .toISOString()
-    .replace(/[:.]/g, "-")
-    .replace("T", " ")
-    .replace("Z", "")}]`;
-
   try {
     const stateApi = await import("@/services/api/state");
+    const filename = stateApi.sessionStateName(romRef.value, new Date());
 
     const uploadedStates = await stateApi.default.uploadStates({
       rom: romRef.value,
@@ -450,6 +447,7 @@ async function boot() {
   window.EJS_gameUrl = getDownloadPath({
     rom: rom,
     fileIDs: validDiscId ? [validDiscId] : [],
+    purpose: "play",
   });
 
   // BIOS selection persistence
@@ -470,8 +468,10 @@ async function boot() {
     window.EJS_biosUrl = bios
       ? `/api/firmware/${bios.id}/content/${bios.file_name}`
       : "";
+    window.EJS_externalFiles = firmwareExternalFiles(core, firmware);
   } catch {
     window.EJS_biosUrl = "";
+    window.EJS_externalFiles = {};
   }
 
   window.EJS_player = "#game";
@@ -530,20 +530,14 @@ async function boot() {
   // Set up EmulatorJS callbacks
   window.EJS_onSaveState = async function ({
     state: stateFile,
-    screenshot: screenshotFile,
+    screenshot: emulatorScreenshot,
   }: {
     state: ArrayBuffer;
-    screenshot: ArrayBuffer;
+    screenshot?: ArrayBuffer;
   }) {
+    const screenshotFile = await resolveScreenshot(emulatorScreenshot);
     try {
-      const formData = buildFormInput<AddStateInput>([
-        ["stateFile", new Blob([stateFile]), "state.save"],
-        [
-          "screenshotFile",
-          new Blob([screenshotFile], { type: "image/png" }),
-          "screenshot.png",
-        ],
-      ]);
+      const formData = buildStateFormData(stateFile, screenshotFile);
 
       await api.post("/states", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -645,20 +639,8 @@ async function boot() {
           if (!resp.ok) throw new Error("Failed to fetch save");
           const buf = new Uint8Array(await resp.arrayBuffer());
           try {
-            const FS = gameManager.FS;
-            const path = gameManager.getSaveFilePath();
-            // Ensure dirs
-            const segs = path.split("/");
-            let accum = "";
-            for (let i = 0; i < segs.length - 1; i++) {
-              if (!segs[i]) continue;
-              accum += "/" + segs[i];
-              if (!FS.analyzePath(accum).exists) FS.mkdir(accum);
-            }
-            if (FS.analyzePath(path).exists) FS.unlink(path);
-            FS.writeFile(path, buf);
-            gameManager.loadSaveFiles?.();
-            console.info("[ConsolePlay] Loaded server save into path", path);
+            bootEmulatorJSSave(buf);
+            console.info("[ConsolePlay] Loaded server save");
           } catch (err) {
             console.warn("[ConsolePlay] Failed writing save file", err);
           }

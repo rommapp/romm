@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // AppNav — the top navigation. Logo on the left, centred tab pill of
 // content destinations (Home / Platforms / Collections / Search), and
-// a right cluster of utility chrome (scanning indicator, user menu).
+// a right cluster of utility chrome (scanning indicator, the mini player on
+// phones, user menu).
 // Highlighting is derived from `route.path`
 // rather than route names so gallery subroutes (e.g. /rom/:id) still
 // light up the Home tab.
@@ -10,15 +11,19 @@
 // destinations — they live in the user menu's Library group, keeping the
 // primary nav focused on browsing destinations.
 import { RSliderBtnGroup, RImg } from "@v2/lib";
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
+import NowPlayingPill from "@/v2/components/Soundtrack/NowPlayingPill.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useNavDestinations } from "@/v2/composables/useNavDestinations";
+import { useNavGlass } from "@/v2/composables/useNavGlass";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+const { smAndDown } = useBreakpoint();
 
 // Primary destinations + active-tab logic shared with BottomNav.
 const { destinations: tabs, activeId: activeTab } = useNavDestinations();
@@ -29,11 +34,12 @@ const { destinations: tabs, activeId: activeTab } = useNavDestinations();
 // blur is **static** on the pseudo, with only `opacity` transitioning
 // — transitioning `backdrop-filter` directly kept the blur layer alive
 // and any hover repaint nearby would flash it.
-const scrolled = ref(false);
-const SCROLL_THRESHOLD = 4;
+const { innerScrolled, innerGlass, handoff, threshold } = useNavGlass();
+const windowScrolled = ref(false);
+const scrolled = computed(() => windowScrolled.value || innerScrolled.value);
 
 function onScroll() {
-  scrolled.value = window.scrollY > SCROLL_THRESHOLD;
+  windowScrolled.value = window.scrollY > threshold;
 }
 
 onMounted(() => {
@@ -47,7 +53,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="r-v2-nav-bar" :class="{ 'r-v2-nav-bar--scrolled': scrolled }">
+  <header
+    class="r-v2-nav-bar"
+    :class="{
+      'r-v2-nav-bar--scrolled': scrolled,
+      'r-v2-nav-bar--instant': handoff,
+      'r-v2-nav-bar--glass-below': innerGlass,
+    }"
+  >
     <nav class="r-v2-nav">
       <router-link to="/" class="r-v2-nav__logo" :aria-label="t('common.home')">
         <RImg
@@ -77,6 +90,7 @@ onBeforeUnmount(() => {
 
       <div class="r-v2-nav__right">
         <ScanningIndicator />
+        <NowPlayingPill v-if="smAndDown" />
         <UserMenu />
       </div>
     </nav>
@@ -108,8 +122,8 @@ onBeforeUnmount(() => {
   content: "";
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--r-color-bg) 78%, transparent);
-  backdrop-filter: blur(20px);
+  background: var(--r-glass-bar-bg);
+  backdrop-filter: var(--r-glass-bar-filter);
   opacity: 0;
   pointer-events: none;
   z-index: -1;
@@ -121,15 +135,16 @@ onBeforeUnmount(() => {
 .r-v2-nav-bar--scrolled {
   border-bottom-color: var(--r-color-border);
 }
-
-/* Reduced-motion / low-power: the glass is a backdrop-filter blur, which is
-   expensive on weak GPUs and, against the now-solid page background (the
-   backdrop art is dropped in this mode), just reads as murky. Swap it for a
-   flat opaque surface so the fixed bar stays a clean, solid strip as content
-   scrolls under it. */
-:global(html.r-v2-reduced-motion) .r-v2-nav-bar::before {
-  background: var(--r-color-bg);
-  backdrop-filter: none;
+/* The glass is handed to a pinned toolbar below and back (useNavGlass). */
+.r-v2-nav-bar--instant,
+.r-v2-nav-bar--instant::before {
+  transition: none;
+}
+.r-v2-nav-bar--glass-below {
+  border-bottom-color: transparent;
+}
+.r-v2-nav-bar--glass-below::before {
+  opacity: 0;
 }
 
 /* Grid `1fr auto 1fr` keeps the tab pill geometrically centred on the
@@ -211,5 +226,8 @@ html[data-bp~="sm-and-down"] .r-v2-nav__center {
    phones so the isotipo + user cluster have room. */
 html[data-bp~="xs"] .r-v2-nav__logo-word {
   display: none;
+}
+html[data-bp~="xs"] .r-v2-nav__right {
+  gap: var(--r-space-2);
 }
 </style>

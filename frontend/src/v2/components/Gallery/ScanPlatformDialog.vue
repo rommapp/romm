@@ -14,21 +14,18 @@ import {
   RAvatar,
   RBtn,
   RDialog,
-  RPlatformIcon,
   RSelect,
   RSwitch,
   RTooltip,
 } from "@v2/lib";
-import { useLocalStorage } from "@vueuse/core";
-import { storeToRefs } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import socket from "@/services/socket";
-import storeConfig from "@/stores/config";
-import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import type { Platform } from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
+import { useScanProviders } from "@/v2/composables/useScanProviders";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { type ScanType as SharedScanType } from "@/v2/types/scan";
 
 defineOptions({ inheritAttrs: false });
 
@@ -41,169 +38,31 @@ const emit = defineEmits<{
   (e: "update:modelValue", v: boolean): void;
 }>();
 
-const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
-const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
-  "scan.launchboxRemoteEnabled";
-const LOCAL_STORAGE_HASHEOUS_ENABLED_KEY = "scan.hasheousEnabled";
-const LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY = "scan.playmatchEnabled";
-
-// Hash-matcher providers — proxies that match files by hash and feed
-// IDs into the primary catalogs. Filtered out of the main provider
-// select and rendered as switch pills so users don't read them as
-// standalone sources.
-const HASH_MATCHER_KEYS = ["hasheous", "playmatch"] as const;
-
-const GENERAL_PROVIDER_KEYS = new Set([
-  "igdb",
-  "ss",
-  "moby",
-  "launchbox",
-  "flashpoint",
-  "gamelist",
-  "libretro",
-]);
-const SPECIFIC_PROVIDER_KEYS = new Set(["ra", "sgdb", "hltb"]);
-
 const { t } = useI18n();
 const snackbar = useSnackbar();
-const heartbeat = storeHeartbeat();
-const scanningStore = storeScanning();
-const configStore = storeConfig();
-const { config } = storeToRefs(configStore);
+const { startScan } = useScanTrigger();
 
-const calculateHashes = computed(() => !config.value.SKIP_HASH_CALCULATION);
-
-const metadataOptions = computed(() =>
-  heartbeat
-    .getMetadataOptionsByPriority()
-    .filter(
-      (option) =>
-        !(HASH_MATCHER_KEYS as readonly string[]).includes(option.value),
-    )
-    .map((option) => {
-      const requiresHashes = option.value === "ra";
-      const hashingDisabled = !calculateHashes.value;
-      let disabled = option.disabled;
-      if (hashingDisabled && requiresHashes) {
-        disabled = t("scan.requires-hashes", { source: option.name });
-      }
-      const name = option.value === "igdb" ? "IGDB" : option.name;
-      return { ...option, name, disabled };
-    }),
-);
-
-const generalProviders = computed<MetadataOption[]>(() =>
-  metadataOptions.value.filter((o) => GENERAL_PROVIDER_KEYS.has(o.value)),
-);
-const specificProviders = computed<MetadataOption[]>(() =>
-  metadataOptions.value.filter((o) => SPECIFIC_PROVIDER_KEYS.has(o.value)),
-);
-
-const storedMetadataSources = useLocalStorage(
-  LOCAL_STORAGE_METADATA_SOURCES_KEY,
-  [] as string[],
-);
-const launchboxRemoteEnabled = useLocalStorage(
-  LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY,
-  true,
-);
-const hasheousEnabled = useLocalStorage(
-  LOCAL_STORAGE_HASHEOUS_ENABLED_KEY,
-  true,
-);
-const playmatchEnabled = useLocalStorage(
-  LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY,
-  true,
-);
-
-const metadataSources = ref<MetadataOption[]>([]);
-const isLaunchboxSelected = computed(() =>
-  metadataSources.value.some((s) => s.value === "launchbox"),
-);
-
-watch(
-  [metadataOptions, storedMetadataSources],
-  ([newOptions, newStoredMetadataSources]) => {
-    const filteredMetadataSources = newOptions.filter(
-      (option) =>
-        newStoredMetadataSources.includes(option.value) && !option.disabled,
-    );
-    metadataSources.value =
-      filteredMetadataSources.length > 0
-        ? filteredMetadataSources
-        : heartbeat
-            .getEnabledMetadataOptions()
-            .filter(
-              (o) =>
-                !(HASH_MATCHER_KEYS as readonly string[]).includes(o.value),
-            );
-  },
-  { immediate: true },
-);
-
-interface HashMatcher {
-  value: "hasheous" | "playmatch";
-  name: string;
-  logo: string;
-  blockedReason: string | null;
-  switchEnabled: boolean;
-}
-
-const hashMatchers = computed<HashMatcher[]>(() => {
-  const sources = heartbeat.value.METADATA_SOURCES;
-  const igdbSelected = metadataSources.value.some((s) => s.value === "igdb");
-  const noHashes = !calculateHashes.value;
-
-  const hasheousAdmin = Boolean(sources?.HASHEOUS_API_ENABLED);
-  const playmatchAdmin = Boolean(sources?.PLAYMATCH_API_ENABLED);
-
-  return [
-    {
-      value: "hasheous",
-      name: "Hasheous",
-      logo: "/assets/scrappers/hasheous.png",
-      blockedReason: !hasheousAdmin
-        ? t("scan.disabled-by-admin")
-        : noHashes
-          ? t("scan.requires-hashes", { source: "Hasheous" })
-          : null,
-      switchEnabled: hasheousAdmin && !noHashes,
-    },
-    {
-      value: "playmatch",
-      name: "Playmatch",
-      logo: "/assets/scrappers/playmatch.png",
-      blockedReason: !playmatchAdmin
-        ? t("scan.disabled-by-admin")
-        : noHashes
-          ? t("scan.requires-hashes", { source: "Playmatch" })
-          : !igdbSelected
-            ? t(
-                "scan.playmatch-requires-igdb",
-                "Select IGDB to enable Playmatch.",
-              )
-            : null,
-      switchEnabled: playmatchAdmin && !noHashes && igdbSelected,
-    },
-  ];
-});
-
-function setHashMatcher(value: HashMatcher["value"], next: boolean) {
-  if (value === "hasheous") hasheousEnabled.value = next;
-  else playmatchEnabled.value = next;
-}
-
-function isHashMatcherOn(matcher: HashMatcher): boolean {
-  if (!matcher.switchEnabled) return false;
-  return matcher.value === "hasheous"
-    ? hasheousEnabled.value
-    : playmatchEnabled.value;
-}
+const {
+  calculateHashes,
+  generalProviders,
+  specificProviders,
+  metadataSources,
+  effectiveMetadataSources,
+  generalAllSelected,
+  specificAllSelected,
+  isLaunchboxSelected,
+  launchboxRemoteEnabled,
+  hashMatchers,
+  setHashMatcher,
+  isHashMatcherOn,
+  buildScanPayload,
+  persistSelection,
+} = useScanProviders();
 
 // Per-platform scan types — the full Scan-view list minus
 // `new_platforms` (a discovery scan against fs_slugs not yet in the
 // DB, which can't be scoped to a known platform).
-type ScanType = "quick" | "unmatched" | "update" | "hashes" | "complete";
+type ScanType = Exclude<SharedScanType, "new_platforms">;
 
 const scanOptions = computed<
   { title: string; subtitle: string; value: ScanType }[]
@@ -241,34 +100,22 @@ function closeDialog() {
 }
 
 function onScan() {
-  scanningStore.setScanning(true);
-  storedMetadataSources.value = metadataSources.value.map((s) => s.value);
+  const started = startScan([
+    {
+      platforms: [props.platform.id],
+      type: scanType.value,
+      ...buildScanPayload(),
+    },
+  ]);
+  if (!started) return;
+  persistSelection();
 
-  const apis = metadataSources.value.map((s) => s.value);
-  const hasheousMatcher = hashMatchers.value.find(
-    (m) => m.value === "hasheous",
+  snackbar.info(
+    t("scan.scanning-platform", { platform: props.platform.display_name }),
+    {
+      icon: "mdi-loading mdi-spin",
+    },
   );
-  if (hasheousMatcher && isHashMatcherOn(hasheousMatcher)) {
-    apis.push("hasheous");
-  }
-  const playmatchMatcher = hashMatchers.value.find(
-    (m) => m.value === "playmatch",
-  );
-
-  if (!socket.connected) socket.connect();
-  socket.emit("scan", {
-    platforms: [props.platform.id],
-    type: scanType.value,
-    apis,
-    launchbox_remote_enabled: launchboxRemoteEnabled.value,
-    playmatch_enabled: playmatchMatcher
-      ? isHashMatcherOn(playmatchMatcher)
-      : false,
-  });
-
-  snackbar.info(`Scanning ${props.platform.display_name}…`, {
-    icon: "mdi-loading mdi-spin",
-  });
   closeDialog();
 }
 </script>
@@ -278,6 +125,7 @@ function onScan() {
     :model-value="modelValue"
     icon="mdi-magnify-scan"
     :width="560"
+    cancelable
     @update:model-value="$emit('update:modelValue', $event)"
     @close="closeDialog"
   >
@@ -292,7 +140,7 @@ function onScan() {
              scan-launching surfaces read as siblings. -->
         <div class="r-v2-scan-plat__head">
           <div class="r-v2-scan-plat__icon">
-            <RPlatformIcon
+            <PlatformIcon
               :slug="platform.slug"
               :fs-slug="platform.fs_slug"
               :alt="platform.display_name"
@@ -334,6 +182,7 @@ function onScan() {
               chips
               chip-tone="plain"
               show-all-option
+              @update:all-selected="generalAllSelected = $event"
             >
               <template #chip="{ item }">
                 <RTooltip :text="item.raw.name" location="bottom">
@@ -421,6 +270,7 @@ function onScan() {
               chips
               chip-tone="plain"
               show-all-option
+              @update:all-selected="specificAllSelected = $event"
             >
               <template #chip="{ item }">
                 <RTooltip :text="item.raw.name" location="bottom">
@@ -549,15 +399,13 @@ function onScan() {
     </template>
 
     <template #footer>
-      <RBtn variant="text" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <span class="r-v2-scan-plat__footer-spacer" />
       <RBtn
         variant="translucent"
         color="primary"
         prepend-icon="mdi-magnify-scan"
-        :disabled="metadataSources.length === 0"
+        :disabled="
+          effectiveMetadataSources.length === 0 && scanType !== 'quick'
+        "
         @click="onScan"
       >
         {{ t("scan.scan", "Scan") }}
@@ -571,10 +419,6 @@ function onScan() {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.r-v2-scan-plat__footer-spacer {
-  flex: 1;
 }
 
 /* Platform identity row — sibling of `.r-v2-refresh__rom` in

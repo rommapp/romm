@@ -1,31 +1,33 @@
 <script setup lang="ts">
-// OverviewTab — single landing surface for everything that doesn't get
+// OverviewTab: single landing surface for everything that doesn't get
 // its own tab. Top to bottom:
 //   1. Summary paragraph
 //   2. Last-played row (TODO: move into a SaveData tab once it lands)
-//   3. Quick facts — PlayerCountBadge + AgeRatingBadges (game-level
+//   3. Quick facts: PlayerCountBadge + AgeRatingBadges (game-level
 //      characteristics, rendered as semantic badges rather than chips)
-//   4. RomM Collections — the user's personal collections this ROM
+//   4. RomM Collections: the user's personal collections this ROM
 //      lives in, rendered as bookmark-icon chip RouterLinks
-//   5. Info grid (Genres / Companies / Franchises / Collections —
-//      "Companies" is the API field for merged developer + publisher)
-//   6. Screenshots (also reachable via the Media tab's Screenshots subtab,
-//      which is where uploads will live)
+//   5. Info grid (Genres / Developers / Publishers / Companies /
+//      Franchises / Collections)
+//   6. Media: the user's pinned screenshots, artwork and videos (see
+//      utils/pinnedMedia), pinned from the Media tab
 //   7. HLTB strip
-//   8. Related games — a single RCollapsible collapsing all of:
-//      Expansions, DLC, Remakes, Remasters, Similar games.
+//   8. Related games: a single RCollapsible collapsing all of:
+//      Expansions, DLC, Remakes, Remasters, Ports, Similar games.
 //
 // Status enum + flags (now_playing / backlogged / hidden) and personal
-// metrics (rating / difficulty / completion) live in the action ribbon
-// — see GameActionBtn (status) and MetricMenuBtn.
-import { RIcon } from "@v2/lib";
+// metrics (rating / difficulty / completion) live in the action ribbon (see
+// GameActionBtn for status, and MetricMenuBtn).
+import { RBtn, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   IGDBRelatedGame,
   RomHLTBMetadata,
+  SimilarRomSchema,
   UserCollectionSchema,
 } from "@/__generated__";
+import { useUISettings } from "@/composables/useUISettings";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
 import CollectionTile, {
@@ -35,13 +37,15 @@ import AgeRatingBadges from "@/v2/components/GameDetails/AgeRatingBadges.vue";
 import HLTBStrip from "@/v2/components/GameDetails/HLTBStrip.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
 import InfoGrid from "@/v2/components/GameDetails/InfoGrid.vue";
+import MediaShelf from "@/v2/components/GameDetails/MediaShelf.vue";
 import PlayerCountBadge from "@/v2/components/GameDetails/PlayerCountBadge.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
-import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
+import SimilarGamesGrid from "@/v2/components/GameDetails/SimilarGamesGrid.vue";
 import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
+import { usePinnedMedia } from "@/v2/composables/usePinnedMedia";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
-import { resolveRomArtwork } from "@/v2/utils/romArtwork";
+import { resolvePinnedMedia } from "@/v2/utils/pinnedMedia";
 
 defineOptions({ inheritAttrs: false });
 
@@ -54,13 +58,21 @@ const props = defineProps<{
   hltb: RomHLTBMetadata | null | undefined;
   lastPlayed: string | null;
   revision: string | null;
-  screenshots: string[];
   expansions: IGDBRelatedGame[];
   dlcs: IGDBRelatedGame[];
   remakes: IGDBRelatedGame[];
   remasters: IGDBRelatedGame[];
-  similarGames: IGDBRelatedGame[];
+  ports: IGDBRelatedGame[];
+  similarRoms: SimilarRomSchema[];
 }>();
+
+// The same preference hides the "Recommended for you" row on Home: the
+// feature is switched off everywhere at once, not per surface.
+const { showRecommendations } = useUISettings();
+
+const visibleSimilarRoms = computed(() =>
+  showRecommendations.value ? props.similarRoms : [],
+);
 
 const hasAgeRatings = computed(
   () => (props.rom.metadatum?.age_ratings?.length ?? 0) > 0,
@@ -81,20 +93,18 @@ const hasHltb = computed(() => {
 
 // Enrich the slim `{ id, name, is_smart }` user_collections payload from
 // the ROM with the full record (cover paths, rom_count) the store already
-// holds — so we can render real CollectionTile mosaics instead of stripped
+// holds, so we can render real CollectionTile mosaics instead of stripped
 // chips. Smart collections (#3934) resolve from their own store slice and
 // route, and carry the "smart" kind so the tile shows its flash badge.
 // Falls back to a bare entry if the store is empty (e.g. deep-link before
 // the AppLayout fetch resolves).
 const { t } = useI18n();
 const collectionsStore = storeCollections();
-const { toWebp } = useWebpSupport();
+const { supportsWebp, toWebp } = useWebpSupport();
 
-// Videos surface on the overview (the rest of the art lives in the Media tab's
-// Artwork subtab). Same resolver, filtered to videos: scraped clips plus any
-// video files in the game folder.
-const videos = computed(() =>
-  resolveRomArtwork(props.rom).filter((a) => a.isVideo),
+const pinnedMedia = computed(() => resolvePinnedMedia(props.rom));
+const { canPin, isPinned, isCustomized, togglePin, resetPins } = usePinnedMedia(
+  () => props.rom,
 );
 
 type CollectionTileEntry = {
@@ -105,6 +115,7 @@ type CollectionTileEntry = {
   covers: string[];
   link: string;
   kind: Kind;
+  isPublic: boolean;
 };
 
 const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
@@ -121,22 +132,24 @@ const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
       covers: full ? collectionCoverList(full, toWebp) : [],
       link: c.is_smart ? `/collection/smart/${c.id}` : `/collection/${c.id}`,
       kind: c.is_smart ? "smart" : "regular",
+      isPublic: full?.is_public ?? false,
     };
   }),
 );
 
-// Related — show the panel only if at least one section has items.
+// Related: show the panel only if at least one section has items.
 const hasRelated = computed(
   () =>
     props.expansions.length +
       props.dlcs.length +
       props.remakes.length +
       props.remasters.length +
-      props.similarGames.length >
+      props.ports.length +
+      visibleSimilarRoms.value.length >
     0,
 );
 
-// Attribution — credit the metadata providers that supplied data for this
+// Attribution: credit the metadata providers that supplied data for this
 // ROM (mirrors v1's GameInfo footer). Reuses the PROVIDERS registry so the
 // list stays in sync with the Metadata tab; providers without a public URL
 // render as plain text.
@@ -161,6 +174,10 @@ const COVER_HOSTS: Record<string, string> = {
   "images.launchbox-app.com": "LaunchBox",
   "cdn.steamgriddb.com": "SteamGridDB",
   "cdn2.steamgriddb.com": "SteamGridDB",
+  "shared.akamai.steamstatic.com": "Steam",
+  "cdn.akamai.steamstatic.com": "Steam",
+  "shared.cloudflare.steamstatic.com": "Steam",
+  "cdn.cloudflare.steamstatic.com": "Steam",
   "hasheous.org": "Hasheous",
   "infinity.unstable.life": "Flashpoint",
   "howlongtobeat.com": "HowLongToBeat",
@@ -183,8 +200,8 @@ const coverSource = computed(() => {
     <p v-if="summary" class="overview-tab__summary">{{ summary }}</p>
 
     <!-- 2. Per-ROM fact rows (left-labelled). Revision, Last played +
-         the per-game characteristics — Players, Age rating, RomM
-         collections — get a row each so each fact can render its own
+         the per-game characteristics (Players, Age rating, RomM
+         collections) get a row each so each fact can render its own
          semantic widget instead of being flattened to a chip list. -->
     <div
       v-if="
@@ -231,6 +248,7 @@ const coverSource = computed(() => {
             :rom-count="c.rom_count"
             :covers="c.covers"
             :kind="c.kind"
+            :is-public="c.isPublic"
             variant="row"
           />
         </div>
@@ -240,34 +258,37 @@ const coverSource = computed(() => {
     <!-- 3. Info grid -->
     <InfoGrid :sections="sections" />
 
-    <!-- 4. Screenshots — scraped metadata images, read-only here. -->
-    <div v-if="screenshots.length" class="overview-tab__section">
-      <h4 class="overview-tab__section-heading">
-        <RIcon icon="mdi-image-multiple-outline" size="14" />
-        {{ t("rom.screenshots") }}
-      </h4>
-      <ScreenshotsTab :screenshots="screenshots.map((url) => ({ url }))" />
-    </div>
-
-    <!-- 4b. Videos — scraped preview clips. The rest of the art assets
-         live in the Media tab's Artwork subtab. -->
-    <div v-if="videos.length" class="overview-tab__section">
-      <h4 class="overview-tab__section-heading">
-        <RIcon icon="mdi-play-circle-outline" size="14" />
-        {{ t("rom.media-video") }}
-      </h4>
-      <div class="overview-tab__videos">
-        <!-- Scraped preview clips ship no caption track. -->
-        <!-- eslint-disable-next-line vuejs-accessibility/media-has-caption -->
-        <video
-          v-for="video in videos"
-          :key="video.key"
-          class="overview-tab__video"
-          :src="video.url"
-          controls
-          preload="metadata"
-        />
+    <!-- 4. Media. Unpinning everything keeps the heading so the reset stays
+         reachable. -->
+    <div
+      v-if="pinnedMedia.length || isCustomized"
+      class="overview-tab__section"
+    >
+      <div class="overview-tab__section-head">
+        <h4 class="overview-tab__section-heading">
+          <RIcon icon="mdi-image-multiple-outline" size="14" />
+          {{ t("rom.media") }}
+        </h4>
+        <RBtn
+          v-if="isCustomized && canPin"
+          variant="text"
+          size="x-small"
+          prepend-icon="mdi-restore"
+          @click="resetPins"
+        >
+          {{ t("rom.pinned-media-reset") }}
+        </RBtn>
       </div>
+      <MediaShelf
+        v-if="pinnedMedia.length"
+        :items="pinnedMedia"
+        compact
+        :is-pinned="isPinned"
+        @toggle-pin="togglePin"
+      />
+      <p v-else class="overview-tab__empty">
+        {{ t("rom.pinned-media-empty") }}
+      </p>
     </div>
 
     <!-- 5. HLTB -->
@@ -279,7 +300,7 @@ const coverSource = computed(() => {
       <HLTBStrip :metadata="hltb" />
     </div>
 
-    <!-- 5. Related games — each category gets its own labelled section,
+    <!-- 5. Related games: each category gets its own labelled section,
          rendered inline as siblings to the rest of the overview blocks.
          No collapsible wrapper: these sections aren't a distinct
          "surface" the user needs to expand into; they're just more
@@ -289,41 +310,48 @@ const coverSource = computed(() => {
       <div v-if="expansions.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-puzzle-outline" size="14" />
-          Expansions
+          {{ t("rom.related-expansions") }}
         </h4>
         <RelatedGamesGrid title="" :items="expansions" />
       </div>
       <div v-if="dlcs.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-package-variant-closed" size="14" />
-          DLC
+          {{ t("rom.related-dlc") }}
         </h4>
         <RelatedGamesGrid title="" :items="dlcs" />
       </div>
       <div v-if="remakes.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-refresh" size="14" />
-          Remakes
+          {{ t("rom.related-remakes") }}
         </h4>
         <RelatedGamesGrid title="" :items="remakes" />
       </div>
       <div v-if="remasters.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-image-auto-adjust" size="14" />
-          Remasters
+          {{ t("rom.related-remasters") }}
         </h4>
         <RelatedGamesGrid title="" :items="remasters" />
       </div>
-      <div v-if="similarGames.length" class="overview-tab__section">
+      <div v-if="ports.length" class="overview-tab__section">
+        <h4 class="overview-tab__section-heading">
+          <RIcon icon="mdi-swap-horizontal" size="14" />
+          {{ t("rom.related-ports") }}
+        </h4>
+        <RelatedGamesGrid title="" :items="ports" />
+      </div>
+      <div v-if="visibleSimilarRoms.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-shape-outline" size="14" />
-          Similar games
+          {{ t("recommendations.similar-games") }}
         </h4>
-        <RelatedGamesGrid title="" :items="similarGames" />
+        <SimilarGamesGrid :items="visibleSimilarRoms" :webp="supportsWebp" />
       </div>
     </template>
 
-    <!-- 6. Attribution — credit the metadata + cover-art sources -->
+    <!-- 6. Attribution: credit the metadata + cover-art sources -->
     <div
       v-if="dataProviders.length || coverSource"
       class="overview-tab__attribution"
@@ -416,12 +444,12 @@ const coverSource = computed(() => {
   font-style: italic;
 }
 
-/* Tile-row variant — the eyebrow pins to the top of the tile column
+/* Tile-row variant: the eyebrow pins to the top of the tile column
    (instead of centring through the ~190px-tall CollectionTile) so the
    label hovers over the mosaic rather than drifting halfway down it.
    Vertical padding on the scroll container gives the hover-pop
    (CollectionTile's scale + elevated shadow) room to render
-   before the scroll container clips it — `overflow-x: auto` also
+   before the scroll container clips it; `overflow-x: auto` also
    clips on Y per the CSS spec, so without this the shadow and
    lifted edge get sheared off. */
 .overview-tab__row--tiles {
@@ -447,7 +475,7 @@ const coverSource = computed(() => {
 }
 
 /* Labelled overview section (screenshots, HLTB, each related-games
-   category) — a heading + its content as a sibling block in the overview
+   category), a heading + its content as a sibling block in the overview
    flex column; the outer column's `gap: 30px` provides separation. */
 .overview-tab__section {
   display: flex;
@@ -466,23 +494,19 @@ const coverSource = computed(() => {
   color: var(--r-color-fg-faint);
 }
 
-/* Scraped preview videos — a responsive grid mirroring the screenshot
-   thumbnails; clips are contained so wide/tall sources aren't cropped. */
-.overview-tab__videos {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
+.overview-tab__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
-.overview-tab__video {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: contain;
-  border-radius: var(--r-radius-md);
-  background: var(--r-color-cover-placeholder);
-  border: 1px solid var(--r-color-border);
+.overview-tab__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--r-color-fg-muted);
 }
 
-/* Attribution — a quiet, italic credits footer for the metadata and
+/* Attribution: a quiet, italic credits footer for the metadata and
    cover-art sources. */
 .overview-tab__attribution {
   display: flex;

@@ -1,6 +1,6 @@
 from typing import Literal, TypedDict, Union
 
-from rq_scheduler.scheduler import JobStatus
+from rq.job import JobStatus
 
 from tasks.tasks import TaskType
 
@@ -16,6 +16,8 @@ class ScanStats(TypedDict):
     identified_roms: int
     scanned_firmware: int
     new_firmware: int
+    updated_roms: int
+    new_files: int
 
 
 class ScanTaskMeta(TypedDict):
@@ -51,13 +53,24 @@ class OrphanedResourcesCleanupStats(TypedDict):
 
 
 class MissingRomsCleanupStats(TypedDict):
-    platform_id: int | None
+    platform_ids: list[int] | None
     roms_found: int
     roms_deleted: int
     errors: int
 
 
-CleanupStats = Union[OrphanedResourcesCleanupStats, MissingRomsCleanupStats]
+class MissingFirmwareCleanupStats(TypedDict):
+    platform_ids: list[int] | None
+    firmware_found: int
+    firmware_deleted: int
+    errors: int
+
+
+CleanupStats = Union[
+    OrphanedResourcesCleanupStats,
+    MissingRomsCleanupStats,
+    MissingFirmwareCleanupStats,
+]
 
 
 class CleanupTaskMeta(TypedDict):
@@ -89,6 +102,8 @@ TaskMeta = Union[
 
 
 class TaskExecutionResponse(TypedDict):
+    # None on scans started outside the catalog, by a client or the watcher.
+    task_key: str | None
     task_name: str
     task_id: str
     status: JobStatus

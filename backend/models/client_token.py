@@ -18,7 +18,9 @@ class ClientToken(BaseModel):
     __table_args__ = {"extend_existing": True}
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
     name: Mapped[str] = mapped_column(String(255))
     hashed_token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     scopes: Mapped[str] = mapped_column(String(1000))
@@ -26,7 +28,7 @@ class ClientToken(BaseModel):
     last_used_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 
     device_id: Mapped[str | None] = mapped_column(
-        ForeignKey("devices.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("devices.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     user: Mapped[User] = relationship(lazy="joined", back_populates="client_tokens")

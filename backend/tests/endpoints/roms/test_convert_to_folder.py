@@ -1,11 +1,14 @@
+import asyncio
 from pathlib import Path
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from handler import rom_conversion
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.rom_conversion import promote_single_file_to_folder
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
@@ -17,15 +20,6 @@ PNG_BYTES = b"\x89PNG\r\n\x1a\n fake png payload"
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
-
-
-@pytest.fixture
-def real_library(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point fs_rom_handler at a real temp library so FS moves actually happen."""
-    lib = tmp_path / "library"
-    lib.mkdir()
-    monkeypatch.setattr(fs_rom_handler, "base_path", lib.resolve())
-    return lib
 
 
 def _single_file_rom(
@@ -63,7 +57,9 @@ def _single_file_rom(
     disk = lib / rom.fs_path / fs_name
     disk.parent.mkdir(parents=True, exist_ok=True)
     disk.write_bytes(b"romdata")
-    return db_rom_handler.get_rom(rom.id)
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    return refreshed
 
 
 # ---------- POST /api/roms/{id}/convert-to-folder ----------
@@ -93,6 +89,7 @@ def test_convert_single_file_promotes_in_place(
     assert response.status_code == status.HTTP_200_OK
 
     after = db_rom_handler.get_rom(rom_id)
+    assert after is not None
     assert after.id == rom_id  # same id, no dead reference
     assert after.fs_name == "test_rom"
     game_file = after.files[0]
@@ -131,6 +128,7 @@ def test_convert_already_folder_is_clean_noop(
     )
     assert second.status_code == status.HTTP_200_OK
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"  # unchanged by the second call
 
 
@@ -158,6 +156,7 @@ def test_convert_folder_collision_returns_409(
     assert response.status_code == status.HTTP_409_CONFLICT
 
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom.zip"  # untouched
 
 
@@ -185,6 +184,7 @@ def test_convert_extensionless_uses_staging(
     moved = real_library / f"{platform.slug}/roms/test_rom/test_rom"
     assert moved.is_file() and moved.read_bytes() == b"romdata"
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.files[0].file_path == f"{platform.slug}/roms/test_rom"
 
 
@@ -215,6 +215,7 @@ def test_convert_extensionless_dir_collision_returns_409(
     assert response.status_code == status.HTTP_409_CONFLICT
 
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"  # untouched
     assert (lone / "already_here.txt").read_text() == "keep me"  # user's dir intact
 
@@ -251,6 +252,7 @@ def test_convert_rolls_back_fs_on_db_failure(
     assert (base / "test_rom").read_bytes() == b"romdata"
     assert not (base / ".romm_tmp_test_rom").exists()
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"
     assert after.has_simple_single_file
 
@@ -281,6 +283,7 @@ def test_soundtrack_upload_auto_converts_single_file_rom(
     assert response.status_code == status.HTTP_201_CREATED
 
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"  # converted
     soundtracks = [f for f in after.files if f.category == RomFileCategory.SOUNDTRACK]
     assert len(soundtracks) == 1
@@ -312,6 +315,7 @@ def test_manual_upload_auto_converts_single_file_rom(
     assert response.status_code == status.HTTP_201_CREATED
 
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"
     assert any(f.category == RomFileCategory.MANUAL for f in after.files)
 
@@ -339,5 +343,99 @@ def test_screenshot_upload_auto_converts_single_file_rom(
     assert response.status_code == status.HTTP_201_CREATED
 
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"
     assert any(f.category == RomFileCategory.SCREENSHOT for f in after.files)
+
+
+async def test_second_upload_racing_a_promotion_keeps_the_rom_in_its_folder(
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    rom = _single_file_rom(
+        platform,
+        admin_user,
+        real_library,
+        fs_name="sf2ce.zip",
+        fs_name_no_ext="sf2ce",
+        fs_extension="zip",
+    )
+    second = db_rom_handler.get_rom(rom.id)
+    assert second is not None
+
+    # Holding both at the mkdir puts them past the collision check together.
+    make_directory = fs_rom_handler.make_directory
+    barrier = asyncio.Barrier(2)
+
+    async def gated_make_directory(path: str) -> None:
+        try:
+            await asyncio.wait_for(barrier.wait(), 0.5)
+        except TimeoutError, asyncio.BrokenBarrierError:
+            pass
+        await make_directory(path)
+
+    monkeypatch.setattr(fs_rom_handler, "make_directory", gated_make_directory)
+
+    results = await asyncio.gather(
+        promote_single_file_to_folder(rom),
+        promote_single_file_to_folder(second),
+        return_exceptions=True,
+    )
+
+    assert not [r for r in results if isinstance(r, BaseException)]
+    inside = real_library / f"{platform.slug}/roms/sf2ce/sf2ce.zip"
+    beside = real_library / f"{platform.slug}/roms/sf2ce.zip"
+    assert inside.exists(), "the loser dragged the ROM back out of its folder"
+    assert not beside.exists()
+
+
+async def test_promotion_racing_across_workers_does_not_destroy_the_folder(
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    rom = _single_file_rom(
+        platform,
+        admin_user,
+        real_library,
+        fs_name="sf2ce.zip",
+        fs_name_no_ext="sf2ce",
+        fs_extension="zip",
+    )
+    second = db_rom_handler.get_rom(rom.id)
+    assert second is not None
+
+    class _NoLock:
+        async def __aenter__(self) -> None:
+            return None
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+    # Separate workers hold separate locks, so neither serializes the other.
+    monkeypatch.setattr(rom_conversion, "_promotion_lock", _NoLock())
+
+    make_directory = fs_rom_handler.make_directory
+    barrier = asyncio.Barrier(2)
+
+    async def gated_make_directory(path: str) -> None:
+        try:
+            await asyncio.wait_for(barrier.wait(), 0.5)
+        except TimeoutError, asyncio.BrokenBarrierError:
+            pass
+        await make_directory(path)
+
+    monkeypatch.setattr(fs_rom_handler, "make_directory", gated_make_directory)
+
+    await asyncio.gather(
+        promote_single_file_to_folder(rom),
+        promote_single_file_to_folder(second),
+        return_exceptions=True,
+    )
+
+    inside = real_library / f"{platform.slug}/roms/sf2ce/sf2ce.zip"
+    assert inside.exists(), "the loser destroyed the winner's folder"
+    assert inside.read_bytes() == b"romdata"

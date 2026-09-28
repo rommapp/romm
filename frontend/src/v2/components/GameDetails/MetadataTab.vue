@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// MetadataTab — four sections, top to bottom:
-//   1. File info — name + size only.
-//   2. Hashes — CRC, MD5, SHA1, all mono. RTag with eyebrow label.
-//   3. Verification — RTag per database; tone="success" for match,
-//      neutral for miss. Same source of truth (Hasheous match flags) as
-//      the "Verified" badge in the header, via `VERIFICATION_DATABASES`.
-//   4. Metadata sources — ProviderGrid (linked + unlinked).
+// MetadataTab: four sections, top to bottom:
+//   1. File info: name, size, and the platform-native ids when present.
+//   2. Hashes: SHA-1, MD5, CRC, RA, all mono. RTag with eyebrow label.
+//      Same order as the files list so the two tabs read alike.
+//   3. Verification: RTag per database; tone="success" for match,
+//      neutral for miss. Same source of truth as the "Verified" badge in
+//      the header, via `VERIFICATION_DATABASES`.
+//   4. Metadata sources: ProviderGrid (linked + unlinked).
 import { RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -13,10 +14,7 @@ import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import ProviderGrid from "@/v2/components/GameDetails/ProviderGrid.vue";
 import HashChip from "@/v2/components/shared/HashChip.vue";
-import {
-  matchesDatabase,
-  VERIFICATION_DATABASES,
-} from "@/v2/utils/romVerification";
+import { VERIFICATION_DATABASES } from "@/v2/utils/romVerification";
 
 defineOptions({ inheritAttrs: false });
 
@@ -29,10 +27,14 @@ type Row = { label: string; value: string };
 const fileRows = computed<Row[]>(() => {
   const r = props.rom;
   const size = r.fs_size_bytes != null ? formatBytes(r.fs_size_bytes) : "—";
-  return [
+  const rows: Row[] = [
     { label: t("rom.filename"), value: r.fs_name },
     { label: t("common.size"), value: size },
   ];
+  if (r.title_id) rows.push({ label: t("rom.title-id"), value: r.title_id });
+  if (r.save_target)
+    rows.push({ label: t("rom.save-target"), value: r.save_target });
+  return rows;
 });
 
 // Hash rows accept `value: string | null` because HashChip's click-to-
@@ -40,19 +42,19 @@ const fileRows = computed<Row[]>(() => {
 // render as a dash via the fallback chip below.
 const hashRows = computed<{ label: string; value: string | null }[]>(() => {
   const r = props.rom;
-  // CHD SHA-1 lives on the file, not the ROM — surface it at ROM level
+  // CHD SHA-1 lives on the file, not the ROM; surface it at ROM level
   // only when the ROM is a single CHD file. Skipped (not dashed) when
   // not applicable since most ROMs aren't CHDs.
   const chdSha1 = r.has_simple_single_file
     ? (r.files[0]?.chd_sha1_hash ?? null)
     : null;
   const rows: { label: string; value: string | null }[] = [
-    { label: "CRC", value: r.crc_hash },
+    { label: "SHA-1", value: r.sha1_hash },
     { label: "MD5", value: r.md5_hash },
-    { label: "SHA1", value: r.sha1_hash },
+    { label: "CRC", value: r.crc_hash },
     { label: "RA", value: r.ra_hash },
   ];
-  if (chdSha1) rows.splice(3, 0, { label: "CHD SHA-1", value: chdSha1 });
+  if (chdSha1) rows.splice(1, 0, { label: "CHD SHA-1", value: chdSha1 });
   return rows;
 });
 
@@ -61,13 +63,35 @@ type Verification = { label: string; match: boolean };
 // Per-database match badges, driven by the shared VERIFICATION_DATABASES
 // so this list stays in lockstep with the header badge and the backend
 // filter. A match means the ROM's hash was found in that database (via
-// Hasheous), which is what "verified" communicates.
+// Hasheous or the RA hash lookup), which is what "verified" communicates.
 const verifications = computed<Verification[]>(() =>
   VERIFICATION_DATABASES.map((db) => ({
     label: db.label,
-    match: matchesDatabase(props.rom, db.keys),
+    match: db.matches(props.rom),
   })),
 );
+
+function urlsFrom(meta: Record<string, unknown> | null | undefined): string[] {
+  const raw = meta?.download_urls;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (u): u is string => typeof u === "string" && /^https?:\/\//i.test(u),
+  );
+}
+
+const downloadUrls = computed(() => {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const url of [
+    ...urlsFrom(props.rom.demozoo_metadata),
+    ...urlsFrom(props.rom.pouet_metadata),
+  ]) {
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out;
+});
 </script>
 
 <template>
@@ -83,8 +107,8 @@ const verifications = computed<Verification[]>(() =>
       </div>
     </section>
 
-    <!-- 2. Hashes — click-to-copy via HashChip; absent hashes still
-         render a "—" pill so the row layout stays predictable. -->
+    <!-- 2. Hashes: click-to-copy via HashChip; absent hashes still
+         render a dash pill so the row layout stays predictable. -->
     <section class="metadata-tab__section">
       <h3 class="metadata-tab__heading">{{ t("rom.hashes-label") }}</h3>
       <div class="metadata-tab__inline">
@@ -116,6 +140,15 @@ const verifications = computed<Verification[]>(() =>
       </h3>
       <ProviderGrid :rom="rom" />
     </section>
+
+    <section v-if="downloadUrls.length" class="metadata-tab__section">
+      <h3 class="metadata-tab__heading">{{ t("rom.download") }}</h3>
+      <ul class="metadata-tab__downloads">
+        <li v-for="url in downloadUrls" :key="url">
+          <a :href="url" target="_blank" rel="noopener noreferrer">{{ url }}</a>
+        </li>
+      </ul>
+    </section>
   </div>
 </template>
 
@@ -139,7 +172,7 @@ const verifications = computed<Verification[]>(() =>
   color: var(--r-color-fg);
 }
 
-/* File info — two-column rows on wide screens, stacked on narrow. */
+/* File info: two-column rows on wide screens, stacked on narrow. */
 .metadata-tab__rows {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -164,11 +197,28 @@ const verifications = computed<Verification[]>(() =>
   word-break: break-all;
 }
 
-/* Hashes & Verification — inline row, wraps when narrow. */
+/* Hashes & Verification: inline row, wraps when narrow. */
 .metadata-tab__inline {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.metadata-tab__downloads {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.metadata-tab__downloads a {
+  color: var(--r-color-fg-secondary);
+  font-size: 13px;
+  word-break: break-all;
+}
+.metadata-tab__downloads a:hover {
+  color: var(--r-color-fg);
 }
 </style>

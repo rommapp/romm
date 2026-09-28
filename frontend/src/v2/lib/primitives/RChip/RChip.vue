@@ -16,7 +16,8 @@
 // `label` makes the chip square-cornered (mostly used for tags inline
 // in lists). `rounded` overrides the default pill / label radius if
 // you need a specific radius.
-import { computed } from "vue";
+import { computed, ref, useAttrs } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "../RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -53,6 +54,20 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: "click:close", evt: MouseEvent): void;
 }>();
+
+const labels = useChromeLabels();
+const attrs = useAttrs();
+
+const contentEl = ref<HTMLElement | null>(null);
+const truncatedTitle = ref<string | undefined>();
+
+// Measured on hover so idle chips cost no layout reads.
+function syncTruncatedTitle() {
+  const el = contentEl.value;
+  if (!el || attrs.title) return;
+  truncatedTitle.value =
+    el.scrollWidth > el.clientWidth ? el.textContent?.trim() : undefined;
+}
 
 const TONE_MAP: Record<string, string> = {
   primary: "var(--r-color-brand-primary)",
@@ -122,14 +137,16 @@ function onClose(evt: MouseEvent) {
       '--r-chip-color': resolvedColor,
       borderRadius: resolvedRounded,
     }"
+    :title="(attrs.title as string | undefined) ?? truncatedTitle"
     :aria-disabled="disabled || undefined"
+    @pointerenter="syncTruncatedTitle"
   >
     <RIcon
       v-if="prependIcon"
       :icon="prependIcon"
       class="r-chip__icon r-chip__icon--prepend"
     />
-    <span class="r-chip__content">
+    <span ref="contentEl" class="r-chip__content">
       <slot />
     </span>
     <RIcon
@@ -141,7 +158,7 @@ function onClose(evt: MouseEvent) {
       v-if="closable"
       type="button"
       class="r-chip__close"
-      aria-label="Remove"
+      :aria-label="labels.remove"
       :disabled="disabled"
       @click="onClose"
     >
@@ -155,6 +172,7 @@ function onClose(evt: MouseEvent) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
   white-space: nowrap;
   font-weight: var(--r-font-weight-medium);
   line-height: 1;
@@ -182,9 +200,10 @@ function onClose(evt: MouseEvent) {
   pointer-events: none;
 }
 
+/* Clipping only the x axis keeps descenders visible under the ellipsis. */
 .r-chip__content {
   min-width: 0;
-  overflow: hidden;
+  overflow-x: clip;
   text-overflow: ellipsis;
 }
 
@@ -321,6 +340,7 @@ function onClose(evt: MouseEvent) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   background: transparent;
   border: none;
   padding: 0;

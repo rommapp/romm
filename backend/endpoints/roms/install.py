@@ -231,7 +231,9 @@ async def get_install_candidates(
         try:
             source_abs = Path(fs_rom_handler.resolve_installer_abs_path(rom, source))
         except (ValueError, FileNotFoundError) as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            ) from e
         if not is_archive_candidate(source_abs):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -677,7 +679,9 @@ async def add_custom_proton_build(
     try:
         validate_url_for_http_request(url, "Download URL")
     except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     existing = get_custom_builds()
     if any(custom_build_id(b["name"]) == build_id for b in existing):

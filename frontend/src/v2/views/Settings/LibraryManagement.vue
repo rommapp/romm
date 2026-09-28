@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// LibraryManagement — v2-native rewrite. Uses the shared `RTabNav`
+// LibraryManagement: v2-native rewrite. Uses the shared `RTabNav`
 // primitive for the underline tabs (same component Game Details uses)
 // and keeps the `?tab=` query param so deep links still work.
 import { RAlert, RTabNav, type RTabNavItem } from "@v2/lib";
@@ -10,15 +10,28 @@ import { useRoute, useRouter } from "vue-router";
 import storeConfig from "@/stores/config";
 import ExcludedSection from "@/v2/components/Settings/ExcludedSection.vue";
 import FolderMappingsSection from "@/v2/components/Settings/FolderMappingsSection.vue";
+import MissingFirmwareSection from "@/v2/components/Settings/MissingFirmwareSection.vue";
 import MissingGamesSection from "@/v2/components/Settings/MissingGamesSection.vue";
 import StreamInstallSection from "@/v2/components/Settings/StreamInstallSection.vue";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
-type Tab = "mapping" | "excluded" | "missing" | "stream-install";
-const validTabs: Tab[] = ["mapping", "excluded", "missing", "stream-install"];
+type Tab =
+  | "mapping"
+  | "excluded"
+  | "missing"
+  | "missing-firmware"
+  | "stream-install";
+const validTabs: Tab[] = [
+  "mapping",
+  "excluded",
+  "missing",
+  "missing-firmware",
+  "stream-install",
+];
 
 const tab = ref<Tab>(
   (validTabs as string[]).includes(route.query.tab as string)
@@ -28,12 +41,7 @@ const tab = ref<Tab>(
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 
-watch(tab, (newTab) => {
-  router.replace({
-    path: route.path,
-    query: { ...route.query, tab: newTab },
-  });
-});
+watch(tab, (newTab) => syncQueryParam(router, "tab", newTab));
 
 watch(
   () => route.query.tab,
@@ -64,6 +72,11 @@ const tabs = computed<RTabNavItem[]>(() => [
     id: "missing",
     label: t("settings.missing-games-tab"),
     icon: "mdi-folder-question-outline",
+  },
+  {
+    id: "missing-firmware",
+    label: t("settings.missing-firmware-tab"),
+    icon: "mdi-memory",
   },
   {
     id: "stream-install",
@@ -112,17 +125,12 @@ const tabModel = computed<string>({
       {{ t("settings.config-file-not-writable-desc") }}
     </RAlert>
 
-    <RTabNav v-model="tabModel" :items="tabs" class="r-v2-lib__tabs" />
+    <RTabNav v-model="tabModel" :items="tabs" />
 
     <FolderMappingsSection v-if="tab === 'mapping'" />
     <ExcludedSection v-else-if="tab === 'excluded'" />
     <MissingGamesSection v-else-if="tab === 'missing'" />
+    <MissingFirmwareSection v-else-if="tab === 'missing-firmware'" />
     <StreamInstallSection v-else-if="tab === 'stream-install'" />
   </div>
 </template>
-
-<style scoped>
-.r-v2-lib__tabs {
-  margin-bottom: 20px;
-}
-</style>

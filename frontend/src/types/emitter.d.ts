@@ -15,6 +15,8 @@ export type SnackbarStatus = {
   timeout?: number;
   icon?: string;
   color?: string;
+  /** Artwork shown in place of the icon, e.g. the cover of the game it concerns. */
+  image?: string | null;
 };
 
 export type Events = {
@@ -54,6 +56,7 @@ export type Events = {
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: SimpleRom[];
   showUploadRomDialog: Platform | null;
+  showAddPhysicalGameDialog: Platform | null;
   showDeleteFirmwareDialog: FirmwareSchema[];
   addFirmwareDialog: null;
   showAddPlatformDialog: null;
@@ -100,6 +103,7 @@ export type Events = {
   // and the NDS/download helpers all accept SimpleRom, so gallery surfaces
   // (which only ever hold SimpleRom) can trigger it too.
   showQRCodeDialog: SimpleRom;
+  showInstallOnDeviceDialog: SimpleRom;
   selectSaveDialog: DetailedRom;
   selectStateDialog: DetailedRom;
   saveSelected: SaveSchema;

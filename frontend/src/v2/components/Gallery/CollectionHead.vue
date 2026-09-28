@@ -9,9 +9,7 @@
 //      head scrolls naturally with the cards (and the toolbar pins
 //      below it).
 //
-//   2. Settings tab — rendered inline above the tab body inside a
-//      plain scroll wrapper. The head scrolls together with the
-//      tab content.
+//   2. Settings tab: above the tab body, scrolling with it.
 import { RBtn, RChip, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
 import { useI18n } from "vue-i18n";

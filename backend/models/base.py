@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timezone
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from sqlalchemy import TIMESTAMP
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -13,6 +13,18 @@ FILE_EXTENSION_MAX_LENGTH = 100
 TAG_GROUP_REGEX = re.compile(r"(?:\s*(?:\([^)]*\)|\[[^]]*\]))+\s*$")
 # Matches a trailing file extension, including multi-part ones like ".tar.gz".
 EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
+
+# Filename tags that mark a dump as a pre-release rather than the shipped game.
+# Lowercase and unterminated so one prefix covers its variants: "demo" also
+# matches "(Demo Kiosk)", "proto" also matches "(Prototype)".
+PRERELEASE_FILENAME_TAGS = (
+    "demo",
+    "beta",
+    "proto",
+    "sample",
+    "kiosk",
+    "preview",
+)
 
 
 def utc_now() -> datetime:
@@ -58,6 +70,20 @@ def compute_file_name_parts(file_name: str) -> FileNameParts:
         no_ext=compute_file_name_no_ext(file_name),
         extension=compute_file_extension(file_name),
     )
+
+
+def with_file_name_parts(data: dict[str, Any]) -> dict[str, Any]:
+    """`data` plus the columns derived from its `file_name`, which a bulk
+    update() must write itself since it skips the `@validates` hook."""
+    if "file_name" not in data:
+        return data
+    parts = compute_file_name_parts(data["file_name"])
+    return {
+        **data,
+        "file_name_no_tags": parts.no_tags,
+        "file_name_no_ext": parts.no_ext,
+        "file_extension": parts.extension,
+    }
 
 
 class BaseModel(DeclarativeBase):

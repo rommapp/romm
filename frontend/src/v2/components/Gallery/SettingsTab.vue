@@ -18,6 +18,7 @@ import { useI18n } from "vue-i18n";
 import platformApi from "@/services/api/platform";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { formatBytes } from "@/utils";
+import DangerZone from "@/v2/components/shared/DangerZone.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -157,150 +158,94 @@ const details = computed<DetailRow[]>(() => {
 </script>
 
 <template>
-  <div class="r-v2-plat-settings">
-    <!-- Left column — details (editable name + read-only fields) plus
-         danger zone at the bottom. -->
-    <div class="r-v2-plat-settings__col">
-      <section class="r-v2-plat-settings__section">
-        <header class="r-v2-plat-settings__section-head">
-          <RIcon icon="mdi-information-outline" size="14" />
-          <span>{{ t("common.details", "Details") }}</span>
-        </header>
+  <div class="r-settings-column">
+    <section class="r-v2-plat-settings__section">
+      <header class="r-section-head">
+        <RIcon icon="mdi-information-outline" size="14" />
+        <span>{{ t("common.details", "Details") }}</span>
+      </header>
 
-        <!-- Editable fields — `custom_name` and `description` are the
-             only user-authored ones. The rest of the metadata (slug,
-             fs_slug, etc.) is derived from the upstream sources and is
-             surfaced read-only below. -->
-        <RForm ref="formRef" class="r-v2-plat-settings__form" @submit="save">
-          <RTextField
-            v-model="customName"
-            :label="t('common.name', 'Name')"
-            :placeholder="platform.name"
-            :rules="nameRules"
-            :disabled="!canEdit"
-            prepend-inner-icon="mdi-rename"
-            variant="outlined"
-            density="comfortable"
-            hide-details="auto"
-          />
-          <RTextField
-            v-model="description"
-            :label="t('platform.description', 'Description')"
-            :disabled="!canEdit"
-            multiline
-            :rows="3"
-            variant="outlined"
-            density="comfortable"
-            hide-details="auto"
-          />
-          <div v-if="dirty" class="r-v2-plat-settings__form-actions">
-            <RBtn variant="text" :disabled="saving" @click="discard">
-              {{ t("common.discard", "Discard") }}
-            </RBtn>
-            <RBtn
-              variant="flat"
-              color="primary"
-              prepend-icon="mdi-check"
-              :loading="saving"
-              @click="save"
-            >
-              {{ t("common.save", "Save") }}
-            </RBtn>
-          </div>
-        </RForm>
-
-        <!-- Read-only details. Kept as a hairline-divided table for
-             scan-ability without competing with the editable field
-             above. -->
-        <div class="r-v2-plat-settings__details">
-          <div
-            v-for="row in details"
-            :key="row.label"
-            class="r-v2-plat-settings__detail-row"
-          >
-            <span class="r-v2-plat-settings__detail-label">{{
-              row.label
-            }}</span>
-            <span class="r-v2-plat-settings__detail-value">{{
-              row.value
-            }}</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Danger zone — destructive actions kept visually separated
-           with a brand-warning header band, matching the pattern v1
-           used in PlatformInfoDrawer. The delete itself routes through
-           the parent (confirm dialog + navigation lives in Platform.vue). -->
-      <section
-        v-if="canDelete"
-        class="r-v2-plat-settings__section r-v2-plat-settings__danger"
-      >
-        <header
-          class="r-v2-plat-settings__section-head r-v2-plat-settings__danger-head"
+      <!-- Only `custom_name` and `description` are user-authored; the
+           rest is derived upstream and shown read-only below. -->
+      <RForm ref="formRef" class="r-v2-plat-settings__form" @submit="save">
+        <RTextField
+          v-model="customName"
+          prefix-label="stacked"
+          :placeholder="platform.name"
+          :rules="nameRules"
+          :disabled="!canEdit"
+          hide-details="auto"
         >
-          <RIcon icon="mdi-alert-outline" size="14" />
-          <span>{{ t("platform.danger-zone", "Danger zone") }}</span>
-        </header>
-        <div class="r-v2-plat-settings__danger-row">
-          <div class="r-v2-plat-settings__danger-copy">
-            <p class="r-v2-plat-settings__danger-title">
-              {{ t("platform.delete-platform", "Delete platform") }}
-            </p>
-            <p class="r-v2-plat-settings__danger-hint">
-              {{
-                t(
-                  "platform.delete-platform-hint",
-                  "Removes the platform and its ROM database entries. Files on disk are NOT deleted.",
-                )
-              }}
-            </p>
-          </div>
+          <template #prefix-label>{{ t("common.name", "Name") }}</template>
+        </RTextField>
+        <RTextField
+          v-model="description"
+          prefix-label="stacked"
+          :disabled="!canEdit"
+          multiline
+          :rows="3"
+          hide-details="auto"
+        >
+          <template #prefix-label>
+            {{ t("platform.description", "Description") }}
+          </template>
+        </RTextField>
+        <div v-if="dirty" class="r-v2-plat-settings__form-actions">
+          <RBtn variant="text" :disabled="saving" @click="discard">
+            {{ t("common.discard", "Discard") }}
+          </RBtn>
           <RBtn
-            variant="outlined"
-            color="danger"
-            prepend-icon="mdi-delete-outline"
-            :loading="deleting"
-            :disabled="deleting"
-            @click="emit('delete')"
+            variant="flat"
+            color="primary"
+            prepend-icon="mdi-check"
+            :disabled="!customName.trim()"
+            :loading="saving"
+            @click="save"
           >
-            {{ t("common.delete", "Delete") }}
+            {{ t("common.apply", "Apply") }}
           </RBtn>
         </div>
-      </section>
-    </div>
+      </RForm>
+
+      <div class="r-v2-plat-settings__details">
+        <div
+          v-for="row in details"
+          :key="row.label"
+          class="r-v2-plat-settings__detail-row"
+        >
+          <span class="r-v2-plat-settings__detail-label">{{ row.label }}</span>
+          <span class="r-v2-plat-settings__detail-value">{{ row.value }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Delete routes through the parent (confirm dialog + navigation
+         lives in Platform.vue). -->
+    <DangerZone
+      v-if="canDelete"
+      :title="t('platform.delete-platform', 'Delete platform')"
+      :hint="
+        t(
+          'platform.delete-platform-hint',
+          'Removes the platform and its ROM database entries. Files on disk are NOT deleted.',
+        )
+      "
+    >
+      <RBtn
+        variant="outlined"
+        color="danger"
+        prepend-icon="mdi-delete-outline"
+        :loading="deleting"
+        :disabled="deleting"
+        @click="emit('delete')"
+      >
+        {{ t("common.delete", "Delete") }}
+      </RBtn>
+    </DangerZone>
   </div>
 </template>
 
 <style scoped>
-.r-v2-plat-settings {
-  /* Single column — details + danger zone, constrained to a readable
-     width rather than stretching the full tab. */
-  display: grid;
-  grid-template-columns: minmax(280px, 460px);
-  gap: 28px;
-  align-items: start;
-}
-
-.r-v2-plat-settings__col {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  min-width: 0;
-}
-
-.r-v2-plat-settings__section-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
-}
-
 /* ── Name form ────────────────────────────────────────────────── */
 .r-v2-plat-settings__form {
   display: flex;
@@ -340,45 +285,5 @@ const details = computed<DetailRow[]>(() => {
 .r-v2-plat-settings__detail-value {
   color: var(--r-color-fg);
   word-break: break-all;
-}
-
-/* ── Danger zone ───────────────────────────────────────────────
-   Subtle danger-tinted card. Header label borrows the section-head
-   typography so it nests visually with the rest of the surface. */
-.r-v2-plat-settings__danger {
-  padding: 14px;
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 6%,
-    transparent
-  );
-  border: 1px solid
-    color-mix(in srgb, var(--r-color-status-base-danger) 35%, transparent);
-  border-radius: var(--r-radius-md);
-}
-.r-v2-plat-settings__danger-head {
-  color: var(--r-color-status-base-danger);
-}
-.r-v2-plat-settings__danger-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.r-v2-plat-settings__danger-copy {
-  flex: 1;
-  min-width: 0;
-}
-.r-v2-plat-settings__danger-title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg);
-}
-.r-v2-plat-settings__danger-hint {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: var(--r-color-fg-muted);
-  line-height: 1.4;
 }
 </style>

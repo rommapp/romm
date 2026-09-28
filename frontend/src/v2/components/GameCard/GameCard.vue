@@ -43,9 +43,11 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
+import CardFlags from "@/v2/components/GameCard/CardFlags.vue";
 import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
 import CoverArtPip from "@/v2/components/shared/CoverArtPip.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
@@ -55,7 +57,6 @@ import {
 } from "@/v2/composables/useGameActions";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 import RCheckbox from "@/v2/lib/forms/RCheckbox/RCheckbox.vue";
-import RPlatformIcon from "@/v2/lib/media/RPlatformIcon/RPlatformIcon.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -299,25 +300,13 @@ function onCheckboxClick(e: MouseEvent) {
   e.preventDefault();
   e.stopPropagation();
   if (props.position == null) return;
-  if (e.shiftKey) {
-    selectionInput.handleActivate(props.rom, props.position, e);
-    return;
-  }
   selectionStore.toggle(props.rom, props.position);
 }
 
-/** Capture-phase suppressor — when the gallery is in selectable mode
- *  AND the user is holding a modifier key, any click on the card
- *  (overlay buttons included: download / favorite / play / more /
- *  platform icon) is reinterpreted as a selection gesture. Without
- *  this, shift-clicking the favourite star would toggle the favourite
- *  AND extend the selection range — confusing. */
+/** Capture phase so nothing else sees a click the selection consumed: the
+ *  root is a `router-link`, and vue-router only bails on a prevented event. */
 function onCardClickCapture(e: MouseEvent) {
-  if (!props.selectable) return;
-  if (!(e.shiftKey || e.ctrlKey || e.metaKey)) return;
-  e.preventDefault();
-  e.stopPropagation();
-  if (props.position == null) return;
+  if (!props.selectable || props.position == null) return;
   selectionInput.handleActivate(props.rom, props.position, e);
 }
 
@@ -333,18 +322,7 @@ function onCardClick(e: MouseEvent) {
     return;
   }
 
-  // Gallery selection takes precedence over navigation when the card
-  // opts in. Returns `true` if the click was consumed (mode active,
-  // modifier pressed, long-press just fired); we short-circuit and
-  // skip the morph + router push.
-  if (
-    props.selectable &&
-    props.position != null &&
-    selectionInput.handleActivate(props.rom, props.position, e)
-  ) {
-    return;
-  }
-
+  // Selection-consumed clicks are stopped by `onCardClickCapture`.
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
     return;
   }
@@ -359,14 +337,6 @@ function onCardClick(e: MouseEvent) {
 function onCardPointerDown(e: PointerEvent) {
   if (!props.selectable || props.position == null) return;
   selectionInput.handlePointerDown(props.rom, props.position, e);
-}
-function onCardPointerMove(e: PointerEvent) {
-  if (!props.selectable) return;
-  selectionInput.handlePointerMove(e);
-}
-function onCardPointerEnd() {
-  if (!props.selectable) return;
-  selectionInput.handlePointerEnd();
 }
 
 function onStaticKeydown(e: KeyboardEvent) {
@@ -415,6 +385,7 @@ function onStaticKeydown(e: KeyboardEvent) {
             : undefined
     "
     :data-rom-id="rom.id"
+    :data-rom-position="selectable ? position : undefined"
     :data-focus-key="!decorative && !static ? `rom-${rom.id}` : undefined"
     @click.capture="onCardClickCapture"
     @click="onCardClick"
@@ -424,9 +395,7 @@ function onStaticKeydown(e: KeyboardEvent) {
     @focus="onCoverFocus"
     @blur="onCoverBlur"
     @pointerdown="onCardPointerDown"
-    @pointermove="onCardPointerMove"
-    @pointerup="onCardPointerEnd"
-    @pointercancel="onCardPointerEnd"
+    @contextmenu="selectionInput.handleContextMenu"
   >
     <GameCover
       ref="coverRef"
@@ -488,7 +457,7 @@ function onStaticKeydown(e: KeyboardEvent) {
           "
           @click="onPlatformClick"
         >
-          <RPlatformIcon
+          <PlatformIcon
             :slug="rom.platform_slug"
             :fs-slug="rom.platform_fs_slug"
             :alt="platformShort"
@@ -505,19 +474,34 @@ function onStaticKeydown(e: KeyboardEvent) {
 
         <SiblingBadge :rom="rom" />
 
+        <!-- Region / language flags — bottom-left, gated by the
+             showRegions / showLanguages UI settings. -->
+        <CardFlags :rom="rom" />
+
         <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
             <GameActionBtn
-              v-if="actions?.canPlay.value"
+              v-if="actions?.canPlayLocally.value"
               :rom="rom"
               action="play"
               variant="emphasized"
             />
+            <GameActionBtn
+              v-if="actions?.canPlayStream.value"
+              :rom="rom"
+              action="stream"
+              variant="brand"
+            />
           </div>
 
           <div class="r-gc__overlay-bottom">
-            <GameActionBtn :rom="rom" action="download" size="small" />
+            <GameActionBtn
+              v-if="actions?.canDownload.value"
+              :rom="rom"
+              action="download"
+              size="small"
+            />
             <GameActionBtn :rom="rom" action="collection" size="small" />
             <GameActionBtn :rom="rom" action="favorite" size="small" />
             <GameActionBtn :rom="rom" action="more" size="small" />
@@ -546,6 +530,8 @@ function onStaticKeydown(e: KeyboardEvent) {
 
 <style scoped>
 .r-gc {
+  /* The long press selects the card; iOS would offer its link callout too. */
+  -webkit-touch-callout: none;
   flex-shrink: 0;
   cursor: pointer;
   position: relative;
@@ -571,9 +557,14 @@ function onStaticKeydown(e: KeyboardEvent) {
   display: flex;
   flex-direction: column;
 }
-/* Width follows the cover (overrides GameCover's base `width: 100%`). */
+/* Width follows the cover (overrides GameCover's base `width: 100%`).
+   Multiplied out instead of leaning on GameCover's `aspect-ratio`: a
+   width derived from the aspect-ratio alone is circular inside a
+   shrink-to-fit ancestor (the match-dialog cell), and WebKit collapses
+   that to a few pixels. `--r-cover-ratio` is set inline on this element
+   with the cover's measured ratio, so it wins over the card-level one. */
 .r-gc:not(.r-gc--hero) .r-gc__art {
-  width: auto;
+  width: calc(var(--r-card-art-h) * var(--r-cover-ratio, 0.6667));
 }
 /* Label fills the cover's width and ellipsises, without widening the card. */
 .r-gc:not(.r-gc--hero) .r-gc__label {
@@ -638,6 +629,7 @@ function onStaticKeydown(e: KeyboardEvent) {
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: var(--r-space-2);
 }
 .r-gc__overlay-bottom {
   display: flex;
@@ -658,7 +650,7 @@ function onStaticKeydown(e: KeyboardEvent) {
   /* Shrink-wrap around the platform icon. RBtn's size classes try to
      impose a fixed `height` / `width: var(--r-btn-rest-h)` — we have
      to defeat those so the badge always fits whatever `:size` the
-     RPlatformIcon was given (icon + 3px padding all around). */
+     PlatformIcon was given (icon + 3px padding all around). */
   width: auto !important;
   height: auto !important;
   min-width: 0 !important;
@@ -732,8 +724,7 @@ function onStaticKeydown(e: KeyboardEvent) {
    previous mouse session shouldn't compete with the focused card when
    the user is on a gamepad. Focus / pinned / sibling-pinned states
    trigger the same effect in every modality. */
-html[data-input="mouse"] .r-gc:hover .r-gc__art,
-html[data-input="touch"] .r-gc:hover .r-gc__art,
+html:not([data-input="pad"]) .r-gc:hover .r-gc__art,
 .r-gc:focus-visible .r-gc__art,
 .r-gc--focused .r-gc__art,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__art,
@@ -753,8 +744,7 @@ html[data-input="touch"] .r-gc:hover .r-gc__art,
   transform: none;
   box-shadow: none;
 }
-html[data-input="mouse"] .r-gc:hover .r-gc__overlay,
-html[data-input="touch"] .r-gc:hover .r-gc__overlay,
+html:not([data-input="pad"]) .r-gc:hover .r-gc__overlay,
 .r-gc:focus-visible .r-gc__overlay,
 .r-gc--focused .r-gc__overlay,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__overlay,
@@ -779,20 +769,25 @@ html[data-input="touch"] .r-gc:hover .r-gc__overlay,
 
 /* Cover-art PIP (CoverArtPip) — fades out under the hover overlay so it never
    overlaps the action row. The footprint / chrome live in the component. */
-html[data-input="mouse"] .r-gc:hover :deep(.cover-art-pip),
-html[data-input="touch"] .r-gc:hover :deep(.cover-art-pip),
+html:not([data-input="pad"]) .r-gc:hover :deep(.cover-art-pip),
 .r-gc:focus-visible :deep(.cover-art-pip),
 .r-gc--focused :deep(.cover-art-pip) {
   opacity: 0;
 }
-html[data-input="mouse"] .r-gc:hover .r-gc__badge,
-html[data-input="touch"] .r-gc:hover .r-gc__badge,
+
+/* Region / language flags fade out under the hover overlay so they never
+   collide with the bottom action row (same treatment as the cover PIP). */
+html:not([data-input="pad"]) .r-gc:hover :deep(.card-flags),
+.r-gc:focus-visible :deep(.card-flags),
+.r-gc--focused :deep(.card-flags) {
+  opacity: 0;
+}
+html:not([data-input="pad"]) .r-gc:hover .r-gc__badge,
 .r-gc:focus-visible .r-gc__badge,
 .r-gc--focused .r-gc__badge,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__badge,
 .r-gc:has(.sibling-badge--pinned) .r-gc__badge,
-html[data-input="mouse"] .r-gc:hover .r-gc__rating,
-html[data-input="touch"] .r-gc:hover .r-gc__rating,
+html:not([data-input="pad"]) .r-gc:hover .r-gc__rating,
 .r-gc:focus-visible .r-gc__rating,
 .r-gc--focused .r-gc__rating,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__rating,
@@ -825,8 +820,7 @@ html[data-input="touch"] .r-gc:hover .r-gc__rating,
   left: auto;
   right: 7px;
 }
-html[data-input="mouse"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
-html[data-input="touch"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
+html:not([data-input="pad"]) .r-gc:hover :deep(.r-v2-game-btn--action-status),
 .r-gc:focus-visible :deep(.r-v2-game-btn--action-status),
 .r-gc--focused :deep(.r-v2-game-btn--action-status),
 .r-gc:has(.r-v2-game-btn--pinned) :deep(.r-v2-game-btn--action-status),
@@ -874,12 +868,14 @@ html[data-input="touch"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
 
 /* `selected` — same brand-outline language as focus, but persistent.
    Used by cover-variant pickers and multi-select galleries to mark the
-   currently-picked card without relying on focus state. */
+   currently-picked card without relying on focus state. No flush `0 0 0 Npx`
+   ring here: the `outline` above already draws that border, and stacking a
+   second one produced a visible double ring once the hover state (which
+   replaces box-shadow wholesale) let go. */
 .r-gc--selected .r-gc__art {
   outline-color: var(--r-color-brand-primary);
   box-shadow:
     0 8px 28px color-mix(in srgb, black 40%, transparent),
-    0 0 0 2px var(--r-color-brand-primary),
     0 0 18px color-mix(in srgb, var(--r-color-brand-primary) 50%, transparent);
 }
 
@@ -894,8 +890,7 @@ html[data-input="touch"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
   padding: 0 1px;
   text-align: center;
 }
-html[data-input="mouse"] .r-gc:hover .r-gc__label,
-html[data-input="touch"] .r-gc:hover .r-gc__label,
+html:not([data-input="pad"]) .r-gc:hover .r-gc__label,
 .r-gc:focus-visible .r-gc__label,
 .r-gc--focused .r-gc__label,
 .r-gc:has(.r-v2-game-btn--action-more[aria-expanded="true"]) .r-gc__label,
@@ -942,8 +937,7 @@ html[data-input="touch"] .r-gc:hover .r-gc__label,
   pointer-events: none;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
-html[data-input="mouse"] .r-gc:hover .r-gc__check,
-html[data-input="touch"] .r-gc:hover .r-gc__check,
+html:not([data-input="pad"]) .r-gc:hover .r-gc__check,
 .r-gc:focus-visible .r-gc__check,
 .r-gc--focused .r-gc__check,
 .r-gc--checkbox-on .r-gc__check,

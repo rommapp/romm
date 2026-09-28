@@ -15,6 +15,8 @@ export type RomLaunchboxMetadata = {
     esrb?: string;
     genres?: Array<string>;
     companies?: Array<string>;
+    publishers?: Array<string>;
+    developers?: Array<string>;
     images?: Array<LaunchboxImage>;
     video_url?: string;
     video_path?: string;

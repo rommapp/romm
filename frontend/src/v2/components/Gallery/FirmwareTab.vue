@@ -32,7 +32,9 @@ import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes } from "@/utils";
 import DeleteFirmwareDialog from "@/v2/components/Gallery/DeleteFirmwareDialog.vue";
+import HashChip from "@/v2/components/shared/HashChip.vue";
 import { useCan } from "@/v2/composables/useCan";
+import { useIdSelection } from "@/v2/composables/useIdSelection";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -48,41 +50,20 @@ const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const canWrite = useCan("platform.edit");
 
-const selectedIds = ref<Set<number>>(new Set());
-
 const firmwareList = computed<FirmwareSchema[]>(
   () => props.platform.firmware ?? [],
 );
 
-const selectedFirmware = computed<FirmwareSchema[]>(() =>
-  firmwareList.value.filter((f) => selectedIds.value.has(f.id)),
-);
-
-const allSelected = computed(
-  () =>
-    firmwareList.value.length > 0 &&
-    selectedIds.value.size === firmwareList.value.length,
-);
-const someSelected = computed(
-  () =>
-    selectedIds.value.size > 0 &&
-    selectedIds.value.size < firmwareList.value.length,
-);
-
-function toggleAll() {
-  if (allSelected.value) {
-    selectedIds.value = new Set();
-  } else {
-    selectedIds.value = new Set(firmwareList.value.map((f) => f.id));
-  }
-}
-
-function toggleOne(id: number) {
-  const next = new Set(selectedIds.value);
-  if (next.has(id)) next.delete(id);
-  else next.add(id);
-  selectedIds.value = next;
-}
+// Destructured so the template sees plain refs; a nested one is not unwrapped.
+const {
+  selected: selectedFirmware,
+  count: selectedCount,
+  allSelected,
+  someSelected,
+  isSelected,
+  toggle: toggleOne,
+  toggleAll,
+} = useIdSelection(() => firmwareList.value);
 
 // ── Inline upload (no dialog — the dropzone lives in the tab) ──────
 const firmwareDz = ref<InstanceType<typeof RDropzone> | null>(null);
@@ -156,13 +137,8 @@ function openDelete(target: FirmwareSchema[]) {
   deleteOpen.value = true;
 }
 function onDeleted(deletedIds: number[]) {
-  const remaining = firmwareList.value.filter(
-    (f) => !deletedIds.includes(f.id),
-  );
-  syncFirmware(remaining);
-  const next = new Set(selectedIds.value);
-  for (const id of deletedIds) next.delete(id);
-  selectedIds.value = next;
+  // The selection reads through the live list, so dropping the rows is enough.
+  syncFirmware(firmwareList.value.filter((f) => !deletedIds.includes(f.id)));
 }
 
 // `firmware_count` is a readonly derived field on PlatformSchema —
@@ -216,6 +192,7 @@ async function performDelete(
   <RDropzone
     v-if="firmwareList.length === 0 && pendingFiles.length === 0 && canWrite"
     ref="firmwareDz"
+    fill
     :title="t('platform.upload-firmware')"
     :hint="t('platform.firmware-dropzone-description')"
     :active-title="t('common.dropzone-drag-over')"
@@ -229,6 +206,7 @@ async function performDelete(
   <RDropzone
     v-else
     ref="firmwareDz"
+    fill
     overlay
     :disabled="!canWrite"
     :release-label="t('common.dropzone-drag-over')"
@@ -244,8 +222,8 @@ async function performDelete(
             t("common.upload-files-selected", { count: pendingFiles.length })
           }}</span>
           <RBtn
-            variant="text"
-            size="small"
+            variant="flat"
+            color="primary"
             prepend-icon="mdi-plus"
             @click="openUpload"
           >
@@ -293,16 +271,16 @@ async function performDelete(
       <header
         v-if="firmwareList.length > 0"
         class="r-v2-fw__toolbar"
-        :class="{ 'r-v2-fw__toolbar--active': selectedIds.size > 0 }"
+        :class="{ 'r-v2-fw__toolbar--active': selectedCount > 0 }"
       >
         <RCheckbox
           :model-value="allSelected"
           :indeterminate="someSelected"
           hide-details
           :label="
-            selectedIds.size > 0
+            selectedCount > 0
               ? t('gallery.firmware-selected-count', {
-                  count: selectedIds.size,
+                  count: selectedCount,
                 })
               : t('gallery.firmware-files-count', {
                   count: firmwareList.length,
@@ -324,7 +302,7 @@ async function performDelete(
             variant="text"
             size="small"
             prepend-icon="mdi-download"
-            :disabled="selectedIds.size === 0"
+            :disabled="selectedCount === 0"
             @click="downloadSelected"
           >
             {{ t("common.download") }}
@@ -335,7 +313,7 @@ async function performDelete(
             size="small"
             color="danger"
             prepend-icon="mdi-delete-outline"
-            :disabled="selectedIds.size === 0"
+            :disabled="selectedCount === 0"
             @click="openDelete(selectedFirmware)"
           >
             {{ t("common.delete") }}
@@ -349,12 +327,12 @@ async function performDelete(
           :key="f.id"
           class="r-v2-fw__row"
           :class="{
-            'r-v2-fw__row--selected': selectedIds.has(f.id),
+            'r-v2-fw__row--selected': isSelected(f.id),
             'r-v2-fw__row--missing': f.missing_from_fs,
           }"
         >
           <RCheckbox
-            :model-value="selectedIds.has(f.id)"
+            :model-value="isSelected(f.id)"
             hide-details
             class="r-v2-fw__row-check"
             @update:model-value="toggleOne(f.id)"
@@ -385,15 +363,24 @@ async function performDelete(
               <RChip size="x-small" variant="translucent">
                 {{ formatBytes(f.file_size_bytes) }}
               </RChip>
-              <RChip
-                size="x-small"
-                variant="translucent"
-                color="info"
-                class="r-v2-fw__row-hash"
-                :title="`MD5: ${f.md5_hash}`"
-              >
-                {{ f.md5_hash }}
-              </RChip>
+              <HashChip
+                v-if="f.sha1_hash"
+                label="SHA-1"
+                :value="f.sha1_hash"
+                compact
+              />
+              <HashChip
+                v-if="f.md5_hash"
+                label="MD5"
+                :value="f.md5_hash"
+                compact
+              />
+              <HashChip
+                v-if="f.crc_hash"
+                label="CRC"
+                :value="f.crc_hash"
+                compact
+              />
               <RChip
                 v-if="f.is_verified"
                 size="x-small"
@@ -615,14 +602,6 @@ async function performDelete(
   flex-wrap: wrap;
   gap: 4px;
 }
-.r-v2-fw__row-hash {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--r-font-family-mono, monospace);
-}
-
 .r-v2-fw__row-actions {
   display: inline-flex;
   align-items: center;

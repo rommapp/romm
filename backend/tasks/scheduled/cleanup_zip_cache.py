@@ -4,7 +4,7 @@ from utils.zip_cache import cleanup_stale_zips
 
 
 class CleanupZipCacheTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled ZIP cache cleanup",
             description="Removes stale cached ZIP files based on tiered TTL",
@@ -12,12 +12,10 @@ class CleanupZipCacheTask(PeriodicTask):
             enabled=True,
             manual_run=False,
             cron_string="0 4 * * *",
-            func="tasks.scheduled.cleanup_zip_cache.cleanup_zip_cache_task.run",
         )
 
     async def run(self) -> None:
         if not self.enabled:
-            self.unschedule()
             return
 
         deleted = cleanup_stale_zips()

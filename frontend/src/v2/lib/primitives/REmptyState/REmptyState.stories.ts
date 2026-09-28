@@ -14,6 +14,7 @@ const meta: Meta<typeof REmptyState> = {
       control: "select",
       options: ["x-small", "small", "default", "large", "x-large"],
     },
+    variant: { control: "inline-radio", options: ["boxed", "plain"] },
   },
   render: (args) => ({
     components: { REmptyState },
@@ -38,6 +39,17 @@ export const Compact: Story = {
     size: "small",
     icon: "mdi-music-note-outline",
     title: "No tracks",
+  },
+};
+
+/** Inside a surface that already frames it, like a table body. */
+export const Plain: Story = {
+  args: {
+    variant: "plain",
+    size: "small",
+    icon: "mdi-folder-search-outline",
+    iconSize: 32,
+    title: "No results",
   },
 };
 

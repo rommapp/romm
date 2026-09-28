@@ -1,9 +1,21 @@
-"""Tests for the RetroAchievements metadata handler platform mapping."""
+"""Tests for the RetroAchievements metadata handler."""
+
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import cast
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import HTTPException, status
+from tests.handler.metadata.conftest import local_timezone
 
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from adapters.services.retroachievements_types import RAGameExtendedDetails
+from handler.filesystem import fs_resource_handler
+from handler.metadata import ra_handler
 from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAHandler
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 @pytest.fixture
@@ -21,3 +33,274 @@ def test_platform_list_uses_ups_keys():
     """Every entry in RA_PLATFORM_LIST should be a UniversalPlatformSlug."""
     for key in RA_PLATFORM_LIST.keys():
         assert isinstance(key, UPS)
+
+
+def test_release_date_is_utc_midnight_whatever_the_host_timezone():
+    # CI runs in UTC, so a naive timestamp only shows its drift under another zone.
+    details = cast(RAGameExtendedDetails, {"Released": "1991-08-23 00:00:00"})
+    with local_timezone("Asia/Tokyo"):
+        metadata = ra_handler.extract_metadata_from_rom_details(
+            MagicMock(), details, hash_match=False
+        )
+
+    expected = datetime(1991, 8, 23, tzinfo=timezone.utc).timestamp()
+    assert metadata["first_release_date"] == int(expected)
+
+
+class TestSearchRom:
+    """The hash index must only map hashes of games that actually have a set."""
+
+    @pytest.fixture(autouse=True)
+    def _pin_cache_ttl(self, monkeypatch: pytest.MonkeyPatch):
+        """A local .env may set this to 0, which would force a refresh every time."""
+        monkeypatch.setattr(ra_handler, "REFRESH_RETROACHIEVEMENTS_CACHE_DAYS", 30)
+
+    @pytest.fixture
+    def resources_dir(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+        """Back the platform resources directory with a real one, so mtime is real too."""
+
+        def resolve(file_path: str) -> Path:
+            return tmp_path / Path(file_path).name
+
+        def write_file(file: bytes, path: str, filename: str) -> None:
+            (tmp_path / filename).write_bytes(file)
+
+        monkeypatch.setattr(
+            fs_resource_handler,
+            "get_platform_resources_path",
+            lambda _platform_id: "roms/1",
+        )
+        monkeypatch.setattr(
+            fs_resource_handler,
+            "file_exists",
+            AsyncMock(side_effect=lambda file_path: resolve(file_path).is_file()),
+        )
+        monkeypatch.setattr(fs_resource_handler, "validate_path", resolve)
+        monkeypatch.setattr(
+            fs_resource_handler,
+            "read_file",
+            AsyncMock(side_effect=lambda file_path: resolve(file_path).read_bytes()),
+        )
+        monkeypatch.setattr(
+            fs_resource_handler,
+            "write_file",
+            AsyncMock(side_effect=write_file),
+        )
+        return tmp_path
+
+    def _make_rom(self) -> MagicMock:
+        rom = MagicMock()
+        rom.platform.id = 1
+        rom.platform.ra_id = 2
+        return rom
+
+    async def test_skips_games_without_achievements(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch, resources_dir: Path
+    ):
+        get_game_list = AsyncMock(
+            return_value=[{"ID": 10210, "Hashes": ["ABCDEF", "123456"]}]
+        )
+        monkeypatch.setattr(handler.ra_service, "get_game_list", get_game_list)
+
+        ra_id = await handler._search_rom(self._make_rom(), "abcdef")
+
+        get_game_list.assert_awaited_once_with(
+            system_id=2,
+            only_games_with_achievements=True,
+            include_hashes=True,
+        )
+        assert ra_id == 10210
+
+        cached = resources_dir / handler.HASHES_FILE_NAME
+        assert json.loads(cached.read_bytes()) == {"abcdef": 10210, "123456": 10210}
+
+    async def test_reads_the_cached_index_without_refetching(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch, resources_dir: Path
+    ):
+        cache_file = resources_dir / handler.HASHES_FILE_NAME
+        cache_file.write_bytes(json.dumps({"abcdef": 10210}).encode("utf-8"))
+
+        get_game_list = AsyncMock()
+        monkeypatch.setattr(handler.ra_service, "get_game_list", get_game_list)
+
+        ra_id = await handler._search_rom(self._make_rom(), "ABCDEF")
+
+        assert ra_id == 10210
+        get_game_list.assert_not_awaited()
+
+    async def test_parses_the_cached_index_once_until_it_changes(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch, resources_dir: Path
+    ):
+        cache_file = resources_dir / handler.HASHES_FILE_NAME
+        cache_file.write_bytes(json.dumps({"abcdef": 10210}).encode("utf-8"))
+        read_file = fs_resource_handler.read_file
+
+        assert await handler._search_rom(self._make_rom(), "abcdef") == 10210
+        assert await handler._search_rom(self._make_rom(), "abcdef") == 10210
+        assert read_file.await_count == 1  # type: ignore[attr-defined]
+
+        cache_file.write_bytes(json.dumps({"abcdef": 10211}).encode("utf-8"))
+        stat = cache_file.stat()
+        os.utime(cache_file, (stat.st_atime, stat.st_mtime + 1))
+
+        assert await handler._search_rom(self._make_rom(), "abcdef") == 10211
+        assert read_file.await_count == 2  # type: ignore[attr-defined]
+
+    async def test_ignores_an_unfiltered_index_from_an_older_version(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch, resources_dir: Path
+    ):
+        """Freshness is an mtime test, so a filter change has to come with a new filename."""
+        legacy_cache = resources_dir / "ra_hashes_v2.json"
+        legacy_cache.write_bytes(json.dumps({"abcdef": 10138}).encode("utf-8"))
+
+        get_game_list = AsyncMock(return_value=[{"ID": 10210, "Hashes": ["ABCDEF"]}])
+        monkeypatch.setattr(handler.ra_service, "get_game_list", get_game_list)
+
+        ra_id = await handler._search_rom(self._make_rom(), "abcdef")
+
+        get_game_list.assert_awaited_once()
+        assert ra_id == 10210
+
+    async def test_does_not_cache_a_failed_download(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch, resources_dir: Path
+    ):
+        """The service answers a failed request with {}, not a game list."""
+        monkeypatch.setattr(
+            handler.ra_service, "get_game_list", AsyncMock(return_value={})
+        )
+
+        with pytest.raises(HTTPException):
+            await handler._search_rom(self._make_rom(), "abcdef")
+        assert not (resources_dir / handler.HASHES_FILE_NAME).exists()
+
+    async def test_returns_none_without_a_platform_ra_id(self, handler: RAHandler):
+        rom = self._make_rom()
+        rom.platform.ra_id = None
+
+        assert await handler._search_rom(rom, "abcdef") is None
+
+
+class TestHashMatch:
+    """`hash_match` says whether RA lists the ROM's RA hash for the matched game."""
+
+    GAME_DETAILS = {"ID": 17353, "Title": "Game", "Achievements": {}}
+
+    @pytest.fixture
+    def rom(self) -> MagicMock:
+        rom = MagicMock()
+        rom.fs_name = "game.nds"
+        rom.platform.id = 1
+        rom.platform.ra_id = 18
+        return rom
+
+    @pytest.fixture(autouse=True)
+    def _stub_service(self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(
+            handler.ra_service,
+            "get_game_extended_details",
+            AsyncMock(return_value=self.GAME_DETAILS),
+        )
+        monkeypatch.setattr(
+            handler,
+            "_search_rom",
+            AsyncMock(side_effect=lambda _rom, ra_hash: {"abcdef": 17353}.get(ra_hash)),
+        )
+
+    async def test_a_hash_lookup_match_is_a_hash_match(
+        self, handler: RAHandler, rom: MagicMock
+    ):
+        result = await handler.get_rom(rom, ra_hash="abcdef")
+
+        assert result["ra_id"] == 17353
+        assert result["ra_metadata"]["hash_match"] is True
+
+    async def test_a_failed_details_request_stays_a_failure(
+        self, handler: RAHandler, rom: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ):
+        unavailable = HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+        monkeypatch.setattr(
+            handler.ra_service,
+            "get_game_extended_details",
+            AsyncMock(side_effect=unavailable),
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await handler.get_rom(rom, ra_hash="abcdef")
+
+        assert exc_info.value is unavailable
+
+    async def test_a_game_ra_retired_since_the_index_is_a_miss(
+        self, handler: RAHandler, rom: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            handler.ra_service,
+            "get_game_extended_details",
+            AsyncMock(return_value=None),
+        )
+
+        assert (await handler.get_rom(rom, ra_hash="abcdef"))["ra_id"] is None
+
+    async def test_an_id_match_whose_hash_ra_lists_is_a_hash_match(
+        self, handler: RAHandler, rom: MagicMock
+    ):
+        """A Hasheous-supplied RA id still counts when RA lists the ROM's hash."""
+        result = await handler.get_rom_by_id(rom, ra_id=17353, ra_hash="abcdef")
+
+        assert result["ra_metadata"]["hash_match"] is True
+
+    @pytest.mark.parametrize("ra_hash", [None, "", "ffffff"])
+    async def test_an_id_match_without_a_listed_hash_is_not(
+        self, handler: RAHandler, rom: MagicMock, ra_hash: str | None
+    ):
+        result = await handler.get_rom_by_id(rom, ra_id=17353, ra_hash=ra_hash)
+
+        assert result["ra_id"] == 17353
+        assert result["ra_metadata"]["hash_match"] is False
+
+    async def test_a_hash_listed_for_another_game_is_not(
+        self, handler: RAHandler, rom: MagicMock
+    ):
+        result = await handler.get_rom_by_id(rom, ra_id=1, ra_hash="abcdef")
+
+        assert result["ra_metadata"]["hash_match"] is False
+
+    async def test_a_failed_hash_check_still_returns_the_game(
+        self, handler: RAHandler, rom: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            handler, "_search_rom", AsyncMock(side_effect=HTTPException(503))
+        )
+        rom.ra_id = None
+
+        result = await handler.get_rom_by_id(rom, ra_id=17353, ra_hash="abcdef")
+
+        assert result["ra_id"] == 17353
+        assert result["ra_metadata"]["hash_match"] is False
+
+    async def test_a_failed_hash_check_keeps_the_recorded_match(
+        self, handler: RAHandler, rom: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            handler, "_search_rom", AsyncMock(side_effect=HTTPException(503))
+        )
+        rom.ra_id = 17353
+        rom.ra_hash = "abcdef"
+        rom.ra_metadata = {"hash_match": True}
+
+        result = await handler.get_rom_by_id(rom, ra_id=17353, ra_hash="abcdef")
+
+        assert result["ra_metadata"]["hash_match"] is True
+
+    async def test_a_failed_hash_check_drops_the_match_for_a_new_hash(
+        self, handler: RAHandler, rom: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            handler, "_search_rom", AsyncMock(side_effect=HTTPException(503))
+        )
+        rom.ra_id = 17353
+        rom.ra_hash = "abcdef"
+        rom.ra_metadata = {"hash_match": True}
+
+        result = await handler.get_rom_by_id(rom, ra_id=17353, ra_hash="ffffff")
+
+        assert result["ra_metadata"]["hash_match"] is False

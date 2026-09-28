@@ -15,12 +15,14 @@ export type MetadataOption = {
 const defaultHeartbeat: Heartbeat = {
   SYSTEM: {
     VERSION: "0.0.0",
+    GIT_BRANCH: null,
     SHOW_SETUP_WIZARD: false,
   },
   METADATA_SOURCES: {
     ANY_SOURCE_ENABLED: false,
     IGDB_API_ENABLED: false,
     SS_API_ENABLED: false,
+    SS_DEV_CREDENTIALS_SET: false,
     MOBY_API_ENABLED: false,
     RA_API_ENABLED: false,
     STEAMGRIDDB_API_ENABLED: false,
@@ -30,14 +32,21 @@ const defaultHeartbeat: Heartbeat = {
     TGDB_API_ENABLED: false,
     FLASHPOINT_API_ENABLED: false,
     HLTB_API_ENABLED: false,
+    DEMOZOO_API_ENABLED: false,
+    POUET_API_ENABLED: false,
+    CSDB_API_ENABLED: false,
+    STEAM_API_ENABLED: false,
     LIBRETRO_API_ENABLED: false,
   },
   FILESYSTEM: {
     FS_PLATFORMS: [],
+    TITLE_ID_EXTRACTION_ENABLED: false,
   },
   EMULATION: {
     DISABLE_EMULATOR_JS: false,
     DISABLE_RUFFLE_RS: false,
+    DISABLE_JSDOS: false,
+    DISABLE_PICO8: false,
   },
   FRONTEND: {
     DISABLE_USERPASS_LOGIN: false,
@@ -49,6 +58,14 @@ const defaultHeartbeat: Heartbeat = {
     AUTOLOGIN: false,
     PROVIDER: "",
     RP_INITIATED_LOGOUT: false,
+  },
+  NOTIFICATIONS: {
+    EMAIL_ENABLED: false,
+    EMAILS_RESET_LINKS: false,
+  },
+  DEVICE_INSTALL: {
+    ENABLED: false,
+    EXCLUDED_PLATFORM_SLUGS: [],
   },
   TASKS: {
     ENABLE_SCHEDULED_RESCAN: false,
@@ -73,6 +90,10 @@ export default defineStore("heartbeat", {
     // and by the router guard so a broken backend isn't mistaken for "logged
     // out, setup already done".
     connected: true,
+    // Whether a heartbeat response was ever applied. The defaults above read
+    // as "everything off", so a consumer that draws a conclusion from a flag
+    // being false has to know the flag came from the backend.
+    loaded: false,
   }),
 
   actions: {
@@ -81,6 +102,7 @@ export default defineStore("heartbeat", {
         const response = await api.get("/heartbeat", options);
         this.value = { ...this.value, ...response.data };
         this.connected = true;
+        this.loaded = true;
         return this.value;
       } catch (error) {
         // 5xx or no response (network/timeout) → backend is down/broken.
@@ -173,7 +195,7 @@ export default defineStore("heartbeat", {
             : "",
         },
         {
-          name: "Flashpoint Project",
+          name: "Flashpoint",
           value: "flashpoint",
           logo_path: "/assets/scrappers/flashpoint.png",
           disabled: !this.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED
@@ -186,6 +208,38 @@ export default defineStore("heartbeat", {
           logo_path: "/assets/scrappers/hltb.png",
           disabled: !this.value.METADATA_SOURCES?.HLTB_API_ENABLED
             ? i18n.global.t("scan.api-key-missing")
+            : "",
+        },
+        {
+          name: "Demozoo",
+          value: "demozoo",
+          logo_path: "/assets/scrappers/demozoo.png?v=2",
+          disabled: !this.value.METADATA_SOURCES?.DEMOZOO_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
+            : "",
+        },
+        {
+          name: "Pouët",
+          value: "pouet",
+          logo_path: "/assets/scrappers/pouet.png?v=2",
+          disabled: !this.value.METADATA_SOURCES?.POUET_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
+            : "",
+        },
+        {
+          name: "CSDb",
+          value: "csdb",
+          logo_path: "/assets/scrappers/csdb.png",
+          disabled: !this.value.METADATA_SOURCES?.CSDB_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
+            : "",
+        },
+        {
+          name: "Steam",
+          value: "steam",
+          logo_path: "/assets/scrappers/steam.png",
+          disabled: !this.value.METADATA_SOURCES?.STEAM_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
             : "",
         },
         {

@@ -3,7 +3,10 @@ from typing import Dict, TypedDict
 from fastapi import Request
 
 from decorators.auth import protected_route
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_rom_visible
+from handler.database import db_rom_handler
 from handler.netplay_handler import NetplayRoom, netplay_handler
 from utils.router import APIRouter
 
@@ -31,7 +34,7 @@ def _get_owner_player_name(room: NetplayRoom) -> str:
     )
 
 
-def _is_room_open(room: NetplayRoom, game_id: str) -> bool:
+def _is_room_open(room: NetplayRoom, game_id: int) -> bool:
     if len(room["players"]) >= room["max_players"]:
         return False
     return str(room["game_id"]) == str(game_id)
@@ -45,8 +48,14 @@ class RoomsResponse(TypedDict):
     hasPassword: bool
 
 
-@protected_route(router.get, "/list", [Scope.ASSETS_READ])
-async def get_rooms(request: Request, game_id: str) -> Dict[str, RoomsResponse]:
+@protected_route(router.get, "/list", [Scope.ROMS_READ])
+async def get_rooms(request: Request, game_id: int) -> Dict[str, RoomsResponse]:
+    rom = db_rom_handler.get_rom_visibility(game_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(game_id)
+
+    assert_rom_visible(request, rom)
+
     netplay_rooms = await netplay_handler.get_all()
 
     open_rooms: Dict[str, RoomsResponse] = {

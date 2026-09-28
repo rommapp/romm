@@ -33,8 +33,10 @@ import CollectionPickerRow from "@/v2/components/Collections/CollectionPickerRow
 import NewCollectionRow from "@/v2/components/Collections/NewCollectionRow.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 defineOptions({ inheritAttrs: false });
@@ -43,8 +45,10 @@ const { t } = useI18n();
 const { mdAndUp } = useBreakpoint();
 const show = ref(false);
 const collectionsStore = storeCollections();
+const galleryRomsStore = storeGalleryRoms();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const { removeCachedRoms } = useRomSync();
 const { toWebp } = useWebpSupport();
 
 function coversFor(collection: CollectionType): string[] {
@@ -63,13 +67,19 @@ const optimistic = ref(new Map<number, "off" | "some" | "all">());
 const creating = ref(false);
 const createExpanded = ref(false);
 const newName = ref("");
+const newIsPublic = ref(false);
+
+function resetCreate() {
+  newName.value = "";
+  newIsPublic.value = false;
+  createExpanded.value = false;
+}
 
 const openHandler = (romsToAdd: SimpleRom[]) => {
   roms.value = romsToAdd;
   optimistic.value = new Map();
   pendingCollections.value = new Set();
-  newName.value = "";
-  createExpanded.value = false;
+  resetCreate();
   show.value = true;
 };
 emitter?.on("showManageCollectionsDialog", openHandler);
@@ -118,15 +128,32 @@ async function toggle(collection: Collection) {
   // selected ids — the backend de-dupes against existing membership,
   // so this is safe and saves a per-id diff round-trip from the
   // frontend.
-  const romIds = roms.value.map((r) => r.id);
+  //
+  // Snapshotted because the dialog is a singleton: a fresh
+  // `showManageCollectionsDialog` can replace `roms` while the call below
+  // is in flight, and the response applies to the set we sent.
+  const targetRoms = roms.value;
+  const romIds = targetRoms.map((r) => r.id);
   try {
     const { data } = adding
       ? await collectionApi.addRomsToCollection(collection.id, romIds)
       : await collectionApi.removeRomsFromCollection(collection.id, romIds);
     collectionsStore.updateCollection(data);
     optimistic.value.delete(collection.id);
+    if (!adding && galleryRomsStore.currentCollection?.id === collection.id) {
+      // We're looking at the collection the ROMs just left, so the cards
+      // have to go with them. Removing from the collection you're viewing
+      // is the only reachable direction here: every selected ROM is
+      // already a member, so the row reads "all" and toggles to "off".
+      removeCachedRoms(targetRoms);
+    }
   } catch (error: unknown) {
-    optimistic.value.set(collection.id, prevState);
+    // Drop the override rather than restoring `prevState`, so the row falls
+    // back to the collection's real membership. Nothing was written, so that
+    // is `prevState` anyway, and a stale override would pin the row: it was
+    // computed against whichever ROMs the dialog held when the click landed,
+    // which a reopen can replace while the call is in flight.
+    optimistic.value.delete(collection.id);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(
       axiosErr.response?.data?.detail ??
@@ -150,12 +177,11 @@ async function createNewCollection() {
   creating.value = true;
   try {
     const created = await collectionApi.createCollection({
-      collection: { name },
+      collection: { name, is_public: newIsPublic.value },
     });
     collectionsStore.addCollection(created);
     void toggle(created);
-    newName.value = "";
-    createExpanded.value = false;
+    resetCreate();
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(
@@ -165,11 +191,6 @@ async function createNewCollection() {
   } finally {
     creating.value = false;
   }
-}
-
-function cancelCreate() {
-  newName.value = "";
-  createExpanded.value = false;
 }
 
 const subtitle = computed(() => {
@@ -197,8 +218,7 @@ function closeDialog() {
   roms.value = [];
   optimistic.value = new Map();
   pendingCollections.value = new Set();
-  newName.value = "";
-  createExpanded.value = false;
+  resetCreate();
   show.value = false;
 }
 </script>
@@ -207,7 +227,7 @@ function closeDialog() {
   <RDialog
     v-model="show"
     :width="mdAndUp ? 440 : '95vw'"
-    class="r-v2-mng-coll-dialog"
+    body-padding="flush"
     @close="closeDialog"
   >
     <!-- Two-line title block replaces the single-line default so the
@@ -239,10 +259,11 @@ function closeDialog() {
       <NewCollectionRow
         v-model:expanded="createExpanded"
         v-model:name="newName"
+        v-model:is-public="newIsPublic"
         :creating="creating"
         :tile-size="46"
         @create="createNewCollection"
-        @cancel="cancelCreate"
+        @cancel="resetCreate"
       />
 
       <RDivider v-if="ownedCollections.length > 0" full-width />
@@ -255,16 +276,13 @@ function closeDialog() {
             :count="collection.rom_count"
             :covers="coversFor(collection)"
             :state="membershipState(collection)"
+            :is-public="collection.is_public"
             :busy="pendingCollections.has(collection.id)"
             :tile-size="46"
             @toggle="toggle(collection)"
           />
         </li>
       </ul>
-
-      <div v-else class="r-v2-mng-coll__empty">
-        {{ t("collection.no-collections-yet-hint") }}
-      </div>
     </template>
   </RDialog>
 </template>
@@ -304,9 +322,8 @@ function closeDialog() {
   max-width: 320px;
 }
 
-/* Row list — sits flush against the dialog edges. This dialog drops
-   the standard RDialog body padding (see the `:deep(.r-dialog__body)`
-   override below) so rows read as menu items, not as padded cards. */
+/* The dialog body is flush, so rows meet the dialog edges and read as menu
+   items rather than padded cards. */
 .r-v2-mng-coll__list {
   list-style: none;
   margin: 0;
@@ -316,25 +333,5 @@ function closeDialog() {
   gap: 0;
   max-height: 360px;
   overflow-y: auto;
-}
-
-.r-v2-mng-coll__empty {
-  padding: 24px 16px;
-  color: var(--r-color-fg-muted);
-  font-size: 13px;
-  text-align: center;
-}
-</style>
-
-<!-- Unscoped overrides — `.r-dialog__body` is rendered (and teleported)
-     by RDialog with its own data-v hash, so a scoped `:deep()` rule
-     from this component doesn't actually land on it. The unscoped
-     selector targets the body via a class we attach to RDialog's root
-     overlay (flows through `v-bind="$attrs"`), keeping the override
-     localised to this dialog. -->
-<style>
-.r-v2-mng-coll-dialog .r-dialog__body {
-  padding: 0;
-  gap: 0;
 }
 </style>

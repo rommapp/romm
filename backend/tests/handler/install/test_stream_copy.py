@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import Mock
 
 from handler.filesystem.installer_detection import DetectedFile

@@ -6,7 +6,7 @@ import functools
 import http.cookies
 import secrets
 from re import Pattern
-from typing import Optional, cast
+from typing import Optional
 
 from itsdangerous import BadSignature
 from itsdangerous.url_safe import URLSafeSerializer
@@ -16,14 +16,19 @@ from starlette.responses import PlainTextResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
+def _session_authenticated(request: Request) -> bool:
+    """Whether the session, resolved and maybe cleared upstream, names a user."""
+    return bool((request.scope.get("session") or {}).get("sub"))
+
+
 class CSRFMiddleware:
     def __init__(
         self,
         app: ASGIApp,
         secret: str,
         *,
-        required_urls: Optional[list[Pattern]] = None,
-        exempt_urls: Optional[list[Pattern]] = None,
+        required_urls: Optional[list[Pattern[str]]] = None,
+        exempt_urls: Optional[list[Pattern[str]]] = None,
         sensitive_cookies: Optional[set[str]] = None,
         safe_methods: Optional[set[str]] = None,
         cookie_name: str = "csrftoken",
@@ -60,9 +65,10 @@ class CSRFMiddleware:
 
         request = Request(scope, receive)
 
-        # Skip CSRF check if Authorization header is present
+        # HybridAuthBackend resolves the session before this header, so a
+        # session-authenticated request runs as the cookie's owner, not the bearer's.
         auth_scheme = request.headers.get("Authorization", "").split(" ", 1)[0].lower()
-        if auth_scheme == "bearer" or auth_scheme == "basic":
+        if auth_scheme in ("bearer", "basic") and not _session_authenticated(request):
             await self.app(scope, receive, send)
             return None
 
@@ -102,7 +108,7 @@ class CSRFMiddleware:
             message.setdefault("headers", [])
             headers = MutableHeaders(scope=message)
 
-            cookie: http.cookies.BaseCookie = http.cookies.SimpleCookie()
+            cookie: http.cookies.BaseCookie[str] = http.cookies.SimpleCookie()
             cookie_name = self.cookie_name
             cookie[cookie_name] = self._generate_csrf_token(current_user_id)
             cookie[cookie_name]["path"] = self.cookie_path
@@ -144,7 +150,7 @@ class CSRFMiddleware:
 
     def _generate_csrf_token(self, user_id: int | None = None) -> str:
         obj = {"token": secrets.token_urlsafe(128), "user_id": user_id}
-        return cast(str, self.serializer.dumps(obj))
+        return self.serializer.dumps(obj)
 
     def _csrf_cookie_has_user(
         self, csrf_cookie: str | None, user_id: int | None
@@ -154,10 +160,10 @@ class CSRFMiddleware:
 
         try:
             decoded_csrf_cookie = self.serializer.loads(csrf_cookie)
-        except (TypeError, BadSignature):
+        except TypeError, BadSignature:
             return False
 
-        return decoded_csrf_cookie.get("user_id") == user_id
+        return bool(decoded_csrf_cookie.get("user_id") == user_id)
 
     def _csrf_tokens_match(
         self, document_cookie: str, header_cookie: str, user_id: int | None
@@ -166,17 +172,26 @@ class CSRFMiddleware:
             decoded_doc_cookie = self.serializer.loads(document_cookie)
             decoded_header_cookie = self.serializer.loads(header_cookie)
 
-            # Verify that the tokens match, the user IDs match
-            # and the user_id matches the authenticated user
-            return (
-                secrets.compare_digest(
-                    decoded_doc_cookie["token"], decoded_header_cookie["token"]
-                )
-                and decoded_doc_cookie["user_id"] == decoded_header_cookie["user_id"]
-                and decoded_doc_cookie["user_id"] == user_id
+            # The cookie and the submitted header must always agree, that is
+            # the double-submit check itself, and it holds regardless of who
+            # the caller is.
+            if not secrets.compare_digest(
+                decoded_doc_cookie["token"], decoded_header_cookie["token"]
+            ):
+                return False
+            if decoded_doc_cookie["user_id"] != decoded_header_cookie["user_id"]:
+                return False
+
+            # Bind the token to the caller only when there *is* one.
+            # An anonymous request holding a token from a dead session would otherwise be rejected.
+            if user_id is None:
+                return True
+
+            return bool(
+                decoded_doc_cookie["user_id"] == user_id
                 and decoded_header_cookie["user_id"] == user_id
             )
-        except (TypeError, BadSignature):
+        except TypeError, BadSignature:
             return False
 
     def _get_error_response(self, request: Request) -> Response:

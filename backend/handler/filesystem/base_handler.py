@@ -1,16 +1,19 @@
 import asyncio
 import fnmatch
+import hashlib
 import os
 import re
 import shutil
 import tempfile
+from collections.abc import AsyncIterator, Callable, Iterable, Sequence
 from contextlib import asynccontextmanager
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
-from typing import BinaryIO
+from typing import BinaryIO, Final
 
+from anyio import AsyncFile
 from anyio import Path as AnyioPath
 from anyio import open_file
 from starlette.datastructures import UploadFile
@@ -22,17 +25,18 @@ from models.base import (
     compute_file_name_no_ext,
     compute_file_name_no_tags,
 )
-from utils.filesystem import iter_directories, iter_files, link_or_copy_file
+from utils.filesystem import (
+    LINK_FALLBACK_ERRNOS,
+    SERVED_FILE_MODE,
+    iter_directories,
+    iter_files,
+    link_or_copy_file,
+)
 
 UUID_V4_REGEX = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}",
     re.IGNORECASE,
 )
-
-
-class LibraryStructure(Enum):
-    A = "struct_a"
-    B = "struct_b"
 
 
 LANGUAGES = (
@@ -89,7 +93,22 @@ REGIONS = (
 )
 
 REGIONS_BY_SHORTCODE = {region[0]: region[1] for region in REGIONS}
-REGIONS_NAME_KEYS = frozenset(region[1].lower() for region in REGIONS)
+
+# Every accepted region spelling, lowercased, mapped to its canonical name.
+_REGION_BY_ALIAS = {
+    **{name.lower(): name for _, name in REGIONS},
+    **{code.lower(): name for code, name in REGIONS},
+}
+
+
+def normalize_region(tag: str) -> str | None:
+    """Resolve a filename region tag to its canonical REGIONS name.
+
+    Case-insensitive, so "usa", "USA" and "Usa" collapse to one facet value
+    instead of three. Returns None for tags that name no known region.
+    """
+    return _REGION_BY_ALIAS.get(tag.strip().lower())
+
 
 # Maps full REGIONS names to lowercase shortcodes used by metadata providers
 REGION_NAME_TO_PROVIDER_SHORTCODE: dict[str, str] = {
@@ -117,6 +136,25 @@ REGION_NAME_TO_PROVIDER_SHORTCODE: dict[str, str] = {
     "Taiwan": "tw",
     "USA": "us",
     "World": "wor",
+    # ScreenScraper regions with no filename shortcode of their own. Providers
+    # send these codes bare, so without a name here they land in a facet as
+    # "pl" beside the "Poland" a filename or Hasheous produces.
+    "Americas": "ame",
+    "Bulgaria": "bg",
+    "Chile": "cl",
+    "Czech Republic": "cz",
+    "Denmark": "dk",
+    "Hungary": "hu",
+    "Israel": "il",
+    "Kuwait": "kw",
+    "Middle East": "mor",
+    "New Zealand": "nz",
+    "Oceania": "oce",
+    "Peru": "pe",
+    "Poland": "pl",
+    "Portugal": "pt",
+    "Slovakia": "sk",
+    "Turkey": "tr",
 }
 
 _REGION_NAME_TO_PROVIDER_SHORTCODE_CI = {
@@ -135,8 +173,190 @@ def region_name_to_provider_shortcode(region_name: str | None) -> str | None:
     return _REGION_NAME_TO_PROVIDER_SHORTCODE_CI.get(region_name.lower())
 
 
+# Reverse of REGION_NAME_TO_PROVIDER_SHORTCODE. A list per code because two
+# names can claim one code ("nl" for both Holland and Netherlands), and a rom
+# tagged with either has to rank the same.
+_REGION_NAMES_BY_PROVIDER_SHORTCODE: dict[str, list[str]] = {}
+for _name, _code in REGION_NAME_TO_PROVIDER_SHORTCODE.items():
+    _REGION_NAMES_BY_PROVIDER_SHORTCODE.setdefault(_code, []).append(_name)
+
+
+def region_ranks_for_priority(shortcodes: Sequence[str]) -> dict[str, int]:
+    """Map canonical region names to their rank in a shortcode priority list.
+
+    The rank is the shortcode's position, not the name's, so two names claiming
+    one shortcode ("nl" for both Holland and Netherlands) rank equally and fall
+    through to whatever tiebreak follows.
+
+    A shortcode naming no known region (ScreenScraper's "ss", or a typo the
+    open-ended settings input allowed) contributes nothing rather than shifting
+    the ranks of everything after it. Nor does a repeated shortcode.
+    """
+    ranks: dict[str, int] = {}
+    next_rank = 0
+    for shortcode in dict.fromkeys(code.lower() for code in shortcodes):
+        names = _REGION_NAMES_BY_PROVIDER_SHORTCODE.get(shortcode)
+        if not names:
+            continue
+        for name in names:
+            ranks[name] = next_rank
+        next_rank += 1
+    return ranks
+
+
+# Provider spellings kept out of the filename aliases, where several of these
+# codes ("de", "fr", "nl", "ru") read as a language tag instead (issue #3026).
+_REGION_BY_PROVIDER_ALIAS = {
+    **{name.lower(): name for name in REGION_NAME_TO_PROVIDER_SHORTCODE},
+    **{code: names[0] for code, names in _REGION_NAMES_BY_PROVIDER_SHORTCODE.items()},
+}
+
+
+def provider_region_name(value: str) -> str | None:
+    """Resolve a metadata provider's region spelling to its canonical name."""
+    return normalize_region(value) or _REGION_BY_PROVIDER_ALIAS.get(
+        value.strip().lower()
+    )
+
+
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
-LANGUAGES_NAME_KEYS = frozenset(lang[1].lower() for lang in LANGUAGES)
+
+# Every accepted language spelling, lowercased, mapped to its canonical name.
+_LANGUAGE_BY_ALIAS = {
+    **{name.lower(): name for _, name in LANGUAGES},
+    **{code.lower(): name for code, name in LANGUAGES},
+}
+
+
+def normalize_language(tag: str) -> str | None:
+    """Resolve a filename language tag to its canonical LANGUAGES name.
+
+    Case-insensitive, so "english", "English" and "ENGLISH" collapse to one
+    facet value. Returns None for tags that name no known language.
+    """
+    return _LANGUAGE_BY_ALIAS.get(tag.strip().lower())
+
+
+# Codes only a translation tag uses for its target language ("[T+Eng]",
+# "[T-Ge]"). Two-letter ISO codes are absent: normalize_language has those.
+_TRANSLATION_LANGUAGE_ALIASES = {
+    "ara": "Arabic",
+    "chi": "Chinese",
+    "dan": "Danish",
+    "du": "Dutch",
+    "dut": "Dutch",
+    "eng": "English",
+    "fin": "Finnish",
+    "fre": "French",
+    "ge": "German",
+    "ger": "German",
+    "gr": "Greek",
+    "gre": "Greek",
+    "ita": "Italian",
+    "jap": "Japanese",
+    "jp": "Japanese",
+    "kor": "Korean",
+    "nor": "Norwegian",
+    "pol": "Polish",
+    "por": "Portuguese",
+    "rus": "Russian",
+    "ser": "Serbian",
+    "sp": "Spanish",
+    "spa": "Spanish",
+    "swe": "Swedish",
+}
+
+
+# The tag a translated dump carries, in place of the group and patch version
+# the raw tag encodes, which would give every translation its own facet value.
+TRANSLATION_TAG = "Translation"
+
+
+def translation_language(code: str) -> str | None:
+    """Resolve the language a translation tag targets, or None."""
+    tag = code.strip().lower()
+    return normalize_language(tag) or _TRANSLATION_LANGUAGE_ALIASES.get(tag)
+
+
+# ISO-639-1 languages with no filename shortcode of their own. Provider-only,
+# because a filename tag reads by dumper convention instead: "(Tr)" marks a
+# translation, not Turkish.
+PROVIDER_LANGUAGES: Final = (
+    ("af", "Afrikaans"),
+    ("be", "Belarusian"),
+    ("bg", "Bulgarian"),
+    ("ca", "Catalan"),
+    ("cs", "Czech"),
+    ("et", "Estonian"),
+    ("he", "Hebrew"),
+    ("hi", "Hindi"),
+    ("hr", "Croatian"),
+    ("hu", "Hungarian"),
+    ("hy", "Armenian"),
+    ("id", "Indonesian"),
+    ("is", "Icelandic"),
+    ("la", "Latin"),
+    ("lt", "Lithuanian"),
+    ("lv", "Latvian"),
+    ("mk", "Macedonian"),
+    ("ro", "Romanian"),
+    ("sk", "Slovak"),
+    ("sl", "Slovenian"),
+    ("sq", "Albanian"),
+    ("th", "Thai"),
+    ("tr", "Turkish"),
+    ("uk", "Ukrainian"),
+    ("vi", "Vietnamese"),
+)
+
+_LANGUAGE_BY_PROVIDER_ALIAS = {
+    **{name.lower(): name for _, name in PROVIDER_LANGUAGES},
+    **{code: name for code, name in PROVIDER_LANGUAGES},
+}
+
+# Region shortcodes a filename can also carry, as TOSEC and similar sets write
+# them ("(US)", "(JP)"). Added once both language vocabularies are known, and
+# only for a code neither claims: "(De)" is German, and "(Tr)" marks a
+# translation rather than Turkey (issue #3026).
+_REGION_BY_ALIAS.update(
+    {
+        code: names[0]
+        for code, names in _REGION_NAMES_BY_PROVIDER_SHORTCODE.items()
+        if code not in _LANGUAGE_BY_ALIAS and code not in _LANGUAGE_BY_PROVIDER_ALIAS
+    }
+)
+
+
+def provider_language_name(value: str) -> str | None:
+    """Resolve a metadata provider's language spelling to its canonical name."""
+    return normalize_language(value) or _LANGUAGE_BY_PROVIDER_ALIAS.get(
+        value.strip().lower()
+    )
+
+
+def normalize_provider_values(
+    values: Iterable[str], resolve: Callable[[str], str | None]
+) -> list[str]:
+    """Canonicalize provider spellings, dropping blanks and duplicates.
+
+    An unrecognized value is kept as given, the way filename parsing keeps a
+    tag it does not know rather than dropping it.
+    """
+    return list(
+        dict.fromkeys(
+            resolve(value) or value.strip()
+            for value in values
+            if value and value.strip()
+        )
+    )
+
+
+def normalize_provider_regions(values: Iterable[str]) -> list[str]:
+    return normalize_provider_values(values, provider_region_name)
+
+
+def normalize_provider_languages(values: Iterable[str]) -> list[str]:
+    return normalize_provider_values(values, provider_language_name)
 
 
 class CoverSize(Enum):
@@ -151,7 +371,7 @@ class Asset(Enum):
 
 
 class FSHandler:
-    def __init__(self, base_path: str):
+    def __init__(self, base_path: str) -> None:
         self.base_path = Path(base_path).resolve()
         self._locks: dict[str, asyncio.Lock] = {}
         self._lock_mutex = asyncio.Lock()
@@ -200,10 +420,19 @@ class FSHandler:
 
         # Normalize path without resolving the full path yet
         base_path_obj = Path(self.base_path).resolve()
-        full_path = base_path_obj / path_path
+        base_path_str = str(base_path_obj)
+        normalized_path = os.path.normpath(os.path.join(base_path_str, path_path))
+        if normalized_path == base_path_str:
+            return base_path_obj
+        # A bare startswith guard, which CodeQL recognizes as a path sanitizer.
+        if not normalized_path.startswith(base_path_str + os.sep):
+            raise ValueError(
+                f"Path {path} is outside the base directory {self.base_path}"
+            )
+        full_path = Path(normalized_path)
 
         try:
-            # Detect a symlink anywhere in the path, not just at the leaf —
+            # Detect a symlink anywhere in the path, not just at the leaf:
             # users may symlink an intermediate directory (e.g. the library
             # root) to point at storage on another filesystem.
             has_symlink_in_path = full_path.is_symlink()
@@ -215,12 +444,9 @@ class FSHandler:
                         has_symlink_in_path = True
                         break
 
-            if has_symlink_in_path:
-                # Validate lexically — `..` and absolute paths are already
-                # rejected above, so the symlink target is reachable only via
-                # an intentionally-configured link.
-                full_path.relative_to(base_path_obj)
-            else:
+            # A symlinked path already passed the lexical check above, so its
+            # target is reachable only via an intentionally-configured link.
+            if not has_symlink_in_path:
                 full_path.resolve().relative_to(base_path_obj)
         except ValueError as exc:
             raise ValueError(
@@ -229,8 +455,27 @@ class FSHandler:
 
         return full_path
 
+    async def _compute_file_hash(self, file_path: str) -> str:
+        full_path = self.validate_path(file_path)
+
+        def digest() -> str:
+            with open(full_path, "rb") as f:
+                return hashlib.file_digest(
+                    f, lambda: hashlib.md5(usedforsecurity=False)
+                ).hexdigest()
+
+        return await asyncio.to_thread(digest)
+
+    async def compute_file_md5(self, file_path: str) -> str:
+        """MD5 of the bytes on disk, unlike zip-aware `compute_content_hash`.
+
+        Raises:
+            OSError: The file is missing or unreadable.
+        """
+        return await self._compute_file_hash(file_path)
+
     @asynccontextmanager
-    async def _atomic_write(self, target_path: Path):
+    async def _atomic_write(self, target_path: Path) -> AsyncIterator[Path]:
         """Context manager for atomic file writing.
 
         Creates the temp file in the same directory as the target so the
@@ -244,11 +489,12 @@ class FSHandler:
 
         try:
             yield temp_path
-            # mkstemp creates files with 0600 permissions
-            os.chmod(temp_path, 0o644)
+            os.chmod(temp_path, SERVED_FILE_MODE)
             os.replace(str(temp_path), str(target_path))
 
-        except Exception:
+        # BaseException, not Exception: a cancelled scan raises CancelledError,
+        # which would otherwise skip cleanup and strand a temp file per cancel.
+        except BaseException:
             async_temp = AnyioPath(temp_path)
             if await async_temp.exists():
                 await async_temp.unlink()
@@ -271,24 +517,24 @@ class FSHandler:
         cnfg = cm.get_config()
         excluded_extensions = cnfg.EXCLUDED_SINGLE_EXT
         excluded_names = cnfg.EXCLUDED_SINGLE_FILES
-        excluded_files: list[str] = []
 
-        for file_name in files:
-            file_name_lower = file_name.lower()
+        # Built once rather than per file, and endswith takes the whole tuple.
+        excluded_suffixes = tuple(f".{ext}" for ext in excluded_extensions)
 
+        def is_excluded(file_name: str) -> bool:
             # Check whether the filename ends with any excluded extension entry.
-            if any(file_name_lower.endswith("." + ext) for ext in excluded_extensions):
-                excluded_files.append(file_name)
-                continue
+            if file_name.lower().endswith(excluded_suffixes):
+                return True
 
             # Check if the file name matches a pattern in the excluded list.
-            if file_name in excluded_names or any(
+            return file_name in excluded_names or any(
                 fnmatch.fnmatch(file_name, name) for name in excluded_names
-            ):
-                excluded_files.append(file_name)
+            )
 
-        # Return files that are not in the filtered list.
-        return [f for f in files if f not in excluded_files]
+        # Deciding per file keeps this linear. Collecting the exclusions first and
+        # then filtering against that list rescans it once per file, which gets
+        # expensive on platforms holding tens of thousands of files.
+        return [f for f in files if not is_excluded(f)]
 
     async def make_directory(self, path: str) -> None:
         """
@@ -363,7 +609,7 @@ class FSHandler:
 
     async def write_file(
         self,
-        file: UploadFile | BinaryIO | BytesIO | bytes | SpooledTemporaryFile,
+        file: UploadFile | BinaryIO | BytesIO | bytes | SpooledTemporaryFile[bytes],
         path: str,
         filename: str | None = None,
     ) -> None:
@@ -385,9 +631,8 @@ class FSHandler:
 
         # Validate and sanitize inputs
         sanitized_filename = self._sanitize_filename(original_filename)
-        target_directory = self.validate_path(path)
-
-        final_file_path = target_directory / sanitized_filename
+        final_file_path = self.validate_path(os.path.join(path, sanitized_filename))
+        target_directory = final_file_path.parent
 
         # Async thread-safe file operations
         lock = await self._get_file_lock(str(final_file_path))
@@ -414,15 +659,24 @@ class FSHandler:
                     else:
                         raise ValueError("Unsupported file type for writing")
 
-    async def write_file_streamed(self, path: str, filename: str):
+    @asynccontextmanager
+    async def write_file_streamed(
+        self, path: str, filename: str
+    ) -> AsyncIterator[AsyncFile[bytes]]:
         """
         Write file to filesystem using a streamed approach.
+
+        The stream lands in a temporary file that is renamed over the target
+        once the caller's block completes, so a download killed mid-stream
+        leaves any existing file intact instead of truncating it in place. A
+        truncated file is the worst outcome, since it still satisfies the
+        `*_exists` checks and every later scan skips it.
 
         Args:
             path: Relative path within base directory
             filename: Name of the file to write
 
-        Returns:
+        Yields:
             File object for writing
 
         Raises:
@@ -433,9 +687,8 @@ class FSHandler:
 
         # Validate and sanitize inputs
         sanitized_filename = self._sanitize_filename(filename)
-        target_directory = self.validate_path(path)
-
-        final_file_path = target_directory / sanitized_filename
+        final_file_path = self.validate_path(os.path.join(path, sanitized_filename))
+        target_directory = final_file_path.parent
 
         # Async thread-safe file operations
         lock = await self._get_file_lock(str(final_file_path))
@@ -443,8 +696,11 @@ class FSHandler:
             # Ensure target directory exists
             target_directory.mkdir(parents=True, exist_ok=True)
 
-            # Open file for writing
-            return await open_file(final_file_path, "wb")
+            # The handle closes before _atomic_write renames, so the target
+            # never receives a partially flushed file.
+            async with self._atomic_write(final_file_path) as temp_path:
+                async with await open_file(temp_path, "wb") as f:
+                    yield f
 
     async def read_file(self, file_path: str) -> bytes:
         """
@@ -474,7 +730,7 @@ class FSHandler:
             async with await open_file(full_path, "rb") as f:
                 return await f.read()
 
-    async def stream_file(self, file_path: str):
+    async def stream_file(self, file_path: str) -> AsyncFile[bytes]:
         """
         Stream file from filesystem.
 
@@ -579,6 +835,106 @@ class FSHandler:
             dest_full_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(source_full_path), str(dest_full_path))
 
+    def is_same_file(self, path: str, other_path: str) -> bool:
+        """Whether two relative paths name one file, as names differing only in
+        case do on a case-insensitive filesystem."""
+        full_path = self.validate_path(path)
+        other_full_path = self.validate_path(other_path)
+        if full_path == other_full_path:
+            return True
+        try:
+            return full_path.samefile(other_full_path)
+        except FileNotFoundError:
+            return False
+
+    async def copy_to_new_file(self, source_path: str, dest_path: str) -> None:
+        """
+        Copy a file to a path nothing holds yet, never replacing another file.
+
+        Args:
+            source_path: Relative path to the file to copy
+            dest_path: Relative path of the copy
+
+        Raises:
+            FileNotFoundError: If the source does not exist
+            FileExistsError: If the destination already exists
+        """
+        source_full_path = self.validate_path(source_path)
+        dest_full_path = self.validate_path(dest_path)
+        if source_full_path == dest_full_path:
+            raise FileExistsError(f"File already exists: {dest_full_path}")
+
+        source_lock = await self._get_file_lock(str(source_full_path))
+        dest_lock = await self._get_file_lock(str(dest_full_path))
+
+        async with source_lock, dest_lock:
+            if not source_full_path.is_file():
+                raise FileNotFoundError(f"File not found: {source_full_path}")
+
+            # Both a link and an exclusive create refuse a name that exists.
+            try:
+                os.link(source_full_path, dest_full_path)
+            except OSError as exc:
+                if exc.errno not in LINK_FALLBACK_ERRNOS:
+                    raise
+                with (
+                    source_full_path.open("rb") as source,
+                    dest_full_path.open("xb") as dest,
+                ):
+                    try:
+                        shutil.copyfileobj(source, dest)
+                    except BaseException:
+                        # Only a file this copy created, never one it refused.
+                        dest_full_path.unlink()
+                        raise
+                shutil.copymode(source_full_path, dest_full_path)
+
+    async def rename_file(self, file_path: str, new_name: str) -> None:
+        """
+        Rename a file within its directory, never replacing another file.
+
+        Args:
+            file_path: Relative path to the file to rename
+            new_name: New file name
+
+        Raises:
+            FileNotFoundError: If the file does not exist
+            FileExistsError: If another file already holds the new name
+        """
+        source_full_path = self.validate_path(file_path)
+        dest_full_path = self.validate_path(
+            str(Path(file_path).with_name(self._sanitize_filename(new_name)))
+        )
+        if source_full_path == dest_full_path:
+            return
+
+        source_lock = await self._get_file_lock(str(source_full_path))
+        dest_lock = await self._get_file_lock(str(dest_full_path))
+
+        async with source_lock, dest_lock:
+            if not source_full_path.is_file():
+                raise FileNotFoundError(f"File not found: {source_full_path}")
+
+            if dest_full_path.exists():
+                # A case-only rename on a case-insensitive filesystem finds itself.
+                if not dest_full_path.samefile(source_full_path):
+                    raise FileExistsError(f"File already exists: {dest_full_path}")
+                source_full_path.rename(dest_full_path)
+                return
+
+            # A link refuses a name another worker took since the check, which
+            # a rename would silently replace.
+            try:
+                os.link(source_full_path, dest_full_path)
+            except FileExistsError as exc:
+                raise FileExistsError(f"File already exists: {dest_full_path}") from exc
+            except OSError as exc:
+                if exc.errno not in LINK_FALLBACK_ERRNOS:
+                    raise
+                source_full_path.rename(dest_full_path)
+                return
+            source_full_path.unlink()
+
     async def remove_file(self, file_path: str) -> None:
         """
         Remove a file from the filesystem.
@@ -650,6 +1006,27 @@ class FSHandler:
         lock = await self._get_file_lock(str(full_path))
         async with lock:
             return full_path.is_file()
+
+    async def directory_exists(self, path: str) -> bool:
+        """
+        Check if a directory exists.
+
+        Args:
+            path: Relative path to the directory
+
+        Returns:
+            True if directory exists, False otherwise
+        """
+        if not path:
+            raise ValueError("Directory path cannot be empty")
+
+        # Validate and normalize path
+        full_path = self.validate_path(path)
+
+        # Async thread-safe existence check
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
+            return full_path.is_dir()
 
     async def get_file_size(self, file_path: str) -> int:
         """

@@ -5,8 +5,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from endpoints.roms import files as files_endpoint
 from handler.database import db_permission_handler, db_rom_handler
+from handler.filesystem import fs_rom_handler
 from models.permission import PermAction, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -113,6 +113,24 @@ def test_markdown_manual_served_inline(
     assert r.headers["x-content-type-options"] == "nosniff"
 
 
+def test_html_manual_served_under_a_sandboxing_csp(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    # Nothing sanitizes an uploaded HTML document, so this header is all that
+    # stands between a crafted one and the session origin.
+    rom = _make_rom(admin_user, platform)
+    file = _add_file(rom, "manual.html", RomFileCategory.MANUAL)
+
+    r = client.get(
+        f"/api/roms/{file.id}/files/content/manual.html",
+        headers=_auth(access_token),
+    )
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.headers["content-disposition"].startswith("inline")
+    assert r.headers["content-security-policy"] == "sandbox; default-src 'none'"
+
+
 def test_non_manual_document_served_as_attachment(
     client: TestClient, access_token: str, admin_user: User, platform: Platform
 ):
@@ -184,9 +202,9 @@ def files_fs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         else:
             raise FileNotFoundError(path)
 
-    monkeypatch.setattr(files_endpoint.fs_rom_handler, "validate_path", validate_path)
+    monkeypatch.setattr(fs_rom_handler, "validate_path", validate_path)
     monkeypatch.setattr(
-        files_endpoint.fs_rom_handler,
+        fs_rom_handler,
         "remove_file",
         AsyncMock(side_effect=remove_file),
     )

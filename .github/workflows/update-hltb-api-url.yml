@@ -2,36 +2,41 @@ name: Update HowLongToBeat API URL
 
 on:
   workflow_dispatch:
+  schedule:
+    # HLTB rotates the endpoint without notice, and the fixture is served to
+    # every install from master, so check weekly rather than on someone noticing.
+    - cron: "0 6 * * 1"
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   update-hltb-api-url:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # For create-pull-request to push the branch
+      pull-requests: write # For create-pull-request to open the PR
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
-
-      - name: Install python
-        run: |
-          uv python install 3.13
-
-      - name: Install dependencies
-        run: |
-          uv sync
+      - name: Set up the backend
+        uses: ./.github/actions/setup-backend
 
       - name: Run HLTB API URL discovery script
+        # Only satisfies the backend config import; discovery authenticates nothing.
+        env:
+          # trunk-ignore(checkov/CKV_SECRET_6): placeholder, not a credential
+          ROMM_AUTH_SECRET_KEY: unused-by-endpoint-discovery
         run: |
           cd backend
           uv run python -m utils.update_hltb_api_url
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7.0.11
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           add-paths: |
             backend/handler/metadata/fixtures/hltb_api_url
@@ -41,3 +46,11 @@ jobs:
           title: "Update HLTB API URL [skip CI]"
           reviewers: |
             gantoine
+
+  report-failure:
+    needs: [update-hltb-api-url]
+    if: failure() && github.event_name == 'schedule'
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/report-scheduled-failure.yml

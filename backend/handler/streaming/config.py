@@ -1,0 +1,839 @@
+"""Streaming containers, resolved once from config.yml into frozen records.
+
+The raw YAML is loose: a container may serve one platform or a map of them, and
+may leave its broker host to be derived. Resolution is memoized until the config
+changes, so an unusable container is reported once rather than once per lookup.
+A platform's containers form pools of interchangeable members, and a game claim
+only walks the first.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+import secrets
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
+from typing import Any
+from urllib.parse import urlparse, urlunparse
+
+from redis.exceptions import RedisError
+
+from config import LIBRARY_BASE_PATH, STREAMING_BROKER_SECRET
+from config.config_manager import config_manager as cm
+from handler.redis_handler import sync_cache
+from handler.streaming.capabilities import (
+    PlatformCapabilities,
+    StateTransferLimits,
+    emulator_clears_saves,
+    emulator_resumes_from_archive,
+    known_to_lack_memory_card,
+    slot_capabilities,
+    state_transfer_limits,
+)
+from handler.streaming.protocol import (
+    BrokerProtocol,
+    WebstationProtocol,
+    protocol_for,
+)
+from logger.logger import log
+
+# Keys a `platforms:` block may override for the one platform it names.
+PLATFORM_OVERRIDE_KEYS = (
+    "emulator",
+    "label",
+    "memory_card_sync",
+    "clears_stale_saves",
+    "core",
+    "experimental_cores",
+)
+
+# A libretro core as the broker's catalog names it, e.g. "parallel_n64". The
+# broker owns the list and refuses an unknown one.
+_CORE_NAME = re.compile(r"^[a-z0-9_]+$")
+
+# Play-button text per emulator, used when a platform block sets no `label`
+# of its own. Keyed by emulator name as the broker registers it (lowercase).
+_EMULATOR_DISPLAY_NAMES: dict[str, str] = {
+    "azahar": "Azahar",
+    "cemu": "Cemu",
+    "desktop": "Desktop",
+    "dolphin": "Dolphin",
+    "duckstation": "DuckStation",
+    "eden": "Eden",
+    "flycast": "Flycast",
+    "pcsx2": "PCSX2",
+    "play": "Play!",
+    "ppsspp": "PPSSPP",
+    # Platform-less name; emulator_display_label names the core instead.
+    "retroarch": "RetroArch",
+    "rpcs3": "RPCS3",
+    "shadps4": "shadPS4",
+    "xemu": "xemu",
+    "xenia": "Xenia",
+}
+
+# Display name of the core the broker's RetroArch launcher boots for each
+# platform when config.yml sets none (its retroarch_platforms.json).
+_RETROARCH_CORE_NAMES: dict[str, str] = {
+    "3do": "Opera",
+    "3ds": "Azahar",
+    "amiga": "PUAE",
+    "arcade": "FinalBurn Neo",
+    "atari-st": "Hatari",
+    "atari2600": "Stella",
+    "atari5200": "a5200",
+    "atari7800": "ProSystem",
+    "c64": "VICE",
+    "colecovision": "Gearcoleco",
+    "cps1": "FinalBurn Neo",
+    "cps2": "FinalBurn Neo",
+    "cps3": "FinalBurn Neo",
+    "dc": "Flycast",
+    "dos": "DOSBox Pure",
+    "famicom": "Mesen",
+    "fds": "Mesen",
+    "gamegear": "Genesis Plus GX",
+    "gb": "Gambatte",
+    "gba": "mGBA",
+    "gbc": "Gambatte",
+    "genesis": "Genesis Plus GX",
+    "intellivision": "FreeIntv",
+    "jaguar": "Virtual Jaguar",
+    "lynx": "Handy",
+    "msx": "blueMSX",
+    "msx2": "blueMSX",
+    "n64": "Mupen64Plus-Next",
+    "nds": "melonDS",
+    "neo-geo-cd": "NeoCD",
+    "neo-geo-pocket": "Beetle NGP",
+    "neo-geo-pocket-color": "Beetle NGP",
+    "neogeoaes": "FinalBurn Neo",
+    "neogeomvs": "FinalBurn Neo",
+    "nes": "Mesen",
+    "ngc": "Dolphin",
+    "odyssey-2": "O2EM",
+    "psp": "PPSSPP",
+    "psx": "SwanStation",
+    "saturn": "Yaba Sanshiro",
+    "sega32": "PicoDrive",
+    "segacd": "Genesis Plus GX",
+    "sfam": "Snes9x",
+    "sg1000": "Genesis Plus GX",
+    "sms": "Genesis Plus GX",
+    "snes": "Snes9x",
+    "supergrafx": "Beetle SuperGrafx",
+    "tg16": "Beetle PCE",
+    "turbografx-cd": "Beetle PCE",
+    "vectrex": "vecx",
+    "virtualboy": "Beetle VB",
+    "wii": "Dolphin",
+    "wonderswan": "Beetle WonderSwan",
+    "wonderswan-color": "Beetle WonderSwan",
+    "zxs": "Fuse",
+}
+
+
+def emulator_labels() -> dict[str, str]:
+    """Display name per emulator id, for surfaces that label an id they were
+    handed rather than one they resolved (a save's `emulator`, say)."""
+    return dict(_EMULATOR_DISPLAY_NAMES)
+
+
+def emulator_display_label(
+    emulator: str, platform: str, core: str | None = None
+) -> str:
+    """Play-button text for an emulator serving a platform, e.g. "PCSX2" or
+    "RA PPSSPP". Unknown emulators fall back to their configured name."""
+    key = emulator.strip().lower()
+    if key == "retroarch":
+        # A configured core names itself; the default's display name would be wrong.
+        if core:
+            return f"RA {core}"
+        name = _RETROARCH_CORE_NAMES.get(platform.lower(), platform.upper())
+        return f"RA {name}"
+    return _EMULATOR_DISPLAY_NAMES.get(key, emulator.strip())
+
+
+@dataclass(frozen=True)
+class ResolvedContainer:
+    """One (container, platform) pair, with every question already answered.
+
+    A container serving several platforms yields one record each, all sharing a
+    `key`: it is one container and can hold one session.
+    """
+
+    key: str
+    """Stable identity, derived from the broker host. Empty is unclaimable."""
+    host: str
+    """Browser-facing stream URL, or a path when reverse proxied onto the app."""
+    broker_host: str | None
+    """Server-to-server API base, or None when nothing reachable was named."""
+    protocol: BrokerProtocol
+    platform: str
+    emulator: str
+    """Namespace for stored states and cards, e.g. 'pcsx2'."""
+    label: str
+    """What the Play button says for this platform."""
+    container_label: str | None
+    """The container's own label, before any per-platform override."""
+    memory_card_sync: bool
+    """Whole-card sync, already checked against the platform having a card."""
+    clears_stale_saves: bool
+    """Whether the broker empties the save tree before restoring, which is what
+    lets a pick older than the container's own files land."""
+    broker_secret: str
+    library_path: str
+    """Where the container sees the ROM library, when it differs from RomM's."""
+    capabilities: PlatformCapabilities
+    state_transfer: StateTransferLimits
+    core: str | None = None
+    """The libretro core the platform asks for, None for the broker's default."""
+    experimental_cores: bool = False
+    """Whether a core the broker lists as known broken may run anyway."""
+
+    @property
+    def is_webstation(self) -> bool:
+        return self.protocol.name == "webstation"
+
+    @property
+    def supports_save_picker(self) -> bool:
+        """Whether the launch screen may offer a save other than the newest."""
+        return self.is_webstation and self.clears_stale_saves
+
+    @property
+    def resumes_from_archive(self) -> bool:
+        """Whether a resume rides the save archive, with no state file to push."""
+        return self.is_webstation and emulator_resumes_from_archive(self.emulator)
+
+    @property
+    def supports_live_states(self) -> bool:
+        """Whether the player may save or load a state while the game runs. An
+        exit-state broker refuses both, though its slot still backs the library."""
+        return self.capabilities["has_autosave"] and not self.resumes_from_archive
+
+    def interchangeable_with(self, other: ResolvedContainer) -> bool:
+        """Whether two containers serving a platform are one pool: a player
+        landing on either finds the same saves and the same controls."""
+        return (
+            self.emulator == other.emulator
+            and self.memory_card_sync == other.memory_card_sync
+            # The picker is advertised from the head of the pool, so a member
+            # without it would take the pick and let its own newer files
+            # overwrite the restored archive, with no error anywhere.
+            and self.supports_save_picker == other.supports_save_picker
+            # Same-origin pool members are each proxied at their own path, so
+            # they never carry the same protocol object.
+            and self.protocol.name == other.protocol.name
+            # A member on another core would boot the game on it and file its
+            # states where the rest of the pool never looks.
+            and self.core == other.core
+            and self.experimental_cores == other.experimental_cores
+        )
+
+    def memory_card_route(self) -> str:
+        return self.protocol.memory_card_route(self.emulator, self.platform)
+
+
+def _loggable(entry: dict[str, Any]) -> dict[str, Any]:
+    """A raw config entry without its shared secret, so a warning can name the
+    container it means without printing the secret into the log."""
+    redacted = {k: v for k, v in entry.items() if k != "broker_secret"}
+    platforms = redacted.get("platforms")
+    if isinstance(platforms, dict):
+        redacted["platforms"] = {
+            platform: _loggable(options) if isinstance(options, dict) else options
+            for platform, options in platforms.items()
+        }
+    return redacted
+
+
+def parse_host_url(host: str) -> str | None:
+    """Validate a configured host/broker_host and return it stripped, or None
+    when it has no scheme (urlparse yields hostname=None for a bare
+    'host:port', which would produce the broken '//None:8000/...' string).
+    Operators must write a scheme, matching the documented config examples."""
+    host = host.strip().rstrip("/")
+    if not host:
+        return None
+    parsed = urlparse(host)
+    if not parsed.scheme or not parsed.hostname:
+        return None
+    return host
+
+
+def parse_stream_host(host: str) -> str | None:
+    """Validate a configured stream host: an absolute URL, or a path when the
+    container is reverse proxied onto RomM's own origin (`/streaming`). The
+    browser resolves a path against whatever origin it is already on, which is
+    what makes the iframe same origin and its pointer events reachable."""
+    host = host.strip()
+    if host.startswith("/"):
+        return host.rstrip("/") or "/"
+    return parse_host_url(host)
+
+
+def _derive_broker_host(entry: dict[str, Any], protocol: BrokerProtocol) -> str | None:
+    """Resolve the broker API host for a raw entry.
+
+    A webstation container serves the broker on the stream's own origin; the
+    per-emulator mods serve it on port 8000. None for a container proxied onto
+    a bare path, which carries no address to dial.
+    """
+    broker_host = parse_host_url(str(entry.get("broker_host", "")))
+    if broker_host:
+        return broker_host.rstrip("/")
+    stream_host = parse_host_url(str(entry.get("host", "")))
+    if not stream_host:
+        return None
+    if protocol.name == "webstation":
+        return stream_host.rstrip("/")
+    parsed = urlparse(stream_host)
+    return urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000")).rstrip("/")
+
+
+def _claimable_broker_host(
+    entry: dict[str, Any], raw_host: str, protocol: BrokerProtocol, platform: str
+) -> str | None:
+    """The address this container's broker answers on, or None when the entry
+    cannot be claimed and the reason has been logged."""
+    if not parse_stream_host(raw_host):
+        log.warning(
+            "container for platform '%s' missing a scheme-bearing host or a "
+            "proxied path, it cannot be claimed: %s",
+            platform,
+            _loggable(entry),
+        )
+        return None
+
+    broker_host = _derive_broker_host(entry, protocol)
+    if not broker_host:
+        # A proxied host carries no address RomM can call, so the broker is
+        # only reachable if the operator named it.
+        log.warning(
+            "container for platform '%s' has no reachable broker, set "
+            "broker_host, it cannot be claimed: %s",
+            platform,
+            _loggable(entry),
+        )
+        return None
+
+    if isinstance(protocol, WebstationProtocol) and not protocol.host_matches_subfolder(
+        raw_host
+    ):
+        # Activate answers with an absolute room path built from the broker's
+        # own SUBFOLDER, which replaces the one `host` carries.
+        log.warning(
+            "container for platform '%s' is proxied at '%s' but declares "
+            "subfolder '%s'; both must be the container's own SUBFOLDER, "
+            "it cannot be claimed: %s",
+            platform,
+            raw_host.strip(),
+            protocol.subfolder,
+            _loggable(entry),
+        )
+        return None
+
+    return broker_host
+
+
+def _emulator_namespace(entry: dict[str, Any]) -> str:
+    """Namespace for stored states, e.g. 'pcsx2'. Keeps streaming states apart
+    from the EmulatorJS states of the same ROM."""
+    value = entry.get("emulator") or entry.get("label") or entry.get("platform") or ""
+    return str(value).strip().lower()
+
+
+def _core_problem(emulator: str, core: Any) -> str | None:
+    """Why a configured core can't go to the broker, or None when it can.
+
+    Worded to follow "container platform '<slug>'" in a warning.
+    """
+    if core is None or (isinstance(core, str) and not core.strip()):
+        return "sets an empty core"
+    if not isinstance(core, str):
+        return "sets a core that is not a name"
+    if emulator.strip().lower() != "retroarch":
+        return f"sets core '{core.strip()}' but only retroarch takes a core"
+    if not _CORE_NAME.match(core.strip()):
+        return f"sets core '{core.strip()}', which must match {_CORE_NAME.pattern}"
+    return None
+
+
+def _resolve_one(
+    entry: dict[str, Any], platform: str, container_label: Any
+) -> ResolvedContainer:
+    """One resolved record for a (container, platform) pair.
+
+    An unreachable container still resolves, with an empty `key`: it cannot be
+    claimed, but the fleet view lists it so the misconfiguration is visible.
+    """
+    protocol = protocol_for(entry.get("protocol"), entry.get("subfolder"))
+    raw_host = str(entry.get("host", ""))
+    broker_host = _claimable_broker_host(entry, raw_host, protocol, platform)
+
+    emulator = _emulator_namespace(entry)
+    card_sync = bool(entry.get("memory_card_sync", False))
+    if card_sync and known_to_lack_memory_card(platform):
+        # Honouring the flag here would be silent data loss: whole-card sync
+        # REPLACES /save-file, so the per-file saves this platform actually
+        # uses (Wii NAND, xemu HDD) would stop syncing while RomM shuttled an
+        # empty card around.
+        log.warning(
+            "container for platform '%s' sets memory_card_sync but that "
+            "platform has no memory card, ignoring the flag and syncing "
+            "individual save files instead",
+            platform,
+        )
+        card_sync = False
+
+    configured_clearing = entry.get("clears_stale_saves")
+    clears_stale_saves = (
+        emulator_clears_saves(emulator)
+        if configured_clearing is None
+        else bool(configured_clearing)
+    )
+    if configured_clearing is not None and protocol.name != "webstation":
+        log.warning(
+            "container for platform '%s' sets clears_stale_saves but only a "
+            "webstation container restores a picked save, so it has no effect",
+            platform,
+        )
+
+    capabilities = slot_capabilities(platform, emulator)
+    if not protocol.supports_disc_swap:
+        # Disc swap is keyed by platform, but only the webstation broker has a
+        # tray route: a legacy container must not advertise a control whose
+        # every use 502s.
+        capabilities = {**capabilities, "supports_disc_swap": False}
+
+    label = entry.get("label")
+    core = entry.get("core") or None
+    if core is not None and protocol.name != "webstation":
+        # Only the webstation broker is sent a core.
+        log.warning(
+            "container for platform '%s' sets core '%s' but only a webstation "
+            "container takes one, booting the default core instead",
+            platform,
+            core,
+        )
+        core = None
+    opt_in = entry.get("experimental_cores")
+    if core is not None and opt_in is not None and not isinstance(opt_in, bool):
+        log.warning(
+            "container for platform '%s' sets experimental_cores to %r, only an "
+            "unquoted true opts in",
+            platform,
+            opt_in,
+        )
+    return ResolvedContainer(
+        key=broker_host or "",
+        host=raw_host,
+        broker_host=broker_host,
+        protocol=protocol,
+        platform=platform,
+        emulator=emulator,
+        label=str(label) if label else emulator_display_label(emulator, platform, core),
+        container_label=container_label if isinstance(container_label, str) else None,
+        memory_card_sync=card_sync,
+        clears_stale_saves=clears_stale_saves,
+        broker_secret=STREAMING_BROKER_SECRET or str(entry.get("broker_secret", "")),
+        library_path=str(entry.get("library_path") or LIBRARY_BASE_PATH).rstrip("/"),
+        capabilities=capabilities,
+        state_transfer=state_transfer_limits(emulator),
+        core=core,
+        # Only a real boolean opts in (a quoted "false" is truthy to bool()),
+        # and only beside a core, the one place it is ever sent.
+        experimental_cores=opt_in is True and core is not None,
+    )
+
+
+def _platform_entries(entry: dict[str, Any]) -> list[tuple[dict[str, Any], str]]:
+    """The (raw entry, platform) pairs one config entry expands into.
+
+    A container declaring `platforms` yields one per platform with its
+    overrides folded in; a flat entry yields itself.
+    """
+    platforms = entry.get("platforms")
+    if platforms is None:
+        platform = str(entry.get("platform", "")).strip()
+        if not platform:
+            log.warning(
+                "container missing platform/host, skipping: %s", _loggable(entry)
+            )
+            return []
+        if "core" in entry:
+            problem = _core_problem(_emulator_namespace(entry), entry["core"])
+            if problem is not None:
+                log.warning("container platform '%s' %s, skipping", platform, problem)
+                return []
+            entry = {**entry, "core": entry["core"].strip()}
+        return [(entry, platform)]
+
+    if not isinstance(platforms, dict):
+        log.warning(
+            "container `platforms` must be a map of platform to emulator, "
+            "skipping: %s",
+            _loggable(entry),
+        )
+        return []
+    if entry.get("platform"):
+        log.warning(
+            "container declares both `platform` and `platforms`, "
+            "serving `platforms` only: %s",
+            _loggable(entry),
+        )
+
+    if "core" in entry:
+        # One core serves one platform; inheriting it would boot every
+        # platform in the map on it.
+        log.warning(
+            "container sets `core` beside `platforms`, ignoring it; set it on "
+            "the platform instead: %s",
+            _loggable(entry),
+        )
+    base = {k: v for k, v in entry.items() if k not in ("platforms", "core")}
+    rows: list[tuple[dict[str, Any], str]] = []
+    for platform, options in platforms.items():
+        if not isinstance(platform, str) or not platform.strip():
+            log.warning("container platform key is not a name, skipping: %r", platform)
+            continue
+        row = _platform_overrides(base, platform.strip(), options)
+        if row is not None:
+            rows.append((row, platform.strip()))
+    return rows
+
+
+def _platform_overrides(
+    base: dict[str, Any], platform: str, options: Any
+) -> dict[str, Any] | None:
+    """One raw row for a platform, or None when the block is unusable.
+
+    `options` is either the emulator name or a block overriding container keys.
+    """
+    core: Any = None
+    if isinstance(options, str):
+        # "retroarch:bsnes" is shorthand for a block naming both.
+        name, colon, core = options.partition(":")
+        emulator = name.strip()
+        has_core = bool(colon)
+        overrides: dict[str, Any] = {}
+    elif isinstance(options, dict):
+        raw = options.get("emulator")
+        emulator = raw.strip() if isinstance(raw, str) else ""
+        has_core = "core" in options
+        core = options.get("core")
+        overrides = {
+            k: v
+            for k, v in options.items()
+            if k in PLATFORM_OVERRIDE_KEYS and k not in ("emulator", "core")
+        }
+        for key in options:
+            if key not in PLATFORM_OVERRIDE_KEYS:
+                log.warning(
+                    "container platform '%s' sets unknown option '%s', ignoring",
+                    platform,
+                    key,
+                )
+    else:
+        log.warning(
+            "container platform '%s' must name an emulator or set a block of "
+            "options, skipping",
+            platform,
+        )
+        return None
+
+    if not emulator:
+        # The emulator names the state and card namespace, so guessing one
+        # would file this platform's saves under another container.
+        log.warning("container platform '%s' has no emulator, skipping", platform)
+        return None
+
+    if has_core:
+        problem = _core_problem(emulator, core)
+        if problem is not None:
+            log.warning("container platform '%s' %s, skipping", platform, problem)
+            return None
+        core = core.strip()
+    else:
+        core = None
+
+    # A platform block's own `label` wins; otherwise the emulator names the
+    # button, not the container, so "Stream on PCSX2" rather than the box.
+    row = {
+        **base,
+        **overrides,
+        "platform": platform,
+        "emulator": emulator,
+        "label": overrides.get("label"),
+    }
+    if core is not None:
+        row["core"] = core
+    return row
+
+
+def resolve_entry(entry: dict[str, Any]) -> ResolvedContainer | None:
+    """Resolve one raw config entry, taking the first platform it serves.
+
+    For callers holding a single entry rather than the whole config; the
+    whole-config path below walks every platform of every entry.
+    """
+    rows = _platform_entries(entry)
+    if not rows:
+        return None
+    row, platform = rows[0]
+    return _resolve_one(row, platform, entry.get("label"))
+
+
+_cache_fingerprint: str | None = None
+_cached: tuple[ResolvedContainer, ...] = ()
+
+
+def reset_cache() -> None:
+    """Drop the memoized resolution, for a caller swapping the config under a
+    fingerprint already resolved."""
+    global _cache_fingerprint, _cached
+    _cache_fingerprint = None
+    _cached = ()
+
+
+def _fingerprint(raw: Any) -> str:
+    try:
+        return json.dumps(raw, sort_keys=True, default=str)
+    except TypeError, ValueError:
+        # Unserializable config: never matches, so it re-resolves every time
+        # rather than serving a record built from something else. A fresh
+        # random value rather than an object's repr, which CPython happily
+        # repeats when the address is reused.
+        return f"unserializable:{secrets.token_hex(8)}"
+
+
+def resolve_containers() -> tuple[ResolvedContainer, ...]:
+    """Every usable (container, platform) pair, in config order.
+
+    Config order is deliberate: the head of the list stays warm (shader caches,
+    BIOS, memory cards) instead of players spreading across cold containers.
+    """
+    global _cache_fingerprint, _cached
+
+    cfg = cm.get_config()
+    if not cfg.STREAMING_ENABLED:
+        return ()
+
+    raw = cfg.STREAMING_CONTAINERS or []
+    fingerprint = _fingerprint(raw)
+    if fingerprint == _cache_fingerprint:
+        return _cached
+
+    resolved: list[ResolvedContainer] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        for row, platform in _platform_entries(dict(entry)):
+            resolved.append(_resolve_one(row, platform, entry.get("label")))
+
+    _warn_about_later_pools(resolved, fingerprint)
+    _warn_about_shared_labels(resolved, fingerprint)
+    _cache_fingerprint = fingerprint
+    _cached = tuple(resolved)
+    return _cached
+
+
+def _pools(containers: Iterable[ResolvedContainer]) -> list[list[ResolvedContainer]]:
+    """Group containers into pools of interchangeable members. A pool sits at its
+    first member's config position, and members keep config order."""
+    pools: list[list[ResolvedContainer]] = []
+    for container in containers:
+        pool = next((p for p in pools if p[0].interchangeable_with(container)), None)
+        if pool is None:
+            pools.append([container])
+        else:
+            pool.append(container)
+    return pools
+
+
+def _pools_by_platform(
+    resolved: Iterable[ResolvedContainer],
+) -> dict[str, list[list[ResolvedContainer]]]:
+    """Every platform's pools, keyed by the lowercased platform."""
+    by_platform: dict[str, list[ResolvedContainer]] = {}
+    for container in resolved:
+        # Nothing to dial, so a claim would have nowhere to go. The fleet view
+        # still lists it, which is where the operator sees why.
+        if container.key:
+            by_platform.setdefault(container.platform.lower(), []).append(container)
+    return {platform: _pools(members) for platform, members in by_platform.items()}
+
+
+# Each RQ job runs in a fresh process, so "once" has to outlive the process.
+_POOL_WARNING_KEY_PREFIX = "romm:streaming:pool-warning:"
+_POOL_WARNING_TTL_SECONDS = 24 * 60 * 60
+
+
+def _first_to_warn(fingerprint: str) -> bool:
+    digest = hashlib.sha256(fingerprint.encode()).hexdigest()
+    try:
+        return bool(
+            sync_cache.set(
+                f"{_POOL_WARNING_KEY_PREFIX}{digest}",
+                "1",
+                nx=True,
+                ex=_POOL_WARNING_TTL_SECONDS,
+            )
+        )
+    except RedisError:
+        return True
+
+
+def _warn_about_later_pools(
+    resolved: Sequence[ResolvedContainer], fingerprint: str
+) -> None:
+    """Name every container a game claim can never reach, once a day per config."""
+    pools_by_platform = _pools_by_platform(resolved)
+    if not any(len(pools) > 1 for pools in pools_by_platform.values()):
+        return
+    if not _first_to_warn(fingerprint):
+        return
+    for pools in pools_by_platform.values():
+        later = [c.key for pool in pools[1:] for c in pool]
+        if later:
+            log.warning(
+                "containers for platform '%s' disagree on emulator, core, memory "
+                "card sync, save picker or protocol, so game claims only use the "
+                "first pool; never claimed for a game: %s",
+                pools[0][0].platform,
+                ", ".join(later),
+            )
+
+
+# The longest name a container URL or desktop request accepts.
+CONTAINER_NAME_MAX_LENGTH = 300
+
+
+def _container_labels(resolved: Iterable[ResolvedContainer]) -> dict[str, str]:
+    """Each claimable container's key to its own label, when it sets one."""
+    labels: dict[str, str] = {}
+    for container in resolved:
+        label = (container.container_label or "").strip()
+        if container.key and label and len(label) <= CONTAINER_NAME_MAX_LENGTH:
+            labels.setdefault(container.key, label)
+    return labels
+
+
+def _keys_by_label(labels: dict[str, str]) -> list[list[str]]:
+    """Container keys grouped by their case-folded label."""
+    groups: dict[str, list[str]] = {}
+    for key, label in labels.items():
+        groups.setdefault(label.casefold(), []).append(key)
+    return list(groups.values())
+
+
+def _unique_labels(resolved: Sequence[ResolvedContainer]) -> dict[str, str]:
+    """The labels that name exactly one container and are not another's key."""
+    labels = _container_labels(resolved)
+    folded_keys = {container.key.casefold() for container in resolved if container.key}
+    return {
+        group[0]: labels[group[0]]
+        for group in _keys_by_label(labels)
+        if len(group) == 1 and labels[group[0]].casefold() not in folded_keys
+    }
+
+
+def _warn_about_shared_labels(
+    resolved: Sequence[ResolvedContainer], fingerprint: str
+) -> None:
+    """Name every label a URL cannot use because it names several containers,
+    once a day per config."""
+    labels = _container_labels(resolved)
+    shared = [keys for keys in _keys_by_label(labels) if len(keys) > 1]
+    if not shared or not _first_to_warn(f"labels:{fingerprint}"):
+        return
+    for keys in shared:
+        log.warning(
+            "containers %s share the label '%s', so URLs name each by its "
+            "broker host instead",
+            ", ".join(keys),
+            labels[keys[0]],
+        )
+
+
+def pools_for_platform(platform: str) -> list[list[ResolvedContainer]]:
+    """Every container serving a platform, grouped into pools. A container that
+    matches no other is a pool of one."""
+    return _pools_by_platform(resolve_containers()).get(platform.lower(), [])
+
+
+def containers_for_platform(platform: str) -> list[ResolvedContainer]:
+    """The platform's first pool, which a game claim walks for the first free
+    container, in config order."""
+    pools = pools_for_platform(platform)
+    return pools[0] if pools else []
+
+
+def first_claim_targets() -> list[ResolvedContainer]:
+    """The first container a game claim tries, one per platform, in config
+    order."""
+    return [pools[0][0] for pools in _pools_by_platform(resolve_containers()).values()]
+
+
+def containers_by_key() -> dict[str, list[ResolvedContainer]]:
+    """Configured containers grouped by key. A container serving several
+    platforms has one record per platform, all sharing one key."""
+    grouped: dict[str, list[ResolvedContainer]] = {}
+    for container in resolve_containers():
+        grouped.setdefault(container.key, []).append(container)
+    return grouped
+
+
+def container_names() -> dict[str, str]:
+    """Each claimable container's key to the name URLs use for it: its own
+    label when that names it alone, else the key."""
+    resolved = resolve_containers()
+    unique = _unique_labels(resolved)
+    return {c.key: unique.get(c.key, c.key) for c in resolved if c.key}
+
+
+def key_for_name(name: str) -> str | None:
+    """The key a URL's container name means. A key names itself, which keeps
+    links from before names resolving."""
+    names = container_names()
+    if name in names:
+        return name
+    folded = name.strip().casefold()
+    return next(
+        (key for key, n in names.items() if n != key and n.casefold() == folded),
+        None,
+    )
+
+
+def entry_for_platform(
+    entries: Sequence[ResolvedContainer], platform: str
+) -> ResolvedContainer | None:
+    """The record among one container's entries that serves this platform."""
+    lower = platform.lower()
+    return next((e for e in entries if e.platform.lower() == lower), None)
+
+
+def container_for_session(
+    grouped: dict[str, list[ResolvedContainer]], container_key: str, platform: Any
+) -> ResolvedContainer | None:
+    """The record a session was claimed under. Records sharing a key differ in
+    the platform-keyed fields (emulator, card sync), so picking an arbitrary
+    one would file the session's saves under another platform."""
+    entries = grouped.get(container_key)
+    if not entries:
+        return None
+    entry = entry_for_platform(entries, platform) if isinstance(platform, str) else None
+    return entry or entries[0]
+
+
+def configured_emulator(platform: str) -> str:
+    """The emulator a claim's container serves this platform with, empty when none
+    can be claimed, taken from the pool a claim walks since slot ceilings read it."""
+    pool = containers_for_platform(platform)
+    return pool[0].emulator if pool else ""
+
+
+def streaming_enabled() -> bool:
+    return bool(cm.get_config().STREAMING_ENABLED)

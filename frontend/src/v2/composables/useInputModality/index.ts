@@ -9,8 +9,13 @@ import { readonly, ref } from "vue";
 export type InputModality = "mouse" | "touch" | "key" | "pad";
 
 const modality = ref<InputModality>("mouse");
+// A tap is followed by compatibility mouse events, which would flip the
+// modality straight back to mouse and resize every touch-sized control.
+const MOUSE_AFTER_TOUCH_MS = 700;
+let lastTouchAt = 0;
 let installed = false;
 let teardown: (() => void) | null = null;
+let pinned: InputModality | null = null;
 
 function applyAttribute(next: InputModality) {
   if (typeof document === "undefined") return;
@@ -18,7 +23,16 @@ function applyAttribute(next: InputModality) {
 }
 
 function setModality(next: InputModality) {
-  if (modality.value === next) return;
+  if (pinned || modality.value === next) return;
+  modality.value = next;
+  applyAttribute(next);
+}
+
+// Holds the modality at one value regardless of input (Storybook's Input
+// toolbar); null resumes tracking.
+function pin(next: InputModality | null) {
+  pinned = next;
+  if (!next) return;
   modality.value = next;
   applyAttribute(next);
 }
@@ -36,17 +50,27 @@ export function useInputModality() {
     // focused tile. Only a deliberate click (mousedown) flips the
     // modality back to mouse; mousemove / wheel are ignored while
     // in pad mode.
+    const fromTouch = () =>
+      performance.now() - lastTouchAt < MOUSE_AFTER_TOUCH_MS;
     const onMouseMove = () => {
-      if (modality.value === "pad") return;
+      if (modality.value === "pad" || fromTouch()) return;
       setModality("mouse");
     };
-    const onMouseDown = () => setModality("mouse");
+    const onMouseDown = () => {
+      if (fromTouch()) return;
+      setModality("mouse");
+    };
     const onWheel = () => {
-      if (modality.value === "pad") return;
+      if (modality.value === "pad" || fromTouch()) return;
       setModality("mouse");
     };
-    const onTouch = () => setModality("touch");
+    const onTouch = () => {
+      lastTouchAt = performance.now();
+      setModality("touch");
+    };
     const onKey = (e: KeyboardEvent) => {
+      // useGamepad's synthetic arrows are pad input, not keyboard.
+      if (!e.isTrusted) return;
       // Ignore modifier-only presses and clicks that happen to be keyboard-
       // triggered — what we care about is real navigational keys.
       if (
@@ -96,6 +120,7 @@ export function useInputModality() {
     modality: readonly(modality),
     install,
     setModality,
+    pin,
   };
 }
 

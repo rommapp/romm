@@ -77,7 +77,6 @@ export function setCoverRatio({ romId, url }: RatioKeys, ratio: number): void {
 export function useGalleryCoverRatios() {
   const galleryRoms = storeGalleryRoms();
   const ratioVersion = ref(0);
-  const maxRatio = ref(0);
   let bumpTimer: ReturnType<typeof setTimeout> | null = null;
   // Ratios already folded into the packed layout.
   const packedRatio = new Map<number, number>();
@@ -85,9 +84,6 @@ export function useGalleryCoverRatios() {
   /** Record a cover's measured ratio (GameCard's `@ratio` handler). Reads
    *  /writes the map directly by numeric rom id — no key object / string. */
   function onCardRatio(payload: { romId: number; ratio: number }) {
-    // Track the max on every report (even cached re-paints with an
-    // unchanged ratio) so it rebuilds correctly after a context reset.
-    if (payload.ratio > maxRatio.value) maxRatio.value = payload.ratio;
     const prev = packedRatio.get(payload.romId);
     if (prev != null && Math.abs(prev - payload.ratio) < RATIO_EPSILON) return;
     packedRatio.set(payload.romId, payload.ratio);
@@ -97,19 +93,6 @@ export function useGalleryCoverRatios() {
       bumpTimer = null;
       ratioVersion.value++;
     }, REPACK_DEBOUNCE_MS);
-  }
-
-  /** Reset the running max to the widest already-measured cover in the
-   *  current gallery (or 0 if none) — call on a gallery context switch so
-   *  a previous platform's wide covers don't keep the column wide. */
-  function resetMaxRatio() {
-    let m = 0;
-    const ids = galleryRoms.romIdIndex;
-    for (let i = 0; i < ids.length; i++) {
-      const r = ratioByKey.get(ids[i]);
-      if (r != null && r > m) m = r;
-    }
-    maxRatio.value = m;
   }
 
   /** Measured ratio for a position, or 0 when unknown (the packer then
@@ -125,5 +108,5 @@ export function useGalleryCoverRatios() {
     if (bumpTimer) clearTimeout(bumpTimer);
   });
 
-  return { ratioVersion, ratioAt, onCardRatio, maxRatio, resetMaxRatio };
+  return { ratioVersion, ratioAt, onCardRatio };
 }

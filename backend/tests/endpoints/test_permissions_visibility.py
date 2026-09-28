@@ -12,6 +12,8 @@ import pytest
 from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from endpoints import roms as rom_endpoints
+from endpoints.roms import walkthrough as walkthrough_endpoints
 from handler.auth import oauth_handler
 from handler.database import db_rom_handler, db_user_handler
 from handler.database.base_handler import sync_session
@@ -24,6 +26,8 @@ from models.permission import (
     PermissionGroupGrant,
 )
 from models.rom import Rom, RomFile, RomFileCategory
+from utils.gamelist_exporter import GamelistExporter
+from utils.pegasus_exporter import PegasusExporter
 
 
 def _auth(user):
@@ -46,7 +50,7 @@ def _hide(entity, entity_id, user_id):
 
 def _make_group(name, grants):
     with sync_session.begin() as s:
-        group = PermissionGroup(name=name, is_system=False)
+        group = PermissionGroup(name=name)
         s.add(group)
         s.flush()
         gid = group.id
@@ -65,7 +69,7 @@ def _cleanup_non_system_groups():
     # non-system groups created here need explicit cleanup.
     yield
     with sync_session.begin() as s:
-        s.query(PermissionGroup).filter(PermissionGroup.is_system.is_(False)).delete(
+        s.query(PermissionGroup).filter(PermissionGroup.system_key.is_(None)).delete(
             synchronize_session="evaluate"
         )
 
@@ -132,6 +136,74 @@ def test_hidden_rom_update_is_404_masked(client, editor_user, rom):
     assert resp.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_physical_game_create_on_hidden_platform_is_404_masked(
+    client, editor_user, platform, monkeypatch
+):
+    # Editor holds library-wide roms write, so the coarse gate passes. The
+    # platform hide must mask the write before it reaches any side effect.
+    _hide(PermEntity.PLATFORMS, platform.id, editor_user.id)
+
+    def _unreachable(*args, **kwargs):
+        raise AssertionError("scanned a rom onto a hidden platform")
+
+    monkeypatch.setattr(rom_endpoints, "scan_rom", _unreachable)
+
+    resp = client.post(
+        "/api/roms/physical",
+        headers=_auth(editor_user),
+        json={"platform_id": platform.id, "name": "Sonic"},
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+    assert db_rom_handler.get_roms_scalar(platform_ids=[platform.id]) == []
+
+
+def test_chunked_upload_to_hidden_platform_is_masked(client, editor_user, platform):
+    # Editor has library-wide ROM write access, but hidden platforms must answer
+    # exactly like missing ones to prevent enumeration.
+    _hide(PermEntity.PLATFORMS, platform.id, editor_user.id)
+
+    headers = {
+        **_auth(editor_user),
+        "x-upload-filename": "game.zip",
+        "x-upload-total-size": "11",
+        "x-upload-total-chunks": "2",
+    }
+    hidden = client.post(
+        "/api/roms/upload/start",
+        headers={**headers, "x-upload-platform": str(platform.id)},
+    )
+    missing = client.post(
+        "/api/roms/upload/start",
+        headers={**headers, "x-upload-platform": "999999"},
+    )
+
+    assert hidden.status_code == status.HTTP_400_BAD_REQUEST
+    assert hidden.json() == missing.json()
+
+
+@pytest.mark.parametrize(
+    ("path", "exporter"),
+    [
+        ("/api/export/gamelist-xml", GamelistExporter),
+        ("/api/export/pegasus", PegasusExporter),
+    ],
+)
+def test_export_of_hidden_platform_is_404_masked(
+    client, editor_user, platform, monkeypatch, path, exporter
+):
+    # Editor holds platforms write, so the coarse gate passes. The hide must
+    # mask the export before it reads or rewrites the platform's metadata file.
+    _hide(PermEntity.PLATFORMS, platform.id, editor_user.id)
+
+    async def _unreachable(*args, **kwargs):
+        raise AssertionError("exported a hidden platform")
+
+    monkeypatch.setattr(exporter, "export_platform_to_file", _unreachable)
+
+    resp = client.post(f"{path}?platform_ids={platform.id}", headers=_auth(editor_user))
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_hidden_rom_props_update_is_404_masked(client, viewer_user, rom):
     # ROMS_USER_WRITE is a self-service scope every user holds, so the coarse
     # gate passes; the hidden rom must still be masked, not confirmed.
@@ -161,6 +233,7 @@ def test_hidden_rom_patch_is_404_masked(client, viewer_user, rom, rom_file):
         ("/manuals", {"x-upload-filename": "manual.pdf"}),
         ("/manuals/files", {"x-upload-filename": "manual.pdf"}),
         ("/manuals/redownload", {}),
+        ("/walkthroughs/files", {"x-upload-filename": "guide.txt"}),
     ],
 )
 def test_hidden_rom_child_upload_routes_are_404_masked(
@@ -181,6 +254,7 @@ def test_hidden_rom_child_upload_routes_are_404_masked(
         ("/screenshots/{file_id}", RomFileCategory.SCREENSHOT),
         ("/soundtracks/{file_id}", RomFileCategory.SOUNDTRACK),
         ("/manuals/files/{file_id}", RomFileCategory.MANUAL),
+        ("/walkthroughs/files/{file_id}", RomFileCategory.WALKTHROUGH),
     ],
 )
 def test_hidden_rom_child_delete_routes_are_404_masked(
@@ -206,6 +280,25 @@ def test_hidden_rom_child_delete_routes_are_404_masked(
     assert resp.status_code == status.HTTP_404_NOT_FOUND
     # The row must survive: masking is worthless if the sink already ran.
     assert db_rom_handler.get_rom_file_by_id(child.id) is not None
+
+
+def test_hidden_rom_gamefaqs_walkthrough_is_404_masked(
+    client, editor_user, rom, monkeypatch
+):
+    # The visibility gate must run before the outbound fetch, so a hidden rom
+    # can't be used to make the server reach GameFAQs.
+    def _unreachable(*_args, **_kwargs):
+        raise AssertionError("fetched a guide for a hidden rom")
+
+    monkeypatch.setattr(walkthrough_endpoints, "fetch_gamefaqs_guide", _unreachable)
+    _hide(PermEntity.ROMS, rom.id, editor_user.id)
+
+    resp = client.post(
+        f"/api/roms/{rom.id}/walkthroughs/gamefaqs",
+        headers=_auth(editor_user),
+        json={"url": "https://gamefaqs.gamespot.com/snes/1234-game/faqs/5678"},
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_hidden_rom_manual_delete_is_404_masked(client, editor_user, rom, monkeypatch):
@@ -300,6 +393,7 @@ def test_delete_requires_delete_grant_even_with_write_scope(
     )
     db_user_handler.update_user(viewer_user.id, {"permission_group_id": gid})
     user = db_user_handler.get_user(viewer_user.id)
+    assert user is not None
 
     # Coarse PLATFORMS_WRITE is present (projected from the write grant), so the
     # request passes the scope gate and is rejected by the fine delete check.

@@ -1,9 +1,10 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
+from typing import Any
 
-from sqlalchemy import and_, delete, select, update
-from sqlalchemy.orm import QueryableAttribute, Session, load_only
+from sqlalchemy import Select, and_, delete, select, update
+from sqlalchemy.orm import Session, noload
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.firmware import Firmware
 
 from .base_handler import DBBaseHandler
@@ -14,7 +15,7 @@ class DBFirmwareHandler(DBBaseHandler):
     def add_firmware(
         self,
         firmware: Firmware,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Firmware:
         return session.merge(firmware)
 
@@ -23,41 +24,74 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         id: int,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Firmware | None:
         return session.scalar(select(Firmware).filter_by(id=id).limit(1))
 
-    @begin_session
-    def list_firmware(
+    def _firmware_query(
         self,
         *,
-        platform_id: int | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        hidden_platform_ids: Sequence[int] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[Firmware]:
+        platform_ids: Sequence[int] | None = None,
+        missing: bool | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
+    ) -> Select[tuple[Firmware]]:
         query = select(Firmware).order_by(Firmware.file_name.asc())
 
-        if platform_id:
-            query = query.filter_by(platform_id=platform_id)
+        if platform_ids:
+            query = query.filter(Firmware.platform_id.in_(platform_ids))
+
+        if missing is not None:
+            query = query.filter(Firmware.missing_from_fs == missing)
 
         # Firmware inherits its platform's visibility: hide firmware whose
         # platform an admin has hidden from the caller.
         if hidden_platform_ids:
             query = query.filter(Firmware.platform_id.not_in(hidden_platform_ids))
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
+        return query
 
-        return session.scalars(query).all()
+    @begin_session
+    def list_firmware(
+        self,
+        *,
+        platform_ids: Sequence[int] | None = None,
+        missing: bool | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Firmware]:
+        query = self._firmware_query(
+            platform_ids=platform_ids,
+            missing=missing,
+            hidden_platform_ids=hidden_platform_ids,
+        )
+        # `Firmware.platform` is lazy="joined", which drags in Platform's
+        # rom_count and fs_size_bytes subqueries. No caller here reads it.
+        return session.scalars(query.options(noload(Firmware.platform))).all()
+
+    @begin_session
+    def list_firmware_ids(
+        self,
+        *,
+        platform_ids: Sequence[int] | None = None,
+        missing: bool | None = None,
+        hidden_platform_ids: Collection[int] | None = None,
+        session: Session = INJECTED_SESSION,
+    ) -> list[int]:
+        """Ids only, so no `Firmware` is built and no eager platform join fires."""
+        query = self._firmware_query(
+            platform_ids=platform_ids,
+            missing=missing,
+            hidden_platform_ids=hidden_platform_ids,
+        )
+        return list(session.scalars(query.with_only_columns(Firmware.id)).all())
 
     @begin_session
     def get_firmware_by_filename(
         self,
         platform_id: int,
         file_name: str,
-        session: Session = None,  # type: ignore
-    ):
+        session: Session = INJECTED_SESSION,
+    ) -> Firmware | None:
         return session.scalar(
             select(Firmware)
             .filter_by(platform_id=platform_id, file_name=file_name)
@@ -68,8 +102,8 @@ class DBFirmwareHandler(DBBaseHandler):
     def update_firmware(
         self,
         id: int,
-        data: dict,
-        session: Session = None,  # type: ignore
+        data: dict[str, Any],
+        session: Session = INJECTED_SESSION,
     ) -> Firmware:
         session.execute(
             update(Firmware)
@@ -77,13 +111,13 @@ class DBFirmwareHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Firmware).filter_by(id=id).one()
+        return session.scalars(select(Firmware).filter_by(id=id)).one()
 
     @begin_session
     def delete_firmware(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             delete(Firmware)
@@ -96,7 +130,7 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         platform_id: int,
         fs_firmwares_to_keep: list[str],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Firmware]:
         missing_firmware = (
             session.scalars(
@@ -108,7 +142,7 @@ class DBFirmwareHandler(DBBaseHandler):
                         Firmware.file_name.not_in(fs_firmwares_to_keep),
                     )
                 )
-            )  # type: ignore[attr-defined]
+            )
             .unique()
             .all()
         )

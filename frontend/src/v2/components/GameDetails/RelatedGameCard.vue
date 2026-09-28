@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// RelatedGameCard — single card in the related-games strip.
+// RelatedGameCard: single card in the related-games strip.
 //
 // Reuses the gallery's GameCard in `static` mode so the cover art,
 // hover-lift, label-truncation and tooltip-on-hover read identically
 // to every other game cover in the app. The action overlay, rating
 // chip, status badge, platform icon and gallery-selection chrome are
-// all suppressed by `static + showPlatformIcon=false` — we only want
+// all suppressed by `static + showPlatformIcon=false`, we only want
 // "a tile that looks like a game".
 //
 // IGDB → RomM cross-reference (per v1's
@@ -44,13 +44,13 @@ onMounted(async () => {
     });
     romId.value = res.data.id;
   } catch {
-    // Stay on the IGDB external fallback — game isn't in the local
+    // Stay on the IGDB external fallback, game isn't in the local
     // library or the endpoint denied the lookup.
   }
 });
 
 // Minimal SimpleRom satisfying the GameCard prop contract. id=0 marks
-// it as synthetic — GameCard skips view-transition wiring and the
+// it as synthetic, GameCard skips view-transition wiring and the
 // router-link href. `static + showPlatformIcon=false` means every
 // other field that could read off the rom is gated behind a v-if and
 // never accessed, so the empty defaults are safe.
@@ -60,6 +60,8 @@ const EMPTY_METADATA: RomMetadataSchema = {
   franchises: [],
   collections: [],
   companies: [],
+  publishers: [],
+  developers: [],
   game_modes: [],
   age_ratings: [],
   player_count: "",
@@ -81,6 +83,7 @@ const EMPTY_USER: RomUserSchema = {
   difficulty: 0,
   completion: 0,
   status: null,
+  pinned_media: null,
 };
 
 const syntheticRom = computed<SimpleRom>(() => ({
@@ -95,6 +98,10 @@ const syntheticRom = computed<SimpleRom>(() => ({
   tgdb_id: null,
   flashpoint_id: null,
   hltb_id: null,
+  demozoo_id: null,
+  pouet_id: null,
+  csdb_id: null,
+  steam_id: null,
   gamelist_id: null,
   libretro_id: null,
   platform_id: 0,
@@ -122,6 +129,10 @@ const syntheticRom = computed<SimpleRom>(() => ({
   hasheous_metadata: null,
   flashpoint_metadata: null,
   hltb_metadata: null,
+  demozoo_metadata: null,
+  pouet_metadata: null,
+  csdb_metadata: null,
+  steam_metadata: null,
   gamelist_metadata: null,
   manual_metadata: null,
   path_cover_small: null,
@@ -142,6 +153,9 @@ const syntheticRom = computed<SimpleRom>(() => ({
   md5_hash: null,
   sha1_hash: null,
   ra_hash: null,
+  title_id: null,
+  save_target: null,
+  save_target_layout: null,
   has_simple_single_file: false,
   has_nested_single_file: false,
   has_multiple_files: false,
@@ -149,6 +163,9 @@ const syntheticRom = computed<SimpleRom>(() => ({
   created_at: "",
   updated_at: "",
   missing_from_fs: false,
+  is_physical: false,
+  has_file_on_disk: false,
+  upc: null,
   has_notes: false,
   files: [],
   sibling_roms: [],
@@ -164,12 +181,12 @@ function onClick(e: MouseEvent) {
     void router.push(`/rom/${romId.value}`);
     return;
   }
-  // Open the IGDB external link in a new tab — preserves the current
+  // Open the IGDB external link in a new tab, preserves the current
   // ROM's detail view so the user doesn't lose context.
   const url = `https://www.igdb.com/games/${props.game.slug}`;
   window.open(url, "_blank", "noopener,noreferrer");
   // The static-mode keyboard activator (`onStaticKeydown`) hands us a
-  // KeyboardEvent cast to MouseEvent — both go through the same path.
+  // KeyboardEvent cast to MouseEvent, both go through the same path.
   void e;
 }
 </script>
@@ -182,7 +199,7 @@ function onClick(e: MouseEvent) {
     :cover-src="game.cover_url"
     @click="onClick"
   >
-    <!-- "Owned" tag at the top of the cover — signals the game is
+    <!-- "Owned" tag at the top of the cover, signals the game is
          already in the user's library. Mirrors the top-left chip
          pattern v1 used for the related-game `type` overlay (DLC /
          Remake / …) so the visual rhythm matches across the app. -->
@@ -205,7 +222,7 @@ function onClick(e: MouseEvent) {
   left: 6px;
 }
 
-/* "Owned" pill — brand-tinted with a check glyph. Slight blur on the
+/* "Owned" pill: brand-tinted with a check glyph. Slight blur on the
    background so it composites cleanly over bright cover art. */
 .related-card__owned {
   display: inline-flex;

@@ -730,7 +730,8 @@ class TestFinalizeInstall:
     root without ever moving them, so `work_dir / entry.path` - exactly what
     the download endpoints resolve - pointed at a path that was never real
     on disk. Caught live: a finished install (state=done) 500'd on every
-    file download with "File at path ... does not exist.\""""
+    file download with "File at path ... does not exist."
+    """
 
     def _setup(self, tmp_path, monkeypatch):
         monkeypatch.setattr(

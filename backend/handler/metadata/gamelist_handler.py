@@ -1,20 +1,25 @@
-import glob
 import os
 import re
 import uuid
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Final, NotRequired, TypedDict
+from typing import Final, Literal, NotRequired, TypedDict
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 
 import pydash
 from defusedxml import ElementTree as ET
 
-from config.config_manager import MetadataMediaType
+from config.config_manager import PLATFORM_MEDIA_DIRS, MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_platform_handler, fs_resource_handler
+from handler.filesystem.base_handler import (
+    normalize_provider_languages,
+    normalize_provider_regions,
+)
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom, compute_name_sort_key
+from utils.filesystem import join_rel_path, rel_platform_folder
 
 from .base_handler import BaseRom, MetadataHandler
 
@@ -60,15 +65,20 @@ class GamelistMetadata(GamelistMetadataMedia):
     first_release_date: str | None
     sort_name: str | None
     companies: list[str] | None
+    publishers: list[str] | None
+    developers: list[str] | None
     franchises: list[str] | None
     genres: list[str] | None
     player_count: str | None
     md5_hash: str | None
+    box2d_back_path: str | None
     box3d_path: str | None
+    fanart_path: str | None
     miximage_path: str | None
     miximage_v2_path: str | None
     physical_path: str | None
     marquee_path: str | None
+    title_screen_path: str | None
     video_path: str | None
 
 
@@ -79,24 +89,53 @@ class GamelistRom(BaseRom):
     gamelist_metadata: NotRequired[GamelistMetadata]
 
 
-ESDE_MEDIA_MAP: Final = {
-    "image_url": "images",
-    "box2d_url": "covers",
-    "box2d_back_url": "backcovers",
-    "box3d_url": "3dboxes",
-    "fanart_url": "fanart",
-    "manual_url": "manuals",
-    "marquee_url": "marquees",
-    "miximage_url": "miximages",
-    "miximage_v2_url": "miximages_v2",
-    "physical_url": "physicalmedia",
-    "screenshot_url": "screenshots",
-    "title_screen_url": "titlescreens",
-    "thumbnail_url": "thumbnails",
-    "video_url": "videos",
+MediaUrlKey = Literal[
+    "box2d_url",
+    "box2d_back_url",
+    "box3d_url",
+    "fanart_url",
+    "image_url",
+    "manual_url",
+    "marquee_url",
+    "miximage_url",
+    "miximage_v2_url",
+    "physical_url",
+    "screenshot_url",
+    "thumbnail_url",
+    "title_screen_url",
+    "video_url",
+]
+
+MediaPathKey = Literal[
+    "box2d_back_path",
+    "box3d_path",
+    "fanart_path",
+    "miximage_path",
+    "miximage_v2_path",
+    "physical_path",
+    "marquee_path",
+    "title_screen_path",
+    "video_path",
+]
+
+ESDE_MEDIA_MAP: Final[dict[MediaUrlKey, str]] = {
+    "image_url": PLATFORM_MEDIA_DIRS["image"],
+    "box2d_url": PLATFORM_MEDIA_DIRS["box2d"],
+    "box2d_back_url": PLATFORM_MEDIA_DIRS["box2d_back"],
+    "box3d_url": PLATFORM_MEDIA_DIRS["box3d"],
+    "fanart_url": PLATFORM_MEDIA_DIRS["fanart"],
+    "manual_url": PLATFORM_MEDIA_DIRS["manual"],
+    "marquee_url": PLATFORM_MEDIA_DIRS["marquee"],
+    "miximage_url": PLATFORM_MEDIA_DIRS["miximage"],
+    "miximage_v2_url": PLATFORM_MEDIA_DIRS["miximage_v2"],
+    "physical_url": PLATFORM_MEDIA_DIRS["physical"],
+    "screenshot_url": PLATFORM_MEDIA_DIRS["screenshot"],
+    "title_screen_url": PLATFORM_MEDIA_DIRS["title_screen"],
+    "thumbnail_url": PLATFORM_MEDIA_DIRS["thumbnail"],
+    "video_url": PLATFORM_MEDIA_DIRS["video"],
 }
 
-XML_TAG_MAP: Final = {
+XML_TAG_MAP: Final[dict[MediaUrlKey, str]] = {
     "image_url": "image",
     "box2d_url": "cover",
     "box2d_back_url": "backcover",
@@ -112,6 +151,20 @@ XML_TAG_MAP: Final = {
     "thumbnail_url": "thumbnail",
     "video_url": "video",
 }
+
+
+def gamelist_path_to_filename(raw_path: str) -> str:
+    """Return the filename a gamelist <path> refers to, without the `./` prefix."""
+    return os.path.basename(raw_path.removeprefix("./"))
+
+
+def gamelist_path_to_rel_path(raw_path: str) -> str:
+    """Return a gamelist <path> as a path relative to the gamelist file itself.
+
+    Unlike the filename alone, this tells two identically named roms in different
+    folders apart, which a custom library structure allows.
+    """
+    return raw_path.removeprefix("./").strip("/")
 
 
 def _make_file_uri(platform_dir: str, raw_text: str) -> str:
@@ -132,8 +185,73 @@ def _split_comma_separated_values(value: str | None) -> list[str]:
     return pydash.compact([item.strip() for item in split_values])
 
 
+MediaFileIndex = dict[MediaUrlKey, dict[str, str]]
+
+# The order ES-DE probes extensions in when a ROM has media in several formats
+ESDE_MEDIA_EXTENSION_PRIORITY: Final = (
+    ".png",
+    ".jpg",
+    ".webp",
+    ".mp4",
+    ".mkv",
+    ".avi",
+    ".wmv",
+    ".mov",
+    ".webm",
+    ".m4v",
+    ".pdf",
+)
+
+
+_ESDE_MEDIA_EXTENSION_RANK: Final = {
+    extension: rank for rank, extension in enumerate(ESDE_MEDIA_EXTENSION_PRIORITY)
+}
+
+
+def _esde_media_rank(file_name: str) -> tuple[int, str]:
+    extension = os.path.splitext(file_name)[1].lower()
+    return (
+        _ESDE_MEDIA_EXTENSION_RANK.get(extension, len(_ESDE_MEDIA_EXTENSION_RANK)),
+        file_name,
+    )
+
+
+def build_media_file_index(platform: Platform) -> MediaFileIndex:
+    """Index each ES-DE media folder's files by stem, listing each folder once.
+
+    Returns:
+        The stem-to-URI mapping for every ESDE_MEDIA_MAP key.
+    """
+    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+    index: MediaFileIndex = {}
+
+    for media_key, folder_name in ESDE_MEDIA_MAP.items():
+        # Media is only a fallback, so an unusable folder must not fail the parse
+        try:
+            folder = fs_platform_handler.validate_path(
+                os.path.join(platform_dir, folder_name)
+            )
+            uri_prefix = f"file://{folder.relative_to(fs_platform_handler.base_path)}"
+            with os.scandir(folder) as it:
+                file_names = sorted(
+                    (entry.name for entry in it if entry.is_file()),
+                    key=_esde_media_rank,
+                )
+        except OSError, ValueError:
+            file_names = []
+
+        stems: dict[str, str] = {}
+        for file_name in file_names:
+            stems.setdefault(
+                os.path.splitext(file_name)[0], f"{uri_prefix}/{file_name}"
+            )
+        index[media_key] = stems
+
+    return index
+
+
 def extract_media_from_gamelist_rom(
-    game: Element, platform: Platform
+    game: Element, platform: Platform, media_files: MediaFileIndex
 ) -> GamelistMetadataMedia:
     platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
 
@@ -158,33 +276,52 @@ def extract_media_from_gamelist_rom(
     for media_key, xml_tag in XML_TAG_MAP.items():
         elem = game.find(xml_tag)
         if elem is not None and elem.text:
-            # trunk-ignore(mypy/literal-required)
-            gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)
+            try:
+                gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)
+            except ValueError as e:
+                log.debug(f"Skipping gamelist <{xml_tag}> outside the library: {e}")
 
-    # Fallback to searching media folders by ROM basename
+    # Fallback to the media folders' files named after the ROM
     path_elem = game.find("path")
     if path_elem is not None and path_elem.text:
-        rom_stem = os.path.splitext(os.path.basename(path_elem.text))[0]
+        rom_name = os.path.basename(path_elem.text)
+        rom_stem = os.path.splitext(rom_name)[0]
+        is_directory: bool | None = None
 
-        for media_key, folder_name in ESDE_MEDIA_MAP.items():
-            # trunk-ignore(mypy/literal-required)
+        for media_key in ESDE_MEDIA_MAP:
             if gamelist_media[media_key]:
                 continue
 
-            search_pattern = os.path.join(platform_dir, folder_name, f"{rom_stem}.*")
-            search_path = fs_platform_handler.validate_path(search_pattern)
-            found_files = glob.glob(str(search_path))
-            if found_files:
-                # trunk-ignore(mypy/literal-required)
-                gamelist_media[media_key] = (
-                    f"file://{str(Path(found_files[0]).relative_to(fs_platform_handler.base_path))}"
-                )
+            files = media_files[media_key]
+            if rom_name in files and rom_stem in files:
+                # ES-DE names a directory's media after its full name, a file's
+                # after its stem, so only a name both could match needs the disk.
+                if is_directory is None:
+                    is_directory = _is_directory_entry(
+                        game, platform_dir, path_elem.text
+                    )
+                name = rom_name if is_directory else rom_stem
+            else:
+                name = rom_name if rom_name in files else rom_stem
+            gamelist_media[media_key] = files.get(name)
 
     return gamelist_media
 
 
+def _is_directory_entry(game: Element, platform_dir: str, raw_path: str) -> bool:
+    """Whether a gamelist entry names a directory rather than a file."""
+    if game.tag == "folder":
+        return True
+    try:
+        return fs_platform_handler.validate_path(
+            os.path.join(platform_dir, gamelist_path_to_rel_path(raw_path))
+        ).is_dir()
+    except ValueError:
+        return False
+
+
 def extract_metadata_from_gamelist_rom(
-    game: Element, platform: Platform
+    game: Element, platform: Platform, media_files: MediaFileIndex
 ) -> GamelistMetadata:
     rating_elem = game.find("rating")
     releasedate_elem = game.find("releasedate")
@@ -226,49 +363,60 @@ def extract_metadata_from_gamelist_rom(
     )
     md5 = md5_elem.text if md5_elem is not None and md5_elem.text else None
 
+    publishers = _split_comma_separated_values(publisher)
+    developers = _split_comma_separated_values(developer)
+
     return GamelistMetadata(
         rating=rating,
         first_release_date=first_release_date,
         sort_name=sort_name,
-        companies=list(
-            dict.fromkeys(
-                pydash.compact(
-                    [
-                        *_split_comma_separated_values(developer),
-                        *_split_comma_separated_values(publisher),
-                    ]
-                )
-            )
-        ),
+        companies=list(dict.fromkeys([*developers, *publishers])),
+        publishers=publishers,
+        developers=developers,
         franchises=_split_comma_separated_values(family),
         genres=_split_comma_separated_values(genre),
         player_count=players,
         md5_hash=md5,
+        box2d_back_path=None,
         box3d_path=None,
+        fanart_path=None,
         miximage_path=None,
         miximage_v2_path=None,
         physical_path=None,
         marquee_path=None,
+        title_screen_path=None,
         video_path=None,
-        **extract_media_from_gamelist_rom(game, platform),
+        **extract_media_from_gamelist_rom(game, platform, media_files),
     )
 
 
 def populate_rom_specific_paths(
     rom_metadata: GamelistMetadata, rom: Rom
-) -> dict[str, str]:
+) -> dict[MediaPathKey, str]:
     """Populate ROM-specific paths after retrieving metadata from cache"""
     preferred_media_types = get_preferred_media_types()
 
     # Create a copy of the metadata to avoid modifying the cached version
-    updated_metadata: dict[str, str] = {}
+    updated_metadata: dict[MediaPathKey, str] = {}
 
     # Set paths for media types that are preferred
+    if MetadataMediaType.BOX2D_BACK in preferred_media_types and rom_metadata.get(
+        "box2d_back_url"
+    ):
+        updated_metadata["box2d_back_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D_BACK)}/box2d_back.png"
+        )
     if MetadataMediaType.BOX3D in preferred_media_types and rom_metadata.get(
         "box3d_url"
     ):
         updated_metadata["box3d_path"] = (
             f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX3D)}/box3d.png"
+        )
+    if MetadataMediaType.FANART in preferred_media_types and rom_metadata.get(
+        "fanart_url"
+    ):
+        updated_metadata["fanart_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.FANART)}/fanart.png"
         )
     if MetadataMediaType.MARQUEE in preferred_media_types and rom_metadata.get(
         "marquee_url"
@@ -313,11 +461,11 @@ def populate_rom_specific_paths(
 class GamelistHandler(MetadataHandler):
     """Handler for ES-DE gamelist.xml metadata source"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Cache for storing parsed gamelist data by platform ID
-        self._gamelist_cache = {}
+        self._gamelist_cache: dict[int, dict[str, GamelistRom]] = {}
 
-    async def populate_cache(self, platform: Platform):
+    async def populate_cache(self, platform: Platform) -> None:
         if not self.is_enabled():
             return
 
@@ -329,7 +477,7 @@ class GamelistHandler(MetadataHandler):
         # Parse the gamelist file
         self._parse_gamelist_xml(gamelist_file_path, platform)
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear the gamelist cache"""
         self._gamelist_cache.clear()
 
@@ -351,10 +499,43 @@ class GamelistHandler(MetadataHandler):
 
         return None
 
+    def _iter_game_elements(self, gamelist_path: Path) -> Iterator[Element]:
+        """Yield each top-level game/folder element of a gamelist.xml.
+
+        Parsing incrementally keeps one entry alive at a time instead of
+        holding a tree for the whole document, which matters on platforms
+        with thousands of games.
+
+        ES-DE writes an <alternativeEmulator> sibling to <gameList>, producing
+        invalid multi-root XML that the incremental parser rejects. Those files
+        fall back to stripping the element from the document first. Entries are
+        keyed by filename by the caller, so re-yielding any element already
+        consumed before the failure is harmless.
+        """
+        try:
+            for _, elem in ET.iterparse(gamelist_path, events=("end",)):
+                if elem.tag in ("game", "folder"):
+                    yield elem
+                    elem.clear()
+            return
+        except ET.ParseError:
+            pass
+
+        xml_content = gamelist_path.read_text(encoding="utf-8", errors="replace")
+        xml_content = ALTERNATIVE_EMULATOR_SELF_CLOSING_RE.sub("", xml_content)
+        xml_content = ALTERNATIVE_EMULATOR_PAIRED_RE.sub("", xml_content)
+        for elem in ET.fromstring(xml_content):
+            if elem.tag in ("game", "folder"):
+                yield elem
+
     def _parse_gamelist_xml(
         self, gamelist_path: Path, platform: Platform
     ) -> dict[str, GamelistRom]:
-        """Parse a gamelist.xml file and return ROM data indexed by filename.
+        """Parse a gamelist.xml file and return ROM data indexed by <path>.
+
+        Entries are keyed by their path relative to the gamelist itself, so two
+        identically named roms in different folders keep their own metadata. A bare
+        file name stays a fallback key, since that is all some tools write.
         Results are cached by platform ID  to avoid re-parsing the same file multiple times.
         """
         # Check if we already have cached data for this platform
@@ -365,24 +546,12 @@ class GamelistHandler(MetadataHandler):
 
         preferred_media_types = get_preferred_media_types()
         roms_data: dict[str, GamelistRom] = {}
+        by_filename: dict[str, GamelistRom] = {}
+        ambiguous_filenames: set[str] = set()
 
         try:
-            xml_content = gamelist_path.read_text(encoding="utf-8", errors="replace")
-            xml_content = ALTERNATIVE_EMULATOR_SELF_CLOSING_RE.sub("", xml_content)
-            xml_content = ALTERNATIVE_EMULATOR_PAIRED_RE.sub("", xml_content)
-            root: Element | None = ET.fromstring(xml_content)
-        except ET.ParseError as e:
-            log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
-            root = None
-        except Exception as e:
-            log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
-            root = None
-
-        if root is None:
-            return roms_data
-
-        try:
-            for game in root:
+            media_files = build_media_file_index(platform)
+            for game in self._iter_game_elements(gamelist_path):
                 if game.tag not in ("game", "folder"):
                     continue
 
@@ -390,13 +559,8 @@ class GamelistHandler(MetadataHandler):
                 if path_elem is None or path_elem.text is None:
                     continue
 
-                # Handle relative paths
-                rom_path = path_elem.text
-                if rom_path.startswith("./"):
-                    rom_path = rom_path[2:]
-
-                # Extract filename for matching
-                rom_filename = os.path.basename(rom_path)
+                rel_path = gamelist_path_to_rel_path(path_elem.text)
+                filename = gamelist_path_to_filename(path_elem.text)
 
                 # Extract metadata
                 name_elem = game.find("name")
@@ -416,19 +580,21 @@ class GamelistHandler(MetadataHandler):
                 summary = (
                     desc_elem.text if desc_elem is not None and desc_elem.text else ""
                 )
-                regions = (
-                    _split_comma_separated_values(region_elem.text)
-                    if region_elem is not None
-                    else []
+                regions = normalize_provider_regions(
+                    _split_comma_separated_values(
+                        region_elem.text if region_elem is not None else None
+                    )
                 )
-                languages = (
-                    _split_comma_separated_values(lang_elem.text)
-                    if lang_elem is not None
-                    else []
+                languages = normalize_provider_languages(
+                    _split_comma_separated_values(
+                        lang_elem.text if lang_elem is not None else None
+                    )
                 )
 
                 # Build ROM data
-                rom_metadata = extract_metadata_from_gamelist_rom(game, platform)
+                rom_metadata = extract_metadata_from_gamelist_rom(
+                    game, platform, media_files
+                )
                 name_sort_key = compute_name_sort_key(sort_name) if sort_name else None
                 rom_data = GamelistRom(
                     gamelist_id=str(uuid.uuid4()),
@@ -461,11 +627,23 @@ class GamelistHandler(MetadataHandler):
                     url_screenshots.append(rom_metadata["screenshot_url"])
                 rom_data["url_screenshots"] = url_screenshots
 
-                # Store by filename for matching
-                roms_data[rom_filename] = rom_data
+                roms_data[rel_path] = rom_data
+                if filename in by_filename:
+                    ambiguous_filenames.add(filename)
+                by_filename[filename] = rom_data
+
+            for name, data in by_filename.items():
+                if name not in ambiguous_filenames:
+                    roms_data.setdefault(name, data)
 
             # Cache the parsed data for this platform
             self._gamelist_cache[cache_key] = roms_data
+        except ET.ParseError as e:
+            log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
+            # Entries read before the document turned out to be invalid are
+            # dropped, so a corrupt file yields nothing rather than a partial
+            # import that silently looks complete.
+            roms_data.clear()
         except Exception as e:
             log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
 
@@ -484,16 +662,28 @@ class GamelistHandler(MetadataHandler):
         # Parse the gamelist file
         all_roms_data = self._parse_gamelist_xml(gamelist_file_path, platform)
 
-        # Try to find exact match first
-        if fs_name in all_roms_data:
-            log.debug(f"Found exact gamelist match for {fs_name}")
-            matched_rom = pydash.clone_deep(all_roms_data[fs_name])
+        # The rom's own path wins over its bare file name, which a custom library
+        # structure can leave shared with a rom in another folder.
+        rel_path = join_rel_path(
+            rel_platform_folder(
+                rom.fs_path or "",
+                fs_platform_handler.get_platform_fs_structure(platform.fs_slug),
+            ),
+            fs_name,
+        )
+        matched_key = next(
+            (key for key in (rel_path, fs_name) if key in all_roms_data), None
+        )
+        if matched_key is not None:
+            log.debug(f"Found exact gamelist match for {matched_key}")
+            matched_rom = pydash.clone_deep(all_roms_data[matched_key])
             gamelist_metadata = matched_rom.get("gamelist_metadata")
 
             # Populate ROM-specific paths using the actual rom object
             if gamelist_metadata:
                 rom_specific_paths = populate_rom_specific_paths(gamelist_metadata, rom)
-                gamelist_metadata.update(**rom_specific_paths)  # type: ignore
+                for path_key, path in rom_specific_paths.items():
+                    gamelist_metadata[path_key] = path
                 matched_rom["gamelist_metadata"] = gamelist_metadata
 
             return matched_rom

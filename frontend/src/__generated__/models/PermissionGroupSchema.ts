@@ -4,12 +4,13 @@
 /* eslint-disable */
 import type { GrantSchemaIO } from './GrantSchemaIO';
 import type { HiddenEntitySchema } from './HiddenEntitySchema';
+import type { SystemGroupKey } from './SystemGroupKey';
 export type PermissionGroupSchema = {
     id: number;
     name: string;
     description: string;
     is_default: boolean;
-    is_system: boolean;
+    system_key: (SystemGroupKey | null);
     color: (string | null);
     grants: Array<GrantSchemaIO>;
     member_count: number;

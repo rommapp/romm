@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Optional
+from typing import Annotated, Final, Literal, Optional, cast
 from urllib.parse import urlencode
 
-from fastapi import Body, Depends, HTTPException, Request, status
+from authlib.common.errors import AuthlibBaseError
+from fastapi import BackgroundTasks, Body, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
-from fastapi.security.http import HTTPBasic
+from fastapi.security.http import HTTPBasic, HTTPBasicCredentials
+from joserfc.errors import JoseError
 
 from config import (
     OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
@@ -23,11 +25,22 @@ from exceptions.auth_exceptions import (
     OIDCNotConfiguredException,
     UserDisabledException,
 )
+from handler.audit_handler import (
+    AuditActor,
+    AuditTarget,
+    claim_once,
+    client_ip,
+    record,
+    release_claim,
+    within_budget,
+)
 from handler.auth import auth_handler, oauth_handler, oidc_handler
 from handler.database import db_user_handler
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
+from models.user import User
 from utils.auth import create_or_find_web_device
 from utils.router import APIRouter
 
@@ -36,11 +49,76 @@ router = APIRouter(
 )
 
 
+# Failed sign-ins from one address for one username within this window are one attempt.
+LOGIN_FAILURE_WINDOW_SECONDS: Final = 60
+# At most this many failed sign-ins are recorded per address each window, so a
+# client cycling usernames can't flood the log.
+LOGIN_FAILURES_PER_ADDRESS: Final = 20
+LOGIN_FAILURE_ADDRESS_WINDOW_SECONDS: Final = 10 * 60
+# Repeated reset requests for one user from one address are one request.
+PASSWORD_RESET_REQUEST_WINDOW_SECONDS: Final = 10 * 60
+
+LoginMethod = Literal["password", "token", "oidc"]
+
+
+def _record_login(
+    request: Request, user: User, method: LoginMethod, device_id: str | None = None
+) -> None:
+    record(
+        AuditAction.AUTH_LOGIN,
+        AuditActor.for_user(user, ip_address=client_ip(request), device_id=device_id),
+        data={"method": method},
+    )
+
+
+def _record_login_failure(
+    request: Request,
+    username: str | None,
+    method: LoginMethod,
+    reason: Literal["credentials", "disabled"],
+) -> None:
+    ip_address = client_ip(request)
+    key = f"login_failed:{ip_address}:{username}"
+    if not claim_once(key, LOGIN_FAILURE_WINDOW_SECONDS) or not within_budget(
+        f"login_failed:{ip_address}",
+        LOGIN_FAILURES_PER_ADDRESS,
+        LOGIN_FAILURE_ADDRESS_WINDOW_SECONDS,
+    ):
+        return
+    user = db_user_handler.get_user_by_username(username) if username else None
+    # A name that matches no account may be a password typed in the wrong box,
+    # so only an account's own name is kept.
+    if not record(
+        AuditAction.AUTH_LOGIN_FAILED,
+        (
+            AuditActor.for_user(user, ip_address=ip_address)
+            if user
+            else AuditActor.anonymous(ip_address)
+        ),
+        data={
+            "username": user.username if user else None,
+            "method": method,
+            "reason": reason,
+        },
+    ):
+        release_claim(key)
+
+
+def _record_password_reset_request(ip_address: str | None, user: User) -> None:
+    key = f"password_reset:{ip_address}:{user.id}"
+    if claim_once(key, PASSWORD_RESET_REQUEST_WINDOW_SECONDS) and not record(
+        AuditAction.AUTH_PASSWORD_RESET_REQUEST,
+        AuditActor.anonymous(ip_address),
+        AuditTarget.of_user(user),
+    ):
+        release_claim(key)
+
+
 # Session authentication endpoints
 @router.post("/login")
 def login(
     request: Request,
-    credentials=Depends(HTTPBasic()),  # noqa
+    credentials: HTTPBasicCredentials = Depends(HTTPBasic()),  # noqa
 ) -> None:
     """Session login endpoint
 
@@ -55,9 +133,11 @@ def login(
 
     user = auth_handler.authenticate_user(credentials.username, credentials.password)
     if not user:
+        _record_login_failure(request, credentials.username, "password", "credentials")
         raise AuthCredentialsException
 
     if not user.enabled:
+        _record_login_failure(request, credentials.username, "password", "disabled")
         raise UserDisabledException
 
     request.session["iss"] = "romm:auth"
@@ -70,6 +150,7 @@ def login(
     # Update last login and active times
     now = datetime.now(timezone.utc)
     db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
+    _record_login(request, user, "password", device.id)
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
@@ -107,7 +188,9 @@ async def logout(request: Request) -> Optional[OIDCLogoutResponse]:
 
 
 @router.post("/token")
-async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResponse:
+async def token(
+    request: Request, form_data: Annotated[OAuth2RequestForm, Depends()]
+) -> TokenResponse:
     """OAuth2 token endpoint
 
     Args:
@@ -126,6 +209,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
         TokenResponse: TypedDict with the new generated token info
     """
 
+    user: User | None
     # Support refreshing access tokens
     if form_data.grant_type == "refresh_token":
         token = form_data.refresh_token
@@ -181,12 +265,14 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
 
         user = auth_handler.authenticate_user(form_data.username, form_data.password)
         if not user:
+            _record_login_failure(request, form_data.username, "token", "credentials")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid username or password",
             )
 
         if not user.enabled:
+            _record_login_failure(request, form_data.username, "token", "disabled")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled"
             )
@@ -229,6 +315,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
         },
         expires_delta=timedelta(seconds=OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS),
     )
+    _record_login(request, user, "token")
 
     return {
         "access_token": access_token,
@@ -241,7 +328,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
 
 # OIDC login and callback endpoints
 @router.get("/login/openid")
-async def login_via_openid(request: Request):
+async def login_via_openid(request: Request) -> RedirectResponse:
     """OIDC login endpoint
 
     Args:
@@ -261,11 +348,14 @@ async def login_via_openid(request: Request):
     if not oauth.openid:
         raise OIDCNotConfiguredException
 
-    return await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI)
+    return cast(
+        RedirectResponse,
+        await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI),
+    )
 
 
 @router.get("/oauth/openid")
-async def auth_openid(request: Request):
+async def auth_openid(request: Request) -> RedirectResponse:
     """OIDC callback endpoint
 
     Args:
@@ -278,7 +368,7 @@ async def auth_openid(request: Request):
         UserDisabledException: Auth is disabled
 
     Returns:
-        RedirectResponse: Redirect to home page
+        RedirectResponse: Redirect to home, or to login if the provider rejects
     """
 
     if not OIDC_ENABLED:
@@ -287,15 +377,27 @@ async def auth_openid(request: Request):
     if not oauth.openid:
         raise OIDCNotConfiguredException
 
-    token = await oauth.openid.authorize_access_token(request)
+    # Authlib verifies the ID token with joserfc, whose errors are not Authlib's.
+    try:
+        token = await oauth.openid.authorize_access_token(request)
+    except (AuthlibBaseError, JoseError) as exc:
+        # repr() because error and description can come from the query string
+        log.warning(f"OIDC callback rejected: {exc.error!r}: {exc.description!r}")
+        if request.user.is_authenticated and not request.user.is_kiosk_guest:
+            return RedirectResponse(url="/")
+        # Without the bypass, OIDC autologin would send a persistent failure
+        # straight back to the provider and loop
+        return RedirectResponse(url="/login?bypass_autologin=true")
     potential_user, _userinfo = (
         await oidc_handler.get_current_active_user_from_openid_token(token)
     )
 
     if not potential_user:
+        _record_login_failure(request, None, "oidc", "credentials")
         raise AuthCredentialsException
 
     if not potential_user.enabled:
+        _record_login_failure(request, potential_user.username, "oidc", "disabled")
         raise UserDisabledException
 
     request.session["iss"] = "romm:auth"
@@ -312,12 +414,17 @@ async def auth_openid(request: Request):
     db_user_handler.update_user(
         potential_user.id, {"last_login": now, "last_active": now}
     )
+    _record_login(request, potential_user, "oidc", device.id)
 
     return RedirectResponse(url="/")
 
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
-def request_password_reset(username: str = Body(..., embed=True)) -> None:
+def request_password_reset(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    username: str = Body(..., embed=True),
+) -> None:
     """Request a password reset link for the user.
 
     Args:
@@ -328,7 +435,12 @@ def request_password_reset(username: str = Body(..., embed=True)) -> None:
     user = db_user_handler.get_user_by_username(username)
 
     if user:
-        auth_handler.generate_password_reset_token(user)
+        # After the response, so its timing can't tell whether the user exists.
+        # The record goes first: a link that fails to send stops the tasks after it.
+        background_tasks.add_task(
+            _record_password_reset_request, client_ip(request), user
+        )
+        background_tasks.add_task(auth_handler.send_password_reset_link, user)
     else:
         log.warning(
             f"Reset password link requested for a user {hl(username, color=CYAN)}, but that username does not exist."
@@ -337,6 +449,7 @@ def request_password_reset(username: str = Body(..., embed=True)) -> None:
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 async def reset_password(
+    request: Request,
     token: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
 ) -> None:
@@ -352,6 +465,11 @@ async def reset_password(
     user = auth_handler.verify_password_reset_token(token)
 
     await auth_handler.set_user_new_password(user, new_password)
+    record(
+        AuditAction.AUTH_PASSWORD_RESET,
+        AuditActor.for_user(user, ip_address=client_ip(request)),
+        AuditTarget.of_user(user),
+    )
 
     log.info(
         f"Password was successfully reset for user {hl(user.username, color=CYAN)}."

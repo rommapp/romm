@@ -1,18 +1,18 @@
 <script setup lang="ts">
-// SetupStepPlatforms — Step 1 of the setup wizard.
+// SetupStepPlatforms: Step 1 of the setup wizard.
 //
 // Layout:
-//   1. Structure banner — what folder layout is in use or will be created.
-//   2. Detected platforms — read-only, always rendered (folders that
+//   1. Structure banner: what folder layout is in use or will be created.
+//   2. Detected platforms: read-only, always rendered (folders that
 //      already exist on disk). Bundled with any unidentified folders so
 //      the user knows nothing of theirs got lost.
-//   3. Supported platforms — every platform RomM knows about, grouped
+//   3. Supported platforms: every platform RomM knows about, grouped
 //      by manufacturer. Groups are CLOSED by default and their bodies
-//      are gated with v-if (not v-show), so first-render is tiny —
-//      otherwise the catalogue's ~300 entries blow up DOM cost.
-//   4. Search — when non-empty, replaces the grouped browse with a flat,
+//      are gated with v-if (not v-show), so first-render is tiny.
+//      Otherwise the catalogue's ~300 entries blow up DOM cost.
+//   4. Search: when non-empty, replaces the grouped browse with a flat,
 //      capped result list across every supported platform.
-//   5. Summary line — restates how many new folders the wizard will
+//   5. Summary line: restates how many new folders the wizard will
 //      create under which pattern, so the directory creation effect
 //      is never a surprise.
 import {
@@ -21,7 +21,6 @@ import {
   RCollapsible,
   REmptyState,
   RIcon,
-  RPlatformIcon,
   RSliderBtnGroup,
   RTag,
   RTextField,
@@ -29,13 +28,14 @@ import {
 import type { SliderBtnGroupItem } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SetupLibraryInfo } from "@/services/api/setup";
+import type { SetupLibraryResponse } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  libraryInfo: SetupLibraryInfo;
+  libraryInfo: SetupLibraryResponse;
   selectedNewPlatforms: string[];
 }
 
@@ -59,7 +59,7 @@ const SEARCH_LIMIT = 80;
 //
 // "Detected" = on disk. We split into identified (matches a supported
 // platform → we have a nice display name + icon) and unidentified
-// (a folder that doesn't match — likely a typo or an unsupported
+// (a folder that doesn't match, likely a typo or an unsupported
 // platform). Both get shown in the same section so nothing slips
 // through the cracks.
 
@@ -80,7 +80,7 @@ const supportedSlugSet = computed(
 
 const detectedPlatforms = computed<Array<Platform & { unidentified: boolean }>>(
   () => {
-    if (!props.libraryInfo.detected_structure) return [];
+    if (!props.libraryInfo.library_ready) return [];
     const identified = props.libraryInfo.supported_platforms
       .filter((p) => detectedSlugSet.value.has(p.fs_slug))
       .map((p) => ({ ...p, unidentified: false }));
@@ -161,7 +161,7 @@ const filteredDetectedPlatforms = computed(() => {
 
 // ── Supported (selectable) platforms ───────────────────────────────
 //
-// Filter out anything already on disk — those are shown in the detected
+// Filter out anything already on disk, since those are shown in the detected
 // section. We never present the same fs_slug twice.
 
 const supportedAvailable = computed<Platform[]>(() =>
@@ -176,17 +176,19 @@ interface Group {
   items: Platform[];
 }
 
+const OTHER_GROUP = "__other";
+
 const groupedAvailable = computed<Group[]>(() => {
   const map = new Map<string, Platform[]>();
   for (const p of supportedAvailable.value) {
-    const key = p.family_name || "Other";
+    const key = p.family_name || OTHER_GROUP;
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(p);
   }
   const groups: Group[] = [];
   const keys = [...map.keys()].sort((a, b) => {
-    if (a === "Other") return 1;
-    if (b === "Other") return -1;
+    if (a === OTHER_GROUP) return 1;
+    if (b === OTHER_GROUP) return -1;
     return a.localeCompare(b);
   });
   for (const key of keys) {
@@ -197,7 +199,11 @@ const groupedAvailable = computed<Group[]>(() => {
       if (aGen !== bGen) return aGen - bGen;
       return (a.name ?? a.fs_slug).localeCompare(b.name ?? b.fs_slug);
     });
-    groups.push({ key, label: key, items });
+    groups.push({
+      key,
+      label: key === OTHER_GROUP ? t("platform.group-other") : key,
+      items,
+    });
   }
   return groups;
 });
@@ -303,11 +309,8 @@ function setGroupOpen(key: string, open: boolean) {
 
 // ── Structure banner copy ──────────────────────────────────────────
 
-const detectedStructure = computed(() => props.libraryInfo.detected_structure);
-const structurePattern = computed(() => {
-  if (detectedStructure.value === "struct_b") return "{platform}/roms";
-  return "roms/{platform}";
-});
+const libraryReady = computed(() => props.libraryInfo.library_ready);
+const structurePattern = computed(() => props.libraryInfo.library_structure);
 const detectedPlatformCount = computed(
   () => props.libraryInfo.existing_platforms.length,
 );
@@ -322,22 +325,20 @@ const detectedPlatformCount = computed(
 
     <div
       class="r-setup-platforms__banner"
-      :data-tone="detectedStructure ? 'info' : 'warning'"
+      :data-tone="libraryReady ? 'info' : 'warning'"
     >
       <div class="r-setup-platforms__banner-text">
         <strong>
           {{
-            detectedStructure === "struct_a"
-              ? t("setup.structure-a-detected")
-              : detectedStructure === "struct_b"
-                ? t("setup.structure-b-detected")
-                : t("setup.no-structure-banner-title")
+            libraryReady
+              ? t("setup.library-structure-detected")
+              : t("setup.no-structure-banner-title")
           }}
         </strong>
         <code class="r-setup-platforms__banner-pattern">
           {{ structurePattern }}
         </code>
-        <span v-if="!detectedStructure" class="r-setup-platforms__banner-meta">
+        <span v-if="!libraryReady" class="r-setup-platforms__banner-meta">
           — {{ t("setup.no-structure-banner-body") }}
         </span>
       </div>
@@ -391,7 +392,7 @@ const detectedPlatformCount = computed(
               class="r-setup-platforms__item"
               data-state="detected"
             >
-              <RPlatformIcon
+              <PlatformIcon
                 :slug="platform.slug"
                 :fs-slug="platform.fs_slug"
                 :name="platform.name"
@@ -526,7 +527,7 @@ const detectedPlatformCount = computed(
                     (v) => togglePlatform(platform.fs_slug, v)
                   "
                 />
-                <RPlatformIcon
+                <PlatformIcon
                   :slug="platform.slug"
                   :fs-slug="platform.fs_slug"
                   :name="platform.name"
@@ -625,7 +626,7 @@ const detectedPlatformCount = computed(
                         (v) => togglePlatform(platform.fs_slug, v)
                       "
                     />
-                    <RPlatformIcon
+                    <PlatformIcon
                       :slug="platform.slug"
                       :fs-slug="platform.fs_slug"
                       :name="platform.name"
@@ -698,6 +699,7 @@ const detectedPlatformCount = computed(
 .r-setup-platforms__banner {
   display: flex;
   align-items: center;
+  min-width: 0;
   padding: var(--r-space-3) var(--r-space-4);
   border-radius: var(--r-radius-md);
   border: 1px solid var(--r-color-border);
@@ -749,6 +751,8 @@ const detectedPlatformCount = computed(
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-sm);
   color: var(--r-color-fg);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .r-setup-platforms__banner-meta {
@@ -847,7 +851,7 @@ html[data-bp~="sm-and-down"] .r-setup-platforms__pane-scroll {
   gap: var(--r-space-1);
 }
 
-/* Inside the manufacturer-group collapsible — rows go edge-to-edge,
+/* Inside the manufacturer-group collapsible, rows go edge-to-edge,
    no outer inset. Each row strips its card chrome (border, radius,
    background) and switches to a top-border separator so the body of
    the collapsible reads as a flat list rather than a stack of small
@@ -1030,5 +1034,6 @@ html[data-bp~="sm-and-down"] .r-setup-platforms__pane-scroll {
   font-family: var(--r-font-family-mono);
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-muted);
+  overflow-wrap: anywhere;
 }
 </style>

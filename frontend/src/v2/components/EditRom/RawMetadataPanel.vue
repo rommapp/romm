@@ -82,7 +82,7 @@ function saveMetadata() {
     isEditing.value = false;
   } catch {
     emitter?.emit("snackbarShow", {
-      msg: "Invalid JSON format",
+      msg: t("common.invalid-json"),
       icon: "mdi-close-circle",
       color: "red",
       timeout: 3000,
@@ -119,7 +119,7 @@ const ariaLabel = computed(() => `${props.label} ${t("rom.metadata")} JSON`);
         {{ t("common.edit") }}
       </RBtn>
       <template v-else>
-        <RBtn variant="text" color="danger" @click="cancelEdit">
+        <RBtn variant="outlined" color="danger" @click="cancelEdit">
           {{ t("common.cancel") }}
         </RBtn>
         <RBtn

@@ -1,9 +1,33 @@
+from pathlib import Path
+
 import pytest
 
 from handler.database import db_rom_handler
+from handler.filesystem import fs_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
+
+
+@pytest.fixture
+def real_library(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Point fs_rom_handler at a real temp library so file moves and listings
+    actually happen."""
+    lib = tmp_path / "library"
+    lib.mkdir()
+    monkeypatch.setattr(fs_rom_handler, "base_path", lib.resolve())
+    return lib
+
+
+@pytest.fixture
+def game_folder_on_disk(real_library: Path, game_folder_rom: Rom) -> Path:
+    """The folder ROM's directory in the real library, with every file row
+    written to disk so a refresh keeps them."""
+    for rom_file in game_folder_rom.files:
+        path = real_library / rom_file.full_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"\0" * rom_file.file_size_bytes)
+    return real_library / game_folder_rom.full_path
 
 
 @pytest.fixture
@@ -40,4 +64,6 @@ def game_folder_rom(admin_user: User, platform: Platform) -> Rom:
             category=RomFileCategory.GAME,
         )
     )
-    return db_rom_handler.get_rom(rom.id)
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    return refreshed

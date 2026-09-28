@@ -1,12 +1,20 @@
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import Body, File, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
+from handler.audit_handler import (
+    AuditActor,
+    AuditDraft,
+    AuditTarget,
+    record,
+    record_many,
+)
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
@@ -20,6 +28,7 @@ from handler.scan_handler import scan_firmware
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.firmware import Firmware
 from models.permission import PermAction, PermEntity
 from utils.router import APIRouter
@@ -111,11 +120,20 @@ async def add_firmware(
         db_firmware_handler.add_firmware(scanned_firmware)
         uploaded_firmware.append(scanned_firmware)
 
+    record(
+        AuditAction.FIRMWARE_UPLOAD,
+        request,
+        AuditTarget.of_platform(db_platform),
+        {"file_names": [file.filename for file in files if file.filename]},
+    )
+
     return {
         "uploaded": len(files),
         "firmware": [
             FirmwareSchema.model_validate(f)
-            for f in db_firmware_handler.list_firmware(platform_id=platform_id)
+            for f in db_firmware_handler.list_firmware(
+                platform_ids=[platform_id] if platform_id else None
+            )
         ],
     }
 
@@ -124,6 +142,10 @@ async def add_firmware(
 def get_platform_firmware(
     request: Request,
     platform_id: int | None = None,
+    missing: Annotated[
+        bool | None,
+        Query(description="Whether the firmware is missing from the filesystem."),
+    ] = None,
 ) -> list[FirmwareSchema]:
     """Get firmware endpoint
 
@@ -137,7 +159,8 @@ def get_platform_firmware(
     return [
         FirmwareSchema.model_validate(f)
         for f in db_firmware_handler.list_firmware(
-            platform_id=platform_id,
+            platform_ids=[platform_id] if platform_id else None,
+            missing=missing,
             hidden_platform_ids=perms.hidden_platform_ids,
         )
     ]
@@ -156,11 +179,9 @@ def get_firmware_identifiers(
         list[int]: List of firmware IDs
     """
     perms = get_permissions(request)
-    firmware = db_firmware_handler.list_firmware(
-        only_fields=[Firmware.id],
+    return db_firmware_handler.list_firmware_ids(
         hidden_platform_ids=perms.hidden_platform_ids,
     )
-    return [f.id for f in firmware]
 
 
 @protected_route(
@@ -189,21 +210,15 @@ def get_firmware(request: Request, id: int) -> FirmwareSchema:
     return FirmwareSchema.model_validate(firmware)
 
 
-@protected_route(
-    router.head,
-    "/{id}/content/{file_name}",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
-)
-def head_firmware_content(request: Request, id: int, file_name: str):
-    """Head firmware content endpoint
+def _resolve_firmware_content(request: Request, id: int) -> tuple[Firmware, Path]:
+    """Resolve a firmware row and the readable file backing it.
 
     Args:
         request (Request): Fastapi Request object
-        id (int): Rom internal id
-        file_name (str): Required due to a bug in emulatorjs
+        id (int): Firmware internal id
 
     Returns:
-        FileResponse: Returns the response with headers
+        tuple[Firmware, Path]: The firmware row and its absolute path on disk
     """
 
     firmware = db_firmware_handler.get_firmware(id)
@@ -215,6 +230,34 @@ def head_firmware_content(request: Request, id: int, file_name: str):
     assert_firmware_visible(request, firmware)
 
     firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
+    # A row can outlive its file: the scan marks it missing, or it was moved
+    # away without one. Either way FileResponse would raise a 500.
+    if firmware.missing_from_fs or not firmware_path.is_file():
+        error = f"Firmware file '{firmware.file_name}' is missing from filesystem"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    return firmware, firmware_path
+
+
+@protected_route(
+    router.head,
+    "/{id}/content/{file_name}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
+)
+def head_firmware_content(request: Request, id: int, file_name: str) -> FileResponse:
+    """Head firmware content endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Rom internal id
+        file_name (str): Required due to a bug in emulatorjs
+
+    Returns:
+        FileResponse: Returns the response with headers
+    """
+
+    firmware, firmware_path = _resolve_firmware_content(request, id)
 
     return FileResponse(
         path=firmware_path,
@@ -234,7 +277,7 @@ def get_firmware_content(
     request: Request,
     id: int,
     file_name: str,
-):
+) -> FileResponse:
     """Download firmware endpoint
 
     Args:
@@ -246,15 +289,7 @@ def get_firmware_content(
         FileResponse: Returns the firmware file
     """
 
-    firmware = db_firmware_handler.get_firmware(id)
-    if not firmware:
-        error = f"Firmware with ID {id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-    assert_firmware_visible(request, firmware)
-
-    firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
+    firmware, firmware_path = _resolve_firmware_content(request, id)
 
     return FileResponse(path=firmware_path, filename=firmware.file_name)
 
@@ -286,6 +321,8 @@ async def delete_firmware(
     successful_items = 0
     failed_ids = []
     errors = []
+    actor = AuditActor.from_request(request)
+    audit_drafts: list[AuditDraft] = []
 
     for id in firmware:
         fw = db_firmware_handler.get_firmware(id)
@@ -295,15 +332,18 @@ async def delete_firmware(
             errors.append(f"Firmware with ID {id} not found")
             continue
 
+        deleted = removed = False
         try:
             log.info(f"Deleting {hl(fw.file_name)} from database")
             db_firmware_handler.delete_firmware(id)
+            deleted = True
 
             if id in delete_from_fs:
                 log.info(f"Deleting {hl(fw.file_name)} from filesystem")
                 try:
                     file_path = f"{fw.file_path}/{fw.file_name}"
                     await fs_firmware_handler.remove_file(file_path=file_path)
+                    removed = True
                 except FileNotFoundError:
                     error = f"Firmware file {hl(fw.file_name)} not found for platform {hl(fw.platform.slug)}"
                     log.error(error)
@@ -315,7 +355,19 @@ async def delete_firmware(
         except Exception as e:
             failed_ids.append(id)
             errors.append(f"Failed to delete firmware {id}: {str(e)}")
+        finally:
+            # The row is gone whatever became of its file.
+            if deleted:
+                audit_drafts.append(
+                    AuditDraft(
+                        AuditAction.FIRMWARE_DELETE,
+                        actor,
+                        AuditTarget.of_firmware(fw),
+                        {"deleted_from_fs": removed},
+                    )
+                )
 
+    record_many(audit_drafts)
     return {
         "successful_items": successful_items,
         "failed_ids": failed_ids,

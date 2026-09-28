@@ -1,5 +1,3 @@
-import hashlib
-
 from handler.install.manifest import (
     LIVE_MANIFEST_FILENAME,
     MANIFEST_FILENAME,

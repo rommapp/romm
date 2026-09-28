@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ManualSubtab — the Media tab's Manual panel. Surfaces the scraped primary
+// ManualSubtab: the Media tab's Manual panel. Surfaces the scraped primary
 // manual plus any manual-category files sitting in the ROM folder, picking the
 // viewer (PDF or Markdown) by extension. An entry selector appears when more
 // than one manual exists. The panel doubles as a drag-and-drop upload target.
@@ -8,17 +8,18 @@
 // tab's content height) so the viewer keeps its internal scroll and switching
 // subtabs never forces an outer scrollbar.
 import { RBtn, RDropzone, REmptyState, RSelect } from "@v2/lib";
-import axios from "axios";
 import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
-import { useConfirm } from "@/v2/composables/useConfirm";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { errorMessage } from "@/v2/utils/errorMessage";
+import { versionedRomFileUrl } from "@/v2/utils/romFiles";
 
 const PdfViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/PdfViewer.vue"),
@@ -26,21 +27,22 @@ const PdfViewer = defineAsyncComponent(
 const MarkdownViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/MarkdownViewer.vue"),
 );
+const TextViewer = defineAsyncComponent(
+  () => import("@/v2/components/GameDetails/TextViewer.vue"),
+);
 
-function errorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const detail = err.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    return err.message;
-  }
-  return err instanceof Error ? err.message : String(err);
-}
-
-const props = defineProps<{ rom: DetailedRom }>();
+const props = defineProps<{
+  rom: DetailedRom;
+  /** Drop the header Upload button when the parent renders it elsewhere
+   *  (through the exposed `openUpload`). */
+  hideUpload?: boolean;
+  /** Whether this panel may mount the PDF viewer (one per page, see
+   *  MediaTab). */
+  pdfActive?: boolean;
+}>();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-const confirm = useConfirm();
-const romsStore = storeRoms();
+const { refetchRom } = useRomSync();
 const { t } = useI18n();
 
 // Every manual endpoint (upload / redownload / delete) gates on the ROM write
@@ -53,11 +55,19 @@ type ManualEntry = {
   label: string;
   url: string;
   isPrimary: boolean;
-  // Manuals can be PDF or Markdown; the viewer is picked by extension.
-  kind: "pdf" | "md";
+  /** Backing rom file, absent for the scraped manual (a resource, not a file),
+   *  which is what reading progress is keyed on. */
+  fileId: number | null;
+  // Manuals can be PDF, Markdown, or plain text; the viewer is picked by
+  // extension.
+  kind: "pdf" | "md" | "text";
 };
 
-const isMarkdown = (name: string) => /\.md$/i.test(name);
+const kindFor = (name: string): ManualEntry["kind"] => {
+  if (/\.md$/i.test(name)) return "md";
+  if (/\.(txt|html?|htm)$/i.test(name)) return "text";
+  return "pdf";
+};
 
 const manualEntries = computed<ManualEntry[]>(() => {
   const entries: ManualEntry[] = [];
@@ -68,7 +78,8 @@ const manualEntries = computed<ManualEntry[]>(() => {
       label: t("rom.scraped-manual"),
       url: `${FRONTEND_RESOURCES_PATH}/${props.rom.path_manual}?v=${cacheBust}`,
       isPrimary: true,
-      kind: isMarkdown(props.rom.path_manual) ? "md" : "pdf",
+      fileId: null,
+      kind: kindFor(props.rom.path_manual),
     });
   }
   for (const file of props.rom.files ?? []) {
@@ -76,11 +87,10 @@ const manualEntries = computed<ManualEntry[]>(() => {
       entries.push({
         id: `file-${file.id}`,
         label: file.file_name.replace(/\.[^.]+$/, ""),
-        url: `/api/roms/${file.id}/files/content/${encodeURIComponent(
-          file.file_name,
-        )}?v=${cacheBust}`,
+        url: versionedRomFileUrl(file),
         isPrimary: false,
-        kind: isMarkdown(file.file_name) ? "md" : "pdf",
+        fileId: file.id,
+        kind: kindFor(file.file_name),
       });
     }
   }
@@ -118,41 +128,23 @@ const manualItems = computed(() =>
   manualEntries.value.map((e) => ({ title: e.label, value: e.id })),
 );
 
-// ---------- Single-file -> folder conversion ----------
-// Manuals live inside the ROM folder, so uploading one to a single-file ROM
-// promotes it to a folder ROM in place (the backend does this automatically on
-// upload). Warn first since it is not reversible.
-async function confirmFolderConversionIfNeeded(): Promise<boolean> {
-  if (!props.rom.has_simple_single_file) return true;
-  return confirm({
-    title: t("rom.convert-to-folder-title"),
-    body: t("rom.convert-to-folder-body"),
-    tone: "warning",
-  });
-}
-
 // ---------- Upload / refresh plumbing ----------
 // The filled viewer is wrapped in an overlay RDropzone (drag files onto the
 // manual to add another); the header's Upload button opens its picker.
 const manualDz = ref<InstanceType<typeof RDropzone> | null>(null);
-const redownloadingManual = ref(false);
+const canUploadMore = computed(
+  () => manualEntries.value.length > 0 && canEdit.value,
+);
 
-async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    romsStore.update(data);
-  } catch (error) {
-    console.error(error);
-  }
+function openUpload() {
+  manualDz.value?.open();
 }
 
-// Manual upload routes through the target-selection dialog (mounted in
-// AppLayout): the user picks which platform/folder the manual belongs to, so
-// we hand off rather than uploading inline.
-async function handleManualFiles(files: File[]) {
+defineExpose({ canUpload: canUploadMore, openUpload });
+const redownloadingManual = ref(false);
+
+function handleManualFiles(files: File[]) {
   if (files.length === 0) return;
-  if (!(await confirmFolderConversionIfNeeded())) return;
   emitter?.emit("showManualUploadTargetDialog", { rom: props.rom, files });
 }
 
@@ -161,7 +153,7 @@ async function redownloadManual() {
   redownloadingManual.value = true;
   try {
     await romApi.redownloadManual({ romId: props.rom.id });
-    await refreshRom();
+    await refetchRom(props.rom.id);
     snackbar.success(t("rom.manual-redownloaded"), {
       icon: "mdi-check-bold",
     });
@@ -183,9 +175,7 @@ function requestDeleteManual() {
   emitter?.emit("showDeleteManualDialog", {
     rom: props.rom,
     isPrimary: entry.isPrimary,
-    fileId: entry.isPrimary
-      ? undefined
-      : Number(entry.id.replace(/^file-/, "")),
+    fileId: entry.fileId ?? undefined,
   });
 }
 </script>
@@ -193,10 +183,13 @@ function requestDeleteManual() {
 <template>
   <div class="r-v2-manual">
     <!-- The subtab label in the sidebar already names the section, so the
-         header skips a redundant title and just hosts the entry selector
-         (when multiple). -->
-    <header v-if="manualEntries.length > 1" class="r-v2-manual__head">
+         header skips a redundant title. -->
+    <header
+      v-if="manualEntries.length > 1 || (canUploadMore && !hideUpload)"
+      class="r-v2-manual__head"
+    >
       <RSelect
+        v-if="manualEntries.length > 1"
         v-model="selectedManualId"
         :items="manualItems"
         density="compact"
@@ -204,6 +197,16 @@ function requestDeleteManual() {
         hide-details
         class="r-v2-manual__select"
       />
+      <RBtn
+        v-if="canUploadMore && !hideUpload"
+        variant="outlined"
+        size="small"
+        prepend-icon="mdi-cloud-upload-outline"
+        class="r-v2-manual__upload"
+        @click="openUpload"
+      >
+        {{ t("common.upload") }}
+      </RBtn>
     </header>
 
     <REmptyState
@@ -217,7 +220,7 @@ function requestDeleteManual() {
       :hint="t('common.dropzone-hint')"
       :active-title="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-manual')"
-      accept="application/pdf,.md"
+      accept="application/pdf,.md,.txt"
       multiple
       @files="handleManualFiles"
     >
@@ -242,7 +245,7 @@ function requestDeleteManual() {
       class="r-v2-manual__fill"
       :release-label="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-manual')"
-      accept="application/pdf,.md"
+      accept="application/pdf,.md,.txt"
       multiple
       @files="handleManualFiles"
     >
@@ -251,16 +254,29 @@ function requestDeleteManual() {
           v-if="selectedManual.kind === 'md'"
           :key="`${selectedManual.id}-${rom.updated_at}-md`"
           :url="selectedManual.url"
+          :rom-id="rom.id"
+          :file-id="selectedManual.fileId ?? undefined"
           :deletable="canEdit"
           :redownloadable="canEdit && !!rom.url_manual"
           :redownloading="redownloadingManual"
           @delete="requestDeleteManual"
           @redownload="redownloadManual"
         />
+        <TextViewer
+          v-else-if="selectedManual.kind === 'text'"
+          :key="`${selectedManual.id}-${rom.updated_at}-txt`"
+          :url="selectedManual.url"
+          :rom-id="rom.id"
+          :file-id="selectedManual.fileId ?? undefined"
+          :deletable="canEdit"
+          @delete="requestDeleteManual"
+        />
         <PdfViewer
-          v-else
-          :key="`${selectedManual.id}-${rom.updated_at}-pdf`"
+          v-else-if="pdfActive"
+          :key="selectedManual.url"
           :pdf-url="selectedManual.url"
+          :rom-id="rom.id"
+          :file-id="selectedManual.fileId ?? undefined"
           :deletable="canEdit"
           :redownloadable="canEdit && !!rom.url_manual"
           :redownloading="redownloadingManual"
@@ -269,18 +285,6 @@ function requestDeleteManual() {
         />
       </div>
     </RDropzone>
-
-    <div v-if="manualEntries.length > 0 && canEdit">
-      <RBtn
-        block
-        variant="outlined"
-        size="small"
-        prepend-icon="mdi-cloud-upload-outline"
-        @click="manualDz?.open()"
-      >
-        {{ t("common.upload") }}
-      </RBtn>
-    </div>
   </div>
 </template>
 
@@ -296,7 +300,7 @@ function requestDeleteManual() {
   scrollbar-color: var(--r-color-border-strong) transparent;
 }
 
-/* Header — hosts the manual entry selector (when more than one manual) and
+/* Header: hosts the manual entry selector (when more than one manual) and
    the Upload button, pushed to the right. */
 .r-v2-manual__head {
   display: flex;
@@ -305,12 +309,16 @@ function requestDeleteManual() {
   flex-shrink: 0;
 }
 
-/* Manual entry selector — capped width so it doesn't stretch to fill the
+/* Manual entry selector: capped width so it doesn't stretch to fill the
    row. */
 .r-v2-manual__select {
   max-width: 360px;
   min-width: 200px;
   flex-shrink: 1;
+}
+
+.r-v2-manual__upload {
+  margin-left: auto;
 }
 
 /* Overlay-mode RDropzone wrapping the viewer must fill the panel height so
@@ -323,7 +331,17 @@ function requestDeleteManual() {
   flex-direction: column;
 }
 
-/* Viewer — fills the available panel height so the inner PDF / Markdown uses
+/* On mobile the details view scrolls as one document (GameDetails unwinds its
+   fixed-height chain), so no ancestor hands the viewer a height to fill. Pin
+   it to a slice of the viewport instead. */
+html[data-bp~="sm-and-down"] .r-v2-manual__fill {
+  flex: none;
+  height: 70vh;
+  height: 70dvh;
+  min-height: 20rem;
+}
+
+/* Viewer: fills the available panel height so the inner PDF / Markdown uses
    100% and only its own scroll triggers. */
 .r-v2-manual__viewer {
   flex: 1;

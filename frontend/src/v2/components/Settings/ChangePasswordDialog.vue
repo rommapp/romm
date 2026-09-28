@@ -113,6 +113,7 @@ async function submit() {
     :model-value="open"
     icon="mdi-key-variant"
     :width="480"
+    cancelable
     @update:model-value="(v) => emit('update:open', v)"
     @close="close"
   >
@@ -156,10 +157,6 @@ async function submit() {
       </p>
     </template>
     <template #footer>
-      <RBtn variant="text" @click="close">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <div style="flex: 1" />
       <RBtn
         variant="flat"
         color="primary"

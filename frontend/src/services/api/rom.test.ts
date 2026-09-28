@@ -1,0 +1,218 @@
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import romApi, { type UpdateRom } from "@/services/api/rom";
+import storeUpload from "@/stores/upload";
+
+const { get, post, put } = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+}));
+
+vi.mock("@/services/api", () => ({
+  default: { post, put, get, delete: vi.fn() },
+}));
+vi.mock("@/services/socket", () => ({
+  default: { emit: vi.fn(), connected: true, connect: vi.fn() },
+}));
+
+/** The FormData `updateRom` put on the wire. */
+async function sentFields(rom: UpdateRom): Promise<FormData> {
+  await romApi.updateRom({ rom });
+  return put.mock.calls[0][1] as FormData;
+}
+
+function buildRom(overrides: Partial<UpdateRom> = {}): UpdateRom {
+  return { id: 1, name: "Game", ...overrides } as UpdateRom;
+}
+
+function startCall(): { body: unknown; headers: Record<string, string> } {
+  const start = post.mock.calls.find(([url]) => url === "/roms/upload/start");
+  return { body: start?.[1], headers: start?.[2]?.headers ?? {} };
+}
+
+describe("updateRom", () => {
+  beforeEach(() => {
+    put.mockReset();
+    put.mockResolvedValue({ data: {} });
+  });
+
+  // An id missing from the serializer is silently dropped: the endpoint
+  // preserves the stored value for any field the form omits, so the save
+  // reports success while the edit never lands.
+  it.each([
+    "igdb_id",
+    "sgdb_id",
+    "moby_id",
+    "ss_id",
+    "launchbox_id",
+    "ra_id",
+    "flashpoint_id",
+    "hasheous_id",
+    "tgdb_id",
+    "hltb_id",
+    "steam_id",
+    "libretro_id",
+  ])("sends %s", async (field) => {
+    const fields = await sentFields(buildRom({ [field]: 1234 }));
+
+    expect(fields.get(field)).toBe("1234");
+  });
+
+  it.each([
+    "igdb_metadata",
+    "moby_metadata",
+    "ss_metadata",
+    "launchbox_metadata",
+    "hasheous_metadata",
+    "flashpoint_metadata",
+    "hltb_metadata",
+    "steam_metadata",
+  ])("sends edited raw %s", async (field) => {
+    const raw = JSON.stringify({ edited: true });
+
+    const fields = await sentFields(
+      buildRom({ raw_metadata: { [field]: raw } }),
+    );
+
+    expect(fields.get(`raw_${field}`)).toBe(raw);
+  });
+});
+
+describe("romApi.uploadRoms", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    post.mockReset();
+    put.mockReset();
+    post.mockResolvedValue({ data: { upload_id: "u-1" } });
+    put.mockResolvedValue({ data: { received: 1, total: 1 } });
+  });
+
+  it("targets a rom folder through the start payload", async () => {
+    const results = await romApi.uploadRoms({
+      platformId: 3,
+      romId: 42,
+      folder: "hack/v2",
+      filesToUpload: [new File(["abc"], "fix.ips")],
+    });
+
+    expect(results[0].status).toBe("fulfilled");
+    expect(startCall().headers).toMatchObject({
+      "X-Upload-Platform": "3",
+      "X-Upload-Filename": "fix.ips",
+    });
+    expect(startCall().body).toEqual({
+      filename: "fix.ips",
+      rom_id: 42,
+      folder: "hack/v2",
+    });
+    expect(post).toHaveBeenCalledWith(
+      "/roms/upload/u-1/complete",
+      null,
+      expect.anything(),
+    );
+  });
+
+  it("names only the file for a platform upload", async () => {
+    await romApi.uploadRoms({
+      platformId: 3,
+      filesToUpload: [new File(["abc"], "game.zip")],
+    });
+
+    expect(startCall().body).toEqual({ filename: "game.zip" });
+    expect(startCall().headers["X-Upload-Filename"]).toBe("game.zip");
+  });
+
+  it("keeps a name outside Latin-1 out of the header", async () => {
+    const name = "Relax \uff5c 432Hz.mp3";
+    await romApi.uploadRoms({
+      platformId: 3,
+      romId: 42,
+      filesToUpload: [new File(["abc"], name)],
+    });
+
+    expect(startCall().body).toEqual({ filename: name, rom_id: 42 });
+    expect(startCall().headers["X-Upload-Filename"]).toBe(
+      "Relax%20%EF%BD%9C%20432Hz.mp3",
+    );
+  });
+
+  it("asks the server to replace an existing file only when told to", async () => {
+    await romApi.uploadRoms({
+      platformId: 3,
+      romId: 42,
+      folder: "hack",
+      overwrite: true,
+      filesToUpload: [new File(["abc"], "fix.ips")],
+    });
+
+    expect(startCall().body).toEqual({
+      filename: "fix.ips",
+      rom_id: 42,
+      folder: "hack",
+      overwrite: true,
+    });
+  });
+
+  it("treats an empty folder as the rom root", async () => {
+    await romApi.uploadRoms({
+      platformId: 3,
+      romId: 42,
+      folder: "",
+      filesToUpload: [new File(["abc"], "readme.txt")],
+    });
+
+    expect(startCall().body).toEqual({ filename: "readme.txt", rom_id: 42 });
+  });
+
+  it("completes an empty file without sending chunks", async () => {
+    const results = await romApi.uploadRoms({
+      platformId: 3,
+      filesToUpload: [new File([], "empty.nsp")],
+    });
+
+    expect(results[0].status).toBe("fulfilled");
+    expect(startCall().headers).toMatchObject({
+      "X-Upload-Total-Size": "0",
+      "X-Upload-Total-Chunks": "0",
+    });
+    expect(put).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledWith(
+      "/roms/upload/u-1/complete",
+      null,
+      expect.anything(),
+    );
+    expect(storeUpload().files[0].finished).toBe(true);
+  });
+});
+
+describe("getRoms game-length range", () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue({ data: {} });
+  });
+
+  async function sentParams(
+    params: Parameters<typeof romApi.getRoms>[0],
+  ): Promise<Record<string, unknown>> {
+    await romApi.getRoms(params);
+    return get.mock.calls[0][1].params as Record<string, unknown>;
+  }
+
+  it("sends both bounds in seconds", async () => {
+    const params = await sentParams({
+      hltbMainStoryMin: 18000,
+      hltbMainStoryMax: 72000,
+    });
+
+    expect(params.hltb_main_story_min).toBe(18000);
+    expect(params.hltb_main_story_max).toBe(72000);
+  });
+
+  it("omits an unset bound so the range stays open at that end", async () => {
+    const params = await sentParams({ hltbMainStoryMax: 36000 });
+
+    expect(params).not.toHaveProperty("hltb_main_story_min");
+    expect(params.hltb_main_story_max).toBe(36000);
+  });
+});

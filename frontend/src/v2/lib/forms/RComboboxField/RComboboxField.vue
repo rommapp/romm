@@ -37,10 +37,14 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
+import { useRFormRegistration } from "../RForm/context";
 
 defineOptions({ inheritAttrs: false });
+
+type Rule = (value: string[]) => true | string;
 
 interface Props {
   modelValue?: string[];
@@ -57,6 +61,9 @@ interface Props {
   hideDetails?: boolean;
   hint?: string;
   errorMessages?: string | string[];
+  /** Checked against the committed chips, like RSelect's rules; the field
+   *  reports to an enclosing RForm. */
+  rules?: Rule[];
   disabled?: boolean;
   /** Render an X button on each chip to remove it (default true). */
   closableChips?: boolean;
@@ -79,11 +86,14 @@ const props = withDefaults(defineProps<Props>(), {
   hideDetails: false,
   hint: undefined,
   errorMessages: undefined,
+  rules: () => [],
   disabled: false,
   closableChips: true,
   noSuggestions: false,
   clearable: false,
 });
+
+const labels = useChromeLabels();
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: string[]): void;
@@ -305,12 +315,49 @@ const showClear = computed(
     (chips.value.length > 0 || query.value.length > 0),
 );
 
-const errorList = computed<string[]>(() => {
-  if (!props.errorMessages) return [];
-  return Array.isArray(props.errorMessages)
-    ? props.errorMessages
-    : [props.errorMessages];
+// ── Validation (mirrors RSelect) ────────────────────────────────
+const dirty = ref(false);
+const internalErrors = ref<string[]>([]);
+
+function runRules() {
+  const failed = props.rules
+    .map((rule) => rule(props.modelValue))
+    .find((result) => result !== true);
+  internalErrors.value = failed ? [failed] : [];
+}
+function validate(): boolean {
+  dirty.value = true;
+  runRules();
+  return internalErrors.value.length === 0;
+}
+function reset() {
+  dirty.value = false;
+  internalErrors.value = [];
+}
+defineExpose({ validate, reset });
+
+useRFormRegistration({
+  validate,
+  reset,
+  el: () => inputRef.value,
+  validity: () => !hasError.value,
 });
+
+watch(
+  () => props.modelValue,
+  () => {
+    if (dirty.value) runRules();
+  },
+);
+
+const errorList = computed<string[]>(() => [
+  ...(Array.isArray(props.errorMessages)
+    ? props.errorMessages
+    : props.errorMessages
+      ? [props.errorMessages]
+      : []),
+  ...internalErrors.value,
+]);
 const hasError = computed(() => errorList.value.length > 0);
 const showDetails = computed(
   () => !props.hideDetails && (hasError.value || !!props.hint),
@@ -360,7 +407,7 @@ const showDetails = computed(
               type="button"
               class="r-combobox-field__chip-close"
               tabindex="-1"
-              aria-label="Remove"
+              :aria-label="labels.remove"
               @mousedown.prevent
               @click.stop="removeAt(i)"
             >
@@ -394,7 +441,7 @@ const showDetails = computed(
         type="button"
         class="r-combobox-field__clear"
         tabindex="-1"
-        aria-label="Clear"
+        :aria-label="labels.clear"
         @mousedown.prevent
         @click.stop="clearAll"
       >

@@ -22,6 +22,7 @@ export * from "./primitives/REmptyState";
 export * from "./primitives/RIcon";
 export * from "./primitives/RImg";
 export * from "./primitives/RLetterHeading";
+export * from "./primitives/RMarquee";
 export * from "./primitives/RProgressCircular";
 export * from "./primitives/RProgressLinear";
 export * from "./primitives/RSkeletonBlock";
@@ -66,7 +67,6 @@ export * from "./data/RTable";
 
 // Media
 export * from "./media/RBox3D";
-export * from "./media/RPlatformIcon";
 
 // (GameCard lives under components/GameCard/ — it's a feature
 // composite that depends on stores + useGameActions, not a lib primitive.)

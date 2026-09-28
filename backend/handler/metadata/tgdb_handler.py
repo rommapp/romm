@@ -1,9 +1,9 @@
 from typing import NotRequired, TypedDict
 
 from config import TGDB_API_ENABLED
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
 
 
 class TGDBPlatform(TypedDict):

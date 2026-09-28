@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type MissingRomsCleanupStats = {
-    platform_id: (number | null);
+    platform_ids: (Array<number> | null);
     roms_found: number;
     roms_deleted: number;
     errors: number;

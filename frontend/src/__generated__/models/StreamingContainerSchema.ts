@@ -1,0 +1,22 @@
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+import type { SlotCapabilitiesSchema } from './SlotCapabilitiesSchema';
+import type { StateCoreSchema } from './StateCoreSchema';
+/**
+ * One platform the fleet can stream, as the play screen needs it.
+ */
+export type StreamingContainerSchema = {
+    platform: string;
+    host: string;
+    label: string;
+    capabilities: SlotCapabilitiesSchema;
+    emulator: string;
+    supports_memory_cards: boolean;
+    supports_save_picker: boolean;
+    supports_live_states: boolean;
+    import_kinds: Array<'save' | 'state'>;
+    state_core?: (StateCoreSchema | null);
+};
+

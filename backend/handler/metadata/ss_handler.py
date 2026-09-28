@@ -2,13 +2,14 @@ import html
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Final, NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict, cast
 
 import pydash
 from fastapi import HTTPException, status
 from unidecode import unidecode as uc
 
 from adapters.services.screenscraper import (
+    ScreenScraperCredentialsError,
     ScreenScraperRateLimitError,
     ScreenScraperService,
     get_account_limits,
@@ -16,26 +17,33 @@ from adapters.services.screenscraper import (
     prime_account_limits,
     reset_scan_state,
 )
-from adapters.services.screenscraper_types import SSGame, SSGameDate
-from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from adapters.services.screenscraper_types import SSGame, SSGameDate, SSGameRom
+from config import (
+    SCREENSCRAPER_DEV_ID,
+    SCREENSCRAPER_DEV_PASSWORD,
+    SCREENSCRAPER_PASSWORD,
+    SCREENSCRAPER_USER,
+)
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
-from handler.filesystem.base_handler import region_name_to_provider_shortcode
+from handler.filesystem.base_handler import (
+    TRANSLATION_TAG,
+    normalize_provider_languages,
+    normalize_provider_regions,
+    region_name_to_provider_shortcode,
+)
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom, RomFile
+from models.rom import LookupHashes, Rom, RomFile
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
-)
-from .base_handler import UniversalPlatformSlug as UPS
-from .base_handler import (
     restore_sensitive_query_params,
     strip_sensitive_query_params,
 )
@@ -153,9 +161,7 @@ def add_ss_auth_to_url(url: str | None) -> str:
     )
 
 
-def get_preferred_regions(
-    rom: Rom | None = None, *, for_media: bool = False
-) -> list[str]:
+def get_preferred_regions(rom: Rom | None = None) -> list[str]:
     """Get preferred regions, prepending the rom's own region tags when available.
 
     When a rom is tagged with multiple regions (e.g. "(Japan, USA)"), the rom's
@@ -164,11 +170,11 @@ def get_preferred_regions(
     Filename-tagged regions not present in the priority list keep their relative
     order and follow the prioritized ones.
 
-    With SCAN_REGION_MODE set to "prefer_config" and for_media=True, the
-    configured priority is authoritative instead: config regions come first and
-    the rom's own tags become the fallback when the config regions have no
-    media. The mode only applies to media selection; name and release-date
-    selection always keep the rom-tags-first ordering.
+    With SCAN_REGION_MODE set to "prefer_config" the configured priority is
+    authoritative instead: config regions come first and the rom's own tags
+    become the fallback. Everything region-selected reads this ordering, so a
+    game picked up in French comes back with its French artwork, title and
+    release date rather than a mix.
     """
     config = cm.get_config()
     priority = config.SCAN_REGION_PRIORITY
@@ -183,7 +189,7 @@ def get_preferred_regions(
             key=lambda code: priority.index(code) if code in priority else len(priority)
         )
 
-    if for_media and config.SCAN_REGION_MODE == "prefer_config":
+    if config.SCAN_REGION_MODE == "prefer_config":
         ordered = priority + rom_codes
     else:
         ordered = rom_codes + priority
@@ -227,6 +233,10 @@ ARCADES_SS_IDS: Final = [ARCADE_SS_ID, CPS1_SS_ID, CPS2_SS_ID, CPS3_SS_ID]
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
 SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
 
+
+# ScreenScraper buckets that name no place, so they must not become facet values.
+_SS_PSEUDO_REGIONS: Final = frozenset({"ss", "cus"})
+
 NOTGAME_NAME_PREFIX: Final = "ZZZ(NOTGAME)"
 
 _ISO_EXTENSIONS: Final = frozenset({"iso", "cue", "chd", "gdi", "cdi", "bin"})
@@ -248,6 +258,15 @@ def _is_daily_quota_error(exc: HTTPException) -> bool:
     return exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS and not isinstance(
         exc, ScreenScraperRateLimitError
     )
+
+
+def _is_provider_exhausted(exc: HTTPException) -> bool:
+    """True for the errors a breaker raises in ScreenScraper's place.
+
+    An exhausted daily quota and a refused credential set both trip one, so the
+    request never went out and the answer is not ScreenScraper's.
+    """
+    return _is_daily_quota_error(exc) or isinstance(exc, ScreenScraperCredentialsError)
 
 
 def _is_notgame(game: SSGame) -> bool:
@@ -292,6 +311,7 @@ class SSMetadataMedia(TypedDict):
 
     # Resources stored in filesystem
     bezel_path: str | None
+    box2d_path: str | None
     box2d_back_path: str | None
     box2d_side_path: str | None
     box3d_path: str | None
@@ -312,15 +332,36 @@ class SSMetadata(SSMetadataMedia):
     alternative_names: list[str]
     age_ratings: list[SSAgeRating]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     franchises: list[str]
     game_modes: list[str]
     genres: list[str]
     player_count: str
+    # What the dump our hashes matched says of itself, kept by the scan.
+    dump_regions: NotRequired[list[str]]
+    dump_languages: NotRequired[list[str]]
+    dump_tags: NotRequired[list[str]]
 
 
 class SSRom(BaseRom):
     ss_id: int | None
+    regions: NotRequired[list[str]]
+    languages: NotRequired[list[str]]
+    tags: NotRequired[list[str]]
     ss_metadata: NotRequired[SSMetadata]
+
+
+class ScreenScraperExhaustedError(Exception):
+    """A breaker answered this lookup, so ScreenScraper itself never saw it.
+
+    Carries the match the lookup would have returned, which still holds the name
+    the handler derived locally.
+    """
+
+    def __init__(self, fallback: SSRom):
+        super().__init__("ScreenScraper short-circuited the lookup")
+        self.fallback = fallback
 
 
 def _get_rom_type(file: RomFile) -> str:
@@ -354,6 +395,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_url=None,
         video_normalized_url=None,
         bezel_path=None,
+        box2d_path=None,
         box2d_back_path=None,
         box2d_side_path=None,
         box3d_path=None,
@@ -368,7 +410,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_normalized_path=None,
     )
 
-    for region in get_preferred_regions(rom, for_media=True):
+    for region in get_preferred_regions(rom):
         for media in game.get("medias", []):
             if media.get("region", "unk") != region or media.get("parent") != "jeu":
                 continue
@@ -393,6 +435,12 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["box2d_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
                 )
+                # Stored locally as well as feeding url_cover, so the box front
+                # stays reachable when another provider wins the cover.
+                if MetadataMediaType.BOX2D in preferred_media_types:
+                    ss_media["box2d_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D)}/box2d.png"
+                    )
             elif media.get("type") == "fanart" and not ss_media["fanart_url"]:
                 ss_media["fanart_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
@@ -524,7 +572,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         """Normalize the score to be between 0 and 10 because for some reason Screenscraper likes to rate over 20."""
         try:
             return str(int(score) / 2)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return ""
 
     def _parse_date(date_text: str) -> int | None:
@@ -609,25 +657,128 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             if classification.get("type") and classification.get("text")
         ]
 
+    publishers = pydash.compact([game.get("editeur", {}).get("text")])
+    developers = pydash.compact([game.get("developpeur", {}).get("text")])
+
     return SSMetadata(
         {
             "ss_score": _normalize_score(game.get("note", {}).get("text", "")),
             "alternative_names": [name["text"] for name in game.get("noms", [])],
             "age_ratings": _get_age_ratings(game),
-            "companies": pydash.compact(
-                [
-                    game.get("editeur", {}).get("text"),
-                    game.get("developpeur", {}).get("text"),
-                ]
-            ),
+            "companies": [*publishers, *developers],
+            "publishers": publishers,
+            "developers": developers,
             "genres": _get_genres(game),
             "first_release_date": _get_lowest_date(game.get("dates", [])),
             "franchises": _get_franchises(game),
             "game_modes": _get_game_modes(game),
             "player_count": _get_player_count(game),
-            **extract_media_from_ss_game(rom, game),
+            # The media dict never carries the dump_* keys extra_checks asks about.
+            **extract_media_from_ss_game(rom, game),  # type: ignore[typeddict-item]
         }
     )
+
+
+def find_ss_dump(game: SSGame, hashes: LookupHashes) -> SSGameRom | None:
+    """The entry in `jeu.roms` our own file is, by hash, or None.
+
+    `jeu.romid` names a dump of the game that is not necessarily the one asked
+    about, so the hashes decide instead. Nothing else in the response is
+    specific to the copy on disk.
+    """
+    wanted = {
+        key: value.lower()
+        for key, value in (
+            ("rommd5", hashes.md5),
+            ("romsha1", hashes.sha1),
+            ("romcrc", hashes.crc),
+        )
+        if value
+    }
+    if not wanted:
+        return None
+
+    for dump in game.get("roms") or []:
+        if not isinstance(dump, dict):
+            continue
+        if any(
+            str(dump.get(key, "")).lower() == value for key, value in wanted.items()
+        ):
+            return dump
+
+    return None
+
+
+def extract_regions_from_ss_dump(dump: SSGameRom) -> list[str]:
+    """Regions of one dump. Its buckets name no place, so they are dropped."""
+    codes = (dump.get("regions") or {}).get("regions_shortname") or []
+    return normalize_provider_regions(
+        code
+        for code in codes
+        if isinstance(code, str) and code.strip().lower() not in _SS_PSEUDO_REGIONS
+    )
+
+
+def extract_languages_from_ss_dump(dump: SSGameRom) -> list[str]:
+    """Languages of one dump, which a translation carries its target in."""
+    codes = (dump.get("langues") or {}).get("langues_shortname") or []
+    return normalize_provider_languages(code for code in codes if isinstance(code, str))
+
+
+# The dump flags naming something parse_tags spells the same way, so a hash
+# match and a filename land on one facet value rather than two. ScreenScraper
+# also sends `unl`, left out because no filename tag answers to it.
+_SS_DUMP_FLAG_TAGS: Final = (
+    ("trad", TRANSLATION_TAG),
+    ("hack", "Hack"),
+    ("beta", "Beta"),
+    ("demo", "Demo"),
+)
+
+
+def extract_tags_from_ss_dump(dump: SSGameRom) -> list[str]:
+    """Tags of one dump, from the flags it raises."""
+    # ScreenScraper sends these flags as "1", not 1.
+    return [
+        tag for key, tag in _SS_DUMP_FLAG_TAGS if str(dump.get(key, "")).strip() == "1"
+    ]
+
+
+def _apply_ss_dump(game_rom: SSRom, game: SSGame, file: RomFile | None) -> None:
+    """Attach the tags of the dump our own hashes match, if any is ours."""
+    if file is None:
+        return
+
+    dump = find_ss_dump(
+        game,
+        LookupHashes(crc=file.crc_hash, md5=file.md5_hash, sha1=file.sha1_hash),
+    )
+    if dump is None:
+        return
+
+    game_rom["regions"] = extract_regions_from_ss_dump(dump)
+    game_rom["languages"] = extract_languages_from_ss_dump(dump)
+    game_rom["tags"] = extract_tags_from_ss_dump(dump)
+
+
+def primary_lookup_file(rom: Rom, files: list[RomFile]) -> RomFile | None:
+    """The file whose hashes identify this ROM to ScreenScraper, or None.
+
+    The largest top-level file, which carries the complete digests; a platform
+    that names its own extensions is restricted to those.
+    """
+    filtered_files = [
+        file
+        for file in files
+        if file.file_size_bytes > 0
+        and file.is_top_level
+        and (
+            UPS(rom.platform_slug) not in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
+            or file.file_extension
+            in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[UPS(rom.platform_slug)]
+        )
+    ]
+    return max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
 
 
 def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
@@ -698,7 +849,7 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
         "ss_metadata": ss_metadata,
     }
 
-    return SSRom({k: v for k, v in game_rom.items() if v})  # type: ignore[misc]
+    return cast(SSRom, {k: v for k, v in game_rom.items() if v})
 
 
 class SSHandler(MetadataHandler):
@@ -708,6 +859,13 @@ class SSHandler(MetadataHandler):
     @classmethod
     def is_enabled(cls) -> bool:
         return bool(SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD)
+
+    @classmethod
+    def has_dev_credentials(cls) -> bool:
+        """Developer credentials are injected at build time, so a build made
+        outside our CI (packaged from source) has none and every request is
+        refused, whatever the user account is."""
+        return bool(SCREENSCRAPER_DEV_ID and SCREENSCRAPER_DEV_PASSWORD)
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
@@ -719,7 +877,7 @@ class SSHandler(MetadataHandler):
             log.error("Error checking ScreenScraper API: %s", e)
             return False
 
-        return bool(response.get("response", {}))
+        return bool(response and response.get("response"))
 
     @staticmethod
     def extract_ss_id_from_filename(fs_name: str) -> int | None:
@@ -787,23 +945,7 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return SSRom(ss_id=None), False
 
-        filtered_files = [
-            file
-            for file in files
-            if file.file_size_bytes > 0
-            and file.is_top_level
-            and (
-                UPS(rom.platform_slug)
-                not in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
-                or file.file_extension
-                in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[UPS(rom.platform_slug)]
-            )
-        ]
-
-        # Select the largest file by size, as it is most likely to be the main ROM file.
-        # This increases the accuracy of metadata lookups, since the largest file is
-        # expected to have the correct and complete hash values for external services.
-        first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
+        first_file = primary_lookup_file(rom, files)
         if first_file is None:
             return SSRom(ss_id=None), False
 
@@ -820,8 +962,8 @@ class SSHandler(MetadataHandler):
 
         # Files on NON_HASHABLE_PLATFORMS (or any file when SKIP_HASH_CALCULATION
         # is enabled) have no hashes. jeuInfos can still identify the game from the
-        # filename (romnom) + platform (systemeid) — a stronger matcher than the
-        # jeuRecherche name search the get_rom fallback uses — so only bail out when
+        # filename (romnom) + platform (systemeid), which is a stronger matcher than the
+        # jeuRecherche name search the get_rom fallback uses, so only bail out when
         # we have neither a hash nor a filename to match on.
         if not (md5_hash or sha1_hash or crc_hash or rom_name):
             log.info(
@@ -842,11 +984,9 @@ class SSHandler(MetadataHandler):
                 rom_type=_get_rom_type(first_file),
             )
         except HTTPException as exc:
-            # Daily quota exhausted: skip ScreenScraper for this ROM so the scan
-            # falls back to the other providers.
-            if not _is_daily_quota_error(exc):
+            if not _is_provider_exhausted(exc):
                 raise
-            return SSRom(ss_id=None), False
+            raise ScreenScraperExhaustedError(SSRom(ss_id=None)) from exc
         if not res:
             return SSRom(ss_id=None), False
 
@@ -856,7 +996,13 @@ class SSHandler(MetadataHandler):
             )
             return SSRom(ss_id=None), True
 
-        return build_ss_game(rom, res), False
+        # Tags describe the dump, so they are read only off the entry our own
+        # hash matched: jeuInfos also answers a bare romnom, which identifies a
+        # title the way the name search does.
+        game_rom = build_ss_game(rom, res)
+        _apply_ss_dump(game_rom, res, first_file)
+
+        return game_rom, False
 
     async def get_rom(self, rom: Rom, file_name: str, platform_ss_id: int) -> SSRom:
         from handler.filesystem import fs_rom_handler
@@ -920,15 +1066,13 @@ class SSHandler(MetadataHandler):
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
-                    url_manual=index_entry.get("iconUrl", ""),
                     url_screenshots=index_entry.get("screenshots", None) or [],
                 )
 
         # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(file_name)
-        if platform_ss_id == SWITCH_SS_ID and match:
+        if platform_ss_id == SWITCH_SS_ID:
             search_term, index_entry = await self._switch_productid_format(
-                match, search_term
+                rom, file_name, search_term
             )
             if index_entry:
                 fallback_rom = SSRom(
@@ -936,7 +1080,6 @@ class SSHandler(MetadataHandler):
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
-                    url_manual=index_entry.get("iconUrl", ""),
                     url_screenshots=index_entry.get("screenshots", None) or [],
                 )
 
@@ -968,37 +1111,51 @@ class SSHandler(MetadataHandler):
                     terms[-1], platform_ss_id, split_game_name=True
                 )
         except HTTPException as exc:
-            # Daily quota exhausted: fall back to the name-only match (if any).
-            if not _is_daily_quota_error(exc):
+            if not _is_provider_exhausted(exc):
                 raise
-            return fallback_rom
+            raise ScreenScraperExhaustedError(fallback_rom) from exc
 
         if not res or not res.get("id"):
             return fallback_rom
 
         return build_ss_game(rom, res)
 
-    async def get_rom_by_id(self, rom: Rom, ss_id: int) -> SSRom:
+    async def get_rom_by_id(
+        self, rom: Rom, ss_id: int, files: list[RomFile] | None = None
+    ) -> SSRom:
+        """Refetch a game by its ScreenScraper id.
+
+        Args:
+            files: the ROM's files, when the dump-specific tags are wanted too.
+        """
         if not self.is_enabled():
             return SSRom(ss_id=None)
 
         try:
             res = await self.ss_service.get_game_info(game_id=ss_id)
         except HTTPException as exc:
-            # Daily quota exhausted: return an empty match rather than failing.
-            if not _is_daily_quota_error(exc):
+            if not _is_provider_exhausted(exc):
                 raise
-            return SSRom(ss_id=None)
+            raise ScreenScraperExhaustedError(SSRom(ss_id=None)) from exc
         if not res:
             return SSRom(ss_id=None)
 
-        return build_ss_game(rom, res)
+        game_rom = build_ss_game(rom, res)
+        if files is not None:
+            _apply_ss_dump(game_rom, res, primary_lookup_file(rom, files))
+
+        return game_rom
 
     async def get_matched_rom_by_id(self, rom: Rom, ss_id: int) -> SSRom | None:
         if not self.is_enabled():
             return None
 
-        game_rom = await self.get_rom_by_id(rom, ss_id)
+        try:
+            game_rom = await self.get_rom_by_id(rom, ss_id)
+        except ScreenScraperExhaustedError:
+            # A manual match wants the providers that can still answer, not this.
+            return None
+
         return game_rom if game_rom.get("ss_id", "") else None
 
     async def get_matched_roms_by_name(
@@ -1010,10 +1167,17 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return []
 
-        matched_games = await self.ss_service.search_games(
-            term=uc(search_term),
-            system_id=platform_ss_id,
-        )
+        try:
+            matched_games = await self.ss_service.search_games(
+                term=uc(search_term),
+                system_id=platform_ss_id,
+            )
+        except HTTPException as exc:
+            # A provider that has said everything it is going to say contributes
+            # no matches; it is not a failed search.
+            if not _is_provider_exhausted(exc):
+                raise
+            return []
 
         def _is_ss_region(game: SSGame) -> bool:
             return any(name.get("region") == "ss" for name in game.get("noms", []))
@@ -1073,7 +1237,8 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.COLECOADAM: {"id": 89, "name": "Coleco Adam"},
     UPS.COLECOVISION: {"id": 48, "name": "Colecovision"},
     UPS.COLOUR_GENIE: {"id": 92, "name": "EG2000 Colour Genie"},
-    UPS.C128: {"id": 66, "name": "Commodore 64"},
+    # ScreenScraper files C128 under its C64 system; keep the display name distinct.
+    UPS.C128: {"id": 66, "name": "Commodore 128"},
     UPS.C_PLUS_4: {"id": 99, "name": "Plus/4"},
     UPS.C16: {"id": 99, "name": "Plus/4"},
     UPS.C64: {"id": 66, "name": "Commodore 64"},
@@ -1082,6 +1247,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.CPS3: {"id": CPS3_SS_ID, "name": "Capcom Play System 3"},
     UPS.CPET: {"id": 240, "name": "PET"},
     UPS.CREATIVISION: {"id": 241, "name": "CreatiVision"},
+    UPS.DOOM: {"id": 290, "name": "Doom"},
     UPS.DOS: {"id": 135, "name": "PC Dos"},
     UPS.DRAGON_32_SLASH_64: {"id": 91, "name": "Dragon 32/64"},
     UPS.DC: {"id": 23, "name": "Dreamcast"},
@@ -1122,6 +1288,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.MSX2: {"id": 116, "name": "MSX2"},
     UPS.MSX_TURBO: {"id": 118, "name": "MSX Turbo R"},
     UPS.MAC: {"id": 146, "name": "Mac OS"},
+    UPS.MEGA_DUCK_SLASH_COUGAR_BOY: {"id": 90, "name": "Mega Duck"},
     UPS.NGAGE: {"id": 30, "name": "N-Gage"},
     UPS.NES: {"id": 3, "name": "NES"},
     UPS.FAMICOM: {"id": 3, "name": "Famicom"},
@@ -1162,6 +1329,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.PS4: {"id": 60, "name": "Playstation 4"},
     UPS.PS5: {"id": 284, "name": "Playstation 5"},
     UPS.POKEMON_MINI: {"id": 211, "name": "Pokémon mini"},
+    UPS.RPG_MAKER: {"id": 231, "name": "EasyRPG"},
     UPS.SAM_COUPE: {"id": 213, "name": "MGT SAM Coupé"},
     UPS.SCUMMVM: {"id": 123, "name": "ScummVM"},
     UPS.SEGA32: {"id": 19, "name": "Megadrive 32X"},
@@ -1201,13 +1369,14 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.VSMILE: {"id": 120, "name": "V.Smile"},
     UPS.VIC_20: {"id": 73, "name": "Vic-20"},
     UPS.VECTREX: {"id": 102, "name": "Vectrex"},
-    UPS.VIDEOPAC_G7400: {"id": 104, "name": "Videopac G7000"},
+    UPS.VIDEOPAC_G7400: {"id": 104, "name": "Videopac+ G7400"},
     UPS.VIRTUALBOY: {"id": 11, "name": "Virtual Boy"},
     UPS.WII: {"id": 16, "name": "Wii"},
     UPS.WIIU: {"id": 18, "name": "Wii U"},
     UPS.WIN: {"id": 138, "name": "PC Windows"},
     UPS.WIN3X: {"id": 136, "name": "PC Win3.xx"},
-    UPS.WIN9X: {"id": 137, "name": "PC Win9X"},
+    # Most Win9x games are filed under the generic Windows system
+    UPS.WIN9X: {"id": 138, "name": "PC Win9X"},
     UPS.WASM_4: {"id": 262, "name": "WASM-4"},
     UPS.WONDERSWAN: {"id": 45, "name": "WonderSwan"},
     UPS.WONDERSWAN_COLOR: {"id": 46, "name": "WonderSwan Color"},

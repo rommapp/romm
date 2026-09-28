@@ -5,5 +5,7 @@
 export type EmulationDict = {
     DISABLE_EMULATOR_JS: boolean;
     DISABLE_RUFFLE_RS: boolean;
+    DISABLE_JSDOS: boolean;
+    DISABLE_PICO8: boolean;
 };
 

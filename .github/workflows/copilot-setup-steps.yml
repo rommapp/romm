@@ -9,43 +9,34 @@ permissions:
 jobs:
   copilot-setup-steps:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       mariadb:
-        image: mariadb:10.11
+        image: mariadb:13.0.2
         ports:
           - 3306:3306
         env:
           MYSQL_ROOT_PASSWORD: passwd
-        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=2s --health-retries=3 --health-start-period=30s
       valkey:
-        image: valkey/valkey:7.2
+        image: valkey/valkey:9.0.6
         ports:
           - 6379:6379
         options: --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=2s --health-retries=3
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
-
-      - name: Install Python
-        run: uv python install 3.13
-
-      - name: Install system dependencies
-        run: sudo apt-get install -y libmariadb3 libmariadb-dev libpq-dev
-
-      - name: Install backend dependencies
-        run: uv sync --all-extras --dev
-
-      - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version-file: frontend/.nvmrc
+          persist-credentials: false
 
-      - name: Install frontend dependencies
-        run: npm install
-        working-directory: frontend
+      - name: Set up the backend
+        uses: ./.github/actions/setup-backend
+        with:
+          sync-args: --all-extras --dev
+          apt-packages: libpq-dev
+
+      - name: Set up the frontend
+        uses: ./.github/actions/setup-frontend
 
       - name: Install Trunk CLI
         run: curl https://get.trunk.io -fsSL | bash -s -- -y

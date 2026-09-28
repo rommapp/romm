@@ -8,14 +8,11 @@
 // Sections with no items are omitted so the grid doesn't show empty
 // columns.
 //
-// A section carrying a `filter` renders its chips as links into the
-// global search scoped to that value (`/search?genres=Adventure`), the
-// pivot-to-search v1 offered from the same rows. Links (not click
-// handlers) so middle-click / open-in-new-tab work and the chips join
-// keyboard + spatial navigation as `a[href]`.
+// A section carrying a `filter` renders its chips as `searchLocation`
+// links, pivoting into the global search scoped to that value.
 import { RIcon } from "@v2/lib";
-import { ROUTES } from "@/plugins/router";
 import type { FilterType } from "@/stores/galleryFilter";
+import { searchLocation } from "@/v2/utils/searchLocation";
 
 defineOptions({ inheritAttrs: false });
 
@@ -33,11 +30,6 @@ export type InfoGridSection = {
 const props = defineProps<{ sections: InfoGridSection[] }>();
 
 const visible = () => props.sections.filter((s) => s.items.length > 0);
-
-const searchLocation = (filter: FilterType, item: string) => ({
-  name: ROUTES.SEARCH,
-  query: { [filter]: item },
-});
 </script>
 
 <template>

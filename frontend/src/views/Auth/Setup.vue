@@ -156,8 +156,8 @@ const groupPlatformsByManufacturer = (platforms: Platform[]) => {
 const groupedExistingPlatforms = computed(() => {
   if (!libraryInfo.value) return [];
 
-  // Only show existing platforms if a structure was actually detected
-  if (!libraryInfo.value.detected_structure) return [];
+  // Only show existing platforms once the library folder actually exists
+  if (!libraryInfo.value.library_ready) return [];
 
   // Get supported platform slugs for quick lookup
   const supportedSlugs = new Set(
@@ -219,8 +219,8 @@ const groupedAvailablePlatforms = computed(() => {
 
 // Check if there are existing platforms
 const hasExistingPlatforms = computed(() => {
-  // Only consider platforms as existing if a structure was detected
-  if (!libraryInfo.value?.detected_structure) return false;
+  // Only consider platforms as existing once the library folder exists
+  if (!libraryInfo.value?.library_ready) return false;
   return (libraryInfo.value?.existing_platforms.length ?? 0) > 0;
 });
 
@@ -310,7 +310,7 @@ function handleNext(nextCallback: () => void) {
     return;
   }
 
-  const hasStructure = libraryInfo.value?.detected_structure;
+  const hasStructure = libraryInfo.value?.library_ready;
   const platformsToCreate = selectedPlatforms.value.filter(
     (slug) => !isPlatformExisting(slug),
   );
@@ -318,6 +318,7 @@ function handleNext(nextCallback: () => void) {
   // Case 1: No structure detected and user is creating platforms
   if (!hasStructure && platformsToCreate.length > 0) {
     confirmDialogMessage.value = t("setup.confirm-no-structure", {
+      pattern: libraryInfo.value?.library_structure ?? "",
       count: platformsToCreate.length,
       plural: platformsToCreate.length > 1 ? "s" : "",
     });
@@ -336,13 +337,8 @@ function handleNext(nextCallback: () => void) {
 
   // Case 3: Structure is detected and user selected at least one platform to create
   if (hasStructure && platformsToCreate.length > 0 && libraryInfo.value) {
-    const structurePattern =
-      libraryInfo.value.detected_structure === "struct_a"
-        ? "roms/{platform}"
-        : "{platform}/roms";
     confirmDialogMessage.value = t("setup.confirm-create-platforms", {
-      structure: libraryInfo.value.detected_structure,
-      pattern: structurePattern,
+      pattern: libraryInfo.value.library_structure,
       count: platformsToCreate.length,
       plural: platformsToCreate.length > 1 ? "s" : "",
     });
@@ -526,20 +522,13 @@ onMounted(() => {
                       <p>
                         <strong>{{ t("setup.folder-structure") }}:</strong>
                         {{
-                          libraryInfo?.detected_structure === "struct_a"
-                            ? t("setup.structure-a-detected")
-                            : libraryInfo?.detected_structure === "struct_b"
-                              ? t("setup.structure-b-detected")
-                              : t("setup.no-structure-detected")
+                          libraryInfo?.library_ready
+                            ? t("setup.library-structure-detected")
+                            : t("setup.no-structure-detected")
                         }}
                       </p>
                       <p class="text-caption text-grey">
-                        {{
-                          libraryInfo?.detected_structure === "struct_a" ||
-                          !libraryInfo?.detected_structure
-                            ? "roms/{platform}"
-                            : "{platform}/roms"
-                        }}
+                        {{ libraryInfo?.library_structure }}
                       </p>
                     </v-col>
                   </v-row>

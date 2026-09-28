@@ -10,7 +10,9 @@ import tempfile
 import threading
 import time
 import zipfile
+import zlib
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Final, Literal
 
@@ -60,7 +62,9 @@ CHD_V5_SHA1_LENGTH: Final = 20  # SHA1 is 20 bytes
 CHD_V5_VERSION: Final = 5  # CHD v5 identifier
 CHD_MIME_TYPE: Final = "application/x-mame-chd"
 
-FILE_READ_CHUNK_SIZE = 1024 * 8
+# Hashing runs in threads and hashlib/zlib release the GIL per chunk, so small
+# chunks make concurrent scans contend instead of overlapping.
+FILE_READ_CHUNK_SIZE: Final = 1024 * 256
 _MIME_DETECTOR = magic.Magic(mime=True)
 _MIME_DETECTOR_LOCK = threading.Lock()
 
@@ -69,12 +73,37 @@ class ArchiveReadError(Exception):
     """An archive's members could not be fully read."""
 
 
+@contextmanager
+def _kill_at_deadline(
+    process: subprocess.Popen[bytes], deadline: float
+) -> Iterator[threading.Event]:
+    """Kill `process` at `deadline`, even while a read of its stdout is blocked.
+
+    Yields an event that is set once the deadline has passed.
+    """
+    expired = threading.Event()
+    finished = threading.Event()
+
+    def _watch() -> None:
+        if not finished.wait(max(0.0, deadline - time.monotonic())):
+            expired.set()
+            process.kill()
+
+    watcher = threading.Thread(target=_watch, name="7z-deadline", daemon=True)
+    watcher.start()
+    try:
+        yield expired
+    finally:
+        finished.set()
+        watcher.join()
+
+
 def detect_mime_type(file_path: os.PathLike[str] | str) -> str:
     """Detect MIME type via libmagic; returns empty string on error."""
     try:
         with _MIME_DETECTOR_LOCK:
             return _MIME_DETECTOR.from_file(file_path)
-    except (OSError, magic.MagicException):
+    except OSError, magic.MagicException:
         return ""
 
 
@@ -99,7 +128,7 @@ def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
             with z.open(largest_file, "r") as f:
                 while chunk := f.read(FILE_READ_CHUNK_SIZE):
                     yield chunk
-    except (zipfile.BadZipFile, RuntimeError, OSError):
+    except zipfile.BadZipFile, RuntimeError, OSError:
         if isinstance(file, Path):
             for chunk in read_basic_file(file):
                 yield chunk
@@ -114,10 +143,12 @@ def read_tar_file(
 
             # Find the largest file among regular files only
             largest_file = max(regular_files, key=lambda x: x.size)
-            with f.extractfile(largest_file) as ef:  # type: ignore
-                with ef:
-                    while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                        yield chunk
+            ef = f.extractfile(largest_file)
+            if ef is None:
+                return
+            with ef:
+                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
+                    yield chunk
     except tarfile.ReadError:
         for chunk in read_basic_file(file_path):
             yield chunk
@@ -127,13 +158,14 @@ def read_gz_file(file_path: Path) -> Iterator[bytes]:
     return read_tar_file(file_path, "r:gz")
 
 
-def _process_largest_7z_member(
+def hash_largest_7z_member(
     file_path: Path,
     fn_hash_update: Callable[[bytes | bytearray], None],
 ) -> bool:
     """Stream the largest member of a 7z archive through `fn_hash_update`.
 
-    Returns True on success, False if listing/extraction fails or times out.
+    Returns True on success, False if listing/extraction fails or times out,
+    in which case `fn_hash_update` may already have seen part of the member.
     """
     try:
         result = subprocess.run(
@@ -171,21 +203,37 @@ def _process_largest_7z_member(
 
         log.debug(f"Extracting {largest_file} from {file_path}...")
 
-        start_decompression_time = time.monotonic()
+        deadline = time.monotonic() + SEVEN_ZIP_TIMEOUT
 
-        with subprocess.Popen(
-            [SEVEN_ZIP_PATH, "e", str(file_path), largest_file, "-so", "-y", "-spd"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
-        ) as process:
+        with (
+            subprocess.Popen(
+                [
+                    SEVEN_ZIP_PATH,
+                    "e",
+                    str(file_path),
+                    "-so",
+                    "-y",
+                    "-spd",
+                    "--",
+                    largest_file,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+            ) as process,
+            _kill_at_deadline(process, deadline) as expired,
+        ):
             if process.stdout:
                 while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
-                    if time.monotonic() - start_decompression_time > SEVEN_ZIP_TIMEOUT:
+                    if time.monotonic() > deadline:
                         process.terminate()
                         log.error("7z extraction timed out")
                         return False
                     fn_hash_update(chunk)
+
+        if expired.is_set():
+            log.error("7z extraction stalled and was killed at the timeout")
+            return False
 
         if process.returncode != 0:
             log.error(f"7z extraction failed with return code {process.returncode}")
@@ -202,15 +250,6 @@ def _process_largest_7z_member(
         return False
 
 
-def process_7z_file(
-    file_path: Path,
-    fn_hash_update: Callable[[bytes | bytearray], None],
-) -> None:
-    if not _process_largest_7z_member(file_path, fn_hash_update):
-        for chunk in read_basic_file(file_path):
-            fn_hash_update(chunk)
-
-
 def read_bz2_file(file_path: Path) -> Iterator[bytes]:
     try:
         with bz2.BZ2File(file_path, "rb") as f:
@@ -221,9 +260,48 @@ def read_bz2_file(file_path: Path) -> Iterator[bytes]:
             yield chunk
 
 
-def _iter_chunks(reader: IO[bytes]) -> Iterator[bytes]:
-    while chunk := reader.read(FILE_READ_CHUNK_SIZE):
-        yield chunk
+def _iter_chunks(reader: IO[bytes], file_path: Path, name: str) -> Iterator[bytes]:
+    """Stream a member's bytes, raising `ArchiveReadError` if it can't be read.
+
+    Chunks are consumed by the caller, outside the reader's own error
+    handling, so decompression failures (a bad CRC, truncated data) surface
+    here rather than escaping as a raw zipfile/tarfile error.
+    """
+    try:
+        while chunk := reader.read(FILE_READ_CHUNK_SIZE):
+            yield chunk
+    except (
+        zipfile.BadZipFile,
+        tarfile.TarError,
+        zlib.error,
+        EOFError,
+        OSError,
+    ) as e:
+        raise ArchiveReadError(f"Error reading {name} from {file_path}: {e}") from e
+
+
+def _eligible_zip_entries(
+    z: zipfile.ZipFile, excluded_names: list[str], excluded_exts: list[str]
+) -> list[zipfile.ZipInfo]:
+    return [
+        entry
+        for entry in sorted(z.infolist(), key=lambda e: e.filename)
+        if not entry.is_dir()
+        and not _is_member_excluded(entry.filename, excluded_names, excluded_exts)
+    ]
+
+
+def _undecodable_zip_method(
+    z: zipfile.ZipFile, entries: list[zipfile.ZipInfo]
+) -> int | None:
+    """Opening an entry reads only its local header, so probing every member
+    is cheap and tracks whatever this Python and the inflate64 patch decode."""
+    for entry in entries:
+        try:
+            z.open(entry, "r").close()
+        except NotImplementedError:
+            return entry.compress_type
+    return None
 
 
 def read_zip_archive_files(
@@ -236,27 +314,31 @@ def read_zip_archive_files(
     Each yielded `(internal_name, file_size_bytes, chunks)` streams its
     member's bytes lazily; chunks must be fully consumed before advancing
     to the next entry, since the underlying file is closed at that point.
+
+    An archive with a method zipfile can't decode goes through 7zz as a whole,
+    so a stored .cue next to a PPMd .bin is never streamed twice.
+
+    Raises `ArchiveReadError` if the archive can't be read in full, so callers
+    never mistake a partial read for a complete one.
     """
     try:
         with zipfile.ZipFile(file_path, "r") as z:
-            entries = sorted(z.infolist(), key=lambda e: e.filename)
-            for entry in entries:
-                if entry.is_dir():
-                    continue
-                name = entry.filename
-                base_name = Path(name).name
-                lower = base_name.lower()
-                if any(lower.endswith("." + ext) for ext in excluded_exts):
-                    continue
-                if any(
-                    base_name == exc or fnmatch.fnmatch(base_name, exc)
-                    for exc in excluded_names
-                ):
-                    continue
-                with z.open(entry, "r") as f:
-                    yield name, entry.file_size, _iter_chunks(f)
-    except (zipfile.BadZipFile, RuntimeError, OSError):
-        return
+            entries = _eligible_zip_entries(z, excluded_names, excluded_exts)
+            undecodable_method = _undecodable_zip_method(z, entries)
+            if undecodable_method is None:
+                for entry in entries:
+                    name = entry.filename
+                    with z.open(entry, "r") as f:
+                        yield name, entry.file_size, _iter_chunks(f, file_path, name)
+                return
+    except (zipfile.BadZipFile, RuntimeError, OSError) as e:
+        raise ArchiveReadError(f"Error reading zip {file_path}: {e}") from e
+
+    log.debug(
+        f"Zip {file_path} uses compression method {undecodable_method}, which "
+        "zipfile can't decode; reading it through 7zz"
+    )
+    yield from read_7z_archive_files(file_path, excluded_names, excluded_exts)
 
 
 def read_tar_archive_files(
@@ -269,6 +351,9 @@ def read_tar_archive_files(
     Each yielded `(internal_name, file_size_bytes, chunks)` streams its
     member's bytes lazily; chunks must be fully consumed before advancing
     to the next entry, since the underlying file is closed at that point.
+
+    Raises `ArchiveReadError` if the archive can't be read in full, so callers
+    never mistake a partial read for a complete one.
     """
     try:
         with tarfile.open(file_path, "r:*") as tf:
@@ -295,9 +380,9 @@ def read_tar_archive_files(
                     continue
 
                 with ef:
-                    yield member.name, member.size, _iter_chunks(ef)
-    except tarfile.ReadError:
-        return
+                    yield member.name, member.size, _iter_chunks(ef, file_path, name)
+    except (tarfile.TarError, OSError) as e:
+        raise ArchiveReadError(f"Error reading tar {file_path}: {e}") from e
 
 
 def _stream_7z_chunks(
@@ -363,7 +448,12 @@ def _stream_archive_members(
             ) as process:
                 if process.stdout is None:
                     continue
-                yield name, size, _stream_7z_chunks(process, deadline, _mark_timed_out)
+                with _kill_at_deadline(process, deadline) as expired:
+                    yield name, size, _stream_7z_chunks(
+                        process, deadline, _mark_timed_out
+                    )
+                if expired.is_set():
+                    _mark_timed_out()
             # A timeout terminates the subprocess, so a non-zero return code is
             # expected then and is covered by the single raise below.
             if not timed_out and process.returncode != 0:
@@ -377,7 +467,10 @@ def _stream_archive_members(
             ) from e
 
     if timed_out:
-        raise ArchiveReadError(f"Extraction timed out reading members of {file_path}")
+        raise ArchiveReadError(
+            f"Extraction timed out after {SEVEN_ZIP_TIMEOUT}s reading members of "
+            f"{file_path}; raise SEVEN_ZIP_TIMEOUT for large archives"
+        )
 
 
 def read_7z_archive_files(
@@ -508,8 +601,9 @@ def _archive_member_command(file_path: Path, member: str) -> list[str]:
         ]
 
     # "-spd" disables wildcard matching so a member name containing "*" or "?"
-    # can't select (and concatenate) other members.
-    return [SEVEN_ZIP_PATH, "e", str(file_path), member, "-so", "-y", "-spd"]
+    # can't select other members; "--" stops switch parsing so one starting
+    # with "-" or "@" stays a member name.
+    return [SEVEN_ZIP_PATH, "e", str(file_path), "-so", "-y", "-spd", "--", member]
 
 
 def _list_archive_file_members(file_path: Path) -> list[tuple[str, int]]:
@@ -606,15 +700,24 @@ def _extract_member_to_dir(
                     stderr=stderr_file,
                     shell=False,  # trunk-ignore(bandit/B603): binary paths are hardcoded, args are validated
                 ) as process,
+                _kill_at_deadline(process, deadline) as expired,
             ):
                 assert process.stdout is not None
                 while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
                     if time.monotonic() > deadline:
                         process.terminate()
-                        log.error(f"Extraction of {member} from {file_path} timed out")
-                        dest_path.unlink(missing_ok=True)
-                        return None
+                        expired.set()
+                        break
                     dest_file.write(chunk)
+
+            if expired.is_set():
+                log.error(
+                    f"Extraction of {member} from {file_path} timed out "
+                    f"after {SEVEN_ZIP_TIMEOUT}s; raise SEVEN_ZIP_TIMEOUT "
+                    "for large archives"
+                )
+                dest_path.unlink(missing_ok=True)
+                return None
 
             if process.returncode != 0:
                 # Surface the extractor's own reason (e.g. "Unsupported
@@ -758,7 +861,7 @@ def is_chd_file(file_path: Path) -> bool:
     try:
         with _MIME_DETECTOR_LOCK:
             return _MIME_DETECTOR.from_file(file_path) == CHD_MIME_TYPE
-    except (OSError, magic.MagicException):
+    except OSError, magic.MagicException:
         return False
 
 

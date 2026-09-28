@@ -1,31 +1,40 @@
-// useScanLifecycle — global wire-up between the scan socket events and the
+// useScanLifecycle: global wire-up between the scan socket events and the
 // `scanning` Pinia store. Mounted once at the top of the v2 tree (AppLayout)
 // so the navbar's ScanningIndicator, the dedicated /scan view, and anyone
 // else reading `scanning` / `scanningPlatforms` / `scanStats` always see
-// the same truth — even when the user navigates between routes mid-scan.
+// the same truth, even when the user navigates between routes mid-scan.
 //
 // Events handled:
-//   * `scan:scanning_platform` — backend announces the platform it's about
+//   * `scan:scanning_platform`: backend announces the platform it's about
 //                                to process; push it onto the live log so
 //                                the /scan view can render a panel for it.
-//   * `scan:scanning_rom`      — per-ROM update during a scan. Batched on
+//   * `scan:scanning_rom`:      per-ROM update during a scan. Batched on
 //                                a 100ms debounce window so a thousand
 //                                rapid-fire updates don't tank rendering.
-//   * `scan:update_stats`      — periodic progress; keep `scanStats` fresh.
-//   * `scan:done`              — scan finished; persist the final stats,
+//   * `scan:update_stats`:      periodic progress; keep `scanStats` fresh.
+//   * `scan:done`:              scan finished; persist the final stats,
 //                                flip `scanning` off so the indicator hides,
 //                                then refetch platforms to reconcile counts.
-//   * `scan:done_ko`           — scan errored; surface the message as a
-//                                snackbar and flip `scanning` off.
+//   * `scan:done_ko`:           scan errored; flip `scanning` off.
+//
+// Both reach every connected user, so only the tab that started the scan
+// toasts its end. Whoever else it concerns gets a notification.
+//
+// Events alone can't tell a tab that loads mid-scan what's going on, so
+// install also reconciles against the running RQ job; see
+// `reconcileWithRunningScan` below.
 //
 // `useSocketEvent` is the typed subscription wrapper that auto-cleans up
 // on unmount; since AppLayout never unmounts during normal use the
 // listeners effectively live for the session.
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
-import { inject } from "vue";
-import type { ScanStats } from "@/__generated__";
+import { inject, watch } from "vue";
+import type { ScanStats, ScanTaskStatusResponse } from "@/__generated__";
 import platformApi from "@/services/api/platform";
+import taskApi from "@/services/api/task";
+import storeAuth from "@/stores/auth";
+import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning, { type ScanningPlatform } from "@/stores/scanning";
@@ -33,11 +42,16 @@ import type { Events } from "@/types/emitter";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
+/** `scan:scanning_rom` payload; `is_new` marks a ROM this scan added. */
+type ScanningRom = SimpleRom & { is_new: boolean };
+
 export function installScanLifecycle() {
   const scanningStore = storeScanning();
   const romsStore = storeRoms();
+  const collectionsStore = storeCollections();
   const platformsStore = storePlatforms();
   const galleryRomsStore = storeGalleryRoms();
+  const authStore = storeAuth();
   const emitter = inject<Emitter<Events>>("emitter");
 
   useSocketEvent<ScanningPlatform>(
@@ -49,7 +63,7 @@ export function installScanLifecycle() {
       id,
       fs_slug,
       is_identified,
-      firmware_count,
+      new_firmware_count,
     }) => {
       scanningStore.setScanning(true);
       // De-dupe by display_name so a re-scan of the same platform
@@ -58,7 +72,7 @@ export function installScanLifecycle() {
         (p) => p.display_name !== display_name,
       );
       // Prepend so the platform being scanned right now stays at the top of
-      // the live log — no scrolling to follow progress.
+      // the live log, where progress can be followed without scrolling.
       scanningStore.scanningPlatforms.unshift({
         name,
         display_name,
@@ -66,14 +80,12 @@ export function installScanLifecycle() {
         id,
         fs_slug,
         roms: [],
-        firmware_count,
+        new_firmware_count,
         is_identified,
       });
 
-      // Surface brand-new platforms in the canonical platforms store the
-      // moment the scan reaches them — previously they only appeared after
-      // a manual page refresh. The socket payload is a partial (8 fields),
-      // so fetch the full PlatformSchema before adding it to the store.
+      // Surface brand-new platforms the moment the scan reaches them. The
+      // socket payload is a partial, so fetch the full PlatformSchema.
       if (!platformsStore.has(id)) {
         platformApi
           .getPlatform(id)
@@ -88,7 +100,10 @@ export function installScanLifecycle() {
   // Batch per-ROM updates so a fast scan doesn't trigger one render per
   // ROM. Queue drains every 100ms; matches the v1 behavior. Stored
   // outside the handler so multiple events share the same queue + flush.
-  const romUpdateQueue: SimpleRom[] = [];
+  const romUpdateQueue: ScanningRom[] = [];
+  // A new ROM emits several times, and a platform event can rebuild the live
+  // log between those emits, so each new ROM is counted once by id.
+  const countedNewRomIds = new Set<number>();
   const refreshGallery = debounce(
     () => {
       galleryRomsStore.invalidateWindows();
@@ -100,11 +115,24 @@ export function installScanLifecycle() {
   const processRomUpdates = debounce(() => {
     if (romUpdateQueue.length === 0) return;
     const updates = romUpdateQueue.splice(0, romUpdateQueue.length);
-    updates.forEach((rom) => {
-      // Keep the global "recent" list fresh so any view watching it
-      // (Home) reflects the new ROM at the top.
-      romsStore.removeFromRecent(rom);
-      romsStore.addToRecent(rom);
+    updates.forEach(({ is_new: isNew, ...rom }) => {
+      // Home's "recently added" row takes new ROMs at the top; a rescanned
+      // one is refreshed where it already sits.
+      if (isNew) {
+        romsStore.removeFromRecent(rom);
+        romsStore.addToRecent(rom);
+        if (!countedNewRomIds.has(rom.id)) {
+          countedNewRomIds.add(rom.id);
+          // The gallery/nav getters gate on `rom_count > 0`, so this is what
+          // makes a freshly-scanned platform render mid-scan.
+          const storePlatform = platformsStore.get(rom.platform_id);
+          if (storePlatform) storePlatform.rom_count += 1;
+        }
+      } else if (romsStore.recentRoms.some((r) => r.id === rom.id)) {
+        romsStore.recentRoms = romsStore.recentRoms.map((r) =>
+          r.id === rom.id ? rom : r,
+        );
+      }
 
       // If the user is currently looking at the gallery of the platform
       // being scanned, refresh from the server to preserve sorting/filtering.
@@ -121,7 +149,7 @@ export function installScanLifecycle() {
         (p) => p.fs_slug === rom.platform_fs_slug,
       );
 
-      // Socket may have dropped the `scan:scanning_platform` event — add
+      // The socket may have dropped the `scan:scanning_platform` event. Add
       // the platform synthetically so the user still sees something.
       if (!scannedPlatform) {
         scanningStore.scanningPlatforms.unshift({
@@ -132,7 +160,7 @@ export function installScanLifecycle() {
           fs_slug: rom.platform_fs_slug,
           is_identified: true,
           roms: [],
-          firmware_count: 0,
+          new_firmware_count: 0,
         });
         scannedPlatform = scanningStore.scanningPlatforms.at(0)!;
       }
@@ -145,33 +173,42 @@ export function installScanLifecycle() {
           r.id === rom.id ? rom : r,
         );
       } else {
-        // Newest ROM first, same as platforms — most recent stays on top.
+        // Newest ROM first, same as platforms, so the most recent stays on top.
         scannedPlatform.roms.unshift(rom);
-        // Keep the canonical platforms store's count live for genuinely new
-        // ROMs: the gallery/nav getters gate on `rom_count > 0`, so this is
-        // what makes a freshly-scanned platform actually render mid-scan.
-        const storePlatform = platformsStore.get(rom.platform_id);
-        if (storePlatform) storePlatform.rom_count += 1;
       }
     });
   }, 100);
 
-  useSocketEvent<SimpleRom>("scan:scanning_rom", (rom) => {
+  useSocketEvent<ScanningRom>("scan:scanning_rom", (rom) => {
     scanningStore.setScanning(true);
     romUpdateQueue.push(rom);
     processRomUpdates();
   });
 
+  // Stats are the only event a scan emits continuously: `scanning_platform`
+  // fires once per platform, and `scanning_rom` only for ROMs the scan adds or
+  // changes, so a scan over a settled library can go a long while emitting
+  // nothing else. Flipping `scanning` here is what lets a tab that missed the
+  // start of the scan catch up on the next tick.
   useSocketEvent<ScanStats>("scan:update_stats", (stats) => {
+    scanningStore.setScanning(true);
     scanningStore.setScanStats(stats);
   });
 
   useSocketEvent<ScanStats>("scan:done", (stats) => {
+    markScanEnded();
+    // Apply the last ROM batch now, or its count bumps would land on the
+    // platforms refetched below.
+    processRomUpdates.flush();
+    countedNewRomIds.clear();
+    const startedHere = scanningStore.startedInThisTab;
     scanningStore.setScanStats(stats);
     scanningStore.setScanning(false);
     // Reconcile against the backend once the scan settles: pick up anything
     // the live updates missed and correct rom_counts that drifted.
     void platformsStore.fetchPlatforms();
+    void collectionsStore.refreshVirtualCollections();
+    if (!startedHere) return;
     emitter?.emit("snackbarShow", {
       msg: "Scan completed successfully.",
       color: "success",
@@ -181,7 +218,13 @@ export function installScanLifecycle() {
   });
 
   useSocketEvent<string>("scan:done_ko", (msg) => {
+    markScanEnded();
+    // Apply the last ROM batch while its counted ids are still known.
+    processRomUpdates.flush();
+    countedNewRomIds.clear();
+    const startedHere = scanningStore.startedInThisTab;
     scanningStore.setScanning(false);
+    if (!startedHere) return;
     emitter?.emit("snackbarShow", {
       msg: `Scan failed: ${msg}`,
       color: "error",
@@ -189,4 +232,56 @@ export function installScanLifecycle() {
       timeout: 6000,
     });
   });
+
+  // Reconcile with the scan the server is actually running. Without this a
+  // tab that loads mid-scan (refresh, second tab, another device) shows the
+  // /scan empty state and an armed "Start scan" button until an event lands.
+  //
+  // `/tasks/status` needs `tasks.run`, the same scope the `scan` socket
+  // handler gates on, so anyone who could have started this scan can read it
+  // back. Users without it stay purely event-driven.
+  let sawScanEnd = false;
+  function markScanEnded() {
+    sawScanEnd = true;
+  }
+
+  // Reconciles once per eligible user: collapsing the source to an id keeps
+  // unrelated profile updates from re-firing it, and re-arms if the scope
+  // shows up later.
+  watch(
+    () =>
+      authStore.user?.oauth_scopes.includes("tasks.run")
+        ? authStore.user.id
+        : null,
+    (userId) => {
+      if (userId === null) return;
+      sawScanEnd = false;
+      reconcileWithRunningScan();
+    },
+    { immediate: true },
+  );
+
+  function reconcileWithRunningScan() {
+    taskApi
+      .getTaskStatus()
+      .then(({ data }) => {
+        // A terminal event that landed while the request was in flight means
+        // the job we asked about is already over; don't resurrect it. Same for
+        // stats already streaming in, which are fresher than the job's meta.
+        if (sawScanEnd || scanningStore.scanning) return;
+        const running = data.find(
+          (task): task is ScanTaskStatusResponse =>
+            task.task_type === "scan" && task.status === "started",
+        );
+        if (!running) return;
+        scanningStore.setScanning(true);
+        // The per-platform live log only ever lived in the originating tab's
+        // memory, so the panel list fills in from the next platform onward.
+        // `meta` is typed as required but this is a JSON boundary: a missing
+        // snapshot just means no counters yet, not "no scan".
+        if (running.meta?.scan_stats)
+          scanningStore.setScanStats(running.meta.scan_stats);
+      })
+      .catch((error) => console.error(error));
+  }
 }

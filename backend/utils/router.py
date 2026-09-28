@@ -1,8 +1,11 @@
+import inspect
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter as FastAPIRouter
+from fastapi import Query
 from fastapi.types import DecoratedCallable
+from pydantic import BaseModel
 
 
 class APIRouter(FastAPIRouter):
@@ -36,3 +39,46 @@ class APIRouter(FastAPIRouter):
             return result
 
         return decorator
+
+
+def as_query_dependency[ModelT: BaseModel](
+    model: type[ModelT],
+) -> Callable[..., ModelT]:
+    """Expose a model's fields as the individual query parameters of a route.
+
+    `Annotated[Model, Query()]` does this natively, but only on a route whose
+    *only* query parameter is the model (FastAPI's
+    `_get_flat_fields_from_params`). With any other one present the model stays
+    a single parameter named after the argument, which both documents the route
+    wrongly and makes it reject the fields it should accept. A dependency's
+    parameters are flattened individually, so this builds one whose signature
+    carries the fields, each with its own constraints.
+    """
+
+    parameters: list[inspect.Parameter] = []
+    for name, field in model.model_fields.items():
+        # A signature default is built once, and a parameter is named for the
+        # field rather than its alias, so neither shape can be served here.
+        if field.default_factory is not None:
+            raise TypeError(f"{model.__name__}.{name} has a default_factory")
+        if field.alias is not None:
+            raise TypeError(f"{model.__name__}.{name} has an alias")
+
+        parameters.append(
+            inspect.Parameter(
+                name,
+                inspect.Parameter.KEYWORD_ONLY,
+                default=field.get_default(),
+                annotation=Annotated[
+                    field.annotation,
+                    *field.metadata,
+                    Query(description=field.description),
+                ],
+            )
+        )
+
+    def dependency(**kwargs: Any) -> ModelT:
+        return model(**kwargs)
+
+    dependency.__signature__ = inspect.Signature(parameters)  # type: ignore[attr-defined]
+    return dependency

@@ -111,16 +111,36 @@ useGridNav(rootEl, {
 <template>
   <div ref="rootEl" class="game-actions">
     <GameActionBtn
-      v-if="actions.canPlay.value"
+      v-if="actions.canPlayLocally.value"
       :rom="rom"
       action="play"
+      :size="btnSize"
+      variant="emphasized"
+      with-label
+      link
+    />
+    <GameActionBtn
+      v-if="actions.canPlayStream.value"
+      :rom="rom"
+      action="stream"
+      :size="btnSize"
+      variant="brand"
+      with-label
+      link
+    />
+    <!-- Only rendered while someone else is hosting an open session on this
+         ROM, so it sits beside Stream rather than replacing it. -->
+    <GameActionBtn
+      v-if="actions.canJoinStream.value"
+      :rom="rom"
+      action="join"
       :size="btnSize"
       variant="emphasized"
       with-label
     />
     <div v-if="actions.canPlay.value" class="game-actions__break" />
     <GameActionBtn
-      v-if="!showInstallButton"
+      v-if="!showInstallButton && actions.canDownload.value"
       :rom="rom"
       action="download"
       :size="btnSize"
@@ -134,6 +154,7 @@ useGridNav(rootEl, {
       :size="btnSize"
     />
     <GameActionBtn
+      v-if="actions.canDownload.value"
       :rom="rom"
       action="copy-link"
       :size="btnSize"

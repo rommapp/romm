@@ -29,6 +29,7 @@ const GALLERY_ROUTES: ReadonlySet<string> = new Set([
 const CHAIN_ROUTES: ReadonlySet<string> = new Set([
   ROUTES.ROM,
   ROUTES.EMULATORJS,
+  ROUTES.PICO8,
   ROUTES.RUFFLE,
   ROUTES.STREAM,
 ]);

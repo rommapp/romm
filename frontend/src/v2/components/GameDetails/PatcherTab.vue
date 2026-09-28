@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PatcherTab — server-side patch flow for a single ROM, rendered as a tab
+// PatcherTab: server-side patch flow for a single ROM, rendered as a tab
 // in GameDetails. Picks a base game file and a patch file from the ROM's
 // `files`, POSTs to `/roms/{fileId}/patch`, and streams the patched ROM
 // back as a blob to download locally and/or re-upload into RomM.
@@ -7,12 +7,11 @@ import {
   RAlert,
   RBtn,
   RCheckbox,
+  RDivider,
   RDropzone,
   RExpandTransition,
   RIcon,
-  RPlatformIcon,
   RSelect,
-  RSliderBtnGroup,
   RTextField,
   RTooltip,
 } from "@v2/lib";
@@ -22,15 +21,15 @@ import { useI18n } from "vue-i18n";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
 import api from "@/services/api";
 import romApi from "@/services/api/rom";
-import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useCan } from "@/v2/composables/useCan";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const props = defineProps<{ rom: DetailedRomSchema }>();
@@ -40,8 +39,8 @@ const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
 const snackbar = useSnackbar();
 const heartbeat = storeHeartbeat();
-const scanningStore = storeScanning();
 const uploadStore = storeUpload();
+const { startScan } = useScanTrigger();
 
 const supportedPatchExtensions = [
   ".ips",
@@ -53,6 +52,7 @@ const supportedPatchExtensions = [
   ".bdf",
   ".pmsr",
   ".vcdiff",
+  ".xdelta",
 ];
 
 function getExt(name: string) {
@@ -69,11 +69,10 @@ function isPatchFile(file: RomFileSchema) {
 
 const selectedRomFile = ref<RomFileSchema | null>(null);
 const selectedPatchFile = ref<RomFileSchema | null>(null);
+const selectedArchiveMemberName = ref<string | null>(null);
 
-// The patch can come from the ROM's bundled files ("library") or be uploaded
-// from disk ("upload") so users don't have to store patches until needed.
-type PatchSource = "library" | "upload";
-const patchSource = ref<PatchSource>("upload");
+// The patch is one of the ROM's bundled files or one uploaded from disk (never
+// stored); picking either clears the other.
 const uploadedPatch = ref<File | null>(null);
 
 const acceptAttr = supportedPatchExtensions.join(",");
@@ -81,7 +80,7 @@ const acceptAttr = supportedPatchExtensions.join(",");
 const downloadLocally = ref(true);
 // Uploading the patched ROM back into RomM needs write access. Viewers
 // can only download locally, so both toggles are hidden for them and
-// `saveIntoRomM` stays off — the apply button then reads "apply and
+// `saveIntoRomM` stays off, the apply button then reads "apply and
 // download".
 const canUpload = useCan("rom.upload");
 const saveIntoRomM = ref(false);
@@ -108,25 +107,21 @@ const baseFiles = computed(() =>
 const patchFiles = computed(() => props.rom.files.filter(isPatchFile));
 const hasLibraryPatches = computed(() => patchFiles.value.length > 0);
 
-const patchSourceItems = computed(() => [
-  { id: "library" as const, label: t("common.library") },
-  { id: "upload" as const, label: t("common.upload") },
-]);
-
-// Effective patch name / presence, resolved from whichever source is active.
-const activePatchName = computed(() =>
-  patchSource.value === "upload"
-    ? (uploadedPatch.value?.name ?? "")
-    : (selectedPatchFile.value?.file_name ?? ""),
+const activePatchName = computed(
+  () => uploadedPatch.value?.name ?? selectedPatchFile.value?.file_name ?? "",
 );
-const hasPatch = computed(() =>
-  patchSource.value === "upload"
-    ? !!uploadedPatch.value
-    : !!selectedPatchFile.value,
+const hasPatch = computed(
+  () => !!uploadedPatch.value || !!selectedPatchFile.value,
 );
 
 const romExtension = computed(() =>
   selectedRomFile.value ? getExt(selectedRomFile.value.file_name) : "",
+);
+
+const archiveMembers = computed(() =>
+  romExtension.value === ".zip"
+    ? (selectedRomFile.value?.archive_members ?? [])
+    : [],
 );
 
 const filenamePlaceholder = computed(() => {
@@ -138,9 +133,9 @@ const filenamePlaceholder = computed(() => {
   return "";
 });
 
-// Auto-select when there's no ambiguity: a single base file / single
-// patch file needs no picker. Reset on ROM change so switching to a
-// different ROM doesn't keep a stale selection.
+// Preselect when there's no ambiguity (a single base file or bundled patch).
+// Reset on ROM change so switching to a different ROM doesn't keep a stale
+// selection.
 watch(
   () => props.rom,
   () => {
@@ -148,9 +143,6 @@ watch(
       baseFiles.value.length === 1 ? baseFiles.value[0] : null;
     selectedPatchFile.value =
       patchFiles.value.length === 1 ? patchFiles.value[0] : null;
-    // Default to the library only when the ROM actually bundles patches;
-    // otherwise start on upload so a plain game is patchable right away.
-    patchSource.value = hasLibraryPatches.value ? "library" : "upload";
     uploadedPatch.value = null;
     // Preselect the ROM's own platform as the upload target.
     selectedPlatformId.value = props.rom.platform_id;
@@ -158,8 +150,18 @@ watch(
   { immediate: true },
 );
 
+watch(
+  archiveMembers,
+  (members) => {
+    selectedArchiveMemberName.value =
+      members.length === 1 ? members[0].name : null;
+  },
+  { immediate: true },
+);
+
 function onPatchFiles(files: File[]) {
   uploadedPatch.value = files[0] ?? null;
+  if (uploadedPatch.value) selectedPatchFile.value = null;
 }
 
 function removeUploadedPatch() {
@@ -217,13 +219,16 @@ async function patchRom() {
     // Multipart so the patch can be either a library file (id) or an uploaded
     // blob that never gets stored in the library.
     const form = new FormData();
-    if (patchSource.value === "upload" && uploadedPatch.value) {
+    if (uploadedPatch.value) {
       form.append("patch_file", uploadedPatch.value);
     } else if (selectedPatchFile.value) {
       form.append("patch_file_id", String(selectedPatchFile.value.id));
     }
     if (customFileName.value) {
       form.append("output_file_name", customFileName.value);
+    }
+    if (selectedArchiveMemberName.value) {
+      form.append("archive_member_name", selectedArchiveMemberName.value);
     }
 
     const response = await api.post(
@@ -310,20 +315,21 @@ async function uploadPatchedFile(file: File, platformId: number) {
   selectedPlatformId.value = props.rom.platform_id;
   saveIntoRomM.value = false;
 
-  scanningStore.setScanning(true);
-  if (!socket.connected) socket.connect();
   setTimeout(() => {
-    socket.emit("scan", {
-      platforms: [platformId],
-      type: "quick",
-      apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
-    });
+    startScan([
+      {
+        platforms: [platformId],
+        type: "quick",
+        apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
+      },
+    ]);
   }, 2000);
 }
 
 const canApply = computed(
   () =>
     !!selectedRomFile.value &&
+    (archiveMembers.value.length <= 1 || !!selectedArchiveMemberName.value) &&
     hasPatch.value &&
     !applying.value &&
     (downloadLocally.value || saveIntoRomM.value) &&
@@ -357,7 +363,7 @@ const applyLabel = computed(() => {
       </RAlert>
     </div>
 
-    <!-- File pickers — base ROM + patch, combined into the output. The
+    <!-- File pickers, base ROM + patch, combined into the output. The
          connector badge between them expresses that ROM + patch operation. -->
     <div class="r-v2-patch__flow">
       <!-- ROM panel -->
@@ -368,7 +374,7 @@ const applyLabel = computed(() => {
         </div>
 
         <div class="r-v2-patch__rom-info">
-          <RPlatformIcon
+          <PlatformIcon
             :slug="rom.platform_slug"
             :fs-slug="rom.platform_fs_slug"
             :name="rom.platform_display_name"
@@ -426,6 +432,27 @@ const applyLabel = computed(() => {
           </span>
         </div>
 
+        <RSelect
+          v-if="archiveMembers.length > 1"
+          v-model="selectedArchiveMemberName"
+          :items="archiveMembers"
+          item-title="name"
+          item-value="name"
+          :label="t('patcher.select-archive-member')"
+          variant="outlined"
+          density="comfortable"
+          hide-details
+        >
+          <template #item="{ props: itemProps, item }">
+            <li v-bind="itemProps" class="r-v2-patch__file-row">
+              <span class="r-select__item-title">{{ item.raw.name }}</span>
+              <span class="r-v2-patch__file-size">
+                {{ formatBytes(item.raw.size) }}
+              </span>
+            </li>
+          </template>
+        </RSelect>
+
         <p v-if="baseFiles.length === 0" class="r-v2-patch__warn">
           {{ t("patcher.no-files") }}
         </p>
@@ -468,20 +495,10 @@ const applyLabel = computed(() => {
           </RTooltip>
         </div>
 
-        <!-- Source toggle — only when the ROM bundles patch files; a plain
-             game has nothing to pick, so it goes straight to upload. -->
-        <RSliderBtnGroup
-          v-if="hasLibraryPatches"
-          v-model="patchSource"
-          variant="tab"
-          :items="patchSourceItems"
-          :aria-label="t('patcher.patch-file')"
-        />
-
-        <!-- Library source: pick one of the ROM's bundled patch files. -->
-        <template v-if="patchSource === 'library'">
+        <!-- A select stays mounted even for a single bundled patch, so it
+             can be picked again after trying an uploaded one. -->
+        <template v-if="hasLibraryPatches">
           <RSelect
-            v-if="patchFiles.length > 1"
             v-model="selectedPatchFile"
             :items="patchFiles"
             item-title="file_name"
@@ -491,6 +508,7 @@ const applyLabel = computed(() => {
             variant="outlined"
             density="comfortable"
             hide-details
+            @update:model-value="uploadedPatch = null"
           >
             <template #item="{ props: itemProps, item }">
               <li v-bind="itemProps" class="r-v2-patch__file-row">
@@ -503,26 +521,17 @@ const applyLabel = computed(() => {
               </li>
             </template>
           </RSelect>
-
-          <!-- Exactly one patch file: show it, no picker needed. -->
-          <div v-else-if="selectedPatchFile" class="r-v2-patch__file-single">
-            <span
-              class="r-v2-patch__file-name"
-              :title="selectedPatchFile.file_name"
-            >
-              {{ selectedPatchFile.file_name }}
-            </span>
-            <span class="r-v2-patch__chip">
-              <RIcon icon="mdi-weight" size="11" />
-              {{ formatBytes(selectedPatchFile.file_size_bytes) }}
-            </span>
-          </div>
+          <RDivider>
+            <span>{{ t("common.or") }}</span>
+          </RDivider>
         </template>
 
-        <!-- Upload source: apply a patch from disk without storing it. -->
-        <template v-else>
+        <!-- Uploaded patches are applied without being stored. The picked file
+             sits over the hidden dropzone so the panel keeps its size. -->
+        <div class="r-v2-patch__upload">
           <RDropzone
-            v-if="!uploadedPatch"
+            :class="{ 'r-v2-patch__upload-hidden': uploadedPatch }"
+            :compact="hasLibraryPatches"
             :accept="acceptAttr"
             :title="t('patcher.choose-patch')"
             :hint="t('patcher.drag-drop-patch')"
@@ -530,8 +539,15 @@ const applyLabel = computed(() => {
             :input-label="t('patcher.choose-patch')"
             @files="onPatchFiles"
           />
-          <div v-else class="r-v2-patch__file-single">
-            <RIcon icon="mdi-puzzle-outline" size="16" />
+          <div
+            v-if="uploadedPatch"
+            class="r-v2-patch__file-single r-v2-patch__uploaded"
+          >
+            <RIcon
+              icon="mdi-check-circle"
+              size="18"
+              class="r-v2-patch__uploaded-check"
+            />
             <span class="r-v2-patch__file-name" :title="uploadedPatch.name">
               {{ uploadedPatch.name }}
             </span>
@@ -544,10 +560,11 @@ const applyLabel = computed(() => {
               size="x-small"
               variant="text"
               :aria-label="t('common.remove')"
+              class="r-v2-patch__uploaded-remove"
               @click="removeUploadedPatch"
             />
           </div>
-        </template>
+        </div>
       </div>
     </div>
 
@@ -648,7 +665,7 @@ const applyLabel = computed(() => {
   }
 }
 
-/* Flow row — base ROM and patch panels sit side by side, joined by the
+/* Flow row, base ROM and patch panels sit side by side, joined by the
    connector "+". A muted, translucent frame wraps both so they read as one
    combined "ROM + patch" operation rather than two unrelated cards. Stacks
    on narrow screens. */
@@ -675,7 +692,7 @@ const applyLabel = computed(() => {
   gap: 12px;
 }
 
-/* The "+" bridging the two panels — just a muted glyph, no surface/border,
+/* The "+" bridging the two panels, just a muted glyph, no surface/border,
    so it reads as a relationship between the boxes and not as an action
    button sitting between them. */
 .r-v2-patch__connector {
@@ -703,7 +720,7 @@ const applyLabel = computed(() => {
   color: var(--r-color-fg-secondary);
 }
 
-/* Panel header — the small uppercase label on the left, the supported-
+/* Panel header, the small uppercase label on the left, the supported-
    formats pill on the opposite (right) edge of the same top row. */
 .r-v2-patch__panel-head {
   display: flex;
@@ -712,7 +729,7 @@ const applyLabel = computed(() => {
   gap: 8px;
 }
 
-/* ROM identity row — platform icon + name/file + missing-fs badge. */
+/* ROM identity row, platform icon + name/file + missing-fs badge. */
 .r-v2-patch__rom-info {
   display: flex;
   align-items: center;
@@ -739,13 +756,39 @@ const applyLabel = computed(() => {
   text-overflow: ellipsis;
 }
 
-/* Single-file display (no picker) — name + size chip. */
+/* Single-file display (no picker): name + size chip. */
 .r-v2-patch__file-single {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
+.r-v2-patch__upload {
+  display: grid;
+}
+.r-v2-patch__upload > * {
+  grid-area: 1 / 1;
+}
+.r-v2-patch__upload-hidden {
+  visibility: hidden;
+}
+
+/* The uploaded patch reads as the picked option, same as a selected row. */
+.r-v2-patch__uploaded {
+  flex-wrap: nowrap;
+  padding: 12px 12px 12px 16px;
+  border: 1px solid
+    color-mix(in srgb, var(--r-color-brand-primary) 55%, transparent);
+  border-radius: var(--r-radius-lg);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
+}
+.r-v2-patch__uploaded-check {
+  color: var(--r-color-brand-primary);
+}
+.r-v2-patch__uploaded-remove {
+  margin-left: auto;
+}
+
 .r-v2-patch__file-name {
   font-size: 13px;
   color: var(--r-color-fg);
@@ -811,7 +854,7 @@ const applyLabel = computed(() => {
   color: var(--r-color-fg);
 }
 
-/* Tooltip body — the full format list, wrapping in a compact grid. The
+/* Tooltip body, the full format list, wrapping in a compact grid. The
    tooltip surface ships 5px vertical / 10px horizontal padding; add the
    missing 5px top/bottom here so the list sits evenly inset all round. */
 .r-v2-patch__formats-list {

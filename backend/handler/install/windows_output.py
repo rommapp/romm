@@ -1,8 +1,8 @@
-"""Best-effort discovery of where a Windows installer put the game.
+r"""Best-effort discovery of where a Windows installer put the game.
 
-Wine/Proton maps `C:\\` to `<prefix>/drive_c`. Scanning the whole drive is the
+Wine/Proton maps `C:\` to `<prefix>/drive_c`. Scanning the whole drive is the
 only way to catch installers that default to a custom path (e.g.
-`C:\\Games\\...`) instead of Program Files, but a fresh prefix's own
+`C:\Games\...`) instead of Program Files, but a fresh prefix's own
 bootstrap (wineboot --init) seeds real, non-empty stock files across it
 (Program Files' stub apps like wmplayer.exe/iexplore.exe, a synthesized
 `users\\<name>` profile tree, ...) - not "a couple of empty vendor folders"

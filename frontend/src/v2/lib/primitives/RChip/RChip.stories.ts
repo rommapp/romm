@@ -2,6 +2,19 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
 import RChip from "./RChip.vue";
 
+/** Strings that expose descenders, ascenders, and mixed scripts in tight pills. */
+const TYPOGRAPHY_FIXTURES = [
+  "gjpqy",
+  "Typography",
+  "Ångström",
+  "niño",
+  "日本語",
+  "9999+",
+  "Co-op",
+] as const;
+
+const CHIP_SIZES = ["x-small", "small", "default", "large", "x-large"] as const;
+
 const meta: Meta<typeof RChip> = {
   title: "Primitives/RChip",
   component: RChip,
@@ -12,7 +25,7 @@ const meta: Meta<typeof RChip> = {
     },
     size: {
       control: "select",
-      options: ["x-small", "small", "default", "large", "x-large"],
+      options: CHIP_SIZES,
     },
     color: { control: "text" },
     label: { control: "boolean" },
@@ -235,6 +248,118 @@ export const Disabled: Story = {
         <RChip variant="flat" color="primary" disabled>Disabled flat</RChip>
         <RChip variant="outlined" color="primary" disabled>Disabled outlined</RChip>
         <RChip variant="translucent" color="primary" closable disabled>With close</RChip>
+      </div>
+    `,
+  }),
+};
+
+// ── Typography · descenders ────────────────────────────────────────
+
+export const TypographyDescenders: Story = {
+  name: "Typography · descenders",
+  render: () => ({
+    components: { RChip },
+    setup: () => ({
+      labels: TYPOGRAPHY_FIXTURES,
+      sizes: CHIP_SIZES,
+    }),
+    template: `
+      <div style="display:flex;flex-direction:column;gap:20px;max-width:720px">
+        <div
+          v-for="size in sizes"
+          :key="size"
+          style="display:flex;flex-wrap:wrap;align-items:center;gap:8px"
+        >
+          <span
+            style="width:52px;font:10px/1 sans-serif;color:var(--r-color-fg-faint);text-transform:uppercase"
+          >
+            {{ size }}
+          </span>
+          <RChip
+            v-for="label in labels"
+            :key="size + label"
+            variant="translucent"
+            color="primary"
+            :size="size"
+          >
+            {{ label }}
+          </RChip>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <span style="font:10px/1 sans-serif;color:var(--r-color-fg-faint)">closable</span>
+          <RChip
+            v-for="label in labels"
+            :key="'close-' + label"
+            variant="translucent"
+            color="primary"
+            size="small"
+            closable
+          >
+            {{ label }}
+          </RChip>
+        </div>
+      </div>
+    `,
+  }),
+};
+
+// ── Typography · ellipses ──────────────────────────────────────────
+
+const CONSTRAINED_GALLERY_LABELS = [
+  "Chinese (Simplified)",
+  "English",
+  "Français",
+  "日本語",
+] as const;
+
+const CONSTRAINED_GALLERY_LADDER = [
+  { widthPx: 170, size: "x-small" },
+  { widthPx: 140, size: "small" },
+  { widthPx: 110, size: "default" },
+  { widthPx: 80, size: "large" },
+] as const;
+
+const CONSTRAINED_CELL_FRAME = {
+  boxSizing: "border-box",
+  padding: "6px",
+  border: "2px dashed var(--r-color-fg-muted)",
+  borderRadius: "6px",
+  background: "color-mix(in srgb, var(--r-color-bg-elevated) 65%, transparent)",
+} as const;
+
+export const TypographyEllipses: Story = {
+  name: "Typography · ellipses",
+  render: () => ({
+    components: { RChip },
+    setup: () => ({
+      labels: CONSTRAINED_GALLERY_LABELS,
+      ladder: CONSTRAINED_GALLERY_LADDER,
+      cellFrame: CONSTRAINED_CELL_FRAME,
+    }),
+    template: `
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div
+          v-for="row in ladder"
+          :key="row.widthPx"
+          style="display:flex;flex-direction:column;gap:5px;align-items:flex-start"
+        >
+          <span style="font:10px/1 ui-monospace,monospace;color:var(--r-color-fg-faint)">
+            {{ row.widthPx }}px · {{ row.size }}
+          </span>
+          <div :style="[cellFrame, { width: row.widthPx + 'px' }]">
+            <div style="display:flex;flex-wrap:wrap;gap:3px">
+              <RChip
+                v-for="text in labels"
+                :key="row.widthPx + text"
+                :size="row.size"
+                variant="translucent"
+                color="primary"
+              >
+                {{ text }}
+              </RChip>
+            </div>
+          </div>
+        </div>
       </div>
     `,
   }),

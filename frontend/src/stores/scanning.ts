@@ -5,20 +5,18 @@ import type { Platform } from "./platforms";
 
 export interface ScanningPlatform extends Pick<
   Platform,
-  | "id"
-  | "name"
-  | "display_name"
-  | "slug"
-  | "fs_slug"
-  | "is_identified"
-  | "firmware_count"
+  "id" | "name" | "display_name" | "slug" | "fs_slug" | "is_identified"
 > {
   roms: SimpleRom[];
+  /** Firmware discovered by the running scan, not the platform's total. */
+  new_firmware_count: number;
 }
 
 export default defineStore("scanning", {
   state: () => ({
     scanning: false,
+    /** Whether the running scan was started from this tab, which toasts its end. */
+    startedInThisTab: false,
     scanningPlatforms: [] as ScanningPlatform[],
     scanStats: {} as ScanStats,
   }),
@@ -26,12 +24,14 @@ export default defineStore("scanning", {
   actions: {
     setScanning(scanning: boolean) {
       this.scanning = scanning;
+      if (!scanning) this.startedInThisTab = false;
     },
     setScanStats(stats: ScanStats) {
       this.scanStats = stats;
     },
     reset() {
       this.scanning = false;
+      this.startedInThisTab = false;
       this.scanningPlatforms = [] as ScanningPlatform[];
       this.scanStats = {
         total_platforms: 0,
@@ -44,6 +44,8 @@ export default defineStore("scanning", {
         identified_roms: 0,
         scanned_firmware: 0,
         new_firmware: 0,
+        updated_roms: 0,
+        new_files: 0,
       };
     },
   },

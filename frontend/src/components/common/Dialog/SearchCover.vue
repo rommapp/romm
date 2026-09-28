@@ -166,7 +166,10 @@ onBeforeUnmount(() => {
         flat
         variant="accordion"
       >
-        <v-expansion-panel v-for="game in filteredCovers" :key="game.name">
+        <v-expansion-panel
+          v-for="game in filteredCovers"
+          :key="`${game.provider}-${game.name}`"
+        >
           <v-expansion-panel-title class="bg-toplayer">
             <v-row no-gutters class="justify-center">
               <v-list-item class="pa-0">

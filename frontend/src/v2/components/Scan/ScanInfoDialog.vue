@@ -10,9 +10,15 @@
 // translate by section and harder to restyle. Embedding the text as
 // typed arrays here keeps the layout flexible. If i18n becomes
 // necessary, each row maps cleanly to a key.
-import { RAvatar, RDialog, RIcon, RTabNav } from "@v2/lib";
+import { RDialog, RIcon, RTabNav } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import MetadataProviderCard from "@/v2/components/shared/MetadataProviderCard/MetadataProviderCard.vue";
+import {
+  groupProviders,
+  SETUP_GROUP_LABELS,
+} from "@/v2/utils/metadataProviderGroups";
+import { METADATA_PROVIDER_INFO } from "@/v2/utils/metadataProviderInfo";
 
 defineProps<{
   modelValue: boolean;
@@ -59,151 +65,42 @@ const scanTypes = computed<ScanTypeRow[]>(() => [
   {
     id: "new_platforms",
     title: t("scan.new-platforms"),
-    desc: "This will only look for platforms that are not already in RomM.",
+    desc: t("scan.info-new-platforms-desc"),
   },
   {
     id: "quick",
     title: t("scan.quick-scan"),
-    desc: "Scans for games that are not in the library yet (fastest).",
+    desc: t("scan.info-quick-scan-desc"),
   },
   {
     id: "unmatched",
     title: t("scan.unmatched-games"),
-    desc:
-      "Attempts to match games that are not matched with the selected metadata sources.\n\n" +
-      "For example, selecting IGDB and ScreenScraper will scan games that are not matched with IGDB or ScreenScraper.",
+    desc: t("scan.info-unmatched-games-desc"),
   },
   {
     id: "update",
     title: t("scan.update-metadata"),
-    desc:
-      "Updates the metadata for games that have been matched with selected metadata sources using the external ID (e.g. IGDB ID).\n\n" +
-      "For example, selecting IGDB and ScreenScraper will update the metadata for games that are matched with IGDB or ScreenScraper, and will use igdb_id and/or ssfr_id to refetch the metadata from the respective providers.",
+    desc: t("scan.info-update-metadata-desc"),
   },
   {
     id: "hashes",
     title: t("scan.hashes"),
-    desc: "Recalculates hashes for all files in the selected platforms.",
+    desc: t("scan.info-hashes-desc"),
   },
   {
     id: "complete",
     title: t("scan.complete-rescan"),
-    desc:
-      "Rescans and rematches all games in the selected platforms (slowest).\n\n" +
-      "This will wipe all existing metadata matches, including the external IDs, and attempt to match them again, like on a fresh scan. Saves, states and notes will be preserved.",
+    desc: t("scan.info-complete-rescan-desc"),
   },
 ]);
 
-interface ProviderRow {
-  id: string;
-  name: string;
-  /** Logo path under /assets/scrappers/. Matches the same scheme the
-   *  heartbeat store uses so consumers and reference share assets. */
-  logo: string;
-  /** Locale key for the description. Shared with the setup wizard's
-   *  Step 3 so both views show the exact same text. */
-  descKey: string;
-  /** Locale key for the "how to configure" / env-var hint. */
-  setupKey: string;
-  /** Locale key for the optional warning / caveat pill. */
-  caveatKey?: string;
-}
-
-const LOGO_BASE = "/assets/scrappers";
-
-// Static reference set — every text string lives under the wizard's
-// `setup.*` locale namespace so the Setup Wizard's Step 3 and this
-// dialog never drift. Split into three groups, also mirroring the
-// wizard:
-//   * generalProviders   — full-record catalogs (IGDB, MobyGames, …)
-//   * specificProviders  — single-dimension sources (achievements,
-//                          cover art, completion times)
-//   * proxies            — community hash matchers
-const generalProviders: ProviderRow[] = [
-  {
-    id: "igdb",
-    name: "IGDB",
-    logo: `${LOGO_BASE}/igdb.png`,
-    descKey: "setup.provider-igdb-desc",
-    setupKey: "setup.provider-igdb-setup",
-  },
-  {
-    id: "ss",
-    name: "ScreenScraper",
-    logo: `${LOGO_BASE}/ss.png`,
-    descKey: "setup.provider-ss-desc",
-    setupKey: "setup.provider-ss-setup",
-  },
-  {
-    id: "moby",
-    name: "MobyGames",
-    logo: `${LOGO_BASE}/moby.png`,
-    descKey: "setup.provider-moby-desc",
-    setupKey: "setup.provider-moby-setup",
-    caveatKey: "setup.provider-moby-caveat",
-  },
-  {
-    id: "launchbox",
-    name: "LaunchBox",
-    logo: `${LOGO_BASE}/launchbox.png`,
-    descKey: "setup.provider-launchbox-desc",
-    setupKey: "setup.provider-launchbox-setup",
-    caveatKey: "setup.provider-launchbox-caveat",
-  },
-  {
-    id: "flashpoint",
-    name: "Flashpoint",
-    logo: `${LOGO_BASE}/flashpoint.png`,
-    descKey: "setup.provider-flashpoint-desc",
-    setupKey: "setup.provider-flashpoint-setup",
-  },
-];
-
-const specificProviders: ProviderRow[] = [
-  {
-    id: "ra",
-    name: "RetroAchievements",
-    logo: `${LOGO_BASE}/ra.png`,
-    descKey: "setup.provider-ra-desc",
-    setupKey: "setup.provider-ra-setup",
-    caveatKey: "setup.provider-ra-caveat",
-  },
-  {
-    id: "sgdb",
-    name: "SteamGridDB",
-    logo: `${LOGO_BASE}/sgdb.png`,
-    descKey: "setup.provider-sgdb-desc",
-    setupKey: "setup.provider-sgdb-setup",
-    caveatKey: "setup.provider-sgdb-caveat",
-  },
-  {
-    id: "hltb",
-    name: "How Long To Beat",
-    logo: `${LOGO_BASE}/hltb.png`,
-    descKey: "setup.provider-hltb-desc",
-    setupKey: "setup.provider-hltb-setup",
-    caveatKey: "setup.provider-hltb-caveat",
-  },
-];
-
-const proxies: ProviderRow[] = [
-  {
-    id: "hasheous",
-    name: "Hasheous",
-    logo: `${LOGO_BASE}/hasheous.png`,
-    descKey: "setup.proxy-hasheous-desc",
-    setupKey: "setup.proxy-hasheous-setup",
-    caveatKey: "setup.proxy-hasheous-caveat",
-  },
-  {
-    id: "playmatch",
-    name: "PlayMatch",
-    logo: `${LOGO_BASE}/playmatch.png`,
-    descKey: "setup.proxy-playmatch-desc",
-    setupKey: "setup.proxy-playmatch-setup",
-    caveatKey: "setup.proxy-playmatch-caveat",
-  },
-];
+// Static reference set: names, logos and `setup.*` locale keys come
+// from the shared provider registry so the Setup Wizard's Step 3 and
+// this dialog never drift.
+const providerGroups = groupProviders(
+  METADATA_PROVIDER_INFO,
+  SETUP_GROUP_LABELS,
+);
 
 // Split a multi-line description on double-newline so each paragraph
 // renders in its own `<p>`. Single newlines stay inline.
@@ -258,130 +155,34 @@ function paragraphs(text: string): string[] {
       </div>
 
       <div v-else class="r-v2-scan-info__list">
-        <!-- General providers — full-record catalogs. Section labels
-             and per-provider strings come from the same `setup.*`
-             locale keys the Setup Wizard's Step 3 uses, so the two
-             views stay in sync. -->
-        <section class="r-v2-scan-info__section">
+        <!-- Section labels and per-provider strings come from the same
+             `setup.*` locale keys the Setup Wizard's Step 3 uses, so the
+             two views stay in sync. -->
+        <section
+          v-for="group in providerGroups"
+          :key="group.group"
+          class="r-v2-scan-info__section"
+          :data-group="group.group"
+        >
           <header class="r-v2-scan-info__section-head">
-            <span>{{ t("setup.metadata-catalogs") }}</span>
+            <span>{{ t(group.titleKey) }}</span>
             <p class="r-v2-scan-info__section-hint">
-              {{ t("setup.metadata-catalogs-hint") }}
+              {{ t(group.hintKey) }}
             </p>
           </header>
-          <article
-            v-for="p in generalProviders"
-            :key="p.id"
-            class="r-v2-scan-info__row r-v2-scan-info__row--provider"
+          <MetadataProviderCard
+            v-for="p in group.providers"
+            :key="p.key"
+            layout="row"
+            name-tag="h4"
+            :data-provider="p.key"
+            :name="p.name"
+            :logo="p.logo"
+            :setup-hint="t(p.setupKey)"
+            :caveat="p.caveatKey ? t(p.caveatKey) : undefined"
           >
-            <div class="r-v2-scan-info__row-head">
-              <RAvatar
-                :image="p.logo"
-                size="28"
-                rounded="sm"
-                class="r-v2-scan-info__logo"
-              />
-              <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
-            </div>
-            <div class="r-v2-scan-info__row-desc">
-              <p class="r-v2-scan-info__para">{{ t(p.descKey) }}</p>
-              <div class="r-v2-scan-info__meta">
-                <span class="r-v2-scan-info__pill">
-                  <RIcon icon="mdi-cog-outline" size="11" />
-                  {{ t(p.setupKey) }}
-                </span>
-                <span
-                  v-if="p.caveatKey"
-                  class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
-                >
-                  <RIcon icon="mdi-alert-circle-outline" size="11" />
-                  {{ t(p.caveatKey) }}
-                </span>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <!-- Specific providers — single-dimension sources. -->
-        <section class="r-v2-scan-info__section">
-          <header class="r-v2-scan-info__section-head">
-            <span>{{ t("setup.metadata-specialised") }}</span>
-            <p class="r-v2-scan-info__section-hint">
-              {{ t("setup.metadata-specialised-hint") }}
-            </p>
-          </header>
-          <article
-            v-for="p in specificProviders"
-            :key="p.id"
-            class="r-v2-scan-info__row r-v2-scan-info__row--provider"
-          >
-            <div class="r-v2-scan-info__row-head">
-              <RAvatar
-                :image="p.logo"
-                size="28"
-                rounded="sm"
-                class="r-v2-scan-info__logo"
-              />
-              <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
-            </div>
-            <div class="r-v2-scan-info__row-desc">
-              <p class="r-v2-scan-info__para">{{ t(p.descKey) }}</p>
-              <div class="r-v2-scan-info__meta">
-                <span class="r-v2-scan-info__pill">
-                  <RIcon icon="mdi-cog-outline" size="11" />
-                  {{ t(p.setupKey) }}
-                </span>
-                <span
-                  v-if="p.caveatKey"
-                  class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
-                >
-                  <RIcon icon="mdi-alert-circle-outline" size="11" />
-                  {{ t(p.caveatKey) }}
-                </span>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <!-- Proxies — community hash matchers. -->
-        <section class="r-v2-scan-info__section">
-          <header class="r-v2-scan-info__section-head">
-            <span>{{ t("setup.metadata-proxies") }}</span>
-            <p class="r-v2-scan-info__section-hint">
-              {{ t("setup.metadata-proxies-hint") }}
-            </p>
-          </header>
-          <article
-            v-for="p in proxies"
-            :key="p.id"
-            class="r-v2-scan-info__row r-v2-scan-info__row--provider"
-          >
-            <div class="r-v2-scan-info__row-head">
-              <RAvatar
-                :image="p.logo"
-                size="28"
-                rounded="sm"
-                class="r-v2-scan-info__logo"
-              />
-              <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
-            </div>
-            <div class="r-v2-scan-info__row-desc">
-              <p class="r-v2-scan-info__para">{{ t(p.descKey) }}</p>
-              <div class="r-v2-scan-info__meta">
-                <span class="r-v2-scan-info__pill">
-                  <RIcon icon="mdi-cog-outline" size="11" />
-                  {{ t(p.setupKey) }}
-                </span>
-                <span
-                  v-if="p.caveatKey"
-                  class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
-                >
-                  <RIcon icon="mdi-alert-circle-outline" size="11" />
-                  {{ t(p.caveatKey) }}
-                </span>
-              </div>
-            </div>
-          </article>
+            <template #description>{{ t(p.descKey) }}</template>
+          </MetadataProviderCard>
         </section>
       </div>
     </template>
@@ -447,22 +248,6 @@ function paragraphs(text: string): string[] {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
 }
-/* Provider row — the left column hosts logo + name as a vertical stack
-   instead of just text, so the column width is the visual identity
-   anchor for the row. */
-.r-v2-scan-info__row--provider {
-  align-items: start;
-}
-.r-v2-scan-info__row-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-.r-v2-scan-info__logo {
-  flex-shrink: 0;
-  background: var(--r-color-surface);
-}
 .r-v2-scan-info__row-name {
   margin: 0;
   font-size: 13px;
@@ -470,7 +255,7 @@ function paragraphs(text: string): string[] {
   color: var(--r-color-fg);
   align-self: flex-start;
   min-width: 0;
-  /* Long names like "How Long To Beat" wrap inside the 140px column. */
+  /* Long titles wrap inside the 140px column. */
   overflow-wrap: anywhere;
 }
 .r-v2-scan-info__row-desc {
@@ -483,43 +268,6 @@ function paragraphs(text: string): string[] {
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--r-color-fg-secondary);
-}
-
-.r-v2-scan-info__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 2px;
-}
-/* Setup / caveat tags. `--r-radius-sm` to echo the parent card's
-   `--r-radius-md` without doubling its curve — child corners read as
-   "inside" the card instead of contrasting with it. */
-.r-v2-scan-info__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: var(--r-radius-sm);
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  font-size: 11px;
-  color: var(--r-color-fg-muted);
-  font-family:
-    var(--r-font-family-mono, ui-monospace), SFMono-Regular, monospace;
-}
-.r-v2-scan-info__pill--warn {
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-warning) 14%,
-    transparent
-  );
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-status-base-warning) 36%,
-    transparent
-  );
-  color: var(--r-color-warning);
-  font-family: inherit;
 }
 
 .r-v2-scan-info__doc-link {
@@ -543,10 +291,5 @@ function paragraphs(text: string): string[] {
 html[data-bp~="sm-and-down"] .r-v2-scan-info__row {
   grid-template-columns: 1fr;
   gap: 8px;
-}
-html[data-bp~="sm-and-down"] .r-v2-scan-info__row-head {
-  /* Inline logo + name with a separator from the description below. */
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--r-color-border);
 }
 </style>

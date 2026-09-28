@@ -23,6 +23,7 @@
   "rom-file": "ROM fájl",
   "search-patch-library": "Search patches in library",
   "search-rom-library": "Search ROMs in library",
+  "select-archive-member": "Select file inside archive",
   "select-file": "Select file",
   "select-patch-file": "Select patch file",
   "start-typing": "Start typing to search...",

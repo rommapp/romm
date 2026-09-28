@@ -1,25 +1,31 @@
 <script setup lang="ts">
 // GameHeader — right-column header for the details view.
 // Four rows, top to bottom:
-//   1. Title (+ previous / next game arrows on the right)
+//   1. Title (+ previous / next game arrows on the right, desktop only)
 //   2. Meta (year · platform-icon + platform · verified RTag)
-//   3. Tags (regions + languages + custom tags) — RTag primitive
+//   3. Tags (regions + languages + custom tags) — RTag primitive,
+//      each a `searchLocation` pivot into the filtered search
 //   4. GameActions (Play · Download · Favorite · Share · More)
 //
 // Metadata-provider links live in the Metadata tab, not the header.
 // Genre/franchise belong in the Overview tab info grid.
-import { RIcon, RPlatformIcon, RTag, RTooltip } from "@v2/lib";
+import { RIcon, RTag, RTooltip } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import type { DetailedRom } from "@/stores/roms";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
 import MainSiblingToggle from "@/v2/components/GameDetails/MainSiblingToggle.vue";
 import PrevNextNav from "@/v2/components/GameDetails/PrevNextNav.vue";
 import VersionSwitcher from "@/v2/components/GameDetails/VersionSwitcher.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGameActions } from "@/v2/composables/useGameActions";
+import { searchLocation } from "@/v2/utils/searchLocation";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+// Phones render the arrows around the cover instead (GameDetails).
+const { smAndDown } = useBreakpoint();
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -41,7 +47,7 @@ const actions = useGameActions(() => props.rom);
       <h1 class="r-v2-det-header__title">
         {{ title }}
       </h1>
-      <PrevNextNav :rom-id="rom.id" />
+      <PrevNextNav v-if="!smAndDown" :rom-id="rom.id" />
     </div>
 
     <div class="r-v2-det-header__meta">
@@ -51,7 +57,7 @@ const actions = useGameActions(() => props.rom);
         class="r-v2-det-header__platform"
         :aria-label="t('platform.browse-platform', { platform: platformLabel })"
       >
-        <RPlatformIcon
+        <PlatformIcon
           :slug="rom.platform_slug"
           :fs-slug="rom.platform_fs_slug"
           :alt="platformLabel"
@@ -92,21 +98,30 @@ const actions = useGameActions(() => props.rom);
         v-if="regions.length || languages.length || tags.length"
         class="r-v2-det-header__tags"
       >
-        <RTag
+        <router-link
           v-for="r in regions"
           :key="`r-${r}`"
-          :text="r"
-          tone="info"
-          size="small"
-        />
-        <RTag
+          :to="searchLocation('regions', r)"
+          class="r-v2-det-header__tag-link"
+        >
+          <RTag :text="r" tone="info" size="small" />
+        </router-link>
+        <router-link
           v-for="l in languages"
           :key="`l-${l}`"
-          :text="l"
-          tone="brand"
-          size="small"
-        />
-        <RTag v-for="t in tags" :key="`t-${t}`" :text="t" size="small" />
+          :to="searchLocation('languages', l)"
+          class="r-v2-det-header__tag-link"
+        >
+          <RTag :text="l" tone="brand" size="small" />
+        </router-link>
+        <router-link
+          v-for="tag in tags"
+          :key="`t-${tag}`"
+          :to="searchLocation('tags', tag)"
+          class="r-v2-det-header__tag-link"
+        >
+          <RTag :text="tag" size="small" />
+        </router-link>
       </span>
     </div>
 
@@ -182,6 +197,16 @@ const actions = useGameActions(() => props.rom);
   flex-wrap: wrap;
   gap: 6px;
 }
+.r-v2-det-header__tag-link {
+  display: inline-flex;
+  text-decoration: none;
+  border-radius: var(--r-radius-chip);
+}
+/* Strengthen the border in the tag's own tone so the affordance reads the
+   same for region / language / custom tags. */
+.r-v2-det-header__tag-link:hover :deep(.r-tag) {
+  --r-tag-border: var(--r-tag-fg);
+}
 
 .r-v2-det-header__versions {
   display: flex;
@@ -201,13 +226,8 @@ html[data-bp~="sm-and-down"] .r-v2-det-header {
   text-align: center;
   padding-top: 4px;
 }
-/* Stack the arrows above the centred title: beside a wrapping title they'd
-   hang off the last line. */
 html[data-bp~="sm-and-down"] .r-v2-det-header__title-row {
-  flex-direction: column-reverse;
-  align-items: center;
   align-self: stretch;
-  gap: 10px;
 }
 html[data-bp~="sm-and-down"] .r-v2-det-header__meta,
 html[data-bp~="sm-and-down"] .r-v2-det-header__tags,

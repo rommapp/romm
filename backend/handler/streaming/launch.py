@@ -1,0 +1,262 @@
+"""Starting a game on a container the claim already won.
+
+Detached from the request that asked for it: an activate blocks through pkg
+and archive extraction, minutes on a large title, so the room URL and the
+progress behind it reach the player over the socket instead.
+"""
+
+import asyncio
+from typing import Any, Literal
+
+from fastapi import HTTPException
+
+from endpoints.responses.streaming import (
+    LaunchFailedPayload,
+    LaunchPhasePayload,
+    LaunchReadyPayload,
+)
+from handler.streaming import (
+    background,
+    broker,
+    commands,
+    lifecycle,
+    states,
+    webstation,
+)
+from handler.streaming.config import ResolvedContainer
+from handler.streaming.session_store import (
+    hold_session_claim,
+    push_to_user,
+    stamp_launched,
+)
+from logger.logger import log
+from models.assets import State
+from models.rom import Rom
+from models.user import User
+
+# Whether a resume state had to ride the import archive, and if it made it in.
+ResumeImport = Literal["none", "imported", "lost"]
+
+
+async def run_launch(
+    *,
+    container: ResolvedContainer,
+    session_key: str,
+    session: dict[str, Any],
+    user: User,
+    rom: Rom,
+    platform: str,
+    rom_name: str,
+    rom_path: str,
+    rom_language: str | None,
+    gui_language: str | None,
+    archive_path: str | None,
+    resume_state: State | None,
+    resume_slot: int | None,
+    resume_pushed: bool,
+    resume_after_launch: bool,
+    resume_import: ResumeImport,
+    memory_card_synced: bool,
+    multiplayer: bool,
+    blank_card_id: int | None,
+) -> None:
+    """Start the game, then tell the player's tabs where to find it.
+
+    The claim is already won, so the container stays reserved throughout and a
+    failure here is what frees it again.
+    """
+    # Nothing beats for the player until the stream is up, so without this the
+    # next claimant reads the record as abandoned and tears the container down
+    # mid-extraction.
+    claim_hold = asyncio.create_task(hold_session_claim(session_key, session))
+    phase_watch = asyncio.create_task(
+        _watch_launch_phase(container, session_key, session, platform)
+    )
+    # Nothing of this player's to resume from: a pick that failed to ride its
+    # import archive, or an exit-state broker with no archive uploaded.
+    resume_on_activate = (
+        (resume_pushed or resume_after_launch)
+        and resume_import != "lost"
+        and not (container.resumes_from_archive and archive_path is None)
+    )
+    try:
+        # Wrapped in asyncio.to_thread because urllib is synchronous.
+        if container.is_webstation:
+            launch_result = await asyncio.to_thread(
+                webstation.activate,
+                container,
+                session_id=str(session["broker_session_id"]),
+                user=user,
+                emulator=container.emulator,
+                rom={
+                    "id": rom.id,
+                    "name": rom_name,
+                    "platform": platform,
+                    "language": rom_language,
+                    "path": rom_path,
+                    "title_id": rom.title_id,
+                    "save_target": rom.save_target,
+                    "save_target_layout": rom.save_target_layout,
+                },
+                gui_language=gui_language,
+                archive_path=archive_path,
+                resume_slot=resume_slot if resume_on_activate else None,
+                memory_card_synced=memory_card_synced,
+                multiplayer=multiplayer,
+            )
+        else:
+            launch_result = await asyncio.to_thread(
+                commands.launch,
+                container,
+                rom_path,
+                rom_name,
+                resume_slot if resume_pushed else None,
+            )
+    except Exception as exc:
+        if isinstance(exc, HTTPException):
+            # A deliberate refusal whose detail says what to fix; a traceback
+            # would dress it up as a crash.
+            log.warning("launch failed, platform=%s: %s", platform, exc.detail)
+        else:
+            log.exception("launch failed, platform=%s", platform)
+        await lifecycle.abort_claim(session_key, session, blank_card_id)
+        refused = exc if isinstance(exc, broker.ImportRefusedError) else None
+        await push_to_user(
+            session.get("user_id"),
+            "streaming:launch-failed",
+            LaunchFailedPayload(
+                platform=platform,
+                container=session_key,
+                claimed_at=session["claimed_at"],
+                detail=_failure_detail(exc),
+                refusals=refused.refusals if refused else None,
+                refusals_truncated=refused.truncated if refused else 0,
+            ).model_dump(),
+        )
+        return
+    finally:
+        phase_watch.cancel()
+        claim_hold.cancel()
+
+    log.info("session claimed, platform=%s rom=%s", platform, rom_name)
+    host = container.protocol.stream_url(container.host, launch_result)
+    # Only a configured core is worth a word to the player: the broker reports
+    # its default's tier on every RetroArch launch.
+    core_tier = (
+        launch_result.get("core_tier")
+        if container.core and isinstance(launch_result, dict)
+        else None
+    )
+    state_core = await asyncio.to_thread(
+        states.state_core_for,
+        container,
+        launch_result if isinstance(launch_result, dict) else None,
+    )
+    await stamp_launched(
+        session_key, session, host=host, core=container.core, core_tier=core_tier
+    )
+    await lifecycle.publish_session_activity(session_key, session)
+
+    # The webstation broker's deferred load waits for its emulator to report
+    # the game running, and holds off further until the state file is there, so
+    # this push lands ahead of it even though it runs after activate.
+    if resume_after_launch and resume_state is not None:
+        if resume_import != "none":
+            # The activate's archive carried the state, or there is no other
+            # delivery for one that never made it in.
+            resume_pushed = resume_import == "imported"
+        elif container.resumes_from_archive:
+            # The pick is the newest capture, which the save archive carries.
+            resume_pushed = resume_on_activate
+        else:
+            resume_pushed = await states.push_resume_state(
+                container, resume_state, state_core
+            )
+
+    await push_to_user(
+        session.get("user_id"),
+        "streaming:launch-ready",
+        LaunchReadyPayload(
+            platform=platform,
+            container=session_key,
+            claimed_at=session["claimed_at"],
+            host=host,
+            resume=resume_pushed if resume_state is not None else None,
+            core=container.core,
+            core_tier=core_tier,
+        ).model_dump(),
+    )
+
+    # Hydrate the container with the user's newest stored state in the
+    # background, the stream should not wait on file transfers.
+    background.spawn_sync_task(
+        states.hydrate_states_to_broker(
+            user.id,
+            rom.id,
+            container,
+            resume_pushed=resume_pushed,
+            state_core=state_core,
+        )
+    )
+
+    # A resumed state remembers which disc it was captured on. The launch
+    # always starts on the playlist's first disc, so put the right one back.
+    resume_disc_id = (
+        resume_state.disc_file_id if resume_pushed and resume_state else None
+    )
+    if isinstance(resume_disc_id, int):
+        background.spawn_sync_task(
+            states.restore_session_disc(
+                rom.id,
+                container,
+                session_key,
+                file_id=resume_disc_id,
+                broker_session_id=session["broker_session_id"],
+            )
+        )
+
+
+def _failure_detail(exc: BaseException) -> str:
+    """What to tell the player about a launch that never came up."""
+    if isinstance(exc, broker.ImportRefusedError):
+        reasons = "; ".join(r.reason for r in exc.refusals)
+        return reasons or "The broker refused the picked save or state"
+    if isinstance(exc, HTTPException):
+        return str(exc.detail)
+    return "The container could not start the game"
+
+
+# The player sees nothing until the stream is up, so this is the only progress
+# there is.
+PHASE_POLL_SECONDS = 3.0
+
+
+async def _watch_launch_phase(
+    container: ResolvedContainer,
+    session_key: str,
+    session: dict[str, Any],
+    platform: str,
+) -> None:
+    """Push the broker's extraction phase while a launch is still running.
+
+    Asked once here rather than per watching tab, and only changes are sent.
+    """
+    if not container.protocol.reports_launch_phase:
+        return
+    last: str | None = None
+    while True:
+        await asyncio.sleep(PHASE_POLL_SECONDS)
+        phase = await asyncio.to_thread(webstation.launch_phase, container)
+        if phase == last:
+            continue
+        last = phase
+        await push_to_user(
+            session.get("user_id"),
+            "streaming:launch-phase",
+            LaunchPhasePayload(
+                platform=platform,
+                container=session_key,
+                claimed_at=session["claimed_at"],
+                phase=phase,
+            ).model_dump(),
+        )

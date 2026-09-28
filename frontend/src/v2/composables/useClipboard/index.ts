@@ -15,7 +15,7 @@ export interface CopyOptions {
   successMessage?: string;
   /** Icon for the success toast. Defaults to "mdi-check-bold". */
   successIcon?: string;
-  /** Override the error toast. Defaults to t("common.clipboard-copy-failed"). */
+  /** Override the error toast shown for either failure. */
   errorMessage?: string;
 }
 
@@ -41,19 +41,21 @@ export function useClipboard(): UseClipboard {
     window.isSecureContext;
 
   async function copy(text: string, opts: CopyOptions = {}): Promise<boolean> {
-    const fail = () => {
-      snackbar.error(opts.errorMessage ?? t("common.clipboard-copy-failed"), {
+    const fail = (defaultKey: string) => {
+      snackbar.error(opts.errorMessage ?? t(defaultKey), {
         icon: "mdi-close-circle",
       });
       return false;
     };
 
-    if (!isSupported) return fail();
+    if (!isSupported) return fail("common.clipboard-copy-failed");
 
     try {
       await navigator.clipboard.writeText(text);
     } catch {
-      return fail();
+      // Denied permission or lost focus: HTTPS is already there, so the
+      // secure-connection hint would mislead.
+      return fail("common.clipboard-write-failed");
     }
 
     if (opts.successMessage) {

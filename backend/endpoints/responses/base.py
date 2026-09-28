@@ -1,8 +1,11 @@
+from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Self
 
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import PlainSerializer
+from pydantic import Field, PlainSerializer
+
+from utils.router import as_query_dependency
 
 
 def _serialize_utc_datetime(dt: datetime) -> str:
@@ -19,3 +22,29 @@ class BaseModel(PydanticBaseModel):
     """Base response model for all API responses."""
 
     pass
+
+
+class PageParams(PydanticBaseModel):
+    # Temporarily high until every app paginates
+    limit: int = Field(50, ge=1, le=10_000, description="Page size limit")
+    offset: int = Field(0, ge=0, description="Page offset")
+
+
+PAGE_QUERY = as_query_dependency(PageParams)
+
+
+class LimitOffsetPage[T: PydanticBaseModel](PydanticBaseModel):
+    items: Sequence[T]
+    total: int = Field(ge=0)
+    limit: int = Field(ge=1)
+    offset: int = Field(ge=0)
+
+    @classmethod
+    def create(
+        cls,
+        items: Sequence[T],
+        params: PageParams,
+        *,
+        total: int,
+    ) -> Self:
+        return cls(items=items, total=total, limit=params.limit, offset=params.offset)

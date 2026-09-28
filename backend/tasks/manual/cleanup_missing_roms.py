@@ -1,6 +1,7 @@
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import asdict, dataclass
+from typing import Any, cast
 
+from endpoints.responses import MissingRomsCleanupStats
 from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
@@ -12,29 +13,24 @@ from utils.context import initialize_context
 class CleanupMissingRomsStats:
     """Statistics for missing ROMs cleanup operations."""
 
-    platform_id: int | None = None
+    platform_ids: list[int] | None = None
     roms_found: int = 0
     roms_deleted: int = 0
     errors: int = 0
 
-    def update(self, **kwargs) -> None:
+    def update(self, **kwargs: object) -> None:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
 
         update_job_meta({"cleanup_stats": self.to_dict()})
 
-    def to_dict(self) -> dict:
-        return {
-            "platform_id": self.platform_id,
-            "roms_found": self.roms_found,
-            "roms_deleted": self.roms_deleted,
-            "errors": self.errors,
-        }
+    def to_dict(self) -> MissingRomsCleanupStats:
+        return cast(MissingRomsCleanupStats, asdict(self))
 
 
 class CleanupMissingRomsTask(Task):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Cleanup missing ROMs",
             description="Delete all ROMs flagged as missing from the filesystem from the database",
@@ -45,22 +41,28 @@ class CleanupMissingRomsTask(Task):
         )
 
     @initialize_context()
-    async def run(self, platform_id: int | None = None) -> dict:
+    async def run(
+        self, platform_ids: list[int] | None = None
+    ) -> MissingRomsCleanupStats:
         """Clean up ROMs that are flagged as missing from the filesystem."""
         log.info(f"Starting {self.title} task...")
 
-        stats = CleanupMissingRomsStats(platform_id=platform_id)
+        stats = CleanupMissingRomsStats(platform_ids=platform_ids)
 
         filter_kwargs: dict[str, Any] = {"missing": True}
-        if platform_id is not None:
-            filter_kwargs["platform_ids"] = [platform_id]
+        if platform_ids:
+            filter_kwargs["platform_ids"] = platform_ids
 
         missing_roms = db_rom_handler.get_roms_scalar(**filter_kwargs)
 
         stats.update(roms_found=len(missing_roms))
         log.info(
             f"Found {len(missing_roms)} missing ROM(s) to clean up"
-            + (f" for platform ID {platform_id}" if platform_id else "")
+            + (
+                f" for platform ID(s) {', '.join(map(str, platform_ids))}"
+                if platform_ids
+                else ""
+            )
         )
 
         for rom in missing_roms:

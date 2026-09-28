@@ -3,12 +3,12 @@
 // view. Mirrors GameListHeader: shared CSS-grid template with every
 // row underneath, clickable sortable columns that toggle asc → desc.
 //
-// The four metadata columns (Family / Category / Generation / Playable)
-// drop out on narrow viewports (see the `html[data-bp~="xs"]` rules
-// below) so the row stays legible on mobile without horizontal scroll.
-// The grid template flips in the same breakpoint so the cells re-align
-// with the row's compact layout.
+// Phones and tablets have no columns to head (the rows go compact), so the
+// sort key they carried moves into a menu, same as the collections list.
 import { RIcon } from "@v2/lib";
+import { computed } from "vue";
+import ListSortMenu from "@/v2/components/shared/ListSortMenu.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import {
   PLATFORM_COLUMNS,
   type PlatformColumn,
@@ -26,6 +26,14 @@ const emit = defineEmits<{
   (e: "sort", payload: { key: PlatformSortKey; dir: "asc" | "desc" }): void;
 }>();
 
+const { smAndDown } = useBreakpoint();
+const sortOptions = computed(() =>
+  PLATFORM_COLUMNS.filter((col) => col.sortable).map((col) => ({
+    key: col.key,
+    label: col.label,
+  })),
+);
+
 function handleClick(col: PlatformColumn) {
   if (!col.sortable) return;
   const nextDir: "asc" | "desc" =
@@ -35,7 +43,20 @@ function handleClick(col: PlatformColumn) {
 </script>
 
 <template>
-  <div class="plat-list-header" role="row">
+  <div
+    v-if="smAndDown"
+    class="plat-list-header plat-list-header--compact"
+    role="row"
+  >
+    <ListSortMenu
+      :options="sortOptions"
+      :sort-key="sortKey"
+      :sort-dir="sortDir"
+      @sort="emit('sort', $event)"
+    />
+  </div>
+
+  <div v-else class="plat-list-header" role="row">
     <button
       v-for="col in PLATFORM_COLUMNS"
       :key="col.key"
@@ -76,10 +97,17 @@ function handleClick(col: PlatformColumn) {
   grid-template-columns: minmax(0, 1fr) 160px 130px 110px 88px 96px;
   align-items: center;
   gap: 0 var(--r-space-3);
-  padding: 0 var(--r-space-3);
+  padding: 0 max(var(--r-space-3), var(--r-list-bleed, 0px));
   height: var(--r-list-header-h);
-  background: var(--r-color-bg-elevated);
-  border-bottom: 1px solid var(--r-color-border);
+  /* Overridable so a pinned header can run it edge to edge (r-pinned-list-header). */
+  border-bottom: var(--r-list-header-border, 1px solid var(--r-color-border));
+}
+
+/* Compact (phones / tablets): one sort control instead of the columns. */
+.plat-list-header--compact {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--r-row-pad);
 }
 
 .plat-list-header__cell {
@@ -135,12 +163,5 @@ function handleClick(col: PlatformColumn) {
 .plat-list-header__icon {
   flex-shrink: 0;
   color: var(--r-color-brand-primary);
-}
-
-html[data-bp~="xs"] .plat-list-header {
-  grid-template-columns: minmax(0, 1fr) 96px;
-}
-html[data-bp~="xs"] .plat-list-header__cell--meta {
-  display: none;
 }
 </style>

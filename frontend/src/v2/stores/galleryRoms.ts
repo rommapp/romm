@@ -1,4 +1,4 @@
-// galleryRoms (v2) — windowed/sparse store for the active gallery list.
+// galleryRoms (v2): windowed/sparse store for the active gallery list.
 //
 // Replaces v1's `stores/roms.ts` for the gallery-list responsibility.
 // What lives here:
@@ -17,7 +17,7 @@
 //   surface is annotated `@deprecated` with a pointer here.
 //
 // What does NOT live here:
-//   - currentRom (lives in v1 `stores/roms`, GameDetails reads it),
+//   - detailedRoms (lives in `stores/roms`, GameDetails reads it),
 //   - recentRoms / continuePlayingRoms (Home consumers stay on v1),
 //   - selection state, order-by/order-dir,
 //   These are still served by the v1 store; the v2 gallery view doesn't
@@ -35,6 +35,7 @@ import {
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
+import { playtimeHoursToSeconds } from "@/v2/utils/time";
 
 export type SimpleRom = SimpleRomSchema;
 
@@ -43,23 +44,66 @@ export type SimpleRom = SimpleRomSchema;
  * `RomUser`, so this includes fields that aren't direct properties of
  * `SimpleRomSchema` (e.g. `first_release_date` lives on RomMetadata).
  * Keep this in sync with the columns the gallery surface exposes. */
-export type GalleryOrderKey =
-  | "name"
-  | "fs_name"
-  | "platform_id"
-  | "fs_size_bytes"
-  | "created_at"
-  | "updated_at"
-  | "first_release_date"
-  | "average_rating"
-  | "last_played";
+const GALLERY_ORDER_KEYS = [
+  "name",
+  "fs_name",
+  "platform_id",
+  "fs_size_bytes",
+  "created_at",
+  "updated_at",
+  "first_release_date",
+  "average_rating",
+  "hltb_main_story",
+  "last_played",
+] as const;
+
+export type GalleryOrderKey = (typeof GALLERY_ORDER_KEYS)[number];
+
+export type GalleryOrderDir = "asc" | "desc";
+
+export const DEFAULT_ORDER_BY: GalleryOrderKey = "name";
+export const DEFAULT_ORDER_DIR: GalleryOrderDir = "asc";
+
+/** Narrows an untrusted string (a URL query param) to a sort key. */
+export function isGalleryOrderKey(value: string): value is GalleryOrderKey {
+  return (GALLERY_ORDER_KEYS as readonly string[]).includes(value);
+}
+
+/** The keys the backend answers with a `char_index`: it indexes first letters
+ * only for a text column. Listed rather than read off an empty `charIndex`,
+ * which is also what an unfetched gallery looks like. */
+const LEXICAL_ORDER_KEYS: ReadonlySet<string> = new Set(["name", "fs_name"]);
+
+export function orderSupportsLetters(key: GalleryOrderKey): boolean {
+  return LEXICAL_ORDER_KEYS.has(key);
+}
+
+export function isGalleryOrderDir(value: string): value is GalleryOrderDir {
+  return value === "asc" || value === "desc";
+}
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
-// Default window size — the backend's pagination limit. Smaller windows
+// Default window size: the backend's pagination limit. Smaller windows
 // mean more round-trips but finer-grained fills; larger windows mean
 // fewer requests but each one downloads more.
 const WINDOW_SIZE = 72;
+
+// Page size for the whole-result fetch behind "select all": the
+// backend's ceiling on the `/roms` limit param (le=10_000). Exported
+// for the tests that exercise the paging.
+export const SELECT_ALL_PAGE_SIZE = 10_000;
+
+// One home for "skip every sidecar": each flag is its own server-side
+// scan, and a misspelled name would silently re-enable one.
+export const NO_SIDECARS: SidecarOptions = {
+  withCharIndex: false,
+  withFilterValues: false,
+  withRomIdIndex: false,
+};
+
+// Sidecars plus the COUNT, for fetches that only need their items.
+const SKIP_AGGREGATES = { ...NO_SIDECARS, withTotal: false };
 
 // In-flight `AbortController`s keyed by request: `window:${offset}`
 // for a windowed fetch, `bootstrap` for the lightweight metadata
@@ -123,14 +167,14 @@ function cancelWindow(offset: number) {
 // Apply items to `byPosition` in row-sized batches with a rAF yield
 // between batches. Each Map.set() invalidates Vue's per-key dep, and
 // when many cards are in the viewport / overscan zone they all
-// re-render in the same microtask flush — synchronously, on the main
+// re-render in the same microtask flush, synchronously, on the main
 // thread. With dozens of items landing back-to-back (initial window,
 // or rapid-fire background fill), the flush can run >30ms and queued
 // input events (AlphaStrip clicks especially) miss their frame.
 //
 // Yielding every `BATCH_SIZE` items lets the browser paint the new
 // cards AND dispatch any pending input between batches. We pick 8 as
-// the default — one row's worth — so a per-row dwell fetch (8 items)
+// the default: one row's worth, so a per-row dwell fetch (8 items)
 // stays a single batch (no extra frames), while a 72-item window
 // becomes 9 small batches that each fit comfortably in a frame.
 const APPLY_BATCH_SIZE = 8;
@@ -180,7 +224,7 @@ interface State {
   /** True while the global Search view owns the gallery. Distinct from
    * the platform/collection scopes (those carry an entity); search has
    * no entity, just a free-text term in `galleryFilter.searchTerm`.
-   * Drives `onGalleryView` so `groupByMetaId` applies on Search too —
+   * Drives `onGalleryView` so `groupByMetaId` applies on Search too.
    * MissingGamesSection (Settings) intentionally leaves this `false`
    * so each missing file shows as its own row, never collapsed. */
   currentSearch: boolean;
@@ -192,7 +236,7 @@ interface State {
   pendingWindows: Set<number>;
   failedWindows: Set<number>;
   // True until the very first metadata bootstrap (or fetchWindow(0))
-  // resolves — view shows a skeleton hero/skeleton rows during this
+  // resolves: view shows a skeleton hero/skeleton rows during this
   // phase.
   initialFetching: boolean;
   // True once total / charIndex / romIdIndex / filter_values have been
@@ -201,10 +245,12 @@ interface State {
   // bootstrap dedup independently of `loadedWindows` (metadata
   // bootstrap doesn't load any window).
   metadataLoaded: boolean;
-  // Order params — gallery-list scoped (separate from v1's localStorage
+  // True while a whole-result select-all fetch is in flight.
+  selectingAll: boolean;
+  // Order params: gallery-list scoped (separate from v1's localStorage
   // keys so v1/v2 don't fight over the same value).
   orderBy: GalleryOrderKey;
-  orderDir: "asc" | "desc";
+  orderDir: GalleryOrderDir;
 }
 
 const defaults = (): State => ({
@@ -222,8 +268,9 @@ const defaults = (): State => ({
   failedWindows: new Set(),
   initialFetching: false,
   metadataLoaded: false,
-  orderBy: "name",
-  orderDir: "asc",
+  selectingAll: false,
+  orderBy: DEFAULT_ORDER_BY,
+  orderDir: DEFAULT_ORDER_DIR,
 });
 
 function alignToWindow(offset: number): number {
@@ -244,6 +291,11 @@ export default defineStore("v2GalleryRoms", {
       ),
     /** True when at least the first window has loaded. */
     hasInitial: (state) => state.loadedWindows.size > 0,
+    /** The full ordered id list of the current filtered result, or null
+     * while it is unknown (off the gallery view, or bootstrap pending). */
+    filteredRomIds(): number[] | null {
+      return this.onGalleryView && this.metadataLoaded ? this.romIdIndex : null;
+    },
   },
 
   actions: {
@@ -263,19 +315,19 @@ export default defineStore("v2GalleryRoms", {
     setOrderBy(key: GalleryOrderKey) {
       this.orderBy = key;
     },
-    setOrderDir(dir: "asc" | "desc") {
+    setOrderDir(dir: GalleryOrderDir) {
       this.orderDir = dir;
     },
 
     /** Read a ROM at a position, or null if its window hasn't been
-     * loaded yet. Returns null without triggering a fetch — fetching is
+     * loaded yet. Returns null without triggering a fetch; fetching is
      * the view's responsibility (driven by row visibility). */
     getRomAt(position: number): SimpleRom | null {
       return this.byPosition.get(position) ?? null;
     },
 
     /** Find a loaded ROM by id, or null. Scans the sparse `byPosition`
-     * window cache — used to seed the player hero cover synchronously on a
+     * window cache: used to seed the player hero cover synchronously on a
      * direct gallery→play so the shared-element morph has a target. */
     getRomById(id: number): SimpleRom | null {
       for (const rom of this.byPosition.values()) {
@@ -303,9 +355,10 @@ export default defineStore("v2GalleryRoms", {
       this.failedWindows = new Set();
       this.initialFetching = false;
       this.metadataLoaded = false;
+      this.selectingAll = false;
     },
 
-    /** Drop the loaded windows but keep the gallery context — used when
+    /** Drop the loaded windows but keep the gallery context. Used when
      * search / filter changes within the same gallery and we need to
      * re-fetch from offset 0. */
     invalidateWindows() {
@@ -319,6 +372,7 @@ export default defineStore("v2GalleryRoms", {
       this.failedWindows = new Set();
       this.initialFetching = false;
       this.metadataLoaded = false;
+      this.selectingAll = false;
     },
 
     _shouldGroupRoms(): boolean {
@@ -357,11 +411,14 @@ export default defineStore("v2GalleryRoms", {
         filterStates: galleryFilter.filterStates,
         filterSoundtrack: galleryFilter.filterSoundtrack,
         filterMissing: galleryFilter.filterMissing,
+        filterPhysical: galleryFilter.filterPhysical,
         filterVerified: galleryFilter.filterVerified,
         selectedGenres: galleryFilter.selectedGenres,
         selectedFranchises: galleryFilter.selectedFranchises,
         selectedCollections: galleryFilter.selectedCollections,
         selectedCompanies: galleryFilter.selectedCompanies,
+        selectedPublishers: galleryFilter.selectedPublishers,
+        selectedDevelopers: galleryFilter.selectedDevelopers,
         selectedAgeRatings: galleryFilter.selectedAgeRatings,
         selectedRegions: galleryFilter.selectedRegions,
         selectedLanguages: galleryFilter.selectedLanguages,
@@ -373,6 +430,8 @@ export default defineStore("v2GalleryRoms", {
         franchisesLogic: galleryFilter.franchisesLogic,
         collectionsLogic: galleryFilter.collectionsLogic,
         companiesLogic: galleryFilter.companiesLogic,
+        publishersLogic: galleryFilter.publishersLogic,
+        developersLogic: galleryFilter.developersLogic,
         ageRatingsLogic: galleryFilter.ageRatingsLogic,
         regionsLogic: galleryFilter.regionsLogic,
         languagesLogic: galleryFilter.languagesLogic,
@@ -380,10 +439,16 @@ export default defineStore("v2GalleryRoms", {
         playerCountsLogic: galleryFilter.playerCountsLogic,
         metadataProvidersLogic: galleryFilter.metadataProvidersLogic,
         tagsLogic: galleryFilter.tagsLogic,
+        hltbMainStoryMin: playtimeHoursToSeconds(
+          galleryFilter.selectedLengthMinHours,
+        ),
+        hltbMainStoryMax: playtimeHoursToSeconds(
+          galleryFilter.selectedLengthMaxHours,
+        ),
       };
     },
 
-    /** Apply the metadata side effects from a `getRoms` response —
+    /** Apply the metadata side effects from a `getRoms` response:
      * total, char_index, rom_id_index, plus filter side panels (only on
      * first fetch). Shared by `fetchWindowAt(0)` and the lightweight
      * `fetchInitialMetadata()` bootstrap. */
@@ -407,9 +472,10 @@ export default defineStore("v2GalleryRoms", {
       }
       if (sidecars.withFilterValues !== false && data.filter_values) {
         if (galleryFilter.filterPlatforms.length === 0) {
+          const platformIds = data.filter_values.platforms ?? [];
           galleryFilter.setFilterPlatforms(
             platformsStore.allPlatforms.filter((p) =>
-              data.filter_values.platforms.includes(p.id),
+              platformIds.includes(p.id),
             ),
           );
         }
@@ -417,6 +483,8 @@ export default defineStore("v2GalleryRoms", {
         galleryFilter.setFilterGenres(data.filter_values.genres);
         galleryFilter.setFilterFranchises(data.filter_values.franchises);
         galleryFilter.setFilterCompanies(data.filter_values.companies);
+        galleryFilter.setFilterPublishers(data.filter_values.publishers);
+        galleryFilter.setFilterDevelopers(data.filter_values.developers);
         galleryFilter.setFilterAgeRatings(data.filter_values.age_ratings);
         galleryFilter.setFilterRegions(data.filter_values.regions);
         galleryFilter.setFilterLanguages(data.filter_values.languages);
@@ -460,7 +528,7 @@ export default defineStore("v2GalleryRoms", {
           limit: 1,
           signal: controller.signal,
         });
-        // Re-check that this bootstrap is still the relevant one —
+        // Re-check that this bootstrap is still the relevant one:
         // invalidateWindows / resetGallery may have aborted us and a
         // newer bootstrap may have replaced our entry under the same key.
         // Identity comparison avoids applying stale metadata in that race.
@@ -501,7 +569,7 @@ export default defineStore("v2GalleryRoms", {
         if (!queuedWindows.includes(offset)) queuedWindows.push(offset);
         return;
       }
-      // Starting now — drop any queue entry so the drain loop won't re-run it.
+      // Starting now: drop any queue entry so the drain loop won't re-run it.
       const queuedAt = queuedWindows.indexOf(offset);
       if (queuedAt !== -1) queuedWindows.splice(queuedAt, 1);
 
@@ -523,19 +591,16 @@ export default defineStore("v2GalleryRoms", {
       // object when these are skipped, so re-applying it would wipe the
       // populated values and blank the AlphaStrip / filter drawer. The id
       // index is a full-library scan we already paid for in the bootstrap, so
-      // window fetches opt out of recomputing it.
+      // window fetches opt out of recomputing it. Dropping it makes the backend
+      // count the result set separately instead, which is the same scan under
+      // another name for a total the bootstrap already gave us, so opt out of
+      // that too and keep the window fetch to just its page of covers.
       const withAggregations = !this.metadataLoaded;
 
       try {
         const response = await romApi.getRoms({
           ...params,
-          ...(withAggregations
-            ? {}
-            : {
-                withCharIndex: false,
-                withFilterValues: false,
-                withRomIdIndex: false,
-              }),
+          ...(withAggregations ? {} : SKIP_AGGREGATES),
           signal: controller.signal,
         });
         // Re-check identity: invalidateWindows / resetGallery / a context
@@ -547,9 +612,10 @@ export default defineStore("v2GalleryRoms", {
 
         const data = response.data;
         // Only apply the full metadata when this window actually fetched the
-        // aggregations (the very first window before the bootstrap resolved).
+        // aggregations (a window reached before the bootstrap resolved).
         // Otherwise char_index / filter_values come back empty and would
-        // clobber what the bootstrap populated, so just refresh `total`.
+        // clobber what the bootstrap populated; `total` comes back null and
+        // the guard below leaves the established size alone.
         if (offset === 0 && withAggregations) {
           this._applyMetadata(data, galleryFilter, platformsStore);
         } else if (data.total !== null && data.total !== undefined) {
@@ -559,7 +625,7 @@ export default defineStore("v2GalleryRoms", {
         // Place items at their absolute positions (offset .. offset + N).
         // We rely on Vue 3's reactive Map: `set(k, v)` triggers per-key
         // dependents. Earlier passes reassigned `this.byPosition` to a
-        // new Map after each window which DEFEATED that — every
+        // new Map after each window, which DEFEATED that: every
         // `getRomAt(p)` reader was invalidated, and the gallery
         // virtualItems computed (which iterates positions) had to
         // rebuild end-to-end on every window response. That blocked the
@@ -580,15 +646,15 @@ export default defineStore("v2GalleryRoms", {
 
         // A context switch during the frame-yielded apply may have
         // superseded us partway through. Marking the window loaded now would
-        // leave it partially applied yet skipped by later syncs — permanent
+        // leave it partially applied yet skipped by later syncs, leaving permanent
         // skeletons for the fresh context. Bail unless we're still current.
         if (inFlightControllers.get(ctrlKey) !== controller) return;
 
         this.loadedWindows.add(offset);
-        // Recovered — drop any retry bookkeeping for this window.
+        // Recovered: drop any retry bookkeeping for this window.
         clearRetry(offset);
       } catch (err) {
-        // An explicit abort isn't a failure — keep `failedWindows`
+        // An explicit abort isn't a failure, so keep `failedWindows`
         // clean so the window is eligible to refetch under the new
         // gallery context without the UI flagging it as broken.
         if (axios.isCancel(err)) return;
@@ -619,8 +685,56 @@ export default defineStore("v2GalleryRoms", {
           inFlightControllers.delete(ctrlKey);
           this.pendingWindows.delete(offset);
           if (offset === 0) this.initialFetching = false;
-          // A slot freed up — start the next queued window, if any.
+          // A slot freed up, so start the next queued window, if any.
           this._drainWindowQueue();
+        }
+      }
+    },
+
+    /** Fetch every ROM of the current filtered result in backend-capped
+     * pages, for the whole-result "select all".
+     *
+     * Returns:
+     *   The full result set, or null when aborted or superseded.
+     *   Non-cancel errors are rethrown for the caller to surface. */
+    async fetchAllFilteredRoms(): Promise<SimpleRom[] | null> {
+      // The filters only scope the query on the gallery view; anywhere
+      // else the params would silently describe the whole library.
+      if (!this.onGalleryView) return null;
+      const galleryFilter = storeGalleryFilter();
+      const params = this._buildRequestParams(galleryFilter, 0);
+      const ctrlKey = "select-all";
+      // A re-trigger supersedes the previous run.
+      inFlightControllers.get(ctrlKey)?.abort();
+      const controller = new AbortController();
+      inFlightControllers.set(ctrlKey, controller);
+      this.selectingAll = true;
+
+      try {
+        const all: SimpleRom[] = [];
+        let page: SimpleRom[];
+        do {
+          const response = await romApi.getRoms({
+            ...params,
+            ...SKIP_AGGREGATES,
+            limit: SELECT_ALL_PAGE_SIZE,
+            offset: all.length,
+            signal: controller.signal,
+          });
+          if (inFlightControllers.get(ctrlKey) !== controller) return null;
+          page = response.data.items;
+          for (const rom of page) all.push(rom);
+        } while (page.length === SELECT_ALL_PAGE_SIZE);
+        return all;
+      } catch (err) {
+        if (axios.isCancel(err)) return null;
+        throw err;
+      } finally {
+        const current = inFlightControllers.get(ctrlKey);
+        if (current === controller) inFlightControllers.delete(ctrlKey);
+        // A newer run owns the flag; an external abort cleared the map.
+        if (current === controller || current === undefined) {
+          this.selectingAll = false;
         }
       }
     },
@@ -647,7 +761,7 @@ export default defineStore("v2GalleryRoms", {
      * inside `fetchWindowAt`) and aborts any in-flight or retry-pending
      * window that no longer covers one. Without the abort, scrolling
      * through a large library would leave every window it passed
-     * downloading and applying in the background — the exact wasted
+     * downloading and applying in the background: the exact wasted
      * network / backend / render work this store exists to avoid on
      * low-power devices. Driven by the shell's debounced viewport sync. */
     syncVisibleWindows(positions: Iterable<number>) {
@@ -686,7 +800,7 @@ export default defineStore("v2GalleryRoms", {
     },
 
     /** Apply (in place) an updated ROM to whatever position currently
-     * holds it — used by edit / favourite / status flows. Mutating
+     * holds it: used by edit / favourite / status flows. Mutating
      * via `set(pos, rom)` on the reactive Map triggers only the
      * dependents reading that specific position. */
     update(rom: SimpleRom) {

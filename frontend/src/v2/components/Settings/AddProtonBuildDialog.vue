@@ -87,7 +87,7 @@ async function submit() {
           v-model="name"
           :label="t('settings.stream-install-custom-name')"
           :rules="[required]"
-          maxlength="64"
+          :maxlength="64"
         />
         <RTextField
           v-model="url"

@@ -49,7 +49,8 @@ LOGGING_CONFIG = {
             "propagate": False,
         },
         "uvicorn.access": {
-            "level": LOGLEVEL,
+            # Suppress HTTP access logs unless the user has explicitly opted into DEBUG logging.
+            "level": "DEBUG" if LOGLEVEL == "DEBUG" else "WARNING",
             "handlers": ["default"],
             "propagate": False,
         },
@@ -57,7 +58,7 @@ LOGGING_CONFIG = {
 }
 
 
-# Strips ANSI SGR escapes (colors) embedded by `highlight()` — they render as
+# Strips ANSI SGR escapes (colors) embedded by `highlight()`; they render as
 # colors on a terminal but as garbage anywhere else (e.g. a browser log view).
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -158,7 +159,7 @@ class Formatter(logging.Formatter):
         return redact_sensitive(output)
 
 
-def highlight(msg: str = "", color=YELLOW) -> str:
+def highlight(msg: str = "", color: str = YELLOW) -> str:
     """
     Highlights the message to send to the fancylog.
 

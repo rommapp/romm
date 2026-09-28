@@ -8,27 +8,26 @@
 //      head scrolls naturally with the cards (and the toolbar pins
 //      below it). Matches the pre-tabs experience.
 //
-//   2. Firmware / Settings tabs — rendered inline above the tab body
-//      inside a plain scrollable wrapper. The head scrolls together
-//      with the tab content so the user can move freely; switching
-//      back to Library re-enters the gallery shell.
+//   2. Firmware / Settings tabs: above the tab body, scrolling with it.
 //
 // All admin actions are forwarded as events; permission gating lives
 // on the parent so the bar stays in sync with `useCan`.
-import { RBtn, RChip, RPlatformIcon, RTabNav } from "@v2/lib";
+import { RBtn, RChip, RIcon, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import {
+  playTooltip,
+  usePlatformPlayable,
+} from "@/v2/composables/usePlatformPlayable";
+import type { StatRow } from "@/v2/types/stats";
 
 defineOptions({ inheritAttrs: false });
-
-interface StatRow {
-  label: string;
-  value: string;
-}
 
 interface ProviderChip {
   key: string;
@@ -38,7 +37,7 @@ interface ProviderChip {
   title?: string;
 }
 
-defineProps<{
+const props = defineProps<{
   platform: Platform;
   tab: string;
   tabs: RTabNavItem[];
@@ -60,6 +59,7 @@ defineProps<{
     scan: string;
     random: string;
     download: string;
+    addPhysical: string;
   };
 }>();
 
@@ -69,6 +69,7 @@ defineEmits<{
   (e: "scan"): void;
   (e: "random"): void;
   (e: "download"): void;
+  (e: "add-physical"): void;
 }>();
 
 // A square icon sized per breakpoint (smaller on phones). Driving the size
@@ -76,6 +77,12 @@ defineEmits<{
 // the icon to a fixed box height, which — for a tall icon — either overflowed
 // (overlap) or, once clipped, cut it off.
 const { xs } = useBreakpoint();
+const { t } = useI18n();
+// Same play-mode marker the platforms list carries, so a platform reads the
+// same in its own header as it does in the index.
+const { mode, emulator, streamLabel } = usePlatformPlayable(
+  () => props.platform.slug,
+);
 const iconSize = computed(() => (xs.value ? 116 : 148));
 </script>
 
@@ -86,7 +93,7 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         class="r-v2-plat__panel-icon"
         :style="{ viewTransitionName: `platform-icon-${platform.id}` }"
       >
-        <RPlatformIcon
+        <PlatformIcon
           :slug="platform.slug"
           :fs-slug="platform.fs_slug"
           :alt="platform.display_name"
@@ -95,7 +102,21 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
       </div>
     </template>
 
-    <template v-if="tags.length || description" #tags>
+    <template v-if="tags.length || description || mode" #tags>
+      <RChip
+        v-if="mode"
+        size="small"
+        variant="translucent"
+        :rounded="20"
+        :title="playTooltip(mode, emulator, streamLabel)"
+      >
+        <RIcon
+          icon="mdi-play-circle"
+          size="14"
+          :color="mode === 'stream' ? 'romm-blue' : 'success'"
+        />
+        {{ t("platform.playable") }}
+      </RChip>
       <RChip
         v-for="tag in tags"
         :key="tag"
@@ -189,6 +210,16 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         @click="$emit('upload')"
       />
       <RBtn
+        v-if="canEdit"
+        variant="outlined"
+        surface
+        icon="mdi-cube-outline"
+        rounded="circle"
+        :aria-label="labels.addPhysical"
+        :tooltip="labels.addPhysical"
+        @click="$emit('add-physical')"
+      />
+      <RBtn
         v-if="canScan"
         variant="outlined"
         surface
@@ -212,11 +243,9 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
 <style scoped>
 .r-v2-plat__panel-icon {
   width: 200px;
-  /* `min-height` (not a fixed `height`): the icon is a square sized in JS, so
-     the box floors at the icon height and simply grows to contain it — a tall
-     icon pushes the title/stats down (reflow) instead of overflowing and
-     getting clipped or overlapping. */
-  min-height: 148px;
+  /* A floor, not a fixed height, so a taller icon grows the box. It matches
+     the collection cover height so both heads' tabs line up. */
+  min-height: var(--r-coll-cover-h);
   display: grid;
   place-items: center;
 }
@@ -263,9 +292,10 @@ html[data-bp~="xs"] .r-v2-plat__panel-icon {
   color: var(--r-color-fg);
   transform: translateY(-1px);
 }
+/* Keep pointer events on passive chips so the native `title` tooltip still
+   shows on hover; only the pointer affordance is dropped. */
 .r-v2-plat__provider--passive {
   cursor: default;
-  pointer-events: none;
 }
 .r-v2-plat__provider--icon-only {
   padding: 2px 4px;

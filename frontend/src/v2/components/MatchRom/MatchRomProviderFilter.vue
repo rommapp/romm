@@ -75,6 +75,12 @@ const emit = defineEmits<{
     border-color var(--r-motion-fast) var(--r-motion-ease-out),
     transform var(--r-motion-fast) var(--r-motion-ease-out);
 }
+/* Phone and tablet widths get a bigger chip to tap, stopping short of the
+   full 44px target so the whole provider row still fits a phone. */
+html[data-bp~="sm-and-down"] .provider-filter {
+  width: 36px;
+  height: 36px;
+}
 .provider-filter:hover:not(:disabled) {
   opacity: 0.85;
   transform: translateY(-1px);

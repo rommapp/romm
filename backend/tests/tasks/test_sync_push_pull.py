@@ -5,7 +5,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from handler.database import db_device_handler, db_save_handler
+from handler.database import (
+    db_deleted_asset_handler,
+    db_device_handler,
+    db_device_save_sync_handler,
+    db_save_handler,
+)
 from handler.sync.ssh_handler import RemoteSaveInfo
 from models.assets import Save
 from models.device import Device, SyncMode
@@ -30,7 +35,6 @@ class TestSyncPushPullTaskInit:
         assert task.title == "Push-Pull Sync"
         assert task.description == "Sync saves with devices via SSH/SFTP"
         assert task.task_type == TaskType.SYNC
-        assert task.func == "tasks.sync_push_pull_task.run_push_pull_sync"
 
     def test_is_periodic_task(self, task: SyncPushPullTask):
         assert isinstance(task, PeriodicTask)
@@ -129,7 +133,7 @@ class TestNullSlotLeakInProcessRemoteSave:
 
         with patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh):
             action = await _process_remote_save(
-                device, conn=MagicMock(), remote_save=remote_save
+                device, conn=MagicMock(), remote_save=remote_save, session_id=1
             )
 
         # Archival rows must not be selected as a sync target.
@@ -187,17 +191,16 @@ class TestNullSlotLeakInProcessRemoteSave:
         )
         ssh.upload_save = AsyncMock()
 
-        with patch(
-            "tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh
-        ), patch("tasks.sync_push_pull_task.fs_asset_handler"), patch(
-            "tasks.sync_push_pull_task.compare_save_state"
-        ) as mock_cmp, patch(
-            "tasks.sync_push_pull_task.AnyioPath"
-        ) as mock_anyio_path:
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh),
+            patch("tasks.sync_push_pull_task.fs_asset_handler"),
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+            patch("tasks.sync_push_pull_task.AnyioPath") as mock_anyio_path,
+        ):
             mock_cmp.return_value = MagicMock(action="no_op", reason=None)
             mock_anyio_path.return_value.exists = AsyncMock(return_value=False)
             await _process_remote_save(
-                device, conn=MagicMock(), remote_save=remote_save
+                device, conn=MagicMock(), remote_save=remote_save, session_id=1
             )
 
             # compare_save_state should have been called with the SLOTTED save's
@@ -212,6 +215,90 @@ class TestNullSlotLeakInProcessRemoteSave:
         refreshed = db_save_handler.get_save(user_id=admin_user.id, id=archival.id)
         assert refreshed is not None
         assert refreshed.content_hash == "archival_hash_unique"
+
+    async def test_a_version_removed_since_the_device_wrote_it_is_replaced(
+        self, device: Device, admin_user: User, platform: Platform, save: Save
+    ):
+        """Newer than the server's save by its timestamp, yet lost since it was written."""
+        assert save.slot
+        db_save_handler.update_save(
+            save.id, {"updated_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}
+        )
+        db_deleted_asset_handler.record_deletion(
+            admin_user.id, save.rom_id, save.slot, "removed_here"
+        )
+        remote_save = RemoteSaveInfo(
+            path=f"/remote/{platform.fs_slug}/{save.file_name}",
+            file_name=save.file_name,
+            platform_slug=platform.fs_slug,
+            file_size=1,
+            mtime=datetime(2021, 1, 1, tzinfo=timezone.utc),
+        )
+        ssh = MagicMock()
+        ssh.download_save = AsyncMock(return_value=("/tmp/unused", "removed_here"))
+        ssh.upload_save = AsyncMock()
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh),
+            patch("tasks.sync_push_pull_task.fs_asset_handler"),
+            patch("tasks.sync_push_pull_task.AnyioPath") as mock_anyio_path,
+        ):
+            mock_anyio_path.return_value.exists = AsyncMock(return_value=False)
+            action = await _process_remote_save(
+                device, conn=MagicMock(), remote_save=remote_save, session_id=1
+            )
+
+        assert action == "pushed"
+        ssh.upload_save.assert_awaited_once()
+
+
+class TestProcessRemoteSaveConflict:
+    async def test_conflict_names_the_matched_rom(
+        self, admin_user: User, rom: Rom, platform: Platform, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(
+                id="pp-dev-conflict",
+                user_id=admin_user.id,
+                sync_mode=SyncMode.PUSH_PULL,
+                sync_enabled=True,
+                sync_config={"ssh_host": "1.2.3.4"},
+            )
+        )
+        remote_save = RemoteSaveInfo(
+            path=f"/remote/{platform.fs_slug}/{save.file_name}",
+            file_name=save.file_name,
+            platform_slug=platform.fs_slug,
+            file_size=1,
+            mtime=datetime.now(timezone.utc),
+        )
+        ssh = MagicMock()
+        ssh.download_save = AsyncMock(return_value=("/tmp/pp-conflict", "remote"))
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh),
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+            patch("tasks.sync_push_pull_task.AnyioPath") as mock_anyio_path,
+            patch(
+                "endpoints.sockets.sync.emit_sync_conflict", new_callable=AsyncMock
+            ) as emit,
+        ):
+            mock_cmp.return_value = MagicMock(action="conflict", reason="both changed")
+            mock_anyio_path.return_value.exists = AsyncMock(return_value=False)
+            action = await _process_remote_save(
+                device, conn=MagicMock(), remote_save=remote_save, session_id=5
+            )
+
+        assert action == "conflict"
+        emit.assert_awaited_once_with(
+            user_id=admin_user.id,
+            device_id=device.id,
+            session_id=5,
+            file_name=save.file_name,
+            rom_id=rom.id,
+            rom_name="test_rom",
+            reason="both changed",
+        )
 
 
 class TestNullSlotLeakInPushMissingSaves:
@@ -249,9 +336,10 @@ class TestNullSlotLeakInPushMissingSaves:
             {"platform_slug": platform.fs_slug, "path": "/remote/saves"}
         ]
         # Empty remote_saves means every server save would be considered "missing".
-        with patch(
-            "tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh
-        ), patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets:
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh),
+            patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
+        ):
             mock_assets.validate_path.side_effect = lambda p: f"/server/{p}"
             pushed = await _push_missing_saves(
                 device,
@@ -271,3 +359,258 @@ class TestNullSlotLeakInPushMissingSaves:
         ), f"slotted save was not pushed: {uploaded_local_paths}"
         # And the upload count should reflect slotted-only.
         assert pushed == 1
+
+
+class TestBaselineInProcessRemoteSave:
+    """This path hashes the device's file itself, so it can record both halves."""
+
+    @pytest.fixture
+    def device(self, admin_user: User) -> Device:
+        return db_device_handler.add_device(
+            Device(
+                id="pp-baseline-dev",
+                user_id=admin_user.id,
+                sync_mode=SyncMode.PUSH_PULL,
+                sync_enabled=True,
+                sync_config={"ssh_host": "1.2.3.4"},
+            )
+        )
+
+    @pytest.fixture
+    def local_save_file(self, tmp_path) -> str:
+        path = tmp_path / "pp_baseline.sav"
+        path.write_bytes(b"remote save bytes")
+        return str(path)
+
+    @staticmethod
+    def _save(
+        admin_user: User, rom: Rom, platform: Platform, content_hash: str
+    ) -> Save:
+        return db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="pp_baseline.sav",
+                file_name_no_tags="pp_baseline",
+                file_name_no_ext="pp_baseline",
+                file_extension="sav",
+                emulator="test_emulator",
+                slot="autosave",
+                file_path=f"{platform.slug}/saves/test_emulator",
+                file_size_bytes=100,
+                content_hash=content_hash,
+            )
+        )
+
+    @staticmethod
+    def _remote(platform: Platform) -> RemoteSaveInfo:
+        return RemoteSaveInfo(
+            path=f"/remote/{platform.fs_slug}/pp_baseline.sav",
+            file_name="pp_baseline.sav",
+            platform_slug=platform.fs_slug,
+            file_size=100,
+            mtime=datetime.now(timezone.utc),
+        )
+
+    @staticmethod
+    def _ssh(local_path: str, remote_hash: str) -> MagicMock:
+        ssh = MagicMock()
+        ssh.download_save = AsyncMock(return_value=(local_path, remote_hash))
+        ssh.upload_save = AsyncMock()
+        return ssh
+
+    async def test_comparison_receives_the_recorded_baseline(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        local_save_file: str,
+    ):
+        save = self._save(admin_user, rom, platform, "server_old")
+        db_device_save_sync_handler.upsert_sync(
+            device.id,
+            save.id,
+            synced_at=datetime(2026, 1, 5, tzinfo=timezone.utc),
+            last_sync_hash="client_at_boundary",
+            last_sync_server_hash="server_at_boundary",
+        )
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+        ):
+            mock_handler.return_value = self._ssh(local_save_file, "remote_now")
+            mock_cmp.return_value = MagicMock(action="no_op", reason=None)
+            await _process_remote_save(
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
+            )
+
+        kwargs = mock_cmp.call_args.kwargs
+        assert kwargs["device_last_sync_hash"] == "client_at_boundary"
+        assert kwargs["device_last_sync_server_hash"] == "server_at_boundary"
+
+    @pytest.mark.parametrize(
+        "server_hash,recorded",
+        [("remote_now", "remote_now"), ("server_hash", None)],
+    )
+    async def test_no_op_records_a_baseline_only_for_identical_content(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        local_save_file: str,
+        server_hash: str,
+        recorded: str | None,
+    ):
+        """A timestamp-only no-op must not record two different saves as in sync."""
+        save = self._save(admin_user, rom, platform, server_hash)
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+        ):
+            mock_handler.return_value = self._ssh(local_save_file, "remote_now")
+            mock_cmp.return_value = MagicMock(action="no_op", reason=None)
+            await _process_remote_save(
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
+            )
+
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash == recorded
+        assert sync.last_sync_server_hash == recorded
+
+    async def test_upload_records_both_halves_as_the_remote_hash(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        local_save_file: str,
+    ):
+        save = self._save(admin_user, rom, platform, "server_old")
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+            patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
+        ):
+            mock_assets.write_file = AsyncMock()
+            mock_assets.unrecorded_hash = AsyncMock(return_value=None)
+            mock_handler.return_value = self._ssh(local_save_file, "remote_now")
+            mock_cmp.return_value = MagicMock(action="upload", reason=None)
+            await _process_remote_save(
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
+            )
+
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash == "remote_now"
+        assert sync.last_sync_server_hash == "remote_now"
+
+    async def test_download_records_the_pushed_file_as_both_halves(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        local_save_file: str,
+    ):
+        save = self._save(admin_user, rom, platform, "server_new")
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+            patch("tasks.sync_push_pull_task.fs_asset_handler"),
+        ):
+            mock_handler.return_value = self._ssh(local_save_file, "remote_old")
+            mock_cmp.return_value = MagicMock(action="download", reason=None)
+            await _process_remote_save(
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
+            )
+
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash == "server_new"
+        assert sync.last_sync_server_hash == "server_new"
+
+    async def test_conflict_records_nothing(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        local_save_file: str,
+    ):
+        save = self._save(admin_user, rom, platform, "server_hash")
+        db_device_save_sync_handler.upsert_sync(
+            device.id,
+            save.id,
+            synced_at=datetime(2026, 1, 5, tzinfo=timezone.utc),
+            last_sync_hash="client_at_boundary",
+            last_sync_server_hash="server_at_boundary",
+        )
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+        ):
+            mock_handler.return_value = self._ssh(local_save_file, "remote_now")
+            mock_cmp.return_value = MagicMock(action="conflict", reason="both changed")
+            action = await _process_remote_save(
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
+            )
+
+        assert action == "conflict"
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash == "client_at_boundary"
+        assert sync.last_sync_server_hash == "server_at_boundary"
+
+    async def test_push_missing_saves_records_the_pushed_file_as_both_halves(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+    ):
+        save = self._save(admin_user, rom, platform, "server_hash")
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
+        ):
+            mock_handler.return_value = self._ssh("/tmp/unused.sav", "unused")
+            mock_assets.validate_path.side_effect = lambda p: f"/server/{p}"
+            pushed = await _push_missing_saves(
+                device,
+                conn=MagicMock(),
+                remote_saves=[],
+                save_directories=[
+                    {"platform_slug": platform.fs_slug, "path": "/remote/saves"}
+                ],
+            )
+
+        assert pushed == 1
+
+        sync = db_device_save_sync_handler.get_sync(device.id, save.id)
+        assert sync is not None
+        assert sync.last_sync_hash == "server_hash"
+        assert sync.last_sync_server_hash == "server_hash"

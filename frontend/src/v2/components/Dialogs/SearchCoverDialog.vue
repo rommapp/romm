@@ -1,13 +1,13 @@
 <script setup lang="ts">
-// SearchCoverDialog — global cover-search dialog. Listens for the
+// SearchCoverDialog: global cover-search dialog. Listens for the
 // `showSearchCoverDialog` emitter event (term + optional platformId
-// + optional source rom), queries `sgdbApi.searchCover` for SGDB
-// thumbs, and — when a `rom` is provided — also calls
-// `romApi.searchRom` to surface the cover URLs that IGDB, MobyGames,
-// Screenscraper, Flashpoint, Launchbox and Libretro have for this
-// game. Picking any cover fires `updateUrlCover` with the full
-// resolution URL; consumers (EditRom, CollectionSettingsDrawer) own
-// the actual save.
+// + optional source rom), queries `sgdbApi.searchCover` for the
+// SteamGridDB and Steam grids, and, when a `rom` is provided, also
+// calls `romApi.searchRom` to surface the cover URLs that IGDB,
+// MobyGames, Screenscraper, Flashpoint, Launchbox and Libretro have
+// for this game. Picking any cover fires `updateUrlCover` with the
+// full resolution URL; consumers (EditRom, CollectionSettingsDrawer)
+// own the actual save.
 //
 // Why fold the provider covers in here: previously the user had to
 // open the manual-match flow just to swap an IGDB cover, even though
@@ -15,41 +15,55 @@
 // endpoint returns the per-provider URLs in one call, so a parallel
 // fetch keeps the surface to a single dialog.
 //
-// Collection-cover edits don't pass a `rom` — they hit SGDB only
-// (collections don't have provider IDs in the same way).
+// Collection-cover edits don't pass a `rom`, so they hit the cover grids
+// only (collections don't have provider IDs in the same way).
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
+  CoverResource,
   SearchCoverSchema,
   SearchRomSchema,
-  SGDBResource,
 } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import sgdbApi from "@/services/api/sgdb";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import MatchRomProviderFilter from "@/v2/components/MatchRom/MatchRomProviderFilter.vue";
 import {
   getMatchSources,
+  sourceLogo,
   type MatchedSource,
+  type SourceName,
 } from "@/v2/components/MatchRom/types";
-import { useCoverFilters } from "@/v2/composables/useCoverFilters";
+import {
+  useCoverFilters,
+  type CoverProvider,
+} from "@/v2/composables/useCoverFilters";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RSelect from "@/v2/lib/forms/RSelect/RSelect.vue";
 import RSwitch from "@/v2/lib/forms/RSwitch/RSwitch.vue";
 import RTextField from "@/v2/lib/forms/RTextField/RTextField.vue";
+import RMenu from "@/v2/lib/menus/RMenu/RMenu.vue";
+import RMenuItem from "@/v2/lib/menus/RMenuItem/RMenuItem.vue";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
+import RDivider from "@/v2/lib/primitives/RDivider/RDivider.vue";
 import REmptyState from "@/v2/lib/primitives/REmptyState/REmptyState.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RSpinner from "@/v2/lib/primitives/RSpinner/RSpinner.vue";
+import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
 import RCollapsible from "@/v2/lib/structural/RCollapsible/RCollapsible.vue";
+import RExpandTransition from "@/v2/lib/structural/RExpandTransition/RExpandTransition.vue";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const heartbeat = storeHeartbeat();
 
 const show = ref(false);
 const searching = ref(false);
@@ -61,6 +75,28 @@ const covers = ref<SearchCoverSchema[]>([]);
 // inherit a stale rom.
 const sourceRom = ref<SimpleRom | null>(null);
 const providerCovers = ref<MatchedSource[]>([]);
+
+// The grid providers, keyed as the backend tags each result. The chips
+// mirror the match dialog's filter row: disabled when the backend has no
+// key for the provider, toggled off by the user to hide its covers.
+const gridProviders = computed<
+  { key: CoverProvider; name: SourceName; enabled: boolean }[]
+>(() => [
+  {
+    key: "sgdb",
+    name: "SteamGridDB",
+    enabled: !!heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
+  },
+  {
+    key: "steam",
+    name: "Steam",
+    enabled: !!heartbeat.value.METADATA_SOURCES?.STEAM_API_ENABLED,
+  },
+]);
+function gridProviderLogo(key: CoverProvider): string {
+  const provider = gridProviders.value.find((p) => p.key === key);
+  return provider ? sourceLogo(provider.name) : "";
+}
 
 // Client-side filtering + sorting over the two fetched lists. The
 // backend returns every content variant (NSFW / humor / epilepsy) with
@@ -76,7 +112,11 @@ const {
   showHumor,
   showEpilepsy,
   sortMode,
+  activeProviders,
+  toggleProvider,
   resetFilters,
+  activeFilterCount,
+  sortItems,
   coverTypeItems,
   resolutionItems,
   resolutionValues,
@@ -92,20 +132,17 @@ const {
   hasResults,
 } = useCoverFilters(covers, providerCovers);
 
-// `sortMode` is a two-value enum; expose it to the toggle as a boolean —
-// on sorts by votes, off falls back to relevance.
-const sortByVotes = computed({
-  get: () => sortMode.value === "votes",
-  set: (v) => {
-    sortMode.value = v ? "votes" : "relevance";
-  },
-});
+const filtersOpen = ref(false);
+
+const sortLabel = computed(
+  () => sortItems.value.find((item) => item.id === sortMode.value)?.label,
+);
 
 // SGDB animated covers ship their `thumb` as a `.webm` clip — an `<img>`
 // element can't render those (broken-image icon). Detect by type or
 // extension and swap to a `<video>` for those resources so the preview
 // actually plays.
-function isAnimated(resource: SGDBResource): boolean {
+function isAnimated(resource: CoverResource): boolean {
   return (
     resource.type === "animated" || /\.(webm|mp4)(\?|$)/i.test(resource.thumb)
   );
@@ -128,10 +165,8 @@ function openHandler({
   platformId?: number;
   rom?: SimpleRom;
 }) {
+  clearDialog();
   searchText.value = term;
-  covers.value = [];
-  providerCovers.value = [];
-  resetFilters();
   sourceRom.value = rom ?? null;
   show.value = true;
   if (searchText.value) doSearch();
@@ -158,19 +193,24 @@ function scoreAgainstSourceRom(
   return score;
 }
 
+// Only the latest search of the open session may apply its response.
+let searchSeq = 0;
+const alive = useIsAlive();
+
 async function doSearch() {
   if (searching.value || !searchText.value.trim()) return;
+  const seq = ++searchSeq;
   searching.value = true;
   covers.value = [];
   providerCovers.value = [];
   const term = searchText.value.trim();
   const source = sourceRom.value;
   try {
-    // Fire SGDB + (optional) provider lookup in parallel — neither
-    // depends on the other and they both populate independent
+    // Fire the grid search + (optional) provider lookup in parallel:
+    // neither depends on the other and they both populate independent
     // sections of the same dialog. `allSettled` so a provider-side
-    // failure doesn't take down the SGDB grid and vice versa.
-    const [sgdbResult, providersResult] = await Promise.allSettled([
+    // failure doesn't take down the grid and vice versa.
+    const [gridResult, providersResult] = await Promise.allSettled([
       sgdbApi.searchCover({ searchTerm: term }),
       source
         ? romApi.searchRom({
@@ -180,11 +220,12 @@ async function doSearch() {
           })
         : Promise.resolve(null),
     ]);
+    if (!alive.value || seq !== searchSeq) return;
 
-    if (sgdbResult.status === "fulfilled") {
-      covers.value = sgdbResult.value.data;
+    if (gridResult.status === "fulfilled") {
+      covers.value = gridResult.value.data;
     } else {
-      const e = sgdbResult.reason as {
+      const e = gridResult.reason as {
         response?: { data?: { detail?: string } };
         message?: string;
       };
@@ -216,24 +257,36 @@ async function doSearch() {
             scoreAgainstSourceRom(b, source) - scoreAgainstSourceRom(a, source),
         )
         .at(0);
-      // Drop SteamGridDB from the providers row — the dialog already
-      // surfaces the full SGDB cover grid below, listing it twice
-      // (once as a single tile, once as the full result set) is just
-      // noise.
+      // Drop a grid provider from the providers row only when its full
+      // result set is in the grid below; listing it twice is noise, but
+      // a grid that came back empty (a timed-out CDN probe, no artwork
+      // on the store page) must not hide the one cover the match found.
+      const inGrid = new Set(
+        covers.value
+          .filter((game) => game.resources.length > 0)
+          .map((game) => game.provider),
+      );
+      const shownInGrid = gridProviders.value
+        .filter((provider) => inGrid.has(provider.key))
+        .map((provider) => provider.name);
       providerCovers.value = best
-        ? getMatchSources(best).filter((s) => s.name !== "SteamGridDB")
+        ? getMatchSources(best).filter((s) => !shownInGrid.includes(s.name))
         : [];
     }
   } finally {
-    searching.value = false;
+    if (seq === searchSeq) searching.value = false;
   }
 }
 
 // SGDB serves a thumb resource and a full-resolution one; substituting
 // "thumb" → "grid" in the URL is how v1 derived the full image. We
-// keep the same swap so consumers receive the high-res URL.
-function pickCover(url: string) {
-  emitter?.emit("updateUrlCover", url.replace("thumb", "grid"));
+// keep the same swap so consumers receive the high-res URL. Steam
+// serves one URL per asset, handed off as is.
+function pickCover(url: string, provider: CoverProvider) {
+  emitter?.emit(
+    "updateUrlCover",
+    provider === "sgdb" ? url.replace("thumb", "grid") : url,
+  );
   closeDialog();
 }
 
@@ -245,13 +298,20 @@ function pickProviderCover(url: string) {
   closeDialog();
 }
 
-function closeDialog() {
-  show.value = false;
+function clearDialog() {
   covers.value = [];
   providerCovers.value = [];
   sourceRom.value = null;
   searchText.value = "";
   resetFilters();
+  filtersOpen.value = false;
+}
+
+function closeDialog() {
+  searchSeq++;
+  searching.value = false;
+  show.value = false;
+  clearDialog();
 }
 </script>
 
@@ -261,106 +321,184 @@ function closeDialog() {
     icon="mdi-image-search-outline"
     :width="900"
     scroll-content
+    body-padding="compact"
     @close="closeDialog"
   >
     <template #header>
       <span>{{ t("rom.search-cover") }}</span>
     </template>
 
-    <template #content>
+    <template #toolbar>
       <div class="r-v2-sgdb__toolbar">
-        <RTextField
-          v-model="searchText"
-          :placeholder="t('common.search')"
-          density="comfortable"
-          prefix-label="inline"
-          clearable
-          hide-details
-          class="r-v2-sgdb__search"
-          @keyup.enter="doSearch"
-        >
-          <template #prefix-label>
-            <RIcon icon="mdi-magnify" size="16" />
-          </template>
-        </RTextField>
-        <RBtn
-          variant="flat"
-          color="primary"
-          prepend-icon="mdi-magnify"
-          :loading="searching"
-          :disabled="!searchText.trim() || searching"
-          @click="doSearch"
-        >
-          {{ t("common.search") }}
-        </RBtn>
-      </div>
-
-      <!-- Filter bar -->
-      <div v-if="hasRawResults" class="r-v2-sgdb__filters">
-        <RSelect
-          v-model="coverType"
-          :items="coverTypeItems"
-          density="comfortable"
-          hide-details
-          class="r-v2-sgdb__filter"
-          :aria-label="t('rom.cover-type-all')"
-        />
-        <template v-if="hasSgdbCovers">
-          <RSelect
-            v-if="resolutionValues.length > 1"
-            v-model="resolutionFilter"
-            :items="resolutionItems"
-            density="comfortable"
-            hide-details
-            class="r-v2-sgdb__filter"
-            :aria-label="t('rom.cover-filter-resolution-all')"
+        <div class="r-v2-sgdb__providers">
+          <MatchRomProviderFilter
+            v-for="provider in gridProviders"
+            :key="provider.key"
+            :name="provider.name"
+            :label="provider.name"
+            :logo="sourceLogo(provider.name)"
+            :enabled="provider.enabled"
+            :active="activeProviders[provider.key]"
+            @toggle="toggleProvider(provider.key)"
           />
-          <RSelect
-            v-if="styleValues.length > 1"
-            v-model="styleFilter"
-            :items="styleItems"
-            density="comfortable"
-            hide-details
-            class="r-v2-sgdb__filter"
-            :aria-label="t('rom.cover-filter-style-all')"
-          />
-          <RSelect
-            v-if="uploaderValues.length > 1"
-            v-model="uploaderFilter"
-            v-model:search="uploaderSearch"
-            :items="uploaderItems"
-            density="comfortable"
-            hide-details
-            searchable
-            :search-placeholder="t('common.search')"
-            class="r-v2-sgdb__filter"
-            :aria-label="t('rom.cover-filter-uploader-all')"
-          />
-        </template>
-      </div>
-
-      <template v-if="hasSgdbCovers">
-        <div class="r-v2-sgdb__toggles">
-          <div class="r-v2-sgdb__sort">
-            <span class="r-v2-sgdb__sort-label">
-              {{ t("rom.cover-sort-relevance") }}
-            </span>
-            <RSwitch v-model="sortByVotes" :label="t('rom.cover-sort-votes')" />
-          </div>
-          <div class="r-v2-sgdb__content-toggles">
-            <RSwitch v-model="showNsfw" :label="t('rom.cover-content-nsfw')" />
-            <RSwitch
-              v-model="showHumor"
-              :label="t('rom.cover-content-humor')"
-            />
-            <RSwitch
-              v-model="showEpilepsy"
-              :label="t('rom.cover-content-epilepsy')"
-            />
-          </div>
         </div>
-      </template>
 
+        <div class="r-v2-sgdb__search-row">
+          <RTextField
+            v-model="searchText"
+            :placeholder="t('common.search')"
+            density="comfortable"
+            prefix-label="inline"
+            clearable
+            hide-details
+            @keyup.enter="doSearch"
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-magnify" size="14" />
+            </template>
+          </RTextField>
+          <RBtn
+            variant="flat"
+            color="primary"
+            prepend-icon="mdi-magnify"
+            :disabled="!searchText.trim() || searching"
+            @click="doSearch"
+          >
+            {{ t("common.search") }}
+          </RBtn>
+        </div>
+
+        <!-- Everything below stays mounted and only disables while it does
+             not apply, so a search never reflows the toolbar. -->
+        <RDivider />
+
+        <div class="r-v2-sgdb__actions">
+          <RBtn
+            variant="outlined"
+            surface
+            size="small"
+            prepend-icon="mdi-filter-variant"
+            class="r-v2-sgdb__action"
+            :aria-expanded="filtersOpen"
+            aria-controls="r-v2-sgdb-filters"
+            @click="filtersOpen = !filtersOpen"
+          >
+            {{ t("gallery.filters") }}
+            <RTag v-if="activeFilterCount > 0" tone="brand" size="x-small">
+              {{ activeFilterCount }}
+            </RTag>
+            <template #append>
+              <RIcon
+                icon="mdi-chevron-down"
+                size="16"
+                class="r-chevron-toggle"
+              />
+            </template>
+          </RBtn>
+
+          <RMenu location="bottom end" :offset="6" :disabled="!hasSgdbCovers">
+            <template #activator="{ props: activatorProps }">
+              <RBtn
+                v-bind="activatorProps"
+                variant="outlined"
+                surface
+                size="small"
+                prepend-icon="mdi-sort-descending"
+                class="r-v2-sgdb__action"
+                :disabled="!hasSgdbCovers"
+              >
+                {{ sortLabel }}
+                <template #append>
+                  <RIcon
+                    icon="mdi-menu-down"
+                    size="16"
+                    class="r-chevron-toggle"
+                  />
+                </template>
+              </RBtn>
+            </template>
+            <RMenuItem
+              v-for="item in sortItems"
+              :key="item.id"
+              :label="item.label"
+              :icon="item.icon"
+              :variant="sortMode === item.id ? 'active' : 'default'"
+              @click="sortMode = item.id"
+            />
+          </RMenu>
+        </div>
+
+        <RExpandTransition>
+          <div
+            v-show="filtersOpen"
+            id="r-v2-sgdb-filters"
+            class="r-v2-sgdb__advanced"
+          >
+            <div class="r-v2-sgdb__filters">
+              <RSelect
+                v-model="coverType"
+                :items="coverTypeItems"
+                density="comfortable"
+                hide-details
+                class="r-v2-sgdb__filter"
+                :disabled="!hasRawResults"
+                :aria-label="t('rom.cover-type-all')"
+              />
+              <RSelect
+                v-model="resolutionFilter"
+                :disabled="!hasSgdbCovers || resolutionValues.length < 2"
+                :items="resolutionItems"
+                density="comfortable"
+                hide-details
+                class="r-v2-sgdb__filter"
+                :aria-label="t('rom.cover-filter-resolution-all')"
+              />
+              <RSelect
+                v-model="styleFilter"
+                :disabled="!hasSgdbCovers || styleValues.length < 2"
+                :items="styleItems"
+                density="comfortable"
+                hide-details
+                class="r-v2-sgdb__filter"
+                :aria-label="t('rom.cover-filter-style-all')"
+              />
+              <RSelect
+                v-model="uploaderFilter"
+                v-model:search="uploaderSearch"
+                :disabled="!hasSgdbCovers || uploaderValues.length < 2"
+                :items="uploaderItems"
+                density="comfortable"
+                hide-details
+                searchable
+                :search-placeholder="t('common.search')"
+                class="r-v2-sgdb__filter"
+                :aria-label="t('rom.cover-filter-uploader-all')"
+              />
+            </div>
+
+            <div class="r-v2-sgdb__content-toggles">
+              <RSwitch
+                v-model="showNsfw"
+                :disabled="!hasSgdbCovers"
+                :label="t('rom.cover-content-nsfw')"
+              />
+              <RSwitch
+                v-model="showHumor"
+                :disabled="!hasSgdbCovers"
+                :label="t('rom.cover-content-humor')"
+              />
+              <RSwitch
+                v-model="showEpilepsy"
+                :disabled="!hasSgdbCovers"
+                :label="t('rom.cover-content-epilepsy')"
+              />
+            </div>
+          </div>
+        </RExpandTransition>
+      </div>
+    </template>
+
+    <template #content>
       <div class="r-v2-sgdb__body">
         <div v-if="searching" class="r-v2-sgdb__loading">
           <RSpinner :size="36" />
@@ -375,6 +513,7 @@ function closeDialog() {
           <RCollapsible
             v-if="showProviderCovers"
             :title="t('rom.metadata-providers')"
+            default-open
           >
             <div class="r-v2-sgdb__grid">
               <button
@@ -405,7 +544,7 @@ function closeDialog() {
 
           <RCollapsible
             v-for="game in filteredCovers"
-            :key="game.name"
+            :key="`${game.provider}-${game.name}`"
             :title="game.name"
             default-open
           >
@@ -415,7 +554,7 @@ function closeDialog() {
                 :key="resource.url"
                 type="button"
                 class="r-v2-sgdb__cover"
-                @click="pickCover(resource.url)"
+                @click="pickCover(resource.url, game.provider)"
               >
                 <video
                   v-if="isAnimated(resource)"
@@ -433,6 +572,13 @@ function closeDialog() {
                   loading="lazy"
                   class="r-v2-sgdb__cover-img"
                 />
+                <span class="r-v2-sgdb__cover-provider">
+                  <img
+                    :src="gridProviderLogo(game.provider)"
+                    :alt="game.provider"
+                    class="r-v2-sgdb__cover-provider-logo"
+                  />
+                </span>
               </button>
             </div>
           </RCollapsible>
@@ -464,58 +610,77 @@ function closeDialog() {
 </template>
 
 <style scoped>
+/* Same rhythm as the match dialog's toolbar. */
 .r-v2-sgdb__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.r-v2-sgdb__providers {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 14px;
 }
-.r-v2-sgdb__search {
-  flex: 1 1 auto;
+
+.r-v2-sgdb__search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: stretch;
+}
+.r-v2-sgdb__search-row > * {
   min-width: 0;
 }
 
-/* Filter bar — wraps onto multiple rows on narrow dialogs so no control
-   is ever clipped. Each select takes a comfortable fixed width; the
-   content toggles group flows to the end. */
-.r-v2-sgdb__filters {
+.r-v2-sgdb__actions {
   display: flex;
   align-items: center;
-  gap: 8px 12px;
-  margin-bottom: 14px;
+  justify-content: space-between;
+  gap: 8px;
 }
-.r-v2-sgdb__filter {
-  flex: 0 1 160px;
-  min-width: 130px;
+
+.r-v2-sgdb__advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.r-v2-sgdb__toggles {
+
+/* The selects split the full row evenly, wrapping on narrow dialogs so
+   none is squeezed below a readable width. */
+.r-v2-sgdb__filters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-}
-/* Sort control floats left; its "off" option label sits to the left of
-   the switch so the toggle reads Relevance ↔ Most votes. */
-.r-v2-sgdb__sort {
-  display: flex;
-  align-items: center;
   gap: 8px;
 }
-.r-v2-sgdb__sort-label {
-  font-size: 13px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg);
+.r-v2-sgdb__filter {
+  flex: 1 1 0;
+  min-width: 130px;
 }
-/* Content toggles group flows to the end of the row. */
+
 .r-v2-sgdb__content-toggles {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-left: auto;
 }
 
+html[data-bp~="xs"] .r-v2-sgdb__search-row {
+  grid-template-columns: 1fr;
+}
+html[data-bp~="xs"] .r-v2-sgdb__action {
+  flex: 1 1 0;
+}
+html[data-bp~="xs"] .r-v2-sgdb__content-toggles {
+  justify-content: center;
+}
+
+/* A set min-height makes the block shrinkable in the scrolling flex body,
+   which would push the body's bottom padding out of the scroll area. */
 .r-v2-sgdb__body {
+  flex-shrink: 0;
   min-height: 280px;
 }
 
@@ -525,21 +690,10 @@ function closeDialog() {
   min-height: 280px;
 }
 
-/* Unified results stack — providers panel + per-game SGDB collapsibles
-   share the same column with one consistent gap, so the top of the
-   first SGDB collapsible sits the same distance from the providers
-   panel as the gap between consecutive collapsibles below.
-   `padding-bottom: 24px` matches the dialog body's horizontal padding
-   (24px), giving the last collapsible the same breathing room against
-   the dialog edge as the items have against the side walls. Chrome
-   doesn't always include the flex parent's `padding-bottom` in the
-   scroll area when the body uses `overflow-y: auto` with flex layout,
-   so anchoring the spacer on the inner stack keeps it reliable. */
 .r-v2-sgdb__results {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-bottom: 24px;
 }
 
 /* Flow-pack of cover cards — each tile adopts its cover's natural aspect

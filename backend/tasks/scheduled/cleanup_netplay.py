@@ -4,7 +4,7 @@ from tasks.tasks import PeriodicTask, TaskType
 
 
 class CleanupNetplayTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled netplay cleanup",
             description="Cleans up empty netplay rooms",
@@ -12,12 +12,10 @@ class CleanupNetplayTask(PeriodicTask):
             enabled=True,
             manual_run=False,
             cron_string="*/30 * * * *",  # Every 30 minutes
-            func="tasks.scheduled.cleanup_netplay.cleanup_netplay_task.run",
         )
 
     async def run(self) -> None:
         if not self.enabled:
-            self.unschedule()
             return
 
         netplay_rooms = await netplay_handler.get_all()

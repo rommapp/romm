@@ -86,6 +86,24 @@ function updateManualMetadata(
       @update:model-value="(v) => updateManualMetadata('companies', v)"
     />
     <RComboboxField
+      :model-value="manual.publishers ?? []"
+      :label="t('rom.publishers')"
+      prefix-label="stacked"
+      variant="outlined"
+      density="comfortable"
+      clearable
+      @update:model-value="(v) => updateManualMetadata('publishers', v)"
+    />
+    <RComboboxField
+      :model-value="manual.developers ?? []"
+      :label="t('rom.developers')"
+      prefix-label="stacked"
+      variant="outlined"
+      density="comfortable"
+      clearable
+      @update:model-value="(v) => updateManualMetadata('developers', v)"
+    />
+    <RComboboxField
       :model-value="manual.genres ?? []"
       :label="t('rom.genres')"
       prefix-label="stacked"

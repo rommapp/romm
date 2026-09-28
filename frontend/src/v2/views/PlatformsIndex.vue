@@ -14,7 +14,7 @@
 // blindly. When the global groupBy lands on a value with no usable
 // data on the loaded platforms, the view falls through to flat — the
 // toolbar's mode is the user's intent, not a hard requirement.
-import { RDivider, RLetterHeading, RSkeletonBlock } from "@v2/lib";
+import { RDivider, REmptyState, RLetterHeading, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -32,11 +32,11 @@ import {
   type PlatformSortKey,
   prettifyPlatformCategory,
 } from "@/v2/components/Platforms/platformListColumns";
-import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import IndexShell from "@/v2/components/shared/IndexShell.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
@@ -45,11 +45,16 @@ import { patchQuery } from "@/v2/utils/routeQuery";
 const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { allPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
+const phase = useLoadingPhase(
+  () => fetchingPlatforms.value && !allPlatforms.value.length,
+  () => !allPlatforms.value.length,
+);
 
 const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
 const searchTerm = useTileSearchUrl();
-const { isPlayable } = usePlatformPlayableChecker();
+const { isPlayable, isStreamable, isNativeSupported } =
+  usePlatformPlayableChecker();
 
 // Empty (0-game) platforms are leftovers: rows whose folder vanished from
 // disk, whose ROMs were all deleted, or that a config exclusion keeps out
@@ -103,13 +108,24 @@ const visiblePlatforms = computed<Platform[]>(() =>
 const gridRoot = ref<HTMLElement | null>(null);
 useWrapGridNav(gridRoot, { cellSelector: ".plat-tile" });
 
-// Pre-compute the playable flag per platform — sort comparator and
-// every row read this map so the column, the badge on the tile, and
-// the playable bucket all agree on a single source of truth.
+// Pre-compute the play flag per platform: sort comparator and every row
+// read this map so the column, the badge on the tile, and the playable
+// bucket all agree on a single source of truth. "Playable" here means by
+// any means: in this tab through EmulatorJS or Ruffle, on a configured
+// streaming container, or in a local emulator when the desktop shell is
+// there to launch one -- a platform with no in-browser core at all, PS2
+// being the example, is playable inside the shell and has to sort as such.
 const playableById = computed(() => {
-  const fn = isPlayable.value;
+  const playableFn = isPlayable.value;
+  const streamableFn = isStreamable.value;
+  const nativeFn = isNativeSupported.value;
   const map = new Map<number | string, boolean>();
-  for (const p of allPlatforms.value) map.set(p.id, fn(p.slug));
+  for (const p of allPlatforms.value) {
+    map.set(
+      p.id,
+      playableFn(p.slug) || streamableFn(p.slug) || nativeFn(p.slug),
+    );
+  }
   return map;
 });
 
@@ -202,44 +218,44 @@ function compareBy(
 // Toolbar group-by items — order = visual order in the segmented
 // slider (28×28 each, so 5 items still fits the toolbar comfortably on
 // desktop). Tooltips ride on `title`.
-const platformGroupByItems: GroupByItem[] = [
+const platformGroupByItems = computed<GroupByItem[]>(() => [
   {
     id: "none",
     icon: "mdi-view-agenda-outline",
-    ariaLabel: "Flat view",
-    title: "Flat view",
+    ariaLabel: t("gallery.view-flat"),
+    title: t("gallery.view-flat"),
   },
   {
     id: "letter",
     icon: "mdi-alphabetical-variant",
-    ariaLabel: "Group by letter",
-    title: "Group by letter",
+    ariaLabel: t("gallery.view-grouped"),
+    title: t("gallery.view-grouped"),
   },
   {
     id: "family",
     icon: "mdi-family-tree",
-    ariaLabel: "Group by family",
-    title: "Group by family",
+    ariaLabel: t("platform.group-by-family"),
+    title: t("platform.group-by-family"),
   },
   {
     id: "category",
     icon: "mdi-shape-outline",
-    ariaLabel: "Group by category",
-    title: "Group by category",
+    ariaLabel: t("platform.group-by-category"),
+    title: t("platform.group-by-category"),
   },
   {
     id: "generation",
     icon: "mdi-numeric",
-    ariaLabel: "Group by generation",
-    title: "Group by generation",
+    ariaLabel: t("platform.group-by-generation"),
+    title: t("platform.group-by-generation"),
   },
   {
     id: "playable",
     icon: "mdi-play-circle-outline",
-    ariaLabel: "Group by playable",
-    title: "Group by playable",
+    ariaLabel: t("platform.group-by-playable"),
+    title: t("platform.group-by-playable"),
   },
-];
+]);
 
 // Single segmented cluster left of the view controls, mirrored into the
 // kebab menu on narrow viewports by GalleryToolbar.
@@ -277,11 +293,21 @@ onMounted(() => {
   }
 });
 
+// Category contributes both the raw IGDB value and the prettified label, since
+// the label is what the UI shows ("Portable console") while the raw
+// value is what the rest of the app stores ("portable_console").
+function searchFields(p: Platform): string[] {
+  const fields = [p.display_name, p.slug, p.fs_slug];
+  if (p.category) fields.push(p.category, prettifyPlatformCategory(p.category));
+  if (p.family_name) fields.push(p.family_name);
+  return fields;
+}
+
 const filtered = computed<Platform[]>(() => {
   const term = searchTerm.value.trim().toLowerCase();
   if (!term) return visiblePlatforms.value;
   return visiblePlatforms.value.filter((p) =>
-    p.display_name.toLowerCase().includes(term),
+    searchFields(p).some((field) => field.toLowerCase().includes(term)),
   );
 });
 
@@ -370,7 +396,7 @@ const familyGroups = computed<Bucket[]>(() =>
       const slug = p.family_slug;
       const name = p.family_name;
       if (slug && name) return { key: slug, label: name };
-      return { key: "__other", label: "Other" };
+      return { key: "__other", label: t("platform.group-other") };
     },
     (a, b) => {
       if (a.key === "__other") return 1;
@@ -390,7 +416,7 @@ const categoryGroups = computed<Bucket[]>(() =>
     (p) => {
       const c = p.category;
       if (c) return { key: c, label: prettifyPlatformCategory(c) };
-      return { key: "__other", label: "Other" };
+      return { key: "__other", label: t("platform.group-other") };
     },
     (a, b) => {
       if (a.key === "__other") return 1;
@@ -415,7 +441,7 @@ const generationGroups = computed<Bucket[]>(() =>
           label: platformGenerationLabel(g),
         };
       }
-      return { key: "__unknown", label: "Unknown generation" };
+      return { key: "__unknown", label: t("platform.generation-unknown") };
     },
     (a, b) => {
       if (a.key === "__unknown") return 1;
@@ -433,8 +459,8 @@ const playableGroups = computed<Bucket[]>(() =>
     sortedForGrid.value,
     (p) =>
       playableById.value.get(p.id)
-        ? { key: "playable", label: "Playable" }
-        : { key: "not_playable", label: "Not playable" },
+        ? { key: "playable", label: t("platform.playable") }
+        : { key: "not_playable", label: t("platform.not-playable") },
     (a, b) => (a.key === "playable" ? -1 : b.key === "playable" ? 1 : 0),
   ),
 );
@@ -479,7 +505,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :group-by-items="platformGroupByItems"
         :segment-filters="segmentFilters"
         show-search
-        :search-placeholder="t('platform.search-platform')"
+        :search-placeholder="t('platform.search-placeholder')"
         @update:group-by="groupBy = $event"
         @update:layout="layout = $event"
         @update:sort-dir="gridSortDir = $event"
@@ -497,10 +523,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
     </template>
 
     <div ref="gridRoot">
-      <div
-        v-if="fetchingPlatforms && !allPlatforms.length"
-        class="r-v2-pidx__grid"
-      >
+      <div v-if="phase === 'skeleton'" class="r-v2-pidx__grid">
         <RSkeletonBlock
           v-for="n in 16"
           :key="`sk-${n}`"
@@ -510,12 +533,17 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         />
       </div>
 
-      <EmptyState
-        v-else-if="!allPlatforms.length"
-        :message="t('platform.no-platforms-empty')"
+      <REmptyState
+        v-else-if="phase === 'empty'"
+        icon="mdi-gamepad-variant-outline"
+        :title="t('platform.no-platforms-empty')"
       />
 
-      <EmptyState v-else-if="noResults" :message="noResultsMessage" />
+      <REmptyState
+        v-else-if="noResults"
+        icon="mdi-magnify-close"
+        :title="noResultsMessage"
+      />
 
       <!-- List mode — rows underneath the sticky column header (rendered
            by IndexShell via the `#listHeader` slot above). Rows surface
@@ -525,8 +553,8 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
       <div v-else-if="layout === 'list'" class="r-v2-pidx__list">
         <PlatformListRow
           v-for="p in sortedForList"
-          :key="p.id"
           :id="p.id"
+          :key="p.id"
           :slug="p.slug"
           :fs-slug="p.fs_slug"
           :display-name="p.display_name"

@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from handler.metadata.base_handler import CoverResult
 from handler.metadata.sgdb_handler import SGDBBaseHandler
 
 
@@ -106,7 +107,7 @@ class TestGetGameCoversMapping:
         ):
             result = await handler._get_game_covers(game_id=1, game_name="Test Game")
 
-        assert result == {"name": "Test Game", "resources": []}
+        assert result == CoverResult(name="Test Game", resources=[])
 
 
 class TestGetDetailsContentFilters:
@@ -134,3 +135,36 @@ class TestGetDetailsContentFilters:
         assert kwargs["is_nsfw"] == "any"
         assert kwargs["is_humor"] == "any"
         assert kwargs["is_epilepsy"] == "any"
+
+
+class TestLookupFailures:
+    @pytest.mark.asyncio
+    async def test_get_details_by_names_propagates_an_unreachable_sgdb(self):
+        """A failed lookup has to stay distinguishable from a name with no art."""
+        handler = SGDBBaseHandler()
+
+        with (
+            patch.object(
+                handler.sgdb_service,
+                "search_games",
+                AsyncMock(side_effect=RuntimeError("SteamGridDB is down")),
+            ),
+            patch.object(SGDBBaseHandler, "is_enabled", return_value=True),
+            pytest.raises(RuntimeError),
+        ):
+            await handler.get_details_by_names(["Test Game"])
+
+    @pytest.mark.asyncio
+    async def test_get_rom_by_id_propagates_an_unreachable_sgdb(self):
+        handler = SGDBBaseHandler()
+
+        with (
+            patch.object(
+                handler.sgdb_service,
+                "get_game_by_id",
+                AsyncMock(side_effect=RuntimeError("SteamGridDB is down")),
+            ),
+            patch.object(SGDBBaseHandler, "is_enabled", return_value=True),
+            pytest.raises(RuntimeError),
+        ):
+            await handler.get_rom_by_id(7)

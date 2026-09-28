@@ -1,13 +1,14 @@
 <script setup lang="ts">
-// FilesTab — browse + interact with the individual files that make up
+// FilesTab: browse + interact with the individual files that make up
 // a (potentially multi-file) ROM.
 //
 // Layout mirrors ScreenshotsSubtab / SaveDataTab / MediaTab: a vertical
-// subtab list on the left (navigation only — no inline action panel),
+// subtab list on the left (navigation only, no inline action panel),
 // and a content column on the right with a section header that hosts
-// the Upload button plus a Patch button (multi-file ROMs only). Bulk
+// the Upload button plus a Patch button (multi-file ROMs only). On phones
+// the list collapses into a folder picker in that same header row. Bulk
 // download / copy-link affordances live in the selection toolbar
-// instead — pair them with select-all.
+// instead: pair them with select-all.
 //
 // Grouping is **folder-based**: every direct subfolder of the ROM
 // becomes its own subtab, plus a "Root" subtab for files sitting
@@ -19,20 +20,18 @@
 // inside each row.
 //
 // Section header (per active subtab):
-//   * Upload — only enabled for the "manual" and "soundtrack" folders
-//     (the only places the backend supports adding files to an
-//     existing ROM today). Other subtabs render a disabled Upload
-//     button with a tooltip so the affordance is visible but truthful
-//     about its current reach.
+//   * Upload: a folder subtab supplies the destination folder.
+//   * Upload to folder: "All files" has no destination of its own, so its
+//     dialog asks for one.
 //   * Install Cache is the one exception: Upload makes no sense there,
 //     so its header hosts "Clear install cache" (danger, confirm-gated)
 //     instead.
 //
 // Content column:
 //   * Section header (Upload + Patch)
-//   * ROM-info card (size, revision, ROM-level hashes — click to copy)
-//   * Selection toolbar (select-all + per-selection Download / Copy-link
-//     — also the path for "download everything in this subtab": select
+//   * ROM-info card (size, revision, ROM-level hashes, click to copy)
+//   * Selection toolbar (select-all + per-selection Download / Copy-link,
+//     which is also the path for "download everything in this subtab": select
 //     all then act).
 //   * One row per file with checkbox, relative path, category chip,
 //     size, per-file hashes (click to copy), and per-row Download +
@@ -41,9 +40,9 @@
 // Selected files in the Files tab can be deleted by users with the
 // `rom.delete` permission. Each file is removed from disk and the DB
 // row is dropped via `DELETE /roms/{rom_id}/files/{file_id}`.
-import { RBtn, RCheckbox, REmptyState, RIcon, RTooltip } from "@v2/lib";
-import axios from "axios";
-import { computed, onMounted, ref, watch } from "vue";
+import { RBtn, RCheckbox, REmptyState } from "@v2/lib";
+import type { Emitter } from "mitt";
+import { computed, inject, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type {
@@ -54,14 +53,27 @@ import type {
 } from "@/__generated__";
 import installApi from "@/services/api/install";
 import romApi from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 import { getDownloadLink } from "@/utils";
+import SubtabNav, {
+  type SubtabNavItem,
+} from "@/v2/components/GameDetails/SubtabNav.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIdSelection } from "@/v2/composables/useIdSelection";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
+import { useRomFileUpload } from "@/v2/composables/useRomFileUpload";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
+import { errorMessage } from "@/v2/utils/errorMessage";
 import FileRow from "./FileRow.vue";
 import FilesSummary from "./FilesSummary.vue";
 import InstallCacheFileRow from "./InstallCacheFileRow.vue";
+import UploadFilesDialog, {
+  type UploadFolderOption,
+} from "./UploadFilesDialog.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -69,28 +81,21 @@ const props = defineProps<{ rom: DetailedRomSchema }>();
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
+const emitter = inject<Emitter<Events>>("emitter");
 const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
-const romsStore = storeRoms();
+const { refetchRom } = useRomSync();
+const { smAndDown } = useBreakpoint();
 
 const canUpload = useCan("rom.upload");
 const hasDeleteGrant = useCan("rom.delete");
 // `DELETE /roms/{id}/files/{file_id}` gates on ROMS_WRITE
 const canDelete = computed(() => hasDeleteGrant.value && canUpload.value);
 
-function errorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const detail = err.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    return err.message;
-  }
-  return String(err);
-}
-
 // ---------- Category metadata ----------
 // Drives per-file category chips (one per `RomFileCategory` enum
-// value). Folder→icon resolution lives in `FOLDER_META` below — it
+// value). Folder→icon resolution lives in `FOLDER_META` below; it
 // extends this with plural names and a couple of well-known folders
 // (e.g. `screenshots/`) that aren't backend categories.
 const CATEGORY_META = computed<
@@ -112,6 +117,10 @@ const CATEGORY_META = computed<
   manual: {
     label: t("rom.manual"),
     icon: "mdi-book-open-page-variant-outline",
+  },
+  walkthrough: {
+    label: t("rom.walkthrough"),
+    icon: "mdi-map-legend",
   },
   soundtrack: {
     label: t("rom.soundtrack"),
@@ -136,7 +145,7 @@ interface FolderMeta {
 const FOLDER_META = computed<Record<string, FolderMeta>>(() => {
   const c = CATEGORY_META.value;
   return {
-    // Backend categories — singular and plural variants.
+    // Backend categories: singular and plural variants.
     game: c.game,
     games: c.game,
     dlc: c.dlc,
@@ -159,6 +168,8 @@ const FOLDER_META = computed<Record<string, FolderMeta>>(() => {
     cheats: c.cheat,
     manual: c.manual,
     manuals: c.manual,
+    walkthrough: c.walkthrough,
+    walkthroughs: c.walkthrough,
     soundtrack: c.soundtrack,
     soundtracks: c.soundtrack,
     // Non-category folders that conventionally appear in ROM directories.
@@ -254,15 +265,26 @@ const files = computed<RomFileSchema[]>(() => {
   return arr;
 });
 
+// Resolved once per listing: the sort comparator, the folder grouping and
+// every row read the same path, and the template re-runs on any selection.
+const relativePaths = computed(() => {
+  const paths = new Map<number, string>();
+  for (const file of props.rom.files ?? []) {
+    paths.set(
+      file.id,
+      file.full_path.replace(props.rom.full_path, "").replace(/^\//, "") ||
+        file.file_name,
+    );
+  }
+  return paths;
+});
+
 function relativePath(file: RomFileSchema): string {
-  return (
-    file.full_path.replace(props.rom.full_path, "").replace(/^\//, "") ||
-    file.file_name
-  );
+  return relativePaths.value.get(file.id) ?? file.file_name;
 }
 
 // Path rendered in each row. Inside a folder subtab the folder name is
-// already the subtab title — strip the prefix so rows lead with the
+// already the subtab title, strip the prefix so rows lead with the
 // filename. The full relative path stays available via `relativePath`
 // for aria-labels / hover titles.
 function displayPath(file: RomFileSchema): string {
@@ -304,20 +326,6 @@ function folderMeta(folder: string): FolderMeta | null {
   return FOLDER_META.value[folder.toLowerCase()] ?? null;
 }
 
-// Backend `RomFileCategory` derived from a folder name — used to
-// pick the right upload endpoint. Plurals collapse to their singular
-// (`cheats/` → `cheat`).
-function folderToCategory(folder: string): RomFileCategory | null {
-  const lower = folder.toLowerCase();
-  const meta = FOLDER_META.value[lower];
-  if (!meta) return null;
-  // Look up the matching enum value by reverse-mapping the label.
-  for (const key of Object.keys(CATEGORY_META.value) as RomFileCategory[]) {
-    if (CATEGORY_META.value[key] === meta) return key;
-  }
-  return null;
-}
-
 function folderLabel(folder: string): string {
   if (folder === ROOT) return t("rom.folder-root");
   return folderMeta(folder)?.label ?? folder;
@@ -328,20 +336,13 @@ function folderIcon(folder: string): string {
   return folderMeta(folder)?.icon ?? "mdi-folder-outline";
 }
 
-interface SubtabDef {
-  id: Subtab;
-  label: string;
-  icon: string;
-  count: number;
-}
-
-const subtabDefs = computed<SubtabDef[]>(() => {
-  const out: SubtabDef[] = [
+const subtabDefs = computed<SubtabNavItem<Subtab>[]>(() => {
+  const out: SubtabNavItem<Subtab>[] = [
     {
       id: "all",
       label: t("rom.all-files"),
       icon: "mdi-folder-multiple-outline",
-      count: files.value.length,
+      badge: files.value.length,
     },
   ];
   // Root always sits right after "All files" so the user's eye lands
@@ -353,7 +354,7 @@ const subtabDefs = computed<SubtabDef[]>(() => {
       id: ROOT,
       label: t("rom.folder-root"),
       icon: folderIcon(ROOT),
-      count: rootList.length,
+      badge: rootList.length,
     });
   }
   // Installer Cache sits right after Root, ahead of the alphabetical
@@ -364,7 +365,7 @@ const subtabDefs = computed<SubtabDef[]>(() => {
       id: INSTALL_CACHE,
       label: t("rom.install-cache-tab"),
       icon: "mdi-cog-box",
-      count: installFiles.value.length,
+      badge: installFiles.value.length,
     });
   }
   const folders = [...filesByFolder.value.keys()]
@@ -375,7 +376,7 @@ const subtabDefs = computed<SubtabDef[]>(() => {
       id: folder,
       label: folderLabel(folder),
       icon: folderIcon(folder),
-      count: filesByFolder.value.get(folder)?.length ?? 0,
+      badge: filesByFolder.value.get(folder)?.length ?? 0,
     });
   }
   return out;
@@ -385,27 +386,12 @@ const validSubtabIds = computed(
   () => new Set(subtabDefs.value.map((s) => s.id)),
 );
 
-// Backend-supported upload destinations. Other subtabs render the
-// upload button disabled with a "coming soon" tooltip — see X.B in
-// the v2 constitution for the pending backend endpoint.
-function uploadSupportsSubtab(id: Subtab): "manual" | "soundtrack" | null {
-  if (id === "all" || id === ROOT) return null;
-  const cat = folderToCategory(id as string);
-  if (cat === "manual") return "manual";
-  if (cat === "soundtrack") return "soundtrack";
-  return null;
-}
-
 // ---------- Subtab state (URL-persisted via `?subtab=`) ----------
-function readSubtabFromRoute(): Subtab {
-  const raw = route.query.subtab;
-  if (typeof raw === "string" && validSubtabIds.value.has(raw as Subtab)) {
-    return raw as Subtab;
-  }
-  return "all";
-}
-
-const subTab = ref<Subtab>(readSubtabFromRoute());
+const subTab = useSubtabQuery<Subtab>(
+  "files",
+  (value) => validSubtabIds.value.has(value),
+  "all",
+);
 
 // If the currently-selected subtab no longer has files (e.g. after a
 // rom refresh dropped that category), snap back to "all" so the user
@@ -416,41 +402,6 @@ watch(
     if (!ids.has(subTab.value)) subTab.value = "all";
   },
   { flush: "post" },
-);
-
-watch(subTab, (value) => {
-  if (route.query.subtab !== value) {
-    router.replace({
-      path: route.path,
-      query: { ...route.query, subtab: value },
-    });
-  }
-});
-
-watch(
-  () => route.query.subtab,
-  (value) => {
-    if (
-      typeof value === "string" &&
-      validSubtabIds.value.has(value as Subtab) &&
-      value !== subTab.value
-    ) {
-      subTab.value = value as Subtab;
-    }
-  },
-);
-
-// When the user navigates away from the Files tab, drop the subtab
-// param so it doesn't leak onto sibling tabs (mirrors MediaTab).
-watch(
-  () => route.query.tab,
-  (value) => {
-    if (value !== "files" && route.query.subtab) {
-      const rest = { ...route.query };
-      delete rest.subtab;
-      router.replace({ path: route.path, query: rest });
-    }
-  },
 );
 
 // ---------- Filtered file list (driven by the active subtab) ----------
@@ -475,77 +426,44 @@ const filteredFiles = computed<RomFileSchema[]>(() => {
 });
 
 // ---------- Selection ----------
-const selectedIds = ref<Set<number>>(new Set());
+// Destructured so the template sees plain refs; a nested one is not unwrapped.
+const {
+  selected: selectedFiles,
+  count: selectedCount,
+  allSelected: visibleAllSelected,
+  someSelected: visibleSomeSelected,
+  isSelected,
+  toggle: toggleFile,
+  toggleAll: toggleVisible,
+  clear: clearSelection,
+} = useIdSelection(() => filteredFiles.value);
 
-// Reset selection whenever the active subtab or the rom changes —
+// Reset selection whenever the active subtab or the rom changes:
 // keeping selections across categories would let the user "Download
 // selected" with files invisible to them, which is surprising.
-watch([subTab, () => props.rom.id], () => {
-  selectedIds.value = new Set();
-});
-
-const selectedCount = computed(() => {
-  // Only count selections that are still in the filtered view —
-  // protects against stale ids if the underlying rom file list
-  // changes mid-selection (uploads, deletions in other tabs).
-  let n = 0;
-  for (const f of filteredFiles.value) if (selectedIds.value.has(f.id)) n++;
-  return n;
-});
+// Getters, not the refs: `subTab` is a shallowRef, and a shallow source makes
+// Vue fire the watcher on every dependency trigger, refresh included.
+watch([() => subTab.value, () => props.rom.id], clearSelection);
 
 const filteredCount = computed(() => filteredFiles.value.length);
-
-const visibleAllSelected = computed(
-  () => filteredCount.value > 0 && selectedCount.value === filteredCount.value,
-);
-
-const visibleSomeSelected = computed(
-  () => selectedCount.value > 0 && !visibleAllSelected.value,
-);
-
-function isSelected(file: RomFileSchema): boolean {
-  return selectedIds.value.has(file.id);
-}
-
-function toggleFile(file: RomFileSchema) {
-  const next = new Set(selectedIds.value);
-  if (next.has(file.id)) next.delete(file.id);
-  else next.add(file.id);
-  selectedIds.value = next;
-}
-
-function toggleVisible() {
-  const next = new Set(selectedIds.value);
-  if (visibleAllSelected.value) {
-    for (const f of filteredFiles.value) next.delete(f.id);
-  } else {
-    for (const f of filteredFiles.value) next.add(f.id);
-  }
-  selectedIds.value = next;
-}
-
-function clearSelection() {
-  selectedIds.value = new Set();
-}
-
-const selectedFiles = computed<RomFileSchema[]>(() =>
-  filteredFiles.value.filter((f) => selectedIds.value.has(f.id)),
-);
+const showUpload = computed(() => filteredCount.value > 0 && canUpload.value);
 
 // ---------- Clipboard helper ----------
 // Used by the per-subtab + per-selection copy-link buttons; per-file
 // hash copying lives in HashChip itself.
 async function copyDownloadLink(url: string) {
-  try {
-    await navigator.clipboard.writeText(url);
-    snackbar.success(t("rom.download-link-copied"), {
-      icon: "mdi-check-bold",
-    });
-  } catch {
-    snackbar.error(t("rom.download-link-copy-failed"), {
-      icon: "mdi-close-circle",
-    });
+  const copied =
+    !!navigator.clipboard &&
+    window.isSecureContext &&
+    (await navigator.clipboard.writeText(url).then(
+      () => true,
+      () => false,
+    ));
+  if (!copied) {
+    emitter?.emit("showCopyDownloadLinkDialog", url);
+    return;
   }
+  snackbar.success(t("rom.download-link-copied"), { icon: "mdi-check-bold" });
 }
 
 // ---------- Actions ----------
@@ -578,8 +496,7 @@ async function copySelectedLink() {
 }
 
 // ---------- Delete ----------
-async function deleteSelectedFiles() {
-  const toDelete = selectedFiles.value;
+async function deleteFiles(toDelete: RomFileSchema[]) {
   if (toDelete.length === 0) return;
 
   const ok = await confirm({
@@ -618,12 +535,11 @@ async function deleteSelectedFiles() {
     );
   }
 
-  clearSelection();
-  await refreshRom();
+  const refreshed = await refreshRom();
 
   // Redirect to the gallery if no files remain after deletion.
   const platformSlug = route.params["platform"] as string | undefined;
-  if (romsStore.currentRom && romsStore.currentRom.files?.length === 0) {
+  if (refreshed?.files?.length === 0) {
     if (platformSlug) {
       await router.push({
         name: "platform",
@@ -635,199 +551,86 @@ async function deleteSelectedFiles() {
   }
 }
 
-// ---------- Upload ----------
-// One hidden `<input>` per supported target so each subtab's upload
-// button can route through the matching backend endpoint without a
-// dialog. Folder-based ROMs only — `uploadManualFiles` and
-// `uploadSoundtracks` both 400 on single-file ROMs.
-const manualUploadInput = ref<HTMLInputElement | null>(null);
-const soundtrackUploadInput = ref<HTMLInputElement | null>(null);
-const uploadingManual = ref(false);
-const uploadingSoundtrack = ref(false);
+async function deleteSelectedFiles() {
+  const toDelete = selectedFiles.value;
+  if (toDelete.length === 0) return;
+  clearSelection();
+  await deleteFiles(toDelete);
+}
 
-const uploadDisabledReason = computed<string | null>(() => {
-  if (props.rom.has_simple_single_file) {
-    return t("rom.upload-needs-folder");
-  }
-  return null;
+// ---------- Upload ----------
+// One hidden `<input>` serves every folder: the active subtab decides
+// the destination, and the dialog covers "All files" or a new folder.
+const fileInput = ref<HTMLInputElement | null>(null);
+const { uploading, uploadFiles: uploadRomFiles } = useRomFileUpload();
+const uploadDialogOpen = ref(false);
+const alive = useIsAlive();
+
+// Root is always a destination, even before any file sits there.
+const uploadFolders = computed<UploadFolderOption[]>(() => [
+  { value: "", label: folderLabel(ROOT), icon: folderIcon(ROOT) },
+  ...subtabDefs.value
+    .filter((s) => s.id !== "all" && s.id !== ROOT)
+    .map((s) => ({ value: s.id, label: s.label, icon: folderIcon(s.id) })),
+]);
+
+// Destination implied by the active subtab: "" for the ROM root, null
+// when there is none ("All files") and the dialog has to ask.
+const activeUploadFolder = computed<string | null>(() => {
+  if (subTab.value === "all") return null;
+  if (subTab.value === ROOT) return "";
+  return subTab.value;
 });
 
 function triggerUpload() {
-  const target = uploadSupportsSubtab(subTab.value);
-  if (!target) return;
-  if (uploadDisabledReason.value) return;
-  if (target === "manual") manualUploadInput.value?.click();
-  else soundtrackUploadInput.value?.click();
+  if (uploading.value) return;
+  fileInput.value?.click();
 }
 
-async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    romsStore.update(data);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-async function onManualUpload(event: Event) {
+function onFilePick(event: Event) {
   const input = event.target as HTMLInputElement;
-  const fileList = input.files ? Array.from(input.files) : [];
+  const picked = input.files ? Array.from(input.files) : [];
   input.value = "";
-  if (fileList.length === 0 || uploadingManual.value) return;
-
-  uploadingManual.value = true;
-  try {
-    const responses = await romApi.uploadManualFiles({
-      romId: props.rom.id,
-      filesToUpload: fileList,
-    });
-    const successful = responses.filter((r) => r.status === "fulfilled").length;
-    const failed = responses.length - successful;
-    if (successful > 0) {
-      snackbar.success(
-        failed
-          ? t("rom.manual-files-uploaded-with-failed", successful, {
-              named: { n: successful, failed },
-            })
-          : t("rom.manual-files-uploaded-n", successful, {
-              named: { n: successful },
-            }),
-        { icon: "mdi-check-bold" },
-      );
-      await refreshRom();
-    } else {
-      snackbar.warning(t("rom.no-files-uploaded"), {
-        icon: "mdi-close-circle",
-      });
-    }
-  } finally {
-    uploadingManual.value = false;
-  }
+  if (picked.length === 0) return;
+  void uploadFiles(activeUploadFolder.value ?? "", picked);
 }
 
-async function onSoundtrackUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const fileList = input.files ? Array.from(input.files) : [];
-  input.value = "";
-  if (fileList.length === 0 || uploadingSoundtrack.value) return;
-
-  uploadingSoundtrack.value = true;
-  try {
-    const responses = await romApi.uploadSoundtracks({
-      romId: props.rom.id,
-      filesToUpload: fileList,
-    });
-    const successful = responses.filter((r) => r.status === "fulfilled").length;
-    const failed = responses.length - successful;
-    if (successful > 0) {
-      snackbar.success(
-        failed
-          ? t("rom.tracks-uploaded-with-failed", successful, {
-              named: { n: successful, failed },
-            })
-          : t("rom.tracks-uploaded-n", successful, {
-              named: { n: successful },
-            }),
-        { icon: "mdi-check-bold" },
-      );
-      await refreshRom();
-    } else {
-      snackbar.warning(t("rom.no-tracks-uploaded"), {
-        icon: "mdi-close-circle",
-      });
-    }
-  } finally {
-    uploadingSoundtrack.value = false;
-  }
+function onDialogSubmit(payload: { folder: string; files: File[] }) {
+  uploadDialogOpen.value = false;
+  void uploadFiles(payload.folder, payload.files);
 }
 
-// Upload affordance for the active subtab — drives the header's
-// Upload button (enabled / loading) plus the tooltip surfaced when the
-// folder isn't a backend-supported upload target.
-interface SubtabUploadState {
-  /** Whether the button should be clickable. */
-  enabled: boolean;
-  /** Tooltip surfaced when disabled, null otherwise. */
-  reason: string | null;
-  /** Show a spinner while an upload is in flight. */
-  loading: boolean;
+async function uploadFiles(folder: string, picked: File[]) {
+  if (uploading.value) return;
+  const { uploaded } = await uploadRomFiles(props.rom, folder, picked);
+  if (!alive.value || uploaded === 0) return;
+  const landed = folder.split("/")[0];
+  if (landed && validSubtabIds.value.has(landed)) subTab.value = landed;
 }
 
-const currentUploadState = computed<SubtabUploadState>(() => {
-  const target = uploadSupportsSubtab(subTab.value);
-  if (!target) {
-    return {
-      enabled: false,
-      reason: t("rom.upload-not-supported-here"),
-      loading: false,
-    };
-  }
-  if (uploadDisabledReason.value) {
-    return {
-      enabled: false,
-      reason: uploadDisabledReason.value,
-      loading: false,
-    };
-  }
-  return {
-    enabled: true,
-    reason: null,
-    loading:
-      target === "manual" ? uploadingManual.value : uploadingSoundtrack.value,
-  };
-});
+function refreshRom() {
+  return refetchRom(props.rom.id);
+}
 </script>
 
 <template>
-  <!-- Hidden file inputs drive the per-subtab upload buttons. Only the
-       Manual / Soundtrack subtabs have a working backend pathway right
-       now — see `uploadSupportsSubtab` in the script. -->
   <input
-    ref="manualUploadInput"
+    ref="fileInput"
     type="file"
-    accept="application/pdf,.md"
     multiple
     class="r-v2-files__file-input"
-    :aria-label="t('rom.upload-manual-files')"
-    @change="onManualUpload"
+    :aria-label="t('common.upload')"
+    @change="onFilePick"
   />
-  <input
-    ref="soundtrackUploadInput"
-    type="file"
-    accept="audio/*,.flac,.opus"
-    multiple
-    class="r-v2-files__file-input"
-    :aria-label="t('rom.upload-soundtrack-files')"
-    @change="onSoundtrackUpload"
+  <UploadFilesDialog
+    v-model="uploadDialogOpen"
+    :folders="uploadFolders"
+    @submit="onDialogSubmit"
   />
 
   <div class="r-v2-files">
-    <aside class="r-v2-files__sidebar">
-      <ul
-        class="r-v2-files__subtabs"
-        role="tablist"
-        aria-orientation="vertical"
-      >
-        <li v-for="tab in subtabDefs" :key="tab.id" class="r-v2-files__subtab">
-          <button
-            type="button"
-            role="tab"
-            class="r-v2-files__subtab-btn"
-            :class="{
-              'r-v2-files__subtab-btn--active': subTab === tab.id,
-            }"
-            :aria-selected="subTab === tab.id"
-            @click="subTab = tab.id"
-          >
-            <RIcon :icon="tab.icon" size="16" />
-            <span class="r-v2-files__subtab-label">{{ tab.label }}</span>
-            <span v-if="tab.count > 0" class="r-v2-files__subtab-badge">
-              {{ tab.count }}
-            </span>
-          </button>
-        </li>
-      </ul>
+    <aside v-if="!smAndDown" class="r-v2-files__sidebar">
+      <SubtabNav v-model="subTab" :items="subtabDefs" />
     </aside>
 
     <div v-if="subTab === INSTALL_CACHE" class="r-v2-files__content">
@@ -837,10 +640,20 @@ const currentUploadState = computed<SubtabUploadState>(() => {
            link per file (see InstallCacheFileRow). Upload makes no sense
            here, so the header hosts Clear install cache instead. -->
       <header
-        v-if="installFiles && installFiles.length > 0"
+        v-if="smAndDown || (installFiles && installFiles.length > 0)"
         class="r-v2-files__section-head"
       >
-        <div class="r-v2-files__section-actions">
+        <SubtabNav
+          v-if="smAndDown"
+          v-model="subTab"
+          :items="subtabDefs"
+          variant="menu"
+          class="r-v2-files__subtab-menu"
+        />
+        <div
+          v-if="installFiles && installFiles.length > 0"
+          class="r-v2-files__section-actions"
+        >
           <RBtn
             variant="outlined"
             size="small"
@@ -881,39 +694,47 @@ const currentUploadState = computed<SubtabUploadState>(() => {
     </div>
 
     <div v-else class="r-v2-files__content">
-      <!-- Section header — the sidebar's subtab label already names the
-           section, so the header skips a redundant title and just hosts
-           the Upload button on the right. Download-all / Copy-link are
-           covered by the selection toolbar below (select-all then act). -->
-      <header
-        v-if="filteredFiles.length > 0 && canUpload"
-        class="r-v2-files__section-head"
-      >
-        <div class="r-v2-files__section-actions">
-          <div class="r-v2-files__upload-slot">
-            <RBtn
-              variant="outlined"
-              size="small"
-              prepend-icon="mdi-cloud-upload-outline"
-              :disabled="!currentUploadState.enabled"
-              :loading="currentUploadState.loading"
-              @click="triggerUpload"
-            >
-              {{ t("common.upload") }}
-            </RBtn>
-            <RTooltip
-              v-if="currentUploadState.reason"
-              :text="currentUploadState.reason ?? ''"
-              location="bottom"
-              activator="parent"
-            />
-          </div>
+      <!-- No title: the subtab nav already names the section. Bulk download
+           and copy-link live in the selection toolbar below. -->
+      <header v-if="smAndDown || showUpload" class="r-v2-files__section-head">
+        <SubtabNav
+          v-if="smAndDown"
+          v-model="subTab"
+          :items="subtabDefs"
+          variant="menu"
+          class="r-v2-files__subtab-menu"
+        />
+        <div v-if="showUpload" class="r-v2-files__section-actions">
+          <RBtn
+            v-if="activeUploadFolder === null"
+            variant="outlined"
+            size="small"
+            :density="smAndDown ? 'comfortable' : undefined"
+            prepend-icon="mdi-folder-upload-outline"
+            :disabled="uploading"
+            :loading="uploading"
+            @click="uploadDialogOpen = true"
+          >
+            {{ t("rom.upload-to-folder") }}
+          </RBtn>
+          <RBtn
+            v-else
+            variant="outlined"
+            size="small"
+            :density="smAndDown ? 'comfortable' : undefined"
+            prepend-icon="mdi-cloud-upload-outline"
+            :disabled="uploading"
+            :loading="uploading"
+            @click="triggerUpload"
+          >
+            {{ t("common.upload") }}
+          </RBtn>
         </div>
       </header>
 
       <FilesSummary :rom="rom" />
 
-      <!-- Selection toolbar — pinned above the list. Always visible
+      <!-- Selection toolbar: pinned above the list. Always visible
            so the select-all checkbox stays predictable; the per-
            selection action buttons fade in only when something is
            checked. -->
@@ -929,7 +750,7 @@ const currentUploadState = computed<SubtabUploadState>(() => {
           <span class="r-v2-files__toolbar-status">
             <template v-if="selectedCount > 0">
               {{
-                t("rom.files-selected-of", {
+                t("rom.selected-of", {
                   selected: selectedCount,
                   total: filteredCount,
                 })
@@ -947,39 +768,41 @@ const currentUploadState = computed<SubtabUploadState>(() => {
 
         <div v-if="selectedCount > 0" class="r-v2-files__toolbar-actions">
           <RBtn
-            variant="outlined"
-            prepend-icon="mdi-cloud-download-outline"
+            icon="mdi-cloud-download-outline"
+            variant="text"
             size="small"
+            :disabled="rom.missing_from_fs"
+            :tooltip="t('rom.download-selected')"
+            :aria-label="t('rom.download-selected')"
             @click="downloadSelected"
-          >
-            {{ t("rom.download-selected") }}
-          </RBtn>
+          />
           <RBtn
-            variant="outlined"
-            prepend-icon="mdi-link-variant"
+            icon="mdi-link-variant"
+            variant="text"
             size="small"
+            :disabled="rom.missing_from_fs"
+            :tooltip="t('rom.copy-link-action')"
+            :aria-label="t('rom.copy-link-action')"
             @click="copySelectedLink"
-          >
-            {{ t("rom.copy-link-action") }}
-          </RBtn>
+          />
           <RBtn
             v-if="canDelete"
+            icon="mdi-delete-outline"
             variant="text"
             color="danger"
-            prepend-icon="mdi-delete-outline"
             size="small"
+            :tooltip="t('common.delete')"
+            :aria-label="t('common.delete')"
             @click="deleteSelectedFiles"
-          >
-            {{ t("common.delete") }}
-          </RBtn>
+          />
           <RBtn
+            icon="mdi-close"
             variant="text"
-            prepend-icon="mdi-close"
             size="small"
+            :tooltip="t('common.clear')"
+            :aria-label="t('common.clear')"
             @click="clearSelection"
-          >
-            {{ t("common.clear") }}
-          </RBtn>
+          />
         </div>
       </div>
 
@@ -1000,12 +823,15 @@ const currentUploadState = computed<SubtabUploadState>(() => {
           :file="file"
           :display-path="displayPath(file)"
           :relative-path="relativePath(file)"
-          :selected="isSelected(file)"
+          :selected="isSelected(file.id)"
           :show-row-icon="subTab === 'all'"
           :show-category-badge="subTab === 'all'"
-          @toggle="toggleFile(file)"
+          :can-delete="canDelete"
+          :missing="rom.missing_from_fs"
+          @toggle="toggleFile(file.id)"
           @download="downloadFile(file)"
           @copy-link="copyFileLink(file)"
+          @delete="deleteFiles([file])"
         />
       </ul>
     </div>
@@ -1019,7 +845,7 @@ const currentUploadState = computed<SubtabUploadState>(() => {
   gap: 24px;
   /* Anchor the FilesTab to `.r-v2-det__panel`'s visible viewport
      via absolute positioning rather than `height: 100%`. The panel
-     has `overflow-y: auto`, which is a scroll container — percentage
+     has `overflow-y: auto`, which is a scroll container, percentage
      heights against such a parent flake (resolve to min-content when
      the descendant grid's intrinsic height grows under many files),
      and the file list ends up pushing the panel's outer scrollbar.
@@ -1033,97 +859,28 @@ const currentUploadState = computed<SubtabUploadState>(() => {
 .r-v2-files__sidebar {
   width: 220px;
   flex-shrink: 0;
-  /* Independent scroll context for the subtab list — without
-     `min-height: 0` + an `overflow-y: auto` child, ROMs with many
-     subfolders push tabs past the panel's visible area and they
-     become unreachable. */
+  /* Caps the subtab list to the panel height so it scrolls on its own;
+     otherwise ROMs with many subfolders push tabs out of reach. */
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-/* Subtab list — visually identical to MediaTab/SaveDataTab so the
-   three tabs share a single navigation vocabulary. Scrolls internally
-   when the folder count exceeds the available vertical space. */
-.r-v2-files__subtabs {
-  list-style: none;
-  margin: 0;
-  padding: 0 4px 4px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--r-color-border-strong) transparent;
-}
-.r-v2-files__subtabs::-webkit-scrollbar {
-  width: 4px;
-}
-.r-v2-files__subtabs::-webkit-scrollbar-thumb {
-  background: var(--r-color-border-strong);
-  border-radius: 2px;
-}
-.r-v2-files__subtab {
-  display: flex;
-  flex-direction: column;
-}
-.r-v2-files__subtab-btn {
-  width: 100%;
-  appearance: none;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--r-radius-md);
-  color: var(--r-color-fg-muted);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: var(--r-font-weight-medium);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-files__subtab-btn:hover {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
-}
-.r-v2-files__subtab-btn--active {
-  background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
-  color: var(--r-color-brand-primary);
-}
-.r-v2-files__subtab-label {
-  flex: 1;
-}
-.r-v2-files__subtab-badge {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, currentColor 18%, transparent);
-}
-
-/* Hidden file inputs sit at the template root so the visible buttons
-   can `.click()` them — display:none works fine since we never need
-   them to be tabbable directly. */
+/* The hidden file input sits at the template root so the visible button
+   can `.click()` it; display:none works fine since it never needs to be
+   tabbable directly. */
 .r-v2-files__file-input {
   display: none;
 }
 
-/* Section header — toolbar row at the top of the content column,
-   mirroring ScreenshotsSubtab / MediaTab. The sidebar's subtab label
-   names the section, so the header has no title — only the action
-   cluster pushed to the right. */
 .r-v2-files__section-head {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+}
+.r-v2-files__subtab-menu {
+  flex: 1;
 }
 .r-v2-files__section-actions {
   margin-left: auto;
@@ -1134,20 +891,13 @@ const currentUploadState = computed<SubtabUploadState>(() => {
   justify-content: flex-end;
 }
 
-/* Wrapper around the Upload button so RTooltip can attach to a
-   non-disabled positioned ancestor; pointer-events on the disabled
-   button itself swallow the tooltip's hover detection. */
-.r-v2-files__upload-slot {
-  position: relative;
-}
-
 .r-v2-files__content {
   flex: 1;
   min-width: 0;
   /* Grid (auto / auto / auto / 1fr) instead of flex column: the `1fr`
      row forces the list to clip + scroll internally even with many
      files. Flex `min-height: 0` + `overflow-y: auto` on the list was
-     unreliable here — the list's intrinsic min-content kept leaking
+     unreliable here: the list's intrinsic min-content kept leaking
      through and pushed `.r-v2-det__panel` into showing its outer
      scrollbar. Rows: section header, summary, selection toolbar, list. */
   display: grid;
@@ -1192,10 +942,10 @@ const currentUploadState = computed<SubtabUploadState>(() => {
   gap: 4px;
 }
 
-/* File rows — sole scrollable area. Sits in the grid's `1fr` track,
+/* File rows: sole scrollable area. Sits in the grid's `1fr` track,
    so the track width determines its size; `min-height: 0` lets the
    grid track shrink under min-content and `overflow-y: auto` keeps
-   the rows scrolling inside. No `flex: 1` — grid items don't honour
+   the rows scrolling inside. No `flex: 1`, grid items don't honour
    flex shorthand and it muddies the contract. */
 .r-v2-files__list {
   display: flex;
@@ -1219,22 +969,12 @@ const currentUploadState = computed<SubtabUploadState>(() => {
 
 /* Mobile: the details view scrolls as one document (no fixed inner panel),
    so FilesTab can't pin itself to a scroll viewport (`absolute; inset: 0`
-   would collapse to zero height). Unwind it: stack the folder sidebar above
-   the file list and drop every internal scroll so it flows with the page. */
+   would collapse to zero height). Unwind it and drop every internal scroll so
+   the list flows with the page. */
 html[data-bp~="sm-and-down"] .r-v2-files {
   position: static;
   inset: auto;
   overflow: visible;
-  flex-direction: column;
-  gap: 14px;
-}
-html[data-bp~="sm-and-down"] .r-v2-files__sidebar {
-  width: auto;
-}
-html[data-bp~="sm-and-down"] .r-v2-files__subtabs {
-  flex: none;
-  min-height: 0;
-  overflow-y: visible;
 }
 html[data-bp~="sm-and-down"] .r-v2-files__content {
   display: flex;
@@ -1248,13 +988,6 @@ html[data-bp~="sm-and-down"] .r-v2-files__list {
 
 /* (File-row styles moved to the FileRow component.) */
 
-html[data-bp~="xs"] .r-v2-files {
-  flex-direction: column;
-  gap: 14px;
-}
-html[data-bp~="xs"] .r-v2-files__sidebar {
-  width: auto;
-}
 html[data-bp~="xs"] .r-v2-files__toolbar {
   flex-wrap: wrap;
 }

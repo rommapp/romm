@@ -1,0 +1,40 @@
+name: Set up the backend
+description: Install the MariaDB connector, uv, the pinned Python and the locked backend dependencies.
+
+inputs:
+  sync-args:
+    description: Extra arguments for `uv sync --locked`, such as `--extra test`
+    required: false
+    default: ""
+  apt-packages:
+    description: Extra apt packages to install alongside the MariaDB connector
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # The mariadb package ships only an sdist on Linux, so uv builds it against these.
+    - name: Install the MariaDB connector
+      shell: bash
+      env:
+        APT_PACKAGES: ${{ inputs.apt-packages }}
+      run: |
+        read -ra extra <<<"$APT_PACKAGES"
+        sudo apt-get update
+        sudo apt-get install -y libmariadb3 libmariadb-dev "${extra[@]}"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+    - name: Install Python
+      shell: bash
+      run: uv python install
+
+    - name: Install backend dependencies
+      shell: bash
+      env:
+        SYNC_ARGS: ${{ inputs.sync-args }}
+      run: |
+        read -ra args <<<"$SYNC_ARGS"
+        uv sync --locked "${args[@]}"

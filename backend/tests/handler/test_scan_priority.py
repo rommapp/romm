@@ -4,6 +4,7 @@ from unittest.mock import patch
 from handler.scan_handler import (
     MetadataSource,
     get_priority_ordered_metadata_sources,
+    scene_apply_sources,
 )
 
 
@@ -40,6 +41,16 @@ def test_per_field_override_reorders_only_that_field():
     assert screenshots == [MetadataSource.IGDB, MetadataSource.SS]
 
 
+def test_a_source_listed_twice_keeps_its_first_position():
+    """A repeated config entry must not hand a provider two slots."""
+    config = _fake_config(url_cover=["sgdb", "steam", "sgdb"])
+    available = [MetadataSource.STEAM, MetadataSource.SGDB]
+    with patch("handler.scan_handler.cm.get_config", return_value=config):
+        ordered = get_priority_ordered_metadata_sources(available, "url_cover")
+
+    assert ordered == [MetadataSource.SGDB, MetadataSource.STEAM]
+
+
 def test_sources_absent_from_priority_are_appended():
     """Available sources not named in the priority list still appear, last."""
     available = [MetadataSource.SS, MetadataSource.MOBY, MetadataSource.LAUNCHBOX]
@@ -69,3 +80,45 @@ def test_metadata_priority_is_unaffected_by_artwork_overrides():
         ordered = get_priority_ordered_metadata_sources(available, "metadata")
 
     assert ordered == [MetadataSource.IGDB, MetadataSource.SS]
+
+
+def test_scene_match_drops_similar_game_sources():
+    """Demozoo/Pouët must not inherit a similarly titled game's box art."""
+    available = [
+        MetadataSource.IGDB,
+        MetadataSource.MOBY,
+        MetadataSource.DEMOZOO,
+        MetadataSource.POUET,
+        MetadataSource.SS,
+    ]
+    assert scene_apply_sources(available) == [
+        MetadataSource.DEMOZOO,
+        MetadataSource.POUET,
+    ]
+
+
+def test_csdb_only_still_locks():
+    available = [MetadataSource.IGDB, MetadataSource.CSDB]
+    assert scene_apply_sources(available) == [MetadataSource.CSDB]
+
+
+def test_scene_lock_is_a_no_op_for_regular_games():
+    """Games without a Demozoo/Pouët id keep fuzzy catalog matching."""
+    available = [MetadataSource.IGDB, MetadataSource.MOBY, MetadataSource.SS]
+    assert scene_apply_sources(available) == available
+
+
+def test_pouet_only_still_locks():
+    available = [MetadataSource.IGDB, MetadataSource.POUET]
+    assert scene_apply_sources(available) == [MetadataSource.POUET]
+
+
+def test_persisted_scene_lock_survives_an_empty_scene_lookup():
+    """An unreachable provider must not hand a known production to the catalogs."""
+    available = [MetadataSource.IGDB, MetadataSource.MOBY]
+    assert scene_apply_sources(available, scene_locked=True) == []
+
+
+def test_scene_lock_keeps_this_scans_match():
+    available = [MetadataSource.IGDB, MetadataSource.DEMOZOO]
+    assert scene_apply_sources(available, scene_locked=True) == [MetadataSource.DEMOZOO]

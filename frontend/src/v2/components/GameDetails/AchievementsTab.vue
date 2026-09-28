@@ -3,6 +3,7 @@
 // list. The "earned" set comes from the parent (computed off
 // auth.user.ra_progression so it stays reactive); rows look up by
 // `badge_id` against the set in O(1).
+import { REmptyState } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RAGameRomAchievement, RomRAMetadata } from "@/__generated__";
@@ -100,9 +101,11 @@ function achievementTypeLabel(type: string | null | undefined): string {
 
 <template>
   <section class="r-v2-det-ach">
-    <div v-if="!achievements.length" class="r-v2-det-ach__empty">
-      {{ t("rom.achievements-no-data") }}
-    </div>
+    <REmptyState
+      v-if="!achievements.length"
+      icon="mdi-trophy-outline"
+      :title="t('rom.achievements-no-data')"
+    />
 
     <template v-else>
       <header class="r-v2-det-ach__summary">
@@ -222,14 +225,6 @@ function achievementTypeLabel(type: string | null | undefined): string {
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.r-v2-det-ach__empty {
-  padding: 30px 0;
-  color: var(--r-color-fg-faint);
-  font-size: 13px;
-  font-style: italic;
-  text-align: center;
 }
 
 /* ── Summary ─────────────────────────────────────────── */

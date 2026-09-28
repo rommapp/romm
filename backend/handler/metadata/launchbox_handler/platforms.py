@@ -1,6 +1,7 @@
 from typing import TypedDict
 
-from ..base_handler import UniversalPlatformSlug as UPS
+from utils.platform_slugs import UniversalPlatformSlug as UPS
+
 from .types import LaunchboxPlatform
 
 

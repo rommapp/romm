@@ -3,12 +3,10 @@
 // (body rows) so the title row and every row underneath line up and
 // surface the same sortable columns.
 //
-// Four columns: name (stretches) + kind (120px, standard/smart/virtual)
-// + visibility (120px, public/private; display-only) + game count
-// (96px, right-aligned).
+// Three columns: name (stretches) + kind (120px, standard/smart/virtual)
+// + game count (96px, right-aligned).
 
-export type CollectionListSortKey =
-  "name" | "kind" | "visibility" | "rom_count";
+export type CollectionListSortKey = "name" | "kind" | "rom_count";
 
 export interface CollectionListColumn {
   /** Unique column id. */
@@ -24,12 +22,6 @@ export const COLLECTION_LIST_COLUMNS: readonly CollectionListColumn[] = [
   { key: "name", labelKey: "common.name", sortKey: "name", align: "start" },
   { key: "kind", labelKey: "common.kind", sortKey: "kind", align: "start" },
   {
-    key: "visibility",
-    labelKey: "common.visibility",
-    sortKey: "visibility",
-    align: "start",
-  },
-  {
     key: "rom_count",
     labelKey: "common.games",
     sortKey: "rom_count",
@@ -37,4 +29,4 @@ export const COLLECTION_LIST_COLUMNS: readonly CollectionListColumn[] = [
   },
 ];
 
-export const COLLECTION_LIST_GRID_TEMPLATE = "minmax(0, 1fr) 120px 120px 96px";
+export const COLLECTION_LIST_GRID_TEMPLATE = "minmax(0, 1fr) 120px 96px";

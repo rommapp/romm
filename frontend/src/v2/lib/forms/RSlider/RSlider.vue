@@ -30,6 +30,12 @@ interface Props {
   valueSuffix?: string;
   /** Render tick dots along the track (every `step`). */
   showTicks?: boolean;
+  /** Stand the track upright, filling the slider's height (set one on it).
+   *  Meant for a bare track: pair with `valuePosition="none"`. */
+  vertical?: boolean;
+  /** Media scrubber look: a thin track whose solid thumb fades in on hover,
+   *  keyboard focus or drag. */
+  scrubber?: boolean;
   /** ARIA label when no visible label exists. */
   ariaLabel?: string;
 }
@@ -45,6 +51,8 @@ const props = withDefaults(defineProps<Props>(), {
   valuePosition: "none",
   valueSuffix: "",
   showTicks: false,
+  vertical: false,
+  scrubber: false,
   ariaLabel: undefined,
 });
 
@@ -129,6 +137,44 @@ function onPointerUp() {
 function onChange() {
   emit("end", props.modelValue);
 }
+
+// Touch browsers don't drag a rotated range input, so the vertical slider
+// reads the pointer itself; the native input still serves keys and a11y.
+const THUMB_SIZE = 14;
+
+function valueAtPointer(evt: PointerEvent): number {
+  const rect = (evt.currentTarget as HTMLElement).getBoundingClientRect();
+  const travel = rect.height - THUMB_SIZE;
+  const ratio = (rect.bottom - THUMB_SIZE / 2 - evt.clientY) / travel;
+  const range = props.max - props.min;
+  const raw = props.min + Math.max(0, Math.min(1, ratio)) * range;
+  const stepped =
+    props.min + Math.round((raw - props.min) / props.step) * props.step;
+  return Math.max(props.min, Math.min(props.max, stepped));
+}
+
+function onVerticalPointerDown(evt: PointerEvent) {
+  if (props.disabled || props.readonly) return;
+  (evt.currentTarget as HTMLElement).setPointerCapture(evt.pointerId);
+  dragging.value = true;
+  emit("start", props.modelValue);
+  emit("update:modelValue", valueAtPointer(evt));
+}
+
+function onVerticalPointerMove(evt: PointerEvent) {
+  if (dragging.value) emit("update:modelValue", valueAtPointer(evt));
+}
+
+const verticalListeners = computed(() =>
+  props.vertical
+    ? {
+        pointerdown: onVerticalPointerDown,
+        pointermove: onVerticalPointerMove,
+        pointerup: onPointerUp,
+        pointercancel: onPointerUp,
+      }
+    : {},
+);
 </script>
 
 <template>
@@ -141,6 +187,8 @@ function onChange() {
         'r-slider--disabled': disabled,
         'r-slider--readonly': readonly,
         'r-slider--dragging': dragging,
+        'r-slider--vertical': vertical,
+        'r-slider--scrubber': scrubber,
       },
     ]"
     :style="{
@@ -148,6 +196,7 @@ function onChange() {
       '--r-slider-percent': `${percent}%`,
       '--r-slider-percent-num': String(percent),
     }"
+    v-on="verticalListeners"
   >
     <span v-if="showLeftBadge" class="r-slider__badge r-slider__badge--left">
       <slot name="value" :value="modelValue" :percent="percent">
@@ -168,7 +217,7 @@ function onChange() {
         :aria-valuemin="min"
         :aria-valuemax="max"
         :aria-valuenow="modelValue"
-        :aria-orientation="'horizontal'"
+        :aria-orientation="vertical ? 'vertical' : 'horizontal'"
         :aria-readonly="readonly || undefined"
         @input="onInput"
         @change="onChange"
@@ -229,6 +278,27 @@ function onChange() {
   cursor: not-allowed;
 }
 
+/* Vertical: the track stands on end, as tall as the slider; touch gestures
+   are claimed so a vertical drag moves the thumb, never the page. */
+.r-slider--vertical {
+  position: relative;
+  width: 32px;
+  height: 100%;
+  container-type: size;
+  touch-action: none;
+  cursor: pointer;
+}
+.r-slider--vertical .r-slider__native {
+  pointer-events: none;
+}
+.r-slider--vertical .r-slider__core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100cqh;
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
 .r-slider__core {
   position: relative;
   flex: 1 1 auto;
@@ -285,16 +355,15 @@ function onChange() {
     color-mix(in srgb, var(--r-slider-accent) 55%, transparent);
 }
 
-/* WebKit — thumb. `margin-top` centres it on the 5 px track (thumb
-   height − track height = 14 − 5 = 9 → −9/2 = −4.5; the border adds 2
-   px each side so we end at −5.5). */
+/* WebKit thumb. `margin-top` centres it on the 5px track: with its 1px border
+   the 14px thumb is 16px tall, and (5 - 16) / 2 = -5.5. */
 .r-slider__native::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
   width: 14px;
   height: 14px;
   background: var(--r-slider-accent);
-  border: 2px solid var(--r-color-fg);
+  border: 1px solid var(--r-color-fg);
   border-radius: 50%;
   margin-top: -5.5px;
   box-shadow: var(--r-elev-1);
@@ -340,7 +409,7 @@ function onChange() {
   width: 14px;
   height: 14px;
   background: var(--r-slider-accent);
-  border: 2px solid var(--r-color-fg);
+  border: 1px solid var(--r-color-fg);
   border-radius: 50%;
   box-shadow: var(--r-elev-1);
   cursor: pointer;
@@ -361,6 +430,56 @@ function onChange() {
   .r-slider__native::-moz-range-thumb {
   transform: scale(1.28);
   background: color-mix(in srgb, var(--r-slider-accent), white 14%);
+}
+
+/* Scrubber: the thumb fades in through a variable the hover, focus and drag
+   states raise. */
+.r-slider--scrubber {
+  --r-scrub-thumb-opacity: 0;
+}
+html:not([data-input="pad"]) .r-slider--scrubber:not(.r-slider--disabled):hover,
+html[data-input="key"] .r-slider--scrubber:focus-within,
+html[data-input="pad"] .r-slider--scrubber:focus-within,
+.r-slider--scrubber.r-slider--dragging {
+  --r-scrub-thumb-opacity: 1;
+}
+.r-slider--scrubber .r-slider__native::-webkit-slider-runnable-track {
+  height: 3px;
+  border: 0;
+}
+.r-slider--scrubber .r-slider__native::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+  border: 0;
+  opacity: var(--r-scrub-thumb-opacity);
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-slider.r-slider--scrubber:not(.r-slider--disabled):not(.r-slider--readonly)
+  .r-slider__native::-webkit-slider-runnable-track {
+  box-shadow: none;
+}
+.r-slider.r-slider--scrubber:not(.r-slider--disabled):not(.r-slider--readonly)
+  .r-slider__native::-webkit-slider-thumb {
+  transform: none;
+  box-shadow: var(--r-elev-1);
+}
+.r-slider--scrubber .r-slider__native::-moz-range-track,
+.r-slider--scrubber .r-slider__native::-moz-range-progress {
+  height: 3px;
+  border: 0;
+}
+.r-slider--scrubber .r-slider__native::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  opacity: var(--r-scrub-thumb-opacity);
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-slider.r-slider--scrubber:not(.r-slider--disabled):not(.r-slider--readonly)
+  .r-slider__native::-moz-range-thumb {
+  transform: none;
+  box-shadow: var(--r-elev-1);
 }
 
 /* Modality-gated keyboard focus ring. */

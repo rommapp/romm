@@ -9,11 +9,17 @@
 //   * value abbreviation (first 6…last 6) when long; the full
 //     untruncated string is what we copy.
 //
+// The abbreviation is all that reaches the DOM, so when a copy cannot
+// land the value would be unreachable. Clicking reveals the full string
+// as selectable text instead: outside a secure context the clipboard
+// API does not exist at all, so the click never attempts a copy, and a
+// copy that fails for any other reason falls back to the same reveal.
+//
 // `compact` switches to the `x-small` size — useful for in-row
-// hash clusters where vertical breathing room is tight. The copy
+// hash clusters where vertical breathing room is tight. The trailing
 // icon stays in both sizes so the click affordance is consistent.
 import { RTag } from "@v2/lib";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useClipboard } from "@/v2/composables/useClipboard";
 
@@ -31,6 +37,9 @@ const props = withDefaults(
 const { t } = useI18n();
 const clipboard = useClipboard();
 
+const root = ref<HTMLButtonElement | null>(null);
+const revealed = ref(false);
+
 const shortened = computed(() => {
   if (!props.value) return "";
   if (props.value.length <= 14) return props.value;
@@ -39,26 +48,80 @@ const shortened = computed(() => {
   )}`;
 });
 
+const displayed = computed(() =>
+  revealed.value ? (props.value ?? "") : shortened.value,
+);
+
+// Short values (a CRC) render in full, so there is nothing to disclose.
+const isAbbreviated = computed(
+  () => !!props.value && shortened.value !== props.value,
+);
+
+const appendIcon = computed(() => {
+  if (revealed.value) return "mdi-eye-off-outline";
+  if (clipboard.isSupported) return "mdi-content-copy";
+  return isAbbreviated.value ? "mdi-eye-outline" : undefined;
+});
+
+// Only a real toggle announces itself as a disclosure; the copy chip and a
+// value already shown in full stay plain buttons.
+const ariaExpanded = computed(() =>
+  clipboard.isSupported || !isAbbreviated.value ? undefined : revealed.value,
+);
+
+// The abbreviated chip names its action; once revealed (or when the value
+// is its own full content), the content is the better accessible name.
+const ariaLabel = computed(() => {
+  if (clipboard.isSupported)
+    return t("common.copy-hash", { label: props.label });
+  if (revealed.value || !isAbbreviated.value) return undefined;
+  return t("common.show-full-hash", { label: props.label });
+});
+
+// Scoped to this chip so a selection made elsewhere on the page does not
+// leave the collapse click dead.
+function hasSelectionInside() {
+  const selection = window.getSelection();
+  if (!selection?.toString() || !selection.anchorNode) return false;
+  return root.value?.contains(selection.anchorNode) ?? false;
+}
+
 async function copy() {
   if (!props.value) return;
-  await clipboard.copy(props.value, {
+
+  // Collapsing on the click that ends a drag-select would snatch the
+  // value back the moment it was highlighted.
+  if (revealed.value && hasSelectionInside()) return;
+
+  if (!clipboard.isSupported) {
+    if (!isAbbreviated.value) return;
+    revealed.value = !revealed.value;
+    return;
+  }
+
+  const copied = await clipboard.copy(props.value, {
     successMessage: t("common.clipboard-copied", { label: props.label }),
   });
+  if (!copied) revealed.value = true;
 }
 </script>
 
 <template>
   <button
     v-if="value"
+    ref="root"
     type="button"
     class="r-v2-hash-chip"
-    :title="`${label}: ${value} (click to copy)`"
+    :class="{ 'r-v2-hash-chip--revealed': revealed }"
+    :title="`${label}: ${value}`"
+    :aria-expanded="ariaExpanded"
+    :aria-label="ariaLabel"
     @click="copy"
   >
     <RTag
       :label="label"
-      :text="shortened"
-      append-icon="mdi-content-copy"
+      :text="displayed"
+      :append-icon="appendIcon"
       :size="compact ? 'x-small' : 'small'"
       mono
     />
@@ -87,5 +150,20 @@ async function copy() {
 }
 .r-v2-hash-chip:active {
   transform: scale(0.98);
+}
+
+/* A revealed value exists to be selected by hand, so it opts back into
+   text selection and wraps instead of widening the row past its
+   container. */
+.r-v2-hash-chip--revealed {
+  cursor: text;
+  user-select: text;
+  max-width: 100%;
+}
+.r-v2-hash-chip--revealed:active {
+  transform: none;
+}
+.r-v2-hash-chip--revealed :deep(.r-tag) {
+  white-space: normal;
 }
 </style>

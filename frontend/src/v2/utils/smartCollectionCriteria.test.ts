@@ -24,6 +24,7 @@ function emptySnapshot(): GalleryFilterSnapshot {
     filterStates: null,
     filterSoundtrack: null,
     filterMissing: null,
+    filterPhysical: null,
     filterVerified: null,
     selectedPlatforms: [],
     selectedGenres: [],
@@ -34,6 +35,10 @@ function emptySnapshot(): GalleryFilterSnapshot {
     collectionsLogic: "any",
     selectedCompanies: [],
     companiesLogic: "any",
+    selectedPublishers: [],
+    publishersLogic: "any",
+    selectedDevelopers: [],
+    developersLogic: "any",
     selectedAgeRatings: [],
     ageRatingsLogic: "any",
     selectedRegions: [],
@@ -48,6 +53,8 @@ function emptySnapshot(): GalleryFilterSnapshot {
     tagsLogic: "any",
     selectedStatuses: [],
     statusesLogic: "any",
+    selectedLengthMinHours: null,
+    selectedLengthMaxHours: null,
   };
 }
 
@@ -80,6 +87,47 @@ describe("buildSmartFilterCriteria — metadata providers", () => {
     expect(row).toBeDefined();
     expect(row?.values).toEqual(["igdb"]);
     expect(row?.logic).toBe("any");
+  });
+});
+
+describe("buildSmartFilterCriteria — publishers and developers", () => {
+  it("serializes publishers and developers with their logic operators", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      selectedPublishers: ["Atari"],
+      publishersLogic: "any",
+      selectedDevelopers: ["Artech Studios"],
+      developersLogic: "all",
+    });
+
+    expect(out.publishers).toEqual(["Atari"]);
+    expect(out.publishers_logic).toBe("any");
+    expect(out.developers).toEqual(["Artech Studios"]);
+    expect(out.developers_logic).toBe("all");
+  });
+
+  it("omits the keys entirely when neither is selected", () => {
+    const out = buildSmartFilterCriteria(emptySnapshot());
+
+    expect(out.publishers).toBeUndefined();
+    expect(out.developers).toBeUndefined();
+  });
+
+  it("surfaces publishers and developers in the human-readable summary", () => {
+    const rows = summarizeSmartFilterCriteria(
+      {
+        publishers: ["Atari"],
+        publishers_logic: "any",
+        developers: ["Artech Studios"],
+        developers_logic: "any",
+      },
+      tStub,
+    );
+
+    expect(rows.find((r) => r.key === "publishers")?.values).toEqual(["Atari"]);
+    expect(rows.find((r) => r.key === "developers")?.values).toEqual([
+      "Artech Studios",
+    ]);
   });
 });
 
@@ -184,6 +232,62 @@ describe("buildSmartFilterCriteria — negative tri-state filters", () => {
 
     const row = rows.find((r) => r.key === "matched");
     expect(row).toBeDefined();
-    expect(row?.label).toBe("Show unmatched");
+    expect(row?.label).toBe("Unmatched");
+  });
+});
+
+describe("buildSmartFilterCriteria — game length", () => {
+  it("stores the hour bounds as seconds", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      selectedLengthMinHours: 5,
+      selectedLengthMaxHours: 20,
+    });
+
+    expect(out.hltb_main_story_min).toBe(5 * 3600);
+    expect(out.hltb_main_story_max).toBe(20 * 3600);
+  });
+
+  it("leaves an open end out of the criteria", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      selectedLengthMaxHours: 10,
+    });
+
+    expect(out).not.toHaveProperty("hltb_main_story_min");
+    expect(out.hltb_main_story_max).toBe(10 * 3600);
+  });
+
+  it("summarizes the bounds back as hours", () => {
+    const summary = summarizeSmartFilterCriteria(
+      { hltb_main_story_min: 5 * 3600, hltb_main_story_max: 20 * 3600 },
+      tStub,
+      undefined,
+      "en-US",
+    );
+
+    expect(summary.map((row) => row.values?.[0])).toEqual(["5h", "20h"]);
+  });
+
+  it("reports a fractional bound as saved", () => {
+    const summary = summarizeSmartFilterCriteria(
+      { hltb_main_story_min: 5.25 * 3600 },
+      tStub,
+      undefined,
+      "en-US",
+    );
+
+    expect(summary.map((row) => row.values?.[0])).toEqual(["5.25h"]);
+  });
+
+  it("keeps a zero minimum, which still hides unknown-length games", () => {
+    const summary = summarizeSmartFilterCriteria(
+      { hltb_main_story_min: 0 },
+      tStub,
+      undefined,
+      "en-US",
+    );
+
+    expect(summary.map((row) => row.values?.[0])).toEqual(["0h"]);
   });
 });

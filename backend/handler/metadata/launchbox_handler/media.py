@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -92,8 +92,8 @@ def local_media_req(
     platform_name: str | None,
     fs_name: str,
     local: dict[str, str] | None,
-    remote: dict | None,
-    remote_images: list[dict] | None,
+    remote: dict[str, Any] | None,
+    remote_images: list[dict[str, Any]] | None,
     remote_enabled: bool,
 ) -> MediaRequest:
     title = ((local or {}).get("Title") or "").strip()
@@ -111,8 +111,8 @@ def local_media_req(
 
 def remote_media_req(
     *,
-    remote: dict | None,
-    remote_images: list[dict] | None,
+    remote: dict[str, Any] | None,
+    remote_images: list[dict[str, Any]] | None,
     remote_enabled: bool,
     platform_name: str | None = None,
     fs_name: str = "",
@@ -237,7 +237,7 @@ def _find_local_media_candidates(
                     suffix = stem_name[len(prefix) :]
                     if suffix.isdigit():
                         indexed.append((int(suffix), p))
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             return []
 
         if indexed:
@@ -267,8 +267,8 @@ def _find_local_media_candidates(
 
 
 def _select_remote_cover(
-    remote_images: list[dict], region_shortcodes: tuple[str, ...]
-) -> dict | None:
+    remote_images: list[dict[str, Any]], region_shortcodes: tuple[str, ...]
+) -> dict[str, Any] | None:
     """Pick the best remote cover: highest-priority type, region as tiebreaker.
 
     Within the best available image type, prefer the image whose region matches
@@ -496,7 +496,7 @@ def _get_images(req: MediaRequest) -> list[LaunchboxImage]:
 def build_launchbox_metadata(
     *,
     local: dict[str, str] | None = None,
-    remote: dict | None = None,
+    remote: dict[str, Any] | None = None,
     images: list[LaunchboxImage],
 ) -> LaunchboxMetadata:
     local_release_date = local.get("ReleaseDate") if local else None
@@ -510,7 +510,7 @@ def build_launchbox_metadata(
     )
     try:
         max_players = int(max_players_raw or 0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         max_players = 0
 
     release_type = (
@@ -539,7 +539,7 @@ def build_launchbox_metadata(
     )
     try:
         community_rating = float(community_rating_raw or 0.0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         community_rating = 0.0
 
     community_rating_count_raw = coalesce(
@@ -548,7 +548,7 @@ def build_launchbox_metadata(
     )
     try:
         community_rating_count = int(community_rating_count_raw or 0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         community_rating_count = 0
 
     wikipedia_url = (
@@ -594,6 +594,8 @@ def build_launchbox_metadata(
             "esrb": esrb,
             "genres": genres,
             "companies": companies,
+            "publishers": dedupe_words([publisher]),
+            "developers": dedupe_words([developer]),
             "images": images,
         }
     )
@@ -626,7 +628,7 @@ def populate_rom_specific_paths(
 def build_rom(
     *,
     local: dict[str, str] | None,
-    remote: dict | None,
+    remote: dict[str, Any] | None,
     launchbox_id: int | None,
     media_req: MediaRequest | None = None,
 ) -> LaunchboxRom:

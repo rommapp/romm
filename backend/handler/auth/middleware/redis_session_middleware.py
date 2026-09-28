@@ -6,7 +6,8 @@ from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from config import SESSION_MAX_AGE_SECONDS
-from handler.redis_handler import async_cache
+from handler.redis_handler import as_text, async_cache
+from handler.socket_handler import close_login_session_sockets
 
 
 class RedisSessionMiddleware:
@@ -31,10 +32,16 @@ class RedisSessionMiddleware:
         Clears all active sessions for a given user.
         """
         session_ids = await async_cache.smembers(f"user_sessions:{user_id}")
-        if session_ids:
-            for session_id in session_ids:
-                await async_cache.delete(f"session:{session_id}")
-            await async_cache.delete(f"user_sessions:{user_id}")
+        if not session_ids:
+            return
+
+        # A member arrives as bytes from a client that does not decode, and its
+        # repr in a key name would miss the session and leave it live.
+        ids = [as_text(sid) for sid in session_ids]
+        await async_cache.delete(
+            *(f"session:{sid}" for sid in ids), f"user_sessions:{user_id}"
+        )
+        await close_login_session_sockets(ids)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):
@@ -66,27 +73,40 @@ class RedisSessionMiddleware:
                 user_id = scope["session"].get("sub")
 
                 if scope["session"]:
-                    session_id = scope["session"].pop("session_id", None) or str(
-                        uuid.uuid4()
-                    )  # Retrieve or create session_id
+                    existing_id = scope["session"].pop("session_id", None)
+                    session_id = existing_id or str(uuid.uuid4())
                     session_data_json = json.dumps(scope["session"])
-                    await async_cache.set(
-                        f"session:{session_id}", session_data_json, ex=self.max_age
+                    # Refreshed only while its record is still there, so a
+                    # session revoked mid-request is not written back.
+                    stored = await async_cache.set(
+                        f"session:{session_id}",
+                        session_data_json,
+                        ex=self.max_age,
+                        xx=existing_id is not None,
                     )
 
-                    # Add session_id to user set of sessions
-                    if user_id:
-                        await async_cache.sadd(f"user_sessions:{user_id}", session_id)
+                    if stored:
+                        # Add session_id to user set of sessions
+                        if user_id:
+                            await async_cache.sadd(
+                                f"user_sessions:{user_id}", session_id
+                            )
 
-                    header_value = f"{self.session_cookie}={session_id}; path=/; Max-Age={self.max_age}; {self.security_flags}"
+                        header_value = f"{self.session_cookie}={session_id}; path=/; Max-Age={self.max_age}; {self.security_flags}"
+                    else:
+                        header_value = f"{self.session_cookie}=null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; {self.security_flags}"
+
                     headers.append("Set-Cookie", header_value)
                 elif session_id:
-                    await async_cache.delete(f"session:{session_id}")
-                    # Remove session_id from user set of sessions
+                    async with async_cache.pipeline() as pipe:
+                        await pipe.delete(f"session:{session_id}")
+                        if initial_user_id:
+                            await pipe.srem(
+                                f"user_sessions:{initial_user_id}", session_id
+                            )
+                        await pipe.execute()
                     if initial_user_id:
-                        await async_cache.srem(
-                            f"user_sessions:{initial_user_id}", session_id
-                        )
+                        await close_login_session_sockets([session_id])
 
                     header_value = f"{self.session_cookie}=null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; {self.security_flags}"
                     headers.append("Set-Cookie", header_value)

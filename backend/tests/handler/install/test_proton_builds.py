@@ -93,10 +93,7 @@ class TestResolveProtonPath:
             "_discover_installed",
             lambda: [],
         )
-        build = ProtonBuild(
-            id="future-build", label="Future", installed=False
-        )
-        # Even though it's in the known list, it's not installed so no path.
+        # Not discovered on disk, so no path even for a recognized id.
         assert proton_builds.resolve_proton_path("future-build") is None
 
     def test_installed_build_resolves_to_its_own_path(self, monkeypatch):

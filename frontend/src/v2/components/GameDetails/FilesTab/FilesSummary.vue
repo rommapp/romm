@@ -4,12 +4,16 @@
 // Carries the missing-from-fs flag when applicable.
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { DetailedRomSchema } from "@/__generated__";
 import { formatBytes } from "@/utils";
 import HashChip from "@/v2/components/shared/HashChip.vue";
+import LocationChip from "@/v2/components/shared/LocationChip.vue";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 const props = defineProps<{ rom: DetailedRomSchema }>();
 
@@ -43,7 +47,11 @@ const hashes = computed<RomHash[]>(() => {
         <span class="r-v2-files-summary__name">{{ rom.fs_name }}</span>
         <MissingFSBadge
           v-if="rom.missing_from_fs"
-          :text="`Missing from filesystem: ${rom.fs_path}/${rom.fs_name}`"
+          :text="
+            t('rom.missing-from-fs-path', {
+              path: `${rom.fs_path}/${rom.fs_name}`,
+            })
+          "
         />
       </div>
       <div class="r-v2-files-summary__stats">
@@ -56,6 +64,10 @@ const hashes = computed<RomHash[]>(() => {
         </template>
       </div>
     </header>
+
+    <div class="r-v2-files-summary__location">
+      <LocationChip :path="rom.full_path" />
+    </div>
 
     <div v-if="hashes.length > 0" class="r-v2-files-summary__hashes">
       <HashChip
@@ -108,6 +120,10 @@ const hashes = computed<RomHash[]>(() => {
 }
 .r-v2-files-summary__sep {
   opacity: 0.5;
+}
+.r-v2-files-summary__location {
+  display: flex;
+  min-width: 0;
 }
 .r-v2-files-summary__hashes {
   display: flex;

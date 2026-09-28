@@ -4,7 +4,7 @@
 //
 // Surface area (matches v1 1:1 so URLs stay compatible):
 //   • Tri-state boolean filters: matched / favourites / duplicates /
-//     playables / missing / verified / RA. Each maps null → "all",
+//     playables / missing / physical / verified / RA. Each maps null → "all",
 //     true → positive, false → negative.
 //   • Optional platform multi-select (only on Search / Collection views
 //     where you can mix platforms).
@@ -12,6 +12,7 @@
 //     companies / age-ratings / regions / languages / tags /
 //     player-counts / metadata-providers / statuses) — each paired with
 //     an AND/OR/NONE logic toggle.
+//   • Game length: an open-ended HowLongToBeat main-story range in hours.
 //   • Reset button at the bottom.
 //
 // Apply is implicit — the URL composable + galleryRoms watcher refresh
@@ -21,7 +22,15 @@
 // primitives. Mounted by GalleryShell so it's available everywhere a
 // gallery is rendered. The shell controls `modelValue` and forwards
 // `showPlatformsFilter`.
-import { RBtn, RDrawer, RIcon, RSelect, RSliderBtnGroup, RTag } from "@v2/lib";
+import {
+  RBtn,
+  RDrawer,
+  RIcon,
+  RSelect,
+  RSliderBtnGroup,
+  RTag,
+  RTextField,
+} from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject } from "vue";
@@ -61,6 +70,7 @@ const {
   filterDuplicates,
   filterPlayables,
   filterMissing,
+  filterPhysical,
   filterVerified,
   filterRA,
   filterSaves,
@@ -79,6 +89,12 @@ const {
   filterCompanies,
   selectedCompanies,
   companiesLogic,
+  filterPublishers,
+  selectedPublishers,
+  publishersLogic,
+  filterDevelopers,
+  selectedDevelopers,
+  developersLogic,
   filterAgeRatings,
   selectedAgeRatings,
   ageRatingsLogic,
@@ -99,6 +115,8 @@ const {
   filterStatuses,
   selectedStatuses,
   statusesLogic,
+  selectedLengthMinHours,
+  selectedLengthMaxHours,
 } = storeToRefs(filter);
 const { allPlatforms } = storeToRefs(platformsStore);
 
@@ -185,6 +203,15 @@ const boolFilters: BoolFilterConfig[] = [
     yesAria: t("platform.show-missing-only"),
     noAria: t("platform.show-not-missing-only"),
     value: filterMissing,
+  },
+  {
+    label: t("platform.show-physical"),
+    icon: "mdi-cube-outline",
+    yesIcon: "mdi-cube-outline",
+    noIcon: "mdi-cube-off-outline",
+    yesAria: t("platform.show-physical-only"),
+    noAria: t("platform.show-not-physical-only"),
+    value: filterPhysical,
   },
   {
     label: t("platform.show-verified"),
@@ -312,6 +339,22 @@ const multiSections = computed<MultiConfig[]>(() => [
     setLogic: (l) => filter.setCompaniesLogic(l),
   },
   {
+    label: t("platform.publisher"),
+    icon: "mdi-bank-outline",
+    items: filterPublishers,
+    selected: selectedPublishers,
+    logic: publishersLogic,
+    setLogic: (l) => filter.setPublishersLogic(l),
+  },
+  {
+    label: t("platform.developer"),
+    icon: "mdi-code-tags",
+    items: filterDevelopers,
+    selected: selectedDevelopers,
+    logic: developersLogic,
+    setLogic: (l) => filter.setDevelopersLogic(l),
+  },
+  {
     label: t("platform.age-rating"),
     icon: "mdi-account-child",
     items: filterAgeRatings,
@@ -403,12 +446,46 @@ const selectedPlatformIds = computed({
   },
 });
 
+// ── Game length (HowLongToBeat main story) ─────────────────────
+// Typed in hours; the API layer converts to the seconds the backend stores.
+function lengthBoundInput(value: number | null): string {
+  return value === null ? "" : String(value);
+}
+
+function parseLengthBound(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function setLengthMin(raw: string) {
+  filter.setSelectedFilterLengthHours(
+    parseLengthBound(raw),
+    selectedLengthMaxHours.value,
+  );
+}
+
+function setLengthMax(raw: string) {
+  filter.setSelectedFilterLengthHours(
+    selectedLengthMinHours.value,
+    parseLengthBound(raw),
+  );
+}
+
+const hasLengthFilter = computed(
+  () =>
+    selectedLengthMinHours.value !== null ||
+    selectedLengthMaxHours.value !== null,
+);
+
 // ── Active-filter count (footer badge) ────────────────────────
 const activeCount = computed(() => {
   let n = 0;
   for (const f of boolFilters) if (f.value.value !== null) n += 1;
   if (selectedPlatforms.value.length > 0) n += 1;
   for (const s of multiSections.value) if (s.selected.value.length > 0) n += 1;
+  if (hasLengthFilter.value) n += 1;
   return n;
 });
 
@@ -423,6 +500,7 @@ function resetAll() {
     s.selected.value = [];
     s.setLogic("any");
   }
+  filter.setSelectedFilterLengthHours(null, null);
 }
 
 // Hand off to CreateSmartCollectionDialog — closing the drawer first
@@ -451,7 +529,7 @@ function saveAsSmartCollection() {
       <div style="flex: 1" />
       <RBtn
         size="small"
-        variant="text"
+        variant="outlined"
         color="primary"
         prepend-icon="mdi-playlist-plus"
         :disabled="activeCount === 0"
@@ -464,7 +542,7 @@ function saveAsSmartCollection() {
     <!-- ── Boolean tri-state filters ────────────────────────── -->
     <section class="r-v2-fd__section">
       <h3 class="r-v2-fd__heading">
-        {{ t("platform.show") }}
+        {{ t("platform.properties") }}
       </h3>
       <div class="r-v2-fd__bool-rows">
         <div
@@ -496,6 +574,7 @@ function saveAsSmartCollection() {
         multiple
         clearable
         hide-details
+        promote-filled
         prefix-label="stacked"
         :placeholder="t('common.all-platforms')"
       >
@@ -547,10 +626,47 @@ function saveAsSmartCollection() {
       </div>
     </section>
 
+    <!-- ── Game length ─────────────────────────────────────── -->
+    <section class="r-v2-fd__section">
+      <h3 class="r-v2-fd__heading">
+        {{ t("platform.game-length") }}
+      </h3>
+      <div class="r-v2-fd__length-row">
+        <RTextField
+          :model-value="lengthBoundInput(selectedLengthMinHours)"
+          type="number"
+          hide-details
+          prefix-label="stacked"
+          :placeholder="t('platform.length-any')"
+          @update:model-value="setLengthMin"
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-timer-outline" size="14" />
+            {{ t("platform.length-from-hours") }}
+          </template>
+        </RTextField>
+        <RTextField
+          :model-value="lengthBoundInput(selectedLengthMaxHours)"
+          type="number"
+          hide-details
+          prefix-label="stacked"
+          :placeholder="t('platform.length-any')"
+          @update:model-value="setLengthMax"
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-timer-outline" size="14" />
+            {{ t("platform.length-to-hours") }}
+          </template>
+        </RTextField>
+      </div>
+      <p v-if="hasLengthFilter" class="r-v2-fd__length-note">
+        {{ t("platform.length-hides-unknown") }}
+      </p>
+    </section>
+
     <template #footer>
       <RBtn
-        variant="text"
-        color="danger"
+        variant="outlined"
         prepend-icon="mdi-restore"
         :disabled="activeCount === 0"
         @click="resetAll"
@@ -602,7 +718,9 @@ function saveAsSmartCollection() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 4px;
+  /* The negative margin widens the "on" highlight without moving the content. */
+  margin-inline: -8px;
+  padding: 8px 12px;
   border-radius: 8px;
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
@@ -636,6 +754,21 @@ function saveAsSmartCollection() {
 .r-v2-fd__multi-select {
   min-width: 0;
 }
+/* ── Game length ─────────────────────────────────────────────── */
+.r-v2-fd__length-row {
+  display: grid;
+  /* `minmax(0, …)`: a number input's intrinsic width would floor a bare `1fr`. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.r-v2-fd__length-note {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--r-color-fg-muted);
+}
+
 .r-v2-fd__logic {
   flex-shrink: 0;
   /* Visually align with the select's field box (the stacked label

@@ -1,13 +1,15 @@
 import re
+from typing import Any
 
 from config import LAUNCHBOX_API_ENABLED
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import async_cache
 from logger.logger import log
+from utils.cache import is_cache_store_ready
 from utils.database import safe_int
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from ..base_handler import MetadataHandler
-from ..base_handler import UniversalPlatformSlug as UPS
 from .local_source import LocalSource
 from .media import build_rom, local_media_req, remote_media_req
 from .platforms import get_platform
@@ -16,6 +18,7 @@ from .types import (
     DASH_COLON_REGEX,
     LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_STORE,
     LAUNCHBOX_PLATFORMS_DIR,
     LAUNCHBOX_TAG_REGEX,
     LaunchboxPlatform,
@@ -42,7 +45,9 @@ class LaunchboxHandler(MetadataHandler):
 
     @staticmethod
     async def is_remote_store_populated() -> bool:
-        return bool(await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY))
+        return await is_cache_store_ready(
+            async_cache, LAUNCHBOX_METADATA_STORE, LAUNCHBOX_METADATA_NAME_KEY
+        )
 
     @staticmethod
     async def is_remote_store_importing() -> bool:
@@ -88,7 +93,7 @@ class LaunchboxHandler(MetadataHandler):
 
         if local is not None:
             launchbox_id_local = safe_int(local.get("DatabaseID"))
-            remote: dict | None = None
+            remote: dict[str, Any] | None = None
             if remote_available:
                 if launchbox_id_local:
                     remote = await self._remote.get_by_id(launchbox_id_local)
@@ -142,37 +147,46 @@ class LaunchboxHandler(MetadataHandler):
         if not remote_available:
             return fallback_rom
 
-        # `keep_tags` prevents stripping content that is considered a tag, e.g., anything between `()` or `[]`.
-        # By default, tags are still stripped to keep scan behavior consistent with previous versions.
-        # If `keep_tags` is True, the full `fs_name` is used for searching.
-        if not keep_tags:
-            search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
-        else:
-            search_term = fs_name
+        # LaunchBox indexes the filenames its own dumps use, so try that before
+        # rewriting the name into something the title index might accept.
+        index_entry = await self._remote.get_rom_by_file_name(fs_name, platform_slug)
 
-        # Resolve MAME arcade filename (e.g. wrlok_l3.zip) to its full title
-        # via LaunchBox's Mame.xml before name-based lookup.
-        if platform_slug == UPS.ARCADE:
-            mame_entry = await self._remote.get_mame_entry(fs_name)
-            if mame_entry:
-                name = (mame_entry.get("Name") or "").strip()
-                if name:
-                    search_term = name
-                    fallback_rom = LaunchboxRom(launchbox_id=None, name=name)
+        if index_entry is None:
+            # `keep_tags` prevents stripping content that is considered a tag, e.g., anything between `()` or `[]`.
+            # By default, tags are still stripped to keep scan behavior consistent with previous versions.
+            # If `keep_tags` is True, the full `fs_name` is used for searching.
+            if not keep_tags:
+                search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+            else:
+                search_term = fs_name
 
-        # We replace " - "/"- " with ": " to match Launchbox's naming convention
-        search_term = re.sub(DASH_COLON_REGEX, ": ", search_term).lower()
+            # The rewrites below are anchored on spaces, so a dump that separates
+            # words with underscores reaches none of them.
+            search_term = search_term.replace("_", " ")
 
-        # Check if game is scummvm shortname
-        if platform_slug == UPS.SCUMMVM:
-            search_term = await self._scummvm_format(search_term)
-            fallback_rom = LaunchboxRom(launchbox_id=None, name=search_term)
+            # Resolve MAME arcade filename (e.g. wrlok_l3.zip) to its full title
+            # via LaunchBox's Mame.xml before name-based lookup.
+            if platform_slug == UPS.ARCADE:
+                mame_entry = await self._remote.get_mame_entry(fs_name)
+                if mame_entry:
+                    name = (mame_entry.get("Name") or "").strip()
+                    if name:
+                        search_term = name
+                        fallback_rom = LaunchboxRom(launchbox_id=None, name=name)
 
-        index_entry = await self._remote.get_rom(
-            search_term,
-            platform_slug,
-            assume_cache_present=True,
-        )
+            # We replace " - "/"- " with ": " to match Launchbox's naming convention
+            search_term = re.sub(DASH_COLON_REGEX, ": ", search_term).lower()
+
+            # Check if game is scummvm shortname
+            if platform_slug == UPS.SCUMMVM:
+                search_term = await self._scummvm_format(search_term)
+                fallback_rom = LaunchboxRom(launchbox_id=None, name=search_term)
+
+            index_entry = await self._remote.get_rom(
+                search_term,
+                platform_slug,
+                assume_cache_present=True,
+            )
 
         if not index_entry:
             return fallback_rom

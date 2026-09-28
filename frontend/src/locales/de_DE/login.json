@@ -17,6 +17,7 @@
   "reset-link-failed": "Reset-Link konnte nicht gesendet werden",
   "reset-password": "Passwort zurücksetzen",
   "reset-sent": "Link zum Zurücksetzen wurde gesendet. Kontaktieren Sie Ihren Administrator.",
+  "reset-sent-email": "Wenn das Konto eine E-Mail-Adresse hat, ist ein Link zum Zurücksetzen unterwegs. Wenn nicht, frag deinen Administrator.",
   "send-reset-link": "Link zum Zurücksetzen senden",
   "setup-wizard": "Einrichtungsassistent",
   "unable-to-login": "Anmeldung nicht möglich: {error}",

@@ -1,6 +1,7 @@
 from handler.database import db_platform_handler
+from handler.filesystem import fs_platform_handler
 from models.platform import Platform
-from utils.platforms import get_supported_platforms
+from utils.platforms import get_filesystem_platforms, get_supported_platforms
 
 
 def test_supported_platform_not_shadowed_by_variant():
@@ -38,3 +39,24 @@ def test_supported_platform_keeps_tgdb_id_from_tgdb():
 
     # TGDB maps the 3DO platform to ID 25.
     assert threedo.tgdb_id == 25
+
+
+async def test_filesystem_platform_resolves_frontend_folder_name(monkeypatch):
+    """A Batocera or ES-DE folder name is listed under the RomM platform it maps to."""
+
+    async def fake_get_platforms() -> list[str]:
+        return ["gamecube"]
+
+    monkeypatch.setattr(fs_platform_handler, "get_platforms", fake_get_platforms)
+
+    platforms = await get_filesystem_platforms()
+
+    assert [(p.fs_slug, p.slug) for p in platforms] == [("gamecube", "ngc")]
+
+
+def test_supported_platform_sharing_ss_id_keeps_its_own_name():
+    """A platform sharing a ScreenScraper system ID must not take its sibling's name."""
+    supported = {p.slug: p for p in get_supported_platforms()}
+
+    assert supported["c128"].name == "Commodore 128"
+    assert supported["videopac-g7400"].name == "Videopac+ G7400"

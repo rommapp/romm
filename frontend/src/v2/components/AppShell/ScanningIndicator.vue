@@ -1,32 +1,21 @@
 <script setup lang="ts">
-// ScanningIndicator — live status pill that appears in the AppNav
-// right cluster whenever a library scan is in progress.
-//
-// Three signals stack inside the pill:
-//   * a spinner on the leading edge for "something is happening",
-//   * a counter (scanned / total when known, scanned-only as soon
-//     as the backend has reported a total ≥ scanned),
-//   * a thin progress bar pinned to the bottom edge — determinate
-//     when `total_roms` is known, indeterminate otherwise (the
-//     scanner discovers files as it goes, so totals show up after
-//     the first platform finishes).
-//
-// Click jumps to /scan so the user can inspect the live log.
-// Hidden on /scan itself. Honours `prefers-reduced-motion` by
-// dropping the shimmer + pulse animations; the spinner + progress
-// bar keep moving since they communicate live data, not affect.
-import { RIcon, RProgressLinear, RSpinner, RTooltip } from "@v2/lib";
+// Top-bar pill shown during a library scan, linking to /scan. The progress bar
+// is indeterminate until the scanner reports a total, which it learns as it goes.
+import { RIcon, RProgressLinear, RTooltip } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import storeScanning from "@/stores/scanning";
+import { toBrowserLocale } from "@/utils";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 
 defineOptions({ inheritAttrs: false });
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const route = useRoute();
+const { xs } = useBreakpoint();
 const { scanning, scanStats } = storeToRefs(storeScanning());
 
 const visible = computed(() => scanning.value && route.path !== "/scan");
@@ -47,9 +36,21 @@ const progress = computed(() =>
   hasTotal.value ? Math.min(100, (scanned.value / total.value) * 100) : 0,
 );
 
+// Phones shorten large counts (1.8K / 4.6K) so the pill always fits beside
+// the mini player.
+const compactCount = computed(
+  () =>
+    new Intl.NumberFormat(toBrowserLocale(locale.value), {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }),
+);
+
 const counterLabel = computed(() => {
   if (!hasTotal.value) return null;
-  return `${scanned.value} / ${total.value}`;
+  const format = (n: number) =>
+    xs.value ? compactCount.value.format(n) : String(n);
+  return `${format(scanned.value)} / ${format(total.value)}`;
 });
 </script>
 
@@ -68,7 +69,6 @@ const counterLabel = computed(() => {
           :aria-label="t('scan.scanning-library')"
         >
           <span class="r-scan-indicator__row">
-            <RSpinner size="14" color="primary" />
             <span class="r-scan-indicator__label">
               {{ t("scan.scanning") }}
             </span>
@@ -93,6 +93,7 @@ const counterLabel = computed(() => {
             :height="2"
             color="primary"
             :rounded="false"
+            stream
           />
         </router-link>
       </template>
@@ -111,7 +112,7 @@ const counterLabel = computed(() => {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  height: 32px;
+  height: var(--r-nav-pill-h);
   padding: 0 12px;
   border-radius: var(--r-radius-pill);
   background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
@@ -138,8 +139,8 @@ const counterLabel = computed(() => {
   );
 }
 
-/* Content row sits above the bottom-pinned progress bar — top-aligned
-   inside the pill so the counter's baseline matches the spinner's. */
+/* Content row sits above the bottom-pinned progress bar, with the counter
+   centred on the label or radar glyph. */
 .r-scan-indicator__row {
   display: inline-flex;
   align-items: center;

@@ -4,27 +4,43 @@ on:
   pull_request:
     paths:
       - "backend/**"
+      - ".github/workflows/pytest.yml"
+      - pyproject.toml
+      - uv.lock
+      - .python-version
+      - Dockerfile
+      - docker/Dockerfile
   push:
     branches:
       - "master"
     paths:
       - "backend/**"
+      - ".github/workflows/pytest.yml"
+      - pyproject.toml
+      - uv.lock
+      - .python-version
+      - Dockerfile
+      - docker/Dockerfile
 
-permissions: read-all
+# A new push cancels a PR's superseded run; each master commit keeps its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
   pytest:
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      pull-requests: write
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         db: [mariadb, postgresql]
     services:
       mariadb:
-        image: mariadb:10.11
+        image: mariadb:13.0.2
         ports:
           - 3306
         env:
@@ -32,9 +48,9 @@ jobs:
           MYSQL_PASSWORD: passwd
           MYSQL_DATABASE: romm_test
           MYSQL_ROOT_PASSWORD: passwd
-        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=2s --health-retries=3 --health-start-period=30s
       postgresql:
-        image: postgres:16
+        image: postgres:18
         ports:
           - 5432
         env:
@@ -43,39 +59,33 @@ jobs:
           POSTGRES_DB: romm_test
         options: --health-cmd="pg_isready" --health-interval=5s --health-timeout=2s --health-retries=3
       valkey:
-        image: valkey/valkey:7.2
+        image: valkey/valkey:9.0.6
         ports:
           - 6379
         options: >-
           --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=2s --health-retries=3
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Install mariadb connectors
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libmariadb3 libmariadb-dev
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
-
-      - name: Install python
-        run: |
-          uv python install 3.13
-
-      - name: Install dependencies
-        run: |
-          uv sync --extra test
+      - name: Set up the backend
+        uses: ./.github/actions/setup-backend
+        with:
+          sync-args: --extra test
+          apt-packages: 7zip
 
       - name: Initiate MariaDB database
         if: matrix.db == 'mariadb'
+        env:
+          MARIADB_PORT: ${{ job.services.mariadb.ports['3306'] }}
         run: |
           # Grant on the `romm_test%` namespace so the test user can create the
           # per-worker databases (romm_test_gw0, ...) used under pytest-xdist,
           # without granting it global privileges. The backticks are escaped so
           # the shell doesn't treat them as command substitution.
-          mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON \`romm\_test%\`.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+          mysql --host 127.0.0.1 --port "$MARIADB_PORT" -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON \`romm\_test%\`.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
 
       - name: Run python tests
         env:
@@ -88,4 +98,41 @@ jobs:
         run: |
           cd backend
           # GitHub-hosted Linux runners have 4 vCPUs; run one worker per core.
-          uv run pytest -n 4 -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
+          # --cov=.. makes report paths repo-relative (backend/...), as code coverage expects.
+          uv run pytest -n 4 -vv --maxfail=10 --junitxml=pytest-report.xml --cov=.. --cov-report xml:coverage.xml --cov-config=.coveragerc .
+
+      # Both legs cover the same code, so one report is enough. Fork PRs can't upload.
+      - name: Upload coverage report artifact
+        if: matrix.db == 'mariadb' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-report
+          path: backend/coverage.xml
+          if-no-files-found: error
+          retention-days: 1
+
+  # A separate job keeps code-quality: write away from the job that runs the PR's code.
+  upload-coverage:
+    needs: pytest
+    if: ${{ !cancelled() && needs.pytest.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # actionlint doesn't know the code-quality scope yet.
+      # trunk-ignore(actionlint)
+      code-quality: write
+    steps:
+      - name: Download coverage report
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: coverage-report
+
+      # Best-effort while GitHub code coverage is in preview; errors still show as annotations.
+      - name: Upload coverage to GitHub
+        uses: actions/upload-code-coverage@d8e329117199404bba6fc81efe8093dc7c015e34 # v1.4.2
+        with:
+          file: coverage.xml
+          language: Python
+          label: code-coverage/pytest
+          fail-on-error: false

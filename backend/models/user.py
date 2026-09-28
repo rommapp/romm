@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from sqlalchemy import TIMESTAMP, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -14,7 +14,7 @@ from models.permission import PermissionGroup
 from utils.database import CustomJSON
 
 if TYPE_CHECKING:
-    from models.assets import Save, Screenshot, State
+    from models.assets import MemoryCard, Save, Screenshot, State
     from models.client_token import ClientToken
     from models.collection import Collection, SmartCollection
     from models.device import Device
@@ -39,6 +39,10 @@ class Role(enum.StrEnum):
 
 
 TEXT_FIELD_LENGTH = 255
+
+# Id of the synthetic, unauthenticated visitor KIOSK_MODE hands out. Negative so
+# it can never collide with an auto-increment row.
+KIOSK_USER_ID: Final = -1
 
 
 class User(BaseModel, SimpleUser):
@@ -92,6 +96,9 @@ class User(BaseModel, SimpleUser):
 
     saves: Mapped[list[Save]] = relationship(lazy="raise", back_populates="user")
     states: Mapped[list[State]] = relationship(lazy="raise", back_populates="user")
+    memory_cards: Mapped[list[MemoryCard]] = relationship(
+        lazy="raise", back_populates="user"
+    )
     screenshots: Mapped[list[Screenshot]] = relationship(
         lazy="raise", back_populates="user"
     )
@@ -123,7 +130,7 @@ class User(BaseModel, SimpleUser):
     def kiosk_mode_user(cls) -> User:
         now = datetime.now(timezone.utc)
         return cls(
-            id=-1,
+            id=KIOSK_USER_ID,
             username="kiosk",
             role=Role.USER,
             enabled=True,
@@ -133,6 +140,11 @@ class User(BaseModel, SimpleUser):
             created_at=now,
             updated_at=now,
         )
+
+    @property
+    def is_kiosk_guest(self) -> bool:
+        """The shared anonymous visitor, not a real account."""
+        return self.id == KIOSK_USER_ID
 
     @property
     def oauth_scopes(self) -> list[Scope]:
@@ -145,11 +157,11 @@ class User(BaseModel, SimpleUser):
         return compute_oauth_scopes(self)
 
     @property
-    def fs_safe_folder_name(self):
+    def fs_safe_folder_name(self) -> str:
         # Uses the ID to avoid issues with username changes
         return f"User:{self.id}".encode().hex()
 
-    def set_last_active(self):
+    def set_last_active(self) -> None:
         from handler.database import db_user_handler
 
         db_user_handler.update_user(

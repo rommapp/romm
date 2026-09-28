@@ -1,17 +1,20 @@
 <script setup lang="ts">
-// ManualUploadTargetDialog — asks the user whether an uploaded manual
-// should live in the shared resources directory (sticks to the ROM in the
-// database) or the ROM's folder on disk (visible to external tools). If
-// the ROM is a simple single-file ROM we skip the dialog and default to
-// resources, same as v1.
-import { RBtn, RDialog, RIcon } from "@v2/lib";
+// ManualUploadTargetDialog: asks whether an uploaded manual should live in the
+// shared resources directory (sticks to the ROM in the database) or the ROM's
+// folder on disk (visible to external tools).
+import { RDialog, RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
+import {
+  ROM_UPLOAD_FOLDERS,
+  useRomFileUpload,
+} from "@/v2/composables/useRomFileUpload";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -19,97 +22,91 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-const romsStore = storeRoms();
+const { refetchRom } = useRomSync();
+const { uploadFiles } = useRomFileUpload();
 const uploadStore = storeUpload();
+
+// The resources copy replaces the scraped manual on the ROM record; the folder
+// copy is a ROM file like any other upload.
+type UploadTarget = "resources" | "folder";
 
 const show = ref(false);
 const rom = ref<DetailedRom | null>(null);
 const files = ref<File[]>([]);
-const uploading = ref(false);
 
+// Only ask when the destination is still open.
 const handleShow = (payload: Events["showManualUploadTargetDialog"]) => {
-  rom.value = payload.rom;
-  files.value = payload.files;
   if (payload.rom.has_simple_single_file) {
-    void chooseTarget("resources");
+    enqueue("resources", payload.rom, payload.files);
     return;
   }
+  if (payload.rom.files?.some((file) => file.category === "manual")) {
+    enqueue("folder", payload.rom, payload.files);
+    return;
+  }
+  rom.value = payload.rom;
+  files.value = payload.files;
   show.value = true;
 };
 emitter?.on("showManualUploadTargetDialog", handleShow);
 onBeforeUnmount(() => emitter?.off("showManualUploadTargetDialog", handleShow));
 
-async function refreshRom() {
-  if (!rom.value) return;
-  try {
-    const { data } = await romApi.getRom({ romId: rom.value.id });
-    romsStore.currentRom = data;
-    romsStore.update(data);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-async function handleUploadResult(
-  responses: PromiseSettledResult<unknown>[],
-  successKey: string,
-  skippedKey: string,
-) {
+async function uploadToResources(targetRom: DetailedRom, targetFiles: File[]) {
+  const responses = await romApi.uploadManuals({
+    romId: targetRom.id,
+    filesToUpload: targetFiles,
+  });
   const successful = responses.filter((r) => r.status === "fulfilled").length;
   const failed = responses.length - successful;
 
   if (failed === 0) uploadStore.reset();
 
   if (successful > 0) {
-    snackbar.success(t(successKey, { count: successful, failed }), {
-      icon: "mdi-check-bold",
-      timeout: 3000,
-    });
-    await refreshRom();
+    snackbar.success(
+      t("rom.manuals-upload-success", { count: successful, failed }),
+      { icon: "mdi-check-bold", timeout: 3000 },
+    );
+    await refetchRom(targetRom.id);
   } else {
-    snackbar.warning(t(skippedKey), {
+    snackbar.warning(t("rom.manuals-upload-skipped"), {
       icon: "mdi-close-circle",
       timeout: 5000,
     });
   }
 }
 
-async function chooseTarget(target: "resources" | "folder") {
-  if (!rom.value || uploading.value) return;
-  const currentRom = rom.value;
-  const pending = files.value;
-  if (pending.length === 0) {
-    closeDialog();
+async function uploadTo(
+  target: UploadTarget,
+  targetRom: DetailedRom,
+  targetFiles: File[],
+) {
+  if (target === "folder") {
+    await uploadFiles(targetRom, ROM_UPLOAD_FOLDERS.manual, targetFiles);
     return;
   }
+  await uploadToResources(targetRom, targetFiles);
+}
 
-  uploading.value = true;
-  try {
-    if (target === "resources") {
-      const responses = await romApi.uploadManuals({
-        romId: currentRom.id,
-        filesToUpload: pending,
-      });
-      await handleUploadResult(
-        responses,
-        "rom.manuals-upload-success",
-        "rom.manuals-upload-skipped",
-      );
-    } else {
-      const responses = await romApi.uploadManualFiles({
-        romId: currentRom.id,
-        filesToUpload: pending,
-      });
-      await handleUploadResult(
-        responses,
-        "rom.manual-files-upload-success",
-        "rom.manual-files-upload-skipped",
-      );
-    }
-    closeDialog();
-  } finally {
-    uploading.value = false;
-  }
+// Serialized so a drop mid-upload waits rather than replacing the one running.
+let queue: Promise<void> = Promise.resolve();
+
+function enqueue(
+  target: UploadTarget,
+  targetRom: DetailedRom,
+  targetFiles: File[],
+) {
+  if (targetFiles.length === 0) return;
+  queue = queue
+    .catch(() => undefined)
+    .then(() => uploadTo(target, targetRom, targetFiles));
+}
+
+function chooseTarget(target: UploadTarget) {
+  const currentRom = rom.value;
+  if (!currentRom) return;
+  const pending = files.value;
+  closeDialog();
+  enqueue(target, currentRom, pending);
 }
 
 function closeDialog() {
@@ -124,6 +121,7 @@ function closeDialog() {
     v-model="show"
     icon="mdi-book-open-page-variant-outline"
     width="520"
+    cancelable
     @close="closeDialog"
   >
     <template #header>
@@ -134,7 +132,6 @@ function closeDialog() {
         <button
           type="button"
           class="r-v2-upload-target__option"
-          :disabled="uploading"
           @click="chooseTarget('resources')"
         >
           <div class="r-v2-upload-target__icon">
@@ -157,7 +154,6 @@ function closeDialog() {
         <button
           type="button"
           class="r-v2-upload-target__option"
-          :disabled="uploading"
           @click="chooseTarget('folder')"
         >
           <div class="r-v2-upload-target__icon">
@@ -178,11 +174,6 @@ function closeDialog() {
           />
         </button>
       </div>
-    </template>
-    <template #footer>
-      <RBtn variant="text" :disabled="uploading" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
     </template>
   </RDialog>
 </template>

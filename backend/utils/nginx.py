@@ -1,10 +1,13 @@
 import dataclasses
 from collections.abc import Collection
+from pathlib import PurePath
 from typing import Any
 from urllib.parse import quote
 
 from anyio import Path
 from fastapi.responses import Response
+
+from utils.filesystem import CONTROL_CHARS
 
 
 @dataclasses.dataclass(frozen=True)
@@ -19,6 +22,18 @@ class ZipContentLine:
     size_bytes: int
     encoded_location: str
     filename: str
+
+    def __post_init__(self) -> None:
+        """Keep the rendered line parseable as exactly one mod_zip record.
+
+        The manifest is line-oriented, so a line feed in a name taken off disk
+        would otherwise let that name forge an extra archive entry.
+        """
+        location = self.encoded_location
+        if " " in location or CONTROL_CHARS.search(location):
+            raise ValueError(f"mod_zip location must be URL-encoded, got {location!r}")
+
+        object.__setattr__(self, "filename", CONTROL_CHARS.sub("_", self.filename))
 
     def __str__(self) -> str:
         crc32 = self.crc32 or "-"
@@ -58,14 +73,15 @@ class FileRedirectResponse(Response):
     def __init__(
         self,
         *,
-        download_path: Path,
+        download_path: Path | PurePath,
         filename: str | None = None,
         disposition: str = "attachment",
         **kwargs: Any,
     ):
         """
         Arguments:
-          - download_path: Path to the file to be served.
+          - download_path: Path to the file to be served. Only its name and string
+              form are read, so either flavour of Path works.
           - filename: Name of the file to be served. If not provided, the file name from the
               download_path is used.
           - disposition: "attachment" (default) forces a download; "inline" lets the

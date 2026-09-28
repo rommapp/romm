@@ -74,6 +74,7 @@ const dynamicAttrs = computed<Record<string, unknown>>(() => {
   if (props.to !== undefined && props.to !== null) {
     return {
       to: props.to,
+      exactActiveClass: "r-menu-item--current",
       role: "menuitem",
       "aria-disabled": props.disabled ? "true" : undefined,
     };
@@ -167,7 +168,10 @@ const styleVars = computed(() => {
   user-select: none;
 }
 
-.r-menu-item:hover:not(.r-menu-item--disabled) {
+/* A link to the page already on screen reads as hovered, so the menu shows
+   where you are. */
+.r-menu-item:hover:not(.r-menu-item--disabled),
+.r-menu-item--current {
   --rmi-text: var(--r-color-fg);
   --rmi-icon-opacity: 1;
   background: var(--r-color-surface);

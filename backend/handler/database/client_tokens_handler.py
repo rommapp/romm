@@ -1,14 +1,14 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, joinedload
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.client_token import ClientToken
 from utils.datetime import to_utc
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 LAST_USED_DEBOUNCE = timedelta(minutes=5)
 
@@ -18,7 +18,7 @@ class DBClientTokensHandler(DBBaseHandler):
     def add_token(
         self,
         token: ClientToken,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> ClientToken:
         return session.merge(token)
 
@@ -26,7 +26,7 @@ class DBClientTokensHandler(DBBaseHandler):
     def get_token_by_hash(
         self,
         hashed_token: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> ClientToken | None:
         return session.scalar(
             select(ClientToken).where(ClientToken.hashed_token == hashed_token)
@@ -36,7 +36,7 @@ class DBClientTokensHandler(DBBaseHandler):
     def get_tokens_by_user(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[ClientToken]:
         return session.scalars(
             select(ClientToken)
@@ -45,9 +45,29 @@ class DBClientTokensHandler(DBBaseHandler):
         ).all()
 
     @begin_session
+    def get_token_ids_by_users(
+        self,
+        user_ids: Iterable[int],
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Sequence[int]:
+        return session.scalars(
+            select(ClientToken.id).where(ClientToken.user_id.in_(list(user_ids)))
+        ).all()
+
+    @begin_session
+    def get_token_ids_by_device(
+        self,
+        device_id: str,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> Sequence[int]:
+        return session.scalars(
+            select(ClientToken.id).where(ClientToken.device_id == device_id)
+        ).all()
+
+    @begin_session
     def get_all_tokens(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[ClientToken]:
         return (
             session.scalars(
@@ -64,20 +84,20 @@ class DBClientTokensHandler(DBBaseHandler):
         self,
         token_id: int,
         user_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> int:
         stmt = delete(ClientToken).where(ClientToken.id == token_id)
         if user_id is not None:
             stmt = stmt.where(ClientToken.user_id == user_id)
 
         result = session.execute(stmt.execution_options(synchronize_session="evaluate"))
-        return result.rowcount
+        return affected_rows(result)
 
     @begin_session
     def update_last_used(
         self,
         token_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
         now = datetime.now(timezone.utc)
         token = session.get(ClientToken, token_id)
@@ -103,7 +123,7 @@ class DBClientTokensHandler(DBBaseHandler):
         token_id: int,
         new_hash: str,
         user_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> ClientToken | None:
         stmt = (
             update(ClientToken)
@@ -116,7 +136,7 @@ class DBClientTokensHandler(DBBaseHandler):
             stmt = stmt.where(ClientToken.user_id == user_id)
 
         result = session.execute(stmt)
-        if result.rowcount == 0:
+        if affected_rows(result) == 0:
             return None
 
         return session.get(ClientToken, token_id)
@@ -125,7 +145,7 @@ class DBClientTokensHandler(DBBaseHandler):
     def count_tokens_by_user(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> int:
         return (
             session.scalar(
@@ -141,7 +161,7 @@ class DBClientTokensHandler(DBBaseHandler):
         self,
         token_id: int,
         user_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> ClientToken | None:
         stmt = select(ClientToken).where(ClientToken.id == token_id)
         if user_id is not None:

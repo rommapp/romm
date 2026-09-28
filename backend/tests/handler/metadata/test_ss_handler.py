@@ -1,31 +1,41 @@
 """Tests for the ScreenScraper metadata handler."""
 
 import json
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
 import pytest
 from fastapi import HTTPException, status
+from tests.handler.metadata.conftest import schema_stamp_get
 
 from adapters.services.screenscraper import (
+    ScreenScraperCredentialsError,
     ScreenScraperRateLimitError,
     SSAccountLimits,
+    SSCredentialSet,
 )
-from adapters.services.screenscraper_types import SSGame
+from adapters.services.screenscraper_types import SSGame, SSGameRom
 from config.config_manager import Config, MetadataMediaType
 from handler.metadata import ss_handler
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.ss_handler import (
     PS1_SS_ID,
+    SWITCH_SS_ID,
+    ScreenScraperExhaustedError,
     SSHandler,
+    SSRom,
     _get_rom_type,
     _is_daily_quota_error,
     _is_notgame,
     add_ss_auth_to_url,
     build_ss_game,
+    extract_languages_from_ss_dump,
     extract_media_from_ss_game,
     extract_metadata_from_ss_rom,
+    extract_regions_from_ss_dump,
+    extract_tags_from_ss_dump,
+    find_ss_dump,
     get_preferred_languages,
     get_preferred_regions,
     get_rate_limited_rom_names,
@@ -34,6 +44,8 @@ from handler.metadata.ss_handler import (
     reset_rate_limited_roms,
 )
 from handler.redis_handler import async_cache
+from models.rom import LookupHashes, Rom
+from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
 
 
 def _make_config(
@@ -53,8 +65,10 @@ def _make_config(
         EXCLUDED_MULTI_PARTS_FILES=[],
         PLATFORMS_BINDING={},
         PLATFORMS_VERSIONS={},
-        ROMS_FOLDER_NAME="roms",
-        FIRMWARE_FOLDER_NAME="bios",
+        STRUCTURE_TEMPLATES={
+            "default": "{platform}/roms/{game}",
+            "firmware": "{platform}/bios",
+        },
         SCAN_REGION_PRIORITY=region_priority or [],
         SCAN_LANGUAGE_PRIORITY=(
             language_priority if language_priority is not None else ["en"]
@@ -141,7 +155,7 @@ class TestGetPreferredRegions:
         rom.regions = ["Europe"]
         config = _make_config(region_priority=["fr", "eu"], region_mode="prefer_config")
         with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
-            regions = get_preferred_regions(rom, for_media=True)
+            regions = get_preferred_regions(rom)
 
         assert regions.index("fr") < regions.index("eu")
 
@@ -152,21 +166,10 @@ class TestGetPreferredRegions:
         rom.regions = ["Japan"]
         config = _make_config(region_priority=["fr"], region_mode="prefer_config")
         with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
-            regions = get_preferred_regions(rom, for_media=True)
+            regions = get_preferred_regions(rom)
 
         assert regions.index("fr") < regions.index("jp")
         assert regions.index("jp") < regions.index("us")
-
-    def test_prefer_config_mode_only_applies_to_media(self):
-        """region_mode only affects media selection; name/date ordering keeps
-        the rom's own tags first."""
-        rom = MagicMock()
-        rom.regions = ["Europe"]
-        config = _make_config(region_priority=["fr", "eu"], region_mode="prefer_config")
-        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
-            regions = get_preferred_regions(rom)
-
-        assert regions.index("eu") < regions.index("fr")
 
     def test_default_mode_rom_tags_still_win(self):
         """Default prefer_rom_tags mode keeps the current behavior."""
@@ -350,6 +353,44 @@ class TestExtractMediaFromSsGame:
                 ]
             },
         )
+
+    def test_box2d_path_set_when_in_config(self):
+        """When 'box2d' is in SCAN_MEDIA the box front is persisted locally, so it
+        stays reachable when another provider wins the cover."""
+        config = _make_config(scan_media=["box2d"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_url"] is not None
+        assert "box-2D" in result["box2d_url"]
+        assert result["box2d_path"] == "roms/1/100/box2d/box2d.png"
+
+    def test_box2d_path_not_set_when_absent_from_config(self):
+        """Without 'box2d' in SCAN_MEDIA the front URL is kept but not stored."""
+        config = _make_config(scan_media=["box2d_back"])
+        rom = self._make_rom()
+        game = self._make_game_with_box_faces()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_url"] is not None
+        assert result["box2d_path"] is None
 
     def test_box2d_side_path_set_when_in_config(self):
         """When 'box2d_side' is in SCAN_MEDIA the spine is persisted locally."""
@@ -549,6 +590,46 @@ class TestExtractMetadataFromSsRom:
 
         assert metadata["first_release_date"] == 593568000
 
+    def test_release_date_follows_the_configured_region_under_prefer_config(self):
+        """The same ordering that picks the artwork and the title picks the
+        date, so a game resolved as French is not dated by its US release."""
+        config = _make_config(region_priority=["fr"], region_mode="prefer_config")
+        rom = self._make_rom(regions=["USA"])
+        game = cast(
+            SSGame,
+            {
+                "dates": [
+                    {"region": "us", "text": "1990-02-12"},
+                    {"region": "fr", "text": "1991-08-29"},
+                ],
+                "medias": [],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            metadata = extract_metadata_from_ss_rom(rom, game)
+
+        assert metadata["first_release_date"] == 683424000
+
+    def test_release_date_keeps_the_rom_s_region_under_prefer_rom_tags(self):
+        config = _make_config(region_priority=["fr"])
+        rom = self._make_rom(regions=["USA"])
+        game = cast(
+            SSGame,
+            {
+                "dates": [
+                    {"region": "us", "text": "1990-02-12"},
+                    {"region": "fr", "text": "1991-08-29"},
+                ],
+                "medias": [],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            metadata = extract_metadata_from_ss_rom(rom, game)
+
+        assert metadata["first_release_date"] == 634780800
+
     def test_franchises_fall_back_to_french(self):
         """ScreenScraper's taxonomy is often French-only, so those fields still
         fall back even when the user asked for another language."""
@@ -592,14 +673,14 @@ class TestExtractMetadataFromSsRom:
 
 
 class TestBuildSSGame:
-    def _make_rom(self) -> MagicMock:
+    def _make_rom(self, regions: list[str] | None = None) -> MagicMock:
         rom = MagicMock()
         rom.platform_id = 1
         rom.id = 100
-        rom.regions = None
+        rom.regions = regions
         return rom
 
-    def _make_media(self, media_type: str) -> dict:
+    def _make_media(self, media_type: str) -> dict[str, Any]:
         return {
             "type": media_type,
             "parent": "jeu",
@@ -663,6 +744,46 @@ class TestBuildSSGame:
 
         # Empty values are stripped from the returned dict.
         assert "summary" not in result
+
+    def test_prefer_config_picks_the_title_from_the_configured_region(self):
+        """The mode used to reach the artwork only, so a European rom came back
+        with French box art under an English title."""
+        config = _make_config(region_priority=["fr", "eu"], region_mode="prefer_config")
+        game = cast(
+            SSGame,
+            {
+                "id": "42",
+                "medias": [],
+                "noms": [
+                    {"region": "eu", "text": "007 - Everything or Nothing"},
+                    {"region": "fr", "text": "007 : Quitte ou Double"},
+                ],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            result = build_ss_game(self._make_rom(regions=["Europe"]), game)
+
+        assert result["name"] == "007: Quitte ou Double"
+
+    def test_prefer_rom_tags_keeps_the_title_of_the_rom_s_own_region(self):
+        config = _make_config(region_priority=["fr", "eu"])
+        game = cast(
+            SSGame,
+            {
+                "id": "42",
+                "medias": [],
+                "noms": [
+                    {"region": "eu", "text": "007 - Everything or Nothing"},
+                    {"region": "fr", "text": "007 : Quitte ou Double"},
+                ],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            result = build_ss_game(self._make_rom(regions=["Europe"]), game)
+
+        assert result["name"] == "007 - Everything or Nothing"
 
     def test_summary_uses_configured_language(self):
         config = _make_config(language_priority=["de", "en"])
@@ -992,6 +1113,21 @@ class TestGetPlatform:
         assert platform["ss_id"] is None
         assert platform["slug"] == "not-a-real-platform"
 
+    def test_rpg_maker_maps_to_the_easyrpg_system(self):
+        """ScreenScraper files RPG Maker games under its EasyRPG system."""
+        handler = SSHandler()
+        platform = handler.get_platform("rpg-maker")
+
+        assert platform["ss_id"] == 231
+        assert platform["name"] == "EasyRPG"
+
+    def test_win9x_maps_to_the_generic_windows_system(self):
+        handler = SSHandler()
+        platform = handler.get_platform("win9x")
+
+        assert platform["ss_id"] == handler.get_platform("win")["ss_id"] == 138
+        assert platform["name"] == "PC Win9X"
+
 
 class TestGetRomType:
     def _file(self, ext: str, top_level: bool = True) -> MagicMock:
@@ -1101,6 +1237,85 @@ class TestLookupRom:
         assert is_not_game is False
 
     @pytest.mark.asyncio
+    async def test_a_filename_match_reports_no_regions(self):
+        """A bare romnom match identifies a title, so it says nothing about the
+        dump on disk and must not tag it."""
+        config = _make_config(region_priority=["us"])
+        game = {
+            "id": "1234",
+            "noms": [{"region": "us", "text": "Adventure Island 2"}],
+            "medias": [],
+            "synopsis": [],
+            "dates": [],
+            "genres": [],
+            "familles": [],
+            "modes": [],
+            "joueurs": {},
+            "note": {},
+            "roms": [
+                {
+                    "id": 7,
+                    "rommd5": "B330314E19126D87D156D0618C4657B0",
+                    "regions": {"regions_shortname": ["jp"]},
+                }
+            ],
+        }
+        handler = SSHandler()
+        mock_file = self._make_unhashed_file("Adventure Island II.nes")
+        rom = MagicMock(platform_slug="nes", platform_id=1, id=100, regions=[])
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch.object(handler.ss_service, "get_game_info", return_value=game),
+        ):
+            result, _ = await handler.lookup_rom(rom, 3, [mock_file])
+
+        assert result["ss_id"] == 1234
+        assert "regions" not in result
+
+    @pytest.mark.asyncio
+    async def test_a_hash_match_reports_the_dumps_tags(self):
+        """A hash picks one entry out of `jeu.roms`, and that entry is the file."""
+        config = _make_config(region_priority=["us"])
+        game = {
+            "id": "1234",
+            "noms": [{"region": "us", "text": "Adventure Island 2"}],
+            "medias": [],
+            "synopsis": [],
+            "dates": [],
+            "genres": [],
+            "familles": [],
+            "modes": [],
+            "joueurs": {},
+            "note": {},
+            "roms": [
+                {
+                    "id": 7,
+                    "rommd5": "999999",
+                    "regions": {"regions_shortname": ["us"]},
+                },
+                {
+                    "id": 8,
+                    "rommd5": "ABC123",
+                    "regions": {"regions_shortname": ["jp"]},
+                    "langues": {"langues_shortname": ["ja"]},
+                },
+            ],
+        }
+        handler = SSHandler()
+        mock_file = self._make_mock_file()
+        rom = MagicMock(platform_slug="nes", platform_id=1, id=100, regions=[])
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch.object(handler.ss_service, "get_game_info", return_value=game),
+        ):
+            result, _ = await handler.lookup_rom(rom, 3, [mock_file])
+
+        assert result["regions"] == ["Japan"]
+        assert result["languages"] == ["Japanese"]
+
+    @pytest.mark.asyncio
     async def test_no_hash_no_filename_skips_lookup(self):
         """With neither a hash nor a filename there is nothing to match on, so the
         lookup is skipped without spending an API call."""
@@ -1195,6 +1410,44 @@ class TestLookupRom:
         assert captured.get("rom_name") == "Mario.zip"
 
     @pytest.mark.asyncio
+    async def test_multi_file_archive_keeps_sending_the_composite_hashes(self):
+        """Unlike Hasheous and Playmatch, ScreenScraper stays on the archive's
+        own digests: jeuInfos falls back to romnom, so an arcade set still
+        resolves by name, and moving to the member hash would shift match
+        results across every library."""
+        handler = SSHandler()
+        mock_file = self._make_mock_file()
+        mock_file.file_name = "Mario.zip"
+        mock_file.archive_members = [
+            {
+                "name": "mario.bin",
+                "size": 1024,
+                "crc_hash": "membercrc",
+                "md5_hash": "membermd5",
+                "sha1_hash": "membersha1",
+            },
+            {
+                "name": "mario.cue",
+                "size": 64,
+                "crc_hash": "cuecrc",
+                "md5_hash": "cuemd5",
+                "sha1_hash": "cuesha1",
+            },
+        ]
+        captured = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return None
+
+        with patch.object(handler.ss_service, "get_game_info", side_effect=capture):
+            await handler.lookup_rom(MagicMock(platform_slug="psx"), 57, [mock_file])
+
+        assert captured.get("md5") == "abc123"
+        assert captured.get("sha1") == "def456"
+        assert captured.get("crc") == "12345678"
+
+    @pytest.mark.asyncio
     async def test_romnom_uses_archive_filename_when_no_archive_members(self):
         handler = SSHandler()
         mock_file = self._make_mock_file()
@@ -1244,9 +1497,9 @@ class TestLookupRom:
         assert is_not_game is True
 
     @pytest.mark.asyncio
-    async def test_returns_empty_on_daily_quota_exhausted(self):
-        """A daily-quota 429 yields an empty match so the scan falls back to the
-        other providers instead of failing."""
+    async def test_reports_a_short_circuit_on_daily_quota_exhausted(self):
+        """A breaker answered, so the caller has to hear that ScreenScraper did
+        not: an empty match would read as a miss it never made."""
         handler = SSHandler()
         mock_get_info = AsyncMock(
             side_effect=HTTPException(
@@ -1258,12 +1511,12 @@ class TestLookupRom:
             patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
             patch.object(handler.ss_service, "get_game_info", mock_get_info),
         ):
-            result, is_not_game = await handler.lookup_rom(
-                MagicMock(platform_slug="snes"), 3, [self._make_mock_file()]
-            )
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
+                await handler.lookup_rom(
+                    MagicMock(platform_slug="snes"), 3, [self._make_mock_file()]
+                )
         mock_get_info.assert_awaited_once()
-        assert result["ss_id"] is None
-        assert is_not_game is False
+        assert exc_info.value.fallback["ss_id"] is None
 
     @pytest.mark.asyncio
     async def test_reraises_non_quota_http_error(self):
@@ -1289,29 +1542,153 @@ class TestLookupRom:
 
 
 class TestScreenScraperQuotaFallback:
-    """The scan-facing lookups return an empty match when the daily quota is
-    exhausted (HTTP 429), so a scan degrades to the other providers. Non-429
-    errors are real failures and must propagate."""
+    """The scan-facing lookups report a short circuit when the daily quota is
+    exhausted (HTTP 429), so a scan degrades to the other providers without
+    reading the silence as a miss. Non-429 errors are real failures and must
+    propagate."""
 
-    @pytest.mark.asyncio
-    async def test_get_rom_by_id_returns_empty_on_daily_quota(self):
-        handler = SSHandler()
-        mock_get_info = AsyncMock(
+    @pytest.fixture(autouse=True)
+    def _credentials(self):
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+        ):
+            yield
+
+    @staticmethod
+    def _exhausted() -> AsyncMock:
+        return AsyncMock(
             side_effect=HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="quota"
             )
         )
-        with (
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
-            patch.object(handler.ss_service, "get_game_info", mock_get_info),
-        ):
-            result = await handler.get_rom_by_id(MagicMock(), 1234)
+
+    @staticmethod
+    def _unavailable() -> AsyncMock:
+        return AsyncMock(
+            side_effect=HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="down"
+            )
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_rom_by_id_reports_a_short_circuit_on_daily_quota(self):
+        handler = SSHandler()
+        mock_get_info = self._exhausted()
+        with patch.object(handler.ss_service, "get_game_info", mock_get_info):
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
+                await handler.get_rom_by_id(MagicMock(), 1234)
         mock_get_info.assert_awaited_once()
-        assert result["ss_id"] is None
+        assert exc_info.value.fallback["ss_id"] is None
 
     @pytest.mark.asyncio
     async def test_get_rom_by_id_reraises_non_quota_error(self):
+        handler = SSHandler()
+        with patch.object(handler.ss_service, "get_game_info", self._unavailable()):
+            with pytest.raises(HTTPException):
+                await handler.get_rom_by_id(MagicMock(), 1234)
+
+    @pytest.mark.asyncio
+    async def test_get_rom_carries_its_name_only_fallback_on_daily_quota(self):
+        """The filename lookup derives a name locally, so the short circuit hands
+        it back rather than dropping it."""
+        handler = SSHandler()
+        rom = MagicMock(platform_slug="genesis", platform_id=1, id=1, regions=[])
+        mock_search = self._exhausted()
+        with patch.object(handler.ss_service, "search_games", mock_search):
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
+                await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
+        mock_search.assert_awaited()
+        assert exc_info.value.fallback["ss_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_matching_by_name_returns_empty_on_daily_quota(self):
+        """A manual search wants whatever the other providers found, so an
+        exhausted ScreenScraper contributes nothing rather than reporting."""
+        handler = SSHandler()
+        mock_search = self._exhausted()
+        with patch.object(handler.ss_service, "search_games", mock_search):
+            result = await handler.get_matched_roms_by_name(MagicMock(), "Sonic", 3)
+        mock_search.assert_awaited_once()
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_matching_by_name_reraises_non_quota_error(self):
+        handler = SSHandler()
+        with patch.object(handler.ss_service, "search_games", self._unavailable()):
+            with pytest.raises(HTTPException):
+                await handler.get_matched_roms_by_name(MagicMock(), "Sonic", 3)
+
+    @pytest.mark.asyncio
+    async def test_matching_by_id_returns_no_match_on_daily_quota(self):
+        """A manual match wants the providers that can still answer, so this one
+        contributes nothing rather than reporting a short circuit."""
+        handler = SSHandler()
+        with patch.object(handler.ss_service, "get_game_info", self._exhausted()):
+            assert await handler.get_matched_rom_by_id(MagicMock(), 1234) is None
+
+
+class TestScreenScraperCredentialFallback:
+    """Rejected credentials are a configuration problem, not a scan failure: the
+    service reports them once and the scan carries on with the other providers,
+    hearing that ScreenScraper never answered rather than that it missed."""
+
+    def _make_file(self) -> MagicMock:
+        mock_file = MagicMock()
+        mock_file.file_size_bytes = 131072
+        mock_file.is_top_level = True
+        mock_file.file_extension = "md"
+        mock_file.md5_hash = "abc123"
+        mock_file.sha1_hash = "def456"
+        mock_file.crc_hash = "78901234"
+        mock_file.file_name = "Sonic (USA).md"
+        mock_file.archive_members = None
+        return mock_file
+
+    @pytest.mark.asyncio
+    async def test_lookup_rom_reports_a_short_circuit_on_rejected_credentials(self):
+        handler = SSHandler()
+        rom = MagicMock(
+            platform_slug="genesis", platform_id=1, id=1, fs_name="Sonic (USA).md"
+        )
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                AsyncMock(
+                    side_effect=ScreenScraperCredentialsError(SSCredentialSet.USER)
+                ),
+            ),
+        ):
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
+                await handler.lookup_rom(rom, 1, [self._make_file()])
+
+        assert exc_info.value.fallback["ss_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_rom_reports_a_short_circuit_on_rejected_credentials(self):
+        handler = SSHandler()
+        rom = MagicMock(platform_slug="genesis", platform_id=1, id=1, regions=[])
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(
+                handler.ss_service,
+                "search_games",
+                AsyncMock(
+                    side_effect=ScreenScraperCredentialsError(SSCredentialSet.USER)
+                ),
+            ),
+        ):
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
+                await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
+
+        assert exc_info.value.fallback["ss_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_rom_by_id_reports_a_short_circuit_on_rejected_credentials(self):
         handler = SSHandler()
         with (
             patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
@@ -1320,32 +1697,14 @@ class TestScreenScraperQuotaFallback:
                 handler.ss_service,
                 "get_game_info",
                 AsyncMock(
-                    side_effect=HTTPException(
-                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="down"
-                    )
+                    side_effect=ScreenScraperCredentialsError(SSCredentialSet.USER)
                 ),
             ),
         ):
-            with pytest.raises(HTTPException):
+            with pytest.raises(ScreenScraperExhaustedError) as exc_info:
                 await handler.get_rom_by_id(MagicMock(), 1234)
 
-    @pytest.mark.asyncio
-    async def test_get_rom_returns_empty_on_daily_quota(self):
-        handler = SSHandler()
-        rom = MagicMock(platform_slug="genesis", platform_id=1, id=1, regions=[])
-        mock_search = AsyncMock(
-            side_effect=HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="quota"
-            )
-        )
-        with (
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
-            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
-            patch.object(handler.ss_service, "search_games", mock_search),
-        ):
-            result = await handler.get_rom(rom, "Sonic.bin", platform_ss_id=3)
-        mock_search.assert_awaited()
-        assert result["ss_id"] is None
+        assert exc_info.value.fallback["ss_id"] is None
 
 
 class TestScreenScraperRateLimitPropagation:
@@ -1602,7 +1961,7 @@ class TestSearchTermEncoding:
     ):
         """``_search_rom`` hands the service a term that is not pre-encoded."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -1619,7 +1978,7 @@ class TestSearchTermEncoding:
     async def test_search_rom_still_transliterates_unicode(self):
         """Unidecode is still applied so accented titles match ScreenScraper."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -1634,7 +1993,7 @@ class TestSearchTermEncoding:
     async def test_get_matched_roms_by_name_passes_unencoded_term(self):
         """``get_matched_roms_by_name`` also avoids pre-encoding the term."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -1656,7 +2015,7 @@ class TestSearchTermEncoding:
         """End-to-end through the real service: a ``+`` is encoded exactly once
         in the request URL (``%2B``), never doubly (``%252B``)."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture_request(url, *args, **kwargs):
             captured["url"] = url
@@ -1698,3 +2057,249 @@ class TestSonySerialFilenames:
         mock_hget.assert_awaited_once_with(PS1_SERIAL_INDEX_KEY, "SCUS-94163")
         assert result.get("name") == "Gran Turismo"
         assert result["ss_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_switch_titledb_fallback_does_not_set_icon_as_manual(self):
+        """The Switch TitleDB index has no manual, so the fallback must not
+        reuse the icon URL as ``url_manual``. Doing so made RomM try to fetch
+        an icon as a game manual on every scan of such a ROM."""
+        handler = SSHandler()
+
+        with (
+            patch(
+                "handler.metadata.ss_handler.SSHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(async_cache, "exists", new_callable=AsyncMock) as mock_exists,
+            patch.object(async_cache, "get", schema_stamp_get(SWITCH_TITLEDB_STORE)),
+            patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
+            patch.object(
+                SSHandler, "_search_rom", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            mock_exists.return_value = True
+            mock_hget.return_value = json.dumps(
+                {
+                    "name": "Switch Game",
+                    "description": "A game",
+                    "iconUrl": "https://example.net/icon.png",
+                }
+            )
+            result = await handler.get_rom(
+                Rom(fs_name="70123456789012.nsp"), "70123456789012.nsp", SWITCH_SS_ID
+            )
+
+        assert result.get("name") == "Switch Game"
+        assert result.get("url_cover") == "https://example.net/icon.png"
+        assert not result.get("url_manual")
+
+
+class TestDevCredentials:
+    """Tests for ``SSHandler.has_dev_credentials``."""
+
+    @pytest.mark.parametrize(
+        ("dev_id", "dev_password", "expected"),
+        [
+            ("dev", "devpass", True),
+            (None, "devpass", False),
+            ("dev", None, False),
+            (None, None, False),
+            ("", "", False),
+        ],
+    )
+    def test_reports_whether_both_credentials_are_present(
+        self, dev_id: str | None, dev_password: str | None, expected: bool
+    ):
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_DEV_ID", dev_id),
+            patch(
+                "handler.metadata.ss_handler.SCREENSCRAPER_DEV_PASSWORD", dev_password
+            ),
+        ):
+            assert SSHandler.has_dev_credentials() is expected
+
+
+class TestExtractFromSSDump:
+    """`jeu.roms` lists every dump of a game; only ours describes the file."""
+
+    # Shaped after a real jeuInfos payload, trimmed to the keys read here.
+    ROMS = [
+        {
+            "id": "4219",
+            "romfilename": "Super Mario Bros.",
+            "rommd5": "B330314E19126D87D156D0618C4657B0",
+            "romsha1": "8EE8032491DEE422534B82F107DE0E9F5F9D44F9",
+            "romcrc": "A5C2849E",
+            "trad": 0,
+            "regions": {"regions_shortname": ["wor"], "regions_en": ["World"]},
+        },
+        {
+            "id": "154585",
+            "romfilename": "Super Mario Bros. (W) [T Fre].nes",
+            "rommd5": "811B027EAF99C2DEF7B933C5208636DE",
+            "romsha1": "",
+            "romcrc": "",
+            "trad": 1,
+            "regions": {"regions_shortname": ["us", "jp", "ss"]},
+            "langues": {"langues_shortname": ["fr"], "langues_en": ["French"]},
+        },
+    ]
+
+    def _game(self) -> SSGame:
+        # `romid` names a dump that is not ours, which is why hashes decide.
+        return cast(SSGame, {"id": "1245", "romid": "999999", "roms": self.ROMS})
+
+    def test_the_dump_is_found_by_md5_whatever_romid_says(self):
+        dump = find_ss_dump(
+            self._game(),
+            LookupHashes(crc=None, md5="811b027eaf99c2def7b933c5208636de", sha1=None),
+        )
+
+        assert dump is not None
+        assert dump["id"] == "154585"
+
+    def test_the_dump_is_found_by_sha1(self):
+        dump = find_ss_dump(
+            self._game(),
+            LookupHashes(
+                crc=None, md5=None, sha1="8ee8032491dee422534b82f107de0e9f5f9d44f9"
+            ),
+        )
+
+        assert dump is not None
+        assert dump["id"] == "4219"
+
+    def test_a_hash_no_dump_carries_matches_nothing(self):
+        assert (
+            find_ss_dump(self._game(), LookupHashes(crc=None, md5="0" * 32, sha1=None))
+            is None
+        )
+
+    def test_no_hashes_match_nothing(self):
+        assert (
+            find_ss_dump(self._game(), LookupHashes(crc=None, md5=None, sha1=None))
+            is None
+        )
+
+    def test_regions_come_from_the_dump(self):
+        dump = cast(SSGameRom, self.ROMS[1])
+
+        # "ss" is a ScreenScraper bucket rather than a place.
+        assert extract_regions_from_ss_dump(dump) == ["USA", "Japan"]
+
+    def test_languages_come_from_the_dump(self):
+        assert extract_languages_from_ss_dump(cast(SSGameRom, self.ROMS[1])) == [
+            "French"
+        ]
+
+    def test_a_translated_dump_is_tagged(self):
+        """ScreenScraper sends the flag as a string, not an int."""
+        assert extract_tags_from_ss_dump(SSGameRom(trad="1")) == ["Translation"]
+        assert extract_tags_from_ss_dump(SSGameRom(trad=1)) == ["Translation"]
+
+    @pytest.mark.parametrize("trad", ["0", 0, ""])
+    def test_an_untranslated_dump_is_not_tagged(self, trad: int | str):
+        assert extract_tags_from_ss_dump(SSGameRom(trad=trad)) == []
+
+    @pytest.mark.parametrize(
+        ("dump", "tag"),
+        [
+            (SSGameRom(hack="1"), "Hack"),
+            (SSGameRom(beta="1"), "Beta"),
+            (SSGameRom(demo="1"), "Demo"),
+        ],
+    )
+    def test_the_other_flags_spell_their_tag_the_way_a_filename_does(
+        self, dump: SSGameRom, tag: str
+    ):
+        assert extract_tags_from_ss_dump(dump) == [tag]
+
+    def test_a_dump_raising_several_flags_carries_each_tag(self):
+        dump = SSGameRom(trad="1", hack="1", beta="1")
+
+        assert extract_tags_from_ss_dump(dump) == ["Translation", "Hack", "Beta"]
+
+    def test_unl_is_not_a_tag(self):
+        """No filename tag answers to it, so reading it would split the facet."""
+        assert extract_tags_from_ss_dump(SSGameRom(unl="1")) == []
+
+    async def test_a_hash_match_carries_the_dump_tags(self):
+        """The primary path: lookup_rom answers a hash, so its dump is ours."""
+        handler = SSHandler()
+        rom_file = MagicMock(
+            file_size_bytes=40976,
+            is_top_level=True,
+            file_extension="nes",
+            file_name="Super Mario Bros. (W) [T Fre].nes",
+            archive_members=None,
+            md5_hash="811b027eaf99c2def7b933c5208636de",
+            sha1_hash="",
+            crc_hash="",
+        )
+        rom = MagicMock(platform_slug="nes", platform_id=1, id=100, regions=[])
+
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                new=AsyncMock(return_value=self._game()),
+            ),
+            patch(
+                "handler.metadata.ss_handler.build_ss_game",
+                side_effect=lambda *_: SSRom(ss_id=1245),
+            ),
+        ):
+            result, _ = await handler.lookup_rom(rom, 3, [rom_file])
+
+        assert result.get("tags") == ["Translation"]
+        assert result.get("languages") == ["French"]
+
+    def test_a_dump_without_tags_reports_nothing(self):
+        dump = cast(SSGameRom, {"id": 1})
+
+        assert extract_regions_from_ss_dump(dump) == []
+        assert extract_languages_from_ss_dump(dump) == []
+        assert extract_tags_from_ss_dump(dump) == []
+
+    async def test_a_refetch_by_id_keeps_our_dump_when_given_the_files(self):
+        """An UPDATE scan refetches by id, so the dump has to survive that path."""
+        handler = SSHandler()
+        rom = MagicMock(platform_slug="nes")
+        rom_file = MagicMock(
+            file_size_bytes=40976,
+            is_top_level=True,
+            file_extension="nes",
+            md5_hash="811b027eaf99c2def7b933c5208636de",
+            sha1_hash=None,
+            crc_hash=None,
+        )
+
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.ss_service,
+                "get_game_info",
+                new=AsyncMock(return_value=self._game()),
+            ),
+            patch(
+                "handler.metadata.ss_handler.build_ss_game",
+                side_effect=lambda *_: SSRom(ss_id=1245),
+            ),
+        ):
+            with_files = await handler.get_rom_by_id(rom, 1245, [rom_file])
+            without_files = await handler.get_rom_by_id(rom, 1245)
+
+        assert with_files.get("tags") == ["Translation"]
+        assert with_files.get("languages") == ["French"]
+
+        # A caller that only picked an id, like a manual match, says nothing
+        # about which dump is on disk.
+        assert "tags" not in without_files
+
+    def test_a_game_with_no_dumps_matches_nothing(self):
+        game = cast(SSGame, {"id": 1})
+
+        assert (
+            find_ss_dump(game, LookupHashes(crc=None, md5="a" * 32, sha1=None)) is None
+        )

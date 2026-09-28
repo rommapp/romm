@@ -17,6 +17,7 @@
   "reset-link-failed": "無法發送重設連結",
   "reset-password": "重置密碼",
   "reset-sent": "重置密碼鏈接已發送。請聯繫管理員。",
+  "reset-sent-email": "如果該帳戶設有電子郵件地址，重置密碼鏈接已在路上。如果沒有，請聯繫管理員。",
   "send-reset-link": "發送重置密碼鏈接",
   "setup-wizard": "設定精靈",
   "unable-to-login": "無法登入：{error}",

@@ -1,9 +1,11 @@
 from datetime import timedelta
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from endpoints import client_tokens as client_tokens_endpoints
 from handler.auth import auth_handler, oauth_handler
 from handler.database import db_client_token_handler, db_user_handler
 from handler.redis_handler import sync_cache
@@ -213,7 +215,7 @@ class TestClientTokenAuth:
             "/api/platforms",
             headers={"Authorization": f"Bearer {raw_token}"},
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_revoked_token_rejected(self, client, access_token, admin_user):
         create_resp = client.post(
@@ -233,7 +235,7 @@ class TestClientTokenAuth:
             "/api/platforms",
             headers={"Authorization": f"Bearer {raw_token}"},
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_scope_enforcement(self, client, access_token, admin_user):
         create_resp = client.post(
@@ -288,7 +290,7 @@ class TestClientTokenAuth:
             "/api/platforms",
             headers={"Authorization": f"Bearer {raw_token}"},
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
         # Re-enable for other tests
         db_user_handler.update_user(admin_user.id, {"enabled": True})
@@ -298,7 +300,7 @@ class TestClientTokenAuth:
             "/api/platforms",
             headers={"Authorization": "Bearer rmm_invalidgarbage"},
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_scopes_subset_validation(self, client, viewer_access_token, viewer_user):
         response = client.post(
@@ -690,3 +692,73 @@ class TestClientTokenAdmin:
             headers={"Authorization": f"Bearer {editor_access_token}"},
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestRevocationClosesDeviceSockets:
+    @pytest.fixture
+    def close(self, mocker) -> AsyncMock:
+        close = AsyncMock()
+        mocker.patch.object(
+            client_tokens_endpoints, "close_client_token_sockets", close
+        )
+        return close
+
+    @pytest.fixture
+    def headers(self, access_token) -> dict[str, str]:
+        return {"Authorization": f"Bearer {access_token}"}
+
+    @pytest.fixture
+    def token_id(self, client, headers) -> int:
+        response = client.post(
+            "/api/client-tokens",
+            json={"name": "Handheld", "scopes": ["devices.read"]},
+            headers=headers,
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        return int(response.json()["id"])
+
+    def test_deleting_a_token(self, client, headers, token_id, close):
+        response = client.delete(f"/api/client-tokens/{token_id}", headers=headers)
+
+        assert response.status_code == status.HTTP_200_OK
+        close.assert_awaited_once_with([token_id])
+
+    def test_regenerating_a_token(self, client, headers, token_id, close):
+        response = client.put(
+            f"/api/client-tokens/{token_id}/regenerate", headers=headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        close.assert_awaited_once_with([token_id])
+
+    def test_exchanging_a_pair_code(self, client, headers, token_id, close):
+        code = client.post(
+            f"/api/client-tokens/{token_id}/pair", headers=headers
+        ).json()["code"]
+
+        response = client.post("/api/client-tokens/exchange", json={"code": code})
+
+        assert response.status_code == status.HTTP_200_OK
+        close.assert_awaited_once_with([token_id])
+
+    def test_an_admin_revoking_a_token(
+        self, client, headers, editor_access_token, editor_user, close
+    ):
+        token_id = client.post(
+            "/api/client-tokens",
+            json={"name": "Editor handheld", "scopes": ["devices.read"]},
+            headers={"Authorization": f"Bearer {editor_access_token}"},
+        ).json()["id"]
+
+        response = client.delete(
+            f"/api/client-tokens/{token_id}/admin", headers=headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        close.assert_awaited_once_with([token_id])
+
+    def test_a_missing_token_closes_nothing(self, client, headers, close):
+        response = client.delete("/api/client-tokens/99999", headers=headers)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        close.assert_not_awaited()

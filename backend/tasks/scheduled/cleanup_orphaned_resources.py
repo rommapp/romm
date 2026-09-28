@@ -4,7 +4,6 @@ import shutil
 from dataclasses import dataclass
 
 from anyio import Path as AnyioPath
-from rq.job import Job
 
 from config import (
     ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
@@ -56,7 +55,7 @@ class CleanupStats:
     removed_fs_platforms: int = 0
     removed_fs_roms: int = 0
 
-    def update(self, **kwargs) -> None:
+    def update(self, **kwargs: int) -> None:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
@@ -75,7 +74,7 @@ class CleanupStats:
 
 
 class CleanupOrphanedResourcesTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Cleanup orphaned resources",
             description="Clean up orphaned resources in the ROMs directory",
@@ -83,17 +82,7 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
             enabled=ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
             manual_run=True,
             cron_string=SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
-            func="tasks.scheduled.cleanup_orphaned_resources.cleanup_orphaned_resources_task.run",
         )
-
-    def init(self) -> Job | None:
-        # Without a cron string there is nothing to schedule, so drop any job
-        # left over from a previous configuration.
-        if not self.cron_string:
-            self.unschedule()
-            return None
-
-        return super().init()
 
     @initialize_context()
     async def run(self, force: bool = False) -> dict[str, int]:
@@ -117,10 +106,7 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
             platform.id for platform in db_platform_handler.get_platforms()
         }
         existing_roms_by_platform: dict[int, set[int]] = {
-            platform_id: {
-                rom.id
-                for rom in db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
-            }
+            platform_id: set(db_rom_handler.get_rom_ids(platform_ids=[platform_id]))
             for platform_id in existing_platforms
         }
         log.debug(

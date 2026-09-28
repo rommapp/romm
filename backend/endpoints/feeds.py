@@ -4,7 +4,7 @@ import re
 from collections import Counter
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import quote
 
 from fastapi import HTTPException
@@ -46,12 +46,16 @@ from handler.filesystem import fs_rom_handler
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_handler import (
     SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import (
+    HAS_FILE_ON_DISK_FILTERS,
+    Rom,
+    RomFile,
+    RomFileCategory,
+)
 from utils.archives import is_compressed_file
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.router import APIRouter
 
 
@@ -93,8 +97,11 @@ def _hidden_ids(request: Request) -> tuple[list[int], list[int]]:
     return list(perms.hidden_platform_ids), list(perms.hidden_rom_ids)
 
 
-def _platform_roms(request: Request, platform_id: int, *, include_files: bool = False):
-    """Roms of a platform, excluding any hidden from the caller (cascade included)."""
+def _platform_roms(
+    request: Request, platform_id: int, *, include_files: bool = False
+) -> Sequence[Rom]:
+    """Roms of a platform a feed can serve: nothing hidden from the caller, and
+    nothing file-less (every feed entry carries a download URL)."""
     hidden_platforms, hidden_roms = _hidden_ids(request)
     if platform_id in hidden_platforms:
         return []
@@ -102,6 +109,7 @@ def _platform_roms(request: Request, platform_id: int, *, include_files: bool = 
         platform_ids=[platform_id],
         include_files=include_files,
         hidden_rom_ids=hidden_roms,
+        **HAS_FILE_ON_DISK_FILTERS,
     )
 
 
@@ -134,6 +142,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             platform_ids=[p.id],
             hidden_platform_ids=hidden_platforms,
             hidden_rom_ids=hidden_roms,
+            **HAS_FILE_ON_DISK_FILTERS,
         )
         for rom in roms:
             download_url = generate_rom_download_url(request, rom)
@@ -211,11 +220,10 @@ async def tinfoil_index_feed(
 
     async def extract_titledb(
         roms: Sequence[Rom],
-    ) -> dict[str, dict]:
-        titledb: dict[str, dict] = {}
+    ) -> dict[str, dict[str, Any]]:
+        titledb: dict[str, dict[str, Any]] = {}
         for rom in roms:
             tdb_match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
-            pid_match = SWITCH_PRODUCT_ID_REGEX.search(rom.fs_name)
             if tdb_match:
                 (
                     _search_term,
@@ -223,25 +231,23 @@ async def tinfoil_index_feed(
                 ) = await meta_igdb_handler._switch_titledb_format(
                     tdb_match, rom.fs_name
                 )
-                if index_entry:
-                    key = str(index_entry.get("nsuId", None))
-                    if key is not None:  # only store if we have an id
-                        titledb[key] = TinfoilFeedTitleDBSchema(
-                            **index_entry
-                        ).model_dump()
-            elif pid_match:
+            else:
                 (
                     _search_term,
                     index_entry,
                 ) = await meta_igdb_handler._switch_productid_format(
-                    pid_match, rom.fs_name
+                    rom, rom.fs_name, rom.fs_name
                 )
-                if index_entry:
-                    key = str(index_entry.get("nsuId", None))
-                    if key is not None:
-                        titledb[key] = TinfoilFeedTitleDBSchema(
-                            **index_entry
-                        ).model_dump()
+
+            if not index_entry:
+                continue
+
+            # Tinfoil keys the index by nsuId, so an entry without one has no home.
+            nsu_id = index_entry.get("nsuId")
+            if nsu_id is not None:
+                titledb[str(nsu_id)] = TinfoilFeedTitleDBSchema(
+                    **index_entry
+                ).model_dump()
 
         return titledb
 
@@ -251,6 +257,7 @@ async def tinfoil_index_feed(
         include_files=True,
         hidden_platform_ids=hidden_platforms,
         hidden_rom_ids=hidden_roms,
+        **HAS_FILE_ON_DISK_FILTERS,
     )
 
     return TinfoilFeedSchema(

@@ -40,7 +40,8 @@ function createInviteLink() {
         color: "green",
         timeout: 5000,
       });
-      fullInviteLink.value = `${window.location.origin}/register?token=${data.token}`;
+      fullInviteLink.value =
+        data.url ?? `${window.location.origin}/register?token=${data.token}`;
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {

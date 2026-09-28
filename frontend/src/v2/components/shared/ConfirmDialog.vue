@@ -50,10 +50,27 @@ const confirmColor = computed(() =>
 const cancelColor = computed(() =>
   dangerSide.value === "cancel" ? dangerColor.value : undefined,
 );
+
+// The hint renders the required string as HTML, which collapses runs of
+// whitespace, so a name carrying a double space (an unidentified platform
+// named from its folder, say) can never be typed back as stored. Compare on
+// the shape the user actually sees. Only the whitespace HTML actually
+// collapses counts: NBSP and friends render as themselves, so they stay
+// significant.
+const COLLAPSIBLE_WHITESPACE = /[ \t\n\r\f]+/g;
+
+function normalize(value: string): string {
+  return value.replace(COLLAPSIBLE_WHITESPACE, " ").replace(/^ | $/g, "");
+}
+
 const confirmDisabled = computed(() => {
   const required = payload.value?.requireTyped;
   if (!required) return false;
-  return typed.value.trim() !== required;
+  const normalizedRequired = normalize(required);
+  // A phrase that renders as nothing would otherwise match the empty field
+  // and hand out the action for free, so demand it character for character.
+  if (!normalizedRequired) return typed.value !== required;
+  return normalize(typed.value) !== normalizedRequired;
 });
 
 function onShow(p: Payload) {
@@ -65,6 +82,8 @@ function onShow(p: Payload) {
   });
 }
 
+// Closing without picking (header X, route change) counts as a cancel.
+// `useConfirm`'s promise is awaited, so it has to settle either way.
 function resolve(confirmed: boolean) {
   const id = payload.value?.id;
   open.value = false;
@@ -87,7 +106,7 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
 </script>
 
 <template>
-  <RDialog v-model="open" width="440" persistent>
+  <RDialog v-model="open" width="440" persistent @close="onCancel">
     <template v-if="payload" #header>
       <span>{{ payload.title }}</span>
     </template>
@@ -113,25 +132,24 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
         </div>
       </div>
     </template>
+    <template v-if="payload" #footer-start>
+      <RBtn
+        ref="cancelButtonRef"
+        :variant="cancelColor ? undefined : 'outlined'"
+        :color="cancelColor"
+        @click="onCancel"
+      >
+        {{ payload.cancelText ?? t("common.cancel") }}
+      </RBtn>
+    </template>
     <template v-if="payload" #footer>
-      <div class="r-confirm__actions">
-        <RBtn
-          ref="cancelButtonRef"
-          :variant="cancelColor ? undefined : 'text'"
-          :color="cancelColor"
-          @click="onCancel"
-        >
-          {{ payload.cancelText ?? t("common.cancel") }}
-        </RBtn>
-        <RBtn
-          :variant="confirmColor ? undefined : 'text'"
-          :color="confirmColor"
-          :disabled="confirmDisabled"
-          @click="onConfirm"
-        >
-          {{ payload.confirmText ?? t("common.confirm") }}
-        </RBtn>
-      </div>
+      <RBtn
+        :color="confirmColor"
+        :disabled="confirmDisabled"
+        @click="onConfirm"
+      >
+        {{ payload.confirmText ?? t("common.confirm") }}
+      </RBtn>
     </template>
   </RDialog>
 </template>
@@ -165,12 +183,5 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
 .r-confirm__typed-hint strong {
   color: var(--r-color-fg);
   font-family: var(--r-font-family-mono);
-}
-
-.r-confirm__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--r-space-2);
-  width: 100%;
 }
 </style>

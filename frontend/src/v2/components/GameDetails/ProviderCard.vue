@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // ProviderCard — single metadata-source card. Provider name + logo
-// + linked external ID (or "Not linked"). When `url` is non-null and
-// the ID is set, the card renders as an `<a target=_blank>`; otherwise
-// it's a static div. Brand colour is consumed via the `accent` prop
-// (caller passes a CSS color value, typically a token reference).
+// + linked external ID (or "Not linked"), plus the provider's rating
+// when it publishes one. When `url` is non-null and the ID is set, the
+// card renders as an `<a target=_blank>`; otherwise it's a static div.
+// Brand colour is consumed via the `accent` prop (caller passes a CSS
+// color value, typically a token reference).
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -18,12 +19,14 @@ interface Props {
   logo?: string | null;
   id?: string | number | null;
   href?: string | null;
+  rating?: string | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   logo: null,
   id: null,
   href: null,
+  rating: null,
 });
 
 const isLinked = computed(() => props.id !== null && props.id !== undefined);
@@ -61,6 +64,13 @@ const isClickable = computed(() => isLinked.value && Boolean(props.href));
       <span v-if="isLinked">{{ id }}</span>
       <span v-else class="provider-card__unlinked">
         {{ t("common.not-linked") }}
+      </span>
+      <span
+        v-if="rating"
+        class="provider-card__rating"
+        :title="t('rom.ratings-label')"
+      >
+        {{ rating }}
       </span>
     </div>
   </component>
@@ -114,6 +124,10 @@ const isClickable = computed(() => isLinked.value && Boolean(props.href));
 }
 
 .provider-card__id {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 11.5px;
   color: var(--r-color-fg-secondary);
   font-variant-numeric: tabular-nums;
@@ -123,5 +137,11 @@ const isClickable = computed(() => isLinked.value && Boolean(props.href));
   font-style: italic;
   color: var(--r-color-fg-faint);
   font-family: var(--r-font-family-sans);
+}
+.provider-card__rating {
+  flex-shrink: 0;
+  font-family: var(--r-font-family-sans);
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg);
 }
 </style>

@@ -5,7 +5,9 @@
 // so both surfaces stay in sync.
 //
 // Actions:
-//   play        → router.push /rom/:id/ejs
+//   play        → launch the in-browser player; an `<a href>` to it with
+//                 `link`, so it opens in a new tab like any link
+//   stream      → launch the streaming player; same `link` treatment
 //   download    → direct download link click (or `onDownloadClick` when set)
 //   copy-link   → copy the API download URL to clipboard; falls back to
 //                 a dialog that shows the link when clipboard is denied
@@ -28,6 +30,8 @@
 //   glass      → default translucent frosted-glass pill
 //   surface    → translucent grey, page-background friendly (Details)
 //   emphasized → white-on-dark (used by Play in card + details)
+//   brand      → solid brand fill, the coloured peer to emphasized
+//                (used by Stream so it reads as its own destination)
 //   bare       → no background or border, just the icon (list rows /
 //                inline strips where the row's own surface frames the
 //                control)
@@ -49,6 +53,7 @@ import {
   GAME_ACTIONS_KEY,
   useGameActions,
 } from "@/v2/composables/useGameActions";
+import { opensInNewContext } from "@/v2/utils/mouseGestures";
 import {
   ENUM_KEYS,
   FLAG_KEYS,
@@ -65,6 +70,8 @@ const { t } = useI18n();
 
 export type GameAction =
   | "play"
+  | "stream"
+  | "join"
   | "download"
   | "copy-link"
   | "qr"
@@ -80,16 +87,18 @@ interface Props {
   /** Size ladder shared with RBtn / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   /**
-   * `glass` — dark scrim, designed to read on top of cover art
-   *           (GameCard hover overlay).
-   * `surface` — translucent grey surface, matches RTag tokens
-   *             (GameDetails header where the buttons sit on the
-   *             page background, not over a cover).
-   * `emphasized` — primary white-on-dark CTA (Play).
-   * `bare` — no chrome; just the icon. For list rows where the row's
-   *          own surface already frames the control.
+   * `glass`: dark scrim, designed to read on top of cover art
+   *          (GameCard hover overlay).
+   * `surface`: translucent grey surface, matches RTag tokens
+   *            (GameDetails header where the buttons sit on the
+   *            page background, not over a cover).
+   * `emphasized`: primary white-on-dark CTA (Play).
+   * `brand`: solid brand fill. Sits beside `emphasized` as an equal
+   *          CTA that goes somewhere else (Stream).
+   * `bare`: no chrome; just the icon. For list rows where the row's
+   *         own surface already frames the control.
    */
-  variant?: "glass" | "surface" | "emphasized" | "bare";
+  variant?: "glass" | "surface" | "emphasized" | "brand" | "bare";
   withLabel?: boolean;
   /**
    * Status-only: when several status states are active, the button
@@ -110,6 +119,12 @@ interface Props {
    * other surface (GameCard, list rows) that just wants a plain download.
    */
   onDownloadClick?: () => void;
+  /**
+   * Play / stream only: render the launch as an `<a href>` to the player
+   * document so it can be opened in a new tab. Off inside surfaces that
+   * are links themselves (the GameCard), where a nested anchor is invalid.
+   */
+  link?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -119,6 +134,7 @@ const props = withDefaults(defineProps<Props>(), {
   orientation: "horizontal",
   withMetrics: false,
   onDownloadClick: undefined,
+  link: false,
 });
 
 const { smAndDown } = useBreakpoint();
@@ -170,7 +186,25 @@ const preset = computed<Preset>(() => {
       icon: "mdi-play",
       label: t("rom.play"),
       activeIcon: null,
-      onClick: actions.play,
+      onClick: () => actions.play("local"),
+      active: false,
+    };
+  }
+  if (props.action === "stream") {
+    return {
+      icon: "mdi-play-network",
+      label: actions.streamActionLabel.value,
+      activeIcon: null,
+      onClick: () => actions.play("stream"),
+      active: false,
+    };
+  }
+  if (props.action === "join") {
+    return {
+      icon: "mdi-account-multiple-plus",
+      label: actions.joinActionLabel.value,
+      activeIcon: null,
+      onClick: () => void actions.joinStream(),
       active: false,
     };
   }
@@ -274,6 +308,16 @@ const displayedIcon = computed(
   () => (preset.value.active && preset.value.activeIcon) || preset.value.icon,
 );
 
+// Only the launch actions lead to a document of their own; with `link` they
+// render as anchors to it so the player can be opened in a new tab. A shelved
+// game keeps the button: every launch must pass `play()`'s confirmation.
+const linkHref = computed<string | null>(() => {
+  if (!props.link || actions.needsLaunchConfirm.value) return null;
+  if (props.action === "play") return actions.playPath("local");
+  if (props.action === "stream") return actions.playPath("stream");
+  return null;
+});
+
 const moreOpen = ref(false);
 const statusOpen = ref(false);
 // The `collection` action opens a global dialog via emitter rather than a
@@ -317,12 +361,12 @@ function clearAllStatus() {
   statusOpen.value = false;
 }
 
-// For the play/download links we could render `<router-link>` /
-// `<a href>` for right-click-open-in-new-tab support, but keeping
-// `<button>` here lets the parent surface own the semantics (the whole
-// card is already a link). Both direct actions live in the composable.
+// Modified and non-primary clicks on a launch anchor stay with the browser
+// (new tab); plain ones still go through `play()` for its confirmation and
+// cover morph.
 function onClick(e: MouseEvent) {
   if (props.action === "more" || props.action === "status") return;
+  if (linkHref.value && (e.button !== 0 || opensInNewContext(e))) return;
   e.preventDefault();
   e.stopPropagation();
   if (props.action === "collection") collectionOpen.value = true;
@@ -491,10 +535,12 @@ function onClick(e: MouseEvent) {
     </template>
   </RMenu>
 
-  <!-- Plain action — direct click. -->
-  <button
+  <!-- Plain action — direct click, or a real anchor for a linked launch. -->
+  <component
+    :is="linkHref ? 'a' : 'button'"
     v-else
-    type="button"
+    :type="linkHref ? undefined : 'button'"
+    :href="linkHref ?? undefined"
     class="r-v2-game-btn"
     :class="[
       `r-v2-game-btn--${size}`,
@@ -526,12 +572,14 @@ function onClick(e: MouseEvent) {
       :text="preset.label"
       location="top"
     />
-  </button>
+  </component>
 </template>
 
 <style scoped>
 .r-v2-game-btn {
   appearance: none;
+  box-sizing: border-box;
+  text-decoration: none;
   /* Dark glass so the button still reads when sitting on top of a bright
      or busy cover image in the GameCard overlay. In GameDetails the
      backdrop is already a dark blurred cover so this tone lands neutral
@@ -689,6 +737,24 @@ function onClick(e: MouseEvent) {
   transform: translateY(-1px);
 }
 .r-v2-game-btn--emphasized:active {
+  transform: scale(0.96);
+}
+
+/* Brand, a solid fill in the product colour. Play and Stream are peers
+   that lead somewhere different, so the second CTA takes colour rather
+   than a second white pill. */
+.r-v2-game-btn--brand {
+  background: var(--r-color-brand-primary) !important;
+  border-color: var(--r-color-brand-primary) !important;
+  color: white !important;
+}
+.r-v2-game-btn--brand:hover {
+  background: var(--r-color-brand-primary-hover) !important;
+  border-color: var(--r-color-brand-primary-hover) !important;
+  transform: translateY(-1px);
+}
+.r-v2-game-btn--brand:active {
+  background: var(--r-color-brand-primary-pressed) !important;
   transform: scale(0.96);
 }
 

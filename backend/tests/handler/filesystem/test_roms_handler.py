@@ -1,16 +1,21 @@
+import binascii
 import hashlib
 import os
 import shutil
+import struct
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 from tests._zipfile_shim import reload_zipfile
 
-from config.config_manager import LIBRARY_BASE_PATH, Config
+from adapters.services.sigil import SigilExtractionResult
+from config import LIBRARY_BASE_PATH
+from config.config_manager import DEFAULT_EXCLUDED_EXTENSIONS, Config
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
     REGIONS_BY_SHORTCODE,
@@ -18,9 +23,13 @@ from handler.filesystem.base_handler import (
 from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
+    _TitleIdSource,
+    category_for_path_parts,
+    category_matches,
+    mtime_matches,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory, SaveTargetLayout
 from utils.archives import extract_chd_hash
 
 
@@ -42,8 +51,10 @@ class TestFSRomsHandler:
             EXCLUDED_MULTI_PARTS_FILES=["excluded_part.bin"],
             PLATFORMS_BINDING={},
             PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="roms",
-            FIRMWARE_FOLDER_NAME="bios",
+            STRUCTURE_TEMPLATES={
+                "default": "{platform}/roms/{game}",
+                "firmware": "{platform}/bios",
+            },
         )
 
     @pytest.fixture
@@ -110,51 +121,22 @@ class TestFSRomsHandler:
         """Test that FSRomsHandler initializes with LIBRARY_BASE_PATH"""
         assert handler.base_path == Path(LIBRARY_BASE_PATH).resolve()
 
-    def test_get_roms_fs_structure_structure_b(self, handler: FSRomsHandler):
-        """Test get_roms_fs_structure with Structure B ({platform}/roms)"""
-        fs_slug = "n64"
-        cnfg = Config(
-            EXCLUDED_PLATFORMS=[],
-            EXCLUDED_SINGLE_EXT=[],
-            EXCLUDED_SINGLE_FILES=[],
-            EXCLUDED_MULTI_FILES=[],
-            EXCLUDED_MULTI_PARTS_EXT=[],
-            EXCLUDED_MULTI_PARTS_FILES=[],
-            PLATFORMS_BINDING={},
-            PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="roms",
-            FIRMWARE_FOLDER_NAME="bios",
-        )
-        cnfg.has_structure_path_b = True
+    @pytest.mark.parametrize(
+        ("template", "expected"),
+        [
+            ("{platform}/roms/{game}", "n64/roms"),
+            ("roms/{platform}/{game}", "roms/n64"),
+            ("games/all/{platform}/{game}", "games/all/n64"),
+        ],
+    )
+    def test_get_roms_fs_structure(self, handler: FSRomsHandler, template, expected):
+        """The platform folder is whatever the template puts `{platform}` in."""
+        cnfg = Config(STRUCTURE_TEMPLATES={"default": template})
 
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
 
-            result = handler.get_roms_fs_structure(fs_slug)
-            assert result == f"{fs_slug}/roms"
-
-    def test_get_roms_fs_structure_structure_a(self, handler: FSRomsHandler):
-        """Test get_roms_fs_structure with Structure A (roms/{platform})"""
-        fs_slug = "n64"
-        cnfg = Config(
-            EXCLUDED_PLATFORMS=[],
-            EXCLUDED_SINGLE_EXT=[],
-            EXCLUDED_SINGLE_FILES=[],
-            EXCLUDED_MULTI_FILES=[],
-            EXCLUDED_MULTI_PARTS_EXT=[],
-            EXCLUDED_MULTI_PARTS_FILES=[],
-            PLATFORMS_BINDING={},
-            PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="roms",
-            FIRMWARE_FOLDER_NAME="bios",
-        )
-        cnfg.has_structure_path_b = False
-
-        with pytest.MonkeyPatch.context() as m:
-            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
-
-            result = handler.get_roms_fs_structure(fs_slug)
-            assert result == f"roms/{fs_slug}"
+            assert handler.get_roms_fs_structure("n64") == expected
 
     def test_parse_tags_regions_and_languages(self, handler: FSRomsHandler):
         """Test parse_tags method with regions and languages"""
@@ -282,6 +264,194 @@ class TestFSRomsHandler:
         # A value that is not a shortcode is kept verbatim.
         assert "PAL" in handler.parse_tags("Game [Reg-PAL].rom").regions
 
+        # A space after the separator isn't part of the value.
+        assert handler.parse_tags("Game [Reg- PAL].rom").regions == ["PAL"]
+        assert handler.parse_tags("Game [Reg- U].rom").regions == ["USA"]
+        assert handler.parse_tags("Game [Reg-  PAL ].rom").regions == ["PAL"]
+
+        # A prefix with no value behind it is not a region.
+        for fs_name in ("Game [Reg-].rom", "Game [Reg- ].rom"):
+            parsed = handler.parse_tags(fs_name)
+            assert parsed.regions == []
+            assert parsed.other_tags == ["Reg-"]
+
+    def test_parse_tags_region_casing_is_normalized(self, handler: FSRomsHandler):
+        """Region names collapse to one canonical spelling regardless of casing."""
+        for fs_name in ("Game (USA).rom", "Game (usa).rom", "Game (Usa).rom"):
+            assert handler.parse_tags(fs_name).regions == ["USA"]
+
+        assert handler.parse_tags("Game (europe).rom").regions == ["Europe"]
+        assert handler.parse_tags("Game (hong kong).rom").regions == ["Hong Kong"]
+        assert handler.parse_tags("Game (u).rom").regions == ["USA"]
+
+        # An unknown tag is still just a tag.
+        parsed = handler.parse_tags("Game (Nonsense).rom")
+        assert parsed.regions == []
+        assert "Nonsense" in parsed.other_tags
+
+    def test_parse_tags_region_codes_do_not_shadow_languages(
+        self, handler: FSRomsHandler
+    ):
+        """Nl/No are languages; NL/NO are regions. Case decides."""
+        assert handler.parse_tags("Game (Nl).rom").languages == ["Dutch"]
+        assert handler.parse_tags("Game (No).rom").languages == ["Norwegian"]
+        assert handler.parse_tags("Game (NL).rom").regions == ["Netherlands"]
+        assert handler.parse_tags("Game (NO).rom").regions == ["Norway"]
+
+        # Lowercased, the region wins; neither table can claim both.
+        assert handler.parse_tags("Game (nl).rom").regions == ["Netherlands"]
+        assert handler.parse_tags("Game (no).rom").regions == ["Norway"]
+
+    def test_parse_tags_reads_a_goodtools_translation(self, handler: FSRomsHandler):
+        """A fan translation is playable in the language it targets, so the tag
+        names the language as well as marking the dump."""
+        parsed = handler.parse_tags("Final Fantasy V (Japan) [T+Eng1.1_RPGe].sfc")
+
+        assert parsed.regions == ["Japan"]
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_a_superseded_translation(self, handler: FSRomsHandler):
+        """GoodTools marks an older patch "T-", which is still a translation."""
+        parsed = handler.parse_tags("Bahamut Lagoon (Japan) [T-Eng0.98_DeJap].sfc")
+
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_a_two_letter_translation(self, handler: FSRomsHandler):
+        """The code may be the two-letter form, "[T-En]" for "[T-Eng]"."""
+        parsed = handler.parse_tags("Game (Japan) [T-En].sfc")
+
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_a_non_iso_translation_code(self, handler: FSRomsHandler):
+        """Ge, Sp, Du, Gr and Jp are not ISO codes but do name a language."""
+        parsed = handler.parse_tags("Game (Japan) [T+Ge].sfc")
+
+        assert parsed.languages == ["German"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_leaves_a_hyphenated_word_alone(self, handler: FSRomsHandler):
+        """A suffixless "T-" tag has to name a language, so "T-Rex" is a tag."""
+        parsed = handler.parse_tags("Game (USA) (T-Rex).nes")
+
+        assert parsed.other_tags == ["T-Rex"]
+        assert parsed.languages == []
+
+    def test_parse_tags_reads_a_superseded_patch_of_an_unnamed_language(
+        self, handler: FSRomsHandler
+    ):
+        """Carrying a patch version marks it as GoodTools', not a stray word."""
+        parsed = handler.parse_tags("Game (Japan) [T-Tha1.0_Grp].gba")
+
+        assert parsed.other_tags == ["Translation"]
+        assert parsed.languages == []
+
+    def test_parse_tags_reads_a_spaced_translation(self, handler: FSRomsHandler):
+        """GoodTools also separates with a space, as ScreenScraper spells it."""
+        parsed = handler.parse_tags("Super Mario Bros. (W) [T Fre].nes")
+
+        assert parsed.languages == ["French"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_spaced_form_needs_a_language(self, handler: FSRomsHandler):
+        """The word after a spaced "T" has to name a language."""
+        parsed = handler.parse_tags("Game (USA) (T Rex).nes")
+
+        assert parsed.other_tags == ["T Rex"]
+        assert parsed.languages == []
+
+    def test_parse_tags_reads_a_tosec_translation(self, handler: FSRomsHandler):
+        parsed = handler.parse_tags("Game (1994)(Konami)(JP)[tr fr].tap")
+
+        assert parsed.languages == ["French"]
+        assert "Translation" in parsed.other_tags
+
+    def test_parse_tags_translation_without_a_language(self, handler: FSRomsHandler):
+        """ "(Tr)" names no language, so the dump is marked and nothing more."""
+        parsed = handler.parse_tags("Game (Japan) (Tr).md")
+
+        assert parsed.languages == []
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_translation_does_not_repeat_a_language(
+        self, handler: FSRomsHandler
+    ):
+        """A file carrying both spellings is filed under the language once."""
+        parsed = handler.parse_tags("Seiken Densetsu 3 (Japan) (En) (Translation).sfc")
+
+        assert parsed.languages == ["English"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_leaves_other_tr_tags_alone(self, handler: FSRomsHandler):
+        """A tag merely starting with "tr" is not a translation."""
+        parsed = handler.parse_tags("Game (USA) (Trainer).nes")
+
+        assert parsed.other_tags == ["Trainer"]
+        assert parsed.languages == []
+
+    def test_parse_tags_translation_into_an_unnamed_language(
+        self, handler: FSRomsHandler
+    ):
+        """An unnamed target language still marks the dump as translated."""
+        parsed = handler.parse_tags("Game (Japan) [T+Tha].gba")
+
+        assert parsed.languages == []
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_reads_two_letter_region_codes(self, handler: FSRomsHandler):
+        """TOSEC and similar sets write the provider shortcode, not the GoodTools
+        one, so "(US)" has to read as a region rather than land in tags."""
+        assert handler.parse_tags("Game (US).rom").regions == ["USA"]
+        assert handler.parse_tags("Game (JP).rom").regions == ["Japan"]
+        assert handler.parse_tags("Game (EU).rom").regions == ["Europe"]
+        assert handler.parse_tags("Game (BR).rom").regions == ["Brazil"]
+        assert handler.parse_tags("Game (CZ).rom").regions == ["Czech Republic"]
+
+        parsed = handler.parse_tags("Game (1994)(Konami)(JP).tap")
+        assert parsed.regions == ["Japan"]
+        assert "JP" not in parsed.other_tags
+
+    def test_parse_tags_leaves_the_ambiguous_codes_to_their_own_tables(
+        self, handler: FSRomsHandler
+    ):
+        """A two-letter code a language table claims keeps its old meaning, which
+        is what issue #3026 turned on."""
+        assert handler.parse_tags("Game (De).rom").languages == ["German"]
+        assert handler.parse_tags("Game (Fr).rom").languages == ["French"]
+        assert handler.parse_tags("Game (Pt).rom").languages == ["Portuguese"]
+        assert handler.parse_tags("Game (De).rom").regions == []
+
+        # "(Tr)" marks a translation by dumper convention, never Turkey.
+        parsed = handler.parse_tags("Game (Japan) (Tr).rom")
+        assert parsed.regions == ["Japan"]
+        assert parsed.other_tags == ["Translation"]
+
+    def test_parse_tags_language_casing_is_normalized(self, handler: FSRomsHandler):
+        """Language names collapse to one canonical spelling regardless of casing."""
+        for fs_name in (
+            "Game (English).rom",
+            "Game (english).rom",
+            "Game (ENGLISH).rom",
+        ):
+            assert handler.parse_tags(fs_name).languages == ["English"]
+
+        assert handler.parse_tags("Game (japanese).rom").languages == ["Japanese"]
+        assert handler.parse_tags("Game (no language).rom").languages == ["No Language"]
+
+    def test_parse_tags_language_codes_are_case_insensitive(
+        self, handler: FSRomsHandler
+    ):
+        """A differently-cased language shortcode still resolves."""
+        assert handler.parse_tags("Game (en).rom").languages == ["English"]
+        assert handler.parse_tags("Game (EN).rom").languages == ["English"]
+        assert handler.parse_tags("Game (de).rom").languages == ["German"]
+        assert handler.parse_tags("Game [ja,FR].rom").languages == [
+            "Japanese",
+            "French",
+        ]
+
     def test_exclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms filters out excluded multi-file ROMs"""
         roms = ["Game1", "excluded_multi", "Game2", "Game3"]
@@ -306,8 +476,10 @@ class TestFSRomsHandler:
             EXCLUDED_MULTI_PARTS_FILES=[],
             PLATFORMS_BINDING={},
             PLATFORMS_VERSIONS={},
-            ROMS_FOLDER_NAME="roms",
-            FIRMWARE_FOLDER_NAME="bios",
+            STRUCTURE_TEMPLATES={
+                "default": "{platform}/roms/{game}",
+                "firmware": "{platform}/bios",
+            },
         )
 
         with pytest.MonkeyPatch.context() as m:
@@ -315,6 +487,17 @@ class TestFSRomsHandler:
 
             result = handler.exclude_multi_roms(roms)
             assert result == roms
+
+    def test_exclude_multi_roms_drops_hidden_folders(
+        self, handler: FSRomsHandler, config
+    ):
+        """A hidden folder is never a rom, with or without a structure template."""
+        roms = ["Game1", ".hidden", "Game2"]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            assert handler.exclude_multi_roms(roms) == ["Game1", "Game2"]
 
     def test_exclude_multi_roms_case_insensitive(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms ignores case in excluded names"""
@@ -379,7 +562,7 @@ class TestFSRomsHandler:
     def test_build_rom_file_with_category(self, rom_multi: Rom, handler: FSRomsHandler):
         """Test _build_rom_file with category detection"""
         # Test with DLC category
-        rom_path = Path(rom_multi.fs_path, "dlc")
+        rom_path = Path(rom_multi.full_path, "dlc")
         file_name = "test_dlc.n64"
         file_hash = FileHash(
             {
@@ -413,7 +596,7 @@ class TestFSRomsHandler:
         """Test get_roms with actual files in the filesystem"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.exists", lambda x: False)
 
             result = await handler.get_roms(platform)
 
@@ -422,7 +605,7 @@ class TestFSRomsHandler:
 
             # Check that we have both single and multi ROMs
             single_roms = [r for r in result if not r["flat"]]
-            multi_roms = [r for r in result if r["nested"]]
+            multi_roms = [r for r in result if not r["flat"]]
 
             assert len(single_roms) > 0
             assert len(multi_roms) > 0
@@ -436,6 +619,376 @@ class TestFSRomsHandler:
             # Check excluded files are not present
             assert "excluded_test.tmp" not in rom_names
 
+    def _make_structure_config(self, templates: dict[str, str | list[str]]) -> Config:
+        return Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=["tmp"],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=["@eaDir"],
+            EXCLUDED_MULTI_PARTS_EXT=["tmp"],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            STRUCTURE_TEMPLATES={"default": "{platform}/roms/{game}", **templates},
+        )
+
+    def _build_structure_library(self, tmp_path: Path, base: str) -> None:
+        """Library exercising literal/wildcard levels, file-vs-folder terminals,
+        a name collision across folders, a hidden folder, and depth > 1."""
+        roms = tmp_path / base
+        roms.mkdir(parents=True)
+        (roms / "Top.zip").write_text("t")
+        hacks = roms / "Hacks"
+        hacks.mkdir()
+        (hacks / "Shared.zip").write_text("a")
+        (hacks / "HackOnly.zip").write_text("b")
+        inner = hacks / "Inner"
+        inner.mkdir()
+        (inner / "x.bin").write_text("x")
+        trans = roms / "Translations"
+        trans.mkdir()
+        (trans / "Shared.zip").write_text("c")  # collides with Hacks/Shared.zip
+        hidden = roms / ".hidden"
+        hidden.mkdir()
+        (hidden / "secret.zip").write_text("s")
+        region = roms / "Region"
+        region.mkdir()
+        usa = region / "USA"
+        usa.mkdir()
+        (usa / "usagame.zip").write_text("u")
+
+    @pytest.mark.asyncio
+    async def test_get_roms_no_structure_is_default(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """Without a template, only top-level files and folders are surfaced
+        (each file a flat rom, each folder a single multi-file rom), and hidden
+        folders are skipped as they are under a template."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config({}),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert (base, "Top.zip") in keys
+        assert (base, "Hacks") in keys
+        assert (base, "Translations") in keys
+        assert (base, "Region") in keys
+        assert (base, ".hidden") not in keys
+        # Nothing nested is surfaced.
+        assert all(r["fs_path"] == base for r in roms)
+        assert len(roms) == 4
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_wildcard_level(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A wildcard level descends one folder and the `{game}` terminal takes
+        both the files and the folders it finds there; hidden folders are skipped
+        and identically-named games in different folders stay distinct."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/{category}/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        by_key = {(r["fs_path"], r["fs_name"]): r for r in roms}
+        keys = set(by_key)
+        # A file at the terminal level is a game of its own...
+        assert by_key[(f"{base}/Hacks", "Shared.zip")]["flat"] is True
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        assert (f"{base}/Translations", "Shared.zip") in keys  # collision kept
+        # ...and a folder there is one multi-file game, kept whole.
+        assert by_key[(f"{base}/Hacks", "Inner")]["flat"] is False
+        assert (f"{base}/Hacks/Inner", "x.bin") not in keys
+        # Top-level file isn't surfaced (template requires one level down).
+        assert (base, "Top.zip") not in keys
+        # Hidden folder is never descended into.
+        assert not any(r["fs_path"].endswith("/.hidden") for r in roms)
+        full_paths = [f"{r['fs_path']}/{r['fs_name']}" for r in roms]
+        assert len(full_paths) == len(set(full_paths))
+        assert sum(1 for r in roms if r["fs_name"] == "Shared.zip") == 2
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_two_wildcard_levels(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """Multiple wildcard levels descend depth-first to the terminal."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/{region}/{system}/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert (f"{base}/Hacks/Inner", "x.bin") in keys
+        assert (f"{base}/Region/USA", "usagame.zip") in keys
+        # Depth-1 files are not surfaced at a depth-2 terminal.
+        assert (f"{base}/Hacks", "Shared.zip") not in keys
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_literal_level(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A literal section matches that exact folder only; sibling folders are
+        ignored."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/Hacks/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert (f"{base}/Hacks", "Shared.zip") in keys
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        # The literal only matched "Hacks"; "Translations" is ignored.
+        assert (f"{base}/Translations", "Shared.zip") not in keys
+        assert all(r["fs_path"] == f"{base}/Hacks" for r in roms)
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_list_unions_loose_and_grouped(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A list of templates unions their discovery: games in the platform
+        folder plus games inside grouping subfolders, the common mixed layout,
+        without dropping either, deduplicated by full path."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {
+                    platform.fs_slug: [
+                        "{platform}/roms/{game}",
+                        "{platform}/roms/{category}/{game}",
+                    ]
+                }
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        # Loose game in the platform folder.
+        assert (base, "Top.zip") in keys
+        # Grouped games one level down.
+        assert (f"{base}/Hacks", "Shared.zip") in keys
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        assert (f"{base}/Translations", "Shared.zip") in keys
+        # Hidden folder still skipped; no duplicate full paths.
+        assert not any(r["fs_path"].endswith("/.hidden") for r in roms)
+        full_paths = [f"{r['fs_path']}/{r['fs_name']}" for r in roms]
+        assert len(full_paths) == len(set(full_paths))
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_grouping_folder_is_not_also_a_game(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A `{game}` at the root must not claim a folder another template
+        descends into: `Hacks` is a category here, not a multi-file game."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {
+                    platform.fs_slug: [
+                        "{platform}/roms/{game}",
+                        "{platform}/roms/{category}/{game}",
+                    ]
+                }
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        # Descended into, so categories rather than games.
+        assert (base, "Hacks") not in keys
+        assert (base, "Translations") not in keys
+        assert (base, "Region") not in keys
+        # Their contents are the games, files and folders alike.
+        assert (f"{base}/Hacks", "HackOnly.zip") in keys
+        assert (f"{base}/Hacks", "Inner") in keys
+        assert (f"{base}/Region", "USA") in keys
+        # A loose file in the platform folder is still a game of its own.
+        assert (base, "Top.zip") in keys
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_default_layout_nested_under_a_category(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """One `{category}/{game}` template reproduces the default scan a level
+        down: each file a game, each folder a game."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/{category}/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            self._build_structure_library(tmp_path, base)
+            roms = await handler.get_roms(platform)
+            count = await handler.count_roms(platform)
+
+        by_key = {(r["fs_path"], r["fs_name"]): r for r in roms}
+        assert by_key[(f"{base}/Hacks", "HackOnly.zip")]["flat"] is True
+        assert by_key[(f"{base}/Hacks", "Inner")]["flat"] is False
+        assert by_key[(f"{base}/Region", "USA")]["flat"] is False
+        # The top level holds no games under this template.
+        assert not any(r["fs_path"] == base for r in roms)
+        assert count == len(roms)
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_wildcard_skips_excluded_dirs(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """A wildcard level must not descend into folders that are never a game
+        (scraper media output, NAS metadata), or their contents read as roms."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/{category}/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            roms_dir = tmp_path / base
+            (roms_dir / "Hacks").mkdir(parents=True)
+            (roms_dir / "Hacks" / "HackOnly.zip").write_text("h")
+            (roms_dir / "@eaDir").mkdir()
+            (roms_dir / "@eaDir" / "thumb.zip").write_text("t")
+            roms = await handler.get_roms(platform)
+
+        keys = {(r["fs_path"], r["fs_name"]) for r in roms}
+        assert keys == {(f"{base}/Hacks", "HackOnly.zip")}
+
+    @pytest.mark.asyncio
+    async def test_get_roms_structure_literal_level_matches_an_excluded_name(
+        self, platform: Platform, tmp_path: Path
+    ):
+        """Naming the folder outright is an explicit opt-in, so the exclusion
+        list that guards wildcard levels does not override it."""
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/@eaDir/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            roms_dir = tmp_path / base
+            (roms_dir / "@eaDir").mkdir(parents=True)
+            (roms_dir / "@eaDir" / "game.zip").write_text("g")
+            roms = await handler.get_roms(platform)
+
+        assert {(r["fs_path"], r["fs_name"]) for r in roms} == {
+            (f"{base}/@eaDir", "game.zip")
+        }
+
+    def test_upload_path_without_a_structure_is_the_roms_folder(
+        self, platform: Platform
+    ):
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config({}),
+        ):
+            assert handler.get_roms_upload_path(
+                platform.fs_slug
+            ) == handler.get_roms_fs_structure(platform.fs_slug)
+
+    def test_upload_path_follows_the_literal_levels_of_a_structure(
+        self, platform: Platform
+    ):
+        """A file dropped at the roms root would not be discovered, so the next
+        scan would flag the upload missing."""
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/Games/Loose/{game}"}
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            assert (
+                handler.get_roms_upload_path(platform.fs_slug) == f"{base}/Games/Loose"
+            )
+
+    def test_upload_path_prefers_a_template_an_upload_can_satisfy(
+        self, platform: Platform
+    ):
+        """Only literal levels name the folder an upload has to go in, so a
+        template with a wildcard is skipped for the next one that pins it down."""
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {
+                    platform.fs_slug: [
+                        "{platform}/roms/{category}/{game}",
+                        "{platform}/roms/Loose/{game}",
+                    ]
+                }
+            ),
+        ):
+            base = handler.get_roms_fs_structure(platform.fs_slug)
+            assert handler.get_roms_upload_path(platform.fs_slug) == f"{base}/Loose"
+
+    def test_upload_path_refuses_when_only_the_user_can_pick_the_folder(
+        self, platform: Platform
+    ):
+        handler = FSRomsHandler()
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: self._make_structure_config(
+                {platform.fs_slug: "{platform}/roms/{category}/{game}"}
+            ),
+        ):
+            with pytest.raises(ValueError, match="custom library structure"):
+                handler.get_roms_upload_path(platform.fs_slug)
+
     @pytest.mark.asyncio
     async def test_get_rom_files_single_rom(
         self, handler: FSRomsHandler, rom_single, config
@@ -443,7 +996,7 @@ class TestFSRomsHandler:
         """Test get_rom_files with a single ROM file"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.exists", lambda x: False)
 
             parsed_rom_files = await handler.get_rom_files(rom_single)
 
@@ -466,7 +1019,7 @@ class TestFSRomsHandler:
         """Test get_rom_files with a multi-part ROM"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.exists", lambda x: False)
 
             parsed_rom_files = await handler.get_rom_files(rom_multi)
 
@@ -550,8 +1103,10 @@ class TestFSRomsHandler:
                 EXCLUDED_MULTI_PARTS_FILES=[],
                 PLATFORMS_BINDING={},
                 PLATFORMS_VERSIONS={},
-                ROMS_FOLDER_NAME="roms",
-                FIRMWARE_FOLDER_NAME="bios",
+                STRUCTURE_TEMPLATES={
+                    "default": "{platform}/roms/{game}",
+                    "firmware": "{platform}/bios",
+                },
             )
             with pytest.MonkeyPatch.context() as m:
                 m.setattr(
@@ -572,8 +1127,10 @@ class TestFSRomsHandler:
                 EXCLUDED_MULTI_PARTS_FILES=[],
                 PLATFORMS_BINDING={},
                 PLATFORMS_VERSIONS={},
-                ROMS_FOLDER_NAME="roms",
-                FIRMWARE_FOLDER_NAME="bios",
+                STRUCTURE_TEMPLATES={
+                    "default": "{platform}/roms/{game}",
+                    "firmware": "{platform}/bios",
+                },
             )
             with pytest.MonkeyPatch.context() as m:
                 m.setattr(
@@ -754,20 +1311,11 @@ class TestFSRomsHandler:
 
     def test_rom_fs_structure_consistency(self, handler: FSRomsHandler, config):
         """Test that ROM filesystem structure is consistent across methods"""
-        fs_slug = "gba"
-
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
 
-            # Test with Structure B
-            config.has_structure_path_b = True
-            structure = handler.get_roms_fs_structure(fs_slug)
-            assert structure == f"{fs_slug}/roms"
-
-            # Test with Structure A
-            config.has_structure_path_b = False
-            structure = handler.get_roms_fs_structure(fs_slug)
-            assert structure == f"roms/{fs_slug}"
+            assert handler.get_roms_fs_structure("gba") == "gba/roms"
+            assert handler.get_roms_upload_path("gba") == "gba/roms"
 
     def test_actual_file_hash_calculation(self, handler: FSRomsHandler):
         """Test hash calculation with actual files"""
@@ -805,6 +1353,44 @@ class TestFSRomsHandler:
             # Clean up
             if test_file.exists():
                 test_file.unlink()
+
+    def test_failed_7z_extraction_hashes_only_the_raw_archive(
+        self, handler: FSRomsHandler, tmp_path
+    ):
+        """Bytes streamed before a 7z extraction fails must not leak into the
+        raw-archive fallback hash, nor into the ROM-level accumulators."""
+        archive_bytes = b"7z\xbc\xaf\x27\x1c raw archive bytes"
+        archive = tmp_path / "game.7z"
+        archive.write_bytes(archive_bytes)
+
+        def _partial_then_fail(_path, fn_hash_update):
+            fn_hash_update(b"partial inner member bytes")
+            return False
+
+        rom_md5_h = hashlib.md5(b"earlier file", usedforsecurity=False)
+        rom_sha1_h = hashlib.sha1(b"earlier file", usedforsecurity=False)
+        rom_crc_c = binascii.crc32(b"earlier file")
+
+        with patch(
+            "handler.filesystem.roms_handler.hash_largest_7z_member",
+            side_effect=_partial_then_fail,
+        ):
+            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
+                handler._calculate_rom_hashes(archive, rom_crc_c, rom_md5_h, rom_sha1_h)
+            )
+
+        assert crc_c == binascii.crc32(archive_bytes)
+        assert md5_h.hexdigest() == hashlib.md5(archive_bytes).hexdigest()
+        assert sha1_h.hexdigest() == hashlib.sha1(archive_bytes).hexdigest()
+        assert rom_crc_c == binascii.crc32(b"earlier file" + archive_bytes)
+        assert (
+            rom_md5_h.hexdigest()
+            == hashlib.md5(b"earlier file" + archive_bytes).hexdigest()
+        )
+        assert (
+            rom_sha1_h.hexdigest()
+            == hashlib.sha1(b"earlier file" + archive_bytes).hexdigest()
+        )
 
     async def test_compressed_file_handling(self, handler: FSRomsHandler):
         """Test handling of compressed ROM files"""
@@ -913,6 +1499,55 @@ class TestFSRomsHandler:
 
         # Header SHA1 stored separately in chd_sha1_hash
         assert parsed_rom_files.rom_files[0].chd_sha1_hash == internal_sha1
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_folder_extracts_chd_hash_per_file(
+        self, tmp_path: Path
+    ):
+        """Every CHD in a folder-based ROM keeps its own header SHA1."""
+        disc_platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+        roms_path = tmp_path / disc_platform.fs_slug / "roms"
+        game_dir = roms_path / "Final Fantasy VII"
+        game_dir.mkdir(parents=True)
+
+        sha1_by_disc = {
+            "Final Fantasy VII (Disc 1).chd": "0123456789abcdef0123456789abcdef01234567",
+            "Final Fantasy VII (Disc 2).chd": "89abcdef0123456789abcdef0123456789abcdef",
+        }
+        for file_name, internal_sha1 in sha1_by_disc.items():
+            header = bytearray(124)
+            header[0:8] = b"MComprHD"
+            header[12:16] = int(5).to_bytes(4, "big")
+            header[84:104] = bytes.fromhex(internal_sha1)
+            (game_dir / file_name).write_bytes(header + file_name.encode())
+
+        (game_dir / "Final Fantasy VII.m3u").write_text("\n".join(sha1_by_disc) + "\n")
+
+        test_handler = FSRomsHandler()
+        test_handler.base_path = tmp_path
+
+        rom = Rom(
+            id=1,
+            fs_name="Final Fantasy VII",
+            fs_extension="",
+            fs_path=str(roms_path.relative_to(tmp_path)),
+            platform=disc_platform,
+        )
+
+        with patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            return_value="",
+        ):
+            parsed_rom_files = await test_handler.get_rom_files(rom)
+
+        chd_hash_by_file = {
+            rom_file.file_name: rom_file.chd_sha1_hash
+            for rom_file in parsed_rom_files.rom_files
+        }
+        assert chd_hash_by_file == {
+            **sha1_by_disc,
+            "Final Fantasy VII.m3u": "",
+        }
 
     @staticmethod
     def _setup_archive_rom(
@@ -1069,9 +1704,8 @@ class TestFSRomsHandler:
 
         parsed = await test_handler.get_rom_files(rom)
 
-        # On a malformed zip, the reader yields nothing and the fallback path
-        # hashes the archive file itself; read_zip_file's BadZipFile guard
-        # routes that to raw-byte hashing.
+        # On a malformed zip, the reader raises ArchiveReadError and the
+        # fallback path hashes the archive file itself.
         assert parsed.md5_hash == hashlib.md5(junk, usedforsecurity=False).hexdigest()
         assert parsed.sha1_hash == hashlib.sha1(junk, usedforsecurity=False).hexdigest()
         assert len(parsed.rom_files) == 1
@@ -1231,6 +1865,39 @@ class TestFSRomsHandler:
         assert parsed.ra_hash == "abcdef1234567890abcdef1234567890"
 
     @pytest.mark.asyncio
+    async def test_get_rom_files_archive_computes_ra_hash_when_member_read_fails(
+        self, tmp_path: Path
+    ):
+        """A timed-out member read falls back to raw hashing but keeps the RA hash."""
+        from utils.archives import ArchiveReadError
+
+        nds_platform = Platform(name="Nintendo DS", slug="nds", fs_slug="nds")
+        archive_bytes = b"stand-in bytes for a large 7z"
+        test_handler, rom = self._setup_archive_rom(
+            tmp_path, nds_platform, "game.7z", "7z", archive_bytes
+        )
+
+        with (
+            patch.dict(
+                "handler.filesystem.roms_handler.ARCHIVE_READERS",
+                {".7z": Mock(side_effect=ArchiveReadError("Extraction timed out"))},
+            ),
+            patch(
+                "adapters.services.rahasher.RAHasherService.calculate_hash",
+                return_value="abcdef1234567890abcdef1234567890",
+            ) as mock_calculate,
+        ):
+            parsed = await test_handler.get_rom_files(rom)
+
+        mock_calculate.assert_called_once()
+        assert parsed.ra_hash == "abcdef1234567890abcdef1234567890"
+        assert (
+            parsed.md5_hash
+            == hashlib.md5(archive_bytes, usedforsecurity=False).hexdigest()
+        )
+        assert parsed.rom_files[0].archive_members is None
+
+    @pytest.mark.asyncio
     async def test_get_rom_files_archive_skips_ra_hash_for_disc_platform(
         self, tmp_path: Path
     ):
@@ -1326,6 +1993,797 @@ class TestFSRomsHandler:
                 )
         finally:
             shutil.rmtree(scratch_root, ignore_errors=True)
+
+
+SIGIL_PATCH_TARGET = "adapters.services.sigil.SigilService.extract_title_id"
+
+SWITCH_PLATFORM = Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
+PS2_PLATFORM = Platform(name="PlayStation 2", slug="ps2", fs_slug="ps2")
+
+
+@pytest.fixture
+def sigil_config(monkeypatch):
+    cnfg = Config(
+        EXCLUDED_PLATFORMS=[],
+        EXCLUDED_SINGLE_EXT=[],
+        EXCLUDED_SINGLE_FILES=[],
+        EXCLUDED_MULTI_FILES=[],
+        EXCLUDED_MULTI_PARTS_EXT=[],
+        EXCLUDED_MULTI_PARTS_FILES=[],
+        PLATFORMS_BINDING={},
+        PLATFORMS_VERSIONS={},
+        STRUCTURE_TEMPLATES={
+            "default": "{platform}/roms/{game}",
+            "firmware": "{platform}/bios",
+        },
+    )
+    monkeypatch.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
+    return cnfg
+
+
+@pytest.fixture
+def stub_ra_hasher(monkeypatch):
+    """Keep the hashable-platform cases off the real RAHasher binary."""
+    monkeypatch.setattr(
+        "adapters.services.rahasher.RAHasherService.calculate_hash",
+        AsyncMock(return_value=""),
+    )
+
+
+def make_sigil_handler(tmp_path: Path) -> FSRomsHandler:
+    handler = FSRomsHandler()
+    handler.base_path = tmp_path
+    return handler
+
+
+def make_single_file_rom(tmp_path: Path, platform: Platform, fs_name: str) -> Rom:
+    roms_path = tmp_path / platform.fs_slug / "roms"
+    roms_path.mkdir(parents=True, exist_ok=True)
+    (roms_path / fs_name).write_bytes(b"rom-bytes")
+    return Rom(
+        id=1,
+        fs_name=fs_name,
+        fs_path=f"{platform.fs_slug}/roms",
+        platform=platform,
+    )
+
+
+def make_multi_part_rom(
+    tmp_path: Path, platform: Platform, fs_name: str, file_names: list[str]
+) -> Rom:
+    rom_dir = tmp_path / platform.fs_slug / "roms" / fs_name
+    rom_dir.mkdir(parents=True, exist_ok=True)
+    for file_name in file_names:
+        file_path = rom_dir / file_name
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(b"rom-bytes")
+    return Rom(
+        id=1,
+        fs_name=fs_name,
+        fs_extension="",
+        fs_path=f"{platform.fs_slug}/roms",
+        platform=platform,
+    )
+
+
+async def switch_family_extract(
+    platform_slug: str, file_path: str
+) -> SigilExtractionResult:
+    """Stand in for sigil over a base/update/DLC folder, keyed by file name."""
+    if "update" in file_path:
+        return SigilExtractionResult(
+            title_id="0100ABCD12340800",
+            save_target="0100ABCD12340800",
+            usage="folder-exact",
+            content_type="patch",
+            version=196608,
+        )
+    if "dlc" in file_path:
+        return SigilExtractionResult(
+            title_id="0100ABCD12341001",
+            save_target="0100ABCD12341001",
+            usage="folder-exact",
+            content_type="addon",
+            version=0,
+        )
+    return SigilExtractionResult(
+        title_id="0100ABCD12340000",
+        save_target="0100ABCD12340000",
+        usage="folder-exact",
+        content_type="application",
+        version=0,
+    )
+
+
+async def disc_serial_extract(
+    platform_slug: str, file_path: str
+) -> SigilExtractionResult:
+    """Stand in for sigil over a multi-disc set, where each disc has its own serial."""
+    serial = "SLUS-00001" if "disc 1" in file_path.lower() else "SLUS-00002"
+    return SigilExtractionResult(
+        title_id=serial, save_target=serial, usage="folder-prefix"
+    )
+
+
+class TestSigilTitleIdExtraction:
+    """Title id extraction via the sigil adapter during get_rom_files."""
+
+    @pytest.mark.asyncio
+    async def test_single_file_extraction_attaches_values(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, SWITCH_PLATFORM, "Game.nsp")
+
+        extraction = SigilExtractionResult(
+            title_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
+            usage="folder-exact",
+        )
+        mock_extract = AsyncMock(return_value=extraction)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        assert len(parsed.rom_files) == 1
+        assert parsed.identity.title_id == "0100ABCD12340000"
+        assert parsed.identity.save_target == "0100ABCD12340000"
+        assert parsed.identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+        mock_extract.assert_awaited_once_with(
+            "switch",
+            str(tmp_path / "switch/roms/Game.nsp"),
+        )
+
+    @pytest.mark.asyncio
+    async def test_multi_part_extraction_covers_nested_files(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            SWITCH_PLATFORM,
+            "Zelda",
+            [
+                "Zelda [base].nsp",
+                "updates/Zelda [update].nsp",
+                "dlc/Zelda [dlc].nsp",
+            ],
+        )
+
+        mock_extract = AsyncMock(side_effect=switch_family_extract)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        by_name = {rf.file_name: rf for rf in parsed.rom_files}
+
+        assert by_name["Zelda [base].nsp"].category == RomFileCategory.GAME
+        assert by_name["Zelda [update].nsp"].category == RomFileCategory.UPDATE
+        assert by_name["Zelda [dlc].nsp"].category == RomFileCategory.DLC
+
+        # All three files, including the nested update/DLC, are extracted.
+        assert mock_extract.await_count == 3
+
+        # The base game is still selected for the rom-level values.
+        assert parsed.identity.title_id == "0100ABCD12340000"
+        assert parsed.identity.save_target == "0100ABCD12340000"
+        assert parsed.identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+
+    @pytest.mark.asyncio
+    async def test_content_type_overrides_folder_category(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        # Folder name "dlc" would otherwise derive category DLC, but the binary
+        # content type says this is the base application.
+        rom = make_multi_part_rom(
+            tmp_path, SWITCH_PLATFORM, "Zelda", ["dlc/Zelda [base].nsp"]
+        )
+
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="0100ABCD12340000",
+                save_target="0100ABCD12340000",
+                usage="folder-exact",
+                content_type="application",
+                version=0,
+            )
+        )
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].category == RomFileCategory.GAME
+
+    @pytest.mark.asyncio
+    async def test_folder_category_preserved_when_content_type_absent(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path, SWITCH_PLATFORM, "Zelda", ["dlc/Zelda [addon].nsp"]
+        )
+
+        # CNMT miss: title id is present but content type is None.
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id="0100ABCD12341001",
+                save_target="0100ABCD12341001",
+                usage="folder-exact",
+                content_type=None,
+                version=None,
+            )
+        )
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        # The folder-derived category survives when the binary offers none.
+        assert parsed.rom_files[0].category == RomFileCategory.DLC
+
+    @pytest.mark.asyncio
+    async def test_non_rom_files_are_not_read(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            SWITCH_PLATFORM,
+            "Zelda",
+            [
+                "Zelda [base].nsp",
+                "manuals/Zelda.pdf",
+                "soundtracks/Zelda.mp3",
+                "screenshots/Zelda.png",
+            ],
+        )
+
+        mock_extract = AsyncMock(side_effect=switch_family_extract)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            await handler.get_rom_files(rom)
+
+        # Only the ROM file itself is worth a native parse.
+        assert mock_extract.await_count == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("fs_name", "title_id", "expected"),
+        [
+            # A patch id carries bitmask 0x800.
+            ("Zelda [update].nsp", "0100ABCD12340800", "0100ABCD12340000"),
+            # A DLC id carries an odd program-index nibble.
+            ("Game [DLC].nsp", "0100ABCD12351064", "0100ABCD12350000"),
+        ],
+    )
+    async def test_switch_base_id_is_derived_when_no_base_file_is_present(
+        self,
+        tmp_path: Path,
+        sigil_config: Config,
+        fs_name: str,
+        title_id: str,
+        expected: str,
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, SWITCH_PLATFORM, fs_name)
+
+        mock_extract = AsyncMock(
+            return_value=SigilExtractionResult(
+                title_id=title_id,
+                save_target=title_id,
+                usage="folder-exact",
+            )
+        )
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        # Switch saves are keyed by the base title id itself.
+        assert parsed.identity.title_id == expected
+        assert parsed.identity.save_target == expected
+        assert parsed.identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("platform", "fs_name", "extraction", "expected_layout"),
+        [
+            (
+                Platform(name="PlayStation Portable", slug="psp", fs_slug="psp"),
+                "Game.iso",
+                SigilExtractionResult(
+                    title_id="ULUS-10041",
+                    save_target="ULUS10041",
+                    usage="folder-prefix",
+                ),
+                SaveTargetLayout.FOLDER_PREFIX,
+            ),
+            (
+                Platform(name="Nintendo 3DS", slug="3ds", fs_slug="3ds"),
+                "Game.3ds",
+                SigilExtractionResult(
+                    title_id="0004000E0011C500",
+                    # The split path in the emulator's case, not the flat id.
+                    save_target="0004000e/0011c500",
+                    usage="folder-split",
+                ),
+                SaveTargetLayout.FOLDER_SPLIT,
+            ),
+            (
+                Platform(name="Dreamcast", slug="dc", fs_slug="dc"),
+                "Game.chd",
+                SigilExtractionResult(
+                    title_id="MK-51035",
+                    save_target="MK-51035",
+                    usage="file-prefix",
+                ),
+                SaveTargetLayout.FILE_PREFIX,
+            ),
+        ],
+    )
+    async def test_non_switch_platform_uses_first_extraction_verbatim(
+        self,
+        tmp_path: Path,
+        sigil_config: Config,
+        stub_ra_hasher: None,
+        platform: Platform,
+        fs_name: str,
+        extraction: SigilExtractionResult,
+        expected_layout: SaveTargetLayout,
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, platform, fs_name)
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.identity.title_id == extraction.title_id
+        assert parsed.identity.save_target == extraction.save_target
+        assert parsed.identity.save_target_layout == expected_layout
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("platform", "fs_name", "calculate_hashes", "extract_title_ids"),
+        [
+            # Not a platform sigil covers.
+            (
+                Platform(name="Nintendo 64", slug="n64", fs_slug="n64"),
+                "Game.z64",
+                False,
+                True,
+            ),
+            # Turned off by config.
+            (SWITCH_PLATFORM, "Game.nsp", True, False),
+            # An archive holds no ROM binary sigil can read.
+            (SWITCH_PLATFORM, "game.zip", True, True),
+        ],
+    )
+    async def test_extraction_is_skipped(
+        self,
+        tmp_path: Path,
+        sigil_config: Config,
+        platform: Platform,
+        fs_name: str,
+        calculate_hashes: bool,
+        extract_title_ids: bool,
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, platform, fs_name)
+
+        mock_extract = AsyncMock()
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(
+                rom,
+                calculate_hashes=calculate_hashes,
+                extract_title_ids=extract_title_ids,
+            )
+
+        mock_extract.assert_not_awaited()
+        assert parsed.identity.title_id is None
+        assert parsed.identity.save_target_layout is None
+
+    @pytest.mark.asyncio
+    async def test_hashable_archive_rom_skips_extraction(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        import io
+        import zipfile
+
+        reload_zipfile()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("game.bin", b"fake PSX disc content")
+
+        platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+        handler = make_sigil_handler(tmp_path)
+        roms_path = tmp_path / "psx" / "roms"
+        roms_path.mkdir(parents=True)
+        (roms_path / "game.zip").write_bytes(buf.getvalue())
+        rom = Rom(
+            id=1,
+            fs_name="game.zip",
+            fs_path="psx/roms",
+            platform=platform,
+        )
+
+        mock_extract = AsyncMock()
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        mock_extract.assert_not_awaited()
+        assert parsed.identity.title_id is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "disc_names",
+        [
+            pytest.param(["Game (Disc 1).chd", "Game (Disc 2).chd"], id="same-case"),
+            pytest.param(["game (disc 1).chd", "Game (Disc 2).chd"], id="mixed-case"),
+        ],
+    )
+    async def test_multi_disc_rom_is_identified_by_its_first_disc(
+        self,
+        tmp_path: Path,
+        sigil_config: Config,
+        stub_ra_hasher: None,
+        disc_names: list[str],
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(tmp_path, PS2_PLATFORM, "Game", disc_names)
+        list_rom_dir = handler._list_rom_dir
+
+        with (
+            patch.object(
+                handler,
+                "_list_rom_dir",
+                side_effect=lambda rom_dir, cnfg: sorted(
+                    list_rom_dir(rom_dir, cnfg),
+                    key=lambda entry: entry[1].casefold(),
+                    reverse=True,
+                ),
+            ),
+            patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=disc_serial_extract)),
+        ):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.asyncio
+    async def test_top_level_disc_outranks_nested_files(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            PS2_PLATFORM,
+            "Game",
+            ["Game (Disc 1).chd", "Bonus/Game (Disc 2).chd"],
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=disc_serial_extract)):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "changed_file",
+        [
+            pytest.param("Game (Disc 1).chd", id="first-disc-changed"),
+            pytest.param("Bonus/Game (Disc 2).chd", id="later-disc-changed"),
+            pytest.param(None, id="nothing-changed"),
+        ],
+    )
+    async def test_incremental_rescan_rereads_the_first_disc(
+        self,
+        tmp_path: Path,
+        sigil_config: Config,
+        stub_ra_hasher: None,
+        changed_file: str | None,
+    ):
+        handler = make_sigil_handler(tmp_path)
+        file_names = ["Game (Disc 1).chd", "Bonus/Game (Disc 2).chd"]
+        rom = make_multi_part_rom(tmp_path, PS2_PLATFORM, "Game", file_names)
+        rom_dir = tmp_path / "ps2/roms/Game"
+        rows = []
+        for file_name in file_names:
+            path = rom_dir / file_name
+            st = path.stat()
+            rows.append(
+                RomFile(
+                    rom_id=rom.id,
+                    file_name=path.name,
+                    file_path=str(path.parent.relative_to(tmp_path)),
+                    file_size_bytes=st.st_size + (file_name == changed_file),
+                    last_modified=st.st_mtime,
+                    md5_hash="stored-md5",
+                )
+            )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=disc_serial_extract)):
+            parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.parametrize(
+        ("names", "expected"),
+        [
+            pytest.param(
+                ["game.chd", "Game.chd"],
+                ["Game.chd", "game.chd"],
+                id="lowercase-listed-first",
+            ),
+            pytest.param(
+                ["Game.chd", "game.chd"],
+                ["Game.chd", "game.chd"],
+                id="uppercase-listed-first",
+            ),
+            pytest.param(
+                ["Game (Disc 10).chd", "Game (Disc 2).chd"],
+                ["Game (Disc 2).chd", "Game (Disc 10).chd"],
+                id="disc-numbers",
+            ),
+        ],
+    )
+    def test_sources_sort_by_disc_then_exact_name(
+        self, names: list[str], expected: list[str]
+    ):
+        sources = [
+            _TitleIdSource(Path("/roms/Game") / name, RomFile(file_name=name))
+            for name in names
+        ]
+
+        ordered = sorted(sources, key=_TitleIdSource.order)
+
+        assert [source.path.name for source in ordered] == expected
+
+    @pytest.mark.asyncio
+    async def test_incremental_rescan_rereads_an_unchanged_flat_rom(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, PS2_PLATFORM, "Game (Disc 1).chd")
+        path = tmp_path / "ps2/roms/Game (Disc 1).chd"
+        st = path.stat()
+        row = RomFile(
+            rom_id=rom.id,
+            file_name=path.name,
+            file_path="ps2/roms",
+            file_size_bytes=st.st_size,
+            last_modified=st.st_mtime,
+            md5_hash="stored-md5",
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=disc_serial_extract)):
+            parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.asyncio
+    async def test_playlist_rom_is_handed_to_sigil(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, PS2_PLATFORM, "Game.m3u")
+        mock_extract = AsyncMock(side_effect=disc_serial_extract)
+
+        with patch(SIGIL_PATCH_TARGET, mock_extract):
+            parsed = await handler.get_rom_files(rom)
+
+        mock_extract.assert_awaited_once_with(
+            "ps2", str(tmp_path / "ps2/roms/Game.m3u")
+        )
+        assert parsed.identity.title_id is not None
+
+
+class TestEmbedSwitchTitleIdInName:
+    """The rename helper that embeds a Switch title id into a filename."""
+
+    @pytest.fixture
+    def handler(self, tmp_path: Path) -> FSRomsHandler:
+        (tmp_path / "switch/roms").mkdir(parents=True)
+        return make_sigil_handler(tmp_path)
+
+    @staticmethod
+    def _write(handler: FSRomsHandler, name: str, content: bytes = b"rom") -> Path:
+        path = handler.base_path / "switch/roms" / name
+        path.write_bytes(content)
+        return path
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("name", "title_id", "version", "expected"),
+        [
+            (
+                "Moonlighter.xci",
+                "0100f4700b2e0000",
+                3,
+                "Moonlighter [0100F4700B2E0000][v3].xci",
+            ),
+            # A missing version is a base game's version 0.
+            (
+                "Game.nsp",
+                "0100ABCD12340000",
+                None,
+                "Game [0100ABCD12340000][v0].nsp",
+            ),
+            (
+                "Game (USA) (Rev 1).xci",
+                "0100ABCD12340000",
+                0,
+                "Game (USA) (Rev 1) [0100ABCD12340000][v0].xci",
+            ),
+        ],
+    )
+    async def test_embeds_id_and_version(
+        self,
+        handler: FSRomsHandler,
+        name: str,
+        title_id: str,
+        version: int | None,
+        expected: str,
+    ):
+        src = self._write(handler, name)
+
+        new_name = await handler._embed_switch_title_id_in_name(
+            Path("switch/roms", name), title_id, version
+        )
+
+        assert new_name == expected
+        assert (handler.base_path / "switch/roms" / expected).exists()
+        assert not src.exists()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("name", "title_id"),
+        [
+            # Already embedded, so renaming again would stack the tags.
+            ("Game [0100ABCD12340000][v0].nsp", "0100ABCD12340000"),
+            ("Game.nsp", "NOT-A-TITLE-ID"),
+        ],
+    )
+    async def test_file_is_left_alone(
+        self, handler: FSRomsHandler, name: str, title_id: str
+    ):
+        src = self._write(handler, name)
+
+        assert (
+            await handler._embed_switch_title_id_in_name(
+                Path("switch/roms", name), title_id, 0
+            )
+            is None
+        )
+        assert src.exists()
+
+    @pytest.mark.asyncio
+    async def test_collision_skips_and_leaves_both_files(self, handler: FSRomsHandler):
+        src = self._write(handler, "Game.nsp", b"original")
+        target = self._write(handler, "Game [0100ABCD12340000][v0].nsp", b"existing")
+
+        assert (
+            await handler._embed_switch_title_id_in_name(
+                Path("switch/roms/Game.nsp"), "0100ABCD12340000", 0
+            )
+            is None
+        )
+        assert src.read_bytes() == b"original"
+        assert target.read_bytes() == b"existing"
+
+
+class TestSwitchTitleIdEmbedding:
+    """`embed_switch_title_ids`, the rename step the scan runs after parsing."""
+
+    @pytest.mark.asyncio
+    async def test_parsing_alone_leaves_the_file_unchanged(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, SWITCH_PLATFORM, "Game.nsp")
+
+        extraction = SigilExtractionResult(
+            title_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
+            usage="folder-exact",
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].file_name == "Game.nsp"
+        assert (tmp_path / "switch/roms/Game.nsp").exists()
+        # The rename is offered to the caller, not performed.
+        assert [c.extraction.title_id for c in parsed.embed_candidates] == [
+            "0100ABCD12340000"
+        ]
+        assert parsed.embed_candidates[0].is_rom_level
+
+    @pytest.mark.asyncio
+    async def test_single_file_renamed_and_reconciled(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, SWITCH_PLATFORM, "Moonlighter.xci")
+
+        extraction = SigilExtractionResult(
+            title_id="0100F4700B2E0000",
+            save_target="0100F4700B2E0000",
+            usage="folder-exact",
+            version=0,
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+            parsed = await handler.get_rom_files(rom)
+        renamed_rom_fs_name = await handler.embed_switch_title_ids(parsed)
+
+        new_name = "Moonlighter [0100F4700B2E0000][v0].xci"
+        assert renamed_rom_fs_name == new_name
+        assert parsed.rom_files[0].file_name == new_name
+        assert parsed.rom_files[0].file_path == "switch/roms"
+        assert (tmp_path / "switch/roms" / new_name).exists()
+        assert not (tmp_path / "switch/roms/Moonlighter.xci").exists()
+
+    @pytest.mark.asyncio
+    async def test_non_switch_platform_offers_no_candidates(
+        self, tmp_path: Path, sigil_config: Config, stub_ra_hasher: None
+    ):
+        platform = Platform(name="PlayStation Portable", slug="psp", fs_slug="psp")
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, platform, "Game.iso")
+
+        extraction = SigilExtractionResult(
+            title_id="0100ABCD12340000",
+            save_target="0100ABCD12340000",
+            usage="folder-exact",
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=extraction)):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.embed_candidates == []
+        assert await handler.embed_switch_title_ids(parsed) is None
+        assert (tmp_path / "psp/roms/Game.iso").exists()
+
+    @pytest.mark.asyncio
+    async def test_no_title_id_not_renamed(self, tmp_path: Path, sigil_config: Config):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_single_file_rom(tmp_path, SWITCH_PLATFORM, "Game.nsp")
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(return_value=None)):
+            parsed = await handler.get_rom_files(rom)
+
+        assert parsed.embed_candidates == []
+        assert await handler.embed_switch_title_ids(parsed) is None
+        assert parsed.rom_files[0].file_name == "Game.nsp"
+        assert (tmp_path / "switch/roms/Game.nsp").exists()
+
+    @pytest.mark.asyncio
+    async def test_multi_part_nested_files_renamed(
+        self, tmp_path: Path, sigil_config: Config
+    ):
+        handler = make_sigil_handler(tmp_path)
+        rom = make_multi_part_rom(
+            tmp_path,
+            SWITCH_PLATFORM,
+            "Zelda",
+            ["Zelda base.nsp", "updates/Zelda update.nsp", "dlc/Zelda dlc.nsp"],
+        )
+
+        with patch(SIGIL_PATCH_TARGET, AsyncMock(side_effect=switch_family_extract)):
+            parsed = await handler.get_rom_files(rom)
+        renamed_rom_fs_name = await handler.embed_switch_title_ids(parsed)
+
+        names = {rf.file_name for rf in parsed.rom_files}
+        assert "Zelda base [0100ABCD12340000][v0].nsp" in names
+        assert "Zelda update [0100ABCD12340800][v196608].nsp" in names
+        assert "Zelda dlc [0100ABCD12341001][v0].nsp" in names
+        # A multi-part rom's folder name is not changed by inner-file renames.
+        assert renamed_rom_fs_name is None
+        rom_dir = tmp_path / "switch/roms/Zelda"
+        assert (rom_dir / "Zelda base [0100ABCD12340000][v0].nsp").exists()
+        assert (
+            rom_dir / "updates/Zelda update [0100ABCD12340800][v196608].nsp"
+        ).exists()
 
 
 class TestExtractCHDHash:
@@ -1563,15 +3021,15 @@ class TestExtractCHDHash:
 
         chd_file.write_bytes(header)
 
-        # Remove read permissions
-        chd_file.chmod(0o000)
-
-        try:
+        # Root ignores permission bits, so chmod can't simulate this.
+        with patch(
+            "utils.archives.open",
+            create=True,
+            side_effect=PermissionError(13, "Permission denied"),
+        ):
             result = extract_chd_hash(chd_file)
-            assert result == ""
-        finally:
-            # Restore permissions for cleanup
-            chd_file.chmod(0o644)
+
+        assert result == ""
 
     def test_extract_chd_hash_real_header(self, tmp_path):
         """Test extracting hash from real Pebble Beach Golf Links CHD v5 header
@@ -1823,3 +3281,353 @@ class TestExtractCHDHashProperties:
     @given(data=st.binary())
     def test_never_raises_on_arbitrary_bytes(self, data: bytes):
         _run_extract(data)
+
+
+class TestIncrementalRomFiles:
+    """`existing_files` lets a rescan keep the hashes of files whose size and
+    mtime are unchanged, and only recompute the ROM-level hashes when a
+    top-level file changed."""
+
+    ROM_DIR = "n64/roms/Sonic"
+
+    @pytest.fixture
+    def platform(self):
+        return Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
+
+    @pytest.fixture
+    def handler(self, tmp_path: Path):
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    @pytest.fixture(autouse=True)
+    def patched(self, mocker):
+        config = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=[],
+            EXCLUDED_MULTI_PARTS_EXT=["tmp"],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            STRUCTURE_TEMPLATES={
+                "default": "{platform}/roms/{game}",
+                "firmware": "{platform}/bios",
+            },
+        )
+        mocker.patch(
+            "handler.filesystem.roms_handler.cm.get_config", return_value=config
+        )
+        ra = mocker.patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            AsyncMock(return_value="ra-hash"),
+        )
+        return SimpleNamespace(ra=ra)
+
+    def _rom(self, platform: Platform, fs_name: str = "Sonic", ext: str = "") -> Rom:
+        return Rom(
+            id=7,
+            fs_name=fs_name,
+            fs_path="n64/roms",
+            fs_extension=ext,
+            platform=platform,
+            crc_hash="stored-crc",
+            md5_hash="stored-md5",
+            sha1_hash="stored-sha1",
+            ra_hash="stored-ra",
+        )
+
+    def _write(self, handler: FSRomsHandler, rel: str, data: bytes) -> os.stat_result:
+        path = handler.base_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return path.stat()
+
+    def _row(
+        self, rom: Rom, rel_dir: str, name: str, st: os.stat_result, hashed: bool = True
+    ) -> RomFile:
+        return RomFile(
+            rom_id=rom.id,
+            file_name=name,
+            file_path=rel_dir,
+            file_size_bytes=st.st_size,
+            last_modified=st.st_mtime,
+            crc_hash="row-crc" if hashed else "",
+            md5_hash="row-md5" if hashed else "",
+            sha1_hash="row-sha1" if hashed else "",
+        )
+
+    def _folder_rom(self, handler: FSRomsHandler, platform: Platform):
+        rom = self._rom(platform)
+        game = self._write(handler, f"{self.ROM_DIR}/game.n64", b"game bytes")
+        hack = self._write(handler, f"{self.ROM_DIR}/hack/patched.n64", b"hack bytes")
+        rows = [
+            self._row(rom, self.ROM_DIR, "game.n64", game),
+            self._row(rom, f"{self.ROM_DIR}/hack", "patched.n64", hack),
+        ]
+        return rom, rows
+
+    async def test_unchanged_rows_are_reused_without_hashing(
+        self, handler, platform, patched, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        assert {id(f) for f in parsed.rom_files} == {id(r) for r in rows}
+        assert parsed.top_level_changed is False
+        assert (parsed.crc_hash, parsed.md5_hash, parsed.sha1_hash, parsed.ra_hash) == (
+            "stored-crc",
+            "stored-md5",
+            "stored-sha1",
+            "stored-ra",
+        )
+        hasher.assert_not_called()
+        patched.ra.assert_not_called()
+
+    async def test_new_nested_file_is_hashed_alone(
+        self, handler, platform, patched, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        self._write(handler, f"{self.ROM_DIR}/hack/v2/new.ips", b"new patch")
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        new = next(f for f in parsed.rom_files if f.file_name == "new.ips")
+        assert new.file_path == f"{self.ROM_DIR}/hack/v2"
+        assert new.category == RomFileCategory.HACK
+        assert (
+            new.md5_hash == hashlib.md5(b"new patch", usedforsecurity=False).hexdigest()
+        )
+        assert all(any(f is row for f in parsed.rom_files) for row in rows)
+        assert parsed.top_level_changed is False
+        assert parsed.md5_hash == "stored-md5"
+        assert hasher.call_count == 1
+        patched.ra.assert_not_called()
+
+    async def test_top_level_addition_recomputes_rom_hashes(
+        self, handler, platform, patched, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        self._write(handler, f"{self.ROM_DIR}/extra.n64", b"extra bytes")
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        top_level = [f for f in parsed.rom_files if f.file_path == self.ROM_DIR]
+        assert {f.file_name for f in top_level} == {"game.n64", "extra.n64"}
+        expected_md5 = hashlib.md5(usedforsecurity=False)
+        for rom_file in top_level:
+            expected_md5.update(
+                (
+                    handler.base_path / rom_file.file_path / rom_file.file_name
+                ).read_bytes()
+            )
+        assert parsed.top_level_changed is True
+        assert parsed.md5_hash == expected_md5.hexdigest()
+        assert parsed.ra_hash == "ra-hash"
+        patched.ra.assert_awaited_once()
+        # The nested file is untouched, so its row is still reused.
+        assert any(f is rows[1] for f in parsed.rom_files)
+        assert hasher.call_count == 2
+
+    async def test_removed_top_level_file_recomputes_rom_hashes(
+        self, handler, platform, patched
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        gone = self._write(handler, f"{self.ROM_DIR}/gone.n64", b"gone")
+        rows.append(self._row(rom, self.ROM_DIR, "gone.n64", gone))
+        (handler.base_path / self.ROM_DIR / "gone.n64").unlink()
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        assert parsed.top_level_changed is True
+        assert {f.file_name for f in parsed.rom_files} == {"game.n64", "patched.n64"}
+        assert (
+            parsed.md5_hash
+            == hashlib.md5(b"game bytes", usedforsecurity=False).hexdigest()
+        )
+
+    @pytest.mark.parametrize("column", ["file_size_bytes", "last_modified"])
+    async def test_changed_file_is_rehashed(self, handler, platform, column):
+        rom, rows = self._folder_rom(handler, platform)
+        setattr(rows[1], column, getattr(rows[1], column) + 1)
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        hack = next(f for f in parsed.rom_files if f.file_name == "patched.n64")
+        assert hack is not rows[1]
+        assert (
+            hack.md5_hash
+            == hashlib.md5(b"hack bytes", usedforsecurity=False).hexdigest()
+        )
+        assert parsed.top_level_changed is False
+
+    async def test_row_without_hashes_is_rehashed(self, handler, platform):
+        rom, rows = self._folder_rom(handler, platform)
+        rows[1] = self._row(
+            rom,
+            f"{self.ROM_DIR}/hack",
+            "patched.n64",
+            (handler.base_path / self.ROM_DIR / "hack/patched.n64").stat(),
+            hashed=False,
+        )
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        hack = next(f for f in parsed.rom_files if f.file_name == "patched.n64")
+        assert hack is not rows[1]
+        assert (
+            hack.md5_hash
+            == hashlib.md5(b"hack bytes", usedforsecurity=False).hexdigest()
+        )
+
+    async def test_row_without_hashes_is_reused_when_hashing_is_disabled(
+        self, handler, platform, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        rows = [
+            self._row(
+                rom,
+                row.file_path,
+                row.file_name,
+                os.stat(handler.base_path / row.file_path / row.file_name),
+                hashed=False,
+            )
+            for row in rows
+        ]
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(
+            rom, calculate_hashes=False, existing_files=rows
+        )
+
+        assert {id(f) for f in parsed.rom_files} == {id(r) for r in rows}
+        hasher.assert_not_called()
+
+    async def test_flat_rom_reuses_its_row(self, handler, platform, patched, mocker):
+        rom = self._rom(platform, fs_name="Paper Mario (USA).z64", ext="z64")
+        st = self._write(handler, "n64/roms/Paper Mario (USA).z64", b"paper mario")
+        row = self._row(rom, "n64/roms", "Paper Mario (USA).z64", st)
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.rom_files[0] is row
+        assert parsed.top_level_changed is False
+        assert parsed.md5_hash == "stored-md5"
+        hasher.assert_not_called()
+        patched.ra.assert_not_called()
+
+    async def test_replaced_flat_rom_is_rehashed(self, handler, platform):
+        rom = self._rom(platform, fs_name="Paper Mario (USA).z64", ext="z64")
+        st = self._write(handler, "n64/roms/Paper Mario (USA).z64", b"paper mario")
+        row = self._row(rom, "n64/roms", "Paper Mario (USA).z64", st)
+        row.file_size_bytes += 1
+
+        parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.rom_files[0] is not row
+        assert parsed.top_level_changed is True
+        assert (
+            parsed.md5_hash
+            == hashlib.md5(b"paper mario", usedforsecurity=False).hexdigest()
+        )
+
+    async def test_nested_folders_map_to_categories(self, handler, platform):
+        rom = self._rom(platform)
+        self._write(handler, f"{self.ROM_DIR}/game.n64", b"game")
+        self._write(handler, f"{self.ROM_DIR}/hack/part1 (Hack).bin", b"hack")
+        self._write(handler, f"{self.ROM_DIR}/patches/v2/fix.ips", b"patch")
+
+        parsed = await handler.get_rom_files(rom)
+
+        by_name = {f.file_name: f for f in parsed.rom_files}
+        assert by_name["game.n64"].category is None
+        assert by_name["part1 (Hack).bin"].category == RomFileCategory.HACK
+        assert by_name["fix.ips"].category == RomFileCategory.PATCH
+
+    async def test_category_comes_from_the_folder_below_the_rom_root(
+        self, handler: FSRomsHandler, platform: Platform
+    ):
+        rom = self._rom(platform)
+        self._write(handler, f"{self.ROM_DIR}/dlc/foo.bin", b"dlc")
+        self._write(handler, f"{self.ROM_DIR}/update/content/game/x.bin", b"update")
+        self._write(
+            handler,
+            f"{self.ROM_DIR}/Sonic [Update]/content/Game/Stats/archive.bin",
+            b"stats",
+        )
+        self._write(handler, f"{self.ROM_DIR}/content/CMCmn/demo/effect.szs", b"fx")
+
+        parsed = await handler.get_rom_files(rom)
+
+        by_name = {f.file_name: f for f in parsed.rom_files}
+        assert by_name["foo.bin"].category == RomFileCategory.DLC
+        assert by_name["x.bin"].category == RomFileCategory.UPDATE
+        assert by_name["archive.bin"].category is None
+        assert by_name["effect.szs"].category is None
+
+    async def test_reused_row_takes_its_folder_category(
+        self, handler: FSRomsHandler, platform: Platform
+    ):
+        rom = self._rom(platform)
+        rel_dir = f"{self.ROM_DIR}/Sonic [Update]/content/Game"
+        st = self._write(handler, f"{rel_dir}/archive.bin", b"stats")
+        row = self._row(rom, rel_dir, "archive.bin", st)
+        row.category = RomFileCategory.GAME
+
+        parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.rom_files == [row]
+        assert row.category is None
+
+    async def test_rom_folder_named_like_a_category_is_not_a_category(
+        self, handler: FSRomsHandler
+    ):
+        platform = Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
+        rom = self._rom(platform, fs_name="Demo")
+        self._write(handler, "n64/roms/Demo/game.n64", b"game")
+
+        parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].category is None
+
+    @pytest.mark.parametrize(
+        "parts, expected",
+        [
+            ([], None),
+            (["dlc"], RomFileCategory.DLC),
+            (["update", "x"], RomFileCategory.UPDATE),
+            (["patches", "v2"], RomFileCategory.PATCH),
+            (["update", "content", "game"], RomFileCategory.UPDATE),
+            (["some game [update]", "content", "game", "stats"], None),
+            (["content", "cmcmn", "demo"], None),
+        ],
+    )
+    def test_category_for_path_parts(
+        self, parts: list[str], expected: RomFileCategory | None
+    ):
+        assert category_for_path_parts(parts) == expected
+
+    def test_category_matches_plural_forms(self):
+        assert category_matches("patch", ["patches"])
+        assert category_matches("hack", ["hacks"])
+        assert category_matches("cheat", ["n64", "roms", "game", "cheats"])
+        assert not category_matches("patch", ["patched"])
+
+    def test_mtime_matches_accepts_single_precision_rounding(self):
+        actual = 1724500000.123456
+        rounded = struct.unpack("f", struct.pack("f", actual))[0]
+
+        assert rounded != actual
+        assert mtime_matches(actual, actual)
+        assert mtime_matches(rounded, actual)
+        assert not mtime_matches(actual + 1, actual)
+        assert not mtime_matches(None, actual)
+
+    def test_upload_temp_files_are_excluded_by_default(self):
+        assert "assembling" in DEFAULT_EXCLUDED_EXTENSIONS

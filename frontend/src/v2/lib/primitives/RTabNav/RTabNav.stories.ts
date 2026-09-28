@@ -95,6 +95,34 @@ export const VerticalPill: Story = {
   }),
 };
 
+// A phone-width strip: the clipped edge fades and grows a chevron, and the
+// active tab is scrolled into view on mount.
+export const Overflowing: Story = {
+  args: {
+    modelValue: "save-data",
+    items: [
+      { id: "overview", label: "Overview" },
+      { id: "files", label: "Files", badge: 99 },
+      { id: "media", label: "Media" },
+      { id: "notes", label: "Notes" },
+      { id: "achievements", label: "Achievements", badge: "12/40" },
+      { id: "save-data", label: "Save data", badge: 3 },
+      { id: "patcher", label: "Patcher" },
+      { id: "metadata", label: "Metadata" },
+    ],
+  },
+  render: (args) => ({
+    components: { RTabNav },
+    setup: () => {
+      const active = ref(args.modelValue ?? "overview");
+      return { args, active };
+    },
+    template: `<div style="width: 340px;">
+      <RTabNav v-bind="args" v-model="active" />
+    </div>`,
+  }),
+};
+
 export const HiddenItems: Story = {
   args: {
     modelValue: "overview",

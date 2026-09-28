@@ -6,10 +6,15 @@
 // settings reorder list pick it up automatically.
 import type { Component } from "vue";
 import ActiveInstallersWidget from "./ActiveInstallersWidget.vue";
+import AnniversaryWidget from "./AnniversaryWidget.vue";
 import LibraryStatsWidget from "./LibraryStatsWidget.vue";
 import RandomPickWidget from "./RandomPickWidget.vue";
 
-export type WidgetId = "randomPick" | "libraryStats" | "activeInstallers";
+export type WidgetId =
+  | "randomPick"
+  | "anniversaries"
+  | "libraryStats"
+  | "activeInstallers";
 
 export interface WidgetDef {
   id: WidgetId;
@@ -17,7 +22,10 @@ export interface WidgetDef {
   component: Component;
   /** Key in `useUISettings` that controls visibility. */
   enabledKey:
-    "widgetRandomPick" | "widgetLibraryStats" | "widgetActiveInstallers";
+    | "widgetRandomPick"
+    | "widgetLibraryStats"
+    | "widgetAnniversaries"
+    | "widgetActiveInstallers";
   /** i18n key for the user-facing label (settings reorder list). */
   labelKey: string;
   /** Optional MDI icon used in the reorder list. */
@@ -30,7 +38,14 @@ export const WIDGETS: readonly WidgetDef[] = [
     component: RandomPickWidget,
     enabledKey: "widgetRandomPick",
     labelKey: "settings.widget-random-pick",
-    icon: "mdi-dice-multiple-outline",
+    icon: "mdi-dice-5-outline",
+  },
+  {
+    id: "anniversaries",
+    component: AnniversaryWidget,
+    enabledKey: "widgetAnniversaries",
+    labelKey: "settings.widget-anniversaries",
+    icon: "mdi-calendar-star",
   },
   {
     id: "libraryStats",

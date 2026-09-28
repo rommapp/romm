@@ -16,23 +16,33 @@ on:
       - "frontend/src/console/**"
       - "frontend/src/layouts/**"
 
-permissions: read-all
+# A new push cancels a PR's superseded run; each master commit keeps its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
   check-v1-frozen:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Fail if v1 UI files changed
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           HAS_BYPASS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'allow-v1-changes') }}
         run: |
-          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          # A shallow fetch would leave origin/$BASE_REF without a merge base
+          # against HEAD as soon as the base branch moves on.
+          git fetch --no-tags origin "$BASE_REF"
 
           v1_files=$(git diff --name-only "origin/$BASE_REF...HEAD" -- \
             "frontend/src/views/" \

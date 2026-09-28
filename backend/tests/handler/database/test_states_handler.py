@@ -35,12 +35,12 @@ class TestDBStatesHandlerPlatformFiltering:
         assert states[0].id == state.id
         assert states[0].file_name == "test_state.state"
 
-    def test_get_states_with_rom_id_and_platform_filter(
+    def test_get_states_with_rom_ids_and_platform_filter(
         self, admin_user: User, platform: Platform, rom: Rom, state: State
     ):
-        """Test that get_states works with both rom_id and platform_id filters."""
+        """Test that get_states works with both rom_ids and platform_id filters."""
         states = db_state_handler.get_states(
-            user_id=admin_user.id, rom_id=rom.id, platform_id=platform.id
+            user_id=admin_user.id, rom_ids=[rom.id], platform_id=platform.id
         )
 
         assert len(states) == 1
@@ -168,3 +168,45 @@ class TestDBStatesHandlerPlatformFiltering:
 
         # Verify the state is associated with the correct platform through ROM
         assert retrieved_state.rom.platform_id == platform.id
+
+
+class TestGetStatesRomIdsScope:
+    """Test suite for the `rom_ids` scope on DBStatesHandler.get_states."""
+
+    def test_scopes_to_listed_roms(
+        self, admin_user: User, rom: Rom, state: State, second_state: State
+    ):
+        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+
+        assert [s.id for s in states] == [state.id]
+
+    def test_scopes_to_multiple_roms(
+        self,
+        admin_user: User,
+        rom: Rom,
+        second_rom: Rom,
+        state: State,
+        second_state: State,
+    ):
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id, second_rom.id]
+        )
+
+        assert {s.id for s in states} == {state.id, second_state.id}
+
+    def test_empty_scope_returns_nothing(self, admin_user: User, state: State):
+        assert db_state_handler.get_states(user_id=admin_user.id, rom_ids=[]) == []
+
+    def test_omitted_scope_returns_everything(self, admin_user: User, state: State):
+        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=None)
+
+        assert state.id in [s.id for s in states]
+
+    def test_combines_with_platform_filter(
+        self, admin_user: User, platform: Platform, rom: Rom, state: State
+    ):
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], platform_id=platform.id
+        )
+
+        assert [s.id for s in states] == [state.id]

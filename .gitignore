@@ -47,8 +47,16 @@ mariadb
 
 # used to mock the library/config/mounts/etc while testing
 frontend/assets/romm
-frontend/assets/emulatorjs/cores
 romm_mock
+
+# emulator runtimes, linked in from the dev image by entrypoint.sh
+frontend/assets/emulatorjs/*
+!frontend/assets/emulatorjs/*.svg
+frontend/assets/ruffle/*
+!frontend/assets/ruffle/*.svg
+!frontend/assets/ruffle/*.png
+frontend/assets/jsdos
+frontend/assets/pico8
 
 # virtualenv
 .venv
@@ -56,6 +64,9 @@ romm_mock
 # testing
 backend/romm_test/resources
 backend/romm_test/logs
+backend/romm_test/assets
+backend/romm_test/retroarch_sync
+backend/romm_test/cache/retroarch_sync
 .pytest_cache
 .hypothesis
 /romm_test
@@ -94,3 +105,6 @@ frontend/.last-run.json
 *.todo
 TODO.*
 *TODO*.*
+
+# mypy
+.mypy_cache

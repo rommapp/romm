@@ -265,6 +265,11 @@ watch(
   min-height: 0;
   display: flex;
   flex-direction: column;
+  /* Contains this variant's internal layers (the focus overlay sits at
+     z-index 5). Without a stacking context they compete directly with
+     the dialog's own absolutely-positioned children, and the saving
+     overlay at z-index 1 loses to the match panel. */
+  isolation: isolate;
 }
 
 .match-grid__grid {
@@ -301,11 +306,8 @@ watch(
   /* Shrink-wrap the card's natural width and never shrink below it (a fixed
      -height card shrunk on the cross axis would crop its cover). */
   flex: 0 0 auto;
-  /* Lay the card out as a flex item (not a block child). GameCard derives its
-     width from a fixed height via the cover's `aspect-ratio`; as a block child
-     of a shrink-to-fit cell that width resolution is circular, and WebKit
-     (Safari) collapses it to a thin sliver. Flex intrinsic sizing resolves it
-     correctly, the same path the gallery row already relies on. */
+  /* Lay the card out as a flex item (not a block child), the same path the
+     gallery row uses. */
   display: flex;
   /* …but never wider than the grid: a wide cover (landscape provider art, or
      a card wider than a narrow phone) draws its width from the cover aspect

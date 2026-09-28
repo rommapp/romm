@@ -1,4 +1,5 @@
-from typing import Annotated
+import asyncio
+from typing import Annotated, Any
 
 from fastapi import Body, HTTPException, Request, status
 
@@ -16,11 +17,19 @@ from endpoints.responses.permission import (
     UserPermissionsSchema,
     UserPermissionsUpdate,
 )
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_admin, get_permissions
-from handler.database import db_permission_handler, db_user_handler
-from handler.socket_handler import socket_handler
+from handler.database import (
+    db_client_token_handler,
+    db_permission_handler,
+    db_platform_handler,
+    db_rom_handler,
+    db_user_handler,
+)
+from handler.socket_handler import close_client_token_sockets, socket_handler
 from logger.logger import log
+from models.audit_event import AuditAction, AuditTargetType
 from models.permission import PermAction, PermEntity, PermissionGroup
 from utils.router import APIRouter
 
@@ -30,19 +39,31 @@ router = APIRouter(
 )
 
 
-async def emit_permissions_changed(user_id: int) -> None:
-    """Notify clients that `user_id`'s effective permissions changed.
-
-    Broadcast (Redis-backed fan-out); the frontend re-fetches `/permissions/me`
-    only when the affected user is the current user. Call this from any path that
-    mutates a user's role, group, overrides or hidden entities.
-    """
+async def _broadcast_permissions_changed(user_id: int) -> None:
     try:
         await socket_handler.socket_server.emit(
             "permissions:changed", {"user_id": user_id}
         )
     except Exception as e:  # noqa: BLE001
         log.warning(f"Failed to broadcast permissions:changed for user {user_id}: {e}")
+
+
+async def emit_permissions_changed(*user_ids: int) -> None:
+    """Notify clients that the users' effective permissions changed.
+
+    Broadcast (Redis-backed fan-out); the frontend re-fetches `/permissions/me`
+    only when the affected user is the current user. Call this from any path that
+    mutates a user's role, group, overrides or hidden entities.
+    """
+    if not user_ids:
+        return
+    await asyncio.gather(*(_broadcast_permissions_changed(u) for u in user_ids))
+    try:
+        token_ids = db_client_token_handler.get_token_ids_by_users(user_ids)
+    except Exception:  # noqa: BLE001
+        log.warning(f"Failed to look up the tokens of users {user_ids}", exc_info=True)
+        return
+    await close_client_token_sockets(token_ids)
 
 
 @protected_route(router.get, "/me", [Scope.ME_READ])
@@ -74,7 +95,7 @@ def _group_schema(group: PermissionGroup) -> PermissionGroupSchema:
         name=group.name,
         description=group.description,
         is_default=group.is_default,
-        is_system=group.is_system,
+        system_key=group.system_key,
         color=group.color,
         grants=[
             GrantSchemaIO(entity=g.entity, action=g.action, own_only=g.own_only)
@@ -86,6 +107,41 @@ def _group_schema(group: PermissionGroup) -> PermissionGroupSchema:
             for h in db_permission_handler.get_hidden_entities(group_id=group.id)
         ],
     )
+
+
+def _group_target(group: PermissionGroup) -> AuditTarget:
+    return AuditTarget(AuditTargetType.PERMISSION_GROUP, group.id, group.name)
+
+
+def _hidden_target(entity: PermEntity, entity_id: int) -> AuditTarget | None:
+    if entity == PermEntity.ROMS:
+        rom = db_rom_handler.get_rom_visibility_label(entity_id)
+        return (
+            AuditTarget.of_rom(rom)
+            if rom
+            else AuditTarget(AuditTargetType.ROM, entity_id, None)
+        )
+    if entity == PermEntity.PLATFORMS:
+        platform = db_platform_handler.get_platform(entity_id)
+        return (
+            AuditTarget.of_platform(platform)
+            if platform
+            else AuditTarget(AuditTargetType.PLATFORM, entity_id, None)
+        )
+    return None
+
+
+def _group_name(group_id: int | None) -> str | None:
+    group = db_permission_handler.get_group(group_id) if group_id is not None else None
+    return group.name if group else None
+
+
+def _principal(user_id: int | None, group_id: int | None) -> dict[str, Any]:
+    """Who something was hidden from, named for the audit log."""
+    if user_id is not None:
+        user = db_user_handler.get_user(user_id)
+        return {"type": "user", "id": user_id, "name": user.username if user else None}
+    return {"type": "group", "id": group_id, "name": _group_name(group_id)}
 
 
 @protected_route(router.get, "/groups", [Scope.USERS_READ])
@@ -114,6 +170,12 @@ def create_permission_group(
         is_default=body.is_default,
         color=body.color,
         grants=[(g.entity, g.action, g.own_only) for g in body.grants],
+    )
+    record(
+        AuditAction.PERMISSION_GROUP_CREATE,
+        request,
+        _group_target(group),
+        {"grants": len(body.grants), "is_default": body.is_default},
     )
     return _group_schema(group)
 
@@ -161,10 +223,17 @@ async def update_permission_group(
             else None
         ),
     )
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     # Grant changes alter every member's effective permissions.
-    for member_id in db_permission_handler.get_group_member_ids(id):
-        await emit_permissions_changed(member_id)
-    return _group_schema(updated)  # type: ignore[arg-type]
+    await emit_permissions_changed(*db_permission_handler.get_group_member_ids(id))
+    record(
+        AuditAction.PERMISSION_GROUP_EDIT,
+        request,
+        _group_target(updated),
+        {"changed": sorted(body.model_dump(exclude_none=True))},
+    )
+    return _group_schema(updated)
 
 
 @protected_route(
@@ -187,8 +256,13 @@ async def delete_permission_group(request: Request, id: int) -> None:
 
     member_ids = db_permission_handler.get_group_member_ids(id)
     db_permission_handler.delete_group(id)
-    for member_id in member_ids:
-        await emit_permissions_changed(member_id)
+    record(
+        AuditAction.PERMISSION_GROUP_DELETE,
+        request,
+        _group_target(group),
+        {"members": len(member_ids)},
+    )
+    await emit_permissions_changed(*member_ids)
 
 
 # --- Admin: per-user assignment ----------------------------------------------
@@ -258,6 +332,16 @@ async def update_user_permissions(
         )
 
     await emit_permissions_changed(user_id)
+    record(
+        AuditAction.USER_PERMISSIONS_EDIT,
+        request,
+        AuditTarget.of_user(user),
+        lambda: {
+            "group": _group_name(group_id),
+            "group_changed": body.set_group and group_id != user.permission_group_id,
+            "overrides": len(body.overrides) if body.overrides is not None else None,
+        },
+    )
     return _user_permissions(user_id, group_id)
 
 
@@ -289,6 +373,16 @@ async def add_hidden_entity(
     db_permission_handler.add_hidden_entity(
         body.entity, body.entity_id, user_id=body.user_id, group_id=body.group_id
     )
+    record(
+        AuditAction.VISIBILITY_HIDE,
+        request,
+        lambda: _hidden_target(body.entity, body.entity_id),
+        lambda: {
+            "from": _principal(body.user_id, body.group_id),
+            "entity": body.entity,
+            "entity_id": body.entity_id,
+        },
+    )
     await _emit_for_principal(body.user_id, body.group_id)
     return HiddenEntitySchema(entity=body.entity, entity_id=body.entity_id)
 
@@ -316,6 +410,16 @@ async def remove_hidden_entity(
     db_permission_handler.remove_hidden_entity(
         entity, entity_id, user_id=user_id, group_id=group_id
     )
+    record(
+        AuditAction.VISIBILITY_UNHIDE,
+        request,
+        lambda: _hidden_target(entity, entity_id),
+        lambda: {
+            "from": _principal(user_id, group_id),
+            "entity": entity,
+            "entity_id": entity_id,
+        },
+    )
     await _emit_for_principal(user_id, group_id)
 
 
@@ -323,5 +427,6 @@ async def _emit_for_principal(user_id: int | None, group_id: int | None) -> None
     if user_id is not None:
         await emit_permissions_changed(user_id)
     elif group_id is not None:
-        for member_id in db_permission_handler.get_group_member_ids(group_id):
-            await emit_permissions_changed(member_id)
+        await emit_permissions_changed(
+            *db_permission_handler.get_group_member_ids(group_id)
+        )

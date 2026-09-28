@@ -14,13 +14,17 @@
 //   * favorite / unfavorite — direct collectionApi bulk call against
 //     the favorite collection. The Card/Row's per-rom favourite
 //     toggle still routes through `useGameActions` per-rom; here we
-//     bypass it to issue a single add/remove call for the whole set.
+//     bypass only its per-rom write to issue a single add/remove call
+//     for the whole set, while still reusing its
+//     `ensureFavoriteCollection` so a fresh instance gets one.
 //   * manage collections — re-uses the existing
 //     `ManageCollectionsDialog` (already accepts SimpleRom[]) via
 //     the `showManageCollectionsDialog` emitter event.
 //   * download — a single selected ROM downloads directly (like the
 //     per-rom `useGameActions.download`); multi-selections go through
 //     the bulk endpoint so the server bundles them into one zip.
+//     `hideDownload` drops the action for hosts whose rows have no
+//     file to serve (the Missing games tab).
 //   * refresh metadata — emits `showRefreshMetadataDialog` for each
 //     ROM in turn. (Phase-2 follow-up: the dialog will accept arrays
 //     so the user only sees the scan-type picker once for the whole
@@ -42,18 +46,21 @@ import {
   RDivider,
 } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
+import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
-import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
-import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useAnimatedNumber } from "@/v2/composables/useAnimatedNumber";
 import { useCan } from "@/v2/composables/useCan";
+import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
   ENUM_KEYS,
@@ -63,18 +70,45 @@ import {
   type StatusFlagKey,
   VISIBILITY_FLAG_KEYS,
 } from "@/v2/utils/romStatus";
+import {
+  FILLET_PX,
+  NOTCH_RADIUS_PX,
+  selectionBarOutline,
+} from "./selectionBarOutline";
+
+interface Props {
+  /** Hides the download action where the selected ROMs have no file on
+   * disk, so the bar never offers a transfer that can only fail. */
+  hideDownload?: boolean;
+}
+
+defineProps<Props>();
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-// On phones the bar drops the "N selected" phrase down to just the
-// number so the action row fits a 320px width without overflowing.
-const { xs } = useBreakpoint();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const selection = storeGallerySelection();
+// The count rolls up to its new value rather than snapping, so a selection
+// that grew by a tap is a number you see move.
+const rollingCount = useAnimatedNumber(() => selection.count);
 const collectionsStore = storeCollections();
-const romsStore = storeRoms();
+const galleryRomsStore = storeGalleryRoms();
+const { ensureFavoriteCollection } = useFavoriteToggle();
+const { syncCachedRom, removeCachedRoms, refreshAfterUserStateChange } =
+  useRomSync();
+// Whole-result select-all, shared with the list header checkbox and
+// Ctrl/Cmd+A.
+const { selectingAll, allSelected, selectAll } = useGallerySelectAll();
+
+// The filtered-result size, so the label says how many "all" is. Falls
+// back to the plain label while the bootstrap hasn't resolved a total.
+const selectAllLabel = computed(() =>
+  galleryRomsStore.total > 0
+    ? t("gallery.selection-select-all-count", { n: galleryRomsStore.total })
+    : t("gallery.selection-select-all"),
+);
 
 const canRefresh = useCan("rom.refresh");
 const canDownload = useCan("rom.download");
@@ -106,29 +140,45 @@ const favoriteLabel = computed(() =>
     : t("gallery.selection-favorite"),
 );
 
+// Guards the create-if-missing call below.
+const favoritePending = ref(false);
+
 async function bulkFavorite() {
-  const fav = collectionsStore.favoriteCollection;
   const ids = selection.ids;
-  if (!fav || ids.length === 0) return;
+  const roms = selection.roms;
+  if (ids.length === 0 || favoritePending.value) return;
+  // `allFavorited` tracks the live selection and the collection's rom_ids,
+  // both of which can move while the calls below are in flight, so the
+  // direction has to be snapshotted alongside the ids it applies to.
+  const wasAllFavorited = allFavorited.value;
+  favoritePending.value = true;
   try {
-    const { data } = allFavorited.value
+    // A fresh instance has no favourites collection until something is
+    // favourited.
+    const fav = await ensureFavoriteCollection();
+    const { data } = wasAllFavorited
       ? await collectionApi.removeRomsFromCollection(fav.id, ids)
       : await collectionApi.addRomsToCollection(fav.id, ids);
     collectionsStore.updateCollection(data);
     collectionsStore.setFavoriteCollection(data);
-    if (allFavorited.value && romsStore.currentCollection?.id === fav.id) {
+    if (wasAllFavorited && galleryRomsStore.currentCollection?.id === fav.id) {
       // We were on the favourites collection view and just removed
       // every selected rom from it — drop them from the visible
       // roms so the UI reflects the new membership immediately.
-      romsStore.remove(selection.roms);
+      removeCachedRoms(roms);
     }
+    // The branch above only covers the Favourites collection view; a
+    // favourites filter moves membership just as much.
+    refreshAfterUserStateChange();
     snackbar.success(
-      allFavorited.value
+      wasAllFavorited
         ? t("gallery.selection-unfavorite-success", { n: ids.length })
         : t("gallery.selection-favorite-success", { n: ids.length }),
     );
   } catch {
     snackbar.error(t("gallery.selection-favorite-fail"));
+  } finally {
+    favoritePending.value = false;
   }
 }
 
@@ -178,7 +228,7 @@ async function applyStatus(data: Partial<RomUserData>) {
     if (!rom.rom_user) continue;
     before.set(rom.id, { ...rom.rom_user });
     Object.assign(rom.rom_user, data);
-    romsStore.update(rom);
+    syncCachedRom(rom);
   }
 
   const results = await Promise.allSettled(
@@ -189,9 +239,12 @@ async function applyStatus(data: Partial<RomUserData>) {
     const snapshot = before.get(rom.id);
     if (rom.rom_user && snapshot) {
       Object.assign(rom.rom_user, snapshot);
-      romsStore.update(rom);
+      syncCachedRom(rom);
     }
   }
+
+  // Once for the whole batch, after the reverts are in.
+  refreshAfterUserStateChange();
 
   const ok = roms.length - failed.length;
   if (failed.length === 0) {
@@ -253,6 +306,41 @@ function bulkDelete() {
   emitter?.emit("showDeleteRomDialog", selection.roms);
 }
 
+// ── Outline ─────────────────────────────────────────────────────────
+
+/** The hill's own geometry, which its fill and the outline both read. */
+const notchStyle = {
+  "--r-notch-fillet": `${FILLET_PX}px`,
+  "--r-notch-radius": `${NOTCH_RADIUS_PX}px`,
+};
+
+const barEl = ref<HTMLElement | null>(null);
+const notchEl = ref<HTMLElement | null>(null);
+const barSize = ref({ w: 0, h: 0 });
+const notchSize = ref({ w: 0, h: 0 });
+
+function measure() {
+  const bar = barEl.value;
+  const notch = notchEl.value;
+  if (bar) barSize.value = { w: bar.offsetWidth, h: bar.offsetHeight };
+  if (notch) notchSize.value = { w: notch.offsetWidth, h: notch.offsetHeight };
+}
+
+// The bar's width follows its buttons and the hill's follows the digit count,
+// so both are watched rather than measured once.
+let sizeObserver: ResizeObserver | null = null;
+onMounted(() => {
+  measure();
+  sizeObserver = new ResizeObserver(measure);
+  if (barEl.value) sizeObserver.observe(barEl.value);
+  if (notchEl.value) sizeObserver.observe(notchEl.value);
+});
+onBeforeUnmount(() => sizeObserver?.disconnect());
+
+const outline = computed(() =>
+  selectionBarOutline(barSize.value, notchSize.value),
+);
+
 function clear() {
   selection.clear();
 }
@@ -260,33 +348,61 @@ function clear() {
 
 <template>
   <div
+    ref="barEl"
     class="selection-bar"
     :class="{ 'selection-bar--visible': selection.enabled }"
     :aria-hidden="!selection.enabled"
   >
+    <!-- One stroke around bar, hill and fillets, since three boxes cannot
+         share a border without seams where their edges meet. -->
+    <svg
+      v-if="outline"
+      class="selection-bar__outline"
+      :style="{ top: `${-outline.rise}px`, height: `${outline.height}px` }"
+      :viewBox="`0 0 ${outline.width} ${outline.height}`"
+      :width="outline.width"
+      :height="outline.height"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path :d="outline.d" />
+    </svg>
+    <!-- Count: a notch rising from the bar's top edge, centred. Its lower
+         half hides behind the bar, so the two read as one surface. -->
+    <!-- Named, not a live region: the digits change once per animation frame
+         while the count rolls, and a status role would read out every one. -->
+    <div
+      ref="notchEl"
+      class="selection-bar__notch"
+      :style="notchStyle"
+      role="img"
+      :aria-label="t('gallery.selection-n-selected', { n: selection.count })"
+    >
+      <span class="selection-bar__notch-count">{{ rollingCount }}</span>
+    </div>
+
     <RToolbar
       density="compact"
       rounded="full"
       flat
       class="selection-bar__panel"
     >
-      <!-- Prepend region: count chip — leftmost item, separated from
-           the action buttons by RToolbar's built-in inter-region
-           spacing. -->
       <template #prepend>
-        <div class="selection-bar__count">
-          <RIcon
-            icon="mdi-check-circle"
-            size="18"
-            class="selection-bar__count-icon"
-          />
-          <span>
-            <template v-if="xs">{{ selection.count }}</template>
-            <template v-else>
-              {{ t("gallery.selection-n-selected", { n: selection.count }) }}
-            </template>
-          </span>
-        </div>
+        <!-- Extends the selection to the whole filtered result; the
+             sole grid-mode affordance (list mode has the header checkbox). -->
+        <RTooltip :text="selectAllLabel">
+          <template #activator="{ props: tipProps }">
+            <RBtn
+              v-bind="tipProps"
+              icon="mdi-select-all"
+              variant="text"
+              :loading="selectingAll"
+              :disabled="allSelected"
+              :aria-label="selectAllLabel"
+              @click="selectAll"
+            />
+          </template>
+        </RTooltip>
       </template>
 
       <RDivider vertical class="selection-bar__divider" />
@@ -296,7 +412,10 @@ function clear() {
            Every button is wrapped in RTooltip so the user gets a
            consistent hover hint and gamepad users see the label —
            the v2 visual vocabulary for icon-only buttons. -->
-      <RTooltip v-if="canDownload" :text="t('gallery.selection-download')">
+      <RTooltip
+        v-if="canDownload && !hideDownload"
+        :text="t('gallery.selection-download')"
+      >
         <template #activator="{ props: tipProps }">
           <RBtn
             v-bind="tipProps"
@@ -466,40 +585,50 @@ function clear() {
 
 <style scoped>
 .selection-bar {
+  /* Same brand edge a selected card carries, a hair thinner. */
+  --r-color-selection-edge: var(--r-color-brand-primary);
   position: fixed;
   left: 50%;
   bottom: max(24px, env(safe-area-inset-bottom, 0));
-  transform: translate(-50%, calc(100% + 32px));
+  transform: translateX(-50%);
   /* Above the bottom tab bar (z 100) so the multi-select bar floats over
      it on mobile instead of being painted behind it; still below dialogs
      (z 2400) so a confirm opened from a selection covers it. */
   z-index: 101;
   pointer-events: none;
-  transition: transform var(--r-motion-mid) var(--r-motion-ease-out);
-  /* Respect the platform's reduced-motion preference: skip the
-     slide-up so the bar appears instantly without animation. */
+  opacity: 0;
+  /* The drop shadow belongs to the whole silhouette, not to the bar: cast
+     from the bar itself it lands on the hill, which sits behind it, and
+     tints it a shade darker than the surface it is meant to continue. */
+  border-radius: var(--r-radius-pill);
+  box-shadow: 0 12px 32px color-mix(in srgb, black 32%, transparent);
+  /* Fades in and out where it stands. */
+  transition: opacity var(--r-motion-med) var(--r-motion-ease-out);
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
 }
 
 .selection-bar--visible {
-  transform: translate(-50%, 0);
+  opacity: 1;
   pointer-events: auto;
 }
 
+.selection-bar__outline {
+  position: absolute;
+  left: 0;
+  z-index: 3;
+  overflow: visible;
+  fill: none;
+  stroke: var(--r-color-selection-edge);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
 /* On sm-and-down sit just above the bottom tab bar (8px gap) so the two
-   read as stacked, not overlapping. Anchoring `bottom` this high means
-   the base hide transform (translateY(100% + 32px)) can't clear the
-   viewport, so the hidden transform is enlarged to push the panel fully
-   past the bar + screen edge; the visible state (declared after, same
-   specificity) pins it back at the 8px gap. */
+   read as stacked, not overlapping. */
 html[data-bp~="sm-and-down"] .selection-bar {
   bottom: calc(var(--r-bottom-nav-h) + 8px + env(safe-area-inset-bottom));
-  transform: translate(-50%, calc(100% + var(--r-bottom-nav-h) + 48px));
-}
-html[data-bp~="sm-and-down"] .selection-bar--visible {
-  transform: translate(-50%, 0);
 }
 
 /* RToolbar's default surface (`--r-color-bg-elevated`) is overridden
@@ -508,37 +637,74 @@ html[data-bp~="sm-and-down"] .selection-bar--visible {
    Border + shadow + backdrop-blur are stacked on top of the
    primitive's flat pill. `max-width` keeps it inside a 320px viewport. */
 .selection-bar__panel {
+  /* Over the hill, so the part that laps into the bar is hidden behind it
+     instead of painting across the buttons' own backgrounds. */
+  position: relative;
+  z-index: 2;
   --r-toolbar-color: var(--r-color-panel);
   max-width: calc(100vw - 16px);
-  border: 1px solid var(--r-color-panel-border);
-  box-shadow:
-    0 12px 32px color-mix(in srgb, black 32%, transparent),
-    0 0 0 1px color-mix(in srgb, white 4%, transparent) inset;
   backdrop-filter: blur(18px) saturate(140%);
 }
 
-.selection-bar__count {
+/* A hill rising from the bar's top edge. It shares the bar's fill and laps
+   into it, and the two pseudo-elements curve its foot out into the bar, so
+   bar and hill read as one surface. Nothing here carries a stroke: an edge
+   that stopped at the join is exactly what makes a seam. */
+.selection-bar__notch {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: calc(100% - 6px);
+  transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 4px;
+  padding: 9px 16px 13px;
+  /* The foot stays square so the sides run straight down into the fillets
+     below. Rounding it would pull the edge inward and open a gap between
+     hill, fillet and bar. The square corners themselves sit inside the bar,
+     out of sight. */
+  border-radius: var(--r-notch-radius) var(--r-notch-radius) 0 0;
+  background: var(--r-color-panel);
+  /* The bar's glass too, or the fill reads a shade off against it. */
+  backdrop-filter: blur(18px) saturate(140%);
+  color: var(--r-color-fg);
   font-size: var(--r-font-size-md);
   font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg);
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.selection-bar__notch-count {
+  display: inline-block;
+}
+.selection-bar__notch::before,
+.selection-bar__notch::after {
+  content: "";
+  position: absolute;
+  bottom: 6px;
+  width: var(--r-notch-fillet);
+  height: var(--r-notch-fillet);
+  pointer-events: none;
+}
+.selection-bar__notch::before {
+  /* 1px under the hill, so no hairline survives between the two fills. */
+  right: calc(100% - 1px);
+  background: radial-gradient(
+    circle var(--r-notch-fillet) at top left,
+    transparent 0 var(--r-notch-fillet),
+    var(--r-color-panel) var(--r-notch-fillet)
+  );
+}
+.selection-bar__notch::after {
+  left: calc(100% - 1px);
+  background: radial-gradient(
+    circle var(--r-notch-fillet) at top right,
+    transparent 0 var(--r-notch-fillet),
+    var(--r-color-panel) var(--r-notch-fillet)
+  );
 }
 
-.selection-bar__count-icon {
-  color: var(--r-color-brand-primary);
-}
-
-html[data-bp~="xs"] .selection-bar__count {
-  padding: 0 2px;
-  font-size: var(--r-font-size-sm);
-}
-
-/* Tighten the action row on phones so all buttons + the count + divider
-   fit a 320px width: squeeze the inter-button gaps and side padding. */
+/* Tighten the action row on phones so all buttons + the divider fit a 320px
+   width: squeeze the inter-button gaps and side padding. */
 html[data-bp~="xs"] .selection-bar__panel {
   gap: 2px;
   padding: 0 6px;

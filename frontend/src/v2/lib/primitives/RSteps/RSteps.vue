@@ -14,6 +14,7 @@
 // scaleX from a left origin, so growing reads as forward and shrinking
 // reads as the right edge emptying first (which feels like reverse).
 import { computed, ref, watch } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 
 defineOptions({ inheritAttrs: false });
 
@@ -35,6 +36,8 @@ interface Props {
   /** Pixel diameter of each dot. Defaults to 32. */
   dotSize?: number;
 }
+
+const labels = useChromeLabels();
 
 const props = withDefaults(defineProps<Props>(), {
   steps: undefined,
@@ -82,7 +85,7 @@ watch(
 <template>
   <ol
     class="r-steps"
-    :aria-label="`Step ${current} of ${items.length}`"
+    :aria-label="labels.step(current, items.length)"
     :data-direction="direction"
   >
     <template v-for="(item, i) in items" :key="item.index">

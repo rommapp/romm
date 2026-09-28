@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Upload — Library Tools view that posts ROM files to a chosen
+// Upload: Library Tools view that posts ROM files to a chosen
 // platform. Replaces the old emitter-driven `UploadRomDialog`; entry
 // points (UserMenu, Platform.vue kebab) now navigate here with the
 // `?platform=<id>` query param when they have a preselection.
@@ -7,36 +7,36 @@
 // Flow mirrors the dialog version that came before it:
 //   1. On mount, fetch the supported-platforms catalogue (v1's
 //      sentinel id=-1 "the fs_slug exists but no Platform record yet"
-//      is preserved — uploading auto-creates the platform via
+//      is preserved, uploading auto-creates the platform via
 //      `platformApi.uploadPlatform({ fsSlug })`).
 //   2. User picks a platform (PlatformSelect handles search +
 //      iconography) and adds files via drop zone or native picker.
 //   3. Upload streams through `romApi.uploadRoms` (already wired to
-//      `storeUpload` — the v2 UploadProgressToast shows the bar). On
-//      success we stay on the view (this is a tool — users will often
+//      `storeUpload`, the v2 UploadProgressToast shows the bar). On
+//      success we stay on the view (this is a tool, users will often
 //      upload more) but clear the file list. A scan is kicked off
-//      automatically so newly arrived files get matched.
+//      automatically, unless one is already running, so newly arrived
+//      files get matched.
 import { RBtn, RChip, RDropzone, RIcon } from "@v2/lib";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
-import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Platform } from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const { t } = useI18n();
 const route = useRoute();
 const snackbar = useSnackbar();
 const heartbeatStore = storeHeartbeat();
-const scanningStore = storeScanning();
 const uploadStore = storeUpload();
+const { startScan } = useScanTrigger();
 
 const files = ref<File[]>([]);
 const supportedPlatforms = ref<Platform[]>([]);
@@ -110,7 +110,7 @@ const selectedPlatform = computed<Platform | null>(() => {
 // ── File handling ───────────────────────────────────────────────
 function addFiles(picked: File[]) {
   if (!picked.length) return;
-  // De-dupe by name — matches v1 behaviour.
+  // De-dupe by name, matches v1 behaviour.
   const seen = new Set(files.value.map((f) => f.name));
   const fresh = picked.filter((f) => !seen.has(f.name));
   if (fresh.length > 0) {
@@ -132,7 +132,7 @@ async function upload() {
 
   try {
     // Sentinel id=-1: fs_slug exists but no Platform yet. Create one
-    // before pushing ROMs into it — same approach as v1.
+    // before pushing ROMs into it, same approach as v1.
     if (platformId === -1) {
       const { data: created } = await platformApi.uploadPlatform({
         fsSlug: platform.fs_slug,
@@ -165,15 +165,17 @@ async function upload() {
       );
 
       // Give the backend a beat to finish writing before we ask it to
-      // scan — v1 uses a 2s buffer for the same reason.
-      scanningStore.setScanning(true);
-      if (!socket.connected) socket.connect();
+      // scan, v1 uses a 2s buffer for the same reason.
       setTimeout(() => {
-        socket.emit("scan", {
-          platforms: [platformId],
-          type: "quick",
-          apis: heartbeatStore.getEnabledMetadataOptions().map((s) => s.value),
-        });
+        startScan([
+          {
+            platforms: [platformId],
+            type: "quick",
+            apis: heartbeatStore
+              .getEnabledMetadataOptions()
+              .map((s) => s.value),
+          },
+        ]);
       }, 2000);
 
       // Clear the list so the next batch starts fresh; keep the
@@ -203,28 +205,42 @@ async function upload() {
 
 <template>
   <div class="r-v2-upload r-v2-section-stack">
-    <!-- Platform picker -->
-    <PlatformSelect
-      v-model="selectedPlatformSlug"
-      :items="supportedPlatforms"
-      item-key="slug"
-      :placeholder="t('common.select-platform')"
-      density="comfortable"
-      prefix-label="stacked"
-      :icon-size="22"
-      :search-placeholder="t('common.search')"
-      :disabled="platformsLoading"
-    >
-      <template #prefix-label>
-        <RIcon icon="mdi-controller" size="14" />
-        {{ t("common.platform") }}
-      </template>
-    </PlatformSelect>
+    <div class="r-v2-upload__top">
+      <PlatformSelect
+        v-model="selectedPlatformSlug"
+        class="r-v2-upload__platform"
+        :items="supportedPlatforms"
+        item-key="slug"
+        promote-filled
+        :placeholder="t('common.select-platform')"
+        density="comfortable"
+        prefix-label="stacked"
+        :icon-size="22"
+        :search-placeholder="t('common.search')"
+        :disabled="platformsLoading"
+      >
+        <template #prefix-label>
+          <RIcon icon="mdi-controller" size="14" />
+          {{ t("common.platform") }}
+        </template>
+      </PlatformSelect>
+      <RBtn
+        variant="flat"
+        color="primary"
+        prepend-icon="mdi-cloud-upload-outline"
+        :disabled="files.length === 0 || !selectedPlatform"
+        :loading="uploading"
+        @click="upload"
+      >
+        {{ t("common.upload") }}
+      </RBtn>
+    </div>
 
-    <!-- Drop zone — CTA when empty, file list (with drag overlay) when
+    <!-- Drop zone, CTA when empty, file list (with drag overlay) when
            populated. -->
     <RDropzone
       v-if="files.length === 0"
+      fill
       :title="t('common.dropzone-title')"
       :hint="t('common.dropzone-description')"
       :active-title="t('common.dropzone-drag-over')"
@@ -235,6 +251,7 @@ async function upload() {
     <RDropzone
       v-else
       ref="uploadDz"
+      fill
       overlay
       :release-label="t('common.dropzone-drag-over')"
       :input-label="t('common.upload-roms')"
@@ -242,19 +259,6 @@ async function upload() {
       @files="addFiles"
     >
       <div class="r-v2-upload__filled">
-        <header class="r-v2-upload__filled-head">
-          <span>
-            {{ t("common.upload-files-selected", { count: files.length }) }}
-          </span>
-          <RBtn
-            variant="text"
-            size="small"
-            prepend-icon="mdi-plus"
-            @click="uploadDz?.open()"
-          >
-            {{ t("common.add") }}
-          </RBtn>
-        </header>
         <ul class="r-v2-upload__list">
           <li v-for="f in files" :key="f.name" class="r-v2-upload__row">
             <RIcon icon="mdi-file-outline" size="14" />
@@ -272,36 +276,50 @@ async function upload() {
             />
           </li>
         </ul>
+        <footer class="r-v2-upload__filled-foot">
+          <span>
+            {{ t("common.upload-files-selected", { count: files.length }) }}
+          </span>
+          <RBtn
+            variant="flat"
+            color="primary"
+            prepend-icon="mdi-plus"
+            @click="uploadDz?.open()"
+          >
+            {{ t("common.add") }}
+          </RBtn>
+        </footer>
       </div>
     </RDropzone>
-
-    <!-- Footer — primary CTA. No Cancel: this is a view, not a
-           dialog, the user just navigates away if they change their
-           mind. -->
-    <div class="r-v2-upload__footer">
-      <RBtn
-        variant="flat"
-        color="primary"
-        prepend-icon="mdi-cloud-upload-outline"
-        :disabled="files.length === 0 || !selectedPlatform"
-        :loading="uploading"
-        @click="upload"
-      >
-        {{ t("common.upload") }}
-      </RBtn>
-    </div>
   </div>
 </template>
 
 <style scoped>
+/* Desktop runs in SettingsLayout `fill` mode, so the dropzone grows to the
+   viewport bottom. Phones keep the document scroll and the capped list. */
+.r-v2-upload {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.r-v2-upload__top {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.r-v2-upload__platform {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* ── Filled state ────────────────────────────────────────────── */
 .r-v2-upload__filled {
-  padding: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.r-v2-upload__filled-head {
+.r-v2-upload__filled-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -317,9 +335,11 @@ async function upload() {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   background: var(--r-color-bg-elevated);
-  overflow: hidden;
-  max-height: 320px;
+  flex: 1 1 auto;
   overflow-y: auto;
+}
+html[data-bp~="sm-and-down"] .r-v2-upload__list {
+  max-height: 320px;
 }
 .r-v2-upload__row {
   display: grid;
@@ -338,10 +358,5 @@ async function upload() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.r-v2-upload__footer {
-  display: flex;
-  justify-content: flex-end;
 }
 </style>

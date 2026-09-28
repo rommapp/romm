@@ -1,4 +1,4 @@
-name: Build Docker Image and Trigger Docs/Website
+name: Build Docker Image
 
 on:
   # push:
@@ -6,58 +6,94 @@ on:
   #     - "[0-9]+.[0-9]+.[0-9]+*"
   release:
     types: [published]
+  # Rolling `nightly` image of master.
+  schedule:
+    - cron: "17 4 * * *"
 
 permissions:
-  id-token: write
-  contents: write
-  packages: write
-  actions: write
+  contents: read
+
+env:
+  CHANNEL: ${{ github.event_name == 'schedule' && 'nightly' || 'release' }}
+  # `build` pushes digests here and `merge` tags them from here; the two must agree.
+  DIGEST_IMAGE: ghcr.io/${{ github.repository_owner }}/romm
+  IMAGES: |
+    name=rommapp/romm
+    name=ghcr.io/rommapp/romm
+  # `build` and `merge` must derive the same tag set.
+  TAGS: |
+    type=semver,pattern={{version}}
+    type=semver,pattern={{major}}.{{minor}}
+    type=semver,pattern={{major}}
+    type=schedule,pattern=nightly
+  # Labels on each platform image, annotations on the index. metadata-action fills in
+  # the version itself (with `-slim`) and would render a `{{version}}` here as empty.
+  OCI_METADATA: |
+    org.opencontainers.image.title=rommapp/romm
+    org.opencontainers.image.description=RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators.
+    org.opencontainers.image.licenses=AGPL-3.0-only
 
 jobs:
   validate-tag-semver:
+    # Forks have no registry credentials, so their nightly would fail every day.
+    if: github.event_name != 'schedule' || github.repository == 'rommapp/romm'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       valid: ${{ steps.check_tag.outputs.valid }}
     steps:
       - name: Check if tag follows SemVer
         id: check_tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
         run: |
-          TAG="${{ github.event.release.tag_name }}"
-          if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
-            echo "valid=true" >> $GITHUB_OUTPUT
+          if [[ "$CHANNEL" == "nightly" || "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
+            echo "valid=true" >>"$GITHUB_OUTPUT"
           else
-            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "valid=false" >>"$GITHUB_OUTPUT"
           fi
 
+  # Each architecture builds natively and pushes untagged, digest-addressed
+  # images; `merge` stitches them into one index per variant.
   build:
     needs: validate-tag-semver
-    runs-on: ubuntu-latest
     if: needs.validate-tag-semver.outputs.valid == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     permissions:
-      id-token: write
-      contents: write
+      contents: read
       packages: write
+    env:
+      CACHE_IMAGE: ghcr.io/${{ github.repository_owner }}/romm-buildcache
     steps:
-      - name: Run only once per release
-        run: echo "Triggered by ${{ github.event_name }}"
-
       - name: Checkout code
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Login to Docker Hub
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -65,98 +101,225 @@ jobs:
 
       - name: Generate Docker metadata (slim)
         id: meta-slim
-        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
+          images: ${{ env.IMAGES }}
           flavor: |
             latest=auto
             suffix=-slim,onlatest=true
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-          labels: |
-            org.opencontainers.image.version={{version}}-slim
-            org.opencontainers.image.title="rommapp/romm"
-            org.opencontainers.image.description="RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
-            org.opencontainers.image.licenses="AGPLv3"
+          tags: ${{ env.TAGS }}
+          labels: ${{ env.OCI_METADATA }}
 
       - name: Generate Docker metadata (full)
         id: meta
-        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-          labels: |
-            org.opencontainers.image.version={{version}}
-            org.opencontainers.image.title="rommapp/romm"
-            org.opencontainers.image.description="RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
-            org.opencontainers.image.licenses="AGPLv3"
+          images: ${{ env.IMAGES }}
+          tags: ${{ env.TAGS }}
+          labels: ${{ env.OCI_METADATA }}
 
+      # Nightly builds carry the short commit so each one is identifiable and busts
+      # version-keyed caches.
       - name: Set version
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          sed -i 's/<version>/${{ steps.meta.outputs.version }}/' backend/__version__.py
+          if [[ "$CHANNEL" == "nightly" ]]; then
+            VERSION="${VERSION}-${GITHUB_SHA::7}"
+          fi
+          sed -i "s/<version>/$VERSION/" backend/__version__.py
 
-      - name: Build slim image
+      - name: Build and push slim image by digest
         id: build-slim
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           file: docker/Dockerfile
           context: .
-          push: true
-          platforms: linux/arm64,linux/amd64
-          tags: ${{ steps.meta-slim.outputs.tags }}
+          platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta-slim.outputs.labels }}
           target: slim-image
+          sbom: true
+          outputs: type=image,name=${{ env.DIGEST_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          # Both stages run `apk upgrade` off a fixed base digest, so nothing in
+          # them changes between releases and the cache would serve the package
+          # set of whenever the layer was first built.
+          no-cache-filters: python-runtime,production-stage
+          # Deliberately not seeded from the preview cache: those layers are
+          # built from PR head content and must not reach a release image.
+          cache-from: |
+            type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
+            ${{ env.CHANNEL == 'nightly' && format('type=registry,ref={0}:nightly-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
             SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
 
-      - name: Build full image
+      # Only the full build writes the cache: it is a superset of the slim one,
+      # so a single `mode=max` export covers every stage either target needs.
+      - name: Build and push full image by digest
         id: build-full
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           file: docker/Dockerfile
           context: .
-          push: true
-          platforms: linux/arm64,linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
+          platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           target: full-image
+          sbom: true
+          outputs: type=image,name=${{ env.DIGEST_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          no-cache-filters: python-runtime,production-stage
+          cache-from: |
+            type=registry,ref=${{ env.CACHE_IMAGE }}:release-${{ matrix.arch }}
+            ${{ env.CHANNEL == 'nightly' && format('type=registry,ref={0}:nightly-{1}', env.CACHE_IMAGE, matrix.arch) || '' }}
+          # Nightly reads the release cache but writes its own, so master layers
+          # never seed a release image.
+          cache-to: type=registry,ref=${{ env.CACHE_IMAGE }}:${{ env.CHANNEL }}-${{ matrix.arch }},mode=max
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
             SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
 
-  trigger-docs-and-web:
-    permissions:
-      actions: write
+      - name: Export digests
+        env:
+          SLIM_DIGEST: ${{ steps.build-slim.outputs.digest }}
+          FULL_DIGEST: ${{ steps.build-full.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests/slim /tmp/digests/full
+          touch "/tmp/digests/slim/${SLIM_DIGEST#sha256:}"
+          touch "/tmp/digests/full/${FULL_DIGEST#sha256:}"
+
+      - name: Upload slim digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digest-slim-${{ matrix.arch }}
+          path: /tmp/digests/slim/*
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload full digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digest-full-${{ matrix.arch }}
+          path: /tmp/digests/full/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
     needs: build
     runs-on: ubuntu-latest
-    if: needs.build.result == 'success' && github.event.release.prerelease == false
+    timeout-minutes: 15
+    env:
+      DOCKER_METADATA_ANNOTATIONS_LEVELS: index
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      version-slim: ${{ steps.meta-slim.outputs.version }}
     steps:
-      - name: Trigger docs build
-        run: |
-          curl -L -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${DOCS_PAT}" \
-            "https://api.github.com/repos/rommapp/docs/actions/workflows/deploy.yml/dispatches" \
-            -d '{"ref":"main", "inputs": {"version": "${{ github.event.release.tag_name }}"}}'
-        env:
-          DOCS_PAT: ${{ secrets.DOCS_PAT }}
+      - name: Download slim digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: /tmp/digests/slim
+          pattern: digest-slim-*
+          merge-multiple: true
 
-      - name: Trigger website build
-        run: |
-          curl -L -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${DOCS_PAT}" \
-            "https://api.github.com/repos/rommapp/marketing-site/actions/workflows/deploy.yml/dispatches" \
-            -d '{"ref":"main", "inputs": {"version": "${{ github.event.release.tag_name }}"}}'
+      - name: Download full digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: /tmp/digests/full
+          pattern: digest-full-*
+          merge-multiple: true
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Docker metadata (slim)
+        id: meta-slim
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGES }}
+          flavor: |
+            latest=auto
+            suffix=-slim,onlatest=true
+          tags: ${{ env.TAGS }}
+          annotations: ${{ env.OCI_METADATA }}
+
+      - name: Generate Docker metadata (full)
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGES }}
+          tags: ${{ env.TAGS }}
+          annotations: ${{ env.OCI_METADATA }}
+
+      # Tags spanning both registries are fine here: `imagetools create` copies
+      # the blobs over when a target sits in a different registry than the digests.
+      - name: Create manifest lists and push
         env:
-          DOCS_PAT: ${{ secrets.DOCS_PAT }}
+          SLIM_METADATA: ${{ steps.meta-slim.outputs.json }}
+          FULL_METADATA: ${{ steps.meta.outputs.json }}
+        run: |
+          push_variant() {
+            local dir="$1" metadata="$2"
+
+            local tags=()
+            while IFS= read -r tag; do
+              tags+=(--tag "$tag")
+            done < <(jq -r '.tags[]' <<<"$metadata")
+
+            # The labels only reach each platform's image config; registries
+            # read a multi-platform image's metadata from its index.
+            local annotations=()
+            while IFS= read -r annotation; do
+              annotations+=(--annotation "$annotation")
+            done < <(jq -r '.annotations[]' <<<"$metadata")
+
+            local sources=()
+            local digest
+            for digest in "$dir"/*; do
+              [[ -f "$digest" ]] || continue
+              sources+=("${DIGEST_IMAGE}@sha256:${digest##*/}")
+            done
+
+            # Without both lists `imagetools create` would push an untagged
+            # index and still exit 0, publishing a release nobody can pull.
+            if [[ ${#tags[@]} -eq 0 || ${#sources[@]} -eq 0 ]]; then
+              echo "::error::${dir}: ${#tags[@]} tag(s), ${#sources[@]} digest(s)"
+              return 1
+            fi
+
+            docker buildx imagetools create "${tags[@]}" "${annotations[@]}" "${sources[@]}"
+          }
+
+          push_variant /tmp/digests/slim "$SLIM_METADATA"
+          push_variant /tmp/digests/full "$FULL_METADATA"
+
+  # Records what shipped; image-scan.yml's weekly run rescans latest.
+  scan:
+    needs: merge
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    uses: ./.github/workflows/image-scan.yml
+    with:
+      images: >-
+        ["ghcr.io/${{ github.repository_owner }}/romm:${{ needs.merge.outputs.version }}",
+        "ghcr.io/${{ github.repository_owner }}/romm:${{ needs.merge.outputs.version-slim }}"]
+
+  report-failure:
+    needs: [validate-tag-semver, build, merge, scan]
+    if: failure() && github.event_name == 'schedule'
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/report-scheduled-failure.yml

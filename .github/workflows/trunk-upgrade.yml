@@ -1,0 +1,44 @@
+name: Trunk Upgrade
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  trunk-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # For create-pull-request to push the branch
+      pull-requests: write # For create-pull-request to open the PR
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Trunk Upgrade
+        uses: trunk-io/trunk-action/upgrade@e1234e67a86010d61ddac8d8ebf4b783e2ffd2fa # v2.0.0
+        with:
+          # Plugins are left to Renovate, which holds them for minimumReleaseAge.
+          arguments: cli check tools runtimes
+          base: master
+          prefix: "chore(trunk): "
+          sign-commits: true
+          # PRs opened with GITHUB_TOKEN don't trigger CI. A GitHub App token here does,
+          # and keeps sign-commits working.
+          github-token: ${{ secrets.TRUNK_UPGRADE_TOKEN || github.token }}
+          reviewers: |
+            gantoine
+
+  report-failure:
+    needs: [trunk-upgrade]
+    if: failure() && github.event_name == 'schedule'
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/report-scheduled-failure.yml

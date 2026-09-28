@@ -1,4 +1,4 @@
-// Metadata-provider registry — single source of truth for the small
+// Metadata-provider registry: single source of truth for the small
 // provider chips that appear next to a ROM (gallery list rows, scan
 // rows, future surfaces). One entry per provider gives label + logo
 // path + (optional) brand-colour background; consumers iterate and
@@ -17,15 +17,19 @@ export type ProviderIdKey =
   | "ra_id"
   | "flashpoint_id"
   | "hltb_id"
+  | "demozoo_id"
+  | "pouet_id"
+  | "csdb_id"
+  | "steam_id"
   | "gamelist_id"
   | "libretro_id";
 
 export interface MetadataProvider {
   /** Field on `SimpleRom` that holds this provider's match id. */
   key: ProviderIdKey;
-  /** Short brand name (e.g. "IGDB") — used as the gallery filter label. */
+  /** Short brand name (e.g. "IGDB"), used as the gallery filter label. */
   name: string;
-  /** Tooltip text — also serves as the chip's `alt`. */
+  /** Tooltip text, also used as the chip's `alt`. */
   title: string;
   /** File under `/assets/scrappers/`. */
   logo: string;
@@ -79,6 +83,25 @@ export const METADATA_PROVIDERS: readonly MetadataProvider[] = [
     title: "HowLongToBeat match",
     logo: "hltb.png",
   },
+  {
+    key: "demozoo_id",
+    name: "Demozoo",
+    title: "Demozoo match",
+    logo: "demozoo.png?v=2",
+  },
+  {
+    key: "pouet_id",
+    name: "Pouët",
+    title: "Pouët match",
+    logo: "pouet.png?v=2",
+  },
+  {
+    key: "csdb_id",
+    name: "CSDb",
+    title: "CSDb match",
+    logo: "csdb.png",
+  },
+  { key: "steam_id", name: "Steam", title: "Steam match", logo: "steam.png" },
   { key: "gamelist_id", name: "ES-DE", title: "ES-DE match", logo: "esde.png" },
   {
     key: "libretro_id",
@@ -103,6 +126,18 @@ export const METADATA_PROVIDER_FILTER_OPTIONS: {
   value: providerSlug(p.key),
   title: p.name,
 }));
+
+/** Name and logo per backend MetadataSource slug, in registry order.
+ * TheGamesDB has no ROM chip, but its ids still count in match stats. */
+export const METADATA_SOURCE_INFO: ReadonlyMap<
+  string,
+  { name: string; logo: string }
+> = new Map([
+  ...METADATA_PROVIDERS.map(
+    (p) => [providerSlug(p.key), { name: p.name, logo: p.logo }] as const,
+  ),
+  ["tgdb", { name: "TheGamesDB", logo: "tgdb.png" }],
+]);
 
 /** Returns the providers whose id field is populated on the given ROM. */
 export function activeProviders(rom: SimpleRom): MetadataProvider[] {

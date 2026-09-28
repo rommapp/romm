@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// Collection view — owns the regular / virtual / smart collection
+// Collection view: owns the regular / virtual / smart collection
 // load flow and the two-tab surface that sits above the gallery:
-//   • Library  — the gallery (delegated to `GalleryShell`).
-//   • Settings — `CollectionSettingsTab` (cover artwork + details +
+//   • Library: the gallery (delegated to `GalleryShell`).
+//   • Settings: `CollectionSettingsTab` (cover artwork + details +
 //     smart criteria + danger zone). Hidden for virtual collections
 //     since they have no editable fields.
 //
@@ -10,11 +10,12 @@
 // RTabNav) lives INSIDE the scrolling container of whichever branch
 // is active. On Library, it rides in `GalleryShell`'s `#header` slot
 // so it scrolls away with the cards (toolbar pins below it). On
-// Settings, it sits in a plain scroll wrapper above the tab body.
+// Settings, it sits above the tab body and scrolls with the page
+// (GalleryTabShell).
 //
 // Edit + Delete moved out of the InfoPanel `#actions` kebab and into
 // the Settings tab (editable form on top, danger zone at the bottom).
-import { RDivider, type RTabNavItem } from "@v2/lib";
+import type { RTabNavItem } from "@v2/lib";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
@@ -31,13 +32,16 @@ import type { Kind as CollectionKind } from "@/v2/components/Collections/Collect
 import CollectionHead from "@/v2/components/Gallery/CollectionHead.vue";
 import CollectionSettingsTab from "@/v2/components/Gallery/CollectionSettingsTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
+import GalleryTabShell from "@/v2/components/Gallery/GalleryTabShell.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 
@@ -61,7 +65,7 @@ const canDownload = useCan("rom.download");
 
 usePageTitle(() => currentCollection.value?.name ?? null);
 
-// Virtual collections are computed (no editable fields) — only
+// Virtual collections are computed (no editable fields), so only
 // regular / smart get the Settings tab.
 const editableKind = computed<CollectionKind | null>(() => {
   if (currentKind.value === "regular") return "regular";
@@ -70,7 +74,7 @@ const editableKind = computed<CollectionKind | null>(() => {
 });
 
 // Ownership gate for the Settings tab. v1 only renders the drawer's
-// edit/delete affordances for owners with `collections.write` — if the
+// edit/delete affordances for owners with `collections.write`. If the
 // user can do neither, hide the tab entirely so they don't land on an
 // inert form. Mirrors the gate the tab body re-applies internally.
 const isOwner = computed(() => {
@@ -84,7 +88,7 @@ const showSettingsTab = computed(
     auth.scopes.includes("collections.write"),
 );
 
-// Narrowed reference for the Settings tab — `editableKind` rules out
+// Narrowed reference for the Settings tab: `editableKind` rules out
 // the virtual branch, so we can hand a `Collection | SmartCollection`
 // to the tab without per-template casts.
 const editableCollection = computed<Collection | SmartCollection | null>(() =>
@@ -95,7 +99,7 @@ const editableCollection = computed<Collection | SmartCollection | null>(() =>
 
 // ── Tabs ─────────────────────────────────────────────────────────
 // URL-persistent via `?tab=` (mirrors Platform / GameDetails). Virtual
-// collections never see the Settings tab — clamp invalid persisted
+// collections never see the Settings tab, so clamp invalid persisted
 // values back to `library`.
 type TabId = "library" | "settings";
 const VALID_TABS = new Set<TabId>(["library", "settings"]);
@@ -108,14 +112,7 @@ function parseTab(v: unknown): TabId {
 }
 
 const tab = ref<TabId>(parseTab(route.query.tab));
-watch(tab, (value) => {
-  if (route.query.tab !== value) {
-    router.replace({
-      path: route.path,
-      query: { ...route.query, tab: value },
-    });
-  }
-});
+watch(tab, (value) => syncQueryParam(router, "tab", value));
 watch(
   () => route.query.tab,
   (value) => {
@@ -124,7 +121,7 @@ watch(
   },
 );
 // Switching to a virtual collection (no Settings tab) while sitting on
-// `settings` — bounce back to Library so the user isn't staring at an
+// `settings`: bounce back to Library so the user isn't staring at an
 // empty body.
 watch(showSettingsTab, (allowed) => {
   if (!allowed && tab.value === "settings") tab.value = "library";
@@ -167,6 +164,14 @@ const kindLabel = computed(() => {
   return "Collection";
 });
 
+// Leaving for anything that isn't another gallery keeps `currentCollection`
+// in place, so the id alone can't see the user walked away.
+const alive = useIsAlive();
+
+// Only the newest `loadForRoute` may write to the page or drive the gallery:
+// the guard and the route watch both call it, and its read outlives the route.
+let loadToken = 0;
+
 function kindFromRoute(
   name: string | symbol | null | undefined,
 ): CollectionKind {
@@ -203,10 +208,28 @@ function findById(kind: CollectionKind, id: string): AnyCollection | undefined {
   return collectionsStore.smartCollections.find((c) => String(c.id) === id);
 }
 
+// The head band renders a ROM count the store's once-per-session lists cannot
+// keep in step with the gallery below it.
+function refreshFromServer(
+  kind: CollectionKind,
+  id: string,
+): Promise<AnyCollection | null> {
+  if (kind === "regular") return collectionsStore.refreshCollection(Number(id));
+  if (kind === "virtual") return collectionsStore.refreshVirtualCollection(id);
+  return collectionsStore.refreshSmartCollection(Number(id));
+}
+
 async function loadForRoute(kind: CollectionKind, id: string) {
+  const token = ++loadToken;
   currentKind.value = kind;
-  await ensureLoaded(kind);
-  const collection = findById(kind, id);
+  // The list is unused here, but the surfaces reachable from this page read it
+  // (the add-to-collection dialog).
+  const [fresh] = await Promise.all([
+    refreshFromServer(kind, id),
+    ensureLoaded(kind),
+  ]);
+  if (token !== loadToken || !alive.value) return;
+  const collection = fresh ?? findById(kind, id);
   if (!collection) {
     notFound.value = true;
     currentCollection.value = null;
@@ -233,7 +256,11 @@ onMounted(() => {
   loadForRoute(kindFromRoute(route.name), String(route.params.collection));
 });
 
-onBeforeRouteUpdate((to) => {
+onBeforeRouteUpdate((to, from) => {
+  // `loadForRoute` resets the gallery, so running it for a query-only
+  // change (sort, filters, search) would blank and re-bootstrap the
+  // collection already on screen.
+  if (to.path === from.path) return;
   loadForRoute(kindFromRoute(to.name), String(to.params.collection));
 });
 
@@ -242,6 +269,15 @@ watch(
   ([name, id]) => {
     if (id == null) return;
     loadForRoute(kindFromRoute(name), String(id));
+  },
+);
+
+// Adopt the store's copy when a refresh replaces it, so a scan landing while
+// this page is open corrects the head band too.
+watch(
+  () => findById(currentKind.value, String(route.params.collection)),
+  (fresh) => {
+    if (fresh) currentCollection.value = fresh;
   },
 );
 
@@ -267,8 +303,7 @@ function onDownload() {
 // ── Random ROM ──────────────────────────────────────────────────
 // Pick one game from this collection and jump to its details. The scope is
 // keyed off the collection kind so regular / virtual / smart all route
-// to the correct `getRoms` filter param (the same split the download
-// flow uses).
+// to the correct filter param (the same split the download flow uses).
 function randomScope(): {
   collectionId?: number;
   virtualCollectionId?: string;
@@ -282,39 +317,25 @@ function randomScope(): {
   return { collectionId: Number(c.id) };
 }
 
+// `/roms/random` samples the pick server-side, so one request resolves it
+// whatever the collection holds. `null` means the collection holds no roms.
 async function onRandomGame() {
   const c = currentCollection.value;
   if (!c || randomLoading.value) return;
   randomLoading.value = true;
   const scopeId = c.id;
-  const stale = () => currentCollection.value?.id !== scopeId;
+  // A pick from the collection the user just left leads nowhere useful.
+  const stale = () => !alive.value || currentCollection.value?.id !== scopeId;
   try {
-    const scope = randomScope();
-    const { data: head } = await romApi.getRoms({
-      ...scope,
-      limit: 1,
-      offset: 0,
-    });
+    const { data } = await romApi.getRandomRom(randomScope());
     if (stale()) return;
-    if (!head.total) {
+    if (!data) {
       snackbar.info(t("collection.empty"));
       return;
     }
-    const randomOffset = Math.floor(Math.random() * head.total);
-    const { data } = await romApi.getRoms({
-      ...scope,
-      limit: 1,
-      offset: randomOffset,
-    });
-    if (stale()) return;
-    const pick = data.items[0];
-    if (!pick) {
-      snackbar.info(t("collection.empty"));
-      return;
-    }
-    router.push({ name: ROUTES.ROM, params: { rom: pick.id } });
+    router.push({ name: ROUTES.ROM, params: { rom: data.id } });
   } catch {
-    snackbar.error(t("platform.random-rom-error"));
+    if (!stale()) snackbar.error(t("platform.random-rom-error"));
   } finally {
     randomLoading.value = false;
   }
@@ -330,7 +351,10 @@ async function onDelete() {
   if (!c || !editableKind.value) return;
   const ok = await confirm({
     title: t("collection.delete-collection", "Delete collection"),
-    body: `This removes "${c.name}" (${c.rom_count} ROMs in the collection). The ROM files themselves are not deleted.`,
+    body: t("collection.delete-collection-body", {
+      name: c.name,
+      count: c.rom_count,
+    }),
     confirmText: t("collection.delete-collection", "Delete collection"),
     tone: "danger",
     requireTyped: c.name,
@@ -346,7 +370,7 @@ async function onDelete() {
       await collectionApi.deleteCollection({ collection: c as Collection });
       collectionsStore.removeCollection(c as Collection);
     }
-    snackbar.success(`Collection "${c.name}" deleted`, {
+    snackbar.success(t("collection.collection-deleted", { name: c.name }), {
       icon: "mdi-check-bold",
     });
     router.push({ name: ROUTES.COLLECTIONS_INDEX });
@@ -356,12 +380,13 @@ async function onDelete() {
       message?: string;
     };
     snackbar.error(
-      `Failed to delete collection: ${
-        e?.response?.data?.msg ||
-        e?.response?.data?.detail ||
-        e?.message ||
-        "unknown error"
-      }`,
+      t("collection.delete-collection-failed", {
+        error:
+          e?.response?.data?.msg ||
+          e?.response?.data?.detail ||
+          e?.message ||
+          t("common.unknown-error"),
+      }),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -371,7 +396,7 @@ async function onDelete() {
 </script>
 
 <template>
-  <!-- LIBRARY — full GalleryShell with CollectionHead in #header so
+  <!-- LIBRARY: full GalleryShell with CollectionHead in #header so
        the head band scrolls naturally with the cards and the toolbar
        pins below it. -->
   <GalleryShell
@@ -403,10 +428,9 @@ async function onDelete() {
     </template>
   </GalleryShell>
 
-  <!-- SETTINGS — plain scroll wrapper hosting the same CollectionHead
-       above the tab body. Whole page scrolls together. -->
-  <section v-else class="r-v2-coll-tabs">
-    <div class="r-v2-coll-tabs__scroll">
+  <!-- SETTINGS: the same CollectionHead above the tab body. -->
+  <GalleryTabShell v-else>
+    <template #head>
       <CollectionHead
         v-if="currentCollection"
         :collection="currentCollection"
@@ -422,64 +446,14 @@ async function onDelete() {
         @random="onRandomGame"
         @download="onDownload"
       />
-      <RDivider class="r-v2-coll-tabs__divider" />
-      <div
-        v-if="editableKind && editableCollection"
-        class="r-v2-coll-tabs__panel"
-      >
-        <CollectionSettingsTab
-          :kind="editableKind"
-          :collection="editableCollection"
-          :deleting="deleting"
-          @saved="onSaved"
-          @delete="onDelete"
-        />
-      </div>
-    </div>
-  </section>
+    </template>
+    <CollectionSettingsTab
+      v-if="editableKind && editableCollection"
+      :kind="editableKind"
+      :collection="editableCollection"
+      :deleting="deleting"
+      @saved="onSaved"
+      @delete="onDelete"
+    />
+  </GalleryTabShell>
 </template>
-
-<style scoped>
-/* Settings branch — single scroll wrapper that owns the page scroll.
-   The CollectionHead and the tab body scroll together as one surface,
-   matching the platform-view layout. */
-.r-v2-coll-tabs {
-  /* `dvh` (not `vh`) so the section matches the mobile visible viewport
-     instead of the larger address-bar-hidden one — otherwise it spills below
-     the fold and stacks a second, document-level scroll on the internal one
-     ("double scroll"). Same rationale as GalleryShell / IndexShell. */
-  height: calc(100vh - var(--r-nav-h));
-  height: calc(100dvh - var(--r-nav-h));
-  overflow: hidden;
-  position: relative;
-}
-/* On sm-and-down the layout <main> reserves the bottom tab bar's height; this
-   full-height section would otherwise sit on top of that padding and push the
-   document past one viewport. Cancel it with a matching negative margin so the
-   section extends under the (translucent) bar with a single scroll — the inner
-   scroll's bottom spacer lifts the last content (danger zone) clear of it. */
-html[data-bp~="sm-and-down"] .r-v2-coll-tabs {
-  margin-bottom: calc(
-    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
-  );
-}
-
-.r-v2-coll-tabs__scroll {
-  height: 100%;
-  overflow-y: auto;
-  padding: 32px var(--r-row-pad) 60px;
-}
-html[data-bp~="sm-and-down"] .r-v2-coll-tabs__scroll {
-  padding-bottom: calc(
-    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
-  );
-}
-
-.r-v2-coll-tabs__divider {
-  margin: 0 0 24px;
-}
-
-.r-v2-coll-tabs__panel {
-  min-height: 0;
-}
-</style>

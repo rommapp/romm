@@ -23,6 +23,7 @@
   "rom-file": "Arquivo ROM",
   "search-patch-library": "Pesquisar patches na biblioteca",
   "search-rom-library": "Pesquisar ROMs na biblioteca",
+  "select-archive-member": "Select file inside archive",
   "select-file": "Selecionar arquivo",
   "select-patch-file": "Selecionar arquivo de patch",
   "start-typing": "Comece a digitar para pesquisar...",
@@ -39,5 +40,5 @@
   "upload-errors": " (com alguns erros)",
   "upload-success": "ROM com patch enviada com sucesso{errors}. Iniciando varredura...",
   "upload-to-romm": "Enviar para RomM",
-  "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
+  "validation-warning": "A soma de verificação da fonte do patch não corresponde à ROM; o arquivo com patch pode estar incorreto."
 }

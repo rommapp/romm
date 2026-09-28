@@ -1,3 +1,5 @@
+from typing import cast
+
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -24,7 +26,7 @@ def playlist_id(
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_200_OK
-    return r.json()["id"]
+    return cast(int, r.json()["id"])
 
 
 def _add_tracks(client: TestClient, token: str, playlist: int, titles: list[str]):
@@ -194,6 +196,22 @@ def test_playlist_tracks_ordered_and_deduped(
 
     body = client.get("/api/music/playlists", headers=_auth(access_token)).json()
     assert body[0]["track_count"] == 3
+
+
+def test_playlist_tracks_apply_limit_and_offset(
+    client: TestClient, access_token: str, playlist_id: int
+):
+    _add_tracks(
+        client, access_token, playlist_id, ["Jingle", "Green Hill", "Overworld"]
+    )
+
+    body = client.get(
+        f"/api/music/playlists/{playlist_id}/tracks?limit=1&offset=1",
+        headers=_auth(access_token),
+    ).json()
+
+    assert (body["limit"], body["offset"], body["total"]) == (1, 1, 3)
+    assert [i["title"] for i in body["items"]] == ["Green Hill"]
 
 
 def test_playlist_reorder(client: TestClient, access_token: str, playlist_id: int):

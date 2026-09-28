@@ -1,21 +1,26 @@
 <script setup lang="ts">
-// PdfViewer (v2) — wraps `vue3-pdf-app` with v2 chrome:
+// PdfViewer (v2): wraps `vue3-pdf-app` with v2 chrome:
 //
 //   * Single bg-elevated panel hosts toolbar + canvas. The toolbar
 //     shares the same surface as the PDF area (no internal divider /
 //     bottom border) so the pane reads as one continuous panel.
-//   * Plain <button> + RIcon + RTooltip per toolbar action — vue3-pdf-app
+//   * Plain <button> + RIcon + RTooltip per toolbar action, since vue3-pdf-app
 //     wires controls by `id`, so raw buttons keep that contract while
 //     the v2 visual is owned by our scoped CSS.
-import { RIcon, RTooltip } from "@v2/lib";
-import { computed } from "vue";
+import { RIcon, RProgressLinear, RTooltip } from "@v2/lib";
+import { useResizeObserver } from "@vueuse/core";
+import { computed, ref, useTemplateRef } from "vue";
 import VuePdfApp from "vue3-pdf-app";
 import { useI18n } from "vue-i18n";
-import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useReadingProgress } from "@/v2/composables/useReadingProgress";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 
-defineProps<{
+const props = defineProps<{
   pdfUrl: string;
+  /** ROM id + file id persist the reading position; without them the progress
+   *  bar still tracks the session's page. */
+  romId?: number;
+  fileId?: number;
   /** Show a danger-tinted delete button at the end of the toolbar. */
   deletable?: boolean;
   /** Show a re-download button (next to Download) when a scraped source
@@ -31,13 +36,20 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const { xs } = useBreakpoint();
 const { isLight } = useThemeMode();
 const pdfTheme = computed<"light" | "dark">(() =>
   isLight.value ? "light" : "dark",
 );
 
-// IDs the library reaches for to wire up the custom toolbar — must
+// pdf.js sizes pages to its container when it loads, so a viewer inside a
+// hidden subtab waits until it is laid out.
+const viewerEl = useTemplateRef<HTMLElement>("viewer");
+const laidOut = ref(false);
+useResizeObserver(viewerEl, ([entry]) => {
+  if (entry && entry.contentRect.width > 0) laidOut.value = true;
+});
+
+// IDs the library reaches for to wire up the custom toolbar; they must
 // match the field names of the `id-config` prop below.
 const ids = {
   sidebarToggle: "sidebarToggleId",
@@ -51,6 +63,52 @@ const ids = {
   lastPage: "lastPageId",
   download: "downloadId",
 };
+
+// ---------- Reading progress ----------
+// PDFs are paginated, so progress is page-based: the saved page is restored
+// exactly rather than approximated from a scroll offset.
+const romIdRef = computed(() => props.romId ?? 0);
+const fileIdRef = computed(() =>
+  props.romId != null && props.fileId != null ? props.fileId : null,
+);
+const { progress, restore, setPage, suppressWhileRestoring } =
+  useReadingProgress(romIdRef, fileIdRef);
+
+// Only the members we touch; vue3-pdf-app hands over pdf.js's application
+// object untyped.
+type PdfApp = {
+  page: number;
+  pagesCount: number;
+  eventBus: {
+    on: (
+      event: string,
+      handler: (payload: { pageNumber: number }) => void,
+    ) => void;
+  };
+};
+
+async function onPagesRendered(pdfApp: PdfApp) {
+  pdfApp.eventBus.on("pagechanging", ({ pageNumber }) => {
+    setPage(pageNumber, pdfApp.pagesCount);
+  });
+
+  // The viewer is already interactive while the saved position is in flight,
+  // so a page the user turned to in the meantime wins over the restore.
+  const pageBeforeRestore = pdfApp.page;
+  const { lastPage } = await restore();
+  const userNavigated = pdfApp.page !== pageBeforeRestore;
+  if (
+    !userNavigated &&
+    lastPage &&
+    lastPage > 1 &&
+    lastPage <= pdfApp.pagesCount
+  ) {
+    suppressWhileRestoring();
+    pdfApp.page = lastPage;
+  } else {
+    setPage(pdfApp.page, pdfApp.pagesCount);
+  }
+}
 </script>
 
 <template>
@@ -84,13 +142,13 @@ const ids = {
         </template>
       </RTooltip>
 
-      <RTooltip v-if="!xs" :text="t('common.previous-page')">
+      <RTooltip :text="t('common.previous-page')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.previousPage"
             v-bind="activator"
             type="button"
-            class="r-v2-pdfv__btn"
+            class="r-v2-pdfv__btn r-v2-pdfv__btn--step"
           >
             <RIcon icon="mdi-chevron-left" size="18" />
           </button>
@@ -105,13 +163,13 @@ const ids = {
       />
       <span :id="ids.numPages" class="r-v2-pdfv__page-total" />
 
-      <RTooltip v-if="!xs" :text="t('common.next-page')">
+      <RTooltip :text="t('common.next-page')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.nextPage"
             v-bind="activator"
             type="button"
-            class="r-v2-pdfv__btn"
+            class="r-v2-pdfv__btn r-v2-pdfv__btn--step"
           >
             <RIcon icon="mdi-chevron-right" size="18" />
           </button>
@@ -203,13 +261,22 @@ const ids = {
       </RTooltip>
     </div>
 
-    <div class="r-v2-pdfv__viewer">
+    <RProgressLinear
+      :model-value="progress * 100"
+      :height="2"
+      :aria-label="t('rom.reading-progress')"
+      class="r-v2-pdfv__progress"
+    />
+
+    <div ref="viewer" class="r-v2-pdfv__viewer">
       <VuePdfApp
+        v-if="laidOut"
         :id-config="ids"
         :config="{ toolbar: false }"
         :theme="pdfTheme"
         :pdf="pdfUrl"
         class="r-v2-pdfv__app"
+        @pages-rendered="onPagesRendered"
       />
     </div>
   </div>
@@ -219,14 +286,14 @@ const ids = {
 .r-v2-pdfv {
   display: flex;
   flex-direction: column;
-  /* Fills the parent container exactly — height comes from the chain
+  /* Fills the parent container exactly: height comes from the chain
      `.r-v2-det__panel → .r-v2-media → .r-v2-media__panel →
      .r-v2-manual__viewer`, all flex-sized. The viewer never overflows
      so the only visible scroll is the PDF's own internal one. */
   height: 100%;
 }
 
-/* Toolbar inherits the parent's bg-elevated — no separate background
+/* Toolbar inherits the parent's bg-elevated, so no separate background
    or divider so the surface reads as one continuous panel. */
 .r-v2-pdfv__toolbar {
   display: flex;
@@ -264,7 +331,14 @@ const ids = {
   background: var(--r-color-surface-hover);
   color: var(--r-color-fg);
 }
-/* Danger variant — Delete sits at the end of the toolbar, so it takes
+
+/* vue3-pdf-app wires its controls by `id` on mount and gives up on the whole
+   viewer when one is missing, so the page-step buttons are always rendered and
+   only hidden on the narrowest toolbar (first/last page still cover it). */
+html[data-bp~="xs"] .r-v2-pdfv__btn--step {
+  display: none;
+}
+/* Danger variant: Delete sits at the end of the toolbar, so it takes
    a danger-tinted foreground + hover so the destructive action reads
    different from the navigation/zoom siblings. */
 .r-v2-pdfv__btn--danger {
@@ -314,6 +388,10 @@ const ids = {
   font-variant-numeric: tabular-nums;
 }
 
+.r-v2-pdfv__progress {
+  flex-shrink: 0;
+}
+
 .r-v2-pdfv__viewer {
   /* Fills remaining height after the toolbar via flex. min-height: 0
      lets the canvas shrink below its intrinsic content size (PDF.js
@@ -327,7 +405,7 @@ const ids = {
 
 /* vue3-pdf-app paints its own canvas chrome via this CSS variable.
    Override with v2 tokens so the canvas blends with the surrounding
-   bg-elevated container — no visible seam between toolbar and canvas. */
+   bg-elevated container, with no visible seam between toolbar and canvas. */
 .r-v2-pdfv__viewer :deep(.pdf-app.dark),
 .r-v2-pdfv__viewer :deep(.pdf-app.light) {
   --pdf-app-background-color: var(--r-color-bg-elevated) !important;

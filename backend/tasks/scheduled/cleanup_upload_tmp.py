@@ -7,7 +7,7 @@ from tasks.tasks import PeriodicTask, TaskType
 
 
 class CleanupUploadTmpTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled upload tmp cleanup",
             description="Cleans up orphaned chunked-upload temp directories",
@@ -15,12 +15,10 @@ class CleanupUploadTmpTask(PeriodicTask):
             enabled=True,
             manual_run=False,
             cron_string="0 * * * *",  # Every hour
-            func="tasks.scheduled.cleanup_upload_tmp.cleanup_upload_tmp_task.run",
         )
 
     async def run(self) -> None:
         if not self.enabled:
-            self.unschedule()
             return
 
         if not ROM_UPLOAD_TMP_BASE.exists():

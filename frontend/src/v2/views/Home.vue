@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Home dashboard — composed of primitives + feature components. Each
+// Home dashboard, composed of primitives + feature components. Each
 // section is a CardRow with its own tile type in the default slot.
 //
 // Gamepad / keyboard arrow navigation: the root is registered with
@@ -8,21 +8,35 @@
 // or pressed) we autofocus the first cell so the synthetic keys
 // dispatched by `useGamepad` have somewhere to go.
 import { RChip, RDivider, RIcon, RSkeletonBlock } from "@v2/lib";
+import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import type {
+  RecommendedRomSchema,
+  SetupLibraryResponse,
+} from "@/__generated__";
 import { useUISettings } from "@/composables/useUISettings";
 import { ROUTES } from "@/plugins/router";
-import setupApi, { type SetupLibraryInfo } from "@/services/api/setup";
+import romApi, {
+  RECENT_PLAYED_ROMS_LIMIT,
+  RECENT_ROMS_LIMIT,
+  RECOMMENDED_ROMS_LIMIT,
+} from "@/services/api/rom";
+import setupApi from "@/services/api/setup";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { useStreamingStore } from "@/stores/streaming";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
-import CardRow from "@/v2/components/Home/CardRow.vue";
+import LiveSessionCard from "@/v2/components/Home/LiveSessionCard.vue";
 import WidgetBar from "@/v2/components/Home/Widgets/WidgetBar.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
+import CardRow from "@/v2/components/shared/CardRow.vue";
+import RecommendationReason from "@/v2/components/shared/RecommendationReason.vue";
 import { useGridNav } from "@/v2/composables/useGridNav";
+import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
@@ -36,6 +50,7 @@ const {
   showHomeWidgets,
   showRecentRoms,
   showContinuePlaying,
+  showRecommendations,
   showPlatforms,
   showCollections,
   showSmartCollections,
@@ -58,59 +73,158 @@ const {
 const fetchingRecent = ref(false);
 const fetchingContinue = ref(false);
 
+// Ranked server-side from the similarity index plus this user's play history,
+// so the row is fetched here rather than derived from the store's rails.
+const recommendedRoms = ref<RecommendedRomSchema[]>([]);
+const fetchingRecommendations = ref(false);
+
+async function loadRecommendations() {
+  fetchingRecommendations.value = true;
+  try {
+    const { data } = await romApi.getRecommendedRoms();
+    recommendedRoms.value = data;
+  } catch {
+    // An unbuilt index, or a library too small to relate anything, is a normal
+    // state rather than an error: the row stays hidden.
+    recommendedRoms.value = [];
+  } finally {
+    fetchingRecommendations.value = false;
+  }
+}
+
+/** A row's count, or `undefined` while its list is in flight so the chip does
+ *  not read 0 and then jump to the real number. */
+function knownCount(
+  fetching: boolean,
+  list: readonly unknown[],
+): number | undefined {
+  return fetching && !list.length ? undefined : list.length;
+}
+
+// Multiplayer sessions other users are hosting right now. Nothing pushes a
+// session start, so the list is polled while the page is open. Only the
+// leading fetch forces past the store's freshness window; later ticks defer
+// to it so a fetch another surface already made in that window is reused
+// instead of duplicated. Hidden entirely when empty.
+const streamingStore = useStreamingStore();
+const { joinableSessions, isEnabled: streamingEnabled } =
+  storeToRefs(streamingStore);
+const liveSessions = computed(() =>
+  joinableSessions.value.filter((s) => s.rom_id != null),
+);
+const LIVE_SESSIONS_POLL_MS = 30_000;
+
+function refreshLiveSessions(force = false): void {
+  if (!streamingEnabled.value) return;
+  // A backgrounded tab shows nobody the row, and the request costs a Redis
+  // scan plus a ROM lookup per session. The visibility handler catches up.
+  if (document.hidden && !force) return;
+  void streamingStore.fetchJoinableSessions(force);
+}
+
+useEventListener(document, "visibilitychange", () => {
+  if (!document.hidden) refreshLiveSessions();
+});
+
+const liveSessionsPoll = useIntervalFn(
+  () => refreshLiveSessions(),
+  LIVE_SESSIONS_POLL_MS,
+  { immediate: false },
+);
+
+watch(
+  streamingEnabled,
+  (enabled) => {
+    if (!enabled) {
+      liveSessionsPoll.pause();
+      return;
+    }
+    refreshLiveSessions(true);
+    liveSessionsPoll.resume();
+  },
+  { immediate: true },
+);
+
 const gridRoot = ref<HTMLElement | null>(null);
 useGridNav(gridRoot);
 
-onMounted(() => {
+// Flips once every initial request has settled: before a fetch starts, an
+// empty store can't tell an empty library from one that hasn't loaded yet.
+const initialLoadDone = ref(false);
+
+onMounted(async () => {
+  const initialLoads: Promise<unknown>[] = [];
+
   if (platformsStore.allPlatforms.length === 0) {
-    platformsStore.fetchPlatforms();
+    initialLoads.push(platformsStore.fetchPlatforms());
   }
   if (collectionsStore.allCollections.length === 0) {
-    collectionsStore.fetchCollections();
+    initialLoads.push(collectionsStore.fetchCollections());
   }
   if (showSmartCollections.value && smartCollections.value.length === 0) {
-    collectionsStore.fetchSmartCollections();
+    initialLoads.push(collectionsStore.fetchSmartCollections());
   }
   if (showVirtualCollections.value && virtualCollections.value.length === 0) {
-    collectionsStore.fetchVirtualCollections(virtualCollectionType.value);
+    initialLoads.push(
+      collectionsStore.fetchVirtualCollections(virtualCollectionType.value),
+    );
   }
   if (recentRoms.value.length === 0) {
     fetchingRecent.value = true;
-    romsStore.fetchRecentRoms().finally(() => (fetchingRecent.value = false));
+    initialLoads.push(
+      romsStore.fetchRecentRoms().finally(() => (fetchingRecent.value = false)),
+    );
   }
   if (continuePlayingRoms.value.length === 0) {
     fetchingContinue.value = true;
-    romsStore
-      .fetchContinuePlayingRoms()
-      .finally(() => (fetchingContinue.value = false));
+    initialLoads.push(
+      romsStore
+        .fetchContinuePlayingRoms()
+        .finally(() => (fetchingContinue.value = false)),
+    );
   }
+  // Not an emptiness signal, so the empty-library decision doesn't wait on it.
+  if (showRecommendations.value) {
+    void loadRecommendations();
+  }
+
+  await Promise.allSettled(initialLoads);
+  initialLoadDone.value = true;
 });
 
-// True when nothing has been added yet AND we're no longer fetching —
-// mirrors v1's EmptyHome check so we don't flash the placeholder while
-// the initial loads are still in-flight.
-const isEmpty = computed(
+const hasContent = computed(
   () =>
-    !fetchingPlatforms.value &&
-    !fetchingCollections.value &&
-    !fetchingSmartCollections.value &&
-    !fetchingVirtualCollections.value &&
-    !fetchingRecent.value &&
-    !fetchingContinue.value &&
-    recentRoms.value.length === 0 &&
-    continuePlayingRoms.value.length === 0 &&
-    filledPlatforms.value.length === 0 &&
-    allCollections.value.length === 0 &&
-    (!showSmartCollections.value || smartCollections.value.length === 0) &&
-    (!showVirtualCollections.value || virtualCollections.value.length === 0),
+    recentRoms.value.length > 0 ||
+    continuePlayingRoms.value.length > 0 ||
+    filledPlatforms.value.length > 0 ||
+    allCollections.value.length > 0 ||
+    (showSmartCollections.value && smartCollections.value.length > 0) ||
+    (showVirtualCollections.value && virtualCollections.value.length > 0),
 );
 
-// Filesystem snapshot for the empty state — shows the user what RomM
+// A store fetch already in flight elsewhere (AppLayout) resolves a second
+// caller at once, so its flag has to hold off the empty library too.
+const storesFetching = computed(
+  () =>
+    fetchingPlatforms.value ||
+    fetchingCollections.value ||
+    fetchingSmartCollections.value ||
+    fetchingVirtualCollections.value,
+);
+
+// The first list to land with items settles on the sections; the empty
+// library waits until every load has come back empty.
+const phase = useLoadingPhase(
+  () => (!initialLoadDone.value || storesFetching.value) && !hasContent.value,
+  () => !hasContent.value,
+);
+
+// Filesystem snapshot for the empty state. Shows the user what RomM
 // can already see on disk so the "run a scan" CTA isn't a leap of
 // faith. Fetched lazily the first time the empty state appears; the
 // endpoint requires PLATFORMS_READ scope so we fail silently for
 // users without it (the chips just stay hidden).
-const libraryInfo = ref<SetupLibraryInfo | null>(null);
+const libraryInfo = ref<SetupLibraryResponse | null>(null);
 const fetchingLibraryInfo = ref(false);
 
 const detectedPlatformCount = computed(
@@ -137,15 +251,11 @@ async function loadLibraryInfo() {
   }
 }
 
-watch(
-  isEmpty,
-  (empty) => {
-    if (empty) void loadLibraryInfo();
-  },
-  { immediate: true },
-);
+watch(phase, (value) => {
+  if (value === "empty") void loadLibraryInfo();
+});
 
-// Favorite ROMs — derived from the Favorites collection's rom_ids.
+// Favorite ROMs, derived from the Favorites collection's rom_ids.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- false positive: used in <template>; @typescript-eslint+projectService doesn't see Vue templates
 const favoriteRoms = computed<SimpleRom[]>(() => {
   const favIds = favoriteCollection.value?.rom_ids ?? [];
@@ -172,10 +282,10 @@ function collectionCovers(c: {
 
 <template>
   <div ref="gridRoot" class="r-v2-home">
-    <!-- Empty library state — shown when nothing has been ingested
+    <!-- Empty library state, shown when nothing has been ingested
          yet. Hides every section underneath so the user lands on a
          decision (upload vs scan), not on a row of skeletons. -->
-    <section v-if="isEmpty" class="r-v2-home-empty">
+    <section v-if="phase === 'empty'" class="r-v2-home-empty r-v2-asset-fade">
       <div class="r-v2-home-empty__hero">
         <RIcon
           icon="mdi-controller-classic-outline"
@@ -187,13 +297,13 @@ function collectionCovers(c: {
         </h2>
         <p class="r-v2-home-empty__hint">{{ t("home.empty-hint") }}</p>
 
-        <!-- Filesystem snapshot — only rendered once /setup/library
+        <!-- Filesystem snapshot, only rendered once /setup/library
              has resolved. Mirrors the chip pair from setup wizard
              step 1 so the user sees the same "RomM detected this on
              disk" telemetry from both entry points. -->
         <div
           v-if="libraryInfo && detectedPlatformCount + detectedGameCount > 0"
-          class="r-v2-home-empty__detected"
+          class="r-v2-home-empty__detected r-v2-asset-fade"
         >
           <RChip
             size="small"
@@ -264,11 +374,30 @@ function collectionCovers(c: {
       </div>
     </section>
 
-    <template v-else>
-      <!-- Widget bar — random pick, library snapshot, future RA widgets.
+    <template v-else-if="phase !== 'idle'">
+      <!-- Widget bar: random pick, library snapshot, future RA widgets.
            Hidden when the master toggle is off; the bar itself also
            drops out when every individual widget is disabled. -->
       <WidgetBar v-if="showHomeWidgets" />
+
+      <!-- Live now: multiplayer streams open to a second player -->
+      <CardRow
+        v-if="liveSessions.length"
+        :title="t('home.live-sessions')"
+        :count="liveSessions.length"
+      >
+        <template #icon>
+          <RIcon icon="mdi-access-point" size="20" />
+        </template>
+        <LiveSessionCard
+          v-for="(session, i) in liveSessions"
+          :key="`live-${session.container}`"
+          class="r-v2-card-fade"
+          :style="{ '--card-fade-i': i }"
+          :session="session"
+          :webp="supportsWebp"
+        />
+      </CardRow>
 
       <!-- Continue playing -->
       <CardRow
@@ -277,13 +406,16 @@ function collectionCovers(c: {
           (continuePlayingRoms.length || fetchingContinue)
         "
         :title="t('home.continue-playing')"
-        :count="continuePlayingRoms.length"
+        :count="knownCount(fetchingContinue, continuePlayingRoms)"
       >
         <template #icon>
           <RIcon icon="mdi-play" size="20" />
         </template>
         <template v-if="fetchingContinue && !continuePlayingRoms.length">
-          <GameCardSkeleton v-for="n in 4" :key="`cs-${n}`" />
+          <GameCardSkeleton
+            v-for="n in RECENT_PLAYED_ROMS_LIMIT"
+            :key="`cs-${n}`"
+          />
         </template>
         <template v-else>
           <GameCard
@@ -299,17 +431,61 @@ function collectionCovers(c: {
         </template>
       </CardRow>
 
+      <!-- Recommended for you -->
+      <CardRow
+        v-if="
+          showRecommendations &&
+          (recommendedRoms.length || fetchingRecommendations)
+        "
+        :title="t('recommendations.for-you')"
+        :count="knownCount(fetchingRecommendations, recommendedRoms)"
+      >
+        <template #icon>
+          <RIcon icon="mdi-lightbulb-on-outline" size="20" />
+        </template>
+        <template v-if="fetchingRecommendations && !recommendedRoms.length">
+          <div
+            v-for="n in RECOMMENDED_ROMS_LIMIT"
+            :key="`fys-${n}`"
+            class="r-v2-home__rec"
+          >
+            <GameCardSkeleton />
+            <span class="r-v2-home__rec-caption">
+              <RSkeletonBlock width="60%" :height="10" />
+            </span>
+          </div>
+        </template>
+        <template v-else>
+          <div
+            v-for="(item, i) in recommendedRoms"
+            :key="`fy-${item.rom.id}`"
+            class="r-v2-home__rec"
+          >
+            <GameCard
+              class="r-v2-card-fade"
+              :style="{ '--card-fade-i': i }"
+              :rom="item.rom"
+              :webp="supportsWebp"
+            />
+            <RecommendationReason
+              :reasons="item.reasons"
+              :seed-rom-name="item.seed_rom_name"
+            />
+          </div>
+        </template>
+      </CardRow>
+
       <!-- Recently added -->
       <CardRow
         v-if="showRecentRoms"
         :title="t('home.recently-added')"
-        :count="recentRoms.length"
+        :count="knownCount(fetchingRecent, recentRoms)"
       >
         <template #icon>
           <RIcon icon="mdi-shimmer" size="20" />
         </template>
         <template v-if="fetchingRecent && !recentRoms.length">
-          <GameCardSkeleton v-for="n in 6" :key="`rs-${n}`" />
+          <GameCardSkeleton v-for="n in RECENT_ROMS_LIMIT" :key="`rs-${n}`" />
         </template>
         <div v-else-if="!recentRoms.length" class="r-v2-home__empty">
           {{ t("home.no-games-yet") }}
@@ -347,7 +523,7 @@ function collectionCovers(c: {
       <CardRow
         v-if="showPlatforms"
         :title="t('common.platforms')"
-        :count="filledPlatforms.length"
+        :count="knownCount(fetchingPlatforms, filledPlatforms)"
         gap="16px"
       >
         <template #icon>
@@ -365,8 +541,8 @@ function collectionCovers(c: {
         <PlatformTile
           v-for="(p, i) in filledPlatforms"
           v-else
-          :key="`plat-${p.id}`"
           :id="p.id"
+          :key="`plat-${p.id}`"
           class="r-v2-card-fade"
           :style="{ '--card-fade-i': i }"
           :slug="p.slug"
@@ -381,7 +557,7 @@ function collectionCovers(c: {
       <CardRow
         v-if="showCollections && (allCollections.length || fetchingCollections)"
         :title="t('common.collections')"
-        :count="allCollections.length"
+        :count="knownCount(fetchingCollections, allCollections)"
         gap="16px"
       >
         <template #icon>
@@ -397,6 +573,7 @@ function collectionCovers(c: {
           :name="c.name"
           :rom-count="c.rom_count"
           :covers="collectionCovers(c)"
+          :is-public="c.is_public ?? false"
           variant="row"
         />
       </CardRow>
@@ -408,7 +585,7 @@ function collectionCovers(c: {
           (smartCollections.length || fetchingSmartCollections)
         "
         :title="t('common.smart-collections')"
-        :count="smartCollections.length"
+        :count="knownCount(fetchingSmartCollections, smartCollections)"
         gap="16px"
       >
         <template #icon>
@@ -437,7 +614,7 @@ function collectionCovers(c: {
           (virtualCollections.length || fetchingVirtualCollections)
         "
         :title="t('common.virtual-collections')"
-        :count="virtualCollections.length"
+        :count="knownCount(fetchingVirtualCollections, virtualCollections)"
         gap="16px"
       >
         <template #icon>
@@ -475,11 +652,28 @@ function collectionCovers(c: {
   padding: 24px var(--r-row-pad);
 }
 
+/* Stacks the cover over its reason caption. The card sets its own width, so
+   the column tracks it rather than widening the row's scroll track. */
+.r-v2-home__rec {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Only the recommended placeholders carry a caption, so only they reserve it
+   (RecommendationReason's 10.5px line box at the app's 1.4 line-height). */
+.r-v2-home__rec-caption {
+  height: 15px;
+  display: flex;
+  align-items: center;
+}
+
 /* ── Empty library state ─────────────────────────────────────────
    Two-step layout: hero (icon + headline + hint) on top, then a
    two-pane "how do you want to add games" panel split by a vertical
    divider. Each pane is a router-link so the whole panel is the hit
-   target — no nested buttons. */
+   target (no nested buttons). */
 .r-v2-home-empty {
   display: flex;
   flex-direction: column;
@@ -556,7 +750,7 @@ html[data-bp~="sm-and-down"] .r-v2-home-empty__divider {
 }
 
 /* Each choice is a router-link rendered as a card. The "feel" is
-   close to a primary CTA — brand-tinted halo on hover, the trailing
+   close to a primary CTA: brand-tinted halo on hover, the trailing
    chevron in the CTA line nudges right so the click target reads
    actionable without needing a separate <RBtn>. */
 .r-v2-home-empty__choice {

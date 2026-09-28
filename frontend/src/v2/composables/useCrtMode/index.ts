@@ -11,8 +11,22 @@
 // shared reactivity within a tab), so we create it once here and everyone
 // imports the same instance.
 import { useLocalStorage } from "@vueuse/core";
+import { computed } from "vue";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
-const enabled = useLocalStorage("settings.v2.crtMode", false);
+const stored = useLocalStorage("settings.v2.crtMode", false);
+const { enabled: reducedMotion, toggle: toggleReducedMotion } =
+  useReducedMotion();
+
+// Reduced motion breaks the overlay's endless animations, so it hides CRT
+// without erasing the saved choice, and turning CRT on turns it off.
+const enabled = computed<boolean>({
+  get: () => stored.value && !reducedMotion.value,
+  set: (on) => {
+    stored.value = on;
+    if (on && reducedMotion.value) toggleReducedMotion();
+  },
+});
 
 export function useCrtMode() {
   /** Flip CRT mode and return the new state (true = now on). */

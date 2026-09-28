@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Integer, String, Text, func, select
+from sqlalchemy import Index, Integer, String, Text, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from models.base import BaseModel
@@ -21,6 +21,8 @@ DESCRIPTION_MAX_LENGTH = 65535  # TEXT
 
 class Platform(BaseModel):
     __tablename__ = "platforms"
+
+    __table_args__ = (Index("ix_platforms_updated_at", "updated_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)

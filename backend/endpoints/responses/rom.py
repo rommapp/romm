@@ -9,6 +9,7 @@ from fastapi import Request
 from pydantic import ConfigDict, Field, computed_field, field_validator, model_validator
 
 from endpoints.responses.assets import (
+    HIDDEN_ASSET_ANNOTATIONS,
     SaveSchema,
     ScreenshotSchema,
     StateSchema,
@@ -16,6 +17,8 @@ from endpoints.responses.assets import (
     UserScreenshotSchema,
     UserStateSchema,
 )
+from handler.metadata.csdb_handler import CsdbMetadata
+from handler.metadata.demozoo_handler import DemozooMetadata
 from handler.metadata.flashpoint_handler import FlashpointMetadata
 from handler.metadata.gamelist_handler import GamelistMetadata
 from handler.metadata.hasheous_handler import HasheousMetadata
@@ -23,10 +26,21 @@ from handler.metadata.hltb_handler import HLTBMetadata
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.launchbox_handler.types import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
+from handler.metadata.pouet_handler import PouetMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
+from handler.metadata.steam_handler import SteamMetadata
 from models.collection import Collection, SmartCollection
-from models.rom import Rom, RomArchiveMember, RomFile, RomFileCategory, RomUserStatus
+from models.rom import (
+    DocSource,
+    Rom,
+    RomArchiveMember,
+    RomFile,
+    RomFileCategory,
+    RomNote,
+    RomUserStatus,
+    SaveTargetLayout,
+)
 
 from .base import BaseModel, UTCDatetime
 
@@ -49,50 +63,87 @@ class UserNoteSchema(BaseModel):
     user_avatar_path: str = ""
     user_updated_at: UTCDatetime | None = None
 
+    @classmethod
+    def from_rom_note(cls, note: RomNote) -> UserNoteSchema:
+        """Build the response for a note, taking its author off the joined `user`."""
+        return cls(
+            id=note.id,
+            title=note.title,
+            content=note.content,
+            is_public=note.is_public,
+            tags=note.tags,
+            created_at=note.created_at,
+            updated_at=note.updated_at,
+            user_id=note.user_id,
+            username=note.user.username,
+            user_avatar_path=note.user.avatar_path,
+            user_updated_at=note.user.updated_at,
+        )
+
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
     "RomIGDBMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},  # type: ignore[misc]
+    {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},
     total=False,
 )
 RomMobyMetadata = TypedDict(  # type: ignore[misc]
     "RomMobyMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},  # type: ignore[misc]
+    {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},
     total=False,
 )
 RomSSMetadata = TypedDict(  # type: ignore[misc]
     "RomSSMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(SSMetadata).items()},  # type: ignore[misc]
+    {k: NotRequired[v] for k, v in get_type_hints(SSMetadata).items()},
     total=False,
 )
 RomRAMetadata = TypedDict(  # type: ignore[misc]
     "RomRAMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(RAMetadata).items()},  # type: ignore[misc]
+    {k: NotRequired[v] for k, v in get_type_hints(RAMetadata).items()},
     total=False,
 )
 RomLaunchboxMetadata = TypedDict(  # type: ignore[misc]
     "RomLaunchboxMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(LaunchboxMetadata).items()},  # type: ignore[misc]
+    {k: NotRequired[v] for k, v in get_type_hints(LaunchboxMetadata).items()},
     total=False,
 )
 RomHasheousMetadata = TypedDict(  # type: ignore[misc]
     "RomHasheousMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(HasheousMetadata).items()},  # type: ignore[misc]
+    {k: NotRequired[v] for k, v in get_type_hints(HasheousMetadata).items()},
     total=False,
 )
 RomFlashpointMetadata = TypedDict(  # type: ignore[misc]
     "RomFlashpointMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(FlashpointMetadata).items()},  # type: ignore[misc]
+    {k: NotRequired[v] for k, v in get_type_hints(FlashpointMetadata).items()},
     total=False,
 )
 RomHLTBMetadata = TypedDict(  # type: ignore[misc]
     "RomHLTBMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(HLTBMetadata).items()},  # type: ignore[misc]
+    {k: NotRequired[v] for k, v in get_type_hints(HLTBMetadata).items()},
+    total=False,
+)
+RomDemozooMetadata = TypedDict(  # type: ignore[misc]
+    "RomDemozooMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(DemozooMetadata).items()},
+    total=False,
+)
+RomPouetMetadata = TypedDict(  # type: ignore[misc]
+    "RomPouetMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(PouetMetadata).items()},
+    total=False,
+)
+RomCsdbMetadata = TypedDict(  # type: ignore[misc]
+    "RomCsdbMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(CsdbMetadata).items()},
+    total=False,
+)
+RomSteamMetadata = TypedDict(  # type: ignore[misc]
+    "RomSteamMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(SteamMetadata).items()},
     total=False,
 )
 RomGamelistMetadata = TypedDict(  # type: ignore[misc]
     "RomGamelistMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(GamelistMetadata).items()},  # type: ignore[misc]
+    {k: NotRequired[v] for k, v in get_type_hints(GamelistMetadata).items()},
     total=False,
 )
 ManualMetadata = TypedDict(
@@ -101,6 +152,8 @@ ManualMetadata = TypedDict(
         "genres": list[str] | None,
         "franchises": list[str] | None,
         "companies": list[str] | None,
+        "publishers": list[str] | None,
+        "developers": list[str] | None,
         "game_modes": list[str] | None,
         "age_ratings": list[str] | None,
         "first_release_date": int | None,
@@ -127,6 +180,7 @@ def rom_user_schema_factory() -> RomUserSchema:
         difficulty=0,
         completion=0,
         status=None,
+        pinned_media=None,
     )
 
 
@@ -147,6 +201,7 @@ class RomUserSchema(BaseModel):
     difficulty: int
     completion: int
     status: RomUserStatus | None
+    pinned_media: list[str] | None
 
     @classmethod
     def for_user(cls, user_id: int, db_rom: Rom) -> RomUserSchema:
@@ -173,6 +228,26 @@ class TrackMetaSchema(BaseModel):
     cover_path: str | None = None
 
 
+class DocMetaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    source: DocSource
+    source_url: str | None = None
+    author: str | None = None
+    title: str | None = None
+
+
+class RomFileUserSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    rom_file_id: int
+    user_id: int
+    progress: float
+    last_page: int | None = None
+    finished: bool = False
+    last_read_at: UTCDatetime | None = None
+
+
 class RomFileSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -185,7 +260,7 @@ class RomFileSchema(BaseModel):
     is_top_level: bool
     created_at: UTCDatetime
     updated_at: UTCDatetime
-    last_modified: UTCDatetime
+    last_modified: UTCDatetime | None
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
@@ -194,6 +269,7 @@ class RomFileSchema(BaseModel):
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
     track_meta: TrackMetaSchema | None = None
+    doc_meta: DocMetaSchema | None = None
 
     @model_validator(mode="after")
     def default_category_for_non_nested(self) -> RomFileSchema:
@@ -219,6 +295,8 @@ class RomMetadataSchema(BaseModel):
     franchises: list[str]
     collections: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     game_modes: list[str]
     age_ratings: list[str]
     player_count: str
@@ -239,6 +317,14 @@ class RomMetadataSchema(BaseModel):
 
     @field_validator("companies")
     def sort_companies(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("publishers")
+    def sort_publishers(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("developers")
+    def sort_developers(cls, v: list[str]) -> list[str]:
         return sorted(v)
 
     @field_validator("game_modes")
@@ -272,6 +358,10 @@ class RomSchema(BaseModel):
     tgdb_id: int | None
     flashpoint_id: str | None
     hltb_id: int | None
+    demozoo_id: int | None
+    pouet_id: int | None
+    csdb_id: int | None
+    steam_id: int | None
     gamelist_id: str | None
     libretro_id: str | None
 
@@ -304,6 +394,10 @@ class RomSchema(BaseModel):
     hasheous_metadata: RomHasheousMetadata | None
     flashpoint_metadata: RomFlashpointMetadata | None
     hltb_metadata: RomHLTBMetadata | None
+    demozoo_metadata: RomDemozooMetadata | None
+    pouet_metadata: RomPouetMetadata | None
+    csdb_metadata: RomCsdbMetadata | None
+    steam_metadata: RomSteamMetadata | None
     gamelist_metadata: RomGamelistMetadata | None
     manual_metadata: ManualMetadata | None
 
@@ -331,6 +425,9 @@ class RomSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
+    title_id: str | None
+    save_target: str | None
+    save_target_layout: SaveTargetLayout | None
 
     has_simple_single_file: bool
     has_nested_single_file: bool
@@ -339,6 +436,9 @@ class RomSchema(BaseModel):
     created_at: UTCDatetime
     updated_at: UTCDatetime
     missing_from_fs: bool
+    is_physical: bool
+    has_file_on_disk: bool
+    upc: str | None
     has_notes: bool
 
     rom_user: RomUserSchema
@@ -359,10 +459,18 @@ class RomSchema(BaseModel):
         return sorted(v, key=lambda x: x.sort_comparator)
 
     @classmethod
-    def populate_properties(cls, db_rom: Rom, request: Request) -> Rom:
-        db_rom.rom_user = RomUserSchema.for_user(request.user.id, db_rom)  # type: ignore[assignment]
-        db_rom.has_notes = any(  # type: ignore[assignment]
-            note.is_public or note.user_id == request.user.id for note in db_rom.notes
+    def populate_properties(
+        cls, db_rom: Rom, request: Request, has_notes: bool | None = None
+    ) -> Rom:
+        db_rom.rom_user = RomUserSchema.for_user(request.user.id, db_rom)  # type: ignore[attr-defined]
+        # Callers that batched the flag pass it in and never load `Rom.notes`.
+        db_rom.has_notes = (  # type: ignore[attr-defined]
+            any(
+                note.is_public or note.user_id == request.user.id
+                for note in db_rom.notes
+            )
+            if has_notes is None
+            else has_notes
         )
         return db_rom
 
@@ -382,7 +490,7 @@ class SiblingRomSchema(BaseModel):
     fs_name_no_ext: str
     is_main_sibling: bool
 
-    @computed_field  # type: ignore
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def sort_comparator(self) -> str:
         return (
@@ -433,9 +541,10 @@ class SimpleRomSchema(RomSchema):
         files: Sequence[RomFile] | None = None,
         siblings: Sequence[tuple[Rom, bool]] | None = None,
         screenshot_path: str | None = None,
+        has_notes: bool | None = None,
     ) -> SimpleRomSchema:
-        db_rom = cls.populate_properties(db_rom, request)
-        db_rom.screenshot_path = screenshot_path  # type: ignore[assignment]
+        db_rom = cls.populate_properties(db_rom, request, has_notes=has_notes)
+        db_rom.screenshot_path = screenshot_path  # type: ignore[attr-defined]
 
         # The list endpoint passes pre-fetched `files`/`siblings` (batched via
         # get_files_for_roms / get_siblings_for_roms, no per-row hydration).
@@ -459,8 +568,8 @@ class SimpleRomSchema(RomSchema):
                 for s in _visible_siblings(db_rom, request)
             ]
 
-        db_rom.included_files = list(files)  # type: ignore[assignment]
-        db_rom.included_sibling_roms = [  # type: ignore[assignment]
+        db_rom.included_files = list(files)  # type: ignore[attr-defined]
+        db_rom.included_sibling_roms = [  # type: ignore[attr-defined]
             SiblingRomSchema.from_rom(s, is_main_sibling=is_main)
             for s, is_main in siblings
         ]
@@ -468,11 +577,11 @@ class SimpleRomSchema(RomSchema):
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
-        db_rom.rom_user = rom_user_schema_factory()  # type: ignore[assignment]
-        db_rom.included_files = []  # type: ignore[assignment]
-        db_rom.included_sibling_roms = []  # type: ignore[assignment]
-        db_rom.has_notes = False  # type: ignore[assignment]
-        db_rom.screenshot_path = None  # type: ignore[assignment]
+        db_rom.rom_user = rom_user_schema_factory()  # type: ignore[attr-defined]
+        db_rom.included_files = []  # type: ignore[attr-defined]
+        db_rom.included_sibling_roms = []  # type: ignore[attr-defined]
+        db_rom.has_notes = False  # type: ignore[attr-defined]
+        db_rom.screenshot_path = None  # type: ignore[attr-defined]
         return cls.model_validate(db_rom)
 
 
@@ -538,16 +647,16 @@ class DetailedRomSchema(RomSchema):
             ),
             key=lambda x: x.sort_comparator,
         )
-        db_rom.included_sibling_roms = sorted_siblings  # type: ignore[assignment]
-        db_rom.included_files = sorted(db_rom.files, key=lambda x: x.file_name)  # type: ignore[assignment]
+        db_rom.included_sibling_roms = sorted_siblings  # type: ignore[attr-defined]
+        db_rom.included_files = sorted(db_rom.files, key=lambda x: x.file_name)  # type: ignore[attr-defined]
 
-        db_rom.user_saves = [  # type: ignore[assignment]
+        db_rom.user_saves = [  # type: ignore[attr-defined]
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]
-        db_rom.user_states = [  # type: ignore[assignment]
+        db_rom.user_states = [  # type: ignore[attr-defined]
             StateSchema.model_validate(s) for s in db_rom.states if s.user_id == user_id
         ]
-        db_rom.user_screenshots = [  # type: ignore[assignment]
+        db_rom.user_screenshots = [  # type: ignore[attr-defined]
             ScreenshotSchema.model_validate(s)
             for s in db_rom.screenshots
             if s.user_id == user_id
@@ -557,7 +666,7 @@ class DetailedRomSchema(RomSchema):
         # Standard collections come off the already-loaded join relationship;
         # smart collections have no reverse join, so match them by their cached
         # rom-id membership at the SQL layer (see #3934).
-        db_rom.user_collections = [  # type: ignore[assignment]
+        db_rom.user_collections = [  # type: ignore[attr-defined]
             *UserCollectionSchema.for_user(user_id, db_rom.collections),
             *UserCollectionSchema.from_smart_collections(
                 db_collection_handler.get_smart_collections_for_rom(
@@ -571,27 +680,11 @@ class DetailedRomSchema(RomSchema):
 
         notes = db_rom_handler.get_rom_notes(rom_id=db_rom.id, user_id=user_id)
 
-        # Convert notes to schema format
-        all_notes = []
-        for note in notes:
-            note_dict = {
-                "id": note.id,
-                "title": note.title,
-                "content": note.content,
-                "is_public": note.is_public,
-                "tags": note.tags,
-                "created_at": note.created_at,
-                "updated_at": note.updated_at,
-                "user_id": note.user_id,
-                "username": note.user.username,
-                "user_avatar_path": note.user.avatar_path,
-                "user_updated_at": note.user.updated_at,
-            }
-            all_notes.append(UserNoteSchema.model_validate(note_dict))
+        all_notes = [UserNoteSchema.from_rom_note(note) for note in notes]
 
         # Sort notes by updated_at (most recent first)
         all_notes.sort(key=lambda x: x.updated_at, reverse=True)
-        db_rom.all_user_notes = all_notes  # type: ignore[assignment]
+        db_rom.all_user_notes = all_notes  # type: ignore[attr-defined]
 
         # Gallery screenshots visible to this user: own (public + private) plus
         # other users' public ones. Mirrors the notes flow above. Excludes the
@@ -601,7 +694,7 @@ class DetailedRomSchema(RomSchema):
         gallery_screenshots = db_screenshot_handler.get_rom_gallery_screenshots(
             rom_id=db_rom.id, user_id=user_id
         )
-        db_rom.all_user_screenshots = [  # type: ignore[assignment]
+        db_rom.all_user_screenshots = [  # type: ignore[attr-defined]
             UserScreenshotSchema.model_validate(
                 {
                     **{
@@ -625,10 +718,11 @@ class DetailedRomSchema(RomSchema):
         shared_saves = db_save_handler.get_rom_shared_saves(
             rom_id=db_rom.id, user_id=user_id
         )
-        db_rom.all_user_saves = [  # type: ignore[assignment]
+        db_rom.all_user_saves = [  # type: ignore[attr-defined]
             UserSaveSchema.model_validate(
                 {
                     **SaveSchema.model_validate(s).model_dump(),
+                    **({} if s.user_id == user_id else HIDDEN_ASSET_ANNOTATIONS),
                     "username": s.user.username,
                     "user_avatar_path": s.user.avatar_path,
                     "user_updated_at": s.user.updated_at,
@@ -640,10 +734,11 @@ class DetailedRomSchema(RomSchema):
         shared_states = db_state_handler.get_rom_shared_states(
             rom_id=db_rom.id, user_id=user_id
         )
-        db_rom.all_user_states = [  # type: ignore[assignment]
+        db_rom.all_user_states = [  # type: ignore[attr-defined]
             UserStateSchema.model_validate(
                 {
                     **StateSchema.model_validate(s).model_dump(),
+                    **({} if s.user_id == user_id else HIDDEN_ASSET_ANNOTATIONS),
                     "username": s.user.username,
                     "user_avatar_path": s.user.avatar_path,
                     "user_updated_at": s.user.updated_at,
@@ -665,17 +760,3 @@ class DetailedRomSchema(RomSchema):
     @field_validator("user_screenshots")
     def sort_user_screenshots(cls, v: list[ScreenshotSchema]) -> list[ScreenshotSchema]:
         return sorted(v, key=lambda x: x.created_at, reverse=True)
-
-
-class RomFiltersDict(TypedDict):
-    genres: list[str]
-    franchises: list[str]
-    collections: list[str]
-    companies: list[str]
-    game_modes: list[str]
-    age_ratings: list[str]
-    player_counts: list[str]
-    regions: list[str]
-    languages: list[str]
-    tags: list[str]
-    platforms: list[int]

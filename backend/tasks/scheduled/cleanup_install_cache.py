@@ -4,7 +4,7 @@ from utils.install_cache import cleanup_expired_installs
 
 
 class CleanupInstallCacheTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled install cache cleanup",
             description="Evicts install caches whose TTL has elapsed",
@@ -12,12 +12,10 @@ class CleanupInstallCacheTask(PeriodicTask):
             enabled=True,
             manual_run=False,
             cron_string="0 4 * * *",
-            func="tasks.scheduled.cleanup_install_cache.cleanup_install_cache_task.run",
         )
 
     async def run(self) -> None:
         if not self.enabled:
-            self.unschedule()
             return
 
         evicted = cleanup_expired_installs()

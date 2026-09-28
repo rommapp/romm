@@ -30,6 +30,7 @@ import {
   ref,
   watch,
 } from "vue";
+import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import type { RCarouselProps } from "./types";
@@ -42,11 +43,17 @@ const props = withDefaults(defineProps<RCarouselProps<T>>(), {
   showCounter: undefined,
   showArrows: undefined,
   showThumbnails: false,
-  closeLabel: "Close",
-  prevLabel: "Previous",
-  nextLabel: "Next",
+  closeLabel: undefined,
+  prevLabel: undefined,
+  nextLabel: undefined,
   ariaLabel: undefined,
 });
+
+const labels = useChromeLabels();
+
+const closeText = computed(() => props.closeLabel ?? labels.close);
+const prevText = computed(() => props.prevLabel ?? labels.previous);
+const nextText = computed(() => props.nextLabel ?? labels.next);
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: number): void;
@@ -212,22 +219,26 @@ function onBackdropClick(event: MouseEvent) {
       <button
         type="button"
         class="r-carousel__close"
-        :aria-label="closeLabel"
+        :aria-label="closeText"
         @click="close"
       >
         <RIcon icon="mdi-close" size="20" />
       </button>
 
       <!-- Stage: holds the transitioning active item, vertically + horizontally
-           centred. The .self click dismisses on the padded backdrop area
-           around the image — outside-click on the outer wrapper would miss
-           those gaps because they're nested inside the stage. -->
+           centred. The .self clicks dismiss on the backdrop area around the
+           image; outside-click on the outer wrapper alone would miss those
+           gaps because they're nested inside the stage. The item box fills
+           the stage while the image only letterboxes inside it, so the item
+           needs its own handler or most of the visible backdrop stays dead. -->
       <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events,vuejs-accessibility/no-static-element-interactions -->
       <div class="r-carousel__stage" @click.self="onBackdropClick">
         <Transition :name="transitionName" mode="out-in">
+          <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events,vuejs-accessibility/no-static-element-interactions -->
           <div
             :key="safeIndex"
             class="r-carousel__item r-carousel__item--fullscreen"
+            @click.self="onBackdropClick"
           >
             <slot
               v-if="activeItem !== undefined"
@@ -244,7 +255,7 @@ function onBackdropClick(event: MouseEvent) {
         v-if="showArrowsResolved"
         type="button"
         class="r-carousel__nav r-carousel__nav--prev"
-        :aria-label="prevLabel"
+        :aria-label="prevText"
         :disabled="!loop && safeIndex === 0"
         @click.stop="go(-1)"
       >
@@ -254,7 +265,7 @@ function onBackdropClick(event: MouseEvent) {
         v-if="showArrowsResolved"
         type="button"
         class="r-carousel__nav r-carousel__nav--next"
-        :aria-label="nextLabel"
+        :aria-label="nextText"
         :disabled="!loop && safeIndex === total - 1"
         @click.stop="go(1)"
       >
@@ -328,7 +339,7 @@ function onBackdropClick(event: MouseEvent) {
         variant="translucent"
         size="small"
         class="r-carousel__nav r-carousel__nav--prev"
-        :aria-label="prevLabel"
+        :aria-label="prevText"
         :disabled="!loop && safeIndex === 0"
         @click.stop="go(-1)"
       />
@@ -338,7 +349,7 @@ function onBackdropClick(event: MouseEvent) {
         variant="translucent"
         size="small"
         class="r-carousel__nav r-carousel__nav--next"
-        :aria-label="nextLabel"
+        :aria-label="nextText"
         :disabled="!loop && safeIndex === total - 1"
         @click.stop="go(1)"
       />

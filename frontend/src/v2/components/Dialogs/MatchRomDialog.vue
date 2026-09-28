@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// MatchRomDialog — manual metadata match flow. The shell owns search +
+// MatchRomDialog: manual metadata match flow. The shell owns search +
 // filters + the update API call; the actual "pick a match → pick a
 // cover → optional rename" step is delegated to one of two body
 // variants (see `components/MatchRom/`): grid (cards + overlay) or
@@ -18,10 +18,9 @@ import {
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
 import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
+import type { SimpleRom, SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import MatchRomBodyGrid from "@/v2/components/MatchRom/MatchRomBodyGrid.vue";
 import MatchRomBodyList from "@/v2/components/MatchRom/MatchRomBodyList.vue";
@@ -31,6 +30,8 @@ import type {
   MatchVariant,
 } from "@/v2/components/MatchRom/types";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
+import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -41,7 +42,8 @@ type SourceName =
   | "Screenscraper"
   | "Flashpoint"
   | "Launchbox"
-  | "Libretro";
+  | "Libretro"
+  | "Steam";
 
 type SourceFilter = {
   name: SourceName;
@@ -55,7 +57,6 @@ const { t } = useI18n();
 const { lgAndUp } = useBreakpoint();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
-const romsStore = storeRoms();
 const searching = ref(false);
 // In-flight flag for the post-pick `updateRom` call. v1 leaned on the
 // global `showLoadingDialog` event for feedback, but v2 has no listener
@@ -63,7 +64,6 @@ const searching = ref(false);
 // idea the network call was running. Keeping the dialog open with a
 // spinner overlay matches the v2 pattern (inline loading, §VI.B).
 const matching = ref(false);
-const route = useRoute();
 const searchText = ref("");
 const searchBy = ref<"Name" | "ID">("Name");
 const searched = ref(false);
@@ -71,8 +71,9 @@ const matchedRoms = ref<SearchRom[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const heartbeat = storeHeartbeat();
+const { applyRomWrite } = useRomSync();
 
-// Active body variant — the toolbar selector toggles between the
+// Active body variant: the toolbar selector toggles between the
 // gallery-style grid and the master/detail list, mirroring the
 // gallery's own layout switcher vocabulary.
 const variant = ref<MatchVariant>("grid");
@@ -109,6 +110,7 @@ const isSSFiltered = ref(true);
 const isFlashpointFiltered = ref(true);
 const isLaunchboxFiltered = ref(true);
 const isLibretroFiltered = ref(true);
+const isSteamFiltered = ref(true);
 
 const sourceFilters = computed<SourceFilter[]>(() => [
   {
@@ -153,6 +155,13 @@ const sourceFilters = computed<SourceFilter[]>(() => [
     enabled: !!heartbeat.value.METADATA_SOURCES.LIBRETRO_API_ENABLED,
     active: isLibretroFiltered.value,
   },
+  {
+    name: "Steam",
+    label: "Steam",
+    logo: "/assets/scrappers/steam.png",
+    enabled: !!heartbeat.value.METADATA_SOURCES.STEAM_API_ENABLED,
+    active: isSteamFiltered.value,
+  },
 ]);
 
 function toggleSourceFilter(name: SourceName) {
@@ -167,6 +176,7 @@ function toggleSourceFilter(name: SourceName) {
     isLaunchboxFiltered.value = !isLaunchboxFiltered.value;
   else if (name === "Libretro")
     isLibretroFiltered.value = !isLibretroFiltered.value;
+  else if (name === "Steam") isSteamFiltered.value = !isSteamFiltered.value;
 }
 
 const filteredMatchedRoms = computed(() =>
@@ -177,7 +187,8 @@ const filteredMatchedRoms = computed(() =>
       (r.ss_id && isSSFiltered.value) ||
       (r.flashpoint_id && isFlashpointFiltered.value) ||
       (r.launchbox_id && isLaunchboxFiltered.value) ||
-      (r.libretro_id && isLibretroFiltered.value),
+      (r.libretro_id && isLibretroFiltered.value) ||
+      (r.steam_id && isSteamFiltered.value),
   ),
 );
 
@@ -193,8 +204,13 @@ const openHandler = (romToSearch: SimpleRom) => {
 emitter?.on("showMatchRomDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("showMatchRomDialog", openHandler));
 
+// Only the latest search of the open session may apply its response.
+let searchSeq = 0;
+const alive = useIsAlive();
+
 async function searchRom() {
   if (!rom.value || searching.value) return;
+  const seq = ++searchSeq;
 
   const inputElement = document.getElementById("r-v2-match-search");
   inputElement?.blur();
@@ -206,15 +222,19 @@ async function searchRom() {
       searchTerm: searchText.value,
       searchBy: searchBy.value,
     });
+    if (!alive.value || seq !== searchSeq) return;
     matchedRoms.value = response.data;
   } catch (error: unknown) {
+    if (!alive.value || seq !== searchSeq) return;
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(axiosErr.response?.data?.detail ?? t("rom.search-failed"), {
       icon: "mdi-close-circle",
     });
   } finally {
-    searching.value = false;
-    searched.value = true;
+    if (seq === searchSeq) {
+      searching.value = false;
+      searched.value = true;
+    }
   }
 }
 
@@ -234,6 +254,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
     flashpoint_id: matchedRom.flashpoint_id || null,
     launchbox_id: matchedRom.launchbox_id || null,
     libretro_id: matchedRom.libretro_id || null,
+    steam_id: matchedRom.steam_id || null,
     name: matchedRom.name || null,
     slug: matchedRom.slug || null,
     summary: matchedRom.summary || null,
@@ -245,6 +266,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
       matchedRom.flashpoint_url_cover ||
       matchedRom.launchbox_url_cover ||
       matchedRom.libretro_url_cover ||
+      matchedRom.steam_url_cover ||
       null,
   };
 
@@ -257,8 +279,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
     snackbar.success(t("rom.rom-updated-successfully"), {
       icon: "mdi-check-bold",
     });
-    romsStore.update(data as SimpleRom);
-    if (route.name === "rom") romsStore.currentRom = data;
+    applyRomWrite(data as SimpleRom);
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(axiosErr.response?.data?.detail ?? t("rom.update-failed"), {
@@ -271,6 +292,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
 }
 
 function closeDialog() {
+  searchSeq++;
   show.value = false;
   searching.value = false;
   searched.value = false;
@@ -281,24 +303,42 @@ function closeDialog() {
 <template>
   <RDialog
     v-model="show"
+    class="r-v2-match-dialog"
     icon="mdi-search-web"
     scroll-content
     full-height-on-mobile
     :width="lgAndUp ? 880 : '95vw'"
     height="88vh"
     :persistent="matching"
+    cancelable
+    :cancel-disabled="matching"
     @close="closeDialog"
   >
     <template #header>
-      <span>{{ t("rom.match-rom") }}</span>
+      <div class="r-v2-match__header">
+        <span>{{ t("rom.match-rom") }}</span>
+        <!-- The file name is the ground truth for a mismatched game, so it
+             stays visible while the dialog covers the gallery card. -->
+        <span v-if="rom" class="r-v2-match__header-file" :title="rom.fs_name">
+          {{ rom.fs_name }}
+        </span>
+        <!-- Layout switcher: grid vs list, mirroring the gallery's own
+             toggle. It lives up here because the header is the one row that
+             never reflows as the filters or the search state change. -->
+        <RSliderBtnGroup
+          :model-value="variant"
+          :items="variantItems"
+          variant="segmented"
+          :aria-label="t('rom.match-flow-variant')"
+          class="r-v2-match__variant"
+          @update:model-value="variant = $event"
+        />
+      </div>
     </template>
 
     <template #toolbar>
       <div class="r-v2-match__toolbar">
-        <div class="r-v2-match__filters">
-          <span class="r-v2-match__filters-label">
-            {{ t("common.filter") }}
-          </span>
+        <div class="r-v2-match__filters r-v2-scroll-hidden">
           <MatchRomProviderFilter
             v-for="f in sourceFilters"
             :key="f.name"
@@ -309,20 +349,6 @@ function closeDialog() {
             :active="f.active"
             @toggle="toggleSourceFilter(f.name)"
           />
-
-          <!-- Layout switcher — grid vs list. Mirrors the gallery's own
-               toggle. Pushed right and always present, so the provider chips
-               stay flush left and the row never reflows on search (the
-               results count now lives in the footer). -->
-          <div class="r-v2-match__filters-end">
-            <RSliderBtnGroup
-              :model-value="variant"
-              :items="variantItems"
-              variant="segmented"
-              :aria-label="t('rom.match-flow-variant')"
-              @update:model-value="variant = $event"
-            />
-          </div>
         </div>
 
         <div class="r-v2-match__search-row">
@@ -370,38 +396,32 @@ function closeDialog() {
     </template>
 
     <template #content>
-      <div class="r-v2-match__body">
-        <component
-          :is="variantComponent"
-          :rom="rom"
-          :results="filteredMatchedRoms"
-          :searching="searching"
-          :searched="searched"
-          @confirm="onBodyConfirm"
-        />
-        <!-- Saving overlay — covers the body with a centered spinner so
-             the user sees the update is in flight. The dialog stays
-             modal (no scrim click / Escape) until closeDialog runs in
-             the `finally` of `onBodyConfirm`. -->
-        <div
-          v-if="matching"
-          class="r-v2-match__saving"
-          role="status"
-          aria-live="polite"
-        >
-          <RSpinner :size="36" />
-          <span class="r-v2-match__saving-label">
-            {{ t("rom.updating") }}
-          </span>
-        </div>
+      <component
+        :is="variantComponent"
+        :rom="rom"
+        :results="filteredMatchedRoms"
+        :searching="searching"
+        :searched="searched"
+        @confirm="onBodyConfirm"
+      />
+      <!-- Saving overlay: blurs the whole dialog body, padding included,
+           under a centered spinner so the user sees the update is in
+           flight. The dialog stays modal (no scrim click / Escape) until
+           closeDialog runs in the `finally` of `onBodyConfirm`. -->
+      <div
+        v-if="matching"
+        class="r-v2-match__saving"
+        role="status"
+        aria-live="polite"
+      >
+        <RSpinner :size="36" />
+        <span class="r-v2-match__saving-label">
+          {{ t("rom.updating") }}
+        </span>
       </div>
     </template>
 
     <template #footer>
-      <RBtn variant="text" :disabled="matching" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <div class="r-v2-match__footer-spacer" />
       <!-- Results count lives here (not the filter row) so appearing after a
            search never reflows the toolbar above. -->
       <div v-if="searched && !searching" class="r-v2-match__results">
@@ -415,22 +435,31 @@ function closeDialog() {
 </template>
 
 <style scoped>
-/* Saving-overlay anchor — has to pass the dialog body's column layout
-   through (`flex: 1`, `min-height: 0`, `display: flex; flex-direction:
-   column`) so the variant inside still sees the same shape it would
-   have as a direct child of `.r-dialog__body`. Without this, grid /
-   list bodies that rely on `flex: 1` to fill the dialog collapse to
-   their content size — the grid's secondary detail panel anchors to
-   the wrong rect (it's `position: absolute` against `.match-grid`),
-   and the list's two columns lose their internal scroll. */
-.r-v2-match__body {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
+/* Header: dialog title plus the ROM's file name, which truncates to a
+   single line and keeps the full name in the hover title. */
+.r-v2-match__header {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
+.r-v2-match__variant {
+  flex-shrink: 0;
+}
+.r-v2-match__header-file {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--r-font-size-sm);
+  font-weight: var(--r-font-weight-regular);
+  color: var(--r-color-fg-muted);
+}
+
+/* Anchored to `.r-dialog__body` (made relative below) so the blur reaches
+   the body's padding edges instead of stopping at the variant's box. */
 .r-v2-match__saving {
   position: absolute;
   inset: 0;
@@ -439,7 +468,7 @@ function closeDialog() {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: color-mix(in srgb, var(--r-color-bg) 65%, transparent);
+  background: color-mix(in srgb, var(--r-color-bg) 30%, transparent);
   backdrop-filter: blur(4px);
   color: var(--r-color-fg);
   z-index: 1;
@@ -457,28 +486,17 @@ function closeDialog() {
   width: 100%;
 }
 
+/* One scrolling row of provider chips: on a phone the touch-sized chips fill
+   the width, and more providers extend the scroll rather than a second row. */
 .r-v2-match__filters {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
-
-.r-v2-match__filters-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--r-color-fg-muted);
-  margin-right: 4px;
-}
-
-.r-v2-match__filters-end {
-  /* Pushes the variant switcher to the right of the filter row; always
-     present, so the switcher never slides as the search state changes. */
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.r-v2-match__filters > * {
+  flex-shrink: 0;
 }
 
 .r-v2-match__results {
@@ -498,10 +516,6 @@ function closeDialog() {
   color: var(--r-color-brand-primary);
   border-radius: var(--r-radius-pill);
   font-weight: var(--r-font-weight-semibold);
-}
-
-.r-v2-match__footer-spacer {
-  flex: 1 1 auto;
 }
 
 .r-v2-match__search-row {
@@ -527,5 +541,11 @@ html[data-bp~="xs"] .r-v2-match__search-row {
 }
 html[data-bp~="xs"] .r-v2-match__search-btn {
   grid-column: 1 / -1;
+}
+</style>
+
+<style>
+.r-v2-match-dialog .r-dialog__body {
+  position: relative;
 }
 </style>

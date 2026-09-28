@@ -6,39 +6,51 @@ interface ViewTransition {
   skipTransition: () => void;
 }
 
+// A transition the browser preempts is skipped, which rejects `ready` with
+// AbortError. Rethrow anything else so real transition failures stay visible.
+export function absorbPreemptionSkip(ready: Promise<void>): Promise<void> {
+  return ready.catch((reason: unknown) => {
+    if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+      throw reason;
+    }
+  });
+}
+
 export function startViewTransition(
   callback?: () => Promise<void>,
 ): ViewTransition {
-  const callbackPromise = callback
-    ? Promise.resolve(callback())
-    : Promise.resolve();
-
-  const viewTransition = {
-    captured: Promise.resolve(),
-    updateCallbackDone: callbackPromise,
-    ready: callbackPromise,
-    finished: callbackPromise,
-    skipTransition: () => {},
-  };
-
   if (!document.startViewTransition) {
-    return viewTransition;
+    const callbackPromise = callback ? callback() : Promise.resolve();
+    return {
+      // Nothing is snapshotted without the API, so callers need not wait.
+      captured: Promise.resolve(),
+      updateCallbackDone: callbackPromise,
+      ready: callbackPromise,
+      finished: callbackPromise,
+      skipTransition: () => {},
+    };
   }
 
-  const capturedPromise = new Promise<void>((resolve) => {
-    const nativeViewTransition = document.startViewTransition(async () => {
-      resolve();
-      if (callback) {
-        await callback();
-      }
-    });
-    viewTransition.updateCallbackDone = nativeViewTransition.updateCallbackDone;
-    viewTransition.ready = nativeViewTransition.ready;
-    viewTransition.finished = nativeViewTransition.finished;
-    viewTransition.skipTransition =
-      nativeViewTransition.skipTransition.bind(nativeViewTransition);
+  // Resolved from inside the update callback, which the browser runs once the
+  // old state is captured.
+  let resolveCaptured!: () => void;
+  const captured = new Promise<void>((resolve) => {
+    resolveCaptured = resolve;
   });
-  viewTransition.captured = capturedPromise;
 
-  return viewTransition;
+  const nativeViewTransition = document.startViewTransition(async () => {
+    resolveCaptured();
+    if (callback) {
+      await callback();
+    }
+  });
+
+  return {
+    captured,
+    updateCallbackDone: nativeViewTransition.updateCallbackDone,
+    ready: absorbPreemptionSkip(nativeViewTransition.ready),
+    finished: nativeViewTransition.finished,
+    skipTransition:
+      nativeViewTransition.skipTransition.bind(nativeViewTransition),
+  };
 }

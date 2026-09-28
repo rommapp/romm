@@ -7,6 +7,8 @@ export type FilterType =
   | "franchises"
   | "collections"
   | "companies"
+  | "publishers"
+  | "developers"
   | "ageRatings"
   | "statuses"
   | "regions"
@@ -30,6 +32,8 @@ const buildDefaultFilterState = () => ({
   filterFranchises: [] as string[],
   filterCollections: [] as string[],
   filterCompanies: [] as string[],
+  filterPublishers: [] as string[],
+  filterDevelopers: [] as string[],
   filterAgeRatings: [] as string[],
   filterRegions: [] as string[],
   filterLanguages: [] as string[],
@@ -45,6 +49,7 @@ const buildDefaultFilterState = () => ({
   filterStates: null as boolean | null, // null = all, true = has states, false = no states
   filterSoundtrack: null as boolean | null, // null = all, true = has soundtrack, false = no soundtrack
   filterMissing: null as boolean | null, // null = all, true = missing, false = not missing
+  filterPhysical: null as boolean | null, // null = all, true = physical, false = has a file
   filterVerified: null as boolean | null, // null = all, true = verified, false = not verified
   selectedPlatform: null as Platform | null,
   selectedPlatforms: [] as Platform[],
@@ -52,6 +57,8 @@ const buildDefaultFilterState = () => ({
   selectedFranchises: [] as string[],
   selectedCollections: [] as string[],
   selectedCompanies: [] as string[],
+  selectedPublishers: [] as string[],
+  selectedDevelopers: [] as string[],
   selectedAgeRatings: [] as string[],
   selectedRegions: [] as string[],
   selectedLanguages: [] as string[],
@@ -59,11 +66,17 @@ const buildDefaultFilterState = () => ({
   selectedMetadataProviders: [] as string[],
   selectedTags: [] as string[],
   selectedStatuses: [] as string[],
+  // HowLongToBeat main-story bounds in hours; null leaves that end open. Games
+  // with no HowLongToBeat time are excluded whenever either bound is set.
+  selectedLengthMinHours: null as number | null,
+  selectedLengthMaxHours: null as number | null,
   // Logic operators for multi-select filters
   genresLogic: "any" as FilterLogicOperator,
   franchisesLogic: "any" as FilterLogicOperator,
   collectionsLogic: "any" as FilterLogicOperator,
   companiesLogic: "any" as FilterLogicOperator,
+  publishersLogic: "any" as FilterLogicOperator,
+  developersLogic: "any" as FilterLogicOperator,
   ageRatingsLogic: "any" as FilterLogicOperator,
   regionsLogic: "any" as FilterLogicOperator,
   languagesLogic: "any" as FilterLogicOperator,
@@ -83,32 +96,38 @@ export default defineStore("galleryFilter", {
     setFilterPlatforms(platforms: Platform[]) {
       this.filterPlatforms = platforms;
     },
-    setFilterGenres(genres: string[]) {
-      this.filterGenres = genres;
+    setFilterGenres(genres: string[] | null | undefined) {
+      this.filterGenres = genres ?? [];
     },
-    setFilterFranchises(franchises: string[]) {
-      this.filterFranchises = franchises;
+    setFilterFranchises(franchises: string[] | null | undefined) {
+      this.filterFranchises = franchises ?? [];
     },
-    setFilterCollections(collections: string[]) {
-      this.filterCollections = collections;
+    setFilterCollections(collections: string[] | null | undefined) {
+      this.filterCollections = collections ?? [];
     },
-    setFilterCompanies(companies: string[]) {
-      this.filterCompanies = companies;
+    setFilterCompanies(companies: string[] | null | undefined) {
+      this.filterCompanies = companies ?? [];
     },
-    setFilterAgeRatings(ageRatings: string[]) {
-      this.filterAgeRatings = ageRatings;
+    setFilterPublishers(publishers: string[] | null | undefined) {
+      this.filterPublishers = publishers ?? [];
     },
-    setFilterRegions(regions: string[]) {
-      this.filterRegions = regions;
+    setFilterDevelopers(developers: string[] | null | undefined) {
+      this.filterDevelopers = developers ?? [];
     },
-    setFilterLanguages(languages: string[]) {
-      this.filterLanguages = languages;
+    setFilterAgeRatings(ageRatings: string[] | null | undefined) {
+      this.filterAgeRatings = ageRatings ?? [];
     },
-    setFilterPlayerCounts(playerCounts: string[]) {
-      this.filterPlayerCounts = playerCounts;
+    setFilterRegions(regions: string[] | null | undefined) {
+      this.filterRegions = regions ?? [];
     },
-    setFilterTags(tags: string[]) {
-      this.filterTags = tags;
+    setFilterLanguages(languages: string[] | null | undefined) {
+      this.filterLanguages = languages ?? [];
+    },
+    setFilterPlayerCounts(playerCounts: string[] | null | undefined) {
+      this.filterPlayerCounts = playerCounts ?? [];
+    },
+    setFilterTags(tags: string[] | null | undefined) {
+      this.filterTags = tags ?? [];
     },
     setSelectedFilterPlatform(platform: Platform) {
       this.selectedPlatform = platform
@@ -143,6 +162,18 @@ export default defineStore("galleryFilter", {
     },
     setCompaniesLogic(logic: FilterLogicOperator) {
       this.companiesLogic = logic;
+    },
+    setSelectedFilterPublishers(publishers: string[]) {
+      this.selectedPublishers = publishers;
+    },
+    setPublishersLogic(logic: FilterLogicOperator) {
+      this.publishersLogic = logic;
+    },
+    setSelectedFilterDevelopers(developers: string[]) {
+      this.selectedDevelopers = developers;
+    },
+    setDevelopersLogic(logic: FilterLogicOperator) {
+      this.developersLogic = logic;
     },
     setSelectedFilterAgeRatings(ageRatings: string[]) {
       this.selectedAgeRatings = ageRatings;
@@ -185,6 +216,10 @@ export default defineStore("galleryFilter", {
     },
     setStatusesLogic(logic: FilterLogicOperator) {
       this.statusesLogic = logic;
+    },
+    setSelectedFilterLengthHours(min: number | null, max: number | null) {
+      this.selectedLengthMinHours = min;
+      this.selectedLengthMaxHours = max;
     },
     setFilterMatched(value: boolean | null) {
       this.filterMatched = value;
@@ -425,6 +460,7 @@ export default defineStore("galleryFilter", {
         this.filterStates !== null ||
         this.filterSoundtrack !== null ||
         this.filterMissing !== null ||
+        this.filterPhysical !== null ||
         this.filterVerified !== null ||
         this.selectedPlatform ||
         this.selectedPlatforms.length > 0 ||
@@ -432,13 +468,17 @@ export default defineStore("galleryFilter", {
         this.selectedFranchises.length > 0 ||
         this.selectedCollections.length > 0 ||
         this.selectedCompanies.length > 0 ||
+        this.selectedPublishers.length > 0 ||
+        this.selectedDevelopers.length > 0 ||
         this.selectedAgeRatings.length > 0 ||
         this.selectedRegions.length > 0 ||
         this.selectedLanguages.length > 0 ||
         this.selectedPlayerCounts.length > 0 ||
         this.selectedMetadataProviders.length > 0 ||
         this.selectedTags.length > 0 ||
-        this.selectedStatuses.length > 0,
+        this.selectedStatuses.length > 0 ||
+        this.selectedLengthMinHours !== null ||
+        this.selectedLengthMaxHours !== null,
       );
     },
     reset() {
@@ -451,6 +491,8 @@ export default defineStore("galleryFilter", {
       this.selectedFranchises = [];
       this.selectedCollections = [];
       this.selectedCompanies = [];
+      this.selectedPublishers = [];
+      this.selectedDevelopers = [];
       this.selectedAgeRatings = [];
       this.selectedRegions = [];
       this.selectedLanguages = [];
@@ -458,6 +500,8 @@ export default defineStore("galleryFilter", {
       this.selectedMetadataProviders = [];
       this.selectedTags = [];
       this.selectedStatuses = [];
+      this.selectedLengthMinHours = null;
+      this.selectedLengthMaxHours = null;
       this.filterMatched = null;
       this.filterFavorites = null;
       this.filterDuplicates = null;
@@ -467,12 +511,15 @@ export default defineStore("galleryFilter", {
       this.filterStates = null;
       this.filterSoundtrack = null;
       this.filterMissing = null;
+      this.filterPhysical = null;
       this.filterVerified = null;
       // Reset logic operators to default
       this.genresLogic = "any";
       this.franchisesLogic = "any";
       this.collectionsLogic = "any";
       this.companiesLogic = "any";
+      this.publishersLogic = "any";
+      this.developersLogic = "any";
       this.ageRatingsLogic = "any";
       this.regionsLogic = "any";
       this.languagesLogic = "any";

@@ -1,13 +1,20 @@
+from .audit_events_handler import DBAuditEventsHandler
 from .client_tokens_handler import DBClientTokensHandler
 from .collections_handler import DBCollectionsHandler
+from .container_adoptions_handler import DBContainerAdoptionsHandler
+from .deleted_assets_handler import DBDeletedAssetsHandler
 from .device_save_sync_handler import DBDeviceSaveSyncHandler
 from .devices_handler import DBDevicesHandler
 from .firmware_handler import DBFirmwareHandler
 from .install_sessions_handler import DBInstallSessionsHandler
+from .memory_cards_handler import DBMemoryCardsHandler
 from .music_playlists_handler import DBMusicPlaylistsHandler
+from .notification_channels_handler import DBNotificationChannelsHandler
+from .notifications_handler import DBNotificationsHandler
 from .permissions_handler import DBPermissionsHandler
 from .platforms_handler import DBPlatformsHandler
 from .play_sessions_handler import DBPlaySessionsHandler
+from .recommendations_handler import DBRecommendationsHandler
 from .roms_handler import DBRomsHandler
 from .saves_handler import DBSavesHandler
 from .screenshots_handler import DBScreenshotsHandler
@@ -16,16 +23,23 @@ from .stats_handler import DBStatsHandler
 from .sync_sessions_handler import DBSyncSessionsHandler
 from .users_handler import DBUsersHandler
 
+db_audit_event_handler = DBAuditEventsHandler()
 db_client_token_handler = DBClientTokensHandler()
 db_collection_handler = DBCollectionsHandler()
+db_container_adoption_handler = DBContainerAdoptionsHandler()
+db_deleted_asset_handler = DBDeletedAssetsHandler()
 db_device_handler = DBDevicesHandler()
 db_device_save_sync_handler = DBDeviceSaveSyncHandler()
 db_firmware_handler = DBFirmwareHandler()
 db_install_session_handler = DBInstallSessionsHandler()
+db_memory_card_handler = DBMemoryCardsHandler()
 db_music_playlist_handler = DBMusicPlaylistsHandler()
+db_notification_channel_handler = DBNotificationChannelsHandler()
+db_notification_handler = DBNotificationsHandler()
 db_permission_handler = DBPermissionsHandler()
 db_platform_handler = DBPlatformsHandler()
 db_play_session_handler = DBPlaySessionsHandler()
+db_recommendation_handler = DBRecommendationsHandler()
 db_rom_handler = DBRomsHandler()
 db_save_handler = DBSavesHandler()
 db_screenshot_handler = DBScreenshotsHandler()
