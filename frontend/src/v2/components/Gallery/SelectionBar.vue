@@ -222,10 +222,24 @@ const hasAnyStatus = computed(() => {
   );
 });
 
+// One batch at a time, so a slower earlier batch can't land after a newer choice.
+const applyingStatus = ref(false);
+
 async function applyStatus(data: Partial<RomUserData>) {
   const roms = selection.roms;
-  if (roms.length === 0) return;
+  if (roms.length === 0 || applyingStatus.value) return;
+  applyingStatus.value = true;
+  try {
+    await applyStatusTo(roms, data);
+  } finally {
+    applyingStatus.value = false;
+  }
+}
 
+async function applyStatusTo(
+  roms: typeof selection.roms,
+  data: Partial<RomUserData>,
+) {
   const before = new Map<number, RomUserData>();
   for (const rom of roms) {
     if (!rom.rom_user) continue;
@@ -477,6 +491,7 @@ function clear() {
           :key="key"
           :icon="STATUS_ICONS[key]"
           :variant="enumAllActive[key] ? 'active' : 'default'"
+          :disabled="applyingStatus"
           @click="toggleEnumStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
@@ -493,6 +508,7 @@ function clear() {
           :icon="STATUS_ICONS[key]"
           :text-color="flagAllActive[key] ? 'brand-primary' : undefined"
           :icon-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :disabled="applyingStatus"
           @click="toggleFlagStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
@@ -511,6 +527,7 @@ function clear() {
           :icon="STATUS_ICONS[key]"
           :text-color="flagAllActive[key] ? 'brand-primary' : undefined"
           :icon-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :disabled="applyingStatus"
           @click="toggleFlagStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
@@ -524,6 +541,7 @@ function clear() {
           <RMenuItem
             icon="mdi-close-circle-outline"
             variant="danger"
+            :disabled="applyingStatus"
             @click="clearStatus"
           >
             {{ t("rom.clear-all") }}

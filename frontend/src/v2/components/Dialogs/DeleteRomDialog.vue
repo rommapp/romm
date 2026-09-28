@@ -2,8 +2,8 @@
 // DeleteRomDialog: single or multi-ROM delete flow. Each row has a
 // "also remove file from disk" checkbox; a global "exclude on delete" flag
 // adds deleted filenames to the scan exclusion list so they don't re-appear.
-// Rows render in pages so a whole-library selection doesn't mount every cover.
-import { RBtn, RCheckbox, RDialog, RIcon } from "@v2/lib";
+// Rows are virtualised so a whole-library selection doesn't mount every cover.
+import { RBtn, RCheckbox, RDialog, RIcon, RVirtualScroller } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -21,7 +21,9 @@ import { settleWithLimit } from "@/v2/utils/settleWithLimit";
 
 defineOptions({ inheritAttrs: false });
 
-const ROWS_PAGE_SIZE = 50;
+// A 66px row plus the 6px gap below it; `.r-v2-del-rom__row` pins the row.
+const ROW_HEIGHT_PX = 72;
+const LIST_MAX_HEIGHT_PX = 360;
 
 const { t } = useI18n();
 const router = useRouter();
@@ -37,20 +39,15 @@ const deleting = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const configStore = storeConfig();
-const shownCount = ref(ROWS_PAGE_SIZE);
-const shownRoms = computed(() => roms.value.slice(0, shownCount.value));
-const nextPageCount = computed(() =>
-  Math.min(ROWS_PAGE_SIZE, roms.value.length - shownRoms.value.length),
+const listHeight = computed(() =>
+  Math.min(roms.value.length * ROW_HEIGHT_PX, LIST_MAX_HEIGHT_PX),
 );
 const fsIds = computed(() => new Set(romsToDeleteFromFs.value));
-
-function showMore() {
-  shownCount.value += ROWS_PAGE_SIZE;
-}
+const rowHeight = () => ROW_HEIGHT_PX;
+const rowKey = (rom: unknown) => (rom as SimpleRom).id;
 
 const openHandler = (romsToDelete: SimpleRom[]) => {
   roms.value = romsToDelete;
-  shownCount.value = ROWS_PAGE_SIZE;
   platformId.value = romsToDelete[0]?.platform_id ?? 0;
   show.value = true;
 };
@@ -123,16 +120,27 @@ async function deleteRoms() {
         rom.has_simple_single_file
           ? "EXCLUDED_SINGLE_FILES"
           : "EXCLUDED_MULTI_FILES";
-      for (const rom of deletedRoms) {
-        configStore.addExclusion(exclusionType(rom), rom.fs_name);
-      }
       // One at a time: each call rewrites the config file server-side.
-      void settleWithLimit(deletedRoms, 1, (rom) =>
+      const results = await settleWithLimit(deletedRoms, 1, (rom) =>
         configApi.addExclusion({
           exclusionValue: rom.fs_name,
           exclusionType: exclusionType(rom),
         }),
       );
+      let failed = 0;
+      results.forEach((result, i) => {
+        const rom = deletedRoms[i];
+        if (result.status === "fulfilled") {
+          configStore.addExclusion(exclusionType(rom), rom.fs_name);
+        } else {
+          failed++;
+        }
+      });
+      if (failed > 0) {
+        snackbar.error(t("rom.exclude-failed", { n: failed }), {
+          icon: "mdi-close-circle",
+        });
+      }
     }
     romsStore.resetSelection();
     removeCachedRoms(deletedRoms);
@@ -221,49 +229,55 @@ function closeDialog() {
       </div>
     </template>
     <template #content>
-      <ul class="r-v2-del-rom__list">
-        <li
-          v-for="rom in shownRoms"
-          :key="rom.id"
-          class="r-v2-del-rom__row"
-          :class="{ 'r-v2-del-rom__row--fs': fsIds.has(rom.id) }"
-        >
-          <div class="r-v2-del-rom__cover">
-            <img
-              v-if="coverFor(rom)"
-              :src="coverFor(rom)!"
-              :alt="rom.name ?? ''"
-            />
-            <div v-else class="r-v2-del-rom__cover-placeholder">
-              <RIcon icon="mdi-disc" size="18" />
-            </div>
-          </div>
-          <div class="r-v2-del-rom__meta">
-            <p class="r-v2-del-rom__name" :title="rom.name ?? undefined">
-              {{ rom.name || rom.fs_name }}
-            </p>
-            <p class="r-v2-del-rom__file" :title="rom.fs_name">
-              {{ rom.fs_name }}
-            </p>
-          </div>
-          <button
-            type="button"
-            class="r-v2-del-rom__fs-toggle"
-            :aria-pressed="fsIds.has(rom.id)"
-            :aria-label="t('rom.delete-from-disk-aria', { name: rom.fs_name })"
-            :class="{ 'r-v2-del-rom__fs-toggle--on': fsIds.has(rom.id) }"
-            @click="toggleRomOnFs(rom.id)"
+      <RVirtualScroller
+        :items="roms"
+        :get-item-height="rowHeight"
+        :get-item-key="rowKey"
+        :height="listHeight"
+        role="list"
+      >
+        <template #default="{ item }">
+          <div
+            v-for="rom in [item as SimpleRom]"
+            :key="rom.id"
+            role="listitem"
+            class="r-v2-del-rom__row"
+            :class="{ 'r-v2-del-rom__row--fs': fsIds.has(rom.id) }"
           >
-            <RIcon icon="mdi-harddisk-remove" size="14" />
-            {{ t("rom.delete-file") }}
-          </button>
-        </li>
-        <li v-if="nextPageCount > 0" class="r-v2-del-rom__more">
-          <RBtn variant="text" size="small" @click="showMore">
-            {{ t("rom.delete-show-more", { n: nextPageCount }) }}
-          </RBtn>
-        </li>
-      </ul>
+            <div class="r-v2-del-rom__cover">
+              <img
+                v-if="coverFor(rom)"
+                :src="coverFor(rom)!"
+                :alt="rom.name ?? ''"
+              />
+              <div v-else class="r-v2-del-rom__cover-placeholder">
+                <RIcon icon="mdi-disc" size="18" />
+              </div>
+            </div>
+            <div class="r-v2-del-rom__meta">
+              <p class="r-v2-del-rom__name" :title="rom.name ?? undefined">
+                {{ rom.name || rom.fs_name }}
+              </p>
+              <p class="r-v2-del-rom__file" :title="rom.fs_name">
+                {{ rom.fs_name }}
+              </p>
+            </div>
+            <button
+              type="button"
+              class="r-v2-del-rom__fs-toggle"
+              :aria-pressed="fsIds.has(rom.id)"
+              :aria-label="
+                t('rom.delete-from-disk-aria', { name: rom.fs_name })
+              "
+              :class="{ 'r-v2-del-rom__fs-toggle--on': fsIds.has(rom.id) }"
+              @click="toggleRomOnFs(rom.id)"
+            >
+              <RIcon icon="mdi-harddisk-remove" size="14" />
+              {{ t("rom.delete-file") }}
+            </button>
+          </div>
+        </template>
+      </RVirtualScroller>
     </template>
     <template #append>
       <div class="r-v2-del-rom__append">
@@ -328,23 +342,9 @@ function closeDialog() {
   background: var(--r-color-surface);
 }
 
-.r-v2-del-rom__list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 360px;
-  overflow-y: auto;
-}
-
-.r-v2-del-rom__more {
-  display: flex;
-  justify-content: center;
-}
-
 .r-v2-del-rom__row {
+  box-sizing: border-box;
+  height: 66px;
   display: grid;
   grid-template-columns: 36px 1fr auto;
   align-items: center;
