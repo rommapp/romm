@@ -6,8 +6,8 @@ on:
     # PRs only lint the files they touch, so existing issues surface here instead.
     - cron: "0 8 * * 1"
 
-# No checks: write, so the backlog stays in this run's log rather than
-# showing as a failed check on master's latest commit.
+# Without checks: write, Trunk posts no annotations. Existing findings still
+# fail this run, and so its check on master, until the backlog is cleared.
 permissions:
   contents: read
 

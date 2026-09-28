@@ -28,7 +28,8 @@ jobs:
           base: master
           prefix: "chore(trunk): "
           sign-commits: true
-          # PRs opened with GITHUB_TOKEN don't trigger CI; this secret, when set, lets them.
+          # PRs opened with GITHUB_TOKEN don't trigger CI. A GitHub App token here does,
+          # and keeps sign-commits working, which a PAT would not.
           github-token: ${{ secrets.TRUNK_UPGRADE_TOKEN || github.token }}
           reviewers: |
             gantoine
