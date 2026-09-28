@@ -4,7 +4,7 @@ import AssetActions from "./AssetActions.vue";
 
 // Which buttons render for each case is covered by AssetActions.test.ts.
 const meta: Meta<typeof AssetActions> = {
-  title: "GameDetails/AssetActions",
+  title: "Shared/AssetActions",
   component: AssetActions,
   decorators: [
     () => ({

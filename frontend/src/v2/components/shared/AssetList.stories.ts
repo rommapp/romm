@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
-import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
+import AssetActions from "@/v2/components/shared/AssetActions.vue";
 import type { Asset, AssetType } from "@/v2/utils/assets";
 import {
   IDENTICAL_STATE_PREFIX,

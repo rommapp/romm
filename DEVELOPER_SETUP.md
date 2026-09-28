@@ -185,7 +185,7 @@ Component docs and visual QA for `frontend/src/v2/` (port 6006):
 
 ```sh
 npm run storybook
-npm run storybook:test   # composeStories + play() + a11y (v2 /lib, components/shared and components/GameDetails stories)
+npm run storybook:test   # composeStories + play() + a11y (every v2 story)
 ```
 
 For responsive layouts, use the viewport toolbar presets from `.storybook/rommViewports.ts`.

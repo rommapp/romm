@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import type { StateSchema } from "@/__generated__";
-import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
+import AssetActions from "@/v2/components/shared/AssetActions.vue";
 import {
   makeState,
   manyStates,
