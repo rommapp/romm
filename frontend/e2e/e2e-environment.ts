@@ -31,7 +31,7 @@ const EXPECTED: Record<E2EKey, string> = {
     "required, the username of a non-admin account in the Viewer group",
   E2E_VIEWER_PASSWORD: "required, that account's password",
   E2E_DEV_PROXY_TARGET:
-    "required, the RomM backend's http(s) URL, e.g. http://127.0.0.1:3000",
+    "required, the RomM backend's http(s) URL, e.g. http://127.0.0.1:5000",
   E2E_WORKERS: "optional, a whole number of parallel workers (1 or more)",
 };
 

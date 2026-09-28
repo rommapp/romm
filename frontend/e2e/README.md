@@ -9,11 +9,11 @@ You need one RomM backend to point at, with games in its library and two account
 From `frontend/`:
 
 ```bash
-cp e2e/.env.example e2e/.env   # then set E2E_DEV_PROXY_TARGET and the two accounts
+cp e2e/.env.example e2e/.env
 npm run test:e2e
 ```
 
-If anything in `e2e/.env` is missing or malformed, the run stops before starting anything and lists every problem at once.
+The example works as-is against a local dev backend (`uv run main.py`, port 5000) with the seeded accounts below. For any other backend, change `E2E_DEV_PROXY_TARGET` and the accounts. If anything in `e2e/.env` is missing or malformed, the run stops before starting anything and lists every problem at once.
 
 On a throwaway dev backend, the seed script creates the two accounts from `.env.example` (run it from the repo root). Never run it against a real server; it resets those accounts' passwords.
 
