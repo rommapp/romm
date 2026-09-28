@@ -35,6 +35,26 @@ const EXPECTED: Record<E2EKey, string> = {
   E2E_WORKERS: "optional, a whole number of parallel workers (1 or more)",
 };
 
+/** Variables older versions of the suite read, and what replaces each. `shell`
+ *  also flags one set in the process env, where it would otherwise be ignored;
+ *  E2E_PASSWORD stays legal there because the seed script reads it. */
+const REMOVED: Record<string, { action: string; shell: boolean }> = {
+  E2E_BASE_URL: {
+    action:
+      "The suite now serves its own frontend. Set E2E_DEV_PROXY_TARGET to the backend's URL instead.",
+    shell: true,
+  },
+  E2E_DEV_PORT: {
+    action: "Set E2E_DEV_PROXY_TARGET=http://127.0.0.1:<port> instead.",
+    shell: true,
+  },
+  E2E_PASSWORD: {
+    action:
+      "Set E2E_ADMIN_PASSWORD and E2E_VIEWER_PASSWORD. The seed script still reads E2E_PASSWORD from its own shell.",
+    shell: false,
+  },
+};
+
 /** Thrown once, listing every problem. Names variables, never their values. */
 export class E2EEnvError extends Error {
   constructor(problems: string[], source: string) {
@@ -118,9 +138,23 @@ export function readE2EEnv(): E2EEnv {
   const ci = !!process.env.CI;
   const { label, vars, problems } = readSource(ci);
 
+  const fromShell = label !== ENV_FILE_LABEL;
   for (const key of Object.keys(vars)) {
-    if (key.startsWith(PREFIX) && !(key in EXPECTED)) {
+    if (!key.startsWith(PREFIX) || key in EXPECTED) continue;
+    const removed = REMOVED[key];
+    if (removed && (removed.shell || !fromShell)) {
+      problems.push(`${key} is no longer used. ${removed.action}`);
+    } else if (!removed) {
       problems.push(`${key} is not a variable the suite reads (a typo?)`);
+    }
+  }
+  if (!fromShell) {
+    for (const [key, { action, shell }] of Object.entries(REMOVED)) {
+      if (shell && process.env[key] !== undefined) {
+        problems.push(
+          `${key} is set in your shell and is no longer used. ${action}`,
+        );
+      }
     }
   }
 
