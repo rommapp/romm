@@ -113,7 +113,7 @@ function tick() {
 
 function onKeydown(e: KeyboardEvent) {
   // `isTrusted` is false for KeyboardEvents constructed via `new` and
-  // `dispatchEvent`: which is how `useGamepad` fires synthetic keys.
+  // `dispatchEvent`, which is how `useGamepad` fires synthetic keys.
   const from: LogEntry["from"] = e.isTrusted ? "real" : "synthetic";
   keyLog.value = [
     { id: logCounter++, at: Date.now(), key: e.key, from },

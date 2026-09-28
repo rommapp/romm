@@ -86,7 +86,7 @@ api.interceptors.response.use(
     //   * 5xx from a non-heartbeat endpoint → "suspect"; ask the connection
     //     layer to confirm via the authoritative /heartbeat probe (so one
     //     buggy endpoint doesn't flash the banner, and the heartbeat request
-    //     itself never re-triggers this: which would loop).
+    //     itself never re-triggers this, which would loop).
     //   * 4xx → backend is alive; emit backend-online so a stale offline banner
     //     clears immediately instead of waiting for the next heartbeat poll.
     const status = error.response?.status as number | undefined;

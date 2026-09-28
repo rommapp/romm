@@ -2,8 +2,8 @@
 // NotificationHost: v2 toast host. Listens for `snackbarShow` and stacks
 // transient glass-card toasts in the top-right (top-centre on mobile).
 // Each toast auto-dismisses after `timeout` ms (default 3000) and can be
-// closed manually. Unlike v1: which replaced a single v-snackbar on each
-// emission: v2 stacks so fast successive messages don't overwrite each
+// closed manually. Unlike v1, which replaced a single v-snackbar on each
+// emission, v2 stacks so fast successive messages don't overwrite each
 // other. Stored colour/icon fields are preserved so existing emitters work.
 import { RIcon } from "@v2/lib";
 import { useEventListener } from "@vueuse/core";

@@ -8,7 +8,7 @@
 // dismissed.
 //
 // Per-instance `@keydown` on the panel only fires when the event
-// happens to bubble to it: which fails whenever a child stops
+// happens to bubble to it, which fails whenever a child stops
 // propagation, or whenever focus lives outside the panel (a teleported
 // listbox, the body itself). A single capture-phase listener on
 // `window` sidesteps both.
