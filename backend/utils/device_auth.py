@@ -115,10 +115,12 @@ def store_pending(device_code: str, user_code: str, data: dict[str, Any]) -> Non
         "status": FlowStatus.PENDING,
         "user_code": user_code,
     }
-    sync_cache.set(
-        _KEY_DC.format(device_code), json.dumps(payload), ex=PENDING_TTL_SECONDS
-    )
-    sync_cache.set(_KEY_UC.format(user_code), device_code, ex=PENDING_TTL_SECONDS)
+    with sync_cache.pipeline() as pipe:
+        pipe.set(
+            _KEY_DC.format(device_code), json.dumps(payload), ex=PENDING_TTL_SECONDS
+        )
+        pipe.set(_KEY_UC.format(user_code), device_code, ex=PENDING_TTL_SECONDS)
+        pipe.execute()
 
 
 def load_pending(device_code: str) -> dict[str, Any] | None:
@@ -165,13 +167,9 @@ def mark_approved(
     remaining = sync_cache.ttl(_KEY_DC.format(device_code))
     if remaining is None or remaining < 1:
         remaining = PENDING_TTL_SECONDS
-    sync_cache.set(
-        _KEY_DC.format(device_code),
-        json.dumps(approved),
-        ex=min(remaining, PENDING_TTL_SECONDS),
+    _finish_flow(
+        device_code, user_code, approved, ttl=min(remaining, PENDING_TTL_SECONDS)
     )
-    if user_code:
-        sync_cache.delete(_KEY_UC.format(user_code))
 
 
 def mark_denied(device_code: str) -> None:
@@ -180,11 +178,18 @@ def mark_denied(device_code: str) -> None:
         return
     user_code = pending.get("user_code")
     denied = {"status": FlowStatus.DENIED}
-    sync_cache.set(
-        _KEY_DC.format(device_code), json.dumps(denied), ex=DENIED_TTL_SECONDS
-    )
-    if user_code:
-        sync_cache.delete(_KEY_UC.format(user_code))
+    _finish_flow(device_code, user_code, denied, ttl=DENIED_TTL_SECONDS)
+
+
+def _finish_flow(
+    device_code: str, user_code: str | None, result: dict[str, Any], *, ttl: int
+) -> None:
+    """Store a flow's outcome and retire its user code in one transaction."""
+    with sync_cache.pipeline() as pipe:
+        pipe.set(_KEY_DC.format(device_code), json.dumps(result), ex=ttl)
+        if user_code:
+            pipe.delete(_KEY_UC.format(user_code))
+        pipe.execute()
 
 
 def consume_approved(device_code: str) -> dict[str, Any] | None:

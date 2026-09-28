@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from httpx2 import Response
@@ -929,3 +930,55 @@ class TestSyncNegotiateBoundTokenInference:
             json={"saves": []},
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_store_pending_writes_neither_key_when_one_write_fails(mocker):
+    # A device code without its user code is a flow nobody can approve.
+    real_pipeline = sync_cache.pipeline
+
+    def failing_pipeline(*args, **kwargs):
+        pipe = real_pipeline(*args, **kwargs)
+        queue_set = pipe.set
+
+        def set_(name, *args, **kwargs):
+            if name.startswith("device_auth:uc:"):
+                raise ConnectionError("valkey went away")
+            return queue_set(name, *args, **kwargs)
+
+        mocker.patch.object(pipe, "set", side_effect=set_)
+        return pipe
+
+    mocker.patch.object(sync_cache, "pipeline", side_effect=failing_pipeline)
+
+    with pytest.raises(ConnectionError):
+        df.store_pending("dc-atomic", "UCATOMIC", {})
+
+    assert sync_cache.get("device_auth:dc:dc-atomic") is None
+    assert sync_cache.get("device_auth:uc:UCATOMIC") is None
+
+
+def test_store_pending_sends_both_keys_in_one_transaction(mocker):
+    real_pipeline = sync_cache.pipeline
+    sent: list[tuple[bool, list[tuple[str, str]]]] = []
+
+    def spying_pipeline(*args, **kwargs):
+        pipe = real_pipeline(*args, **kwargs)
+        real_execute = pipe.execute
+
+        def execute(*args, **kwargs):
+            commands = [(cmd[0], cmd[1]) for cmd, _ in pipe.command_stack]
+            # The instance flag, which the stubs mistake for the transaction() method.
+            sent.append((vars(pipe)["transaction"], commands))
+            return real_execute(*args, **kwargs)
+
+        mocker.patch.object(pipe, "execute", side_effect=execute)
+        return pipe
+
+    mocker.patch.object(sync_cache, "pipeline", side_effect=spying_pipeline)
+
+    df.store_pending("dc-tx", "UCTX", {})
+
+    assert sent == [
+        (True, [("SET", "device_auth:dc:dc-tx"), ("SET", "device_auth:uc:UCTX")])
+    ]
+    assert sync_cache.get("device_auth:uc:UCTX") == b"dc-tx"
