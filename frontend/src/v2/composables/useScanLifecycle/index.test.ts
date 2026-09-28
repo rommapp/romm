@@ -61,6 +61,33 @@ const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 /** Outlast the handler's 100ms batching debounce for `scan:scanning_rom`. */
 const drainRomBatch = () => new Promise((resolve) => setTimeout(resolve, 150));
 
+function platform(overrides: Partial<Platform> = {}): Platform {
+  return {
+    id: 1,
+    slug: "n64",
+    fs_slug: "n64",
+    rom_count: 2,
+    name: "Nintendo 64",
+    igdb_slug: null,
+    moby_slug: null,
+    hltb_slug: null,
+    libretro_slug: null,
+    created_at: "",
+    updated_at: "",
+    fs_size_bytes: 0,
+    is_unidentified: false,
+    is_identified: true,
+    missing_from_fs: false,
+    display_name: "Nintendo 64",
+    firmware_count: 0,
+    ...overrides,
+  };
+}
+
+function simpleRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
+  return { id: 1, name: "Game", platform_id: 1, ...overrides } as SimpleRom;
+}
+
 function scanningRom(
   id: number,
   isNew: boolean,
@@ -194,7 +221,7 @@ describe("installScanLifecycle", () => {
   it("counts only the ROMs a scan added toward the platform's games", async () => {
     install();
     const platforms = storePlatforms();
-    platforms.set([{ id: 1, rom_count: 2 } as Platform]);
+    platforms.set([platform()]);
 
     fire("scan:scanning_rom", scanningRom(1, false));
     fire("scan:scanning_rom", scanningRom(2, false));
@@ -208,7 +235,7 @@ describe("installScanLifecycle", () => {
   it("counts a new ROM once when a platform event rebuilds the live log", async () => {
     install();
     const platforms = storePlatforms();
-    platforms.set([{ id: 1, rom_count: 2 } as Platform]);
+    platforms.set([platform()]);
     const newRom = scanningRom(3, true);
 
     fire("scan:scanning_rom", newRom);
@@ -230,11 +257,11 @@ describe("installScanLifecycle", () => {
 
   it("applies the last ROM batch before reconciling counts on scan:done", async () => {
     vi.mocked(platformApi.getPlatforms).mockResolvedValueOnce({
-      data: [{ id: 1, rom_count: 3 }],
+      data: [platform({ rom_count: 3 })],
     } as never);
     install();
     const platforms = storePlatforms();
-    platforms.set([{ id: 1, rom_count: 2 } as Platform]);
+    platforms.set([platform()]);
 
     fire("scan:scanning_rom", scanningRom(3, true));
     fire("scan:done", makeStats());
@@ -243,10 +270,24 @@ describe("installScanLifecycle", () => {
     expect(platforms.get(1)?.rom_count).toBe(3);
   });
 
+  it("counts a new ROM once when a scan fails with its next emit queued", async () => {
+    install();
+    const platforms = storePlatforms();
+    platforms.set([platform()]);
+
+    fire("scan:scanning_rom", scanningRom(3, true));
+    await drainRomBatch();
+    fire("scan:scanning_rom", scanningRom(3, true));
+    fire("scan:done_ko", "disk gone");
+    await drainRomBatch();
+
+    expect(platforms.get(1)?.rom_count).toBe(3);
+  });
+
   it("puts only the ROMs a scan added at the top of the recent list", async () => {
     install();
     const roms = storeRoms();
-    roms.setRecentRoms([{ id: 1, name: "Old" } as SimpleRom]);
+    roms.setRecentRoms([simpleRom({ name: "Old" })]);
 
     fire("scan:scanning_rom", scanningRom(1, false, { name: "Rescanned" }));
     fire("scan:scanning_rom", scanningRom(2, false));

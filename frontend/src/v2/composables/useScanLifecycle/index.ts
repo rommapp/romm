@@ -219,6 +219,8 @@ export function installScanLifecycle() {
 
   useSocketEvent<string>("scan:done_ko", (msg) => {
     markScanEnded();
+    // Apply the last ROM batch while its counted ids are still known.
+    processRomUpdates.flush();
     countedNewRomIds.clear();
     const startedHere = scanningStore.startedInThisTab;
     scanningStore.setScanning(false);
