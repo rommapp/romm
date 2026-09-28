@@ -80,7 +80,7 @@ const subTab = useSubtabQuery<Subtab>(
 );
 
 // vue3-pdf-app drives one global pdf.js app, so only the last shown PDF subtab
-// mounts a PdfViewer (and only once visible, as pdf.js sizes pages to it).
+// mounts a PdfViewer.
 const pdfSubtab = ref<"manual" | "walkthrough" | null>(null);
 watch(
   subTab,

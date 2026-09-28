@@ -2,7 +2,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref } from "vue";
-import type { DetailedRom } from "@/stores/roms";
+import { makeDetailedRom } from "@/utils/rom.fixtures";
 import MediaTab from "./MediaTab.vue";
 
 const query = ref<Record<string, string>>({});
@@ -66,11 +66,7 @@ async function mountTab(subtab?: string) {
   query.value = subtab ? { tab: "media", subtab } : { tab: "media" };
   const wrapper = mount(MediaTab, {
     props: {
-      rom: {
-        id: 1,
-        files: [],
-        has_soundtrack: false,
-      } as unknown as DetailedRom,
+      rom: makeDetailedRom({ has_soundtrack: false }),
     },
     global: { stubs: { SubtabNav: true, RDropzone: true, REmptyState: true } },
   });
