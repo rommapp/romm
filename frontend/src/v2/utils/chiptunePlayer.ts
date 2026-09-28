@@ -59,7 +59,10 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   private playToken = 0;
   private loaded = false;
   private failed = false;
+  // Flips on each play or pause call, as `<audio>` does, so a quick second
+  // press sees it. `started` is whether playback actually began.
   private isPaused = true;
+  private started = false;
   private position = 0;
   private length = 0;
   private level = 1;
@@ -134,12 +137,14 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   }
 
   async play(): Promise<void> {
+    if (this.failed) return;
     const token = ++this.playToken;
+    this.isPaused = false;
     await this.ensurePort();
     if (token !== this.playToken || this.failed) return;
     await this.context?.resume();
-    if (token !== this.playToken || this.failed || !this.isPaused) return;
-    this.isPaused = false;
+    if (token !== this.playToken || this.failed || this.started) return;
+    this.started = true;
     if (this.loaded) this.post({ type: "play" });
     this.dispatchEvent(new Event("play"));
     if (!this.loaded) this.dispatchEvent(new Event("waiting"));
@@ -149,6 +154,9 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     this.playToken += 1;
     if (this.isPaused) return;
     this.isPaused = true;
+    // A play still starting just yields, having announced nothing.
+    if (!this.started) return;
+    this.started = false;
     this.post({ type: "pause" });
     this.suspendContext();
     this.dispatchEvent(new Event("pause"));
@@ -163,6 +171,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     this.loaded = false;
     this.failed = false;
     this.isPaused = true;
+    this.started = false;
     this.position = 0;
     this.length = 0;
     this.post({ type: "unload" });
@@ -181,6 +190,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   private fail() {
     this.failed = true;
     this.isPaused = true;
+    this.started = false;
     this.suspendContext();
     this.dispatchEvent(new Event("error"));
   }
@@ -232,7 +242,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
         this.length = message.durationMs / 1000;
         this.dispatchEvent(new Event("loadedmetadata"));
         this.dispatchEvent(new Event("canplay"));
-        if (!this.isPaused) this.post({ type: "play" });
+        if (this.started) this.post({ type: "play" });
         break;
       case "time":
         this.position = message.ms / 1000;
@@ -240,6 +250,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
         break;
       case "ended":
         this.isPaused = true;
+        this.started = false;
         this.suspendContext();
         this.dispatchEvent(new Event("ended"));
         break;

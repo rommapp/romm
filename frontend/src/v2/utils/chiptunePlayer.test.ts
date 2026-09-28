@@ -187,6 +187,18 @@ describe("ChiptunePlayer", () => {
     expect(port.types()).toEqual(["unload", "load"]);
   });
 
+  it("stops reporting paused as soon as play is called, like <audio>", async () => {
+    const player = new ChiptunePlayer();
+    await loaded(player);
+    const events = recordEvents(player);
+
+    const starting = player.play();
+    expect(player.paused).toBe(false);
+    await starting;
+
+    expect(events).toEqual(["play"]);
+  });
+
   it("stays paused when a pause overtakes a play still starting", async () => {
     const player = new ChiptunePlayer();
     await loaded(player);
