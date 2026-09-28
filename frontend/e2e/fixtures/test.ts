@@ -8,16 +8,49 @@ const BENIGN_PAGE_ERRORS = [/ResizeObserver loop/];
 export interface E2EOptions {
   /** Opt-out for a test that causes app errors on purpose. */
   failOnAppErrors: boolean;
+  /** Emulate a device with built-in game controls (Steam Deck, AYN Thor). */
+  gamepad: boolean;
 }
 
 interface AutoFixtures {
   appErrorGuard: void;
+  virtualGamepad: void;
 }
 
-/** `test` with the validated environment as `e2eEnv`, and a guard that fails
- *  any test the moment the app itself fails. */
+/** `test` with the validated environment as `e2eEnv`, a guard that fails any
+ *  test the moment the app itself fails, and an optional virtual gamepad. */
 export const test = base.extend<E2EOptions & AutoFixtures, { e2eEnv: E2EEnv }>({
   failOnAppErrors: [true, { option: true }],
+  gamepad: [false, { option: true }],
+
+  // One connected, idle, standard-mapping pad. useGamepad finds it on install
+  // and switches the UI to gamepad modality, as on a handheld.
+  virtualGamepad: [
+    async ({ page, gamepad }, use) => {
+      if (gamepad) {
+        await page.addInitScript(() => {
+          const pad = {
+            id: "e2e virtual gamepad (STANDARD GAMEPAD)",
+            index: 0,
+            connected: true,
+            mapping: "standard",
+            timestamp: 0,
+            axes: [0, 0, 0, 0],
+            buttons: Array.from({ length: 17 }, () => ({
+              pressed: false,
+              touched: false,
+              value: 0,
+            })),
+          };
+          Object.defineProperty(navigator, "getGamepads", {
+            value: () => [pad, null, null, null],
+          });
+        });
+      }
+      await use();
+    },
+    { auto: true },
+  ],
 
   // An /api 5xx or an uncaught exception otherwise surfaces as a locator
   // timeout later, blaming an element. Closing the page fails the wait at once.

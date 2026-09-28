@@ -36,13 +36,16 @@ test.describe("Login", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("an unauthenticated visitor is redirected to login", async ({
-    page,
-  }) => {
-    await seedUiState(page, "dark");
-    await page.goto("/");
+  // Tagged @devices: a cheap smoke test that the app boots on every device.
+  test(
+    "an unauthenticated visitor is redirected to login",
+    { tag: "@devices" },
+    async ({ page }) => {
+      await seedUiState(page, "dark");
+      await page.goto("/");
 
-    await expect(page).toHaveURL(/\/login/);
-    await expect(page.locator("form.r-v2-login-form")).toBeVisible();
-  });
+      await expect(page).toHaveURL(/\/login/);
+      await expect(page.locator("form.r-v2-login-form")).toBeVisible();
+    },
+  );
 });

@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 import { url as inspectorUrl } from "node:inspector";
 import { readE2EEnv, webServerEnv } from "./e2e/e2e-environment";
 import type { E2EOptions } from "./e2e/fixtures/test";
+import { deviceProjectName, ROMM_DEVICES } from "./src/v2/devices";
 
 // End-to-end suite: `npm run test:e2e`. Accounts and the backend under test
 // come from e2e/.env (see e2e/.env.example); CI sets them in the workflow.
@@ -57,6 +58,21 @@ export default defineConfig<E2EOptions>({
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
     },
+    // One project per target device (src/v2/devices.ts), for tests tagged
+    // `@devices` only. See e2e/DEVICES.md.
+    ...Object.values(ROMM_DEVICES).map((device) => ({
+      name: deviceProjectName(device),
+      testIgnore: /.*\.setup\.ts/,
+      grep: /@devices/,
+      dependencies: ["setup"],
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: device.width, height: device.height },
+        hasTouch: device.hasTouchHci,
+        isMobile: device.type === "mobile",
+        gamepad: device.hasGamepadHci,
+      },
+    })),
   ],
   // The suite always serves the app itself, proxying /api and /ws to
   // E2E_DEV_PROXY_TARGET. CI serves the static build from its own workflow
