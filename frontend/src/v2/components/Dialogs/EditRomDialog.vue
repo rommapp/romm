@@ -53,7 +53,7 @@ const coverFileInput = ref<HTMLInputElement | null>(null);
 // the user sees the action is running. v1 leaned on a global
 // `showLoadingDialog` event for the same feedback, but v2 has no
 // listener for it (intentionally, inline `:loading` on the control
-// itself is the v2 pattern, see CLAUDE.md §VI.B), so the emit was a
+// itself is the v2 pattern, see the `frontend-v2-patterns` skill), so the emit was a
 // no-op and the dialog appeared frozen during slow uploads / SGDB
 // fetches.
 const saving = ref(false);
