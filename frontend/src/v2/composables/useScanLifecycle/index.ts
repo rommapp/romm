@@ -43,7 +43,7 @@ import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 /** `scan:scanning_rom` payload; `is_new` marks a ROM this scan added. */
-type ScanningRom = SimpleRom & { is_new?: boolean };
+type ScanningRom = SimpleRom & { is_new: boolean };
 
 export function installScanLifecycle() {
   const scanningStore = storeScanning();
