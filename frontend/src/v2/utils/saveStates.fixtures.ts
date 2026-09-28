@@ -149,13 +149,15 @@ export function manyStates(n: number, withScreenshots = true): StateSchema[] {
   ];
   return Array.from({ length: n }).map((_, i) => {
     const shot = stateShots[i % stateShots.length];
+    const at = new Date(
+      STORY_NOW - deltas[i % deltas.length] * 1000,
+    ).toISOString();
     return makeState({
       id: i + 1,
       file_name: `${shot.label.replace("+", " ").toLowerCase()}_${i + 1}.state`,
       file_size_bytes: 256 * 1024 + i * 73 * 1024,
-      updated_at: new Date(
-        STORY_NOW - deltas[i % deltas.length] * 1000,
-      ).toISOString(),
+      created_at: at,
+      updated_at: at,
       screenshot: withScreenshots
         ? screenshotFixture(
             `https://placehold.co/640x360/${shot.color}/ffffff?text=${shot.label}`,
@@ -173,7 +175,8 @@ export function identicalPrefixStates(count: number): StateSchema[] {
     const tail = new Date(STORY_NOW - (i + 1) * HOUR).toISOString();
     return makeState({
       id: i + 1,
-      file_name: `${IDENTICAL_STATE_PREFIX}_2026-05-25_${tail.replace(/[:.]/g, "-")}.state`,
+      file_name: `${IDENTICAL_STATE_PREFIX}_${tail.replace(/[:.]/g, "-")}.state`,
+      created_at: tail,
       updated_at: tail,
       emulator: i % 2 === 0 ? "snes9x" : "mesen",
     });
@@ -189,10 +192,9 @@ export function toUserSave(
     ...save,
     username,
     is_public: true,
-    user_avatar_path: undefined,
     user_updated_at: save.updated_at,
     ...overrides,
-  } as UserSaveSchema;
+  };
 }
 
 export function toUserState(
@@ -204,10 +206,9 @@ export function toUserState(
     ...state,
     username,
     is_public: true,
-    user_avatar_path: undefined,
     user_updated_at: state.updated_at,
     ...overrides,
-  } as UserStateSchema;
+  };
 }
 
 // User 1's saves plus another user's public ones.
@@ -215,8 +216,8 @@ export function mixedCommunitySaves(): UserSaveSchema[] {
   const mine = saveSlotLibrary().map((s) =>
     toUserSave(s, "player", { user_id: 1, is_public: s.id % 3 === 0 }),
   );
-  const theirs = makeSaveSlot("shared_route", 2, 40, 100).map((s, i) =>
-    toUserSave({ ...s, id: 100 + i, user_id: 2 }, "speedrunner42"),
+  const theirs = makeSaveSlot("shared_route", 2, 40, 100).map((s) =>
+    toUserSave(s, "speedrunner42", { user_id: 2 }),
   );
   return [...mine, ...theirs];
 }

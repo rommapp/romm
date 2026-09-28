@@ -1,8 +1,12 @@
 import { userEvent, waitFor, within } from "storybook/test";
 
-// Selectable rows only; slot fold buttons use a different class.
+// Selectable rows only; manage-mode rows carry the `--static` modifier.
 export function listRows(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(".r-asset-list__row"));
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(
+      ".r-asset-list__row:not(.r-asset-list__row--static)",
+    ),
+  );
 }
 
 export function manageListRows(root: HTMLElement): HTMLElement[] {
@@ -38,6 +42,8 @@ export async function pickSaveDataSubtab(
     throw new Error("Save data subtab nav not found (tab or menu trigger)");
   }
   await userEvent.click(trigger);
-  const option = await waitFor(() => within(document.body).getByText(label));
+  const option = await waitFor(() =>
+    within(document.body).getByRole("menuitem", { name: label }),
+  );
   await userEvent.click(option);
 }

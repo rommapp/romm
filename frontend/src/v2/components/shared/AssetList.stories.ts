@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
-import type { SaveSchema, StateSchema } from "@/__generated__";
 import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
+import type { Asset, AssetType } from "@/v2/utils/assets";
 import {
   IDENTICAL_STATE_PREFIX,
   identicalPrefixStates,
@@ -21,61 +21,55 @@ import {
 } from "@/v2/utils/saveStates.plays";
 import AssetList from "./AssetList.vue";
 
-const listDecorator = [
-  () => ({
-    template: `
-      <div style="
-        max-width: 520px;
-        padding: 18px;
-        background: var(--r-color-bg-elevated);
-        border: 1px solid var(--r-color-border);
-        border-radius: var(--r-radius-lg);
-      ">
-        <story />
-      </div>
-    `,
-  }),
-];
-
 const meta: Meta<typeof AssetList> = {
   title: "Shared/AssetList",
   component: AssetList,
-  decorators: listDecorator,
+  decorators: [
+    () => ({
+      template: `
+        <div style="
+          max-width: 520px;
+          padding: 18px;
+          background: var(--r-color-bg-elevated);
+          border: 1px solid var(--r-color-border);
+          border-radius: var(--r-radius-lg);
+        ">
+          <story />
+        </div>
+      `,
+    }),
+  ],
 };
 
 export default meta;
 type Story = StoryObj<typeof AssetList>;
 
-function selectableSaves(saves: SaveSchema[], selected: number | null) {
+function selectableList(
+  assets: Asset[],
+  type: AssetType,
+  selected: number | null,
+  extra: Partial<InstanceType<typeof AssetList>["$props"]> = {},
+) {
   return {
     components: { AssetList },
     setup() {
       const selectedId = ref<number | null>(selected);
       return {
-        saves,
+        assets,
+        type,
         selectedId,
-        onSelect: (a: SaveSchema) => (selectedId.value = a.id),
+        extra,
+        onSelect: (a: Asset) => (selectedId.value = a.id),
       };
     },
     template: `
-      <AssetList :assets="saves" type="save" :selected-id="selectedId" @select="onSelect" />
-    `,
-  };
-}
-
-function selectableStates(states: StateSchema[], selected: number | null) {
-  return {
-    components: { AssetList },
-    setup() {
-      const selectedId = ref<number | null>(selected);
-      return {
-        states,
-        selectedId,
-        onSelect: (a: StateSchema) => (selectedId.value = a.id),
-      };
-    },
-    template: `
-      <AssetList :assets="states" type="state" :selected-id="selectedId" @select="onSelect" />
+      <AssetList
+        :assets="assets"
+        :type="type"
+        :selected-id="selectedId"
+        v-bind="extra"
+        @select="onSelect"
+      />
     `,
   };
 }
@@ -85,7 +79,7 @@ export const SlotLibrary: Story = {
   name: "Saves · slots (selectable)",
   render: () => {
     const saves = saveSlotLibrary();
-    return selectableSaves(saves, saves[0].id);
+    return selectableList(saves, "save", saves[0].id);
   },
   play: async ({ canvasElement, step }) => {
     const ui = within(canvasElement);
@@ -111,7 +105,7 @@ export const OlderVersionSelected: Story = {
   render: () => {
     const saves = saveSlotLibrary();
     const olderMainQuest = saves.filter((s) => s.slot === "main_quest")[3];
-    return selectableSaves(saves, olderMainQuest.id);
+    return selectableList(saves, "save", olderMainQuest.id);
   },
 };
 
@@ -127,7 +121,7 @@ export const ArchiveOnly: Story = {
       }),
       makeSave(3, null, 400, { emulator: null }),
     ];
-    return selectableSaves(saves, null);
+    return selectableList(saves, "save", null);
   },
 };
 
@@ -140,39 +134,10 @@ export const StreamArchives: Story = {
       makeSave(2, null, 20),
       makeSave(3, null, 30, { screenshot: saveScreenshot(200) }),
     ];
-    return {
-      components: { AssetList },
-      setup() {
-        const selectedId = ref<number | null>(saves[0].id);
-        return {
-          saves,
-          selectedId,
-          onSelect: (a: SaveSchema) => (selectedId.value = a.id),
-        };
-      },
-      template: `
-        <AssetList
-          :assets="saves"
-          type="save"
-          timestamp="created"
-          :group-by-slot="false"
-          :selected-id="selectedId"
-          @select="onSelect"
-        />
-      `,
-    };
-  },
-};
-
-export const SaveWithContentHash: Story = {
-  name: "Saves · content hash (fixture)",
-  render: () => {
-    const saves = [
-      makeSave(1, "main_quest", 2, {
-        content_hash: "a1b2c3d4e5f6789012345678901234ab",
-      }),
-    ];
-    return selectableSaves(saves, saves[0].id);
+    return selectableList(saves, "save", saves[0].id, {
+      timestamp: "created",
+      groupBySlot: false,
+    });
   },
 };
 
@@ -181,7 +146,7 @@ export const SingleSave: Story = {
   name: "Saves · single",
   render: () => {
     const saves = makeSaveSlot("autosave", 1, 2, 1);
-    return selectableSaves(saves, saves[0].id);
+    return selectableList(saves, "save", saves[0].id);
   },
 };
 
@@ -189,7 +154,7 @@ export const StatesSelectable: Story = {
   name: "States · selectable",
   render: () => {
     const states = manyStates(5);
-    return selectableStates(states, states[0].id);
+    return selectableList(states, "state", states[0].id);
   },
 };
 
@@ -198,7 +163,7 @@ export const IdenticalPrefixStates: Story = {
   name: "States · identical prefix",
   render: () => {
     const states = identicalPrefixStates(4);
-    return selectableStates(states, states[0].id);
+    return selectableList(states, "state", states[0].id);
   },
   play: async ({ canvasElement, step }) => {
     await step("each row keeps the full filename in the DOM", async () => {

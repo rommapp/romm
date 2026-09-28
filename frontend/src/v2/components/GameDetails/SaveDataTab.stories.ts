@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import mitt from "mitt";
 import { expect, waitFor, within } from "storybook/test";
-import { ref } from "vue";
+import { provide, ref } from "vue";
 import { useRouter } from "vue-router";
 import type { DetailedRomSchema } from "@/__generated__";
 import storeAuth from "@/stores/auth";
+import type { Events } from "@/types/emitter";
 import { userFixture } from "@/utils/user.fixtures";
 import {
   mixedCommunitySaves,
@@ -23,6 +25,21 @@ interface StoryArgs {
   rom: DetailedRomSchema;
 }
 
+const MINE_HEADING: Record<Subtab, string> = {
+  saves: "My saves",
+  states: "My states",
+};
+
+// Both panels stay mounted behind v-show, so only the role query, which skips
+// hidden nodes, tells which subtab is on screen.
+async function waitForSubtab(root: HTMLElement, subtab: Subtab) {
+  await waitFor(() => {
+    expect(
+      within(root).getByRole("heading", { name: MINE_HEADING[subtab] }),
+    ).toBeTruthy();
+  });
+}
+
 const meta: Meta<StoryArgs> = {
   title: "GameDetails/SaveDataTab",
   component: SaveDataTab,
@@ -33,31 +50,35 @@ const meta: Meta<StoryArgs> = {
     subtab: "saves",
     rom: storyDetailedRom(),
   },
-  decorators: [
-    (_, { args }) => ({
-      components: { SaveDataTab },
-      setup() {
-        storeAuth().setCurrentUser(userFixture({ username: "player" }));
-        // SaveDataTab reads `?subtab=` during setup, so mount it after navigating.
-        const ready = ref(false);
-        void useRouter()
-          .replace({ query: { tab: "save-data", subtab: args.subtab } })
-          .then(() => (ready.value = true));
-        return { rom: args.rom, ready };
-      },
-      template: `
-        <div style="
-          box-sizing: border-box;
-          width: 100%;
-          min-height: 100%;
-          padding: var(--r-space-4);
-          background: var(--r-color-bg);
-        ">
-          <SaveDataTab v-if="ready" :rom="rom" style="height: min(720px, 85vh);" />
-        </div>
-      `,
-    }),
-  ],
+  render: (args) => ({
+    components: { SaveDataTab },
+    setup() {
+      provide("emitter", mitt<Events>());
+      storeAuth().setCurrentUser(userFixture({ username: "player" }));
+      // SaveDataTab reads `?subtab=` during setup, so mount it after navigating.
+      const ready = ref(false);
+      void useRouter()
+        .replace({ query: { tab: "save-data", subtab: args.subtab } })
+        .then(() => (ready.value = true));
+      return { rom: args.rom, ready };
+    },
+    template: `
+      <div style="
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 100%;
+        padding: var(--r-space-4);
+        background: var(--r-color-bg);
+      ">
+        <SaveDataTab v-if="ready" :rom="rom" style="height: min(720px, 85vh);" />
+      </div>
+    `,
+  }),
+  // The mount lands after navigating, so every story waits for it before the
+  // a11y scan runs.
+  play: async ({ canvasElement, args }) => {
+    await waitForSubtab(canvasElement, args.subtab);
+  },
 };
 
 export default meta;
@@ -65,35 +86,24 @@ type Story = StoryObj<StoryArgs>;
 
 export const SavesFull: Story = {
   name: "Saves · mine + community",
-  args: { subtab: "saves", rom: storyDetailedRom() },
   play: async ({ canvasElement, step }) => {
     const ui = within(canvasElement);
     await step("saves subtab shows mine and community sections", async () => {
-      await waitFor(() => {
-        expect(ui.getByText("My saves")).toBeTruthy();
-      });
-      expect(ui.getAllByText("Community").length).toBeGreaterThanOrEqual(1);
+      await waitForSubtab(canvasElement, "saves");
+      expect(ui.getByRole("heading", { name: "Community" })).toBeTruthy();
       expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
     });
     await step("switching to states subtab", async () => {
       await pickSaveDataSubtab(canvasElement, /^States/i);
-      await waitFor(() => {
-        expect(ui.getByText("My states")).toBeTruthy();
-      });
+      await waitForSubtab(canvasElement, "states");
+      expect(ui.queryByRole("heading", { name: "My saves" })).toBeNull();
     });
   },
 };
 
 export const StatesFull: Story = {
   name: "States · mine + community",
-  args: { subtab: "states", rom: storyDetailedRom() },
-  play: async ({ canvasElement, step }) => {
-    await step("states subtab lists mine section", async () => {
-      await waitFor(() => {
-        expect(within(canvasElement).getByText("My states")).toBeTruthy();
-      });
-    });
-  },
+  args: { subtab: "states" },
 };
 
 export const SavesEmptyMine: Story = {
@@ -106,9 +116,8 @@ export const SavesEmptyMine: Story = {
   },
   play: async ({ canvasElement, step }) => {
     await step("empty mine promotes upload dropzone", async () => {
-      await waitFor(() => {
-        expect(within(canvasElement).getByText("No saves yet")).toBeTruthy();
-      });
+      await waitForSubtab(canvasElement, "saves");
+      expect(within(canvasElement).getByText("No saves yet")).toBeTruthy();
     });
   },
 };
@@ -152,21 +161,25 @@ export const CompletelyEmpty: Story = {
 };
 
 export const SingleCommunitySave: Story = {
-  name: "Saves · community only",
+  name: "Saves · single community save",
   args: {
     subtab: "saves",
     rom: storyDetailedRom({
-      all_user_saves: mixedCommunitySaves().filter((s) => s.user_id !== 1),
+      all_user_saves: mixedCommunitySaves()
+        .filter((s) => s.user_id !== 1)
+        .slice(0, 1),
     }),
   },
 };
 
 export const SingleCommunityState: Story = {
-  name: "States · community only",
+  name: "States · single community state",
   args: {
     subtab: "states",
     rom: storyDetailedRom({
-      all_user_states: mixedCommunityStates().filter((s) => s.user_id !== 1),
+      all_user_states: mixedCommunityStates()
+        .filter((s) => s.user_id !== 1)
+        .slice(0, 1),
     }),
   },
 };

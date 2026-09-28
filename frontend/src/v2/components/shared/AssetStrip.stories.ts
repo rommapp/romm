@@ -13,26 +13,24 @@ import {
 import { downloadButtons, stripTiles } from "@/v2/utils/saveStates.plays";
 import AssetStrip from "./AssetStrip.vue";
 
-const stripDecorator = [
-  () => ({
-    template: `
-      <div style="
-        max-width: 720px;
-        padding: 18px;
-        background: var(--r-color-bg-elevated);
-        border: 1px solid var(--r-color-border);
-        border-radius: var(--r-radius-lg);
-      ">
-        <story />
-      </div>
-    `,
-  }),
-];
-
 const meta: Meta<typeof AssetStrip> = {
   title: "Shared/AssetStrip",
   component: AssetStrip,
-  decorators: stripDecorator,
+  decorators: [
+    () => ({
+      template: `
+        <div style="
+          max-width: 720px;
+          padding: 18px;
+          background: var(--r-color-bg-elevated);
+          border: 1px solid var(--r-color-border);
+          border-radius: var(--r-radius-lg);
+        ">
+          <story />
+        </div>
+      `,
+    }),
+  ],
 };
 
 export default meta;
@@ -42,7 +40,7 @@ type Story = StoryObj<typeof AssetStrip>;
 function selectableStrip(
   states: StateSchema[],
   selected: number | null,
-  extra: Record<string, unknown> = {},
+  extra: Partial<InstanceType<typeof AssetStrip>["$props"]> = {},
 ) {
   return {
     components: { AssetStrip },
@@ -196,27 +194,7 @@ export const IncompatibleStates: Story = {
       asset.emulator === "snes9x"
         ? null
         : `Saved with ${asset.emulator}, which the selected core cannot load.`;
-    return {
-      components: { AssetStrip },
-      setup() {
-        const selectedId = ref<number | null>(states[0].id);
-        return {
-          states,
-          selectedId,
-          disabledReason,
-          onSelect: (a: StateSchema) => (selectedId.value = a.id),
-        };
-      },
-      template: `
-        <AssetStrip
-          :assets="states"
-          type="state"
-          :selected-id="selectedId"
-          :disabled-reason="disabledReason"
-          @select="onSelect"
-        />
-      `,
-    };
+    return selectableStrip(states, states[0].id, { disabledReason });
   },
 };
 
