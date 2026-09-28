@@ -2,7 +2,11 @@ import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createI18n } from "vue-i18n";
+import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
+import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
 import enSettings from "@/locales/en_US/settings.json";
+import storeConfig from "@/stores/config";
+import type { MetadataOption } from "@/stores/heartbeat";
 import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
 import PlatformsStatsSection from "./PlatformsStatsSection.vue";
@@ -10,7 +14,7 @@ import PlatformsStatsSection from "./PlatformsStatsSection.vue";
 // The heartbeat store pulls in config + i18n; stub it down to the single
 // method this component calls.
 const metadataOptions = vi.hoisted(() => ({
-  value: [] as { value: string; name: string; logo_path: string }[],
+  value: [] as MetadataOption[],
 }));
 vi.mock("@/stores/heartbeat", () => ({
   default: () => ({
@@ -60,8 +64,8 @@ function platform(overrides: Partial<Platform> = {}): Platform {
 
 function mountSection(
   platforms: Platform[],
-  regionBreakdown: Record<string, { region: string; count: number }[]> = {},
-  metadataCoverage: Record<string, { source: string; matched: number }[]> = {},
+  regionBreakdown: Record<string, RegionBreakdownItem[]> = {},
+  metadataCoverage: Record<string, MetadataCoverageItem[]> = {},
 ) {
   storePlatforms().set(platforms);
   return mount(PlatformsStatsSection, {
@@ -237,8 +241,13 @@ describe("PlatformsStatsSection", () => {
 
   it("orders coverage chips by scan priority, unranked sources last", () => {
     metadataOptions.value = [
-      { value: "ss", name: "Screenscraper", logo_path: "/ss.png" },
-      { value: "igdb", name: "IGDB", logo_path: "/igdb.png" },
+      {
+        value: "ss",
+        name: "Screenscraper",
+        logo_path: "/ss.png",
+        disabled: "",
+      },
+      { value: "igdb", name: "IGDB", logo_path: "/igdb.png", disabled: "" },
     ];
     const wrapper = mountSection(
       [platform({ id: 1, rom_count: 4 })],
@@ -259,6 +268,39 @@ describe("PlatformsStatsSection", () => {
       "/ss.png",
       "/igdb.png",
       "/assets/scrappers/tgdb.png",
+    ]);
+  });
+
+  it("ranks TheGamesDB at its configured scan priority", () => {
+    metadataOptions.value = [
+      {
+        value: "ss",
+        name: "Screenscraper",
+        logo_path: "/ss.png",
+        disabled: "",
+      },
+      { value: "igdb", name: "IGDB", logo_path: "/igdb.png", disabled: "" },
+    ];
+    storeConfig().config.SCAN_METADATA_PRIORITY = ["ss", "tgdb", "igdb"];
+    const wrapper = mountSection(
+      [platform({ id: 1, rom_count: 4 })],
+      {},
+      {
+        "1": [
+          { source: "igdb", matched: 2 },
+          { source: "ss", matched: 3 },
+          { source: "tgdb", matched: 1 },
+        ],
+      },
+    );
+
+    const sources = wrapper
+      .findAll(".r-v2-plat-stats__coverage img")
+      .map((img) => img.attributes("src"));
+    expect(sources).toEqual([
+      "/ss.png",
+      "/assets/scrappers/tgdb.png",
+      "/igdb.png",
     ]);
   });
 

@@ -25,6 +25,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
+import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, regionToEmoji } from "@/utils";
@@ -50,6 +51,7 @@ const platformsStore = storePlatforms();
 // Only platforms that contain games should be displayed
 const { filledPlatforms } = storeToRefs(platformsStore);
 const heartbeat = storeHeartbeat();
+const { config } = storeToRefs(storeConfig());
 
 type OrderBy = "name" | "size" | "count";
 const orderBy = ref<OrderBy>("name");
@@ -125,12 +127,13 @@ const sourceInfo = computed(() => {
 });
 
 const orderedCoverageByPlatform = computed(() => {
-  const priority = metadataOptions.value.map((o) => o.value);
-  // Sources outside the scan priority (e.g. TheGamesDB) sort last.
-  const rank = (source: string) => {
-    const i = priority.indexOf(source);
-    return i === -1 ? priority.length : i;
-  };
+  // The configured priority also ranks TheGamesDB, which has no scan option.
+  const priority = new Set([
+    ...(config.value.SCAN_METADATA_PRIORITY ?? []),
+    ...metadataOptions.value.map((o) => o.value),
+  ]);
+  const rankBySource = new Map([...priority].map((source, i) => [source, i]));
+  const rank = (source: string) => rankBySource.get(source) ?? priority.size;
   const result: Record<string, MetadataCoverageItem[]> = {};
   for (const [id, items] of Object.entries(props.metadataCoverage)) {
     result[id] = [...items].sort((a, b) => rank(a.source) - rank(b.source));
