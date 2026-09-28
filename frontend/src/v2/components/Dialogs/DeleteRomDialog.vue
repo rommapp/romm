@@ -14,6 +14,7 @@ import storeConfig from "@/stores/config";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { useRomSync } from "@/v2/composables/useRomSync";
+import { romIdFromRoute } from "@/v2/composables/useRouteRom";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -132,13 +133,16 @@ async function deleteRoms() {
     closeDialog();
     // Only leave the single-ROM route when that ROM was actually deleted.
     if (route.name === "rom" && deletedRoms.length > 0) {
-      await router.push({
-        name: ROUTES.PLATFORM,
-        params: { platform: targetPlatformId },
-      });
+      // The delete already succeeded, so a failed redirect is only logged.
+      await router
+        .push({ name: ROUTES.PLATFORM, params: { platform: targetPlatformId } })
+        .catch((error: unknown) => console.error(error));
     }
-    // After leaving, since the details page renders its record until then.
-    romsStore.forgetDetailedRoms(deletedRoms.map((rom) => rom.id));
+    // A page still on a deleted game (the redirect failed) keeps its record.
+    const shownId = romIdFromRoute(route);
+    romsStore.forgetDetailedRoms(
+      deletedRoms.map((rom) => rom.id).filter((id) => id !== shownId),
+    );
   } catch (error: unknown) {
     console.error(error);
     const axiosErr = error as { response?: { data?: { detail?: string } } };

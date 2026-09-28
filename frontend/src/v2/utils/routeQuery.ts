@@ -15,6 +15,8 @@ import {
   isNavigationFailure,
   type LocationQuery,
   NavigationFailureType,
+  type RouteLocation,
+  type RouteLocationNormalized,
   type Router,
 } from "vue-router";
 
@@ -38,7 +40,12 @@ interface PendingWrite {
 // Keyed by router so two router instances (tests, nested apps) never share
 // state. The in-flight value is the target of the navigation under way.
 const pendingByRouter = new WeakMap<QueryRouter, PendingWrite>();
-const inFlightByRouter = new WeakMap<QueryRouter, unknown>();
+const inFlightByRouter = new WeakMap<QueryRouter, RouteLocationNormalized>();
+
+// Every hop of a guard redirect chain points back at the navigation it began as.
+function originOf(to: RouteLocationNormalized): RouteLocation {
+  return to.redirectedFrom ?? to;
+}
 
 /** Track the router's in-flight navigation so query writes wait it out.
  *  Returns the remove function. */
@@ -51,11 +58,14 @@ export function installQueryNavigationGuard(router: Router): () => void {
     inFlightByRouter.set(router, to);
   });
   // Only the tracked navigation settles, since an older one can end after its
-  // successor started; a redirect onto this page ends as an untracked duplicate.
+  // successor started. A guard redirect onto this page ends as a duplicate.
   const removeAfterEach = router.afterEach((to, _from, failure) => {
+    const tracked = inFlightByRouter.get(router);
+    if (!tracked) return;
     if (
-      inFlightByRouter.get(router) === to ||
-      isNavigationFailure(failure, NavigationFailureType.duplicated)
+      tracked === to ||
+      (isNavigationFailure(failure, NavigationFailureType.duplicated) &&
+        originOf(to) === originOf(tracked))
     ) {
       settle();
     }

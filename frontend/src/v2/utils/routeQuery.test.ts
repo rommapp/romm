@@ -237,6 +237,40 @@ describe("patchQuery during a navigation", () => {
     );
   });
 
+  it("applies a write once a redirect chain lands back on the current page", async () => {
+    await setup();
+    const removeRedirect = router.beforeEach((to) => {
+      if (to.path === "/x") return "/y";
+      if (to.path === "/y") return "/b";
+    });
+
+    await router.push("/x");
+    removeRedirect();
+    patchQuery(router, { search: "zelda" });
+
+    await vi.waitFor(() =>
+      expect(router.currentRoute.value.fullPath).toBe("/b?search=zelda"),
+    );
+  });
+
+  it("keeps a write held through an unrelated duplicate navigation", async () => {
+    await setup();
+
+    await hold(() => router.push("/c"));
+    patchQuery(router, { tab: "files" });
+    await nextTick();
+    await router.push("/b");
+    // Room for a wrongly released write to commit.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // The duplicate supersedes /c, but the write waits for /c to end.
+    expect(router.currentRoute.value.fullPath).toBe("/b");
+    release();
+    await vi.waitFor(() =>
+      expect(router.currentRoute.value.fullPath).toBe("/b?tab=files"),
+    );
+  });
+
   it("applies a held write when the guard is removed", async () => {
     await setup();
 
