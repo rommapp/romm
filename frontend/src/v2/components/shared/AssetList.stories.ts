@@ -74,7 +74,6 @@ function selectableList(
   };
 }
 
-// Autosave history, two named slots and two archives: the full slot model.
 export const SlotLibrary: Story = {
   name: "Saves · slots (selectable)",
   render: () => {
@@ -158,7 +157,6 @@ export const StatesSelectable: Story = {
   },
 };
 
-// Browser-player names differ only at the end, which the ellipsis hides.
 export const IdenticalPrefixStates: Story = {
   name: "States · identical prefix",
   render: () => {
