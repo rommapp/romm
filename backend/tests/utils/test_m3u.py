@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 from utils.m3u import (
+    contained_playlist_entries,
     disc_number,
     first_playlist_entry,
     generate_m3u_content,
@@ -78,6 +79,50 @@ class TestFirstPlaylistEntry:
         m3u.write_text("#EXTM3U\n\n")
 
         assert first_playlist_entry(m3u) is None
+
+
+class TestContainedPlaylistEntries:
+    def test_lists_entries_relative_to_playlist_folder(self, tmp_path):
+        discs = tmp_path / "disks"
+        discs.mkdir()
+        (discs / "Game (Disc 1).chd").write_bytes(b"x")
+        (discs / "Game (Disc 2).chd").write_bytes(b"x")
+        m3u = tmp_path / "Game.m3u"
+        m3u.write_text("#EXTM3U\ndisks/Game (Disc 1).chd\r\ndisks\\Game (Disc 2).chd\n")
+
+        assert contained_playlist_entries(m3u) == [
+            "disks/Game (Disc 1).chd",
+            "disks/Game (Disc 2).chd",
+        ]
+
+    def test_skips_entries_outside_the_playlist_folder(self, tmp_path):
+        folder = tmp_path / "roms"
+        folder.mkdir()
+        outside = tmp_path / "secret.bin"
+        outside.write_bytes(b"x")
+        (folder / "disc.chd").write_bytes(b"x")
+        m3u = folder / "Game.m3u"
+        m3u.write_text(f"../secret.bin\n{outside}\ndisc.chd\n")
+
+        assert contained_playlist_entries(m3u) == ["disc.chd"]
+
+    def test_skips_missing_duplicate_and_self_entries(self, tmp_path):
+        (tmp_path / "disc.chd").write_bytes(b"x")
+        m3u = tmp_path / "Game.m3u"
+        m3u.write_text("missing.chd\ndisc.chd\n./disc.chd\nGame.m3u\n")
+
+        assert contained_playlist_entries(m3u) == ["disc.chd"]
+
+    def test_accepts_absolute_entry_inside_the_folder(self, tmp_path):
+        disc = tmp_path / "disc.chd"
+        disc.write_bytes(b"x")
+        m3u = tmp_path / "Game.m3u"
+        m3u.write_text(f"{disc}\n")
+
+        assert contained_playlist_entries(m3u) == ["disc.chd"]
+
+    def test_returns_empty_for_unreadable_playlist(self, tmp_path):
+        assert contained_playlist_entries(tmp_path / "missing.m3u") == []
 
 
 def _make_file(name: str, extension: str, download_name: str | None = None):

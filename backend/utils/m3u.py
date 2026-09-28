@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from logger.formatter import highlight as hl
+from logger.logger import log
 
 if TYPE_CHECKING:
     from models.rom import RomFile
@@ -57,16 +61,8 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
         lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
     except OSError:
         return None
-    for line in lines:
-        entry = line.strip()
-        if not entry or entry.startswith("#"):
-            continue
-        # Playlists written on Windows separate folders with backslashes, which
-        # a POSIX file name may also contain, so the literal path is tried first.
-        candidates = [entry]
-        if "\\" in entry:
-            candidates.append(entry.replace("\\", "/"))
-        for candidate in candidates:
+    for entry in _playlist_lines(lines):
+        for candidate in _entry_candidates(entry):
             entry_path = Path(candidate)
             if not entry_path.is_absolute():
                 entry_path = m3u_path.parent / entry_path
@@ -74,6 +70,63 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
                 return entry_path
         return None
     return None
+
+
+def contained_playlist_entries(m3u_path: Path) -> list[str]:
+    """The files an .m3u playlist lists that sit inside its own folder.
+
+    Entries that are missing, or that resolve outside the playlist's folder
+    (through `..` or an absolute path), are skipped with a warning.
+
+    Returns:
+        Each file's path relative to the playlist's folder, POSIX-separated,
+        in playlist order and without duplicates or the playlist itself.
+    """
+    try:
+        lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError:
+        return []
+    root = os.path.normpath(m3u_path.parent)
+    entries: list[str] = []
+    for entry in _playlist_lines(lines):
+        resolved = None
+        contained = False
+        for candidate in _entry_candidates(entry):
+            normalized = os.path.normpath(os.path.join(root, candidate))
+            if not normalized.startswith(root + os.sep):
+                continue
+            contained = True
+            if os.path.isfile(normalized):
+                resolved = Path(normalized).relative_to(root).as_posix()
+                break
+        if resolved is None:
+            reason = "not found" if contained else "outside its folder"
+            log.warning(
+                f"Skipping playlist entry {hl(entry)} in {hl(str(m3u_path))}: {reason}"
+            )
+        elif resolved != m3u_path.name and resolved not in entries:
+            entries.append(resolved)
+    return entries
+
+
+def _playlist_lines(lines: list[str]) -> list[str]:
+    """A playlist's entries, without blank lines and comments."""
+    return [
+        line.strip()
+        for line in lines
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
+def _entry_candidates(entry: str) -> list[str]:
+    """The paths a playlist entry may mean, the literal one first.
+
+    Playlists written on Windows separate folders with backslashes, which a
+    POSIX file name may also contain.
+    """
+    if "\\" in entry:
+        return [entry, entry.replace("\\", "/")]
+    return [entry]
 
 
 def playlist_files(files: list[RomFile]) -> list[RomFile]:

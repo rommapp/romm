@@ -11,7 +11,7 @@ from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
 import pydash
-from anyio import Path, open_file
+from anyio import Path, open_file, to_thread
 from fastapi import (
     Body,
     Depends,
@@ -121,6 +121,7 @@ from models.rom import (
     PINNED_MEDIA_MAX_ITEMS,
     TITLE_ID_MAX_LENGTH,
     Rom,
+    RomFile,
     RomIdentity,
     RomUserStatus,
     SaveTargetLayout,
@@ -132,7 +133,7 @@ from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
-from utils.m3u import generate_m3u_content, playlist_files
+from utils.m3u import generate_m3u_content
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter, as_query_dependency
 from utils.screenshots import continue_playing_screenshot
@@ -148,6 +149,7 @@ from utils.zip_cache import (
     get_bulk_namespace,
     get_cache_key,
     get_cached_zip,
+    playlist_zip_entries,
     resolve_cached_zip,
 )
 
@@ -1295,6 +1297,21 @@ def get_rom(
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
+async def _player_playlist_entries(
+    rom: Rom, files: list[RomFile], purpose: str
+) -> list[ZipFileEntry]:
+    """What a player boots a lone .m3u rom from: the playlist and its discs.
+
+    Empty unless a player asked for the rom's own .m3u and it lists files.
+    """
+    if purpose != "play" or len(files) != 1:
+        return []
+    (m3u,) = files
+    if m3u.full_path != rom.full_path or m3u.file_extension.lower() != "m3u":
+        return []
+    return await to_thread.run_sync(playlist_zip_entries, m3u)
+
+
 @protected_route(
     router.head,
     "/{id}/content/{file_name}",
@@ -1311,6 +1328,10 @@ async def head_rom_content(
             description="Comma-separated list of file ids to download for multi-part roms."
         ),
     ] = None,
+    purpose: Annotated[
+        Literal["download", "play"],
+        Query(description="`play` when a player fetches the rom to run it."),
+    ] = "download",
 ) -> Response:
     """Retrieve head information for a rom file download."""
 
@@ -1333,9 +1354,14 @@ async def head_rom_content(
             detail=f"No files found for ROM {id}",
         )
 
+    hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
+    entries = await _player_playlist_entries(rom, files, purpose) or [
+        ZipFileEntry.from_rom_file(f, hidden_folder) for f in files
+    ]
+
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
-        if len(files) == 1:
+        if len(entries) == 1:
             file = files[0]
             rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
             if not await Path(rom_path).is_file():
@@ -1361,13 +1387,11 @@ async def head_rom_content(
         )
 
     # Otherwise proxy through nginx
-    if len(files) == 1:
+    if len(entries) == 1:
         return FileRedirectResponse(
             download_path=Path(f"/library/{files[0].full_path}"),
         )
 
-    hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
-    entries = [ZipFileEntry.from_rom_file(f, hidden_folder) for f in files]
     namespace = str(rom.id)
     cache_key = get_cache_key(namespace, entries, hidden_folder)
     cached = get_cached_zip(namespace, cache_key)
@@ -1455,6 +1479,11 @@ async def get_rom_content(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
 
+    entries = await _player_playlist_entries(rom, files, purpose) or [
+        ZipFileEntry.from_rom_file(f, hidden_folder) for f in files
+    ]
+    has_m3u = rom.has_m3u_file()
+
     def served(response: Response) -> Response:
         # Recorded once there's a response, so a fetch that failed isn't logged.
         # The marker is the client's word, so a player's fetch is still recorded.
@@ -1464,10 +1493,10 @@ async def get_rom_content(
             f"rom:{purpose}:{rom.id}:{file_ids or ''}",
             {
                 "file_name": (
-                    files[0].file_name if len(files) == 1 else f"{file_name}.zip"
+                    files[0].file_name if len(entries) == 1 else f"{file_name}.zip"
                 ),
                 "file_ids": [f.id for f in files] if file_ids else None,
-                "size_bytes": sum(f.file_size_bytes for f in files),
+                "size_bytes": sum(e.file_size_bytes for e in entries),
             },
             action=(
                 AuditAction.ROM_PLAYER_LOAD
@@ -1477,11 +1506,9 @@ async def get_rom_content(
         )
         return response
 
-    m3u_files = playlist_files(files)
-
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
-        if len(files) == 1:
+        if len(entries) == 1:
             file = files[0]
             rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
             if not await Path(rom_path).is_file():
@@ -1509,8 +1536,8 @@ async def get_rom_content(
             ensure_zipfile_writable()
             with ZipFile(zip_buffer, "w") as zip_file:
                 # Add content files
-                for file in files:
-                    file_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
+                for entry in entries:
+                    file_path = f"{LIBRARY_BASE_PATH}/{entry.full_path}"
                     try:
                         # Read entire file into memory
                         async with await open_file(file_path, "rb") as f:
@@ -1518,12 +1545,12 @@ async def get_rom_content(
 
                         # Create ZIP info with compression
                         zip_info = ZipInfo(
-                            filename=file.file_name_for_download(hidden_folder),
+                            filename=entry.download_name,
                             date_time=now.timetuple()[:6],
                         )
                         zip_info.external_attr = S_IFREG | 0o600
                         zip_info.compress_type = (
-                            ZIP_DEFLATED if file.file_size_bytes > 0 else ZIP_STORED
+                            ZIP_DEFLATED if entry.file_size_bytes > 0 else ZIP_STORED
                         )
 
                         # Write file to ZIP
@@ -1534,10 +1561,8 @@ async def get_rom_content(
                         raise
 
                 # Add M3U file if not already present
-                if not rom.has_m3u_file():
-                    m3u_encoded_content = "\n".join(
-                        [f.file_name_for_download(hidden_folder) for f in m3u_files]
-                    ).encode()
+                if not has_m3u:
+                    m3u_encoded_content = generate_m3u_content(files, hidden_folder)
                     m3u_filename = f"{rom.fs_name}.m3u"
                     m3u_info = ZipInfo(
                         filename=m3u_filename, date_time=now.timetuple()[:6]
@@ -1564,7 +1589,7 @@ async def get_rom_content(
         )
 
     # Otherwise proxy through nginx
-    if len(files) == 1:
+    if len(entries) == 1:
         return served(
             FileRedirectResponse(
                 download_path=Path(f"/library/{files[0].full_path}"),
@@ -1575,10 +1600,9 @@ async def get_rom_content(
     # fall through to mod_zip streaming for non-Range requests.
     range_header = request.headers.get("range")
     if range_header:
-        has_m3u = rom.has_m3u_file()
         redirect_path = await resolve_cached_zip(
             str(rom.id),
-            [ZipFileEntry.from_rom_file(f, hidden_folder) for f in files],
+            entries,
             hidden_folder=hidden_folder,
             m3u_content=None if has_m3u else generate_m3u_content(files, hidden_folder),
             m3u_filename=None if has_m3u else f"{file_name}.m3u",
@@ -1595,14 +1619,14 @@ async def get_rom_content(
     content_lines = [
         ZipContentLine(
             crc32=None,  # The CRC hash stored for compressed files is for the uncompressed content
-            size_bytes=f.file_size_bytes,
-            encoded_location=quote(f"/library/{f.full_path}"),
-            filename=f.file_name_for_download(hidden_folder),
+            size_bytes=e.file_size_bytes,
+            encoded_location=quote(f"/library/{e.full_path}"),
+            filename=e.download_name,
         )
-        for f in files
+        for e in entries
     ]
 
-    if not rom.has_m3u_file():
+    if not has_m3u:
         m3u_encoded_content = generate_m3u_content(files, hidden_folder)
         m3u_base64_content = b64encode(m3u_encoded_content).decode()
         m3u_line = ZipContentLine(
