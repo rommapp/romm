@@ -1,13 +1,4 @@
 <script setup lang="ts">
-// GameActionsList — the full RMenuItem list for a ROM, slotted into
-// whatever RMenu mounts it. Single source of truth for the more-menu
-// actions. Consumed by every MoreMenu dropdown (on GameCard, in the
-// GameDetails header, …). Every action emits `close` after firing so the
-// parent menu can dismiss.
-//
-// The metadata and destructive groups are permission-gated, so their
-// leading dividers are conditional too — otherwise a read-only user gets
-// a menu ending in stray separators.
 import { RDivider, RMenuItem } from "@v2/lib";
 import { computed, toRef } from "vue";
 import { useI18n } from "vue-i18n";
@@ -72,6 +63,12 @@ function run(fn: () => void | Promise<void>) {
     :label="t('rom.copy-link')"
     icon="mdi-share-variant-outline"
     @click="run(actions.copyDownloadLink)"
+  />
+  <RMenuItem
+    v-if="actions.canInstallOnDevice.value"
+    :label="t('rom.install-on-device')"
+    icon="mdi-cellphone-arrow-down"
+    @click="run(actions.installOnDevice)"
   />
   <RMenuItem
     v-if="actions.canShareQR.value"

@@ -12,6 +12,7 @@ import time
 import zipfile
 import zlib
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Final, Literal
 
@@ -72,6 +73,31 @@ class ArchiveReadError(Exception):
     """An archive's members could not be fully read."""
 
 
+@contextmanager
+def _kill_at_deadline(
+    process: subprocess.Popen[bytes], deadline: float
+) -> Iterator[threading.Event]:
+    """Kill `process` at `deadline`, even while a read of its stdout is blocked.
+
+    Yields an event that is set once the deadline has passed.
+    """
+    expired = threading.Event()
+    finished = threading.Event()
+
+    def _watch() -> None:
+        if not finished.wait(max(0.0, deadline - time.monotonic())):
+            expired.set()
+            process.kill()
+
+    watcher = threading.Thread(target=_watch, name="7z-deadline", daemon=True)
+    watcher.start()
+    try:
+        yield expired
+    finally:
+        finished.set()
+        watcher.join()
+
+
 def detect_mime_type(file_path: os.PathLike[str] | str) -> str:
     """Detect MIME type via libmagic; returns empty string on error."""
     try:
@@ -117,10 +143,12 @@ def read_tar_file(
 
             # Find the largest file among regular files only
             largest_file = max(regular_files, key=lambda x: x.size)
-            with f.extractfile(largest_file) as ef:  # type: ignore[union-attr]
-                with ef:
-                    while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                        yield chunk
+            ef = f.extractfile(largest_file)
+            if ef is None:
+                return
+            with ef:
+                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
+                    yield chunk
     except tarfile.ReadError:
         for chunk in read_basic_file(file_path):
             yield chunk
@@ -130,13 +158,14 @@ def read_gz_file(file_path: Path) -> Iterator[bytes]:
     return read_tar_file(file_path, "r:gz")
 
 
-def _process_largest_7z_member(
+def hash_largest_7z_member(
     file_path: Path,
     fn_hash_update: Callable[[bytes | bytearray], None],
 ) -> bool:
     """Stream the largest member of a 7z archive through `fn_hash_update`.
 
-    Returns True on success, False if listing/extraction fails or times out.
+    Returns True on success, False if listing/extraction fails or times out,
+    in which case `fn_hash_update` may already have seen part of the member.
     """
     try:
         result = subprocess.run(
@@ -174,30 +203,37 @@ def _process_largest_7z_member(
 
         log.debug(f"Extracting {largest_file} from {file_path}...")
 
-        start_decompression_time = time.monotonic()
+        deadline = time.monotonic() + SEVEN_ZIP_TIMEOUT
 
-        with subprocess.Popen(
-            [
-                SEVEN_ZIP_PATH,
-                "e",
-                str(file_path),
-                "-so",
-                "-y",
-                "-spd",
-                "--",
-                largest_file,
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
-        ) as process:
+        with (
+            subprocess.Popen(
+                [
+                    SEVEN_ZIP_PATH,
+                    "e",
+                    str(file_path),
+                    "-so",
+                    "-y",
+                    "-spd",
+                    "--",
+                    largest_file,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+            ) as process,
+            _kill_at_deadline(process, deadline) as expired,
+        ):
             if process.stdout:
                 while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
-                    if time.monotonic() - start_decompression_time > SEVEN_ZIP_TIMEOUT:
+                    if time.monotonic() > deadline:
                         process.terminate()
                         log.error("7z extraction timed out")
                         return False
                     fn_hash_update(chunk)
+
+        if expired.is_set():
+            log.error("7z extraction stalled and was killed at the timeout")
+            return False
 
         if process.returncode != 0:
             log.error(f"7z extraction failed with return code {process.returncode}")
@@ -212,15 +248,6 @@ def _process_largest_7z_member(
     ) as e:
         log.error(f"Error processing 7z file: {e}")
         return False
-
-
-def process_7z_file(
-    file_path: Path,
-    fn_hash_update: Callable[[bytes | bytearray], None],
-) -> None:
-    if not _process_largest_7z_member(file_path, fn_hash_update):
-        for chunk in read_basic_file(file_path):
-            fn_hash_update(chunk)
 
 
 def read_bz2_file(file_path: Path) -> Iterator[bytes]:
@@ -421,7 +448,12 @@ def _stream_archive_members(
             ) as process:
                 if process.stdout is None:
                     continue
-                yield name, size, _stream_7z_chunks(process, deadline, _mark_timed_out)
+                with _kill_at_deadline(process, deadline) as expired:
+                    yield name, size, _stream_7z_chunks(
+                        process, deadline, _mark_timed_out
+                    )
+                if expired.is_set():
+                    _mark_timed_out()
             # A timeout terminates the subprocess, so a non-zero return code is
             # expected then and is covered by the single raise below.
             if not timed_out and process.returncode != 0:
@@ -651,19 +683,24 @@ def _extract_member_to_dir(
                     stderr=stderr_file,
                     shell=False,  # trunk-ignore(bandit/B603): binary paths are hardcoded, args are validated
                 ) as process,
+                _kill_at_deadline(process, deadline) as expired,
             ):
                 assert process.stdout is not None
                 while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
                     if time.monotonic() > deadline:
                         process.terminate()
-                        log.error(
-                            f"Extraction of {member} from {file_path} timed out "
-                            f"after {SEVEN_ZIP_TIMEOUT}s; raise SEVEN_ZIP_TIMEOUT "
-                            "for large archives"
-                        )
-                        dest_path.unlink(missing_ok=True)
-                        return None
+                        expired.set()
+                        break
                     dest_file.write(chunk)
+
+            if expired.is_set():
+                log.error(
+                    f"Extraction of {member} from {file_path} timed out "
+                    f"after {SEVEN_ZIP_TIMEOUT}s; raise SEVEN_ZIP_TIMEOUT "
+                    "for large archives"
+                )
+                dest_path.unlink(missing_ok=True)
+                return None
 
             if process.returncode != 0:
                 # Surface the extractor's own reason (e.g. "Unsupported

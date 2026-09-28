@@ -1,14 +1,19 @@
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, nextTick, ref } from "vue";
+import { defineComponent, nextTick, reactive, ref } from "vue";
 import type {
   PendingAssetKind,
   PendingSyncResult,
 } from "@/services/pending-asset";
 import storePlaying from "@/stores/playing";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
 import { installPendingAssetSync } from "./index";
+
+const route = reactive<{ params: Record<string, string> }>({ params: {} });
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRoute: () => route,
+}));
 
 type Entry = { id: string; romId: number; kind: PendingAssetKind };
 const queue = { entries: [] as Entry[] };
@@ -87,6 +92,7 @@ describe("installPendingAssetSync", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.useFakeTimers();
+    route.params = {};
     queue.entries = [];
     isOffline.value = false;
     syncPendingAssets.mockReset();
@@ -328,7 +334,7 @@ describe("installPendingAssetSync", () => {
   });
 
   it("refreshes the details view of a game that just synced", async () => {
-    storeRoms().setCurrentRom({ id: 1 } as DetailedRom);
+    route.params = { rom: "1" };
     queue.entries = [{ id: "1:a", romId: 1, kind: "state" as const }];
 
     install();

@@ -430,6 +430,197 @@ def test_a_platform_entry_wins_over_the_emulator_fallback():
         assert streaming.platform_capabilities("ngc")["max_slots"] == 7
 
 
+# ── RetroArch core override ──────────────────────────────────────────────────
+
+
+def _snes(value, **container) -> ResolvedContainer:
+    """The snes record of a webstation container serving snes as `value`."""
+    return _resolved(_webstation(platforms={"snes": value}, **container))
+
+
+def _warnings_of(caplog, build):
+    """Run `build` with the romm logger captured, returning its result."""
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="romm"):
+            return build()
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+
+
+def test_the_shorthand_names_the_emulator_and_the_core():
+    container = _snes("retroarch:bsnes")
+    assert (container.emulator, container.core) == ("retroarch", "bsnes")
+    assert container.label == "RA bsnes"
+
+
+def test_the_shorthand_tolerates_spaces_around_the_colon():
+    assert _snes(" retroarch : bsnes ").core == "bsnes"
+
+
+def test_the_block_form_names_the_core():
+    container = _snes({"emulator": "retroarch", "core": "parallel_n64"})
+    assert (container.emulator, container.core) == ("retroarch", "parallel_n64")
+
+
+def test_a_platform_label_wins_over_the_core_label():
+    assert (
+        _snes({"emulator": "retroarch", "core": "bsnes", "label": "SNES"}).label
+        == "SNES"
+    )
+
+
+def test_no_core_leaves_the_record_as_it_was():
+    container = _snes("retroarch")
+    assert (container.core, container.experimental_cores) == (None, False)
+    assert container.label == "RA Snes9x"
+
+
+def test_a_flat_entry_takes_a_core():
+    entry = {
+        "platform": "snes",
+        "protocol": "webstation",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "emulator": "retroarch",
+        "core": "bsnes",
+    }
+    assert _resolved(entry).core == "bsnes"
+
+
+@pytest.mark.parametrize(
+    ("value", "reason"),
+    [
+        ("pcsx2:bsnes", "only retroarch takes a core"),
+        ("retroarch:", "sets an empty core"),
+        ("retroarch:BSNES", "must match"),
+        ({"emulator": "dolphin", "core": "bsnes"}, "only retroarch takes a core"),
+        ({"emulator": "retroarch", "core": ""}, "sets an empty core"),
+        ({"emulator": "retroarch", "core": None}, "sets an empty core"),
+        ({"emulator": "retroarch", "core": 5}, "not a name"),
+        ({"emulator": "retroarch", "core": "../x"}, "must match"),
+    ],
+)
+def test_a_bad_core_skips_the_platform_with_a_warning(caplog, value, reason):
+    """Booting the default instead would hide the typo behind a working game."""
+    resolved = _warnings_of(
+        caplog, lambda: resolve_entry(_webstation(platforms={"snes": value}))
+    )
+    assert resolved is None
+    assert "container platform 'snes'" in caplog.text
+    assert reason in caplog.text
+
+
+def test_a_bad_core_on_a_flat_entry_skips_it(caplog):
+    entry = {
+        "platform": "snes",
+        "host": "http://192.168.1.10:3000",
+        "emulator": "retroarch",
+        "core": "Bad Name",
+    }
+    assert _warnings_of(caplog, lambda: resolve_entry(entry)) is None
+    assert "must match" in caplog.text
+
+
+def test_a_container_level_core_is_ignored_beside_platforms(caplog):
+    """One core serves one platform, so inheriting it would
+    boot every platform in the map on it."""
+    container = _warnings_of(caplog, lambda: _snes("retroarch", core="bsnes"))
+    assert container.core is None
+    assert "`core` beside `platforms`" in caplog.text
+
+
+def test_a_quoted_false_does_not_opt_in():
+    """A quoted "false" is truthy to bool(), and this opt-in runs cores
+    known to be broken."""
+    container = _snes(
+        {"emulator": "retroarch", "core": "bsnes", "experimental_cores": "false"}
+    )
+    assert container.experimental_cores is False
+
+
+def test_a_quoted_true_warns_that_it_does_not_opt_in(caplog):
+    """The broker's refusal tells the operator to set experimental_cores, which
+    they believe they did, so the log has to say why it didn't count."""
+    container = _warnings_of(
+        caplog,
+        lambda: _snes(
+            {"emulator": "retroarch", "core": "bsnes", "experimental_cores": "true"}
+        ),
+    )
+    assert container.experimental_cores is False
+    assert "experimental_cores" in caplog.text
+
+
+def test_a_core_on_a_legacy_container_is_dropped_with_a_warning(caplog):
+    """Only the webstation broker is sent a core, so a legacy container boots
+    its default whatever is configured; the label must not claim otherwise."""
+    entry = {
+        "platform": "snes",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "emulator": "retroarch",
+        "core": "bsnes",
+    }
+    resolved = _warnings_of(caplog, lambda: _expand(entry))
+    assert (resolved[0].core, resolved[0].label) == (None, "RA Snes9x")
+    assert "core" in caplog.text
+
+
+def test_a_mapped_core_on_a_legacy_container_is_not_in_its_label(caplog):
+    entry = {
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "platforms": {"snes": "retroarch:bsnes"},
+    }
+    resolved = _warnings_of(caplog, lambda: _expand(entry))
+    assert (resolved[0].core, resolved[0].label) == (None, "RA Snes9x")
+
+
+def test_an_explicit_label_survives_a_dropped_core(caplog):
+    entry = {
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+        "platforms": {
+            "snes": {"emulator": "retroarch", "core": "bsnes", "label": "Mine"}
+        },
+    }
+    resolved = _warnings_of(caplog, lambda: _expand(entry))
+    assert resolved[0].label == "Mine"
+
+
+def test_the_platform_opt_in_wins_over_the_container():
+    inherited = _snes("retroarch:bsnes", experimental_cores=True)
+    overridden = _snes(
+        {"emulator": "retroarch", "core": "bsnes", "experimental_cores": False},
+        experimental_cores=True,
+    )
+    assert inherited.experimental_cores is True
+    assert overridden.experimental_cores is False
+
+
+def test_containers_on_different_cores_are_not_one_pool():
+    """A claim landing on either would boot a different core
+    and file its states where the other never looks."""
+    assert not _snes("retroarch:bsnes").interchangeable_with(_snes("retroarch"))
+    assert _snes("retroarch:bsnes").interchangeable_with(_snes("retroarch:bsnes"))
+    opted = _snes("retroarch:bsnes", experimental_cores=True)
+    assert not opted.interchangeable_with(_snes("retroarch:bsnes"))
+
+
+def test_an_opt_in_without_a_core_does_not_split_a_pool():
+    """The opt-in only goes out beside a core, so without one it changes
+    nothing a claim could land on."""
+    opted = _snes("retroarch", experimental_cores=True)
+    assert opted.interchangeable_with(_snes("retroarch"))
+
+
+def test_emulator_display_label_names_a_configured_core():
+    assert emulator_display_label("retroarch", "snes", "bsnes") == "RA bsnes"
+    assert emulator_display_label("retroarch", "snes", None) == "RA Snes9x"
+
+
 def test_an_unconfigured_platform_still_has_no_states():
     """The fallback keys off a configured container, so a platform nobody
     streams stays out of the save-state UI."""
@@ -3228,6 +3419,8 @@ def test_status_reports_active_for_owner(client, access_token, rom: Rom):
         "extraction_phase": None,
         "termination": None,
         "host": container["host"],
+        "core": None,
+        "core_tier": None,
     }
 
 
@@ -4638,6 +4831,58 @@ def test_hydrate_skips_states_missing_on_disk(rom: Rom, admin_user: User):
         )
     assert pushed == 0
     push.assert_not_called()
+
+
+def _hydrate_ra(rom: Rom, user: User, value, core_tier):
+    """Hydrate a RetroArch container serving `rom` as `value`, returning the
+    count and the push mock."""
+    db_state_handler.add_state(_state_for(rom, user, "Game.state", "retroarch"))
+    container = _resolved(_webstation(platforms={rom.platform_slug: value}))
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=b"state-bytes"),
+        ),
+        patch("handler.streaming.states.push_state_file", return_value=True) as push,
+    ):
+        pushed = asyncio.run(
+            states.hydrate_states_to_broker(
+                user.id, rom.id, container, core_tier=core_tier
+            )
+        )
+    return pushed, push
+
+
+@pytest.mark.parametrize("tier", ["vetted", "untested", "blocked", None])
+def test_hydrate_pushes_nothing_into_a_non_default_core(
+    rom: Rom, admin_user: User, tier
+):
+    """Stored states don't record their core yet, so every one is presumed the
+    default's; pushed into another core it lands where quick-load reads it."""
+    pushed, push = _hydrate_ra(rom, admin_user, "retroarch:bsnes", tier)
+    assert pushed == 0
+    push.assert_not_called()
+
+
+def test_hydrate_still_pushes_when_the_configured_core_is_the_default(
+    rom: Rom, admin_user: User
+):
+    pushed, _ = _hydrate_ra(rom, admin_user, "retroarch:snes9x", "default")
+    assert pushed == 1
+
+
+def test_hydrate_is_unchanged_without_a_core(rom: Rom, admin_user: User):
+    pushed, _ = _hydrate_ra(rom, admin_user, "retroarch", None)
+    assert pushed == 1
+
+
+def test_the_launch_hands_the_core_tier_to_hydration(client, access_token, rom: Rom):
+    with patch(
+        "handler.streaming.states.hydrate_states_to_broker",
+        new=AsyncMock(return_value=0),
+    ) as hydrate:
+        _ra_claim(client, access_token, rom, "retroarch:bsnes", _BSNES_REPLY)
+    assert hydrate.call_args.kwargs["core_tier"] == "untested"
 
 
 def _add_state_at(rom: Rom, user: User, file_name: str, day: int) -> State:
@@ -8378,6 +8623,61 @@ def test_import_spec_returns_none_and_caches_on_404(rom: Rom):
     assert urlopen.call_count == 1
 
 
+def _spec_path(container) -> str:
+    """The path import_spec asks the broker for."""
+    with patch(
+        "handler.streaming.broker.request", side_effect=_http_error(404)
+    ) as request:
+        webstation.import_spec(container, "retroarch", "snes")
+    path: str = request.call_args.args[1]
+    return path
+
+
+def test_import_spec_asks_about_the_configured_core():
+    """Discovery must answer for the core activate boots, or the picker offers
+    imports that core refuses."""
+    path = _spec_path(_snes("retroarch:bsnes"))
+    assert "&core=bsnes" in path
+    assert "experimental_cores" not in path
+
+
+def test_import_spec_carries_the_opt_in():
+    opted = _snes("retroarch:bsnes", experimental_cores=True)
+    assert _spec_path(opted).endswith("&core=bsnes&experimental_cores=1")
+
+
+def test_import_spec_query_is_unchanged_without_a_core():
+    assert "core=" not in _spec_path(_snes("retroarch"))
+
+
+def test_import_spec_asks_again_when_the_core_changes():
+    """A 404/422 is cached for the worker's life, so a key
+    without the core would keep the old core's answer after a config edit."""
+    with patch(
+        "handler.streaming.broker.request", side_effect=_http_error(404)
+    ) as request:
+        webstation.import_spec(_snes("retroarch:bsnes"), "retroarch", "snes")
+        webstation.import_spec(_snes("retroarch"), "retroarch", "snes")
+        webstation.import_spec(
+            _snes("retroarch:bsnes", experimental_cores=True), "retroarch", "snes"
+        )
+    assert request.call_count == 3
+
+
+def test_import_spec_asks_again_after_refusing_a_core():
+    """A refused core is fixed by upgrading the broker, which must not take a
+    RomM restart to notice."""
+    container = _snes("retroarch:bsnes")
+    later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
+    with patch(
+        "handler.streaming.broker.request", side_effect=_http_error(422)
+    ) as request:
+        webstation.import_spec(container, "retroarch", "snes")
+        with patch("handler.streaming.webstation.time.monotonic", return_value=later):
+            webstation.import_spec(container, "retroarch", "snes")
+    assert request.call_count == 2
+
+
 def test_import_spec_never_asks_a_legacy_broker(rom: Rom):
     """Declared imports are a webstation contract; a per-emulator broker is
     never asked, so a foreign pick there is refused without a round trip."""
@@ -9263,6 +9563,199 @@ def test_kiosk_mode_can_still_read_config(client):
     """The read side of streaming stays open to kiosk visitors."""
     with patch("handler.auth.hybrid_auth.KIOSK_MODE", True), _streaming():
         assert client.get("/api/streaming/config").status_code == 200
+
+
+# ── RetroArch core on activate ──────────────────────────────────────────────
+
+
+def _ra_claim(client, token, rom: Rom, value, reply: dict[str, Any]):
+    """Claim `rom` on a webstation container serving its platform as `value`,
+    with the broker transport answering `reply`. Returns the activate body,
+    what the launch pushed, and the exit_session mock. Stubs the transport
+    rather than `activate`, like `_activate_body`: the body is the point."""
+    with _streaming(_webstation(platforms={rom.platform_slug: value})):
+        with (
+            _pushes() as sent,
+            patch("handler.streaming.broker.request", return_value=reply) as request,
+            patch("handler.streaming.webstation.exit_session") as exit_session,
+            _spawns_nothing(),
+        ):
+            client.post(
+                "/api/streaming/sessions",
+                json={"rom_id": rom.id},
+                headers=_auth(token),
+            )
+    activate = next(
+        c for c in request.call_args_list if c.args[1].endswith("/activate")
+    )
+    return activate.kwargs["body"], sent, exit_session
+
+
+_BSNES_REPLY: dict[str, Any] = {
+    "url": "/room/x",
+    "core": "bsnes",
+    "core_tier": "untested",
+}
+
+
+def test_the_activate_body_carries_a_configured_core(client, access_token, rom: Rom):
+    body, _, _ = _ra_claim(client, access_token, rom, "retroarch:bsnes", _BSNES_REPLY)
+    assert body["rom"]["core"] == "bsnes"
+    assert "experimental_cores" not in body["rom"]
+
+
+def test_status_warns_a_tab_that_missed_launch_ready_of_its_core(
+    client, access_token, rom: Rom
+):
+    platforms = {rom.platform_slug: "retroarch:bsnes"}
+    with _streaming(_webstation(platforms=platforms)):
+        with (
+            _pushes(),
+            patch("handler.streaming.broker.request", return_value=_BSNES_REPLY),
+            _spawns_nothing(),
+        ):
+            client.post(
+                "/api/streaming/sessions",
+                json={"rom_id": rom.id},
+                headers=_auth(access_token),
+            )
+            r = client.get(
+                f"/api/streaming/sessions/{rom.platform_slug}/status",
+                headers=_auth(access_token),
+            )
+    assert r.json()["core"] == "bsnes"
+    assert r.json()["core_tier"] == "untested"
+
+
+def test_the_activate_body_carries_the_opt_in(client, access_token, rom: Rom):
+    value = {"emulator": "retroarch", "core": "bsnes", "experimental_cores": True}
+    body, _, _ = _ra_claim(client, access_token, rom, value, _BSNES_REPLY)
+    assert body["rom"]["experimental_cores"] is True
+
+
+def test_no_core_leaves_the_activate_body_unchanged(client, access_token, rom: Rom):
+    """An opt-in alone means nothing without a core, so it stays home too."""
+    body, _, exit_session = _ra_claim(
+        client,
+        access_token,
+        rom,
+        {"emulator": "retroarch", "experimental_cores": True},
+        {"url": "/room/x"},
+    )
+    assert "core" not in body["rom"]
+    assert "experimental_cores" not in body["rom"]
+    exit_session.assert_not_called()
+
+
+def test_an_older_broker_that_drops_the_core_is_exited_asking_for_no_save(
+    client, access_token, rom: Rom
+):
+    """Pydantic drops the unknown field and the broker boots
+    its default, which would file this session's saves under the wrong core."""
+    _, sent, exit_session = _ra_claim(
+        client, access_token, rom, "retroarch:bsnes", {"url": "/room/x"}
+    )
+    exit_session.assert_called_once()
+    assert exit_session.call_args.args[1] == 0
+    assert exit_session.call_args.kwargs == {"save": False}
+    failed = next(p for event, p in sent if event == "streaming:launch-failed")
+    assert "doesn't support `core:`" in failed["detail"]
+    assert f"the {rom.platform_slug} platform" in failed["detail"]
+    assert _launch_ready(sent) == {}
+
+
+def test_a_wrong_core_is_exited_again_when_the_first_exit_fails():
+    """The broker refuses every activate while that game runs, so one lost exit
+    would wedge the container once the claim is released."""
+    with (
+        patch("handler.streaming.broker.request", return_value={"url": "/room/x"}),
+        patch(
+            "handler.streaming.webstation.exit_session",
+            side_effect=[None, {"state_saved": False}],
+        ) as exit_session,
+        pytest.raises(HTTPException),
+    ):
+        webstation.activate(
+            _snes("retroarch:bsnes"),
+            session_id="s",
+            user=MagicMock(id=1, username="u"),
+            emulator="retroarch",
+            rom={"id": 1, "name": "Game", "platform": "snes"},
+        )
+    assert exit_session.call_count == 2
+
+
+def test_a_broker_that_drops_the_core_logs_no_traceback(
+    client, access_token, rom: Rom, caplog
+):
+    """The 502 is a config message for the operator, not a crash."""
+    _warnings_of(
+        caplog,
+        lambda: _ra_claim(
+            client, access_token, rom, "retroarch:bsnes", {"url": "/room/x"}
+        ),
+    )
+    failed = [r for r in caplog.records if r.getMessage().startswith("launch failed")]
+    assert failed
+    assert all(r.exc_info is None for r in failed)
+
+
+def test_a_broker_that_echoes_the_core_launches(client, access_token, rom: Rom):
+    _, sent, exit_session = _ra_claim(
+        client, access_token, rom, "retroarch:bsnes", _BSNES_REPLY
+    )
+    exit_session.assert_not_called()
+    assert _launch_ready(sent) != {}
+
+
+def test_launch_ready_names_the_core_and_its_tier(client, access_token, rom: Rom):
+    _, sent, _ = _ra_claim(client, access_token, rom, "retroarch:bsnes", _BSNES_REPLY)
+    ready = _launch_ready(sent)
+    assert (ready["core"], ready["core_tier"]) == ("bsnes", "untested")
+
+
+def test_launch_ready_has_no_tier_without_a_core(client, access_token, rom: Rom):
+    """A new broker reports the default's tier on every RetroArch launch; with
+    no core configured there is nothing to warn about."""
+    reply = {"url": "/room/x", "core": "snes9x", "core_tier": "default"}
+    _, sent, _ = _ra_claim(client, access_token, rom, "retroarch", reply)
+    ready = _launch_ready(sent)
+    assert (ready["core"], ready["core_tier"]) == (None, None)
+
+
+def test_a_malformed_core_tier_still_reaches_launch_ready(
+    client, access_token, rom: Rom
+):
+    """The session is already running, so a bad tier must not cost the player
+    the room URL."""
+    reply = {**_BSNES_REPLY, "core_tier": 3}
+    _, sent, _ = _ra_claim(client, access_token, rom, "retroarch:bsnes", reply)
+    ready = _launch_ready(sent)
+    assert (ready["core"], ready["core_tier"]) == ("bsnes", None)
+
+
+def test_a_desktop_on_a_container_with_a_core_boots_no_core(client, access_token):
+    """The desktop runs on the container's first platform record, whose core
+    it never boots, so the broker's missing echo is not a skew."""
+    container = _webstation(platforms={"snes": "retroarch:bsnes"})
+    with _streaming(container):
+        with (
+            patch(
+                "handler.streaming.broker.request", return_value={"url": "/room/x"}
+            ) as request,
+            patch("handler.streaming.webstation.exit_session") as exit_session,
+        ):
+            response = client.post(
+                "/api/streaming/desktop",
+                json={"container": _key_of(container)},
+                headers=_auth(access_token),
+            )
+    assert response.status_code == 200
+    exit_session.assert_not_called()
+    activate = next(
+        c for c in request.call_args_list if c.args[1].endswith("/activate")
+    )
+    assert "rom" not in activate.kwargs["body"]
 
 
 # ── multiplayer flag ─────────────────────────────────────────────────────────

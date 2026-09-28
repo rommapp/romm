@@ -113,7 +113,12 @@ async def run_launch(
                 resume_slot if resume_pushed else None,
             )
     except Exception as exc:
-        log.exception("launch failed, platform=%s", platform)
+        if isinstance(exc, HTTPException):
+            # A deliberate refusal whose detail says what to fix; a traceback
+            # would dress it up as a crash.
+            log.warning("launch failed, platform=%s: %s", platform, exc.detail)
+        else:
+            log.exception("launch failed, platform=%s", platform)
         await lifecycle.abort_claim(session_key, session, blank_card_id)
         refused = exc if isinstance(exc, broker.ImportRefusedError) else None
         await push_to_user(
@@ -135,7 +140,16 @@ async def run_launch(
 
     log.info("session claimed, platform=%s rom=%s", platform, rom_name)
     host = container.protocol.stream_url(container.host, launch_result)
-    await stamp_launched(session_key, session, host=host)
+    # Only a configured core is worth a word to the player: the broker reports
+    # its default's tier on every RetroArch launch.
+    core_tier = (
+        launch_result.get("core_tier")
+        if container.core and isinstance(launch_result, dict)
+        else None
+    )
+    await stamp_launched(
+        session_key, session, host=host, core=container.core, core_tier=core_tier
+    )
     await lifecycle.publish_session_activity(session_key, session)
 
     # The webstation broker's deferred load waits for its emulator to report
@@ -161,6 +175,8 @@ async def run_launch(
             claimed_at=session["claimed_at"],
             host=host,
             resume=resume_pushed if resume_state is not None else None,
+            core=container.core,
+            core_tier=core_tier,
         ).model_dump(),
     )
 
@@ -168,7 +184,11 @@ async def run_launch(
     # background, the stream should not wait on file transfers.
     background.spawn_sync_task(
         states.hydrate_states_to_broker(
-            user.id, rom.id, container, resume_pushed=resume_pushed
+            user.id,
+            rom.id,
+            container,
+            resume_pushed=resume_pushed,
+            core_tier=core_tier,
         )
     )
 

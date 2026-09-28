@@ -481,6 +481,7 @@ async def hydrate_states_to_broker(
     rom_id: int,
     container: ResolvedContainer,
     resume_pushed: bool = False,
+    core_tier: str | None = None,
 ) -> int:
     """Background task: push the newest stored state for this ROM down to the
     freshly claimed container. Emulators read state files lazily, so pushing
@@ -496,6 +497,14 @@ async def hydrate_states_to_broker(
     state file at all, and the archive already carries the newest exit state.
     """
     if resume_pushed or container.resumes_from_archive:
+        return 0
+    # Stored states don't record their core, so each is presumed the default's.
+    if container.core is not None and core_tier != "default":
+        log.info(
+            "not hydrating states into core %s (%s), they were made by the default",
+            container.core,
+            core_tier,
+        )
         return 0
 
     user = db_user_handler.get_user(user_id)

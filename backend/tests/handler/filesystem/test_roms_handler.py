@@ -1,3 +1,4 @@
+import binascii
 import hashlib
 import os
 import shutil
@@ -23,6 +24,7 @@ from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
     _TitleIdSource,
+    category_for_path_parts,
     category_matches,
     mtime_matches,
 )
@@ -560,7 +562,7 @@ class TestFSRomsHandler:
     def test_build_rom_file_with_category(self, rom_multi: Rom, handler: FSRomsHandler):
         """Test _build_rom_file with category detection"""
         # Test with DLC category
-        rom_path = Path(rom_multi.fs_path, "dlc")
+        rom_path = Path(rom_multi.full_path, "dlc")
         file_name = "test_dlc.n64"
         file_hash = FileHash(
             {
@@ -1351,6 +1353,44 @@ class TestFSRomsHandler:
             # Clean up
             if test_file.exists():
                 test_file.unlink()
+
+    def test_failed_7z_extraction_hashes_only_the_raw_archive(
+        self, handler: FSRomsHandler, tmp_path
+    ):
+        """Bytes streamed before a 7z extraction fails must not leak into the
+        raw-archive fallback hash, nor into the ROM-level accumulators."""
+        archive_bytes = b"7z\xbc\xaf\x27\x1c raw archive bytes"
+        archive = tmp_path / "game.7z"
+        archive.write_bytes(archive_bytes)
+
+        def _partial_then_fail(_path, fn_hash_update):
+            fn_hash_update(b"partial inner member bytes")
+            return False
+
+        rom_md5_h = hashlib.md5(b"earlier file", usedforsecurity=False)
+        rom_sha1_h = hashlib.sha1(b"earlier file", usedforsecurity=False)
+        rom_crc_c = binascii.crc32(b"earlier file")
+
+        with patch(
+            "handler.filesystem.roms_handler.hash_largest_7z_member",
+            side_effect=_partial_then_fail,
+        ):
+            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
+                handler._calculate_rom_hashes(archive, rom_crc_c, rom_md5_h, rom_sha1_h)
+            )
+
+        assert crc_c == binascii.crc32(archive_bytes)
+        assert md5_h.hexdigest() == hashlib.md5(archive_bytes).hexdigest()
+        assert sha1_h.hexdigest() == hashlib.sha1(archive_bytes).hexdigest()
+        assert rom_crc_c == binascii.crc32(b"earlier file" + archive_bytes)
+        assert (
+            rom_md5_h.hexdigest()
+            == hashlib.md5(b"earlier file" + archive_bytes).hexdigest()
+        )
+        assert (
+            rom_sha1_h.hexdigest()
+            == hashlib.sha1(b"earlier file" + archive_bytes).hexdigest()
+        )
 
     async def test_compressed_file_handling(self, handler: FSRomsHandler):
         """Test handling of compressed ROM files"""
@@ -3442,6 +3482,69 @@ class TestIncrementalRomFiles:
         assert by_name["game.n64"].category is None
         assert by_name["part1 (Hack).bin"].category == RomFileCategory.HACK
         assert by_name["fix.ips"].category == RomFileCategory.PATCH
+
+    async def test_category_comes_from_the_folder_below_the_rom_root(
+        self, handler: FSRomsHandler, platform: Platform
+    ):
+        rom = self._rom(platform)
+        self._write(handler, f"{self.ROM_DIR}/dlc/foo.bin", b"dlc")
+        self._write(handler, f"{self.ROM_DIR}/update/content/game/x.bin", b"update")
+        self._write(
+            handler,
+            f"{self.ROM_DIR}/Sonic [Update]/content/Game/Stats/archive.bin",
+            b"stats",
+        )
+        self._write(handler, f"{self.ROM_DIR}/content/CMCmn/demo/effect.szs", b"fx")
+
+        parsed = await handler.get_rom_files(rom)
+
+        by_name = {f.file_name: f for f in parsed.rom_files}
+        assert by_name["foo.bin"].category == RomFileCategory.DLC
+        assert by_name["x.bin"].category == RomFileCategory.UPDATE
+        assert by_name["archive.bin"].category is None
+        assert by_name["effect.szs"].category is None
+
+    async def test_reused_row_takes_its_folder_category(
+        self, handler: FSRomsHandler, platform: Platform
+    ):
+        rom = self._rom(platform)
+        rel_dir = f"{self.ROM_DIR}/Sonic [Update]/content/Game"
+        st = self._write(handler, f"{rel_dir}/archive.bin", b"stats")
+        row = self._row(rom, rel_dir, "archive.bin", st)
+        row.category = RomFileCategory.GAME
+
+        parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.rom_files == [row]
+        assert row.category is None
+
+    async def test_rom_folder_named_like_a_category_is_not_a_category(
+        self, handler: FSRomsHandler
+    ):
+        platform = Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
+        rom = self._rom(platform, fs_name="Demo")
+        self._write(handler, "n64/roms/Demo/game.n64", b"game")
+
+        parsed = await handler.get_rom_files(rom)
+
+        assert parsed.rom_files[0].category is None
+
+    @pytest.mark.parametrize(
+        "parts, expected",
+        [
+            ([], None),
+            (["dlc"], RomFileCategory.DLC),
+            (["update", "x"], RomFileCategory.UPDATE),
+            (["patches", "v2"], RomFileCategory.PATCH),
+            (["update", "content", "game"], RomFileCategory.UPDATE),
+            (["some game [update]", "content", "game", "stats"], None),
+            (["content", "cmcmn", "demo"], None),
+        ],
+    )
+    def test_category_for_path_parts(
+        self, parts: list[str], expected: RomFileCategory | None
+    ):
+        assert category_for_path_parts(parts) == expected
 
     def test_category_matches_plural_forms(self):
         assert category_matches("patch", ["patches"])

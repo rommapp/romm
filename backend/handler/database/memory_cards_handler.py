@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy import delete, desc, or_, select, update
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.assets import MemoryCard, MemoryCardVersion
 
 from .base_handler import DBBaseHandler
@@ -17,7 +17,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
     def add_card(
         self,
         card: MemoryCard,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> MemoryCard:
         return session.merge(card)
 
@@ -26,7 +26,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
         self,
         user_id: int,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> MemoryCard | None:
         """Owner-scoped fetch, for mutations the caller must own (rename,
         share, delete)."""
@@ -38,7 +38,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
     def get_card_by_id(
         self,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> MemoryCard | None:
         """Unscoped fetch, for reads that may cross ownership (a public card's
         detail or version list) and for lookups by an id already resolved to
@@ -51,7 +51,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
         self,
         user_id: int,
         emulator: str | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[MemoryCard]:
         """A user's own cards, optionally filtered to one emulator (the pick
         list shown at session claim)."""
@@ -65,7 +65,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
         self,
         emulator: str,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[MemoryCard]:
         """Cards for an emulator visible to the requesting user: their own plus
         other users' public ones. Browsing only, since another user's card is
@@ -84,7 +84,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
         self,
         id: int,
         data: dict[str, Any],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> MemoryCard | None:
         """Returns None when the row was deleted concurrently."""
         session.execute(
@@ -99,7 +99,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
     def delete_card(
         self,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> list[str]:
         """Delete a card and return the paths of the version archives that went
         with it. The listing shares the delete's transaction and locks the rows,
@@ -128,7 +128,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
     def add_version(
         self,
         version: MemoryCardVersion,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> MemoryCardVersion:
         return session.merge(version)
 
@@ -136,7 +136,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
     def get_latest_version(
         self,
         card_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> MemoryCardVersion | None:
         """Newest snapshot of a card, used to hydrate a container at claim.
 
@@ -156,7 +156,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
         self,
         card_id: int,
         content_hash: str,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> MemoryCardVersion | None:
         """Dedup lookup on evacuate: skip storing a snapshot identical to one
         already held for this card."""
@@ -170,7 +170,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
     def get_version_by_id(
         self,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> MemoryCardVersion | None:
         """Unscoped fetch, for the content-download route."""
         return session.get(MemoryCardVersion, id)
@@ -179,7 +179,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
     def get_versions(
         self,
         card_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[MemoryCardVersion]:
         """A card's snapshot history, newest first."""
         return session.scalars(
@@ -193,7 +193,7 @@ class DBMemoryCardsHandler(DBBaseHandler):
         self,
         id: int,
         missing: bool,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         """Record whether a version's archive is still on disk, so the history
         can say a snapshot is gone instead of offering a download that 404s."""

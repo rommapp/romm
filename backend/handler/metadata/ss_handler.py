@@ -1374,7 +1374,8 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.WIIU: {"id": 18, "name": "Wii U"},
     UPS.WIN: {"id": 138, "name": "PC Windows"},
     UPS.WIN3X: {"id": 136, "name": "PC Win3.xx"},
-    UPS.WIN9X: {"id": 137, "name": "PC Win9X"},
+    # Most Win9x games are filed under the generic Windows system
+    UPS.WIN9X: {"id": 138, "name": "PC Win9X"},
     UPS.WASM_4: {"id": 262, "name": "WASM-4"},
     UPS.WONDERSWAN: {"id": 45, "name": "WonderSwan"},
     UPS.WONDERSWAN_COLOR: {"id": 46, "name": "WonderSwan Color"},

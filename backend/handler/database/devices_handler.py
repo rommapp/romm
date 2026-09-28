@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.device import Device, SyncMode
 from utils.datetime import to_utc
 
@@ -19,7 +19,7 @@ class DBDevicesHandler(DBBaseHandler):
     def add_device(
         self,
         device: Device,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Device:
         return session.merge(device)
 
@@ -28,7 +28,7 @@ class DBDevicesHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Device | None:
         return session.scalar(
             select(Device).filter_by(id=device_id, user_id=user_id).limit(1)
@@ -42,7 +42,7 @@ class DBDevicesHandler(DBBaseHandler):
         hostname: str | None = None,
         ip_address: str | None = None,
         platform: str | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Device | None:
         if mac_address:
             device = session.scalar(
@@ -73,7 +73,7 @@ class DBDevicesHandler(DBBaseHandler):
     def get_device_by_id(
         self,
         device_id: str,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Device | None:
         """Get a device by ID without user filtering (for server-side operations)."""
         return session.scalar(select(Device).filter_by(id=device_id).limit(1))
@@ -83,7 +83,7 @@ class DBDevicesHandler(DBBaseHandler):
         self,
         user_id: int,
         client_device_identifier: str,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Device | None:
         """Find a device by its client-supplied stable identifier, scoped to a user."""
         if not client_device_identifier:
@@ -101,7 +101,7 @@ class DBDevicesHandler(DBBaseHandler):
     def get_devices(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Device]:
         return session.scalars(select(Device).filter_by(user_id=user_id)).all()
 
@@ -109,7 +109,7 @@ class DBDevicesHandler(DBBaseHandler):
     def get_all_devices_by_sync_mode(
         self,
         sync_mode: SyncMode,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Device]:
         """Get all devices with a specific sync mode (across all users)."""
         return session.scalars(select(Device).filter_by(sync_mode=sync_mode)).all()
@@ -120,7 +120,7 @@ class DBDevicesHandler(DBBaseHandler):
         device_id: str,
         user_id: int,
         data: dict[str, Any],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Device | None:
         session.execute(
             update(Device)
@@ -137,7 +137,7 @@ class DBDevicesHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             update(Device)
@@ -150,7 +150,7 @@ class DBDevicesHandler(DBBaseHandler):
     def update_last_seen_debounced(
         self,
         device_id: str,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         """Bump last_seen on the device, skipping if updated within the debounce window.
 
@@ -177,7 +177,7 @@ class DBDevicesHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             delete(Device)
