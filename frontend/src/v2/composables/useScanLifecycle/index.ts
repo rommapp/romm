@@ -72,7 +72,7 @@ export function installScanLifecycle() {
         (p) => p.display_name !== display_name,
       );
       // Prepend so the platform being scanned right now stays at the top of
-      // the live log, with no scrolling to follow progress.
+      // the live log, where progress can be followed without scrolling.
       scanningStore.scanningPlatforms.unshift({
         name,
         display_name,
@@ -101,8 +101,8 @@ export function installScanLifecycle() {
   // ROM. Queue drains every 100ms; matches the v1 behavior. Stored
   // outside the handler so multiple events share the same queue + flush.
   const romUpdateQueue: ScanningRom[] = [];
-  // A new ROM emits several times, and the live log can be rebuilt between
-  // them by a platform event, so count it by id instead of by first sighting.
+  // A new ROM emits several times, and a platform event can rebuild the live
+  // log between those emits, so each new ROM is counted once by id.
   const countedNewRomIds = new Set<number>();
   const refreshGallery = debounce(
     () => {
@@ -149,7 +149,7 @@ export function installScanLifecycle() {
         (p) => p.fs_slug === rom.platform_fs_slug,
       );
 
-      // Socket may have dropped the `scan:scanning_platform` event, so add
+      // The socket may have dropped the `scan:scanning_platform` event. Add
       // the platform synthetically so the user still sees something.
       if (!scannedPlatform) {
         scanningStore.scanningPlatforms.unshift({
