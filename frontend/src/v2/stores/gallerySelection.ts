@@ -1,11 +1,11 @@
-// v2GallerySelection — multi-select state for the gallery views
+// v2GallerySelection: multi-select state for the gallery views
 // (Platform / Search / Collection). v2-only; v1's `stores/roms.ts`
 // still owns the legacy selection fields and is the canonical store
-// for v1 — v2 starts fresh so the existing surface can be improved
+// for v1; v2 starts fresh so the existing surface can be improved
 // without bending the v1 contract.
 //
 // Selection model:
-//   - `selected: Map<number, SimpleRom>` — the source of truth, keyed
+//   - `selected: Map<number, SimpleRom>`, the source of truth, keyed
 //     by rom id. We keep the full `SimpleRom` (not just the id) so
 //     the SelectionBar's bulk actions can dispatch dialog events and
 //     API calls without re-resolving against the sparse gallery
@@ -14,12 +14,12 @@
 //     by the size of the selection; a whole-result select-all holds
 //     the full filtered set, the price of bulk actions needing real
 //     objects rather than ids.
-//   - `lastSelectedPosition: number | null` — anchor for shift-range
+//   - `lastSelectedPosition: number | null`, anchor for shift-range
 //     selection. Stored as a *position* in the sparse gallery (matches
 //     `galleryRoms.byPosition` keys) rather than an index into a dense
 //     array, because v2's gallery is virtualised + sparse.
-//   - `enabled` getter — true when at least one ROM is selected. The
-//     "selection mode" is implicit (no separate flag) — first toggle
+//   - `enabled` getter: true when at least one ROM is selected. The
+//     "selection mode" is implicit (no separate flag): first toggle
 //     enters it, `clear()` exits it. Simpler than v1's
 //     `selectingRoms: boolean` toggle, and matches the user-facing
 //     expectation: "I am selecting iff I have selections."
@@ -27,7 +27,7 @@
 // Scope:
 //   - Selection is *per-gallery-view*. The store is global but call
 //     sites (`GalleryShell`) clear on route change / context switch.
-//     We don't clear inside the store itself — switching from Search
+//     We don't clear inside the store itself: switching from Search
 //     to a platform should drop the selection, but we let the view
 //     decide so an in-page filter change can preserve it.
 import { defineStore } from "pinia";
@@ -55,17 +55,17 @@ export default defineStore("v2GallerySelection", {
   state: defaults,
 
   getters: {
-    /** True when the gallery is in "selection mode" — at least one
+    /** True when the gallery is in "selection mode": at least one
      * ROM is selected. Drives card/row visual affordances (checkbox
      * always visible) and the SelectionBar's open state. */
     enabled: (state) => state.selected.size > 0,
     /** Convenience for the SelectionBar's "N selected" label. */
     count: (state) => state.selected.size,
-    /** Snapshot of the selected ROMs as an array — what the
+    /** Snapshot of the selected ROMs as an array: what the
      *  SelectionBar passes to dialog events / bulk APIs. Built on
      *  demand from the Map so callers always get a fresh array. */
     roms: (state): SimpleRom[] => Array.from(state.selected.values()),
-    /** Snapshot of selected IDs — preferred when only IDs are
+    /** Snapshot of selected IDs: preferred when only IDs are
      *  needed (collection add/remove API takes id[]). */
     ids: (state): number[] => Array.from(state.selected.keys()),
   },
@@ -75,8 +75,8 @@ export default defineStore("v2GallerySelection", {
       return this.selected.has(id);
     },
 
-    /** Toggle a single ROM. Updates the range anchor unconditionally
-     * — even when removing, so the next shift-click extends from the
+    /** Toggle a single ROM. Updates the range anchor unconditionally,
+     * even when removing, so the next shift-click extends from the
      * just-clicked card (matches the de-facto behaviour of file
      * managers / mail clients). */
     toggle(rom: SimpleRom, position: number) {
@@ -92,7 +92,7 @@ export default defineStore("v2GallerySelection", {
 
     /** Range selection from `lastSelectedPosition` to `position`,
      * inclusive. Resolves positions through `getRomAt` (provided by
-     * the caller, typically `galleryRoms.getRomAt`) — positions that
+     * the caller, typically `galleryRoms.getRomAt`): positions that
      * aren't loaded yet are skipped. The range either adds every ROM
      * to the selection or removes every ROM, picked by the state of
      * the *target* position (matches v1: clicking a selected end-of-
@@ -154,7 +154,7 @@ export default defineStore("v2GallerySelection", {
       this.lastSelectedPosition = null;
     },
 
-    /** Drop a subset by ID — used when a bulk action mutates only
+    /** Drop a subset by ID: used when a bulk action mutates only
      * part of the selection (e.g. delete-from-disk against a subset). */
     removeIds(ids: Iterable<number>) {
       const next = new Map(this.selected);
