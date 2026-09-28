@@ -60,7 +60,7 @@ const logoUrl = computed(() =>
 );
 
 // Logos are sized to a shared area rather than a shared height, so a square
-// logo reads as large as a wide one. Sizes are in CSS pixels.
+// logo reads as large as a wide one.
 const LOGO_MAX_WIDTH = 420;
 const LOGO_BOX = {
   regular: { area: 40000, maxHeight: 176 },
