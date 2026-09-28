@@ -4,10 +4,14 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from utils.filesystem import CONTROL_CHARS
+
 FRAMES_PER_SECOND = 75
 # Red Book numbers a disc's tracks 1 to 99.
 MAX_TRACKS = 99
 AUDIO_SECTOR_BYTES = 2352
+# 16-bit stereo, so audio lengths are whole multiples of this.
+STEREO_SAMPLE_BYTES = 4
 
 # Bytes per sector for each track mode a raw image can hold.
 SECTOR_SIZES = {
@@ -31,8 +35,6 @@ _FILE_REGEX = re.compile(rf"^{SHEET_FILE_PATTERN}\s+(?P<type>\S+)$")
 # number past its digit limit.
 _NUMBER_REGEX = re.compile(r"\d{1,3}", re.ASCII)
 _MSF_REGEX = re.compile(r"^(\d{1,4}):(\d{1,2}):(\d{1,2})$", re.ASCII)
-# Control characters would reach flac's argv, where a NUL can't go.
-_CONTROL_REGEX = re.compile(r"[\x00-\x1f\x7f]")
 
 
 @dataclass
@@ -68,7 +70,8 @@ def _cd_text(value: str) -> str | None:
     value = value.strip()
     if len(value) >= 2 and value[0] == value[-1] == '"':
         value = value[1:-1]
-    return _CONTROL_REGEX.sub("", value) or None
+    # Control characters would reach flac's argv, where a NUL can't go.
+    return CONTROL_CHARS.sub("", value) or None
 
 
 def _msf_to_frames(value: str) -> int | None:
@@ -179,7 +182,9 @@ def audio_track_ranges(
                 continue
             pregap = track.indexes[1] - min(track.indexes.values())
             offset = byte_start + pregap * AUDIO_SECTOR_BYTES
-            length = (min(end, size) - offset) // 4 * 4
+            length = (
+                (min(end, size) - offset) // STEREO_SAMPLE_BYTES * STEREO_SAMPLE_BYTES
+            )
             if length > 0:
                 ranges.append(
                     AudioTrackRange(

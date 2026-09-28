@@ -5,11 +5,12 @@ import functools
 import shutil
 from collections import Counter
 from collections.abc import Callable, Generator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from anyio import Path as AnyioPath
 
+from endpoints.responses.rom import CdAudioExtractionSchema, CdAudioStatusSchema
 from exceptions.fs_exceptions import RomListedByPlaylistException
 from handler.filesystem import fs_rom_handler
 from handler.rom_conversion import assert_promotable, promote_single_file_to_folder
@@ -35,11 +36,12 @@ from utils.chd_cdrom import (
 from utils.cue_sheet import (
     MAX_TRACKS,
     AudioTrackRange,
+    CueTrack,
     audio_track_ranges,
     parse_cue_sheet,
 )
-from utils.gdi_sheet import gdi_audio_ranges, parse_gdi_sheet
-from utils.m3u import disc_number
+from utils.gdi_sheet import GdiTrack, gdi_audio_ranges, parse_gdi_sheet
+from utils.m3u import disc_number, disc_order
 
 FLAC_BINARY = "flac"
 READ_CHUNK_BYTES = 1024 * 1024
@@ -65,12 +67,6 @@ class CdAudioNeedsFolderException(RuntimeError):
     """The disc isn't in a folder of its own, so there is nowhere to write."""
 
 
-@dataclass
-class CdAudioExtraction:
-    extracted: list[str] = field(default_factory=list)
-    skipped: list[str] = field(default_factory=list)
-
-
 @dataclass(frozen=True)
 class AudioSource:
     """One audio track ready to encode, wherever its samples live."""
@@ -84,22 +80,27 @@ class AudioSource:
     disc: int | None = None
 
 
+def flac_available() -> bool:
+    return shutil.which(FLAC_BINARY) is not None
+
+
 def track_file_name(prefix: str, number: int) -> str:
     return f"{prefix} - Track {number:02d}.flac"
 
 
-def track_prefixes(images: list[Path]) -> dict[Path, str]:
+def _track_prefixes(images: list[RomFile]) -> list[str]:
     """Name each disc's tracks after its image, adding the image's folder when
     another disc of the set shares its name (Dreamcast sets often use disc.gdi)."""
-    counts = Counter(image.stem.casefold() for image in images)
-    return {
-        image: (
-            image.stem
-            if counts[image.stem.casefold()] == 1
-            else f"{image.parent.name} - {image.stem}"
+    stems = [Path(image.file_name).stem for image in images]
+    counts = Counter(stem.casefold() for stem in stems)
+    return [
+        (
+            stem
+            if counts[stem.casefold()] == 1
+            else f"{Path(image.file_path).name} - {stem}"
         )
-        for image in images
-    }
+        for image, stem in zip(images, stems, strict=True)
+    ]
 
 
 def _read_sheet(path: Path) -> str:
@@ -115,14 +116,34 @@ def _read_sheet(path: Path) -> str:
 
 def _locate_files(folder: Path, names: set[str]) -> dict[str, Path]:
     """Match sheet file names to files in the sheet's folder, ignoring case."""
-    entries = {entry.name: entry for entry in folder.iterdir() if entry.is_file()}
-    by_folded = {name.casefold(): entry for name, entry in entries.items()}
-    located: dict[str, Path] = {}
-    for name in names:
-        entry = entries.get(name) or by_folded.get(name.casefold())
-        if entry is not None:
-            located[name] = entry
+    # Listing a platform folder is costly, so it's left to names that missed or
+    # that differ only in case, which a case-insensitive mount opens as one file.
+    folded = Counter(name.casefold() for name in names)
+    located = {
+        name: folder / name
+        for name in names
+        if folded[name.casefold()] == 1 and (folder / name).is_file()
+    }
+    if missing := names - located.keys():
+        by_folded = {e.name.casefold(): e for e in folder.iterdir() if e.is_file()}
+        for name in missing:
+            if (entry := by_folded.get(name.casefold())) is not None:
+                located[name] = entry
     return located
+
+
+def _on_disk_names[T: (CueTrack, GdiTrack)](
+    tracks: list[T], folder: Path
+) -> tuple[list[T], dict[str, Path]]:
+    """Point each track at its file's on-disk name, dropping tracks whose file is
+    missing, so names differing only in case share one file's layout."""
+    located = _locate_files(folder, {track.file_name for track in tracks})
+    resolved = [
+        dataclasses.replace(track, file_name=located[track.file_name].name)
+        for track in tracks
+        if track.file_name in located
+    ]
+    return resolved, {path.name: path for path in located.values()}
 
 
 def _bin_pcm(path: Path, offset: int, length: int) -> PcmChunks:
@@ -160,23 +181,10 @@ def _sheet_sources(sheet_path: Path) -> list[AudioSource]:
     text = _read_sheet(sheet_path)
     ranges: list[AudioTrackRange]
     if sheet_path.suffix.lower() == ".gdi":
-        gdi_tracks = parse_gdi_sheet(text)
-        located = _locate_files(sheet_path.parent, {t.file_name for t in gdi_tracks})
+        gdi_tracks, located = _on_disk_names(parse_gdi_sheet(text), sheet_path.parent)
         ranges = gdi_audio_ranges(gdi_tracks, _file_sizes(located))
     else:
-        cue_tracks = parse_cue_sheet(text)
-        located = _locate_files(sheet_path.parent, {t.file_name for t in cue_tracks})
-        # FILE names differing only in case open one file, so they share its
-        # layout rather than each spanning the whole of it.
-        cue_tracks = [
-            (
-                dataclasses.replace(track, file_name=located[track.file_name].name)
-                if track.file_name in located
-                else track
-            )
-            for track in cue_tracks
-        ]
-        located = {path.name: path for path in located.values()}
+        cue_tracks, located = _on_disk_names(parse_cue_sheet(text), sheet_path.parent)
         ranges = audio_track_ranges(cue_tracks, _file_sizes(located))
     sources: list[AudioSource] = []
     # Lines pointing at the same samples would write the same audio again.
@@ -332,14 +340,6 @@ class PlannedTrack:
     source: AudioSource
 
 
-@dataclass(frozen=True)
-class CdAudioStatus:
-    tracks: int
-    extracted: int
-    # False when extraction would be refused, such as for a loose sheet.
-    extractable: bool
-
-
 def _disc_sources(images: list[RomFile], lib: ctypes.CDLL | None) -> list[AudioSource]:
     """The audio tracks of the first of a disc's images that has any, so a sheet
     whose track files are gone falls back to the CHD beside it."""
@@ -377,26 +377,16 @@ def _plan_tracks(
         CdAudioUnavailableException: A disc needs libchdr, which isn't installed.
         CdAudioEncodeException: A disc image couldn't be read.
     """
-    # Numbered discs first and in order, then the rest by path.
-    discs = sorted(
-        discs,
-        key=lambda d: (
-            disc_number(d[0]) is None,
-            disc_number(d[0]) or 0,
-            d[0].file_path,
-            Path(d[0].file_name).stem.casefold(),
-        ),
-    )
+    discs = sorted(discs, key=lambda d: (*disc_order(d[0]), d[0].file_path))
     # Every image of a disc shares its folder and name, so the first names it.
-    paths = [fs_rom_handler.validate_path(images[0].full_path) for images in discs]
-    prefixes = track_prefixes(paths)
+    prefixes = _track_prefixes([images[0] for images in discs])
     multi_disc = len(discs) > 1
     planned: list[PlannedTrack] = []
-    for position, (images, path) in enumerate(zip(discs, paths, strict=True), 1):
+    for position, (images, prefix) in enumerate(zip(discs, prefixes, strict=True), 1):
         disc = (disc_number(images[0]) or position) if multi_disc else None
         planned.extend(
             PlannedTrack(
-                file_name=track_file_name(prefixes[path], source.number),
+                file_name=track_file_name(prefix, source.number),
                 source=dataclasses.replace(source, disc=disc),
             )
             for source in _disc_sources(images, lib)
@@ -421,7 +411,7 @@ def _extractable(rom: Rom, discs: list[list[RomFile]]) -> bool:
     return True
 
 
-async def cd_audio_status(rom: Rom) -> CdAudioStatus:
+async def cd_audio_status(rom: Rom) -> CdAudioStatusSchema:
     """Count a ROM's CD audio tracks and how many are already in its soundtrack.
 
     Raises:
@@ -430,7 +420,7 @@ async def cd_audio_status(rom: Rom) -> CdAudioStatus:
     """
     discs = _discs(rom)
     if not discs:
-        return CdAudioStatus(tracks=0, extracted=0, extractable=False)
+        return CdAudioStatusSchema(tracks=0, extracted=0, extractable=False)
     planned = await asyncio.to_thread(_plan_tracks, discs, load_libchdr())
     extractable = await asyncio.to_thread(_extractable, rom, discs)
     soundtrack = {
@@ -438,14 +428,14 @@ async def cd_audio_status(rom: Rom) -> CdAudioStatus:
         for file in rom.files
         if file.category == RomFileCategory.SOUNDTRACK
     }
-    return CdAudioStatus(
+    return CdAudioStatusSchema(
         tracks=len(planned),
         extracted=sum(track.file_name in soundtrack for track in planned),
         extractable=extractable,
     )
 
 
-async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
+async def extract_cd_audio(rom: Rom) -> CdAudioExtractionSchema:
     """Write the audio tracks of a ROM's disc images (.cue, .gdi, .chd) into its
     soundtrack folder.
 
@@ -462,10 +452,10 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
         UploadNotRegisteredException: The tracks were written, but the ROM's
             files could not be refreshed.
     """
-    if shutil.which(FLAC_BINARY) is None:
+    if not flac_available():
         raise CdAudioUnavailableException("The flac encoder is not installed")
 
-    result = CdAudioExtraction()
+    result = CdAudioExtractionSchema(extracted=[], skipped=[])
     discs = _discs(rom)
     if not discs:
         return result
@@ -486,50 +476,43 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
 
     try:
         await _write_tracks(rom, planned, result)
-    except BaseException:
-        # Register whatever landed, without replacing the error that stopped it.
-        if result.extracted:
-            try:
-                await _register(rom, result)
-            except Exception as exc:
-                log.error(f"Error registering CD audio for ROM {rom.id}", exc_info=exc)
-        raise
-    if result.extracted:
-        try:
-            await _register(rom, result)
-        except Exception as exc:
-            log.error(f"Error registering CD audio for ROM {rom.id}", exc_info=exc)
-            raise UploadNotRegisteredException(
-                "Tracks extracted but not registered yet, run a quick scan"
-            ) from exc
+    finally:
+        # Whatever landed is registered, even when a later track failed.
+        registered = not result.extracted or await _register(rom, result)
+    if not registered:
+        raise UploadNotRegisteredException(
+            "Tracks extracted but not registered yet, run a quick scan"
+        )
     return result
 
 
 async def _write_tracks(
-    rom: Rom, planned: list[PlannedTrack], result: CdAudioExtraction
+    rom: Rom, planned: list[PlannedTrack], result: CdAudioExtractionSchema
 ) -> None:
     folder = CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK]
     for track in planned:
         try:
             destination = await prepare_upload_destination(rom, folder, track.file_name)
-        except UploadConflictException:
-            result.skipped.append(track.file_name)
-            continue
-        staged = staging_path(destination.location)
-        await encode_track(track.source, staged, rom.name)
-        try:
+            staged = staging_path(destination.location)
+            await encode_track(track.source, staged, rom.name)
             await asyncio.to_thread(
                 move_into_place, destination.location, staged, overwrite=False
             )
         except UploadConflictException:
-            # A concurrent extraction of the same disc got there first.
+            # Already extracted, or a concurrent extraction got there first.
             result.skipped.append(track.file_name)
-            continue
-        result.extracted.append(track.file_name)
+        else:
+            result.extracted.append(track.file_name)
 
 
-async def _register(rom: Rom, result: CdAudioExtraction) -> None:
-    await refresh_rom_files(rom)
+async def _register(rom: Rom, result: CdAudioExtractionSchema) -> bool:
+    """Refresh the ROM's files, logging rather than raising when that fails."""
+    try:
+        await refresh_rom_files(rom)
+    except Exception as exc:
+        log.error(f"Error registering CD audio for ROM {rom.id}", exc_info=exc)
+        return False
     log.info(
         f"Extracted {len(result.extracted)} CD audio tracks from {hl(rom.fs_name)}"
     )
+    return True

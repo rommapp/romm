@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from tests.endpoints.roms.test_cd_audio import add_disc_rom, write_cue_disc
 
+from endpoints.responses.rom import CdAudioExtractionSchema
 from handler import cd_audio
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
@@ -117,7 +118,7 @@ async def test_a_failing_disc_does_not_stop_the_rest(
     broken = _cue_rom(admin_user, platform, real_library, "Broken Game")
     working = _cue_rom(admin_user, platform, real_library, "Working Game")
 
-    async def fail_on_broken(rom: Rom) -> cd_audio.CdAudioExtraction:
+    async def fail_on_broken(rom: Rom) -> CdAudioExtractionSchema:
         if rom.id == broken.id:
             raise cd_audio.CdAudioEncodeException("unreadable")
         return await cd_audio.extract_cd_audio(rom)

@@ -40,7 +40,7 @@ def disc_number(file: RomFile) -> int | None:
     return int(number) if number else ord(letter.lower()) - ord("a") + 1
 
 
-def _disc_order(file: RomFile) -> tuple[bool, int, str]:
+def disc_order(file: RomFile) -> tuple[bool, int, str]:
     """Sort numbered discs first and in order, then the rest by name."""
     number = disc_number(file)
     return (number is None, number or 0, file.file_name)
@@ -125,7 +125,7 @@ def playlist_files(files: list[RomFile]) -> list[RomFile]:
         discs = [
             f for f in discs if f.file_extension.lower() not in COMPANION_EXTENSIONS
         ]
-    return sorted(discs, key=_disc_order)
+    return sorted(discs, key=disc_order)
 
 
 def generate_m3u_content(

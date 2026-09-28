@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from utils.cue_sheet import (
     AUDIO_SECTOR_BYTES,
     SHEET_FILE_PATTERN,
+    STEREO_SAMPLE_BYTES,
     AudioTrackRange,
     sheet_file_name,
 )
@@ -80,7 +81,7 @@ def gdi_audio_ranges(
                 number=track.number,
                 file_name=track.file_name,
                 offset=0,
-                length=size // 4 * 4,
+                length=size // STEREO_SAMPLE_BYTES * STEREO_SAMPLE_BYTES,
                 big_endian=False,
                 title=None,
                 performer=None,

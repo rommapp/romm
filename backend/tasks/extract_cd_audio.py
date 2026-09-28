@@ -1,6 +1,5 @@
 """Extracting CD audio in the background once a scan ends, when config.yml asks."""
 
-import shutil
 from collections.abc import Sequence
 from typing import Final
 
@@ -9,10 +8,10 @@ from rq.job import Job
 
 from handler.cd_audio import (
     DISC_IMAGE_EXTENSIONS,
-    FLAC_BINARY,
     CdAudioUnavailableException,
     cd_audio_status,
     extract_cd_audio,
+    flac_available,
 )
 from handler.database import db_rom_handler
 from handler.redis_handler import low_prio_queue
@@ -26,7 +25,7 @@ EXTRACTION_TIMEOUT_SECONDS: Final = 4 * 60 * 60
 
 async def extract_cd_audio_after_scan(rom_ids: list[int]) -> None:
     """Extract the CD audio tracks the given ROMs' soundtracks are missing."""
-    if shutil.which(FLAC_BINARY) is None:
+    if not flac_available():
         log.warning("Skipping CD audio extraction: the flac encoder is not installed")
         return
 

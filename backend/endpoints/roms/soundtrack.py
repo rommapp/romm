@@ -153,13 +153,7 @@ async def get_rom_cd_audio_status(
     assert_rom_visible(request, rom)
 
     with _cd_audio_errors(id, "reading the disc images"):
-        result = await cd_audio_status(rom)
-
-    return CdAudioStatusSchema(
-        tracks=result.tracks,
-        extracted=result.extracted,
-        extractable=result.extractable,
-    )
+        return await cd_audio_status(rom)
 
 
 @protected_route(
@@ -187,7 +181,7 @@ async def extract_rom_cd_audio(
 
     try:
         with _cd_audio_errors(id, "extracting the CD audio"):
-            result = await extract_cd_audio(rom)
+            return await extract_cd_audio(rom)
     except UploadRejectedException as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -204,8 +198,6 @@ async def extract_rom_cd_audio(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         ) from exc
-
-    return CdAudioExtractionSchema(extracted=result.extracted, skipped=result.skipped)
 
 
 @protected_route(
