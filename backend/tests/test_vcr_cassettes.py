@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 CASSETTES = sorted(Path(__file__).parent.glob("**/cassettes/**/*.yaml"))
 
@@ -35,3 +36,14 @@ def test_cassette_holds_no_credentials(vcr_config, cassette: Path):
     raw = cassette.read_bytes()
 
     assert _scrub(vcr_config, raw) == raw
+
+
+@pytest.mark.parametrize("cassette", CASSETTES, ids=lambda p: p.name)
+def test_cassette_request_headers_hold_no_credentials(vcr_config, cassette: Path):
+    redacted = {name.lower(): value for name, value in vcr_config["filter_headers"]}
+    cassette_data = yaml.load(cassette.read_bytes(), Loader=yaml.CSafeLoader)
+
+    for interaction in cassette_data["interactions"]:
+        for name, values in interaction["request"]["headers"].items():
+            if name.lower() in redacted:
+                assert values == [redacted[name.lower()]], name

@@ -230,6 +230,7 @@ def vcr_config():
     return {
         # Default `match_on`, plus raw_body.
         "match_on": ["method", "scheme", "host", "port", "path", "query", "raw_body"],
+        "filter_headers": [(k, _VCR_REDACTED) for k in sorted(SENSITIVE_KEYS)],
         "filter_query_parameters": [(k, _VCR_REDACTED) for k in sorted(SENSITIVE_KEYS)],
         "before_record_response": _scrub_response_body,
     }
