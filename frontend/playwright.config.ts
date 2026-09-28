@@ -24,6 +24,8 @@ const TIMEOUTS = debugging
 
 export default defineConfig<E2EOptions>({
   testDir: "./e2e",
+  // Everything the suite writes stays in e2e/.
+  outputDir: "./e2e/test-results",
   // Checks the backend and both accounts before anything else runs.
   globalSetup: "./e2e/global-setup.ts",
   // Permission gating is global state on the server (the fixture users' grants),
@@ -35,7 +37,10 @@ export default defineConfig<E2EOptions>({
   // Every worker hammers ONE server, so keep the pool small.
   workers: env.E2E_WORKERS ?? 2,
   // The HTML report holds each failure's trace: `npm run test:e2e:report`.
-  reporter: [[isCI ? "github" : "list"], ["html", { open: "never" }]],
+  reporter: [
+    [isCI ? "github" : "list"],
+    ["html", { outputFolder: "./e2e/playwright-report", open: "never" }],
+  ],
   // A test that genuinely needs longer uses `test.setTimeout`.
   timeout: TIMEOUTS.test,
   expect: { timeout: TIMEOUTS.expect },

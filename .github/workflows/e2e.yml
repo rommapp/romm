@@ -149,8 +149,8 @@ jobs:
         with:
           name: playwright-report
           path: |
-            frontend/playwright-report/
-            frontend/test-results/
+            frontend/e2e/playwright-report/
+            frontend/e2e/test-results/
           retention-days: 7
 
       - name: Dump backend log
