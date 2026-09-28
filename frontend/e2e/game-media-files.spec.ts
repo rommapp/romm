@@ -1,5 +1,6 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { gotoFirstRom, seedUiState, STORAGE_STATE } from "./fixtures/auth";
+import { expect, test } from "./fixtures/test";
 
 // The Media and Files tabs write to the ROM (manuals, soundtracks, shared
 // screenshots, ROM files) and every one of those endpoints gates on ROMS_WRITE.

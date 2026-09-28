@@ -92,7 +92,8 @@ switch_product_ids.json
 /dev.sh
 
 # Playwright (e2e) artifacts
-frontend/playwright/.auth/
+frontend/e2e/.auth/
+frontend/e2e/.env
 frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/

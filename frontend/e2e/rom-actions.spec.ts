@@ -1,4 +1,3 @@
-import { expect, test } from "@playwright/test";
 import {
   gotoFirstRom,
   menuLabels,
@@ -6,6 +5,7 @@ import {
   seedUiState,
   STORAGE_STATE,
 } from "./fixtures/auth";
+import { expect, test } from "./fixtures/test";
 
 // Regression cover for #3954: the ⋯ menu offered Match / Refresh metadata /
 // Edit / Delete to users with no ROM write grant. Those endpoints gate on

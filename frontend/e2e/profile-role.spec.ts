@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
 import { gotoOwnProfile, seedUiState, STORAGE_STATE } from "./fixtures/auth";
+import { expect, test } from "./fixtures/test";
 
 // Regression cover for #3954: the profile page shipped an editable role picker,
 // but `update_user` ignores `role` on a self-edit. Saving reported success and

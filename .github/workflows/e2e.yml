@@ -62,8 +62,6 @@ jobs:
       REDIS_HOST: 127.0.0.1
       # Throwaway signing key for an ephemeral runner
       ROMM_AUTH_SECRET_KEY: "e2e0000000000000000000000000000000000000000000000000000000000000"
-      # Fixture-user password, shared by the seeder and the specs
-      E2E_PASSWORD: e2e-Passw0rd!
 
     steps:
       - name: Checkout repository
@@ -107,9 +105,12 @@ jobs:
       - name: Seed the library
         run: uv run python .github/scripts/seed_e2e_library.py
 
-      # Seed user and clear the setup wizard
+      # Seed users and clear the setup wizard. The Playwright step below is
+      # given the same accounts.
       - name: Seed the e2e fixture users
         run: uv run python .github/scripts/seed_e2e_users.py
+        env:
+          E2E_PASSWORD: e2e-Passw0rd!
 
       - name: Start the backend
         run: |
@@ -127,10 +128,20 @@ jobs:
           exit 1
         working-directory: backend
 
-      # Starts the Vite dev server and waits for port 3000.
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      # Serves the static build with `vite preview` on port 3100.
       - name: Run Playwright tests
         run: npm run test:e2e
         working-directory: frontend
+        env:
+          E2E_ADMIN_USERNAME: e2e_admin
+          E2E_ADMIN_PASSWORD: e2e-Passw0rd!
+          E2E_VIEWER_USERNAME: e2e_viewer
+          E2E_VIEWER_PASSWORD: e2e-Passw0rd!
+          E2E_DEV_PROXY_TARGET: http://127.0.0.1:${{ env.DEV_PORT }}
 
       - name: Upload Playwright report
         if: failure()
