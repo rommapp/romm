@@ -47,18 +47,19 @@ const { showLogoTitle } = useUISettings();
 
 const logoFailed = ref(false);
 const logoRatio = ref<number | null>(null);
-const logoUrl = computed(() => {
+const logoSrc = computed(() => {
   const path = props.rom.ss_metadata?.logo_path;
-  if (!showLogoTitle.value || !path || logoFailed.value) return null;
+  if (!path) return null;
   return `${FRONTEND_RESOURCES_PATH}/${path}?v=${encodeURIComponent(props.rom.updated_at)}`;
 });
-watch(
-  () => props.rom.id,
-  () => {
-    logoFailed.value = false;
-    logoRatio.value = null;
-  },
+const logoUrl = computed(() =>
+  showLogoTitle.value && !logoFailed.value ? logoSrc.value : null,
 );
+// A rescan that replaces the logo changes its URL, so it gets a fresh try.
+watch(logoSrc, () => {
+  logoFailed.value = false;
+  logoRatio.value = null;
+});
 
 // Logos are sized to a shared area rather than a shared height, so a square
 // logo reads as large as a wide one. Sizes are in CSS pixels.

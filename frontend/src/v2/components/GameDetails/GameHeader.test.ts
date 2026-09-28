@@ -24,12 +24,17 @@ vi.mock("@/v2/composables/useGameActions", () => ({
   useGameActions: () => ({ platformPath: ref(null) }),
 }));
 
-function mountHeader(logoPath: string | null) {
-  const rom = makeDetailedRom({
+function makeRom(logoPath: string | null, updatedAt = "2024-01-01T00:00:00") {
+  return makeDetailedRom({
     id: 1,
     ss_metadata: { logo_path: logoPath },
     sibling_roms: [],
+    updated_at: updatedAt,
   });
+}
+
+function mountHeader(logoPath: string | null) {
+  const rom = makeRom(logoPath);
   return mount(GameHeader, {
     props: {
       rom,
@@ -85,6 +90,16 @@ describe("GameHeader", () => {
     await wrapper.find("h1 img").trigger("error");
     expect(wrapper.find("h1 img").exists()).toBe(false);
     expect(wrapper.find("h1").text()).toBe("Chrono Trigger");
+  });
+
+  it("retries a failed logo once a rescan updates the rom", async () => {
+    showLogoTitle.value = true;
+    const wrapper = mountHeader("roms/1/1/logo/logo.png");
+    await wrapper.find("h1 img").trigger("error");
+    await wrapper.setProps({
+      rom: makeRom("roms/1/1/logo/logo.png", "2024-02-01T00:00:00"),
+    });
+    expect(wrapper.find("h1 img").exists()).toBe(true);
   });
 
   it.each([

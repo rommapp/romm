@@ -20,7 +20,7 @@ from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.concurrency import gather_all
 from utils.context import ctx_httpx_client
-from utils.images import frame_durations, is_animated, webp_loop
+from utils.images import IMAGE_DECODE_ERRORS, frame_durations, is_animated, webp_loop
 from utils.rate_limiter import ConcurrencyLimiter
 
 from .base_handler import CoverSize, FSHandler
@@ -99,7 +99,7 @@ def _is_chroma_key_placeholder(image_path: Path) -> bool:
             sample = img.convert("RGB")
             sample.thumbnail((32, 32))  # cheap: sample a downscaled copy
             raw = sample.tobytes()  # flat RGB triples
-    except UnidentifiedImageError, OSError, ValueError:
+    except IMAGE_DECODE_ERRORS:
         return False
 
     total = len(raw) // 3
@@ -118,26 +118,27 @@ def _is_chroma_key_placeholder(image_path: Path) -> bool:
     return green / total >= _CHROMA_KEY_COVERAGE
 
 
-def _trim_transparent_border(image_path: Path) -> None:
+def _trim_transparent_border(image_path: Path) -> Image.Image | None:
     """Crop an image to its visible pixels, so a logo aligns by its artwork
-    rather than the empty canvas around it."""
+    rather than the empty canvas around it.
+
+    Returns:
+        The cropped image, or None when there is no transparent border to trim.
+    """
     try:
         with Image.open(image_path) as img:
-            if is_animated(img) or not (
+            # Any multi-frame image, since a crop keeps only the first frame
+            if getattr(img, "n_frames", 1) > 1 or not (
                 "A" in img.getbands() or "transparency" in img.info
             ):
-                return
-            rgba = img.convert("RGBA")
-    except UnidentifiedImageError, OSError, ValueError:
-        return
-
-    bbox = rgba.getchannel("A").getbbox()
-    if bbox is None or bbox == (0, 0, *rgba.size):
-        return
-    try:
-        rgba.crop(bbox).save(image_path, format="PNG")
-    except OSError as exc:
-        log.error(f"Unable to trim transparent border of {image_path}: {str(exc)}")
+                return None
+            bbox = img.convert("RGBA").getchannel("A").getbbox()
+            if bbox is None or bbox == (0, 0, *img.size):
+                return None
+            # Cropped in its own mode, so a palette logo stays compact
+            return img.crop(bbox)
+    except IMAGE_DECODE_ERRORS:
+        return None
 
 
 class FSResourcesHandler(FSHandler):
@@ -828,6 +829,24 @@ class FSResourcesHandler(FSHandler):
         # file behind without raising.
         return await self.file_exists(dest_path)
 
+    async def _trim_logo(self, relative_path: str) -> None:
+        """Crop a stored logo to its visible pixels."""
+        full_path = self.validate_path(relative_path)
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
+            trimmed = await asyncio.to_thread(_trim_transparent_border, full_path)
+            if trimmed is None:
+                return
+            # Replaced rather than rewritten, so a failed save keeps the logo
+            # intact and a hardlinked source image is never cropped.
+            try:
+                async with self._atomic_write(full_path) as temp_path:
+                    await asyncio.to_thread(trimmed.save, temp_path, format="PNG")
+            except OSError as exc:
+                log.error(
+                    f"Unable to trim transparent border of {relative_path}: {str(exc)}"
+                )
+
     async def store_metadata_media(
         self,
         metadata: dict[str, Any],
@@ -858,9 +877,7 @@ class FSResourcesHandler(FSHandler):
                 stored = await self.file_exists(media_path)
             # Also runs for logos already on disk, trimming them on rescan.
             if stored and media_type == MetadataMediaType.LOGO:
-                await asyncio.to_thread(
-                    _trim_transparent_border, self.validate_path(media_path)
-                )
+                await self._trim_logo(media_path)
             return stored
 
         # Keyed by path key, so a media type listed twice is fetched once.
