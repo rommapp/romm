@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RLetterHeading — small uppercase faint label used to separate
+// RLetterHeading: small uppercase faint label used to separate
 // letter-grouped sections in galleries (ROM list, Platforms,
 // Collections). Generic on purpose: the consumer passes the label as a
 // prop or default slot, so it can paint a single letter ("A"), a digit

@@ -1,4 +1,4 @@
-// Smart-collection filter criteria helpers — single source of truth for
+// Smart-collection filter criteria helpers: single source of truth for
 // the v2 "create from filters" + "display read-only criteria" flows.
 //
 // v1 had this serialization logic duplicated inside
@@ -23,7 +23,7 @@ export interface SmartFilterCriteria {
   search_term?: string;
   platform_ids?: number[];
   /** Captures "inside a regular collection" when the smart collection was
-   *  created — so applying extra filters inside Castlevania produces a
+   *  created: so applying extra filters inside Castlevania produces a
    *  smart collection scoped to Castlevania, not the whole library. */
   collection_id?: number;
   virtual_collection_id?: string;
@@ -119,8 +119,8 @@ export interface GalleryFilterSnapshot {
 
 /**
  * Optional route-level context the user is currently navigating in.
- * These aren't toggles in the filter drawer — they come from the URL
- * (`/platform/:slug`, `/collection/:id`, …) — but the smart collection
+ * These aren't toggles in the filter drawer: they come from the URL
+ * (`/platform/:slug`, `/collection/:id`, …): but the smart collection
  * still needs to capture them so it stays scoped to that view.
  */
 export interface GalleryContext {
@@ -238,7 +238,7 @@ export function buildSmartFilterCriteria(
   return out;
 }
 
-/** True when at least one filter is set — drives the "no filters" warning. */
+/** True when at least one filter is set: drives the "no filters" warning. */
 export function hasAnySmartFilterCriteria(c: SmartFilterCriteria): boolean {
   return Object.keys(c).length > 0;
 }
@@ -552,8 +552,8 @@ export interface SummaryLookups {
 /**
  * Translate `filter_criteria` into a structured list of rows the UI can
  * render. Callers pass:
- *   - `t`       — vue-i18n composer for labels.
- *   - `lookups` — id → display name resolvers for platforms / collections.
+ *   - `t`       - vue-i18n composer for labels.
+ *   - `lookups`: id → display name resolvers for platforms / collections.
  *     Each is optional; rows fall back to a `#id` chip when missing.
  *
  * The legacy `(id) => string | null` shape (platforms-only) stays

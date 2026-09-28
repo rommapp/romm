@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// CreateClientTokenDialog — v2-native rebuild of v1's
+// CreateClientTokenDialog: v2-native rebuild of v1's
 // `Settings/ClientApiTokens/Dialog/CreateClientToken.vue`. Single dialog
 // driving the create + regenerate flows through four steps:
-//   1. config   — name + expiry + scope picker
-//   2. delivery — choose copy or pair
-//   3. copy     — shows the raw token with a copy button
-//   4. pair     — QR + 4-digit code + countdown; polls until claimed
+//   1. config   - name + expiry + scope picker
+//   2. delivery: choose copy or pair
+//   3. copy     - shows the raw token with a copy button
+//   4. pair     - QR + 4-digit code + countdown; polls until claimed
 //
 // Regenerate jumps straight to step 2 with the new token already
 // generated. The dialog responds to the same emitter events the v1
@@ -294,7 +294,7 @@ function startPairPolling() {
       try {
         await clientTokenApi.pollPairStatus(pairCode.value);
       } catch {
-        // The poll throws when the code has been claimed (4xx) — treat
+        // The poll throws when the code has been claimed (4xx): treat
         // it as "claimed" if there's still time, "expired" otherwise.
         clearPairTimer();
         if (pairCountdown.value > 0) {
@@ -609,7 +609,7 @@ onBeforeUnmount(() => {
 .r-v2-tok-dialog__title {
   font-weight: var(--r-font-weight-semibold);
 }
-/* Per-step body — wraps a single v-if branch inside RDialog's body.
+/* Per-step body: wraps a single v-if branch inside RDialog's body.
    Keeps the column layout so children inherit the step's gap (slightly
    wider than the dialog's default) and an opt-in centred alignment for
    delivery / pair steps. Padding stays in RDialog. */

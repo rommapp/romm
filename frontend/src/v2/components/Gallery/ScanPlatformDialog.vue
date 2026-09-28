@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ScanPlatformDialog — kicks off a scan for a single platform with
+// ScanPlatformDialog: kicks off a scan for a single platform with
 // the user's choice of providers, hash-matchers, and scan type.
 //
 // Visual + interaction language mirrors `RefreshMetadataDialog`
@@ -7,7 +7,7 @@
 // proxies as switch pills, scan-type select), but the identity row
 // at the top shows the platform instead of a ROM, and the scan-type
 // list mirrors the Scan view's per-platform options (no "new
-// platforms" — that's a discovery scan against the whole library,
+// platforms": that's a discovery scan against the whole library,
 // not a single platform).
 import {
   RAlert,
@@ -59,7 +59,7 @@ const {
   persistSelection,
 } = useScanProviders();
 
-// Per-platform scan types — the full Scan-view list minus
+// Per-platform scan types: the full Scan-view list minus
 // `new_platforms` (a discovery scan against fs_slugs not yet in the
 // DB, which can't be scoped to a known platform).
 type ScanType = Exclude<SharedScanType, "new_platforms">;
@@ -135,7 +135,7 @@ function onScan() {
 
     <template #content>
       <div class="r-v2-scan-plat">
-        <!-- Platform identity row — icon + name. Mirrors the
+        <!-- Platform identity row: icon + name. Mirrors the
              ROM-identity row in RefreshMetadataDialog so the two
              scan-launching surfaces read as siblings. -->
         <div class="r-v2-scan-plat__head">
@@ -157,7 +157,7 @@ function onScan() {
           </div>
         </div>
 
-        <!-- 1. Providers — General + Specific RSelects. -->
+        <!-- 1. Providers: General + Specific RSelects. -->
         <section class="r-v2-scan-plat__section">
           <h3 class="r-v2-scan-plat__section-title">
             {{ t("scan.section-providers") }}
@@ -309,7 +309,7 @@ function onScan() {
           </div>
         </section>
 
-        <!-- 2. Hash-matcher proxies — same compact switch pills as
+        <!-- 2. Hash-matcher proxies: same compact switch pills as
              RefreshMetadataDialog. -->
         <section class="r-v2-scan-plat__section">
           <h3 class="r-v2-scan-plat__section-title">
@@ -358,8 +358,8 @@ function onScan() {
           </div>
         </section>
 
-        <!-- 3. Scan type — full per-platform option list (no "new
-             platforms" — that's a library-wide discovery scan). -->
+        <!-- 3. Scan type, full per-platform option list (no "new
+             platforms", that's a library-wide discovery scan). -->
         <section class="r-v2-scan-plat__section">
           <h3 class="r-v2-scan-plat__section-title">
             {{ t("scan.section-scan-type") }}
@@ -421,7 +421,7 @@ function onScan() {
   gap: 16px;
 }
 
-/* Platform identity row — sibling of `.r-v2-refresh__rom` in
+/* Platform identity row: sibling of `.r-v2-refresh__rom` in
    RefreshMetadataDialog. */
 .r-v2-scan-plat__head {
   display: flex;

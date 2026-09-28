@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CollectionMosaic — 2×2 cover grid for collection artwork. Feature
+// CollectionMosaic: 2×2 cover grid for collection artwork. Feature
 // component used by CollectionTile and the collection info panel.
 // Behaviour:
 //   * 0 covers → empty state with a bookmark glyph
@@ -30,7 +30,7 @@ const displayCovers = computed(() =>
   (props.covers ?? []).filter((c): c is string => Boolean(c)),
 );
 
-// Mosaic slots — if we have 2 or 3 covers, cycle through them so every
+// Mosaic slots: if we have 2 or 3 covers, cycle through them so every
 // slot is filled. Deterministic (index % len) instead of random so the
 // mosaic doesn't shuffle between re-renders.
 const mosaicSlots = computed(() => {

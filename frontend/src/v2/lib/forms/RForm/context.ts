@@ -1,4 +1,4 @@
-// RForm context — the channel each form field uses to register itself
+// RForm context: the channel each form field uses to register itself
 // with an ancestor `<RForm>` so the form can aggregate validity,
 // validate the whole form on demand, and reset all children at once.
 //
@@ -14,7 +14,7 @@ export interface RFormField {
   validate: () => boolean | Promise<boolean>;
   /** Clear dirty state + cached errors (does not touch the model). */
   reset: () => void;
-  /** Used by `scrollToFirstError` — the DOM element to focus + scroll. */
+  /** Used by `scrollToFirstError`: the DOM element to focus + scroll. */
   el?: () => HTMLElement | null;
   /** Read the field's current validity. Implemented as a getter (not a
    *  Ref) so Vue's auto-unwrap inside the form's `fields` array doesn't

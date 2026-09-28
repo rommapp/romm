@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// GameMetricsSections — the three per-user metric editors (completion,
+// GameMetricsSections: the three per-user metric editors (completion,
 // rating, difficulty) stacked as sections under a "Your progress"
 // header. Mounted inside the Status button's mobile sheet (see
 // GameActionBtn `withMetrics`) so phones edit scores there instead of

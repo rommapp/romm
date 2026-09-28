@@ -247,7 +247,7 @@ async function onStateUpload(files: File[], emulator: string | null) {
 }
 
 // ---------- Per-row actions ----------
-// Both saves and states ship `download_path` from the backend — fire
+// Both saves and states ship `download_path` from the backend: fire
 // a synthesized anchor click rather than a window.open so the browser
 // uses the right filename and skips the new-tab affordance.
 function downloadAsset(asset: { download_path: string; file_name: string }) {
@@ -591,7 +591,7 @@ const labelSuggestions = computed(() =>
     </aside>
 
     <div class="r-v2-saves__content">
-      <!-- Saves subtab — vertical info list -->
+      <!-- Saves subtab: vertical info list -->
       <section v-show="subTab === 'saves'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">
@@ -699,7 +699,7 @@ const labelSuggestions = computed(() =>
         </div>
       </section>
 
-      <!-- States subtab — tile grid (screenshot is the point) -->
+      <!-- States subtab: tile grid (screenshot is the point) -->
       <section v-show="subTab === 'states'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">

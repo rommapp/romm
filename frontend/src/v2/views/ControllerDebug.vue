@@ -1,13 +1,13 @@
 <script setup lang="ts">
-// ControllerDebug — live inspector for gamepad input + modality
+// ControllerDebug: live inspector for gamepad input + modality
 // tracking. Polls `navigator.getGamepads()` each frame (matches
 // `useGamepad`'s cadence) and shows:
-//   * status row — input modality + connected-pad count
-//   * one panel per connected pad — sticks, buttons, raw axes
+//   * status row: input modality + connected-pad count
+//   * one panel per connected pad: sticks, buttons, raw axes
 //   * Gamepad → keyboard mapping legend (in sync with useGamepad)
-//   * keydown feed — every dispatch (real + synthetic) with timestamp
+//   * keydown feed: every dispatch (real + synthetic) with timestamp
 //
-// Polling is independent of `useGamepad` — this view is its own read
+// Polling is independent of `useGamepad`: this view is its own read
 // path; the real input loop keeps running in the background.
 import { RBtn, RIcon } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
@@ -33,7 +33,7 @@ const HOLD_TO_EXIT_MS = 700;
 const exitHoldStart = ref<number | null>(null);
 const exitHoldProgress = ref(0);
 
-// useGamepad's mapping legend — keep in sync with the composable.
+// useGamepad's mapping legend: keep in sync with the composable.
 const KEYBIND_LEGEND: { button: string; key: string }[] = [
   { button: "D-pad Up", key: "ArrowUp" },
   { button: "D-pad Down", key: "ArrowDown" },
@@ -113,7 +113,7 @@ function tick() {
 
 function onKeydown(e: KeyboardEvent) {
   // `isTrusted` is false for KeyboardEvents constructed via `new` and
-  // `dispatchEvent` — which is how `useGamepad` fires synthetic keys.
+  // `dispatchEvent`: which is how `useGamepad` fires synthetic keys.
   const from: LogEntry["from"] = e.isTrusted ? "real" : "synthetic";
   keyLog.value = [
     { id: logCounter++, at: Date.now(), key: e.key, from },
@@ -187,7 +187,7 @@ function formatTime(t: number) {
       </div>
     </SettingsSection>
 
-    <!-- No pad — help state -->
+    <!-- No pad: help state -->
     <SettingsSection
       v-if="pads.length === 0"
       :title="t('settings.controller-debug-no-gamepad')"

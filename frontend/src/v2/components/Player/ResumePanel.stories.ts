@@ -1,4 +1,4 @@
-// Combined story for the EmulatorJS pre-game "Resume" panel — the
+// Combined story for the EmulatorJS pre-game "Resume" panel: the
 // middle column of the player view. Renders the same chrome as the
 // real EmulatorJS view (tab switcher + AssetPreview + AssetStrip)
 // against rich mock fixtures so the design can be evaluated end to
@@ -145,7 +145,7 @@ export default meta;
 
 type Story = StoryObj<Args>;
 
-// Shared render function — mirrors the structure inside
+// Shared render function: mirrors the structure inside
 // `EmulatorJS.vue` so the story shows the real composition.
 function renderPanel(
   saves: SaveSchema[],
@@ -293,7 +293,7 @@ function renderPanel(
 
 // ── Stories ──────────────────────────────────────────────────────
 
-// 8 states + 3 saves — the "rich" case. State tab opens by default.
+// 8 states + 3 saves: the "rich" case. State tab opens by default.
 export const RichLibrary: Story = {
   name: "Rich · 8 states + 3 saves",
   render: () => {
@@ -303,7 +303,7 @@ export const RichLibrary: Story = {
   },
 };
 
-// 15 states — overflow scenario. Strip scrolls horizontally.
+// 15 states: overflow scenario. Strip scrolls horizontally.
 export const ManyStates: Story = {
   name: "Many states · 15 (overflow)",
   render: () => {
@@ -312,7 +312,7 @@ export const ManyStates: Story = {
   },
 };
 
-// Mixed — some states have screenshots, some don't.
+// Mixed: some states have screenshots, some don't.
 export const MixedScreenshots: Story = {
   name: "States · mixed (with + without screenshots)",
   render: () => {
@@ -323,7 +323,7 @@ export const MixedScreenshots: Story = {
   },
 };
 
-// Saves only — old SNES-style 3 save slots, no states yet.
+// Saves only: old SNES-style 3 save slots, no states yet.
 export const SavesOnly: Story = {
   name: "Saves only · 3 slots",
   render: () => {
@@ -332,13 +332,13 @@ export const SavesOnly: Story = {
   },
 };
 
-// Single save — one save slot, no states.
+// Single save: one save slot, no states.
 export const SingleSave: Story = {
   name: "Single save",
   render: () => renderPanel([makeSave(0)], [], "save"),
 };
 
-// First-time launch — no saves, no states.
+// First-time launch: no saves, no states.
 export const FreshGame: Story = {
   name: "Fresh game · no saves, no states",
   render: () => renderPanel([], [], "state"),
@@ -353,12 +353,12 @@ export const StatesEmptyAfterCoreChange: Story = {
   },
 };
 
-// User just deselected — nothing picked but plenty available.
+// User just deselected: nothing picked but plenty available.
 export const NoneSelectedManyAvailable: Story = {
   name: "Many states · none selected",
   render: () => {
     const states = Array.from({ length: 6 }).map((_, i) => makeState(i, true));
-    // Force-clear default selection via tab switch trick — the render
+    // Force-clear default selection via tab switch trick: the render
     // helper picks the first as default, so we leverage the existing
     // clear() path mentally; visually we get a non-empty strip with a
     // selected one. This story doubles as a sanity check that the

@@ -1,4 +1,4 @@
-// useCrtMode — singleton toggle for the cosmetic "CRT mode" shader.
+// useCrtMode: singleton toggle for the cosmetic "CRT mode" shader.
 //
 // CRT mode is a purely visual easter egg: when on, a persistent full-screen
 // scanline / vignette / flicker / glitch overlay (CrtOverlay.vue) makes RomM
@@ -6,7 +6,7 @@
 // fires the one-shot power-on warm-up flash (CrtWarmup.vue).
 //
 // State is persisted in localStorage and shared across components through a
-// single module-level ref — same rationale as `useUiVersion`: vueuse's
+// single module-level ref: same rationale as `useUiVersion`: vueuse's
 // useLocalStorage creates an independent ref per call (shared storage, not
 // shared reactivity within a tab), so we create it once here and everyone
 // imports the same instance.

@@ -1,15 +1,15 @@
 <script setup lang="ts">
-// CoverColumn — fixed-width left column wrapping the shared GameCover. The
+// CoverColumn: fixed-width left column wrapping the shared GameCover. The
 // cover honours the details-page boxart style (falling back to the
 // gallery-wide one), animates on hover, paints the procedural placeholder
 // when empty, and is the destination of the shared-element morph from the
-// GameCard the user clicked through from — all of that lives in GameCover
+// GameCard the user clicked through from: all of that lives in GameCover
 // now; this just sizes the column.
 //
 // When the resolved boxart style is the 3D box AND the rom has the full set
 // of flat scans (front + back + spine, from ScreenScraper), the hero
-// upgrades to the interactive RBox3D the user can spin. Anything missing —
-// a different style, an incomplete set, or a failed image — falls straight
+// upgrades to the interactive RBox3D the user can spin. Anything missing:
+// a different style, an incomplete set, or a failed image: falls straight
 // back to the flat GameCover.
 import { RBox3D } from "@v2/lib";
 import { computed, ref } from "vue";

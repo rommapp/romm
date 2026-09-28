@@ -86,7 +86,7 @@ const meta: Meta<typeof AssetPreview> = {
 export default meta;
 type Story = StoryObj<typeof AssetPreview>;
 
-// State with a screenshot — the headline case.
+// State with a screenshot: the headline case.
 export const StateWithScreenshot: Story = {
   name: "State · with screenshot",
   render: () => ({
@@ -101,7 +101,7 @@ export const StateWithScreenshot: Story = {
   }),
 };
 
-// State that never had a screenshot — placeholder + icon.
+// State that never had a screenshot: placeholder + icon.
 export const StateNoScreenshot: Story = {
   name: "State · no screenshot",
   render: () => ({
@@ -113,7 +113,7 @@ export const StateNoScreenshot: Story = {
   }),
 };
 
-// Save selected — saves don't have screenshots; we lean on metadata.
+// Save selected: saves don't have screenshots; we lean on metadata.
 export const SaveSelected: Story = {
   name: "Save · selected",
   render: () => ({
@@ -180,7 +180,7 @@ export const LongFilename: Story = {
   }),
 };
 
-// No state selected — empty state with the start-fresh hint.
+// No state selected: empty state with the start-fresh hint.
 export const EmptyNoState: Story = {
   name: "Empty · no state selected",
   render: () => ({

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CoverPlaceholder — shown in place of a cover when a rom has no image.
+// CoverPlaceholder: shown in place of a cover when a rom has no image.
 // Paints the per-name procedural artwork (RomM's "missing" / "unmatched"
 // art) and overlays the title on top with a scrim + text-shadow so it
 // stays legible over the coloured art. Fills its (positioned) parent, so

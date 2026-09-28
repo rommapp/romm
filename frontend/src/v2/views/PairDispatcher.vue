@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PairDispatcher — /pair has no shared layout wrapper (v1 Pair ships its
+// PairDispatcher: /pair has no shared layout wrapper (v1 Pair ships its
 // own app shell, v2 Pair renders inside an AuthLayout-style shell). The
 // top-level router entry mounts this dispatcher, which picks v1 or v2
 // by the user's uiVersion setting. Keeps /pair link-compatible without

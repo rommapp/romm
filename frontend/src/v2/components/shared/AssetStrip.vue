@@ -444,7 +444,7 @@ const fadeIndex = computed(() =>
   flex: 0 0 140px;
   /* Without min-width:0 the flex item's implicit `min-width: auto`
      lets the inner nowrap filename push the tile wider than its
-     flex-basis — long names would visibly inflate that one card. */
+     flex-basis: long names would visibly inflate that one card. */
   min-width: 0;
   scroll-snap-align: start;
   display: flex;

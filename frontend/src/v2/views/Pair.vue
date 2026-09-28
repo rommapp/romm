@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// Pair — device pairing target. Lands here via a pairing link from a
+// Pair: device pairing target. Lands here via a pairing link from a
 // native client; either displays the code for manual entry or auto-exchanges
 // it and redirects to the client's custom URL scheme.
 //
-// Ported verbatim from src/views/Pair.vue — the token-exchange flow is the
+// Ported verbatim from src/views/Pair.vue: the token-exchange flow is the
 // contract with the client device and must not drift.
 import { RBtn, RIcon } from "@v2/lib";
 import axios from "axios";

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CollectionPickerRow — one row in the ManageCollectionsDialog. Portrait
+// CollectionPickerRow: one row in the ManageCollectionsDialog. Portrait
 // thumb (globed when public) + name + rom-count + brand-primary circular
 // tick when checked.
 // Click toggles; parent owns the pending/checked state and handles the
@@ -111,7 +111,7 @@ const isFull = computed(() => props.state === "all");
   cursor: progress;
 }
 
-/* Portrait thumb — width tracks the configurable tile size; height is
+/* Portrait thumb: width tracks the configurable tile size; height is
    computed by CollectionMosaic from its 140/188 aspectRatio. */
 .pick-row__thumb {
   position: relative;
@@ -161,7 +161,7 @@ const isFull = computed(() => props.state === "all");
   color: var(--r-color-overlay-fg);
 }
 
-/* Indeterminate (`some`) — the brand colour reads as a hint but the
+/* Indeterminate (`some`): the brand colour reads as a hint but the
    tick swaps to a horizontal dash so users can tell "partially in" from
    "fully in" at a glance. */
 .pick-row--partial .pick-row__tick {

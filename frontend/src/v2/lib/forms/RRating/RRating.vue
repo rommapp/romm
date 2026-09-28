@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// RRating — a row of N icon-buttons that paint as
+// RRating: a row of N icon-buttons that paint as
 // "full" up to the model value and "empty" past it. Click sets the
 // value to that index+1; clicking the current value clears it when
 // `clearable` is on.
 //
 // Half-increment support: when `halfIncrements` is on, each star is
-// split into left/right halves — hovering / clicking the left half
+// split into left/right halves: hovering / clicking the left half
 // reports `i + 0.5`, the right half reports `i + 1`.
 //
 // Motion vocabulary matches the rest of the lib: hover lift + scale
@@ -62,7 +62,7 @@ const emit = defineEmits<{
   (e: "update:modelValue", value: number): void;
 }>();
 
-// ── Tone resolver — same vocabulary as the rest of the lib. ─────
+// ── Tone resolver: same vocabulary as the rest of the lib. ─────
 const TONE_MAP: Record<string, string> = {
   primary: "var(--r-color-brand-primary)",
   secondary: "var(--r-color-brand-secondary)",
@@ -91,7 +91,7 @@ const emptyColor = computed(() => resolveColor(props.color));
 
 const itemCount = computed(() => Number(props.length) || 5);
 
-// Hover preview state — when the user hovers, the row paints up to
+// Hover preview state: when the user hovers, the row paints up to
 // the hovered value instead of the model value (only when `hover` is on).
 const hoverValue = ref<number | null>(null);
 
@@ -203,7 +203,7 @@ const gap = computed(() => GAP_MAP[props.density]);
       @click="onClick(item.index, false)"
       @mouseenter="onMouseEnter(item.index, false)"
     >
-      <!-- Half-increment hot zones — invisible left/right hover targets
+      <!-- Half-increment hot zones: invisible left/right hover targets
            that report the half / full value. Only when halfIncrements
            is on. -->
       <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/mouse-events-have-key-events, vuejs-accessibility/no-static-element-interactions -- pointer-only half-increment hot zone; keyboard users set whole values via the focusable star buttons -->
@@ -320,14 +320,14 @@ const gap = computed(() => GAP_MAP[props.density]);
   right: 0;
 }
 
-/* Modality-gated focus ring — only on key/pad input. */
+/* Modality-gated focus ring: only on key/pad input. */
 html[data-input="key"] .r-rating__item:focus-visible,
 html[data-input="pad"] .r-rating__item:focus-visible {
   outline: 2px solid var(--r-rating-fill);
   outline-offset: 2px;
 }
 
-/* Readonly — drop the lift; the row reads as static info. */
+/* Readonly: drop the lift; the row reads as static info. */
 .r-rating--readonly .r-rating__item {
   cursor: default;
   pointer-events: none;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ShowQRCodeDialog — emitter-driven QR for downloading a single ROM from a
+// ShowQRCodeDialog: emitter-driven QR for downloading a single ROM from a
 // handheld/phone. The qrcode library renders into the canvas directly
 // after the dialog opens (nextTick so the canvas is in the DOM).
 import { RDialog } from "@v2/lib";

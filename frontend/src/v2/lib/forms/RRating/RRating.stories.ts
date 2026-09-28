@@ -72,7 +72,7 @@ export const KeyboardNav: Story = {
   },
 };
 
-// Difficulty preset — same primitive driven by props. Exercises the
+// Difficulty preset: same primitive driven by props. Exercises the
 // new emptyIcon/fullIcon/activeColor pass-through used by the
 // score-picker on GameDetails.
 export const Difficulty: Story = {
@@ -88,7 +88,7 @@ export const Difficulty: Story = {
   },
 };
 
-// Rating preset — 10 stars, gold accent, the shape consumed by the
+// Rating preset: 10 stars, gold accent, the shape consumed by the
 // score-picker for "Your Rating".
 export const RatingTen: Story = {
   args: {

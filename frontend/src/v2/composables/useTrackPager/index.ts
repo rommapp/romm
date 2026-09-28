@@ -6,7 +6,7 @@ import type { MusicTrackSchema } from "@/__generated__";
 export const TRACK_PAGE_SIZE = 200;
 
 /** How close to the end of the loaded tracks before the next page is asked
- *  for — enough that scrolling and "next track" rarely hit the boundary. */
+ *  for: enough that scrolling and "next track" rarely hit the boundary. */
 const PREFETCH_MARGIN = 50;
 
 export interface TrackPage {

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// RSlider — styled native `<input type="range">`. We
+// RSlider: styled native `<input type="range">`. We
 // paint the track / fill / thumb via the browser's native pseudo-
 // elements (`::-webkit-slider-runnable-track`, `::-webkit-slider-thumb`,
-// and their `::-moz-range-*` counterparts) — no overlay element fights
+// and their `::-moz-range-*` counterparts): no overlay element fights
 // the input for pointer events, so dragging "just works" by definition.
 //
 // Layouts via `valuePosition`:
@@ -11,7 +11,7 @@
 //   • "right"  pill to the right
 //   • "thumb"  floating pill above the thumb that follows the drag
 //
-// `@end` fires on pointer release / blur — handy for commit-on-end
+// `@end` fires on pointer release / blur: handy for commit-on-end
 // patterns where every intermediate `update:modelValue` is just preview.
 import { computed, ref } from "vue";
 
@@ -80,7 +80,7 @@ const accent = computed(() => {
   // 1. Keyword shorthands (`primary`, `success`, …) → mapped token.
   if (TONE_MAP[props.color]) return TONE_MAP[props.color];
   // 2. Kebab-case token form ("brand-primary", "warning", "romm-gold"
-  //    — anything callers pass to match the rest of the lib's `--r-color-*`
+  //    anything callers pass to match the rest of the lib's `--r-color-*`
   //    vocabulary). Wrap as `var(--r-color-X, X)` so the fallback still
   //    yields a valid colour if the var isn't defined.
   if (/^[a-z][a-z0-9-]*$/i.test(props.color)) {
@@ -103,7 +103,7 @@ const showThumbBubble = computed(() => props.valuePosition === "thumb");
 const showLeftBadge = computed(() => props.valuePosition === "left");
 const showRightBadge = computed(() => props.valuePosition === "right");
 
-// One dot per step — capped at 60 so step=1 over a 0..10000 range
+// One dot per step: capped at 60 so step=1 over a 0..10000 range
 // doesn't pepper the track.
 const ticks = computed<{ percent: number; filled: boolean }[]>(() => {
   if (!props.showTicks) return [];
@@ -225,7 +225,7 @@ const verticalListeners = computed(() =>
         @pointerup="onPointerUp"
         @pointercancel="onPointerUp"
       />
-      <!-- Ticks — purely decorative overlay; pointer events pass through. -->
+      <!-- Ticks: purely decorative overlay; pointer events pass through. -->
       <span v-if="showTicks" class="r-slider__ticks" aria-hidden="true">
         <span
           v-for="(t, i) in ticks"
@@ -237,7 +237,7 @@ const verticalListeners = computed(() =>
       </span>
       <!-- Floating bubble that follows the thumb. Sits above the track,
            pointer-events: none so it never intercepts drag. The `left`
-           formula compensates for the thumb's 14 px width — the native
+           formula compensates for the thumb's 14 px width: the native
            thumb's centre travels from 7 px to (width − 7 px), so the
            bubble lines up at every percent instead of overshooting the
            ends. -->
@@ -309,7 +309,7 @@ const verticalListeners = computed(() =>
   align-items: center;
 }
 
-/* ── Native input — the actual interactive element. Pseudo-elements
+/* ── Native input: the actual interactive element. Pseudo-elements
    paint the track + thumb, so the input IS the visible chrome. The
    gradient on the runnable track gives us the "fill" effect from
    start → thumb without an overlay div. ──────────────────────────── */
@@ -331,7 +331,7 @@ const verticalListeners = computed(() =>
   pointer-events: none;
 }
 
-/* WebKit / Blink — track */
+/* WebKit / Blink: track */
 .r-slider__native::-webkit-slider-runnable-track {
   height: 5px;
   border: 1px solid var(--r-color-panel-border);
@@ -387,14 +387,14 @@ const verticalListeners = computed(() =>
   background: color-mix(in srgb, var(--r-slider-accent), white 14%);
 }
 
-/* Firefox — track */
+/* Firefox: track */
 .r-slider__native::-moz-range-track {
   height: 5px;
   border: 1px solid var(--r-color-panel-border);
   border-radius: 999px;
   background: var(--r-color-bg-elevated);
 }
-/* Firefox — fill progress (active portion before the thumb). */
+/* Firefox: fill progress (active portion before the thumb). */
 .r-slider__native::-moz-range-progress {
   height: 5px;
   border-radius: 999px;
@@ -404,7 +404,7 @@ const verticalListeners = computed(() =>
     color-mix(in srgb, var(--r-slider-accent), white 18%)
   );
 }
-/* Firefox — thumb */
+/* Firefox: thumb */
 .r-slider__native::-moz-range-thumb {
   width: 14px;
   height: 14px;
@@ -489,7 +489,7 @@ html[data-input="pad"] .r-slider__native:focus::-webkit-slider-thumb {
   outline-offset: 3px;
 }
 
-/* ── Ticks — overlaid dots, no pointer events. ─────────────────── */
+/* ── Ticks: overlaid dots, no pointer events. ─────────────────── */
 .r-slider__ticks {
   position: absolute;
   inset: 0;
@@ -552,7 +552,7 @@ html[data-input="pad"] .r-slider__native:focus::-webkit-slider-thumb {
   color: var(--r-color-fg-secondary);
 }
 
-/* ── Floating thumb bubble — sits above the track, anchored to the
+/* ── Floating thumb bubble: sits above the track, anchored to the
    current percent. Pointer events disabled so it doesn't block drag. */
 .r-slider__bubble {
   position: absolute;

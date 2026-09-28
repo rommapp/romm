@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// NotificationHost — v2 toast host. Listens for `snackbarShow` and stacks
+// NotificationHost: v2 toast host. Listens for `snackbarShow` and stacks
 // transient glass-card toasts in the top-right (top-centre on mobile).
 // Each toast auto-dismisses after `timeout` ms (default 3000) and can be
-// closed manually. Unlike v1 — which replaced a single v-snackbar on each
-// emission — v2 stacks so fast successive messages don't overwrite each
+// closed manually. Unlike v1: which replaced a single v-snackbar on each
+// emission: v2 stacks so fast successive messages don't overwrite each
 // other. Stored colour/icon fields are preserved so existing emitters work.
 import { RIcon } from "@v2/lib";
 import { useEventListener } from "@vueuse/core";
@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
   object-fit: cover;
 }
 
-/* Tone accents — a tinted icon + a coloured left edge. Keeps the glass
+/* Tone accents: a tinted icon + a coloured left edge. Keeps the glass
    panel neutral so text stays highly legible. */
 /* .r-v2-toast--success { border-left: 3px solid var(--r-color-success); }
 .r-v2-toast--error { border-left: 3px solid var(--r-color-danger-fg); }
@@ -216,7 +216,7 @@ onBeforeUnmount(() => {
   color: var(--r-color-fg);
 }
 
-/* Stack animations — incoming slides in from the right, outgoing fades
+/* Stack animations: incoming slides in from the right, outgoing fades
    and slides out. */
 .r-v2-toast-enter-from {
   opacity: 0;

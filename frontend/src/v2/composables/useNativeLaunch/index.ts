@@ -1,4 +1,4 @@
-// installNativeLaunchFeedback — the app-level voice of the desktop shell's
+// installNativeLaunchFeedback: the app-level voice of the desktop shell's
 // launches. Mounted once from AppLayout, next to the other install* hooks.
 //
 // Progress lives on the native Play button itself (`nativeActionLabel` in

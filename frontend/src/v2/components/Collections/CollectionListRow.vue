@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CollectionListRow — single row of the Collections list-mode index.
+// CollectionListRow: single row of the Collections list-mode index.
 //
 // Anatomy mirrors GameListRow: cover mosaic + name on the left, kind
 // chip in the middle, game count on the right. A public collection's
@@ -64,7 +64,7 @@ const morphStyle = computed(() =>
     : undefined,
 );
 
-// Kind cell — icon + label for every kind (the list view can afford the
+// Kind cell: icon + label for every kind (the list view can afford the
 // text). Icons match the grid cards.
 const kindBadge = computed<{ icon: string; label: string }>(() => {
   if (props.kind === "smart") {
@@ -277,7 +277,7 @@ function onRowClick(e: MouseEvent) {
   text-overflow: ellipsis;
 }
 
-/* Smart = accent (warm), virtual = brand (cool) — so the two computed
+/* Smart = accent (warm), virtual = brand (cool): so the two computed
    kinds read apart at a glance. */
 .coll-list-row__kind--smart {
   color: var(--r-color-brand-accent);

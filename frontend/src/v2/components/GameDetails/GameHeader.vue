@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// GameHeader — right-column header for the details view.
+// GameHeader: right-column header for the details view.
 // Four rows, top to bottom:
 //   1. Title (+ previous / next game arrows on the right, desktop only)
 //   2. Meta (year · platform-icon + platform · verified RTag)
-//   3. Tags (regions + languages + custom tags) — RTag primitive,
+//   3. Tags (regions + languages + custom tags): RTag primitive,
 //      each a `searchLocation` pivot into the filtered search
 //   4. GameActions (Play · Download · Favorite · Share · More)
 //

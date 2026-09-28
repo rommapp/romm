@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// AuthLayout — full-viewport blurred background with a centred card stage
+// AuthLayout: full-viewport blurred background with a centred card stage
 // for the auth flows (Login / Register / ResetPassword / Setup). Bottom
 // corners hold the LanguageSelector (left) and VersionTag (right).
 import { onMounted } from "vue";
@@ -42,7 +42,7 @@ onMounted(installInputModality);
   position: relative;
   min-height: 100vh;
   display: grid;
-  /* Bound the single track to the viewport — an `auto` track sizes to the
+  /* Bound the single track to the viewport: an `auto` track sizes to the
      card's max-content and, on a narrow phone, that pushes the centred card
      past the right edge (clipped by `overflow: hidden`). `minmax(0, 1fr)`
      never exceeds the container. */
@@ -54,7 +54,7 @@ onMounted(installInputModality);
   /* The auth background and the AuthCard/Setup glass are always dark
      (--r-color-canvas-bg-deep) regardless of theme, so the light-mode
      foreground/border tokens (near-black) would be unreadable here. Force
-     the dark-mode palette for everything inside the auth layout — the page
+     the dark-mode palette for everything inside the auth layout: the page
      text, the LanguageSelector, the VersionTag, and surface/border-driven
      bits like the RSteps connector lines and dots. CSS custom properties
      inherit into descendants, and the override is scoped to .r-v2-auth so
@@ -95,7 +95,7 @@ onMounted(installInputModality);
   justify-content: center;
 }
 
-/* Bottom bar — absolute full-width row on desktop: language selector hugs
+/* Bottom bar is an absolute full-width row on desktop: language selector hugs
    the left, version tag the right (space-between). */
 .r-v2-auth__footer {
   position: absolute;
@@ -126,7 +126,7 @@ html[data-bp~="xs"] .r-v2-auth {
   align-items: stretch;
   /* Both height AND min-height in dvh so the layout tracks the mobile browser
      chrome as it shows/hides. The base `min-height: 100vh` uses the LARGE
-     (chrome-hidden) viewport, which — once the address bar reappears — forces
+     (chrome-hidden) viewport, which, once the address bar reappears, forces
      the layout taller than the visible area, pushing the bottom bar below the
      fold and requiring a page scroll. dvh is the dynamic viewport, so it
      shrinks with the bar and the card fills exactly the visible space. */

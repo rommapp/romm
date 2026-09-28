@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PlatformSelect — shared composite that wraps RSelect with the
+// PlatformSelect: shared composite that wraps RSelect with the
 // platform-row visual language used across v2 (icon + display name,
 // optional category / family / missing-fs / rom-count meta).
 //
@@ -30,7 +30,7 @@ import {
   promotePlatformsWithGamesFirst,
 } from "./platformSelect";
 
-// Per-platform scrapper match indicators — mini avatar per metadata
+// Per-platform scrapper match indicators: mini avatar per metadata
 // source the platform has an ID for. Mixed `_id` / `_slug` fields
 // because the PlatformSchema only exposes one of the two per source
 // (e.g. moby is keyed by slug, igdb by both). Keep in sync with v1's
@@ -109,7 +109,7 @@ interface Props {
   hideDetails?: boolean | "auto";
   prefixLabel?: "stacked" | "inline";
   prependInnerIcon?: string;
-  /** Scan-style rich row — category icon, family, missing-fs, rom-count. */
+  /** Scan-style rich row: category icon, family, missing-fs, rom-count. */
   showMeta?: boolean;
   /** Never-scanned folders. */
   markUnscanned?: boolean;
@@ -246,7 +246,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
     @update:model-value="onUpdate"
     @update:search="onPanelSearch"
   >
-    <!-- Selection — consumer slot wins; otherwise icon + name. -->
+    <!-- Selection: consumer slot wins; otherwise icon + name. -->
     <template #selection="slotProps">
       <slot name="selection" v-bind="slotProps">
         <span class="r-v2-platsel__selection">
@@ -263,7 +263,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
       </slot>
     </template>
 
-    <!-- Chip — when `chips` is on (multi-select) the activator
+    <!-- Chip: when `chips` is on (multi-select) the activator
          collapses each selection into a small RTag. PlatformSelect
          renders just the platform icon inside the chip; RSelect
          keeps providing the "+N" overflow pill automatically. The
@@ -284,7 +284,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
       </slot>
     </template>
 
-    <!-- Item — consumer slot wins; otherwise icon + name (+ meta). -->
+    <!-- Item: consumer slot wins; otherwise icon + name (+ meta). -->
     <template #item="slotProps">
       <slot name="item" v-bind="slotProps">
         <li v-bind="slotProps.props" class="r-v2-platsel__row">
@@ -348,7 +348,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
               :text="t('rom.missing-platform')"
               class="r-v2-platsel__missing"
             />
-            <!-- Scrapper match indicators — one mini avatar per
+            <!-- Scrapper match indicators: one mini avatar per
                  source the platform has an ID for. Mirrors v1's
                  right-side avatar strip so the user sees at a glance
                  which catalogs already know this platform. When the
@@ -393,7 +393,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
 
     <!-- Forward any other slot the caller passes (prefix-label,
          no-data, details, prepend-inner, append-inner, …). The two
-         special slots above are excluded — they have built-in
+         special slots above are excluded: they have built-in
          defaults and already fall through to the consumer's template
          via the inner `<slot name="…">`. -->
     <template

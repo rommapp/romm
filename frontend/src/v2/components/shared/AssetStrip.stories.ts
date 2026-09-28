@@ -1,4 +1,4 @@
-// AssetStrip is the horizontal card variant used for STATES only —
+// AssetStrip is the horizontal card variant used for STATES only:
 // saves render through <AssetList> (vertical rows). Stories here are
 // state-focused; see AssetList.stories.ts for the save scenarios.
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
@@ -119,7 +119,7 @@ type Story = StoryObj<typeof AssetStrip>;
 
 // ── Stories ──────────────────────────────────────────────────────
 
-// Five states with screenshots — the headline case. Notice how the
+// Five states with screenshots: the headline case. Notice how the
 // selected tile carries the brand ring + check badge.
 export const FewStatesScreenshots: Story = {
   name: "States · 5 with screenshots",
@@ -140,7 +140,7 @@ export const FewStatesScreenshots: Story = {
   }),
 };
 
-// Twelve states — overflow case. Tiles scroll horizontally with snap.
+// Twelve states: overflow case. Tiles scroll horizontally with snap.
 export const ManyStatesOverflow: Story = {
   name: "States · 12 (horizontal scroll)",
   render: () => ({
@@ -200,7 +200,7 @@ export const ManyStatesList: Story = {
   }),
 };
 
-// States that never had a screenshot taken — gradient fallback with
+// States that never had a screenshot taken: gradient fallback with
 // the file icon. Still readable; the row doesn't feel broken.
 export const StatesNoScreenshots: Story = {
   name: "States · 6 without screenshots",
@@ -270,7 +270,7 @@ export const LongFilenames: Story = {
   }),
 };
 
-// Nothing selected yet — still shows a strip the user can click.
+// Nothing selected yet: still shows a strip the user can click.
 export const NoneSelected: Story = {
   name: "States · none selected",
   render: () => ({
@@ -290,7 +290,7 @@ export const NoneSelected: Story = {
   }),
 };
 
-// Empty — distinct from "no asset selected"; the strip itself is empty.
+// Empty: distinct from "no asset selected"; the strip itself is empty.
 export const EmptyStates: Story = {
   name: "Empty (no states)",
   render: () => ({

@@ -178,7 +178,7 @@ export const Manage: Story = {
   }),
 };
 
-// Empty — distinct from "no save selected".
+// Empty: distinct from "no save selected".
 export const Empty: Story = {
   name: "Empty (no saves)",
   render: () => ({

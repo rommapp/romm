@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ProviderCard — single metadata-source card. Provider name + logo
+// ProviderCard: single metadata-source card. Provider name + logo
 // + linked external ID (or "Not linked"), plus the provider's rating
 // when it publishes one. When `url` is non-null and the ID is set, the
 // card renders as an `<a target=_blank>`; otherwise it's a static div.

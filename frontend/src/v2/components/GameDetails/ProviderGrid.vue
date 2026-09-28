@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ProviderGrid — Metadata-tab grid showing every configured provider.
+// ProviderGrid: Metadata-tab grid showing every configured provider.
 // Linked providers come first, unlinked ones follow in a muted row so
 // users can see what's missing. Card visuals are owned by ProviderCard.
 import { computed } from "vue";

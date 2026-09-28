@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// BottomNav — the primary-navigation pill, relocated to the bottom edge
+// BottomNav: the primary-navigation pill, relocated to the bottom edge
 // on phones (xs) so the four destinations sit within thumb reach. AppNav
 // drops its centre pill on xs in turn (see AppNav.vue).
 //
-// This is the SAME RSliderBtnGroup tab pill the top nav uses — same glass
-// surface, same border, same sliding active indicator — just pinned to
+// This is the SAME RSliderBtnGroup tab pill the top nav uses: same glass
+// surface, same border, same sliding active indicator: just pinned to
 // the bottom and stretched full-width. No bespoke nav surface and no
 // alternate layout, so the brand look and feel stay identical top vs
 // bottom. Routing and universal input (keyboard / gamepad roving,
@@ -52,7 +52,7 @@ const { destinations, activeId } = useNavDestinations();
   z-index: 100;
 }
 
-/* Transparent — the pill itself carries the glass surface (tab variant),
+/* Transparent: the pill itself carries the glass surface (tab variant),
    so it reads as a floating control matching the top nav. Side gutters
    follow the responsive `--r-row-pad`; the safe-area inset keeps the pill
    above a notched phone's home indicator. `pointer-events: none` on the
@@ -81,7 +81,7 @@ const { destinations, activeId } = useNavDestinations();
 
 /* Each destination stretches to an equal quarter of the pill so the
    active indicator spans its full cell and reaches close to the pill's
-   rounded background edges — and keeps doing so as the viewport widens,
+   rounded background edges: and keeps doing so as the viewport widens,
    instead of leaving the items bunched in the centre. The indicator sits
    inside the pill's 4px padding, so even with sub-pixel cell rounding it
    never grazes the border. */
@@ -90,7 +90,7 @@ const { destinations, activeId } = useNavDestinations();
   justify-content: center;
 }
 
-/* Icon-only on phones — four full-width inline labels won't fit, and the
+/* Icon-only on phones: four full-width inline labels won't fit, and the
    icon-only treatment matches the top-nav-on-xs precedent. The
    router-link `aria-label` (set by RSliderBtnGroup from each item's
    `ariaLabel`) stays the source of accessible naming. */
