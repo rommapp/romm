@@ -28,7 +28,12 @@ from config import (
 )
 from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
-from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
+from handler.auth.constants import (
+    ALGORITHM,
+    CLIENT_TOKEN_PREFIX,
+    DEFAULT_OAUTH_TOKEN_EXPIRY,
+    TokenPurpose,
+)
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.email_handler import EmailError, send_email
 from handler.redis_handler import redis_client
@@ -106,7 +111,7 @@ class AuthHandler:
 
     @staticmethod
     def generate_client_token() -> str:
-        return "rmm_" + secrets.token_hex(32)
+        return CLIENT_TOKEN_PREFIX + secrets.token_hex(32)
 
     @staticmethod
     def hash_client_token(raw: str) -> str:
@@ -186,8 +191,10 @@ class AuthHandler:
             to_encode,
             oct_key,
         )
-        redis_client.setex(
-            f"reset-jti:{jti}", self.reset_passwd_token_expires_in_minutes * 60, "valid"
+        redis_client.set(
+            f"reset-jti:{jti}",
+            "valid",
+            ex=self.reset_passwd_token_expires_in_minutes * 60,
         )
         return token
 
@@ -368,7 +375,7 @@ class AuthHandler:
         log.info(
             f"Invite link created by {hl(user.username, color=CYAN)} (jti: {hl(jti)})"
         )
-        redis_client.setex(f"invite-jti:{jti}", expires_in, "valid")
+        redis_client.set(f"invite-jti:{jti}", "valid", ex=expires_in)
         return token
 
     def assert_invite_link_token_valid(self, token: str) -> None:
@@ -466,10 +473,8 @@ class OAuthHandler:
 
         token = self._create_oauth_token(to_encode, expires_delta)
 
-        redis_client.setex(
-            f"refresh-jti:{jti}",
-            int(expires_delta.total_seconds()),
-            "valid",
+        redis_client.set(
+            f"refresh-jti:{jti}", "valid", ex=int(expires_delta.total_seconds())
         )
 
         return token

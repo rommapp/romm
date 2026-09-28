@@ -57,6 +57,7 @@ from handler.notification_handler import notify_user_or_admins
 from handler.recommendation import top_up_similarity
 from handler.redis_handler import (
     cancel_job,
+    get_job_kwargs,
     get_job_status,
     redis_client,
     scan_queue,
@@ -131,7 +132,7 @@ def _scan_reported_itself(job: Job) -> bool:
 
 def report_scan_failure(
     job: Job,
-    connection: Redis[bytes],
+    connection: Redis,
     exc_type: type,
     exc_value: BaseException,
     tb: Any,
@@ -146,14 +147,15 @@ def report_scan_failure(
 
     reason = _SCAN_FAILURE_REASONS.get(exc_type, "it stopped unexpectedly")
     log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} is over: {reason}")
+    started_by_user_id = (get_job_kwargs(job) or {}).get("started_by_user_id")
 
     async def report() -> None:
         await _get_socket_manager().emit("scan:done_ko", reason)
-        await notify_scan_end(job.kwargs.get("started_by_user_id"), reason)
+        await notify_scan_end(started_by_user_id, reason)
 
     record(
         AuditAction.SCAN_FINISH,
-        AuditActor.for_user_id(job.kwargs.get("started_by_user_id")),
+        AuditActor.for_user_id(started_by_user_id),
         data={"status": "failed", "error": reason},
     )
 
@@ -1515,7 +1517,7 @@ async def authorize_scan(sid: str) -> User | None:
     return None
 
 
-@socket_handler.socket_server.on("scan")
+@socket_handler.on("scan")
 async def scan_handler(sid: str, options: dict[str, Any]) -> None:
     """Scan socket endpoint
 
@@ -1582,7 +1584,7 @@ async def scan_handler(sid: str, options: dict[str, Any]) -> None:
     )
 
 
-@socket_handler.socket_server.on("scan:stop")
+@socket_handler.on("scan:stop")
 async def stop_scan_handler(sid: str) -> None:
     """Stop scan socket endpoint"""
 

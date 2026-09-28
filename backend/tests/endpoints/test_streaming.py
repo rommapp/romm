@@ -8,10 +8,10 @@ import zipfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -257,7 +257,7 @@ def _load_session(key: str) -> dict[str, Any]:
     """The session stored at `key`, failing the test if nothing is there."""
     raw = asyncio.run(async_cache.get(key))
     assert raw is not None, f"no session stored at {key}"
-    return json.loads(raw)
+    return cast(dict[str, Any], json.loads(raw))
 
 
 def _claim(client, token, rom_id, state_id=None, save_id=None):
@@ -1476,8 +1476,8 @@ async def test_claim_sets_session_ttl(access_token, rom: Rom):
     the container instead of wedging it forever."""
     with _streaming(_container_for(rom)):
         with patch("handler.streaming.commands.launch"):
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            async with httpx2.AsyncClient(
+                transport=httpx2.ASGITransport(app=app), base_url="http://test"
             ) as ac:
                 r = await ac.post(
                     "/api/streaming/sessions",
@@ -1555,8 +1555,8 @@ async def test_concurrent_claim_only_one_succeeds(access_token, rom: Rom):
     """Two concurrent claims on one container: exactly one 200 and one 409."""
     with _streaming(_container_for(rom)):
         with patch("handler.streaming.commands.launch"):
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            async with httpx2.AsyncClient(
+                transport=httpx2.ASGITransport(app=app), base_url="http://test"
             ) as ac:
                 headers = _auth(access_token)
                 r1, r2 = await asyncio.gather(
@@ -1959,10 +1959,13 @@ def test_admin_release_rejects_a_container_that_serves_another_platform(
 def _in_a_later_ps2_pool() -> dict[str, Any]:
     """A second webstation that disagrees with `_webstation()` on the ps2
     emulator, so it forms a later ps2 pool."""
-    return _webstation(
-        host="http://192.168.1.11:3000",
-        broker_host="http://192.168.1.11:8000",
-        platforms={"ps2": "play", "ngc": "dolphin"},
+    return cast(
+        dict[str, Any],
+        _webstation(
+            host="http://192.168.1.11:3000",
+            broker_host="http://192.168.1.11:8000",
+            platforms={"ps2": "play", "ngc": "dolphin"},
+        ),
     )
 
 
@@ -2536,7 +2539,7 @@ def _key_of(container) -> str:
     """The session key a container is claimed under, from either a raw config
     entry or a resolved record."""
     if not isinstance(container, dict):
-        return container.key
+        return cast(str, container.key)
     protocol = protocol_for(container.get("protocol"), container.get("subfolder"))
     return _derive_broker_host(container, protocol) or ""
 
@@ -4271,7 +4274,7 @@ def _written_screenshot(write_file: AsyncMock) -> bytes:
         c for c in write_file.await_args_list if c.kwargs["filename"].endswith(".png")
     ]
     assert len(calls) == 1, "expected exactly one screenshot write"
-    return calls[0].kwargs["file"]
+    return cast(bytes, calls[0].kwargs["file"])
 
 
 def test_claim_spawns_state_hydration(client, access_token, rom: Rom):
@@ -7414,7 +7417,7 @@ def test_stamped_exit_state_filename_round_trips(emulator, name, shape):
 
 
 class _ResumeClaim(NamedTuple):
-    response: httpx.Response
+    response: httpx2.Response
     ready: dict[str, Any]
     push: MagicMock
     call_broker: MagicMock
@@ -9813,7 +9816,7 @@ def _activate_body(client, token, rom: Rom) -> dict[str, Any]:
                 json={"rom_id": rom.id},
                 headers=_auth(token),
             )
-    return request.call_args.kwargs["body"]
+    return cast(dict[str, Any], request.call_args.kwargs["body"])
 
 
 def test_the_activate_body_carries_the_rom_language(client, access_token, rom: Rom):
@@ -10164,13 +10167,16 @@ def test_joining_a_rom_on_a_hidden_platform_is_404_masked(
 def _ws_pool_member(rom: Rom, index: int, **overrides) -> dict[str, Any]:
     """One member of a pool of webstation containers, the broker a joiner needs,
     on a distinct host so the room URL says which member answered."""
-    return _webstation(
-        **{
-            "host": f"http://192.168.1.1{index}:3000",
-            "broker_host": f"http://192.168.1.1{index}:8000",
-            "platforms": {rom.platform_slug: "pcsx2"},
-            **overrides,
-        }
+    return cast(
+        dict[str, Any],
+        _webstation(
+            **{
+                "host": f"http://192.168.1.1{index}:3000",
+                "broker_host": f"http://192.168.1.1{index}:8000",
+                "platforms": {rom.platform_slug: "pcsx2"},
+                **overrides,
+            }
+        ),
     )
 
 

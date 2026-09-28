@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -7,8 +8,10 @@ import socketio
 from handler import socket_handler as socket_handler_module
 from handler.database import db_user_handler
 from handler.socket_handler import (
+    DEVICES_NAMESPACE,
     LOGIN_SESSION_ID_KEY,
     SocketHandler,
+    close_client_token_sockets,
     close_login_session_sockets,
     netplay_socket_handler,
     socket_handler,
@@ -124,7 +127,7 @@ class TestLoginSessionSockets:
         await handler.close_login_sessions(["s1"])
 
         cache.delete.assert_awaited_once_with("session_sockets:socketio:s1")
-        disconnect.assert_awaited_once_with("sid-1")
+        disconnect.assert_awaited_once_with("sid-1", namespace=None)
 
     async def test_a_broker_failure_moves_on_to_the_next_session(self, mocker, cache):
         handler = SocketHandler(path="/test")
@@ -153,6 +156,83 @@ class TestLoginSessionSockets:
         cache.sadd.assert_awaited_once_with("session_sockets:netplay:s1", "sid-1")
 
 
+class TestTrackedSockets:
+    async def test_tracking_adds_the_socket_and_renews_the_ttl(self, cache):
+        handler = SocketHandler(path="/test")
+
+        await handler.track("some:key", "sid-1", 90)
+
+        cache.sadd.assert_awaited_once_with("some:key", "sid-1")
+        cache.expire.assert_awaited_once_with("some:key", 90)
+
+    async def test_untracking_drops_the_socket(self, cache):
+        handler = SocketHandler(path="/test")
+
+        await handler.untrack("some:key", "sid-1")
+
+        cache.srem.assert_awaited_once_with("some:key", "sid-1")
+
+    async def test_untracking_swallows_a_broker_failure(self, cache):
+        cache.srem.side_effect = ConnectionError("redis")
+        handler = SocketHandler(path="/test")
+
+        await handler.untrack("some:key", "sid-1")
+
+    async def test_closing_disconnects_on_the_given_namespace(self, mocker, cache):
+        handler = SocketHandler(path="/test")
+        disconnect = mocker.patch.object(
+            handler.socket_server, "disconnect", AsyncMock()
+        )
+        cache.smembers.return_value = {b"sid-1"}
+
+        await handler.close_tracked("some:key", "/devices")
+
+        cache.delete.assert_awaited_once_with("some:key")
+        disconnect.assert_awaited_once_with("sid-1", namespace="/devices")
+
+    async def test_a_failed_disconnect_still_closes_the_other_sockets(
+        self, mocker, cache
+    ):
+        handler = SocketHandler(path="/test")
+
+        async def fail_for_the_first(sid: str, namespace: str | None = None) -> None:
+            if sid == "sid-1":
+                raise ConnectionError("broker")
+
+        disconnect = mocker.patch.object(
+            handler.socket_server,
+            "disconnect",
+            AsyncMock(side_effect=fail_for_the_first),
+        )
+        cache.smembers.return_value = {b"sid-1", b"sid-2"}
+
+        await handler.close_tracked("some:key", "/devices")
+
+        disconnect.assert_any_await("sid-2", namespace="/devices")
+        assert disconnect.await_count == 2
+
+
+class TestClientTokenSockets:
+    async def test_closing_a_token_disconnects_its_device_sockets(self, mocker):
+        close = mocker.patch.object(socket_handler, "close_tracked", AsyncMock())
+
+        await close_client_token_sockets([42])
+
+        close.assert_awaited_once_with("device_token_sockets:42", DEVICES_NAMESPACE)
+
+    async def test_a_broker_failure_moves_on_to_the_next_token(self, mocker, cache):
+        cache.smembers.side_effect = [{b"sid-1"}, {b"sid-2"}]
+        disconnect = mocker.patch.object(
+            socket_handler.socket_server,
+            "disconnect",
+            AsyncMock(side_effect=[ConnectionError("redis"), None]),
+        )
+
+        await close_client_token_sockets([1, 2])
+
+        assert disconnect.await_count == 2
+
+
 async def test_revoking_a_session_closes_its_sockets_on_every_server(mocker):
     main = mocker.patch.object(socket_handler, "close_login_sessions", AsyncMock())
     netplay = mocker.patch.object(
@@ -172,7 +252,10 @@ class TestAuthenticate:
 
     @pytest.fixture
     def bind(self, mocker, handler) -> AsyncMock:
-        return mocker.patch.object(handler, "bind_to_login_session", AsyncMock())
+        return cast(
+            AsyncMock,
+            mocker.patch.object(handler, "bind_to_login_session", AsyncMock()),
+        )
 
     @pytest.fixture
     def user(self, mocker) -> MagicMock:

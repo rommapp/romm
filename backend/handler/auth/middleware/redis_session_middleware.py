@@ -6,7 +6,7 @@ from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from config import SESSION_MAX_AGE_SECONDS
-from handler.redis_handler import async_cache
+from handler.redis_handler import as_text, async_cache
 from handler.socket_handler import close_login_session_sockets
 
 
@@ -37,7 +37,7 @@ class RedisSessionMiddleware:
 
         # A member arrives as bytes from a client that does not decode, and its
         # repr in a key name would miss the session and leave it live.
-        ids = [sid.decode() if isinstance(sid, bytes) else sid for sid in session_ids]
+        ids = [as_text(sid) for sid in session_ids]
         await async_cache.delete(
             *(f"session:{sid}" for sid in ids), f"user_sessions:{user_id}"
         )

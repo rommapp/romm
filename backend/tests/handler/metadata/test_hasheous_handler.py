@@ -1,17 +1,20 @@
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-import httpx
+import httpx2
 import pytest
 from fastapi import HTTPException
 
 from handler.filesystem.base_handler import provider_language_name
+from handler.metadata.base_handler import unavailable
 from handler.metadata.hasheous_handler import (
     HasheousHandler,
+    HasheousRom,
     _country_name,
     _tags_from_signatures,
     extract_metadata_from_igdb_rom,
 )
+from models.rom import RomFile
 
 # The proxy keys expanded collections by id and returns `company` as a bare id,
 # unlike IGDB's own list-of-objects shape.
@@ -56,14 +59,14 @@ def test_involvements_are_optional():
 @pytest.mark.parametrize(
     "failure",
     [
-        httpx.HTTPStatusError(
+        httpx2.HTTPStatusError(
             "boom",
-            request=httpx.Request("POST", "https://hasheous.org/api"),
-            response=httpx.Response(
-                500, request=httpx.Request("POST", "https://hasheous.org/api")
+            request=httpx2.Request("POST", "https://hasheous.org/api"),
+            response=httpx2.Response(
+                500, request=httpx2.Request("POST", "https://hasheous.org/api")
             ),
         ),
-        httpx.TimeoutException("too slow"),
+        httpx2.TimeoutException("too slow"),
     ],
     ids=["server_error", "timeout"],
 )
@@ -181,3 +184,124 @@ class TestTagsFromSignatures:
     ):
         # A raise here would abort the scan of the rom, not just its tags.
         assert _regions(signatures) == []
+
+
+# Trimmed from Hasheous' answer for "Final Fantasy VII (USA) (Disc 1).chd".
+FF7_MATCH = {
+    "id": 262307,
+    "name": "Final Fantasy VII",
+    "metadata": [
+        {"source": "IGDB", "immutableId": "427"},
+        {"source": "TheGamesDb", "immutableId": "525"},
+        {"source": "RetroAchievements", "immutableId": "11242"},
+    ],
+    "signatures": {"MAMERedump": [{"rom": {"country": {"US": "United States"}}}]},
+}
+
+
+def _rom_file(sha1: str, size: int, extension: str = "chd") -> RomFile:
+    file = RomFile(
+        file_name=f"{sha1}.{extension}",
+        file_path="psx/Game",
+        file_size_bytes=size,
+        sha1_hash=sha1,
+    )
+    # Pre-seeded so the file passes the top-level filter without a persisted rom.
+    file.__dict__["is_top_level"] = True
+    return file
+
+
+class TestLookupRom:
+    async def _lookup(
+        self, files: list[RomFile], request: AsyncMock
+    ) -> tuple[HasheousRom, bool]:
+        handler = HasheousHandler()
+        with (
+            patch.object(HasheousHandler, "is_enabled", return_value=True),
+            patch.object(handler, "_request", request),
+        ):
+            return await handler.lookup_rom("psx", files)
+
+    @staticmethod
+    def _sent(request: AsyncMock) -> list[list[dict[str, str]]]:
+        return [call.kwargs["data"] for call in request.call_args_list]
+
+    @pytest.mark.asyncio
+    async def test_reads_the_ids_hasheous_maps_the_game_to(self):
+        rom, conclusive = await self._lookup(
+            [_rom_file("disc1", 700)], AsyncMock(return_value=FF7_MATCH)
+        )
+
+        assert conclusive
+        assert rom["hasheous_id"] == 262307
+        assert (rom["igdb_id"], rom["tgdb_id"], rom["ra_id"]) == (427, 525, 11242)
+        assert rom["hasheous_metadata"]["mame_redump_match"]
+
+    @pytest.mark.asyncio
+    async def test_leaves_the_playlist_out_of_the_lookup(self):
+        request = AsyncMock(return_value=FF7_MATCH)
+        await self._lookup(
+            [_rom_file("playlist", 120, "m3u"), _rom_file("disc1", 700)], request
+        )
+
+        assert self._sent(request) == [[{"shA1": "disc1"}]]
+
+    @pytest.mark.asyncio
+    async def test_retries_each_file_alone_when_the_batch_misses(self):
+        # One unknown hash in the batch is enough for Hasheous to miss it.
+        request = AsyncMock(side_effect=[{}, FF7_MATCH, FF7_MATCH, {}])
+        rom, conclusive = await self._lookup(
+            [
+                _rom_file("disc1", 700),
+                _rom_file("disc2", 600),
+                _rom_file("readme", 10, "txt"),
+            ],
+            request,
+        )
+
+        assert conclusive
+        assert rom["hasheous_id"] == 262307
+        assert self._sent(request) == [
+            [{"shA1": "disc1"}, {"shA1": "disc2"}, {"shA1": "readme"}],
+            [{"shA1": "disc1"}],
+            [{"shA1": "disc2"}],
+            [{"shA1": "readme"}],
+        ]
+
+    @pytest.mark.asyncio
+    async def test_files_matching_different_games_match_neither(self):
+        other_game = {**FF7_MATCH, "id": 1, "name": "Tobal No. 1"}
+        request = AsyncMock(side_effect=[{}, FF7_MATCH, other_game, FF7_MATCH])
+        rom, conclusive = await self._lookup(
+            [
+                _rom_file("disc1", 700),
+                _rom_file("demo", 600),
+                _rom_file("disc2", 500),
+            ],
+            request,
+        )
+
+        assert not conclusive
+        assert rom["hasheous_id"] is None
+        assert request.await_count == 3
+
+    @pytest.mark.asyncio
+    async def test_a_file_no_database_knows_is_a_conclusive_miss(self):
+        request = AsyncMock(return_value={})
+        rom, conclusive = await self._lookup(
+            [_rom_file("disc1", 700), _rom_file("disc2", 600)], request
+        )
+
+        assert conclusive
+        assert rom["hasheous_id"] is None
+        assert request.await_count == 3
+
+    @pytest.mark.asyncio
+    async def test_a_failed_retry_is_inconclusive(self):
+        request = AsyncMock(side_effect=[{}, unavailable("Hasheous")])
+        rom, conclusive = await self._lookup(
+            [_rom_file("disc1", 700), _rom_file("disc2", 600)], request
+        )
+
+        assert not conclusive
+        assert rom["hasheous_id"] is None

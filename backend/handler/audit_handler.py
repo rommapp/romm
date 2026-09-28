@@ -8,7 +8,7 @@ import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, cast
 
 from starlette.requests import HTTPConnection
 
@@ -211,7 +211,7 @@ def _normalize_data(data: dict[str, Any] | None) -> dict[str, Any]:
         encoded = _encode({**scalars, "truncated": True})
         if len(encoded) > AUDIT_DATA_MAX_LENGTH:
             return {"truncated": True}
-    return json.loads(encoded)
+    return cast(dict[str, Any], json.loads(encoded))
 
 
 def _to_row(draft: AuditDraft) -> AuditEvent:

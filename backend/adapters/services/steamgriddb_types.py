@@ -80,3 +80,8 @@ class SGDBGame(TypedDict):
 
 
 SGDBGridList = PaginatedResponse[SGDBGrid]
+
+
+class SGDBResponse[T](TypedDict):
+    success: bool
+    data: NotRequired[T]

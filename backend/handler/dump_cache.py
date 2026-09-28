@@ -4,9 +4,8 @@ Values are compressed one at a time because the stores are read by exact key.
 """
 
 import json
+from compression import zstd
 from typing import Any, Final
-
-import zstandard
 
 from handler.redis_handler import async_binary_cache
 
@@ -20,8 +19,7 @@ COMPRESS_MIN_BYTES: Final[int] = 256
 # Zstandard frame magic, from RFC 8878 section 3.1.1.
 _ZSTD_MAGIC: Final[bytes] = b"\x28\xb5\x2f\xfd"
 
-_compressor = zstandard.ZstdCompressor(level=COMPRESSION_LEVEL)
-_decompressor = zstandard.ZstdDecompressor()
+_compressor = zstd.ZstdCompressor(level=COMPRESSION_LEVEL)
 
 
 def serialize(value: Any) -> bytes:
@@ -49,7 +47,7 @@ def encode(value: Any) -> bytes:
     if len(payload) < COMPRESS_MIN_BYTES:
         return payload
 
-    return _compressor.compress(payload)
+    return _compressor.compress(payload, zstd.ZstdCompressor.FLUSH_FRAME)
 
 
 def decode(raw: bytes | str | None) -> Any:
@@ -65,7 +63,7 @@ def decode(raw: bytes | str | None) -> Any:
         return None
 
     if isinstance(raw, bytes) and raw.startswith(_ZSTD_MAGIC):
-        raw = _decompressor.decompress(raw)
+        raw = zstd.decompress(raw)
 
     return json.loads(raw)
 

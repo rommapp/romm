@@ -22,7 +22,7 @@ Create Date: 2026-07-23 00:00:00.000000
 """
 
 import sqlalchemy as sa
-from alembic import op  # type: ignore[attr-defined]
+from alembic import op
 
 from utils.database import CustomJSON, is_postgresql
 from utils.roms_columns import ensure_roms_columns, roms_metadata_view_sql

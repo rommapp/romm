@@ -1,8 +1,8 @@
 import json
-from typing import Any
+from typing import Any, cast
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 
 from handler.metadata.playmatch_handler import PlaymatchHandler
 from models.rom import Rom, RomFile
@@ -44,7 +44,7 @@ async def test_heartbeat_returns_false_on_http_error(mock_ctx_httpx_client):
     handler = PlaymatchHandler()
     mock_client = AsyncMock()
     mock_response = MagicMock()
-    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+    mock_response.raise_for_status.side_effect = httpx2.HTTPStatusError(
         "Service Unavailable", request=MagicMock(), response=MagicMock()
     )
     mock_client.get.return_value = mock_response
@@ -86,7 +86,7 @@ async def _captured_lookup_payload(
 
     if not mock_request.await_args_list:
         return None
-    return mock_request.await_args_list[-1].args[1]
+    return cast(dict[str, Any] | None, mock_request.await_args_list[-1].args[1])
 
 
 async def test_lookup_rom_identifies_an_archive_by_its_largest_member():
@@ -256,7 +256,7 @@ async def _captured_suggestion_payload(rom: Rom) -> dict[str, Any] | None:
 
     if not mock_client.post.await_args_list:
         return None
-    return mock_client.post.await_args.kwargs["json"]
+    return cast(dict[str, Any] | None, mock_client.post.await_args.kwargs["json"])
 
 
 async def test_suggestion_contributes_the_selected_files_hashes():

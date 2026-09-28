@@ -4,7 +4,7 @@ from contextvars import ContextVar, Token
 from typing import TypeVar
 
 import aiohttp
-import httpx
+import httpx2
 from fastapi import Request, Response
 
 from config import has_proxy_env
@@ -17,14 +17,14 @@ from utils.ssrf import (
 _T = TypeVar("_T")
 
 ctx_aiohttp_session: ContextVar[aiohttp.ClientSession] = ContextVar("aiohttp_session")
-ctx_httpx_client: ContextVar[httpx.AsyncClient] = ContextVar("httpx_client")
+ctx_httpx_client: ContextVar[httpx2.AsyncClient] = ContextVar("httpx_client")
 
 
-def _validate_request_url_sync(request: httpx.Request) -> None:
+def _validate_request_url_sync(request: httpx2.Request) -> None:
     validate_url_for_http_request(str(request.url))
 
 
-async def _validate_request_url_async(request: httpx.Request) -> None:
+async def _validate_request_url_async(request: httpx2.Request) -> None:
     validate_url_for_http_request(str(request.url))
 
 
@@ -32,8 +32,8 @@ def create_aiohttp_session() -> aiohttp.ClientSession:
     return aiohttp.ClientSession(trust_env=has_proxy_env())
 
 
-def create_httpx_async_client() -> httpx.AsyncClient:
-    client = httpx.AsyncClient(
+def create_httpx_async_client() -> httpx2.AsyncClient:
+    client = httpx2.AsyncClient(
         trust_env=has_proxy_env(),
         event_hooks={"request": [_validate_request_url_async]},
     )
@@ -41,8 +41,8 @@ def create_httpx_async_client() -> httpx.AsyncClient:
     return client
 
 
-def create_httpx_client() -> httpx.Client:
-    client = httpx.Client(
+def create_httpx_client() -> httpx2.Client:
+    client = httpx2.Client(
         trust_env=has_proxy_env(),
         event_hooks={"request": [_validate_request_url_sync]},
     )

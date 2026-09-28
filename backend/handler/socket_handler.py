@@ -1,11 +1,11 @@
 import asyncio
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from typing import TYPE_CHECKING, Any, Final
 
 import socketio
 
 from config import REDIS_URL, SESSION_MAX_AGE_SECONDS
-from handler.redis_handler import async_cache
+from handler.redis_handler import as_text, async_cache
 from logger.logger import log
 from utils import json_module
 
@@ -14,6 +14,11 @@ if TYPE_CHECKING:
 
 # Where a socket's own session records the login session that opened it.
 LOGIN_SESSION_ID_KEY: Final = "login_session_id"
+DEVICES_NAMESPACE: Final = "/devices"
+
+
+def client_token_sockets_key(token_id: int) -> str:
+    return f"device_token_sockets:{token_id}"
 
 
 class SocketHandler:
@@ -36,6 +41,17 @@ class SocketHandler:
 
         self._write_manager: socketio.AsyncRedisManager | None = None
         self._write_manager_loop: asyncio.AbstractEventLoop | None = None
+
+    def on[F: Callable[..., Awaitable[object]]](
+        self, event: str, namespace: str | None = None
+    ) -> Callable[[F], F]:
+        """Register a socket event handler without changing its signature."""
+
+        def register(handler: F) -> F:
+            self.socket_server.on(event, handler, namespace=namespace)
+            return handler
+
+        return register
 
     def _login_session_sockets_key(self, session_id: str) -> str:
         # Per channel, since a sid only means something to the server that issued it.
@@ -63,10 +79,12 @@ class SocketHandler:
         except Exception:  # noqa: BLE001
             log.warning(f"Failed to push {event} to user {user_id}", exc_info=True)
 
-    async def get_session(self, sid: str) -> dict[str, Any]:
+    async def get_session(
+        self, sid: str, namespace: str | None = None
+    ) -> dict[str, Any]:
         """The socket's server-side session, empty once the socket is gone."""
         try:
-            return await self.socket_server.get_session(sid) or {}
+            return await self.socket_server.get_session(sid, namespace=namespace) or {}
         except KeyError:
             return {}
 
@@ -90,11 +108,38 @@ class SocketHandler:
             await self.bind_to_login_session(sid, session_id)
         return user
 
+    async def track(self, key: str, sid: str, ttl_seconds: int) -> None:
+        """Add a socket to the set under ``key`` and restart its expiry."""
+        await async_cache.sadd(key, sid)
+        await async_cache.expire(key, ttl_seconds)
+
+    async def untrack(self, key: str, sid: str) -> None:
+        """Drop a socket from the set under ``key``, logging a failure."""
+        try:
+            await async_cache.srem(key, sid)
+        except Exception:  # noqa: BLE001
+            log.warning(f"Failed to forget socket {sid} under {key}", exc_info=True)
+
+    async def close_tracked(self, key: str, namespace: str | None = None) -> None:
+        """Disconnect every socket tracked under ``key`` on any worker, logging a failure."""
+        try:
+            sids = await async_cache.smembers(key)
+            await async_cache.delete(key)
+        except Exception:  # noqa: BLE001
+            log.warning(f"Failed to close the sockets under {key}", exc_info=True)
+            return
+        for sid in sids:
+            try:
+                # A socket on another worker is disconnected through the broker.
+                await self.socket_server.disconnect(as_text(sid), namespace=namespace)
+            except Exception:  # noqa: BLE001
+                log.warning(f"Failed to close socket {as_text(sid)}", exc_info=True)
+
     async def bind_to_login_session(self, sid: str, session_id: str) -> None:
         """Record which login session opened a socket, so revoking it closes the socket."""
-        key = self._login_session_sockets_key(session_id)
-        await async_cache.sadd(key, sid)
-        await async_cache.expire(key, SESSION_MAX_AGE_SECONDS)
+        await self.track(
+            self._login_session_sockets_key(session_id), sid, SESSION_MAX_AGE_SECONDS
+        )
         async with self.socket_server.session(sid) as session:
             session[LOGIN_SESSION_ID_KEY] = session_id
 
@@ -103,7 +148,7 @@ class SocketHandler:
         try:
             session_id = (await self.get_session(sid)).get(LOGIN_SESSION_ID_KEY)
             if session_id:
-                await async_cache.srem(self._login_session_sockets_key(session_id), sid)
+                await self.untrack(self._login_session_sockets_key(session_id), sid)
         except Exception:  # noqa: BLE001
             log.warning(f"Failed to unbind socket {sid}", exc_info=True)
 
@@ -114,20 +159,7 @@ class SocketHandler:
         session would otherwise go on receiving its user's and the admins' events.
         """
         for session_id in session_ids:
-            key = self._login_session_sockets_key(session_id)
-            try:
-                sids = await async_cache.smembers(key)
-                await async_cache.delete(key)
-                for sid in sids:
-                    # A socket on another worker is disconnected through the broker.
-                    await self.socket_server.disconnect(
-                        sid.decode() if isinstance(sid, bytes) else sid
-                    )
-            except Exception:  # noqa: BLE001
-                log.warning(
-                    f"Failed to close the sockets of session {session_id}",
-                    exc_info=True,
-                )
+            await self.close_tracked(self._login_session_sockets_key(session_id))
 
 
 socket_handler = SocketHandler(path="/ws/socket.io")
@@ -143,3 +175,11 @@ async def close_login_session_sockets(session_ids: Iterable[str]) -> None:
         socket_handler.close_login_sessions(ids),
         netplay_socket_handler.close_login_sessions(ids),
     )
+
+
+async def close_client_token_sockets(token_ids: Iterable[int]) -> None:
+    """Disconnect every device socket the given client tokens opened, on any worker."""
+    for token_id in token_ids:
+        await socket_handler.close_tracked(
+            client_token_sockets_key(token_id), DEVICES_NAMESPACE
+        )
