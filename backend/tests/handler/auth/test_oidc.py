@@ -673,6 +673,7 @@ async def test_oidc_fetches_missing_claims_from_userinfo_endpoint(
     assert new_user.username == "testuser"
     assert new_user.role == Role.ADMIN
     # ID token claims win over the UserInfo response
+    assert userinfo is not None
     assert userinfo["iss"] == "http://localhost:9000/application/o/romm/"
 
 
