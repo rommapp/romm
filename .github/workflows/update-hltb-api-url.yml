@@ -23,16 +23,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-
-      - name: Install python
-        run: |
-          uv python install
-
-      - name: Install dependencies
-        run: |
-          uv sync --locked
+      - name: Set up the backend
+        uses: ./.github/actions/setup-backend
 
       - name: Run HLTB API URL discovery script
         # Only satisfies the backend config import; discovery authenticates nothing.
@@ -61,5 +53,4 @@ jobs:
     permissions:
       contents: read
       issues: write
-    # actionlint doesn't understand the $/ self-repository syntax yet.
-    uses: ./.github/workflows/report-scheduled-failure.yml # zizmor: ignore[self-repository]
+    uses: ./.github/workflows/report-scheduled-failure.yml

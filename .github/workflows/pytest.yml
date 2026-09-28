@@ -70,21 +70,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install mariadb connectors
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libmariadb3 libmariadb-dev 7zip
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-
-      - name: Install python
-        run: |
-          uv python install
-
-      - name: Install dependencies
-        run: |
-          uv sync --locked --extra test
+      - name: Set up the backend
+        uses: ./.github/actions/setup-backend
+        with:
+          sync-args: --extra test
+          apt-packages: 7zip
 
       - name: Initiate MariaDB database
         if: matrix.db == 'mariadb'

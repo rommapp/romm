@@ -310,8 +310,7 @@ jobs:
       contents: read
       packages: read
       security-events: write
-    # actionlint doesn't understand the $/ self-repository syntax yet.
-    uses: ./.github/workflows/image-scan.yml # zizmor: ignore[self-repository]
+    uses: ./.github/workflows/image-scan.yml
     with:
       images: >-
         ["ghcr.io/${{ github.repository_owner }}/romm:${{ needs.merge.outputs.version }}",
@@ -323,5 +322,4 @@ jobs:
     permissions:
       contents: read
       issues: write
-    # actionlint doesn't understand the $/ self-repository syntax yet.
-    uses: ./.github/workflows/report-scheduled-failure.yml # zizmor: ignore[self-repository]
+    uses: ./.github/workflows/report-scheduled-failure.yml
