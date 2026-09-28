@@ -57,24 +57,26 @@ function track(fileId: number): PlayerTrack {
   };
 }
 
-// Updates `paused` and `currentTime` at once, like a real element, while its
+// A real element whose `paused` and `currentTime` change at once, while its
 // events (and so the store) lag behind.
 function fakeAudio() {
-  return {
-    paused: true,
-    currentTime: 0,
-    volume: 1,
-    muted: false,
-    play: vi.fn(function (this: { paused: boolean }) {
-      this.paused = false;
-      return Promise.resolve();
-    }),
-    pause: vi.fn(function (this: { paused: boolean }) {
-      this.paused = true;
-    }),
-    removeAttribute: vi.fn(),
-    load: vi.fn(),
-  };
+  const el = document.createElement("audio");
+  const state = { paused: true, currentTime: 0 };
+  Object.defineProperty(el, "paused", { get: () => state.paused });
+  Object.defineProperty(el, "currentTime", {
+    get: () => state.currentTime,
+    set: (t: number) => {
+      state.currentTime = t;
+    },
+  });
+  const play = vi.spyOn(el, "play").mockImplementation(async () => {
+    state.paused = false;
+  });
+  const pause = vi.spyOn(el, "pause").mockImplementation(() => {
+    state.paused = true;
+  });
+  vi.spyOn(el, "load").mockImplementation(() => {});
+  return { el, state, play, pause };
 }
 
 describe("useMediaSession", () => {
@@ -161,7 +163,7 @@ describe("useMediaSession", () => {
   it("routes play, pause and stop to the player", () => {
     const store = useSoundtrackPlayer();
     const audio = fakeAudio();
-    store.setAudioRef(audio as unknown as HTMLAudioElement);
+    store.setAudioRef(audio.el);
     const stop = vi.spyOn(store, "stop");
     start();
 
@@ -183,8 +185,8 @@ describe("useMediaSession", () => {
   it("follows the element through presses faster than its events", () => {
     const store = useSoundtrackPlayer();
     const audio = fakeAudio();
-    audio.paused = false;
-    store.setAudioRef(audio as unknown as HTMLAudioElement);
+    audio.state.paused = false;
+    store.setAudioRef(audio.el);
     store.play(track(1), {});
     store.setPlaying(true);
     start();
@@ -194,13 +196,13 @@ describe("useMediaSession", () => {
 
     expect(audio.pause).toHaveBeenCalledOnce();
     expect(audio.play).toHaveBeenCalledOnce();
-    expect(audio.paused).toBe(false);
+    expect(audio.state.paused).toBe(false);
   });
 
   it("ignores play while the music is blocked, but still pauses", () => {
     const store = useSoundtrackPlayer();
     const audio = fakeAudio();
-    store.setAudioRef(audio as unknown as HTMLAudioElement);
+    store.setAudioRef(audio.el);
     store.play(track(1), {});
     let blocked = true;
     start(() => blocked);
@@ -242,8 +244,8 @@ describe("useMediaSession", () => {
   it("adds up seek presses that land before the next time update", () => {
     const store = useSoundtrackPlayer();
     const audio = fakeAudio();
-    audio.currentTime = 50;
-    store.setAudioRef(audio as unknown as HTMLAudioElement);
+    audio.state.currentTime = 50;
+    store.setAudioRef(audio.el);
     start();
     store.play(track(1), {});
     store.setDuration(100);
@@ -252,7 +254,7 @@ describe("useMediaSession", () => {
     session.fire("seekforward", {});
     session.fire("seekforward", {});
 
-    expect(audio.currentTime).toBe(70);
+    expect(audio.state.currentTime).toBe(70);
     expect(store.currentTime).toBe(50);
   });
 

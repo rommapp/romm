@@ -59,8 +59,7 @@ export function useMediaSession(blocked: () => boolean = () => false): void {
 
   const store = useSoundtrackPlayer();
 
-  // The element, not the store, since the store only learns of a change from
-  // the element's events and a quick second key press can beat them.
+  // The element's paused state changes before its events update the store.
   function playOrPause(play: boolean) {
     const el = store.audioRef;
     if (!store.track || !el || el.paused !== play) return;
