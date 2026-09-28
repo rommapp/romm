@@ -223,6 +223,70 @@ describe("installEJSDefaultOptionsTrap", () => {
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
+
+  describe("cheats", () => {
+    function makeCheatEmulator(
+      cheats: { desc: string; code: string; checked: boolean }[],
+    ) {
+      const emulator = makeEmulator({});
+      emulator.cheats = cheats;
+      emulator.gameManager = { setCheat: vi.fn(), resetCheat: vi.fn() };
+      window.EJS_emulator = emulator;
+      return emulator;
+    }
+
+    it("never hands a disabled cheat to the core", () => {
+      // fceumm applies every code it receives, whatever the flag (#4208).
+      const emulator = makeCheatEmulator([
+        { desc: "lives", code: "SLUSZTVS", checked: false },
+      ]);
+
+      emulator.cheatChanged(false, "SLUSZTVS", 0);
+
+      expect(emulator.gameManager.resetCheat).toHaveBeenCalled();
+      expect(emulator.gameManager.setCheat).not.toHaveBeenCalled();
+    });
+
+    it("reapplies the other enabled cheats when one is turned off", () => {
+      const emulator = makeCheatEmulator([
+        { desc: "lives", code: "SLUSZTVS", checked: false },
+        { desc: "time", code: "AAAAAAAA", checked: true },
+      ]);
+
+      emulator.cheatChanged(false, "SLUSZTVS", 0);
+
+      expect(emulator.gameManager.setCheat).toHaveBeenCalledExactlyOnceWith(
+        1,
+        true,
+        "AAAAAAAA",
+      );
+    });
+
+    it("drops a checked cheat that is being removed", () => {
+      const emulator = makeCheatEmulator([
+        { desc: "lives", code: "SLUSZTVS", checked: true },
+      ]);
+
+      emulator.cheatChanged(false, "SLUSZTVS", 0);
+
+      expect(emulator.gameManager.setCheat).not.toHaveBeenCalled();
+    });
+
+    it("enables a cheat without resetting the others", () => {
+      const emulator = makeCheatEmulator([
+        { desc: "lives", code: "SLUSZTVS", checked: true },
+      ]);
+
+      emulator.cheatChanged(true, "SLUSZTVS", 0);
+
+      expect(emulator.gameManager.resetCheat).not.toHaveBeenCalled();
+      expect(emulator.gameManager.setCheat).toHaveBeenCalledWith(
+        0,
+        true,
+        "SLUSZTVS",
+      );
+    });
+  });
 });
 
 describe("createSaveSyncTracker", () => {
