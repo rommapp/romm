@@ -213,9 +213,14 @@ export function toUserState(
   };
 }
 
-// User 1's saves plus another user's public ones.
+// User 1's saves plus another user's public ones. Kept small: the a11y scan
+// in the Storybook harness scales with the rendered rows.
 export function mixedCommunitySaves(): UserSaveSchema[] {
-  const mine = saveSlotLibrary().map((s) =>
+  const mine = [
+    ...makeSaveSlot("autosave", 2, 1, 1),
+    ...makeSaveSlot("main_quest", 2, 30, 3),
+    makeSave(5, null, 500),
+  ].map((s) =>
     toUserSave(s, "player", { user_id: 1, is_public: s.id % 3 === 0 }),
   );
   const theirs = makeSaveSlot("shared_route", 2, 40, 100).map((s) =>
@@ -225,10 +230,10 @@ export function mixedCommunitySaves(): UserSaveSchema[] {
 }
 
 export function mixedCommunityStates(): UserStateSchema[] {
-  const mine = manyStates(4).map((s) =>
+  const mine = manyStates(3).map((s) =>
     toUserState(s, "player", { user_id: 1 }),
   );
-  const theirs = manyStates(3).map((s, i) =>
+  const theirs = manyStates(2).map((s, i) =>
     toUserState(
       { ...s, id: 50 + i, user_id: 3, emulator: "mesen" },
       "archivist",
