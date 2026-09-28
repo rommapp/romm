@@ -17,6 +17,7 @@ from handler.database.base_handler import sync_session
 from models.assets import (
     ASSET_LABEL_MAX_LENGTH,
     ASSET_LABELS_MAX,
+    EMULATOR_MAX_LENGTH,
     Save,
     Screenshot,
     State,
@@ -168,6 +169,37 @@ def test_add_state_rejects_oversized_uploads(
         )
 
     assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
+
+
+@pytest.mark.parametrize(
+    "emulator", ["../../escape", "nested/dir", "back\\slash", "..", ".", " padded"]
+)
+@mock.patch(
+    "handler.asset_store.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+)
+def test_add_state_rejects_emulator_that_is_not_one_folder(
+    mock_write, client, access_token: str, rom: Rom, emulator: str
+):
+    response = client.post(
+        "/api/states",
+        params={"rom_id": rom.id, "emulator": emulator},
+        files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    mock_write.assert_not_awaited()
+
+
+def test_add_state_rejects_overlong_emulator(client, access_token: str, rom: Rom):
+    response = client.post(
+        "/api/states",
+        params={"rom_id": rom.id, "emulator": "e" * (EMULATOR_MAX_LENGTH + 1)},
+        files={"stateFile": ("game.state", b"STATE!", "application/octet-stream")},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 @mock.patch(
