@@ -17,6 +17,7 @@ import pendingAssetStore, {
 import storeHeartbeat from "@/stores/heartbeat";
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
+import { keepArcadeBiosWhole } from "@/v2/utils/playerFirmware";
 
 /** Tears the emulator down once, however many owners ask. */
 export function exitEmulatorOnce() {
@@ -585,6 +586,7 @@ export function installEJSDefaultOptionsTrap() {
       if (!value) return;
       installDefaultOptionsFallback(value);
       replayConnectedGamepads(value);
+      keepArcadeBiosWhole(value);
       applyOnlyEnabledCheats(value);
     },
   });

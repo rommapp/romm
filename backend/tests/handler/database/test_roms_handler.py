@@ -40,7 +40,7 @@ class TestUpdateRomDerivedColumns:
         assert updated.fs_name == "Sonic (Europe).md"
         assert updated.fs_name_no_tags == "Sonic"
         assert updated.fs_name_no_ext == "Sonic (Europe)"
-        # The extension is resynced too — the rename endpoint used to omit it.
+        # The extension is resynced too; the rename endpoint used to omit it.
         assert updated.fs_extension == "md"
 
     def test_update_either_path_half_resyncs_the_digest(self, rom: Rom):

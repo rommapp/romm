@@ -574,7 +574,7 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
                 noload(Rom.metadatum),
                 # Per-sibling is_main_sibling resolution for the
                 # SiblingRomSchema needs each sibling's RomUser for the
-                # request user — the relationship is `lazy="raise"`, so
+                # request user; the relationship is `lazy="raise"`, so
                 # it has to be eager-loaded here.
                 selectinload(Rom.rom_users).options(
                     noload(RomUser.rom), noload(RomUser.user)
@@ -1319,16 +1319,11 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def _filter_by_status[S: Select[Any]](
-        self,
-        query: S,
-        *,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> S:
+    def _rom_user_visibility(self, filters: RomFilterParams) -> ColumnElement[bool]:
+        """The per-user predicate a rom must pass to show in the gallery."""
+        values = filters.statuses
         if not values:
-            return query
+            return _rom_user_not_hidden()
 
         status_filters: list[ColumnElement[bool]] = []
         for selected_status in values:
@@ -1341,17 +1336,16 @@ class DBRomsHandler(DBBaseHandler):
             else:
                 status_filters.append(RomUser.status == selected_status)
 
-        comb = and_ if match_all else or_
+        comb = and_ if filters.statuses_logic == "all" else or_
         condition = comb(*status_filters)
+        if filters.statuses_logic == "none":
+            condition = ~condition
 
-        # Apply negation if match_none, otherwise apply condition
-        query = query.filter(~condition) if match_none else query.filter(condition)
-
-        # Don't apply the hidden filter is hidden is set
+        # Selecting the hidden status is what opts hidden roms back in
         if "hidden" in values:
-            return query
+            return condition
 
-        return query.filter(_rom_user_not_hidden())
+        return and_(condition, _rom_user_not_hidden())
 
     def _apply_filter_spec[S: Select[Any]](
         self,
@@ -1477,7 +1471,7 @@ class DBRomsHandler(DBBaseHandler):
                 query = query.options(selectinload(Rom.notes))
 
         # Only load files (and the RomFile.rom backref needed by `is_top_level` /
-        # `file_name_for_download`) when the caller iterates them — e.g. the
+        # `file_name_for_download`) when the caller iterates them, e.g. the
         # feed endpoints. The gallery/list and filter-value paths serialize
         # SimpleRomSchema without files, so they skip this entirely.
         if include_files:
@@ -1615,6 +1609,9 @@ class DBRomsHandler(DBBaseHandler):
         if hidden_rom_ids:
             query = query.filter(Rom.id.not_in(hidden_rom_ids))
 
+        # The RomUser table is already joined if user_id is set
+        visibility = self._rom_user_visibility(filters) if user_id else true()
+
         # BEWARE YE WHO ENTERS HERE 💀
         if filters.group_by_meta_id:
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
@@ -1633,9 +1630,9 @@ class DBRomsHandler(DBBaseHandler):
             )
 
             # Create a subquery that identifies the primary ROM in each group.
-            # Priority order: is_main_sibling (desc), then a full release over
-            # a pre-release, then the configured region priority, then
-            # fs_name_no_ext (asc) as a stable tiebreak.
+            # Priority order: visible to this user, then is_main_sibling (desc),
+            # then a full release over a pre-release, then the configured
+            # region priority, then fs_name_no_ext (asc) as a stable tiebreak.
             # Materialize only the columns the dedup window needs (not all of
             # Rom, whose JSON metadata blobs make the derived table huge), and
             # drop the carried-over ORDER BY the window doesn't use.
@@ -1720,16 +1717,20 @@ class DBRomsHandler(DBBaseHandler):
                 base_subquery.c.region_rank.asc(),
                 base_subquery.c.fs_name_no_ext.asc(),
             ]
+            if user_id:
+                # A sibling the visibility filter below drops can't represent
+                # its group while a visible one exists.
+                window_order.insert(0, case((visibility, 0), else_=1).asc())
             window_columns: list[ColumnElement[Any]] = [
                 func.row_number()
                 .over(partition_by=partition_key, order_by=window_order)
                 .label("row_num"),
             ]
             if aggregates_sort_key:
-                # MIN/MAX skip NULL siblings, and a hidden sibling's key is
-                # masked to NULL so it cannot drive a group it is absent from.
+                # MIN/MAX skip NULL siblings, and a filtered-out sibling's key
+                # is masked to NULL so it cannot drive a group it is absent from.
                 visible_sort_key = case(
-                    (_rom_user_not_hidden(), _zero_unset_folded(sort_key.column))
+                    (visibility, _zero_unset_folded(sort_key.column))
                 )
                 group_aggregate = func.max if order_dir == "desc" else func.min
                 window_columns.append(
@@ -1787,16 +1788,8 @@ class DBRomsHandler(DBBaseHandler):
                     )
                 )
 
-        # The RomUser table is already joined if user_id is set
-        if filters.statuses and user_id:
-            query = self._filter_by_status(
-                query,
-                values=filters.statuses,
-                match_all=(filters.statuses_logic == "all"),
-                match_none=(filters.statuses_logic == "none"),
-            )
-        elif user_id:
-            query = query.filter(_rom_user_not_hidden())
+        if user_id:
+            query = query.filter(visibility)
 
         return query
 

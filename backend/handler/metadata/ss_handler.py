@@ -962,8 +962,8 @@ class SSHandler(MetadataHandler):
 
         # Files on NON_HASHABLE_PLATFORMS (or any file when SKIP_HASH_CALCULATION
         # is enabled) have no hashes. jeuInfos can still identify the game from the
-        # filename (romnom) + platform (systemeid) — a stronger matcher than the
-        # jeuRecherche name search the get_rom fallback uses — so only bail out when
+        # filename (romnom) + platform (systemeid), which is a stronger matcher than the
+        # jeuRecherche name search the get_rom fallback uses, so only bail out when
         # we have neither a hash nor a filename to match on.
         if not (md5_hash or sha1_hash or crc_hash or rom_name):
             log.info(
