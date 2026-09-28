@@ -66,7 +66,7 @@ async function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {
     romApi.updateUserRomProps({
       romId: rom.value.id,
-      data: rom.value.rom_user,
+      data: {},
       updateLastPlayed: true,
     });
   }

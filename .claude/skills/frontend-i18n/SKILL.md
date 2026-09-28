@@ -3,9 +3,9 @@ name: frontend-i18n
 description: Internationalization for the RomM frontend (both v1 and v2). Use whenever adding, renaming, or removing any user-visible string / translation key under frontend/src/locales/. Covers the en_US-is-source rule, the requirement to add every new key to ALL locale directories in the same change, namespace layout, and the check_i18n_locales.py validator enforced in CI. Trigger on any change to frontend/src/locales/**.
 ---
 
-# RomM Frontend — i18n / Localization
+# RomM Frontend: i18n / Localization
 
-User-visible strings are **never hard-coded** in components — they come from locale files via `vue-i18n` (`$t(...)` in templates/composites; utils may call `i18n.global.t(...)`; **v2 lib primitives must not call `$t` at all** — text passes via props/slots).
+User-visible strings are **never hard-coded** in components; they come from locale files via `vue-i18n` (`$t(...)` in templates/composites; utils may call `i18n.global.t(...)`; **v2 lib primitives must not call `$t` at all**, text passes via props/slots).
 
 ## Structure
 
@@ -17,9 +17,9 @@ User-visible strings are **never hard-coded** in components — they come from l
 
 - **`en_US` is the source of truth**, but **every key added to `en_US` must be added to all other locale directories in the same change.** Never leave a key English-only.
 - **`en_US` uses US spelling**: "favorites", "color", "canceled". British forms belong in `en_GB` only. This bites tests too: an e2e or unit assertion on a label must expect the `en_US` string.
-- **Actually translate the value into each locale's language** — never paste English into non-English locales.
+- **Actually translate the value into each locale's language**: never paste English into non-English locales.
 - Editing an existing string counts: changing `en_US` means re-translating that key in every other locale.
-- Reuse each locale's established terms — grep a sibling key for how it renders "metadata", "provider", etc.
+- Reuse each locale's established terms: grep a sibling key for how it renders "metadata", "provider", etc.
 - Copying the English value is a last-resort placeholder, only when no translation is available, and must be flagged to revisit.
 - Removing or renaming a key means doing it across **every** locale.
 

@@ -4,8 +4,9 @@ from datetime import datetime
 
 from sqlalchemy import ColumnElement, Select, String, cast, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.interfaces import LoaderOption
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.audit_event import AuditCategory, AuditEvent, actions_in
 from models.device import Device
 from models.rom import Rom
@@ -15,7 +16,7 @@ from utils.database import LIKE_ESCAPE_CHAR, escape_like
 from .base_handler import DBBaseHandler, affected_rows
 
 
-def _with_actor():
+def _with_actor() -> LoaderOption:
     # Name and avatar only, the rest of a user row is large JSON.
     return joinedload(AuditEvent.actor).load_only(
         User.id, User.username, User.avatar_path, User.updated_at
@@ -40,7 +41,7 @@ class AuditEventFilters:
 
 
 def _not_targeting(
-    target_type: str, ids: Collection[int] | Select
+    target_type: str, ids: Collection[int] | Select[tuple[str]]
 ) -> ColumnElement[bool]:
     """Events other than those on the given targets of one type."""
     excluded = ids if isinstance(ids, Select) else [str(i) for i in ids]
@@ -57,7 +58,7 @@ class DBAuditEventsHandler(DBBaseHandler):
     def add_events(
         self,
         events: Sequence[AuditEvent],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.add_all(events)
 
@@ -67,7 +68,7 @@ class DBAuditEventsHandler(DBBaseHandler):
         filters: AuditEventFilters,
         limit: int,
         offset: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> tuple[list[tuple[AuditEvent, str | None]], int, int | None]:
         """A page of events, newest first, each with its device's name, the total,
         and the highest id among the matches for later pages to be pinned to."""
@@ -143,7 +144,7 @@ class DBAuditEventsHandler(DBBaseHandler):
         self,
         cutoff: datetime,
         batch_size: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> int:
         """Delete up to `batch_size` of the oldest events from before `cutoff`."""
         # Ids first: MySQL refuses a LIMIT inside an IN subquery.

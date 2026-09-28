@@ -430,6 +430,8 @@
   "show-home-widgets-desc": "在主页面板各行上方显示小组件栏。隐藏后将移除整个板块。",
   "show-languages": "显示语言",
   "show-languages-desc": "在游戏库中显示语言标识",
+  "show-logo-title": "以徽标作为标题",
+  "show-logo-title-desc": "如已抓取徽标，在游戏页面上显示游戏徽标而非游戏名称",
   "show-platforms": "显示平台",
   "show-platforms-as-grid": "平台（网格）",
   "show-platforms-as-grid-desc": "以网格形式在主页上显示平台（卡片）部分",

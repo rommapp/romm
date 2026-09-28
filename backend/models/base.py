@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timezone
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from sqlalchemy import TIMESTAMP
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -72,7 +72,7 @@ def compute_file_name_parts(file_name: str) -> FileNameParts:
     )
 
 
-def with_file_name_parts(data: dict) -> dict:
+def with_file_name_parts(data: dict[str, Any]) -> dict[str, Any]:
     """`data` plus the columns derived from its `file_name`, which a bulk
     update() must write itself since it skips the `@validates` hook."""
     if "file_name" not in data:

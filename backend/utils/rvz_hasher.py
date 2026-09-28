@@ -22,18 +22,21 @@ Format references:
 
 import bz2
 import hashlib
-import io
 import lzma
 import os
 import struct
-from typing import BinaryIO
+from compression import zstd
+from typing import TYPE_CHECKING, Any, BinaryIO, cast
 
-import zstandard
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+
+if TYPE_CHECKING:
+    # CPython's private OpenSSL hash type, which hashlib.md5() is typed as.
+    from _hashlib import HASH
 
 # Container extensions RAHasher can't read but which we can hash natively. The
 # real container is still detected by magic; the extension only gates whether
@@ -81,7 +84,7 @@ _PARSE_ERRORS = (
     EOFError,
     struct.error,
     lzma.LZMAError,
-    zstandard.ZstdError,
+    zstd.ZstdError,
 )
 
 
@@ -151,7 +154,7 @@ class _LaggedFibonacci:
         return bytes(out)
 
 
-def _decode_lzma_filters(lzma2: bool, compr_data: bytes) -> list[dict]:
+def _decode_lzma_filters(lzma2: bool, compr_data: bytes) -> list[dict[str, Any]]:
     """Convert the 7-Zip-SDK properties stored in the header to lzma filters."""
     if lzma2:
         if len(compr_data) < 1:
@@ -340,14 +343,7 @@ class _RvzReader:
             return lzma.LZMADecompressor(
                 format=lzma.FORMAT_RAW, filters=filters
             ).decompress(blob, max_length=max_output)
-        reader = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(blob))
-        out = bytearray()
-        while len(out) < max_output:
-            chunk = reader.read(min(1 << 20, max_output - len(out)))
-            if not chunk:
-                break
-            out += chunk
-        return bytes(out)
+        return zstd.ZstdDecompressor().decompress(blob, max_length=max_output)
 
     def _decompress_blob(self, offset: int, size: int, expected: int) -> bytes:
         self._fh.seek(offset)
@@ -678,10 +674,10 @@ def _open_reader(file_path: str) -> _RvzReader:
 
 
 def _be32(data: bytes, offset: int = 0) -> int:
-    return struct.unpack_from(">I", data, offset)[0]
+    return cast(int, struct.unpack_from(">I", data, offset)[0])
 
 
-def _hash_chunked(md5, reader: _RvzReader, offset: int, size: int) -> None:
+def _hash_chunked(md5: HASH, reader: _RvzReader, offset: int, size: int) -> None:
     """Feed [offset, offset+size) to the hash in bounded chunks."""
     pos = offset
     remaining = size
@@ -693,7 +689,7 @@ def _hash_chunked(md5, reader: _RvzReader, offset: int, size: int) -> None:
 
 
 def _hash_nintendo_disc_partition(
-    md5, reader: _RvzReader, part_offset: int, wii_shift: int
+    md5: HASH, reader: _RvzReader, part_offset: int, wii_shift: int
 ) -> None:
     """Mirror of rcheevos rc_hash_nintendo_disc_partition."""
     body, trailer = struct.unpack(
@@ -752,7 +748,7 @@ def calculate_gamecube_ra_hash(file_path: str) -> str:
         reader.close()
 
 
-def _hash_wii_disc(md5, reader: _RvzReader) -> None:
+def _hash_wii_disc(md5: HASH, reader: _RvzReader) -> None:
     """Mirror of rcheevos rc_hash_wii_disc for encrypted retail discs."""
     if reader.read_at(0x61, 1) != b"\x00":
         raise RvzHashError("decrypted Wii disc images are not supported")

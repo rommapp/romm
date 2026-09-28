@@ -1,0 +1,102 @@
+// usePinnedMedia: what the Overview tab shows for one ROM. Writes are
+// optimistic and chained per ROM, so toggles land in click order.
+import { computed, toValue, type MaybeRefOrGetter } from "vue";
+import { useI18n } from "vue-i18n";
+import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
+import type { DetailedRom } from "@/stores/roms";
+import { useRomSync } from "@/v2/composables/useRomSync";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
+import {
+  PINNED_MEDIA_MAX_ITEMS,
+  pinnedMediaKeys,
+  togglePinnedMediaKey,
+} from "@/v2/utils/pinnedMedia";
+
+type RomWrites = {
+  queue: Promise<void>;
+  pending: number;
+  confirmed: string[] | null;
+};
+
+// The Overview, Screenshots and Artwork tabs each hold an instance, so the
+// queue lives at module scope, keyed by ROM id.
+const romWrites = new Map<number, RomWrites>();
+
+export function usePinnedMedia(rom: MaybeRefOrGetter<DetailedRom>) {
+  const { t } = useI18n();
+  const snackbar = useSnackbar();
+  const auth = storeAuth();
+  const { syncCachedRom } = useRomSync();
+
+  // The props endpoint refuses sessions without this scope.
+  const canPin = computed(() => auth.scopes.includes("roms.user.write"));
+  const keys = computed(() => pinnedMediaKeys(toValue(rom)));
+  const pinned = computed(() => new Set(keys.value));
+  // Undefined without the scope, which hides every pin control.
+  const isPinned = computed(() =>
+    canPin.value ? (key: string) => pinned.value.has(key) : undefined,
+  );
+  const isCustomized = computed(
+    () => toValue(rom).rom_user?.pinned_media != null,
+  );
+
+  function write(next: string[] | null) {
+    const target = toValue(rom);
+    const romUser = target.rom_user;
+    if (!romUser) return;
+
+    const state = romWrites.get(target.id) ?? {
+      queue: Promise.resolve(),
+      pending: 0,
+      confirmed: romUser.pinned_media,
+    };
+    romWrites.set(target.id, state);
+    // A refetch mid-write swaps in a new rom_user, so settle on the live one.
+    const settle = (value: string[] | null) => {
+      const live = toValue(rom);
+      const current = live.id === target.id ? live : target;
+      current.rom_user.pinned_media = value;
+      syncCachedRom(current);
+    };
+    romUser.pinned_media = next;
+    syncCachedRom(target);
+    state.pending++;
+    state.queue = state.queue.then(async () => {
+      try {
+        await romApi.updateUserRomProps({
+          romId: target.id,
+          data: { pinned_media: next },
+        });
+        state.confirmed = next;
+        if (state.pending === 1) settle(next);
+      } catch {
+        // A newer queued write already carries the state the user wants.
+        if (state.pending === 1) settle(state.confirmed);
+        snackbar.error(t("rom.pinned-media-update-failed"), {
+          icon: "mdi-alert-circle-outline",
+        });
+      } finally {
+        if (--state.pending === 0) romWrites.delete(target.id);
+      }
+    });
+  }
+
+  function togglePin(key: string) {
+    const next = togglePinnedMediaKey(keys.value, key);
+    if (next.length > PINNED_MEDIA_MAX_ITEMS) {
+      snackbar.error(
+        t("rom.pinned-media-limit", { n: PINNED_MEDIA_MAX_ITEMS }),
+        { icon: "mdi-alert-circle-outline" },
+      );
+      return;
+    }
+    write(next);
+  }
+
+  function resetPins() {
+    write(null);
+  }
+
+  return { canPin, isPinned, isCustomized, togglePin, resetPins };
+}

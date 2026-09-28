@@ -1,7 +1,7 @@
 import asyncio
 import re
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
@@ -73,7 +73,7 @@ def _owned_card_or_404(card_id: int, user_id: int) -> MemoryCard:
     return card
 
 
-def _apply_card_update(card_id: int, data: dict) -> MemoryCard:
+def _apply_card_update(card_id: int, data: dict[str, Any]) -> MemoryCard:
     """Write a field update, treating a card deleted underneath us as a 404."""
     updated = db_memory_card_handler.update_card(card_id, data)
     if updated is None:

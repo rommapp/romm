@@ -2,12 +2,13 @@ import asyncio
 import json
 import re
 import time
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
-import httpx
+import httpx2
 import pydash
 from fastapi import HTTPException, status
 
+from adapters.services.response_validation import parse_response
 from config import HLTB_API_ENABLED
 from logger.logger import log
 from utils.context import ctx_httpx_client
@@ -98,7 +99,7 @@ class HLTBSearchResponse(TypedDict):
     pageTotal: int
     pageSize: int
     data: list[HLTBGame]
-    userData: list
+    userData: list[Any]
     displayModifier: str | None
 
 
@@ -156,7 +157,7 @@ def _release_year(value: object) -> int:
     return 0
 
 
-def build_hltb_game(game_data: dict) -> HLTBGame:
+def build_hltb_game(game_data: dict[str, Any]) -> HLTBGame:
     """Build an HLTBGame, defaulting the fields a given HLTB payload omits."""
     return HLTBGame(
         game_id=game_data.get("game_id", 0),
@@ -419,7 +420,7 @@ class HLTBHandler(MetadataHandler):
 
         return True
 
-    async def _request(self, url: str, payload: dict) -> dict:
+    async def _request(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
         """
         Sends a POST request to HowLongToBeat API.
 
@@ -466,8 +467,11 @@ class HLTBHandler(MetadataHandler):
                     url, json=body, headers=headers, timeout=60
                 )
                 res.raise_for_status()
-                return res.json()
-            except httpx.HTTPStatusError as exc:
+                return (
+                    parse_response(dict[str, Any], res.content, source="HowLongToBeat")
+                    or {}
+                )
+            except httpx2.HTTPStatusError as exc:
                 status_code = exc.response.status_code
                 is_last_attempt = attempt == HLTB_MAX_REQUEST_ATTEMPTS - 1
 
@@ -496,7 +500,7 @@ class HLTBHandler(MetadataHandler):
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail=_unavailable_detail(status_code),
                 ) from exc
-            except (httpx.ConnectError, httpx.ReadTimeout) as exc:
+            except (httpx2.ConnectError, httpx2.ReadTimeout) as exc:
                 log.warning(
                     "Connection error: can't connect to HowLongToBeat API",
                     exc_info=True,
@@ -706,7 +710,7 @@ class HLTBHandler(MetadataHandler):
             hltb_metadata=extract_hltb_metadata(game),
         )
 
-    async def _fetch_game_page(self, hltb_id: int) -> dict:
+    async def _fetch_game_page(self, hltb_id: int) -> dict[str, Any]:
         """Fetch and parse a game page's hydration payload."""
         httpx_client = ctx_httpx_client.get()
 
@@ -725,7 +729,7 @@ class HLTBHandler(MetadataHandler):
                 timeout=60,
             )
             res.raise_for_status()
-        except httpx.HTTPStatusError as exc:
+        except httpx2.HTTPStatusError as exc:
             status_code = exc.response.status_code
             if status_code == status.HTTP_404_NOT_FOUND:
                 log.debug("HowLongToBeat has no game with ID %s", hltb_id)
@@ -740,7 +744,7 @@ class HLTBHandler(MetadataHandler):
             ) from exc
         # Broader than the search path's catch: a connect timeout is the likely
         # failure here, and it would otherwise escape update_rom as a bare 500.
-        except httpx.RequestError as exc:
+        except httpx2.RequestError as exc:
             log.warning(
                 "Connection error: can't connect to HowLongToBeat", exc_info=True
             )

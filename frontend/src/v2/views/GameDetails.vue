@@ -1,13 +1,12 @@
 <script setup lang="ts">
-// GameDetails — artist-mockup layout.
+// GameDetails: artist-mockup layout.
 //
 // Two-column body: fixed cover column on the left, everything else (header,
 // tabs, tab panel) stacked in a flex-1 column on the right. Thin
-// orchestrator — data + tab state live here, every visual piece is a
+// orchestrator: data + tab state live here, every visual piece is a
 // sub-component under components/GameDetails/.
 import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { formatReleaseDate } from "@v2/utils/time";
-import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
@@ -37,6 +36,7 @@ import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useRomScanRefresh } from "@/v2/composables/useRomScanRefresh";
+import { romIdFromRoute, useRouteRom } from "@/v2/composables/useRouteRom";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
@@ -47,7 +47,7 @@ const router = useRouter();
 const romsStore = storeRoms();
 const authStore = storeAuth();
 const streamingStore = useStreamingStore();
-const { currentRom } = storeToRefs(romsStore);
+const currentRom = useRouteRom();
 const { toWebp } = useWebpSupport();
 const { showRecommendations } = useUISettings();
 const { locale, t } = useI18n();
@@ -55,21 +55,16 @@ const { smAndDown } = useBreakpoint();
 
 const setBgArt = useBackgroundArt();
 
-// Param-change navigation guard — the route's `beforeEnter` in
-// `plugins/router.ts` only fires on initial entry; navigating between
-// `/rom/123` and `/rom/456` reuses this component, so currentRom
-// would stay stale (e.g. clicking an "Owned" related game card
-// wouldn't refresh the view). Mirror the beforeEnter logic here for
-// param updates, then scroll the panel back to the top so the new
-// ROM's overview doesn't start halfway down where the user clicked.
+// `/rom/123` to `/rom/456` reuses this component and skips the route's
+// `beforeEnter`, so the param update guard below loads the next game.
 const panelEl = ref<HTMLElement | null>(null);
 
-// Right stick scrolls the tab panel — D-pad / A move focus across the
+// Right stick scrolls the tab panel, D-pad / A move focus across the
 // action ribbon, right stick scrolls long tabs (Overview, Achievements)
 // without needing to leave the ribbon focus.
 useRightStickScroll(panelEl);
 
-// The files badge and every tab read `currentRom`, so the view owns the
+// The files badge and every tab read the route's ROM, so the view owns the
 // post-scan refetch rather than the Files tab.
 useRomScanRefresh();
 
@@ -92,25 +87,28 @@ watch(
   { immediate: true },
 );
 
-onBeforeRouteUpdate(async (to) => {
-  const nextId = parseInt(to.params.rom as string);
-  if (Number.isNaN(nextId)) return;
-  const sameRom = romsStore.currentRom?.id === nextId;
-  if (!sameRom) {
+onBeforeRouteUpdate(async (to, from) => {
+  const nextId = romIdFromRoute(to);
+  if (nextId === null) return;
+  // Cached under its own id, so this page keeps rendering its game until
+  // the route commits.
+  if (nextId !== romIdFromRoute(from)) {
     try {
       const { data } = await romApi.getRom({ romId: nextId });
-      romsStore.setCurrentRom(data);
+      // Re-cache the shown game first so a burst of superseded hops can't
+      // evict it before the route commits.
+      if (currentRom.value) romsStore.cacheDetailedRom(currentRom.value);
+      romsStore.cacheDetailedRom(data);
     } catch (error) {
       console.error(error);
     }
   }
-  // Reset the per-view scroll on every navigation (even if the
-  // currentRom hasn't changed — e.g. re-entering the same ROM from
-  // its own page): the panel is the sole scroll context here.
+  // The panel is the sole scroll context here, so every navigation resets
+  // it, re-entering the same ROM from its own page included.
   panelEl.value?.scrollTo({ top: 0, behavior: "smooth" });
 });
 
-// Active tab — URL-persistent via `?tab=`.
+// Active tab, URL-persistent via `?tab=`.
 const tab = ref<string>((route.query.tab as string) || "overview");
 watch(tab, (value) => {
   if (route.query.tab !== value) {
@@ -272,7 +270,7 @@ const igdb = computed(() => currentRom.value?.igdb_metadata ?? null);
 // hold and absent entirely for anything IGDB never matched.
 const similarRoms = ref<SimilarRomSchema[]>([]);
 
-// Keyed on the id rather than the ROM: `currentRom` is reassigned wholesale
+// Keyed on the id rather than the ROM: the cached record is replaced wholesale
 // by every optimistic mutation, which would blank the grid mid-interaction.
 watch(
   [() => currentRom.value?.id, showRecommendations],
@@ -369,7 +367,6 @@ const tabs = computed<RTabNavItem[]>(() => [
             :hltb="currentRom.hltb_metadata"
             :last-played="lastPlayed"
             :revision="currentRom.revision ?? null"
-            :screenshots="currentRom.merged_screenshots ?? []"
             :expansions="expansions"
             :dlcs="dlcs"
             :remakes="remakes"
@@ -422,7 +419,7 @@ const tabs = computed<RTabNavItem[]>(() => [
   z-index: 2;
   flex: 1;
   display: flex;
-  /* `stretch` (default) so the info column fills the body height —
+  /* `stretch` (default) so the info column fills the body height,
      needed so the inner panel can use `flex: 1` + `min-height: 0` to
      scroll. The cover keeps its natural height via `align-self:
      flex-start` declared on CoverColumn itself. */
@@ -484,8 +481,8 @@ const tabs = computed<RTabNavItem[]>(() => [
   font-size: 13px;
 }
 
-/* Mobile / small tablet: stack the cover above the info column, and — unlike
-   desktop — let the WHOLE view scroll as one document instead of freezing the
+/* Mobile / small tablet: stack the cover above the info column, and, unlike
+   desktop, let the WHOLE view scroll as one document instead of freezing the
    cover/header/tabs and scrolling only the panel. A phone has no room to keep
    half the screen static; the desktop "fixed cover + inner panel scroll"
    layout makes no sense here. So the section grows with its content and the

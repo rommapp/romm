@@ -95,6 +95,8 @@ cp ./bin64/RAHasher /usr/bin/RAHasher
 
 #### - Install python dependencies
 
+`scripts/dev-setup.sh` installs the pinned uv, Python, and Node versions plus the backend and frontend dependencies in one step, and is safe to rerun. On systems without `apt-get`, install the MariaDB and PostgreSQL client headers yourself first. To do it by hand instead, follow the steps below.
+
 You'll need uv installed
 
 <https://docs.astral.sh/uv/getting-started/installation/>
@@ -183,7 +185,7 @@ Component docs and visual QA for `frontend/src/v2/` (port 6006):
 
 ```sh
 npm run storybook
-npm run storybook:test   # composeStories + play() + a11y (v2 /lib and components/shared stories)
+npm run storybook:test   # composeStories + play() + a11y (every v2 story)
 ```
 
 For responsive layouts, use the viewport toolbar presets from `.storybook/rommViewports.ts`.

@@ -5,8 +5,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from endpoints.roms import files as files_endpoint
 from handler.database import db_permission_handler, db_rom_handler
+from handler.filesystem import fs_rom_handler
 from models.permission import PermAction, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -202,9 +202,9 @@ def files_fs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         else:
             raise FileNotFoundError(path)
 
-    monkeypatch.setattr(files_endpoint.fs_rom_handler, "validate_path", validate_path)
+    monkeypatch.setattr(fs_rom_handler, "validate_path", validate_path)
     monkeypatch.setattr(
-        files_endpoint.fs_rom_handler,
+        fs_rom_handler,
         "remove_file",
         AsyncMock(side_effect=remove_file),
     )

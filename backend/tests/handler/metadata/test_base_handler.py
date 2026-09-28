@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qsl, urlparse
 
-import httpx
+import httpx2
 import pytest
 from tests.handler.metadata.conftest import schema_stamp_get
 
@@ -494,7 +494,7 @@ class TestStripSensitiveQueryParams:
         """Non-sensitive params should keep their values and ordering."""
         url = "https://api.example.com/media?systemeid=1&ssid=user&romnom=Game.zip"
         result = strip_sensitive_query_params(url)
-        # parse rather than rely on a literal — urlencode may reorder identically-named keys
+        # parse rather than rely on a literal; urlencode may reorder identically-named keys
         parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
         assert ("systemeid", "1") in parsed
         assert ("romnom", "Game.zip") in parsed
@@ -720,11 +720,11 @@ class TestUniversalPlatformSlug:
 
     def test_specific_platform_slugs(self):
         """Test specific platform slug values."""
-        assert UniversalPlatformSlug.N64 == "n64"
-        assert UniversalPlatformSlug.PSX == "psx"
-        assert UniversalPlatformSlug.PS2 == "ps2"
-        assert UniversalPlatformSlug.SWITCH == "switch"
-        assert UniversalPlatformSlug.ARCADE == "arcade"
+        assert UniversalPlatformSlug.N64.value == "n64"
+        assert UniversalPlatformSlug.PSX.value == "psx"
+        assert UniversalPlatformSlug.PS2.value == "ps2"
+        assert UniversalPlatformSlug.SWITCH.value == "switch"
+        assert UniversalPlatformSlug.ARCADE.value == "arcade"
 
     def test_enum_contains_expected_platforms(self):
         """Test that enum contains major gaming platforms."""
@@ -832,12 +832,12 @@ async def test_fetch_capped_abandons_an_oversized_body_mid_stream(monkeypatch):
             sent += 1
             yield b"A" * 512
 
-    async def respond(request: httpx.Request) -> httpx.Response:
+    async def respond(request: httpx2.Request) -> httpx2.Response:
         if "big" in str(request.url):
-            return httpx.Response(200, content=endless())
-        return httpx.Response(200, content=b"small")
+            return httpx2.Response(200, content=endless())
+        return httpx2.Response(200, content=b"small")
 
-    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(respond))
     token = ctx_httpx_client.set(client)
     try:
         handler = _CappedHandler()

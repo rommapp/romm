@@ -1,4 +1,4 @@
-// galleryRoms (v2) — windowed/sparse store for the active gallery list.
+// galleryRoms (v2): windowed/sparse store for the active gallery list.
 //
 // Replaces v1's `stores/roms.ts` for the gallery-list responsibility.
 // What lives here:
@@ -17,7 +17,7 @@
 //   surface is annotated `@deprecated` with a pointer here.
 //
 // What does NOT live here:
-//   - currentRom (lives in v1 `stores/roms`, GameDetails reads it),
+//   - detailedRoms (lives in `stores/roms`, GameDetails reads it),
 //   - recentRoms / continuePlayingRoms (Home consumers stay on v1),
 //   - selection state, order-by/order-dir,
 //   These are still served by the v1 store; the v2 gallery view doesn't
@@ -84,7 +84,7 @@ export function isGalleryOrderDir(value: string): value is GalleryOrderDir {
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
-// Default window size — the backend's pagination limit. Smaller windows
+// Default window size: the backend's pagination limit. Smaller windows
 // mean more round-trips but finer-grained fills; larger windows mean
 // fewer requests but each one downloads more.
 const WINDOW_SIZE = 72;
@@ -167,14 +167,14 @@ function cancelWindow(offset: number) {
 // Apply items to `byPosition` in row-sized batches with a rAF yield
 // between batches. Each Map.set() invalidates Vue's per-key dep, and
 // when many cards are in the viewport / overscan zone they all
-// re-render in the same microtask flush — synchronously, on the main
+// re-render in the same microtask flush, synchronously, on the main
 // thread. With dozens of items landing back-to-back (initial window,
 // or rapid-fire background fill), the flush can run >30ms and queued
 // input events (AlphaStrip clicks especially) miss their frame.
 //
 // Yielding every `BATCH_SIZE` items lets the browser paint the new
 // cards AND dispatch any pending input between batches. We pick 8 as
-// the default — one row's worth — so a per-row dwell fetch (8 items)
+// the default: one row's worth, so a per-row dwell fetch (8 items)
 // stays a single batch (no extra frames), while a 72-item window
 // becomes 9 small batches that each fit comfortably in a frame.
 const APPLY_BATCH_SIZE = 8;
@@ -224,7 +224,7 @@ interface State {
   /** True while the global Search view owns the gallery. Distinct from
    * the platform/collection scopes (those carry an entity); search has
    * no entity, just a free-text term in `galleryFilter.searchTerm`.
-   * Drives `onGalleryView` so `groupByMetaId` applies on Search too —
+   * Drives `onGalleryView` so `groupByMetaId` applies on Search too.
    * MissingGamesSection (Settings) intentionally leaves this `false`
    * so each missing file shows as its own row, never collapsed. */
   currentSearch: boolean;
@@ -236,7 +236,7 @@ interface State {
   pendingWindows: Set<number>;
   failedWindows: Set<number>;
   // True until the very first metadata bootstrap (or fetchWindow(0))
-  // resolves — view shows a skeleton hero/skeleton rows during this
+  // resolves: view shows a skeleton hero/skeleton rows during this
   // phase.
   initialFetching: boolean;
   // True once total / charIndex / romIdIndex / filter_values have been
@@ -247,7 +247,7 @@ interface State {
   metadataLoaded: boolean;
   // True while a whole-result select-all fetch is in flight.
   selectingAll: boolean;
-  // Order params — gallery-list scoped (separate from v1's localStorage
+  // Order params: gallery-list scoped (separate from v1's localStorage
   // keys so v1/v2 don't fight over the same value).
   orderBy: GalleryOrderKey;
   orderDir: GalleryOrderDir;
@@ -320,14 +320,14 @@ export default defineStore("v2GalleryRoms", {
     },
 
     /** Read a ROM at a position, or null if its window hasn't been
-     * loaded yet. Returns null without triggering a fetch — fetching is
+     * loaded yet. Returns null without triggering a fetch; fetching is
      * the view's responsibility (driven by row visibility). */
     getRomAt(position: number): SimpleRom | null {
       return this.byPosition.get(position) ?? null;
     },
 
     /** Find a loaded ROM by id, or null. Scans the sparse `byPosition`
-     * window cache — used to seed the player hero cover synchronously on a
+     * window cache: used to seed the player hero cover synchronously on a
      * direct gallery→play so the shared-element morph has a target. */
     getRomById(id: number): SimpleRom | null {
       for (const rom of this.byPosition.values()) {
@@ -358,7 +358,7 @@ export default defineStore("v2GalleryRoms", {
       this.selectingAll = false;
     },
 
-    /** Drop the loaded windows but keep the gallery context — used when
+    /** Drop the loaded windows but keep the gallery context. Used when
      * search / filter changes within the same gallery and we need to
      * re-fetch from offset 0. */
     invalidateWindows() {
@@ -448,7 +448,7 @@ export default defineStore("v2GalleryRoms", {
       };
     },
 
-    /** Apply the metadata side effects from a `getRoms` response —
+    /** Apply the metadata side effects from a `getRoms` response:
      * total, char_index, rom_id_index, plus filter side panels (only on
      * first fetch). Shared by `fetchWindowAt(0)` and the lightweight
      * `fetchInitialMetadata()` bootstrap. */
@@ -528,7 +528,7 @@ export default defineStore("v2GalleryRoms", {
           limit: 1,
           signal: controller.signal,
         });
-        // Re-check that this bootstrap is still the relevant one —
+        // Re-check that this bootstrap is still the relevant one:
         // invalidateWindows / resetGallery may have aborted us and a
         // newer bootstrap may have replaced our entry under the same key.
         // Identity comparison avoids applying stale metadata in that race.
@@ -569,7 +569,7 @@ export default defineStore("v2GalleryRoms", {
         if (!queuedWindows.includes(offset)) queuedWindows.push(offset);
         return;
       }
-      // Starting now — drop any queue entry so the drain loop won't re-run it.
+      // Starting now: drop any queue entry so the drain loop won't re-run it.
       const queuedAt = queuedWindows.indexOf(offset);
       if (queuedAt !== -1) queuedWindows.splice(queuedAt, 1);
 
@@ -625,7 +625,7 @@ export default defineStore("v2GalleryRoms", {
         // Place items at their absolute positions (offset .. offset + N).
         // We rely on Vue 3's reactive Map: `set(k, v)` triggers per-key
         // dependents. Earlier passes reassigned `this.byPosition` to a
-        // new Map after each window which DEFEATED that — every
+        // new Map after each window, which DEFEATED that: every
         // `getRomAt(p)` reader was invalidated, and the gallery
         // virtualItems computed (which iterates positions) had to
         // rebuild end-to-end on every window response. That blocked the
@@ -646,15 +646,15 @@ export default defineStore("v2GalleryRoms", {
 
         // A context switch during the frame-yielded apply may have
         // superseded us partway through. Marking the window loaded now would
-        // leave it partially applied yet skipped by later syncs — permanent
+        // leave it partially applied yet skipped by later syncs, leaving permanent
         // skeletons for the fresh context. Bail unless we're still current.
         if (inFlightControllers.get(ctrlKey) !== controller) return;
 
         this.loadedWindows.add(offset);
-        // Recovered — drop any retry bookkeeping for this window.
+        // Recovered: drop any retry bookkeeping for this window.
         clearRetry(offset);
       } catch (err) {
-        // An explicit abort isn't a failure — keep `failedWindows`
+        // An explicit abort isn't a failure, so keep `failedWindows`
         // clean so the window is eligible to refetch under the new
         // gallery context without the UI flagging it as broken.
         if (axios.isCancel(err)) return;
@@ -685,7 +685,7 @@ export default defineStore("v2GalleryRoms", {
           inFlightControllers.delete(ctrlKey);
           this.pendingWindows.delete(offset);
           if (offset === 0) this.initialFetching = false;
-          // A slot freed up — start the next queued window, if any.
+          // A slot freed up, so start the next queued window, if any.
           this._drainWindowQueue();
         }
       }
@@ -761,7 +761,7 @@ export default defineStore("v2GalleryRoms", {
      * inside `fetchWindowAt`) and aborts any in-flight or retry-pending
      * window that no longer covers one. Without the abort, scrolling
      * through a large library would leave every window it passed
-     * downloading and applying in the background — the exact wasted
+     * downloading and applying in the background: the exact wasted
      * network / backend / render work this store exists to avoid on
      * low-power devices. Driven by the shell's debounced viewport sync. */
     syncVisibleWindows(positions: Iterable<number>) {
@@ -800,7 +800,7 @@ export default defineStore("v2GalleryRoms", {
     },
 
     /** Apply (in place) an updated ROM to whatever position currently
-     * holds it — used by edit / favourite / status flows. Mutating
+     * holds it: used by edit / favourite / status flows. Mutating
      * via `set(pos, rom)` on the reactive Map triggers only the
      * dependents reading that specific position. */
     update(rom: SimpleRom) {

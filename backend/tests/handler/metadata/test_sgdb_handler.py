@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from handler.metadata.base_handler import CoverResult
 from handler.metadata.sgdb_handler import SGDBBaseHandler
 
 
@@ -106,7 +107,7 @@ class TestGetGameCoversMapping:
         ):
             result = await handler._get_game_covers(game_id=1, game_name="Test Game")
 
-        assert result == {"name": "Test Game", "resources": []}
+        assert result == CoverResult(name="Test Game", resources=[])
 
 
 class TestGetDetailsContentFilters:

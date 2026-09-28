@@ -32,6 +32,7 @@ from handler.auth.constants import (
     WRITE_SCOPES_MAP,
     Scope,
 )
+from utils.tls import build_ca_ssl_context
 
 # Using the internal password flow
 oauth2_password_bearer = OAuth2PasswordBearer(
@@ -70,7 +71,7 @@ oauth.register(
     or get_well_known_url(config.get("OIDC_SERVER_APPLICATION_URL"), external=True),
     client_kwargs={
         "scope": f"openid profile email {OIDC_CLAIM_ROLES}".strip(),
-        "verify": OIDC_TLS_CACERTFILE,
+        "verify": build_ca_ssl_context(OIDC_TLS_CACERTFILE),
         # Authlib only derives a code_verifier when code_challenge_method is set,
         # so providers that mandate PKCE refuse the code without it.
         "code_challenge_method": "S256",
@@ -94,7 +95,9 @@ def _raise_auth_error(request: Request) -> None:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
-def _requires_scopes(scopes: list[Scope]):
+def _requires_scopes(
+    scopes: list[Scope],
+) -> Callable[[DecoratedCallable], DecoratedCallable]:
     """Scope guard mirroring starlette's `requires`, with a 401/403 split."""
 
     def decorator(func: DecoratedCallable) -> DecoratedCallable:
@@ -113,7 +116,7 @@ def _requires_scopes(scopes: list[Scope]):
         if is_async_callable(func):
 
             @functools.wraps(func)
-            async def async_wrapper(*args, **kwargs) -> Any:
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 request = kwargs.get("request", args[idx] if idx < len(args) else None)
                 assert isinstance(request, Request)
                 if not has_required_scope(request, scopes):
@@ -123,7 +126,7 @@ def _requires_scopes(scopes: list[Scope]):
             return async_wrapper  # type: ignore[return-value]
 
         @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs) -> Any:
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             request = kwargs.get("request", args[idx] if idx < len(args) else None)
             assert isinstance(request, Request)
             if not has_required_scope(request, scopes):

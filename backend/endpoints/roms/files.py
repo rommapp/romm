@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any
 
 from anyio import Path
 from fastapi import Body, HTTPException
@@ -86,7 +86,7 @@ async def get_romfile_content(
     request: Request,
     id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
     file_name: Annotated[str, PathVar(description="File name to download")],
-):
+) -> Response:
     """Download a rom file."""
 
     current_username = (
@@ -115,7 +115,7 @@ async def get_romfile_content(
     )
 
     # Derive content type / disposition / download name from the trusted DB
-    # record, never from the client-supplied file_name path param — otherwise a
+    # record, never from the client-supplied file_name path param; otherwise a
     # caller could request the same bytes with an arbitrary extension to force a
     # mismatched Content-Type while served inline (content-sniffing/XSS).
     # Audio, images and videos are served inline so <audio>/<video>/<img> in the
@@ -164,7 +164,7 @@ async def get_romfile_content(
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         rom_path = fs_rom_handler.validate_path(file.full_path)
-        # Starlette sets Content-Length and honors Range natively — inline
+        # Starlette sets Content-Length and honors Range natively; inline
         # disposition lets <audio> seek via Range requests.
         return FileResponse(
             path=rom_path,
@@ -311,7 +311,7 @@ async def update_rom_file_progress(
     request: Request,
     rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
-    body: Annotated[dict, Body()],
+    body: Annotated[dict[str, Any], Body()],
 ) -> RomFileUserSchema:
     """Upsert the current user's reading progress for a document file.
 
@@ -321,7 +321,7 @@ async def update_rom_file_progress(
 
     _assert_document_file(rom_id, file_id, request)
 
-    values: dict = {"last_read_at": datetime.now(timezone.utc)}
+    values: dict[str, Any] = {"last_read_at": datetime.now(timezone.utc)}
     if "progress" in body:
         try:
             values["progress"] = min(1.0, max(0.0, float(body["progress"])))

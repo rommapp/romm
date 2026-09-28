@@ -12,6 +12,7 @@ from passlib.context import CryptContext
 from redis.exceptions import RedisError
 from starlette.requests import HTTPConnection
 
+import models.user
 from config import (
     EMAIL_ENABLED,
     INVITE_TOKEN_EXPIRY_SECONDS,
@@ -27,7 +28,12 @@ from config import (
 )
 from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
-from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
+from handler.auth.constants import (
+    ALGORITHM,
+    CLIENT_TOKEN_PREFIX,
+    DEFAULT_OAUTH_TOKEN_EXPIRY,
+    TokenPurpose,
+)
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.email_handler import EmailError, send_email
 from handler.redis_handler import redis_client
@@ -35,6 +41,8 @@ from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.urls import get_public_base_url
+
+type UserWithClaims = tuple[models.user.User, dict[str, Any]]
 
 oct_key = OctKey.import_key(ROMM_AUTH_SECRET_KEY)
 
@@ -103,13 +111,13 @@ class AuthHandler:
 
     @staticmethod
     def generate_client_token() -> str:
-        return "rmm_" + secrets.token_hex(32)
+        return CLIENT_TOKEN_PREFIX + secrets.token_hex(32)
 
     @staticmethod
     def hash_client_token(raw: str) -> str:
         return hashlib.sha256(raw.encode()).hexdigest()
 
-    def verify_password(self, plain_password, hashed_password):
+    def verify_password(self, plain_password: str, hashed_password: str | None) -> bool:
         try:
             return self.pwd_context.verify(plain_password, hashed_password)
         except ValueError:
@@ -117,10 +125,12 @@ class AuthHandler:
             # and passlib raises on one it cannot identify.
             return False
 
-    def get_password_hash(self, password):
+    def get_password_hash(self, password: str) -> str:
         return self.pwd_context.hash(password)
 
-    def authenticate_user(self, username: str, password: str):
+    def authenticate_user(
+        self, username: str, password: str
+    ) -> models.user.User | None:
         from handler.database import db_user_handler
 
         user = db_user_handler.get_user_by_username(username)
@@ -132,7 +142,9 @@ class AuthHandler:
 
         return user
 
-    async def get_current_active_user_from_session(self, conn: HTTPConnection):
+    async def get_current_active_user_from_session(
+        self, conn: HTTPConnection
+    ) -> models.user.User | None:
         from handler.database import db_user_handler
 
         issuer = conn.session.get("iss")
@@ -179,8 +191,10 @@ class AuthHandler:
             to_encode,
             oct_key,
         )
-        redis_client.setex(
-            f"reset-jti:{jti}", self.reset_passwd_token_expires_in_minutes * 60, "valid"
+        redis_client.set(
+            f"reset-jti:{jti}",
+            "valid",
+            ex=self.reset_passwd_token_expires_in_minutes * 60,
         )
         return token
 
@@ -361,7 +375,7 @@ class AuthHandler:
         log.info(
             f"Invite link created by {hl(user.username, color=CYAN)} (jti: {hl(jti)})"
         )
-        redis_client.setex(f"invite-jti:{jti}", expires_in, "valid")
+        redis_client.set(f"invite-jti:{jti}", "valid", ex=expires_in)
         return token
 
     def assert_invite_link_token_valid(self, token: str) -> None:
@@ -419,7 +433,9 @@ class OAuthHandler:
         pass
 
     def _create_oauth_token(
-        self, data: dict, expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY
+        self,
+        data: dict[str, Any],
+        expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY,
     ) -> str:
         to_encode = data.copy()
         expire = int((datetime.now(timezone.utc) + expires_delta).timestamp())
@@ -432,13 +448,17 @@ class OAuthHandler:
         )
 
     def create_access_token(
-        self, data: dict, expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY
+        self,
+        data: dict[str, Any],
+        expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY,
     ) -> str:
         to_encode = data.copy()
         to_encode["type"] = "access"
         return self._create_oauth_token(to_encode, expires_delta)
 
-    def create_refresh_token(self, data: dict, expires_delta: timedelta) -> str:
+    def create_refresh_token(
+        self, data: dict[str, Any], expires_delta: timedelta
+    ) -> str:
         if expires_delta <= timedelta(0):
             raise ValueError("expires_delta must be positive for refresh tokens")
 
@@ -453,15 +473,13 @@ class OAuthHandler:
 
         token = self._create_oauth_token(to_encode, expires_delta)
 
-        redis_client.setex(
-            f"refresh-jti:{jti}",
-            int(expires_delta.total_seconds()),
-            "valid",
+        redis_client.set(
+            f"refresh-jti:{jti}", "valid", ex=int(expires_delta.total_seconds())
         )
 
         return token
 
-    async def consume_refresh_token(self, token: str):
+    async def consume_refresh_token(self, token: str) -> UserWithClaims:
         from handler.database import db_user_handler
 
         try:
@@ -496,7 +514,9 @@ class OAuthHandler:
 
         return user, payload.claims
 
-    async def get_current_active_user_from_bearer_token(self, token: str):
+    async def get_current_active_user_from_bearer_token(
+        self, token: str
+    ) -> UserWithClaims | tuple[None, None]:
         from handler.database import db_user_handler
 
         try:
@@ -527,7 +547,9 @@ class OAuthHandler:
 
 
 class OpenIDHandler:
-    async def get_current_active_user_from_openid_token(self, token: Any):
+    async def get_current_active_user_from_openid_token(
+        self, token: Any
+    ) -> UserWithClaims | tuple[None, None]:
         from handler.audit_handler import SYSTEM_ACTOR, AuditActor, AuditTarget, record
         from handler.database import db_user_handler
         from models.audit_event import AuditAction

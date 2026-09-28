@@ -73,7 +73,7 @@ async function load(): Promise<void> {
 function openDesktop(container: AdminStreamingContainer): void {
   router.push({
     name: ROUTES.STREAM_DESKTOP,
-    query: { container: container.container },
+    query: { container: container.name || container.container },
   });
 }
 

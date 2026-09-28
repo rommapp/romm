@@ -4,7 +4,7 @@ import re
 from collections import Counter
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import quote
 
 from fastapi import HTTPException
@@ -220,8 +220,8 @@ async def tinfoil_index_feed(
 
     async def extract_titledb(
         roms: Sequence[Rom],
-    ) -> dict[str, dict]:
-        titledb: dict[str, dict] = {}
+    ) -> dict[str, dict[str, Any]]:
+        titledb: dict[str, dict[str, Any]] = {}
         for rom in roms:
             tdb_match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
             if tdb_match:

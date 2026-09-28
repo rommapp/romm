@@ -1,5 +1,7 @@
 from typing import TypedDict
 
+from .platform import PlatformSchema
+
 
 class SystemDict(TypedDict):
     VERSION: str
@@ -59,6 +61,11 @@ class NotificationsDict(TypedDict):
     EMAILS_RESET_LINKS: bool
 
 
+class DeviceInstallDict(TypedDict):
+    ENABLED: bool
+    EXCLUDED_PLATFORM_SLUGS: list[str]
+
+
 class TasksDict(TypedDict):
     ENABLE_SCHEDULED_RESCAN: bool
     SCHEDULED_RESCAN_CRON: str
@@ -78,4 +85,25 @@ class HeartbeatResponse(TypedDict):
     FRONTEND: FrontendDict
     OIDC: OIDCDict
     NOTIFICATIONS: NotificationsDict
+    DEVICE_INSTALL: DeviceInstallDict
     TASKS: TasksDict
+
+
+class SetupExistingPlatform(TypedDict):
+    fs_slug: str
+    rom_count: int
+
+
+class SetupLibraryResponse(TypedDict):
+    # Whether the configured platforms folder exists on disk.
+    library_ready: bool
+    # The configured `filesystem.structure.default` template.
+    library_structure: str
+    existing_platforms: list[SetupExistingPlatform]
+    supported_platforms: list[PlatformSchema]
+
+
+class SetupPlatformsResponse(TypedDict):
+    success: bool
+    created_count: int
+    message: str

@@ -15,7 +15,7 @@ def registered(mocker):
 
     def _reload(tasks):
         register = mocker.patch("rq.cron.register")
-        mocker.patch.dict(cron_config.SCHEDULED_TASKS, tasks, clear=True)
+        mocker.patch.dict(SCHEDULED_TASKS, tasks, clear=True)
         importlib.reload(cron_config)
         return register
 

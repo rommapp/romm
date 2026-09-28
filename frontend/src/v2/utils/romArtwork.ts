@@ -1,12 +1,12 @@
 // Resolves the art assets attached to a ROM into a flat, display-ready list.
-// Shared by the Media tab's Artwork subtab (full gallery) and the Overview tab
-// (videos only) so both stay in sync.
+// Shared by the Media tab's Artwork subtab (full gallery) and the Overview
+// tab's pinned media (utils/pinnedMedia) so both stay in sync.
 //
 // Two sources feed the list:
-//   1. Scraped resources — ScreenScraper is the richest and wins; gamelist
+//   1. Scraped resources: ScreenScraper is the richest and wins; gamelist
 //      fills in for the few types it also scrapes (mirrors v1's MediaCarousel
 //      fallbacks).
-//   2. Library media files — images/videos sitting at the top level of the
+//   2. Library media files: images/videos sitting at the top level of the
 //      game folder on disk (rom.files), so a trailer or artwork dropped next
 //      to the ROM shows up here too.
 //
@@ -17,15 +17,9 @@
 // other provider's cover can outrank, so it needs a home of its own.
 import i18n from "@/locales";
 import type { DetailedRom } from "@/stores/roms";
-import { FRONTEND_RESOURCES_PATH } from "@/utils";
-import { versionedRomFileUrl } from "@/v2/utils/romFiles";
-
-export type RomArtworkEntry = {
-  key: string;
-  label: string;
-  url: string;
-  isVideo?: boolean;
-};
+import type { MediaShelfItem } from "@/v2/components/GameDetails/MediaShelf.vue";
+import { mediaKey } from "@/v2/utils/mediaKeys";
+import { versionedResourceUrl, versionedRomFileUrl } from "@/v2/utils/romFiles";
 
 // Library file extensions the browser can render inline. Kept in sync with the
 // backend download endpoint (utils/media_types.py), which serves these inline.
@@ -48,17 +42,17 @@ const SURFACED_ELSEWHERE = new Set(["screenshot", "soundtrack", "manual"]);
 
 // A candidate asset before its URL is resolved. `isAbsolute` marks a URL that
 // is already browser-ready rather than a path under the resources root.
-type ArtworkDef = Omit<RomArtworkEntry, "url"> & {
+type ArtworkDef = Omit<MediaShelfItem, "url"> & {
   url: string | null;
   isAbsolute?: boolean;
 };
 
-export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
+export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
   const ss = rom.ss_metadata;
   const gl = rom.gamelist_metadata;
-  const cacheBust = encodeURIComponent(rom.updated_at);
   const seen = new Set<string>();
-  const out: RomArtworkEntry[] = [];
+  const out: MediaShelfItem[] = [];
+  const extraDiscs = (ss?.physical_extra_discs ?? []).filter((d) => d.path);
 
   const artworkDefs: ArtworkDef[] = [
     {
@@ -116,9 +110,17 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
     },
     {
       key: "physical",
-      label: i18n.global.t("rom.media-physical"),
+      label:
+        ss?.physical_path && ss.physical_disc && extraDiscs.length > 0
+          ? i18n.global.t("rom.media-physical-disc", { n: ss.physical_disc })
+          : i18n.global.t("rom.media-physical"),
       url: ss?.physical_path ?? gl?.physical_path ?? null,
     },
+    ...extraDiscs.map(({ disc, path }) => ({
+      key: `physical_disc${disc}`,
+      label: i18n.global.t("rom.media-physical-disc", { n: disc }),
+      url: path,
+    })),
     {
       key: "miximage",
       label: i18n.global.t("rom.media-miximage"),
@@ -159,7 +161,7 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
       if (!isVideo && !LIBRARY_IMAGE_EXTENSIONS.has(ext)) return null;
 
       return {
-        key: `file-${file.id}`,
+        key: mediaKey.file(file.id),
         label: file.file_name.replace(/\.[^.]+$/, ""),
         url: versionedRomFileUrl(file),
         isVideo,
@@ -173,11 +175,11 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
     if (!def.url || seen.has(def.url)) continue;
     seen.add(def.url);
     out.push({
-      key: def.key,
+      key: mediaKey.artwork(def.key),
       label: def.label,
       url: def.isAbsolute
         ? def.url
-        : `${FRONTEND_RESOURCES_PATH}/${def.url}?v=${cacheBust}`,
+        : versionedResourceUrl(def.url, rom.updated_at),
       isVideo: def.isVideo ?? false,
     });
   }

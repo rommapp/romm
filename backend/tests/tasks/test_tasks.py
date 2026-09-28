@@ -1,7 +1,7 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 from rq.exceptions import AbandonedJobError
 from rq.timeouts import JobTimeoutException
@@ -111,7 +111,7 @@ class TestRemoteFilePullTask:
     async def test_run_http_error(self, mock_ctx_httpx_client, task):
         """A download that never lands fails the run, saying why."""
         mock_client = AsyncMock()
-        mock_client.get.side_effect = httpx.ConnectError("Connection failed")
+        mock_client.get.side_effect = httpx2.ConnectError("Connection failed")
         mock_ctx_httpx_client.get.return_value = mock_client
 
         with pytest.raises(
@@ -125,7 +125,7 @@ class TestRemoteFilePullTask:
         """A refused download fails the run with the status."""
         mock_client = AsyncMock()
         mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        mock_response.raise_for_status.side_effect = httpx2.HTTPStatusError(
             "404 Not Found", request=MagicMock(), response=MagicMock(status_code=404)
         )
         mock_client.get.return_value = mock_response

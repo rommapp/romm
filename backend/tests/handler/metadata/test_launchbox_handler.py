@@ -11,6 +11,7 @@ Covers:
 
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -1256,10 +1257,14 @@ class TestRemoteMediaReq:
 class TestRegionAwareCover:
     """Regression tests for #3706: remote cover art should match the ROM region."""
 
-    def _image(self, file_name: str, region: str, type_: str = "Box - Front") -> dict:
+    def _image(
+        self, file_name: str, region: str, type_: str = "Box - Front"
+    ) -> dict[str, Any]:
         return {"FileName": file_name, "Type": type_, "Region": region}
 
-    def _req(self, images: list[dict], shortcodes: tuple[str, ...]) -> MediaRequest:
+    def _req(
+        self, images: list[dict[str, Any]], shortcodes: tuple[str, ...]
+    ) -> MediaRequest:
         return MediaRequest(
             platform_name=None,
             fs_name="",

@@ -5,6 +5,7 @@ import { defineComponent, type Slots, type VNodeChild } from "vue";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
+import { makeDetailedRom } from "@/utils/rom.fixtures";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
@@ -28,10 +29,12 @@ const mocks = vi.hoisted(() => ({
   presenceTick: null as (() => Promise<void>) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
   query: {} as Record<string, string>,
+  snackbar: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+  t: vi.fn((key: string) => key),
 }));
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: mocks.t }),
 }));
 
 vi.mock("vue-router", () => ({
@@ -65,7 +68,7 @@ vi.mock("@/stores/playing", () => ({
 }));
 
 vi.mock("@/stores/roms", () => ({
-  default: () => ({ currentRom: null }),
+  default: () => ({ getDetailedRom: () => null }),
 }));
 
 vi.mock("@/v2/stores/galleryRoms", () => ({
@@ -140,7 +143,7 @@ vi.mock("@/v2/composables/usePlaySession", () => ({
 }));
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
-  useSnackbar: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }),
+  useSnackbar: () => mocks.snackbar,
 }));
 
 vi.mock("@/v2/composables/useSocketEvent", () => ({
@@ -212,19 +215,18 @@ const ARCHIVES = [
 ];
 
 function romWith(saves: SaveSchema[], states: StateSchema[] = []): DetailedRom {
-  return {
+  return makeDetailedRom({
     id: 3,
     name: "Archer Maclean's 3D Pool (USA)",
     platform_slug: "gba",
-    platform_name: "Game Boy Advance",
     platform_display_name: "Game Boy Advance",
     fs_name: "Archer Maclean's 3D Pool (USA).gba",
     files: [],
     user_saves: saves,
-    all_user_states: states,
+    all_user_states: states.map((state) => ({ ...state, username: "admin" })),
     user_screenshots: [],
-    metadatum: {},
-  } as unknown as DetailedRom;
+    metadatum: {} as DetailedRom["metadatum"],
+  });
 }
 
 // The view listens on document and window, so a mount left standing would
@@ -243,6 +245,7 @@ async function launch(opts: {
   states?: StateSchema[];
   liveStates?: boolean;
   imports?: ("save" | "state")[];
+  stateCore?: { expected: string; default_matches: boolean } | null;
 }): Promise<VueWrapper> {
   mocks.container = {
     name: "WEBSTATION-DEV",
@@ -251,6 +254,7 @@ async function launch(opts: {
     supports_save_picker: opts.picker,
     supports_live_states: opts.liveStates ?? true,
     import_kinds: opts.imports ?? [],
+    state_core: opts.stateCore ?? null,
     supports_memory_cards: false,
     supports_multiplayer: false,
   };
@@ -876,6 +880,43 @@ describe("Stream launch recovery", () => {
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
+  it("warns when the broker booted an untested core", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchReady({ core: "bsnes", core_tier: "untested" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledWith("play.core-untested");
+    expect(mocks.t).toHaveBeenCalledWith("play.core-untested", {
+      core: "bsnes",
+    });
+    expect(vmOf(wrapper).playerState).toBe("playing");
+  });
+
+  it("warns when the broker booted a known-broken core", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchReady({ core: "bsnes", core_tier: "blocked" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledWith("play.core-blocked");
+    expect(mocks.t).toHaveBeenCalledWith("play.core-blocked", {
+      core: "bsnes",
+    });
+  });
+
+  it("says nothing about a default or vetted core", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchReady({ core: "bsnes", core_tier: "vetted" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).not.toHaveBeenCalled();
+  });
+
   it("enters the stream when the poll finds the game already up", async () => {
     // launch-ready is pushed once, so a socket that dropped during the launch
     // left the tab loading over a game that was running.
@@ -898,6 +939,47 @@ describe("Stream launch recovery", () => {
     expect(vmOf(wrapper).playerState).toBe("playing");
     expect(vmOf(wrapper).containerHost).toBe(
       "http://webstation-dev:8080/room/x",
+    );
+  });
+
+  it("warns of the core when the poll finds the game already up", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.fetchSessionStatus.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: "http://webstation-dev:8080/room/x",
+      core: "bsnes",
+      core_tier: "untested",
+    });
+
+    await pollStatus();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledExactlyOnceWith(
+      "play.core-untested",
+    );
+    expect(mocks.t).toHaveBeenCalledWith("play.core-untested", {
+      core: "bsnes",
+    });
+  });
+
+  it("warns of the core once when launch-ready follows the poll", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.fetchSessionStatus.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: "http://webstation-dev:8080/room/x",
+      core: "bsnes",
+      core_tier: "blocked",
+    });
+    await pollStatus();
+
+    await launchReady({ core: "bsnes", core_tier: "blocked" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledExactlyOnceWith(
+      "play.core-blocked",
     );
   });
 
@@ -1046,6 +1128,30 @@ describe("Stream launch recovery", () => {
 
     expect(vmOf(wrapper).errorHint).toBe("shape_mismatch");
   });
+
+  it("names each refusal reason once however many members share it", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    const refusal = (member: string, reason: string) => ({
+      reason,
+      member,
+      expected: null,
+      detail: null,
+      suggest_emulator: null,
+      docs: null,
+    });
+    await launchFailed({
+      refusals: [
+        refusal(".import/save/a.bin", "unrecognised_layout"),
+        refusal(".import/save/b.bin", "unrecognised_layout"),
+        refusal(".import/save/c.bin", "too_large"),
+      ],
+      refusals_truncated: 0,
+    });
+
+    expect(vmOf(wrapper).errorHint).toBe("unrecognised_layout, too_large");
+  });
 });
 
 describe("Stream join", () => {
@@ -1109,5 +1215,49 @@ describe("Stream state picker", () => {
     });
 
     expect(pickableStateIds(wrapper)).toEqual([5, 6]);
+  });
+
+  const CORE_STATES = [
+    stateFixture({ id: 5, emulator: "retroarch", core: "bsnes" }),
+    stateFixture({ id: 6, emulator: "retroarch", core: "snes9x" }),
+    stateFixture({ id: 7, emulator: "retroarch", core: null }),
+    stateFixture({ id: 8, emulator: "duckstation", core: null }),
+  ];
+
+  it("hides states another RetroArch core wrote", async () => {
+    const wrapper = await launch({
+      picker: false,
+      states: CORE_STATES,
+      stateCore: { expected: "bsnes", default_matches: false },
+    });
+
+    expect(pickableStateIds(wrapper)).toEqual([5]);
+  });
+
+  it("treats a state with no core as the default's", async () => {
+    const wrapper = await launch({
+      picker: false,
+      states: CORE_STATES,
+      stateCore: { expected: "snes9x", default_matches: true },
+    });
+
+    expect(pickableStateIds(wrapper)).toEqual([6, 7]);
+  });
+
+  it("filters nothing when the core is unknown", async () => {
+    const wrapper = await launch({ picker: false, states: CORE_STATES });
+
+    expect(pickableStateIds(wrapper)).toEqual([5, 6, 7]);
+  });
+
+  it("keeps foreign states for the import path but still hides other cores", async () => {
+    const wrapper = await launch({
+      picker: false,
+      states: CORE_STATES,
+      imports: ["state"],
+      stateCore: { expected: "bsnes", default_matches: false },
+    });
+
+    expect(pickableStateIds(wrapper)).toEqual([5, 8]);
   });
 });

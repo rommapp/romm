@@ -52,7 +52,7 @@ ROM_UPLOAD_TTL: Final[int] = 86400  # 24 hours
 ROM_UPLOAD_ASSEMBLING_EXT: Final[str] = "assembling"
 
 # SEVEN ZIP
-SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
+SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 180)
 
 # ROM PATCHER
 ROM_PATCHER_TIMEOUT: Final[int] = safe_int(_get_env("ROM_PATCHER_TIMEOUT"), 120)
@@ -351,6 +351,23 @@ SYNC_RETROARCH_PSP_PENDING_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/retroarch
 # matches no rom, e.g. {"ULUS10336": "Crisis Core - Final Fantasy VII (USA)"}.
 SYNC_RETROARCH_PSP_SERIAL_MAP: Final[dict[str, str]] = json.loads(
     _get_env("SYNC_RETROARCH_PSP_SERIAL_MAP", "{}")
+)
+
+# DEVICE INSTALL
+DEVICE_INSTALL_ENABLED: Final[bool] = safe_str_to_bool(
+    _get_env("DEVICE_INSTALL_ENABLED", "true")
+)
+# Days an unfinished install request lives after its last change; 0 or less never expires.
+DEVICE_INSTALL_REQUEST_TTL_DAYS: Final[int] = safe_int(
+    _get_env("DEVICE_INSTALL_REQUEST_TTL_DAYS"), 2
+)
+# Platforms whose roms cannot be pushed to a device for install.
+DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset(
+    slug.strip().lower()
+    for slug in _get_env(
+        "DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS", "win,win3x,win9x,windows-apps"
+    ).split(",")
+    if slug.strip()
 )
 
 # EMULATION

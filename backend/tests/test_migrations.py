@@ -20,13 +20,17 @@ from sqlalchemy import DefaultClause, FetchedValue, Table, UniqueConstraint
 from sqlalchemy.sql.schema import NULL_UNSPECIFIED
 
 import models
+from handler.database import db_platform_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
+from models.platform import Platform
 from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
+    HLTB_MAIN_STORY_COLUMN,
     POSTGRESQL_FK_INDEXES,
     SORTABLE_NULLABLE_ROM_COLUMNS,
+    exact_collation,
     full_path_digest_sql,
     has_column,
     is_mariadb,
@@ -37,7 +41,6 @@ from utils.database import (
 )
 from utils.roms_columns import (
     FULL_PATH_HASH_COLUMN,
-    HLTB_MAIN_STORY_COLUMN,
     ROMS_METADATA_VIEW_COLUMNS,
     STEAM_FED_COLUMNS,
     STEAM_METADATA_COLUMN,
@@ -235,6 +238,12 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0132_audit_events.py", "audit_events"),
         ("0135_drop_play_session_sync_link.py", "play_sessions"),
         ("0136_deleted_assets.py", "deleted_assets"),
+        ("0138_exact_save_slots.py", "saves"),
+        ("0139_rom_user_pinned_media.py", "rom_user"),
+        ("0140_device_save_sync_baseline.py", "device_save_sync"),
+        ("0141_device_capabilities.py", "devices"),
+        ("0142_state_core.py", "states"),
+        ("0143_sibling_platform_names.py", "platforms"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -268,6 +277,120 @@ def test_the_play_session_sync_link_revision_reverses_and_replays():
 
         assert not has_column(connection, "play_sessions", "sync_session_id")
         assert _schema_of(connection, "play_sessions") == before
+
+
+def test_the_device_capabilities_revision_reverses_and_replays():
+    migration = _load_migration("0141_device_capabilities.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "devices")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "devices", "capabilities")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "devices") == before
+
+
+def test_the_state_core_revision_reverses_and_replays():
+    migration = _load_migration("0142_state_core.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "states")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "states", "core")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "states") == before
+
+
+def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:
+    inspector = sa.inspect(connection)
+    collations = {}
+    for table in ("saves", "deleted_assets"):
+        [slot_type] = [
+            column["type"]
+            for column in inspector.get_columns(table)
+            if column["name"] == "slot"
+        ]
+        assert isinstance(slot_type, sa.String)
+        collations[table] = slot_type.collation
+    return collations
+
+
+def test_save_slots_are_compared_exactly():
+    """Both slot columns match as sync negotiation pairs them in Python."""
+    with sync_engine.connect() as connection:
+        expected = exact_collation(connection)
+        assert _slot_collations(connection) == {
+            "saves": expected,
+            "deleted_assets": expected,
+        }
+
+
+def test_the_exact_save_slots_revision_reverses_and_replays():
+    migration = _load_migration("0138_exact_save_slots.py")
+
+    with sync_engine.begin() as connection:
+        exact = exact_collation(connection)
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            if exact is not None:
+                assert _slot_collations(connection)["saves"] != exact
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _slot_collations(connection)["saves"] == exact
+
+
+def test_the_exact_save_slots_revision_fixes_an_early_deleted_assets_table():
+    """A deleted_assets slot left with the table's folding collation is made exact."""
+    migration = _load_migration("0138_exact_save_slots.py")
+
+    with sync_engine.begin() as connection:
+        exact = exact_collation(connection)
+        if exact is None:
+            pytest.skip("PostgreSQL compares slots exactly already")
+        with Operations.context(MigrationContext.configure(connection)) as op:
+            op.alter_column(
+                "deleted_assets",
+                "slot",
+                existing_type=sa.String(length=255),
+                type_=sa.String(length=255),
+                existing_nullable=False,
+            )
+            assert _slot_collations(connection)["deleted_assets"] != exact
+
+            migration.upgrade()
+
+        assert _slot_collations(connection)["deleted_assets"] == exact
+
+
+def test_the_exact_save_slots_revision_rebuilds_no_table_already_exact():
+    """A replay after a run that died partway skips the collations it finished."""
+    migration = _load_migration("0138_exact_save_slots.py")
+    statements: list[str] = []
+
+    with sync_engine.begin() as connection:
+
+        @sa.event.listens_for(connection, "before_cursor_execute")
+        def _record(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+            if re.match(r"ALTER TABLE \S+ MODIFY", statement.lstrip(), re.I):
+                statements.append(statement)
+
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+
+    assert statements == []
 
 
 def test_the_rom_similarity_revision_fills_in_a_missing_index():
@@ -730,3 +853,30 @@ def test_the_group_rename_leaves_admin_changes_alone():
         "Editor": "Custom",
     }
     assert keys == {"viewer": "Viewer (legacy)", "editor": "Editor"}
+
+
+def test_the_sibling_platform_names_revision_renames_only_the_stale_name():
+    migration = _load_migration("0143_sibling_platform_names.py")
+    for name, slug, fs_slug in (
+        ("Commodore 64", "c128", "c128"),
+        ("Videopac G7000", "videopac-g7400", "videopac-g7400"),
+        ("Commodore 64", "c64", "c64"),
+        ("C128 (custom)", "c128", "c128-custom"),
+    ):
+        db_platform_handler.add_platform(
+            Platform(name=name, slug=slug, fs_slug=fs_slug)
+        )
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+        names = set(
+            connection.execute(sa.text("SELECT fs_slug, name FROM platforms")).all()
+        )
+
+    assert names == {
+        ("c128", "Commodore 128"),
+        ("videopac-g7400", "Videopac+ G7400"),
+        ("c64", "Commodore 64"),
+        ("c128-custom", "C128 (custom)"),
+    }

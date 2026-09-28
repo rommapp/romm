@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// LibraryManagement — v2-native rewrite. Uses the shared `RTabNav`
+// LibraryManagement: v2-native rewrite. Uses the shared `RTabNav`
 // primitive for the underline tabs (same component Game Details uses)
 // and keeps the `?tab=` query param so deep links still work.
 import { RAlert, RTabNav, type RTabNavItem } from "@v2/lib";
@@ -12,6 +12,7 @@ import ExcludedSection from "@/v2/components/Settings/ExcludedSection.vue";
 import FolderMappingsSection from "@/v2/components/Settings/FolderMappingsSection.vue";
 import MissingFirmwareSection from "@/v2/components/Settings/MissingFirmwareSection.vue";
 import MissingGamesSection from "@/v2/components/Settings/MissingGamesSection.vue";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -28,12 +29,7 @@ const tab = ref<Tab>(
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 
-watch(tab, (newTab) => {
-  router.replace({
-    path: route.path,
-    query: { ...route.query, tab: newTab },
-  });
-});
+watch(tab, (newTab) => syncQueryParam(router, "tab", newTab));
 
 watch(
   () => route.query.tab,

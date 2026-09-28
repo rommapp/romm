@@ -1,7 +1,8 @@
 import json
+from typing import Any, cast
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 
 from handler.metadata.playmatch_handler import PlaymatchHandler
 from models.rom import Rom, RomFile
@@ -43,7 +44,7 @@ async def test_heartbeat_returns_false_on_http_error(mock_ctx_httpx_client):
     handler = PlaymatchHandler()
     mock_client = AsyncMock()
     mock_response = MagicMock()
-    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+    mock_response.raise_for_status.side_effect = httpx2.HTTPStatusError(
         "Service Unavailable", request=MagicMock(), response=MagicMock()
     )
     mock_client.get.return_value = mock_response
@@ -73,7 +74,9 @@ def _rom_file(*, is_top_level: bool = True, **kwargs) -> RomFile:
     return file
 
 
-async def _captured_lookup_payload(handler: PlaymatchHandler, files) -> dict | None:
+async def _captured_lookup_payload(
+    handler: PlaymatchHandler, files
+) -> dict[str, Any] | None:
     with (
         patch.object(handler, "is_enabled", return_value=True),
         patch.object(handler, "_request", new_callable=AsyncMock) as mock_request,
@@ -83,7 +86,7 @@ async def _captured_lookup_payload(handler: PlaymatchHandler, files) -> dict | N
 
     if not mock_request.await_args_list:
         return None
-    return mock_request.await_args_list[-1].args[1]
+    return cast(dict[str, Any] | None, mock_request.await_args_list[-1].args[1])
 
 
 async def test_lookup_rom_identifies_an_archive_by_its_largest_member():
@@ -208,7 +211,33 @@ async def test_lookup_rom_skips_the_request_when_no_file_qualifies():
     assert await _captured_lookup_payload(PlaymatchHandler(), []) is None
 
 
-async def _captured_suggestion_payload(rom: Rom) -> dict | None:
+def _unhashed_file(rom: Rom, file_path: str, file_name: str) -> RomFile:
+    file = RomFile(file_path=file_path, file_name=file_name, file_size_bytes=1024)
+    file.rom = rom
+    file.__dict__["is_top_level"] = True
+    return file
+
+
+async def test_lookup_rom_skips_an_unhashed_folder_member():
+    """Wii U content files share generic names across titles, so asking by name
+    and size alone matches every title to the same unrelated game."""
+    rom = Rom(fs_path="wiiu", fs_name="Adventure Island [0005000010134100]")
+    member = _unhashed_file(rom, rom.full_path, "00000005.app")
+
+    assert await _captured_lookup_payload(PlaymatchHandler(), [member]) is None
+
+
+async def test_lookup_rom_asks_about_an_unhashed_single_file_by_name():
+    rom = Rom(fs_path="switch", fs_name="Game [0100000000010000].nsp")
+    single = _unhashed_file(rom, "switch", rom.fs_name)
+
+    payload = await _captured_lookup_payload(PlaymatchHandler(), [single])
+
+    assert payload is not None
+    assert payload["fileName"] == rom.fs_name
+
+
+async def _captured_suggestion_payload(rom: Rom) -> dict[str, Any] | None:
     handler = PlaymatchHandler()
     mock_client = AsyncMock()
     mock_client.post.return_value = MagicMock()
@@ -227,7 +256,7 @@ async def _captured_suggestion_payload(rom: Rom) -> dict | None:
 
     if not mock_client.post.await_args_list:
         return None
-    return mock_client.post.await_args.kwargs["json"]
+    return cast(dict[str, Any] | None, mock_client.post.await_args.kwargs["json"])
 
 
 async def test_suggestion_contributes_the_selected_files_hashes():

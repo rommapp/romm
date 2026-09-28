@@ -1,6 +1,6 @@
 """Authorization for the netplay socket namespace."""
 
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -20,7 +20,9 @@ from endpoints.sockets.netplay import (
     webrtc_signal,
 )
 from handler.auth.constants import Scope
+from handler.database import db_rom_handler, db_user_handler
 from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom
+from handler.socket_handler import netplay_socket_handler
 
 ROM_ID = 42
 PLATFORM_ID = 7
@@ -71,7 +73,7 @@ def server(mocker) -> Mock:
     """The netplay socket server, with the session store stubbed per socket."""
     sessions: dict[str, dict[str, Any]] = {}
 
-    async def get_session(sid: str) -> dict[str, Any]:
+    async def get_session(sid: str, namespace: str | None = None) -> dict[str, Any]:
         if sid not in sessions:
             raise KeyError(sid)
         return sessions[sid]
@@ -79,7 +81,7 @@ def server(mocker) -> Mock:
     async def save_session(sid: str, session: dict[str, Any]) -> None:
         sessions[sid] = session
 
-    socket_server = netplay_module.netplay_socket_handler.socket_server
+    socket_server = netplay_socket_handler.socket_server
     mocker.patch.object(
         socket_server, "get_session", AsyncMock(side_effect=get_session)
     )
@@ -113,9 +115,7 @@ def rooms(mocker) -> Mock:
     handler.set = AsyncMock(side_effect=set_)
     handler.delete = AsyncMock()
 
-    mocker.patch.object(
-        netplay_module.db_rom_handler, "get_rom_visibility", return_value=VISIBLE_ROM
-    )
+    mocker.patch.object(db_rom_handler, "get_rom_visibility", return_value=VISIBLE_ROM)
     permissions = mocker.patch.object(netplay_module, "resolve_permissions")
     permissions.return_value.can_see_rom = Mock(return_value=True)
     return Mock(store=store, handler=handler, permissions=permissions)
@@ -161,7 +161,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
         server.enter_room.assert_not_awaited()
 
@@ -174,7 +174,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_a_user_disabled_after_connecting(
@@ -183,14 +183,12 @@ class TestOpenRoomAuthorization:
         """The identity is reloaded per call, so a disable lands without a reconnect."""
         disabled = _user(Scope.ROMS_READ)
         disabled.enabled = False
-        mocker.patch.object(
-            netplay_module.db_user_handler, "get_user", return_value=disabled
-        )
+        mocker.patch.object(db_user_handler, "get_user", return_value=disabled)
         server.sessions["sid"] = {AUTH_USER_SESSION_KEY: 1}
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_hidden_rom(self, mocker, server, rooms):
@@ -203,7 +201,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_unknown_rom(self, mocker, server, rooms):
@@ -212,13 +210,11 @@ class TestOpenRoomAuthorization:
             "_authenticated_user",
             AsyncMock(return_value=_user(Scope.ROMS_READ)),
         )
-        mocker.patch.object(
-            netplay_module.db_rom_handler, "get_rom_visibility", return_value=None
-        )
+        mocker.patch.object(db_rom_handler, "get_rom_visibility", return_value=None)
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_missing_game_id(self, mocker, server, rooms):
@@ -230,7 +226,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open(game_id=None))
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_allows_visible_rom(self, mocker, server, rooms):
@@ -498,7 +494,7 @@ class TestLoginSessionBinding:
 
     async def test_disconnect_forgets_the_binding(self, mocker, server, rooms):
         unbind = mocker.patch.object(
-            netplay_module.netplay_socket_handler,
+            netplay_socket_handler,
             "unbind_from_login_session",
             AsyncMock(),
         )
@@ -512,7 +508,7 @@ class TestEventWiring:
     """The gates only hold if they are attached to the netplay server, not `/ws`."""
 
     def test_handlers_are_registered_on_the_netplay_server(self):
-        handlers = netplay_module.netplay_socket_handler.socket_server.handlers["/"]
+        handlers = netplay_socket_handler.socket_server.handlers["/"]
 
         assert handlers["connect"] is connect
         assert handlers["disconnect"] is disconnect
@@ -523,8 +519,9 @@ class TestEventWiring:
 class TestConnectIdentity:
     @pytest.fixture
     def authenticate(self, mocker) -> AsyncMock:
-        return mocker.patch.object(
-            netplay_module.netplay_socket_handler, "authenticate", AsyncMock()
+        return cast(
+            AsyncMock,
+            mocker.patch.object(netplay_socket_handler, "authenticate", AsyncMock()),
         )
 
     async def test_stores_identity_for_an_authenticated_session(
@@ -548,4 +545,5 @@ class TestConnectIdentity:
     async def test_never_refuses_the_connection(self, server, authenticate):
         authenticate.side_effect = RuntimeError("redis down")
 
-        assert await connect("sid", {}) is None
+        # socketio refuses the connection when the handler returns False.
+        assert await connect("sid", {}) is None  # type: ignore[func-returns-value]

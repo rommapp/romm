@@ -430,6 +430,8 @@
   "show-home-widgets-desc": "Muestra la barra de widgets sobre las filas del panel de inicio. Ocúltala para quitar toda la sección.",
   "show-languages": "Mostrar idiomas",
   "show-languages-desc": "Mostrar banderas de idioma en la galería",
+  "show-logo-title": "Mostrar el logo como título",
+  "show-logo-title-desc": "Mostrar el logo del juego en lugar de su nombre en las páginas de juegos, si se ha obtenido uno",
   "show-platforms": "Mostrar plataformas",
   "show-platforms-as-grid": "Mostrar plataformas como cuadrícula",
   "show-platforms-as-grid-desc": "Mostrar la sección de plataformas como cuadrícula en la página principal",

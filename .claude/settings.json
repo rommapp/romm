@@ -8,6 +8,15 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/setup-code-signing.sh\""
           }
         ]
+      },
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/cloud-setup.sh\""
+          }
+        ]
       }
     ]
   },

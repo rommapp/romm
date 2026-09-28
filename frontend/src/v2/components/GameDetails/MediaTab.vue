@@ -85,6 +85,17 @@ const subTab = useSubtabQuery<Subtab>(
   "manual",
 );
 
+// vue3-pdf-app drives one global pdf.js app, so only the last shown PDF subtab
+// mounts a PdfViewer.
+const pdfSubtab = ref<"manual" | "walkthrough" | null>(null);
+watch(
+  subTab,
+  (value) => {
+    if (value === "manual" || value === "walkthrough") pdfSubtab.value = value;
+  },
+  { immediate: true },
+);
+
 // ---------- Subtab nav ----------
 const subtabDefs = computed<SubtabNavItem<Subtab>[]>(() => [
   {
@@ -264,14 +275,19 @@ async function deleteSoundtrack(fileId: number) {
     <div class="r-v2-media__content">
       <!-- All subtab sections stay mounted (v-show, not v-if). The manual,
            soundtrack and screenshots panels are heavy defineAsyncComponent
-           loads, and un/remounting them on every subtab switch causes a visible
+           loads; un/remounting them on every subtab switch causes a visible
            main-thread freeze (the PDF parser is the worst offender). With
            v-show the cost is paid once on Media tab entry and switching is a
-           CSS toggle. -->
+           CSS toggle (bar the PDF viewer, see `pdfSubtab`). -->
       <!-- Manual subtab: its own component (PDF / Markdown viewer with an
            entry selector; scrolls independently). -->
       <section v-show="subTab === 'manual'" class="r-v2-media__panel">
-        <ManualSubtab ref="manualPanel" :rom="rom" :hide-upload="smAndDown" />
+        <ManualSubtab
+          ref="manualPanel"
+          :rom="rom"
+          :hide-upload="smAndDown"
+          :pdf-active="pdfSubtab === 'manual'"
+        />
       </section>
 
       <!-- Walkthrough subtab: uploaded or GameFAQs-fetched documents, with
@@ -281,6 +297,7 @@ async function deleteSoundtrack(fileId: number) {
           ref="walkthroughPanel"
           :rom="rom"
           :hide-upload="smAndDown"
+          :pdf-active="pdfSubtab === 'walkthrough'"
         />
       </section>
 
@@ -375,7 +392,7 @@ async function deleteSoundtrack(fileId: number) {
   gap: 24px;
   /* Fills the parent tab panel exactly so the PDF viewer (inside the
      manual section) can size to 100% without forcing the outer panel
-     to scroll, since the PDF has its own internal scroll. */
+     to scroll; the PDF has its own internal scroll. */
   height: 100%;
   min-height: 0;
 }

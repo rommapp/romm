@@ -122,3 +122,15 @@ describe("AssetStrip timestamp", () => {
     ).toHaveLength(4);
   });
 });
+
+describe("AssetStrip roles", () => {
+  it("lists static tiles and leaves selectable tiles as toggle buttons", () => {
+    const managed = mountStrip({ selectable: false });
+    expect(managed.findAll('[role="list"]')).toHaveLength(1);
+    expect(managed.findAll('[role="listitem"]')).toHaveLength(4);
+
+    const picker = mountStrip();
+    expect(picker.findAll('[role="list"], [role="listitem"]')).toHaveLength(0);
+    expect(picker.findAll("button[aria-pressed]")).toHaveLength(4);
+  });
+});

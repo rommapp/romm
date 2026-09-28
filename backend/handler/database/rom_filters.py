@@ -39,7 +39,7 @@ class FilterKind(StrEnum):
 class RomFilterSpec:
     name: str
     kind: FilterKind
-    column: QueryableAttribute | None = None
+    column: QueryableAttribute[Any] | None = None
 
 
 # Order is the order the filters narrow the query, so the generated WHERE
@@ -186,7 +186,9 @@ class RomFilterParams(BaseModel):
     ] = None
     verified: Annotated[
         bool | None,
-        Field(description="Whether the rom is verified by Hasheous."),
+        Field(
+            description="Whether the rom's hash matched a known database, via Hasheous or RetroAchievements."
+        ),
     ] = None
     has_soundtrack: Annotated[
         bool | None,

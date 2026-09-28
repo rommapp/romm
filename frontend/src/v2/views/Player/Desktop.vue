@@ -30,7 +30,10 @@ const router = useRouter();
 const confirm = useConfirm();
 const streamingStore = useStreamingStore();
 
-const containerKey = computed(() => String(route.query.container ?? ""));
+const containerName = computed(() => String(route.query.container ?? ""));
+// The claim's key, which the session routes and notices name; the URL may
+// carry the container's label instead.
+const containerKey = ref("");
 
 const stage = ref<InstanceType<typeof StreamStage> | null>(null);
 const state = ref<"loading" | "running" | "error" | "exited">("loading");
@@ -53,13 +56,14 @@ const claimedAt = ref("");
 usePageTitle(() => t("play.desktop-title"));
 
 async function openDesktop(): Promise<void> {
-  if (!containerKey.value) {
+  if (!containerName.value) {
     state.value = "error";
     errorMessage.value = t("play.desktop-error-no-container");
     return;
   }
   try {
-    const { data } = await streamingApi.claimDesktop(containerKey.value);
+    const { data } = await streamingApi.claimDesktop(containerName.value);
+    containerKey.value = data.container;
     containerHost.value = data.host;
     label.value = data.label;
     platform.value = data.platform;

@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import handler.scan_handler as scan_handler
+from handler.filesystem import fs_rom_handler
 from handler.scan_handler import persist_soundtrack_cover
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
 
@@ -71,7 +72,7 @@ class TestPersistSoundtrackCoverRemoval:
         remove = mocker.patch.object(scan_handler, "remove_persisted_cover")
         db = mocker.patch.object(scan_handler, "db_rom_handler")
         mocker.patch.object(
-            scan_handler.fs_rom_handler, "validate_path", Mock(return_value="/audio")
+            fs_rom_handler, "validate_path", Mock(return_value="/audio")
         )
         mocker.patch.object(
             scan_handler,

@@ -12,6 +12,7 @@ floor the front-loading and `drop_roms_columns` are anchored to.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import ENUM
@@ -512,7 +513,7 @@ PLAIN_COLUMNS = [
 ]
 
 
-def _plain_column_ddl(conn: sa.Connection, column: sa.Column) -> str:
+def _plain_column_ddl(conn: sa.Connection, column: sa.Column[Any]) -> str:
     # CreateColumn needs the column bound to a table to render its DDL.
     bound = column._copy()
     sa.Table(TABLE, sa.MetaData(), bound)

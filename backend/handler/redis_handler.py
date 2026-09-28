@@ -50,7 +50,7 @@ def __get_fake_server() -> Any:
 
     # One keyspace for both caches, as one Redis serves both outside tests, so
     # a flush between tests clears what either of them wrote.
-    return FakeServer(version=7)
+    return FakeServer(version=(7,))
 
 
 _fake_server = __get_fake_server() if IS_PYTEST_RUN else None
@@ -99,6 +99,11 @@ def __get_async_binary_cache() -> AsyncRedis:
 
 
 async_binary_cache = __get_async_binary_cache()
+
+
+def as_text(value: bytes | str) -> str:
+    """A cached value as text, since the fake caches return bytes where Redis decodes."""
+    return value.decode() if isinstance(value, bytes) else value
 
 
 def get_job_func_name(job: Job, fallback: str = "") -> str:

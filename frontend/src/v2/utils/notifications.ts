@@ -1,7 +1,11 @@
 // RomM's own kinds are translated from their values, so they read in the
 // language of whoever opens them; any other kind brings its own title and body.
 import type { RouteLocationRaw } from "vue-router";
-import type { NotificationKind, NotificationSchema } from "@/__generated__";
+import type {
+  InstallStatus,
+  NotificationKind,
+  NotificationSchema,
+} from "@/__generated__";
 import i18n from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
 import { TONE_ICONS } from "@/v2/composables/useSnackbar";
@@ -44,6 +48,30 @@ function ownContent(notification: NotificationSchema): NotificationView {
       notification.link && isInAppPath(notification.link)
         ? notification.link
         : null,
+    toast: true,
+  };
+}
+
+function deviceInstallView(
+  data: NotificationData,
+  failed: boolean,
+): NotificationView {
+  const romId = count(data.rom_id);
+  const named = {
+    game: text(data.rom_name) ?? t("notifications.device-install-unknown-game"),
+    device:
+      text(data.device_name) ?? t("notifications.device-install-your-device"),
+  };
+  const titleKey = failed
+    ? "notifications.device-install-failed"
+    : data.status === ("already_installed" satisfies InstallStatus)
+      ? "notifications.device-install-already-installed"
+      : "notifications.device-install-completed";
+  return {
+    icon: failed ? "mdi-cellphone-remove" : "mdi-cellphone-arrow-down",
+    title: t(titleKey, named),
+    body: text(data.reason),
+    to: romId ? { name: ROUTES.ROM, params: { rom: romId } } : null,
     toast: true,
   };
 }
@@ -112,6 +140,8 @@ const DESCRIBERS: Record<
     to: { name: ROUTES.NOTIFICATIONS, query: { tab: "channels" } },
     toast: true,
   }),
+  device_install_completed: (data) => deviceInstallView(data, false),
+  device_install_failed: (data) => deviceInstallView(data, true),
   role_changed: (data) => {
     const role = text(data.role);
     return {

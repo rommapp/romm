@@ -3,15 +3,16 @@ from datetime import datetime, timezone
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.interfaces import LoaderOption
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.notification import MAX_NOTIFICATIONS_PER_USER, Notification
 from models.user import User
 
 from .base_handler import DBBaseHandler, affected_rows
 
 
-def _with_actor():
+def _with_actor() -> LoaderOption:
     # Name and avatar only, the rest of a user row is large JSON. Built per query,
     # as touching `User` columns at import configures the mappers too early.
     return joinedload(Notification.actor).load_only(
@@ -24,7 +25,7 @@ class DBNotificationsHandler(DBBaseHandler):
     def add_notifications(
         self,
         notifications: Sequence[Notification],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Notification]:
         """Store notifications and trim their users' inboxes; returns the rows kept."""
         session.add_all(notifications)
@@ -61,7 +62,7 @@ class DBNotificationsHandler(DBBaseHandler):
     def get_notifications(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Notification]:
         return session.scalars(
             select(Notification)
@@ -75,7 +76,7 @@ class DBNotificationsHandler(DBBaseHandler):
         self,
         user_id: int,
         ids: list[int] | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         """Mark the user's unread notifications read, all of them when `ids` is None."""
         stmt = update(Notification).where(
@@ -95,7 +96,7 @@ class DBNotificationsHandler(DBBaseHandler):
         self,
         user_id: int,
         ids: list[int] | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> int:
         """Delete the user's notifications, all of them when `ids` is None."""
         stmt = delete(Notification).where(Notification.user_id == user_id)

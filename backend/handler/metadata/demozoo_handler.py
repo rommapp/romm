@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
 
-import httpx
+import httpx2
 
 from config import DEMOZOO_API_ENABLED
 from logger.logger import log
@@ -506,7 +506,7 @@ class DemozooHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return DEMOZOO_API_ENABLED
 
-    async def _request(self, url: str) -> dict:
+    async def _request(self, url: str) -> dict[str, Any]:
         await _rate_limiter.acquire()
         headers = {
             "User-Agent": f"RomM/{get_version()}",
@@ -514,7 +514,7 @@ class DemozooHandler(MetadataHandler):
         }
         try:
             body = await self._fetch_capped(url, headers=headers)
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
+        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
             log.warning("Can't connect to Demozoo API", extra={"exception": str(exc)})
             raise unavailable("Demozoo API") from exc
         if body is None:
@@ -546,7 +546,7 @@ class DemozooHandler(MetadataHandler):
             return DemozooRom(demozoo_id=None)
         return production_to_rom(data)
 
-    def get_platform(self, slug: str) -> dict:
+    def get_platform(self, slug: str) -> dict[str, Any]:
         if slug not in DEMOZOO_PLATFORM_LIST:
             return {"slug": slug, "demozoo_id": None, "name": slug}
         platform = DEMOZOO_PLATFORM_LIST[UPS(slug)]
@@ -558,7 +558,7 @@ class DemozooHandler(MetadataHandler):
 
     async def search_productions(
         self, title: str, platform_id: int | None = None, *, limit: int = 20
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Demozoo title filter. Do not use ``?search=``."""
         params: dict[str, str] = {"title": title}
         if platform_id is not None:

@@ -22,7 +22,7 @@ it, and the gallery quietly returns to full scans.
 """
 
 import re
-from typing import cast
+from typing import Any, cast
 
 from sqlalchemy import Table, inspect
 from sqlalchemy.dialects import mysql
@@ -67,7 +67,9 @@ def _grouped_query(order_by: str = "", user_id: int | None = None):
     )
 
 
-def _dedup_window_subquery(order_by: str = "", user_id: int | None = None) -> Select:
+def _dedup_window_subquery(
+    order_by: str = "", user_id: int | None = None
+) -> Select[Any]:
     """The narrow `roms` subquery the grouped query materializes for its window."""
     for subquery in _subqueries(_grouped_query(order_by, user_id)):
         if not isinstance(subquery.element, Select):
@@ -81,7 +83,7 @@ def _dedup_window_subquery(order_by: str = "", user_id: int | None = None) -> Se
     raise AssertionError("the grouped query no longer materializes a roms subquery")
 
 
-def _dedup_window_select(order_by: str = "", user_id: int | None = None) -> Select:
+def _dedup_window_select(order_by: str = "", user_id: int | None = None) -> Select[Any]:
     """The SELECT that computes `row_num` (and any group aggregate)."""
     for subquery in _subqueries(_grouped_query(order_by, user_id)):
         if not isinstance(subquery.element, Select):

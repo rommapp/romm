@@ -1,12 +1,13 @@
 from collections.abc import Collection, Sequence
 from functools import partial
+from typing import Any
 
 import pydash
 from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Delete, Select, Update
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.assets import Save, Screenshot, State
 from models.base import with_file_name_parts
 
@@ -48,7 +49,7 @@ class DBScreenshotsHandler(DBBaseHandler):
     def add_screenshot(
         self,
         screenshot: Screenshot,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Screenshot:
         return session.merge(screenshot)
 
@@ -58,7 +59,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         *,
         user_id: int,
         rom_ids: Collection[int],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Screenshot]:
         return session.scalars(
             select(Screenshot).filter(
@@ -74,7 +75,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         user_id: int,
         file_name: str,
         file_name_no_ext: str | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Screenshot | None:
         query = self.filter(
             select(Screenshot),
@@ -92,8 +93,8 @@ class DBScreenshotsHandler(DBBaseHandler):
     @begin_session
     def get_screenshot_by_id(
         self,
-        id,
-        session: Session = None,  # type: ignore[assignment]
+        id: int,
+        session: Session = INJECTED_SESSION,
     ) -> Screenshot | None:
         return session.get(Screenshot, id)
 
@@ -102,7 +103,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         self,
         screenshot: Screenshot,
         ignoring: Save | State | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> bool:
         """Whether a save or state other than `ignoring` shows the screenshot
         as its thumbnail."""
@@ -133,7 +134,7 @@ class DBScreenshotsHandler(DBBaseHandler):
     def get_name_variants(
         self,
         screenshot: Screenshot,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Screenshot]:
         """Other screenshots in the same folder whose name differs only in case."""
         query = self.filter(
@@ -151,7 +152,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         public_only: bool = False,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Screenshot]:
         """Gallery (intentionally-uploaded) screenshots for a ROM, visible to
         the requesting user. Mirrors `db_rom_handler.get_rom_notes`: own
@@ -176,8 +177,8 @@ class DBScreenshotsHandler(DBBaseHandler):
     def update_screenshot(
         self,
         id: int,
-        data: dict,
-        session: Session = None,  # type: ignore[assignment]
+        data: dict[str, Any],
+        session: Session = INJECTED_SESSION,
     ) -> Screenshot:
         session.execute(
             update(Screenshot)
@@ -191,7 +192,7 @@ class DBScreenshotsHandler(DBBaseHandler):
     def delete_screenshot(
         self,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             delete(Screenshot)
@@ -205,7 +206,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         screenshots_to_keep: list[str],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Screenshot]:
         query_fn = partial(
             self.filter,

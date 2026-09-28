@@ -158,7 +158,7 @@ class TinfoilFeedTitleDBSchema(BaseModel):
 class TinfoilFeedSchema(TypedDict):
     files: list[TinfoilFeedFileSchema]
     directories: list[str]
-    titledb: NotRequired[dict[str, dict]]  # dict after .model_dump()
+    titledb: NotRequired[dict[str, dict[str, Any]]]  # dict after .model_dump()
     success: NotRequired[str]
     error: NotRequired[str]
 

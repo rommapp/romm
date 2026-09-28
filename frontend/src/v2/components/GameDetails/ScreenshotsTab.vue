@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ScreenshotsTab — responsive grid of 16:9 screenshot thumbnails. Clicking
+// ScreenshotsTab: responsive grid of 16:9 screenshot thumbnails. Clicking
 // a thumbnail opens RCarousel in fullscreen (lightbox) mode with prev/next
 // navigation, a thumbnail strip, and keyboard / gamepad arrows.
 //
@@ -7,20 +7,23 @@
 // MediaTab, performs the actions):
 //   * edit:     when `editable` and owned, opens its visibility (top-right)
 //   * delete:   when `deletable` and the item is owned (top-right, hover)
+//   * pin:      when `isPinned` is given (bottom-right, hover)
 //   * username: community items (others' public shots) show an owner chip
 import { RAvatar, RBtn, RCarousel } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import MediaPinBtn from "@/v2/components/GameDetails/MediaPinBtn.vue";
 import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
 
 // `id` is present for filesystem-backed screenshots (user-uploaded or per-ROM);
-// scraped screenshots (Overview tab) carry just a URL and are read-only.
+// scraped screenshots carry just a URL and are read-only.
 // `isOwn`/`isPublic`/`username` only matter for the per-user community grids.
 export type ScreenshotItem = {
   url: string;
+  pinKey: string;
   id?: number;
   isOwn?: boolean;
   isPublic?: boolean;
@@ -34,10 +37,12 @@ const props = defineProps<{
   screenshots: ScreenshotItem[];
   deletable?: boolean;
   editable?: boolean;
+  isPinned?: (key: string) => boolean;
 }>();
 const emit = defineEmits<{
   edit: [shot: ScreenshotItem];
   delete: [id: number];
+  "toggle-pin": [key: string];
 }>();
 
 const { t } = useI18n();
@@ -69,7 +74,7 @@ function canEdit(shot: ScreenshotItem): boolean {
   <section class="r-v2-det-shots">
     <div
       v-for="(shot, i) in screenshots"
-      :key="shot.id ?? shot.url"
+      :key="shot.pinKey"
       class="r-v2-det-shots__cell r-v2-asset-fade"
       :style="{ '--asset-fade-i': i }"
     >
@@ -128,6 +133,13 @@ function canEdit(shot: ScreenshotItem): boolean {
           @click="emit('delete', shot.id!)"
         />
       </div>
+
+      <MediaPinBtn
+        v-if="isPinned"
+        class="r-v2-det-shots__pin"
+        :pinned="isPinned(shot.pinKey)"
+        @toggle="emit('toggle-pin', shot.pinKey)"
+      />
     </div>
   </section>
 
@@ -193,7 +205,7 @@ function canEdit(shot: ScreenshotItem): boolean {
   display: block;
 }
 
-/* Action cluster — top-right, revealed on cell hover / focus-within.
+/* Action cluster, top-right, revealed on cell hover / focus-within.
    Stays visible on touch/pad (no hover) so it's reachable there. */
 .r-v2-det-shots__actions {
   position: absolute;
@@ -204,16 +216,26 @@ function canEdit(shot: ScreenshotItem): boolean {
   opacity: 0;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
+.r-v2-det-shots__pin {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  opacity: 0;
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
 .r-v2-det-shots__cell:hover .r-v2-det-shots__actions,
-.r-v2-det-shots__cell:focus-within .r-v2-det-shots__actions {
+.r-v2-det-shots__cell:focus-within .r-v2-det-shots__actions,
+.r-v2-det-shots__cell:hover .r-v2-det-shots__pin,
+.r-v2-det-shots__cell:focus-within .r-v2-det-shots__pin {
   opacity: 1;
 }
 /* No hover to reveal them with at phone and tablet widths. */
-html[data-bp~="sm-and-down"] .r-v2-det-shots__actions {
+html[data-bp~="sm-and-down"] .r-v2-det-shots__actions,
+html[data-bp~="sm-and-down"] .r-v2-det-shots__pin {
   opacity: 1;
 }
 
-/* Owner chip (community) — bottom-left, always visible. */
+/* Owner chip (community), bottom-left, always visible. */
 .r-v2-det-shots__owner {
   position: absolute;
   left: 6px;
@@ -221,7 +243,8 @@ html[data-bp~="sm-and-down"] .r-v2-det-shots__actions {
   display: flex;
   align-items: center;
   gap: 4px;
-  max-width: calc(100% - 12px);
+  /* Leaves the bottom-right corner to the pin. */
+  max-width: calc(100% - 52px);
   padding: 2px 8px 2px 2px;
   border-radius: 999px;
   background: var(--r-color-overlay-scrim-strong);
@@ -235,7 +258,7 @@ html[data-bp~="sm-and-down"] .r-v2-det-shots__actions {
   white-space: nowrap;
 }
 
-/* "Shared" badge for owned public screenshots — top-left, always visible. */
+/* "Shared" badge for owned public screenshots, top-left, always visible. */
 .r-v2-det-shots__badge {
   position: absolute;
   top: 6px;
