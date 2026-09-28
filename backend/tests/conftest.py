@@ -35,6 +35,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.database.base_handler import sync_engine
+from handler.metadata.base_handler import SENSITIVE_KEYS
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.audit_event import AuditEvent
 from models.client_token import ClientToken
@@ -203,12 +204,36 @@ def executed_statements() -> Iterator[list[str]]:
         event.remove(sync_engine, "before_cursor_execute", before_execute)
 
 
+_VCR_REDACTED = "x" * 30
+
+# The lookbehind stops RetroAchievements' `y` key matching inside `display=`.
+_BODY_SECRET_RE = re.compile(
+    rf"(?<![A-Za-z_-])({'|'.join(re.escape(k) for k in SENSITIVE_KEYS)})=[^&\s\"\\]*".encode(),
+    re.IGNORECASE,
+)
+
+
+def _scrub_response_body(response: dict[str, Any]) -> dict[str, Any]:
+    """Mask credentials that providers echo back inside response bodies."""
+    body = response.get("body", {}).get("string")
+    if isinstance(body, str):
+        body = body.encode()
+    if body:
+        response["body"]["string"] = _BODY_SECRET_RE.sub(
+            rf"\1={_VCR_REDACTED}".encode(), body
+        )
+    return response
+
+
 @pytest.fixture(scope="module")
 def vcr_config():
     """Fixture to configure VCR.py settings."""
     return {
         # Default `match_on`, plus raw_body.
         "match_on": ["method", "scheme", "host", "port", "path", "query", "raw_body"],
+        "filter_headers": [(k, _VCR_REDACTED) for k in sorted(SENSITIVE_KEYS)],
+        "filter_query_parameters": [(k, _VCR_REDACTED) for k in sorted(SENSITIVE_KEYS)],
+        "before_record_response": _scrub_response_body,
     }
 
 
