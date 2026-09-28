@@ -218,7 +218,6 @@ export default tseslint.config(
     files: [
       "src/v2/components/**",
       "src/v2/composables/**",
-      "src/v2/layouts/**",
       "src/v2/lib/**",
       "src/v2/router/**",
       "src/v2/stores/**",
