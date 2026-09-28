@@ -1,6 +1,6 @@
 """Authorization for the netplay socket namespace."""
 
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -73,7 +73,7 @@ def server(mocker) -> Mock:
     """The netplay socket server, with the session store stubbed per socket."""
     sessions: dict[str, dict[str, Any]] = {}
 
-    async def get_session(sid: str) -> dict[str, Any]:
+    async def get_session(sid: str, namespace: str | None = None) -> dict[str, Any]:
         if sid not in sessions:
             raise KeyError(sid)
         return sessions[sid]
@@ -161,7 +161,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
         server.enter_room.assert_not_awaited()
 
@@ -174,7 +174,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_a_user_disabled_after_connecting(
@@ -188,7 +188,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_hidden_rom(self, mocker, server, rooms):
@@ -201,7 +201,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_unknown_rom(self, mocker, server, rooms):
@@ -214,7 +214,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open())
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_rejects_missing_game_id(self, mocker, server, rooms):
@@ -226,7 +226,7 @@ class TestOpenRoomAuthorization:
 
         result = await open_room("sid", _open(game_id=None))
 
-        assert "Not authorized" in result
+        assert result is not None and "Not authorized" in result
         rooms.handler.set.assert_not_awaited()
 
     async def test_allows_visible_rom(self, mocker, server, rooms):
@@ -519,7 +519,10 @@ class TestEventWiring:
 class TestConnectIdentity:
     @pytest.fixture
     def authenticate(self, mocker) -> AsyncMock:
-        return mocker.patch.object(netplay_socket_handler, "authenticate", AsyncMock())
+        return cast(
+            AsyncMock,
+            mocker.patch.object(netplay_socket_handler, "authenticate", AsyncMock()),
+        )
 
     async def test_stores_identity_for_an_authenticated_session(
         self, server, authenticate
@@ -542,4 +545,5 @@ class TestConnectIdentity:
     async def test_never_refuses_the_connection(self, server, authenticate):
         authenticate.side_effect = RuntimeError("redis down")
 
-        assert await connect("sid", {}) is None
+        # socketio refuses the connection when the handler returns False.
+        assert await connect("sid", {}) is None  # type: ignore[func-returns-value]

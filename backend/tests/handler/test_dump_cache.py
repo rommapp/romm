@@ -14,6 +14,11 @@ from handler.redis_handler import async_binary_cache
 
 BIG_RECORD = {"Name": "Chrono Trigger", "Overview": "A long summary. " * 100}
 SMALL_RECORD = "12345"
+# BIG_RECORD as the `zstandard` 0.25 package wrote it, which Redis may still hold.
+LEGACY_BIG_RECORD_FRAME = bytes.fromhex(
+    "28b52ffd60670505020074037b224e616d65223a224368726f6e6f2054726967676572222c"
+    "224f76657276696577223a2241206c6f6e672073756d6d6172792e20227d0100d5e2fc130a"
+)
 
 
 class TestEncode:
@@ -42,11 +47,20 @@ class TestEncode:
 
         assert encode(value).startswith(_ZSTD_MAGIC)
 
+    def test_each_write_is_a_standalone_frame(self):
+        first, second = encode(BIG_RECORD), encode(BIG_RECORD)
+
+        assert first == second
+        assert decode(second) == BIG_RECORD
+
 
 class TestDecode:
     @pytest.mark.parametrize("value", [BIG_RECORD, SMALL_RECORD, [], {}, 0])
     def test_round_trips_whatever_encode_wrote(self, value: Any):
         assert decode(encode(value)) == value
+
+    def test_reads_a_value_cached_by_the_previous_codec(self):
+        assert decode(LEGACY_BIG_RECORD_FRAME) == BIG_RECORD
 
     def test_reads_a_plain_json_value(self):
         """A payload under the threshold is stored as JSON, so reads accept it."""

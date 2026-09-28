@@ -14,6 +14,7 @@ from handler.auth.dependencies import get_permissions
 from handler.database import db_play_session_handler
 from handler.play_session_handler import ingest_play_sessions as _ingest
 from logger.logger import log
+from utils.auth import token_device_id
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -63,7 +64,7 @@ def ingest_play_sessions(
             detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE}",
         )
 
-    device_id = payload.device_id or getattr(request.state, "device_id", None)
+    device_id = payload.device_id or token_device_id(request)
 
     summary = _ingest(
         user_id=request.user.id,
@@ -107,7 +108,7 @@ def get_play_sessions(
     limit: int = 50,
     offset: int = 0,
 ) -> list[PlaySessionSchema]:
-    effective_device_id = device_id or getattr(request.state, "device_id", None)
+    effective_device_id = device_id or token_device_id(request)
     sessions = db_play_session_handler.get_sessions(
         user_id=request.user.id,
         rom_id=rom_id,

@@ -2,7 +2,7 @@ import datetime
 import json
 from typing import Any, Final, NotRequired, TypedDict
 
-import httpx
+import httpx2
 import pydash
 import yarl
 
@@ -142,7 +142,7 @@ class FlashpointHandler(MetadataHandler):
             res = await httpx_client.get(url, headers=headers, timeout=60)
             res.raise_for_status()
             return res.json()
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
+        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
             log.warning(
                 "Connection error: can't connect to Flashpoint API", exc_info=True
             )

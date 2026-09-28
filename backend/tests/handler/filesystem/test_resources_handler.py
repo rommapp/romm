@@ -3,13 +3,14 @@ import errno
 import os
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock, patch
 
-import httpx
+import httpx2
 import pytest
 from PIL import Image, ImageSequence
 from PIL.PngImagePlugin import Blend
+from tests.concurrency_stubs import InFlight
 from tests.utils.test_images import (
     DURATIONS,
     FRAME_SIZE,
@@ -27,6 +28,7 @@ from config import RESOURCES_BASE_PATH
 from config.config_manager import MetadataMediaType
 from handler.filesystem.base_handler import CoverSize
 from handler.filesystem.resources_handler import (
+    RA_BADGE_MAX_CONCURRENCY,
     FSResourcesHandler,
     _check_content_type,
     _content_type_essence,
@@ -106,11 +108,11 @@ class TestCheckContentType:
     """Tests for the _check_content_type helper."""
 
     @staticmethod
-    def _make_response(content_type: str | None) -> httpx.Response:
+    def _make_response(content_type: str | None) -> httpx2.Response:
         headers = {}
         if content_type is not None:
             headers["content-type"] = content_type
-        return httpx.Response(200, headers=headers)
+        return httpx2.Response(200, headers=headers)
 
     def test_valid_image_prefix(self):
         resp = self._make_response("image/png")
@@ -160,7 +162,7 @@ class TestCheckContentType:
 
     def test_bom_still_matches(self):
         # httpx rejects non-ASCII header values, so mock the response
-        resp = Mock(spec=httpx.Response)
+        resp = Mock(spec=httpx2.Response)
         resp.headers = {"content-type": "\ufeffimage/png"}
         assert _check_content_type(resp, ("image/",), "cover") is True
 
@@ -998,7 +1000,7 @@ class TestStoreMediaFileResult:
 
         with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
             client = Mock()
-            client.stream.side_effect = httpx.ConnectError("no route")
+            client.stream.side_effect = httpx2.ConnectError("no route")
             mock_ctx.get.return_value = client
             stored = await handler.store_media_file(
                 "http://example.com/x.png", "roms/1/1/box2d_back/box2d_back.png"
@@ -1165,7 +1167,7 @@ class _DroppedResponse:
 
     async def aiter_raw(self):
         yield b"partial"
-        raise httpx.ReadError("connection reset")
+        raise httpx2.ReadError("connection reset")
 
 
 class _FakeStreamContext:
@@ -1538,7 +1540,7 @@ class TestCoverSingleFetch:
 
     @staticmethod
     def _cover_dir(handler: FSResourcesHandler, entity) -> Path:
-        return handler.base_path / entity.fs_resources_path / "cover"
+        return cast(Path, handler.base_path / entity.fs_resources_path / "cover")
 
     @staticmethod
     def _image_size(path: Path) -> tuple[int, int]:
@@ -1809,3 +1811,153 @@ class TestCoverSingleFetch:
         assert client.requests == [COVER_URL]
         assert path_small == "collections/3/cover/small.png"
         assert path_big == "collections/3/cover/big.png"
+
+
+class _InFlightStreamContext(_FakeStreamContext):
+    def __init__(self, tracker: InFlight):
+        super().__init__(_FakeResponse())
+        self._tracker = tracker
+
+    async def __aenter__(self) -> Any:
+        self._tracker.enter()
+        await asyncio.sleep(0.01)
+        return await super().__aenter__()
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        self._tracker.leave()
+        return bool(await super().__aexit__(*exc))
+
+
+class _InFlightClient:
+    def __init__(self, tracker: InFlight):
+        self._tracker = tracker
+
+    def stream(self, *_args: Any, **_kwargs: Any) -> _InFlightStreamContext:
+        return _InFlightStreamContext(self._tracker)
+
+
+class TestConcurrentDownloads:
+    """A rom's media files are fetched together rather than one at a time."""
+
+    @pytest.fixture
+    def handler(self, tmp_path):
+        handler = FSResourcesHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    @pytest.fixture
+    def rom(self):
+        rom = Mock(spec=Rom)
+        rom.id = 1
+        rom.platform_id = 1
+        rom.fs_resources_path = "roms/1/1"
+        return rom
+
+    @pytest.mark.asyncio
+    async def test_badges_download_together_up_to_the_cap(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        tracker = InFlight()
+        paths = [
+            f"roms/1/1/badges/{i}.png" for i in range(RA_BADGE_MAX_CONCURRENCY * 2)
+        ]
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _InFlightClient(tracker)
+            await asyncio.gather(
+                *(handler.store_ra_badge("http://x/badge.png", p) for p in paths)
+            )
+
+        assert tracker.peak == RA_BADGE_MAX_CONCURRENCY
+        assert all((tmp_path / p).exists() for p in paths)
+
+    @pytest.mark.asyncio
+    async def test_screenshots_download_together_and_keep_their_order(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        tracker = InFlight()
+
+        async def store(_rom, _url, idx):
+            # The first screenshot finishes last, so order can't come from timing.
+            await tracker.hold(0.03 if idx == 0 else 0.01)
+            return idx != 1
+
+        with patch.object(handler, "_store_screenshot", side_effect=store):
+            paths = await handler.get_rom_screenshots(
+                rom=rom,
+                overwrite=True,
+                url_screenshots=["http://x/a.jpg", "http://x/b.jpg", "http://x/c.jpg"],
+            )
+
+        assert tracker.peak == 3
+        assert paths == ["roms/1/1/screenshots/0.jpg", "roms/1/1/screenshots/2.jpg"]
+
+    @pytest.mark.asyncio
+    async def test_provider_media_downloads_together(self, handler: FSResourcesHandler):
+        tracker = InFlight()
+        metadata = {
+            "box2d_back_url": "http://x/back.png",
+            "box2d_back_path": "roms/1/1/box2d_back/box2d_back.png",
+            "fanart_url": "http://x/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+            "video_url": "http://x/video.mp4",
+            "video_path": "roms/1/1/video/video.mp4",
+        }
+
+        async def store(_url: str, dest_path: str) -> bool:
+            await tracker.hold()
+            return "video" not in dest_path
+
+        with patch.object(handler, "store_media_file", side_effect=store):
+            changed = await handler.store_metadata_media(
+                metadata,
+                [
+                    MetadataMediaType.BOX2D_BACK,
+                    MetadataMediaType.FANART,
+                    MetadataMediaType.VIDEO,
+                ],
+            )
+
+        assert tracker.peak == 3
+        assert changed is True
+        assert metadata["video_path"] is None
+        assert metadata["fanart_path"] == "roms/1/1/fanart/fanart.png"
+
+    @pytest.mark.asyncio
+    async def test_media_type_listed_twice_is_fetched_once(
+        self, handler: FSResourcesHandler
+    ):
+        metadata = {
+            "fanart_url": "http://x/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+        }
+        store = AsyncMock(return_value=True)
+
+        with patch.object(handler, "store_media_file", store):
+            await handler.store_metadata_media(
+                metadata, [MetadataMediaType.FANART, MetadataMediaType.FANART]
+            )
+
+        store.assert_awaited_once_with(
+            "http://x/fanart.png", "roms/1/1/fanart/fanart.png"
+        )
+
+    @pytest.mark.asyncio
+    async def test_badges_shared_by_achievements_are_fetched_once(
+        self, handler: FSResourcesHandler
+    ):
+        badge = {
+            "badge_url": "http://x/1.png",
+            "badge_path": "roms/1/1/badges/1.png",
+            "badge_url_lock": "http://x/1_lock.png",
+            "badge_path_lock": "roms/1/1/badges/1_lock.png",
+        }
+        store = AsyncMock()
+
+        with patch.object(handler, "store_ra_badge", store):
+            await handler.store_ra_badges([badge, dict(badge), {"badge_url": "x"}])
+
+        assert sorted(call.args for call in store.await_args_list) == [
+            ("http://x/1.png", "roms/1/1/badges/1.png"),
+            ("http://x/1_lock.png", "roms/1/1/badges/1_lock.png"),
+        ]

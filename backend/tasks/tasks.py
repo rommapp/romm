@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any
 
-import httpx
+import httpx2
 from rq import get_current_job
 from rq.exceptions import AbandonedJobError
 from rq.job import Job
@@ -220,11 +220,11 @@ class RemoteFilePullTask(PeriodicTask, ABC):
         try:
             response = await httpx_client.get(self.url, timeout=120)
             response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
+        except httpx2.HTTPStatusError as exc:
             raise RuntimeError(
                 f"{self.url} answered {exc.response.status_code}"
             ) from exc
-        except httpx.HTTPError as exc:
+        except httpx2.HTTPError as exc:
             reason = str(exc) or type(exc).__name__
             raise RuntimeError(f"Could not reach {self.url}: {reason}") from exc
         return response.content

@@ -1,7 +1,7 @@
 """add core to states
 
-Revision ID: 0141_state_core
-Revises: 0140_device_save_sync_baseline
+Revision ID: 0142_state_core
+Revises: 0141_device_capabilities
 Create Date: 2026-09-27 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0141_state_core"
-down_revision = "0140_device_save_sync_baseline"
+revision = "0142_state_core"
+down_revision = "0141_device_capabilities"
 branch_labels = None
 depends_on = None
 

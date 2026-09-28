@@ -1,11 +1,15 @@
 import time
 from types import SimpleNamespace
 from typing import cast
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock
 
 import pytest
 import socketio
-from rq.exceptions import AbandonedJobError, InvalidJobOperation
+from rq.exceptions import (
+    AbandonedJobError,
+    DeserializationError,
+    InvalidJobOperation,
+)
 from rq.job import JobStatus
 from rq.timeouts import JobTimeoutException
 from tests.scan_job_stubs import (
@@ -36,6 +40,7 @@ from endpoints.sockets.scan import (
 from exceptions.fs_exceptions import FolderStructureNotMatchException
 from exceptions.socket_exceptions import ScanStoppedException
 from handler import notification_handler
+from handler import scan_handler as scan_handler_module
 from handler.audit_handler import SYSTEM_ACTOR
 from handler.auth.constants import Scope
 from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
@@ -829,7 +834,7 @@ class TestIdentifyRomTagReparse:
         # A COMPLETE scan runs past the point a HASHES scan returns at, into the
         # resource downloads and the closing emit, none of which is under test.
         mocker.patch.object(scan_module, "download_rom_resources", new=AsyncMock())
-        mocker.patch.object(scan_module, "SimpleRomSchema", MagicMock())
+        mocker.patch.object(scan_handler_module, "SimpleRomSchema", MagicMock())
 
         db = mocker.patch.object(scan_module, "db_rom_handler")
         db.add_rom.return_value = MagicMock(
@@ -2617,6 +2622,24 @@ class TestReportScanFailure:
             9, "the worker running it stopped unexpectedly"
         )
 
+    def test_reports_a_scan_whose_kwargs_can_no_longer_be_loaded(self, emit, mocker):
+        # An abandoned scan pickled by an older release must not crash the
+        # registry sweep that calls this.
+        notify_scan_end = mocker.patch.object(
+            scan_module, "notify_scan_end", AsyncMock()
+        )
+        job = make_job(SCAN_PLATFORMS_FUNC)
+        type(job).kwargs = PropertyMock(side_effect=DeserializationError("stale"))
+
+        scan_module.report_scan_failure(
+            job, MagicMock(), AbandonedJobError, AbandonedJobError("boom"), None
+        )
+
+        emit.assert_awaited_once()
+        notify_scan_end.assert_awaited_once_with(
+            None, "the worker running it stopped unexpectedly"
+        )
+
     def test_swallows_a_report_that_cannot_be_sent(self, emit):
         # RQ re-raises out of the registry sweep that calls this, which would
         # leave the abandoned scans in the registry and stop the worker.
@@ -2695,7 +2718,7 @@ def identify_harness(mocker):
 
     mocker.patch.object(scan_module, "fs_resource_handler", new=AsyncMock())
     mocker.patch.object(scan_module, "download_rom_resources", new=AsyncMock())
-    mocker.patch.object(scan_module, "SimpleRomSchema", MagicMock())
+    mocker.patch.object(scan_handler_module, "SimpleRomSchema", MagicMock())
 
     db = mocker.patch.object(scan_module, "db_rom_handler")
     db.add_rom.return_value = MagicMock(
@@ -2817,6 +2840,44 @@ class TestIdentifyRomFiles:
         identify_harness.refresh.assert_not_called()
         identify_harness.scan_rom.assert_awaited_once()
         identify_harness.db.add_rom.assert_called()
+
+
+class TestIdentifyRomEmitsNewFlag:
+    """Clients bump live game counts off `is_new`, so a rescan of an existing
+    rom must not report it as new."""
+
+    @pytest.mark.parametrize(
+        "case, is_new",
+        [("new", True), ("existing", False), ("reassociated", False)],
+    )
+    async def test_scanning_rom_payload_flags_new_roms(
+        self, mocker, identify_harness, case, is_new
+    ):
+        dumped = Mock(model_dump=Mock(side_effect=lambda **_: {"id": 1}))
+        mocker.patch.object(
+            scan_handler_module,
+            "SimpleRomSchema",
+            Mock(from_orm_with_factory=Mock(return_value=dumped)),
+        )
+        # Identified, so both the post-scan and the post-download emits fire.
+        identify_harness.db.add_rom.return_value.is_identified = True
+        if case == "reassociated":
+            missing = identify_harness.existing_rom()
+            identify_harness.db.get_matching_missing_rom.return_value = missing
+            identify_harness.db.update_rom.return_value = missing
+        socket_manager = AsyncMock()
+        rom = identify_harness.existing_rom() if case == "existing" else None
+
+        await identify_harness.run(
+            rom, ScanType.COMPLETE, [], socket_manager=socket_manager
+        )
+
+        payloads = [
+            call.args[1]
+            for call in socket_manager.emit.await_args_list
+            if call.args[0] == "scan:scanning_rom"
+        ]
+        assert [payload["is_new"] for payload in payloads] == [is_new, is_new]
 
 
 class TestIdentifyRomIncrementalHashing:

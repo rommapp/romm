@@ -10,18 +10,27 @@ from tests.sql_dialects import (
 )
 
 from handler.database.base_handler import sync_engine
+from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
+from models.rom import Rom
 from utils.database import CustomJSON
 from utils.sql_dialect import (
     Analyze,
     DialectCase,
     JsonArrayColumn,
+    force_index_on_mysql,
+    fulltext_match,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
     nulls_last,
 )
 
-_T = sa.table("t", sa.column("v", sa.Integer), sa.column("tags", CustomJSON()))
+_T = sa.table(
+    "t",
+    sa.column("v", sa.Integer),
+    sa.column("tags", CustomJSON()),
+    sa.column("name", sa.String),
+)
 
 
 def _where_sql(condition: sa.ColumnElement[bool], dialect: sa.Dialect) -> str:
@@ -237,3 +246,49 @@ class TestAnalyze:
     def test_runs_on_the_running_engine(self):
         with sync_engine.begin() as connection:
             connection.execute(Analyze("roms"))
+
+
+class TestForceIndexOnMysql:
+    @pytest.mark.parametrize(
+        ("dialect", "expected"),
+        [
+            (MARIADB_DIALECT, "FROM t FORCE INDEX (ix_t_v)"),
+            (mysql.dialect(), "FROM t FORCE INDEX (ix_t_v)"),
+            (POSTGRESQL_DIALECT, "FROM t"),
+        ],
+    )
+    def test_only_the_mysql_family_gets_the_hint(
+        self, dialect: sa.Dialect, expected: str
+    ):
+        statement = force_index_on_mysql(sa.select(_T.c.v), _T, "ix_t_v")
+
+        assert compile_sql(statement, dialect).split("\n")[-1] == expected
+
+    def test_runs_on_the_running_engine(self):
+        statement = force_index_on_mysql(
+            sa.select(Save.id), Save, SAVE_SLOT_VERSIONS_INDEX
+        ).with_for_update()
+
+        with sync_engine.begin() as connection:
+            connection.execute(statement)
+
+
+class TestFulltextMatch:
+    def test_matches_in_boolean_mode(self):
+        match = fulltext_match(_T.c.name, boolean_query="+zelda*")
+
+        assert _where_sql(match, MARIADB_DIALECT) == (
+            "MATCH (t.name) AGAINST (:param_1 IN BOOLEAN MODE)"
+        )
+
+    def test_runs_against_the_roms_fulltext_index(self):
+        """MySQL and MariaDB refuse a column list no FULLTEXT index spans exactly."""
+        condition = DialectCase(
+            postgresql=sa.true(),
+            mysql=fulltext_match(
+                Rom.name.expression, Rom.fs_name.expression, boolean_query="+zelda*"
+            ),
+        )
+
+        with sync_engine.connect() as connection:
+            connection.execute(sa.select(Rom.id).where(condition))

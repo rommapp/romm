@@ -100,6 +100,7 @@ export type { DeviceAuthTokenResponse } from './models/DeviceAuthTokenResponse';
 export type { DeviceCreatePayload } from './models/DeviceCreatePayload';
 export type { DeviceCreateResponse } from './models/DeviceCreateResponse';
 export type { DeviceHeartbeatPayload } from './models/DeviceHeartbeatPayload';
+export type { DeviceInstallDict } from './models/DeviceInstallDict';
 export type { DeviceSchema } from './models/DeviceSchema';
 export type { DeviceSyncSchema } from './models/DeviceSyncSchema';
 export type { DeviceUpdatePayload } from './models/DeviceUpdatePayload';
@@ -132,6 +133,10 @@ export type { IGDBMetadataMultiplayerMode } from './models/IGDBMetadataMultiplay
 export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
 export type { ImportRefusalSchema } from './models/ImportRefusalSchema';
+export type { InstallRequestCreatePayload } from './models/InstallRequestCreatePayload';
+export type { InstallRequestSchema } from './models/InstallRequestSchema';
+export type { InstallRequestUpdatePayload } from './models/InstallRequestUpdatePayload';
+export type { InstallStatus } from './models/InstallStatus';
 export type { InviteLinkSchema } from './models/InviteLinkSchema';
 export type { JobStatus } from './models/JobStatus';
 export type { JoinableSessionSchema } from './models/JoinableSessionSchema';

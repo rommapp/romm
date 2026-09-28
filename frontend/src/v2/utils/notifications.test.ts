@@ -94,6 +94,45 @@ describe("describeNotification", () => {
     });
   });
 
+  it("names the game and device an install landed on", () => {
+    const view = describeNotification(
+      notification("device_install_completed", {
+        rom_id: 7,
+        rom_name: "Zelda",
+        device_name: "Thor",
+        status: "done",
+      }),
+    );
+
+    expect(view.title).toBe("Zelda was added to downloads on Thor");
+    expect(view.to).toEqual({ name: ROUTES.ROM, params: { rom: 7 } });
+  });
+
+  it("tells an already installed game apart from a new download", () => {
+    const view = describeNotification(
+      notification("device_install_completed", {
+        rom_name: "Zelda",
+        device_name: "Thor",
+        status: "already_installed",
+      }),
+    );
+
+    expect(view.title).toBe("Zelda is already installed on Thor");
+  });
+
+  it("carries the device's reason for a failed install", () => {
+    const view = describeNotification(
+      notification("device_install_failed", {
+        rom_name: "Zelda",
+        status: "failed",
+        reason: "no emulator for this platform",
+      }),
+    );
+
+    expect(view.title).toBe("Zelda could not be installed on your device");
+    expect(view.body).toBe("no emulator for this platform");
+  });
+
   it("shows a custom notification with its own content", () => {
     const view = describeNotification({
       ...notification("argosy.sync_done"),

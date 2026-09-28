@@ -7,7 +7,7 @@ import secrets
 from typing import Final
 
 from handler.email_handler import send_email
-from handler.redis_handler import async_cache
+from handler.redis_handler import as_text, async_cache
 
 CODE_TTL_SECONDS: Final = 30 * 60
 RESEND_COOLDOWN_SECONDS: Final = 60
@@ -88,8 +88,7 @@ async def check_code(channel_id: int, code: str) -> bool:
         await async_cache.delete(_key(channel_id, "code"))
         return False
 
-    expected = stored.decode() if isinstance(stored, bytes) else stored
-    if not hmac.compare_digest(expected, _digest(channel_id, code.strip())):
+    if not hmac.compare_digest(as_text(stored), _digest(channel_id, code.strip())):
         return False
     await async_cache.delete(_key(channel_id, "code"), _key(channel_id, "attempts"))
     return True

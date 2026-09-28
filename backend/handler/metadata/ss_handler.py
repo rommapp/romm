@@ -2,7 +2,7 @@ import html
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Final, NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict, cast
 
 import pydash
 from fastapi import HTTPException, status
@@ -849,7 +849,7 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
         "ss_metadata": ss_metadata,
     }
 
-    return SSRom({k: v for k, v in game_rom.items() if v})  # type: ignore[misc]
+    return cast(SSRom, {k: v for k, v in game_rom.items() if v})
 
 
 class SSHandler(MetadataHandler):
@@ -877,7 +877,7 @@ class SSHandler(MetadataHandler):
             log.error("Error checking ScreenScraper API: %s", e)
             return False
 
-        return bool(response.get("response", {}))
+        return bool(response and response.get("response"))
 
     @staticmethod
     def extract_ss_id_from_filename(fs_name: str) -> int | None:
@@ -1374,7 +1374,8 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.WIIU: {"id": 18, "name": "Wii U"},
     UPS.WIN: {"id": 138, "name": "PC Windows"},
     UPS.WIN3X: {"id": 136, "name": "PC Win3.xx"},
-    UPS.WIN9X: {"id": 137, "name": "PC Win9X"},
+    # Most Win9x games are filed under the generic Windows system
+    UPS.WIN9X: {"id": 138, "name": "PC Win9X"},
     UPS.WASM_4: {"id": 262, "name": "WASM-4"},
     UPS.WONDERSWAN: {"id": 45, "name": "WonderSwan"},
     UPS.WONDERSWAN_COLOR: {"id": 46, "name": "WonderSwan Color"},

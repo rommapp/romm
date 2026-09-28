@@ -289,9 +289,9 @@ class RAHandler(MetadataHandler):
             return RAGameRom(ra_id=None)
 
         rom_details = await self.ra_service.get_game_extended_details(ra_game_id)
-        # RA's own index names this game, so an empty reply is a failed request.
+        # A failed request raises; None means RA retired the game the index named.
         if not rom_details:
-            raise unavailable("RetroAchievements")
+            return RAGameRom(ra_id=None)
 
         try:
             return RAGameRom(
@@ -326,6 +326,8 @@ class RAHandler(MetadataHandler):
 
         try:
             rom_details = await self.ra_service.get_game_extended_details(ra_id)
+            if not rom_details:
+                return RAGameRom(ra_id=None)
             game_id = rom_details["ID"]
             hash_match = await self._hash_matches(rom, ra_hash, ra_id)
             return RAGameRom(
@@ -405,7 +407,8 @@ class RAHandler(MetadataHandler):
                     username=username,
                     game_id=rom_game_id,
                 )
-                for achievement in result.get("Achievements", {}).values():
+                achievements = result.get("Achievements", {}) if result else {}
+                for achievement in achievements.values():
                     badge_name = achievement.get("BadgeName")
                     date_earned = achievement.get("DateEarned")
                     date_earned_hardcore = achievement.get("DateEarnedHardcore")

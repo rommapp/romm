@@ -22,6 +22,15 @@ from adapters.services.steamgriddb_types import (
 
 INVALID_GAME_ID = 999999
 
+GRID = {
+    "id": 1,
+    "score": 0,
+    "style": "material",
+    "url": "https://example.com/grid1.png",
+    "thumb": "https://example.com/thumb1.png",
+    "author": {"name": "TestUser", "steam64": "123", "avatar": ""},
+}
+
 
 class TestAuthMiddleware:
     @patch("adapters.services.steamgriddb.STEAMGRIDDB_API_KEY", "test_api_key")
@@ -86,8 +95,8 @@ class TestSteamGridDBServiceUnit:
         """Test successful API request."""
         mock_session = AsyncMock()
         mock_response = MagicMock()
-        mock_response.json = AsyncMock(
-            return_value={"data": [{"id": 1, "name": "Test Game"}]}
+        mock_response.read = AsyncMock(
+            return_value=json.dumps({"data": [{"id": 1, "name": "Test Game"}]}).encode()
         )
         mock_response.raise_for_status.return_value = None
         mock_session.get.return_value = mock_response
@@ -97,13 +106,13 @@ class TestSteamGridDBServiceUnit:
 
         with patch("adapters.services.steamgriddb.ctx_aiohttp_session", mock_context):
             result = await service._request(
-                "https://steamgriddb.com/api/v2/search/test"
+                "https://steamgriddb.com/api/v2/search/test", object
             )
 
         assert result == {"data": [{"id": 1, "name": "Test Game"}]}
         mock_session.get.assert_called_once()
         mock_response.raise_for_status.assert_called_once()
-        mock_response.json.assert_called_once()
+        mock_response.read.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_request_unauthorized_raises_exception(self, service):
@@ -121,7 +130,9 @@ class TestSteamGridDBServiceUnit:
 
         with patch("adapters.services.steamgriddb.ctx_aiohttp_session", mock_context):
             with pytest.raises(HTTPException) as exc_info:
-                await service._request("https://steamgriddb.com/api/v2/search/test")
+                await service._request(
+                    "https://steamgriddb.com/api/v2/search/test", object
+                )
             assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
     @pytest.mark.asyncio
@@ -140,10 +151,10 @@ class TestSteamGridDBServiceUnit:
 
         with patch("adapters.services.steamgriddb.ctx_aiohttp_session", mock_context):
             result = await service._request(
-                "https://steamgriddb.com/api/v2/search/test"
+                "https://steamgriddb.com/api/v2/search/test", object
             )
 
-        assert result == {}
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_request_json_decode_error(self, service):
@@ -151,7 +162,7 @@ class TestSteamGridDBServiceUnit:
         mock_session = AsyncMock()
         mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
-        mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "", 0)
+        mock_response.read = AsyncMock(return_value=b"not json")
         mock_session.get.return_value = mock_response
 
         mock_context = MagicMock()
@@ -159,10 +170,10 @@ class TestSteamGridDBServiceUnit:
 
         with patch("adapters.services.steamgriddb.ctx_aiohttp_session", mock_context):
             result = await service._request(
-                "https://steamgriddb.com/api/v2/search/test"
+                "https://steamgriddb.com/api/v2/search/test", object
             )
 
-        assert result == {}
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_get_grids_for_game_basic(self, service):
@@ -212,7 +223,7 @@ class TestSteamGridDBServiceUnit:
             "page": 0,
             "total": 1,
             "limit": 50,
-            "data": [{"id": 1, "style": "material"}],
+            "data": [GRID],
         }
 
         with patch.object(
@@ -449,7 +460,7 @@ class TestSteamGridDBServiceUnit:
     @pytest.mark.asyncio
     async def test_iter_grids_for_game_with_filters(self, service):
         """Test iter_grids_for_game with filters passed through."""
-        mock_response = {"page": 0, "total": 1, "limit": 50, "data": [{"id": 1}]}
+        mock_response = {"page": 0, "total": 1, "limit": 50, "data": [GRID]}
 
         with patch.object(
             service, "get_grids_for_game", return_value=mock_response
@@ -678,7 +689,9 @@ class TestSteamGridDBServicePerformance:
     @pytest.mark.asyncio
     async def test_concurrent_requests(self, service):
         """Test multiple concurrent API requests."""
-        mock_response = {"data": [{"id": 1, "name": "Test Game"}]}
+        mock_response = {
+            "data": [{"id": 1, "name": "Test Game", "types": [], "verified": True}]
+        }
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -695,7 +708,7 @@ class TestSteamGridDBServicePerformance:
     @pytest.mark.asyncio
     async def test_concurrent_grid_requests(self, service):
         """Test multiple concurrent grid requests."""
-        mock_response = {"page": 0, "total": 1, "limit": 50, "data": [{"id": 1}]}
+        mock_response = {"page": 0, "total": 1, "limit": 50, "data": [GRID]}
 
         with patch.object(
             service, "_request", return_value=mock_response
@@ -808,7 +821,7 @@ class TestSteamGridDBServiceEdgeCases:
         """Test request with custom timeout."""
         mock_session = AsyncMock()
         mock_response = MagicMock()
-        mock_response.json = AsyncMock(return_value={"data": []})
+        mock_response.read = AsyncMock(return_value=json.dumps({"data": []}).encode())
         mock_response.raise_for_status.return_value = None
         mock_session.get.return_value = mock_response
 
@@ -817,7 +830,7 @@ class TestSteamGridDBServiceEdgeCases:
 
         with patch("adapters.services.steamgriddb.ctx_aiohttp_session", mock_context):
             result = await service._request(
-                "https://steamgriddb.com/api/v2/search/test", request_timeout=30
+                "https://steamgriddb.com/api/v2/search/test", object, request_timeout=30
             )
 
         assert result == {"data": []}

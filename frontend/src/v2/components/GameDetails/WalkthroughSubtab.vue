@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// WalkthroughSubtab — the Media tab's Walkthrough panel. Surfaces
+// WalkthroughSubtab: the Media tab's Walkthrough panel. Surfaces
 // walkthrough-category files (uploaded, or fetched from a GameFAQs guide URL),
 // picking the viewer (PDF / Markdown / Text) by extension. Mirrors
 // ManualSubtab's chrome, plus an "add from GameFAQs URL" affordance.
@@ -52,6 +52,9 @@ const props = defineProps<{
   /** Drop the Upload button when the parent renders it elsewhere (through
    *  the exposed `openUpload`). */
   hideUpload?: boolean;
+  /** Whether this panel may mount the PDF viewer (one per page, see
+   *  MediaTab). */
+  pdfActive?: boolean;
 }>();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
@@ -273,7 +276,7 @@ async function requestDelete() {
           @delete="requestDelete"
         />
         <PdfViewer
-          v-else
+          v-else-if="pdfActive"
           :key="selected.url"
           :pdf-url="selected.url"
           :rom-id="rom.id"

@@ -6,10 +6,11 @@ from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select, updat
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
 from models.base import with_file_name_parts
 from models.rom import Rom
+from utils.sql_dialect import force_index_on_mysql
 
 from .base_handler import DBBaseHandler, affected_rows
 from .deleted_assets_handler import DBDeletedAssetsHandler
@@ -54,7 +55,7 @@ class DBSavesHandler(DBBaseHandler):
     def add_save(
         self,
         save: Save,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Save:
         return session.merge(save)
 
@@ -63,7 +64,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         user_id: int,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Save | None:
         return session.scalar(select(Save).filter_by(user_id=user_id, id=id).limit(1))
 
@@ -74,7 +75,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         file_name: str,
         slot: str | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Save | None:
         query = select(Save).filter_by(
             rom_id=rom_id, user_id=user_id, file_name=file_name
@@ -92,7 +93,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         file_path: str,
         file_name: str,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Save | None:
         return session.scalars(
             select(Save)
@@ -109,7 +110,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         content_hash: str,
         slot: str | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Save | None:
         query = select(Save).filter_by(
             rom_id=rom_id, user_id=user_id, content_hash=content_hash
@@ -175,7 +176,7 @@ class DBSavesHandler(DBBaseHandler):
         file_name_prefix: str | None = None,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Save]:
         query = self._saves_query(
             user_id=user_id,
@@ -200,7 +201,7 @@ class DBSavesHandler(DBBaseHandler):
         slot_not_null: bool = False,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> list[int]:
         """Ids only, so no `Save` is built and no eager rom or user join fires."""
         query = self._saves_query(
@@ -218,7 +219,7 @@ class DBSavesHandler(DBBaseHandler):
     def get_save_by_id(
         self,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Save | None:
         """Fetch a save by id without scoping to an owner. Used for the
         visibility toggle and community downloads, where the caller may not own
@@ -231,7 +232,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         public_only: bool = False,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Save]:
         """Saves for a ROM visible to the requesting user: own (public +
         private) plus other users' public ones. Mirrors
@@ -251,7 +252,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_ids: Sequence[int],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> dict[int, Save]:
         """The most recent save per ROM for a user, keyed by `rom_id`.
 
@@ -277,7 +278,7 @@ class DBSavesHandler(DBBaseHandler):
     def _slot_version(
         self,
         id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Row[Any] | None:
         return session.execute(_version_query(id)).one_or_none()
 
@@ -303,7 +304,7 @@ class DBSavesHandler(DBBaseHandler):
         data: dict[str, Any],
         touch: bool = True,
         replaced_hash: str | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Save:
         """Write `data` onto a save.
 
@@ -325,7 +326,7 @@ class DBSavesHandler(DBBaseHandler):
         id: int,
         content_hash: str,
         replacing: str | None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> bool:
         """Store a recomputed hash of the same bytes, so no version leaves the slot.
 
@@ -365,7 +366,7 @@ class DBSavesHandler(DBBaseHandler):
         slot: str,
         keep: int,
         fallback_hashes: Mapping[int, str | None] | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Row[Any]]:
         """Delete every version of a slot past the ``keep`` newest.
 
@@ -402,11 +403,10 @@ class DBSavesHandler(DBBaseHandler):
         _lock_slot(user_id, rom_id, slot, session)
         # Locks only this slot's rows and takes no snapshot, which MariaDB's
         # snapshot isolation would fail the delete against.
-        hint = f"FORCE INDEX ({SAVE_SLOT_VERSIONS_INDEX})"
         rows = session.execute(
-            past_keep.with_hint(Save, hint, "mariadb")
-            .with_hint(Save, hint, "mysql")
-            .with_for_update()
+            force_index_on_mysql(
+                past_keep, Save, SAVE_SLOT_VERSIONS_INDEX
+            ).with_for_update()
         ).all()
         fallback_hashes = fallback_hashes or {}
         unhashed = [
@@ -439,7 +439,7 @@ class DBSavesHandler(DBBaseHandler):
     def _any(
         self,
         query: Select[Any],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> bool:
         return session.execute(query.limit(1)).first() is not None
 
@@ -449,7 +449,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         id: int,
         content_hash: str | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         """Delete a save, recording the version its slot loses.
 
@@ -471,7 +471,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         saves_to_keep: list[str],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Save]:
         missing_saves = session.scalars(
             select(Save).filter(
@@ -503,7 +503,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> dict[str, Any]:
         saves = session.scalars(
             select(Save)
@@ -526,7 +526,7 @@ class DBSavesHandler(DBBaseHandler):
     @begin_session
     def count_saves_missing_content_hash(
         self,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> int:
         """Number of Save rows whose content_hash is NULL. Used at startup to
         decide whether the one-shot recompute task needs to be enqueued."""
@@ -542,7 +542,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         after_id: int,
         limit: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Save]:
         """Page Save rows by primary key. Returns up to ``limit`` rows with
         ``id > after_id``, ordered by id. Used by the
@@ -561,7 +561,7 @@ def _version_query(id: int) -> Select[Any]:
 
 def _loses_version(version: Row[Any], data: dict[str, Any]) -> bool:
     """Whether writing `data` takes this version out of its slot."""
-    return (
+    return bool(
         data.get("slot", version.slot) != version.slot
         or data.get("content_hash", version.content_hash) != version.content_hash
     )
