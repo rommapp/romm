@@ -16,8 +16,7 @@ import {
 import {
   deleteButtons,
   downloadButtons,
-  listRows,
-  manageListRows,
+  selectableItems,
 } from "@/v2/utils/saveStates.plays";
 import AssetList from "./AssetList.vue";
 
@@ -87,8 +86,7 @@ export const SlotLibrary: Story = {
       expect(ui.getByText("main_quest")).toBeTruthy();
     });
     await step("clicking a row updates selection", async () => {
-      const rows = listRows(canvasElement);
-      const target = rows.find(
+      const target = selectableItems(canvasElement).find(
         (r) => r.getAttribute("aria-pressed") === "false",
       );
       expect(target).toBeTruthy();
@@ -165,11 +163,9 @@ export const IdenticalPrefixStates: Story = {
   },
   play: async ({ canvasElement, step }) => {
     await step("each row keeps the full filename in the DOM", async () => {
-      const names = Array.from(
-        canvasElement.querySelectorAll(".r-asset-list__name"),
-      );
-      expect(names.length).toBe(4);
-      for (const el of names) {
+      const rows = selectableItems(canvasElement);
+      expect(rows).toHaveLength(4);
+      for (const el of rows) {
         expect(el.textContent).toContain(IDENTICAL_STATE_PREFIX);
       }
     });
@@ -193,11 +189,19 @@ export const ManageSaves: Story = {
     `,
   }),
   play: async ({ canvasElement, step }) => {
-    await step("manage rows are static, not selectable buttons", async () => {
-      const rows = manageListRows(canvasElement);
-      expect(rows.length).toBeGreaterThan(0);
-      expect(rows[0]?.tagName).toBe("DIV");
-    });
+    await step(
+      "manage rows are list items, not selectable buttons",
+      async () => {
+        const ui = within(canvasElement);
+        const rows = ui.getAllByRole("listitem");
+        expect(
+          rows.some((r) => r.textContent?.includes("chrono_trigger")),
+        ).toBe(true);
+        expect(
+          ui.queryAllByRole("button", { name: /^chrono_trigger/ }),
+        ).toEqual([]);
+      },
+    );
     await step("own-item actions include download and delete", async () => {
       expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
       expect(deleteButtons(canvasElement).length).toBeGreaterThan(0);

@@ -1,28 +1,12 @@
 import { userEvent, waitFor, within } from "storybook/test";
 
-// Selectable rows only; manage-mode rows carry the `--static` modifier.
-export function listRows(root: HTMLElement): HTMLElement[] {
-  return Array.from(
-    root.querySelectorAll<HTMLElement>(
-      ".r-asset-list__row:not(.r-asset-list__row--static)",
-    ),
-  );
-}
-
-export function manageListRows(root: HTMLElement): HTMLElement[] {
-  return Array.from(
-    root.querySelectorAll<HTMLElement>(".r-asset-list__row--static"),
-  );
-}
-
-export function stripTiles(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(".r-asset-strip__tile"));
-}
-
-export function manageStripTiles(root: HTMLElement): HTMLElement[] {
-  return Array.from(
-    root.querySelectorAll<HTMLElement>(".r-asset-strip__tile--static"),
-  );
+// Selectable rows and tiles are toggle buttons, so `aria-pressed` marks them.
+export function selectableItems(root: HTMLElement): HTMLElement[] {
+  const ui = within(root);
+  return [
+    ...ui.queryAllByRole("button", { pressed: true }),
+    ...ui.queryAllByRole("button", { pressed: false }),
+  ];
 }
 
 export function downloadButtons(root: HTMLElement) {
@@ -38,12 +22,15 @@ export async function pickSaveDataSubtab(
   root: HTMLElement,
   label: RegExp,
 ): Promise<void> {
-  const tab = within(root).queryByRole("tab", { name: label });
+  const ui = within(root);
+  const tab = ui.queryByRole("tab", { name: label });
   if (tab) {
     await userEvent.click(tab);
     return;
   }
-  const trigger = root.querySelector<HTMLElement>(".r-v2-subtab-nav__trigger");
+  const trigger = ui
+    .queryAllByRole("button", { expanded: false })
+    .find((b) => b.getAttribute("aria-haspopup") === "menu");
   if (!trigger) {
     throw new Error("Save data subtab nav not found (tab or menu trigger)");
   }

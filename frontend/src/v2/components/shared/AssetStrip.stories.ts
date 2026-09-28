@@ -10,11 +10,7 @@ import {
   mixedCommunityStates,
   screenshotFixture,
 } from "@/v2/utils/saveStates.fixtures";
-import {
-  downloadButtons,
-  manageStripTiles,
-  stripTiles,
-} from "@/v2/utils/saveStates.plays";
+import { downloadButtons, selectableItems } from "@/v2/utils/saveStates.plays";
 import AssetStrip from "./AssetStrip.vue";
 
 const meta: Meta<typeof AssetStrip> = {
@@ -79,11 +75,11 @@ export const FewStatesScreenshots: Story = {
   },
   play: async ({ canvasElement, step }) => {
     await step("state tiles render with filenames", async () => {
-      expect(stripTiles(canvasElement).length).toBe(5);
+      expect(selectableItems(canvasElement).length).toBe(5);
       expect(canvasElement.textContent).toContain("overworld_1.state");
     });
     await step("clicking a tile selects it", async () => {
-      const tiles = stripTiles(canvasElement);
+      const tiles = selectableItems(canvasElement);
       const target = tiles.find(
         (t) => t.getAttribute("aria-pressed") === "false",
       );
@@ -251,7 +247,7 @@ export const ManageFlowGrouped: Story = {
       expect(ui.getByRole("button", { name: /snes9x/i })).toBeTruthy();
     });
     await step("static tiles host per-item actions", async () => {
-      const staticTiles = manageStripTiles(canvasElement);
+      const staticTiles = within(canvasElement).getAllByRole("listitem");
       expect(staticTiles.length).toBeGreaterThan(0);
       expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
     });

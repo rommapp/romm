@@ -9,9 +9,15 @@ import type {
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
 
-const STORY_NOW = new Date("2026-05-25T20:00:00Z").getTime();
+// Relative to the real clock, since AssetTimestamp formats against Date.now().
+const STORY_NOW = Date.now();
 const HOUR = 3600 * 1000;
-const WRITTEN_AT = "2026-05-13T22:08:00Z";
+
+export function hoursAgo(hours: number): string {
+  return new Date(STORY_NOW - hours * HOUR).toISOString();
+}
+
+const WRITTEN_AT = hoursAgo(12 * 24);
 
 export const IDENTICAL_STATE_PREFIX =
   "emulatorjs_chrono_trigger_usa_rev_a_super_nintendo";
@@ -47,14 +53,14 @@ export function saveScreenshot(hue: number): ScreenshotSchema {
   );
 }
 
-// One version in `slot`, `hoursAgo` old. Pass `slot: null` for an archive.
+// One version in `slot`, `age` hours old. Pass `slot: null` for an archive.
 export function makeSave(
   id: number,
   slot: string | null,
-  hoursAgo: number,
+  age: number,
   overrides: Partial<SaveSchema> = {},
 ): SaveSchema {
-  const at = new Date(STORY_NOW - hoursAgo * HOUR).toISOString();
+  const at = hoursAgo(age);
   // Slotted uploads carry the backend's datetime tag; archives keep their name.
   const stem = slot
     ? `chrono_trigger [${at.slice(0, 19).replace("T", "_").replace(/:/g, "-")}]`
@@ -76,15 +82,15 @@ export function makeSave(
   });
 }
 
-// A slot with `count` versions from `firstId`, newest `hoursAgo` old.
+// A slot with `count` versions from `firstId`, the newest `age` hours old.
 export function makeSaveSlot(
   slot: string,
   count: number,
-  hoursAgo: number,
+  age: number,
   firstId: number,
 ): SaveSchema[] {
   return Array.from({ length: count }).map((_, i) =>
-    makeSave(firstId + i, slot, hoursAgo + i * 26, {
+    makeSave(firstId + i, slot, age + i * 26, {
       screenshot: saveScreenshot((i * 47 + slot.length * 31) % 360),
     }),
   );
@@ -110,7 +116,7 @@ export function makeState(overrides: Partial<StateSchema> = {}): StateSchema {
     file_size_bytes: 524288,
     full_path: "/states/snes/state_1.state",
     download_path: "/api/states/1/content",
-    created_at: "2026-04-02T09:00:00Z",
+    created_at: hoursAgo(53 * 24),
     updated_at: WRITTEN_AT,
     emulator: "snes9x",
     screenshot: screenshotFixture(
@@ -135,23 +141,21 @@ const stateShots: { color: string; label: string }[] = [
 ];
 
 export function manyStates(n: number): StateSchema[] {
-  const deltas = [
-    2 * 3600,
-    5 * 3600,
-    24 * 3600,
-    2 * 86400,
-    4 * 86400,
-    7 * 86400,
-    14 * 86400,
-    30 * 86400,
-    60 * 86400,
-    180 * 86400,
+  const ages = [
+    2,
+    5,
+    24,
+    2 * 24,
+    4 * 24,
+    7 * 24,
+    14 * 24,
+    30 * 24,
+    60 * 24,
+    180 * 24,
   ];
   return Array.from({ length: n }).map((_, i) => {
     const shot = stateShots[i % stateShots.length];
-    const at = new Date(
-      STORY_NOW - deltas[i % deltas.length] * 1000,
-    ).toISOString();
+    const at = hoursAgo(ages[i % ages.length]);
     return makeState({
       id: i + 1,
       file_name: `${shot.label.replace("+", " ").toLowerCase()}_${i + 1}.state`,
@@ -170,7 +174,7 @@ export function manyStates(n: number): StateSchema[] {
 // Browser-player states share a long prefix, so only the tail tells them apart.
 export function identicalPrefixStates(count: number): StateSchema[] {
   return Array.from({ length: count }).map((_, i) => {
-    const tail = new Date(STORY_NOW - (i + 1) * HOUR).toISOString();
+    const tail = hoursAgo(i + 1);
     return makeState({
       id: i + 1,
       file_name: `${IDENTICAL_STATE_PREFIX}_${tail.replace(/[:.]/g, "-")}.state`,

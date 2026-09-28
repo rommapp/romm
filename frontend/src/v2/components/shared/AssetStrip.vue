@@ -193,12 +193,18 @@ const fadeIndex = computed(() =>
 
       <RExpandTransition>
         <div v-show="isOpen(group)" class="r-asset-strip__fold">
-          <div class="r-asset-strip__track">
+          <!-- Static tiles host their own actions, so they read as a list;
+               selectable tiles are toggle buttons instead. -->
+          <div
+            class="r-asset-strip__track"
+            :role="selectable ? undefined : 'list'"
+          >
             <component
               :is="selectable ? 'button' : 'div'"
               v-for="asset in group.assets"
               :key="asset.id"
               :type="selectable ? 'button' : undefined"
+              :role="selectable ? undefined : 'listitem'"
               class="r-asset-strip__tile r-v2-asset-fade"
               :class="{
                 'r-asset-strip__tile--active':
