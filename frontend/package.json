@@ -74,7 +74,7 @@
     "@tailwindcss/vite": "^4.3.1",
     "@types/js-cookie": "^3.0.6",
     "@types/lodash": "^4.17.16",
-    "@types/node": "^22.13.14",
+    "@types/node": "^24.0.0",
     "@types/qrcode": "^1.5.5",
     "@types/semver": "^7.7.0",
     "@vitejs/plugin-vue": "^6.0.7",
