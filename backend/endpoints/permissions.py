@@ -1,3 +1,4 @@
+import asyncio
 from typing import Annotated, Any
 
 from fastapi import Body, HTTPException, Request, status
@@ -20,12 +21,13 @@ from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_admin, get_permissions
 from handler.database import (
+    db_client_token_handler,
     db_permission_handler,
     db_platform_handler,
     db_rom_handler,
     db_user_handler,
 )
-from handler.socket_handler import socket_handler
+from handler.socket_handler import close_client_token_sockets, socket_handler
 from logger.logger import log
 from models.audit_event import AuditAction, AuditTargetType
 from models.permission import PermAction, PermEntity, PermissionGroup
@@ -37,19 +39,31 @@ router = APIRouter(
 )
 
 
-async def emit_permissions_changed(user_id: int) -> None:
-    """Notify clients that `user_id`'s effective permissions changed.
-
-    Broadcast (Redis-backed fan-out); the frontend re-fetches `/permissions/me`
-    only when the affected user is the current user. Call this from any path that
-    mutates a user's role, group, overrides or hidden entities.
-    """
+async def _broadcast_permissions_changed(user_id: int) -> None:
     try:
         await socket_handler.socket_server.emit(
             "permissions:changed", {"user_id": user_id}
         )
     except Exception as e:  # noqa: BLE001
         log.warning(f"Failed to broadcast permissions:changed for user {user_id}: {e}")
+
+
+async def emit_permissions_changed(*user_ids: int) -> None:
+    """Notify clients that the users' effective permissions changed.
+
+    Broadcast (Redis-backed fan-out); the frontend re-fetches `/permissions/me`
+    only when the affected user is the current user. Call this from any path that
+    mutates a user's role, group, overrides or hidden entities.
+    """
+    if not user_ids:
+        return
+    await asyncio.gather(*(_broadcast_permissions_changed(u) for u in user_ids))
+    try:
+        token_ids = db_client_token_handler.get_token_ids_by_users(user_ids)
+    except Exception:  # noqa: BLE001
+        log.warning(f"Failed to look up the tokens of users {user_ids}", exc_info=True)
+        return
+    await close_client_token_sockets(token_ids)
 
 
 @protected_route(router.get, "/me", [Scope.ME_READ])
@@ -212,8 +226,7 @@ async def update_permission_group(
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     # Grant changes alter every member's effective permissions.
-    for member_id in db_permission_handler.get_group_member_ids(id):
-        await emit_permissions_changed(member_id)
+    await emit_permissions_changed(*db_permission_handler.get_group_member_ids(id))
     record(
         AuditAction.PERMISSION_GROUP_EDIT,
         request,
@@ -249,8 +262,7 @@ async def delete_permission_group(request: Request, id: int) -> None:
         _group_target(group),
         {"members": len(member_ids)},
     )
-    for member_id in member_ids:
-        await emit_permissions_changed(member_id)
+    await emit_permissions_changed(*member_ids)
 
 
 # --- Admin: per-user assignment ----------------------------------------------
@@ -415,5 +427,6 @@ async def _emit_for_principal(user_id: int | None, group_id: int | None) -> None
     if user_id is not None:
         await emit_permissions_changed(user_id)
     elif group_id is not None:
-        for member_id in db_permission_handler.get_group_member_ids(group_id):
-            await emit_permissions_changed(member_id)
+        await emit_permissions_changed(
+            *db_permission_handler.get_group_member_ids(group_id)
+        )

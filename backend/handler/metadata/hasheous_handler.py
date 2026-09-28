@@ -322,6 +322,18 @@ class HasheousHandler(MetadataHandler):
             ra_id=platform["ra_id"],
         )
 
+    async def _lookup_by_hashes(
+        self, data: list[dict[str, str | None]]
+    ) -> dict[str, Any]:
+        return await self._request(
+            self.games_endpoint,
+            params={
+                "returnAllSources": "true",
+                "returnFields": "Signatures, Metadata, Attributes",
+            },
+            data=data,
+        )
+
     async def lookup_rom(
         self, platform_slug: str, files: list[RomFile]
     ) -> tuple[HasheousRom, bool]:
@@ -348,6 +360,7 @@ class HasheousHandler(MetadataHandler):
             for file in files
             if file.file_size_bytes > 0
             and file.is_top_level
+            and file.file_extension.lower() != "m3u"
             and (
                 UPS(platform_slug) not in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
                 or file.file_extension
@@ -355,9 +368,8 @@ class HasheousHandler(MetadataHandler):
             )
         ]
 
-        # The lookup endpoint accepts the hashes of all top-level files, which
-        # increases the accuracy of metadata lookups by letting Hasheous match
-        # against any of them.
+        # One request carries every top-level file's hashes, but Hasheous only
+        # answers it when it knows all of them.
         data: list[dict[str, Any]] = []
         for file in filtered_files:
             hashes = file.lookup_hashes
@@ -380,17 +392,29 @@ class HasheousHandler(MetadataHandler):
             return fallback_rom, False
 
         try:
-            hasheous_game = await self._request(
-                self.games_endpoint,
-                params={
-                    "returnAllSources": "true",
-                    "returnFields": "Signatures, Metadata, Attributes",
-                },
-                data=data,
-            )
+            hasheous_game = await self._lookup_by_hashes(data)
+            # A sidecar file or an off-set disc hides the match the rest would
+            # make, so each file is asked alone and every answer must agree.
+            per_file_games: dict[Any, dict[str, Any]] = {}
+            if not hasheous_game and len(data) > 1:
+                for file_hashes in data:
+                    game = await self._lookup_by_hashes([file_hashes])
+                    if game:
+                        per_file_games[game.get("id")] = game
+                    if len(per_file_games) > 1:
+                        break
         except Exception as exc:
             log.error("Hasheous hash lookup failed, skipping: %s", exc)
             return fallback_rom, False
+
+        if len(per_file_games) > 1:
+            log.warning(
+                "Hasheous matched files of one rom to different games %s, skipping",
+                list(per_file_games),
+            )
+            return fallback_rom, False
+        if per_file_games:
+            hasheous_game = next(iter(per_file_games.values()))
 
         if not hasheous_game:
             return fallback_rom, True
@@ -413,7 +437,7 @@ class HasheousHandler(MetadataHandler):
                         f"Found an IGDB slug instead of an ID: {meta['immutableId']}"
                     )
                     pass
-            elif meta["source"] == "TheGamesDB":
+            elif meta["source"] == "TheGamesDb":
                 tgdb_id = meta["immutableId"]
             elif meta["source"] == "RetroAchievements":
                 ra_id = meta["immutableId"]

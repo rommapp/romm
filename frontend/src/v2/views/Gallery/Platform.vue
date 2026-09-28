@@ -1,15 +1,15 @@
 <script setup lang="ts">
-// Platform view — owns the platform-specific load flow (route param →
+// Platform view: owns the platform-specific load flow (route param →
 // ensure platforms loaded → setCurrentPlatform → fetch metadata) and
 // the three-tab surface that sits above the gallery:
-//   • Library  — the gallery (delegated to `GalleryShell`).
-//   • Firmware — `FirmwareTab` (upload / download / delete firmware).
-//   • Settings — `SettingsTab` (details + cover-style picker).
+//   • Library: the gallery (delegated to `GalleryShell`).
+//   • Firmware: `FirmwareTab` (upload / download / delete firmware).
+//   • Settings: `SettingsTab` (details + cover-style picker).
 //
 // Layout choice: `PlatformHead` (InfoPanel + RTabNav) lives INSIDE the
 // scrolling container of whichever branch is active. On Library, it
 // rides in `GalleryShell`'s `#header` slot so it scrolls away with
-// the cards and the toolbar pins below it — the same vocabulary the
+// the cards and the toolbar pins below it, the same vocabulary the
 // pre-tabs gallery had. On Firmware / Settings it sits above the tab body
 // and scrolls with the page (GalleryTabShell).
 //
@@ -42,6 +42,7 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import type { StatRow } from "@/v2/types/stats";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -64,7 +65,7 @@ const deleting = ref(false);
 const scanOpen = ref(false);
 const randomLoading = ref(false);
 
-// Permissions — `useCan` is reactive against the grants store, so the
+// Permissions: `useCan` is reactive against the grants store, so the
 // ribbon buttons hide automatically when the user's role changes.
 const canEditPlatform = useCan("platform.edit");
 const canScan = useCan("library.scan");
@@ -96,14 +97,7 @@ const memoryCardEmulator = computed<string | null>(() => {
 });
 
 const tab = ref<TabId>(parseTab(route.query.tab));
-watch(tab, (value) => {
-  if (route.query.tab !== value) {
-    router.replace({
-      path: route.path,
-      query: { ...route.query, tab: value },
-    });
-  }
-});
+watch(tab, (value) => syncQueryParam(router, "tab", value));
 watch(
   () => route.query.tab,
   (value) => {
@@ -186,7 +180,7 @@ const platformStats = computed<StatRow[]>(() => {
 
 // External metadata-provider chips. Each entry knows how to derive its
 // label + outbound URL from the platform; the chip is only rendered
-// when the ID exists. v2 surface — moved inline from v1's
+// when the ID exists. v2 surface, moved inline from v1's
 // PlatformInfoDrawer so users get the providers at a glance without
 // opening any flyout.
 interface ProviderChip {
@@ -331,7 +325,7 @@ async function loadForId(platformId: number) {
       }
     }
   } catch {
-    // Non-fatal — the cached snapshot stays in place, and the tabs
+    // Non-fatal: the cached snapshot stays in place, and the tabs
     // surface what's already known. Logged by the axios interceptor.
   }
 }
@@ -377,7 +371,7 @@ function onAddPhysical() {
 // in place, so the id check in `onRandomGame` can't see the user walked away.
 const alive = useIsAlive();
 
-// Random ROM — pick one game from this platform and jump to its
+// Random ROM: pick one game from this platform and jump to its
 // details. Mirrors the Home RandomPickWidget: `/roms/random` samples the
 // pick server-side, so one request resolves it whatever the platform
 // holds. `null` means the platform holds no roms.
@@ -458,7 +452,7 @@ async function onDelete() {
 </script>
 
 <template>
-  <!-- LIBRARY — full GalleryShell with PlatformHead in #header so the
+  <!-- LIBRARY: full GalleryShell with PlatformHead in #header so the
        head band scrolls naturally with the cards and the toolbar pins
        below it. Same scroll vocabulary as the pre-tabs gallery. -->
   <GalleryShell
@@ -540,7 +534,7 @@ async function onDelete() {
     </template>
   </GalleryTabShell>
 
-  <!-- Per-platform scan dialog — mounted at the view level so it
+  <!-- Per-platform scan dialog, mounted at the view level so it
        survives tab switches without remounting. Gates on `currentPlatform`
        so we never pass a `null` to the dialog body. -->
   <ScanPlatformDialog

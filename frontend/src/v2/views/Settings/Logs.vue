@@ -11,6 +11,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import EventLog from "@/v2/components/Settings/EventLog.vue";
 import LogViewer from "@/v2/components/Settings/LogViewer.vue";
 import { useCan } from "@/v2/composables/useCan";
+import { replaceQuery } from "@/v2/utils/routeQuery";
 
 type Tab = "logs" | "events";
 
@@ -58,7 +59,7 @@ const tabModel = computed<string>({
   get: () => tab.value ?? "events",
   set: (id) => {
     // Each tab owns the rest of the query, so switching starts it clean.
-    void router.replace({ query: id === "logs" ? { tab: id } : {} });
+    replaceQuery(router, id === "logs" ? { tab: id } : {});
   },
 });
 </script>

@@ -12,6 +12,7 @@ export const CHANNEL_TOPICS: NotificationTopic[] = [
   "scans",
   "tasks",
   "streaming",
+  "devices",
   "account",
   "custom",
 ];

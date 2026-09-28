@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.deleted_asset import MAX_REMEMBERED_HASHES, DeletedAsset
 
 from .base_handler import DBBaseHandler
@@ -29,7 +29,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         slot: str,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> bool:
         return (
             session.scalar(
@@ -86,7 +86,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         rom_id: int,
         slot: str,
         content_hashes: Sequence[str],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> DeletedAsset:
         record = self.lock_record(user_id, rom_id, slot, session)
         if record is None:
@@ -119,7 +119,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         slot: str,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> DeletedAsset:
         record = DeletedAsset(
             user_id=user_id, rom_id=rom_id, slot=slot, content_hashes=[], removed_at={}
@@ -145,7 +145,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         slot: str | None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> dict[str, datetime]:
         """When each version this slot lost was lost, empty for a slot that lost none."""
         record = session.scalar(
@@ -158,7 +158,7 @@ class DBDeletedAssetsHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_ids: Collection[int],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[DeletedAsset]:
         """What each slot of these ROMs lost, for this user."""
         if not rom_ids:

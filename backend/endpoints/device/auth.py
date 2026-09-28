@@ -6,7 +6,7 @@ The user scans the QR on their phone, lands on /pair/device in the web UI,
 approves (possibly editing scopes and device name), and the device's next poll
 on /token returns a ClientToken bound 1:1 to a Device record.
 
-The flow is unauthenticated on /authorize and /token (the whole point — the
+The flow is unauthenticated on /authorize and /token (the whole point: the
 device has no credentials yet). State lives exclusively in Redis with a hard
 10-minute TTL ceiling.
 """
@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, Request, status
 
 from decorators.auth import protected_route
-from endpoints.responses.device_auth import (
+from endpoints.responses.device.auth import (
     DeviceAuthApprovePayload,
     DeviceAuthApproveResponse,
     DeviceAuthDenyPayload,
@@ -62,7 +62,7 @@ router = APIRouter(prefix="/auth/device", tags=["device-auth"])
 
 
 def _device_code_prefix(device_code: str) -> str:
-    """Short prefix for log lines — never log the full secret."""
+    """Short prefix for log lines; never log the full secret."""
     return device_code[:8]
 
 

@@ -32,6 +32,7 @@ import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
@@ -117,17 +118,6 @@ function readNoteFromQuery(): number | null {
   return allNotes.value.some((x) => x.id === n) ? n : null;
 }
 
-function writeNoteToQuery(id: number | null) {
-  const next = { ...route.query };
-  if (id === null) {
-    delete next.note;
-  } else {
-    next.note = String(id);
-  }
-  if (route.query.note === next.note) return;
-  router.replace({ path: route.path, query: next });
-}
-
 function defaultSelection(): number | null {
   if (myNotes.value.length > 0) return myNotes.value[0].id;
   if (communityNotes.value.length > 0) return communityNotes.value[0].id;
@@ -136,7 +126,9 @@ function defaultSelection(): number | null {
 
 selectedNoteId.value = readNoteFromQuery() ?? defaultSelection();
 
-watch(selectedNoteId, (id) => writeNoteToQuery(id));
+watch(selectedNoteId, (id) =>
+  syncQueryParam(router, "note", id === null ? undefined : String(id)),
+);
 
 // React to URL changes (back/forward, external nav).
 watch(
@@ -281,8 +273,8 @@ async function removeNote(note: UserNoteSchema) {
 }
 
 function selectNote(id: number) {
-  // Switching notes silently drops an unsaved draft — user picked a
-  // different note, the intent is clear.
+  // Switching notes silently drops an unsaved draft: the user picked a
+  // different note, so the intent is clear.
   if (editForm.value) editForm.value = null;
   selectedNoteId.value = id;
 }
@@ -708,7 +700,7 @@ function fmtDate(iso: string): string {
 .r-v2-notes__pane-foot {
   font-size: var(--r-font-size-sm);
   color: var(--r-color-fg-muted);
-  /* No border / extra padding — the markdown surface above already
+  /* No border / extra padding: the markdown surface above already
      provides the visual separation via its glass background. */
 }
 
@@ -769,7 +761,7 @@ function fmtDate(iso: string): string {
   color: var(--r-color-fg) !important;
 }
 
-/* Empty preview state — when md-preview gets no content it still renders
+/* Empty preview state: when md-preview gets no content it still renders
    an empty wrapper. Add a quiet hint line so the right pane isn't blank. */
 .r-v2-notes__preview :deep(.md-editor-preview):empty::before {
   content: "(empty)";
