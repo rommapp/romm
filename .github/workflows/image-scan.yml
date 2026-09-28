@@ -124,8 +124,7 @@ jobs:
           # replace the analysis of latest.
           category: trivy-image-${{ matrix.image }}
 
-      # Runs after the image is published, so this flags the run rather than
-      # blocking the release. Reuses the scan's cached database and layers.
+      # Runs after the image is published, so this flags the run rather than blocking the release.
       - name: Fail on fixable critical vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
