@@ -25,6 +25,13 @@ def test_response_body_credentials_are_masked(vcr_config):
     assert b"output=json" in body
 
 
+def test_response_body_credential_keys_match_any_case(vcr_config):
+    body = _scrub(vcr_config, b"https://ss.fr/?SSID=user1&DevPassword=s3cret")
+
+    assert b"user1" not in body
+    assert b"s3cret" not in body
+
+
 def test_short_keys_do_not_match_inside_longer_names(vcr_config):
     body = b"https://example.com/?display=grid&key=1"
 

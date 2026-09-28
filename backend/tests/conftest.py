@@ -208,7 +208,8 @@ _VCR_REDACTED = "x" * 30
 
 # The lookbehind stops RetroAchievements' `y` key matching inside `display=`.
 _BODY_SECRET_RE = re.compile(
-    rf"(?<![A-Za-z_-])({'|'.join(re.escape(k) for k in SENSITIVE_KEYS)})=[^&\s\"\\]*".encode()
+    rf"(?<![A-Za-z_-])({'|'.join(re.escape(k) for k in SENSITIVE_KEYS)})=[^&\s\"\\]*".encode(),
+    re.IGNORECASE,
 )
 
 
