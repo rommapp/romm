@@ -6,13 +6,11 @@ on:
   pull_request:
     paths:
       - "docker/**"
+      - "backend/**"
+      - "frontend/**"
       - pyproject.toml
       - uv.lock
       - .python-version
-      - frontend/package.json
-      - frontend/package-lock.json
-      - frontend/.nvmrc
-      - frontend/vite.config.js
       - .github/workflows/docker-pr.yml
 
 # A new push cancels a PR's superseded run; each master commit keeps its own.
