@@ -1213,7 +1213,10 @@ class TestStoreMetadataMedia:
 
 
 class TestRemoveStaleMedia:
-    """Stored media whose source changed or disappeared is deleted before a store."""
+    """Stored media whose owner or source changed is deleted before a store."""
+
+    shared = "roms/1/1/physical/physical.png"
+    disc2 = "roms/1/1/physical/physical_disc2.png"
 
     @pytest.fixture
     def handler(self, tmp_path):
@@ -1226,78 +1229,104 @@ class TestRemoveStaleMedia:
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_bytes(b"art")
 
+    @classmethod
+    def _physical(cls, url: str | None) -> dict[str, Any]:
+        return {"physical_url": url, "physical_path": cls.shared}
+
+    async def _remove(
+        self,
+        handler: FSResourcesHandler,
+        previous: list[dict[str, Any] | None],
+        current: list[dict[str, Any] | None],
+    ) -> None:
+        await handler.remove_stale_media(
+            previous, current, [MetadataMediaType.PHYSICAL]
+        )
+
     @pytest.mark.asyncio
     async def test_removes_a_file_whose_url_changed(
         self, handler: FSResourcesHandler, tmp_path
     ):
-        rel = "roms/1/1/physical/physical.png"
-        self._write(tmp_path, rel)
+        self._write(tmp_path, self.shared)
 
-        await handler.remove_stale_media(
-            {"physical_url": "http://example.com/disc2.png", "physical_path": rel},
-            {"physical_url": "http://example.com/disc1.png", "physical_path": rel},
-            [MetadataMediaType.PHYSICAL],
+        await self._remove(
+            handler,
+            [self._physical("http://ss/disc2.png")],
+            [self._physical("http://ss/disc1.png")],
         )
 
-        assert not (tmp_path / rel).exists()
+        assert not (tmp_path / self.shared).exists()
 
     @pytest.mark.asyncio
-    async def test_keeps_a_file_whose_url_is_unchanged(
+    async def test_keeps_a_file_whose_url_is_unchanged_or_unknown(
         self, handler: FSResourcesHandler, tmp_path
     ):
-        rel = "roms/1/1/physical/physical.png"
-        self._write(tmp_path, rel)
-        metadata = {
-            "physical_url": "http://example.com/disc1.png",
-            "physical_path": rel,
+        self._write(tmp_path, self.shared)
+
+        await self._remove(
+            handler, [self._physical("http://ss/disc1.png")], [self._physical(None)]
+        )
+
+        assert (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_removes_a_dropped_disc(self, handler: FSResourcesHandler, tmp_path):
+        self._write(tmp_path, self.disc2)
+        previous = {
+            "physical_extra_discs": [
+                {"disc": 2, "url": "http://ss/disc2.png", "path": self.disc2}
+            ]
         }
 
-        await handler.remove_stale_media(
-            metadata, dict(metadata), [MetadataMediaType.PHYSICAL]
-        )
+        await self._remove(handler, [previous], [{"physical_extra_discs": []}])
 
-        assert (tmp_path / rel).exists()
+        assert not (tmp_path / self.disc2).exists()
 
     @pytest.mark.asyncio
-    async def test_removes_a_dropped_disc_but_keeps_a_dropped_shared_path(
+    async def test_a_lower_priority_change_keeps_a_higher_ones_file(
         self, handler: FSResourcesHandler, tmp_path
     ):
-        shared = "roms/1/1/physical/physical.png"
-        disc2 = "roms/1/1/physical/physical_disc2.png"
-        self._write(tmp_path, shared)
-        self._write(tmp_path, disc2)
+        self._write(tmp_path, self.shared)
+        screenscraper = self._physical("http://ss/disc1.png")
 
-        await handler.remove_stale_media(
-            {
-                "physical_url": "http://example.com/disc1.png",
-                "physical_path": shared,
-                "physical_extra_discs": [
-                    {"disc": 2, "url": "http://example.com/disc2.png", "path": disc2}
-                ],
-            },
-            {"physical_path": None, "physical_extra_discs": []},
-            [MetadataMediaType.PHYSICAL],
+        await self._remove(
+            handler,
+            [screenscraper, self._physical("file://old.png")],
+            [screenscraper, self._physical("file://new.png")],
         )
 
-        # Another provider may still point at the shared top-level path.
-        assert (tmp_path / shared).exists()
-        assert not (tmp_path / disc2).exists()
+        assert (tmp_path / self.shared).exists()
 
     @pytest.mark.asyncio
-    async def test_keeps_a_path_a_higher_priority_provider_records(
+    async def test_removes_a_file_a_higher_priority_provider_takes_over(
         self, handler: FSResourcesHandler, tmp_path
     ):
-        rel = "roms/1/1/physical/physical.png"
-        self._write(tmp_path, rel)
+        # The file on disk is gamelist's, so ScreenScraper's new claim refetches it.
+        self._write(tmp_path, self.shared)
+        gamelist = self._physical("file://gamelist.png")
 
-        await handler.remove_stale_media(
-            {"physical_url": "file://old.png", "physical_path": rel},
-            {"physical_url": "file://new.png", "physical_path": rel},
-            [MetadataMediaType.PHYSICAL],
-            keep={rel},
+        await self._remove(
+            handler,
+            [{}, gamelist],
+            [self._physical("http://ss/disc1.png"), gamelist],
         )
 
-        assert (tmp_path / rel).exists()
+        assert not (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_removes_a_file_a_lower_priority_provider_takes_over(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        self._write(tmp_path, self.shared)
+        gamelist = self._physical("file://gamelist.png")
+
+        await self._remove(
+            handler,
+            [self._physical("http://ss/disc1.png"), gamelist],
+            [{}, gamelist],
+        )
+
+        assert not (tmp_path / self.shared).exists()
 
 
 class TestRemoveRecordedMedia:

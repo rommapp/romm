@@ -1774,38 +1774,30 @@ async def download_rom_resources(
     url_screenshots = added_rom.url_screenshots or []
 
     preferred_media_types = get_preferred_media_types()
-    provider_media: list[tuple[str, dict[str, Any], Callable[[str], str] | None]] = []
-    if added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
-        provider_media.append(
-            ("ss_metadata", added_rom.ss_metadata, add_ss_auth_to_url)
-        )
-    if added_rom.gamelist_metadata and MetadataSource.GAMELIST in metadata_sources:
-        provider_media.append(("gamelist_metadata", added_rom.gamelist_metadata, None))
-    if added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
-        provider_media.append(
-            ("launchbox_metadata", added_rom.launchbox_metadata, None)
-        )
+    # Highest priority first, the order their files land in shared paths.
+    providers: tuple[tuple[str, str, Callable[[str], str] | None], ...] = (
+        ("ss_metadata", MetadataSource.SS, add_ss_auth_to_url),
+        ("gamelist_metadata", MetadataSource.GAMELIST, None),
+        ("launchbox_metadata", MetadataSource.LAUNCHBOX, None),
+    )
+    provider_media: list[tuple[str, dict[str, Any], Callable[[str], str] | None]] = [
+        (column, metadata, url_transform)
+        for column, source, url_transform in providers
+        if (metadata := getattr(added_rom, column)) and source in metadata_sources
+    ]
 
     # Filled as each provider finishes, so a later one failing keeps the rest.
     media_updates: dict[str, dict[str, Any]] = {}
 
     async def store_provider_media() -> None:
-        # Every provider drops its stale files before any stores, so one can't
-        # delete a shared file another just fetched. A path a higher-priority
-        # provider still records holds that provider's art, so it stays.
-        claimed: set[str] = set()
-        for column, metadata, _url_transform in provider_media:
-            previous = (previous_media or {}).get(column)
-            if previous:
-                await fs_resource_handler.remove_stale_media(
-                    previous, metadata, preferred_media_types, keep=frozenset(claimed)
-                )
-            claimed |= {
-                owner[key]
-                for _type, owner, key, _url in fs_resource_handler.recorded_media(
-                    metadata, preferred_media_types
-                )
-            }
+        # Compared across every provider at once, before any stores, since a
+        # shared path's file belongs to whichever provider records it first.
+        if previous_media:
+            await fs_resource_handler.remove_stale_media(
+                [previous_media.get(column) for column, *_ in providers],
+                [getattr(added_rom, column) for column, *_ in providers],
+                preferred_media_types,
+            )
         # Providers share media paths, so they take turns: a later one finds the
         # file an earlier one landed on disk and keeps it.
         for column, metadata, url_transform in provider_media:

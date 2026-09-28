@@ -1,7 +1,7 @@
 import asyncio
 import gzip
 import os
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Final
@@ -874,33 +874,40 @@ class FSResourcesHandler(FSHandler):
 
     async def remove_stale_media(
         self,
-        previous: dict[str, Any],
-        current: dict[str, Any],
+        previous: Sequence[dict[str, Any] | None],
+        current: Sequence[dict[str, Any] | None],
         media_types: Iterable[MetadataMediaType],
-        keep: Iterable[str] = (),
     ) -> None:
-        """Delete stored media the current metadata no longer backs, so it is fetched again.
+        """Delete stored media whose owner or source changed, so it is fetched again.
 
         Args:
-            previous: The provider dict the stored files were fetched for.
-            current: The provider dict about to be stored.
+            previous: Every provider's dict before the scan, highest priority first.
+            current: The same providers' dicts about to be stored, in that order.
             media_types: The types to compare.
-            keep: Paths a higher-priority provider still records, left in place.
         """
         media_types = list(media_types)
-        current_urls = {
-            owner[key]: url
-            for _type, owner, key, url in self.recorded_media(current, media_types)
-        }
-        stale = {
-            owner[key]
-            for _type, owner, key, url in self.recorded_media(previous, media_types)
-            # A top-level path the current dict dropped may belong to another
-            # provider too, so only a dropped later-disc file goes.
-            if (current_urls.get(owner[key]) not in (None, url))
-            or (owner is not previous and owner[key] not in current_urls)
-        }
-        for path in stale - set(keep):
+
+        def claims(
+            dicts: Sequence[dict[str, Any] | None],
+        ) -> dict[str, tuple[int, Any]]:
+            # A shared path holds the file of the first provider that records it.
+            owned: dict[str, tuple[int, Any]] = {}
+            for index, metadata in enumerate(dicts):
+                for _type, owner, key, url in self.recorded_media(
+                    metadata or {}, media_types
+                ):
+                    owned.setdefault(owner[key], (index, url))
+            return owned
+
+        after = claims(current)
+        stale = [
+            path
+            for path, (index, url) in claims(previous).items()
+            # A current claim without a URL keeps what its provider stored.
+            if after.get(path, (None, None))[0] != index
+            or after[path][1] not in (None, url)
+        ]
+        for path in stale:
             try:
                 await self.remove_file(path)
             except FileNotFoundError:
