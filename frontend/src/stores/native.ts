@@ -304,7 +304,7 @@ export const useNativeStore = defineStore("native", () => {
         downloadPath: getDownloadPath({ rom: detailed, purpose: "play" }),
         // What the endpoint will actually serve, which for a folder rom is
         // neither `fs_name` nor `fs_name` with an extension.
-        fileName: getDownloadFileName(detailed),
+        fileName: getDownloadFileName(detailed, { purpose: "play" }),
         platformSlug: rom.platform_slug,
         // The page's core first: the shell installs the first candidate it
         // cannot find, so the rest are there for a core that is not published.

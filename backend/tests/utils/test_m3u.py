@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from utils.m3u import (
@@ -113,13 +114,36 @@ class TestContainedPlaylistEntries:
 
         assert contained_playlist_entries(m3u) == ["disc.chd"]
 
-    def test_accepts_absolute_entry_inside_the_folder(self, tmp_path):
+    def test_skips_absolute_entry_even_inside_the_folder(self, tmp_path: Path):
         disc = tmp_path / "disc.chd"
         disc.write_bytes(b"x")
         m3u = tmp_path / "Game.m3u"
         m3u.write_text(f"{disc}\n")
 
-        assert contained_playlist_entries(m3u) == ["disc.chd"]
+        assert contained_playlist_entries(m3u) == []
+
+    def test_includes_the_tracks_a_gdi_names(self, tmp_path: Path):
+        (tmp_path / "track01.bin").write_bytes(b"x")
+        (tmp_path / "Game (Track 2).raw").write_bytes(b"x")
+        (tmp_path / "Game.gdi").write_text(
+            '2\n1 0 4 2352 track01.bin 0\n2 600 0 2352 "Game (Track 2).raw" 0\n'
+        )
+        m3u = tmp_path / "Game.m3u"
+        m3u.write_text("Game.gdi\n")
+
+        assert contained_playlist_entries(m3u) == [
+            "Game.gdi",
+            "track01.bin",
+            "Game (Track 2).raw",
+        ]
+
+    def test_includes_the_same_stem_tracks_of_a_ccd(self, tmp_path: Path):
+        for name in ("Game.ccd", "Game.img", "Game.sub", "Other.img"):
+            (tmp_path / name).write_bytes(b"x")
+        m3u = tmp_path / "Game.m3u"
+        m3u.write_text("Game.ccd\n")
+
+        assert contained_playlist_entries(m3u) == ["Game.ccd", "Game.img", "Game.sub"]
 
     def test_returns_empty_for_unreadable_playlist(self, tmp_path):
         assert contained_playlist_entries(tmp_path / "missing.m3u") == []

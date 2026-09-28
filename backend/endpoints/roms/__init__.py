@@ -1298,18 +1298,28 @@ def get_rom(
 
 
 async def _player_playlist_entries(
-    rom: Rom, files: list[RomFile], purpose: str
+    request: Request, rom: Rom, files: list[RomFile], purpose: str
 ) -> list[ZipFileEntry]:
-    """What a player boots a lone .m3u rom from: the playlist and its discs.
-
-    Empty unless a player asked for the rom's own .m3u and it lists files.
-    """
+    """The playlist and discs a player boots a lone .m3u rom from, else empty."""
     if purpose != "play" or len(files) != 1:
         return []
     (m3u,) = files
     if m3u.full_path != rom.full_path or m3u.file_extension.lower() != "m3u":
         return []
-    return await to_thread.run_sync(playlist_zip_entries, m3u)
+    entries = await to_thread.run_sync(playlist_zip_entries, m3u)
+    if not entries or not request.user.is_authenticated:
+        return entries
+    # A disc scanned as another rom is served only to a viewer who can see it
+    perms = get_permissions(request)
+    owners = db_rom_handler.get_rom_owners_by_file_path(
+        [e.full_path for e in entries[1:]]
+    )
+    visible = [entries[0]] + [
+        e
+        for e in entries[1:]
+        if e.full_path not in owners or perms.can_see_rom(*owners[e.full_path])
+    ]
+    return visible if len(visible) > 1 else []
 
 
 @protected_route(
@@ -1355,7 +1365,7 @@ async def head_rom_content(
         )
 
     hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
-    entries = await _player_playlist_entries(rom, files, purpose) or [
+    entries = await _player_playlist_entries(request, rom, files, purpose) or [
         ZipFileEntry.from_rom_file(f, hidden_folder) for f in files
     ]
 
@@ -1479,7 +1489,7 @@ async def get_rom_content(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
 
-    entries = await _player_playlist_entries(rom, files, purpose) or [
+    entries = await _player_playlist_entries(request, rom, files, purpose) or [
         ZipFileEntry.from_rom_file(f, hidden_folder) for f in files
     ]
     has_m3u = rom.has_m3u_file()
