@@ -173,7 +173,6 @@ export type { MusicPlaylistSchema } from './models/MusicPlaylistSchema';
 export type { MusicPlaylistUpdateRequest } from './models/MusicPlaylistUpdateRequest';
 export type { MusicStatsSchema } from './models/MusicStatsSchema';
 export type { MusicTrackIdsPayload } from './models/MusicTrackIdsPayload';
-export type { MusicTrackRef } from './models/MusicTrackRef';
 export type { MusicTrackSchema } from './models/MusicTrackSchema';
 export type { MuteRequest } from './models/MuteRequest';
 export type { MuteResponse } from './models/MuteResponse';

@@ -29,11 +29,12 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const favorites = useMusicFavorites();
 
-const isFavorite = computed(() =>
-  favorites.isFavorite(props.track.id, props.track.song),
+const isFavorite = computed(
+  () =>
+    props.track.trackId != null && favorites.isFavorite(props.track.trackId),
 );
-const isPending = computed(() =>
-  favorites.isPending(props.track.id, props.track.song),
+const isPending = computed(
+  () => props.track.trackId != null && favorites.isPending(props.track.trackId),
 );
 </script>
 

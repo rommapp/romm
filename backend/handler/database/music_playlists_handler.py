@@ -2,17 +2,12 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import delete, func, insert, or_, select, tuple_, update
+from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
-from models.music import (
-    MusicFavoriteTrack,
-    MusicPlaylist,
-    MusicPlaylistTrack,
-    TrackKey,
-)
+from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -132,22 +127,20 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def add_tracks_to_playlist(
         self,
         playlist_id: int,
-        tracks: Sequence[TrackKey],
+        track_ids: Sequence[int],
         session: Session = INJECTED_SESSION,
     ) -> int:
-        candidates = list(dict.fromkeys(tracks))
+        candidates = list(dict.fromkeys(track_ids))
         if not candidates:
             return 0
-        playlist_key = tuple_(MusicPlaylistTrack.rom_file_id, MusicPlaylistTrack.song)
-        existing = {
-            TrackKey(*row)
-            for row in session.execute(
-                select(MusicPlaylistTrack.rom_file_id, MusicPlaylistTrack.song).where(
+        existing = set(
+            session.scalars(
+                select(MusicPlaylistTrack.track_id).where(
                     MusicPlaylistTrack.playlist_id == playlist_id,
-                    playlist_key.in_(candidates),
+                    MusicPlaylistTrack.track_id.in_(candidates),
                 )
             )
-        }
+        )
         new_entries = [e for e in candidates if e not in existing]
         if not new_entries:
             return 0
@@ -161,14 +154,13 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
             or 0
         ) + 1
         added = 0
-        for track in new_entries:
+        for track_id in new_entries:
             try:
                 with session.begin_nested():
                     session.execute(
                         insert(MusicPlaylistTrack).values(
                             playlist_id=playlist_id,
-                            rom_file_id=track.rom_file_id,
-                            song=track.song,
+                            track_id=track_id,
                             position=next_position + added,
                         )
                     )
@@ -183,17 +175,15 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def remove_tracks_from_playlist(
         self,
         playlist_id: int,
-        tracks: Sequence[TrackKey],
+        track_ids: Sequence[int],
         session: Session = INJECTED_SESSION,
     ) -> int:
-        if not tracks:
+        if not track_ids:
             return 0
         result = session.execute(
             delete(MusicPlaylistTrack).where(
                 MusicPlaylistTrack.playlist_id == playlist_id,
-                tuple_(MusicPlaylistTrack.rom_file_id, MusicPlaylistTrack.song).in_(
-                    list(tracks)
-                ),
+                MusicPlaylistTrack.track_id.in_(list(track_ids)),
             )
         )
         if affected_rows(result) > 0:
@@ -227,34 +217,30 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def add_favorite_tracks(
         self,
         user_id: int,
-        tracks: Sequence[TrackKey],
+        track_ids: Sequence[int],
         session: Session = INJECTED_SESSION,
     ) -> int:
-        candidates = list(dict.fromkeys(tracks))
+        candidates = list(dict.fromkeys(track_ids))
         if not candidates:
             return 0
-        favorite_key = tuple_(MusicFavoriteTrack.rom_file_id, MusicFavoriteTrack.song)
-        existing = {
-            TrackKey(*row)
-            for row in session.execute(
-                select(MusicFavoriteTrack.rom_file_id, MusicFavoriteTrack.song).where(
+        existing = set(
+            session.scalars(
+                select(MusicFavoriteTrack.track_id).where(
                     MusicFavoriteTrack.user_id == user_id,
-                    favorite_key.in_(candidates),
+                    MusicFavoriteTrack.track_id.in_(candidates),
                 )
             )
-        }
+        )
         new_entries = [e for e in candidates if e not in existing]
         if not new_entries:
             return 0
         added = 0
-        for track in new_entries:
+        for track_id in new_entries:
             try:
                 with session.begin_nested():
                     session.execute(
                         insert(MusicFavoriteTrack).values(
-                            user_id=user_id,
-                            rom_file_id=track.rom_file_id,
-                            song=track.song,
+                            user_id=user_id, track_id=track_id
                         )
                     )
             except IntegrityError:
@@ -266,17 +252,15 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def remove_favorite_tracks(
         self,
         user_id: int,
-        tracks: Sequence[TrackKey],
+        track_ids: Sequence[int],
         session: Session = INJECTED_SESSION,
     ) -> int:
-        if not tracks:
+        if not track_ids:
             return 0
         result = session.execute(
             delete(MusicFavoriteTrack).where(
                 MusicFavoriteTrack.user_id == user_id,
-                tuple_(MusicFavoriteTrack.rom_file_id, MusicFavoriteTrack.song).in_(
-                    list(tracks)
-                ),
+                MusicFavoriteTrack.track_id.in_(list(track_ids)),
             )
         )
         return affected_rows(result)

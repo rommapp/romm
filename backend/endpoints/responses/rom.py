@@ -216,6 +216,7 @@ class RomUserSchema(BaseModel):
 class TrackMetaSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    id: int
     song: int = 0
     m3u_file_id: int | None = None
     title: str | None = None

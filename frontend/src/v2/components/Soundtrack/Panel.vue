@@ -158,6 +158,7 @@ function buildPlayerPayload(): {
     playerTracks.push({
       romId: track.romId,
       fileId: track.id,
+      trackId: track.trackId,
       song: track.song,
       fileName: track.fileName,
       url: track.url,
@@ -295,7 +296,8 @@ function onDelete(track: PanelTrack) {
 }
 
 async function onToggleFavorite(track: PanelTrack) {
-  const next = await favorites.toggle(track.id, track.song);
+  if (track.trackId == null) return;
+  const next = await favorites.toggle(track.trackId);
   if (next === null) {
     snackbar.error(t("common.soundtrack-favorite-failed"), {
       icon: "mdi-alert-circle-outline",
@@ -487,7 +489,9 @@ function downloadTrack(track: PanelTrack) {
                 activeTrackKey === (item as PanelTrack).key && isBuffering
               "
               :deletable="deletable"
-              :favoritable="canEditPlaylists"
+              :favoritable="
+                canEditPlaylists && (item as PanelTrack).trackId != null
+              "
               @select="selectTrack"
               @download="downloadTrack"
               @delete="onDelete"

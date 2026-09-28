@@ -2,11 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { MusicTrackRef } from './MusicTrackRef';
 export type MusicTrackIdsPayload = {
-    tracks?: Array<MusicTrackRef>;
+    track_ids?: Array<number>;
     /**
-     * The first song of each file. Use `tracks` instead.
+     * The first song of each file. Use `track_ids` instead.
      * @deprecated
      */
     rom_file_ids?: Array<number>;

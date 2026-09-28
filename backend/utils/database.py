@@ -17,8 +17,6 @@ POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
     ("rom_notes", "ix_rom_notes_user_id", "user_id"),
     ("firmware", "ix_firmware_platform_id", "platform_id"),
     ("collections_roms", "ix_collections_roms_rom_id", "rom_id"),
-    ("music_playlist_tracks", "ix_music_playlist_tracks_rom_file_id", "rom_file_id"),
-    ("music_favorite_tracks", "ix_music_favorite_tracks_rom_file_id", "rom_file_id"),
     ("play_sessions", "ix_play_sessions_rom_id", "rom_id"),
     ("play_sessions", "ix_play_sessions_device_id", "device_id"),
     ("saves", "ix_saves_user_id", "user_id"),

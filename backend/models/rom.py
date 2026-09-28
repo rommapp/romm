@@ -405,15 +405,15 @@ class TrackMeta(BaseModel):
         Index("idx_track_meta_artist", "artist"),
         Index("idx_track_meta_album", "album"),
         Index("ix_track_meta_m3u_file_id", "m3u_file_id"),
+        UniqueConstraint("rom_file_id", "song", name="uq_track_meta_file_song"),
     )
 
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     rom_file_id: Mapped[int] = mapped_column(
-        ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("rom_files.id", ondelete="CASCADE")
     )
     # The song's index within its file as libgme numbers it; 0 for other audio.
-    song: Mapped[int] = mapped_column(
-        SmallInteger(), primary_key=True, default=0, server_default="0"
-    )
+    song: Mapped[int] = mapped_column(SmallInteger(), default=0, server_default="0")
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     # The sidecar .m3u that names and orders the file's songs, if any.
     m3u_file_id: Mapped[int | None] = mapped_column(

@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type MusicTrackSchema = {
+    id: number;
     rom_file_id: number;
     song?: number;
     rom_id: number;

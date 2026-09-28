@@ -22,6 +22,8 @@ export interface SoundtrackSink {
 export interface PlayerTrack {
   romId: number;
   fileId: number;
+  /** The track's own id; queues built without one (v1) go by file. */
+  trackId?: number;
   /** The song within the file, for chiptune files that hold several. */
   song?: number;
   fileName: string;
@@ -30,11 +32,11 @@ export interface PlayerTrack {
   m3uUrl?: string;
 }
 
-/** A track's identity within a ROM: its file, plus the song for all but the first. */
+/** The key a queue entry's metadata is stored under. */
 export function playerTrackKey(
-  track: Pick<PlayerTrack, "fileId" | "song">,
+  track: Pick<PlayerTrack, "fileId" | "trackId">,
 ): string {
-  return track.song ? `${track.fileId}:${track.song}` : String(track.fileId);
+  return track.trackId != null ? `t${track.trackId}` : String(track.fileId);
 }
 
 function sameTrack(a: PlayerTrack, b: PlayerTrack): boolean {

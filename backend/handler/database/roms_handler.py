@@ -346,62 +346,34 @@ def _song_identity(meta: TrackMeta) -> SongIdentity:
     return (meta.title, meta.artist, meta.album)
 
 
-def _song_moves(
+def _match_songs(
     old: dict[int, SongIdentity], new: dict[int, SongIdentity]
-) -> dict[int, int | None]:
-    """Where each stored song went in a rescan: its new index, or None if gone.
+) -> dict[int, int]:
+    """Which stored song each rescanned one is, as {stored index: new index}.
 
-    A song that kept its index and tags is left out. One whose tags turn up at
-    a single other index has moved there, as when an .m3u is reordered.
+    A song keeps its row when its index and tags are unchanged, or when its tags
+    turn up at exactly one other index, as when an .m3u is reordered. When the
+    file has as many songs as before, a song left at its index was only
+    retagged. Stored songs matched to nothing are gone.
     """
-    if len(old) == 1 and len(new) == 1 and 0 in old and 0 in new:
-        # A lone song is the same song however its tags were edited.
-        return {}
-    new_by_identity: dict[SongIdentity, list[int]] = {}
-    for song, identity in new.items():
-        new_by_identity.setdefault(identity, []).append(song)
-    old_counts = Counter(old.values())
+    kept = {song: song for song, identity in old.items() if new.get(song) == identity}
+    free = [song for song in new if song not in kept]
 
-    moves: dict[int, int | None] = {}
+    unmatched = Counter(identity for song, identity in old.items() if song not in kept)
     for song, identity in old.items():
-        if new.get(song) == identity:
+        if song in kept or unmatched[identity] != 1:
             continue
-        matches = new_by_identity.get(identity, [])
-        unique = len(matches) == 1 and old_counts[identity] == 1
-        moves[song] = matches[0] if unique else None
-    return moves
+        matches = [target for target in free if new[target] == identity]
+        if len(matches) == 1:
+            kept[song] = matches[0]
+            free.remove(matches[0])
 
-
-def _move_song_references(
-    session: Session, rom_file_id: int, moves: dict[int, int | None]
-) -> None:
-    """Point favorites and playlist entries at where their songs went."""
-    gone = [song for song, target in moves.items() if target is None]
-    moved = {song: target for song, target in moves.items() if target is not None}
-    for model in (MusicFavoriteTrack, MusicPlaylistTrack):
-        same_file = model.rom_file_id == rom_file_id
-        if gone:
-            session.execute(
-                delete(model)
-                .where(same_file, model.song.in_(gone))
-                .execution_options(synchronize_session=False)
-            )
-        if not moved:
-            continue
-        # Parked past every real index first, so a swap never collides.
-        for song, target in moved.items():
-            session.execute(
-                update(model)
-                .where(same_file, model.song == song)
-                .values(song=target + MAX_SONGS)
-                .execution_options(synchronize_session=False)
-            )
-        session.execute(
-            update(model)
-            .where(same_file, model.song >= MAX_SONGS)
-            .values(song=model.song - MAX_SONGS)
-            .execution_options(synchronize_session=False)
-        )
+    if len(old) == len(new):
+        for song in old:
+            if song not in kept and song in free:
+                kept[song] = song
+                free.remove(song)
+    return kept
 
 
 class SyncedRomFiles(NamedTuple):
@@ -2536,11 +2508,11 @@ class DBRomsHandler(DBBaseHandler):
         row: RomFile,
         scanned: RomFile,
         rom_id: int,
-    ) -> tuple[str | None, dict[int, int | None]]:
-        """Copy a scanned file onto its row, with its track metadata.
+        session: Session,
+    ) -> str | None:
+        """Copy a scanned file onto its row, with a track row per song.
 
-        Returns the cover path this update orphaned, if any, and where each
-        stored song went (see `_song_moves`).
+        Returns the cover path this update orphaned, if any.
         """
         _copy_scanned_columns(scanned, row, ROM_FILE_SCANNED_COLUMNS, RomFile)
 
@@ -2549,22 +2521,30 @@ class DBRomsHandler(DBBaseHandler):
 
         # A song left unset reads as None until the insert applies its default.
         scanned_songs = {meta.song or 0: meta for meta in scanned.track_metas}
-        moves = _song_moves(
-            {meta.song: _song_identity(meta) for meta in row.track_metas},
+        stored = {meta.song: meta for meta in row.track_metas}
+        kept = _match_songs(
+            {song: _song_identity(meta) for song, meta in stored.items()},
             {song: _song_identity(meta) for song, meta in scanned_songs.items()},
         )
         orphaned: str | None = None
-        for stale in list(row.track_metas):
-            if stale.song not in scanned_songs:
+        for song, stale in stored.items():
+            if song not in kept:
                 orphaned = stale.cover_path or orphaned
                 row.track_metas.remove(stale)
+        moving = {song: target for song, target in kept.items() if song != target}
+        for song, target in moving.items():
+            # Parked past every real index, so no step breaks the unique key.
+            stored[song].song = target + MAX_SONGS
+        if moving or len(kept) < len(stored):
+            session.flush()
 
-        existing = {meta.song: meta for meta in row.track_metas}
+        existing = {target: stored[song] for song, target in kept.items()}
         for song, scanned_meta in sorted(scanned_songs.items()):
             meta = existing.get(song)
             if meta is None:
-                meta = TrackMeta(rom_id=rom_id, song=song)
+                meta = TrackMeta(rom_id=rom_id)
                 row.track_metas.append(meta)
+            meta.song = song
             meta.rom_id = rom_id
             # The scanner only flags whether a cover exists
             _copy_scanned_columns(
@@ -2575,7 +2555,7 @@ class DBRomsHandler(DBBaseHandler):
                 keep_when_unset=frozenset({"cover_path"}),
             )
 
-        return orphaned, moves
+        return orphaned
 
     @begin_session
     def sync_rom_files(
@@ -2647,11 +2627,9 @@ class DBRomsHandler(DBBaseHandler):
             if row is None:
                 row = RomFile(rom_id=rom_id)
                 session.add(row)
-            orphaned, moves = self._apply_scanned_rom_file(row, scanned, rom_id)
+            orphaned = self._apply_scanned_rom_file(row, scanned, rom_id, session)
             if orphaned:
                 orphaned_cover_paths.append(orphaned)
-            if moves and row.id is not None:
-                _move_song_references(session, row.id, moves)
             saved.append(row)
 
         if unmatched:
@@ -2794,7 +2772,9 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> TrackMeta:
         """Write a file's first-song metadata, where its embedded cover lives."""
-        existing = session.get(TrackMeta, (rom_file_id, 0))
+        existing = session.scalar(
+            select(TrackMeta).filter_by(rom_file_id=rom_file_id, song=0).limit(1)
+        )
         if existing:
             for key, val in values.items():
                 setattr(existing, key, val)
@@ -2805,6 +2785,24 @@ class DBRomsHandler(DBBaseHandler):
         session.add(track)
         session.flush()
         return track
+
+    @begin_session
+    def get_track_owners(
+        self,
+        track_ids: Sequence[int],
+        session: Session = INJECTED_SESSION,
+    ) -> dict[int, tuple[int, int]]:
+        """Each existing track's rom and platform, keyed by track id."""
+        if not track_ids:
+            return {}
+        rows = session.execute(
+            select(TrackMeta.id, Rom.id, Rom.platform_id)
+            .join(Rom, TrackMeta.rom_id == Rom.id)
+            .where(TrackMeta.id.in_(list(track_ids)))
+        ).all()
+        return {
+            track_id: (rom_id, platform_id) for track_id, rom_id, platform_id in rows
+        }
 
     @begin_session
     def delete_track_meta(
@@ -3002,6 +3000,7 @@ class DBRomsHandler(DBBaseHandler):
         m3u_file = aliased(RomFile)
         base = (
             select(
+                TrackMeta.id,
                 TrackMeta.rom_file_id,
                 TrackMeta.song,
                 TrackMeta.rom_id,
@@ -3037,8 +3036,7 @@ class DBRomsHandler(DBBaseHandler):
         if is_favorite_user_id is not None:
             favorite_on = and_(
                 MusicFavoriteTrack.user_id == is_favorite_user_id,
-                MusicFavoriteTrack.rom_file_id == TrackMeta.rom_file_id,
-                MusicFavoriteTrack.song == TrackMeta.song,
+                MusicFavoriteTrack.track_id == TrackMeta.id,
             )
             base = (
                 base.join(MusicFavoriteTrack, favorite_on)
@@ -3050,14 +3048,13 @@ class DBRomsHandler(DBBaseHandler):
                 MusicPlaylistTrack,
                 and_(
                     MusicPlaylistTrack.playlist_id == playlist_id,
-                    MusicPlaylistTrack.rom_file_id == TrackMeta.rom_file_id,
-                    MusicPlaylistTrack.song == TrackMeta.song,
+                    MusicPlaylistTrack.track_id == TrackMeta.id,
                 ),
             )
         base = base.where(*where)
         # Count over a single-column projection: the full select carries a JSON
         # genres blob that would otherwise be materialized just to be counted.
-        count_subquery = base.with_only_columns(TrackMeta.rom_file_id).subquery()
+        count_subquery = base.with_only_columns(TrackMeta.id).subquery()
         total = session.scalar(select(func.count()).select_from(count_subquery)) or 0
         order_map = {
             "title": TrackMeta.title,

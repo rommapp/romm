@@ -20,11 +20,24 @@ from sqlalchemy import DefaultClause, FetchedValue, Table, UniqueConstraint
 from sqlalchemy.sql.schema import NULL_UNSPECIFIED
 
 import models
-from handler.database import db_platform_handler
+from handler.database import (
+    db_music_playlist_handler,
+    db_platform_handler,
+    db_rom_handler,
+)
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
+from models.music import MusicPlaylist
 from models.platform import Platform
-from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
+from models.rom import (
+    FULL_PATH_HASH_LENGTH,
+    Rom,
+    RomFile,
+    RomFileCategory,
+    TrackMeta,
+    compute_full_path_hash,
+)
+from models.user import User
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     HLTB_MAIN_STORY_COLUMN,
@@ -332,7 +345,7 @@ def test_the_user_oidc_sub_revision_reverses_and_replays():
         assert _schema_of(connection, "users") == before
 
 
-def _song_keys(connection: sa.Connection) -> dict[str, tuple[str, ...]]:
+def _track_keys(connection: sa.Connection) -> dict[str, tuple[str, ...]]:
     inspector = sa.inspect(connection)
     keys = {
         table: tuple(inspector.get_pk_constraint(table)["constrained_columns"])
@@ -344,29 +357,89 @@ def _song_keys(connection: sa.Connection) -> dict[str, tuple[str, ...]]:
     return keys
 
 
-def test_the_track_meta_songs_revision_reverses_and_replays():
-    """0145 swaps primary and unique keys, so each swap checks the current key."""
+def _referenced_files(connection: sa.Connection) -> dict[str, set[int]]:
+    """The files each favorite and playlist entry points at, by either column."""
+    files = {}
+    for table in ("music_favorite_tracks", "music_playlist_tracks"):
+        if has_column(connection, table, "track_id"):
+            query = (
+                f"SELECT t.rom_file_id FROM {table} r"  # nosec B608
+                " JOIN track_meta t ON t.id = r.track_id"
+            )
+        else:
+            query = f"SELECT rom_file_id FROM {table}"  # nosec B608
+        files[table] = set(connection.execute(sa.text(query)).scalars())
+    return files
+
+
+def test_the_track_meta_songs_revision_reverses_and_replays(rom: Rom, admin_user: User):
+    """0145 moves favorites and playlist entries between file and track keys.
+
+    Going back keeps only what a file's first song held; each step checks the
+    current schema, so both directions replay.
+    """
+    theme, chips = (
+        db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name=name,
+                file_path=rom.fs_path,
+                file_size_bytes=1,
+                category=RomFileCategory.SOUNDTRACK,
+                track_metas=[TrackMeta(rom_id=rom.id, song=s) for s in songs],
+            )
+        ).id
+        for name, songs in (("theme.mp3", [0]), ("chips.nsf", [0, 1]))
+    )
+    tracks = {
+        (file_id, song): track_id
+        for file_id in (theme, chips)
+        for song, track_id in _file_tracks(file_id).items()
+    }
+    db_music_playlist_handler.add_favorite_tracks(
+        admin_user.id, [tracks[theme, 0], tracks[chips, 1]]
+    )
+    playlist = db_music_playlist_handler.add_playlist(
+        MusicPlaylist(name="Mix", user_id=admin_user.id)
+    )
+    db_music_playlist_handler.add_tracks_to_playlist(
+        playlist.id, [tracks[chips, 0], tracks[chips, 1]]
+    )
+
     migration = _load_migration("0145_track_meta_songs.py")
     tables = ("track_meta", "music_favorite_tracks", "music_playlist_tracks")
-
     with sync_engine.begin() as connection:
         before = {table: _schema_of(connection, table) for table in tables}
-        keys = _song_keys(connection)
+        keys = _track_keys(connection)
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
-            assert _song_keys(connection) == {
+            assert _track_keys(connection) == {
                 "track_meta": ("rom_file_id",),
                 "music_favorite_tracks": ("user_id", "rom_file_id"),
                 "music_playlist_tracks": ("playlist_id", "rom_file_id"),
             }
-            assert not has_column(connection, "track_meta", "m3u_file_id")
+            assert not has_column(connection, "track_meta", "id")
+            assert _referenced_files(connection) == {
+                "music_favorite_tracks": {theme},
+                "music_playlist_tracks": {chips},
+            }
 
             migration.downgrade()
             migration.upgrade()
             migration.upgrade()
 
-        assert _song_keys(connection) == keys
+        assert _track_keys(connection) == keys
         assert {table: _schema_of(connection, table) for table in tables} == before
+        assert _referenced_files(connection) == {
+            "music_favorite_tracks": {theme},
+            "music_playlist_tracks": {chips},
+        }
+
+
+def _file_tracks(rom_file_id: int) -> dict[int, int]:
+    row = db_rom_handler.get_rom_file_by_id(rom_file_id)
+    assert row is not None
+    return {meta.song: meta.id for meta in row.track_metas}
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:

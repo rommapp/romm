@@ -35,7 +35,7 @@ def _add_tracks(client: TestClient, token: str, playlist: int, titles: list[str]
     ids = [_track_id(client, token, t) for t in titles]
     r = client.post(
         f"/api/music/playlists/{playlist}/tracks",
-        json={"tracks": [{"rom_file_id": i} for i in ids]},
+        json={"track_ids": ids},
         headers=_auth(token),
     )
     assert r.status_code == status.HTTP_200_OK
@@ -154,17 +154,17 @@ def test_public_playlist_readable_not_writable_by_others(
         (
             "POST",
             f"/api/music/playlists/{playlist_id}/tracks",
-            {"tracks": [{"rom_file_id": 1}]},
+            {"track_ids": [1]},
         ),
         (
             "DELETE",
             f"/api/music/playlists/{playlist_id}/tracks",
-            {"tracks": [{"rom_file_id": 1}]},
+            {"track_ids": [1]},
         ),
         (
             "PUT",
             f"/api/music/playlists/{playlist_id}/tracks/order",
-            {"tracks": [{"rom_file_id": 1}]},
+            {"track_ids": [1]},
         ),
     ]:
         r = client.request(
@@ -191,7 +191,7 @@ def test_playlist_tracks_ordered_and_deduped(
     # re-adding an existing track is a no-op
     r = client.post(
         f"/api/music/playlists/{playlist_id}/tracks",
-        json={"tracks": [{"rom_file_id": ids[0]}]},
+        json={"track_ids": [ids[0]]},
         headers=_auth(access_token),
     )
     assert r.json()["added"] == 0
@@ -204,11 +204,14 @@ def test_playlist_holds_songs_of_one_file(
     client: TestClient, access_token: str, playlist_id: int, admin_user: User
 ):
     chiptune = _make_chiptune(admin_user.id, _make_platform("sms"), songs=3)
-    songs = [{"rom_file_id": chiptune.id, "song": song} for song in (2, 0)]
+    stored = db_rom_handler.get_rom_file_by_id(chiptune.id)
+    assert stored is not None
+    by_song = {meta.song: meta.id for meta in stored.track_metas}
+    songs = [by_song[2], by_song[0]]
 
     r = client.post(
         f"/api/music/playlists/{playlist_id}/tracks",
-        json={"tracks": songs},
+        json={"track_ids": songs},
         headers=_auth(access_token),
     )
     assert r.json()["added"] == 2
@@ -216,7 +219,7 @@ def test_playlist_holds_songs_of_one_file(
 
     r = client.put(
         f"/api/music/playlists/{playlist_id}/tracks/order",
-        json={"tracks": songs[::-1]},
+        json={"track_ids": songs[::-1]},
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_204_NO_CONTENT
@@ -225,7 +228,7 @@ def test_playlist_holds_songs_of_one_file(
     r = client.request(
         "DELETE",
         f"/api/music/playlists/{playlist_id}/tracks",
-        json={"tracks": songs[:1]},
+        json={"track_ids": songs[:1]},
         headers=_auth(access_token),
     )
     assert r.json()["removed"] == 1
@@ -254,7 +257,7 @@ def test_playlist_reorder(client: TestClient, access_token: str, playlist_id: in
     )
     r = client.put(
         f"/api/music/playlists/{playlist_id}/tracks/order",
-        json={"tracks": [{"rom_file_id": ids[i]} for i in (2, 0, 1)]},
+        json={"track_ids": [ids[i] for i in (2, 0, 1)]},
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_204_NO_CONTENT
@@ -273,7 +276,7 @@ def test_playlist_partial_reorder_keeps_rest_after(
     )
     client.put(
         f"/api/music/playlists/{playlist_id}/tracks/order",
-        json={"tracks": [{"rom_file_id": ids[2]}]},
+        json={"track_ids": [ids[2]]},
         headers=_auth(access_token),
     )
     assert _playlist_titles(client, access_token, playlist_id) == [
@@ -290,7 +293,7 @@ def test_playlist_reorder_foreign_track_400(
     outsider = _track_id(client, access_token, "Overworld")
     r = client.put(
         f"/api/music/playlists/{playlist_id}/tracks/order",
-        json={"tracks": [{"rom_file_id": outsider}]},
+        json={"track_ids": [outsider]},
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_400_BAD_REQUEST
@@ -305,7 +308,7 @@ def test_playlist_remove_tracks(
     r = client.request(
         "DELETE",
         f"/api/music/playlists/{playlist_id}/tracks",
-        json={"tracks": [{"rom_file_id": ids[1]}]},
+        json={"track_ids": [ids[1]]},
         headers=_auth(access_token),
     )
     assert r.json()["removed"] == 1
@@ -345,14 +348,16 @@ def test_playlist_survives_a_rescan(
         f"/api/music/playlists/{playlist_id}/tracks", headers=_auth(access_token)
     ).json()
     assert [i["title"] for i in body["items"]] == ["Green Hill", "Jingle"]
-    assert body["items"][0]["rom_file_id"] == ids[0]
+    assert body["items"][0]["id"] == ids[0]
 
 
 def test_playlist_entry_dropped_when_file_leaves_library(
     client: TestClient, access_token: str, playlist_id: int  # noqa: F811
 ):
     ids = _add_tracks(client, access_token, playlist_id, ["Green Hill", "Jingle"])
-    db_rom_handler.delete_rom_file(ids[0])
+    catalog = client.get("/api/music/tracks", headers=_auth(access_token)).json()
+    file_of = {i["id"]: i["rom_file_id"] for i in catalog["items"]}
+    db_rom_handler.delete_rom_file(file_of[ids[0]])
 
     tracks = client.get(
         f"/api/music/playlists/{playlist_id}/tracks", headers=_auth(access_token)
@@ -389,7 +394,7 @@ def test_playlist_rows_carry_is_favorite(
     ids = _add_tracks(client, access_token, playlist_id, ["Green Hill", "Jingle"])
     client.post(
         "/api/music/favorites",
-        json={"tracks": [{"rom_file_id": ids[0]}]},
+        json={"track_ids": [ids[0]]},
         headers=_auth(access_token),
     )
     body = client.get(
@@ -418,16 +423,19 @@ def test_identical_copies_are_separate_entries(
             track_metas=[TrackMeta(rom_id=rom.id, title="Green Hill")],
         )
     )
+    stored = db_rom_handler.get_rom_file_by_id(copy.id)
+    assert stored is not None and stored.track_meta is not None
+    copy_track = stored.track_meta.id
     client.post(
         f"/api/music/playlists/{playlist_id}/tracks",
-        json={"tracks": [{"rom_file_id": copy.id}]},
+        json={"track_ids": [copy_track]},
         headers=_auth(access_token),
     )
     body = client.get(
         f"/api/music/playlists/{playlist_id}/tracks", headers=_auth(access_token)
     ).json()
     assert body["total"] == 2
-    assert [i["rom_file_id"] for i in body["items"]] == [ids[0], copy.id]
+    assert [i["id"] for i in body["items"]] == [ids[0], copy_track]
 
 
 # ---------- scopes ----------

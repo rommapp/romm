@@ -9,9 +9,11 @@ import { romFileUrl } from "@/v2/utils/romFiles";
 export interface PanelTrack {
   /** `rom_file_id`, shared by the songs of one file. */
   id: number;
+  /** The track's own id, once its metadata has loaded. */
+  trackId?: number;
   /** The song within the file; 0 unless the file holds several. */
   song: number;
-  /** Identifies the track within its ROM, song included. */
+  /** Identifies the track within its ROM (see `playerTrackKey`). */
   key: string;
   romId: number;
   fileName: string;
@@ -112,11 +114,11 @@ export function panelTracksFromRom(
     .flatMap((file) => {
       const songs = songsByFileId.get(file.id);
       return (songs?.length ? songs : [undefined]).map((meta) => {
-        const song = meta?.song ?? 0;
         return {
           id: file.id,
-          song,
-          key: playerTrackKey({ fileId: file.id, song }),
+          trackId: meta?.id,
+          song: meta?.song ?? 0,
+          key: playerTrackKey({ fileId: file.id, trackId: meta?.id }),
           romId: rom.id,
           fileName: file.file_name,
           title: meta?.title ?? fallbackTitle(file.file_name, meta?.track),
@@ -139,11 +141,11 @@ export function panelTracksFromCatalog(
 ): PanelTrack[] {
   return tracks.map((track) => {
     const title = track.title || fallbackTitle(track.file_name, track.track);
-    const song = track.song ?? 0;
     return {
       id: track.rom_file_id,
-      song,
-      key: playerTrackKey({ fileId: track.rom_file_id, song }),
+      trackId: track.id,
+      song: track.song ?? 0,
+      key: playerTrackKey({ fileId: track.rom_file_id, trackId: track.id }),
       romId: track.rom_id,
       fileName: track.file_name,
       title,

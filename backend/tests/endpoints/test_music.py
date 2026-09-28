@@ -379,9 +379,7 @@ def test_facet_excludes_hidden_platform(music_library):
 
 def _track_id(client: TestClient, token: str, title: str) -> int:
     body = client.get("/api/music/tracks", headers=_auth(token)).json()
-    return cast(
-        int, next(i["rom_file_id"] for i in body["items"] if i["title"] == title)
-    )
+    return cast(int, next(i["id"] for i in body["items"] if i["title"] == title))
 
 
 def _make_chiptune(admin_id: int, platform: Platform, songs: int) -> RomFile:
@@ -443,11 +441,14 @@ def test_each_song_of_a_chiptune_is_its_own_track(
 def test_favorites_are_per_song(
     client: TestClient, access_token: str, admin_user: User
 ):
-    chiptune = _make_chiptune(admin_user.id, _make_platform("nes"), songs=2)
+    _make_chiptune(admin_user.id, _make_platform("nes"), songs=2)
+
+    items = client.get("/api/music/tracks", headers=_auth(access_token)).json()
+    songs = {i["song"]: i["id"] for i in items["items"]}
 
     r = client.post(
         "/api/music/favorites",
-        json={"tracks": [{"rom_file_id": chiptune.id, "song": 1}]},
+        json={"track_ids": [songs[1]]},
         headers=_auth(access_token),
     )
     assert r.json()["added"] == 1
@@ -457,13 +458,6 @@ def test_favorites_are_per_song(
         (0, False),
         (1, True),
     ]
-
-    r = client.post(
-        "/api/music/favorites",
-        json={"tracks": [{"rom_file_id": chiptune.id, "song": 5}]},
-        headers=_auth(access_token),
-    )
-    assert r.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_favorites_take_the_older_file_id_list(
@@ -488,11 +482,11 @@ def test_favorites_take_the_older_file_id_list(
 def test_favorites_add_list_remove(
     client: TestClient, access_token: str, music_library
 ):
-    rf_id = _track_id(client, access_token, "Green Hill")
+    track_id = _track_id(client, access_token, "Green Hill")
 
     r = client.post(
         "/api/music/favorites",
-        json={"tracks": [{"rom_file_id": rf_id}]},
+        json={"track_ids": [track_id]},
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_200_OK and r.json()["added"] == 1
@@ -500,7 +494,7 @@ def test_favorites_add_list_remove(
     # idempotent re-add
     r = client.post(
         "/api/music/favorites",
-        json={"tracks": [{"rom_file_id": rf_id}]},
+        json={"track_ids": [track_id]},
         headers=_auth(access_token),
     )
     assert r.json()["added"] == 0
@@ -518,7 +512,7 @@ def test_favorites_add_list_remove(
     r = client.request(
         "DELETE",
         "/api/music/favorites",
-        json={"tracks": [{"rom_file_id": rf_id}]},
+        json={"track_ids": [track_id]},
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_200_OK and r.json()["removed"] == 1
@@ -534,10 +528,10 @@ def test_favorites_are_per_user(
     editor_access_token: str,
     music_library,
 ):
-    rf_id = _track_id(client, access_token, "Green Hill")
+    track_id = _track_id(client, access_token, "Green Hill")
     client.post(
         "/api/music/favorites",
-        json={"tracks": [{"rom_file_id": rf_id}]},
+        json={"track_ids": [track_id]},
         headers=_auth(access_token),
     )
 
@@ -551,10 +545,10 @@ def test_favorites_survive_a_rescan(
     client: TestClient, access_token: str, music_library
 ):
     """Rescans reconcile rom_files in place, so favorites keep resolving."""
-    rf_id = _track_id(client, access_token, "Green Hill")
+    track_id = _track_id(client, access_token, "Green Hill")
     client.post(
         "/api/music/favorites",
-        json={"tracks": [{"rom_file_id": rf_id}]},
+        json={"track_ids": [track_id]},
         headers=_auth(access_token),
     )
 
@@ -577,7 +571,7 @@ def test_favorites_survive_a_rescan(
 
     favs = client.get("/api/music/favorites", headers=_auth(access_token)).json()
     assert favs["total"] == 1
-    assert favs["items"][0]["rom_file_id"] == rf_id
+    assert favs["items"][0]["id"] == track_id
 
 
 def test_favorites_reject_non_track_and_unknown_ids(
@@ -594,7 +588,7 @@ def test_favorites_reject_non_track_and_unknown_ids(
     )
     r = client.post(
         "/api/music/favorites",
-        json={"tracks": [{"rom_file_id": non_track.id}]},
+        json={"rom_file_ids": [non_track.id]},
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_400_BAD_REQUEST
@@ -602,7 +596,7 @@ def test_favorites_reject_non_track_and_unknown_ids(
 
     r = client.post(
         "/api/music/favorites",
-        json={"tracks": [{"rom_file_id": 999_999}]},
+        json={"track_ids": [999_999]},
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_400_BAD_REQUEST

@@ -17,6 +17,7 @@ def _content_url(rom_file_id: int, file_name: str) -> str:
 class MusicTrackSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    id: int
     rom_file_id: int
     song: int = 0
     rom_id: int
@@ -53,6 +54,7 @@ class MusicTrackSchema(BaseModel):
     @classmethod
     def from_row(cls, row: Any) -> MusicTrackSchema:
         return cls(
+            id=row.id,
             rom_file_id=row.rom_file_id,
             song=row.song,
             rom_id=row.rom_id,

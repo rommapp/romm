@@ -84,16 +84,16 @@ describe("panelTracksFromRom", () => {
 
   it("lists each song of a chiptune file, with its sidecar playlist", () => {
     const songs = [
-      { song: 0, title: "Intro", m3u_file_id: 2 },
-      { song: 1, title: null, track: 2, m3u_file_id: 2 },
+      { id: 11, song: 0, title: "Intro", m3u_file_id: 2 },
+      { id: 12, song: 1, title: null, track: 2, m3u_file_id: 2 },
     ] as TrackMetaSchema[];
     const tracks = panelTracksFromRom(
       rom([romFile(1, "Game.nsf"), romFile(2, "Game.m3u")]),
       new Map([[1, songs]]),
     );
-    expect(tracks.map((t) => [t.key, t.song, t.title])).toEqual([
-      ["1", 0, "Intro"],
-      ["1:1", 1, "Game #2"],
+    expect(tracks.map((t) => [t.key, t.trackId, t.song, t.title])).toEqual([
+      ["t11", 11, 0, "Intro"],
+      ["t12", 12, 1, "Game #2"],
     ]);
     expect(tracks[1].m3uUrl).toContain("Game.m3u");
   });

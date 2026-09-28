@@ -16,7 +16,6 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
 from handler.database import db_music_playlist_handler, db_rom_handler
-from models.music import TrackKey
 from utils.router import APIRouter, as_query_dependency
 
 router = APIRouter(prefix="/music", tags=["music"])
@@ -35,64 +34,64 @@ class MusicPage[T: BaseModel](LimitOffsetPage[T]):
     pass
 
 
-class MusicTrackRef(BaseModel):
-    rom_file_id: int = Field(ge=1)
-    song: int = Field(0, ge=0, description="Song within the file; 0 for most audio.")
-
-
 class MusicTrackIdsPayload(BaseModel):
-    tracks: list[MusicTrackRef] = Field(default_factory=list)
+    track_ids: list[Annotated[int, Field(ge=1)]] = Field(default_factory=list)
     rom_file_ids: list[Annotated[int, Field(ge=1)]] = Field(
         default_factory=list,
         json_schema_extra={"deprecated": True},
-        description="The first song of each file. Use `tracks` instead.",
+        description="The first song of each file. Use `track_ids` instead.",
     )
 
-    @property
-    def refs(self) -> list[MusicTrackRef]:
-        legacy = [MusicTrackRef(rom_file_id=i, song=0) for i in self.rom_file_ids]
-        return self.tracks + legacy
+
+def _not_found(ids: list[int]) -> HTTPException:
+    # Hidden and missing tracks get the same message so existence is not leaked.
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=f"Tracks not found: {sorted(set(ids))}",
+    )
 
 
-def resolve_track_ids(
-    refs: list[MusicTrackRef], perms: ResolvedPermissions
-) -> list[TrackKey]:
-    """Validate references as music tracks the requester may see.
-
-    Raises 400 when any reference does not point to a visible music track;
-    hidden and missing files get the same message so existence is not leaked."""
-    tracks = list(dict.fromkeys(TrackKey(ref.rom_file_id, ref.song) for ref in refs))
+def _first_songs(rom_file_ids: list[int], perms: ResolvedPermissions) -> list[int]:
     files = {
         f.id: f
-        for f in db_rom_handler.get_rom_files_by_ids(
-            list(dict.fromkeys(track.rom_file_id for track in tracks))
-        )
+        for f in db_rom_handler.get_rom_files_by_ids(list(dict.fromkeys(rom_file_ids)))
     }
     missing = [
-        track.rom_file_id
-        for track in tracks
-        if track.rom_file_id not in files
-        or not perms.can_see_rom(
-            files[track.rom_file_id].rom_id, files[track.rom_file_id].rom.platform_id
-        )
+        fid
+        for fid in rom_file_ids
+        if fid not in files
+        or not perms.can_see_rom(files[fid].rom_id, files[fid].rom.platform_id)
     ]
     if missing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Tracks not found: {sorted(set(missing))}",
-        )
-    not_tracks = [
-        track.rom_file_id
-        for track in tracks
-        if track.song
-        not in {meta.song for meta in files[track.rom_file_id].track_metas}
-    ]
+        raise _not_found(missing)
+    firsts = {fid: files[fid].track_meta for fid in rom_file_ids}
+    not_tracks = [fid for fid, track in firsts.items() if track is None]
     if not_tracks:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Files are not music tracks: {sorted(set(not_tracks))}",
         )
-    return tracks
+    return [track.id for track in firsts.values() if track is not None]
+
+
+def resolve_track_ids(
+    payload: MusicTrackIdsPayload, perms: ResolvedPermissions
+) -> list[int]:
+    """The payload's tracks, in order, once each is shown to be visible.
+
+    Raises 400 when any id is not a track the requester may see."""
+    track_ids = list(dict.fromkeys(payload.track_ids))
+    owners = db_rom_handler.get_track_owners(track_ids)
+    missing = [
+        track_id
+        for track_id in track_ids
+        if track_id not in owners or not perms.can_see_rom(*owners[track_id])
+    ]
+    if missing:
+        raise _not_found(missing)
+    if payload.rom_file_ids:
+        track_ids += _first_songs(payload.rom_file_ids, perms)
+    return list(dict.fromkeys(track_ids))
 
 
 @protected_route(router.get, "/tracks", [Scope.ROMS_READ])
@@ -230,7 +229,7 @@ def add_music_favorites(
 ) -> dict[str, Any]:
     """Mark tracks as favorites; already-favorited tracks are ignored."""
     perms = get_permissions(request)
-    tracks = resolve_track_ids(payload.refs, perms)
+    tracks = resolve_track_ids(payload, perms)
     added = db_music_playlist_handler.add_favorite_tracks(request.user.id, tracks)
     return {"added": added}
 
@@ -241,7 +240,7 @@ def remove_music_favorites(
 ) -> dict[str, Any]:
     """Unmark tracks as favorites."""
     perms = get_permissions(request)
-    tracks = resolve_track_ids(payload.refs, perms)
+    tracks = resolve_track_ids(payload, perms)
     removed = db_music_playlist_handler.remove_favorite_tracks(request.user.id, tracks)
     return {"removed": removed}
 

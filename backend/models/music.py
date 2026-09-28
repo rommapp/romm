@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -22,13 +21,6 @@ if TYPE_CHECKING:
 # Bounds for the user-authored fields
 PLAYLIST_NAME_MAX_LENGTH = 400
 PLAYLIST_DESCRIPTION_MAX_LENGTH = 65535  # TEXT
-
-
-class TrackKey(NamedTuple):
-    """A music track: a soundtrack file and the song within it."""
-
-    rom_file_id: int
-    song: int = 0
 
 
 class MusicPlaylist(BaseModel):
@@ -59,32 +51,29 @@ class MusicPlaylistTrack(BaseModel):
     __tablename__ = "music_playlist_tracks"
 
     __table_args__ = (
-        UniqueConstraint(
-            "playlist_id", "rom_file_id", "song", name="unique_music_playlist_track"
-        ),
+        UniqueConstraint("playlist_id", "track_id", name="unique_music_playlist_track"),
         Index("idx_music_playlist_tracks_playlist_position", "playlist_id", "position"),
+        Index("ix_music_playlist_tracks_track_id", "track_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     playlist_id: Mapped[int] = mapped_column(
         ForeignKey("music_playlists.id", ondelete="CASCADE")
     )
-    rom_file_id: Mapped[int] = mapped_column(
-        ForeignKey("rom_files.id", ondelete="CASCADE")
+    track_id: Mapped[int] = mapped_column(
+        ForeignKey("track_meta.id", ondelete="CASCADE")
     )
-    song: Mapped[int] = mapped_column(SmallInteger(), default=0, server_default="0")
     position: Mapped[int] = mapped_column(Integer())
 
 
 class MusicFavoriteTrack(BaseModel):
     __tablename__ = "music_favorite_tracks"
 
+    __table_args__ = (Index("ix_music_favorite_tracks_track_id", "track_id"),)
+
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
-    rom_file_id: Mapped[int] = mapped_column(
-        ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
-    )
-    song: Mapped[int] = mapped_column(
-        SmallInteger(), primary_key=True, default=0, server_default="0"
+    track_id: Mapped[int] = mapped_column(
+        ForeignKey("track_meta.id", ondelete="CASCADE"), primary_key=True
     )
