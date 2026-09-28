@@ -57,17 +57,19 @@ def _make_track(
             file_path=f"{rom.fs_path}/{name}/soundtrack",
             file_size_bytes=2048,
             category=RomFileCategory.SOUNDTRACK,
-            track_meta=TrackMeta(
-                rom_id=rom.id,
-                title=title,
-                artist=artist,
-                album=album,
-                genre=genre,
-                year=year,
-                duration_seconds=duration,
-                has_embedded_cover=cover_path is not None,
-                cover_path=cover_path,
-            ),
+            track_metas=[
+                TrackMeta(
+                    rom_id=rom.id,
+                    title=title,
+                    artist=artist,
+                    album=album,
+                    genre=genre,
+                    year=year,
+                    duration_seconds=duration,
+                    has_embedded_cover=cover_path is not None,
+                    cover_path=cover_path,
+                )
+            ],
         )
     )
     return rom
@@ -273,9 +275,9 @@ def test_tracks_sort_null_keys_last(
             file_path=f"{rom.fs_path}/Untagged/soundtrack",
             file_size_bytes=2048,
             category=RomFileCategory.SOUNDTRACK,
-            track_meta=TrackMeta(
-                rom_id=rom.id, title="Untagged", has_embedded_cover=False
-            ),
+            track_metas=[
+                TrackMeta(rom_id=rom.id, title="Untagged", has_embedded_cover=False)
+            ],
         )
     )
 
@@ -382,6 +384,88 @@ def _track_id(client: TestClient, token: str, title: str) -> int:
     )
 
 
+def _make_chiptune(admin_id: int, platform: Platform, songs: int) -> RomFile:
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="Chips",
+            slug="chips-slug",
+            fs_name="Chips",
+            fs_name_no_tags="Chips",
+            fs_name_no_ext="Chips",
+            fs_extension="",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_id)
+    folder = f"{rom.fs_path}/Chips/soundtrack"
+    m3u = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Chips.m3u",
+            file_path=folder,
+            file_size_bytes=64,
+            category=RomFileCategory.SOUNDTRACK,
+        )
+    )
+    return db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Chips.nsf",
+            file_path=folder,
+            file_size_bytes=128,
+            category=RomFileCategory.SOUNDTRACK,
+            track_metas=[
+                TrackMeta(
+                    rom_id=rom.id, song=song, title=f"Song {song}", m3u_file_id=m3u.id
+                )
+                for song in range(songs)
+            ],
+        )
+    )
+
+
+def test_each_song_of_a_chiptune_is_its_own_track(
+    client: TestClient, access_token: str, admin_user: User
+):
+    chiptune = _make_chiptune(admin_user.id, _make_platform("nes"), songs=2)
+
+    body = client.get("/api/music/tracks", headers=_auth(access_token)).json()
+
+    assert [(i["rom_file_id"], i["song"], i["title"]) for i in body["items"]] == [
+        (chiptune.id, 0, "Song 0"),
+        (chiptune.id, 1, "Song 1"),
+    ]
+    assert body["items"][0]["file_name"] == "Chips.nsf"
+    assert body["items"][0]["m3u_url"].endswith("/files/content/Chips.m3u")
+
+
+def test_favorites_are_per_song(
+    client: TestClient, access_token: str, admin_user: User
+):
+    chiptune = _make_chiptune(admin_user.id, _make_platform("nes"), songs=2)
+
+    r = client.post(
+        "/api/music/favorites",
+        json={"tracks": [{"rom_file_id": chiptune.id, "song": 1}]},
+        headers=_auth(access_token),
+    )
+    assert r.json()["added"] == 1
+
+    body = client.get("/api/music/tracks", headers=_auth(access_token)).json()
+    assert [(i["song"], i["is_favorite"]) for i in body["items"]] == [
+        (0, False),
+        (1, True),
+    ]
+
+    r = client.post(
+        "/api/music/favorites",
+        json={"tracks": [{"rom_file_id": chiptune.id, "song": 5}]},
+        headers=_auth(access_token),
+    )
+    assert r.status_code == status.HTTP_400_BAD_REQUEST
+
+
 def test_favorites_add_list_remove(
     client: TestClient, access_token: str, music_library
 ):
@@ -389,7 +473,7 @@ def test_favorites_add_list_remove(
 
     r = client.post(
         "/api/music/favorites",
-        json={"rom_file_ids": [rf_id]},
+        json={"tracks": [{"rom_file_id": rf_id}]},
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_200_OK and r.json()["added"] == 1
@@ -397,7 +481,7 @@ def test_favorites_add_list_remove(
     # idempotent re-add
     r = client.post(
         "/api/music/favorites",
-        json={"rom_file_ids": [rf_id]},
+        json={"tracks": [{"rom_file_id": rf_id}]},
         headers=_auth(access_token),
     )
     assert r.json()["added"] == 0
@@ -415,7 +499,7 @@ def test_favorites_add_list_remove(
     r = client.request(
         "DELETE",
         "/api/music/favorites",
-        json={"rom_file_ids": [rf_id]},
+        json={"tracks": [{"rom_file_id": rf_id}]},
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_200_OK and r.json()["removed"] == 1
@@ -434,7 +518,7 @@ def test_favorites_are_per_user(
     rf_id = _track_id(client, access_token, "Green Hill")
     client.post(
         "/api/music/favorites",
-        json={"rom_file_ids": [rf_id]},
+        json={"tracks": [{"rom_file_id": rf_id}]},
         headers=_auth(access_token),
     )
 
@@ -451,7 +535,7 @@ def test_favorites_survive_a_rescan(
     rf_id = _track_id(client, access_token, "Green Hill")
     client.post(
         "/api/music/favorites",
-        json={"rom_file_ids": [rf_id]},
+        json={"tracks": [{"rom_file_id": rf_id}]},
         headers=_auth(access_token),
     )
 
@@ -465,7 +549,7 @@ def test_favorites_survive_a_rescan(
                 file_path=f.file_path,
                 file_size_bytes=f.file_size_bytes,
                 category=RomFileCategory.SOUNDTRACK,
-                track_meta=TrackMeta(title="Green Hill"),
+                track_metas=[TrackMeta(title="Green Hill")],
             )
             for f in existing
         ],
@@ -491,7 +575,7 @@ def test_favorites_reject_non_track_and_unknown_ids(
     )
     r = client.post(
         "/api/music/favorites",
-        json={"rom_file_ids": [non_track.id]},
+        json={"tracks": [{"rom_file_id": non_track.id}]},
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_400_BAD_REQUEST
@@ -499,7 +583,7 @@ def test_favorites_reject_non_track_and_unknown_ids(
 
     r = client.post(
         "/api/music/favorites",
-        json={"rom_file_ids": [999_999]},
+        json={"tracks": [{"rom_file_id": 999_999}]},
         headers=_auth(access_token),
     )
     assert r.status_code == status.HTTP_400_BAD_REQUEST

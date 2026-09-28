@@ -82,6 +82,10 @@ cp env.template .env
 # https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux):
 sudo apt install libmariadb3 libmariadb-dev libpq-dev
 
+# libgme lists the songs in chiptune soundtrack files (NSF, SPC, VGM and so on).
+# Without it each file stays a single untagged track. On macOS: brew install game-music-emu
+sudo apt install libgme0
+
 # Build and configure RAHasher (optional)
 # This is only required to calculate RA hashes
 # Users on macOS can skip this step as RAHasher is not supported

@@ -7,6 +7,7 @@
 #   - rahasher-build: Build RAHasher
 #   - sigil-build: Build sigil Python bindings (title ID extraction)
 #   - gme-build: Build libgme to WebAssembly (chiptune soundtracks)
+#   - gme-native-build: Build libgme for the backend, which lists chiptune songs
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
@@ -31,6 +32,8 @@ ARG UV_SHA256=b165481b747c340b4b3b820f6e453c3aea939c8b583cbfc01c4e99ec61181bc2
 ARG EMSDK_VERSION=4.0.12
 ARG EMSDK_AMD64_SHA256=744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6
 ARG EMSDK_ARM64_SHA256=369a4cb655aa1066e6e450dde774243c502d999b1d93fb4890a9d1428daa9280
+ARG GME_VERSION=0.6.5
+ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
@@ -161,8 +164,8 @@ FROM --platform=linux/arm64 emscripten/emsdk:${EMSDK_VERSION}-arm64@sha256:${EMS
 # trunk-ignore(hadolint/DL3006,checkov/CKV_DOCKER_7)
 FROM emsdk-${BUILDARCH} AS gme-build
 
-ARG GME_VERSION=0.6.5
-ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
+ARG GME_VERSION
+ARG GME_COMMIT
 
 # checkov:skip=CKV_DOCKER_4:the ADD below is a Git URL pinned to a commit by --checksum
 ADD --checksum=${GME_COMMIT} \
@@ -170,6 +173,31 @@ ADD --checksum=${GME_COMMIT} \
     /libgme
 COPY ./docker/gme /romm-gme
 RUN /romm-gme/build.sh /libgme /gme
+
+# The same libgme, built natively so the backend reads the songs the player plays.
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS gme-native-build
+RUN apk add --no-cache \
+    cmake \
+    g++ \
+    make \
+    zlib-dev
+
+ARG GME_VERSION
+ARG GME_COMMIT
+
+# checkov:skip=CKV_DOCKER_4:the ADD below is a Git URL pinned to a commit by --checksum
+ADD --checksum=${GME_COMMIT} \
+    "https://github.com/libgme/game-music-emu.git#${GME_VERSION}" \
+    /libgme
+RUN cmake -S /libgme -B /build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DGME_BUILD_SHARED=ON \
+        -DGME_BUILD_STATIC=OFF \
+        -DGME_BUILD_TESTING=OFF \
+        -DGME_BUILD_EXAMPLES=OFF && \
+    cmake --build /build --parallel && \
+    cmake --install /build --prefix /gme-native
 
 
 # FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08
@@ -265,14 +293,17 @@ ARG WEBSERVER_FOLDER=/var/www/html
 RUN apk upgrade --no-cache && apk add --no-cache \
     bash \
     libarchive-tools \
+    libgcc \
     libmagic \
+    libstdc++ \
     mariadb-connector-c \
     libpq \
     nodejs \
     7zip \
     tzdata \
     valkey \
-    valkey-cli
+    valkey-cli \
+    zlib
 
 # Add Python by copying it from the official Docker image. This way, we don't rely on Alpine's
 # Python version, which could not be the same as the one used in the backend build stage.
@@ -286,6 +317,9 @@ COPY --from=python-runtime /usr/local/lib/libpython* /usr/local/lib/
 COPY --from=python-runtime /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
+COPY --from=gme-native-build /gme-native/lib/libgme.so.0 /usr/local/lib/
+# Fails the build if the library is missing one of its runtime dependencies.
+RUN python3 -c "import ctypes; ctypes.CDLL('libgme.so.0')"
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 COPY --from=backend-node-build /backend-node/rom_patcher/node_modules/rom-patcher/rom-patcher-js /backend/utils/rom_patcher/rom-patcher-js

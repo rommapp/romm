@@ -8,5 +8,6 @@ export type SoundtrackTrackMetaSchema = {
     file_name: string;
     file_size_bytes: number;
     track_meta?: (TrackMetaSchema | null);
+    songs?: Array<TrackMetaSchema>;
 };
 

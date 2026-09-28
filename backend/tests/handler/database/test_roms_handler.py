@@ -270,7 +270,7 @@ def _scanned_file(
     md5: str | None = "md5",
     sha1: str | None = "sha1",
     category: RomFileCategory | None = None,
-    track_meta: TrackMeta | None = None,
+    track_metas: list[TrackMeta] | None = None,
 ) -> RomFile:
     """A transient RomFile as the filesystem scanner builds it."""
     return RomFile(
@@ -282,7 +282,7 @@ def _scanned_file(
         md5_hash=md5,
         sha1_hash=sha1,
         category=category,
-        track_meta=track_meta,
+        track_metas=track_metas or [],
     )
 
 
@@ -409,7 +409,7 @@ class TestSyncRomFiles:
                 rom,
                 "track01.flac",
                 category=RomFileCategory.SOUNDTRACK,
-                track_meta=TrackMeta(rom_id=rom.id, title=title, year=year),
+                track_metas=[TrackMeta(rom_id=rom.id, title=title, year=year)],
             )
 
         (first,) = _sync(rom, [scanned("Green Hill", 1991)])
@@ -420,6 +420,34 @@ class TestSyncRomFiles:
         assert reloaded.track_meta is not None
         assert reloaded.track_meta.title == "Green Hill Zone"
         assert reloaded.track_meta.year == 1992
+
+    def test_songs_follow_the_rescanned_file(self, rom: Rom):
+        def scanned(titles: list[str]) -> list[RomFile]:
+            return [
+                _scanned_file(
+                    rom,
+                    "game.nsf",
+                    category=RomFileCategory.SOUNDTRACK,
+                    track_metas=[
+                        TrackMeta(rom_id=rom.id, song=song, title=title)
+                        for song, title in enumerate(titles)
+                    ],
+                ),
+                _scanned_file(
+                    rom, "game.m3u", md5="m3u", category=RomFileCategory.SOUNDTRACK
+                ),
+            ]
+
+        chiptune, playlist = _sync(rom, scanned(["Intro", "Stage", "Boss"]))
+        _sync(rom, scanned(["Intro", "Stage 1"]))
+
+        reloaded = db_rom_handler.get_rom_file_by_id(chiptune.id)
+        assert reloaded is not None
+        assert [(m.song, m.title) for m in reloaded.track_metas] == [
+            (0, "Intro"),
+            (1, "Stage 1"),
+        ]
+        assert {m.m3u_file_id for m in reloaded.track_metas} == {playlist.id}
 
     def test_unset_columns_do_not_overwrite_not_null_values(self, rom: Rom):
         """A scanned row leaves unset columns as None, and the model defaults
@@ -492,9 +520,11 @@ class TestSyncRomFiles:
                 "track01.flac",
                 file_path=f"{rom.fs_path}/soundtrack",
                 category=RomFileCategory.SOUNDTRACK,
-                track_meta=TrackMeta(
-                    rom_id=rom.id, title="Green Hill", has_embedded_cover=True
-                ),
+                track_metas=[
+                    TrackMeta(
+                        rom_id=rom.id, title="Green Hill", has_embedded_cover=True
+                    )
+                ],
             )
 
         (first,) = _sync(rom, [scanned()])
@@ -521,7 +551,7 @@ class TestSyncRomFiles:
                     rom,
                     "track01.flac",
                     category=RomFileCategory.SOUNDTRACK,
-                    track_meta=TrackMeta(rom_id=rom.id, title="Green Hill"),
+                    track_metas=[TrackMeta(rom_id=rom.id, title="Green Hill")],
                 )
             ],
         )
@@ -548,7 +578,7 @@ class TestSyncRomFiles:
                     rom,
                     "track01.flac",
                     category=RomFileCategory.SOUNDTRACK,
-                    track_meta=TrackMeta(rom_id=rom.id, title="Green Hill"),
+                    track_metas=[TrackMeta(rom_id=rom.id, title="Green Hill")],
                 )
             ],
         )

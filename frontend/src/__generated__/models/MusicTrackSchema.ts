@@ -4,6 +4,7 @@
 /* eslint-disable */
 export type MusicTrackSchema = {
     rom_file_id: number;
+    song?: number;
     rom_id: number;
     file_name: string;
     title?: (string | null);
@@ -23,6 +24,7 @@ export type MusicTrackSchema = {
     platform_slug: string;
     platform_name: string;
     stream_url: string;
+    m3u_url?: (string | null);
     cover_url?: (string | null);
     game_cover_url?: (string | null);
 };

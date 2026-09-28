@@ -4,6 +4,7 @@ from typing import Any
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.chiptune_fixtures import nsf_bytes
 
 from endpoints.roms import soundtrack as soundtrack_endpoint
 from handler import scan_handler
@@ -299,7 +300,7 @@ def test_upload_soundtrack_extracts_audio_meta(
     )
 
 
-def test_upload_soundtrack_chiptune_gets_untagged_meta(
+def test_upload_unreadable_chiptune_gets_untagged_meta(
     client: TestClient,
     access_token: str,
     game_folder_rom: Rom,
@@ -323,6 +324,56 @@ def test_upload_soundtrack_chiptune_gets_untagged_meta(
     assert track_meta is not None
     assert track_meta.title is None
     assert track_meta.duration_seconds is None
+
+
+def _upload(client: TestClient, token: str, rom: Rom, name: str, data: bytes):
+    response = client.post(
+        f"/api/roms/{rom.id}/soundtracks",
+        headers={**_auth(token), "x-upload-filename": name},
+        files={name: (name, data, "application/octet-stream")},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+
+
+def _soundtrack_file(rom: Rom, name: str) -> RomFile:
+    rom_after = db_rom_handler.get_rom(rom.id)
+    assert rom_after is not None
+    return next(f for f in rom_after.files if f.file_name == name)
+
+
+def test_upload_multi_song_chiptune_lists_each_song(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    _upload(client, access_token, game_folder_rom, "Game.nsf", nsf_bytes(3))
+
+    songs = _soundtrack_file(game_folder_rom, "Game.nsf").track_metas
+    assert [meta.song for meta in songs] == [0, 1, 2]
+    assert {meta.album for meta in songs} == {"Mega Game"}
+    assert {meta.artist for meta in songs} == {"Composer"}
+    assert [meta.track for meta in songs] == [1, 2, 3]
+
+
+def test_upload_m3u_names_the_songs_beside_it(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    _upload(client, access_token, game_folder_rom, "Game.nsf", nsf_bytes(3))
+    m3u = b"Game.nsf::NSF,3,Boss Theme,1:00\nGame.nsf::NSF,1,Title,0:30\n"
+    _upload(client, access_token, game_folder_rom, "Game.m3u", m3u)
+
+    playlist = _soundtrack_file(game_folder_rom, "Game.m3u")
+    songs = _soundtrack_file(game_folder_rom, "Game.nsf").track_metas
+    assert [(meta.song, meta.title) for meta in songs] == [
+        (0, "Boss Theme"),
+        (1, "Title"),
+    ]
+    assert {meta.m3u_file_id for meta in songs} == {playlist.id}
+    assert playlist.track_metas == []
 
 
 def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
@@ -385,9 +436,9 @@ def test_get_soundtrack_metadata_returns_tracks_sorted(
             file_path=f"{game_folder_rom.full_path}/soundtrack",
             file_size_bytes=10,
             category=RomFileCategory.SOUNDTRACK,
-            track_meta=TrackMeta(
-                rom_id=game_folder_rom.id, **track_meta_columns(meta_b)
-            ),
+            track_metas=[
+                TrackMeta(rom_id=game_folder_rom.id, **track_meta_columns(meta_b))
+            ],
         )
     )
     db_rom_handler.add_rom_file(
@@ -397,9 +448,9 @@ def test_get_soundtrack_metadata_returns_tracks_sorted(
             file_path=f"{game_folder_rom.full_path}/soundtrack",
             file_size_bytes=10,
             category=RomFileCategory.SOUNDTRACK,
-            track_meta=TrackMeta(
-                rom_id=game_folder_rom.id, **track_meta_columns(meta_a)
-            ),
+            track_metas=[
+                TrackMeta(rom_id=game_folder_rom.id, **track_meta_columns(meta_a))
+            ],
         )
     )
 
@@ -618,14 +669,16 @@ def test_delete_soundtrack_removes_persisted_cover(
             file_path=f"{game_folder_rom.full_path}/soundtrack",
             file_size_bytes=len(MP3_BYTES),
             category=RomFileCategory.SOUNDTRACK,
-            track_meta=TrackMeta(
-                rom_id=game_folder_rom.id,
-                has_embedded_cover=True,
-                cover_path=(
-                    f"roms/{game_folder_rom.platform_id}/{game_folder_rom.id}"
-                    "/soundtracks/9999.jpg"
-                ),
-            ),
+            track_metas=[
+                TrackMeta(
+                    rom_id=game_folder_rom.id,
+                    has_embedded_cover=True,
+                    cover_path=(
+                        f"roms/{game_folder_rom.platform_id}/{game_folder_rom.id}"
+                        "/soundtracks/9999.jpg"
+                    ),
+                )
+            ],
         )
     )
     removed: list[str] = []

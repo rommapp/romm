@@ -27,6 +27,7 @@ from models.music import (
     PLAYLIST_DESCRIPTION_MAX_LENGTH,
     PLAYLIST_NAME_MAX_LENGTH,
     MusicPlaylist,
+    TrackKey,
 )
 from utils.router import APIRouter
 
@@ -192,8 +193,8 @@ def add_playlist_tracks(
     """Append tracks to the playlist; tracks already present are ignored."""
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
-    rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)
-    added = db_music_playlist_handler.add_tracks_to_playlist(playlist.id, rom_file_ids)
+    tracks = resolve_track_ids(payload.tracks, perms)
+    added = db_music_playlist_handler.add_tracks_to_playlist(playlist.id, tracks)
     return {"added": added}
 
 
@@ -205,10 +206,8 @@ def remove_playlist_tracks(
 ) -> dict[str, Any]:
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
-    rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)
-    removed = db_music_playlist_handler.remove_tracks_from_playlist(
-        playlist.id, rom_file_ids
-    )
+    tracks = resolve_track_ids(payload.tracks, perms)
+    removed = db_music_playlist_handler.remove_tracks_from_playlist(playlist.id, tracks)
     return {"removed": removed}
 
 
@@ -218,20 +217,20 @@ def set_playlist_track_order(
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
     payload: MusicTrackIdsPayload,
 ) -> Response:
-    """Reorder the playlist to match the given rom_file_ids.
+    """Reorder the playlist to match the given tracks.
 
     Entries not covered by the payload keep their relative order after the
     listed tracks."""
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
-    rom_file_ids = resolve_track_ids(payload.rom_file_ids, perms)
+    tracks = resolve_track_ids(payload.tracks, perms)
     entries = db_music_playlist_handler.get_playlist_entries(playlist.id)
-    entry_by_rom_file_id = {e.rom_file_id: e.id for e in entries}
-    if any(fid not in entry_by_rom_file_id for fid in rom_file_ids):
+    entry_by_track = {TrackKey(e.rom_file_id, e.song): e.id for e in entries}
+    if any(track not in entry_by_track for track in tracks):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Payload contains tracks that are not in the playlist",
         )
-    ordered_entry_ids = [entry_by_rom_file_id[fid] for fid in rom_file_ids]
+    ordered_entry_ids = [entry_by_track[track] for track in tracks]
     db_music_playlist_handler.set_playlist_track_order(playlist.id, ordered_entry_ids)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

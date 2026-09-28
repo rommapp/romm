@@ -34,6 +34,7 @@ from sqlalchemy.orm import (
     Mapper,
     QueryableAttribute,
     Session,
+    aliased,
     joinedload,
     load_only,
     noload,
@@ -81,6 +82,7 @@ from models.rom import (
     compute_name_sort_key,
 )
 from utils import get_version
+from utils.audio_tags import is_chiptune_file
 from utils.database import (
     LIKE_ESCAPE_CHAR,
     SORTABLE_NULLABLE_ROM_COLUMNS,
@@ -89,6 +91,7 @@ from utils.database import (
     release_day_ranges,
     rom_unset_flag_column,
 )
+from utils.gme import find_sidecar_m3u
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.sql_dialect import (
     Analyze,
@@ -317,6 +320,23 @@ def _copy_scanned_columns(
             continue
         if getattr(target, column) != value:
             setattr(target, column, value)
+
+
+def _link_sidecar_playlists(files: Sequence[RomFile]) -> None:
+    """Point each chiptune's songs at the .m3u beside it, which the player loads too."""
+    by_folder: dict[str, dict[str, RomFile]] = {}
+    for rom_file in files:
+        by_folder.setdefault(rom_file.file_path, {})[rom_file.file_name] = rom_file
+
+    for rom_file in files:
+        if not rom_file.track_metas or not is_chiptune_file(rom_file.file_name):
+            continue
+        siblings = by_folder[rom_file.file_path]
+        name = find_sidecar_m3u(rom_file.file_name, siblings)
+        m3u_file_id = siblings[name].id if name else None
+        for meta in rom_file.track_metas:
+            if meta.m3u_file_id != m3u_file_id:
+                meta.m3u_file_id = m3u_file_id
 
 
 class SyncedRomFiles(NamedTuple):
@@ -566,7 +586,7 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
             # Multi-file downloads, 3DS QR codes, and metadata matching
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                selectinload(RomFile.track_meta),
+                selectinload(RomFile.track_metas),
                 selectinload(RomFile.doc_meta),
             ),
             selectinload(Rom.sibling_roms).options(
@@ -618,7 +638,7 @@ def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                selectinload(RomFile.track_meta),
+                selectinload(RomFile.track_metas),
                 selectinload(RomFile.doc_meta),
             ),
             selectinload(Rom.sibling_roms).options(
@@ -893,7 +913,7 @@ class DBRomsHandler(DBBaseHandler):
         files = session.scalars(
             select(RomFile)
             .where(RomFile.rom_id.in_(rom_ids))
-            .options(selectinload(RomFile.track_meta))
+            .options(selectinload(RomFile.track_metas))
         ).all()
 
         buckets: dict[int, list[RomFile]] = {rom_id: [] for rom_id in rom_ids}
@@ -2124,7 +2144,7 @@ class DBRomsHandler(DBBaseHandler):
             query = query.options(
                 selectinload(Rom.files).options(
                     joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                    selectinload(RomFile.track_meta),
+                    selectinload(RomFile.track_metas),
                 )
             )
         roms = (
@@ -2461,28 +2481,31 @@ class DBRomsHandler(DBBaseHandler):
         if row.missing_from_fs:
             row.missing_from_fs = False
 
-        scanned_meta = scanned.track_meta
-        if scanned_meta is None:
-            orphaned = row.track_meta.cover_path if row.track_meta else None
-            row.track_meta = None
-            return orphaned
+        # A song left unset reads as None until the insert applies its default.
+        scanned_songs = {meta.song or 0: meta for meta in scanned.track_metas}
+        orphaned: str | None = None
+        for stale in list(row.track_metas):
+            if stale.song not in scanned_songs:
+                orphaned = stale.cover_path or orphaned
+                row.track_metas.remove(stale)
 
-        meta = row.track_meta
-        if meta is None:
-            meta = TrackMeta(rom_id=rom_id)
-            row.track_meta = meta
+        existing = {meta.song: meta for meta in row.track_metas}
+        for song, scanned_meta in sorted(scanned_songs.items()):
+            meta = existing.get(song)
+            if meta is None:
+                meta = TrackMeta(rom_id=rom_id, song=song)
+                row.track_metas.append(meta)
+            meta.rom_id = rom_id
+            # The scanner only flags whether a cover exists
+            _copy_scanned_columns(
+                scanned_meta,
+                meta,
+                TRACK_META_SCANNED_COLUMNS,
+                TrackMeta,
+                keep_when_unset=frozenset({"cover_path"}),
+            )
 
-        meta.rom_id = rom_id
-        # The scanner only flags whether a cover exists
-        _copy_scanned_columns(
-            scanned_meta,
-            meta,
-            TRACK_META_SCANNED_COLUMNS,
-            TrackMeta,
-            keep_when_unset=frozenset({"cover_path"}),
-        )
-
-        return None
+        return orphaned
 
     @begin_session
     def sync_rom_files(
@@ -2505,7 +2528,7 @@ class DBRomsHandler(DBBaseHandler):
         existing = (
             session.scalars(
                 select(RomFile)
-                .options(selectinload(RomFile.track_meta))
+                .options(selectinload(RomFile.track_metas))
                 .filter_by(rom_id=rom_id)
             )
             .unique()
@@ -2574,6 +2597,8 @@ class DBRomsHandler(DBBaseHandler):
             )
 
         session.flush()
+        _link_sidecar_playlists(saved)
+        session.flush()
         return SyncedRomFiles(files=saved, orphaned_cover_paths=orphaned_cover_paths)
 
     @begin_session
@@ -2585,7 +2610,7 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(
             select(RomFile)
             .options(
-                selectinload(RomFile.track_meta),
+                selectinload(RomFile.track_metas),
                 selectinload(RomFile.doc_meta),
                 # `is_top_level` reads `rom.full_path`, and callers validate the
                 # row as a schema after this session has closed.
@@ -2607,7 +2632,7 @@ class DBRomsHandler(DBBaseHandler):
             session.scalars(
                 select(RomFile)
                 .options(
-                    selectinload(RomFile.track_meta),
+                    selectinload(RomFile.track_metas),
                     joinedload(RomFile.rom).load_only(Rom.platform_id),
                 )
                 .where(RomFile.id.in_(ids))
@@ -2626,7 +2651,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
-            .options(selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta))
+            .options(selectinload(RomFile.track_metas), selectinload(RomFile.doc_meta))
             .filter_by(rom_id=rom_id, file_path=file_path, file_name=file_name)
             .limit(1)
         )
@@ -2643,7 +2668,7 @@ class DBRomsHandler(DBBaseHandler):
             session.scalars(
                 select(RomFile)
                 .options(
-                    selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta)
+                    selectinload(RomFile.track_metas), selectinload(RomFile.doc_meta)
                 )
                 .filter_by(rom_id=rom_id, category=category)
                 .order_by(RomFile.file_name.asc())
@@ -2665,7 +2690,7 @@ class DBRomsHandler(DBBaseHandler):
                 .filter_by(rom_id=rom_id)
                 .options(
                     joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                    selectinload(RomFile.track_meta),
+                    selectinload(RomFile.track_metas),
                 )
             )
             .unique()
@@ -2696,7 +2721,8 @@ class DBRomsHandler(DBBaseHandler):
         values: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> TrackMeta:
-        existing = session.get(TrackMeta, rom_file_id)
+        """Write a file's first-song metadata, where its embedded cover lives."""
+        existing = session.get(TrackMeta, (rom_file_id, 0))
         if existing:
             for key, val in values.items():
                 setattr(existing, key, val)
@@ -2826,6 +2852,7 @@ class DBRomsHandler(DBBaseHandler):
                     func.lower(TrackMeta.title).like(like, escape=LIKE_ESCAPE_CHAR),
                     func.lower(TrackMeta.artist).like(like, escape=LIKE_ESCAPE_CHAR),
                     func.lower(TrackMeta.album).like(like, escape=LIKE_ESCAPE_CHAR),
+                    func.lower(RomFile.file_name).like(like, escape=LIKE_ESCAPE_CHAR),
                 )
             )
         if artist and exclude_field != "artist":
@@ -2900,9 +2927,11 @@ class DBRomsHandler(DBBaseHandler):
             if is_favorite_user_id is not None
             else false()
         )
+        m3u_file = aliased(RomFile)
         base = (
             select(
                 TrackMeta.rom_file_id,
+                TrackMeta.song,
                 TrackMeta.rom_id,
                 TrackMeta.title,
                 TrackMeta.artist,
@@ -2915,6 +2944,8 @@ class DBRomsHandler(DBBaseHandler):
                 TrackMeta.has_embedded_cover,
                 TrackMeta.cover_path,
                 RomFile.file_name.label("file_name"),
+                TrackMeta.m3u_file_id,
+                m3u_file.file_name.label("m3u_file_name"),
                 is_favorite_col.label("is_favorite"),
                 Rom.name.label("game_name"),
                 Rom.path_cover_l.label("path_cover_l"),
@@ -2926,6 +2957,7 @@ class DBRomsHandler(DBBaseHandler):
             )
             .select_from(TrackMeta)
             .join(RomFile, TrackMeta.rom_file_id == RomFile.id)
+            .outerjoin(m3u_file, TrackMeta.m3u_file_id == m3u_file.id)
             .join(Rom, TrackMeta.rom_id == Rom.id)
             .outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
             .join(Platform, Rom.platform_id == Platform.id)
@@ -2934,6 +2966,7 @@ class DBRomsHandler(DBBaseHandler):
             favorite_on = and_(
                 MusicFavoriteTrack.user_id == is_favorite_user_id,
                 MusicFavoriteTrack.rom_file_id == TrackMeta.rom_file_id,
+                MusicFavoriteTrack.song == TrackMeta.song,
             )
             base = (
                 base.join(MusicFavoriteTrack, favorite_on)
@@ -2946,6 +2979,7 @@ class DBRomsHandler(DBBaseHandler):
                 and_(
                     MusicPlaylistTrack.playlist_id == playlist_id,
                     MusicPlaylistTrack.rom_file_id == TrackMeta.rom_file_id,
+                    MusicPlaylistTrack.song == TrackMeta.song,
                 ),
             )
         base = base.where(*where)
@@ -2966,7 +3000,11 @@ class DBRomsHandler(DBBaseHandler):
             order_map["position"] = MusicPlaylistTrack.position
         col = order_map.get(order_by, TrackMeta.title)
         rows = session.execute(
-            base.order_by(nulls_last(col, order_dir == "desc"), TrackMeta.rom_file_id)
+            base.order_by(
+                nulls_last(col, order_dir == "desc"),
+                TrackMeta.rom_file_id,
+                TrackMeta.song,
+            )
             .limit(limit)
             .offset(offset)
         ).all()

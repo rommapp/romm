@@ -54,6 +54,7 @@ async def get_rom_soundtrack_metadata(
             track_meta=(
                 TrackMetaSchema.model_validate(f.track_meta) if f.track_meta else None
             ),
+            songs=[TrackMetaSchema.model_validate(meta) for meta in f.track_metas],
         )
         for f in tracks
     ]

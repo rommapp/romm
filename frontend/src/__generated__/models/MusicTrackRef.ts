@@ -2,8 +2,11 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { MusicTrackRef } from './MusicTrackRef';
-export type MusicTrackIdsPayload = {
-    tracks: Array<MusicTrackRef>;
+export type MusicTrackRef = {
+    rom_file_id: number;
+    /**
+     * Song within the file; 0 for most audio.
+     */
+    song?: number;
 };
 

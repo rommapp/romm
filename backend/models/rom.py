@@ -312,9 +312,12 @@ class RomFile(BaseModel):
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     rom: Mapped[Rom] = relationship(back_populates="files")
-    track_meta: Mapped[TrackMeta | None] = relationship(
+    # One row per song: a single one for tagged audio, several for a chiptune
+    # file that holds more than one song.
+    track_metas: Mapped[list[TrackMeta]] = relationship(
         back_populates="rom_file",
-        uselist=False,
+        foreign_keys="TrackMeta.rom_file_id",
+        order_by="TrackMeta.song",
         cascade="all, delete-orphan",
     )
     doc_meta: Mapped[RomFileDocMeta | None] = relationship(
@@ -331,6 +334,11 @@ class RomFile(BaseModel):
     @cached_property
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
+
+    @property
+    def track_meta(self) -> TrackMeta | None:
+        """The first song's metadata, which also holds the file's embedded cover."""
+        return self.track_metas[0] if self.track_metas else None
 
     @cached_property
     def file_name_no_tags(self) -> str:
@@ -396,12 +404,21 @@ class TrackMeta(BaseModel):
         Index("idx_track_meta_year", "year"),
         Index("idx_track_meta_artist", "artist"),
         Index("idx_track_meta_album", "album"),
+        Index("ix_track_meta_m3u_file_id", "m3u_file_id"),
     )
 
     rom_file_id: Mapped[int] = mapped_column(
         ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
     )
+    # The song's index within its file as libgme numbers it; 0 for other audio.
+    song: Mapped[int] = mapped_column(
+        SmallInteger(), primary_key=True, default=0, server_default="0"
+    )
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    # The sidecar .m3u that names and orders the file's songs, if any.
+    m3u_file_id: Mapped[int | None] = mapped_column(
+        ForeignKey("rom_files.id", ondelete="SET NULL"), default=None
+    )
     title: Mapped[str | None] = mapped_column(
         String(length=AUDIO_TAG_MAX_LENGTH), default=None
     )
@@ -421,7 +438,9 @@ class TrackMeta(BaseModel):
     )
     cover_path: Mapped[str | None] = mapped_column(String(length=1024), default=None)
 
-    rom_file: Mapped[RomFile] = relationship(back_populates="track_meta")
+    rom_file: Mapped[RomFile] = relationship(
+        back_populates="track_metas", foreign_keys=[rom_file_id]
+    )
 
 
 # Max length for free-text document metadata (author / title).

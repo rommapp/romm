@@ -18,9 +18,9 @@ def _soundtrack_file(*, has_cover: bool, cover_path: str | None) -> RomFile:
         file_name="track01.flac",
         file_path="test/roms/game/soundtrack",
         category=RomFileCategory.SOUNDTRACK,
-        track_meta=TrackMeta(
-            rom_id=7, has_embedded_cover=has_cover, cover_path=cover_path
-        ),
+        track_metas=[
+            TrackMeta(rom_id=7, has_embedded_cover=has_cover, cover_path=cover_path)
+        ],
     )
     rom_file.id = 21
     return rom_file

@@ -1,8 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
-from sqlalchemy import ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    ForeignKey,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel
@@ -14,6 +22,13 @@ if TYPE_CHECKING:
 # Bounds for the user-authored fields
 PLAYLIST_NAME_MAX_LENGTH = 400
 PLAYLIST_DESCRIPTION_MAX_LENGTH = 65535  # TEXT
+
+
+class TrackKey(NamedTuple):
+    """A music track: a soundtrack file and the song within it."""
+
+    rom_file_id: int
+    song: int = 0
 
 
 class MusicPlaylist(BaseModel):
@@ -45,7 +60,7 @@ class MusicPlaylistTrack(BaseModel):
 
     __table_args__ = (
         UniqueConstraint(
-            "playlist_id", "rom_file_id", name="unique_music_playlist_track"
+            "playlist_id", "rom_file_id", "song", name="unique_music_playlist_track"
         ),
         Index("idx_music_playlist_tracks_playlist_position", "playlist_id", "position"),
     )
@@ -57,6 +72,7 @@ class MusicPlaylistTrack(BaseModel):
     rom_file_id: Mapped[int] = mapped_column(
         ForeignKey("rom_files.id", ondelete="CASCADE")
     )
+    song: Mapped[int] = mapped_column(SmallInteger(), default=0, server_default="0")
     position: Mapped[int] = mapped_column(Integer())
 
 
@@ -68,4 +84,7 @@ class MusicFavoriteTrack(BaseModel):
     )
     rom_file_id: Mapped[int] = mapped_column(
         ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
+    )
+    song: Mapped[int] = mapped_column(
+        SmallInteger(), primary_key=True, default=0, server_default="0"
     )

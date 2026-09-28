@@ -10,10 +10,15 @@ from config import FRONTEND_RESOURCES_PATH
 from .base import UTCDatetime
 
 
+def _content_url(rom_file_id: int, file_name: str) -> str:
+    return f"/api/roms/{rom_file_id}/files/content/{quote(file_name)}"
+
+
 class MusicTrackSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     rom_file_id: int
+    song: int = 0
     rom_id: int
     file_name: str
     title: str | None = None
@@ -33,6 +38,8 @@ class MusicTrackSchema(BaseModel):
     platform_slug: str
     platform_name: str
     stream_url: str
+    # The sidecar playlist the player loads with a chiptune file, if it has one.
+    m3u_url: str | None = None
     cover_url: str | None = None
     game_cover_url: str | None = None
 
@@ -47,6 +54,7 @@ class MusicTrackSchema(BaseModel):
     def from_row(cls, row: Any) -> MusicTrackSchema:
         return cls(
             rom_file_id=row.rom_file_id,
+            song=row.song,
             rom_id=row.rom_id,
             file_name=row.file_name,
             title=row.title,
@@ -65,7 +73,12 @@ class MusicTrackSchema(BaseModel):
             platform_id=row.platform_id,
             platform_slug=row.platform_slug,
             platform_name=row.platform_name,
-            stream_url=f"/api/roms/{row.rom_file_id}/files/content/{quote(row.file_name)}",
+            stream_url=_content_url(row.rom_file_id, row.file_name),
+            m3u_url=(
+                _content_url(row.m3u_file_id, row.m3u_file_name)
+                if row.m3u_file_id and row.m3u_file_name
+                else None
+            ),
             cover_url=cls.cover_url_for(row.cover_path, row.path_cover_l),
             game_cover_url=cls.cover_url_for(None, row.path_cover_l),
         )

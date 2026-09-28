@@ -38,7 +38,8 @@ CHIPTUNE_EXTENSIONS = frozenset(
     }
 )
 
-SOUNDTRACK_EXTENSIONS = ALLOWED_AUDIO_EXTENSIONS | CHIPTUNE_EXTENSIONS
+# Uploads also take the .m3u that names and orders a chiptune's songs.
+SOUNDTRACK_EXTENSIONS = ALLOWED_AUDIO_EXTENSIONS | CHIPTUNE_EXTENSIONS | {".m3u"}
 
 # Skip parsing anything larger than this; mutagen mmaps the file and can
 # consume substantial memory on pathological inputs (e.g. a mislabeled 4GB WAV).

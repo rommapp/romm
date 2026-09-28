@@ -59,6 +59,7 @@ from utils.archives import (
     read_zip_archive_files,
     read_zip_file,
 )
+from utils.audio_tags import is_chiptune_file
 from utils.filesystem import COMPRESSED_FILE_SUFFIXES, iter_files
 from utils.hashing import crc32_to_hex
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -542,22 +543,30 @@ class FSRomsHandler(FSHandler):
         abs_file_path = Path(self.base_path, rom_path, file_name)
         matching_category = self._folder_category(rom, rom_path)
 
-        track_meta = None
+        track_metas: list[TrackMeta] = []
         if matching_category == RomFileCategory.SOUNDTRACK:
             from utils.audio_tags import (
                 extract_audio_meta,
                 is_allowed_audio_file,
-                is_chiptune_file,
                 track_meta_columns,
             )
+            from utils.gme import read_songs, sidecar_m3u_path
 
             if is_allowed_audio_file(file_name):
                 meta = extract_audio_meta(str(abs_file_path))
                 if meta:
-                    track_meta = TrackMeta(rom_id=rom.id, **track_meta_columns(meta))
+                    track_metas = [TrackMeta(rom_id=rom.id, **track_meta_columns(meta))]
             elif is_chiptune_file(file_name):
-                # An untagged row still lists the file in the music catalog.
-                track_meta = TrackMeta(rom_id=rom.id)
+                songs = read_songs(
+                    str(abs_file_path), sidecar_m3u_path(str(abs_file_path))
+                )
+                # An untagged row still lists an unreadable file in the catalog.
+                track_metas = [
+                    TrackMeta(
+                        rom_id=rom.id, song=song.index, **track_meta_columns(song.tags)
+                    )
+                    for song in songs or []
+                ] or [TrackMeta(rom_id=rom.id)]
 
         return RomFile(
             rom=rom,
@@ -575,7 +584,7 @@ class FSRomsHandler(FSHandler):
                 else os.path.getmtime(abs_file_path)
             ),
             category=matching_category,
-            track_meta=track_meta,
+            track_metas=track_metas,
             crc_hash=file_hash["crc_hash"],
             md5_hash=file_hash["md5_hash"],
             sha1_hash=file_hash["sha1_hash"],
@@ -736,10 +745,15 @@ class FSRomsHandler(FSHandler):
                     else None
                 )
                 # An unchanged top-level file is still re-read when its level
-                # changed, since the ROM-level hash spans every file in it.
+                # changed, since the ROM-level hash spans every file in it. A
+                # chiptune's songs also depend on its .m3u, and are cheap to read.
                 if (
                     row is not None
                     and not (is_top_level and top_level_changed)
+                    and not (
+                        row.category == RomFileCategory.SOUNDTRACK
+                        and is_chiptune_file(file_name)
+                    )
                     and rom_file_unchanged(
                         row,
                         size=st.st_size,

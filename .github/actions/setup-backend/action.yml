@@ -1,5 +1,5 @@
 name: Set up the backend
-description: Install the MariaDB connector, uv, the pinned Python and the locked backend dependencies.
+description: Install the MariaDB connector, libgme, uv, the pinned Python and the locked backend dependencies.
 
 inputs:
   sync-args:
@@ -15,14 +15,15 @@ runs:
   using: composite
   steps:
     # The mariadb package ships only an sdist on Linux, so uv builds it against these.
-    - name: Install the MariaDB connector
+    # libgme lists the songs in chiptune soundtrack files.
+    - name: Install the MariaDB connector and libgme
       shell: bash
       env:
         APT_PACKAGES: ${{ inputs.apt-packages }}
       run: |
         read -ra extra <<<"$APT_PACKAGES"
         sudo apt-get update
-        sudo apt-get install -y libmariadb3 libmariadb-dev "${extra[@]}"
+        sudo apt-get install -y libmariadb3 libmariadb-dev libgme0 "${extra[@]}"
 
     - name: Install uv
       uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0

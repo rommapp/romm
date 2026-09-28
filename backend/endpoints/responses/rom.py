@@ -216,6 +216,8 @@ class RomUserSchema(BaseModel):
 class TrackMetaSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    song: int = 0
+    m3u_file_id: int | None = None
     title: str | None = None
     artist: str | None = None
     album: str | None = None
@@ -284,7 +286,9 @@ class SoundtrackTrackMetaSchema(BaseModel):
     file_id: int
     file_name: str
     file_size_bytes: int
+    # The first song, which also carries the file's embedded cover.
     track_meta: TrackMetaSchema | None = None
+    songs: list[TrackMetaSchema] = Field(default_factory=list)
 
 
 class RomMetadataSchema(BaseModel):

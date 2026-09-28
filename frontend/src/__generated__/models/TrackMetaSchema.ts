@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type TrackMetaSchema = {
+    song?: number;
+    m3u_file_id?: (number | null);
     title?: (string | null);
     artist?: (string | null);
     album?: (string | null);

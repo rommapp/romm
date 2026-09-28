@@ -54,8 +54,9 @@ setup_uv() {
 }
 
 setup_backend() {
-	# Build headers for the mariadb and psycopg[c] drivers.
-	apt_install libmariadb-dev libpq-dev
+	# Build headers for the mariadb and psycopg[c] drivers, and libgme, which
+	# lists the songs in chiptune soundtrack files.
+	apt_install libmariadb-dev libpq-dev libgme0
 	log "Syncing backend dependencies"
 	(cd "${ROOT}" && uv python install --quiet && uv sync --frozen --all-extras --dev --quiet)
 }
