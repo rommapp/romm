@@ -143,7 +143,7 @@ rm -r e2e/.auth    # PowerShell: Remove-Item -Recurse e2e/.auth
 - **`e2e/.env`:** required locally, and the only source of `E2E_*` variables. CI sets the same variables in `.github/workflows/e2e.yml`.
 - **Server:** the suite starts its own on port 3100, proxying to `E2E_DEV_PROXY_TARGET`. That's the dev server locally, and a static build in CI.
 - **Sign-in:** `auth.setup.ts` signs each account in once and saves the session. `login.spec.ts` is the only spec that drives the login form.
-- **Timeouts:** 10s per test, so failures are fast. They switch off while debugging.
+- **Timeouts:** 10s per test locally, so failures are fast; CI keeps longer ones. They switch off while debugging.
 - **App errors:** if an `/api` call returns 5xx or the app throws, the test fails at once and names the request (for example `GET /api/roms returned 500`) instead of timing out on an element.
 - **Checks:** `npm run typecheck:e2e` for the specs, `npm run typecheck:scripts` for `playwright.config.ts`, and lint rules in `eslint.e2e.config.js`.
 - **Changing the suite itself:** see [AGENTS.md](AGENTS.md).
