@@ -222,7 +222,6 @@ export default tseslint.config(
       "src/v2/lib/**",
       "src/v2/router/**",
       "src/v2/stores/**",
-      "src/v2/tokens/**",
       "src/v2/utils/**",
       "src/v2/views/**",
     ],
