@@ -213,8 +213,6 @@ export default tseslint.config(
       "romm/no-layout-media-query": "error",
     },
   },
-  // A double cast hides a ROM fixture from the type checker; the frozen v1
-  // tree is left as is.
   {
     files: ["src/**/*.test.ts"],
     ignores: [
