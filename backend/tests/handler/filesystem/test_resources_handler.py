@@ -1212,6 +1212,135 @@ class TestStoreMetadataMedia:
         store_mock.assert_not_called()
 
 
+class TestRemoveStaleMedia:
+    """Stored media whose source changed or disappeared is deleted before a store."""
+
+    @pytest.fixture
+    def handler(self, tmp_path):
+        handler = FSResourcesHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    @staticmethod
+    def _write(tmp_path, rel: str) -> None:
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_bytes(b"art")
+
+    @pytest.mark.asyncio
+    async def test_removes_a_file_whose_url_changed(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        rel = "roms/1/1/physical/physical.png"
+        self._write(tmp_path, rel)
+
+        await handler.remove_stale_media(
+            {"physical_url": "http://example.com/disc2.png", "physical_path": rel},
+            {"physical_url": "http://example.com/disc1.png", "physical_path": rel},
+            [MetadataMediaType.PHYSICAL],
+        )
+
+        assert not (tmp_path / rel).exists()
+
+    @pytest.mark.asyncio
+    async def test_keeps_a_file_whose_url_is_unchanged(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        rel = "roms/1/1/physical/physical.png"
+        self._write(tmp_path, rel)
+        metadata = {
+            "physical_url": "http://example.com/disc1.png",
+            "physical_path": rel,
+        }
+
+        await handler.remove_stale_media(
+            metadata, dict(metadata), [MetadataMediaType.PHYSICAL]
+        )
+
+        assert (tmp_path / rel).exists()
+
+    @pytest.mark.asyncio
+    async def test_removes_a_dropped_disc_but_keeps_a_dropped_shared_path(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        shared = "roms/1/1/physical/physical.png"
+        disc2 = "roms/1/1/physical/physical_disc2.png"
+        self._write(tmp_path, shared)
+        self._write(tmp_path, disc2)
+
+        await handler.remove_stale_media(
+            {
+                "physical_url": "http://example.com/disc1.png",
+                "physical_path": shared,
+                "physical_extra_discs": [
+                    {"disc": 2, "url": "http://example.com/disc2.png", "path": disc2}
+                ],
+            },
+            {"physical_path": None, "physical_extra_discs": []},
+            [MetadataMediaType.PHYSICAL],
+        )
+
+        # Another provider may still point at the shared top-level path.
+        assert (tmp_path / shared).exists()
+        assert not (tmp_path / disc2).exists()
+
+
+class TestRemoveRecordedMedia:
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.mark.asyncio
+    async def test_removes_the_folder_of_a_top_level_path(
+        self, handler: FSResourcesHandler
+    ):
+        with (
+            patch.object(
+                handler, "remove_media_resources_path", new_callable=AsyncMock
+            ) as remove_dir,
+            patch.object(handler, "remove_file", new_callable=AsyncMock) as remove_file,
+        ):
+            await handler.remove_recorded_media(
+                1,
+                7,
+                {"fanart_path": "roms/1/7/fanart/fanart.png"},
+                [MetadataMediaType.FANART],
+            )
+
+        remove_dir.assert_awaited_once_with(1, 7, MetadataMediaType.FANART)
+        remove_file.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_removes_only_the_file_of_a_later_disc(
+        self, handler: FSResourcesHandler
+    ):
+        disc2 = "roms/1/7/physical/physical_disc2.png"
+        with (
+            patch.object(
+                handler, "remove_media_resources_path", new_callable=AsyncMock
+            ) as remove_dir,
+            patch.object(
+                handler,
+                "remove_file",
+                new_callable=AsyncMock,
+                side_effect=FileNotFoundError,
+            ) as remove_file,
+        ):
+            await handler.remove_recorded_media(
+                1,
+                7,
+                {
+                    "physical_path": None,
+                    "physical_extra_discs": [
+                        {"disc": 2, "url": "http://example.com/2.png", "path": disc2}
+                    ],
+                },
+                [MetadataMediaType.PHYSICAL],
+            )
+
+        remove_dir.assert_not_awaited()
+        remove_file.assert_awaited_once_with(disc2)
+
+
 class _FakeResponse:
     """Minimal stand-in for an httpx streaming response."""
 

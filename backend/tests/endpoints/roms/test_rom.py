@@ -1690,6 +1690,7 @@ class TestUpdateMetadataIDs:
         assert body["ss_id"] == MOCK_SS_ID
         assert get_rom_by_id_mock.called
 
+    @patch.object(FSResourcesHandler, "remove_file", new_callable=AsyncMock)
     @patch.object(
         FSResourcesHandler, "remove_media_resources_path", new_callable=AsyncMock
     )
@@ -1703,11 +1704,12 @@ class TestUpdateMetadataIDs:
         _get_rom_by_id_mock: AsyncMock,
         _get_preferred_media_mock: AsyncMock,
         remove_media_mock: AsyncMock,
+        remove_file_mock: AsyncMock,
         client: TestClient,
         access_token: str,
         rom: Rom,
     ):
-        """A rematch clears the old game's later-disc art even when disc 1 has none."""
+        """A rematch deletes the old game's later-disc files but keeps the shared folder."""
         db_rom_handler.update_rom(
             rom.id,
             {
@@ -1731,8 +1733,9 @@ class TestUpdateMetadataIDs:
         )
         assert response.status_code == status.HTTP_200_OK
 
-        remove_media_mock.assert_awaited_once_with(
-            rom.platform_id, rom.id, MetadataMediaType.PHYSICAL
+        remove_media_mock.assert_not_awaited()
+        remove_file_mock.assert_awaited_once_with(
+            f"roms/{rom.platform_id}/{rom.id}/physical/physical_disc2.png"
         )
 
     @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=MOCK_RA_ID))

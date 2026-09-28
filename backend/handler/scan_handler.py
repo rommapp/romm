@@ -1,7 +1,7 @@
 import asyncio
 import enum
 import functools
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Final, NotRequired, TypedDict
 
 import pydash
@@ -1757,11 +1757,16 @@ async def download_rom_resources(
     previous_url_manual: str | None,
     previous_url_screenshots: list[str] | None,
     metadata_sources: list[str],
+    previous_media: Mapping[str, dict[str, Any] | None] | None = None,
 ) -> None:
     """Download and persist cover, manual, screenshots and provider media for a rom.
 
     Shared by the scan socket flow and the manual physical-game endpoint. Only
     re-downloads when the source URL changed, then stores the resulting paths.
+
+    Args:
+        previous_media: Each provider column's metadata before this scan, keyed
+            like ``ss_metadata``, so media whose source changed is fetched again.
     """
     screenshots_changed = pydash.xor(
         added_rom.url_screenshots or [], previous_url_screenshots or []
@@ -1785,6 +1790,14 @@ async def download_rom_resources(
     media_updates: dict[str, dict[str, Any]] = {}
 
     async def store_provider_media() -> None:
+        # Every provider drops its stale files before any stores, so one can't
+        # delete a shared file another just fetched.
+        for column, metadata, _url_transform in provider_media:
+            previous = (previous_media or {}).get(column)
+            if previous:
+                await fs_resource_handler.remove_stale_media(
+                    previous, metadata, preferred_media_types
+                )
         # Providers share media paths, so they take turns: a later one finds the
         # file an earlier one landed on disk and keeps it.
         for column, metadata, url_transform in provider_media:

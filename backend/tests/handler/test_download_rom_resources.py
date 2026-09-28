@@ -41,6 +41,7 @@ def resources() -> Iterator[SimpleNamespace]:
         "get_manual": AsyncMock(return_value=None),
         "get_rom_screenshots": AsyncMock(return_value=[]),
         "store_metadata_media": AsyncMock(return_value=False),
+        "remove_stale_media": AsyncMock(return_value=None),
         "store_ra_badge": AsyncMock(return_value=None),
     }
     with (
@@ -109,6 +110,40 @@ async def test_provider_media_dicts_take_turns_in_priority_order(
 
     assert tracker.peak == 1
     assert order == [rom.ss_metadata, rom.gamelist_metadata, rom.launchbox_metadata]
+
+
+@pytest.mark.asyncio
+async def test_every_provider_drops_stale_media_before_any_stores(
+    resources: SimpleNamespace,
+):
+    rom = _rom()
+    previous_ss = {"fanart_path": "roms/1/7/fanart/fanart.png", "fanart_url": "old"}
+    calls: list[str] = []
+
+    async def remove_stale_media(*_args: Any) -> None:
+        calls.append("remove")
+
+    async def store_metadata_media(*_args: Any) -> bool:
+        calls.append("store")
+        return False
+
+    resources.remove_stale_media.side_effect = remove_stale_media
+    resources.store_metadata_media.side_effect = store_metadata_media
+
+    await download_rom_resources(
+        added_rom=rom,
+        previous_url_cover=None,
+        previous_url_manual=None,
+        previous_url_screenshots=None,
+        metadata_sources=[MetadataSource.SS, MetadataSource.GAMELIST],
+        previous_media={"ss_metadata": previous_ss, "gamelist_metadata": None},
+    )
+
+    # Only ScreenScraper had media before this scan.
+    resources.remove_stale_media.assert_awaited_once_with(
+        previous_ss, rom.ss_metadata, []
+    )
+    assert calls == ["remove", "store", "store"]
 
 
 @pytest.mark.asyncio

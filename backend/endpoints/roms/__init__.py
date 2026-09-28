@@ -2219,17 +2219,9 @@ async def update_rom(
         preferred_media_types = get_preferred_media_types()
 
         # Remove old media files if the ss_id is changing
-        for media_type in {
-            media_type
-            for media_type, *_ in fs_resource_handler.recorded_media(
-                rom.ss_metadata or {}, preferred_media_types
-            )
-        }:
-            await fs_resource_handler.remove_media_resources_path(
-                rom.platform_id,
-                rom.id,
-                media_type,
-            )
+        await fs_resource_handler.remove_recorded_media(
+            rom.platform_id, rom.id, rom.ss_metadata or {}, preferred_media_types
+        )
 
         ss_metadata = cleaned_data.get("ss_metadata")
         if ss_metadata:
@@ -2245,17 +2237,9 @@ async def update_rom(
         preferred_media_types = get_preferred_media_types()
 
         # Remove old media files if the launchbox_id is changing
-        for media_type in {
-            media_type
-            for media_type, *_ in fs_resource_handler.recorded_media(
-                rom.launchbox_metadata or {}, preferred_media_types
-            )
-        }:
-            await fs_resource_handler.remove_media_resources_path(
-                rom.platform_id,
-                rom.id,
-                media_type,
-            )
+        await fs_resource_handler.remove_recorded_media(
+            rom.platform_id, rom.id, rom.launchbox_metadata or {}, preferred_media_types
+        )
 
         launchbox_metadata = cleaned_data.get("launchbox_metadata")
         if launchbox_metadata:

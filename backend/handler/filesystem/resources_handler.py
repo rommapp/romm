@@ -844,6 +844,66 @@ class FSResourcesHandler(FSHandler):
             ]
         return recorded
 
+    async def remove_recorded_media(
+        self,
+        platform_id: int,
+        rom_id: int,
+        metadata: dict[str, Any],
+        media_types: Iterable[MetadataMediaType],
+    ) -> None:
+        """Delete the media files a provider dict records for a rom.
+
+        Args:
+            platform_id: The rom's platform.
+            rom_id: The rom.
+            metadata: The provider dict whose files go.
+            media_types: The types to delete.
+        """
+        for media_type, owner, key, _url in self.recorded_media(metadata, media_types):
+            try:
+                if owner is metadata:
+                    await self.remove_media_resources_path(
+                        platform_id, rom_id, media_type
+                    )
+                else:
+                    # A later disc shares its type's folder with other
+                    # providers' files, so only the disc's own file goes.
+                    await self.remove_file(owner[key])
+            except FileNotFoundError:
+                pass
+
+    async def remove_stale_media(
+        self,
+        previous: dict[str, Any],
+        current: dict[str, Any],
+        media_types: Iterable[MetadataMediaType],
+    ) -> None:
+        """Delete stored media the current metadata no longer backs, so it is fetched again.
+
+        Args:
+            previous: The provider dict the stored files were fetched for.
+            current: The provider dict about to be stored.
+            media_types: The types to compare.
+        """
+        media_types = list(media_types)
+        current_urls = {
+            owner[key]: url
+            for _type, owner, key, url in self.recorded_media(current, media_types)
+        }
+        stale = {
+            owner[key]
+            for _type, owner, key, url in self.recorded_media(previous, media_types)
+            # A top-level path the current dict dropped may belong to another
+            # provider too, so only a dropped later-disc file goes.
+            if (current_urls.get(owner[key]) not in (None, url))
+            or (owner is not previous and owner[key] not in current_urls)
+        }
+        for path in stale:
+            try:
+                await self.remove_file(path)
+            except FileNotFoundError:
+                pass
+
     async def store_metadata_media(
         self,
         metadata: dict[str, Any],
