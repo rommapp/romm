@@ -140,13 +140,21 @@ export async function gotoFirstRom(page: Page) {
  *
  *  `useCan` reads grants from `/permissions/me` after mount, so until then even
  *  an admin sees every gated control hidden. The listener is armed before
- *  navigating, and any status is checked so a 401/403 fails with its cause. */
+ *  navigating, and any status is checked so a 401/403 fails with its cause.
+ *  An expired session redirects to /login, which never requests permissions,
+ *  so the login form is raced against the response. */
 export async function gotoHydrated(page: Page, path: string) {
   const hydrated = page.waitForResponse((r) =>
     r.url().includes("/api/permissions/me"),
   );
   await page.goto(path);
-  const response = await hydrated;
+  const loginShown = page.locator("form.r-v2-login-form").waitFor();
+  const response = await Promise.race([hydrated, loginShown.then(() => null)]);
+  if (!response) {
+    throw new Error(
+      `Opened ${path} but landed on the login page: the saved session for this test has expired or was rejected. Run again, and setup signs in afresh (or delete e2e/.auth/).`,
+    );
+  }
   if (!response.ok()) {
     throw new Error(
       `Permissions didn't load (GET /api/permissions/me returned ${response.status()}). The session most likely expired: run again, or delete e2e/.auth/ to force a fresh sign-in.`,
