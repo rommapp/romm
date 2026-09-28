@@ -40,6 +40,7 @@ from endpoints.sockets.scan import (
 from exceptions.fs_exceptions import FolderStructureNotMatchException
 from exceptions.socket_exceptions import ScanStoppedException
 from handler import notification_handler
+from handler import scan_handler as scan_handler_module
 from handler.audit_handler import SYSTEM_ACTOR
 from handler.auth.constants import Scope
 from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
@@ -833,7 +834,7 @@ class TestIdentifyRomTagReparse:
         # A COMPLETE scan runs past the point a HASHES scan returns at, into the
         # resource downloads and the closing emit, none of which is under test.
         mocker.patch.object(scan_module, "download_rom_resources", new=AsyncMock())
-        mocker.patch.object(scan_module, "SimpleRomSchema", MagicMock())
+        mocker.patch.object(scan_handler_module, "SimpleRomSchema", MagicMock())
 
         db = mocker.patch.object(scan_module, "db_rom_handler")
         db.add_rom.return_value = MagicMock(
@@ -2717,7 +2718,7 @@ def identify_harness(mocker):
 
     mocker.patch.object(scan_module, "fs_resource_handler", new=AsyncMock())
     mocker.patch.object(scan_module, "download_rom_resources", new=AsyncMock())
-    mocker.patch.object(scan_module, "SimpleRomSchema", MagicMock())
+    mocker.patch.object(scan_handler_module, "SimpleRomSchema", MagicMock())
 
     db = mocker.patch.object(scan_module, "db_rom_handler")
     db.add_rom.return_value = MagicMock(
@@ -2839,6 +2840,44 @@ class TestIdentifyRomFiles:
         identify_harness.refresh.assert_not_called()
         identify_harness.scan_rom.assert_awaited_once()
         identify_harness.db.add_rom.assert_called()
+
+
+class TestIdentifyRomEmitsNewFlag:
+    """Clients bump live game counts off `is_new`, so a rescan of an existing
+    rom must not report it as new."""
+
+    @pytest.mark.parametrize(
+        "case, is_new",
+        [("new", True), ("existing", False), ("reassociated", False)],
+    )
+    async def test_scanning_rom_payload_flags_new_roms(
+        self, mocker, identify_harness, case, is_new
+    ):
+        dumped = Mock(model_dump=Mock(side_effect=lambda **_: {"id": 1}))
+        mocker.patch.object(
+            scan_handler_module,
+            "SimpleRomSchema",
+            Mock(from_orm_with_factory=Mock(return_value=dumped)),
+        )
+        # Identified, so both the post-scan and the post-download emits fire.
+        identify_harness.db.add_rom.return_value.is_identified = True
+        if case == "reassociated":
+            missing = identify_harness.existing_rom()
+            identify_harness.db.get_matching_missing_rom.return_value = missing
+            identify_harness.db.update_rom.return_value = missing
+        socket_manager = AsyncMock()
+        rom = identify_harness.existing_rom() if case == "existing" else None
+
+        await identify_harness.run(
+            rom, ScanType.COMPLETE, [], socket_manager=socket_manager
+        )
+
+        payloads = [
+            call.args[1]
+            for call in socket_manager.emit.await_args_list
+            if call.args[0] == "scan:scanning_rom"
+        ]
+        assert [payload["is_new"] for payload in payloads] == [is_new, is_new]
 
 
 class TestIdentifyRomIncrementalHashing:
