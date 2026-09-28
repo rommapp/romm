@@ -538,7 +538,7 @@ async def resolve_steam_rom(
 
 
 # `files` is left out so a scan does not ship every file row of every rom.
-SCANNING_ROM_EXCLUDE: Final = {
+_SCANNING_ROM_EXCLUDE: Final = {
     "created_at",
     "updated_at",
     "rom_user",
@@ -546,6 +546,17 @@ SCANNING_ROM_EXCLUDE: Final = {
     "files",
     "sibling_roms",
 }
+
+
+async def emit_scanning_rom(
+    socket_manager: socketio.AsyncRedisManager, rom: Rom, *, is_new: bool
+) -> None:
+    """Report a scanned rom; `is_new` lets clients count only roms the scan added."""
+    payload = SimpleRomSchema.from_orm_with_factory(rom).model_dump(
+        exclude=_SCANNING_ROM_EXCLUDE
+    )
+    payload["is_new"] = is_new
+    await socket_manager.emit("scan:scanning_rom", payload)
 
 
 async def scan_rom(
@@ -748,15 +759,7 @@ async def scan_rom(
     _added_rom.is_identifying = True
 
     if socket_manager:
-        await socket_manager.emit(
-            "scan:scanning_rom",
-            {
-                **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                    exclude=SCANNING_ROM_EXCLUDE
-                ),
-                "is_new": newly_added,
-            },
-        )
+        await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
 
     # Run hash fetches concurrently
     (

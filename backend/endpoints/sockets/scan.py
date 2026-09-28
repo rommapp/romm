@@ -20,7 +20,6 @@ from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from endpoints.responses.platform import PlatformSchema
-from endpoints.responses.rom import SimpleRomSchema
 from endpoints.sockets.activity import get_authenticated_user
 from exceptions.fs_exceptions import (
     FOLDER_STRUCT_MSG,
@@ -64,11 +63,11 @@ from handler.redis_handler import (
 )
 from handler.rom_files import loaded_rom_files, refresh_rom_files
 from handler.scan_handler import (
-    SCANNING_ROM_EXCLUDE,
     MetadataSource,
     ScanType,
     build_hashless_fs_rom,
     download_rom_resources,
+    emit_scanning_rom,
     persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
@@ -363,17 +362,6 @@ async def _identify_firmware(
     return 1 if not firmware else 0
 
 
-async def _emit_scanning_rom(
-    socket_manager: socketio.AsyncRedisManager, rom: Rom, *, is_new: bool = False
-) -> None:
-    payload = SimpleRomSchema.from_orm_with_factory(rom).model_dump(
-        exclude=SCANNING_ROM_EXCLUDE
-    )
-    # Lets clients bump live game counts only for ROMs this scan added.
-    payload["is_new"] = is_new
-    await socket_manager.emit("scan:scanning_rom", payload)
-
-
 def should_scan_rom(
     scan_type: ScanType,
     rom: Rom | None,
@@ -618,7 +606,7 @@ async def _identify_rom(
             )
             hydrated_rom = db_rom_handler.get_rom_simple(rom.id)
             if hydrated_rom is not None:
-                await _emit_scanning_rom(socket_manager, hydrated_rom)
+                await emit_scanning_rom(socket_manager, hydrated_rom, is_new=False)
         return
 
     # Update properties that don't require metadata
@@ -801,7 +789,7 @@ async def _identify_rom(
     scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:
-        await _emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
+        await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
 
     if should_update_files:
         # Reconcile against the existing rows instead of replacing them, so file
@@ -825,7 +813,7 @@ async def _identify_rom(
         metadata_sources=metadata_sources,
     )
 
-    await _emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
+    await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
 
 
 async def _scan_selected_roms(
@@ -1089,7 +1077,7 @@ async def _identify_platform(
             if hydrated_rom is None:
                 continue
 
-            await _emit_scanning_rom(socket_manager, hydrated_rom)
+            await emit_scanning_rom(socket_manager, hydrated_rom, is_new=False)
 
         # Process only ROMs that actually need scanning
         scan_tasks = [

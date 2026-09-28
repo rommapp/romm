@@ -40,6 +40,7 @@ from endpoints.sockets.scan import (
 from exceptions.fs_exceptions import FolderStructureNotMatchException
 from exceptions.socket_exceptions import ScanStoppedException
 from handler import notification_handler
+from handler import scan_handler as scan_handler_module
 from handler.audit_handler import SYSTEM_ACTOR
 from handler.auth.constants import Scope
 from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
@@ -833,7 +834,7 @@ class TestIdentifyRomTagReparse:
         # A COMPLETE scan runs past the point a HASHES scan returns at, into the
         # resource downloads and the closing emit, none of which is under test.
         mocker.patch.object(scan_module, "download_rom_resources", new=AsyncMock())
-        mocker.patch.object(scan_module, "SimpleRomSchema", MagicMock())
+        mocker.patch.object(scan_handler_module, "SimpleRomSchema", MagicMock())
 
         db = mocker.patch.object(scan_module, "db_rom_handler")
         db.add_rom.return_value = MagicMock(
@@ -2717,7 +2718,7 @@ def identify_harness(mocker):
 
     mocker.patch.object(scan_module, "fs_resource_handler", new=AsyncMock())
     mocker.patch.object(scan_module, "download_rom_resources", new=AsyncMock())
-    mocker.patch.object(scan_module, "SimpleRomSchema", MagicMock())
+    mocker.patch.object(scan_handler_module, "SimpleRomSchema", MagicMock())
 
     db = mocker.patch.object(scan_module, "db_rom_handler")
     db.add_rom.return_value = MagicMock(
@@ -2854,7 +2855,7 @@ class TestIdentifyRomEmitsNewFlag:
     ):
         dumped = Mock(model_dump=Mock(side_effect=lambda **_: {"id": 1}))
         mocker.patch.object(
-            scan_module,
+            scan_handler_module,
             "SimpleRomSchema",
             Mock(from_orm_with_factory=Mock(return_value=dumped)),
         )

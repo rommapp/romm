@@ -61,6 +61,21 @@ const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 /** Outlast the handler's 100ms batching debounce for `scan:scanning_rom`. */
 const drainRomBatch = () => new Promise((resolve) => setTimeout(resolve, 150));
 
+function scanningRom(
+  id: number,
+  isNew: boolean,
+  extra: Partial<SimpleRom> = {},
+) {
+  return {
+    id,
+    platform_id: 1,
+    platform_fs_slug: "n64",
+    platform_display_name: "Nintendo 64",
+    is_new: isNew,
+    ...extra,
+  };
+}
+
 function makeStats(overrides: Partial<ScanStats> = {}): ScanStats {
   return {
     total_platforms: 0,
@@ -180,12 +195,6 @@ describe("installScanLifecycle", () => {
     install();
     const platforms = storePlatforms();
     platforms.set([{ id: 1, rom_count: 2 } as Platform]);
-    const scanningRom = (id: number, isNew: boolean) => ({
-      id,
-      platform_id: 1,
-      platform_fs_slug: "n64",
-      is_new: isNew,
-    });
 
     fire("scan:scanning_rom", scanningRom(1, false));
     fire("scan:scanning_rom", scanningRom(2, false));
@@ -200,13 +209,7 @@ describe("installScanLifecycle", () => {
     install();
     const platforms = storePlatforms();
     platforms.set([{ id: 1, rom_count: 2 } as Platform]);
-    const newRom = {
-      id: 3,
-      platform_id: 1,
-      platform_fs_slug: "n64",
-      platform_display_name: "Nintendo 64",
-      is_new: true,
-    };
+    const newRom = scanningRom(3, true);
 
     fire("scan:scanning_rom", newRom);
     await drainRomBatch();
@@ -233,12 +236,7 @@ describe("installScanLifecycle", () => {
     const platforms = storePlatforms();
     platforms.set([{ id: 1, rom_count: 2 } as Platform]);
 
-    fire("scan:scanning_rom", {
-      id: 3,
-      platform_id: 1,
-      platform_fs_slug: "n64",
-      is_new: true,
-    });
+    fire("scan:scanning_rom", scanningRom(3, true));
     fire("scan:done", makeStats());
     await drainRomBatch();
 
@@ -250,25 +248,9 @@ describe("installScanLifecycle", () => {
     const roms = storeRoms();
     roms.setRecentRoms([{ id: 1, name: "Old" } as SimpleRom]);
 
-    fire("scan:scanning_rom", {
-      id: 1,
-      name: "Rescanned",
-      platform_id: 1,
-      platform_fs_slug: "n64",
-      is_new: false,
-    });
-    fire("scan:scanning_rom", {
-      id: 2,
-      platform_id: 1,
-      platform_fs_slug: "n64",
-      is_new: false,
-    });
-    fire("scan:scanning_rom", {
-      id: 3,
-      platform_id: 1,
-      platform_fs_slug: "n64",
-      is_new: true,
-    });
+    fire("scan:scanning_rom", scanningRom(1, false, { name: "Rescanned" }));
+    fire("scan:scanning_rom", scanningRom(2, false));
+    fire("scan:scanning_rom", scanningRom(3, true));
     await drainRomBatch();
 
     expect(roms.recentRoms.map((r) => r.id)).toEqual([3, 1]);

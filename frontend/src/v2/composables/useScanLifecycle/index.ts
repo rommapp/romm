@@ -121,18 +121,17 @@ export function installScanLifecycle() {
       if (isNew) {
         romsStore.removeFromRecent(rom);
         romsStore.addToRecent(rom);
+        if (!countedNewRomIds.has(rom.id)) {
+          countedNewRomIds.add(rom.id);
+          // The gallery/nav getters gate on `rom_count > 0`, so this is what
+          // makes a freshly-scanned platform render mid-scan.
+          const storePlatform = platformsStore.get(rom.platform_id);
+          if (storePlatform) storePlatform.rom_count += 1;
+        }
       } else if (romsStore.recentRoms.some((r) => r.id === rom.id)) {
         romsStore.recentRoms = romsStore.recentRoms.map((r) =>
           r.id === rom.id ? rom : r,
         );
-      }
-
-      if (isNew && !countedNewRomIds.has(rom.id)) {
-        countedNewRomIds.add(rom.id);
-        // The gallery/nav getters gate on `rom_count > 0`, so this is what
-        // makes a freshly-scanned platform render mid-scan.
-        const storePlatform = platformsStore.get(rom.platform_id);
-        if (storePlatform) storePlatform.rom_count += 1;
       }
 
       // If the user is currently looking at the gallery of the platform
@@ -201,6 +200,7 @@ export function installScanLifecycle() {
     // Apply the last ROM batch now, or its count bumps would land on the
     // platforms refetched below.
     processRomUpdates.flush();
+    countedNewRomIds.clear();
     const startedHere = scanningStore.startedInThisTab;
     scanningStore.setScanStats(stats);
     scanningStore.setScanning(false);
@@ -219,6 +219,7 @@ export function installScanLifecycle() {
 
   useSocketEvent<string>("scan:done_ko", (msg) => {
     markScanEnded();
+    countedNewRomIds.clear();
     const startedHere = scanningStore.startedInThisTab;
     scanningStore.setScanning(false);
     if (!startedHere) return;
