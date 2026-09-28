@@ -12,7 +12,7 @@
   - When a helper waits for a response, accept any status, then check it and throw a message naming the method, path and status, as `gotoHydrated()` does. Never filter on `status() === 200` inside `waitForResponse`.
   - Retry only what's transient (dev-server reloads). A server answer is final: throw at once, as `login()` does.
   - Don't paper over slowness with longer timeouts or `waitForTimeout`; find the event to wait for.
-  - Observe the app's own traffic; don't call the API from tests.
+  - Observe the app's own traffic; don't call the API from tests (ESLint enforces it). `global-setup.ts` is the one exception: a preflight that runs before any test.
 - **Saved sessions in `e2e/.auth/` are reused across runs.** `auth.setup.ts` checks each one through the UI (`isSessionValid()`) and signs in afresh only when that fails. Keep that check UI-only.
 - **`login.spec.ts` must start signed out,** via its explicit empty `storageState`.
 - **Target devices live in `src/v2/devices.ts`,** the single home for Storybook's viewports and the device projects. A test joins the device sweep with `{ tag: "@devices" }`; keep that for behaviour that depends on size, touch or gamepad input, since each tagged test runs six more times.

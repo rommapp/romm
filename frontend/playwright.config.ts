@@ -24,6 +24,8 @@ const TIMEOUTS = debugging
 
 export default defineConfig<E2EOptions>({
   testDir: "./e2e",
+  // Checks the backend and both accounts before anything else runs.
+  globalSetup: "./e2e/global-setup.ts",
   // Permission gating is global state on the server (the fixture users' grants),
   // so the specs read it rather than mutate it and are safe to parallelise.
   fullyParallel: true,
