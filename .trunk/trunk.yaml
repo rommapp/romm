@@ -25,7 +25,8 @@ lint:
     - mypy
   enabled:
     - zizmor@1.30.1
-    - pinact@4.1.1
+    # Held on 4.x: pinact 5 needs double-dash flags the Trunk plugin doesn't pass yet.
+    - pinact@4.1.1!
     - dotenv-linter@4.0.0
     - hadolint@2.15.1
     - markdownlint@0.49.1
