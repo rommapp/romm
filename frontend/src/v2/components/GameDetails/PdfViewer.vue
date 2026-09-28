@@ -1,14 +1,15 @@
 <script setup lang="ts">
-// PdfViewer (v2) — wraps `vue3-pdf-app` with v2 chrome:
+// PdfViewer (v2): wraps `vue3-pdf-app` with v2 chrome:
 //
 //   * Single bg-elevated panel hosts toolbar + canvas. The toolbar
 //     shares the same surface as the PDF area (no internal divider /
 //     bottom border) so the pane reads as one continuous panel.
-//   * Plain <button> + RIcon + RTooltip per toolbar action — vue3-pdf-app
+//   * Plain <button> + RIcon + RTooltip per toolbar action, since vue3-pdf-app
 //     wires controls by `id`, so raw buttons keep that contract while
 //     the v2 visual is owned by our scoped CSS.
 import { RIcon, RProgressLinear, RTooltip } from "@v2/lib";
-import { computed } from "vue";
+import { useResizeObserver } from "@vueuse/core";
+import { computed, ref, useTemplateRef } from "vue";
 import VuePdfApp from "vue3-pdf-app";
 import { useI18n } from "vue-i18n";
 import { useReadingProgress } from "@/v2/composables/useReadingProgress";
@@ -40,7 +41,15 @@ const pdfTheme = computed<"light" | "dark">(() =>
   isLight.value ? "light" : "dark",
 );
 
-// IDs the library reaches for to wire up the custom toolbar — must
+// pdf.js sizes pages to its container when it loads, so a viewer inside a
+// hidden subtab waits until it is laid out.
+const viewerEl = useTemplateRef<HTMLElement>("viewer");
+const laidOut = ref(false);
+useResizeObserver(viewerEl, ([entry]) => {
+  if (entry && entry.contentRect.width > 0) laidOut.value = true;
+});
+
+// IDs the library reaches for to wire up the custom toolbar; they must
 // match the field names of the `id-config` prop below.
 const ids = {
   sidebarToggle: "sidebarToggleId",
@@ -65,7 +74,7 @@ const fileIdRef = computed(() =>
 const { progress, restore, setPage, suppressWhileRestoring } =
   useReadingProgress(romIdRef, fileIdRef);
 
-// Only the members we touch — vue3-pdf-app hands over pdf.js's application
+// Only the members we touch; vue3-pdf-app hands over pdf.js's application
 // object untyped.
 type PdfApp = {
   page: number;
@@ -259,8 +268,9 @@ async function onPagesRendered(pdfApp: PdfApp) {
       class="r-v2-pdfv__progress"
     />
 
-    <div class="r-v2-pdfv__viewer">
+    <div ref="viewer" class="r-v2-pdfv__viewer">
       <VuePdfApp
+        v-if="laidOut"
         :id-config="ids"
         :config="{ toolbar: false }"
         :theme="pdfTheme"
@@ -276,14 +286,14 @@ async function onPagesRendered(pdfApp: PdfApp) {
 .r-v2-pdfv {
   display: flex;
   flex-direction: column;
-  /* Fills the parent container exactly — height comes from the chain
+  /* Fills the parent container exactly: height comes from the chain
      `.r-v2-det__panel → .r-v2-media → .r-v2-media__panel →
      .r-v2-manual__viewer`, all flex-sized. The viewer never overflows
      so the only visible scroll is the PDF's own internal one. */
   height: 100%;
 }
 
-/* Toolbar inherits the parent's bg-elevated — no separate background
+/* Toolbar inherits the parent's bg-elevated, so no separate background
    or divider so the surface reads as one continuous panel. */
 .r-v2-pdfv__toolbar {
   display: flex;
@@ -328,7 +338,7 @@ async function onPagesRendered(pdfApp: PdfApp) {
 html[data-bp~="xs"] .r-v2-pdfv__btn--step {
   display: none;
 }
-/* Danger variant — Delete sits at the end of the toolbar, so it takes
+/* Danger variant: Delete sits at the end of the toolbar, so it takes
    a danger-tinted foreground + hover so the destructive action reads
    different from the navigation/zoom siblings. */
 .r-v2-pdfv__btn--danger {
@@ -395,7 +405,7 @@ html[data-bp~="xs"] .r-v2-pdfv__btn--step {
 
 /* vue3-pdf-app paints its own canvas chrome via this CSS variable.
    Override with v2 tokens so the canvas blends with the surrounding
-   bg-elevated container — no visible seam between toolbar and canvas. */
+   bg-elevated container, with no visible seam between toolbar and canvas. */
 .r-v2-pdfv__viewer :deep(.pdf-app.dark),
 .r-v2-pdfv__viewer :deep(.pdf-app.light) {
   --pdf-app-background-color: var(--r-color-bg-elevated) !important;
