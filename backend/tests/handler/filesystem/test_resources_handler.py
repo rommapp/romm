@@ -1283,6 +1283,22 @@ class TestRemoveStaleMedia:
         assert (tmp_path / shared).exists()
         assert not (tmp_path / disc2).exists()
 
+    @pytest.mark.asyncio
+    async def test_keeps_a_path_a_higher_priority_provider_records(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        rel = "roms/1/1/physical/physical.png"
+        self._write(tmp_path, rel)
+
+        await handler.remove_stale_media(
+            {"physical_url": "file://old.png", "physical_path": rel},
+            {"physical_url": "file://new.png", "physical_path": rel},
+            [MetadataMediaType.PHYSICAL],
+            keep={rel},
+        )
+
+        assert (tmp_path / rel).exists()
+
 
 class TestRemoveRecordedMedia:
     @pytest.fixture

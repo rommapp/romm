@@ -1791,13 +1791,21 @@ async def download_rom_resources(
 
     async def store_provider_media() -> None:
         # Every provider drops its stale files before any stores, so one can't
-        # delete a shared file another just fetched.
+        # delete a shared file another just fetched. A path a higher-priority
+        # provider still records holds that provider's art, so it stays.
+        claimed: set[str] = set()
         for column, metadata, _url_transform in provider_media:
             previous = (previous_media or {}).get(column)
             if previous:
                 await fs_resource_handler.remove_stale_media(
-                    previous, metadata, preferred_media_types
+                    previous, metadata, preferred_media_types, keep=frozenset(claimed)
                 )
+            claimed |= {
+                owner[key]
+                for _type, owner, key, _url in fs_resource_handler.recorded_media(
+                    metadata, preferred_media_types
+                )
+            }
         # Providers share media paths, so they take turns: a later one finds the
         # file an earlier one landed on disk and keeps it.
         for column, metadata, url_transform in provider_media:

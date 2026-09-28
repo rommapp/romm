@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from tests.concurrency_stubs import InFlight
 
+from config.config_manager import MetadataMediaType
 from handler.scan_handler import MetadataSource, download_rom_resources
 from models.rom import Rom
 
@@ -120,7 +121,7 @@ async def test_every_provider_drops_stale_media_before_any_stores(
     previous_ss = {"fanart_path": "roms/1/7/fanart/fanart.png", "fanart_url": "old"}
     calls: list[str] = []
 
-    async def remove_stale_media(*_args: Any) -> None:
+    async def remove_stale_media(*_args: Any, **_kwargs: Any) -> None:
         calls.append("remove")
 
     async def store_metadata_media(*_args: Any) -> bool:
@@ -141,9 +142,41 @@ async def test_every_provider_drops_stale_media_before_any_stores(
 
     # Only ScreenScraper had media before this scan.
     resources.remove_stale_media.assert_awaited_once_with(
-        previous_ss, rom.ss_metadata, []
+        previous_ss, rom.ss_metadata, [], keep=frozenset()
     )
     assert calls == ["remove", "store", "store"]
+
+
+@pytest.mark.asyncio
+async def test_a_lower_priority_provider_keeps_a_path_a_higher_one_records(
+    resources: SimpleNamespace,
+):
+    shared = "roms/1/7/physical/physical.png"
+    rom = _rom()
+    rom.ss_metadata = {"physical_url": "http://ss/disc1.png", "physical_path": shared}
+    rom.gamelist_metadata = {"physical_url": "file://new.png", "physical_path": shared}
+    previous_gamelist = {"physical_url": "file://old.png", "physical_path": shared}
+
+    with patch(
+        "handler.scan_handler.get_preferred_media_types",
+        return_value=[MetadataMediaType.PHYSICAL],
+    ):
+        await download_rom_resources(
+            added_rom=rom,
+            previous_url_cover=None,
+            previous_url_manual=None,
+            previous_url_screenshots=None,
+            metadata_sources=[MetadataSource.SS, MetadataSource.GAMELIST],
+            previous_media={"gamelist_metadata": previous_gamelist},
+        )
+
+    # The shared file holds ScreenScraper's art, which gamelist's change must not drop.
+    resources.remove_stale_media.assert_awaited_once_with(
+        previous_gamelist,
+        rom.gamelist_metadata,
+        [MetadataMediaType.PHYSICAL],
+        keep=frozenset({shared}),
+    )
 
 
 @pytest.mark.asyncio

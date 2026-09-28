@@ -877,6 +877,7 @@ class FSResourcesHandler(FSHandler):
         previous: dict[str, Any],
         current: dict[str, Any],
         media_types: Iterable[MetadataMediaType],
+        keep: Iterable[str] = (),
     ) -> None:
         """Delete stored media the current metadata no longer backs, so it is fetched again.
 
@@ -884,6 +885,7 @@ class FSResourcesHandler(FSHandler):
             previous: The provider dict the stored files were fetched for.
             current: The provider dict about to be stored.
             media_types: The types to compare.
+            keep: Paths a higher-priority provider still records, left in place.
         """
         media_types = list(media_types)
         current_urls = {
@@ -898,7 +900,7 @@ class FSResourcesHandler(FSHandler):
             if (current_urls.get(owner[key]) not in (None, url))
             or (owner is not previous and owner[key] not in current_urls)
         }
-        for path in stale:
+        for path in stale - set(keep):
             try:
                 await self.remove_file(path)
             except FileNotFoundError:
