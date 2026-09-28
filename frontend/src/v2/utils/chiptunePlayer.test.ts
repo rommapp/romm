@@ -2,7 +2,27 @@ import { gzipSync } from "node:zlib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChiptunePlayer } from "./chiptunePlayer";
 
-vi.mock("./gmeAudioWorklet.js?url", () => ({ default: "/worklet.js" }));
+vi.mock("./gmeAudioWorklet.js?worker&url", () => ({ default: "/worklet.js" }));
+
+// Stands in for libgme when the player falls back to the main thread.
+const renderer = vi.hoisted(() => ({
+  commands: [] as { type: string }[],
+  rendered: 0,
+  send: null as ((reply: object) => void) | null,
+}));
+vi.mock("./gmeRenderer", () => ({
+  GmeRenderer: class {
+    constructor(_module: unknown, _rate: number, send: (r: object) => void) {
+      renderer.send = send;
+    }
+    handle(command: { type: string }) {
+      renderer.commands.push(command);
+    }
+    render() {
+      renderer.rendered += 1;
+    }
+  },
+}));
 
 type Posted = { type: string; id?: number; data?: ArrayBuffer; ms?: number };
 
@@ -67,6 +87,9 @@ function recordEvents(player: ChiptunePlayer) {
 beforeEach(() => {
   vi.clearAllMocks();
   port = new FakePort();
+  renderer.commands = [];
+  renderer.rendered = 0;
+  renderer.send = null;
   gain.gain.value = -1;
   bodies = new Map([
     ["/assets/gme/gme.wasm", new Uint8Array([0, 97, 115, 109])],
@@ -213,5 +236,45 @@ describe("ChiptunePlayer", () => {
     port.reply({ type: "error", id: port.lastLoad()?.id });
 
     expect(events).toEqual(["error"]);
+  });
+
+  it("renders on the main thread where AudioWorklet is unavailable", async () => {
+    const processor = {
+      onaudioprocess: null as ((event: object) => void) | null,
+      connect: vi.fn(() => gain),
+    };
+    vi.stubGlobal(
+      "AudioContext",
+      class {
+        audioWorklet = undefined;
+        sampleRate = 48000;
+        destination = {};
+        resume = resume;
+        close = vi.fn(async () => {});
+        createGain() {
+          return gain;
+        }
+        createScriptProcessor() {
+          return processor;
+        }
+      },
+    );
+    const player = new ChiptunePlayer();
+    const events = recordEvents(player);
+
+    await player.load("/track.nsf");
+    await flush();
+    const load = renderer.commands.at(-1) as { type: string; id: number };
+    expect(load.type).toBe("load");
+    expect(addModule).not.toHaveBeenCalled();
+
+    renderer.send?.({ type: "loaded", id: load.id, durationMs: 2000 });
+    await flush();
+    const channel = { getChannelData: () => new Float32Array(4) };
+    processor.onaudioprocess?.({ outputBuffer: channel });
+
+    expect(events).toEqual(["loadedmetadata", "canplay"]);
+    expect(player.duration).toBe(2);
+    expect(renderer.rendered).toBe(1);
   });
 });

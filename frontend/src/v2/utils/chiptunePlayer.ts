@@ -1,14 +1,17 @@
 import type { SoundtrackSink } from "@/stores/soundtrackPlayer";
-import workletUrl from "./gmeAudioWorklet.js?url";
+import workletUrl from "./gmeAudioWorklet.js?worker&url";
+import { type GmeCommand, type GmeReply, GmeRenderer } from "./gmeRenderer";
 
 const GME_WASM_PATH = "/assets/gme/gme.wasm";
 
-type WorkletMessage = { id: number } & (
-  | { type: "loaded"; durationMs: number }
-  | { type: "time"; ms: number }
-  | { type: "ended" }
-  | { type: "error" }
-);
+// Frames per main-thread render, about 85 ms at 48 kHz.
+const SCRIPT_PROCESSOR_FRAMES = 4096;
+
+/** Where the renderer runs: the port it listens on and the node it plays through. */
+interface RendererHost {
+  port: MessagePort;
+  output: AudioNode;
+}
 
 let modulePromise: Promise<WebAssembly.Module> | null = null;
 
@@ -44,7 +47,9 @@ async function fetchTrackData(url: string): Promise<ArrayBuffer> {
 export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   private context: AudioContext | null = null;
   private gain: GainNode | null = null;
-  private node: Promise<AudioWorkletNode> | null = null;
+  private port: Promise<MessagePort> | null = null;
+  // Held so the main-thread fallback's node isn't collected while it plays.
+  private output: AudioNode | null = null;
   private loadToken = 0;
   private loaded = false;
   private isPaused = true;
@@ -97,12 +102,13 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   async load(url: string, track = 0): Promise<void> {
     const token = this.reset();
     try {
-      const [node, data] = await Promise.all([
-        this.ensureNode(),
+      const [port, data] = await Promise.all([
+        this.ensurePort(),
         fetchTrackData(url),
       ]);
       if (token !== this.loadToken) return;
-      node.port.postMessage({ type: "load", id: token, data, track }, [data]);
+      const command: GmeCommand = { type: "load", id: token, data, track };
+      port.postMessage(command, [data]);
     } catch (error) {
       if (token !== this.loadToken) return;
       console.error("[chiptune] load failed", error);
@@ -111,7 +117,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   }
 
   async play(): Promise<void> {
-    await this.ensureNode();
+    await this.ensurePort();
     await this.context?.resume();
     if (!this.isPaused) return;
     this.isPaused = false;
@@ -134,7 +140,8 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
 
   close(): void {
     this.unload();
-    this.node = null;
+    this.port = null;
+    this.output = null;
     this.gain = null;
     void this.context?.close().catch(() => {});
     this.context = null;
@@ -152,39 +159,38 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     if (this.gain) this.gain.gain.value = this.silenced ? 0 : this.level;
   }
 
-  private post(message: object) {
-    if (!this.node) return;
-    void this.node.then((node) => node.port.postMessage(message));
+  private post(message: GmeCommand) {
+    if (!this.port) return;
+    void this.port.then((port) => port.postMessage(message));
   }
 
-  private ensureNode(): Promise<AudioWorkletNode> {
-    this.node ??= this.createNode().catch((error) => {
-      this.node = null;
+  private ensurePort(): Promise<MessagePort> {
+    this.port ??= this.createPort().catch((error) => {
+      this.port = null;
       throw error;
     });
-    return this.node;
+    return this.port;
   }
 
-  private async createNode(): Promise<AudioWorkletNode> {
+  private async createPort(): Promise<MessagePort> {
     const module = await compileGme();
     const context = (this.context ??= new AudioContext());
-    await context.audioWorklet.addModule(workletUrl);
-    const node = new AudioWorkletNode(context, "gme-audio", {
-      numberOfInputs: 0,
-      numberOfOutputs: 1,
-      outputChannelCount: [2],
-      processorOptions: { module },
-    });
+    // AudioWorklet only exists in secure contexts, and RomM is often served
+    // over plain HTTP on a LAN address.
+    const host = context.audioWorklet
+      ? await hostInWorklet(context, module)
+      : hostOnMainThread(context, module);
     const gain = context.createGain();
-    node.connect(gain).connect(context.destination);
+    host.output.connect(gain).connect(context.destination);
+    this.output = host.output;
     this.gain = gain;
     this.applyGain();
-    node.port.onmessage = (event: MessageEvent<WorkletMessage>) =>
+    host.port.onmessage = (event: MessageEvent<GmeReply>) =>
       this.receive(event.data);
-    return node;
+    return host.port;
   }
 
-  private receive(message: WorkletMessage) {
+  private receive(message: GmeReply) {
     if (message.id !== this.loadToken) return;
 
     switch (message.type) {
@@ -209,4 +215,37 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
         break;
     }
   }
+}
+
+async function hostInWorklet(
+  context: AudioContext,
+  module: WebAssembly.Module,
+): Promise<RendererHost> {
+  await context.audioWorklet.addModule(workletUrl);
+  const node = new AudioWorkletNode(context, "gme-audio", {
+    numberOfInputs: 0,
+    numberOfOutputs: 1,
+    outputChannelCount: [2],
+    processorOptions: { module },
+  });
+  return { port: node.port, output: node };
+}
+
+function hostOnMainThread(
+  context: AudioContext,
+  module: WebAssembly.Module,
+): RendererHost {
+  const channel = new MessageChannel();
+  const renderer = new GmeRenderer(module, context.sampleRate, (reply) =>
+    channel.port2.postMessage(reply),
+  );
+  channel.port2.onmessage = (event: MessageEvent<GmeCommand>) =>
+    renderer.handle(event.data);
+  const node = context.createScriptProcessor(SCRIPT_PROCESSOR_FRAMES, 0, 2);
+  node.onaudioprocess = (event) =>
+    renderer.render(
+      event.outputBuffer.getChannelData(0),
+      event.outputBuffer.getChannelData(1),
+    );
+  return { port: channel.port1, output: node };
 }
