@@ -1,0 +1,26 @@
+name: Trunk Check (all files)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # PRs only lint the files they touch, so existing issues surface here instead.
+    - cron: "0 8 * * 1"
+
+# Without checks: write, Trunk posts no annotations. Existing findings still
+# fail this run, and so its check on master, until the backlog is cleared.
+permissions:
+  contents: read
+
+jobs:
+  trunk-check-all:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Trunk Check
+        uses: trunk-io/trunk-action@e1234e67a86010d61ddac8d8ebf4b783e2ffd2fa # v2.0.0
+        with:
+          check-mode: all

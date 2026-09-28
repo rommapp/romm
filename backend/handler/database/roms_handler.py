@@ -27,15 +27,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy import (
-    literal,
-    not_,
-    or_,
-    select,
-    true,
-    union,
-    update,
-)
+from sqlalchemy import literal, not_, or_, select, true, union, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     ColumnProperty,

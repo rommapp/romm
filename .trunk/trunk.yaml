@@ -7,7 +7,7 @@ cli:
 plugins:
   sources:
     - id: trunk
-      ref: v1.10.2
+      ref: v1.11.0
       uri: https://github.com/trunk-io/plugins
 # Many linters and tools depend on runtimes - configure them here. (https://docs.trunk.io/runtimes)
 runtimes:
@@ -25,29 +25,29 @@ lint:
     - mypy
   enabled:
     - zizmor@1.30.1
-    - pinact@4.0.0
+    - pinact@4.1.1
     - dotenv-linter@4.0.0
-    - hadolint@2.14.0
+    - hadolint@2.15.1
     - markdownlint@0.49.1
-    - eslint@10.7.0
-    - actionlint@1.7.11
+    - eslint@10.11.0
+    - actionlint@1.7.12
     - bandit@1.9.4
     - black@26.5.1
-    - checkov@3.3.8
+    - checkov@3.3.19
     - git-diff-check
     - no-emdash
-    - isort@8.0.1
-    - osv-scanner@2.3.3
-    - prettier@3.9.5:
+    - isort@9.0.1
+    - osv-scanner@2.6.0
+    - prettier@3.9.8:
         packages:
           - "@trivago/prettier-plugin-sort-imports@6.0.2"
-          - "@vue/compiler-sfc@3.5.40"
-    - ruff@0.15.22
+          - "@vue/compiler-sfc@3.5.43"
+    - ruff@0.16.8
     - shellcheck@0.11.0
-    - shfmt@3.6.0
+    - shfmt@3.14.1
     - taplo@0.10.0
-    - trivy@0.70.0
-    - trufflehog@3.93.7
+    - trivy@0.74.0
+    - trufflehog@3.97.5
     - yamllint@1.38.0
   ignore:
     - linters: [ALL]

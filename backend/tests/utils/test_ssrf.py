@@ -442,9 +442,7 @@ class TestInstallation:
         import httpx2
 
         from utils.ssrf import SSRFProtectedAsyncBackend as Async
-        from utils.ssrf import (
-            install_async_ssrf_protection,
-        )
+        from utils.ssrf import install_async_ssrf_protection
 
         client = httpx2.AsyncClient(proxy="http://proxy.invalid:3128")
         try:
