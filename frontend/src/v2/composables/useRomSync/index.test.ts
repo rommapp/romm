@@ -4,6 +4,7 @@ import storeCollections, { type Collection } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Platform } from "@/stores/platforms";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
+import { makeDetailedRom, makeRom as baseRom } from "@/utils/rom.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import { useRomSync } from "./index";
@@ -18,11 +19,7 @@ vi.mock("@/services/api/rom", () => ({
 }));
 
 function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return {
-    id: 1,
-    name: "Chrono Trigger",
-    ...overrides,
-  } as unknown as SimpleRom;
+  return baseRom({ name: "Chrono Trigger", ...overrides });
 }
 
 /** Put the gallery in a platform context with one loaded window so
@@ -257,7 +254,7 @@ describe("useRomSync", () => {
 
   describe("refetchRom", () => {
     const detailed = (id: number) =>
-      ({ id, name: "Chrono Trigger" }) as unknown as DetailedRom;
+      makeDetailedRom({ id, name: "Chrono Trigger" });
 
     it("applies the fresh rom to the open view and the caches", async () => {
       const romsStore = storeRoms();

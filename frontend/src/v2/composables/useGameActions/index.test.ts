@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionKey } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
+import { makeRom as baseRom } from "@/utils/rom.fixtures";
 import { useGameActions } from "./index";
 
 // Controllable stubs shared with the mocked modules below.
@@ -124,14 +125,13 @@ vi.mock("@/v2/composables/useViewTransition", () => ({
 }));
 
 function makeRom(status: SimpleRom["rom_user"]["status"] = null): SimpleRom {
-  return {
-    id: 1,
+  return baseRom({
     name: "Chrono Trigger",
     fs_name_no_ext: "Chrono Trigger",
     platform_slug: "snes",
     has_file_on_disk: true,
-    rom_user: { status },
-  } as unknown as SimpleRom;
+    rom_user: { status } as SimpleRom["rom_user"],
+  });
 }
 
 beforeEach(() => {

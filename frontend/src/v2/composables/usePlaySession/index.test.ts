@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import playSessionApi from "@/services/api/play-session";
 import type { SimpleRom } from "@/stores/roms";
+import { makeRom as baseRom } from "@/utils/rom.fixtures";
 import { usePlaySession } from "./index";
 
 vi.mock("@/services/api/play-session", () => ({
@@ -21,7 +22,7 @@ vi.mock("@/stores/auth", () => ({
 const ingest = vi.mocked(playSessionApi.ingestPlaySessionsKeepalive);
 
 function makeRom(id = 7): SimpleRom {
-  return { id } as unknown as SimpleRom;
+  return baseRom({ id });
 }
 
 beforeEach(() => {
