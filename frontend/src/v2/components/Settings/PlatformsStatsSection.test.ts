@@ -2,16 +2,13 @@ import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createI18n } from "vue-i18n";
+import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
+import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
 import enSettings from "@/locales/en_US/settings.json";
+import storeConfig from "@/stores/config";
 import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
 import PlatformsStatsSection from "./PlatformsStatsSection.vue";
-
-// The heartbeat store pulls in config + i18n; stub it down to the single
-// method this component calls.
-vi.mock("@/stores/heartbeat", () => ({
-  default: () => ({ getMetadataOptionsByPriority: () => [] }),
-}));
 
 const push = vi.fn();
 vi.mock("vue-router", async (importOriginal) => ({
@@ -55,11 +52,12 @@ function platform(overrides: Partial<Platform> = {}): Platform {
 
 function mountSection(
   platforms: Platform[],
-  regionBreakdown: Record<string, { region: string; count: number }[]> = {},
+  regionBreakdown: Record<string, RegionBreakdownItem[]> = {},
+  metadataCoverage: Record<string, MetadataCoverageItem[]> = {},
 ) {
   storePlatforms().set(platforms);
   return mount(PlatformsStatsSection, {
-    props: { totalFilesize: 0, metadataCoverage: {}, regionBreakdown },
+    props: { totalFilesize: 0, metadataCoverage, regionBreakdown },
     global: {
       plugins: [i18n],
       stubs: {
@@ -85,6 +83,16 @@ function renderedCounts(wrapper: Section): string[] {
 
 function rowCount(wrapper: Section): number {
   return wrapper.findAll(".r-v2-plat-stats__row").length;
+}
+
+function mountCoverage(items: MetadataCoverageItem[]): Section {
+  return mountSection([platform({ id: 1, rom_count: 4 })], {}, { "1": items });
+}
+
+function coverageLogos(wrapper: Section): (string | undefined)[] {
+  return wrapper
+    .findAll(".r-v2-plat-stats__coverage img")
+    .map((img) => img.attributes("src"));
 }
 
 async function setOrder(wrapper: Section, order: "name" | "size" | "count") {
@@ -209,6 +217,48 @@ describe("PlatformsStatsSection", () => {
       regions.length,
     );
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it("shows the TheGamesDB name and logo on its coverage chip", () => {
+    const chip = mountCoverage([{ source: "tgdb", matched: 2 }]).find(
+      ".r-v2-plat-stats__coverage",
+    );
+
+    expect(chip.find("img").attributes("src")).toBe(
+      "/assets/scrappers/tgdb.png",
+    );
+    expect(chip.attributes("title")).toBe("TheGamesDB matches: 2 / 4");
+    expect(chip.text()).toBe("50%");
+  });
+
+  it("orders coverage chips by the configured scan priority", () => {
+    storeConfig().config.SCAN_METADATA_PRIORITY = ["ss", "tgdb", "igdb"];
+    const wrapper = mountCoverage([
+      { source: "igdb", matched: 2 },
+      { source: "ss", matched: 3 },
+      { source: "tgdb", matched: 1 },
+    ]);
+
+    expect(coverageLogos(wrapper)).toEqual([
+      "/assets/scrappers/ss.png",
+      "/assets/scrappers/tgdb.png",
+      "/assets/scrappers/igdb.png",
+    ]);
+  });
+
+  it("orders sources missing from the scan priority by registry order", () => {
+    storeConfig().config.SCAN_METADATA_PRIORITY = ["ss"];
+    const wrapper = mountCoverage([
+      { source: "tgdb", matched: 1 },
+      { source: "igdb", matched: 2 },
+      { source: "ss", matched: 3 },
+    ]);
+
+    expect(coverageLogos(wrapper)).toEqual([
+      "/assets/scrappers/ss.png",
+      "/assets/scrappers/igdb.png",
+      "/assets/scrappers/tgdb.png",
+    ]);
   });
 
   it("renders one row per platform on initial load", () => {
