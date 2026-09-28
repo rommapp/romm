@@ -115,6 +115,16 @@ npm run test:e2e -- --project="steam*"
 
 In VS Code, tick the device's project in the Playwright panel and **Show browser**; it opens at that device's size. More in [DEVICES.md](DEVICES.md).
 
+### Test Explorer shows no tests
+
+The extension lists tests by loading `playwright.config.ts`, which validates `e2e/.env` first. If that fails, the panel stays empty. See why:
+
+```bash
+npx playwright test --list
+```
+
+Fix what it reports, then click **Refresh Tests** in the Testing sidebar.
+
 ### Run one file, or one test
 
 ```bash
