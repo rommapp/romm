@@ -75,6 +75,26 @@ class TestReadSongs:
         assert read_songs(_write(tmp_path, "junk.nsf", b"garbage")) is None
         assert read_songs(str(tmp_path / "missing.nsf")) is None
 
+    def test_skips_a_file_over_the_size_cap(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        data = nsf_bytes(2)
+        monkeypatch.setattr(gme, "MAX_CHIPTUNE_BYTES", len(data) - 1)
+
+        assert read_songs(_write(tmp_path, "game.nsf", data)) is None
+
+    def test_ignores_a_playlist_over_the_size_cap(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        path = _write(tmp_path, "game.nsf", nsf_bytes(3))
+        m3u = _write(tmp_path, "game.m3u", "game.nsf::NSF,2,Only Song\n")
+        monkeypatch.setattr(gme, "MAX_M3U_BYTES", 4)
+
+        songs = read_songs(path, m3u)
+
+        assert songs is not None
+        assert [song.tags["title"] for song in songs] == [None, None, None]
+
     def test_without_libgme(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(gme, "_libgme", lambda: None)
 

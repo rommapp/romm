@@ -22,6 +22,10 @@ UNCOUNTED_EXTENSIONS = frozenset({".hes", ".kss"})
 
 MAX_SONGS = 256
 
+# Bounds what one scan holds in memory. Sample-heavy VGMs reach tens of MB.
+MAX_CHIPTUNE_BYTES = 64 * 1024 * 1024
+MAX_M3U_BYTES = 1024 * 1024
+
 # gme_open_data's sample rate for reading track info without an emulator.
 _INFO_ONLY = -1
 
@@ -136,6 +140,16 @@ def _song_tags(info: _GmeInfo, index: int) -> AudioTags:
     }
 
 
+def _read_capped(path: str, limit: int) -> bytes | None:
+    """The file's bytes, or None when it is larger than `limit`."""
+    with open(path, "rb") as f:
+        data = f.read(limit + 1)
+    if len(data) > limit:
+        log.warning(f"Skipping the song list of {path}: over {limit} bytes")
+        return None
+    return data
+
+
 def read_songs(file_path: str, m3u_path: str | None = None) -> list[Song] | None:
     """List the songs in a console sound file.
 
@@ -145,20 +159,18 @@ def read_songs(file_path: str, m3u_path: str | None = None) -> list[Song] | None
 
     Returns:
         The songs in playback order, skipping playlist entries libgme rejects,
-        or None when libgme is missing or can't read the file.
+        or None when libgme is missing, can't read the file, or it is too large.
     """
     lib = _libgme()
     if lib is None:
         return None
     try:
-        with open(file_path, "rb") as f:
-            data = f.read()
-        m3u = None
-        if m3u_path:
-            with open(m3u_path, "rb") as f:
-                m3u = f.read()
+        data = _read_capped(file_path, MAX_CHIPTUNE_BYTES)
+        m3u = _read_capped(m3u_path, MAX_M3U_BYTES) if m3u_path else None
     except OSError as exc:
         log.warning(f"Could not read {file_path} for its song list: {exc}")
+        return None
+    if data is None:
         return None
 
     emu = ctypes.c_void_p()

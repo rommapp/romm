@@ -6,15 +6,19 @@ the columns derived from `name` / `fs_name` / `fs_path` in sync explicitly.
 
 import pytest
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from handler.database import (
+    db_music_playlist_handler,
     db_platform_handler,
     db_rom_handler,
     db_save_handler,
     db_state_handler,
 )
+from handler.database.base_handler import sync_session
 from models.assets import Save, State
+from models.music import MusicFavoriteTrack, MusicPlaylist, TrackKey
 from models.platform import Platform
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
@@ -260,6 +264,31 @@ class TestHasSavesStatesFilter:
         assert rom.id not in self._rom_ids(user_id=admin_user.id, has_states=True)
 
 
+def _chiptune(rom: Rom, titles: list[str]) -> RomFile:
+    """A scanned NSF holding one song per title."""
+    return _scanned_file(
+        rom,
+        "game.nsf",
+        category=RomFileCategory.SOUNDTRACK,
+        track_metas=[
+            TrackMeta(rom_id=rom.id, song=song, title=title)
+            for song, title in enumerate(titles)
+        ],
+    )
+
+
+def _favorite_songs(user_id: int) -> list[tuple[int, int]]:
+    with sync_session.begin() as session:
+        return [
+            (row.rom_file_id, row.song)
+            for row in session.scalars(
+                select(MusicFavoriteTrack)
+                .filter_by(user_id=user_id)
+                .order_by(MusicFavoriteTrack.song)
+            )
+        ]
+
+
 def _scanned_file(
     rom: Rom,
     file_name: str,
@@ -448,6 +477,56 @@ class TestSyncRomFiles:
             (1, "Stage 1"),
         ]
         assert {m.m3u_file_id for m in reloaded.track_metas} == {playlist.id}
+
+    def test_saved_songs_follow_a_reordered_playlist(self, rom: Rom, admin_user: User):
+        (chiptune,) = _sync(rom, [_chiptune(rom, ["Intro", "Stage", "Boss"])])
+        db_music_playlist_handler.add_favorite_tracks(
+            admin_user.id, [TrackKey(chiptune.id, 1), TrackKey(chiptune.id, 2)]
+        )
+        playlist = db_music_playlist_handler.add_playlist(
+            MusicPlaylist(name="Mix", user_id=admin_user.id)
+        )
+        db_music_playlist_handler.add_tracks_to_playlist(
+            playlist.id, [TrackKey(chiptune.id, 2), TrackKey(chiptune.id, 1)]
+        )
+
+        # Boss and Stage swap places, and Intro leaves the list.
+        _sync(rom, [_chiptune(rom, ["Boss", "Stage"])])
+
+        assert _favorite_songs(admin_user.id) == [
+            (chiptune.id, 0),
+            (chiptune.id, 1),
+        ]
+        entries = db_music_playlist_handler.get_playlist_entries(playlist.id)
+        assert [(e.song, e.position) for e in entries] == [(0, 1), (1, 2)]
+
+    def test_saved_songs_that_are_gone_are_dropped(self, rom: Rom, admin_user: User):
+        (chiptune,) = _sync(rom, [_chiptune(rom, ["Intro", "Stage", "Boss"])])
+        db_music_playlist_handler.add_favorite_tracks(
+            admin_user.id, [TrackKey(chiptune.id, 0), TrackKey(chiptune.id, 2)]
+        )
+
+        _sync(rom, [_chiptune(rom, ["Intro", "Stage"])])
+
+        assert _favorite_songs(admin_user.id) == [(chiptune.id, 0)]
+
+    def test_a_retagged_lone_track_stays_saved(self, rom: Rom, admin_user: User):
+        def song(title: str) -> RomFile:
+            return _scanned_file(
+                rom,
+                "theme.mp3",
+                category=RomFileCategory.SOUNDTRACK,
+                track_metas=[TrackMeta(rom_id=rom.id, title=title)],
+            )
+
+        (track,) = _sync(rom, [song("Theme")])
+        db_music_playlist_handler.add_favorite_tracks(
+            admin_user.id, [TrackKey(track.id)]
+        )
+
+        _sync(rom, [song("Main Theme")])
+
+        assert _favorite_songs(admin_user.id) == [(track.id, 0)]
 
     def test_unset_columns_do_not_overwrite_not_null_values(self, rom: Rom):
         """A scanned row leaves unset columns as None, and the model defaults

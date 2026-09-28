@@ -245,6 +245,9 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0142_state_core.py", "states"),
         ("0143_sibling_platform_names.py", "platforms"),
         ("0144_user_oidc_sub.py", "users"),
+        ("0145_track_meta_songs.py", "track_meta"),
+        ("0145_track_meta_songs.py", "music_favorite_tracks"),
+        ("0145_track_meta_songs.py", "music_playlist_tracks"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -327,6 +330,43 @@ def test_the_user_oidc_sub_revision_reverses_and_replays():
             migration.upgrade()
 
         assert _schema_of(connection, "users") == before
+
+
+def _song_keys(connection: sa.Connection) -> dict[str, tuple[str, ...]]:
+    inspector = sa.inspect(connection)
+    keys = {
+        table: tuple(inspector.get_pk_constraint(table)["constrained_columns"])
+        for table in ("track_meta", "music_favorite_tracks")
+    }
+    for index in inspector.get_indexes("music_playlist_tracks"):
+        if index["name"] == "unique_music_playlist_track":
+            keys["music_playlist_tracks"] = tuple(map(str, index["column_names"]))
+    return keys
+
+
+def test_the_track_meta_songs_revision_reverses_and_replays():
+    """0145 swaps primary and unique keys, so each swap checks the current key."""
+    migration = _load_migration("0145_track_meta_songs.py")
+    tables = ("track_meta", "music_favorite_tracks", "music_playlist_tracks")
+
+    with sync_engine.begin() as connection:
+        before = {table: _schema_of(connection, table) for table in tables}
+        keys = _song_keys(connection)
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert _song_keys(connection) == {
+                "track_meta": ("rom_file_id",),
+                "music_favorite_tracks": ("user_id", "rom_file_id"),
+                "music_playlist_tracks": ("playlist_id", "rom_file_id"),
+            }
+            assert not has_column(connection, "track_meta", "m3u_file_id")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _song_keys(connection) == keys
+        assert {table: _schema_of(connection, table) for table in tables} == before
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:
