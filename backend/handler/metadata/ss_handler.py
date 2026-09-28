@@ -962,8 +962,8 @@ class SSHandler(MetadataHandler):
 
         # Files on NON_HASHABLE_PLATFORMS (or any file when SKIP_HASH_CALCULATION
         # is enabled) have no hashes. jeuInfos can still identify the game from the
-        # filename (romnom) + platform (systemeid) — a stronger matcher than the
-        # jeuRecherche name search the get_rom fallback uses — so only bail out when
+        # filename (romnom) + platform (systemeid), which is a stronger matcher than the
+        # jeuRecherche name search the get_rom fallback uses, so only bail out when
         # we have neither a hash nor a filename to match on.
         if not (md5_hash or sha1_hash or crc_hash or rom_name):
             log.info(
@@ -1237,7 +1237,8 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.COLECOADAM: {"id": 89, "name": "Coleco Adam"},
     UPS.COLECOVISION: {"id": 48, "name": "Colecovision"},
     UPS.COLOUR_GENIE: {"id": 92, "name": "EG2000 Colour Genie"},
-    UPS.C128: {"id": 66, "name": "Commodore 64"},
+    # ScreenScraper files C128 under its C64 system; keep the display name distinct.
+    UPS.C128: {"id": 66, "name": "Commodore 128"},
     UPS.C_PLUS_4: {"id": 99, "name": "Plus/4"},
     UPS.C16: {"id": 99, "name": "Plus/4"},
     UPS.C64: {"id": 66, "name": "Commodore 64"},
@@ -1368,7 +1369,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.VSMILE: {"id": 120, "name": "V.Smile"},
     UPS.VIC_20: {"id": 73, "name": "Vic-20"},
     UPS.VECTREX: {"id": 102, "name": "Vectrex"},
-    UPS.VIDEOPAC_G7400: {"id": 104, "name": "Videopac G7000"},
+    UPS.VIDEOPAC_G7400: {"id": 104, "name": "Videopac+ G7400"},
     UPS.VIRTUALBOY: {"id": 11, "name": "Virtual Boy"},
     UPS.WII: {"id": 16, "name": "Wii"},
     UPS.WIIU: {"id": 18, "name": "Wii U"},

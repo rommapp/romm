@@ -25,6 +25,7 @@ permissions:
 jobs:
   resolve:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       images: ${{ steps.resolve.outputs.images }}
     steps:
@@ -51,6 +52,7 @@ jobs:
       matrix:
         image: ${{ fromJSON(needs.resolve.outputs.images) }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: read
@@ -112,3 +114,12 @@ jobs:
           # Keyed by image ref, so a dispatched scan of an older tag can't
           # replace the analysis of latest.
           category: trivy-image-${{ matrix.image }}
+
+  # When the nightly build calls this, its own report-failure job covers it.
+  report-failure:
+    needs: [resolve, scan]
+    if: failure() && github.event_name == 'schedule' && !inputs.images
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/report-scheduled-failure.yml

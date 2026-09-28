@@ -115,7 +115,7 @@ async def get_romfile_content(
     )
 
     # Derive content type / disposition / download name from the trusted DB
-    # record, never from the client-supplied file_name path param — otherwise a
+    # record, never from the client-supplied file_name path param; otherwise a
     # caller could request the same bytes with an arbitrary extension to force a
     # mismatched Content-Type while served inline (content-sniffing/XSS).
     # Audio, images and videos are served inline so <audio>/<video>/<img> in the
@@ -164,7 +164,7 @@ async def get_romfile_content(
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         rom_path = fs_rom_handler.validate_path(file.full_path)
-        # Starlette sets Content-Length and honors Range natively — inline
+        # Starlette sets Content-Length and honors Range natively; inline
         # disposition lets <audio> seek via Range requests.
         return FileResponse(
             path=rom_path,

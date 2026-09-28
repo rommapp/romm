@@ -17,6 +17,7 @@ import pendingAssetStore, {
 import storeHeartbeat from "@/stores/heartbeat";
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
+import { keepArcadeBiosWhole } from "@/v2/utils/playerFirmware";
 
 /** Tears the emulator down once, however many owners ask. */
 export function exitEmulatorOnce() {
@@ -414,7 +415,14 @@ export function toArrayBuffer(view: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
-export function loadEmulatorJSSave(save: Uint8Array) {
+/**
+ * Writes a save over the core's save file and reloads it into the SRAM.
+ *
+ * Returns:
+ *   Whether the bytes differ from the file already there. Games read their
+ *   SRAM at boot, so a changed save only shows once the core restarts.
+ */
+export function loadEmulatorJSSave(save: Uint8Array): boolean {
   const FS = window.EJS_emulator.gameManager.FS;
   const path = window.EJS_emulator.gameManager.getSaveFilePath();
   const paths = path.split("/");
@@ -424,9 +432,19 @@ export function loadEmulatorJSSave(save: Uint8Array) {
     cp += "/" + paths[i];
     if (!FS.analyzePath(cp).exists) FS.mkdir(cp);
   }
-  if (FS.analyzePath(path).exists) FS.unlink(path);
+  let previous: Uint8Array | null = null;
+  if (FS.analyzePath(path).exists) {
+    previous = FS.readFile(path);
+    FS.unlink(path);
+  }
   FS.writeFile(path, save);
   window.EJS_emulator.gameManager.loadSaveFiles();
+  return !bytesEqual(previous, save);
+}
+
+/** Loads a save into a core that just booted, restarting it when the save changed. */
+export function bootEmulatorJSSave(save: Uint8Array) {
+  if (loadEmulatorJSSave(save)) window.EJS_emulator.gameManager.restart();
 }
 
 export function loadEmulatorJSState(state: Uint8Array) {
@@ -527,6 +545,31 @@ function replayConnectedGamepads(emulator: any) {
   }
 }
 
+// Some cores (fceumm) ignore retro_cheat_set's enabled flag and apply every
+// code they get, so a disabled cheat must never reach the core at all.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyOnlyEnabledCheats(emulator: any) {
+  if (emulator.__rommCheatsPatched) return;
+  emulator.__rommCheatsPatched = true;
+
+  emulator.cheatChanged = (checked: boolean, code: string, index: number) => {
+    const gameManager = emulator.gameManager;
+    if (!gameManager) return;
+    if (checked) {
+      gameManager.setCheat(index, true, code);
+      return;
+    }
+    gameManager.resetCheat();
+    // A removed cheat is still in the list, and may still be checked.
+    (emulator.cheats ?? []).forEach(
+      (cheat: { checked?: boolean; code: string }, i: number) => {
+        if (cheat.checked && i !== index)
+          gameManager.setCheat(i, true, cheat.code);
+      },
+    );
+  };
+}
+
 // Trap the window.EJS_emulator assignment so the instance is patched right
 // after the constructor returns, before the async core download and boot
 // consume any of the patched values. Patching later (e.g. in EJS_onGameStart)
@@ -543,6 +586,8 @@ export function installEJSDefaultOptionsTrap() {
       if (!value) return;
       installDefaultOptionsFallback(value);
       replayConnectedGamepads(value);
+      keepArcadeBiosWhole(value);
+      applyOnlyEnabledCheats(value);
     },
   });
 }

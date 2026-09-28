@@ -38,6 +38,7 @@ import {
   resolveScreenshot,
 } from "@/views/Player/EmulatorJS/utils";
 import {
+  bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
   invalidateEmulatorJSRomCacheIfRenamed,
 } from "@/views/Player/EmulatorJS/utils";
@@ -638,20 +639,8 @@ async function boot() {
           if (!resp.ok) throw new Error("Failed to fetch save");
           const buf = new Uint8Array(await resp.arrayBuffer());
           try {
-            const FS = gameManager.FS;
-            const path = gameManager.getSaveFilePath();
-            // Ensure dirs
-            const segs = path.split("/");
-            let accum = "";
-            for (let i = 0; i < segs.length - 1; i++) {
-              if (!segs[i]) continue;
-              accum += "/" + segs[i];
-              if (!FS.analyzePath(accum).exists) FS.mkdir(accum);
-            }
-            if (FS.analyzePath(path).exists) FS.unlink(path);
-            FS.writeFile(path, buf);
-            gameManager.loadSaveFiles?.();
-            console.info("[ConsolePlay] Loaded server save into path", path);
+            bootEmulatorJSSave(buf);
+            console.info("[ConsolePlay] Loaded server save");
           } catch (err) {
             console.warn("[ConsolePlay] Failed writing save file", err);
           }

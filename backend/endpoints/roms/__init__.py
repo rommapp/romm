@@ -20,12 +20,7 @@ from fastapi import (
     HTTPException,
 )
 from fastapi import Path as PathVar
-from fastapi import (
-    Query,
-    Request,
-    UploadFile,
-    status,
-)
+from fastapi import Query, Request, UploadFile, status
 from fastapi.responses import Response
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 from sqlalchemy.exc import IntegrityError
