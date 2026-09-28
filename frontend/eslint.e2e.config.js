@@ -15,6 +15,11 @@ const ENV_BUILDERS = [
 
 export default [
   {
+    // Playwright's generated reports and traces, written inside e2e/.
+    name: "e2e/output",
+    ignores: ["e2e/playwright-report/**", "e2e/test-results/**"],
+  },
+  {
     name: "e2e/runtime",
     files: E2E_FILES,
     languageOptions: {
