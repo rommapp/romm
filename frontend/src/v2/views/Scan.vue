@@ -317,6 +317,7 @@ function stopScan() {
             mark-unscanned
             :unscanned-label="t('scan.folder-not-scanned')"
             show-all-option
+            promote-filled
           />
         </section>
 
