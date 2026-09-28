@@ -525,10 +525,11 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE_V2)}/miximage_v2.png"
                     )
             elif media.get("type") == "support-2D":
-                physical_urls.setdefault(
-                    _ss_disc_number(media),
-                    strip_sensitive_query_params(media["url"], SENSITIVE_KEYS),
-                )
+                disc = _ss_disc_number(media)
+                if disc not in physical_urls:
+                    physical_urls[disc] = strip_sensitive_query_params(
+                        media["url"], SENSITIVE_KEYS
+                    )
             elif media.get("type") == "ss" and not ss_media["screenshot_url"]:
                 ss_media["screenshot_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS

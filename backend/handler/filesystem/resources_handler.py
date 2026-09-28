@@ -118,6 +118,10 @@ def _is_chroma_key_placeholder(image_path: Path) -> bool:
     return green / total >= _CHROMA_KEY_COVERAGE
 
 
+# A recorded media file: its type, the dict holding its path, that path's key, its URL.
+RecordedMedia = tuple[MetadataMediaType, dict[str, Any], str, str | None]
+
+
 class FSResourcesHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=RESOURCES_BASE_PATH)
@@ -806,6 +810,40 @@ class FSResourcesHandler(FSHandler):
         # file behind without raising.
         return await self.file_exists(dest_path)
 
+    @staticmethod
+    def recorded_media(
+        metadata: dict[str, Any], media_types: Iterable[MetadataMediaType]
+    ) -> list[RecordedMedia]:
+        """Every media file a provider metadata dict records a path for.
+
+        Args:
+            metadata: The provider dict. Beside each ``<type>_path`` and
+                ``<type>_url``, a ``<type>_extra_discs`` list holds a ``path``
+                and ``url`` per later disc.
+            media_types: The types to look for; one listed twice counts once.
+
+        Returns:
+            One ``(media_type, owner, key, url)`` per file, its path at ``owner[key]``.
+        """
+        recorded: list[RecordedMedia] = []
+        for media_type in dict.fromkeys(media_types):
+            path_key = f"{media_type.value}_path"
+            if metadata.get(path_key):
+                recorded.append(
+                    (
+                        media_type,
+                        metadata,
+                        path_key,
+                        metadata.get(f"{media_type.value}_url"),
+                    )
+                )
+            recorded += [
+                (media_type, disc, "path", disc.get("url"))
+                for disc in metadata.get(f"{media_type.value}_extra_discs") or []
+                if disc.get("path")
+            ]
+        return recorded
+
     async def store_metadata_media(
         self,
         metadata: dict[str, Any],
@@ -832,26 +870,11 @@ class FSResourcesHandler(FSHandler):
             # scan already stored the file.
             return await self.file_exists(media_path)
 
-        # A set, so a media type listed twice is fetched once.
-        media_types = set(media_types)
-        # Each target is the dict holding a path, the key it sits under, and its URL.
-        targets: list[tuple[dict[str, Any], str, str | None]] = [
-            (metadata, f"{t.value}_path", metadata.get(f"{t.value}_url"))
-            for t in media_types
-            if metadata.get(f"{t.value}_path")
-        ]
-        # Art for a game's later discs, one entry per disc beside physical_path.
-        if MetadataMediaType.PHYSICAL in media_types:
-            targets += [
-                (disc, "path", disc.get("url"))
-                for disc in metadata.get("physical_extra_discs") or []
-                if disc.get("path")
-            ]
-
+        targets = self.recorded_media(metadata, media_types)
         stored = await gather_all(
-            *(store(owner[key], url) for owner, key, url in targets)
+            *(store(owner[key], url) for _type, owner, key, url in targets)
         )
-        for (owner, key, _url), ok in zip(targets, stored, strict=True):
+        for (_type, owner, key, _url), ok in zip(targets, stored, strict=True):
             if not ok:
                 owner[key] = None
         return not all(stored)
