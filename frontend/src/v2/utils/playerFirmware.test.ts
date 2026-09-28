@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   firmwareExternalFiles,
+  keepArcadeBiosWhole,
   resolveInitialFirmware,
 } from "./playerFirmware";
 
@@ -137,5 +138,63 @@ describe("firmwareExternalFiles", () => {
       "/home/web_user/retroarch/userdata/system/kick #1?.rom":
         "/api/firmware/5/content/kick%20%231%3F.rom",
     });
+  });
+});
+
+// EmulatorJS 4.2.3 is the build with downloadGameFile; nightly has none.
+const emulator = (
+  system: string,
+  biosUrl: string,
+  {
+    nightly = false,
+    externalFiles,
+  }: {
+    nightly?: boolean;
+    externalFiles?: Record<string, string>;
+  } = {},
+) => ({
+  config: { biosUrl, externalFiles },
+  getCore: () =>
+    ["fbneo", "mame2003_plus"].includes(system) ? "arcade" : system,
+  downloadGameFile: nightly ? undefined : () => undefined,
+});
+
+describe("keepArcadeBiosWhole", () => {
+  it("writes an arcade BIOS archive whole beside the game", () => {
+    const instance = emulator("fbneo", "/api/firmware/9/content/neogeo.zip", {
+      externalFiles: { "/other": "/api/firmware/1/content/other" },
+    });
+    keepArcadeBiosWhole(instance);
+    expect(instance.config).toEqual({
+      biosUrl: "",
+      externalFiles: {
+        "/other": "/api/firmware/1/content/other",
+        "/neogeo.zip": "/api/firmware/9/content/neogeo.zip",
+      },
+    });
+  });
+
+  it("leaves the BIOS to EmulatorJS on a build that keeps it whole", () => {
+    const instance = emulator("fbneo", "/api/firmware/9/content/neogeo.zip", {
+      nightly: true,
+    });
+    keepArcadeBiosWhole(instance);
+    expect(instance.config.biosUrl).toBe("/api/firmware/9/content/neogeo.zip");
+    expect(instance.config.externalFiles).toBeUndefined();
+  });
+
+  it("leaves other cores and non-archive BIOS files alone", () => {
+    const psx = emulator("psx", "/api/firmware/2/content/scph1001.zip");
+    const raw = emulator("fbneo", "/api/firmware/3/content/bios.bin");
+    keepArcadeBiosWhole(psx);
+    keepArcadeBiosWhole(raw);
+    expect(psx.config.biosUrl).toBe("/api/firmware/2/content/scph1001.zip");
+    expect(raw.config.biosUrl).toBe("/api/firmware/3/content/bios.bin");
+  });
+
+  it("does nothing without a BIOS", () => {
+    const instance = emulator("fbneo", "");
+    keepArcadeBiosWhole(instance);
+    expect(instance.config.externalFiles).toBeUndefined();
   });
 });
