@@ -111,7 +111,8 @@ onBeforeUnmount(() => {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
+  /* Clears a gallery scroller's scrollbar, which runs up under the bar. */
+  right: var(--r-v2-shell-scrollbar-w, 0px);
   z-index: 100;
   height: var(--r-nav-h);
   background: transparent;

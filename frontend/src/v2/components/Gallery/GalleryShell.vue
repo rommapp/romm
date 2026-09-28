@@ -25,7 +25,7 @@ import {
   RLetterHeading,
   RVirtualScroller,
 } from "@v2/lib";
-import { useIntersectionObserver } from "@vueuse/core";
+import { useIntersectionObserver, useResizeObserver } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -42,6 +42,7 @@ import { useUISettings } from "@/composables/useUISettings";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import AlphaJumpMenu from "@/v2/components/Gallery/AlphaJumpMenu.vue";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
+import BackToTopButton from "@/v2/components/Gallery/BackToTopButton.vue";
 import FilterDrawer from "@/v2/components/Gallery/FilterDrawer.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
 import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
@@ -318,6 +319,9 @@ const jumpMenuVisible = computed(
 // The strip's footprint: its letter column plus `--r-alpha-strip-gap`.
 const STRIP_INSET_PX =
   parseInt(layoutTokens.alphaStripWidth, 10) + parseInt(space[3], 10);
+// The scroller's classic scrollbar gutter (0 for overlay scrollbars), which
+// the rows and the strip both have to clear.
+const scrollbarWidth = ref(0);
 // Card-art width reference (matches GameCard's `--r-card-art-w`); sets the
 // fixed card HEIGHT (a 2/3 cover at this width). Real width follows the ratio.
 const CARD_GAP_PX = 12;
@@ -328,7 +332,8 @@ const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
   gap: CARD_GAP_PX,
   inset: () =>
     (xs.value ? 28 : smAndDown.value ? 40 : 72) +
-    (stripVisible.value ? STRIP_INSET_PX : 0),
+    (stripVisible.value ? STRIP_INSET_PX : 0) +
+    scrollbarWidth.value,
 });
 
 // Fallback cover ratio (boxart style) — the per-card `--r-cover-ratio` seed
@@ -427,6 +432,20 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
   });
 
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
+const scrollerEl = computed(() => scrollerRef.value?.containerEl ?? null);
+useResizeObserver(scrollerEl, () => {
+  const el = scrollerEl.value;
+  if (el) scrollbarWidth.value = el.offsetWidth - el.clientWidth;
+});
+// Published on <html> so the fixed top bar can stop short of the scrollbar,
+// which it would otherwise cover.
+const SCROLLBAR_W_VAR = "--r-v2-shell-scrollbar-w";
+watch(scrollbarWidth, (w) => {
+  document.documentElement.style.setProperty(SCROLLBAR_W_VAR, `${w}px`);
+});
+onBeforeUnmount(() => {
+  document.documentElement.style.removeProperty(SCROLLBAR_W_VAR);
+});
 
 // Where the open row sits in the packed list. Recomputed when a row opens or
 // the list re-packs, never on the animation's frames.
@@ -940,7 +959,7 @@ defineExpose({
       :min-content-width="
         layout === 'list' && !smAndDown ? listMinWidth : undefined
       "
-      class="r-v2-shell__scroller r-v2-scroll-hidden"
+      class="r-v2-shell__scroller"
       :tabindex="-1"
       @wheel.passive="endLetterJump"
       @pointerdown.passive="endLetterJump"
@@ -1115,6 +1134,14 @@ defineExpose({
       @pick="scrollToLetter"
     />
 
+    <BackToTopButton
+      v-if="!(smAndDown && gallerySelection.enabled)"
+      class="r-v2-shell__back-to-top"
+      :scroller="scrollerEl"
+      :scroll-top="scrollTopNow"
+      @scroll-to-top="endLetterJump"
+    />
+
     <!-- FLOATING-DOCK TOOLBAR — the alternative dock; sits permanently
          in the top-right and never scrolls. Mutually exclusive with
          the in-scroller header dock above. -->
@@ -1240,6 +1267,9 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
   flex: 1;
   height: 100%;
   scroll-timeline: --r-v2-shell-scroll block;
+  /* A stable gutter keeps the row packing from shifting when the content
+     starts or stops overflowing. */
+  scrollbar-gutter: stable;
   padding: 0 calc(var(--r-row-pad) + var(--r-v2-shell-strip)) 60px
     var(--r-row-pad);
 }
@@ -1326,7 +1356,7 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
 .r-v2-shell .r-v2-shell__strip {
   position: absolute;
   top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h));
-  right: 0;
+  right: var(--r-v2-shell-scrollbar-w, 0px);
   bottom: 0;
   z-index: 5;
   justify-content: flex-start;
@@ -1377,9 +1407,26 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
   }
 }
 
+/* Bottom corner of the rows' column, clear of the strip and the scrollbar. */
+.r-v2-shell__back-to-top {
+  position: absolute;
+  right: calc(
+    var(--r-row-pad) + var(--r-v2-shell-strip) +
+      var(--r-v2-shell-scrollbar-w, 0px)
+  );
+  bottom: var(--r-space-6);
+  z-index: 6;
+}
+html[data-bp~="sm-and-down"] .r-v2-shell__back-to-top {
+  bottom: calc(
+    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + var(--r-space-4)
+  );
+}
+
 /* The section runs under the top bar; keep the floating dock below it. */
 .r-v2-shell .r-v2-shell__floating {
   top: calc(var(--r-nav-h) + 14px);
+  margin-right: var(--r-v2-shell-scrollbar-w, 0px);
 }
 
 /* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w` so
