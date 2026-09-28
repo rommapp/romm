@@ -43,6 +43,20 @@
       "path": "frontend",
       "script": "storybook",
       "problemMatcher": []
+    },
+    {
+      "label": "E2E: UI mode",
+      "type": "npm",
+      "path": "frontend",
+      "script": "test:e2e:ui",
+      "problemMatcher": []
+    },
+    {
+      "label": "E2E: open last report",
+      "type": "npm",
+      "path": "frontend",
+      "script": "test:e2e:report",
+      "problemMatcher": []
     }
   ]
 }

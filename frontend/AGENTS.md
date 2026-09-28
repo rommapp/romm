@@ -13,9 +13,10 @@ v2 has a detailed constitution, split across the `frontend-v2-*` skills in `.cla
 npm install                         # install (Node 24)
 npm run dev                         # dev server :3000
 npm run typecheck                   # vue-tsc
-npm run typecheck:scripts           # tsc on the Node/Vite tooling in scripts/
+npm run typecheck:scripts           # tsc on the Node/Vite tooling in scripts/ and playwright.config.ts
+npm run typecheck:e2e               # tsc on the e2e suite
 npm run test                        # vitest (+ Storybook play() tests)
-npm run test:e2e                    # playwright (needs a running app + seeded e2e users)
+npm run test:e2e                    # playwright (needs e2e/.env pointing at a backend; see e2e/README.md)
 npm run build                       # production build
 npm run generate                    # regenerate types from backend OpenAPI (backend must be running)
 npm run build:tokens                # regenerate v2 tokens.css (auto on predev/prebuild)
