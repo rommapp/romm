@@ -251,6 +251,5 @@
 #         n64:
 #           emulator: retroarch
 #           core: parallel_n64
-#           # Lets a core the broker lists as known broken run anyway. Also
-#           # allowed on the container, as a default for every platform.
+#           # Lets a core listed as broken by the broker run anyway.
 #           # experimental_cores: true
