@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
-# Installs the pinned toolchain (uv, Python, Node, Trunk) and the project
-# dependencies. Safe to re-run: each step is skipped when already satisfied.
-#
-# Usage: scripts/dev-setup.sh [--db]
-#   --db  also install and start a local MariaDB with the pytest database
-#         (Debian/Ubuntu only).
+# Installs the pinned toolchain and project dependencies, skipping satisfied steps.
+# --db also installs and starts MariaDB with the pytest database (Debian/Ubuntu).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,7 +12,7 @@ for arg in "$@"; do
 	case "${arg}" in
 	--db) with_db=true ;;
 	*)
-		echo "unknown option: ${arg}" >&2
+		echo "usage: scripts/dev-setup.sh [--db]" >&2
 		exit 2
 		;;
 	esac
@@ -99,7 +95,10 @@ setup_frontend() {
 setup_trunk() {
 	command -v trunk >/dev/null && return 0
 	log "Installing Trunk and its linters"
-	curl -fsSL https://get.trunk.io | as_root bash -s -- -y >/dev/null
+	mkdir -p "${LOCAL_BIN}"
+	curl -fsSL https://trunk.io/releases/trunk -o "${LOCAL_BIN}/trunk"
+	chmod +x "${LOCAL_BIN}/trunk"
+	hash -r
 	(cd "${ROOT}" && trunk install --ci >/dev/null 2>&1) ||
 		log "Trunk could not download its linters (network policy?); trunk check will retry on first use"
 }

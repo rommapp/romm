@@ -1,7 +1,6 @@
 #!/bin/bash
-# SessionStart hook: in Claude Code cloud sessions, bring the VM up to the
-# repo's pinned toolchain and start MariaDB, which the environment snapshot
-# does not keep running. Steps that are already satisfied are skipped.
+# SessionStart hook for cloud sessions: runs dev-setup.sh, which also restarts
+# MariaDB since environment snapshots keep files but not running processes.
 
 if [[ ${CLAUDE_CODE_REMOTE-} != "true" ]]; then
 	exit 0
