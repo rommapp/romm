@@ -934,7 +934,6 @@ class TestChromaKeyDetection:
             return True
 
         async def replace() -> None:
-            await asyncio.to_thread(checking.wait, 5)
             async with handler.write_file_streamed(path=folder, filename=name) as f:
                 await f.write(b"real artwork")
 
@@ -945,10 +944,15 @@ class TestChromaKeyDetection:
             discard = asyncio.create_task(
                 handler._discard_if_chroma_key(f"{folder}/{name}")
             )
-            writer = asyncio.create_task(replace())
             await asyncio.to_thread(checking.wait, 5)
-            # Room for the writer to finish if nothing holds it back
-            await asyncio.sleep(0.2)
+            lock = await handler._get_file_lock(
+                str(handler.validate_path(f"{folder}/{name}"))
+            )
+            assert lock.locked()
+            writer = asyncio.create_task(replace())
+            for _ in range(20):
+                await asyncio.sleep(0)
+            assert not writer.done()
             release.set()
             assert await discard is True
             await writer
