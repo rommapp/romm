@@ -43,7 +43,7 @@ export const WithIcon: Story = {
   args: { title: "With leading icon", icon: "mdi-information-outline" },
 };
 
-// `#header-append` slot — content between the title and the chevron.
+// `#header-append` slot: content between the title and the chevron.
 // Used by ScanPlatform for ROM-count / firmware / "not identified"
 // chips, but generic enough for any badge / counter use.
 export const WithHeaderAppend: Story = {
@@ -72,7 +72,7 @@ export const Disabled: Story = {
   args: { title: "Locked", disabled: true },
 };
 
-// Headless mode — no internal header, panel driven entirely by an
+// Headless mode: no internal header, panel driven entirely by an
 // external trigger (here a button rendered alongside).
 export const Headless: Story = {
   render: () => ({
@@ -108,7 +108,7 @@ export const Headless: Story = {
   }),
 };
 
-// Attached mode — drops the top radius/border so the panel sits flush
+// Attached mode: drops the top radius/border so the panel sits flush
 // with the trigger above it.
 export const Attached: Story = {
   render: () => ({

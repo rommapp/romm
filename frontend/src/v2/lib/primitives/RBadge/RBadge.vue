@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RBadge — wraps a default slot (the anchor element) and
+// RBadge: wraps a default slot (the anchor element) and
 // floats a small pill / dot / icon in one of eight positions (`top end`,
 // `bottom start`, side anchors). Built for the unread-counter, status,
 // favorite, online-indicator patterns.
@@ -14,7 +14,7 @@
 // the badge reads cleanly on coloured anchors (avatars, etc).
 //
 // `inline` flips the badge from absolute-positioned floater to inline
-// sibling — useful when you want a list badge that reads like "Inbox
+// sibling: useful when you want a list badge that reads like "Inbox
 // (4)" rather than an overlay.
 import { computed } from "vue";
 import RIcon from "../RIcon/RIcon.vue";
@@ -36,7 +36,7 @@ interface Props {
   /** Tone keyword / legacy `romm-*` / any CSS colour. Default `"error"`
    *  for the red unread-count look. */
   color?: string;
-  /** Bare dot — ignores `content` / `icon`. */
+  /** Bare dot: ignores `content` / `icon`. */
   dot?: boolean;
   /** Adds a 2px ring in the page bg colour so the badge contrasts on
    *  coloured anchors. */
@@ -189,7 +189,7 @@ const locationClass = computed(
   padding: 0;
 }
 
-/* ── Bordered — a soft page-bg ring so the badge pops on coloured
+/* ── Bordered: a soft page-bg ring so the badge pops on coloured
        anchors (avatars). ─────────────────────────────────────────── */
 .r-badge--bordered {
   box-shadow: 0 0 0 2px var(--r-color-bg);
@@ -199,7 +199,7 @@ const locationClass = computed(
 /* Each anchor sets its corner + a `translate` that centers the badge
    on the corner so the visible mass sits half inside / half outside
    the anchor. `scale` (from the enter/leave transition below) composes
-   on top via the CSS `scale` property — keeps the translate untouched
+   on top via the CSS `scale` property: keeps the translate untouched
    during the pop. */
 .r-badge:not(.r-badge--inline) {
   position: absolute;
@@ -226,7 +226,7 @@ const locationClass = computed(
   transform: translate(50%, 50%);
 }
 
-/* Side anchors — center along the edge. */
+/* Side anchors: center along the edge. */
 .r-badge--at-top {
   top: var(--r-badge-inset);
   left: 50%;
@@ -248,7 +248,7 @@ const locationClass = computed(
   transform: translate(50%, -50%);
 }
 
-/* ── Pop animation — spring overshoot in / quick fade out ──────── */
+/* ── Pop animation: spring overshoot in / quick fade out ──────── */
 .r-badge-pop-enter-active {
   transition:
     scale 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -260,7 +260,7 @@ const locationClass = computed(
     opacity 180ms var(--r-motion-ease-out);
 }
 /* `scale` is a separate property from `transform` (CSS Transforms L2),
-   so animating it doesn't clobber the location-class `translate(...)` —
+   so animating it doesn't clobber the location-class `translate(...)`,
    the two compose: final transform = translate ∘ scale. */
 .r-badge-pop-enter-from,
 .r-badge-pop-leave-to {

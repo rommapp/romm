@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RBtn — the workhorse of the v2 library.
+// RBtn: the workhorse of the v2 library.
 //
 // Polymorphic root via `<component :is>`:
 //   • `to` set → renders RouterLink
@@ -8,8 +8,8 @@
 // So call sites that use `to="/foo"` or `href="https://…"` work as
 // drop-in router/anchor variants.
 //
-// Variants `flat / elevated / translucent / outlined / text / plain`
-// — same shape across the lib. `border` adds a translucent
+// Variants `flat / elevated / translucent / outlined / text / plain`,
+// same shape across the lib. `border` adds a translucent
 // currentColor border on top of any variant (used to recreate the
 // RTag chip activator look). `block` stretches to 100% width.
 //
@@ -23,7 +23,7 @@
 // don't paint a spinner-flash; the hide step is immediate.
 //
 // Hover / active feedback comes from a `::before` overlay tinted by
-// `currentColor` so all six variants share the same vocabulary —
+// `currentColor` so all six variants share the same vocabulary,
 // no per-variant `:hover` rules. Activation paints a circular ripple
 // expanding from the input point inside a clip wrapper so it never
 // escapes the rounded silhouette nor masks the elevated shadow.
@@ -81,7 +81,7 @@ interface Props {
   /** Translucent currentColor border on top of the chosen variant. */
   border?: boolean;
   /** Paints the lib's `--r-color-bg-elevated` token behind the button.
-   *  Composes with any variant — use it when the button needs to read
+   *  Composes with any variant: use it when the button needs to read
    *  as "raised on a tinted pill" rather than "transparent on the page",
    *  so it visually aligns with adjacent segmented `RSliderBtnGroup`
    *  surfaces (e.g., toolbar icon buttons next to sliders). */
@@ -92,7 +92,7 @@ interface Props {
   href?: string;
   /** Target for `<a>` mode. */
   target?: string;
-  /** Native tooltip — when set, RBtn mounts an RTooltip anchored to
+  /** Native tooltip: when set, RBtn mounts an RTooltip anchored to
    *  itself that reveals this text on hover / focus. Skips the
    *  `<RTooltip><template #activator>…` wrapping ceremony for the
    *  common case of "icon-only button needs a label on hover". */
@@ -112,7 +112,7 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   block: false,
   size: "default",
-  // Unset by default — the size prop drives the height. Pass density
+  // Unset by default: the size prop drives the height. Pass density
   // explicitly when the button needs to align with a form field at a
   // specific scale (e.g. comfortable next to RTextField comfortable).
   density: undefined,
@@ -140,7 +140,7 @@ const elementType = computed(() => {
 });
 
 const dynamicAttrs = computed<Record<string, unknown>>(() => {
-  // For `<a>` and RouterLink, `disabled` isn't a real HTML attribute —
+  // For `<a>` and RouterLink, `disabled` isn't a real HTML attribute,
   // we apply aria-disabled + pointer-events: none via CSS. For
   // <button>, the native `disabled` attribute is the right tool.
   if (props.to !== undefined && props.to !== null) {
@@ -152,7 +152,7 @@ const dynamicAttrs = computed<Record<string, unknown>>(() => {
   if (props.href !== undefined && props.href !== null) {
     return {
       // Strip the href entirely when disabled so keyboard activation
-      // doesn't fire — links can't be `disabled` natively.
+      // doesn't fire: links can't be `disabled` natively.
       href: props.disabled ? undefined : props.href,
       target: props.target,
       ariaDisabled: props.disabled ? "true" : undefined,
@@ -260,7 +260,7 @@ function onKeyDown(e: KeyboardEvent) {
   if (e.key === "Enter" || e.key === " ") spawnRipple();
 }
 
-// Spinner size scales with the button — readable across the ladder.
+// Spinner size scales with the button: readable across the ladder.
 const spinnerSize = computed(() => {
   switch (props.size) {
     case "x-small":
@@ -303,12 +303,12 @@ const spinnerSize = computed(() => {
     @pointerdown="onPointerDown"
     @keydown="onKeyDown"
   >
-    <!-- Ripple wave container — overflow-hidden + border-radius:inherit
+    <!-- Ripple wave container: overflow-hidden + border-radius:inherit
          keeps ripples inside the rounded silhouette without clipping
          the button's elevation shadow (which lives on .r-btn). -->
     <span ref="rippleContainer" class="r-btn__ripples" aria-hidden="true" />
 
-    <!-- Loading spinner — overlays content while debouncedLoading is on.
+    <!-- Loading spinner: overlays content while debouncedLoading is on.
          Lives in absolute positioning so the button's intrinsic width
          doesn't change between loading and idle states (no layout
          shift mid-action). Spinner keeps RProgressCircular's
@@ -323,7 +323,7 @@ const spinnerSize = computed(() => {
       class="r-btn__content"
       :class="{ 'r-btn__content--hidden': debouncedLoading }"
     >
-      <!-- Prepend zone — slot wins over prop. -->
+      <!-- Prepend zone: slot wins over prop. -->
       <span
         v-if="slots.prepend || (prependIcon && !isIconBtn)"
         class="r-btn__prepend"
@@ -348,7 +348,7 @@ const spinnerSize = computed(() => {
         <slot />
       </span>
 
-      <!-- Default label slot — used when the button isn't icon-only.
+      <!-- Default label slot: used when the button isn't icon-only.
            `.r-btn__label` carries `gap: inherit` so compound content
            (avatar + text + chevron in UserMenu, etc.) spaces correctly
            without each consumer having to override `:deep(.r-btn__label)`. -->
@@ -368,7 +368,7 @@ const spinnerSize = computed(() => {
     </span>
 
     <!-- Built-in tooltip. Anchored to the button itself via
-         `activator="parent"` — the placeholder span sits inside the
+         `activator="parent"`: the placeholder span sits inside the
          button so its `parentElement` IS the button, and floating-ui
          positions the tooltip body off that. Renders nothing in the
          layout when `tooltip` isn't set. -->
@@ -402,12 +402,12 @@ const spinnerSize = computed(() => {
   /* Suppress native button defaults. */
   background: transparent;
   color: inherit;
-  /* No blanket `outline: none` here — Vue's scope attribute would raise
+  /* No blanket `outline: none` here; Vue's scope attribute would raise
      its specificity above the `:where()`-wrapped global focus ring
      (global.css), swallowing the keyboard / pad ring. The focus rules
      below defer to that global ring and only clear the native UA outline
      for the mouse (non-focus-visible) case. */
-  /* Smooth tone / theme / state changes — RSwitch motion language. */
+  /* Smooth tone / theme / state changes: RSwitch motion language. */
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out),
@@ -415,7 +415,7 @@ const spinnerSize = computed(() => {
     box-shadow var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
-/* Hover / active overlay — single `::before` painted in currentColor
+/* Hover / active overlay: single `::before` painted in currentColor
    so it composes cleanly with any variant. No per-variant :hover
    rules; the overlay does the work. */
 .r-btn::before {
@@ -447,7 +447,7 @@ const spinnerSize = computed(() => {
   outline: none;
 }
 
-/* ── Ripple — circular wave from the activation point ─────────── */
+/* ── Ripple: circular wave from the activation point ─────────── */
 .r-btn__ripples {
   position: absolute;
   inset: -1px;
@@ -503,8 +503,8 @@ const spinnerSize = computed(() => {
      on the same vertical centerline instead of sitting on the text
      baseline like inline boxes would. `gap: inherit` pulls the gap
      from `.r-btn__content` (which itself inherits from `.r-btn`'s
-     `gap: 8px`) so callers like UserMenu — avatar + name + chevron in
-     one default slot — get correct spacing without a `:deep()`
+     `gap: 8px`) so callers like UserMenu, avatar + name + chevron in
+     one default slot, get correct spacing without a `:deep()`
      override at the consumer. */
   display: inline-flex;
   align-items: center;
@@ -581,14 +581,14 @@ const spinnerSize = computed(() => {
   gap: 12px;
 }
 
-/* Icon size scales with text — same 1.2em ratio RIcon uses. */
+/* Icon size scales with text: same 1.2em ratio RIcon uses. */
 .r-btn .r-btn__prepend > .r-icon,
 .r-btn .r-btn__append > .r-icon,
 .r-btn .r-btn__icon {
   font-size: 1.25em;
 }
 
-/* ── Density — absolute height override ───────────────────────────
+/* ── Density: absolute height override ───────────────────────────
    Mirrors RTextField / RSelect's density scale exactly so primitives
    share the same vocabulary: `<RBtn density="comfortable">` and
    `<RTextField density="comfortable">` produce the same height. When
@@ -605,19 +605,19 @@ const spinnerSize = computed(() => {
   --r-btn-rest-h: 48px;
 }
 
-/* ── Icon-only — square hit area ──────────────────────────────── */
+/* ── Icon-only: square hit area ──────────────────────────────── */
 .r-btn--icon {
   padding: 0;
   width: var(--r-btn-rest-h);
 }
 
-/* ── Block — full width ────────────────────────────────────────── */
+/* ── Block: full width ────────────────────────────────────────── */
 .r-btn--block {
   width: 100%;
   display: flex;
 }
 
-/* ── Variant: flat — solid fill ────────────────────────────────── */
+/* ── Variant: flat, solid fill ────────────────────────────────── */
 .r-btn--flat.r-btn--has-color {
   background: var(--r-btn-color);
   color: white;
@@ -627,7 +627,7 @@ const spinnerSize = computed(() => {
   color: var(--r-color-fg);
 }
 
-/* ── Variant: elevated — solid + shadow ────────────────────────── */
+/* ── Variant: elevated, solid + shadow ────────────────────────── */
 .r-btn--elevated.r-btn--has-color {
   background: var(--r-btn-color);
   color: white;
@@ -642,7 +642,7 @@ const spinnerSize = computed(() => {
   box-shadow: 0 4px 10px color-mix(in srgb, black 26%, transparent);
 }
 
-/* ── Variant: translucent — color-mix bg, coloured text ────────── */
+/* ── Variant: translucent, color-mix bg, coloured text ────────── */
 .r-btn--translucent.r-btn--has-color {
   background: color-mix(in srgb, var(--r-btn-color) 16%, transparent);
   color: var(--r-btn-color);
@@ -652,7 +652,7 @@ const spinnerSize = computed(() => {
   color: var(--r-color-fg);
 }
 
-/* ── Variant: outlined — border + text in tone ─────────────────── */
+/* ── Variant: outlined, border + text in tone ─────────────────── */
 .r-btn--outlined {
   background: transparent;
 }
@@ -665,7 +665,7 @@ const spinnerSize = computed(() => {
   border-color: var(--r-color-border);
 }
 
-/* ── Variant: text — transparent, coloured text only ───────────── */
+/* ── Variant: text, transparent, coloured text only ───────────── */
 .r-btn--text {
   background: transparent;
 }
@@ -676,13 +676,13 @@ const spinnerSize = computed(() => {
   color: var(--r-color-fg);
 }
 
-/* ── Variant: plain — zero chrome, inherit ─────────────────────── */
+/* ── Variant: plain, zero chrome, inherit ─────────────────────── */
 .r-btn--plain {
   background: transparent;
   color: inherit;
 }
 
-/* ── `border` modifier — translucent currentColor border ───────── */
+/* ── `border` modifier: translucent currentColor border ───────── */
 .r-btn--border {
   border-color: color-mix(in srgb, currentColor 40%, transparent);
 }
@@ -690,7 +690,7 @@ const spinnerSize = computed(() => {
   border-color: color-mix(in srgb, currentColor 65%, transparent);
 }
 
-/* ── `surface` modifier — tinted background composed onto any
+/* ── `surface` modifier: tinted background composed onto any
    variant. Placed AFTER the variant rules so its single-class
    specificity wins on source order regardless of which variant the
    button uses (otherwise variants that set `background: transparent`
@@ -701,14 +701,14 @@ const spinnerSize = computed(() => {
 
 /* ── Disabled ──────────────────────────────────────────────────── */
 /* Disabled buttons drop their brand fill in favour of a neutral
-   muted surface — leaving the brand colour at low opacity reads as
+   muted surface: leaving the brand colour at low opacity reads as
    "translucent primary" rather than "off-limits", and on a flat
    primary button the loader bleeds into the muted purple. Each
    coloured variant has its own override below.
    The mute applies in BOTH disabled-only and disabled+loading states:
    the neutral surface gives the brand-primary spinner a high-contrast
    background to draw against. The 0.55 opacity carve-out, on the
-   other hand, only applies when NOT loading — fading a disabled-only
+   other hand, only applies when NOT loading: fading a disabled-only
    button reads as "off-limits", while a disabled-loading button needs
    its spinner at full brightness to signal "action in flight". */
 .r-btn:disabled,
@@ -744,7 +744,7 @@ const spinnerSize = computed(() => {
   color: var(--r-color-fg-muted);
 }
 
-/* ── Reduced motion — drop hover overlay fade + ripple animation ── */
+/* ── Reduced motion: drop hover overlay fade + ripple animation ── */
 @media (prefers-reduced-motion: reduce) {
   .r-btn,
   .r-btn::before {

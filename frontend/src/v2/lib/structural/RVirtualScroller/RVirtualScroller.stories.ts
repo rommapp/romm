@@ -44,10 +44,10 @@ export const FiveThousandRows: Story = {
   }),
 };
 
-// Prepend + sticky — verifies the two layout slots: a hero block that
+// Prepend + sticky, verifies the two layout slots: a hero block that
 // scrolls naturally with the list, and a toolbar that pins to the top
 // once the user scrolls past the hero. Native CSS sticky drives the
-// pin — no JS scroll tracking.
+// pin: no JS scroll tracking.
 export const PrependAndStickyToolbar: Story = {
   args: {
     items: longList,
@@ -84,7 +84,7 @@ export const PrependAndStickyToolbar: Story = {
   }),
 };
 
-// Variable per-row heights — exercises binary search and exact offsets.
+// Variable per-row heights: exercises binary search and exact offsets.
 const variableList = Array.from({ length: 1000 }, (_, i) => ({
   id: i,
   label: `Row ${i + 1}`,

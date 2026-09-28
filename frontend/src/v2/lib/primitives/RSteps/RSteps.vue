@@ -1,13 +1,13 @@
 <script setup lang="ts">
-// RSteps — horizontal step indicator. A row of numbered dots connected
+// RSteps: horizontal step indicator. A row of numbered dots connected
 // by progress lines. Pure presentation: no stores, no router, no domain
 // knowledge. Drive it with the current step number and the total.
 //
 // Three states map cleanly to the dot's `data-state`:
-//   * past    — solid brand fill, white number
-//   * current — solid brand fill, white number, scaled up with a
+//   * past: solid brand fill, white number
+//   * current: solid brand fill, white number, scaled up with a
 //               pulsing halo so it stands out from the past dots
-//   * future  — muted outline, faint number
+//   * future: muted outline, faint number
 //
 // `direction` lets the caller hint whether the user moved forward or
 // back. It's used for transitions only; the line fill always animates
@@ -29,7 +29,7 @@ interface Props {
   /** Either pass `steps` for labelled dots, or `total` for plain numbers. */
   steps?: Step[];
   total?: number;
-  /** Direction of the last navigation — caller hint, presentation only. */
+  /** Direction of the last navigation: caller hint, presentation only. */
   direction?: "forward" | "back";
   /** Pixel width of the connecting lines. Defaults to 56. */
   lineWidth?: number;
@@ -223,7 +223,7 @@ watch(
 
 /* The active fill animates scaleX from a fixed left origin so growing
    reads as "advance" and shrinking 1 → 0 reads as "the right side
-   empties first" — matching the user's mental model of going back. */
+   empties first": matching the user's mental model of going back. */
 .r-steps__line::after {
   content: "";
   position: absolute;

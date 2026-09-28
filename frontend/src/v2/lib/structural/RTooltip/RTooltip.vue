@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// RTooltip — positioned with `@floating-ui/vue` (the only standalone
-// dep we lean on here — battle-tested overlay math with flip / shift /
+// RTooltip: positioned with `@floating-ui/vue` (the only standalone
+// dep we lean on here: battle-tested overlay math with flip / shift /
 // offset / arrow middleware). The surface itself matches the v2 glass
 // language (near-black bg, subtle border, blur), driven by tokens.
 //
@@ -25,7 +25,7 @@
 //      Used inside primitives that already have their own root
 //      element (PlatformIcon, MissingFSBadge, …).
 //
-// Open / close motion mirrors the rest of the lib — a short fade +
+// Open / close motion mirrors the rest of the lib: a short fade +
 // subtle scale-up from 0.96, with reduced-motion stripping the scale.
 // `prefers-reduced-motion` users keep the fade.
 import {
@@ -53,7 +53,7 @@ import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 
-// Anchor strings ("top", "bottom start", …) — translated to
+// Anchor strings ("top", "bottom start", …): translated to
 // floating-ui's placement vocabulary at compute time.
 type Anchor =
   | "top"
@@ -80,7 +80,7 @@ interface Props {
   contentClass?: string;
   /** Px gap between activator and tooltip body. */
   offset?: number | string;
-  /** "parent" — attach to the immediate parent element of <RTooltip>. */
+  /** "parent": attach to the immediate parent element of <RTooltip>. */
   activator?: "parent";
   /** Hide entirely (useful with `v-if` style guards on conditional tooltips). */
   disabled?: boolean;
@@ -88,13 +88,13 @@ interface Props {
    * (e.g. `"min(80vw, 900px)"`). Lets content-heavy tooltips grow and adapt
    * instead of being clamped to the default 280px. */
   maxWidth?: number | string;
-  /** Secondary muted line rendered below the main content — e.g. an action
+  /** Secondary muted line rendered below the main content: e.g. an action
    * affordance like "Click to copy". */
   hint?: string;
   /** Optional MDI icon shown before the hint text (e.g. `mdi-content-copy`). */
   hintIcon?: string;
   /** Opt in to touch: a tap toggles the tooltip (and an outside tap closes
-   *  it). Off by default because a normal tooltip must NOT appear on touch —
+   *  it). Off by default because a normal tooltip must NOT appear on touch,
    *  there a "hover" is really a tap on the underlying action, and the
    *  tooltip would linger over whatever it opened. Set this only for a
    *  standalone info affordance whose sole purpose is to reveal the tip. */
@@ -212,7 +212,7 @@ const {
   placement,
   strategy: "fixed",
   open: isOpen,
-  // Use top/left positioning instead of `transform: translate(x, y)` —
+  // Use top/left positioning instead of `transform: translate(x, y)`,
   // otherwise the enter-transition's `transform: scale(...)` clobbers
   // floating-ui's translate and the tooltip visibly slides from (0, 0)
   // to its target spot. With `transform: false`, `transform` is free
@@ -227,7 +227,7 @@ const {
   ]),
 });
 
-// Arrow inline positioning — floating-ui only computes the offset
+// Arrow inline positioning: floating-ui only computes the offset
 // along the perpendicular axis; we anchor it to the opposite side of
 // the active placement so it always points at the reference.
 const arrowStyle = computed<Record<string, string>>(() => {
@@ -251,7 +251,7 @@ const arrowStyle = computed<Record<string, string>>(() => {
 });
 
 // ── Activator wiring ────────────────────────────────────────────
-// Reveal rules by input type — a touch device must NOT get tooltips: a
+// Reveal rules by input type; a touch device must NOT get tooltips: a
 // "hover" there is really a tap that fires the underlying action, and a
 // focus there is that same tap. Either would summon a tooltip that then
 // lingers over the menu / dialog the tap opened (with no pointer-leave to
@@ -294,7 +294,7 @@ function onActivatorClick() {
     return;
   }
   // `openOnTap`: interacting reveals the tip (immediate, bypassing the open
-  // delay). A finger tap toggles it; a mouse click always OPENS — clicking a
+  // delay). A finger tap toggles it; a mouse click always OPENS: clicking a
   // pill you're hovering must not close it and strand you unable to re-reveal
   // it while the pointer stays put. Close is via leave / outside tap / blur.
   clearTimers();
@@ -383,7 +383,7 @@ const unsubscribeOverlayDismiss = onEscapableOpen(() => {
 
 onMounted(() => {
   // For the slot pattern, the reference is the first child rendered
-  // by the slot — we read it from the wrapper span on mount.
+  // by the slot: we read it from the wrapper span on mount.
   if (props.activator !== "parent") {
     reference.value = activatorWrapper.value?.firstElementChild ?? null;
   } else {
@@ -413,7 +413,7 @@ watch(
   },
 );
 
-// Side bucket — used by the open animation to grow the tooltip out of
+// Side bucket: used by the open animation to grow the tooltip out of
 // the activator (transform-origin + a tiny "from" translate from that
 // side, so the bloom reads as kinetic instead of a flat scale-up).
 const sideClass = computed(() => {
@@ -458,7 +458,7 @@ const bodyStyle = computed(() => {
     <slot name="activator" :props="activatorProps" />
   </span>
 
-  <!-- Tooltip body — teleported to <body> so it escapes overflow
+  <!-- Tooltip body: teleported to <body> so it escapes overflow
        contexts and z-index stacking. Mount only when open to avoid
        paying for layout on every hidden tooltip in the page. -->
   <Teleport to="body">
@@ -491,7 +491,7 @@ const bodyStyle = computed(() => {
 .r-tooltip {
   /* Surface inherits from the global `r-tooltip` skin in global.css
      for theme alignment. Re-declare here so the primitive is
-     self-contained — scoped tokens win when both stylesheets load. */
+     self-contained: scoped tokens win when both stylesheets load. */
   position: fixed;
   z-index: var(--r-z-tooltip, 2600);
   background: var(--r-color-tooltip-bg);
@@ -516,7 +516,7 @@ const bodyStyle = computed(() => {
   pointer-events: none;
 }
 
-/* Secondary affordance line under the main content — muted + smaller,
+/* Secondary affordance line under the main content: muted + smaller,
    separated by a hairline. */
 .r-tooltip__hint {
   display: flex;
@@ -530,10 +530,10 @@ const bodyStyle = computed(() => {
   font-weight: 500;
 }
 
-/* Arrow — small square rotated 45deg into a diamond. Only the two
+/* Arrow: small square rotated 45deg into a diamond. Only the two
    borders facing the activator are painted, so it reads as a folded
    corner of the surface. Which two borders that is depends on the
-   active placement — the parent's `--side-*` class flips the right
+   active placement: the parent's `--side-*` class flips the right
    pair. */
 .r-tooltip__arrow {
   position: absolute;
@@ -567,7 +567,7 @@ const bodyStyle = computed(() => {
   border-left: 1px solid var(--r-color-tooltip-border);
 }
 
-/* Open / close motion. The tooltip "blooms" out of the activator —
+/* Open / close motion. The tooltip "blooms" out of the activator,
    `transform-origin` anchors to the side facing the activator, and a
    tiny initial translate (away from the activator) means the bloom
    reads as a quick spring rather than a flat scale-up. Numbers tuned
@@ -579,12 +579,12 @@ const bodyStyle = computed(() => {
   transform-origin: center;
 }
 .r-tooltip--side-top {
-  /* Tooltip sits above the activator — grow downward toward it. */
+  /* Tooltip sits above the activator: grow downward toward it. */
   transform-origin: center bottom;
   --r-tt-ty: 6px;
 }
 .r-tooltip--side-bottom {
-  /* Tooltip sits below the activator — grow downward away from it. */
+  /* Tooltip sits below the activator: grow downward away from it. */
   transform-origin: center top;
   --r-tt-ty: -6px;
 }
@@ -603,12 +603,12 @@ const bodyStyle = computed(() => {
 }
 .r-tooltip-fade-leave-to {
   opacity: 0;
-  /* Leave shrinks back into the activator without the slide — quick &
+  /* Leave shrinks back into the activator without the slide: quick &
      unobtrusive, the hover-out side of the interaction. */
   transform: scale(0.92);
 }
 .r-tooltip-fade-enter-active {
-  /* Spring overshoot on transform — same easing the rest of the lib's
+  /* Spring overshoot on transform: same easing the rest of the lib's
      "appears" use (RSwitch thumb, RCheckbox icon). Slightly longer than
      opacity so the bounce keeps reading after the fade settles. */
   transition:
@@ -621,7 +621,7 @@ const bodyStyle = computed(() => {
     transform 110ms var(--r-motion-ease-in);
 }
 
-/* Arrow follows the surface — wrap it in its own fade so it doesn't
+/* Arrow follows the surface: wrap it in its own fade so it doesn't
    pop in late after the body has finished scaling. The slight delay
    means the surface's bloom lands first, then the tip "catches up". */
 .r-tooltip-fade-enter-active .r-tooltip__arrow {

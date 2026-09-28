@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import RTable from "./RTable.vue";
 import type { RTableColumn } from "./types";
 
-// Cast through `Meta` because RTable is a generic component (`<T>`) —
+// Cast through `Meta` because RTable is a generic component (`<T>`),
 // Vue's compiled type narrows T to `unknown` here, which Storybook's
 // Meta<typeof RTable> can't reconcile with our concrete DemoRow stories.
 const meta: Meta = {

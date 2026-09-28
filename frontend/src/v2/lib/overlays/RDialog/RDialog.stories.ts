@@ -81,7 +81,7 @@ export const Basic: Story = {
   },
 };
 
-// Loading and empty states aren't built into the primitive any more —
+// Loading and empty states aren't built into the primitive any more,
 // the consumer renders them inside `#content` from REmptyState /
 // RProgressCircular. These stories demonstrate the recipe.
 export const Loading: Story = {
