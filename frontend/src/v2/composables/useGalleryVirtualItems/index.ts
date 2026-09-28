@@ -1,12 +1,12 @@
-// useGalleryVirtualItems — turns the gallery's structural state (mode,
+// useGalleryVirtualItems turns the gallery's structural state (mode,
 // total, charIndex, columns) into a flat list of body `GalleryItem`s
 // that an RVirtualScroller can render with one slot per kind.
 //
-// Header and toolbar are NOT in this list — they live in the
+// Header and toolbar are NOT in this list. They live in the
 // scroller's `#prepend` and `#sticky` slots so `position: sticky`
 // handles pinning natively (no JS scroll tracking, no jitter).
 //
-// Performance contract: this composable is STRUCTURAL — it only
+// Performance contract: this composable is STRUCTURAL; it only
 // depends on layout / groupBy / total / charIndex / columns /
 // loadingInitial. It does NOT read the loaded ROMs (`byPosition`).
 // Per-row slot data is resolved by the view at render time via
@@ -18,11 +18,11 @@
 // Re-pack handling: a measured cover ratio change bumps `ratioVersion`, which
 // re-runs the build. Two things keep that cheap so a fast scroll through a
 // huge library doesn't thrash:
-//   * Structural sharing — unchanged item objects are reused from the previous
+//   * Structural sharing: unchanged item objects are reused from the previous
 //     build (keyed by their stable `key`), so a bump only allocates the rows
 //     that actually reflowed (paired with the scroller's `get-item-key`, Vue
 //     then moves the rest instead of remounting their cards).
-//   * Linear letter assignment — flat rows get their letters in one merge pass
+//   * Linear letter assignment: flat rows get their letters in one merge pass
 //     over the sorted ranges (`assignFlatRowLetters`), not a per-row scan.
 //
 // AlphaStrip integration is index-based: `letterToIndex` maps each
@@ -53,12 +53,12 @@ const ROW_CHROME_PX = 41;
 // Reference card-art width the row height is derived from when the caller
 // doesn't pass one (md gallery card). Height = width / ratio + chrome.
 const REFERENCE_COVER_WIDTH_PX = 158;
-// Box-art default — matches v1's `getAspectRatio` for `cover_path`.
+// Box-art default, matching v1's `getAspectRatio` for `cover_path`.
 const DEFAULT_COVER_RATIO = 2 / 3;
 
 // Fixed heights for the item kinds that DON'T depend on the boxart
-// aspect ratio. Row / skeleton-row are computed per-style — see
-// `getItemHeight`. Values match the rendered geometry in the gallery
+// aspect ratio. Row / skeleton-row are computed per-style (see
+// `getItemHeight`). Values match the rendered geometry in the gallery
 // views' CSS:
 //   * letter-header: 20px top + 16px text + 12px bottom = 48 (→ 56 for air).
 //   * load-more / empty: rendered button / centered text.
@@ -120,7 +120,7 @@ interface Options {
   /** Total count of ROMs in the active gallery (server-provided). */
   total: Ref<number> | ComputedRef<number>;
   /** Letter → first-position map from the server. Backend ships letters
-   * lowercase / digits — `availableLetters` and the row letter sets
+   * lowercase / digits: `availableLetters` and the row letter sets
    * normalise to AlphaStrip's bucket shape. */
   charIndex: Ref<Record<string, number>> | ComputedRef<Record<string, number>>;
   /** Current column count for grid modes (responsive). */
@@ -129,7 +129,7 @@ interface Options {
   loadingInitial: ComputedRef<boolean>;
   /** Empty-state message used when the page resolves with zero results. */
   emptyMessage: Ref<string> | ComputedRef<string>;
-  /** "Not found" — overrides every body kind with a single empty row. */
+  /** "Not found" overrides every body kind with a single empty row. */
   notFound?: Ref<boolean> | ComputedRef<boolean>;
   /** Override the not-found message (defaults to emptyMessage). */
   notFoundMessage?: Ref<string> | ComputedRef<string>;
@@ -146,7 +146,7 @@ interface Options {
    *  `cardHeight * ratioAt(p)`). Falls back to `fallbackRatio` until the
    *  image is measured. */
   ratioAt?: (position: number) => number;
-  /** Ratio to pack an unmeasured position at — must be the ratio its card
+  /** Ratio to pack an unmeasured position at. Must be the ratio its card
    *  actually paints, which is the active boxart style's box ratio: a card
    *  with no artwork paints its placeholder at that ratio and never
    *  measures, and one waiting on its image paints there until it loads.
@@ -187,7 +187,7 @@ function buildLetterRanges(
   for (let i = 0; i < entries.length; i++) {
     const [letter, start] = entries[i];
     const end = entries[i + 1]?.[1] ?? total;
-    // Backend may collapse multiple raw letters into "#" (digits, etc.) —
+    // Backend may collapse multiple raw letters into "#" (digits, etc.);
     // merge into the previous range rather than emit duplicates.
     const last = ranges[ranges.length - 1];
     if (last && last.letter === letter) {
@@ -243,7 +243,7 @@ export function useGalleryVirtualItems(opts: Options) {
     return r > 0 ? r : DEFAULT_COVER_RATIO;
   };
 
-  /** Per-build ratio lookup — resolves the fallback once so the packer's
+  /** Per-build ratio lookup. Resolves the fallback once so the packer's
    *  hot path (one call per position) stays a single map read. */
   const makeRatioAt = () => {
     const fallback = fallbackRatio();
@@ -268,8 +268,8 @@ export function useGalleryVirtualItems(opts: Options) {
   // Only the run of rows from the first re-measured cover onward actually
   // reflows; everything before stays identical. So we REUSE the previous
   // build's item objects whenever their content matches (looked up by stable
-  // key). A reused object keeps its reference, so — paired with the scroller's
-  // content-derived `get-item-key` — Vue moves the untouched rows instead of
+  // key). A reused object keeps its reference, so (paired with the scroller's
+  // content-derived `get-item-key`) Vue moves the untouched rows instead of
   // re-rendering them, and only the reflowed rows allocate. This turns a
   // per-bump O(total) re-allocation into O(reflowed rows). `prevByKey` holds
   // the last build and survives across evaluations as closure state; if it
@@ -304,7 +304,7 @@ export function useGalleryVirtualItems(opts: Options) {
     };
   }
   function shareHeader(letter: string): GalleryItem {
-    // A header's whole content is its letter, which the key encodes — same key
+    // A header's whole content is its letter, which the key encodes. Same key
     // ⇒ identical, always reusable.
     const prev = prevByKey.get(`lh-${letter}`);
     if (prev?.kind === "letter-header") return prev;
@@ -332,13 +332,13 @@ export function useGalleryVirtualItems(opts: Options) {
       return items;
     }
 
-    // List layout — one virtual item per ROM position. The view template
+    // List layout: one virtual item per ROM position. The view template
     // resolves each row via `getRomAt(position)` and renders skeleton vs real
     // inside the same kind. Group-by-letter in list mode is deferred
     // (list-mode MVP first).
     if (opts.layout.value === "list") {
       if (opts.loadingInitial.value && opts.total.value === 0) {
-        // Bootstrap phase — placeholder rows give the scroller a shape while
+        // Bootstrap phase: placeholder rows give the scroller a shape while
         // metadata is in flight. Enough to fill a typical viewport.
         const skeletonListRows = Math.max(skeletonRows * 4, 12);
         for (let i = 0; i < skeletonListRows; i++) {
@@ -375,7 +375,7 @@ export function useGalleryVirtualItems(opts: Options) {
       return items;
     }
 
-    // Grid + first-window-loading — skeleton rows until the server returns
+    // Grid + first-window-loading: skeleton rows until the server returns
     // `total` and `charIndex`.
     if (opts.loadingInitial.value && opts.total.value === 0) {
       for (let i = 0; i < skeletonRows; i++) {
@@ -424,7 +424,7 @@ export function useGalleryVirtualItems(opts: Options) {
         }
       }
     } else {
-      // Flat — flow-pack the whole list, then tag every row with its
+      // Flat: flow-pack the whole list, then tag every row with its
       // overlapping letters in one linear pass (not a per-row scan).
       const rows = packFlowRows(0, total, rowWidth, cardHeight, gap, ratioAt);
       const lettersPerRow = assignFlatRowLetters(rows, ranges);
@@ -438,7 +438,7 @@ export function useGalleryVirtualItems(opts: Options) {
 
   const virtualItems = computed<GalleryItem[]>(() => {
     const items = buildItems();
-    // Refresh the reuse cache from this build for the next re-pack — cheap
+    // Refresh the reuse cache from this build for the next re-pack. Cheap
     // O(items) bookkeeping; the win is the avoided re-allocation in buildItems.
     const nextByKey = new Map<string, GalleryItem>();
     for (const it of items) nextByKey.set(it.key, it);
@@ -446,7 +446,7 @@ export function useGalleryVirtualItems(opts: Options) {
     return items;
   });
 
-  // AlphaStrip available letters — every letter in the server's charIndex,
+  // AlphaStrip available letters: every letter in the server's charIndex,
   // independent of which windows are currently loaded.
   const availableLetters = computed<Set<string>>(() => {
     const set = new Set<string>();
@@ -459,10 +459,10 @@ export function useGalleryVirtualItems(opts: Options) {
     const map = new Map<string, number>();
     const items = virtualItems.value;
 
-    // List layout — one virtual item per position. Walk once and pin
+    // List layout: one virtual item per position. Walk once and pin
     // each letter to its first list-row index. Bootstrap phase paints
     // skeleton-list-rows that aren't tied to a letter, so the map is
-    // empty until `total` resolves — same pattern as grid.
+    // empty until `total` resolves, same pattern as grid.
     if (opts.layout.value === "list") {
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
@@ -473,7 +473,7 @@ export function useGalleryVirtualItems(opts: Options) {
       return map;
     }
 
-    // Pass 1 — grouped mode: letter-header anchors are exact.
+    // Pass 1, grouped mode: letter-header anchors are exact.
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       if (it.kind === "letter-header" && !map.has(it.letter)) {

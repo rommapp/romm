@@ -1,15 +1,15 @@
 <script setup lang="ts">
-// UserMenu — the avatar pill in the navbar that opens the v2 quick
+// UserMenu: the avatar pill in the navbar that opens the v2 quick
 // navigator. The dropdown mirrors the SettingsSidebar's information
 // architecture so the user has the same mental model in both places:
 //
-//   • Account  — Notifications, Profile, User interface
-//   • Library  — Library management, Scan settings, Metadata sources,
+//   • Account: Notifications, Profile, User interface
+//   • Library: Library management, Scan settings, Metadata sources,
 //                Client API tokens
-//   • System   — Administration, Server stats
-//   • Tools    — Jukebox, Controller debug
-//   • Actions  — Scan, Upload (librarian actions, not settings)
-//   • About / Changelog — kept as dialogs (no dedicated views)
+//   • System: Administration, Server stats
+//   • Tools: Jukebox, Controller debug
+//   • Actions: Scan, Upload (librarian actions, not settings)
+//   • About / Changelog: kept as dialogs (no dedicated views)
 //   • Log out
 //
 // Items inherit the same scope/role gates as their target views so
@@ -155,7 +155,7 @@ async function onLogout() {
       </RBtn>
     </template>
 
-    <!-- User header — inlined; the layout is feature-specific so it
+    <!-- User header, inlined. The layout is feature-specific so it
          lives at the call site, not in the lib. -->
     <div class="r-v2-user-menu__header">
       <RAvatar :image="avatarSrc" size="30" />
@@ -383,7 +383,7 @@ html[data-bp~="xs"] .r-v2-user__chevron {
   display: none;
 }
 
-/* Group section inside the dropdown — small uppercase label above each
+/* Group section inside the dropdown: a small uppercase label above each
    cluster so the IA mirrors SettingsSidebar exactly. The label is omitted
    for the trailing Actions/About/Logout regions where dividers already
    communicate the boundary. */
@@ -403,7 +403,7 @@ html[data-bp~="xs"] .r-v2-user__chevron {
   padding: 4px 12px 2px;
 }
 
-/* Inlined header — was RMenuHeader before. Identity card at the top
+/* Inlined header. Identity card at the top
    of the dropdown: avatar + username + role pill. */
 .r-v2-user-menu__header {
   display: flex;
