@@ -8,7 +8,8 @@ CASSETTES = sorted(Path(__file__).parent.glob("**/cassettes/**/*.yaml"))
 
 def _scrub(vcr_config: dict[str, Any], body: bytes) -> bytes:
     response = vcr_config["before_record_response"]({"body": {"string": body}})
-    return response["body"]["string"]
+    scrubbed: bytes = response["body"]["string"]
+    return scrubbed
 
 
 def test_response_body_credentials_are_masked(vcr_config):
