@@ -258,7 +258,7 @@ export const ManageFlowGrouped: Story = {
   },
 };
 
-// Other users' public states: owner chip, download only.
+// Other users' public states show an owner chip and only a download action.
 export const ManageCommunity: Story = {
   name: "Manage · community + show owner",
   render: () => ({

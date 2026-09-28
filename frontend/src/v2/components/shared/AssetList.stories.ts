@@ -222,7 +222,7 @@ export const ManageStates: Story = {
   }),
 };
 
-// Other users' public saves: owner chip, download only.
+// Other users' public saves show an owner chip and only a download action.
 export const CommunitySaves: Story = {
   name: "Saves · community (show owner)",
   play: async ({ canvasElement, step }) => {
