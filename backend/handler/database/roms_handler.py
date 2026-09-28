@@ -996,43 +996,39 @@ class DBRomsHandler(DBBaseHandler):
     def get_rom_ids_with_game_files_ending(
         self,
         extensions: Sequence[str],
-        *,
-        platform_ids: Sequence[int] = (),
-        rom_ids: Sequence[int] = (),
+        rom_ids: Sequence[int],
         session: Session = INJECTED_SESSION,
     ) -> list[int]:
-        """Ids of the present roms, on `platform_ids` or among `rom_ids`, with a
-        game file whose name ends in one of `extensions` (lowercase)."""
-        if not extensions or not (platform_ids or rom_ids):
+        """Those of `rom_ids` still present with a game file whose name ends in one
+        of `extensions` (lowercase)."""
+        if not extensions or not rom_ids:
             return []
 
-        query = (
-            select(Rom.id)
-            .join(RomFile, RomFile.rom_id == Rom.id)
-            .where(
-                Rom.missing_from_fs.is_(False),
-                RomFile.missing_from_fs.is_(False),
-                or_(
-                    RomFile.category.is_(None),
-                    RomFile.category == RomFileCategory.GAME,
-                ),
-                or_(
-                    *(
-                        func.lower(RomFile.file_name).like(
-                            f"%{escape_like(extension)}", escape=LIKE_ESCAPE_CHAR
+        return list(
+            session.scalars(
+                select(Rom.id)
+                .join(RomFile, RomFile.rom_id == Rom.id)
+                .where(
+                    Rom.id.in_(rom_ids),
+                    Rom.missing_from_fs.is_(False),
+                    RomFile.missing_from_fs.is_(False),
+                    or_(
+                        RomFile.category.is_(None),
+                        RomFile.category == RomFileCategory.GAME,
+                    ),
+                    or_(
+                        *(
+                            func.lower(RomFile.file_name).like(
+                                f"%{escape_like(extension)}", escape=LIKE_ESCAPE_CHAR
+                            )
+                            for extension in extensions
                         )
-                        for extension in extensions
-                    )
-                ),
-            )
-            .distinct()
-            .order_by(Rom.id)
+                    ),
+                )
+                .distinct()
+                .order_by(Rom.id)
+            ).all()
         )
-        if rom_ids:
-            query = query.where(Rom.id.in_(rom_ids))
-        else:
-            query = self._filter_by_platform_ids(query, platform_ids)
-        return list(session.scalars(query).all())
 
     def filter_by_platform_id(self, query: RomSelect, platform_id: int) -> RomSelect:
         return query.filter(Rom.platform_id == platform_id)

@@ -360,7 +360,7 @@
   "scan-artwork-priority-desc": "Lege die Reihenfolge der Anbieter für Coverbilder und Screenshots fest. Anbieter werden von oben nach unten ausprobiert; deaktivierte werden übersprungen.",
   "scan-cd-audio": "CD-Audio",
   "scan-cd-audio-extract": "CD-Audio nach dem Scan extrahieren",
-  "scan-cd-audio-extract-desc": "Nach Abschluss eines Scans die Audiospuren von .cue-, .gdi- und .chd-Discs im Hintergrund als FLAC in den Soundtrack-Ordner jedes Spiels extrahieren. Eine einzelne .chd im Plattformordner wird dafür in einen eigenen Ordner verschoben.",
+  "scan-cd-audio-extract-desc": "Die Audiospuren von .cue-, .gdi- und .chd-Discs im Hintergrund als FLAC in den Soundtrack-Ordner jedes Spiels extrahieren, wenn ein Scan neue oder geänderte Discs findet. Für Discs, die schon in der Bibliothek sind, einen vollständigen Rescan starten. Eine einzelne .chd im Plattformordner wird dafür in einen eigenen Ordner verschoben.",
   "scan-gamelist": "ES-DE / Batocera gamelist-Export",
   "scan-gamelist-export": "gamelist.xml nach dem Scan exportieren",
   "scan-gamelist-export-desc": "Nach Abschluss eines Scans eine gamelist.xml-Datei für ES-DE, Batocera und RetroBAT schreiben.",

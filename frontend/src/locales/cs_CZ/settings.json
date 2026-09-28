@@ -360,7 +360,7 @@
   "scan-artwork-priority-desc": "Nastavte pořadí poskytovatelů používaných pro obaly a screenshoty. Poskytovatelé se zkoušejí shora dolů; zakázaní se přeskočí.",
   "scan-cd-audio": "CD audio",
   "scan-cd-audio-extract": "Extrahovat CD audio po skenování",
-  "scan-cd-audio-extract-desc": "Po dokončení skenování na pozadí extrahovat zvukové stopy disků .cue, .gdi a .chd do formátu FLAC ve složce soundtrack každé hry. Samostatný soubor .chd ve složce platformy se přesune do vlastní složky, aby je pojal.",
+  "scan-cd-audio-extract-desc": "Extrahovat na pozadí zvukové stopy disků .cue, .gdi a .chd do formátu FLAC ve složce soundtrack každé hry, když skenování najde nové nebo změněné disky. Pro disky, které už v knihovně jsou, spusťte úplné přeskenování. Samostatný soubor .chd ve složce platformy se přesune do vlastní složky, aby je pojal.",
   "scan-gamelist": "Export gamelist pro ES-DE / Batocera",
   "scan-gamelist-export": "Exportovat gamelist.xml po skenování",
   "scan-gamelist-export-desc": "Zapsat soubor gamelist.xml pro ES-DE, Batocera a RetroBAT po dokončení skenování.",

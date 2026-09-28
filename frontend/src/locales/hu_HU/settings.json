@@ -360,7 +360,7 @@
   "scan-artwork-priority-desc": "Rendezd a borítóképekhez és képernyőképekhez használt szolgáltatókat. A szolgáltatók fentről lefelé kerülnek sorra; a letiltottak kimaradnak.",
   "scan-cd-audio": "CD-audió",
   "scan-cd-audio-extract": "CD-audió kinyerése szkennelés után",
-  "scan-cd-audio-extract-desc": "A szkennelés befejeztével a háttérben kinyeri a .cue, .gdi és .chd lemezek hangsávjait FLAC formátumba minden játék soundtrack mappájába. A platform mappájában önállóan álló .chd fájl saját mappába kerül, hogy elférjenek benne.",
+  "scan-cd-audio-extract-desc": "A háttérben kinyeri a .cue, .gdi és .chd lemezek hangsávjait FLAC formátumba minden játék soundtrack mappájába, amikor a szkennelés új vagy módosult lemezeket talál. A könyvtárban már meglévő lemezekhez futtasson teljes újraszkennelést. A platform mappájában önállóan álló .chd fájl saját mappába kerül, hogy elférjenek benne.",
   "scan-gamelist": "ES-DE / Batocera gamelist exportálás",
   "scan-gamelist-export": "gamelist.xml exportálása szkennelés után",
   "scan-gamelist-export-desc": "gamelist.xml fájl írása az ES-DE, Batocera és RetroBAT számára a szkennelés befejeztével.",

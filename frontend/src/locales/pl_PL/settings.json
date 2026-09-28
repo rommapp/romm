@@ -360,7 +360,7 @@
   "scan-artwork-priority-desc": "Ustaw kolejność dostawców używanych do okładek i zrzutów ekranu. Dostawcy są próbowani od góry do dołu; wyłączeni są pomijani.",
   "scan-cd-audio": "Audio CD",
   "scan-cd-audio-extract": "Wyodrębnij audio CD po skanowaniu",
-  "scan-cd-audio-extract-desc": "Po zakończeniu skanowania wyodrębnij w tle ścieżki audio płyt .cue, .gdi i .chd do formatu FLAC w folderze soundtrack każdej gry. Pojedynczy plik .chd w folderze platformy zostaje przeniesiony do własnego folderu, aby je pomieścić.",
+  "scan-cd-audio-extract-desc": "Wyodrębnij w tle ścieżki audio płyt .cue, .gdi i .chd do formatu FLAC w folderze soundtrack każdej gry, gdy skanowanie znajdzie nowe lub zmienione płyty. Aby objąć płyty, które już są w bibliotece, uruchom pełne ponowne skanowanie. Pojedynczy plik .chd w folderze platformy zostaje przeniesiony do własnego folderu, aby je pomieścić.",
   "scan-gamelist": "Eksport gamelist ES-DE / Batocera",
   "scan-gamelist-export": "Eksportuj gamelist.xml po skanowaniu",
   "scan-gamelist-export-desc": "Zapisz plik gamelist.xml dla ES-DE, Batocera i RetroBAT po zakończeniu skanowania.",

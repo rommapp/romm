@@ -310,13 +310,20 @@ class TestCdAudioExtractionAfterScan:
         mocker.patch.object(scan_module, "notify_scan_end", AsyncMock())
         return mocker.patch.object(scan_module, "queue_cd_audio_extraction")
 
-    async def test_queues_the_scanned_platforms(self, patched, queue):
+    async def test_queues_the_roms_whose_files_changed(self, patched, queue, mocker):
         config_manager.get_config().CD_AUDIO_AUTO_EXTRACT_ON_SCAN = True
+
+        async def change_two_roms(**kwargs):
+            kwargs["files_changed_rom_ids"].update({12, 11})
+            return kwargs["scan_stats"]
+
+        mocker.patch.object(
+            scan_module, "_identify_platform", side_effect=change_two_roms
+        )
 
         await scan_platforms(platform_ids=[], metadata_sources=[])
 
-        # Only "existing" has a database row to extract into.
-        queue.assert_called_once_with(platform_ids=[1], rom_ids=[])
+        queue.assert_called_once_with([11, 12])
 
     async def test_off_by_default(self, patched, queue):
         await scan_platforms(platform_ids=[], metadata_sources=[])
@@ -931,6 +938,7 @@ class TestIdentifyRomTagReparse:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            files_changed_rom_ids=set(),
         )
 
     async def test_complete_rescan_rewrites_stale_tags(self, patched):
@@ -1095,6 +1103,7 @@ async def run_identify_rom(platform: Platform, fs_rom: FSRom) -> None:
         socket_manager=AsyncMock(),
         scan_stats=AsyncMock(),
         scanned_rom_ids=set(),
+        files_changed_rom_ids=set(),
     )
 
 
@@ -1418,6 +1427,7 @@ class TestIdentifyPlatformMarksMissingBeforeScan:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            files_changed_rom_ids=set(),
         )
 
         assert "mark_missing" in calls and "identify" in calls
@@ -1504,6 +1514,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
             socket_manager=socket_manager,
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            files_changed_rom_ids=set(),
         )
 
     async def test_emits_for_rom_that_is_no_longer_missing(self, patched):
@@ -1613,6 +1624,7 @@ class TestIdentifyPlatformFirmwareReporting:
             socket_manager=socket_manager,
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            files_changed_rom_ids=set(),
         )
         return next(
             call.args[1]
@@ -1855,6 +1867,7 @@ class TestScanSelectedRoms:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            files_changed_rom_ids=set(),
         )
 
         identify.assert_called_once()
@@ -1899,6 +1912,7 @@ class TestScanSelectedRoms:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            files_changed_rom_ids=set(),
         )
 
         identify.assert_not_called()
@@ -1933,6 +1947,7 @@ class TestScanSelectedRoms:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            files_changed_rom_ids=set(),
         )
 
         fs_rom = identify.call_args.kwargs["fs_rom"]
@@ -1962,6 +1977,7 @@ class TestScanSelectedRoms:
                 socket_manager=AsyncMock(),
                 scan_stats=AsyncMock(),
                 scanned_rom_ids=set(),
+                files_changed_rom_ids=set(),
             )
 
 
@@ -2036,15 +2052,6 @@ class TestScopedScanSkipsLibraryWork:
         )
 
         notify_scan_end.assert_not_awaited()
-
-    async def test_queues_cd_audio_for_the_named_roms(self, patched, mocker):
-        mocker.patch.object(scan_module, "notify_scan_end", AsyncMock())
-        queue = mocker.patch.object(scan_module, "queue_cd_audio_extraction")
-        config_manager.get_config().CD_AUDIO_AUTO_EXTRACT_ON_SCAN = True
-
-        await scan_platforms(platform_ids=[1], metadata_sources=[], roms_ids=[7])
-
-        queue.assert_called_once_with(platform_ids=[1], rom_ids=[7])
 
     async def test_platform_pipeline_is_skipped(self, patched):
         result = await scan_platforms(
@@ -2790,6 +2797,8 @@ def identify_harness(mocker):
         ),
     )
 
+    files_changed: set[int] = set()
+
     def existing_rom() -> Rom:
         rom = Rom(platform_id=1, fs_name="Game", fs_path="test/roms")
         rom.id = 1
@@ -2825,6 +2834,7 @@ def identify_harness(mocker):
             socket_manager=socket_manager or AsyncMock(),
             scan_stats=scan_stats or AsyncMock(),
             scanned_rom_ids=set(),
+            files_changed_rom_ids=files_changed,
         )
 
     return SimpleNamespace(
@@ -2834,6 +2844,7 @@ def identify_harness(mocker):
         loaded_rom_files=loaded_rom_files,
         refresh=refresh,
         existing_rom=existing_rom,
+        files_changed=files_changed,
         run=run,
     )
 
@@ -2864,6 +2875,7 @@ class TestIdentifyRomFiles:
         identify_harness.db.get_rom_simple.assert_called_once_with(rom.id)
         socket_manager.emit.assert_awaited_once()
         assert socket_manager.emit.await_args.args[0] == "scan:scanning_rom"
+        assert identify_harness.files_changed == {rom.id}
 
     async def test_unchanged_rom_emits_nothing(self, identify_harness):
         identify_harness.refresh.return_value = RomFilesRefresh(
@@ -2885,6 +2897,7 @@ class TestIdentifyRomFiles:
         )
         identify_harness.db.get_rom_simple.assert_not_called()
         socket_manager.emit.assert_not_awaited()
+        assert identify_harness.files_changed == set()
 
     async def test_new_rom_takes_the_regular_path(self, identify_harness):
         await identify_harness.run(None, ScanType.QUICK, [])
@@ -2892,6 +2905,7 @@ class TestIdentifyRomFiles:
         identify_harness.refresh.assert_not_called()
         identify_harness.scan_rom.assert_awaited_once()
         identify_harness.db.add_rom.assert_called()
+        assert identify_harness.files_changed == {1}
 
 
 class TestIdentifyRomEmitsNewFlag:
@@ -3026,6 +3040,7 @@ class TestIdentifyPlatformLoadsFilesForQuickScan:
             socket_manager=AsyncMock(),
             scan_stats=AsyncMock(),
             scanned_rom_ids=set(),
+            files_changed_rom_ids=set(),
         )
 
         assert patched.get_roms_by_fs_name.call_args.kwargs["with_files"] is with_files

@@ -360,7 +360,7 @@
   "scan-artwork-priority-desc": "カバーアートとスクリーンショットに使用するプロバイダーの順序を指定します。プロバイダーは上から下へ順に試行され、無効なものはスキップされます。",
   "scan-cd-audio": "CD オーディオ",
   "scan-cd-audio-extract": "スキャン後に CD オーディオを抽出",
-  "scan-cd-audio-extract-desc": "スキャン完了後、.cue、.gdi、.chd ディスクのオーディオトラックをバックグラウンドで FLAC として各ゲームの soundtrack フォルダーに抽出します。プラットフォームフォルダーに単体で置かれた .chd は、それらを格納するため専用のフォルダーに移動されます。",
+  "scan-cd-audio-extract-desc": "スキャンで新しいディスクや変更されたディスクが見つかると、.cue、.gdi、.chd ディスクのオーディオトラックをバックグラウンドで FLAC として各ゲームの soundtrack フォルダーに抽出します。すでにライブラリにあるディスクを対象にするには、完全な再スキャンを実行してください。プラットフォームフォルダーに単体で置かれた .chd は、それらを格納するため専用のフォルダーに移動されます。",
   "scan-gamelist": "ES-DE / Batocera gamelist エクスポート",
   "scan-gamelist-export": "スキャン後に gamelist.xml をエクスポート",
   "scan-gamelist-export-desc": "スキャン完了時に ES-DE、Batocera、RetroBAT 用の gamelist.xml ファイルを書き出します。",

@@ -584,6 +584,7 @@ async def _identify_rom(
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
+    files_changed_rom_ids: set[int],
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -600,6 +601,7 @@ async def _identify_rom(
             new_files=refreshed.new_files,
         )
         if refreshed.changed:
+            files_changed_rom_ids.add(rom.id)
             log.info(
                 f"Files of {hl(rom.name or rom.fs_name, color=BLUE)} refreshed: "
                 f"{refreshed.new_files} new, {refreshed.updated_files} updated, "
@@ -797,6 +799,7 @@ async def _identify_rom(
         # ids survive a rescan and anything keyed on them (track metadata,
         # persisted soundtrack covers) stays valid.
         synced = db_rom_handler.sync_rom_files(_added_rom.id, fs_rom["files"])
+        files_changed_rom_ids.add(_added_rom.id)
         for cover_path in synced.orphaned_cover_paths:
             remove_persisted_cover(cover_path)
         for saved in synced.files:
@@ -832,6 +835,7 @@ async def _scan_selected_roms(
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
+    files_changed_rom_ids: set[int],
 ) -> ScanStats:
     """Scan a hand-picked set of ROMs without touching the rest of their platform.
 
@@ -886,6 +890,7 @@ async def _scan_selected_roms(
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
                 scanned_rom_ids=scanned_rom_ids,
+                files_changed_rom_ids=files_changed_rom_ids,
             )
 
     results = await asyncio.gather(
@@ -917,6 +922,7 @@ async def _identify_platform(
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
+    files_changed_rom_ids: set[int],
 ) -> ScanStats:
     # Stop the scan if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -1031,6 +1037,7 @@ async def _identify_platform(
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
                 scanned_rom_ids=scanned_rom_ids,
+                files_changed_rom_ids=files_changed_rom_ids,
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
@@ -1189,6 +1196,8 @@ async def scan_platforms(
     # Filled in by the ROM pass, and read by the post-scan work that has to know
     # which entries changed rather than how many.
     scanned_rom_ids: set[int] = set()
+    # The entries whose files the scan found new or re-read.
+    files_changed_rom_ids: set[int] = set()
 
     async def finish(event: str, payload: Any, *, stopped: bool = False) -> None:
         """End the scan, reporting whatever a coalesced increment held back."""
@@ -1356,6 +1365,7 @@ async def scan_platforms(
                     socket_manager=socket_manager,
                     scan_stats=scan_stats,
                     scanned_rom_ids=scanned_rom_ids,
+                    files_changed_rom_ids=files_changed_rom_ids,
                 )
         else:
             if len(platform_list) == 0:
@@ -1379,6 +1389,7 @@ async def scan_platforms(
                     socket_manager=socket_manager,
                     scan_stats=scan_stats,
                     scanned_rom_ids=scanned_rom_ids,
+                    files_changed_rom_ids=files_changed_rom_ids,
                 )
 
             missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
@@ -1470,14 +1481,7 @@ async def scan_platforms(
 
         if config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN:
             try:
-                queue_cd_audio_extraction(
-                    platform_ids=[
-                        db_platforms_by_slug[slug].id
-                        for slug in platform_list
-                        if slug in db_platforms_by_slug
-                    ],
-                    rom_ids=roms_ids,
-                )
+                queue_cd_audio_extraction(sorted(files_changed_rom_ids))
             except Exception as e:
                 log.error(f"Couldn't queue the CD audio extraction after the scan: {e}")
 

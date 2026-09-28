@@ -360,7 +360,7 @@
   "scan-artwork-priority-desc": "排列用於封面圖與截圖的提供者順序。提供者會依從上到下的順序嘗試；已停用的將被略過。",
   "scan-cd-audio": "CD 音訊",
   "scan-cd-audio-extract": "掃描後擷取 CD 音訊",
-  "scan-cd-audio-extract-desc": "掃描完成後，在背景將 .cue、.gdi 和 .chd 光碟的音軌擷取為 FLAC，存入每個遊戲的 soundtrack 資料夾。平台資料夾中單獨存放的 .chd 會被移入其專屬資料夾以存放這些音軌。",
+  "scan-cd-audio-extract-desc": "掃描發現新的或有變更的光碟時，在背景將 .cue、.gdi 和 .chd 光碟的音軌擷取為 FLAC，存入每個遊戲的 soundtrack 資料夾。要處理資料庫中已有的光碟，請執行一次完整重新掃描。平台資料夾中單獨存放的 .chd 會被移入其專屬資料夾以存放這些音軌。",
   "scan-gamelist": "ES-DE / Batocera gamelist 匯出",
   "scan-gamelist-export": "掃描後匯出 gamelist.xml",
   "scan-gamelist-export-desc": "掃描完成時為 ES-DE、Batocera 和 RetroBAT 寫入 gamelist.xml 檔案。",

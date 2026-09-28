@@ -360,7 +360,7 @@
   "scan-artwork-priority-desc": "커버 이미지와 스크린샷에 사용되는 제공자의 순서를 지정합니다. 제공자는 위에서 아래로 순서대로 시도되며, 비활성화된 것은 건너뜁니다.",
   "scan-cd-audio": "CD 오디오",
   "scan-cd-audio-extract": "스캔 후 CD 오디오 추출",
-  "scan-cd-audio-extract-desc": "스캔이 완료되면 백그라운드에서 .cue, .gdi, .chd 디스크의 오디오 트랙을 FLAC으로 각 게임의 soundtrack 폴더에 추출합니다. 플랫폼 폴더에 단독으로 있는 .chd는 이를 담기 위해 전용 폴더로 이동됩니다.",
+  "scan-cd-audio-extract-desc": "스캔에서 새 디스크나 변경된 디스크를 찾으면 백그라운드에서 .cue, .gdi, .chd 디스크의 오디오 트랙을 FLAC으로 각 게임의 soundtrack 폴더에 추출합니다. 이미 라이브러리에 있는 디스크까지 처리하려면 전체 재스캔을 실행하세요. 플랫폼 폴더에 단독으로 있는 .chd는 이를 담기 위해 전용 폴더로 이동됩니다.",
   "scan-gamelist": "ES-DE / Batocera gamelist 내보내기",
   "scan-gamelist-export": "스캔 후 gamelist.xml 내보내기",
   "scan-gamelist-export-desc": "스캔이 완료되면 ES-DE, Batocera 및 RetroBAT용 gamelist.xml 파일을 작성합니다.",

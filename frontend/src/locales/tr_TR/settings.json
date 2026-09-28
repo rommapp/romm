@@ -360,7 +360,7 @@
   "scan-artwork-priority-desc": "Kapak görselleri ve ekran görüntüleri için kullanılan sağlayıcıları sıralayın. Sağlayıcılar yukarıdan aşağıya denenir; devre dışı olanlar atlanır.",
   "scan-cd-audio": "CD sesi",
   "scan-cd-audio-extract": "Taramadan sonra CD sesini çıkar",
-  "scan-cd-audio-extract-desc": "Bir tarama tamamlandığında .cue, .gdi ve .chd disklerinin ses parçalarını arka planda FLAC olarak her oyunun soundtrack klasörüne çıkar. Platform klasöründe tek başına duran bir .chd, bunları barındırmak için kendi klasörüne taşınır.",
+  "scan-cd-audio-extract-desc": "Bir tarama yeni veya değişmiş diskler bulduğunda .cue, .gdi ve .chd disklerinin ses parçalarını arka planda FLAC olarak her oyunun soundtrack klasörüne çıkar. Kütüphanede zaten bulunan diskler için tam yeniden tarama çalıştırın. Platform klasöründe tek başına duran bir .chd, bunları barındırmak için kendi klasörüne taşınır.",
   "scan-gamelist": "ES-DE / Batocera gamelist dışa aktarımı",
   "scan-gamelist-export": "Taramadan sonra gamelist.xml dışa aktar",
   "scan-gamelist-export-desc": "Bir tarama tamamlandığında ES-DE, Batocera ve RetroBAT için bir gamelist.xml dosyası yaz.",

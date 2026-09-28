@@ -5,15 +5,13 @@ import functools
 import shutil
 from collections import Counter
 from collections.abc import Callable, Generator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from anyio import Path as AnyioPath
 
-from endpoints.responses.rom import CdAudioExtractionSchema, CdAudioStatusSchema
-from exceptions.fs_exceptions import RomListedByPlaylistException
 from handler.filesystem import fs_rom_handler
-from handler.rom_conversion import assert_promotable, promote_single_file_to_folder
+from handler.rom_conversion import promote_single_file_to_folder
 from handler.rom_files import refresh_rom_files
 from handler.rom_upload import (
     CATEGORY_UPLOAD_FOLDERS,
@@ -65,6 +63,12 @@ class CdAudioEncodeException(RuntimeError):
 
 class CdAudioNeedsFolderException(RuntimeError):
     """The disc isn't in a folder of its own, so there is nowhere to write."""
+
+
+@dataclass
+class CdAudioExtraction:
+    extracted: list[str] = field(default_factory=list)
+    skipped: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -400,42 +404,7 @@ def _lone_sheet(rom: Rom, discs: list[list[RomFile]]) -> bool:
     return rom.has_simple_single_file and not first.endswith(".chd")
 
 
-def _extractable(rom: Rom, discs: list[list[RomFile]]) -> bool:
-    """Whether extraction's folder checks would let the discs through."""
-    if _lone_sheet(rom, discs):
-        return False
-    try:
-        assert_promotable(rom)
-    except RomListedByPlaylistException:
-        return False
-    return True
-
-
-async def cd_audio_status(rom: Rom) -> CdAudioStatusSchema:
-    """Count a ROM's CD audio tracks and how many are already in its soundtrack.
-
-    Raises:
-        CdAudioUnavailableException: libchdr is needed for a CHD but not installed.
-        CdAudioEncodeException: A disc image couldn't be read.
-    """
-    discs = _discs(rom)
-    if not discs:
-        return CdAudioStatusSchema(tracks=0, extracted=0, extractable=False)
-    planned = await asyncio.to_thread(_plan_tracks, discs, load_libchdr())
-    extractable = await asyncio.to_thread(_extractable, rom, discs)
-    soundtrack = {
-        file.file_name
-        for file in rom.files
-        if file.category == RomFileCategory.SOUNDTRACK
-    }
-    return CdAudioStatusSchema(
-        tracks=len(planned),
-        extracted=sum(track.file_name in soundtrack for track in planned),
-        extractable=extractable,
-    )
-
-
-async def extract_cd_audio(rom: Rom) -> CdAudioExtractionSchema:
+async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
     """Write the audio tracks of a ROM's disc images (.cue, .gdi, .chd) into its
     soundtrack folder.
 
@@ -455,7 +424,7 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtractionSchema:
     if not flac_available():
         raise CdAudioUnavailableException("The flac encoder is not installed")
 
-    result = CdAudioExtractionSchema(extracted=[], skipped=[])
+    result = CdAudioExtraction()
     discs = _discs(rom)
     if not discs:
         return result
@@ -487,7 +456,7 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtractionSchema:
 
 
 async def _write_tracks(
-    rom: Rom, planned: list[PlannedTrack], result: CdAudioExtractionSchema
+    rom: Rom, planned: list[PlannedTrack], result: CdAudioExtraction
 ) -> None:
     folder = CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK]
     for track in planned:
@@ -505,7 +474,7 @@ async def _write_tracks(
             result.extracted.append(track.file_name)
 
 
-async def _register(rom: Rom, result: CdAudioExtractionSchema) -> bool:
+async def _register(rom: Rom, result: CdAudioExtraction) -> bool:
     """Refresh the ROM's files, logging rather than raising when that fails."""
     try:
         await refresh_rom_files(rom)
