@@ -29,7 +29,7 @@ defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 // Phones render the arrows around the cover instead (GameDetails).
-const { smAndDown } = useBreakpoint();
+const { smAndDown, xs } = useBreakpoint();
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -46,6 +46,7 @@ const actions = useGameActions(() => props.rom);
 const { showLogoTitle } = useUISettings();
 
 const logoFailed = ref(false);
+const logoRatio = ref<number | null>(null);
 const logoUrl = computed(() => {
   const path = props.rom.ss_metadata?.logo_path;
   if (!showLogoTitle.value || !path || logoFailed.value) return null;
@@ -53,8 +54,36 @@ const logoUrl = computed(() => {
 });
 watch(
   () => props.rom.id,
-  () => (logoFailed.value = false),
+  () => {
+    logoFailed.value = false;
+    logoRatio.value = null;
+  },
 );
+
+// Logos are sized to a shared area rather than a shared height, so a square
+// logo reads as large as a wide one. Sizes are in CSS pixels.
+const LOGO_BOX = {
+  regular: { area: 40000, maxWidth: 420, maxHeight: 176 },
+  xs: { area: 22000, maxWidth: 420, maxHeight: 120 },
+};
+const logoStyle = computed(() => {
+  const box = xs.value ? LOGO_BOX.xs : LOGO_BOX.regular;
+  const ratio = logoRatio.value;
+  const width = ratio
+    ? Math.min(Math.sqrt(box.area * ratio), box.maxHeight * ratio)
+    : null;
+  return {
+    maxWidth: `min(100%, ${box.maxWidth}px)`,
+    maxHeight: `${box.maxHeight}px`,
+    width: width ? `${Math.round(width)}px` : undefined,
+  };
+});
+function onLogoLoad(event: Event) {
+  const img = event.target as HTMLImageElement;
+  if (img.naturalWidth && img.naturalHeight) {
+    logoRatio.value = img.naturalWidth / img.naturalHeight;
+  }
+}
 </script>
 
 <template>
@@ -69,6 +98,8 @@ watch(
           :src="logoUrl"
           :alt="title"
           class="r-v2-det-header__logo"
+          :style="logoStyle"
+          @load="onLogoLoad"
           @error="logoFailed = true"
         />
         <template v-else>{{ title }}</template>
@@ -189,13 +220,12 @@ watch(
 .r-v2-det-header__title--logo {
   display: flex;
 }
-/* Logos vary wildly in aspect ratio, so cap both axes. A rim in the theme's
-   text colour keeps dark lettering readable on dark, and light on light. */
+/* A rim in the theme's text colour keeps dark lettering readable on dark,
+   and light lettering on light. */
 .r-v2-det-header__logo {
   --logo-rim: color-mix(in srgb, var(--r-color-fg) 50%, transparent);
   display: block;
-  max-width: min(100%, 420px);
-  max-height: 128px;
+  height: auto;
   object-fit: contain;
   object-position: left bottom;
   filter: drop-shadow(0 0 1px var(--logo-rim))
@@ -259,9 +289,6 @@ watch(
 
 html[data-bp~="xs"] .r-v2-det-header__title {
   font-size: 20px;
-}
-html[data-bp~="xs"] .r-v2-det-header__logo {
-  max-height: 88px;
 }
 
 /* Mobile: the cover sits centred above this header, so centre the title and
