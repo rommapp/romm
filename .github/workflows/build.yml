@@ -316,3 +316,12 @@ jobs:
       images: >-
         ["ghcr.io/${{ github.repository_owner }}/romm:${{ needs.merge.outputs.version }}",
         "ghcr.io/${{ github.repository_owner }}/romm:${{ needs.merge.outputs.version-slim }}"]
+
+  report-failure:
+    needs: [validate-tag-semver, build, merge, scan]
+    if: failure() && github.event_name == 'schedule'
+    permissions:
+      contents: read
+      issues: write
+    # actionlint doesn't understand the $/ self-repository syntax yet.
+    uses: ./.github/workflows/report-scheduled-failure.yml # zizmor: ignore[self-repository]

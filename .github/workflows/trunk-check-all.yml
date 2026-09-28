@@ -25,3 +25,12 @@ jobs:
         uses: trunk-io/trunk-action@e1234e67a86010d61ddac8d8ebf4b783e2ffd2fa # v2.0.0
         with:
           check-mode: all
+
+  report-failure:
+    needs: [trunk-check-all]
+    if: failure() && github.event_name == 'schedule'
+    permissions:
+      contents: read
+      issues: write
+    # actionlint doesn't understand the $/ self-repository syntax yet.
+    uses: ./.github/workflows/report-scheduled-failure.yml # zizmor: ignore[self-repository]

@@ -114,3 +114,13 @@ jobs:
           # Keyed by image ref, so a dispatched scan of an older tag can't
           # replace the analysis of latest.
           category: trivy-image-${{ matrix.image }}
+
+  # When the nightly build calls this, its own report-failure job covers it.
+  report-failure:
+    needs: [resolve, scan]
+    if: failure() && github.event_name == 'schedule' && !inputs.images
+    permissions:
+      contents: read
+      issues: write
+    # actionlint doesn't understand the $/ self-repository syntax yet.
+    uses: ./.github/workflows/report-scheduled-failure.yml # zizmor: ignore[self-repository]

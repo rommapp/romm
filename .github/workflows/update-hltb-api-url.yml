@@ -54,3 +54,12 @@ jobs:
           title: "Update HLTB API URL [skip CI]"
           reviewers: |
             gantoine
+
+  report-failure:
+    needs: [update-hltb-api-url]
+    if: failure() && github.event_name == 'schedule'
+    permissions:
+      contents: read
+      issues: write
+    # actionlint doesn't understand the $/ self-repository syntax yet.
+    uses: ./.github/workflows/report-scheduled-failure.yml # zizmor: ignore[self-repository]
