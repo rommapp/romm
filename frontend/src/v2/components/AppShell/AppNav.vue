@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// AppNav — the top navigation. Logo on the left, centred tab pill of
+// AppNav: the top navigation. Logo on the left, centred tab pill of
 // content destinations (Home / Platforms / Collections / Search), and
 // a right cluster of utility chrome (scanning indicator, the mini player on
 // phones, user menu).
@@ -8,7 +8,7 @@
 // light up the Home tab.
 //
 // Library tools (Scan / Upload) are administrative actions, not content
-// destinations — they live in the user menu's Library group, keeping the
+// destinations: they live in the user menu's Library group, keeping the
 // primary nav focused on browsing destinations.
 import { RSliderBtnGroup, RImg } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
@@ -32,8 +32,8 @@ const { destinations: tabs, activeId: activeTab } = useNavDestinations();
 // bg / cover art reads cleanly. Once the user scrolls, a `::before`
 // pseudo-element fades in carrying the glass surface (bg + blur). The
 // blur is **static** on the pseudo, with only `opacity` transitioning
-// — transitioning `backdrop-filter` directly kept the blur layer alive
-// and any hover repaint nearby would flash it.
+// (transitioning `backdrop-filter` directly kept the blur layer alive
+// and any hover repaint nearby would flash it).
 const { innerScrolled, innerGlass, handoff, threshold } = useNavGlass();
 const windowScrolled = ref(false);
 const scrolled = computed(() => windowScrolled.value || innerScrolled.value);
@@ -103,7 +103,7 @@ onBeforeUnmount(() => {
    The glass (bg + blur) lives on a `::before` pseudo-element so we
    can transition only its **opacity** between scrolled / not-scrolled
    instead of transitioning `backdrop-filter` directly. Transitioning
-   backdrop-filter is notoriously expensive — the browser keeps the
+   backdrop-filter is notoriously expensive: the browser keeps the
    blur layer "alive" the whole time and any nearby hover repaint
    invalidates it, producing a one-frame flicker. Static blur +
    opacity-only transition keeps the compositor layer stable. */
@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
    centre pill is dropped from the top nav and the bar keeps only the
    logo (far left) + user cluster (far right). With just those two
    children, collapse to a 2-column grid so the cluster tracks the right
-   edge — the default `1fr auto 1fr` would auto-place it into the now-
+   edge; the default `1fr auto 1fr` would auto-place it into the now-
    empty centre column instead of the trailing one. The gutter follows
    `--r-row-pad` (20px sm, 14px xs) so logo + user line up with the Home
    sections' content edge. */
