@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PlatformsStatsSection — v2-native rebuild of v1
+// PlatformsStatsSection: v2-native rebuild of v1
 // `Settings/ServerStats/PlatformsStats.vue`. Per-platform breakdown
 // rows: icon · name + meta (games count, metadata coverage chips,
 // region chips with expand/collapse) · size + percentage of total ·
@@ -8,7 +8,7 @@
 // rows use.
 //
 // Toolbar mirrors GalleryToolbar's pattern: inline-prefix search on
-// the left, icon-only segmented sort on the right. No card chrome —
+// the left, icon-only segmented sort on the right. No card chrome:
 // this section sits flush in the page; only the Summary section above
 // keeps a surface.
 import {
@@ -362,7 +362,7 @@ function onRowClick(e: MouseEvent, platformId: number): void {
   gap: 8px;
 }
 
-/* Search width mirrors GalleryToolbar — bounded so the sort cluster
+/* Search width mirrors GalleryToolbar, bounded so the sort cluster
    stays comfortably visible on wide screens but the field collapses
    gracefully when the panel narrows. */
 .r-v2-plat-stats__search {
