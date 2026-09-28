@@ -547,6 +547,39 @@ class OAuthHandler:
 
 
 class OpenIDHandler:
+    async def _with_userinfo_endpoint_claims(
+        self, token: Any, id_claims: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Fill claims missing from the ID token from the UserInfo endpoint (OIDC Core 5.4)."""
+        wanted = ("email", "email_verified", OIDC_USERNAME_ATTRIBUTE, OIDC_CLAIM_ROLES)
+        missing = [claim for claim in wanted if claim and claim not in id_claims]
+        if not missing or not token.get("access_token"):
+            return id_claims
+
+        try:
+            metadata = await oauth.openid.load_server_metadata()
+            if not metadata.get("userinfo_endpoint"):
+                return id_claims
+            endpoint_claims = dict(await oauth.openid.userinfo(token=token))
+        except Exception as exc:  # noqa: BLE001
+            log.warning(f"Failed to fetch OIDC userinfo endpoint: {exc!r}")
+            return id_claims
+
+        # OIDC Core 5.3.2: the UserInfo sub must match the ID token's sub
+        if endpoint_claims.get("sub") != id_claims.get("sub"):
+            log.warning("Ignoring OIDC userinfo response: 'sub' does not match.")
+            return id_claims
+
+        # A verification flag only vouches for the email it came with
+        id_email = id_claims.get("email")
+        endpoint_email = endpoint_claims.get("email")
+        if id_email is not None and (
+            endpoint_email is None or endpoint_email.lower() != id_email.lower()
+        ):
+            endpoint_claims.pop("email_verified", None)
+
+        return {**endpoint_claims, **id_claims}
+
     async def get_current_active_user_from_openid_token(
         self, token: Any
     ) -> UserWithClaims | tuple[None, None]:
@@ -565,6 +598,8 @@ class OpenIDHandler:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Userinfo is missing from token.",
             )
+
+        userinfo = await self._with_userinfo_endpoint_claims(token, userinfo)
 
         email = userinfo.get("email")
         if email is None:
