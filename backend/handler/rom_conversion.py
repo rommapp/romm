@@ -9,11 +9,13 @@ from models.rom import Rom
 
 _STAGE_PREFIX = ".romm_tmp_"
 
-# Uploading several files fires a request per file, each promoting the same ROM,
-# and they may land on different gunicorn workers. One key for every ROM, since
-# two lone files sharing a stem would promote into the same folder.
-PROMOTION_LOCK_KEY = "rom_promotion"
+# Parallel uploads each promote the ROM, maybe on different gunicorn workers.
+# Keyed by the target folder, since lone files sharing a stem promote into one.
 PROMOTION_LOCK_TIMEOUT_SECONDS = 600
+
+
+def promotion_lock_key(rom: Rom) -> str:
+    return f"rom_promotion:{rom.fs_path}/{rom.fs_name_no_ext}"
 
 
 async def promote_single_file_to_folder(rom: Rom) -> Rom:
@@ -22,7 +24,7 @@ async def promote_single_file_to_folder(rom: Rom) -> Rom:
     folder-name collision.
     """
     async with redis_lock(
-        PROMOTION_LOCK_KEY, timeout_seconds=PROMOTION_LOCK_TIMEOUT_SECONDS
+        promotion_lock_key(rom), timeout_seconds=PROMOTION_LOCK_TIMEOUT_SECONDS
     ):
         return await _promote(db_rom_handler.get_rom(rom.id) or rom)
 

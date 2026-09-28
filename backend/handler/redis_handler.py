@@ -109,10 +109,7 @@ async_binary_cache = __get_async_binary_cache()
 async def redis_lock(
     key: str, *, timeout_seconds: int, poll_seconds: float = 0.1
 ) -> AsyncIterator[None]:
-    """Hold `key` as a mutex shared by every process on this Redis, since
-    requests for the same resource may land on different gunicorn workers.
-
-    A plain SET NX, so it also works without Lua scripting.
+    """Hold `key` as a mutex across gunicorn workers, via SET NX (no Lua needed).
 
     Raises:
         TimeoutError: The key stayed held for `timeout_seconds`.

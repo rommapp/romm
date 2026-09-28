@@ -455,7 +455,8 @@ async def test_promotion_waits_for_a_lock_held_by_another_worker(
         fs_name_no_ext="sf2ce",
         fs_extension="zip",
     )
-    await async_cache.set(rom_conversion.PROMOTION_LOCK_KEY, "other-worker")
+    lock_key = rom_conversion.promotion_lock_key(rom)
+    await async_cache.set(lock_key, "other-worker")
 
     promotion = asyncio.create_task(promote_single_file_to_folder(rom))
     await asyncio.sleep(0.3)
@@ -463,9 +464,38 @@ async def test_promotion_waits_for_a_lock_held_by_another_worker(
     assert not promotion.done()
     assert beside.exists()
 
-    await async_cache.delete(rom_conversion.PROMOTION_LOCK_KEY)
+    await async_cache.delete(lock_key)
     promoted = await asyncio.wait_for(promotion, 5)
 
     assert promoted.fs_name == "sf2ce"
     assert (real_library / f"{platform.slug}/roms/sf2ce/sf2ce.zip").exists()
     assert not beside.exists()
+
+
+async def test_promotion_ignores_a_lock_held_for_another_folder(
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+):
+    busy = _single_file_rom(
+        platform,
+        admin_user,
+        real_library,
+        fs_name="sf2ce.zip",
+        fs_name_no_ext="sf2ce",
+        fs_extension="zip",
+    )
+    rom = _single_file_rom(
+        platform,
+        admin_user,
+        real_library,
+        fs_name="mslug.zip",
+        fs_name_no_ext="mslug",
+        fs_extension="zip",
+    )
+    await async_cache.set(rom_conversion.promotion_lock_key(busy), "other-worker")
+
+    promoted = await asyncio.wait_for(promote_single_file_to_folder(rom), 5)
+
+    assert promoted.fs_name == "mslug"
+    assert (real_library / f"{platform.slug}/roms/mslug/mslug.zip").exists()
