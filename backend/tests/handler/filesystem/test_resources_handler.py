@@ -33,6 +33,7 @@ from handler.filesystem.resources_handler import (
     _check_content_type,
     _content_type_essence,
     _is_chroma_key_placeholder,
+    _trim_transparent_border,
 )
 from models.collection import Collection
 from models.rom import Rom
@@ -926,6 +927,80 @@ class TestChromaKeyDetection:
         await handler.store_media_file("http://example.com/x.png", rel)
 
         assert (tmp_path / rel).exists()
+
+
+class TestTrimTransparentBorder:
+    """Tests for cropping logos down to their visible pixels."""
+
+    def _write_padded_logo(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        img = Image.new("RGBA", (100, 50), (0, 0, 0, 0))
+        img.paste((255, 0, 0, 255), (20, 10, 80, 40))
+        img.save(path)
+
+    def test_crops_to_the_visible_pixels(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        self._write_padded_logo(logo)
+
+        _trim_transparent_border(logo)
+
+        with Image.open(logo) as img:
+            assert img.size == (60, 30)
+            assert img.getpixel((0, 0)) == (255, 0, 0, 255)
+
+    def test_leaves_an_unpadded_logo_untouched(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        Image.new("RGBA", (40, 20), (255, 0, 0, 255)).save(logo)
+        before = logo.read_bytes()
+
+        _trim_transparent_border(logo)
+
+        assert logo.read_bytes() == before
+
+    def test_leaves_an_opaque_image_untouched(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        Image.new("RGB", (40, 20), (255, 0, 0)).save(logo)
+        before = logo.read_bytes()
+
+        _trim_transparent_border(logo)
+
+        assert logo.read_bytes() == before
+
+    def test_leaves_a_fully_transparent_image_untouched(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        Image.new("RGBA", (40, 20), (0, 0, 0, 0)).save(logo)
+        before = logo.read_bytes()
+
+        _trim_transparent_border(logo)
+
+        assert logo.read_bytes() == before
+
+    def test_ignores_non_image_file(self, tmp_path):
+        not_an_image = tmp_path / "logo.png"
+        not_an_image.write_bytes(b"not an image")
+
+        _trim_transparent_border(not_an_image)
+
+        assert not_an_image.read_bytes() == b"not an image"
+
+    @pytest.mark.asyncio
+    async def test_store_metadata_media_trims_only_logos(self, tmp_path):
+        handler = FSResourcesHandler()
+        handler.base_path = tmp_path
+        logo = "roms/1/1/logo/logo.png"
+        fanart = "roms/1/1/fanart/fanart.png"
+        self._write_padded_logo(tmp_path / logo)
+        self._write_padded_logo(tmp_path / fanart)
+        metadata = {"logo_path": logo, "fanart_path": fanart}
+
+        await handler.store_metadata_media(
+            metadata, [MetadataMediaType.LOGO, MetadataMediaType.FANART]
+        )
+
+        with Image.open(tmp_path / logo) as img:
+            assert img.size == (60, 30)
+        with Image.open(tmp_path / fanart) as img:
+            assert img.size == (100, 50)
 
 
 class TestStoreMediaFileResult:

@@ -118,6 +118,28 @@ def _is_chroma_key_placeholder(image_path: Path) -> bool:
     return green / total >= _CHROMA_KEY_COVERAGE
 
 
+def _trim_transparent_border(image_path: Path) -> None:
+    """Crop an image to its visible pixels, so a logo aligns by its artwork
+    rather than the empty canvas around it."""
+    try:
+        with Image.open(image_path) as img:
+            if is_animated(img) or not (
+                "A" in img.getbands() or "transparency" in img.info
+            ):
+                return
+            rgba = img.convert("RGBA")
+    except UnidentifiedImageError, OSError, ValueError:
+        return
+
+    bbox = rgba.getchannel("A").getbbox()
+    if bbox is None or bbox == (0, 0, *rgba.size):
+        return
+    try:
+        rgba.crop(bbox).save(image_path, format="PNG")
+    except OSError as exc:
+        log.error(f"Unable to trim transparent border of {image_path}: {str(exc)}")
+
+
 class FSResourcesHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=RESOURCES_BASE_PATH)
@@ -822,25 +844,40 @@ class FSResourcesHandler(FSHandler):
         was modified.
         """
 
-        async def store(media_path: str, media_url: str | None) -> bool:
+        async def store(
+            media_type: MetadataMediaType, media_path: str, media_url: str | None
+        ) -> bool:
             if media_url:
-                return await self.store_media_file(
+                stored = await self.store_media_file(
                     url_transform(media_url) if url_transform else media_url,
                     media_path,
                 )
-            # Nothing to fetch from, so the path only holds if an earlier
-            # scan already stored the file.
-            return await self.file_exists(media_path)
+            else:
+                # Nothing to fetch from, so the path only holds if an earlier
+                # scan already stored the file.
+                stored = await self.file_exists(media_path)
+            # Also runs for logos already on disk, trimming them on rescan.
+            if stored and media_type == MetadataMediaType.LOGO:
+                await asyncio.to_thread(
+                    _trim_transparent_border, self.validate_path(media_path)
+                )
+            return stored
 
         # Keyed by path key, so a media type listed twice is fetched once.
-        recorded: dict[str, str | None] = {}
+        recorded: dict[str, tuple[MetadataMediaType, str | None]] = {}
         for media_type in media_types:
             path_key = f"{media_type.value}_path"
             if metadata.get(path_key):
-                recorded[path_key] = metadata.get(f"{media_type.value}_url")
+                recorded[path_key] = (
+                    media_type,
+                    metadata.get(f"{media_type.value}_url"),
+                )
 
         stored = await gather_all(
-            *(store(metadata[key], url) for key, url in recorded.items())
+            *(
+                store(media_type, metadata[key], url)
+                for key, (media_type, url) in recorded.items()
+            )
         )
 
         missing = [key for key, ok in zip(recorded, stored, strict=True) if not ok]
