@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// AppLayout — top-level v2 shell. Thin orchestrator: owns the background-art
+// AppLayout: top-level v2 shell. Thin orchestrator: owns the background-art
 // provider and mounts the visual chrome.
 //
-//   * BackgroundArt — two-layer blurred backdrop with cross-fade
-//   * AppNav        — logo · centred tab pill · user menu
-//   * GlobalDialogs — emitter-driven dialog + notification stack
+//   * BackgroundArt: two-layer blurred backdrop with cross-fade
+//   * AppNav: logo · centred tab pill · user menu
+//   * GlobalDialogs: emitter-driven dialog + notification stack
 //
 // Per-ROM action menus are not app-wide: each GameCard owns its own
 // `MoreMenu` dropdown on the three-dots button. Right-click is left to
@@ -49,6 +49,7 @@ import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
 import { installStageActiveClass } from "@/v2/composables/useStageActive";
 import { installSyncConflictToast } from "@/v2/composables/useSyncConflictToast";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
+import { installQueryNavigationGuard } from "@/v2/utils/routeQuery";
 
 // The server joins a socket to its user's rooms when it connects, so one left
 // open across a logout would still get the last user's pushes.
@@ -132,7 +133,7 @@ useEventListener(
   }, NATIVE_REPROBE_THROTTLE_MS),
 );
 
-// Developer debug overlay — opt-in via Settings → Developer (per-device).
+// Developer debug overlay: opt-in via Settings → Developer (per-device).
 // Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
 // fetched once the toggle is on, keeping it out of the default bundle.
 const { enabled: debugEnabled } = useDebugMode();
@@ -140,7 +141,7 @@ const DebugOverlay = defineAsyncComponent(
   () => import("@/v2/components/AppShell/DebugOverlay.vue"),
 );
 
-// Shared reactive background art — views paint covers via the injected setter.
+// Shared reactive background art: views paint covers via the injected setter.
 const layerA = ref<string | null>(null);
 const layerB = ref<string | null>(null);
 const activeLayer = ref<"a" | "b">("a");
@@ -182,6 +183,7 @@ const router = useRouter();
 let removeBackMorph: (() => void) | null = null;
 let removeGalleryProvenance: (() => void) | null = null;
 let removeOverlayRouteDismiss: (() => void) | null = null;
+let removeQueryNavigationGuard: (() => void) | null = null;
 
 onMounted(() => {
   installInputModality();
@@ -190,6 +192,8 @@ onMounted(() => {
   // Dialogs and drawers are mounted above the router view, so nothing else
   // dismisses them when the route changes under them (browser back included).
   removeOverlayRouteDismiss = installOverlayRouteDismiss(router);
+  // URL-backed view state must not write into a navigation still in flight.
+  removeQueryNavigationGuard = installQueryNavigationGuard(router);
   // Mirror morph: GameDetails cover → destination card on back/navbar/popstate.
   // Forward direction is handled at the source side in GameCard.
   removeBackMorph = installBackMorph(router);
@@ -208,7 +212,7 @@ onMounted(() => {
   if (collectionsStore.smartCollections.length === 0) {
     void collectionsStore.fetchSmartCollections();
   }
-  // Hydrate platforms for the same reason — views like MissingGames,
+  // Hydrate platforms for the same reason: views like MissingGames,
   // GameDetails, etc. read `platformsStore.get(id)` to resolve a
   // platform's display name and slug. Without this, direct loads of
   // those views in v2 see undefined slugs and icons fall through to
@@ -236,6 +240,8 @@ onBeforeUnmount(() => {
   removeGalleryProvenance = null;
   removeOverlayRouteDismiss?.();
   removeOverlayRouteDismiss = null;
+  removeQueryNavigationGuard?.();
+  removeQueryNavigationGuard = null;
   if (bgTimer !== null) {
     clearTimeout(bgTimer);
     bgTimer = null;
@@ -274,7 +280,7 @@ onBeforeUnmount(() => {
    active scrollbar of the app. AppNav is `position: fixed` (defined
    in its own SFC) and main reserves the navbar's height with a top
    padding so content starts right under it.
-     · Views that fit within `100vh - --r-nav-h` (Gallery — its own
+     · Views that fit within `100vh - --r-nav-h` (Gallery, its own
        shell already uses that calc and `overflow: hidden`; GameDetails
        uses the same calc with an internal panel scroll) generate no
        document overflow → no document scrollbar on those routes.
@@ -309,7 +315,7 @@ onBeforeUnmount(() => {
 }
 
 /* On sm-and-down the fixed bottom tab bar (BottomNav) overlays the
-   bottom edge — reserve its height (+ safe-area inset) so natural-flow
+   bottom edge: reserve its height (+ safe-area inset) so natural-flow
    views (Home, Settings, Library Tools, …) can scroll their last content
    clear of the bar. Fixed-height views with their own internal scroll
    (galleries) subtract the same amount from their height calc so the

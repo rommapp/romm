@@ -79,6 +79,7 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlayFocus } from "@/v2/composables/usePlayFocus";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
+import { romIdFromRoute } from "@/v2/composables/useRouteRom";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import { useStageActive } from "@/v2/composables/useStageActive";
@@ -192,13 +193,12 @@ const morphRomId = computed(() => {
 
 // Seed synchronously so the hero cover is already in the DOM when the view
 // transition captures this view (same pattern as the EmulatorJS view).
-const seededRom = storeRoms().currentRom;
-if (seededRom && String(seededRom.id) === morphRomId.value) {
-  rom.value = seededRom;
-}
+const seedId = romIdFromRoute(route);
+const seededRom = seedId === null ? null : storeRoms().getDetailedRom(seedId);
+if (seededRom) rom.value = seededRom;
 const heroSeed = ref<SimpleRom | null>(null);
-if (!rom.value && morphRomId.value != null) {
-  heroSeed.value = storeGalleryRoms().getRomById(Number(morphRomId.value));
+if (!rom.value && seedId !== null) {
+  heroSeed.value = storeGalleryRoms().getRomById(seedId);
 }
 const heroRom = computed<DetailedRom | SimpleRom | null>(
   () => rom.value ?? heroSeed.value,

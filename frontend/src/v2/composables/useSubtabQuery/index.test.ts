@@ -75,4 +75,24 @@ describe("useSubtabQuery", () => {
 
     expect(subtab.value).toBe("states");
   });
+
+  it("rewrites an unknown subtab in the URL to the one shown", async () => {
+    const { router } = await mountAt({ tab: "save-data", subtab: "manual" });
+    await flushPromises();
+
+    expect(router.currentRoute.value.query).toEqual({
+      tab: "save-data",
+      subtab: "saves",
+    });
+  });
+
+  it("leaves a subtab that belongs to another tab alone", async () => {
+    const { router } = await mountAt({ tab: "media", subtab: "manual" });
+    await flushPromises();
+
+    expect(router.currentRoute.value.query).toEqual({
+      tab: "media",
+      subtab: "manual",
+    });
+  });
 });
