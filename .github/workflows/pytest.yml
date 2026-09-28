@@ -78,7 +78,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra test
+          uv sync --locked --extra test
 
       - name: Initiate MariaDB database
         if: matrix.db == 'mariadb'

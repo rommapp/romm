@@ -50,7 +50,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev --extra test
+          uv sync --locked --extra dev --extra test
 
       # mypy revalidates each cached module against its source and options, so
       # any earlier master cache is safe to seed from.
