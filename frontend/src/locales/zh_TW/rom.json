@@ -257,6 +257,7 @@
   "media-miximage": "混合圖像",
   "media-miximage-v2": "混合圖像（v2）",
   "media-physical": "實體媒介",
+  "media-physical-disc": "實體媒介（光碟 {n}）",
   "media-title-screen": "標題畫面",
   "media-video": "影片",
   "media-video-normalized": "影片（標準化）",

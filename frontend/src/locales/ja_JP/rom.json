@@ -257,6 +257,7 @@
   "media-miximage": "ミックス画像",
   "media-miximage-v2": "ミックス画像（v2）",
   "media-physical": "物理メディア",
+  "media-physical-disc": "物理メディア（ディスク{n}）",
   "media-title-screen": "タイトル画面",
   "media-video": "ビデオ",
   "media-video-normalized": "ビデオ（標準化）",

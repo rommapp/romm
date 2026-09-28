@@ -257,6 +257,7 @@
   "media-miximage": "Karışık görüntü",
   "media-miximage-v2": "Karışık görüntü (v2)",
   "media-physical": "Fiziksel medya",
+  "media-physical-disc": "Fiziksel medya ({n}. disk)",
   "media-title-screen": "Başlık ekranı",
   "media-video": "Video",
   "media-video-normalized": "Video (standartlaştırılmış)",

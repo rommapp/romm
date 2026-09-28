@@ -811,6 +811,11 @@ async def _identify_rom(
         previous_url_manual=rom.url_manual,
         previous_url_screenshots=rom.url_screenshots,
         metadata_sources=metadata_sources,
+        previous_media={
+            "ss_metadata": rom.ss_metadata,
+            "gamelist_metadata": rom.gamelist_metadata,
+            "launchbox_metadata": rom.launchbox_metadata,
+        },
     )
 
     await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)

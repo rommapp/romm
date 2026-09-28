@@ -54,6 +54,7 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
   const cacheBust = encodeURIComponent(rom.updated_at);
   const seen = new Set<string>();
   const out: MediaShelfItem[] = [];
+  const extraDiscs = (ss?.physical_extra_discs ?? []).filter((d) => d.path);
 
   const artworkDefs: ArtworkDef[] = [
     {
@@ -111,9 +112,17 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
     },
     {
       key: "physical",
-      label: i18n.global.t("rom.media-physical"),
+      label:
+        ss?.physical_path && ss.physical_disc && extraDiscs.length > 0
+          ? i18n.global.t("rom.media-physical-disc", { n: ss.physical_disc })
+          : i18n.global.t("rom.media-physical"),
       url: ss?.physical_path ?? gl?.physical_path ?? null,
     },
+    ...extraDiscs.map(({ disc, path }) => ({
+      key: `physical_disc${disc}`,
+      label: i18n.global.t("rom.media-physical-disc", { n: disc }),
+      url: path,
+    })),
     {
       key: "miximage",
       label: i18n.global.t("rom.media-miximage"),
