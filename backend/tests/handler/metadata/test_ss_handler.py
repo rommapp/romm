@@ -561,6 +561,107 @@ class TestExtractMediaFromSsGame:
         assert "mixrbv2" in result["miximage_v2_url"]
         assert result["miximage_v2_path"] is not None
 
+    def _make_multi_disc_game(self) -> SSGame:
+        """A three-disc game whose disc art is spread across regions."""
+
+        def disc(region: str, support: str | None) -> dict[str, str]:
+            suffix = f"[{support}]" if support else ""
+            media = {
+                "type": "support-2D",
+                "parent": "jeu",
+                "region": region,
+                "url": f"https://screenscraper.example.com/support-2D({region}){suffix}",
+                "crc": "aabbccdd",
+                "md5": "deadbeef",
+                "sha1": "cafebabe",
+                "format": "png",
+            }
+            if support:
+                media["support"] = support
+            return media
+
+        return cast(
+            SSGame,
+            {
+                "medias": [
+                    disc("jp", None),
+                    disc("jp", "1"),
+                    disc("jp", "2"),
+                    disc("us", "2"),
+                    disc("eu", "3"),
+                ]
+            },
+        )
+
+    def test_every_disc_of_a_multi_disc_game_is_kept(self):
+        config = _make_config(region_priority=["us"], scan_media=["physical"])
+        rom = self._make_rom()
+        game = self._make_multi_disc_game()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        # Untagged art stands for the first disc.
+        assert (
+            result["physical_url"] == "https://screenscraper.example.com/support-2D(jp)"
+        )
+        assert result["physical_path"] == "roms/1/100/physical/physical.png"
+        assert result["physical_extra_discs"] == [
+            {
+                "disc": 2,
+                "url": "https://screenscraper.example.com/support-2D(us)[2]",
+                "path": "roms/1/100/physical/physical_disc2.png",
+            },
+            {
+                "disc": 3,
+                "url": "https://screenscraper.example.com/support-2D(eu)[3]",
+                "path": "roms/1/100/physical/physical_disc3.png",
+            },
+        ]
+
+    def test_extra_discs_not_stored_when_physical_absent_from_config(self):
+        config = _make_config(scan_media=["box2d"])
+        rom = self._make_rom()
+        game = self._make_multi_disc_game()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["physical_path"] is None
+        assert [d["disc"] for d in result["physical_extra_discs"]] == [2, 3]
+        assert all(d["path"] is None for d in result["physical_extra_discs"])
+
+    def test_single_disc_game_has_no_extra_discs(self):
+        config = _make_config(scan_media=["physical"])
+        rom = self._make_rom()
+        game = cast(SSGame, {"medias": self._make_multi_disc_game()["medias"][:2]})
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert (
+            result["physical_url"] == "https://screenscraper.example.com/support-2D(jp)"
+        )
+        assert result["physical_extra_discs"] == []
+
 
 class TestExtractMetadataFromSsRom:
     def _make_rom(self, regions: list[str] | None = None) -> MagicMock:

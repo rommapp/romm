@@ -100,6 +100,34 @@ describe("resolveRomArtwork — scraped resources", () => {
 
     expect(resolveRomArtwork(rom)).toHaveLength(0);
   });
+
+  it("lists the art of every disc of a multi-disc game", () => {
+    const rom = makeRom([], {
+      ss_metadata: {
+        physical_path: "roms/1/1/physical/physical.png",
+        physical_extra_discs: [
+          {
+            disc: 2,
+            url: "https://screenscraper.example.com/support-2D[2]",
+            path: "roms/1/1/physical/physical_disc2.png",
+          },
+          {
+            disc: 3,
+            url: "https://screenscraper.example.com/support-2D[3]",
+            path: null,
+          },
+        ],
+      },
+    });
+    const entries = resolveRomArtwork(rom);
+
+    expect(entries.map((e) => e.key)).toEqual([
+      "artwork:physical",
+      "artwork:physical_disc2",
+    ]);
+    expect(entries[1].label).toBe("Physical media (disc 2)");
+    expect(entries[1].url).toContain("roms/1/1/physical/physical_disc2.png");
+  });
 });
 
 describe("resolveRomArtwork — library media files", () => {

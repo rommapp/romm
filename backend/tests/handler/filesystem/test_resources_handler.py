@@ -1146,6 +1146,71 @@ class TestStoreMetadataMedia:
             "http://example.com/fanart.png?ssid=user", "roms/1/1/fanart/fanart.png"
         )
 
+    @pytest.mark.asyncio
+    async def test_stores_every_extra_disc(self, handler: FSResourcesHandler):
+        metadata = {
+            "physical_url": "http://example.com/disc1.png",
+            "physical_path": "roms/1/1/physical/physical.png",
+            "physical_extra_discs": [
+                {
+                    "disc": 2,
+                    "url": "http://example.com/disc2.png",
+                    "path": "roms/1/1/physical/physical_disc2.png",
+                },
+                {
+                    "disc": 3,
+                    "url": "http://example.com/disc3.png",
+                    "path": "roms/1/1/physical/physical_disc3.png",
+                },
+            ],
+        }
+
+        async def fake_store(_url: str, dest_path: str) -> bool:
+            return "disc3" not in dest_path
+
+        with patch.object(
+            handler, "store_media_file", side_effect=fake_store
+        ) as store_mock:
+            changed = await handler.store_metadata_media(
+                metadata,
+                [MetadataMediaType.PHYSICAL],
+                lambda url: f"{url}?ssid=user",
+            )
+
+        assert store_mock.await_count == 3
+        store_mock.assert_any_await(
+            "http://example.com/disc2.png?ssid=user",
+            "roms/1/1/physical/physical_disc2.png",
+        )
+        assert changed is True
+        assert metadata["physical_path"] == "roms/1/1/physical/physical.png"
+        discs = metadata["physical_extra_discs"]
+        assert discs[0]["path"] == "roms/1/1/physical/physical_disc2.png"
+        assert discs[1]["path"] is None
+        assert discs[1]["url"] == "http://example.com/disc3.png"
+
+    @pytest.mark.asyncio
+    async def test_skips_extra_discs_when_physical_is_not_preferred(
+        self, handler: FSResourcesHandler
+    ):
+        metadata = {
+            "physical_extra_discs": [
+                {
+                    "disc": 2,
+                    "url": "http://example.com/disc2.png",
+                    "path": "roms/1/1/physical/physical_disc2.png",
+                }
+            ],
+        }
+
+        with patch.object(handler, "store_media_file") as store_mock:
+            changed = await handler.store_metadata_media(
+                metadata, [MetadataMediaType.FANART]
+            )
+
+        assert changed is False
+        store_mock.assert_not_called()
+
 
 class _FakeResponse:
     """Minimal stand-in for an httpx streaming response."""

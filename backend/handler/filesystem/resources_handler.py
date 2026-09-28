@@ -833,20 +833,37 @@ class FSResourcesHandler(FSHandler):
             return await self.file_exists(media_path)
 
         # Keyed by path key, so a media type listed twice is fetched once.
+        media_types = set(media_types)
         recorded: dict[str, str | None] = {}
         for media_type in media_types:
             path_key = f"{media_type.value}_path"
             if metadata.get(path_key):
                 recorded[path_key] = metadata.get(f"{media_type.value}_url")
 
-        stored = await gather_all(
-            *(store(metadata[key], url) for key, url in recorded.items())
+        # Art for a game's later discs, one entry per disc beside physical_path.
+        extra_discs: list[dict[str, Any]] = (
+            [d for d in metadata.get("physical_extra_discs") or [] if d.get("path")]
+            if MetadataMediaType.PHYSICAL in media_types
+            else []
         )
 
-        missing = [key for key, ok in zip(recorded, stored, strict=True) if not ok]
+        stored = await gather_all(
+            *(store(metadata[key], url) for key, url in recorded.items()),
+            *(store(disc["path"], disc.get("url")) for disc in extra_discs),
+        )
+
+        stored_paths, stored_discs = stored[: len(recorded)], stored[len(recorded) :]
+        missing = [
+            key for key, ok in zip(recorded, stored_paths, strict=True) if not ok
+        ]
         for path_key in missing:
             metadata[path_key] = None
-        return bool(missing)
+        missing_discs = [
+            disc for disc, ok in zip(extra_discs, stored_discs, strict=True) if not ok
+        ]
+        for disc in missing_discs:
+            disc["path"] = None
+        return bool(missing or missing_discs)
 
     async def remove_media_resources_path(
         self,

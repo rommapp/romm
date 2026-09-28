@@ -114,6 +114,11 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
       label: i18n.global.t("rom.media-physical"),
       url: ss?.physical_path ?? gl?.physical_path ?? null,
     },
+    ...(ss?.physical_extra_discs ?? []).map(({ disc, path }) => ({
+      key: `physical_disc${disc}`,
+      label: i18n.global.t("rom.media-physical-disc", { n: disc }),
+      url: path,
+    })),
     {
       key: "miximage",
       label: i18n.global.t("rom.media-miximage"),
