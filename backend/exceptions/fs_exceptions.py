@@ -50,14 +50,14 @@ class RomAlreadyExistsException(Exception):
 
 
 class RomListedByPlaylistException(Exception):
-    def __init__(self, playlist: str):
+    def __init__(self, playlist: str) -> None:
         self.message = (
             f"{playlist} lists this disc, so moving it into a folder would break "
             "the playlist. Move the set into a folder of its own first"
         )
         super().__init__(self.message)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.message
 
 

@@ -882,6 +882,7 @@ def test_start_into_a_file_a_playlist_lists_returns_400(
     platform: Platform,
     admin_user: User,
     rom_upload_fs: Path,
+    tmp_path: Path,
 ):
     rom = _single_file_rom(platform, admin_user, rom_upload_fs)
     _write(rom_upload_fs, f"{rom.fs_path}/solo.m3u", b"solo.zip\n")
@@ -892,7 +893,7 @@ def test_start_into_a_file_a_playlist_lists_returns_400(
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "solo.m3u" in response.json()["detail"]
-    assert not upload_endpoint.ROM_UPLOAD_TMP_BASE.exists()
+    assert not (tmp_path / "uploads").exists()
     assert (rom_upload_fs / rom.fs_path / "solo.zip").read_bytes() == b"romdata"
 
 
