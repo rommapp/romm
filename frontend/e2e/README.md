@@ -49,14 +49,14 @@ A browser opens, already signed in, and every click is written into the file. Us
 Tick **Show browser** in the Playwright panel and run any test. From a terminal:
 
 ```bash
-npm run test:e2e:headed
+npx playwright test --headed --workers 1
 ```
 
 ### Find out why a test failed
 
 ```bash
-npm run test:e2e:ui       # click a step to see the page, network and console at that moment
-npm run test:e2e:report   # the last run's failures, with traces
+npx playwright test --ui    # click a step to see the page, network and console at that moment
+npm run test:e2e:report    # the last run's failures, with traces
 ```
 
 For a CI failure, download the `playwright-report` artifact from the workflow run and open it the same way.
@@ -72,7 +72,7 @@ await page.pause();
 ```
 
 ```bash
-npm run test:e2e:debug -- e2e/rom-actions.spec.ts
+npx playwright test --debug e2e/rom-actions.spec.ts
 ```
 
 The Inspector steps one action at a time, tries locators live, and records more steps. ESLint refuses a committed `page.pause()`.
