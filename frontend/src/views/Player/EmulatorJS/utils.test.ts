@@ -11,6 +11,7 @@ import {
   createSaveSyncTracker,
   RETRY_BACKOFF_MAX_MS,
   RETRY_BACKOFF_MIN_MS,
+  bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
   loadEmulatorJSSave,
   pollSaveFiles,
@@ -541,10 +542,11 @@ describe("loadEmulatorJSSave", () => {
       writeFile: (p: string, bytes: Uint8Array) => files.set(p, bytes),
     };
     const loadSaveFiles = vi.fn();
+    const restart = vi.fn();
     (window as any).EJS_emulator = {
-      gameManager: { FS, getSaveFilePath: () => path, loadSaveFiles },
+      gameManager: { FS, getSaveFilePath: () => path, loadSaveFiles, restart },
     };
-    return { files, loadSaveFiles };
+    return { files, loadSaveFiles, restart };
   }
 
   afterEach(() => {
@@ -569,6 +571,23 @@ describe("loadEmulatorJSSave", () => {
     mountEmulator(new Uint8Array([1, 2]));
 
     expect(loadEmulatorJSSave(new Uint8Array([1, 2]))).toBe(false);
+  });
+
+  it("restarts a freshly booted core when the save changed", () => {
+    const { files, restart } = mountEmulator(null);
+
+    bootEmulatorJSSave(new Uint8Array([1, 2]));
+
+    expect(files.get(path)).toEqual(new Uint8Array([1, 2]));
+    expect(restart).toHaveBeenCalledOnce();
+  });
+
+  it("leaves a core that booted with the same save running", () => {
+    const { restart } = mountEmulator(new Uint8Array([1, 2]));
+
+    bootEmulatorJSSave(new Uint8Array([1, 2]));
+
+    expect(restart).not.toHaveBeenCalled();
   });
   /* eslint-enable @typescript-eslint/no-explicit-any */
 });

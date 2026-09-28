@@ -38,9 +38,9 @@ import {
   resolveScreenshot,
 } from "@/views/Player/EmulatorJS/utils";
 import {
+  bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
   invalidateEmulatorJSRomCacheIfRenamed,
-  loadEmulatorJSSave,
 } from "@/views/Player/EmulatorJS/utils";
 
 const { t } = useI18n();
@@ -639,8 +639,7 @@ async function boot() {
           if (!resp.ok) throw new Error("Failed to fetch save");
           const buf = new Uint8Array(await resp.arrayBuffer());
           try {
-            // A browser without this save cached booted the game on other SRAM.
-            if (loadEmulatorJSSave(buf)) gameManager.restart();
+            bootEmulatorJSSave(buf);
             console.info("[ConsolePlay] Loaded server save");
           } catch (err) {
             console.warn("[ConsolePlay] Failed writing save file", err);

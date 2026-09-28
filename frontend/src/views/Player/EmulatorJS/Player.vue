@@ -47,6 +47,7 @@ import {
   heldFor,
   resolveScreenshot,
   saveState,
+  bootEmulatorJSSave,
   loadEmulatorJSSave,
   loadEmulatorJSState,
   invalidateEmulatorJSRomCacheIfRenamed,
@@ -641,12 +642,12 @@ function onPageHide() {
 }
 
 // Saves management
-// Resolves whether this pick reached the core, and if it changed the SRAM
-// there: a later pick, a state load or leaving the player voids a download
-// still in flight.
+// Resolves whether this pick reached the core: a later pick, a state load or
+// leaving the player voids a download still in flight.
 async function loadSave(
   save: SaveSchema,
-): Promise<{ changed: boolean } | null> {
+  apply: (bytes: Uint8Array) => void = loadEmulatorJSSave,
+): Promise<boolean> {
   const generation = ++saveGeneration;
   saveLoading = true;
 
@@ -655,9 +656,9 @@ async function loadSave(
       responseType: "arraybuffer",
       params: { device_id: deviceIDRef.value },
     });
-    if (disposed || generation !== saveGeneration) return null;
+    if (disposed || generation !== saveGeneration) return false;
     const bytes = new Uint8Array(data);
-    const changed = loadEmulatorJSSave(bytes);
+    apply(bytes);
     // Writes follow the picked save only once its bytes are in the core.
     loadedSave = save;
     sessionSaveRef.value = null;
@@ -666,7 +667,7 @@ async function loadSave(
       duration: 3000,
       icon: "mdi-cloud-download-outline",
     });
-    return { changed };
+    return true;
   } finally {
     if (generation === saveGeneration) saveLoading = false;
   }
@@ -864,10 +865,7 @@ window.EJS_onGameStart = async () => {
         );
         await loadState(props.state);
       } else if (props.save) {
-        // A browser without this save cached booted the game on other SRAM.
-        if ((await loadSave(props.save))?.changed) {
-          window.EJS_emulator.gameManager.restart();
-        }
+        await loadSave(props.save, bootEmulatorJSSave);
       } else {
         baselineSaveTrackerFromEmulator();
       }

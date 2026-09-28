@@ -441,6 +441,11 @@ export function loadEmulatorJSSave(save: Uint8Array): boolean {
   return !bytesEqual(previous, save);
 }
 
+/** Loads a save into a core that just booted, restarting it when the save changed. */
+export function bootEmulatorJSSave(save: Uint8Array) {
+  if (loadEmulatorJSSave(save)) window.EJS_emulator.gameManager.restart();
+}
+
 export function loadEmulatorJSState(state: Uint8Array) {
   window.EJS_emulator.gameManager.loadState(state);
 }
