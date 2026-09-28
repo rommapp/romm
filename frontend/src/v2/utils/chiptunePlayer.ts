@@ -147,7 +147,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     if (this.isPaused) return;
     this.isPaused = true;
     this.post({ type: "pause" });
-    this.idle();
+    this.suspendContext();
     this.dispatchEvent(new Event("pause"));
   }
 
@@ -163,7 +163,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     this.position = 0;
     this.length = 0;
     this.post({ type: "unload" });
-    this.idle();
+    this.suspendContext();
   }
 
   close(): void {
@@ -178,13 +178,12 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   private fail() {
     this.failed = true;
     this.isPaused = true;
-    this.idle();
+    this.suspendContext();
     this.dispatchEvent(new Event("error"));
   }
 
-  // Stops the render callbacks and frees the output device while nothing
-  // plays; `play()` resumes it.
-  private idle() {
+  // Stops the render callbacks and frees the output device; `play()` resumes.
+  private suspendContext() {
     void this.context?.suspend().catch(() => {});
   }
 
@@ -236,7 +235,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
         break;
       case "ended":
         this.isPaused = true;
-        this.idle();
+        this.suspendContext();
         this.dispatchEvent(new Event("ended"));
         break;
       case "error":
@@ -250,8 +249,8 @@ async function hostRenderer(
   context: AudioContext,
   module: WebAssembly.Module,
 ): Promise<RendererHost> {
-  // AudioWorklet only exists in secure contexts, and RomM is often served
-  // over plain HTTP on a LAN address.
+  // AudioWorklet only exists in secure contexts, and self-hosted instances are
+  // often served over plain HTTP on a LAN address.
   if (!context.audioWorklet) return hostOnMainThread(context, module);
   try {
     return await hostInWorklet(context, module);
