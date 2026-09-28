@@ -1,28 +1,13 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, nextTick, ref } from "vue";
+import { defineComponent, ref } from "vue";
+import { createMemoryHistory, createRouter, type Router } from "vue-router";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
 import MediaTab from "./MediaTab.vue";
 
-const query = ref<Record<string, string>>({});
-
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
-}));
-vi.mock("vue-router", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("vue-router")>()),
-  useRoute: () => ({
-    get query() {
-      return query.value;
-    },
-  }),
-  useRouter: () => ({
-    replace: vi.fn(async ({ query: next }) => {
-      query.value = next;
-    }),
-    push: vi.fn(),
-  }),
 }));
 vi.mock("@/v2/composables/useRomSync", () => ({
   useRomSync: () => ({ refetchRom: vi.fn() }),
@@ -62,13 +47,25 @@ vi.mock("@/v2/components/Soundtrack/Panel.vue", () =>
   panelStub("SoundtrackPanel"),
 );
 
+let router: Router;
+
 async function mountTab(subtab?: string) {
-  query.value = subtab ? { tab: "media", subtab } : { tab: "media" };
+  router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/rom/:id", component: { template: "<div />" } }],
+  });
+  await router.push({
+    path: "/rom/1",
+    query: subtab ? { tab: "media", subtab } : { tab: "media" },
+  });
   const wrapper = mount(MediaTab, {
     props: {
       rom: makeDetailedRom({ has_soundtrack: false }),
     },
-    global: { stubs: { SubtabNav: true, RDropzone: true, REmptyState: true } },
+    global: {
+      plugins: [router],
+      stubs: { SubtabNav: true, RDropzone: true, REmptyState: true },
+    },
   });
   await flushPromises();
   return wrapper;
@@ -84,8 +81,7 @@ function pdfActive(wrapper: Awaited<ReturnType<typeof mountTab>>) {
 }
 
 async function selectSubtab(subtab: string) {
-  query.value = { tab: "media", subtab };
-  await nextTick();
+  await router.push({ path: "/rom/1", query: { tab: "media", subtab } });
   await flushPromises();
 }
 
