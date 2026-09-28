@@ -21,7 +21,7 @@ fmt && trunk check` comes last of all, so nothing lands unformatted. If
 
 ## A. Comments and docstrings: the most-corrected thing in this repo
 
-`CLAUDE.md` already says keep comments short, don't restate the code, don't
+`AGENTS.md` already says keep comments short, don't restate the code, don't
 explain a change. In practice contributions still ship multi-paragraph
 rationale, and it gets cut. Cut it yourself.
 
@@ -202,7 +202,7 @@ Run from `backend/`:
 
 ### CI gates this mirrors
 
-`typecheck.yml` (vue-tsc + lockfile lint), `frontend.yml` (vitest + build), `i18n.yml` (locale check), `pytest.yml` (pytest on MariaDB + PostgreSQL), `migrations.yml` (alembic on both DBs), `mypy.yml` (mypy across the backend), `trunk-check.yml` (Trunk across the repo). Green locally → green in CI.
+`frontend.yml` (vitest, build, vue-tsc + lockfile lint), `api-types.yml` (generated API types match the backend schema), `i18n.yml` (locale check), `pytest.yml` (pytest on MariaDB + PostgreSQL), `migrations.yml` (alembic on both DBs), `mypy.yml` (mypy across the backend), `trunk-check.yml` (Trunk across the repo). Green locally → green in CI.
 
 ### Don't
 

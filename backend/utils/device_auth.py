@@ -13,7 +13,7 @@ from typing import Any, Final, cast
 from fastapi import Request
 from yarl import URL
 
-from handler.redis_handler import sync_cache
+from handler.redis_handler import as_text, sync_cache
 from utils.client_tokens import PAIR_ALPHABET
 from utils.rate_limit import enforce_rate_limit, get_client_ip
 
@@ -97,12 +97,13 @@ def polled_too_fast(device_code: str, interval_seconds: int) -> bool:
     """
     key = _KEY_POLL_LAST.format(device_code)
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-    prev_raw = sync_cache.getset(key, str(now_ms))
-    sync_cache.expire(key, max(interval_seconds * 4, 30))
-    if prev_raw is None:
+    prev_raw = sync_cache.set(
+        key, str(now_ms), ex=max(interval_seconds * 4, 30), get=True
+    )
+    if prev_raw is None or isinstance(prev_raw, bool):
         return False
     try:
-        prev_ms = int(prev_raw.decode() if isinstance(prev_raw, bytes) else prev_raw)
+        prev_ms = int(as_text(prev_raw))
     except ValueError, AttributeError:
         return False
     return (now_ms - prev_ms) < (interval_seconds * 1000)
@@ -114,16 +115,12 @@ def store_pending(device_code: str, user_code: str, data: dict[str, Any]) -> Non
         "status": FlowStatus.PENDING,
         "user_code": user_code,
     }
-    sync_cache.setex(
-        _KEY_DC.format(device_code),
-        PENDING_TTL_SECONDS,
-        json.dumps(payload),
-    )
-    sync_cache.setex(
-        _KEY_UC.format(user_code),
-        PENDING_TTL_SECONDS,
-        device_code,
-    )
+    with sync_cache.pipeline() as pipe:
+        pipe.set(
+            _KEY_DC.format(device_code), json.dumps(payload), ex=PENDING_TTL_SECONDS
+        )
+        pipe.set(_KEY_UC.format(user_code), device_code, ex=PENDING_TTL_SECONDS)
+        pipe.execute()
 
 
 def load_pending(device_code: str) -> dict[str, Any] | None:
@@ -137,7 +134,7 @@ def resolve_device_code_from_user_code(user_code: str) -> str | None:
     raw = sync_cache.get(_KEY_UC.format(user_code))
     if not raw:
         return None
-    return raw.decode() if isinstance(raw, bytes) else raw
+    return as_text(raw)
 
 
 def pending_expires_at(device_code: str) -> datetime:
@@ -170,13 +167,9 @@ def mark_approved(
     remaining = sync_cache.ttl(_KEY_DC.format(device_code))
     if remaining is None or remaining < 1:
         remaining = PENDING_TTL_SECONDS
-    sync_cache.setex(
-        _KEY_DC.format(device_code),
-        min(remaining, PENDING_TTL_SECONDS),
-        json.dumps(approved),
+    _finish_flow(
+        device_code, user_code, approved, ttl=min(remaining, PENDING_TTL_SECONDS)
     )
-    if user_code:
-        sync_cache.delete(_KEY_UC.format(user_code))
 
 
 def mark_denied(device_code: str) -> None:
@@ -185,13 +178,18 @@ def mark_denied(device_code: str) -> None:
         return
     user_code = pending.get("user_code")
     denied = {"status": FlowStatus.DENIED}
-    sync_cache.setex(
-        _KEY_DC.format(device_code),
-        DENIED_TTL_SECONDS,
-        json.dumps(denied),
-    )
-    if user_code:
-        sync_cache.delete(_KEY_UC.format(user_code))
+    _finish_flow(device_code, user_code, denied, ttl=DENIED_TTL_SECONDS)
+
+
+def _finish_flow(
+    device_code: str, user_code: str | None, result: dict[str, Any], *, ttl: int
+) -> None:
+    """Store a flow's outcome and retire its user code in one transaction."""
+    with sync_cache.pipeline() as pipe:
+        pipe.set(_KEY_DC.format(device_code), json.dumps(result), ex=ttl)
+        if user_code:
+            pipe.delete(_KEY_UC.format(user_code))
+        pipe.execute()
 
 
 def consume_approved(device_code: str) -> dict[str, Any] | None:
@@ -206,10 +204,8 @@ def consume_approved(device_code: str) -> dict[str, Any] | None:
         return None
     data = json.loads(raw)
     if data.get("status") != FlowStatus.APPROVED:
-        sync_cache.setex(
-            _KEY_DC.format(device_code),
-            PENDING_TTL_SECONDS,
-            json.dumps(data),
+        sync_cache.set(
+            _KEY_DC.format(device_code), json.dumps(data), ex=PENDING_TTL_SECONDS
         )
         return None
     return cast(dict[str, Any], data)

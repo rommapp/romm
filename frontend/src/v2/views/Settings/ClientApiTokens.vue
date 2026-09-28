@@ -1,13 +1,4 @@
 <script setup lang="ts">
-// ClientApiTokens — v2-native rewrite. Page chrome mirrors the mock:
-// title + Create button on the right, search bar, single RTable.
-//
-// Delete confirmation goes through useConfirm; create + regenerate are
-// handled by the multi-step CreateClientTokenDialog component.
-//
-// Scopes are rendered through ScopeTree so the row groups them by
-// scope instead of dumping flat chips — easier to scan when a token
-// carries the full grant set.
 import {
   RBtn,
   RChip,
@@ -21,10 +12,10 @@ import type { Emitter } from "mitt";
 import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DeviceSchema } from "@/__generated__/models/DeviceSchema";
-import api from "@/services/api";
 import clientTokenApi, {
   type ClientTokenSchema,
 } from "@/services/api/client-token";
+import deviceApi from "@/services/api/device";
 import type { Events } from "@/types/emitter";
 import { formatTimestamp } from "@/utils";
 import CreateClientTokenDialog from "@/v2/components/Settings/CreateClientTokenDialog.vue";
@@ -52,9 +43,6 @@ type SortKey = "name" | "expires_at" | "last_used_at";
 const sortKey = ref<SortKey>("name");
 const sortDir = ref<"asc" | "desc">("asc");
 
-// Null timestamps sort to the end on asc, start on desc — matches the
-// "never expires" / "never used" reading: rows with values come first
-// when sorting ascending by date.
 function compareNullable(a: string | null, b: string | null, asc: boolean) {
   if (!a && !b) return 0;
   if (!a) return asc ? 1 : -1;
@@ -178,7 +166,7 @@ async function deleteToken(token: ClientTokenSchema) {
 
 async function fetchDevices() {
   try {
-    const { data } = await api.get<DeviceSchema[]>("/devices");
+    const { data } = await deviceApi.fetchDevices();
     devices.value = data;
   } catch (error) {
     console.error(error);

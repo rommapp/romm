@@ -1,23 +1,45 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import HTTPException, Request, Response, status
-from pydantic import BaseModel, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    StrictBool,
+    StringConstraints,
+    model_validator,
+)
 
 from decorators.auth import protected_route
 from endpoints.responses.device import DeviceCreateResponse, DeviceSchema
 from handler.auth.constants import Scope
-from handler.database import db_device_handler, db_device_save_sync_handler
+from handler.database import (
+    db_client_token_handler,
+    db_device_handler,
+    db_device_save_sync_handler,
+)
+from handler.device_install import device_install_handler
 from handler.filesystem import get_fs_sync_handler
+from handler.socket_handler import close_client_token_sockets
 from logger.logger import log
 from models.device import Device, SyncMode
 from utils.router import APIRouter
+
+from .install import router as install_router
 
 router = APIRouter(
     prefix="/devices",
     tags=["devices"],
 )
+
+router.include_router(install_router)
+
+# Flags a device reports about itself, such as {"remote_install": true}.
+DeviceCapabilities = Annotated[
+    dict[Annotated[str, StringConstraints(min_length=1, max_length=64)], StrictBool],
+    Field(max_length=32),
+]
 
 
 class DeviceCreatePayload(BaseModel):
@@ -30,6 +52,7 @@ class DeviceCreatePayload(BaseModel):
     hostname: str | None = None
     sync_mode: SyncMode | None = None
     sync_config: dict[str, Any] | None = None
+    capabilities: DeviceCapabilities | None = None
     allow_existing: bool = True
     allow_duplicate: bool = False
     reset_syncs: bool = False
@@ -52,6 +75,7 @@ class DeviceUpdatePayload(BaseModel):
     sync_enabled: bool | None = None
     sync_mode: SyncMode | None = None
     sync_config: dict[str, Any] | None = None
+    capabilities: DeviceCapabilities | None = None
 
 
 @protected_route(router.post, "", [Scope.DEVICES_WRITE])
@@ -88,6 +112,12 @@ def register_device(
         db_device_handler.update_last_seen(
             device_id=existing_device.id, user_id=request.user.id
         )
+        if payload.capabilities is not None:
+            db_device_handler.update_device(
+                device_id=existing_device.id,
+                user_id=request.user.id,
+                data={"capabilities": payload.capabilities},
+            )
         log.info(
             f"Returned existing device {existing_device.id} for user {request.user.username}"
         )
@@ -115,6 +145,7 @@ def register_device(
         hostname=payload.hostname,
         sync_mode=payload.sync_mode,
         sync_config=payload.sync_config,
+        capabilities=payload.capabilities,
         last_seen=now,
     )
 
@@ -182,7 +213,7 @@ def update_device(
     [Scope.DEVICES_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def delete_device(request: Request, device_id: str) -> None:
+async def delete_device(request: Request, device_id: str) -> None:
     device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if not device:
         raise HTTPException(
@@ -190,5 +221,8 @@ def delete_device(request: Request, device_id: str) -> None:
             detail=f"Device with ID {device_id} not found",
         )
 
+    token_ids = db_client_token_handler.get_token_ids_by_device(device_id)
     db_device_handler.delete_device(device_id=device_id, user_id=request.user.id)
     log.info(f"Deleted device {device_id} for user {request.user.username}")
+    await close_client_token_sockets(token_ids)
+    await device_install_handler.discard_for_device(device_id)

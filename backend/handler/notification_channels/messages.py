@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 
+from endpoints.responses.device.install import InstallStatus
 from endpoints.responses.notification import NotificationSchema
 from models.notification import NotificationKind
 from utils.urls import get_public_base_url
@@ -77,6 +78,24 @@ def _describe(n: NotificationSchema) -> tuple[str, str | None, str | None]:
                 f"{name} was turned off",
                 _text(data.get("error")),
                 "/notifications?tab=channels",
+            )
+        case (
+            NotificationKind.DEVICE_INSTALL_COMPLETED
+            | NotificationKind.DEVICE_INSTALL_FAILED
+        ):
+            game = _text(data.get("rom_name")) or "A game"
+            device = _text(data.get("device_name")) or "your device"
+            rom_id = _count(data.get("rom_id"))
+            if n.kind == NotificationKind.DEVICE_INSTALL_FAILED:
+                title = f"{game} could not be installed on {device}"
+            elif data.get("status") == InstallStatus.ALREADY_INSTALLED:
+                title = f"{game} is already installed on {device}"
+            else:
+                title = f"{game} was added to downloads on {device}"
+            return (
+                title,
+                _text(data.get("reason")),
+                f"/rom/{rom_id}" if rom_id else None,
             )
         case _:
             return n.title or "New notification", n.body, n.link

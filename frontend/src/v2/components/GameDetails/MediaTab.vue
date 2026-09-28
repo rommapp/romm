@@ -12,7 +12,7 @@
 //
 // The soundtrack player is reused from v1 for now.
 import { RBtn, RDropzone, REmptyState } from "@v2/lib";
-import { computed, defineAsyncComponent, ref } from "vue";
+import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DetailedRom } from "@/stores/roms";
 import SubtabNav, {
@@ -78,6 +78,17 @@ const subTab = useSubtabQuery<Subtab>(
   "media",
   (value) => validSubtabs.includes(value as Subtab),
   "manual",
+);
+
+// vue3-pdf-app drives one global pdf.js app, so only the last shown PDF subtab
+// mounts a PdfViewer.
+const pdfSubtab = ref<"manual" | "walkthrough" | null>(null);
+watch(
+  subTab,
+  (value) => {
+    if (value === "manual" || value === "walkthrough") pdfSubtab.value = value;
+  },
+  { immediate: true },
 );
 
 // ---------- Subtab nav ----------
@@ -192,11 +203,16 @@ async function deleteSoundtrack(fileId: number) {
            loads, and un/remounting them on every subtab switch causes a visible
            main-thread freeze (the PDF parser is the worst offender). With
            v-show the cost is paid once on Media tab entry and switching is a
-           CSS toggle. -->
+           CSS toggle (bar the PDF viewer, see `pdfSubtab`). -->
       <!-- Manual subtab: its own component (PDF / Markdown viewer with an
            entry selector; scrolls independently). -->
       <section v-show="subTab === 'manual'" class="r-v2-media__panel">
-        <ManualSubtab ref="manualPanel" :rom="rom" :hide-upload="smAndDown" />
+        <ManualSubtab
+          ref="manualPanel"
+          :rom="rom"
+          :hide-upload="smAndDown"
+          :pdf-active="pdfSubtab === 'manual'"
+        />
       </section>
 
       <!-- Walkthrough subtab: uploaded or GameFAQs-fetched documents, with
@@ -206,6 +222,7 @@ async function deleteSoundtrack(fileId: number) {
           ref="walkthroughPanel"
           :rom="rom"
           :hide-upload="smAndDown"
+          :pdf-active="pdfSubtab === 'walkthrough'"
         />
       </section>
 

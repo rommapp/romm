@@ -1,0 +1,36 @@
+name: Report Scheduled Failure
+
+# GitHub emails a failed scheduled run only to whoever last edited its cron, so
+# callers route those failures here to land in one tracking issue per workflow.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Scheduled run failing: ${WORKFLOW}"
+          # Search is fuzzy, so keep only an exact title match.
+          number=$(gh issue list --state open --search "in:title \"${title}\"" --json number,title |
+            jq -r --arg title "$title" 'map(select(.title == $title)) | .[0].number // empty')
+
+          if [[ -n "$number" ]]; then
+            gh issue comment "$number" --body "Failed again: ${RUN_URL}"
+          else
+            gh issue create --title "$title" --body "$(
+              printf 'The scheduled run of **%s** failed: %s\n\nLater failures are added here as comments. Close this once it passes again.' "$WORKFLOW" "$RUN_URL"
+            )"
+          fi

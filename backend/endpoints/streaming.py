@@ -42,6 +42,7 @@ from endpoints.responses.streaming import (
     SaveStateResponse,
     SessionStatusSchema,
     SlotCapabilitiesSchema,
+    StateCoreSchema,
     StreamingConfigSchema,
     StreamingContainerSchema,
     SwapDiscResponse,
@@ -249,6 +250,8 @@ async def _session_status(
             # The room the launch answered with, so a tab that missed the
             # launch-ready push can enter the stream off a poll.
             "host": session.get("host"),
+            "core": session.get("core"),
+            "core_tier": session.get("core_tier"),
         }
         # An activate that has not returned yet leaves no launched_at behind.
         # Gating the broker round trip on it keeps this route pure Redis for
@@ -302,14 +305,17 @@ async def get_config(request: Request) -> StreamingConfigSchema:
         if access.platform_is_visible(request, c.platform)
     ]
     # Concurrently, so one unreachable broker costs one timeout, not one each.
-    specs = await asyncio.gather(
-        *(
-            asyncio.to_thread(webstation.import_spec, c, c.emulator, c.platform)
-            for c in visible
-        )
+    specs, cores = await asyncio.gather(
+        asyncio.gather(
+            *(
+                asyncio.to_thread(webstation.import_spec, c, c.emulator, c.platform)
+                for c in visible
+            )
+        ),
+        asyncio.gather(*(asyncio.to_thread(states.state_core_for, c) for c in visible)),
     )
     safe_containers: list[StreamingContainerSchema] = []
-    for c, spec in zip(visible, specs, strict=True):
+    for c, spec, core in zip(visible, specs, cores, strict=True):
         safe_containers.append(
             StreamingContainerSchema(
                 platform=c.platform,
@@ -332,6 +338,14 @@ async def get_config(request: Request) -> StreamingConfigSchema:
                 supports_live_states=c.supports_live_states,
                 # So the picker only offers a foreign pick the claim will take.
                 import_kinds=spec.pickable_kinds() if spec is not None else [],
+                # So the picker hides states another RetroArch core wrote.
+                state_core=(
+                    StateCoreSchema(
+                        expected=core.expected, default_matches=core.default_matches
+                    )
+                    if core is not None
+                    else None
+                ),
             )
         )
 

@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from httpx2 import Response
@@ -99,7 +100,7 @@ class TestAuthorize:
 
     def test_rate_limit_returns_429(self, client):
         # 10 allowed, 11th blocked. Using a fresh client_device_identifier each
-        # loop isn't necessary — the rate key is IP-scoped.
+        # loop isn't necessary, the rate key is IP-scoped.
         for _ in range(df.AUTHORIZE_RATE_LIMIT):
             r = client.post("/api/auth/device/init", json=AUTHORIZE_PAYLOAD)
             assert r.status_code == status.HTTP_201_CREATED
@@ -203,7 +204,7 @@ class TestPending:
         assert approve.status_code == status.HTTP_200_OK
 
         # After approval the user_code pointer is deleted, so pending lookup
-        # returns 404 — not 410. 410 covers the narrower race where status
+        # returns 404, not 410. 410 covers the narrower race where status
         # transitions without the user_code being cleaned up; it's validated
         # in test_denied_returns_410_on_pending below.
         resp = client.get(
@@ -226,7 +227,7 @@ class TestPending:
 
     def test_user_code_normalization(self, client, access_token: str):
         body = _authorize(client)
-        # Inject a hyphen mid-code and lowercase — server must normalize
+        # Inject a hyphen mid-code and lowercase; server must normalize
         raw = body["user_code"]
         typed = (raw[:4] + "-" + raw[4:]).lower()
 
@@ -313,7 +314,7 @@ class TestApprove:
     def test_scope_clamping_rejects_scopes_above_requested(
         self, client, access_token: str
     ):
-        # Requested only roms.read — approving additional scopes is invalid
+        # Requested only roms.read; approving additional scopes is invalid
         body = _authorize(
             client,
             payload={**AUTHORIZE_PAYLOAD, "requested_scopes": ["roms.read"]},
@@ -554,14 +555,15 @@ class TestToken:
         assert first.status_code == status.HTTP_400_BAD_REQUEST
         assert first.json()["detail"] == "authorization_pending"
 
-        # Immediate second poll — inside the 5s interval → slow_down
+        # Immediate second poll, inside the 5s interval → slow_down
         second = _poll_token(client, body["device_code"])
         assert second.status_code == status.HTTP_400_BAD_REQUEST
         assert second.json()["detail"] == "slow_down"
+        assert sync_cache.ttl(df._KEY_POLL_LAST.format(body["device_code"])) > 0
 
     def test_per_ip_rate_limit(self, client):
         # Per-IP cap is 60/60s on /token. Use a single device_code with fast
-        # polls — once the per-IP counter trips, 429 (not slow_down).
+        # polls. Once the per-IP counter trips, 429 (not slow_down).
         body = _authorize(client)
 
         last_status = None
@@ -626,7 +628,7 @@ class TestBoundTokenInference:
             client, access_token, ["roms.user.write", "roms.user.read"]
         )
 
-        # POST /play-sessions without device_id — server infers from token
+        # POST /play-sessions without device_id; server infers from token
         resp = client.post(
             "/api/play-sessions",
             headers={"Authorization": f"Bearer {creds['access_token']}"},
@@ -781,7 +783,7 @@ class TestEndToEndHappyPath:
         assert creds["expires_at"] is not None
 
         # --- 6. Device uses its bound token to ingest a play session WITHOUT
-        #        passing device_id — server infers from the bound token ---
+        #        passing device_id; server infers from the bound token ---
         ingest = client.post(
             "/api/play-sessions",
             headers={"Authorization": f"Bearer {creds['access_token']}"},
@@ -902,7 +904,7 @@ class TestSyncNegotiateBoundTokenInference:
             headers={"Authorization": f"Bearer {creds['access_token']}"},
             json={"saves": []},
         )
-        # No device_id in payload — inferred from bound token
+        # No device_id in payload, inferred from bound token
         assert resp.status_code == status.HTTP_200_OK
 
     def test_negotiate_without_bound_or_payload_device_id_is_400(
@@ -928,3 +930,55 @@ class TestSyncNegotiateBoundTokenInference:
             json={"saves": []},
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_store_pending_writes_neither_key_when_one_write_fails(mocker):
+    # A device code without its user code is a flow nobody can approve.
+    real_pipeline = sync_cache.pipeline
+
+    def failing_pipeline(*args, **kwargs):
+        pipe = real_pipeline(*args, **kwargs)
+        queue_set = pipe.set
+
+        def set_(name, *args, **kwargs):
+            if name.startswith("device_auth:uc:"):
+                raise ConnectionError("valkey went away")
+            return queue_set(name, *args, **kwargs)
+
+        mocker.patch.object(pipe, "set", side_effect=set_)
+        return pipe
+
+    mocker.patch.object(sync_cache, "pipeline", side_effect=failing_pipeline)
+
+    with pytest.raises(ConnectionError):
+        df.store_pending("dc-atomic", "UCATOMIC", {})
+
+    assert sync_cache.get("device_auth:dc:dc-atomic") is None
+    assert sync_cache.get("device_auth:uc:UCATOMIC") is None
+
+
+def test_store_pending_sends_both_keys_in_one_transaction(mocker):
+    real_pipeline = sync_cache.pipeline
+    sent: list[tuple[bool, list[tuple[str, str]]]] = []
+
+    def spying_pipeline(*args, **kwargs):
+        pipe = real_pipeline(*args, **kwargs)
+        real_execute = pipe.execute
+
+        def execute(*args, **kwargs):
+            commands = [(cmd[0], cmd[1]) for cmd, _ in pipe.command_stack]
+            # The instance flag, which the stubs mistake for the transaction() method.
+            sent.append((vars(pipe)["transaction"], commands))
+            return real_execute(*args, **kwargs)
+
+        mocker.patch.object(pipe, "execute", side_effect=execute)
+        return pipe
+
+    mocker.patch.object(sync_cache, "pipeline", side_effect=spying_pipeline)
+
+    df.store_pending("dc-tx", "UCTX", {})
+
+    assert sent == [
+        (True, [("SET", "device_auth:dc:dc-tx"), ("SET", "device_auth:uc:UCTX")])
+    ]
+    assert sync_cache.get("device_auth:uc:UCTX") == b"dc-tx"

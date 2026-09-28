@@ -613,6 +613,15 @@ class RomVisibilityLabel(NamedTuple):
     fs_name: str
 
 
+class RomInstallTarget(NamedTuple):
+    """`RomVisibility` plus what a device install request is checked against."""
+
+    id: int
+    platform_id: int
+    platform_slug: str
+    missing_from_fs: bool
+
+
 class RomDeletionTarget(NamedTuple):
     """The columns the bulk-delete route reads off one rom, and no relations."""
 

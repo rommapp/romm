@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 import threading
@@ -14,14 +15,21 @@ from fastapi.testclient import TestClient
 from joserfc.errors import InvalidClaimError
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from endpoints import permissions as permissions_endpoints
+from endpoints import user as user_endpoints
 from handler.auth import auth_handler
 from handler.auth import base_handler as auth_handler_module
 from handler.auth import oauth_handler
 from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
-from handler.database import db_notification_handler
+from handler.database import (
+    db_device_handler,
+    db_notification_handler,
+)
 from handler.database.users_handler import DBUsersHandler
+from handler.device_install import device_install_handler
 from handler.redis_handler import async_cache, redis_client
+from models.device import Device
 from models.notification import NotificationKind
 from models.user import Role, User
 
@@ -459,6 +467,102 @@ def test_delete_user(client, access_token: str, editor_user: User):
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == HTTPStatus.OK
+
+
+def test_delete_user_closes_their_device_sockets(
+    mocker, client, access_token: str, editor_user: User, add_device_token
+):
+    token, _ = add_device_token(editor_user, None, scopes="devices.read")
+    close = mocker.patch.object(
+        user_endpoints, "close_client_token_sockets", mock.AsyncMock()
+    )
+
+    response = client.delete(
+        f"/api/users/{editor_user.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    close.assert_awaited_once_with([token.id])
+
+
+def test_delete_user_drops_their_install_requests(
+    client, access_token: str, editor_user: User
+):
+    db_device_handler.add_device(
+        Device(id="deleted-user-device", user_id=editor_user.id, name="Handheld")
+    )
+    install, _ = asyncio.run(
+        device_install_handler.create(
+            user_id=editor_user.id,
+            device_id="deleted-user-device",
+            rom_id=7,
+            file_ids=[1],
+        )
+    )
+
+    response = client.delete(
+        f"/api/users/{editor_user.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert asyncio.run(device_install_handler.get(install.id)) is None
+
+
+def test_disabling_a_user_closes_their_device_sockets(
+    mocker, client, access_token: str, editor_user: User, add_device_token
+):
+    token, _ = add_device_token(editor_user, None, scopes="devices.read")
+    close = mocker.patch.object(
+        user_endpoints, "close_client_token_sockets", mock.AsyncMock()
+    )
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"enabled": "false"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    close.assert_awaited_once_with([token.id])
+
+
+def test_changing_a_users_role_closes_their_device_sockets(
+    mocker, client, access_token: str, editor_user: User, add_device_token
+):
+    token, _ = add_device_token(editor_user, None, scopes="devices.read")
+    close = mocker.patch.object(
+        permissions_endpoints, "close_client_token_sockets", mock.AsyncMock()
+    )
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"role": "admin"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    close.assert_awaited_once_with([token.id])
+
+
+@pytest.mark.parametrize("form", [{"ra_username": "someone"}, {"enabled": "true"}])
+def test_other_user_edits_leave_their_device_sockets_open(
+    mocker, client, access_token: str, editor_user: User, form, add_device_token
+):
+    add_device_token(editor_user, None, scopes="devices.read")
+    close = mocker.patch.object(
+        user_endpoints, "close_client_token_sockets", mock.AsyncMock()
+    )
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data=form,
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    close.assert_not_awaited()
 
 
 @pytest.mark.asyncio

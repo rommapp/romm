@@ -115,6 +115,7 @@ class SaveSummarySchema(BaseModel):
 
 class StateSchema(BaseAsset, AssetAnnotations):
     emulator: str | None
+    core: str | None = None
     is_public: bool = False
     screenshot: ScreenshotSchema | None
 

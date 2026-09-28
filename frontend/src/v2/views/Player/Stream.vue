@@ -79,6 +79,7 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlayFocus } from "@/v2/composables/usePlayFocus";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
+import { romIdFromRoute } from "@/v2/composables/useRouteRom";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import { useStageActive } from "@/v2/composables/useStageActive";
@@ -192,13 +193,12 @@ const morphRomId = computed(() => {
 
 // Seed synchronously so the hero cover is already in the DOM when the view
 // transition captures this view (same pattern as the EmulatorJS view).
-const seededRom = storeRoms().currentRom;
-if (seededRom && String(seededRom.id) === morphRomId.value) {
-  rom.value = seededRom;
-}
+const seedId = romIdFromRoute(route);
+const seededRom = seedId === null ? null : storeRoms().getDetailedRom(seedId);
+if (seededRom) rom.value = seededRom;
 const heroSeed = ref<SimpleRom | null>(null);
-if (!rom.value && morphRomId.value != null) {
-  heroSeed.value = storeGalleryRoms().getRomById(Number(morphRomId.value));
+if (!rom.value && seedId !== null) {
+  heroSeed.value = storeGalleryRoms().getRomById(seedId);
 }
 const heroRom = computed<DetailedRom | SimpleRom | null>(
   () => rom.value ?? heroSeed.value,
@@ -352,21 +352,34 @@ const selectedSave = computed<SaveSchema | null>(
     newestSave.value,
 );
 
+// A RetroArch state only loads in the core that wrote it. One stored before
+// cores were recorded has none, and was written by the platform's default.
+function coreMatches(state: UserStateSchema): boolean {
+  const core = container.value?.state_core;
+  if (!core) return true;
+  return state.core === core.expected || (!state.core && core.default_matches);
+}
+
 const nativeStreamStates = computed<UserStateSchema[]>(() => {
   const emulator = emulatorKey(container.value?.emulator);
   if (!rom.value || !emulator) return [];
   return (rom.value.all_user_states ?? []).filter(
-    (s) => emulatorKey(s.emulator) === emulator,
+    (s) => emulatorKey(s.emulator) === emulator && coreMatches(s),
   );
 });
 
 // Every state regardless of which emulator wrote it where the broker declares
-// it can import one, which routes a foreign pick through the import path.
-const pickableStates = computed<UserStateSchema[]>(() =>
-  container.value?.import_kinds.includes("state")
-    ? (rom.value?.all_user_states ?? [])
-    : nativeStreamStates.value,
-);
+// it can import one, which routes a foreign pick through the import path. This
+// emulator's own states still have to match the core, which the import refuses.
+const pickableStates = computed<UserStateSchema[]>(() => {
+  if (!rom.value) return [];
+  if (!container.value?.import_kinds.includes("state"))
+    return nativeStreamStates.value;
+  const emulator = emulatorKey(container.value?.emulator);
+  return (rom.value.all_user_states ?? []).filter(
+    (s) => emulatorKey(s.emulator) !== emulator || coreMatches(s),
+  );
+});
 
 // Every capture is kept, so a heavy save-stater ends up with a history the
 // horizontal strip buries. Grid and list trade thumbnail size for how many
@@ -591,7 +604,16 @@ async function enterStream(host: string): Promise<void> {
 async function enterRunningSession(status: SessionStatus): Promise<void> {
   if (playerState.value !== "loading" || !status.host) return;
   launchPhase.value = null;
+  warnOfCore(status.core, status.core_tier);
   await enterStream(status.host);
+}
+
+// The broker boots an untested or opted-in broken core rather than refuse
+// it, so this is where the player learns it may misbehave.
+function warnOfCore(core?: string | null, tier?: string | null): void {
+  if (tier === "untested") snackbar.warning(t("play.core-untested", { core }));
+  else if (tier === "blocked")
+    snackbar.warning(t("play.core-blocked", { core }));
 }
 
 function dismissEndedDialog(): void {
@@ -718,8 +740,9 @@ useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
   }
   if (payload.resume === false) snackbar.warning(t("play.resume-failed"));
   // A status poll can land between the launch stamp and this push and enter
-  // first; entering again would force fullscreen back on.
+  // first, core warning included; entering again would force fullscreen back on.
   if (playerState.value === "playing") return;
+  warnOfCore(payload.core, payload.core_tier);
   await enterStream(payload.host);
 });
 

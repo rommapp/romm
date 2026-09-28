@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MusicTrackSchema, TrackMetaSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
+import { makeDetailedRom } from "@/utils/rom.fixtures";
 import {
   isAudioFile,
   isChiptuneFile,
@@ -16,7 +17,7 @@ function romFile(id: number, fileName: string, category = "soundtrack") {
 }
 
 function rom(files: unknown[]): DetailedRom {
-  return { id: 7, files } as unknown as DetailedRom;
+  return makeDetailedRom({ id: 7, files: files as DetailedRom["files"] });
 }
 
 describe("isAudioFile", () => {

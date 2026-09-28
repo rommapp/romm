@@ -95,6 +95,8 @@ cp ./bin64/RAHasher /usr/bin/RAHasher
 
 #### - Install python dependencies
 
+`scripts/dev-setup.sh` installs the pinned uv, Python, and Node versions plus the backend and frontend dependencies in one step, and is safe to rerun. On systems without `apt-get`, install the MariaDB and PostgreSQL client headers yourself first. To do it by hand instead, follow the steps below.
+
 You'll need uv installed
 
 <https://docs.astral.sh/uv/getting-started/installation/>

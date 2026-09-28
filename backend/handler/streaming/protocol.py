@@ -161,8 +161,11 @@ class WebstationProtocol(BrokerProtocol):
         path = urlparse(host.strip()).path.rstrip("/")
         return not path or path == self.subfolder
 
+    def api_route(self, path: str) -> str:
+        return f"{self.subfolder}/api{path}"
+
     def session_route(self, path: str) -> str:
-        return f"{self.subfolder}/api/session{path}"
+        return self.api_route(f"/session{path}")
 
     def transfer_route(self, path: str) -> str:
         return self.session_route(path)

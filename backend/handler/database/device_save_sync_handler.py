@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.assets import CONTENT_HASH_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
@@ -25,7 +25,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
         self,
         device_id: str,
         save_id: int,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> DeviceSaveSync | None:
         return session.scalar(
             select(DeviceSaveSync)
@@ -38,7 +38,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
         self,
         device_id: str,
         save_ids: list[int],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[DeviceSaveSync]:
         if not save_ids:
             return []
@@ -53,7 +53,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
     def get_syncs_for_saves(
         self,
         save_ids: list[int],
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> dict[int, list[tuple[DeviceSaveSync, str | None]]]:
         """Fetch every device sync row for the given saves, grouped by save id.
 
@@ -82,7 +82,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
         synced_at: datetime | None = None,
         last_sync_hash: str | None = None,
         last_sync_server_hash: str | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> DeviceSaveSync:
         now = synced_at or datetime.now(timezone.utc)
         client_hash = _clean_hash(last_sync_hash)
@@ -132,7 +132,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
         save_id: int,
         content_hash: str | None,
         synced_at: datetime | None = None,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         """Record both sides holding ``content_hash``, unless untracked or already recorded."""
         content_hash = _clean_hash(content_hash)
@@ -162,7 +162,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
         device_id: str,
         save_id: int,
         untracked: bool,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> DeviceSaveSync | None:
         existing = session.scalar(
             select(DeviceSaveSync)
@@ -206,7 +206,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
     def delete_syncs_for_device(
         self,
         device_id: str,
-        session: Session = None,  # type: ignore[assignment]
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             delete(DeviceSaveSync)

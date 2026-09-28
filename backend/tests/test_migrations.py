@@ -20,8 +20,10 @@ from sqlalchemy import DefaultClause, FetchedValue, Table, UniqueConstraint
 from sqlalchemy.sql.schema import NULL_UNSPECIFIED
 
 import models
+from handler.database import db_platform_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
+from models.platform import Platform
 from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
@@ -239,6 +241,9 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0138_exact_save_slots.py", "saves"),
         ("0139_rom_user_pinned_media.py", "rom_user"),
         ("0140_device_save_sync_baseline.py", "device_save_sync"),
+        ("0141_device_capabilities.py", "devices"),
+        ("0142_state_core.py", "states"),
+        ("0143_sibling_platform_names.py", "platforms"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -272,6 +277,38 @@ def test_the_play_session_sync_link_revision_reverses_and_replays():
 
         assert not has_column(connection, "play_sessions", "sync_session_id")
         assert _schema_of(connection, "play_sessions") == before
+
+
+def test_the_device_capabilities_revision_reverses_and_replays():
+    migration = _load_migration("0141_device_capabilities.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "devices")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "devices", "capabilities")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "devices") == before
+
+
+def test_the_state_core_revision_reverses_and_replays():
+    migration = _load_migration("0142_state_core.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "states")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "states", "core")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "states") == before
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:
@@ -816,3 +853,30 @@ def test_the_group_rename_leaves_admin_changes_alone():
         "Editor": "Custom",
     }
     assert keys == {"viewer": "Viewer (legacy)", "editor": "Editor"}
+
+
+def test_the_sibling_platform_names_revision_renames_only_the_stale_name():
+    migration = _load_migration("0143_sibling_platform_names.py")
+    for name, slug, fs_slug in (
+        ("Commodore 64", "c128", "c128"),
+        ("Videopac G7000", "videopac-g7400", "videopac-g7400"),
+        ("Commodore 64", "c64", "c64"),
+        ("C128 (custom)", "c128", "c128-custom"),
+    ):
+        db_platform_handler.add_platform(
+            Platform(name=name, slug=slug, fs_slug=fs_slug)
+        )
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+        names = set(
+            connection.execute(sa.text("SELECT fs_slug, name FROM platforms")).all()
+        )
+
+    assert names == {
+        ("c128", "Commodore 128"),
+        ("videopac-g7400", "Videopac+ G7400"),
+        ("c64", "Commodore 64"),
+        ("c128-custom", "C128 (custom)"),
+    }

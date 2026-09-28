@@ -12,6 +12,8 @@ import json
 from datetime import datetime, timezone
 from typing import Any, TypedDict, cast
 
+from redis.exceptions import WatchError
+
 from endpoints.responses.activity import ActivityClearSchema
 from handler.database import (
     db_device_handler,
@@ -211,30 +213,77 @@ class ActivityHandler:
         rom_key = self._rom_index_key(rom_id)
         members = await async_cache.smembers(rom_key)
         entries: list[ActivityEntry] = []
-        stale_members: list[str] = []
+        malformed: list[str] = []
+        keys_by_member: dict[str, str] = {}
 
-        for member in members:
+        for raw_member in members:
+            # Decoded as the session middleware does, for a client that doesn't.
+            member = (
+                raw_member.decode() if isinstance(raw_member, bytes) else raw_member
+            )
             try:
                 user_id_str, device_id = member.rsplit(":", 1)
                 user_id = int(user_id_str)
-            except ValueError, AttributeError:
-                stale_members.append(member)
-                continue
-
-            raw = await async_cache.get(self._activity_key(user_id, device_id))
-            if not raw:
-                # Key expired; clean up the stale set member.
-                stale_members.append(member)
-                continue
-            try:
-                entries.append(json.loads(raw))
             except ValueError:
-                stale_members.append(member)
+                malformed.append(member)
+                continue
+            keys_by_member[member] = self._activity_key(user_id, device_id)
 
-        if stale_members:
-            await async_cache.srem(rom_key, *stale_members)
+        raws = (
+            await async_cache.mget(list(keys_by_member.values()))
+            if keys_by_member
+            else []
+        )
+        stale: dict[str, str] = {}
+        for (member, key), raw in zip(keys_by_member.items(), raws, strict=True):
+            entry = _live_entry(raw, rom_id)
+            if entry is None:
+                stale[member] = key
+            else:
+                entries.append(entry)
+
+        if malformed or stale:
+            await self._drop_index_members(rom_id, malformed, stale)
 
         return entries
+
+    async def _drop_index_members(
+        self, rom_id: int, malformed: list[str], stale: dict[str, str]
+    ) -> None:
+        """Remove members from a ROM's index, sparing any a heartbeat has revived."""
+        async with async_cache.pipeline() as pipe:
+            try:
+                if stale:
+                    await pipe.watch(*stale.values())
+                    raws = await pipe.mget(list(stale.values()))
+                    still_stale = [
+                        member
+                        for member, raw in zip(stale, raws, strict=True)
+                        if _live_entry(raw, rom_id) is None
+                    ]
+                else:
+                    still_stale = []
+                if not (malformed or still_stale):
+                    return
+                pipe.multi()
+                await pipe.srem(self._rom_index_key(rom_id), *malformed, *still_stale)
+                await pipe.execute()
+            except WatchError:
+                # A heartbeat raced this cleanup; the next read retries it.
+                pass
+
+
+def _live_entry(raw: str | bytes | None, rom_id: int) -> ActivityEntry | None:
+    """The stored session, if it exists, parses and is still playing `rom_id`."""
+    if not raw:
+        return None
+    try:
+        entry = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(entry, dict) or entry.get("rom_id") != rom_id:
+        return None
+    return cast(ActivityEntry, entry)
 
 
 activity_handler = ActivityHandler()
