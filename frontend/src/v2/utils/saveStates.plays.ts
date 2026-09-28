@@ -19,6 +19,12 @@ export function stripTiles(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(".r-asset-strip__tile"));
 }
 
+export function manageStripTiles(root: HTMLElement): HTMLElement[] {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(".r-asset-strip__tile--static"),
+  );
+}
+
 export function downloadButtons(root: HTMLElement) {
   return within(root).getAllByRole("button", { name: /^Download /i });
 }

@@ -22,13 +22,7 @@ type Story = StoryObj<typeof AssetChips>;
 
 export const Default: Story = {
   name: "Emulator + size",
-  render: () => ({
-    components: { AssetChips },
-    setup() {
-      return { asset: makeSave(1, "main_quest", 2) };
-    },
-    template: `<AssetChips :asset="asset" />`,
-  }),
+  args: { asset: makeSave(1, "main_quest", 2) },
   play: async ({ canvasElement, step }) => {
     await step("emulator tag and formatted size render", async () => {
       const ui = within(canvasElement);
@@ -45,33 +39,15 @@ export const Latest: Story = {
       expect(within(canvasElement).getByText("Latest")).toBeTruthy();
     });
   },
-  render: () => ({
-    components: { AssetChips },
-    setup() {
-      return { asset: makeSave(1, "autosave", 1) };
-    },
-    template: `<AssetChips :asset="asset" latest />`,
-  }),
+  args: { asset: makeSave(1, "autosave", 1), latest: true },
 };
 
 export const NoEmulator: Story = {
   name: "No emulator on asset",
-  render: () => ({
-    components: { AssetChips },
-    setup() {
-      return { asset: makeSave(1, null, 5, { emulator: null }) };
-    },
-    template: `<AssetChips :asset="asset" />`,
-  }),
+  args: { asset: makeSave(1, null, 5, { emulator: null }) },
 };
 
 export const HideEmulatorChip: Story = {
   name: "showEmulator false",
-  render: () => ({
-    components: { AssetChips },
-    setup() {
-      return { asset: makeSave(1, "main_quest", 2) };
-    },
-    template: `<AssetChips :asset="asset" :show-emulator="false" />`,
-  }),
+  args: { asset: makeSave(1, "main_quest", 2), showEmulator: false },
 };

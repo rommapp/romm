@@ -9,7 +9,7 @@ import type {
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
 
-export const STORY_NOW = new Date("2026-05-25T20:00:00Z").getTime();
+const STORY_NOW = new Date("2026-05-25T20:00:00Z").getTime();
 const HOUR = 3600 * 1000;
 const WRITTEN_AT = "2026-05-13T22:08:00Z";
 
@@ -134,7 +134,7 @@ const stateShots: { color: string; label: string }[] = [
   { color: "5a5a0a", label: "Tower" },
 ];
 
-export function manyStates(n: number, withScreenshots = true): StateSchema[] {
+export function manyStates(n: number): StateSchema[] {
   const deltas = [
     2 * 3600,
     5 * 3600,
@@ -158,12 +158,10 @@ export function manyStates(n: number, withScreenshots = true): StateSchema[] {
       file_size_bytes: 256 * 1024 + i * 73 * 1024,
       created_at: at,
       updated_at: at,
-      screenshot: withScreenshots
-        ? screenshotFixture(
-            `https://placehold.co/640x360/${shot.color}/ffffff?text=${shot.label}`,
-            i + 1,
-          )
-        : null,
+      screenshot: screenshotFixture(
+        `https://placehold.co/640x360/${shot.color}/ffffff?text=${shot.label}`,
+        i + 1,
+      ),
       emulator: i % 3 === 0 ? "snes9x" : i % 3 === 1 ? "mesen" : null,
     });
   });

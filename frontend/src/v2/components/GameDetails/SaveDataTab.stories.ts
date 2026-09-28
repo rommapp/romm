@@ -1,11 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import mitt from "mitt";
 import { expect, waitFor, within } from "storybook/test";
-import { provide, ref } from "vue";
 import { useRouter } from "vue-router";
 import type { DetailedRomSchema } from "@/__generated__";
 import storeAuth from "@/stores/auth";
-import type { Events } from "@/types/emitter";
 import { userFixture } from "@/utils/user.fixtures";
 import {
   mixedCommunitySaves,
@@ -24,6 +21,12 @@ interface StoryArgs {
   subtab: Subtab;
   rom: DetailedRomSchema;
 }
+
+const MY_USER_ID = userFixture().id;
+const mine = <T extends { user_id: number }>(xs: T[]) =>
+  xs.filter((x) => x.user_id === MY_USER_ID);
+const theirs = <T extends { user_id: number }>(xs: T[]) =>
+  xs.filter((x) => x.user_id !== MY_USER_ID);
 
 const MINE_HEADING: Record<Subtab, string> = {
   saves: "My saves",
@@ -53,14 +56,11 @@ const meta: Meta<StoryArgs> = {
   render: (args) => ({
     components: { SaveDataTab },
     setup() {
-      provide("emitter", mitt<Events>());
       storeAuth().setCurrentUser(userFixture({ username: "player" }));
-      // SaveDataTab reads `?subtab=` during setup, so mount it after navigating.
-      const ready = ref(false);
-      void useRouter()
-        .replace({ query: { tab: "save-data", subtab: args.subtab } })
-        .then(() => (ready.value = true));
-      return { rom: args.rom, ready };
+      void useRouter().replace({
+        query: { tab: "save-data", subtab: args.subtab },
+      });
+      return { rom: args.rom };
     },
     template: `
       <div style="
@@ -70,12 +70,11 @@ const meta: Meta<StoryArgs> = {
         padding: var(--r-space-4);
         background: var(--r-color-bg);
       ">
-        <SaveDataTab v-if="ready" :rom="rom" style="height: min(720px, 85vh);" />
+        <SaveDataTab :rom="rom" style="height: min(720px, 85vh);" />
       </div>
     `,
   }),
-  // The mount lands after navigating, so every story waits for it before the
-  // a11y scan runs.
+  // Navigation is async, so every story waits for the subtab before the a11y scan.
   play: async ({ canvasElement, args }) => {
     await waitForSubtab(canvasElement, args.subtab);
   },
@@ -109,9 +108,8 @@ export const StatesFull: Story = {
 export const SavesEmptyMine: Story = {
   name: "Saves · empty mine",
   args: {
-    subtab: "saves",
     rom: storyDetailedRom({
-      all_user_saves: mixedCommunitySaves().filter((s) => s.user_id !== 1),
+      all_user_saves: theirs(mixedCommunitySaves()),
     }),
   },
   play: async ({ canvasElement, step }) => {
@@ -127,7 +125,7 @@ export const StatesEmptyMine: Story = {
   args: {
     subtab: "states",
     rom: storyDetailedRom({
-      all_user_states: mixedCommunityStates().filter((s) => s.user_id !== 1),
+      all_user_states: theirs(mixedCommunityStates()),
     }),
   },
 };
@@ -135,9 +133,8 @@ export const StatesEmptyMine: Story = {
 export const SavesMineOnly: Story = {
   name: "Saves · mine only (no community)",
   args: {
-    subtab: "saves",
     rom: storyDetailedRom({
-      all_user_saves: mixedCommunitySaves().filter((s) => s.user_id === 1),
+      all_user_saves: mine(mixedCommunitySaves()),
     }),
   },
 };
@@ -147,7 +144,7 @@ export const StatesMineOnly: Story = {
   args: {
     subtab: "states",
     rom: storyDetailedRom({
-      all_user_states: mixedCommunityStates().filter((s) => s.user_id === 1),
+      all_user_states: mine(mixedCommunityStates()),
     }),
   },
 };
@@ -155,7 +152,6 @@ export const StatesMineOnly: Story = {
 export const CompletelyEmpty: Story = {
   name: "Empty · no saves or states",
   args: {
-    subtab: "saves",
     rom: storyDetailedRom({ all_user_saves: [], all_user_states: [] }),
   },
 };
@@ -163,11 +159,8 @@ export const CompletelyEmpty: Story = {
 export const SingleCommunitySave: Story = {
   name: "Saves · single community save",
   args: {
-    subtab: "saves",
     rom: storyDetailedRom({
-      all_user_saves: mixedCommunitySaves()
-        .filter((s) => s.user_id !== 1)
-        .slice(0, 1),
+      all_user_saves: theirs(mixedCommunitySaves()).slice(0, 1),
     }),
   },
 };
@@ -177,9 +170,7 @@ export const SingleCommunityState: Story = {
   args: {
     subtab: "states",
     rom: storyDetailedRom({
-      all_user_states: mixedCommunityStates()
-        .filter((s) => s.user_id !== 1)
-        .slice(0, 1),
+      all_user_states: theirs(mixedCommunityStates()).slice(0, 1),
     }),
   },
 };

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, within } from "storybook/test";
 import { makeSave, makeState } from "@/v2/utils/saveStates.fixtures";
+import { downloadButtons } from "@/v2/utils/saveStates.plays";
 import AssetActions from "./AssetActions.vue";
 
 const meta: Meta<typeof AssetActions> = {
@@ -27,19 +28,13 @@ type Story = StoryObj<typeof AssetActions>;
 
 export const OwnSave: Story = {
   name: "Own · save",
-  render: () => ({
-    components: { AssetActions },
-    setup() {
-      return { asset: makeSave(1, "autosave", 1) };
-    },
-    template: `<AssetActions :asset="asset" type="save" own />`,
-  }),
+  args: { asset: makeSave(1, "autosave", 1), type: "save", own: true },
   play: async ({ canvasElement, step }) => {
     const ui = within(canvasElement);
     await step(
       "own save gets download, edit, favorite and delete",
       async () => {
-        expect(ui.getByRole("button", { name: /^Download /i })).toBeTruthy();
+        expect(downloadButtons(canvasElement)).toHaveLength(1);
         expect(ui.getByRole("button", { name: "Edit save" })).toBeTruthy();
         expect(
           ui.getByRole("button", { name: "Add to favorites" }),
@@ -52,13 +47,11 @@ export const OwnSave: Story = {
 
 export const OwnFavoriteState: Story = {
   name: "Own · favorite state",
-  render: () => ({
-    components: { AssetActions },
-    setup() {
-      return { asset: makeState({ id: 2, is_favorite: true }) };
-    },
-    template: `<AssetActions :asset="asset" type="state" own />`,
-  }),
+  args: {
+    asset: makeState({ id: 2, is_favorite: true }),
+    type: "state",
+    own: true,
+  },
   play: async ({ canvasElement, step }) => {
     const ui = within(canvasElement);
     await step("favorite state offers to remove it", async () => {
@@ -73,28 +66,21 @@ export const OwnFavoriteState: Story = {
 
 export const OwnFavoriting: Story = {
   name: "Own · favoriting",
-  render: () => ({
-    components: { AssetActions },
-    setup() {
-      return { asset: makeSave(3, "speedrun", 3) };
-    },
-    template: `<AssetActions :asset="asset" type="save" own favoriting />`,
-  }),
+  args: {
+    asset: makeSave(3, "speedrun", 3),
+    type: "save",
+    own: true,
+    favoriting: true,
+  },
 };
 
 export const Community: Story = {
   name: "Community · download only",
-  render: () => ({
-    components: { AssetActions },
-    setup() {
-      return { asset: makeState({ id: 4 }) };
-    },
-    template: `<AssetActions :asset="asset" type="state" />`,
-  }),
+  args: { asset: makeState({ id: 4 }), type: "state" },
   play: async ({ canvasElement, step }) => {
     const ui = within(canvasElement);
     await step("community item is download-only", async () => {
-      expect(ui.getByRole("button", { name: /^Download /i })).toBeTruthy();
+      expect(downloadButtons(canvasElement)).toHaveLength(1);
       expect(ui.queryByRole("button", { name: /^Edit /i })).toBeNull();
       expect(ui.queryByRole("button", { name: /favorites$/i })).toBeNull();
       expect(ui.queryByRole("button", { name: /^Delete /i })).toBeNull();

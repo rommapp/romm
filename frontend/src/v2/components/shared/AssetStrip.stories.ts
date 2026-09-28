@@ -10,7 +10,11 @@ import {
   mixedCommunityStates,
   screenshotFixture,
 } from "@/v2/utils/saveStates.fixtures";
-import { downloadButtons, stripTiles } from "@/v2/utils/saveStates.plays";
+import {
+  downloadButtons,
+  manageStripTiles,
+  stripTiles,
+} from "@/v2/utils/saveStates.plays";
 import AssetStrip from "./AssetStrip.vue";
 
 const meta: Meta<typeof AssetStrip> = {
@@ -121,7 +125,7 @@ export const ManyStatesList: Story = {
 export const StatesNoScreenshots: Story = {
   name: "States · 6 without screenshots",
   render: () => {
-    const states = manyStates(6, false);
+    const states = manyStates(6).map((s) => ({ ...s, screenshot: null }));
     return selectableStrip(states, states[2].id);
   },
 };
@@ -247,9 +251,7 @@ export const ManageFlowGrouped: Story = {
       expect(ui.getByRole("button", { name: /snes9x/i })).toBeTruthy();
     });
     await step("static tiles host per-item actions", async () => {
-      const staticTiles = canvasElement.querySelectorAll(
-        ".r-asset-strip__tile--static",
-      );
+      const staticTiles = manageStripTiles(canvasElement);
       expect(staticTiles.length).toBeGreaterThan(0);
       expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
     });
