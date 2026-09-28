@@ -920,6 +920,42 @@ class TestChromaKeyDetection:
         assert threads and threads[0] is not threading.main_thread()
 
     @pytest.mark.asyncio
+    async def test_discard_keeps_a_file_replaced_during_the_check(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        folder, name = "roms/1/1/box2d_back", "box2d_back.png"
+        self._write_image(tmp_path / folder / name, (0, 255, 0))
+        checking, release = threading.Event(), threading.Event()
+
+        def slow_check(_path: Path) -> bool:
+            checking.set()
+            release.wait(5)
+            return True
+
+        async def replace() -> None:
+            await asyncio.to_thread(checking.wait, 5)
+            async with handler.write_file_streamed(path=folder, filename=name) as f:
+                await f.write(b"real artwork")
+
+        with patch(
+            "handler.filesystem.resources_handler._is_chroma_key_placeholder",
+            side_effect=slow_check,
+        ):
+            discard = asyncio.create_task(
+                handler._discard_if_chroma_key(f"{folder}/{name}")
+            )
+            writer = asyncio.create_task(replace())
+            await asyncio.to_thread(checking.wait, 5)
+            # Room for the writer to finish if nothing holds it back
+            await asyncio.sleep(0.2)
+            release.set()
+            assert await discard is True
+            await writer
+
+        assert (tmp_path / folder / name).read_bytes() == b"real artwork"
+
+    @pytest.mark.asyncio
     async def test_discard_missing_file_is_noop(
         self, handler: FSResourcesHandler, tmp_path
     ):
