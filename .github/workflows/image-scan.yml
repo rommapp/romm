@@ -83,11 +83,11 @@ jobs:
           ignore-unfixed: true
           format: sarif
           output: trivy.sarif
-          # Exit cleanly so the report is always written; "Fail on fixable
-          # critical vulnerabilities" below is the gate.
+          # Exit cleanly so the report is always kept; the critical pass below is the gate.
           exit-code: "0"
 
       - name: Write summary
+        id: summary
         env:
           IMAGE: ${{ matrix.image }}
         run: |
@@ -104,18 +104,13 @@ jobs:
                 | "| \($fields.Severity) | \($result.ruleId) | \($fields.Package) | \($fields["Installed Version"]) | \($fields["Fixed Version"]) |"' trivy.sarif
             fi
           } >>"$GITHUB_STEP_SUMMARY"
-
-      - name: Name report artifact
-        id: artifact
-        env:
-          IMAGE: ${{ matrix.image }}
-        run: echo "name=trivy-${IMAGE//[:\/]/-}" >>"$GITHUB_OUTPUT"
+          echo "artifact=trivy-${IMAGE//[:\/]/-}" >>"$GITHUB_OUTPUT"
 
       # Code scanning rejects a tag ref, so this is the only copy a release run keeps.
       - name: Upload report artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ steps.artifact.outputs.name }}
+          name: ${{ steps.summary.outputs.artifact }}
           path: trivy.sarif
           if-no-files-found: error
           retention-days: 90
@@ -130,14 +125,16 @@ jobs:
           category: trivy-image-${{ matrix.image }}
 
       # Runs after the image is published, so this flags the run rather than
-      # blocking the release. `ignore-unfixed` limits it to fixable findings.
+      # blocking the release. Reuses the scan's cached database and layers.
       - name: Fail on fixable critical vulnerabilities
-        run: |
-          critical=$(jq '[.runs[].results[].message.text | select(split("\n") | any(. == "Severity: CRITICAL"))] | length' trivy.sarif)
-          if [[ "$critical" -gt 0 ]]; then
-            echo "::error::${critical} fixable critical vulnerabilities, see the summary"
-            exit 1
-          fi
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.image }}
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
 
   malware:
     needs: resolve
@@ -145,7 +142,6 @@ jobs:
       fail-fast: false
       matrix:
         image: ${{ fromJSON(needs.resolve.outputs.images) }}
-        platform: [linux/amd64, linux/arm64]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -162,18 +158,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The container is created but never started, so the arm64 image
+      # The containers are created but never started, so the arm64 image
       # exports on an amd64 runner without emulation.
-      - name: Export image filesystem
+      - name: Export image filesystems
         env:
           IMAGE: ${{ matrix.image }}
-          PLATFORM: ${{ matrix.platform }}
         run: |
-          docker pull --quiet --platform "$PLATFORM" "$IMAGE"
-          container=$(docker create --platform "$PLATFORM" "$IMAGE")
-          mkdir rootfs
-          docker export "$container" | sudo tar -x -C rootfs
-          docker rm "$container"
+          for platform in linux/amd64 linux/arm64; do
+            docker pull --quiet --platform "$platform" "$IMAGE"
+            container=$(docker create --platform "$platform" "$IMAGE")
+            mkdir -p "rootfs/${platform#linux/}"
+            docker export "$container" | sudo tar -x -C "rootfs/${platform#linux/}"
+            docker rm "$container"
+            docker rmi "$IMAGE"
+          done
 
       # freshclam is rate limited from shared runner IPs; the image bundles
       # signatures from its build, so a failed update degrades rather than fails.

@@ -18,8 +18,8 @@ env:
   # `build` pushes digests here and `merge` tags them from here; the two must agree.
   DIGEST_IMAGE: ghcr.io/${{ github.repository_owner }}/romm
   IMAGES: |
-    name=rommapp/romm
-    name=ghcr.io/rommapp/romm
+    rommapp/romm
+    ghcr.io/rommapp/romm
   # `build` and `merge` must derive the same tag set.
   TAGS: |
     type=semver,pattern={{version}}
@@ -302,8 +302,9 @@ jobs:
 
             docker buildx imagetools create "${tags[@]}" "${annotations[@]}" "${sources[@]}"
 
-            local index
-            index=$(docker buildx imagetools inspect "$(jq -r '.tags[0]' <<<"$metadata")" --format '{{.Manifest.Digest}}')
+            local ref index
+            ref=$(jq -r --arg repo "$DIGEST_IMAGE" 'first(.tags[] | select(startswith($repo + ":")))' <<<"$metadata")
+            index=$(docker buildx imagetools inspect "$ref" --format '{{.Manifest.Digest}}')
             echo "${output}=${index}" >>"$GITHUB_OUTPUT"
           }
 
@@ -313,6 +314,10 @@ jobs:
   # Its own job so a signing failure can't skip `scan` of an already published image.
   sign:
     needs: merge
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [slim, full]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -340,29 +345,21 @@ jobs:
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       # Both registries, since a signature is stored next to the image it covers.
-      - name: Sign images
+      - name: Sign image
         env:
-          SLIM_DIGEST: ${{ needs.merge.outputs.digest-slim }}
-          FULL_DIGEST: ${{ needs.merge.outputs.digest-full }}
+          DIGEST: ${{ needs.merge.outputs[format('digest-{0}', matrix.variant)] }}
         run: |
           while IFS= read -r image; do
             [[ -n "$image" ]] || continue
-            cosign sign --yes "${image#name=}@${SLIM_DIGEST}" "${image#name=}@${FULL_DIGEST}"
+            cosign sign --yes "${image}@${DIGEST}"
           done <<<"$IMAGES"
 
       # GitHub's attestation API looks up by digest, so one subject covers both registries.
-      - name: Attest slim image provenance
+      - name: Attest provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.DIGEST_IMAGE }}
-          subject-digest: ${{ needs.merge.outputs.digest-slim }}
-          push-to-registry: true
-
-      - name: Attest full image provenance
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-name: ${{ env.DIGEST_IMAGE }}
-          subject-digest: ${{ needs.merge.outputs.digest-full }}
+          subject-digest: ${{ needs.merge.outputs[format('digest-{0}', matrix.variant)] }}
           push-to-registry: true
 
   # Records what shipped; image-scan.yml's weekly run rescans latest.
