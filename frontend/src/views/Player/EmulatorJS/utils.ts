@@ -414,7 +414,14 @@ export function toArrayBuffer(view: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
-export function loadEmulatorJSSave(save: Uint8Array) {
+/**
+ * Writes a save over the core's save file and reloads it into the SRAM.
+ *
+ * Returns:
+ *   Whether the bytes differ from the file already there. Games read their
+ *   SRAM at boot, so a changed save only shows once the core restarts.
+ */
+export function loadEmulatorJSSave(save: Uint8Array): boolean {
   const FS = window.EJS_emulator.gameManager.FS;
   const path = window.EJS_emulator.gameManager.getSaveFilePath();
   const paths = path.split("/");
@@ -424,9 +431,19 @@ export function loadEmulatorJSSave(save: Uint8Array) {
     cp += "/" + paths[i];
     if (!FS.analyzePath(cp).exists) FS.mkdir(cp);
   }
-  if (FS.analyzePath(path).exists) FS.unlink(path);
+  let previous: Uint8Array | null = null;
+  if (FS.analyzePath(path).exists) {
+    previous = FS.readFile(path);
+    FS.unlink(path);
+  }
   FS.writeFile(path, save);
   window.EJS_emulator.gameManager.loadSaveFiles();
+  return !bytesEqual(previous, save);
+}
+
+/** Loads a save into a core that just booted, restarting it when the save changed. */
+export function bootEmulatorJSSave(save: Uint8Array) {
+  if (loadEmulatorJSSave(save)) window.EJS_emulator.gameManager.restart();
 }
 
 export function loadEmulatorJSState(state: Uint8Array) {
