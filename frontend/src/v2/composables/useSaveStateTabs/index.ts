@@ -1,6 +1,7 @@
 import { computed, toValue, type MaybeRefOrGetter } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
+import { useStreamingStore } from "@/stores/streaming";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import { isCoreCompatible, type AssetType } from "@/v2/utils/assets";
 
@@ -14,6 +15,7 @@ export function useSaveStateTabs(
   core: MaybeRefOrGetter<string | null>,
 ) {
   const { t } = useI18n();
+  const { emulatorLabel } = useStreamingStore();
 
   const stateCount = computed(() => toValue(states).length);
   const compatibleStates = computed(() =>
@@ -43,7 +45,9 @@ export function useSaveStateTabs(
   // Other emulators' states stay listed, disabled, so the count adds up.
   function stateDisabledReason(asset: { emulator?: string | null }) {
     if (isCoreCompatible(asset, toValue(core))) return null;
-    return t("play.state-incompatible-core", { emulator: asset.emulator });
+    return t("play.state-incompatible-core", {
+      emulator: emulatorLabel(asset.emulator),
+    });
   }
 
   return {

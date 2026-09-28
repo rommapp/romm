@@ -17,7 +17,7 @@ from . import UpdateStats
 
 
 class BuildRecommendationsTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Build recommendations index",
             description=(

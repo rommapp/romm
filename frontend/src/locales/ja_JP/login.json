@@ -17,6 +17,7 @@
   "reset-link-failed": "リセットリンクを送信できませんでした",
   "reset-password": "パスワードをリセット",
   "reset-sent": "リセットリンクが送信されました。管理者に連絡してください。",
+  "reset-sent-email": "アカウントにメールアドレスがあれば、リセットリンクを送信しました。ない場合は管理者に問い合わせてください。",
   "send-reset-link": "リセットリンクを送信",
   "setup-wizard": "セットアップウィザード",
   "unable-to-login": "ログインできません: {error}",

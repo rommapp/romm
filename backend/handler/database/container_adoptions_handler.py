@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.container_adoption import AdoptionOutcome, StreamingContainerAdoption
 
 from .base_handler import DBBaseHandler
@@ -13,7 +13,7 @@ class DBContainerAdoptionsHandler(DBBaseHandler):
     def get_adoption(
         self,
         container_key: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> StreamingContainerAdoption | None:
         return session.scalar(
             select(StreamingContainerAdoption).filter_by(container_key=container_key)
@@ -25,7 +25,7 @@ class DBContainerAdoptionsHandler(DBBaseHandler):
         container_key: str,
         outcome: AdoptionOutcome,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> StreamingContainerAdoption | None:
         """Returns None when another claim recorded the decision first. The
         unique constraint is the arbiter, not the earlier read."""

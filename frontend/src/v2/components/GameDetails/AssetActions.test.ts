@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { SaveSchema } from "@/__generated__";
+import { saveFixture } from "@/utils/assets.fixtures";
 import AssetActions from "./AssetActions.vue";
 
 vi.mock("vue-i18n", () => ({
@@ -13,7 +14,7 @@ const RBtn = {
   template: `<button class="btn" :aria-label="ariaLabel" @click="$emit('click')" />`,
 };
 
-const save = { file_name: "a.srm", is_public: false } as SaveSchema;
+const save = saveFixture({ file_name: "a.srm", is_public: false });
 
 function actions(props: Record<string, unknown> = {}) {
   return mount(AssetActions, {
@@ -32,18 +33,31 @@ describe("AssetActions", () => {
     expect(wrapper.emitted("download")).toHaveLength(1);
   });
 
-  it("adds the visibility toggle and delete for own items", async () => {
+  it("adds edit, the heart and delete after the download for own items", async () => {
     const wrapper = actions({ own: true, type: "state" });
     const buttons = wrapper.findAll(".btn");
 
-    expect(buttons).toHaveLength(3);
-    expect(buttons[0].attributes("aria-label")).toBe("rom.make-public");
-    expect(buttons[2].attributes("aria-label")).toBe("rom.delete-state");
+    expect(buttons.map((b) => b.attributes("aria-label"))).toEqual([
+      "rom.download-named",
+      "rom.edit-state",
+      "rom.add-to-favorites",
+      "rom.delete-state",
+    ]);
 
-    await buttons[0].trigger("click");
-    await buttons[2].trigger("click");
-    expect(wrapper.emitted("toggleVisibility")).toHaveLength(1);
+    for (const button of buttons) await button.trigger("click");
+    expect(wrapper.emitted("download")).toHaveLength(1);
+    expect(wrapper.emitted("edit")).toHaveLength(1);
+    expect(wrapper.emitted("toggleFavorite")).toHaveLength(1);
     expect(wrapper.emitted("delete")).toHaveLength(1);
+  });
+
+  it("reads the heart off the asset's own state", () => {
+    const favorite: SaveSchema = { ...save, is_favorite: true };
+    const buttons = actions({ own: true, asset: favorite }).findAll(".btn");
+
+    expect(buttons[2].attributes("aria-label")).toBe(
+      "rom.remove-from-favorites",
+    );
   });
 
   it("forwards attributes to its wrapper", () => {

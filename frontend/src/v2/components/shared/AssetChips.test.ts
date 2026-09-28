@@ -1,20 +1,24 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { SaveSchema } from "@/__generated__";
+import { saveFixture } from "@/utils/assets.fixtures";
 import AssetChips from "./AssetChips.vue";
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
+vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 const RTag = {
   props: { text: { type: String, default: "" } },
   template: `<span class="tag">{{ text }}</span>`,
 };
 
-const save = { file_size_bytes: 2048, emulator: "snes9x" } as SaveSchema;
+const save = saveFixture({ file_size_bytes: 2048, emulator: "snes9x" });
 
-function chips(props: { latest?: boolean; showEmulator?: boolean } = {}) {
+function chips(
+  props: { latest?: boolean; showEmulator?: boolean; asset?: SaveSchema } = {},
+) {
   return mount(AssetChips, {
     props: { asset: save, ...props },
     global: { stubs: { RTag, RIcon: true } },
@@ -27,6 +31,12 @@ describe("AssetChips", () => {
 
     expect(wrapper.findAll(".tag").map((el) => el.text())).toEqual(["snes9x"]);
     expect(wrapper.get(".r-asset-chips__size").text()).toContain("2 KB");
+  });
+
+  it("names the emulator the way the backend labels it", () => {
+    const wrapper = chips({ asset: { ...save, emulator: "play" } });
+
+    expect(wrapper.findAll(".tag").map((el) => el.text())).toEqual(["Play!"]);
   });
 
   it("tags the latest version and can hide the emulator", () => {

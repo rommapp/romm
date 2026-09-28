@@ -170,14 +170,11 @@ class TestUpdateSwitchTitleDBTask:
         assert len(hset_calls) > 2  # At least one batch for each key type
 
     @patch.object(RemoteFilePullTask, "run")
-    async def test_run_no_content(self, mock_super_run, task):
-        """Test run when super().run returns None"""
-        mock_super_run.return_value = None
+    async def test_a_failed_download_fails_the_run(self, mock_super_run, task):
+        mock_super_run.side_effect = RuntimeError("Could not reach the TitleDB")
 
-        await task.run()
-
-        # Should return early without doing anything
-        mock_super_run.assert_called_once_with()
+        with pytest.raises(RuntimeError, match="Could not reach the TitleDB"):
+            await task.run()
 
     @patch.object(RemoteFilePullTask, "run")
     @patch("tasks.scheduled.update_switch_titledb.async_binary_cache.pipeline")

@@ -1,7 +1,9 @@
-// The version to display and where it should link. Shows the branch on a
-// dev build, when known, instead of the bare "development" placeholder.
+// The version to display and where it links: the branch on a dev build when
+// known, the commit on a nightly build (`nightly-<short sha>`), else the release.
 import { computed } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
+
+const NIGHTLY_VERSION_RE = /^nightly-([0-9a-f]{7,40})$/;
 
 export function useVersionDisplay() {
   const heartbeatStore = storeHeartbeat();
@@ -22,8 +24,12 @@ export function useVersionDisplay() {
       ?.split("/")
       .map(encodeURIComponent)
       .join("/");
-    return encodedBranch
-      ? `https://github.com/rommapp/romm/tree/${encodedBranch}`
+    if (encodedBranch) {
+      return `https://github.com/rommapp/romm/tree/${encodedBranch}`;
+    }
+    const nightlyCommit = NIGHTLY_VERSION_RE.exec(version.value)?.[1];
+    return nightlyCommit
+      ? `https://github.com/rommapp/romm/commit/${nightlyCommit}`
       : `https://github.com/rommapp/romm/releases/tag/${version.value}`;
   });
 

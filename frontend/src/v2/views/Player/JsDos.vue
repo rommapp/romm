@@ -94,7 +94,7 @@ async function onPlay() {
   // DOSBox-X provides Windows support.
   runtimeBound = true;
   dos = dosFactory(stage.value, {
-    url: getDownloadPath({ rom: currentRom }),
+    url: getDownloadPath({ rom: currentRom, purpose: "play" }),
     backend: "dosboxX",
     backendLocked: true,
     pathPrefix: `${assetBase}/emulators/`,

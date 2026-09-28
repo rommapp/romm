@@ -1,3 +1,5 @@
+from typing import Any
+
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.collections_handler import MAX_VIRTUAL_COLLECTION_COVERS
 from handler.database.rom_filters import RomFilterParams
@@ -8,7 +10,10 @@ from models.user import User
 
 
 def _add_rom(
-    platform: Platform, index: int, manual_metadata: dict, cover: str | None = None
+    platform: Platform,
+    index: int,
+    manual_metadata: dict[str, Any],
+    cover: str | None = None,
 ) -> Rom:
     rom = Rom(
         platform_id=platform.id,

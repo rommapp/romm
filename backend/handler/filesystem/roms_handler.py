@@ -47,8 +47,8 @@ from utils.archives import (
     ArchiveReadError,
     detect_mime_type,
     extract_chd_hash,
+    hash_largest_7z_member,
     is_chd_file,
-    process_7z_file,
     read_7z_archive_files,
     read_basic_file,
     read_bz2_file,
@@ -66,9 +66,11 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
     REGIONS_BY_SHORTCODE,
+    TRANSLATION_TAG,
     FSHandler,
     normalize_language,
     normalize_region,
+    translation_language,
 )
 
 # PICO-8 cartridges are often stored as PNG files
@@ -147,12 +149,15 @@ def category_matches(category: str, path_parts: list[str]) -> bool:
 
 
 def category_for_path_parts(path_parts_lower: list[str]) -> RomFileCategory | None:
-    """The file category a folder path implies, from its lowercased parts."""
+    """The file category of a folder, from its lowercased parts below the ROM root."""
+    # Only the top folder counts, so a dump's inner `content/game` never matches.
+    if not path_parts_lower:
+        return None
     return next(
         (
             category
             for category in RomFileCategory
-            if category_matches(category.value, path_parts_lower)
+            if category_matches(category.value, path_parts_lower[:1])
         ),
         None,
     )
@@ -199,6 +204,16 @@ GENERIC_TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
 VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)(?:[\s._-](.*)|([.\d].*))", re.I)
 REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
 REVISION_TAG_REGEX = re.compile(r"^rev[\s|-](.*)$", re.I)
+
+# A fan translation, as GoodTools ("[T+Eng1.1_RPGe]"), TOSEC ("[tr fr]") and
+# plainer sets ("(Translation)") write it. Anchored, so "Trainer" is not one.
+TRANSLATION_TAG_REGEX = re.compile(
+    r"^(?:t(?:(?P<superseded>-)|\+)(?P<goodtools>[a-z]{2,3})(?P<patch>.*)"
+    r"|t[\s_-]+(?P<spaced>[a-z]{2,3}).*"
+    r"|tr(?:[\s_-]+(?P<tosec>[a-z]{2,3}))?"
+    r"|translat(?:ed|ion))$",
+    re.I,
+)
 
 
 @dataclass(frozen=True)
@@ -406,6 +421,26 @@ class FSRomsHandler(FSHandler):
                 languages.append(LANGUAGES_BY_SHORTCODE[raw_tag])
                 continue
 
+            # Read before the language pass: a translated game is playable in
+            # the language its tag names.
+            translation_match = TRANSLATION_TAG_REGEX.match(raw_tag)
+            if translation_match:
+                spaced = translation_match["spaced"]
+                code = spaced or translation_match["goodtools"]
+                code = code or translation_match["tosec"]
+                language = translation_language(code) if code else None
+                # "T Rex" and a suffixless "T-Rex" collide with ordinary words,
+                # so those two spellings only count when the code is a language.
+                bare_superseded = (
+                    translation_match["superseded"] and not translation_match["patch"]
+                )
+                if language or not (spaced or bare_superseded):
+                    if TRANSLATION_TAG not in other_tags:
+                        other_tags.append(TRANSLATION_TAG)
+                    if language and language not in languages:
+                        languages.append(language)
+                    continue
+
             # Region by name, alternate spelling, or differently-cased code.
             # Ahead of the equivalent language pass so a lowercased code that
             # both tables claim ("nl", "no") keeps reading as a region.
@@ -483,6 +518,17 @@ class FSRomsHandler(FSHandler):
 
         return kept_roms
 
+    @staticmethod
+    def _folder_category(rom: Rom, rom_path: Path) -> RomFileCategory | None:
+        """The category a file's folder gives it, relative to the ROM's own root."""
+        rom_root = Path(rom.full_path)
+        rom_relative_parts = (
+            rom_path.relative_to(rom_root).parts
+            if rom_path.is_relative_to(rom_root)
+            else ()
+        )
+        return category_for_path_parts(list(map(str.lower, rom_relative_parts)))
+
     def _build_rom_file(
         self,
         rom: Rom,
@@ -494,10 +540,7 @@ class FSRomsHandler(FSHandler):
         archive_members: list[dict[str, Any]] | None = None,
     ) -> RomFile:
         abs_file_path = Path(self.base_path, rom_path, file_name)
-
-        matching_category = category_for_path_parts(
-            list(map(str.lower, rom_path.parts))
-        )
+        matching_category = self._folder_category(rom, rom_path)
 
         track_meta = None
         if matching_category == RomFileCategory.SOUNDTRACK:
@@ -700,6 +743,8 @@ class FSRomsHandler(FSHandler):
                         hashable=hashable_platform,
                     )
                 ):
+                    # Title id extraction below may settle a content category.
+                    row.category = self._folder_category(rom, rel_dir)
                     rom_files.append(row)
                     _record_title_id_source(abs_file_path, row)
                     continue
@@ -817,16 +862,17 @@ class FSRomsHandler(FSHandler):
                 _hash_archive_entries, rom_crc_c, rom_md5_h, rom_sha1_h
             )
 
+            # RAHasher extracts the ROM itself, independent of the member read.
+            if calculate_hashes:
+                ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
+                if ra_platform and ra_platform["ra_id"]:
+                    rom_ra_h = await RAHasherService().calculate_hash(
+                        ra_platform,
+                        f"{abs_fs_path}/{rom.fs_name}",
+                    )
+
             if members:
                 rom_md5_h, rom_sha1_h = archive_md5_h, archive_sha1_h
-                if calculate_hashes:
-                    ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
-                    if ra_platform and ra_platform["ra_id"]:
-                        rom_ra_h = await RAHasherService().calculate_hash(
-                            ra_platform,
-                            f"{abs_fs_path}/{rom.fs_name}",
-                        )
-
                 rom_files.append(
                     self._build_rom_file(
                         rom=rom,
@@ -969,7 +1015,7 @@ class FSRomsHandler(FSHandler):
             sha1_h = hashlib.sha1(usedforsecurity=False)
             accumulate = rom_md5_h is not None and rom_sha1_h is not None
 
-            def update_hashes(chunk: bytes | bytearray):
+            def update_hashes(chunk: bytes | bytearray) -> None:
                 nonlocal crc_c, rom_crc_c
 
                 md5_h.update(chunk)
@@ -994,10 +1040,20 @@ class FSRomsHandler(FSHandler):
                     update_hashes(chunk)
 
             elif extension == ".7z" or file_type == "application/x-7z-compressed":
-                process_7z_file(
-                    file_path=file_path,
-                    fn_hash_update=update_hashes,
+                # A failed extraction may have fed part of the member already,
+                # so the raw-archive fallback starts from the hashers' prior state.
+                snapshot = (
+                    crc_c,
+                    rom_crc_c,
+                    md5_h.copy(),
+                    sha1_h.copy(),
+                    rom_md5_h.copy() if accumulate else rom_md5_h,
+                    rom_sha1_h.copy() if accumulate else rom_sha1_h,
                 )
+                if not hash_largest_7z_member(file_path, update_hashes):
+                    crc_c, rom_crc_c, md5_h, sha1_h, rom_md5_h, rom_sha1_h = snapshot
+                    for chunk in read_basic_file(file_path):
+                        update_hashes(chunk)
 
             elif extension == ".bz2" or file_type == "application/x-bzip2":
                 for chunk in read_bz2_file(file_path):

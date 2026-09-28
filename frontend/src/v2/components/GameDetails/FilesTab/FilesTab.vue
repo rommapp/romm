@@ -1,14 +1,14 @@
 <script setup lang="ts">
-// FilesTab — browse + interact with the individual files that make up
+// FilesTab: browse + interact with the individual files that make up
 // a (potentially multi-file) ROM.
 //
 // Layout mirrors ScreenshotsSubtab / SaveDataTab / MediaTab: a vertical
-// subtab list on the left (navigation only — no inline action panel),
+// subtab list on the left (navigation only, no inline action panel),
 // and a content column on the right with a section header that hosts
 // the Upload button plus a Patch button (multi-file ROMs only). On phones
 // the list collapses into a folder picker in that same header row. Bulk
 // download / copy-link affordances live in the selection toolbar
-// instead — pair them with select-all.
+// instead: pair them with select-all.
 //
 // Grouping is **folder-based**: every direct subfolder of the ROM
 // becomes its own subtab, plus a "Root" subtab for files sitting
@@ -26,9 +26,9 @@
 //
 // Content column:
 //   * Section header (Upload + Patch)
-//   * ROM-info card (size, revision, ROM-level hashes — click to copy)
-//   * Selection toolbar (select-all + per-selection Download / Copy-link
-//     — also the path for "download everything in this subtab": select
+//   * ROM-info card (size, revision, ROM-level hashes, click to copy)
+//   * Selection toolbar (select-all + per-selection Download / Copy-link,
+//     which is also the path for "download everything in this subtab": select
 //     all then act).
 //   * One row per file with checkbox, relative path, category chip,
 //     size, per-file hashes (click to copy), and per-row Download +
@@ -38,7 +38,8 @@
 // `rom.delete` permission. Each file is removed from disk and the DB
 // row is dropped via `DELETE /roms/{rom_id}/files/{file_id}`.
 import { RBtn, RCheckbox, REmptyState } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import type { Emitter } from "mitt";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type {
@@ -47,7 +48,7 @@ import type {
   RomFileSchema,
 } from "@/__generated__";
 import romApi from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 import { getDownloadLink } from "@/utils";
 import SubtabNav, {
   type SubtabNavItem,
@@ -55,6 +56,7 @@ import SubtabNav, {
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIdSelection } from "@/v2/composables/useIdSelection";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useRomFileUpload } from "@/v2/composables/useRomFileUpload";
 import { useRomSync } from "@/v2/composables/useRomSync";
@@ -73,10 +75,10 @@ const props = defineProps<{ rom: DetailedRomSchema }>();
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
+const emitter = inject<Emitter<Events>>("emitter");
 const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
-const romsStore = storeRoms();
 const { refetchRom } = useRomSync();
 const { smAndDown } = useBreakpoint();
 
@@ -87,7 +89,7 @@ const canDelete = computed(() => hasDeleteGrant.value && canUpload.value);
 
 // ---------- Category metadata ----------
 // Drives per-file category chips (one per `RomFileCategory` enum
-// value). Folder→icon resolution lives in `FOLDER_META` below — it
+// value). Folder→icon resolution lives in `FOLDER_META` below; it
 // extends this with plural names and a couple of well-known folders
 // (e.g. `screenshots/`) that aren't backend categories.
 const CATEGORY_META = computed<
@@ -137,7 +139,7 @@ interface FolderMeta {
 const FOLDER_META = computed<Record<string, FolderMeta>>(() => {
   const c = CATEGORY_META.value;
   return {
-    // Backend categories — singular and plural variants.
+    // Backend categories: singular and plural variants.
     game: c.game,
     games: c.game,
     dlc: c.dlc,
@@ -207,7 +209,7 @@ function relativePath(file: RomFileSchema): string {
 }
 
 // Path rendered in each row. Inside a folder subtab the folder name is
-// already the subtab title — strip the prefix so rows lead with the
+// already the subtab title, strip the prefix so rows lead with the
 // filename. The full relative path stays available via `relativePath`
 // for aria-labels / hover titles.
 function displayPath(file: RomFileSchema): string {
@@ -338,78 +340,44 @@ const filteredFiles = computed<RomFileSchema[]>(() => {
 });
 
 // ---------- Selection ----------
-const selectedIds = ref<Set<number>>(new Set());
+// Destructured so the template sees plain refs; a nested one is not unwrapped.
+const {
+  selected: selectedFiles,
+  count: selectedCount,
+  allSelected: visibleAllSelected,
+  someSelected: visibleSomeSelected,
+  isSelected,
+  toggle: toggleFile,
+  toggleAll: toggleVisible,
+  clear: clearSelection,
+} = useIdSelection(() => filteredFiles.value);
 
-// Reset selection whenever the active subtab or the rom changes —
+// Reset selection whenever the active subtab or the rom changes:
 // keeping selections across categories would let the user "Download
 // selected" with files invisible to them, which is surprising.
-watch([subTab, () => props.rom.id], () => {
-  selectedIds.value = new Set();
-});
-
-const selectedCount = computed(() => {
-  // Only count selections that are still in the filtered view —
-  // protects against stale ids if the underlying rom file list
-  // changes mid-selection (uploads, deletions in other tabs).
-  let n = 0;
-  for (const f of filteredFiles.value) if (selectedIds.value.has(f.id)) n++;
-  return n;
-});
+// Getters, not the refs: `subTab` is a shallowRef, and a shallow source makes
+// Vue fire the watcher on every dependency trigger, refresh included.
+watch([() => subTab.value, () => props.rom.id], clearSelection);
 
 const filteredCount = computed(() => filteredFiles.value.length);
 const showUpload = computed(() => filteredCount.value > 0 && canUpload.value);
-
-const visibleAllSelected = computed(
-  () => filteredCount.value > 0 && selectedCount.value === filteredCount.value,
-);
-
-const visibleSomeSelected = computed(
-  () => selectedCount.value > 0 && !visibleAllSelected.value,
-);
-
-function isSelected(file: RomFileSchema): boolean {
-  return selectedIds.value.has(file.id);
-}
-
-function toggleFile(file: RomFileSchema) {
-  const next = new Set(selectedIds.value);
-  if (next.has(file.id)) next.delete(file.id);
-  else next.add(file.id);
-  selectedIds.value = next;
-}
-
-function toggleVisible() {
-  const next = new Set(selectedIds.value);
-  if (visibleAllSelected.value) {
-    for (const f of filteredFiles.value) next.delete(f.id);
-  } else {
-    for (const f of filteredFiles.value) next.add(f.id);
-  }
-  selectedIds.value = next;
-}
-
-function clearSelection() {
-  selectedIds.value = new Set();
-}
-
-const selectedFiles = computed<RomFileSchema[]>(() =>
-  filteredFiles.value.filter((f) => selectedIds.value.has(f.id)),
-);
 
 // ---------- Clipboard helper ----------
 // Used by the per-subtab + per-selection copy-link buttons; per-file
 // hash copying lives in HashChip itself.
 async function copyDownloadLink(url: string) {
-  try {
-    await navigator.clipboard.writeText(url);
-    snackbar.success(t("rom.download-link-copied"), {
-      icon: "mdi-check-bold",
-    });
-  } catch {
-    snackbar.error(t("rom.download-link-copy-failed"), {
-      icon: "mdi-close-circle",
-    });
+  const copied =
+    !!navigator.clipboard &&
+    window.isSecureContext &&
+    (await navigator.clipboard.writeText(url).then(
+      () => true,
+      () => false,
+    ));
+  if (!copied) {
+    emitter?.emit("showCopyDownloadLinkDialog", url);
+    return;
   }
+  snackbar.success(t("rom.download-link-copied"), { icon: "mdi-check-bold" });
 }
 
 // ---------- Actions ----------
@@ -481,11 +449,11 @@ async function deleteFiles(toDelete: RomFileSchema[]) {
     );
   }
 
-  await refreshRom();
+  const refreshed = await refreshRom();
 
   // Redirect to the gallery if no files remain after deletion.
   const platformSlug = route.params["platform"] as string | undefined;
-  if (romsStore.currentRom && romsStore.currentRom.files?.length === 0) {
+  if (refreshed?.files?.length === 0) {
     if (platformSlug) {
       await router.push({
         name: "platform",
@@ -554,8 +522,8 @@ async function uploadFiles(folder: string, picked: File[]) {
   if (landed && validSubtabIds.value.has(landed)) subTab.value = landed;
 }
 
-async function refreshRom() {
-  await refetchRom(props.rom.id);
+function refreshRom() {
+  return refetchRom(props.rom.id);
 }
 </script>
 
@@ -620,7 +588,7 @@ async function refreshRom() {
 
       <FilesSummary :rom="rom" />
 
-      <!-- Selection toolbar — pinned above the list. Always visible
+      <!-- Selection toolbar: pinned above the list. Always visible
            so the select-all checkbox stays predictable; the per-
            selection action buttons fade in only when something is
            checked. -->
@@ -636,7 +604,7 @@ async function refreshRom() {
           <span class="r-v2-files__toolbar-status">
             <template v-if="selectedCount > 0">
               {{
-                t("rom.files-selected-of", {
+                t("rom.selected-of", {
                   selected: selectedCount,
                   total: filteredCount,
                 })
@@ -709,12 +677,12 @@ async function refreshRom() {
           :file="file"
           :display-path="displayPath(file)"
           :relative-path="relativePath(file)"
-          :selected="isSelected(file)"
+          :selected="isSelected(file.id)"
           :show-row-icon="subTab === 'all'"
           :show-category-badge="subTab === 'all'"
           :can-delete="canDelete"
           :missing="rom.missing_from_fs"
-          @toggle="toggleFile(file)"
+          @toggle="toggleFile(file.id)"
           @download="downloadFile(file)"
           @copy-link="copyFileLink(file)"
           @delete="deleteFiles([file])"
@@ -731,7 +699,7 @@ async function refreshRom() {
   gap: 24px;
   /* Anchor the FilesTab to `.r-v2-det__panel`'s visible viewport
      via absolute positioning rather than `height: 100%`. The panel
-     has `overflow-y: auto`, which is a scroll container — percentage
+     has `overflow-y: auto`, which is a scroll container, percentage
      heights against such a parent flake (resolve to min-content when
      the descendant grid's intrinsic height grows under many files),
      and the file list ends up pushing the panel's outer scrollbar.
@@ -783,7 +751,7 @@ async function refreshRom() {
   /* Grid (auto / auto / auto / 1fr) instead of flex column: the `1fr`
      row forces the list to clip + scroll internally even with many
      files. Flex `min-height: 0` + `overflow-y: auto` on the list was
-     unreliable here — the list's intrinsic min-content kept leaking
+     unreliable here: the list's intrinsic min-content kept leaking
      through and pushed `.r-v2-det__panel` into showing its outer
      scrollbar. Rows: section header, summary, selection toolbar, list. */
   display: grid;
@@ -828,10 +796,10 @@ async function refreshRom() {
   gap: 4px;
 }
 
-/* File rows — sole scrollable area. Sits in the grid's `1fr` track,
+/* File rows: sole scrollable area. Sits in the grid's `1fr` track,
    so the track width determines its size; `min-height: 0` lets the
    grid track shrink under min-content and `overflow-y: auto` keeps
-   the rows scrolling inside. No `flex: 1` — grid items don't honour
+   the rows scrolling inside. No `flex: 1`, grid items don't honour
    flex shorthand and it muddies the contract. */
 .r-v2-files__list {
   display: flex;

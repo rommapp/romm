@@ -18,6 +18,11 @@ def test_get_platforms(client, access_token, platform):
     assert len(platforms) == 1
 
 
+def test_get_platforms_with_invalid_bearer_token(client):
+    response = client.get("/api/platforms", headers={"Authorization": "Bearer bogus"})
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
 def test_get_filesystem_platforms(client, access_token, platform):
     with patch(
         "utils.platforms.fs_platform_handler.get_platforms"

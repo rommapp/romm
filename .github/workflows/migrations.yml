@@ -73,11 +73,11 @@ jobs:
       matrix:
         include:
           # renovate: datasource=docker depName=mariadb
-          - mariadb: "12.3.3"
+          - mariadb: "13.0.2"
             charset: utf8mb4
             collation: utf8mb4_general_ci
           # renovate: datasource=docker depName=mariadb
-          - mariadb: "12.3.3"
+          - mariadb: "13.0.2"
             charset: utf8mb3
             collation: utf8mb3_unicode_ci
           # Oldest supported LTS, and the only leg still on the pre-uca1400

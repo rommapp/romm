@@ -119,7 +119,7 @@ describe("PatcherTab", () => {
           RDropzone: true,
           RExpandTransition: { template: "<div><slot /></div>" },
           RIcon: true,
-          RPlatformIcon: true,
+          PlatformIcon: true,
           RSelect,
           RTextField: true,
           RTooltip: true,

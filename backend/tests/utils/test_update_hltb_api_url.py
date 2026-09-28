@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from utils.hltb_search import HLTB_BASE_URL
+from utils.hltb_search import HLTB_BASE_URL, build_search_payload
 from utils.update_hltb_api_url import (
     BUILD_MANIFEST_REGEX,
     VALIDATION_SEARCH_TERM,
@@ -49,7 +49,7 @@ def test_turbopack_chunks_are_not_mistaken_for_the_manifest():
     assert BUILD_MANIFEST_REGEX.search(html) is None
 
 
-def _client(session: dict, search_body: dict) -> MagicMock:
+def _client(session: object, search_body: object) -> MagicMock:
     """A stand-in HLTB whose /init and search responses the test controls."""
     client = MagicMock()
     client.get.return_value = _json_response(session)
@@ -57,7 +57,7 @@ def _client(session: dict, search_body: dict) -> MagicMock:
     return client
 
 
-def _json_response(body: dict) -> MagicMock:
+def _json_response(body: object) -> MagicMock:
     response = MagicMock()
     response.json.return_value = body
     return response
@@ -83,9 +83,10 @@ def test_a_route_serving_real_games_is_accepted():
         pytest.param({"ok": True}, id="not-a-search-response"),
         pytest.param({"data": [{"userId": 1, "name": "someone"}]}, id="not-games"),
         pytest.param({"data": []}, id="no-results"),
+        pytest.param([GAME], id="not-a-json-object"),
     ],
 )
-def test_a_route_that_mints_but_does_not_serve_games_is_rejected(search_body: dict):
+def test_a_route_that_mints_but_does_not_serve_games_is_rejected(search_body: object):
     client = _client(SESSION, search_body)
 
     assert (
@@ -93,8 +94,15 @@ def test_a_route_that_mints_but_does_not_serve_games_is_rejected(search_body: di
     )
 
 
-def test_an_incomplete_session_is_rejected_before_searching():
-    client = _client({"token": "t"}, {"data": [GAME]})
+@pytest.mark.parametrize(
+    "session",
+    [
+        pytest.param({"hpKey": "ign_k", "hpVal": "v"}, id="no-token"),
+        pytest.param([SESSION], id="not-a-json-object"),
+    ],
+)
+def test_an_incomplete_session_is_rejected_before_searching(session: object):
+    client = _client(session, {"data": [GAME]})
 
     assert (
         serves_game_search(client, HLTB_BASE_URL, f"{HLTB_BASE_URL}/api/search/site")
@@ -113,3 +121,18 @@ def test_the_search_carries_the_session_and_honeypot_key():
     # HLTB requires the rotating honeypot key in the body, not just the headers.
     assert kwargs["json"]["ign_k"] == "v"
     assert kwargs["json"]["searchTerms"] == [VALIDATION_SEARCH_TERM]
+
+
+def test_a_token_only_session_searches_without_a_honeypot_key():
+    client = _client({"token": "t"}, {"data": [GAME]})
+
+    assert (
+        serves_game_search(client, HLTB_BASE_URL, f"{HLTB_BASE_URL}/api/search/site")
+        is True
+    )
+    post_call = client.post.call_args
+    assert post_call is not None
+    kwargs = post_call.kwargs
+    assert kwargs["headers"]["x-auth-token"] == "t"
+    assert "x-hp-key" not in kwargs["headers"]
+    assert kwargs["json"] == build_search_payload(VALIDATION_SEARCH_TERM, "")

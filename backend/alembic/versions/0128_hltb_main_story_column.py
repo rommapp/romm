@@ -18,7 +18,7 @@ Create Date: 2026-09-08 00:00:00.000000
 
 """
 
-from alembic import op  # type: ignore[attr-defined]
+from alembic import op
 
 from utils.roms_columns import HLTB_MAIN_STORY_COLUMN, ensure_roms_columns
 

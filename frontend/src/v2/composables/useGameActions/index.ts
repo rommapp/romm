@@ -1,14 +1,3 @@
-// useGameActions — shared action handlers for a ROM. One place for
-// play / download / favorite / share / match / refresh / edit / delete /
-// add-to-collection. Consumed by every surface that shows per-ROM actions
-// (MoreMenu on GameCard, MoreMenu in GameDetails header, etc.) so the
-// action list stays in sync.
-//
-// Usage:
-//   const actions = useGameActions(() => rom.value);
-//   actions.play(); actions.toggleFavorite(); …
-//   actions.isFavorite     // reactive Ref<boolean>
-//   actions.canManageCollections  // reactive Ref<boolean>
 import type { Emitter } from "mitt";
 import { computed, inject, type InjectionKey, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -18,6 +7,7 @@ import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
@@ -69,6 +59,7 @@ export function useGameActions(
   const { syncCachedRom, refreshAfterUserStateChange, refreshIfOrderedBy } =
     useRomSync();
   const auth = storeAuth();
+  const heartbeat = storeHeartbeat();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
   // Write/destructive gates, mirroring the backend grants. Surfaces that
@@ -92,6 +83,7 @@ export function useGameActions(
     canPlayPico8,
     canPlayRuffle,
     canPlayStream,
+    canPlayNative,
   } = useCanPlay(getRom);
   const streamingStore = useStreamingStore();
 
@@ -103,6 +95,13 @@ export function useGameActions(
       canPlayJsDos.value ||
       canPlayPico8.value ||
       canPlayRuffle.value,
+  );
+
+  // Whether the Play button has a play page to open. The desktop shell's own
+  // emulator is offered from that page alongside the in-browser core, so a
+  // platform only the shell can run still needs the button.
+  const canPlayLocally = computed(
+    () => canPlayInBrowser.value || canPlayNative.value,
   );
 
   // Download, the copied link and the QR code all resolve to the download
@@ -177,10 +176,7 @@ export function useGameActions(
     return ru.status ?? null;
   });
 
-  // Writes only the enum `status` field (incomplete | finished | …).
-  // Distinct from setStatus(null) which v1 used to nuke every status
-  // signal at once — Overview's enum dropdown wants to clear only its
-  // own field without touching the boolean flags.
+  /** Set the status enum, leaving the boolean status flags alone. */
   async function setStatusEnum(value: RomUserStatus | null) {
     const rom = getRom();
     if (!rom?.rom_user) return;
@@ -240,10 +236,7 @@ export function useGameActions(
     refreshAfterUserStateChange();
   }
 
-  // Optimistic write of a numeric per-user field (rating | difficulty
-  // | completion). Mirrors setStatus' revert-on-error pattern. v1 stores
-  // 0 to mean "no value" — we accept null at the call site and coerce
-  // to 0 so the backend keeps a uniform shape.
+  /** Set a per-user score; null is sent as 0, the backend's "no value". */
   async function setScore(
     field: "rating" | "difficulty" | "completion",
     value: number | null,
@@ -268,11 +261,7 @@ export function useGameActions(
     }
   }
 
-  // Permission-driven, not state-driven. The previous "count > 0"
-  // check hid the entry exactly when the user needed it most — to
-  // create the first collection from a ROM (ManageCollectionsDialog
-  // bundles toggle + create flows in one surface). Backend rejects
-  // unauthorised writes regardless, so this gate is purely UX.
+  /** Gated on permission, not on existing collections, so a ROM can start the first one. */
   const canManageCollections = computed(
     () => canCreateCollection.value || canEditCollection.value,
   );
@@ -281,6 +270,27 @@ export function useGameActions(
     const rom = getRom();
     return Boolean(rom && rom.has_file_on_disk && isNintendoDSRom(rom));
   });
+
+  const canInstallOnDevice = computed(() => {
+    const rom = getRom();
+    const deviceInstall = heartbeat.value.DEVICE_INSTALL;
+    return Boolean(
+      rom?.has_file_on_disk &&
+      deviceInstall.ENABLED &&
+      !deviceInstall.EXCLUDED_PLATFORM_SLUGS.includes(
+        rom.platform_slug.toLowerCase(),
+      ) &&
+      auth.scopes.includes("devices.read") &&
+      auth.scopes.includes("devices.write") &&
+      auth.scopes.includes("roms.read"),
+    );
+  });
+
+  function installOnDevice() {
+    const rom = getRom();
+    if (!rom) return;
+    emitter?.emit("showInstallOnDeviceDialog", rom);
+  }
 
   const canOpenInFlashpoint = computed(() => {
     const rom = getRom();
@@ -360,6 +370,9 @@ export function useGameActions(
     else if (canPlayEJS.value) slug = "ejs";
     else if (canPlayPico8.value) slug = "pico8";
     else if (canPlayRuffle.value) slug = "ruffle";
+    // Last, because the play page offers the native launch beside whichever
+    // in-browser core the branches above would have picked.
+    else if (canPlayNative.value) slug = "ejs";
     return slug ? `/rom/${rom.id}/${slug}` : null;
   }
 
@@ -376,6 +389,7 @@ export function useGameActions(
         romId: rom.id,
         romName: rom.name ?? rom.fs_name_no_ext ?? "",
         hostUsername: joinHostLabel.value || null,
+        container: joinableSession.value?.container ?? null,
       },
     );
   }
@@ -422,7 +436,7 @@ export function useGameActions(
       try {
         await nav.share(shareData);
       } catch {
-        // user cancelled the native share sheet — nothing to do
+        // Dismissing the native share sheet rejects the promise.
       }
       return;
     }
@@ -525,9 +539,7 @@ export function useGameActions(
     emitter?.emit("showDeleteRomDialog", [rom]);
   }
 
-  // Only relevant while the ROM carries a `last_played` timestamp — i.e.
-  // it currently sits in the Continue Playing row. Also requires the
-  // `roms.user.write` scope to match the backend gate and avoid a 403.
+  /** Requires roms.user.write, the scope the backend checks. */
   const canRemoveFromContinuePlaying = computed(
     () =>
       auth.scopes.includes("roms.user.write") &&
@@ -567,11 +579,12 @@ export function useGameActions(
     isFavorited,
     canManageCollections,
     canShareQR,
+    canInstallOnDevice,
     canOpenInFlashpoint,
     canDownload,
     canPlay,
     canPlayStream,
-    canPlayInBrowser,
+    canPlayLocally,
     streamLabel,
     streamActionLabel,
     canJoinStream,
@@ -596,6 +609,7 @@ export function useGameActions(
     favorite,
     share,
     shareQR,
+    installOnDevice,
     openInFlashpoint,
     copyDownloadLink,
     manageCollections,

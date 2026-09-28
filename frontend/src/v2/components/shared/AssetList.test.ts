@@ -1,11 +1,18 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { SaveSchema } from "@/__generated__";
+import { saveFixture } from "@/utils/assets.fixtures";
 import AssetList from "./AssetList.vue";
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: "en_US" }),
+  useI18n: () => ({
+    // Keeps the pluralisation count, so a wrong one fails the assertion.
+    t: (key: string, count?: number) =>
+      typeof count === "number" ? `${key}:${count}` : key,
+    locale: "en_US",
+  }),
 }));
+vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 const RBtn = {
   emits: ["click"],
@@ -15,11 +22,16 @@ const RTag = {
   props: { text: { type: String, default: "" } },
   template: `<span class="tag">{{ text }}</span>`,
 };
+const RCheckbox = {
+  props: { modelValue: { type: Boolean, default: false } },
+  emits: ["update:modelValue"],
+  template: `<input type="checkbox" class="check" :checked="modelValue" @change="$emit('update:modelValue', !modelValue)" />`,
+};
 const stubs = {
   RBtn,
   RTag,
+  RCheckbox,
   RIcon: true,
-  RTooltip: true,
   RAvatar: true,
 };
 
@@ -27,16 +39,12 @@ let nextId = 1;
 function save(slot: string | null, hoursAgo: number): SaveSchema {
   const id = nextId++;
   const at = new Date(Date.UTC(2026, 8, 16, 12) - hoursAgo * 3600_000);
-  return {
+  return saveFixture({
     id,
-    user_id: 1,
     file_name: `save_${id}.srm`,
-    file_size_bytes: 1024,
     updated_at: at.toISOString(),
-    emulator: null,
     slot,
-    screenshot: null,
-  } as SaveSchema;
+  });
 }
 
 function library() {
@@ -51,7 +59,16 @@ function library() {
   ];
 }
 
-function mountList(props: { selectedId?: number; type?: "save" | "state" }) {
+function mountList(
+  props: {
+    selectedId?: number;
+    type?: "save" | "state";
+    assets?: SaveSchema[];
+    selectable?: boolean;
+    checkable?: boolean;
+    checkedIds?: ReadonlySet<number>;
+  } = {},
+) {
   return mount(AssetList, {
     props: { assets: library(), type: "save", ...props },
     global: { stubs },
@@ -120,5 +137,95 @@ describe("AssetList slot grouping", () => {
     expect(titles(wrapper)).toEqual([]);
     expect(wrapper.findAll(".fold")).toHaveLength(0);
     expect(names(wrapper)).toHaveLength(6);
+  });
+
+  it("floats a favorited version to the top of its slot, without folding away the newest", async () => {
+    nextId = 1;
+    const newest = save("main_quest", 1);
+    const middle = save("main_quest", 5);
+    const oldest = { ...save("main_quest", 50), is_favorite: true };
+    const wrapper = mountList({ assets: [newest, middle, oldest] });
+
+    expect(names(wrapper)).toEqual(["save_3.srm", "save_1.srm"]);
+    // "Latest" follows the newest save, not whichever row renders first.
+    expect(wrapper.findAll(".tag").map((el) => el.text())).toEqual([
+      "play.latest-version",
+    ]);
+    // Only the middle version is hidden; the count must not include the
+    // favorite and the newest, which stay on screen while folded.
+    expect(wrapper.get(".fold").text()).toBe("play.show-older-versions:1");
+
+    await wrapper.get(".fold").trigger("click");
+
+    expect(names(wrapper)).toEqual(["save_3.srm", "save_1.srm", "save_2.srm"]);
+  });
+
+  it("offers no fold when every version is pinned on screen", () => {
+    nextId = 1;
+    const newest = save("main_quest", 1);
+    const older = { ...save("main_quest", 50), is_favorite: true };
+    const wrapper = mountList({ assets: [newest, older] });
+
+    expect(names(wrapper)).toEqual(["save_2.srm", "save_1.srm"]);
+    expect(wrapper.findAll(".fold")).toHaveLength(0);
+  });
+
+  it("leads each row with a checkbox only when checkable", () => {
+    expect(mountList({}).findAll(".check")).toHaveLength(0);
+
+    const wrapper = mountList({ selectable: false, checkable: true });
+
+    expect(wrapper.findAll(".check").length).toBe(names(wrapper).length);
+  });
+
+  it("emits the toggled asset and marks the checked row", async () => {
+    nextId = 1;
+    const only = save("main_quest", 1);
+    const wrapper = mountList({
+      assets: [only],
+      selectable: false,
+      checkable: true,
+      checkedIds: new Set<number>(),
+    });
+
+    await wrapper.get(".check").trigger("change");
+
+    expect(wrapper.emitted("toggle")?.[0]?.[0]).toMatchObject({ id: only.id });
+    expect(wrapper.findAll(".r-asset-list__item--checked")).toHaveLength(0);
+
+    const checked = mountList({
+      assets: [only],
+      selectable: false,
+      checkable: true,
+      checkedIds: new Set([only.id]),
+    });
+
+    expect(checked.findAll(".r-asset-list__item--checked")).toHaveLength(1);
+  });
+
+  it("shows every version of a slot while checkable, with no fold control", () => {
+    nextId = 1;
+    const newest = save("main_quest", 1);
+    const middle = save("main_quest", 5);
+    const oldest = save("main_quest", 50);
+    const assets = [newest, middle, oldest];
+
+    const folded = mountList({ assets });
+    expect(names(folded)).toEqual(["save_1.srm"]);
+    expect(folded.findAll(".fold")).not.toHaveLength(0);
+
+    const checkable = mountList({
+      assets,
+      selectable: false,
+      checkable: true,
+      checkedIds: new Set<number>(),
+    });
+
+    expect(names(checkable)).toEqual([
+      "save_1.srm",
+      "save_2.srm",
+      "save_3.srm",
+    ]);
+    expect(checkable.findAll(".fold")).toHaveLength(0);
   });
 });

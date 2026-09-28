@@ -21,16 +21,180 @@ RomM can only come back for it once the teardown has answered. What is still
 missing here is volume, mute and whole-card sync.
 """
 
+import http.client
+import math
+import time
 import urllib.error
-from typing import Any
-from urllib.parse import quote
+from dataclasses import dataclass
+from typing import Any, Literal
+from urllib.parse import quote, urlencode
+
+from fastapi import HTTPException
 
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
-from handler.streaming.protocol import ACK_TIMEOUT
+from handler.streaming.protocol import ACK_TIMEOUT, WebstationProtocol
 from logger.logger import log
 from models.user import User
+
+
+@dataclass(frozen=True)
+class ImportSpec:
+    """What one (emulator, platform) pair accepts through a declared import."""
+
+    kinds: frozenset[str]
+    state_channel: Literal["archive", "push", "none"]
+    state_slot: int | None
+
+    def accepts(self, kind: str) -> bool:
+        return kind in self.kinds
+
+    def resume_slot(self) -> int | None:
+        """The slot an imported state resumes through, or None when it cannot."""
+        if self.accepts("state") and self.state_channel != "none":
+            return self.state_slot
+        return None
+
+    def pickable_kinds(self) -> list[Literal["save", "state"]]:
+        """The launch picks a foreign save or state can resume through here."""
+        kinds: list[Literal["save", "state"]] = []
+        if self.accepts("save"):
+            kinds.append("save")
+        if self.resume_slot() is not None:
+            kinds.append("state")
+        return kinds
+
+
+# Per container and core. A 404 or 422 holds for the worker's life, an answer
+# or a refused core for one claim's checks, a failure not at all.
+_IMPORT_SPEC_TTL = 30.0
+_import_spec_cache: dict[
+    tuple[str, str, str, str | None, bool], tuple[float, ImportSpec | None]
+] = {}
+
+
+def _parse_import_spec(body: dict[str, Any]) -> ImportSpec | None:
+    raw_kinds = body.get("kinds")
+    if not isinstance(raw_kinds, list):
+        log.warning("import-spec response has no kinds list, treating as unknown")
+        return None
+    if not all(
+        isinstance(entry, dict) and isinstance(entry.get("kind"), str)
+        for entry in raw_kinds
+    ):
+        log.warning("import-spec response has a malformed kind entry, %r", raw_kinds)
+        return None
+    state_channel = body.get("state_channel")
+    if state_channel not in ("archive", "push", "none"):
+        log.warning(
+            "import-spec response has an unrecognized state_channel, %r",
+            state_channel,
+        )
+        return None
+    state_slot = body.get("state_slot")
+    return ImportSpec(
+        kinds=frozenset(entry["kind"] for entry in raw_kinds),
+        state_channel=state_channel,
+        state_slot=state_slot if isinstance(state_slot, int) else None,
+    )
+
+
+def import_spec(
+    container: ResolvedContainer, emulator: str, platform: str
+) -> ImportSpec | None:
+    """What this broker accepts as a declared import, or None when nothing or unknown."""
+    if not container.is_webstation:
+        return None
+    # The core is part of the key, so a config edit that changes the core is
+    # asked about afresh rather than read from the old core's answer.
+    cache_key = (
+        container.key,
+        emulator,
+        platform,
+        container.core,
+        container.experimental_cores,
+    )
+    cached = _import_spec_cache.get(cache_key)
+    if cached is not None and cached[0] > time.monotonic():
+        return cached[1]
+    params = {"emulator": emulator, "platform": platform}
+    if container.core:
+        # Discovery has to answer for the core activate will boot.
+        params["core"] = container.core
+        if container.experimental_cores:
+            params["experimental_cores"] = "1"
+    path = container.protocol.session_route(f"/import-spec?{urlencode(params)}")
+    try:
+        resp = broker.request(container, path, method="GET", timeout=ACK_TIMEOUT)
+    except urllib.error.HTTPError as exc:
+        code = exc.code
+        exc.close()
+        if code in (404, 422):
+            # A refused core is fixed by upgrading the broker, so that answer
+            # expires like any other rather than lasting until a restart.
+            refused_core = code == 422 and container.core is not None
+            expires = time.monotonic() + _IMPORT_SPEC_TTL if refused_core else math.inf
+            _import_spec_cache[cache_key] = (expires, None)
+            return None
+        log.warning("import-spec check failed with HTTP %d, treating as unknown", code)
+        return None
+    except (urllib.error.URLError, OSError, http.client.HTTPException):
+        log.warning("import-spec check unreachable, treating as unknown")
+        return None
+    except ValueError as exc:
+        log.warning("import-spec response was not valid JSON, %s", exc)
+        return None
+    if not isinstance(resp, dict):
+        log.warning("import-spec response was not a JSON object, treating as unknown")
+        return None
+    spec = _parse_import_spec(resp)
+    if spec is not None:
+        _import_spec_cache[cache_key] = (time.monotonic() + _IMPORT_SPEC_TTL, spec)
+    return spec
+
+
+# Short-lived, 404s included: a broker upgrade adds the route and a restart can
+# change the default, and neither should need a RomM restart to be seen.
+_DEFAULT_CORE_TTL = 60.0
+_default_core_cache: dict[tuple[str, str], tuple[float, str | None]] = {}
+
+
+def default_core(container: ResolvedContainer) -> str | None:
+    """The core this broker boots for the platform when config names none.
+
+    None when it can't say: not RetroArch, a broker too old, or unreachable.
+    """
+    protocol = container.protocol
+    if (
+        not isinstance(protocol, WebstationProtocol)
+        or container.emulator.lower() != "retroarch"
+    ):
+        return None
+    cache_key = (container.key, container.platform)
+    cached = _default_core_cache.get(cache_key)
+    if cached is not None and cached[0] > time.monotonic():
+        return cached[1]
+    path = protocol.api_route(
+        f"/retroarch/cores?platform={quote(container.platform, safe='')}"
+    )
+    core: str | None = None
+    try:
+        resp = broker.request(container, path, method="GET", timeout=ACK_TIMEOUT)
+    except urllib.error.HTTPError as exc:
+        code = exc.code
+        exc.close()
+        if code != 404:
+            log.warning("retroarch cores check failed with HTTP %d", code)
+            return None
+    except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError):
+        log.warning("retroarch cores check unreachable, not filtering states by core")
+        return None
+    else:
+        value = resp.get("default") if isinstance(resp, dict) else None
+        core = value if isinstance(value, str) and value else None
+    _default_core_cache[cache_key] = (time.monotonic() + _DEFAULT_CORE_TTL, core)
+    return core
 
 
 def activate(
@@ -61,8 +225,16 @@ def activate(
         "emulator": emulator,
         "multiplayer": multiplayer,
     }
+    # The core belongs to the platform's emulator; the desktop boots none.
+    core = (
+        container.core if rom is not None and emulator == container.emulator else None
+    )
     if rom is not None:
-        body["rom"] = rom
+        # Only a configured core goes out, so an unconfigured platform's body is
+        # what a broker without core support has always read.
+        body["rom"] = {**rom, "core": core} if core else rom
+        if core and container.experimental_cores:
+            body["rom"]["experimental_cores"] = True
     if gui_language:
         # Describes the player, not the rom, so it goes alongside `rom` rather
         # than inside it and is sent for a romless launch too.
@@ -97,6 +269,30 @@ def activate(
 
     resp = resp if isinstance(resp, dict) else {}
     log.info("broker activated session, %s", resp)
+    if not isinstance(resp.get("core_tier"), str):
+        resp.pop("core_tier", None)
+    if core and resp.get("core") != core:
+        # An older broker drops the field and boots its default; a dump at exit
+        # would file that core's saves under this platform, so ask for none.
+        log.warning(
+            "broker booted core %s, not the configured %s, ending the session",
+            resp.get("core"),
+            core,
+        )
+        # The broker refuses every activate while this game runs, and releasing
+        # the claim leaves nothing behind to stop it, so one lost exit is retried.
+        if exit_session(container, 0, save=False) is None and (
+            exit_session(container, 0, save=False) is None
+        ):
+            log.error("wrong-core game on %s is still running", container.key)
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "This broker doesn't support `core:`. Upgrade the container, "
+                f"or remove `core: {core}` from the "
+                f"{container.platform} platform in config.yml."
+            ),
+        )
     return resp
 
 

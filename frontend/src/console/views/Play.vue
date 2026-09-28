@@ -32,6 +32,7 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
+import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import {
   buildStateFormData,
   resolveScreenshot,
@@ -230,14 +231,9 @@ async function uploadState(
   screenshotFile: ArrayBuffer,
 ) {
   if (!romRef.value) return;
-  const filename = `${romRef.value.fs_name_no_ext.trim()} [${new Date()
-    .toISOString()
-    .replace(/[:.]/g, "-")
-    .replace("T", " ")
-    .replace("Z", "")}]`;
-
   try {
     const stateApi = await import("@/services/api/state");
+    const filename = stateApi.sessionStateName(romRef.value, new Date());
 
     const uploadedStates = await stateApi.default.uploadStates({
       rom: romRef.value,
@@ -450,6 +446,7 @@ async function boot() {
   window.EJS_gameUrl = getDownloadPath({
     rom: rom,
     fileIDs: validDiscId ? [validDiscId] : [],
+    purpose: "play",
   });
 
   // BIOS selection persistence
@@ -470,8 +467,10 @@ async function boot() {
     window.EJS_biosUrl = bios
       ? `/api/firmware/${bios.id}/content/${bios.file_name}`
       : "";
+    window.EJS_externalFiles = firmwareExternalFiles(core, firmware);
   } catch {
     window.EJS_biosUrl = "";
+    window.EJS_externalFiles = {};
   }
 
   window.EJS_player = "#game";

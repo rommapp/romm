@@ -86,7 +86,7 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
 
 
 class SyncRetroAchievementsProgressTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled RetroAchievements progress sync",
             task_type=TaskType.UPDATE,
@@ -116,7 +116,8 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
         for user in users:
             try:
                 user_progression = await meta_ra_handler.get_user_progression(
-                    user.ra_username,
+                    # `has_ra_username` above filters out users without one
+                    cast(str, user.ra_username),
                     current_progression=cast(
                         RAUserProgression | None, user.ra_progression
                     ),

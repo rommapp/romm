@@ -1,8 +1,8 @@
 import datetime
 import json
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
-import httpx
+import httpx2
 import pydash
 import yarl
 
@@ -111,13 +111,13 @@ class FlashpointHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return FLASHPOINT_API_ENABLED
 
-    async def _request(self, url: str, query: dict) -> dict:
+    async def _request(self, url: str, query: dict[str, Any]) -> Any:
         """
         Sends a request to Flashpoint API.
 
         :param url: The API endpoint URL.
         :param query: A dictionary containing the query parameters.
-        :return: A dictionary with the json result.
+        :return: The decoded JSON body.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
         httpx_client = ctx_httpx_client.get()
@@ -142,7 +142,7 @@ class FlashpointHandler(MetadataHandler):
             res = await httpx_client.get(url, headers=headers, timeout=60)
             res.raise_for_status()
             return res.json()
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
+        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
             log.warning(
                 "Connection error: can't connect to Flashpoint API", exc_info=True
             )

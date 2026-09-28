@@ -33,7 +33,7 @@
   "info-full-docs": "Documentation complète",
   "info-hashes-desc": "Recalcule les hachages pour tous les fichiers dans les plateformes sélectionnées.",
   "info-new-platforms-desc": "Ne cherchera que les plateformes qui ne sont pas déjà dans RomM.",
-  "info-quick-scan-desc": "Scanne les jeux qui ne sont pas encore dans la bibliothèque et récupère les fichiers ajoutés dans les dossiers des jeux qui y sont déjà, à n'importe quel niveau.",
+  "info-quick-scan-desc": "Scanne les jeux qui ne sont pas encore dans la bibliothèque, récupère les fichiers ajoutés dans les dossiers des jeux qui y sont déjà, à n'importe quel niveau, et relit les identifiants de titre des jeux qui y sont déjà.",
   "info-unmatched-games-desc": "Tente d'associer les jeux qui ne sont pas associés avec les sources de métadonnées sélectionnées.\n\nPar exemple, sélectionner IGDB et ScreenScraper scannera les jeux qui ne sont pas associés avec IGDB ou ScreenScraper.",
   "info-update-metadata-desc": "Met à jour les métadonnées pour les jeux qui ont été associés avec les sources de métadonnées sélectionnées en utilisant l'ID externe (ex. IGDB ID).\n\nPar exemple, sélectionner IGDB et ScreenScraper mettra à jour les métadonnées pour les jeux associés avec IGDB ou ScreenScraper, et utilisera igdb_id et/ou ssfr_id pour récupérer les métadonnées des fournisseurs respectifs.",
   "live-progress": "Progression en direct",

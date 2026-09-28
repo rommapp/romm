@@ -23,6 +23,7 @@ import { computed, type ComputedRef } from "vue";
 import i18n from "@/locales";
 import storeConfig, { type Config } from "@/stores/config";
 import storeHeartbeat, { type Heartbeat } from "@/stores/heartbeat";
+import { useNativeStore } from "@/stores/native";
 import { useStreamingStore } from "@/stores/streaming";
 import {
   getSupportedEJSCores,
@@ -105,10 +106,12 @@ export function usePlatformPlayableChecker(): {
     (slug: string | null | undefined) => PlatformEmulator
   >;
   isStreamable: ComputedRef<(slug: string | null | undefined) => boolean>;
+  isNativeSupported: ComputedRef<(slug: string | null | undefined) => boolean>;
 } {
   const heartbeatStore = storeHeartbeat();
   const configStore = storeConfig();
   const streamingStore = useStreamingStore();
+  const nativeStore = useNativeStore();
   const { value: heartbeat } = storeToRefs(heartbeatStore);
 
   // Expose computed functions so callers that consume them inside another
@@ -134,7 +137,16 @@ export function usePlatformPlayableChecker(): {
       cfg.enabled && streamingStore.containerForPlatform(slug) !== null;
   });
 
-  return { isPlayable, getEmulator, isStreamable };
+  // Whether the desktop shell can launch this platform locally. Deliberately
+  // not folded into `mode`: the badge answers a question about the server, and
+  // this one is about the machine the page is open on.
+  const isNativeSupported = computed(() => {
+    const probed = nativeStore.support;
+    return (slug: string | null | undefined): boolean =>
+      Boolean(probed) && nativeStore.isSupportedPlatform(slug);
+  });
+
+  return { isPlayable, getEmulator, isStreamable, isNativeSupported };
 }
 
 /** Human-readable tooltip for the play badge / column. Shared by every

@@ -1,10 +1,11 @@
-from typing import NotRequired, TypedDict, get_type_hints
+from typing import Any, NotRequired, TypedDict, get_type_hints
 
 from pydantic import ConfigDict
 from starlette.requests import Request
 
 from handler.metadata.ra_handler import RAUserProgression
 from models.user import Role, User
+from utils.auth import current_device_id
 from utils.urls import get_public_base_url
 
 from .base import BaseModel, UTCDatetime
@@ -31,7 +32,7 @@ class UserSchema(BaseModel):
     last_active: UTCDatetime | None
     ra_username: str | None = None
     ra_progression: RAProgression | None = None
-    ui_settings: dict | None = None
+    ui_settings: dict[str, Any] | None = None
     current_device_id: str | None = None
 
     created_at: UTCDatetime
@@ -45,9 +46,7 @@ class UserSchema(BaseModel):
             return None
 
         schema = cls.model_validate(db_user)
-        schema.current_device_id = getattr(
-            request.state, "device_id", None
-        ) or request.session.get("device_id")
+        schema.current_device_id = current_device_id(request)
         return schema
 
 

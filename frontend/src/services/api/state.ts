@@ -9,17 +9,16 @@ import { buildFormInput } from "@/utils/formData";
 
 export const stateApi = api;
 
-/** States are named after the ROM and the moment the core was serialized. */
+/** States are named after the ROM and the local time the core was serialized. */
 export function sessionStateName(
   rom: { fs_name_no_ext: string },
   capturedAt: Date,
 ): string {
-  const timestamp = capturedAt
-    .toISOString()
-    .replace(/[:.]/g, "-")
-    .replace("T", " ")
-    .replace("Z", "");
-  return `${rom.fs_name_no_ext.trim()} [${timestamp}]`;
+  const pad = (value: number, length = 2) =>
+    String(value).padStart(length, "0");
+  const date = `${capturedAt.getFullYear()}-${pad(capturedAt.getMonth() + 1)}-${pad(capturedAt.getDate())}`;
+  const time = `${pad(capturedAt.getHours())}-${pad(capturedAt.getMinutes())}-${pad(capturedAt.getSeconds())}-${pad(capturedAt.getMilliseconds(), 3)}`;
+  return `${rom.fs_name_no_ext.trim()} [${date} ${time}]`;
 }
 
 /** A state and its picture, both named after the moment of the capture. */
@@ -120,9 +119,40 @@ async function setStateVisibility({
   });
 }
 
+async function setStateFavorite({
+  id,
+  isFavorite,
+}: {
+  id: number;
+  isFavorite: boolean;
+}) {
+  return api.put<StateSchema>(`/states/${id}/favorite`, {
+    is_favorite: isFavorite,
+  });
+}
+
+async function setStateLabels({
+  id,
+  labels,
+}: {
+  id: number;
+  labels: string[];
+}) {
+  return api.put<StateSchema>(`/states/${id}/labels`, { labels });
+}
+
+async function renameState({ id, fileName }: { id: number; fileName: string }) {
+  return api.put<StateSchema>(`/states/${id}/file-name`, {
+    file_name: fileName,
+  });
+}
+
 export default {
   uploadStates,
   updateState,
   deleteStates,
   setStateVisibility,
+  setStateFavorite,
+  setStateLabels,
+  renameState,
 };

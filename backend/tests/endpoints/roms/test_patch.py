@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from endpoints.roms import patch as patch_endpoint
 from handler.database import db_rom_handler
+from handler.filesystem import fs_rom_handler
 from models.rom import Rom, RomFile, RomFileCategory
 from utils.rom_patcher import PatcherInputError
 
@@ -48,9 +49,7 @@ def test_patch_rom_passes_archive_member_and_validation_header(
         await AnyioPath(output_path).write_bytes(b"patched zip")
         return False
 
-    monkeypatch.setattr(
-        patch_endpoint.fs_rom_handler, "validate_path", lambda path: Path(path)
-    )
+    monkeypatch.setattr(fs_rom_handler, "validate_path", lambda path: Path(path))
     monkeypatch.setattr(patch_endpoint, "apply_patch", patch)
 
     response = client.post(
@@ -80,9 +79,7 @@ def test_patch_rom_returns_bad_request_for_invalid_archive(
     async def reject_patch(*_args, **_kwargs) -> bool:
         raise PatcherInputError("Select which file inside the ROM archive to patch")
 
-    monkeypatch.setattr(
-        patch_endpoint.fs_rom_handler, "validate_path", lambda path: Path(path)
-    )
+    monkeypatch.setattr(fs_rom_handler, "validate_path", lambda path: Path(path))
     monkeypatch.setattr(patch_endpoint, "apply_patch", reject_patch)
 
     response = client.post(

@@ -1,5 +1,6 @@
 import functools
 import inspect
+from collections.abc import Callable
 from typing import Any
 
 from authlib.integrations.starlette_client import OAuth
@@ -93,7 +94,9 @@ def _raise_auth_error(request: Request) -> None:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
-def _requires_scopes(scopes: list[Scope]):
+def _requires_scopes(
+    scopes: list[Scope],
+) -> Callable[[DecoratedCallable], DecoratedCallable]:
     """Scope guard mirroring starlette's `requires`, with a 401/403 split."""
 
     def decorator(func: DecoratedCallable) -> DecoratedCallable:
@@ -112,7 +115,7 @@ def _requires_scopes(scopes: list[Scope]):
         if is_async_callable(func):
 
             @functools.wraps(func)
-            async def async_wrapper(*args, **kwargs) -> Any:
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 request = kwargs.get("request", args[idx] if idx < len(args) else None)
                 assert isinstance(request, Request)
                 if not has_required_scope(request, scopes):
@@ -122,7 +125,7 @@ def _requires_scopes(scopes: list[Scope]):
             return async_wrapper  # type: ignore[return-value]
 
         @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs) -> Any:
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             request = kwargs.get("request", args[idx] if idx < len(args) else None)
             assert isinstance(request, Request)
             if not has_required_scope(request, scopes):
@@ -135,11 +138,11 @@ def _requires_scopes(scopes: list[Scope]):
 
 
 def protected_route(
-    method: Any,
+    method: Callable[..., Callable[[DecoratedCallable], DecoratedCallable]],
     path: str,
     scopes: list[Scope] | None = None,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Callable[[DecoratedCallable], DecoratedCallable]:
     def decorator(func: DecoratedCallable) -> DecoratedCallable:
         fn = _requires_scopes(scopes or [])(func)
         return method(

@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { onBeforeUnmount, onMounted } from "vue";
 import RTable from "./RTable.vue";
 import type { RTableColumn } from "./types";
 
@@ -152,12 +151,12 @@ export const Empty: Story = {
   }),
 };
 
-// Mobile card-stack — on `xs` each row reflows into a stacked card with the
-// column label as a per-cell caption (no `minWidth` set). The reflow keys off
-// `<html data-bp~="xs">`, which Storybook doesn't install, so this story pins
-// the attribute for its lifetime and restores it on teardown. Framed at a
-// phone-ish width to mirror the real viewport.
+// Mobile card-stack: on `xs` each row reflows into a stacked card with the
+// column label as a per-cell caption. The reflow keys off `html[data-bp~="xs"]`,
+// so the story opens on the phone viewport preset.
 export const MobileCardStack: Story = {
+  globals: { viewport: { value: "rommPhoneXs" } },
+  parameters: { layout: "fullscreen" },
   args: {
     columns: COLUMNS,
     items: ITEMS,
@@ -167,22 +166,9 @@ export const MobileCardStack: Story = {
   },
   render: (args) => ({
     components: { RTable },
-    setup: () => {
-      const prev = document.documentElement.dataset.bp;
-      onMounted(() => {
-        document.documentElement.dataset.bp = "xs sm-and-down md-and-down";
-      });
-      onBeforeUnmount(() => {
-        if (prev === undefined) delete document.documentElement.dataset.bp;
-        else document.documentElement.dataset.bp = prev;
-      });
-      return { args };
-    },
+    setup: () => ({ args }),
     template: `
-      <div
-        class="r-v2 r-v2-dark"
-        style="padding: 24px; width: 380px; background: #07070f;"
-      >
+      <div class="r-v2 r-v2-dark" style="padding: 24px; background: #07070f;">
         <RTable v-bind="args" />
       </div>
     `,

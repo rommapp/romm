@@ -18,12 +18,16 @@ from unittest.mock import patch
 import alembic.command
 import pytest
 import sqlalchemy as sa
+from sqlalchemy.dialects import mysql, postgresql
+from sqlalchemy.dialects.mysql.mariadb import MariaDBDialect
 
 from handler.database.base_handler import sync_engine
 from utils.database import (
     BINLOG_TRIGGER_DDL_ERRNO,
     EARLIEST_RELEASE_YEAR,
     LATEST_RELEASE_YEAR,
+    MIN_MARIADB_VERSION,
+    MIN_MYSQL_VERSION,
     MS_PER_DAY,
     alembic_command_runs_revisions,
     day_of_year_ranges,
@@ -33,6 +37,7 @@ from utils.database import (
     probe_trigger_name,
     release_day_ranges,
     trigger_ddl_is_blocked,
+    unsupported_server_version,
 )
 
 
@@ -206,3 +211,48 @@ class TestRevisionCommandGate:
     def test_alembic_still_names_the_closure_this_gate_matches(self):
         """A rename upstream would turn the pre-flight off without a word."""
         assert "def upgrade(rev, context)" in inspect.getsource(alembic.command.upgrade)
+
+
+def _dialect(dialect: sa.Dialect, version: tuple[int, ...]) -> sa.Dialect:
+    dialect.server_version_info = version
+    return dialect
+
+
+class TestUnsupportedServerVersion:
+    @pytest.mark.parametrize(
+        "dialect",
+        [
+            _dialect(MariaDBDialect(), MIN_MARIADB_VERSION),
+            _dialect(MariaDBDialect(), (11, 8, 2)),
+            _dialect(mysql.dialect(), MIN_MYSQL_VERSION),
+            _dialect(postgresql.dialect(), (9, 6)),
+        ],
+    )
+    def test_a_supported_server_passes(self, dialect: sa.Dialect):
+        assert unsupported_server_version(dialect) is None
+
+    def test_an_old_mariadb_is_named_with_its_version(self):
+        message = unsupported_server_version(_dialect(MariaDBDialect(), (10, 6, 21)))
+
+        assert message is not None
+        assert "MariaDB 10.11 or newer" in message
+        assert "runs 10.6.21" in message
+
+    def test_mariadb_behind_the_mysql_driver_gets_the_mariadb_minimum(self):
+        dialect = mysql.dialect()
+        dialect.is_mariadb = True
+
+        message = unsupported_server_version(_dialect(dialect, (10, 6, 21)))
+
+        assert message is not None
+        assert "MariaDB 10.11" in message
+
+    def test_mysql_without_json_overlaps_is_refused(self):
+        message = unsupported_server_version(_dialect(mysql.dialect(), (8, 0, 16)))
+
+        assert message is not None
+        assert "MySQL 8.0.17 or newer" in message
+
+    def test_the_running_test_server_is_supported(self):
+        with sync_engine.connect() as conn:
+            assert unsupported_server_version(conn.dialect) is None

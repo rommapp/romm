@@ -1,16 +1,20 @@
 import hashlib
 import os
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock
 from uuid import UUID
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.redis_stubs import fail_expire, record_pipelines
 
 from endpoints.roms import upload as upload_endpoint
 from handler import rom_upload
 from handler.database import db_platform_handler, db_rom_handler
+from handler.filesystem import fs_rom_handler
+from handler.redis_handler import sync_cache
 from models.platform import Platform
 from models.rom import DocSource, Rom, RomFile, RomFileCategory
 from models.user import User
@@ -25,19 +29,15 @@ def upload_fs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         final_dir.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(upload_endpoint, "ROM_UPLOAD_TMP_BASE", uploads_tmp)
+    monkeypatch.setattr(fs_rom_handler, "get_roms_fs_structure", lambda _slug: "roms")
     monkeypatch.setattr(
-        upload_endpoint.fs_rom_handler, "get_roms_fs_structure", lambda _slug: "roms"
-    )
-    monkeypatch.setattr(
-        upload_endpoint.fs_rom_handler,
+        fs_rom_handler,
         "validate_path",
         lambda path: final_dir / Path(path).name,
     )
+    monkeypatch.setattr(fs_rom_handler, "file_exists", AsyncMock(return_value=False))
     monkeypatch.setattr(
-        upload_endpoint.fs_rom_handler, "file_exists", AsyncMock(return_value=False)
-    )
-    monkeypatch.setattr(
-        upload_endpoint.fs_rom_handler,
+        fs_rom_handler,
         "make_directory",
         AsyncMock(side_effect=make_directory),
     )
@@ -74,7 +74,7 @@ def test_start_chunked_upload_success(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     response = _start_upload(client, access_token, platform.id)
 
@@ -86,7 +86,7 @@ def test_start_chunked_upload_success(
 def test_start_chunked_upload_platform_not_found(
     client: TestClient,
     access_token: str,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     response = _start_upload(client, access_token, platform_id=999999)
 
@@ -98,7 +98,7 @@ def test_upload_chunk_complete_success(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(
         client,
@@ -125,8 +125,8 @@ def test_upload_chunk_complete_success(
         headers=_auth_headers(access_token),
     )
 
-    assert first.status_code == status.HTTP_200_OK
-    assert second.status_code == status.HTTP_200_OK
+    assert first.json() == {"received": 1, "total": 2}
+    assert second.json() == {"received": 2, "total": 2}
     assert complete.status_code == status.HTTP_201_CREATED
 
     final_file = upload_fs["final_dir"] / "metroid.zip"
@@ -138,7 +138,7 @@ def test_upload_empty_file_without_chunks(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(
         client,
@@ -167,7 +167,7 @@ def test_start_with_chunks_that_do_not_match_the_size_returns_400(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
     total_size: int,
     total_chunks: int,
 ):
@@ -199,7 +199,7 @@ def test_upload_chunk_forbidden_user(
     access_token: str,
     editor_access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(client, access_token, platform.id)
     upload_id = start_response.json()["upload_id"]
@@ -218,7 +218,7 @@ def test_upload_chunk_oversized_returns_413(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setattr(upload_endpoint, "ROM_UPLOAD_MAX_CHUNK_SIZE", 6)
@@ -246,7 +246,7 @@ def test_complete_missing_chunks_returns_400(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(client, access_token, platform.id)
     upload_id = start_response.json()["upload_id"]
@@ -263,7 +263,7 @@ def test_complete_missing_chunks_returns_400(
 
     assert upload_response.status_code == status.HTTP_200_OK
     assert complete_response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "Missing chunks" in complete_response.json()["detail"]
+    assert complete_response.json()["detail"] == "Missing chunks: [1]"
 
 
 def test_complete_invalid_upload_id(client: TestClient, access_token: str):
@@ -280,7 +280,7 @@ def test_cancel_upload_cleans_temp_files(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(client, access_token, platform.id)
     upload_id = start_response.json()["upload_id"]
@@ -301,13 +301,122 @@ def test_cancel_upload_cleans_temp_files(
     assert upload_response.status_code == status.HTTP_200_OK
     assert cancel_response.status_code == status.HTTP_204_NO_CONTENT
     assert not chunk_path.exists()
+    assert not sync_cache.exists(
+        upload_endpoint._session_key(upload_id), upload_endpoint._chunks_key(upload_id)
+    )
+
+
+def test_cancel_closes_the_session_before_removing_its_files(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    upload_id = _start_upload(client, access_token, platform.id).json()["upload_id"]
+    session_open_during_cleanup: list[bool] = []
+    real_cleanup = upload_endpoint._cleanup_tmp
+
+    def cleanup(upload_id: str) -> None:
+        session_open_during_cleanup.append(
+            bool(sync_cache.exists(upload_endpoint._session_key(upload_id)))
+        )
+        real_cleanup(upload_id)
+
+    monkeypatch.setattr(upload_endpoint, "_cleanup_tmp", cleanup)
+
+    client.post(
+        f"/api/roms/upload/{upload_id}/cancel", headers=_auth_headers(access_token)
+    )
+
+    assert session_open_during_cleanup == [False]
+
+
+def test_a_chunk_written_while_the_upload_is_cancelled_returns_404(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    upload_id = _start_upload(client, access_token, platform.id).json()["upload_id"]
+
+    async def cancelled_mid_write(*args: Any, **kwargs: Any) -> Any:
+        sync_cache.delete(upload_endpoint._session_key(upload_id))
+        raise FileNotFoundError("upload directory removed")
+
+    monkeypatch.setattr(upload_endpoint, "open_file", cancelled_mid_write)
+
+    response = client.put(
+        f"/api/roms/upload/{upload_id}",
+        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        content=b"ABCDEF",
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_an_uploaded_chunk_set_expires(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict[str, Any],
+):
+    upload_id = _start_upload(client, access_token, platform.id).json()["upload_id"]
+
+    client.put(
+        f"/api/roms/upload/{upload_id}",
+        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        content=b"ABCDEF",
+    )
+
+    assert sync_cache.ttl(upload_endpoint._chunks_key(upload_id)) > 0
+
+
+def test_a_chunk_is_recorded_in_one_transaction(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict[str, Any],
+    mocker,
+):
+    upload_id = _start_upload(client, access_token, platform.id).json()["upload_id"]
+    executed = record_pipelines(mocker)
+
+    client.put(
+        f"/api/roms/upload/{upload_id}",
+        headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+        content=b"ABCDEF",
+    )
+
+    assert executed == [(True, ["SADD", "EXPIRE", "SCARD"])]
+
+
+def test_a_failed_chunk_record_leaves_no_set_without_a_ttl(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    upload_fs: dict[str, Any],
+    mocker,
+):
+    upload_id = _start_upload(client, access_token, platform.id).json()["upload_id"]
+    fail_expire(mocker)
+
+    with pytest.raises(ConnectionError):
+        client.put(
+            f"/api/roms/upload/{upload_id}",
+            headers={**_auth_headers(access_token), "x-chunk-index": "0"},
+            content=b"ABCDEF",
+        )
+
+    assert not sync_cache.exists(upload_endpoint._chunks_key(upload_id))
 
 
 def test_complete_after_cancel_returns_404(
     client: TestClient,
     access_token: str,
     platform: Platform,
-    upload_fs: dict,
+    upload_fs: dict[str, Any],
 ):
     start_response = _start_upload(client, access_token, platform.id)
     upload_id = start_response.json()["upload_id"]
@@ -336,7 +445,7 @@ def rom_upload_fs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     lib = tmp_path / "library"
     lib.mkdir()
     monkeypatch.setattr(upload_endpoint, "ROM_UPLOAD_TMP_BASE", tmp_path / "uploads")
-    monkeypatch.setattr(upload_endpoint.fs_rom_handler, "base_path", lib.resolve())
+    monkeypatch.setattr(fs_rom_handler, "base_path", lib.resolve())
     return lib
 
 
@@ -385,7 +494,9 @@ def _folder_rom(
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     for rel, data in files.items():
         _add_row(rom, lib, f"{ROM_FOLDER}/{rel}", data)
-    return db_rom_handler.get_rom(rom.id)
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    return refreshed
 
 
 def _single_file_rom(platform: Platform, admin_user: User, lib: Path) -> Rom:
@@ -402,7 +513,9 @@ def _single_file_rom(platform: Platform, admin_user: User, lib: Path) -> Rom:
     rom = db_rom_handler.add_rom(rom)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     _add_row(rom, lib, "solo.zip", b"romdata")
-    return db_rom_handler.get_rom(rom.id)
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    return refreshed
 
 
 def _start_into_rom(
@@ -612,7 +725,9 @@ def test_overwrite_replaces_an_existing_file(
     assert response.status_code == status.HTTP_201_CREATED, response.json()
     on_disk = rom_upload_fs / rom.fs_path / ROM_FOLDER / "hack" / "x.ips"
     assert on_disk.read_bytes() == b"new"
-    rows = [f for f in db_rom_handler.get_rom(rom.id).files if f.file_name == "x.ips"]
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    rows = [f for f in refreshed.files if f.file_name == "x.ips"]
     assert len(rows) == 1
     assert rows[0].file_size_bytes == 3
 
@@ -644,6 +759,7 @@ def test_complete_registers_nested_file(
     on_disk = rom_upload_fs / rom.fs_path / ROM_FOLDER / "patches/v2/fix.ips"
     assert on_disk.read_bytes() == b"patch bytes"
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     new = next(f for f in after.files if f.file_name == "fix.ips")
     assert new.file_path == f"{rom.fs_path}/{ROM_FOLDER}/patches/v2"
     assert new.category == RomFileCategory.PATCH
@@ -669,6 +785,7 @@ def test_complete_top_level_file_updates_rom_hashes(
 
     assert response.status_code == status.HTTP_201_CREATED
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert {f.file_name for f in after.files} == {"game.bin", "extra.bin"}
     assert after.md5_hash != "stored-md5"
     expected = hashlib.md5(usedforsecurity=False)
@@ -698,6 +815,7 @@ def test_complete_into_single_file_rom_promotes_it_to_a_folder(
 
     assert response.status_code == status.HTTP_201_CREATED
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "solo"
     folder = f"{rom.fs_path}/solo"
     assert {(f.file_path, f.file_name) for f in after.files} == {
@@ -714,6 +832,7 @@ def test_complete_after_destination_appeared_returns_409(
     platform: Platform,
     admin_user: User,
     rom_upload_fs: Path,
+    tmp_path: Path,
 ):
     rom = _folder_rom(platform, admin_user, rom_upload_fs, {"game.bin": b"game"})
     start = _start_into_rom(
@@ -732,7 +851,7 @@ def test_complete_after_destination_appeared_returns_409(
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT
-    assert not (upload_endpoint.ROM_UPLOAD_TMP_BASE / upload_id).exists()
+    assert not (tmp_path / "uploads" / upload_id).exists()
     assert (
         rom_upload_fs / rom.fs_path / ROM_FOLDER / "late.bin"
     ).read_bytes() == b"raced"
@@ -752,7 +871,9 @@ def test_start_into_single_file_rom_rejects_its_own_name(
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT
-    assert db_rom_handler.get_rom(rom.id).fs_name == "solo.zip"
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.fs_name == "solo.zip"
 
 
 def test_complete_collision_does_not_promote_a_single_file_rom(
@@ -780,6 +901,7 @@ def test_complete_collision_does_not_promote_a_single_file_rom(
 
     assert response.status_code == status.HTTP_409_CONFLICT
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "solo.zip"
     assert (rom_upload_fs / rom.fs_path / "solo.zip").read_bytes() == b"romdata"
 

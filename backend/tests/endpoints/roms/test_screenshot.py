@@ -43,6 +43,7 @@ def test_upload_screenshot_success(
     assert written.read_bytes() == PNG_BYTES
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     screenshots = [
         f for f in rom_after.files if f.category == RomFileCategory.SCREENSHOT
     ]
@@ -67,6 +68,7 @@ def test_upload_screenshot_upserts_on_reupload(
         assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     screenshots = [
         f for f in rom_after.files if f.category == RomFileCategory.SCREENSHOT
     ]

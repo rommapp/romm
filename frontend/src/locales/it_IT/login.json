@@ -17,6 +17,7 @@
   "reset-link-failed": "Impossibile inviare il link di reimpostazione",
   "reset-password": "Reimposta password",
   "reset-sent": "Link di reimpostazione inviato. Contatta l'amministratore.",
+  "reset-sent-email": "Se l'account ha un indirizzo email, il link di reimpostazione è in arrivo. Altrimenti, chiedi all'amministratore.",
   "send-reset-link": "Invia link di reimpostazione",
   "setup-wizard": "Procedura guidata di configurazione",
   "unable-to-login": "Impossibile accedere: {error}",

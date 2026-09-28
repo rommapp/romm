@@ -198,7 +198,9 @@ function showPlayError(error: unknown) {
 }
 
 async function fetchCartBytes(target: DetailedRom) {
-  const response = await fetch(getDownloadPath({ rom: target }));
+  const response = await fetch(
+    getDownloadPath({ rom: target, purpose: "play" }),
+  );
   if (!response.ok) throw new Error(`ROM request failed: ${response.status}`);
   return new Uint8Array(await response.arrayBuffer());
 }

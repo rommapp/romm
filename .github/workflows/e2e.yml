@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       mariadb:
-        image: mariadb:12.3.3
+        image: mariadb:13.0.2
         ports:
           - 3306
         env:
@@ -91,8 +91,9 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      # Headless runs use only the headless shell, so skip the full Chrome build.
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps --only-shell chromium
         working-directory: frontend
 
       # ROMM_BASE_PATH must be writable (the app creates config/, resources/ and

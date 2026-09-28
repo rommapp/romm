@@ -204,7 +204,7 @@ export function getListGridTemplate(showPlatform: boolean): string {
 // `--r-space-3` inline padding on each side (see GameListRow / GameListHeader),
 // which add to the natural width alongside the tracks.
 const LIST_GRID_GAP_PX = 20; // --r-space-5
-const LIST_ROW_PAD_X_PX = 12; // --r-space-3 (each side)
+export const LIST_ROW_PAD_X_PX = 12; // --r-space-3 (each side)
 
 /** The row's natural (minimum) width = every fixed track + the title's floor +
  *  the inter-column gaps + the row's inline padding. The shell hands this to

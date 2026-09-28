@@ -34,7 +34,7 @@ async function toggleMainSibling() {
   romUser.value.is_main_sibling = !romUser.value.is_main_sibling;
   romApi.updateUserRomProps({
     romId: props.rom.id,
-    data: romUser.value,
+    data: { is_main_sibling: romUser.value.is_main_sibling },
   });
 }
 

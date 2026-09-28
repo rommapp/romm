@@ -2,7 +2,7 @@
 //
 // The same ROM is cached in two stores: `galleryRoms.byPosition` (the
 // gallery's sparse windowed cache) and `stores/roms`, which owns Home's
-// recent / continue-playing rows and the `currentRom` behind GameDetails.
+// recent / continue-playing rows and the detailed records GameDetails reads.
 //
 // Optimistic toggles appeared to work without this only by accident: they
 // mutate the ROM object in place and the gallery holds that same object
@@ -54,19 +54,15 @@ export function useRomSync() {
       romsStore.continuePlayingRoms,
       rom,
     );
-    // Spread over the cached DetailedRom so its detailed-only fields
-    // (metadatum, screenshots, related games, ...) survive a SimpleRom write.
-    if (romsStore.currentRom?.id === rom.id) {
-      romsStore.currentRom = { ...romsStore.currentRom, ...rom };
-    }
+    romsStore.mergeIntoDetailedRom(rom);
   }
 
   /** Re-read a ROM from the API and apply it everywhere it is cached, for the
    * surfaces that need the detailed record back rather than the row their
    * write returned.
    *
-   * `syncCachedRom` owns the `currentRom` write, so a response that lands
-   * after the user opened another game leaves the open ROM alone. */
+   * The detailed cache is keyed by id, so a response that lands after the
+   * user opened another game leaves the open ROM alone. */
   async function refetchRom(romId: number): Promise<DetailedRom | null> {
     try {
       const { data } = await romApi.getRom({ romId });

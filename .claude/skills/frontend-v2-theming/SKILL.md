@@ -69,6 +69,8 @@ Outside `src/v2/tokens/index.ts` (the source-of-truth TS module) and the generat
 
 If a literal would otherwise be needed, the answer is: **add a token** (steps above), then consume via `var(--r-color-...)` or the named export.
 
+`romm/no-color-literal` (ESLint, `frontend/eslint-plugin-romm/`) flags hex and color-function literals in SFC `<style>` blocks under `src/v2`. It does not see `.css` files, stories' inline styles, or colors in TS strings.
+
 ## Style conventions
 
 - Scoped `<style>` by default; unscoped only for teleport overrides.

@@ -9,6 +9,7 @@ from fastapi import Request
 from pydantic import ConfigDict, Field, computed_field, field_validator, model_validator
 
 from endpoints.responses.assets import (
+    HIDDEN_ASSET_ANNOTATIONS,
     SaveSchema,
     ScreenshotSchema,
     StateSchema,
@@ -179,6 +180,7 @@ def rom_user_schema_factory() -> RomUserSchema:
         difficulty=0,
         completion=0,
         status=None,
+        pinned_media=None,
     )
 
 
@@ -199,6 +201,7 @@ class RomUserSchema(BaseModel):
     difficulty: int
     completion: int
     status: RomUserStatus | None
+    pinned_media: list[str] | None
 
     @classmethod
     def for_user(cls, user_id: int, db_rom: Rom) -> RomUserSchema:
@@ -487,7 +490,7 @@ class SiblingRomSchema(BaseModel):
     fs_name_no_ext: str
     is_main_sibling: bool
 
-    @computed_field  # type: ignore
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def sort_comparator(self) -> str:
         return (
@@ -719,6 +722,7 @@ class DetailedRomSchema(RomSchema):
             UserSaveSchema.model_validate(
                 {
                     **SaveSchema.model_validate(s).model_dump(),
+                    **({} if s.user_id == user_id else HIDDEN_ASSET_ANNOTATIONS),
                     "username": s.user.username,
                     "user_avatar_path": s.user.avatar_path,
                     "user_updated_at": s.user.updated_at,
@@ -734,6 +738,7 @@ class DetailedRomSchema(RomSchema):
             UserStateSchema.model_validate(
                 {
                     **StateSchema.model_validate(s).model_dump(),
+                    **({} if s.user_id == user_id else HIDDEN_ASSET_ANNOTATIONS),
                     "username": s.user.username,
                     "user_avatar_path": s.user.avatar_path,
                     "user_updated_at": s.user.updated_at,

@@ -108,3 +108,53 @@ describe("FirmwareTab", () => {
     expect(chipEntries(wrapper)).toEqual([["MD5", MD5]]);
   });
 });
+
+describe("FirmwareTab selection", () => {
+  const rows = [
+    firmware({ id: 1 }),
+    firmware({ id: 2, file_name: "bios.bin" }),
+    firmware({ id: 3, file_name: "boot.rom" }),
+  ];
+
+  function boxes(wrapper: ReturnType<typeof mountTab>) {
+    return wrapper.findAllComponents({ name: "RCheckbox" });
+  }
+
+  function checked(wrapper: ReturnType<typeof mountTab>) {
+    return boxes(wrapper)
+      .slice(1)
+      .map((box) => box.props("modelValue"));
+  }
+
+  it("checks and unchecks a single row", async () => {
+    const wrapper = mountTab(rows);
+
+    await boxes(wrapper)[2].vm.$emit("update:modelValue", true);
+    expect(checked(wrapper)).toEqual([false, true, false]);
+
+    await boxes(wrapper)[2].vm.$emit("update:modelValue", false);
+    expect(checked(wrapper)).toEqual([false, false, false]);
+  });
+
+  it("selects everything from the header, then clears it", async () => {
+    const wrapper = mountTab(rows);
+    const header = () => boxes(wrapper)[0];
+
+    await header().vm.$emit("update:modelValue", true);
+    expect(checked(wrapper)).toEqual([true, true, true]);
+    expect(header().props("modelValue")).toBe(true);
+    expect(header().props("indeterminate")).toBe(false);
+
+    await header().vm.$emit("update:modelValue", false);
+    expect(checked(wrapper)).toEqual([false, false, false]);
+  });
+
+  it("marks the header mixed while only some rows are checked", async () => {
+    const wrapper = mountTab(rows);
+
+    await boxes(wrapper)[1].vm.$emit("update:modelValue", true);
+
+    expect(boxes(wrapper)[0].props("modelValue")).toBe(false);
+    expect(boxes(wrapper)[0].props("indeterminate")).toBe(true);
+  });
+});

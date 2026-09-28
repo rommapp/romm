@@ -57,7 +57,9 @@ def _single_file_rom(
     disk = lib / rom.fs_path / fs_name
     disk.parent.mkdir(parents=True, exist_ok=True)
     disk.write_bytes(b"romdata")
-    return db_rom_handler.get_rom(rom.id)
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    return refreshed
 
 
 # ---------- POST /api/roms/{id}/convert-to-folder ----------
@@ -87,6 +89,7 @@ def test_convert_single_file_promotes_in_place(
     assert response.status_code == status.HTTP_200_OK
 
     after = db_rom_handler.get_rom(rom_id)
+    assert after is not None
     assert after.id == rom_id  # same id, no dead reference
     assert after.fs_name == "test_rom"
     game_file = after.files[0]
@@ -125,6 +128,7 @@ def test_convert_already_folder_is_clean_noop(
     )
     assert second.status_code == status.HTTP_200_OK
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"  # unchanged by the second call
 
 
@@ -152,6 +156,7 @@ def test_convert_folder_collision_returns_409(
     assert response.status_code == status.HTTP_409_CONFLICT
 
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom.zip"  # untouched
 
 
@@ -179,6 +184,7 @@ def test_convert_extensionless_uses_staging(
     moved = real_library / f"{platform.slug}/roms/test_rom/test_rom"
     assert moved.is_file() and moved.read_bytes() == b"romdata"
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.files[0].file_path == f"{platform.slug}/roms/test_rom"
 
 
@@ -209,6 +215,7 @@ def test_convert_extensionless_dir_collision_returns_409(
     assert response.status_code == status.HTTP_409_CONFLICT
 
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"  # untouched
     assert (lone / "already_here.txt").read_text() == "keep me"  # user's dir intact
 
@@ -245,6 +252,7 @@ def test_convert_rolls_back_fs_on_db_failure(
     assert (base / "test_rom").read_bytes() == b"romdata"
     assert not (base / ".romm_tmp_test_rom").exists()
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"
     assert after.has_simple_single_file
 
@@ -275,6 +283,7 @@ def test_soundtrack_upload_auto_converts_single_file_rom(
     assert response.status_code == status.HTTP_201_CREATED
 
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"  # converted
     soundtracks = [f for f in after.files if f.category == RomFileCategory.SOUNDTRACK]
     assert len(soundtracks) == 1
@@ -306,6 +315,7 @@ def test_manual_upload_auto_converts_single_file_rom(
     assert response.status_code == status.HTTP_201_CREATED
 
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"
     assert any(f.category == RomFileCategory.MANUAL for f in after.files)
 
@@ -333,6 +343,7 @@ def test_screenshot_upload_auto_converts_single_file_rom(
     assert response.status_code == status.HTTP_201_CREATED
 
     after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
     assert after.fs_name == "test_rom"
     assert any(f.category == RomFileCategory.SCREENSHOT for f in after.files)
 
@@ -352,6 +363,7 @@ async def test_second_upload_racing_a_promotion_keeps_the_rom_in_its_folder(
         fs_extension="zip",
     )
     second = db_rom_handler.get_rom(rom.id)
+    assert second is not None
 
     # Holding both at the mkdir puts them past the collision check together.
     make_directory = fs_rom_handler.make_directory
@@ -394,6 +406,7 @@ async def test_promotion_racing_across_workers_does_not_destroy_the_folder(
         fs_extension="zip",
     )
     second = db_rom_handler.get_rom(rom.id)
+    assert second is not None
 
     class _NoLock:
         async def __aenter__(self) -> None:

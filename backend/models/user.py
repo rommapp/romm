@@ -157,11 +157,11 @@ class User(BaseModel, SimpleUser):
         return compute_oauth_scopes(self)
 
     @property
-    def fs_safe_folder_name(self):
+    def fs_safe_folder_name(self) -> str:
         # Uses the ID to avoid issues with username changes
         return f"User:{self.id}".encode().hex()
 
-    def set_last_active(self):
+    def set_last_active(self) -> None:
         from handler.database import db_user_handler
 
         db_user_handler.update_user(

@@ -1,9 +1,9 @@
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
 from fastapi import status
-from rq.exceptions import NoSuchJobError
+from rq.exceptions import DeserializationError, NoSuchJobError
 
 from handler.redis_handler import low_prio_queue, redis_client
 from tasks.manual.cleanup_missing_firmware import CleanupMissingFirmwareStats
@@ -223,7 +223,7 @@ class TestListTasks:
         # Create a token without TASKS_RUN scope
         from datetime import timedelta
 
-        from endpoints.auth import oauth_handler
+        from handler.auth import oauth_handler
 
         data = {
             "sub": admin_user.username,
@@ -246,7 +246,13 @@ class TestRunSingleTask:
 
     @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
     def test_run_single_task_success(
-        self, mock_enqueue, client, access_token, mock_task, task_worker_listening
+        self,
+        mock_enqueue,
+        client,
+        access_token,
+        admin_user,
+        mock_task,
+        task_worker_listening,
     ):
         """Test successful running of a single task"""
         with patch("endpoints.tasks.RUNNABLE_TASKS", {"test_task": mock_task}):
@@ -268,7 +274,10 @@ class TestRunSingleTask:
         # The worker check and the enqueue must name the same queue.
         task_worker_listening.assert_called_once_with(low_prio_queue)
         mock_enqueue.assert_called_once_with(
-            "test_task", queue=low_prio_queue, task_kwargs={}
+            "test_task",
+            queue=low_prio_queue,
+            task_kwargs={},
+            run_by_user_id=admin_user.id,
         )
 
     @patch("endpoints.tasks.enqueue_task")
@@ -448,6 +457,23 @@ class TestGetTaskById:
             "roms_deleted": 2,
             "errors": 0,
         }
+
+    @patch("endpoints.tasks.Job.fetch")
+    def test_a_job_whose_kwargs_can_no_longer_be_loaded_still_reports(
+        self, mock_job_fetch, client, access_token
+    ):
+        """A job pickled by an older release may not unpickle after an upgrade."""
+        job = _job_with_meta({})
+        type(job).kwargs = PropertyMock(side_effect=DeserializationError("stale"))
+        mock_job_fetch.return_value = job
+
+        response = client.get(
+            "/api/tasks/test-job-id-123",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["task_key"] is None
 
     @patch("endpoints.tasks.Job.fetch")
     def test_get_task_by_id_success(self, mock_job_fetch, client, access_token):

@@ -8,7 +8,7 @@ vi.mock("vue-i18n", () => ({
 }));
 
 type Flags = {
-  canPlayInBrowser: boolean;
+  canPlayLocally: boolean;
   canPlayStream: boolean;
   canShareQR: boolean;
   canOpenInFlashpoint: boolean;
@@ -20,6 +20,7 @@ type Flags = {
   canDelete: boolean;
   canJoinStream: boolean;
   canDownload: boolean;
+  canInstallOnDevice: boolean;
 };
 
 // Not flags: the Join and Stream items render these labels verbatim, so they
@@ -29,7 +30,7 @@ let joinActionLabel = "";
 let streamActionLabel = "";
 
 const flags: Flags = {
-  canPlayInBrowser: true,
+  canPlayLocally: true,
   canPlayStream: false,
   canDownload: true,
   canShareQR: false,
@@ -41,6 +42,7 @@ const flags: Flags = {
   canEdit: true,
   canDelete: true,
   canJoinStream: false,
+  canInstallOnDevice: false,
 };
 
 vi.mock("@/v2/composables/useGameActions", () => ({
@@ -149,7 +151,7 @@ describe("GameActionsList: permission gating", () => {
 
 describe("GameActionsList: playing", () => {
   it("offers each way to play the caller is allowed", () => {
-    const wrapper = mountList({ canPlayInBrowser: true, canPlayStream: true });
+    const wrapper = mountList({ canPlayLocally: true, canPlayStream: true });
     const shown = labels(wrapper);
     expect(shown).toContain("rom.play");
     expect(shown).toContain("rom.stream");
@@ -157,7 +159,7 @@ describe("GameActionsList: playing", () => {
 
   it("renders the stream label the composable resolved", () => {
     const wrapper = mountList(
-      { canPlayInBrowser: false, canPlayStream: true },
+      { canPlayLocally: false, canPlayStream: true },
       "rom.join-session",
       "rom.stream-on",
     );
@@ -168,11 +170,23 @@ describe("GameActionsList: playing", () => {
 
   it("offers neither when the ROM cannot be played", () => {
     const shown = labels(
-      mountList({ canPlayInBrowser: false, canPlayStream: false }),
+      mountList({ canPlayLocally: false, canPlayStream: false }),
     );
     expect(shown).not.toContain("rom.play");
     expect(shown).not.toContain("rom.stream");
     expect(shown).not.toContain("rom.stream-on");
+  });
+});
+
+describe("GameActionsList: installing on a device", () => {
+  it("offers the install when the rom can be pushed", () => {
+    const shown = labels(mountList({ canInstallOnDevice: true }));
+    expect(shown).toContain("rom.install-on-device");
+  });
+
+  it("hides it otherwise", () => {
+    const shown = labels(mountList({ canInstallOnDevice: false }));
+    expect(shown).not.toContain("rom.install-on-device");
   });
 });
 

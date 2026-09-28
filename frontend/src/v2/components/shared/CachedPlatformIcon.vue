@@ -1,21 +1,16 @@
 <script setup lang="ts">
-// CachedPlatformIcon — reads the platform icon from the in-memory
-// blob cache populated by `prefetchPlatformIcons(...)`. When the
-// cache has a hit, renders a plain `<img>` with the blob URL (zero
-// network).
-//
-// Self-contained fallback chain, mirroring v1's PlatformIcon:
-//   cached blob → /assets/platforms/{slug}.svg → .ico → default.ico
-// The terminal step is always `default.ico` (the same bundled glyph
-// every other platform-icon surface in the app falls back to), so
-// users never see the browser's broken-image icon or a Material icon
-// pretending to be a platform.
+// Prefers the blob cache filled by `prefetchPlatformIcons(...)` (zero
+// network), then the shipped icon, then `default.ico`.
 import { RImg } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import {
   getCachedPlatformIcon,
   invalidatePlatformIcon,
 } from "@/v2/composables/usePlatformIconCache";
+import {
+  DEFAULT_PLATFORM_ICON,
+  platformIconUrl,
+} from "@/v2/utils/platformIcons";
 
 interface Props {
   slug: string;
@@ -24,42 +19,29 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), { name: "", size: 40 });
 
-const cached = computed(() => getCachedPlatformIcon(props.slug));
-
-// 0 = try cached blob first, then the canonical .svg
-// 1 = .ico fallback
-// 2 = terminal default.ico — we stop advancing here so the browser
-//     never paints its broken-image glyph in the unlikely case the
-//     bundled fallback itself can't be loaded.
-const step = ref(0);
+// Callers sometimes hand us an undefined slug (e.g. VSelect's `#selection`
+// slot while the model value matches no item).
+const cached = computed(() =>
+  props.slug ? getCachedPlatformIcon(props.slug) : undefined,
+);
+const failed = ref(false);
 
 watch(
   () => props.slug,
   () => {
-    step.value = 0;
+    failed.value = false;
   },
 );
 
 const src = computed<string>(() => {
-  // Defensive: callers sometimes hand us `undefined` (e.g. VSelect's
-  // `#selection` slot rendering a model value that doesn't match any
-  // item, or a parent passing a transient empty slug while it
-  // hydrates). Skip straight to the terminal fallback rather than
-  // crashing on `.toLowerCase()`.
-  if (!props.slug) return "/assets/platforms/default.ico";
-  const slug = props.slug.toLowerCase();
-  if (step.value === 0) {
-    return cached.value ?? `/assets/platforms/${slug}.svg`;
-  }
-  if (step.value === 1) return `/assets/platforms/${slug}.ico`;
-  return "/assets/platforms/default.ico";
+  if (failed.value) return DEFAULT_PLATFORM_ICON;
+  return cached.value ?? platformIconUrl(props.slug);
 });
 
 function onError() {
-  // The cached blob failed to decode — drop it so the reactive
-  // re-render advances cleanly through the rest of the chain.
-  if (step.value === 0 && cached.value) invalidatePlatformIcon(props.slug);
-  if (step.value < 2) step.value += 1;
+  // A blob that fails to decode is dropped so the shipped URL gets a turn.
+  if (cached.value) invalidatePlatformIcon(props.slug);
+  else failed.value = true;
 }
 </script>
 

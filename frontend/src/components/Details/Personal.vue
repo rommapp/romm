@@ -122,10 +122,9 @@ watch(
   romUser,
   debounce(() => {
     if (scopes.value.includes("roms.user.write")) {
-      romApi.updateUserRomProps({
-        romId: props.rom.id,
-        data: romUser.value,
-      });
+      // Pins are edited elsewhere; a stale copy here would revert them.
+      const { pinned_media: _pinned, ...data } = romUser.value;
+      romApi.updateUserRomProps({ romId: props.rom.id, data });
     }
   }, 500),
   { deep: true },

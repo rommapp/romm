@@ -10,10 +10,11 @@
 // while the request is in flight, then either closes the dialog on
 // success or stays open on rejection (the parent surfaces the error).
 import { RBtn, RCheckbox, RDialog, RIcon } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { FirmwareSchema } from "@/__generated__";
 import { formatBytes } from "@/utils";
+import { useIdSelection } from "@/v2/composables/useIdSelection";
 
 defineOptions({ inheritAttrs: false });
 
@@ -34,8 +35,18 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-const deleteFromFs = ref<Set<number>>(new Set());
 const deleting = ref(false);
+
+const {
+  selectedIds: deleteFromFs,
+  count: fsCount,
+  allSelected: allOnFs,
+  someSelected: someOnFs,
+  isSelected: isOnFs,
+  toggle: toggleFs,
+  toggleAll: toggleAllFs,
+  clear: clearFs,
+} = useIdSelection(() => props.firmware);
 
 // Each open trip starts with no filesystem deletes selected — the
 // user has to opt in deliberately. Resetting when modelValue flips
@@ -44,38 +55,9 @@ const deleting = ref(false);
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) {
-      deleteFromFs.value = new Set();
-    }
+    if (open) clearFs();
   },
 );
-
-const allOnFs = computed(
-  () =>
-    props.firmware.length > 0 &&
-    deleteFromFs.value.size === props.firmware.length,
-);
-const someOnFs = computed(
-  () =>
-    deleteFromFs.value.size > 0 &&
-    deleteFromFs.value.size < props.firmware.length,
-);
-const fsCount = computed(() => deleteFromFs.value.size);
-
-function toggleAllFs() {
-  if (allOnFs.value) {
-    deleteFromFs.value = new Set();
-  } else {
-    deleteFromFs.value = new Set(props.firmware.map((f) => f.id));
-  }
-}
-
-function toggleFs(id: number) {
-  const next = new Set(deleteFromFs.value);
-  if (next.has(id)) next.delete(id);
-  else next.add(id);
-  deleteFromFs.value = next;
-}
 
 function closeDialog() {
   if (deleting.value) return;
@@ -143,10 +125,10 @@ async function confirm() {
           v-for="f in firmware"
           :key="f.id"
           class="r-v2-del-fw__row"
-          :class="{ 'r-v2-del-fw__row--fs': deleteFromFs.has(f.id) }"
+          :class="{ 'r-v2-del-fw__row--fs': isOnFs(f.id) }"
         >
           <RCheckbox
-            :model-value="deleteFromFs.has(f.id)"
+            :model-value="isOnFs(f.id)"
             hide-details
             class="r-v2-del-fw__row-check"
             @update:model-value="toggleFs(f.id)"

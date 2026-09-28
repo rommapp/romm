@@ -15,7 +15,8 @@ Typical use inside a handler::
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, cast
 
 from fastapi import HTTPException, Request, status
 
@@ -29,14 +30,14 @@ from models.permission import PermAction, PermEntity
 if TYPE_CHECKING:
     from models.firmware import Firmware
     from models.platform import Platform
-    from models.rom import Rom, RomVisibility, RomVisibilityLabel
+    from models.rom import Rom, RomInstallTarget, RomVisibility, RomVisibilityLabel
 
 
 def get_permissions(request: Request) -> ResolvedPermissions:
     """Resolve (and cache for the request) the caller's effective permissions."""
     cached = getattr(request.state, "permissions", None)
     if cached is not None:
-        return cached
+        return cast(ResolvedPermissions, cached)
     perms = resolve_permissions(request.user)
     request.state.permissions = perms
     return perms
@@ -76,7 +77,9 @@ def assert_can(
         )
 
 
-def require_permission(entity: PermEntity, action: PermAction):
+def require_permission(
+    entity: PermEntity, action: PermAction
+) -> Callable[[Request], ResolvedPermissions]:
     """FastAPI dependency factory for library-wide gating of a route.
 
     Returns the resolved permissions so the handler can reuse them.
@@ -106,7 +109,7 @@ def assert_admin(request: Request) -> ResolvedPermissions:
 # download endpoints, which carry no permission context to resolve.
 def assert_rom_visible(
     request: Request,
-    rom: Rom | RomVisibility | RomVisibilityLabel,
+    rom: Rom | RomVisibility | RomVisibilityLabel | RomInstallTarget,
     *,
     not_found_detail: str | None = None,
 ) -> None:

@@ -10,9 +10,20 @@ import storePermissions from "../src/stores/permissions";
 import "../src/styles/common.css";
 import "../src/styles/fonts.css";
 import { dark, light } from "../src/styles/themes";
+import { installBreakpointAttribute } from "../src/v2/composables/useBreakpoint";
 import { ChromeLabelsKey } from "../src/v2/lib/a11y/chromeLabels";
 import "../src/v2/styles/global.css";
 import { createChromeLabels } from "../src/v2/utils/chromeLabels";
+import { ROMM_STORYBOOK_VIEWPORTS } from "./rommViewports";
+import {
+  INPUT_DEFAULT,
+  INPUT_GLOBAL,
+  INPUT_TOOLBAR,
+  withInputModality,
+} from "./withInputModality";
+
+// Mirror AppLayout/AuthLayout so html[data-bp] CSS matches useBreakpoint() in the iframe.
+installBreakpointAttribute();
 
 // Each story runs inside a Vue app with Pinia + i18n + Vuetify registered.
 // v2 primitives are Vuetify-free at runtime — Vuetify stays registered only
@@ -57,15 +68,22 @@ setup((app) => {
 });
 
 const preview: Preview = {
+  globalTypes: {
+    [INPUT_GLOBAL]: INPUT_TOOLBAR,
+  },
+  initialGlobals: {
+    viewport: { value: "rommDesktopMd" },
+    [INPUT_GLOBAL]: INPUT_DEFAULT,
+  },
   parameters: {
     layout: "centered",
     backgrounds: { disable: true },
+    viewport: {
+      options: ROMM_STORYBOOK_VIEWPORTS,
+    },
     // Accessibility gate
     a11y: {
       test: "error",
-    },
-    test: {
-      timeout: 5000,
     },
     controls: {
       matchers: {
@@ -94,6 +112,7 @@ const preview: Preview = {
     },
   },
   decorators: [
+    withInputModality,
     withThemeByClassName({
       themes: {
         dark: "r-v2 r-v2-dark v-theme--dark",

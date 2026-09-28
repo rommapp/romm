@@ -4,9 +4,9 @@ import os
 from collections.abc import Callable, Iterable
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
-import httpx
+import httpx2
 from anyio import Path as AnyioPath
 from fastapi import status
 from PIL import Image, ImageFile, UnidentifiedImageError
@@ -18,14 +18,21 @@ from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
+from utils.concurrency import gather_all
 from utils.context import ctx_httpx_client
 from utils.images import frame_durations, is_animated, webp_loop
+from utils.rate_limiter import ConcurrencyLimiter
 
 from .base_handler import CoverSize, FSHandler
 
 LOCAL_FILE_SCHEMES = ("file://", "launchbox-file://")
 
 ALLOWED_MANUAL_EXTENSIONS = frozenset({".pdf", ".md", ".txt"})
+
+# An achievement set runs to hundreds of badges, so they are fetched a few at a
+# time across every scan rather than all at once.
+RA_BADGE_MAX_CONCURRENCY: Final[int] = 8
+_ra_badge_limiter = ConcurrencyLimiter(RA_BADGE_MAX_CONCURRENCY)
 
 
 def _resolve_local_file_uri(uri: str) -> Path | None:
@@ -65,7 +72,7 @@ def _content_type_essence(header_value: str) -> str:
 
 
 def _check_content_type(
-    response: httpx.Response, allowed_prefixes: tuple[str, ...], label: str
+    response: httpx2.Response, allowed_prefixes: tuple[str, ...], label: str
 ) -> bool:
     raw = response.headers.get("content-type", "")
     essence = _content_type_essence(raw)
@@ -271,7 +278,7 @@ class FSResourcesHandler(FSHandler):
                                         await f.write(chunk)
 
                             downloaded = True
-            except httpx.TransportError as exc:
+            except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
                 return None
             except OSError as exc:
@@ -376,7 +383,7 @@ class FSResourcesHandler(FSHandler):
 
         return path_cover_s, path_cover_l
 
-    async def remove_cover(self, entity: Rom | Collection | None):
+    async def remove_cover(self, entity: Rom | Collection | None) -> dict[str, str]:
         if not entity:
             return {"path_cover_s": "", "path_cover_l": ""}
 
@@ -501,7 +508,7 @@ class FSResourcesHandler(FSHandler):
                                     await f.write(chunk)
 
                         return True
-            except httpx.TransportError as exc:
+            except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
                 return False
             except OSError as exc:
@@ -515,7 +522,7 @@ class FSResourcesHandler(FSHandler):
         full_path = self.validate_path(f"{rom.fs_resources_path}/screenshots")
         return {path.stem for path in full_path.glob("*.jpg")}
 
-    def _get_screenshot_path(self, rom: Rom, idx: str):
+    def _get_screenshot_path(self, rom: Rom, idx: str) -> str:
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
@@ -525,7 +532,7 @@ class FSResourcesHandler(FSHandler):
         return f"{rom.fs_resources_path}/screenshots/{idx}.jpg"
 
     async def get_rom_screenshots(
-        self, rom: Rom, overwrite: bool, url_screenshots: list | None
+        self, rom: Rom, overwrite: bool, url_screenshots: list[str] | None
     ) -> list[str]:
         """Get rom screenshots from filesystem
 
@@ -543,15 +550,17 @@ class FSResourcesHandler(FSHandler):
         # still has to replace whatever an earlier run failed to write.
         stored = set() if overwrite else self._stored_screenshot_indexes(rom)
 
-        path_screenshots: list[str] = []
-        for idx, url_screenshot in enumerate(url_screenshots):
+        async def screenshot_path(idx: int, url_screenshot: str) -> str | None:
             if str(idx) not in stored and not await self._store_screenshot(
                 rom, url_screenshot, idx
             ):
-                continue
-            path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
+                return None
+            return self._get_screenshot_path(rom, str(idx))
 
-        return path_screenshots
+        paths = await gather_all(
+            *(screenshot_path(idx, url) for idx, url in enumerate(url_screenshots))
+        )
+        return [path for path in paths if path]
 
     # Manuals
     def manual_exists(self, rom: Rom) -> bool:
@@ -568,7 +577,7 @@ class FSResourcesHandler(FSHandler):
             for ext in ALLOWED_MANUAL_EXTENSIONS
         )
 
-    async def _store_manual(self, rom: Rom, url_manual: str):
+    async def _store_manual(self, rom: Rom, url_manual: str) -> None:
         manual_path = f"{rom.fs_resources_path}/manual"
         await self.make_directory(manual_path)
 
@@ -627,7 +636,7 @@ class FSResourcesHandler(FSHandler):
                                 # Content is not gzipped, stream directly
                                 async for chunk in response.aiter_raw():
                                     await f.write(chunk)
-            except httpx.TransportError as exc:
+            except httpx2.TransportError as exc:
                 log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
                 return None
             except OSError as exc:
@@ -665,7 +674,7 @@ class FSResourcesHandler(FSHandler):
         await self._store_manual(rom, url_manual)
         return self._get_manual_path(rom)
 
-    async def remove_manual(self, rom: Rom):
+    async def remove_manual(self, rom: Rom) -> None:
         await self.remove_directory(f"{rom.fs_resources_path}/manual")
 
     # Retroachievements
@@ -673,15 +682,15 @@ class FSResourcesHandler(FSHandler):
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
 
-        # Ensure destination directory exists
-        await self.make_directory(directory)
-
         if await self.file_exists(path):
             log.debug(f"Badge {path} already exists, skipping download")
             return
 
         try:
-            async with httpx_client.stream("GET", url, timeout=120) as response:
+            async with (
+                _ra_badge_limiter,
+                httpx_client.stream("GET", url, timeout=120) as response,
+            ):
                 if response.status_code == status.HTTP_200_OK:
                     if not _check_content_type(response, ("image/",), "badge"):
                         return
@@ -691,10 +700,26 @@ class FSResourcesHandler(FSHandler):
                     ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
-        except httpx.TransportError as exc:
+        except httpx2.TransportError as exc:
             log.error(f"Unable to fetch badge at {url}: {str(exc)}")
         except OSError as exc:
             log.error(f"Unable to write badge for {url}: {str(exc)}")
+
+    async def store_ra_badges(self, achievements: Iterable[dict[str, Any]]) -> None:
+        """Fetch the normal and locked badge of every achievement."""
+        # Keyed by path, since achievements can share a badge image.
+        badges: dict[str, str] = {}
+        for ach in achievements:
+            for url_key, path_key in (
+                ("badge_url_lock", "badge_path_lock"),
+                ("badge_url", "badge_path"),
+            ):
+                if ach.get(url_key) and ach.get(path_key):
+                    badges.setdefault(ach[path_key], ach[url_key])
+
+        await gather_all(
+            *(self.store_ra_badge(url, path) for path, url in badges.items())
+        )
 
     def get_ra_resources_path(self, platform_id: int, rom_id: int) -> str:
         return os.path.join(
@@ -763,7 +788,7 @@ class FSResourcesHandler(FSHandler):
                             ) as f:
                                 async for chunk in response.aiter_raw():
                                     await f.write(chunk)
-                except httpx.TransportError as exc:
+                except httpx2.TransportError as exc:
                     log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
                     return False
                 except OSError as exc:
@@ -796,30 +821,32 @@ class FSResourcesHandler(FSHandler):
         the ``*_url`` is kept so a later scan can retry. Returns whether the dict
         was modified.
         """
-        changed = False
 
-        for media_type in media_types:
-            path_key = f"{media_type.value}_path"
-            media_path = metadata.get(path_key)
-            if not media_path:
-                continue
-
-            media_url = metadata.get(f"{media_type.value}_url")
+        async def store(media_path: str, media_url: str | None) -> bool:
             if media_url:
-                stored = await self.store_media_file(
+                return await self.store_media_file(
                     url_transform(media_url) if url_transform else media_url,
                     media_path,
                 )
-            else:
-                # Nothing to fetch from, so the path only holds if an earlier
-                # scan already stored the file.
-                stored = await self.file_exists(media_path)
+            # Nothing to fetch from, so the path only holds if an earlier
+            # scan already stored the file.
+            return await self.file_exists(media_path)
 
-            if not stored:
-                metadata[path_key] = None
-                changed = True
+        # Keyed by path key, so a media type listed twice is fetched once.
+        recorded: dict[str, str | None] = {}
+        for media_type in media_types:
+            path_key = f"{media_type.value}_path"
+            if metadata.get(path_key):
+                recorded[path_key] = metadata.get(f"{media_type.value}_url")
 
-        return changed
+        stored = await gather_all(
+            *(store(metadata[key], url) for key, url in recorded.items())
+        )
+
+        missing = [key for key, ok in zip(recorded, stored, strict=True) if not ok]
+        for path_key in missing:
+            metadata[path_key] = None
+        return bool(missing)
 
     async def remove_media_resources_path(
         self,

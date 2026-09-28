@@ -9,7 +9,12 @@ import type { Heartbeat } from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 
-export { getDownloadLink, getDownloadPath } from "@/utils/downloadPath";
+export {
+  getDownloadFileName,
+  getDownloadLink,
+  getDownloadPath,
+  getSoleRomFile,
+} from "@/utils/downloadPath";
 
 /**
  * Views configuration object.

@@ -139,7 +139,18 @@ features:` bullet list when there is a tail.
 - Role pings (`@Expert`, `@Alpha Tester`, `@Beta Tester`) only when the user asked
   for them, spelled as they gave them.
 
-## 6. Before handing it over
+## 6. Humanize the draft
+
+Read `.claude/skills/humanizer/SKILL.md` and apply it to the draft in embedded
+mode, rather than invoking the skill, since a personal install of the same name
+would load instead. The two announcements from section 1 are its voice sample,
+so the warmth, the jokes and the asides stay. Leave as written: the hook's
+timely reference, `@everyone` and role pings, emoji, handles, links, backticked
+names, bold on a breaking change, the section headings and the sign-off.
+
+## 7. Before handing it over
+
+Run these on the humanized draft, since the rewrite changes the character count.
 
 - Every feature named appears in the release notes.
 - The hook opens on something timely, and the reference matches today's date.

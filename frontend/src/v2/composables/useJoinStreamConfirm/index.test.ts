@@ -14,7 +14,12 @@ vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirmFn,
 }));
 
-const target = { romId: 1, romName: "Chrono Trigger", hostUsername: "ada" };
+const target = {
+  romId: 1,
+  romName: "Chrono Trigger",
+  hostUsername: "ada",
+  container: null,
+};
 
 describe("useJoinStreamConfirm", () => {
   beforeEach(() => {
@@ -38,6 +43,17 @@ describe("useJoinStreamConfirm", () => {
     await joinStream(target);
 
     expect(push).toHaveBeenCalledWith("/rom/1/stream?join=1");
+  });
+
+  it("carries the container into the join URL", async () => {
+    confirmFn.mockResolvedValue(true);
+    const { joinStream } = useJoinStreamConfirm();
+
+    await joinStream({ ...target, container: "http://box:8000" });
+
+    expect(push).toHaveBeenCalledWith(
+      "/rom/1/stream?join=1&container=http%3A%2F%2Fbox%3A8000",
+    );
   });
 
   it("names the host in the confirmation", async () => {
