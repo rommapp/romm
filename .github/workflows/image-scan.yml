@@ -114,6 +114,8 @@ jobs:
           path: trivy.sarif
           if-no-files-found: error
           retention-days: 90
+          # A re-run of a job that failed at the gate reuses this run's artifact names.
+          overwrite: true
 
       - name: Upload results to code scanning
         if: github.ref_type == 'branch'
@@ -172,12 +174,16 @@ jobs:
             docker rmi "$IMAGE"
           done
 
-      # freshclam is rate limited from shared runner IPs; the image bundles
-      # signatures from its build, so a failed update degrades rather than fails.
+      # freshclam is rate limited from shared runner IPs, so a failed update falls back to
+      # the image's bundled signatures; the summary shows which version was used.
       - name: Scan for malware
+        env:
+          IMAGE: ${{ matrix.image }}
         run: |
-          docker run --rm --entrypoint sh -v "$PWD/rootfs:/scan:ro" "$CLAMAV_IMAGE" -c '
+          echo "### ${IMAGE}" >>"$GITHUB_STEP_SUMMARY"
+          docker run --rm --entrypoint sh -v "$PWD/rootfs:/scan:ro" -v "$GITHUB_STEP_SUMMARY:/summary" "$CLAMAV_IMAGE" -c '
             freshclam --stdout || echo "::warning::freshclam failed, scanning with bundled signatures"
+            echo "Signatures: $(clamscan --version)" >>/summary
             clamscan --recursive --infected /scan
           '
 
