@@ -527,6 +527,31 @@ function replayConnectedGamepads(emulator: any) {
   }
 }
 
+// Some cores (fceumm) ignore retro_cheat_set's enabled flag and apply every
+// code they get, so a disabled cheat must never reach the core at all.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyOnlyEnabledCheats(emulator: any) {
+  if (emulator.__rommCheatsPatched) return;
+  emulator.__rommCheatsPatched = true;
+
+  emulator.cheatChanged = (checked: boolean, code: string, index: number) => {
+    const gameManager = emulator.gameManager;
+    if (!gameManager) return;
+    if (checked) {
+      gameManager.setCheat(index, true, code);
+      return;
+    }
+    gameManager.resetCheat();
+    // A removed cheat is still in the list, and may still be checked.
+    (emulator.cheats ?? []).forEach(
+      (cheat: { checked?: boolean; code: string }, i: number) => {
+        if (cheat.checked && i !== index)
+          gameManager.setCheat(i, true, cheat.code);
+      },
+    );
+  };
+}
+
 // Trap the window.EJS_emulator assignment so the instance is patched right
 // after the constructor returns, before the async core download and boot
 // consume any of the patched values. Patching later (e.g. in EJS_onGameStart)
@@ -543,6 +568,7 @@ export function installEJSDefaultOptionsTrap() {
       if (!value) return;
       installDefaultOptionsFallback(value);
       replayConnectedGamepads(value);
+      applyOnlyEnabledCheats(value);
     },
   });
 }
