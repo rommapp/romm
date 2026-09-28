@@ -4,7 +4,7 @@ import os
 from collections.abc import Callable, Iterable, Sequence
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, NamedTuple, cast
 
 import httpx2
 from anyio import Path as AnyioPath
@@ -118,8 +118,25 @@ def _is_chroma_key_placeholder(image_path: Path) -> bool:
     return green / total >= _CHROMA_KEY_COVERAGE
 
 
-# A recorded media file: its type, the dict holding its path, that path's key, its URL.
-RecordedMedia = tuple[MetadataMediaType, dict[str, Any], str, str | None]
+class RecordedMedia(NamedTuple):
+    """A media file a provider metadata dict records a path for."""
+
+    media_type: MetadataMediaType
+    # The provider dict itself, or one of its later-disc entries.
+    owner: dict[str, Any]
+    key: str
+    url: str | None
+
+    @property
+    def path(self) -> str:
+        return cast(str, self.owner[self.key])
+
+
+class _PathClaim(NamedTuple):
+    """Which provider a shared media path's file belongs to, and its source."""
+
+    provider: int
+    url: str | None
 
 
 class FSResourcesHandler(FSHandler):
@@ -823,14 +840,14 @@ class FSResourcesHandler(FSHandler):
             media_types: The types to look for; one listed twice counts once.
 
         Returns:
-            One ``(media_type, owner, key, url)`` per file, its path at ``owner[key]``.
+            One entry per recorded file.
         """
         recorded: list[RecordedMedia] = []
         for media_type in dict.fromkeys(media_types):
             path_key = f"{media_type.value}_path"
             if metadata.get(path_key):
                 recorded.append(
-                    (
+                    RecordedMedia(
                         media_type,
                         metadata,
                         path_key,
@@ -838,7 +855,7 @@ class FSResourcesHandler(FSHandler):
                     )
                 )
             recorded += [
-                (media_type, disc, "path", disc.get("url"))
+                RecordedMedia(media_type, disc, "path", disc.get("url"))
                 for disc in metadata.get(f"{media_type.value}_extra_discs") or []
                 if disc.get("path")
             ]
@@ -859,16 +876,16 @@ class FSResourcesHandler(FSHandler):
             metadata: The provider dict whose files go.
             media_types: The types to delete.
         """
-        for media_type, owner, key, _url in self.recorded_media(metadata, media_types):
+        for media in self.recorded_media(metadata, media_types):
             try:
-                if owner is metadata:
+                if media.owner is metadata:
                     await self.remove_media_resources_path(
-                        platform_id, rom_id, media_type
+                        platform_id, rom_id, media.media_type
                     )
                 else:
                     # A later disc shares its type's folder with other
                     # providers' files, so only the disc's own file goes.
-                    await self.remove_file(owner[key])
+                    await self.remove_file(media.path)
             except FileNotFoundError:
                 pass
 
@@ -887,25 +904,22 @@ class FSResourcesHandler(FSHandler):
         """
         media_types = list(media_types)
 
-        def claims(
-            dicts: Sequence[dict[str, Any] | None],
-        ) -> dict[str, tuple[int, Any]]:
+        def claims(dicts: Sequence[dict[str, Any] | None]) -> dict[str, _PathClaim]:
             # A shared path holds the file of the first provider that records it.
-            owned: dict[str, tuple[int, Any]] = {}
-            for index, metadata in enumerate(dicts):
-                for _type, owner, key, url in self.recorded_media(
-                    metadata or {}, media_types
-                ):
-                    owned.setdefault(owner[key], (index, url))
+            owned: dict[str, _PathClaim] = {}
+            for provider, metadata in enumerate(dicts):
+                for media in self.recorded_media(metadata or {}, media_types):
+                    owned.setdefault(media.path, _PathClaim(provider, media.url))
             return owned
 
         after = claims(current)
         stale = [
             path
-            for path, (index, url) in claims(previous).items()
+            for path, before in claims(previous).items()
             # A current claim without a URL keeps what its provider stored.
-            if after.get(path, (None, None))[0] != index
-            or after[path][1] not in (None, url)
+            if (claim := after.get(path)) is None
+            or claim.provider != before.provider
+            or claim.url not in (None, before.url)
         ]
         for path in stale:
             try:
@@ -940,12 +954,10 @@ class FSResourcesHandler(FSHandler):
             return await self.file_exists(media_path)
 
         targets = self.recorded_media(metadata, media_types)
-        stored = await gather_all(
-            *(store(owner[key], url) for _type, owner, key, url in targets)
-        )
-        for (_type, owner, key, _url), ok in zip(targets, stored, strict=True):
+        stored = await gather_all(*(store(media.path, media.url) for media in targets))
+        for media, ok in zip(targets, stored, strict=True):
             if not ok:
-                owner[key] = None
+                media.owner[media.key] = None
         return not all(stored)
 
     async def remove_media_resources_path(
