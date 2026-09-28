@@ -2841,6 +2841,32 @@ class TestIdentifyRomFiles:
         identify_harness.db.add_rom.assert_called()
 
 
+class TestIdentifyRomEmitsNewFlag:
+    """Clients bump live game counts off `is_new`, so a rescan of an existing
+    rom must not report it as new."""
+
+    @pytest.mark.parametrize("existing, is_new", [(False, True), (True, False)])
+    async def test_scanning_rom_payload_flags_new_roms(
+        self, identify_harness, existing, is_new
+    ):
+        schema = scan_module.SimpleRomSchema.from_orm_with_factory.return_value
+        schema.model_dump.side_effect = lambda **_: {"id": 1}
+        socket_manager = AsyncMock()
+        rom = identify_harness.existing_rom() if existing else None
+
+        await identify_harness.run(
+            rom, ScanType.COMPLETE, [], socket_manager=socket_manager
+        )
+
+        payloads = [
+            call.args[1]
+            for call in socket_manager.emit.await_args_list
+            if call.args[0] == "scan:scanning_rom"
+        ]
+        assert payloads
+        assert all(payload["is_new"] is is_new for payload in payloads)
+
+
 class TestIdentifyRomIncrementalHashing:
     """Selected-rom metadata scans hand the stored rows to the file rebuild so
     unchanged files keep their hashes; full rescans read every file."""

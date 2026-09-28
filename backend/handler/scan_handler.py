@@ -750,6 +750,7 @@ async def scan_rom(
                         "sibling_roms",
                     }
                 ),
+                "is_new": newly_added,
             },
         )
 

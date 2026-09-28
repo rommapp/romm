@@ -374,14 +374,14 @@ SCANNING_ROM_EXCLUDE: Final = {
 
 
 async def _emit_scanning_rom(
-    socket_manager: socketio.AsyncRedisManager, rom: Rom
+    socket_manager: socketio.AsyncRedisManager, rom: Rom, *, is_new: bool = False
 ) -> None:
-    await socket_manager.emit(
-        "scan:scanning_rom",
-        SimpleRomSchema.from_orm_with_factory(rom).model_dump(
-            exclude=SCANNING_ROM_EXCLUDE
-        ),
+    payload = SimpleRomSchema.from_orm_with_factory(rom).model_dump(
+        exclude=SCANNING_ROM_EXCLUDE
     )
+    # Lets clients bump live game counts only for ROMs this scan added.
+    payload["is_new"] = is_new
+    await socket_manager.emit("scan:scanning_rom", payload)
 
 
 def should_scan_rom(
@@ -811,7 +811,7 @@ async def _identify_rom(
     scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:
-        await _emit_scanning_rom(socket_manager, _added_rom)
+        await _emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
 
     if should_update_files:
         # Reconcile against the existing rows instead of replacing them, so file
@@ -835,7 +835,7 @@ async def _identify_rom(
         metadata_sources=metadata_sources,
     )
 
-    await _emit_scanning_rom(socket_manager, _added_rom)
+    await _emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
 
 
 async def _scan_selected_roms(

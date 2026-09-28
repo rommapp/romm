@@ -42,6 +42,9 @@ import type { Events } from "@/types/emitter";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
+/** `scan:scanning_rom` payload; `is_new` marks a ROM this scan added. */
+type ScanningRom = SimpleRom & { is_new?: boolean };
+
 export function installScanLifecycle() {
   const scanningStore = storeScanning();
   const romsStore = storeRoms();
@@ -99,7 +102,7 @@ export function installScanLifecycle() {
   // Batch per-ROM updates so a fast scan doesn't trigger one render per
   // ROM. Queue drains every 100ms; matches the v1 behavior. Stored
   // outside the handler so multiple events share the same queue + flush.
-  const romUpdateQueue: SimpleRom[] = [];
+  const romUpdateQueue: ScanningRom[] = [];
   const refreshGallery = debounce(
     () => {
       galleryRomsStore.invalidateWindows();
@@ -161,13 +164,14 @@ export function installScanLifecycle() {
         // Keep the canonical platforms store's count live for genuinely new
         // ROMs: the gallery/nav getters gate on `rom_count > 0`, so this is
         // what makes a freshly-scanned platform actually render mid-scan.
+        // A rescan also emits every existing ROM, which is already counted.
         const storePlatform = platformsStore.get(rom.platform_id);
-        if (storePlatform) storePlatform.rom_count += 1;
+        if (storePlatform && rom.is_new) storePlatform.rom_count += 1;
       }
     });
   }, 100);
 
-  useSocketEvent<SimpleRom>("scan:scanning_rom", (rom) => {
+  useSocketEvent<ScanningRom>("scan:scanning_rom", (rom) => {
     scanningStore.setScanning(true);
     romUpdateQueue.push(rom);
     processRomUpdates();

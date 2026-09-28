@@ -6,6 +6,7 @@ import { defineComponent, reactive } from "vue";
 import type { ScanStats } from "@/__generated__";
 import taskApi from "@/services/api/task";
 import storeCollections from "@/stores/collections";
+import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { installScanLifecycle } from "./index";
@@ -168,6 +169,27 @@ describe("installScanLifecycle", () => {
     fire("scan:done", makeStats({ scanned_roms: 100 }));
 
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts only the ROMs a scan added toward the platform's games", async () => {
+    install();
+    const platforms = storePlatforms();
+    platforms.set([{ id: 1, rom_count: 2 } as Platform]);
+    const scanningRom = (id: number, isNew: boolean) => ({
+      id,
+      platform_id: 1,
+      platform_fs_slug: "n64",
+      is_new: isNew,
+    });
+
+    fire("scan:scanning_rom", scanningRom(1, false));
+    fire("scan:scanning_rom", scanningRom(2, false));
+    fire("scan:scanning_rom", scanningRom(3, true));
+    fire("scan:scanning_rom", scanningRom(3, true));
+    // Drain the handler's 100ms batching debounce.
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    expect(platforms.get(1)?.rom_count).toBe(3);
   });
 
   it("reconciles with a running scan job on install", async () => {
