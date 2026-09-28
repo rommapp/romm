@@ -52,8 +52,8 @@ jobs:
         run: |
           uv sync --frozen --extra dev --extra test
 
-      # mypy rechecks only the modules whose content changed since the cache,
-      # so seeding from the latest master run skips most of a cold check.
+      # mypy revalidates each cached module against its source and options, so
+      # any earlier master cache is safe to seed from.
       - name: Restore the mypy cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
