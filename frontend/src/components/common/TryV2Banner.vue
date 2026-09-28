@@ -10,7 +10,7 @@
 //
 // Lives in v1 deliberately — v1 is otherwise frozen, but a single
 // promotional banner pointing users at the new UI directly supports
-// the migration goal documented in frontend/AGENTS.md.
+// the migration goal documented in CLAUDE.md.
 import { useLocalStorage } from "@vueuse/core";
 import { ref } from "vue";
 import { useUiVersion } from "@/composables/useUiVersion";
