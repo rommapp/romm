@@ -1,4 +1,4 @@
-// Metadata-provider registry — single source of truth for the small
+// Metadata-provider registry: single source of truth for the small
 // provider chips that appear next to a ROM (gallery list rows, scan
 // rows, future surfaces). One entry per provider gives label + logo
 // path + (optional) brand-colour background; consumers iterate and
@@ -27,9 +27,9 @@ export type ProviderIdKey =
 export interface MetadataProvider {
   /** Field on `SimpleRom` that holds this provider's match id. */
   key: ProviderIdKey;
-  /** Short brand name (e.g. "IGDB") — used as the gallery filter label. */
+  /** Short brand name (e.g. "IGDB"), used as the gallery filter label. */
   name: string;
-  /** Tooltip text — also serves as the chip's `alt`. */
+  /** Tooltip text; also serves as the chip's `alt`. */
   title: string;
   /** File under `/assets/scrappers/`. */
   logo: string;
@@ -126,6 +126,18 @@ export const METADATA_PROVIDER_FILTER_OPTIONS: {
   value: providerSlug(p.key),
   title: p.name,
 }));
+
+/** Name and logo per backend MetadataSource slug, in registry order.
+ * TheGamesDB has no ROM chip, but its ids still count in match stats. */
+export const METADATA_SOURCE_INFO: ReadonlyMap<
+  string,
+  { name: string; logo: string }
+> = new Map([
+  ...METADATA_PROVIDERS.map(
+    (p) => [providerSlug(p.key), { name: p.name, logo: p.logo }] as const,
+  ),
+  ["tgdb", { name: "TheGamesDB", logo: "tgdb.png" }],
+]);
 
 /** Returns the providers whose id field is populated on the given ROM. */
 export function activeProviders(rom: SimpleRom): MetadataProvider[] {

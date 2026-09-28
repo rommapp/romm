@@ -26,7 +26,6 @@ import { useRouter } from "vue-router";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
 import storeConfig from "@/stores/config";
-import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, regionToEmoji } from "@/utils";
 import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
@@ -34,6 +33,7 @@ import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
+import { METADATA_SOURCE_INFO } from "@/v2/utils/metadataProviders";
 
 defineOptions({ inheritAttrs: false });
 
@@ -50,7 +50,6 @@ const { morphTransition } = useViewTransition();
 const platformsStore = storePlatforms();
 // Only platforms that contain games should be displayed
 const { filledPlatforms } = storeToRefs(platformsStore);
-const heartbeat = storeHeartbeat();
 const { config } = storeToRefs(storeConfig());
 
 type OrderBy = "name" | "size" | "count";
@@ -110,30 +109,18 @@ const sortedPlatforms = computed(() => {
   );
 });
 
-const metadataOptions = computed(() =>
-  heartbeat.getMetadataOptionsByPriority(),
-);
-
-const sourceInfo = computed(() => {
-  // TheGamesDB ids arrive via other providers, so it is counted in coverage
-  // but never listed as a selectable scan source.
-  const map: Record<string, { name: string; logo_path: string }> = {
-    tgdb: { name: "TheGamesDB", logo_path: "/assets/scrappers/tgdb.png" },
-  };
-  for (const opt of metadataOptions.value) {
-    map[opt.value] = { name: opt.name, logo_path: opt.logo_path };
-  }
-  return map;
-});
-
 const orderedCoverageByPlatform = computed(() => {
-  // The configured priority also ranks TheGamesDB, which has no scan option.
-  const priority = new Set([
-    ...(config.value.SCAN_METADATA_PRIORITY ?? []),
-    ...metadataOptions.value.map((o) => o.value),
-  ]);
-  const rankBySource = new Map([...priority].map((source, i) => [source, i]));
-  const rank = (source: string) => rankBySource.get(source) ?? priority.size;
+  // Configured scan priority first, then registry order for the rest.
+  const rankBySource = new Map(
+    [
+      ...new Set([
+        ...(config.value.SCAN_METADATA_PRIORITY ?? []),
+        ...METADATA_SOURCE_INFO.keys(),
+      ]),
+    ].map((source, i) => [source, i]),
+  );
+  const rank = (source: string) =>
+    rankBySource.get(source) ?? rankBySource.size;
   const result: Record<string, MetadataCoverageItem[]> = {};
   for (const [id, items] of Object.entries(props.metadataCoverage)) {
     result[id] = [...items].sort((a, b) => rank(a.source) - rank(b.source));
@@ -277,15 +264,17 @@ function onRowClick(e: MouseEvent, platformId: number): void {
                 class="r-v2-plat-stats__coverage"
                 :title="
                   t('settings.platform-metadata-matches', {
-                    source: sourceInfo[item.source]?.name ?? item.source,
+                    source:
+                      METADATA_SOURCE_INFO.get(item.source)?.name ??
+                      item.source,
                     matched: item.matched,
                     total: platform.rom_count,
                   })
                 "
               >
                 <img
-                  v-if="sourceInfo[item.source]?.logo_path"
-                  :src="sourceInfo[item.source]?.logo_path"
+                  v-if="METADATA_SOURCE_INFO.has(item.source)"
+                  :src="`/assets/scrappers/${METADATA_SOURCE_INFO.get(item.source)?.logo}`"
                   class="r-v2-plat-stats__coverage-logo"
                   alt=""
                 />

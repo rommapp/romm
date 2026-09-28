@@ -6,21 +6,9 @@ import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCovera
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
 import enSettings from "@/locales/en_US/settings.json";
 import storeConfig from "@/stores/config";
-import type { MetadataOption } from "@/stores/heartbeat";
 import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
 import PlatformsStatsSection from "./PlatformsStatsSection.vue";
-
-// The heartbeat store pulls in config + i18n; stub it down to the single
-// method this component calls.
-const metadataOptions = vi.hoisted(() => ({
-  value: [] as MetadataOption[],
-}));
-vi.mock("@/stores/heartbeat", () => ({
-  default: () => ({
-    getMetadataOptionsByPriority: () => metadataOptions.value,
-  }),
-}));
 
 const push = vi.fn();
 vi.mock("vue-router", async (importOriginal) => ({
@@ -95,6 +83,16 @@ function renderedCounts(wrapper: Section): string[] {
 
 function rowCount(wrapper: Section): number {
   return wrapper.findAll(".r-v2-plat-stats__row").length;
+}
+
+function mountCoverage(items: MetadataCoverageItem[]): Section {
+  return mountSection([platform({ id: 1, rom_count: 4 })], {}, { "1": items });
+}
+
+function coverageLogos(wrapper: Section): (string | undefined)[] {
+  return wrapper
+    .findAll(".r-v2-plat-stats__coverage img")
+    .map((img) => img.attributes("src"));
 }
 
 async function setOrder(wrapper: Section, order: "name" | "size" | "count") {
@@ -176,7 +174,6 @@ describe("PlatformsStatsSection", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     push.mockClear();
-    metadataOptions.value = [];
   });
 
   it("links each row to its platform gallery", async () => {
@@ -222,85 +219,45 @@ describe("PlatformsStatsSection", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("shows the TheGamesDB logo on its coverage chip", () => {
-    const wrapper = mountSection(
-      [platform({ id: 1, rom_count: 4 })],
-      {},
-      {
-        "1": [{ source: "tgdb", matched: 2 }],
-      },
+  it("shows the TheGamesDB name and logo on its coverage chip", () => {
+    const chip = mountCoverage([{ source: "tgdb", matched: 2 }]).find(
+      ".r-v2-plat-stats__coverage",
     );
 
-    const chip = wrapper.find(".r-v2-plat-stats__coverage");
     expect(chip.find("img").attributes("src")).toBe(
       "/assets/scrappers/tgdb.png",
     );
-    expect(chip.attributes("title")).toContain("TheGamesDB");
+    expect(chip.attributes("title")).toBe("TheGamesDB matches: 2 / 4");
     expect(chip.text()).toBe("50%");
   });
 
-  it("orders coverage chips by scan priority, unranked sources last", () => {
-    metadataOptions.value = [
-      {
-        value: "ss",
-        name: "Screenscraper",
-        logo_path: "/ss.png",
-        disabled: "",
-      },
-      { value: "igdb", name: "IGDB", logo_path: "/igdb.png", disabled: "" },
-    ];
-    const wrapper = mountSection(
-      [platform({ id: 1, rom_count: 4 })],
-      {},
-      {
-        "1": [
-          { source: "tgdb", matched: 1 },
-          { source: "igdb", matched: 2 },
-          { source: "ss", matched: 3 },
-        ],
-      },
-    );
+  it("orders coverage chips by the configured scan priority", () => {
+    storeConfig().config.SCAN_METADATA_PRIORITY = ["ss", "tgdb", "igdb"];
+    const wrapper = mountCoverage([
+      { source: "igdb", matched: 2 },
+      { source: "ss", matched: 3 },
+      { source: "tgdb", matched: 1 },
+    ]);
 
-    const sources = wrapper
-      .findAll(".r-v2-plat-stats__coverage img")
-      .map((img) => img.attributes("src"));
-    expect(sources).toEqual([
-      "/ss.png",
-      "/igdb.png",
+    expect(coverageLogos(wrapper)).toEqual([
+      "/assets/scrappers/ss.png",
       "/assets/scrappers/tgdb.png",
+      "/assets/scrappers/igdb.png",
     ]);
   });
 
-  it("ranks TheGamesDB at its configured scan priority", () => {
-    metadataOptions.value = [
-      {
-        value: "ss",
-        name: "Screenscraper",
-        logo_path: "/ss.png",
-        disabled: "",
-      },
-      { value: "igdb", name: "IGDB", logo_path: "/igdb.png", disabled: "" },
-    ];
-    storeConfig().config.SCAN_METADATA_PRIORITY = ["ss", "tgdb", "igdb"];
-    const wrapper = mountSection(
-      [platform({ id: 1, rom_count: 4 })],
-      {},
-      {
-        "1": [
-          { source: "igdb", matched: 2 },
-          { source: "ss", matched: 3 },
-          { source: "tgdb", matched: 1 },
-        ],
-      },
-    );
+  it("orders sources missing from the scan priority by registry order", () => {
+    storeConfig().config.SCAN_METADATA_PRIORITY = ["ss"];
+    const wrapper = mountCoverage([
+      { source: "tgdb", matched: 1 },
+      { source: "igdb", matched: 2 },
+      { source: "ss", matched: 3 },
+    ]);
 
-    const sources = wrapper
-      .findAll(".r-v2-plat-stats__coverage img")
-      .map((img) => img.attributes("src"));
-    expect(sources).toEqual([
-      "/ss.png",
+    expect(coverageLogos(wrapper)).toEqual([
+      "/assets/scrappers/ss.png",
+      "/assets/scrappers/igdb.png",
       "/assets/scrappers/tgdb.png",
-      "/igdb.png",
     ]);
   });
 
