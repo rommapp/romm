@@ -1,17 +1,20 @@
 <script setup lang="ts">
-// GameHeader — right-column header for the details view.
+// GameHeader: right-column header for the details view.
 // Four rows, top to bottom:
-//   1. Title (+ previous / next game arrows on the right, desktop only)
+//   1. Title, or the game's logo when one was scraped (+ previous / next
+//      game arrows on the right, desktop only)
 //   2. Meta (year · platform-icon + platform · verified RTag)
-//   3. Tags (regions + languages + custom tags) — RTag primitive,
+//   3. Tags (regions + languages + custom tags) as RTag primitives,
 //      each a `searchLocation` pivot into the filtered search
 //   4. GameActions (Play · Download · Favorite · Share · More)
 //
 // Metadata-provider links live in the Metadata tab, not the header.
 // Genre/franchise belong in the Overview tab info grid.
 import { RIcon, RTag, RTooltip } from "@v2/lib";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DetailedRom } from "@/stores/roms";
+import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
 import MainSiblingToggle from "@/v2/components/GameDetails/MainSiblingToggle.vue";
 import PrevNextNav from "@/v2/components/GameDetails/PrevNextNav.vue";
@@ -39,13 +42,34 @@ const props = defineProps<{
 }>();
 
 const actions = useGameActions(() => props.rom);
+
+const logoFailed = ref(false);
+const logoUrl = computed(() => {
+  const path = props.rom.ss_metadata?.logo_path;
+  if (!path || logoFailed.value) return null;
+  return `${FRONTEND_RESOURCES_PATH}/${path}?v=${encodeURIComponent(props.rom.updated_at)}`;
+});
+watch(
+  () => props.rom.id,
+  () => (logoFailed.value = false),
+);
 </script>
 
 <template>
   <div class="r-v2-det-header">
     <div class="r-v2-det-header__title-row">
-      <h1 class="r-v2-det-header__title">
-        {{ title }}
+      <h1
+        class="r-v2-det-header__title"
+        :class="{ 'r-v2-det-header__title--logo': logoUrl }"
+      >
+        <img
+          v-if="logoUrl"
+          :src="logoUrl"
+          :alt="title"
+          class="r-v2-det-header__logo"
+          @error="logoFailed = true"
+        />
+        <template v-else>{{ title }}</template>
       </h1>
       <PrevNextNav v-if="!smAndDown" :rom-id="rom.id" />
     </div>
@@ -160,6 +184,19 @@ const actions = useGameActions(() => props.rom);
   text-shadow: 0 2px 20px var(--r-color-title-shadow);
 }
 
+.r-v2-det-header__title--logo {
+  display: flex;
+}
+/* Logos ship at wildly different aspect ratios, so cap both axes. */
+.r-v2-det-header__logo {
+  display: block;
+  max-width: min(100%, 420px);
+  max-height: 128px;
+  object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 2px 12px var(--r-color-title-shadow));
+}
+
 .r-v2-det-header__meta {
   display: flex;
   align-items: center;
@@ -218,6 +255,9 @@ const actions = useGameActions(() => props.rom);
 html[data-bp~="xs"] .r-v2-det-header__title {
   font-size: 20px;
 }
+html[data-bp~="xs"] .r-v2-det-header__logo {
+  max-height: 88px;
+}
 
 /* Mobile: the cover sits centred above this header, so centre the title and
    its meta / tag rows to match instead of the desktop left-align. */
@@ -228,6 +268,12 @@ html[data-bp~="sm-and-down"] .r-v2-det-header {
 }
 html[data-bp~="sm-and-down"] .r-v2-det-header__title-row {
   align-self: stretch;
+}
+html[data-bp~="sm-and-down"] .r-v2-det-header__title--logo {
+  justify-content: center;
+}
+html[data-bp~="sm-and-down"] .r-v2-det-header__logo {
+  object-position: center bottom;
 }
 html[data-bp~="sm-and-down"] .r-v2-det-header__meta,
 html[data-bp~="sm-and-down"] .r-v2-det-header__tags,
