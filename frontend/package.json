@@ -39,7 +39,7 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "@floating-ui/vue": "^1.1.11",
+    "@floating-ui/vue": "^2.0.0",
     "@mdi/font": "7.4.47",
     "@vueuse/core": "^13.7.0",
     "@zxing/browser": "^0.1.5",
@@ -74,7 +74,7 @@
     "@tailwindcss/vite": "^4.3.1",
     "@types/js-cookie": "^3.0.6",
     "@types/lodash": "^4.17.16",
-    "@types/node": "^22.13.14",
+    "@types/node": "^24.0.0",
     "@types/qrcode": "^1.5.5",
     "@types/semver": "^7.7.0",
     "@vitejs/plugin-vue": "^6.0.7",

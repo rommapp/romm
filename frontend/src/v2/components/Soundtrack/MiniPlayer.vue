@@ -3,12 +3,13 @@
 // route changes. The card floats on desktop; on phones the top bar's
 // NowPlayingPill opens it.
 import { storeToRefs } from "pinia";
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import storePlaying from "@/stores/playing";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useMediaSession } from "@/v2/composables/useMediaSession";
 import { useMiniPlayerVisible } from "@/v2/composables/useMiniPlayerVisible";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { ChiptunePlayer } from "@/v2/utils/chiptunePlayer";
@@ -32,9 +33,13 @@ let active: HTMLAudioElement | ChiptunePlayer | null = null;
 
 // On phones the mini player lives in the top bar, which a running game hides,
 // so the music pauses rather than play on with no controls.
-watch([() => playingStore.stageActive, smAndDown], ([stage, phone]) => {
-  if (stage && phone) active?.pause();
+const musicBlocked = computed(
+  () => playingStore.stageActive && smAndDown.value,
+);
+watch(musicBlocked, (isBlocked) => {
+  if (isBlocked) active?.pause();
 });
+useMediaSession(() => musicBlocked.value);
 
 // Track loads, seeks and short stalls often resolve within a second; buffering
 // is only reported once a wait outlasts that, so the covers don't flash.
