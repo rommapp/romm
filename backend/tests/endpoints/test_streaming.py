@@ -8629,7 +8629,8 @@ def _spec_path(container) -> str:
         "handler.streaming.broker.request", side_effect=_http_error(404)
     ) as request:
         webstation.import_spec(container, "retroarch", "snes")
-    return request.call_args.args[1]
+    path: str = request.call_args.args[1]
+    return path
 
 
 def test_import_spec_asks_about_the_configured_core():
