@@ -655,7 +655,12 @@ class OpenIDHandler:
                     detail="User has not been granted any roles for this application.",
                 )
 
-        user = db_user_handler.get_user_by_email(email)
+        sub = userinfo.get("sub") or None
+        user = db_user_handler.get_user_by_oidc_sub(sub) if sub else None
+        matched_by_sub = user is not None
+        if user is None:
+            user = db_user_handler.get_user_by_email(email)
+
         if user is None:
             if not OIDC_ALLOW_REGISTRATION:
                 log.error(
@@ -675,6 +680,7 @@ class OpenIDHandler:
                 username=username,
                 hashed_password=str(uuid.uuid4()),
                 email=email,
+                oidc_sub=sub,
                 enabled=True,
                 role=role,
             )
@@ -685,19 +691,36 @@ class OpenIDHandler:
                 AuditTarget.of_user(user),
                 {"role": user.role, "via": "oidc"},
             )
-        elif claims_provided and user.role != role:
-            previous_role = user.role
-            user = db_user_handler.update_user(user.id, {"role": role})
-            record(
-                AuditAction.USER_EDIT,
-                SYSTEM_ACTOR,
-                AuditTarget.of_user(user),
-                {
-                    "changed": ["role"],
-                    "role": {"from": previous_role, "to": role},
-                    "via": "oidc",
-                },
-            )
+        else:
+            updates: dict[str, Any] = {}
+            if sub and user.oidc_sub != sub:
+                updates["oidc_sub"] = sub
+            if matched_by_sub and (user.email or "").lower() != email.lower():
+                if db_user_handler.get_user_by_email(email) is None:
+                    updates["email"] = email
+                else:
+                    log.warning(
+                        "Not updating the email of %s: '%s' belongs to another user",
+                        hl(user.username, color=CYAN),
+                        hl(email, color=CYAN),
+                    )
+            if claims_provided and user.role != role:
+                updates["role"] = role
+
+            if updates:
+                previous_role = user.role
+                user = db_user_handler.update_user(user.id, updates)
+                changed = [f for f in ("email", "role") if f in updates]
+                if changed:
+                    data: dict[str, Any] = {"changed": changed, "via": "oidc"}
+                    if "role" in updates:
+                        data["role"] = {"from": previous_role, "to": role}
+                    record(
+                        AuditAction.USER_EDIT,
+                        SYSTEM_ACTOR,
+                        AuditTarget.of_user(user),
+                        data,
+                    )
 
         if not user.enabled:
             raise UserDisabledException

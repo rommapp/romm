@@ -6,7 +6,8 @@ from fastapi import HTTPException, status
 from joserfc.jwt import Token
 
 from handler.auth.base_handler import OpenIDHandler
-from models.user import TEXT_FIELD_LENGTH, Role
+from handler.database import db_user_handler
+from models.user import TEXT_FIELD_LENGTH, Role, User
 from utils.validation import validate_username
 
 # Mock constants
@@ -790,3 +791,105 @@ async def test_oidc_discovery_failure_falls_back_to_id_token(
     )
 
     assert claims == mock_id_token_only_standard_claims["userinfo"]
+
+
+def _add_user(username: str, email: str, oidc_sub: str | None = None) -> User:
+    return db_user_handler.add_user(
+        User(
+            username=username,
+            hashed_password="",
+            email=email,
+            oidc_sub=oidc_sub,
+            role=Role.USER,
+        )
+    )
+
+
+async def test_oidc_login_links_the_sub_to_the_user_matched_by_email(
+    mocker, mock_oidc_enabled, mock_token, mock_openid_configuration
+):
+    existing = _add_user("testuser", "test@example.com")
+    mock_token["userinfo"]["sub"] = "sub-1"
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    user, _ = await OpenIDHandler().get_current_active_user_from_openid_token(
+        mock_token
+    )
+
+    assert user is not None
+    assert user.id == existing.id
+    assert user.oidc_sub == "sub-1"
+
+
+async def test_oidc_login_follows_an_email_change_at_the_provider(
+    mocker,
+    mock_oidc_enabled,
+    mock_oidc_allow_registration_disabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    existing = _add_user("testuser", "old@example.com", oidc_sub="sub-1")
+    mock_token["userinfo"]["sub"] = "sub-1"
+    mock_token["userinfo"]["email"] = "new@example.com"
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    user, _ = await OpenIDHandler().get_current_active_user_from_openid_token(
+        mock_token
+    )
+
+    assert user is not None
+    assert user.id == existing.id
+    assert user.email == "new@example.com"
+
+
+async def test_oidc_login_keeps_the_email_when_another_user_holds_the_new_one(
+    mocker, mock_oidc_enabled, mock_token, mock_openid_configuration
+):
+    existing = _add_user("testuser", "old@example.com", oidc_sub="sub-1")
+    _add_user("other", "new@example.com")
+    mock_token["userinfo"]["sub"] = "sub-1"
+    mock_token["userinfo"]["email"] = "new@example.com"
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    user, _ = await OpenIDHandler().get_current_active_user_from_openid_token(
+        mock_token
+    )
+
+    assert user is not None
+    assert user.id == existing.id
+    assert user.email == "old@example.com"
+
+
+async def test_oidc_registration_stores_the_sub(
+    mocker,
+    mock_oidc_enabled,
+    mock_oidc_allow_registration_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    mock_token["userinfo"]["sub"] = "sub-1"
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    user, _ = await OpenIDHandler().get_current_active_user_from_openid_token(
+        mock_token
+    )
+
+    assert user is not None
+    assert user.oidc_sub == "sub-1"
+    assert db_user_handler.get_user_by_oidc_sub("sub-1") is not None

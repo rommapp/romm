@@ -60,6 +60,10 @@ class User(BaseModel, SimpleUser):
     email: Mapped[str | None] = mapped_column(
         String(length=TEXT_FIELD_LENGTH), unique=True, index=True
     )
+    # The identity provider's `sub` claim, which survives an email change.
+    oidc_sub: Mapped[str | None] = mapped_column(
+        String(length=TEXT_FIELD_LENGTH), unique=True, index=True
+    )
     enabled: Mapped[bool] = mapped_column(default=True)
     # VARCHAR-backed (native_enum=False) storing the lowercase value, so the
     # vocabulary stays portable across SQLite/MariaDB/Postgres.

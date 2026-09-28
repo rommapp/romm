@@ -527,6 +527,7 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 | `username`        | String(255)                       | Unique, indexed            |
 | `hashed_password` | String(255)                       | Nullable (OIDC users)      |
 | `email`           | String(255)                       | Unique, indexed, nullable  |
+| `oidc_sub`        | String(255)                       | OIDC `sub`, unique, null   |
 | `enabled`         | Boolean                           | Default `True`             |
 | `role`            | Enum(`VIEWER`, `EDITOR`, `ADMIN`) | Default `VIEWER`           |
 | `avatar_path`     | String(255)                       | Default `""`               |
