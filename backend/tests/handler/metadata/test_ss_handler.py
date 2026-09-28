@@ -684,6 +684,26 @@ class TestExtractMediaFromSsGame:
         )
         assert [d["disc"] for d in result["physical_extra_discs"]] == [3]
 
+    @pytest.mark.parametrize("support", ["0", "-1", "two", ""])
+    def test_unreadable_disc_number_counts_as_the_first(self, support: str):
+        config = _make_config(scan_media=["physical"])
+        rom = self._make_rom()
+        medias = self._make_multi_disc_game()["medias"][2:4]
+        medias[0]["support"] = support
+        game = cast(SSGame, {"medias": medias})
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["physical_disc"] == 1
+        assert [d["disc"] for d in result["physical_extra_discs"]] == [2]
+
 
 class TestExtractMetadataFromSsRom:
     def _make_rom(self, regions: list[str] | None = None) -> MagicMock:

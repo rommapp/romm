@@ -32,6 +32,7 @@ from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
 )
+from config.config_manager import MetadataMediaType
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
@@ -2218,9 +2219,17 @@ async def update_rom(
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
         preferred_media_types = get_preferred_media_types()
 
+        old_ss_metadata = rom.ss_metadata or {}
+        old_disc_art = any(
+            disc.get("path")
+            for disc in old_ss_metadata.get("physical_extra_discs") or []
+        )
         for media_type in preferred_media_types:
-            # Remove old media files if the ss_id is changing
-            if rom.ss_metadata and rom.ss_metadata.get(f"{media_type.value}_path"):
+            # Remove old media files if the ss_id is changing; later-disc art
+            # shares the physical folder even when the first disc has none.
+            if old_ss_metadata.get(f"{media_type.value}_path") or (
+                media_type == MetadataMediaType.PHYSICAL and old_disc_art
+            ):
                 await fs_resource_handler.remove_media_resources_path(
                     rom.platform_id,
                     rom.id,

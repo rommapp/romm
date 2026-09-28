@@ -41,6 +41,7 @@ from handler.filesystem.base_handler import (
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import LookupHashes, Rom, RomFile
+from utils.database import safe_int
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
@@ -386,11 +387,8 @@ def _get_rom_type(file: RomFile) -> str:
 
 
 def _ss_disc_number(media: SSGameMedia) -> int:
-    """The disc a media item shows; untagged art belongs to the first."""
-    try:
-        return int(media.get("support") or 1)
-    except ValueError:
-        return 1
+    """The disc a media item shows; untagged or unreadable art belongs to the first."""
+    return max(safe_int(media.get("support"), default=1), 1)
 
 
 def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
