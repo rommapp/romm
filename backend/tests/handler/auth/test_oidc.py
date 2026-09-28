@@ -744,3 +744,48 @@ async def test_oidc_userinfo_endpoint_failure_falls_back_to_id_token(
         await oidc_handler.get_current_active_user_from_openid_token(
             mock_id_token_only_standard_claims
         )
+
+
+async def test_oidc_userinfo_verification_does_not_vouch_for_another_email(
+    mocker, mock_oidc_enabled, mock_token, mock_openid_configuration
+):
+    mock_token["access_token"] = "access-token"
+    del mock_token["userinfo"]["email_verified"]
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "userinfo",
+        return_value={
+            "sub": mock_token["userinfo"]["sub"],
+            "email": "other@example.com",
+            "email_verified": True,
+        },
+    )
+
+    claims = await OpenIDHandler()._with_userinfo_endpoint_claims(
+        mock_token, mock_token["userinfo"]
+    )
+
+    assert claims["email"] == mock_token["userinfo"]["email"]
+    assert "email_verified" not in claims
+
+
+async def test_oidc_discovery_failure_falls_back_to_id_token(
+    mocker, mock_oidc_enabled, mock_id_token_only_standard_claims
+):
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        side_effect=ConnectionError("connection refused"),
+    )
+
+    claims = await OpenIDHandler()._with_userinfo_endpoint_claims(
+        mock_id_token_only_standard_claims,
+        mock_id_token_only_standard_claims["userinfo"],
+    )
+
+    assert claims == mock_id_token_only_standard_claims["userinfo"]

@@ -556,13 +556,11 @@ class OpenIDHandler:
         if not missing or not token.get("access_token"):
             return id_claims
 
-        metadata = await oauth.openid.load_server_metadata()
-        if not metadata.get("userinfo_endpoint"):
-            return id_claims
-
-        # On failure keep the ID token claims; the caller rejects what's missing
         try:
-            endpoint_claims = await oauth.openid.userinfo(token=token)
+            metadata = await oauth.openid.load_server_metadata()
+            if not metadata.get("userinfo_endpoint"):
+                return id_claims
+            endpoint_claims = dict(await oauth.openid.userinfo(token=token))
         except Exception as exc:  # noqa: BLE001
             log.warning(f"Failed to fetch OIDC userinfo endpoint: {exc!r}")
             return id_claims
@@ -571,6 +569,14 @@ class OpenIDHandler:
         if endpoint_claims.get("sub") != id_claims.get("sub"):
             log.warning("Ignoring OIDC userinfo response: 'sub' does not match.")
             return id_claims
+
+        # A verification flag only vouches for the email it came with
+        id_email = id_claims.get("email")
+        endpoint_email = endpoint_claims.get("email")
+        if id_email is not None and (
+            endpoint_email is None or endpoint_email.lower() != id_email.lower()
+        ):
+            endpoint_claims.pop("email_verified", None)
 
         return {**endpoint_claims, **id_claims}
 
