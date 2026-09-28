@@ -348,8 +348,9 @@ export const ScanPagePicker: Story = {
         const { promoted, remaining } = promotePlatformsWithGamesFirst(
           MIXED_PLATFORM_CATALOG,
         );
-        const titles = menuRowTitles();
-        expect(titles.slice(titles.indexOf(promoted[0].display_name))).toEqual([
+        expect(menuRowTitles()).toEqual([
+          "All",
+          "---",
           ...promoted.map((p) => p.display_name),
           "---",
           ...remaining.map((p) => p.display_name),
