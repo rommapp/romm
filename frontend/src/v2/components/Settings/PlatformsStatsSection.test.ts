@@ -9,8 +9,13 @@ import PlatformsStatsSection from "./PlatformsStatsSection.vue";
 
 // The heartbeat store pulls in config + i18n; stub it down to the single
 // method this component calls.
+const metadataOptions = vi.hoisted(() => ({
+  value: [] as { value: string; name: string; logo_path: string }[],
+}));
 vi.mock("@/stores/heartbeat", () => ({
-  default: () => ({ getMetadataOptionsByPriority: () => [] }),
+  default: () => ({
+    getMetadataOptionsByPriority: () => metadataOptions.value,
+  }),
 }));
 
 const push = vi.fn();
@@ -167,6 +172,7 @@ describe("PlatformsStatsSection", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     push.mockClear();
+    metadataOptions.value = [];
   });
 
   it("links each row to its platform gallery", async () => {
@@ -227,6 +233,33 @@ describe("PlatformsStatsSection", () => {
     );
     expect(chip.attributes("title")).toContain("TheGamesDB");
     expect(chip.text()).toBe("50%");
+  });
+
+  it("orders coverage chips by scan priority, unranked sources last", () => {
+    metadataOptions.value = [
+      { value: "ss", name: "Screenscraper", logo_path: "/ss.png" },
+      { value: "igdb", name: "IGDB", logo_path: "/igdb.png" },
+    ];
+    const wrapper = mountSection(
+      [platform({ id: 1, rom_count: 4 })],
+      {},
+      {
+        "1": [
+          { source: "tgdb", matched: 1 },
+          { source: "igdb", matched: 2 },
+          { source: "ss", matched: 3 },
+        ],
+      },
+    );
+
+    const sources = wrapper
+      .findAll(".r-v2-plat-stats__coverage img")
+      .map((img) => img.attributes("src"));
+    expect(sources).toEqual([
+      "/ss.png",
+      "/igdb.png",
+      "/assets/scrappers/tgdb.png",
+    ]);
   });
 
   it("renders one row per platform on initial load", () => {

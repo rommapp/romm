@@ -126,11 +126,14 @@ const sourceInfo = computed(() => {
 
 const orderedCoverageByPlatform = computed(() => {
   const priority = metadataOptions.value.map((o) => o.value);
+  // Sources outside the scan priority (e.g. TheGamesDB) sort last.
+  const rank = (source: string) => {
+    const i = priority.indexOf(source);
+    return i === -1 ? priority.length : i;
+  };
   const result: Record<string, MetadataCoverageItem[]> = {};
   for (const [id, items] of Object.entries(props.metadataCoverage)) {
-    result[id] = [...items].sort(
-      (a, b) => priority.indexOf(a.source) - priority.indexOf(b.source),
-    );
+    result[id] = [...items].sort((a, b) => rank(a.source) - rank(b.source));
   }
   return result;
 });
