@@ -75,6 +75,14 @@ place for full-suite coverage; local runs stay scoped.
 
 ---
 
+## Environment setup
+
+Each tool version is pinned in one file: Python in `.python-version`, uv as `ARG UV_VERSION` in `docker/Dockerfile`, and Node in `frontend/.nvmrc`. Don't install these by hand. Run `scripts/dev-setup.sh`, which installs the pinned toolchain, the backend and frontend dependencies, and the Trunk launcher, and skips anything already in place. Add `--db` to also install and start MariaDB with the pytest database (Debian/Ubuntu only). Rerun it whenever a version is wrong or a dependency is missing.
+
+In Claude Code cloud sessions, `.claude/hooks/cloud-setup.sh` runs `scripts/dev-setup.sh --db` at session start. Setting the environment's setup script to `bash scripts/dev-setup.sh --db` gets the install cached in the environment snapshot, so the hook only has to restart MariaDB. Other agents should use the same command as their setup step.
+
+---
+
 ## Quick command reference
 
 **Setup:** see `DEVELOPER_SETUP.md`. Docker path is `cp env.template .env` → `docker compose build` → `docker compose up -d` (app at `http://localhost:3000`).
