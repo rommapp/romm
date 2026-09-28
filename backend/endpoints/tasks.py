@@ -29,6 +29,7 @@ from handler.auth.constants import Scope
 from handler.redis_handler import (
     ALL_QUEUES,
     get_job_func_name,
+    get_job_kwargs,
     get_worker_current_job,
     has_live_worker,
     low_prio_queue,
@@ -111,7 +112,7 @@ def _build_task_status_response(
     job_meta = job.get_meta()
     task_type = job_meta.get("task_type")
     task_name = job_meta.get("task_name") or get_job_func_name(job)
-    task_key = job_meta.get("task_key") or job.kwargs.get("name")
+    task_key = job_meta.get("task_key") or (get_job_kwargs(job) or {}).get("name")
 
     # Convert datetime objects to ISO format strings
     created_at = job.created_at.isoformat() if job.created_at else None

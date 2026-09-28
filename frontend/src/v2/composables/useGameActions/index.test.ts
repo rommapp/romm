@@ -18,7 +18,6 @@ const streamContainer = { value: null as object | null };
 const joinableSession = {
   value: null as { host_username: string | null; container?: string } | null,
 };
-// Granted action keys — `null` means "everything" (the default).
 const grantedActions: { value: Set<ActionKey> | null } = { value: null };
 
 vi.mock("vue-i18n", () => ({
@@ -39,8 +38,17 @@ vi.mock("@/composables/useUISettings", () => ({
 vi.mock("@/services/api/rom", () => ({
   default: { updateUserRomProps: vi.fn() },
 }));
+const authScopes: string[] = [];
+const deviceInstall = {
+  ENABLED: true,
+  EXCLUDED_PLATFORM_SLUGS: ["win"] as string[],
+};
+
 vi.mock("@/stores/auth", () => ({
-  default: () => ({ scopes: [] as string[] }),
+  default: () => ({ scopes: authScopes }),
+}));
+vi.mock("@/stores/heartbeat", () => ({
+  default: () => ({ value: { DEVICE_INSTALL: deviceInstall } }),
 }));
 vi.mock("@/stores/roms", () => ({
   default: () => ({ update: vi.fn(), removeFromContinuePlaying: vi.fn() }),
@@ -140,6 +148,48 @@ beforeEach(() => {
   streamContainer.value = null;
   joinableSession.value = null;
   grantedActions.value = null;
+  authScopes.splice(0, authScopes.length);
+  deviceInstall.ENABLED = true;
+});
+
+describe("useGameActions.canInstallOnDevice", () => {
+  beforeEach(() => {
+    authScopes.push("devices.read", "devices.write", "roms.read");
+  });
+
+  it("offers the install for a rom with files on an allowed platform", () => {
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.canInstallOnDevice.value).toBe(true);
+  });
+
+  it("hides it for an excluded platform", () => {
+    const rom = { ...makeRom(), platform_slug: "win" } as SimpleRom;
+    const actions = useGameActions(() => rom);
+
+    expect(actions.canInstallOnDevice.value).toBe(false);
+  });
+
+  it("hides it while the server has the feature off", () => {
+    deviceInstall.ENABLED = false;
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.canInstallOnDevice.value).toBe(false);
+  });
+
+  it("hides it from a caller without the devices.write scope", () => {
+    authScopes.splice(0, authScopes.length, "devices.read", "roms.read");
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.canInstallOnDevice.value).toBe(false);
+  });
+
+  it("hides it from a caller without the devices.read scope", () => {
+    authScopes.splice(0, authScopes.length, "devices.write", "roms.read");
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.canInstallOnDevice.value).toBe(false);
+  });
 });
 
 describe("useGameActions.joinStream", () => {

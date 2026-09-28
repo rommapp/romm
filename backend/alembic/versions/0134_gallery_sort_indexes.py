@@ -11,7 +11,7 @@ Create Date: 2026-09-19 00:00:00.000000
 
 """
 
-from alembic import op  # type: ignore[attr-defined]
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0134_gallery_sort_indexes"

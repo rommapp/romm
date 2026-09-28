@@ -79,6 +79,7 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlayFocus } from "@/v2/composables/usePlayFocus";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
+import { romIdFromRoute } from "@/v2/composables/useRouteRom";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import { useStageActive } from "@/v2/composables/useStageActive";
@@ -192,13 +193,12 @@ const morphRomId = computed(() => {
 
 // Seed synchronously so the hero cover is already in the DOM when the view
 // transition captures this view (same pattern as the EmulatorJS view).
-const seededRom = storeRoms().currentRom;
-if (seededRom && String(seededRom.id) === morphRomId.value) {
-  rom.value = seededRom;
-}
+const seedId = romIdFromRoute(route);
+const seededRom = seedId === null ? null : storeRoms().getDetailedRom(seedId);
+if (seededRom) rom.value = seededRom;
 const heroSeed = ref<SimpleRom | null>(null);
-if (!rom.value && morphRomId.value != null) {
-  heroSeed.value = storeGalleryRoms().getRomById(Number(morphRomId.value));
+if (!rom.value && seedId !== null) {
+  heroSeed.value = storeGalleryRoms().getRomById(seedId);
 }
 const heroRom = computed<DetailedRom | SimpleRom | null>(
   () => rom.value ?? heroSeed.value,
@@ -591,7 +591,16 @@ async function enterStream(host: string): Promise<void> {
 async function enterRunningSession(status: SessionStatus): Promise<void> {
   if (playerState.value !== "loading" || !status.host) return;
   launchPhase.value = null;
+  warnOfCore(status.core, status.core_tier);
   await enterStream(status.host);
+}
+
+// The broker boots an untested or opted-in broken core rather than refuse
+// it, so this is where the player learns it may misbehave.
+function warnOfCore(core?: string | null, tier?: string | null): void {
+  if (tier === "untested") snackbar.warning(t("play.core-untested", { core }));
+  else if (tier === "blocked")
+    snackbar.warning(t("play.core-blocked", { core }));
 }
 
 function dismissEndedDialog(): void {
@@ -718,8 +727,9 @@ useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
   }
   if (payload.resume === false) snackbar.warning(t("play.resume-failed"));
   // A status poll can land between the launch stamp and this push and enter
-  // first; entering again would force fullscreen back on.
+  // first, core warning included; entering again would force fullscreen back on.
   if (playerState.value === "playing") return;
+  warnOfCore(payload.core, payload.core_tier);
   await enterStream(payload.host);
 });
 

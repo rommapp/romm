@@ -27,7 +27,7 @@ Create Date: 2026-08-21 00:00:00.000000
 
 """
 
-from alembic import op  # type: ignore[attr-defined]
+from alembic import op
 
 from utils.roms_columns import (
     PRIMARY_REGION_COLUMN,

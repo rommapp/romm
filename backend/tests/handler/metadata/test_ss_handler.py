@@ -1121,6 +1121,13 @@ class TestGetPlatform:
         assert platform["ss_id"] == 231
         assert platform["name"] == "EasyRPG"
 
+    def test_win9x_maps_to_the_generic_windows_system(self):
+        handler = SSHandler()
+        platform = handler.get_platform("win9x")
+
+        assert platform["ss_id"] == handler.get_platform("win")["ss_id"] == 138
+        assert platform["name"] == "PC Win9X"
+
 
 class TestGetRomType:
     def _file(self, ext: str, top_level: bool = True) -> MagicMock:

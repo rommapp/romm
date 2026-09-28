@@ -71,6 +71,9 @@ class SessionStatusSchema(BaseModel):
     # The room URL of a launched session, for a tab that missed launch-ready, reported by
     # the status poll only and left None by a heartbeat.
     host: str | None = None
+    # The launch's core warning, for that same tab.
+    core: str | None = None
+    core_tier: str | None = None
     termination: SessionTerminationSchema | None = None
 
 
@@ -97,6 +100,11 @@ class LaunchReadyPayload(BaseModel):
     # None when no resume was asked for; False means the state could not be pushed and the
     # session started fresh.
     resume: bool | None = None
+    # The libretro core the platform asked for, None when it names none.
+    core: str | None = None
+    # How far the broker vouches for that core: "default", "vetted",
+    # "untested" or "blocked". None when no core was asked for.
+    core_tier: str | None = None
 
 
 class ImportRefusalSchema(BaseModel):

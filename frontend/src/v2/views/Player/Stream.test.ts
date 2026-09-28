@@ -28,10 +28,12 @@ const mocks = vi.hoisted(() => ({
   presenceTick: null as (() => Promise<void>) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
   query: {} as Record<string, string>,
+  snackbar: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+  t: vi.fn((key: string) => key),
 }));
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: mocks.t }),
 }));
 
 vi.mock("vue-router", () => ({
@@ -65,7 +67,7 @@ vi.mock("@/stores/playing", () => ({
 }));
 
 vi.mock("@/stores/roms", () => ({
-  default: () => ({ currentRom: null }),
+  default: () => ({ getDetailedRom: () => null }),
 }));
 
 vi.mock("@/v2/stores/galleryRoms", () => ({
@@ -140,7 +142,7 @@ vi.mock("@/v2/composables/usePlaySession", () => ({
 }));
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
-  useSnackbar: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }),
+  useSnackbar: () => mocks.snackbar,
 }));
 
 vi.mock("@/v2/composables/useSocketEvent", () => ({
@@ -876,6 +878,43 @@ describe("Stream launch recovery", () => {
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
+  it("warns when the broker booted an untested core", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchReady({ core: "bsnes", core_tier: "untested" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledWith("play.core-untested");
+    expect(mocks.t).toHaveBeenCalledWith("play.core-untested", {
+      core: "bsnes",
+    });
+    expect(vmOf(wrapper).playerState).toBe("playing");
+  });
+
+  it("warns when the broker booted a known-broken core", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchReady({ core: "bsnes", core_tier: "blocked" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledWith("play.core-blocked");
+    expect(mocks.t).toHaveBeenCalledWith("play.core-blocked", {
+      core: "bsnes",
+    });
+  });
+
+  it("says nothing about a default or vetted core", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+
+    await launchReady({ core: "bsnes", core_tier: "vetted" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).not.toHaveBeenCalled();
+  });
+
   it("enters the stream when the poll finds the game already up", async () => {
     // launch-ready is pushed once, so a socket that dropped during the launch
     // left the tab loading over a game that was running.
@@ -898,6 +937,47 @@ describe("Stream launch recovery", () => {
     expect(vmOf(wrapper).playerState).toBe("playing");
     expect(vmOf(wrapper).containerHost).toBe(
       "http://webstation-dev:8080/room/x",
+    );
+  });
+
+  it("warns of the core when the poll finds the game already up", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.fetchSessionStatus.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: "http://webstation-dev:8080/room/x",
+      core: "bsnes",
+      core_tier: "untested",
+    });
+
+    await pollStatus();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledExactlyOnceWith(
+      "play.core-untested",
+    );
+    expect(mocks.t).toHaveBeenCalledWith("play.core-untested", {
+      core: "bsnes",
+    });
+  });
+
+  it("warns of the core once when launch-ready follows the poll", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    mocks.fetchSessionStatus.mockResolvedValue({
+      status: "active",
+      platform: "gba",
+      host: "http://webstation-dev:8080/room/x",
+      core: "bsnes",
+      core_tier: "blocked",
+    });
+    await pollStatus();
+
+    await launchReady({ core: "bsnes", core_tier: "blocked" });
+    await flushPromises();
+
+    expect(mocks.snackbar.warning).toHaveBeenCalledExactlyOnceWith(
+      "play.core-blocked",
     );
   });
 

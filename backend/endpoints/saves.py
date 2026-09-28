@@ -33,7 +33,7 @@ from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import SAVE_SLOT_MAX_LENGTH, Save
+from models.assets import EMULATOR_MAX_LENGTH, SAVE_SLOT_MAX_LENGTH, Save
 from models.base import FILE_NAME_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
@@ -41,7 +41,7 @@ from utils.assets import normalize_asset_labels
 from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
-from utils.uploads import check_asset_upload_size
+from utils.uploads import check_asset_upload_size, check_emulator_folder_name
 from utils.validation import RomIdScope, narrow_rom_id_scope
 
 
@@ -201,7 +201,7 @@ SAVE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file
 async def add_save(
     request: Request,
     rom_id: int,
-    emulator: str | None = None,
+    emulator: Annotated[str | None, Query(max_length=EMULATOR_MAX_LENGTH)] = None,
     slot: Annotated[str | None, Query(max_length=SAVE_SLOT_MAX_LENGTH)] = None,
     device_id: str | None = None,
     # Over-long hashes are stored as unknown by upsert_sync.
@@ -242,6 +242,8 @@ async def add_save(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid save filename: {str(exc)}",
         ) from exc
+
+    check_emulator_folder_name(emulator)
 
     actual_filename = sanitized_save_filename
     if slot:

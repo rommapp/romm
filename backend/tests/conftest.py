@@ -3,6 +3,7 @@ import functools
 import os
 import re
 import socket
+import uuid
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -22,6 +23,7 @@ from handler.auth import auth_handler
 from handler.auth.base_handler import oct_key
 from handler.auth.constants import ALGORITHM
 from handler.database import (
+    db_client_token_handler,
     db_firmware_handler,
     db_memory_card_handler,
     db_permission_handler,
@@ -523,6 +525,36 @@ def viewer_user():
         permission_group_id=group.id if group else None,
     )
     return db_user_handler.add_user(user)
+
+
+@pytest.fixture
+def add_device_token():
+    """Factory for a client token, bound to ``device_id`` unless it is None.
+
+    Returns the stored token and the raw ``rmm_`` credential a client sends.
+    """
+
+    def _add(
+        user: User,
+        device_id: str | None,
+        *,
+        scopes: str = "devices.read devices.write roms.read",
+        expires_at: datetime | None = None,
+    ) -> tuple[ClientToken, str]:
+        raw_token = f"rmm_test_{uuid.uuid4().hex}"
+        token = db_client_token_handler.add_token(
+            ClientToken(
+                user_id=user.id,
+                name="Handheld",
+                hashed_token=auth_handler.hash_client_token(raw_token),
+                scopes=scopes,
+                expires_at=expires_at,
+                device_id=device_id,
+            )
+        )
+        return token, raw_token
+
+    return _add
 
 
 @pytest.fixture
