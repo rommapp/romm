@@ -128,6 +128,7 @@
   "delete-screenshot-body-named": "\"{name}\" wird aus dieser ROM und aus dem Dateisystem entfernt. Dies kann nicht rückgängig gemacht werden.",
   "delete-screenshot-title": "Screenshot löschen?",
   "delete-select-instruction": "Wählen Sie die Spiele aus, die Sie aus Ihrem Dateisystem entfernen möchten, andernfalls werden sie nur aus der RomM-Datenbank gelöscht.",
+  "delete-show-more": "{n} weitere anzeigen",
   "delete-state": "Zustand löschen",
   "delete-state-body-named": "\"{name}\" wird aus dieser ROM und dem Dateisystem entfernt. Dies kann nicht rückgängig gemacht werden.",
   "delete-state-title": "Zustand löschen?",

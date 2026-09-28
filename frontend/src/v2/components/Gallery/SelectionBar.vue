@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// SelectionBar — floating bottom panel that surfaces bulk actions
+// SelectionBar: floating bottom panel that surfaces bulk actions
 // over the currently-selected ROMs. Replaces v1's `FabOverlay`
 // speed-dial: the bar sits below the gallery, never inside the
 // toolbar, so filter/search/sort all stay reachable while the user
@@ -7,29 +7,29 @@
 //
 // Visibility: bound to `gallerySelection.enabled`. Slides up from
 // `bottom: 0` when the first ROM is selected and slides back down
-// when the count drops to zero — the panel stays mounted so its
+// when the count drops to zero; the panel stays mounted so its
 // buttons keep their ripple state cleanly between cycles.
 //
 // Actions wire-up:
-//   * favorite / unfavorite — direct collectionApi bulk call against
+//   * favorite / unfavorite: direct collectionApi bulk call against
 //     the favorite collection. The Card/Row's per-rom favourite
 //     toggle still routes through `useGameActions` per-rom; here we
 //     bypass only its per-rom write to issue a single add/remove call
 //     for the whole set, while still reusing its
 //     `ensureFavoriteCollection` so a fresh instance gets one.
-//   * manage collections — re-uses the existing
+//   * manage collections: re-uses the existing
 //     `ManageCollectionsDialog` (already accepts SimpleRom[]) via
 //     the `showManageCollectionsDialog` emitter event.
-//   * download — a single selected ROM downloads directly (like the
+//   * download: a single selected ROM downloads directly (like the
 //     per-rom `useGameActions.download`); multi-selections go through
 //     the bulk endpoint so the server bundles them into one zip.
 //     `hideDownload` drops the action for hosts whose rows have no
 //     file to serve (the Missing games tab).
-//   * refresh metadata — emits `showRefreshMetadataDialog` for each
+//   * refresh metadata: emits `showRefreshMetadataDialog` for each
 //     ROM in turn. (Phase-2 follow-up: the dialog will accept arrays
 //     so the user only sees the scan-type picker once for the whole
 //     batch instead of N dialogs.)
-//   * delete — emits `showDeleteRomDialog` with the full selection;
+//   * delete: emits `showDeleteRomDialog` with the full selection;
 //     the dialog already paints a per-ROM "remove from disk"
 //     checklist for bulk deletes.
 //
@@ -70,6 +70,7 @@ import {
   type StatusFlagKey,
   VISIBILITY_FLAG_KEYS,
 } from "@/v2/utils/romStatus";
+import { settleWithLimit } from "@/v2/utils/settleWithLimit";
 import {
   FILLET_PX,
   NOTCH_RADIUS_PX,
@@ -117,7 +118,7 @@ const canEditRom = useCan("rom.edit");
 // Bulk delete hits `POST /roms/delete`, which gates on ROMS_WRITE
 const canDelete = computed(() => hasDeleteGrant.value && canEditRom.value);
 
-// `favorite` is the favourite collection — used to compute "are all
+// `favorite` is the favourite collection, used to compute "are all
 // selected ROMs in favorites?" so the button can toggle between
 // "add to" / "remove from" instead of forcing a separate unfavorite
 // action. Same model as the per-card favourite button.
@@ -163,7 +164,7 @@ async function bulkFavorite() {
     collectionsStore.setFavoriteCollection(data);
     if (wasAllFavorited && galleryRomsStore.currentCollection?.id === fav.id) {
       // We were on the favourites collection view and just removed
-      // every selected rom from it — drop them from the visible
+      // every selected rom from it; drop them from the visible
       // roms so the UI reflects the new membership immediately.
       removeCachedRoms(roms);
     }
@@ -182,14 +183,16 @@ async function bulkFavorite() {
   }
 }
 
-// Bulk status — toggles one play-status across the whole selection,
+// Bulk status: toggles one play-status across the whole selection,
 // mirroring the favourite button's all-or-nothing model: a status reads
 // as "active" only when *every* selected ROM already has it. Clicking an
 // active status clears it on all; clicking an inactive one (at least one
 // ROM is missing it) sets it on all. The per-rom `updateUserRomProps` is
 // the only endpoint (no bulk variant), so we fan out one request per ROM,
 // optimistically write the store, and revert only the ROMs whose request
-// failed.
+// failed. The fan-out is bounded so a whole-library selection doesn't queue
+// thousands of requests on a single-worker backend.
+const STATUS_CONCURRENCY = 4;
 //
 // `enumAllActive` / `flagAllActive` mirror `allFavorited`: keyed by
 // status so each menu row can paint its active state and decide its
@@ -231,8 +234,8 @@ async function applyStatus(data: Partial<RomUserData>) {
     syncCachedRom(rom);
   }
 
-  const results = await Promise.allSettled(
-    roms.map((rom) => romApi.updateUserRomProps({ romId: rom.id, data })),
+  const results = await settleWithLimit(roms, STATUS_CONCURRENCY, (rom) =>
+    romApi.updateUserRomProps({ romId: rom.id, data }),
   );
   const failed = roms.filter((_, i) => results[i].status === "rejected");
   for (const rom of failed) {
@@ -280,7 +283,7 @@ function manageCollections() {
   emitter?.emit("showManageCollectionsDialog", selection.roms);
 }
 
-function bulkDownload() {
+async function bulkDownload() {
   const roms = selection.roms;
   if (roms.length === 0) return;
   if (roms.length === 1) {
@@ -289,8 +292,12 @@ function bulkDownload() {
   }
   // Bundle multi-selections into a single zip server-side; firing one
   // anchor download per ROM trips browser multi-download blocking.
-  void romApi.bulkDownloadRoms({ romIDs: roms.map((r) => r.id) });
-  snackbar.info(t("gallery.selection-download-many", { n: roms.length }));
+  try {
+    await romApi.bulkDownloadRoms({ romIDs: roms.map((r) => r.id) });
+    snackbar.info(t("gallery.selection-download-many", { n: roms.length }));
+  } catch {
+    snackbar.error(t("gallery.selection-download-fail"));
+  }
 }
 
 function bulkRefresh() {
@@ -410,7 +417,7 @@ function clear() {
       <!-- Default slot: action buttons. Order mirrors the v1 FAB:
            download → favourite → collections → refresh → delete.
            Every button is wrapped in RTooltip so the user gets a
-           consistent hover hint and gamepad users see the label —
+           consistent hover hint and gamepad users see the label,
            the v2 visual vocabulary for icon-only buttons. -->
       <RTooltip
         v-if="canDownload && !hideDownload"
@@ -440,7 +447,7 @@ function clear() {
         </template>
       </RTooltip>
 
-      <!-- Set status — opens a picker that toggles one play-status across
+      <!-- Set status: opens a picker that toggles one play-status across
            the whole selection. Mirrors the per-ROM status menu
            (GameActionBtn) and the favourite button's all-or-nothing
            model: a row reads active only when every selected ROM already
@@ -463,7 +470,7 @@ function clear() {
             :aria-label="t('gallery.selection-status')"
           />
         </template>
-        <!-- Enum statuses — single play-status per ROM. Active row tints
+        <!-- Enum statuses: single play-status per ROM. Active row tints
              brand when all selected share it. -->
         <RMenuItem
           v-for="key in ENUM_KEYS"
@@ -477,7 +484,7 @@ function clear() {
 
         <RDivider />
 
-        <!-- Play-status flags — independent toggles. Active rows tint
+        <!-- Play-status flags: independent toggles. Active rows tint
              brand and show a trailing check when every selected ROM has
              the flag set. -->
         <RMenuItem
@@ -496,7 +503,7 @@ function clear() {
 
         <RDivider />
 
-        <!-- Visibility flag — distinct category (library visibility,
+        <!-- Visibility flag: distinct category (library visibility,
              not play state) so it lives in its own section. -->
         <RMenuItem
           v-for="key in VISIBILITY_FLAG_KEYS"
@@ -564,7 +571,7 @@ function clear() {
         </template>
       </RTooltip>
 
-      <!-- Append region: clear button — floats to the right edge via
+      <!-- Append region: clear button, floats to the right edge via
            RToolbar's built-in spacer. -->
       <template #append>
         <RTooltip :text="t('gallery.selection-clear')">

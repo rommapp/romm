@@ -2,6 +2,7 @@
 // DeleteRomDialog: single or multi-ROM delete flow. Each row has a
 // "also remove file from disk" checkbox; a global "exclude on delete" flag
 // adds deleted filenames to the scan exclusion list so they don't re-appear.
+// Rows render in pages so a whole-library selection doesn't mount every cover.
 import { RBtn, RCheckbox, RDialog, RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
@@ -16,8 +17,11 @@ import type { Events } from "@/types/emitter";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { romIdFromRoute } from "@/v2/composables/useRouteRom";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { settleWithLimit } from "@/v2/utils/settleWithLimit";
 
 defineOptions({ inheritAttrs: false });
+
+const ROWS_PAGE_SIZE = 50;
 
 const { t } = useI18n();
 const router = useRouter();
@@ -33,9 +37,20 @@ const deleting = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const configStore = storeConfig();
+const shownCount = ref(ROWS_PAGE_SIZE);
+const shownRoms = computed(() => roms.value.slice(0, shownCount.value));
+const nextPageCount = computed(() =>
+  Math.min(ROWS_PAGE_SIZE, roms.value.length - shownRoms.value.length),
+);
+const fsIds = computed(() => new Set(romsToDeleteFromFs.value));
+
+function showMore() {
+  shownCount.value += ROWS_PAGE_SIZE;
+}
 
 const openHandler = (romsToDelete: SimpleRom[]) => {
   roms.value = romsToDelete;
+  shownCount.value = ROWS_PAGE_SIZE;
   platformId.value = romsToDelete[0]?.platform_id ?? 0;
   show.value = true;
 };
@@ -104,16 +119,20 @@ async function deleteRoms() {
       { icon: "mdi-check-bold" },
     );
     if (exclude) {
-      for (const rom of deletedRoms) {
-        const type = rom.has_simple_single_file
+      const exclusionType = (rom: SimpleRom) =>
+        rom.has_simple_single_file
           ? "EXCLUDED_SINGLE_FILES"
           : "EXCLUDED_MULTI_FILES";
+      for (const rom of deletedRoms) {
+        configStore.addExclusion(exclusionType(rom), rom.fs_name);
+      }
+      // One at a time: each call rewrites the config file server-side.
+      void settleWithLimit(deletedRoms, 1, (rom) =>
         configApi.addExclusion({
           exclusionValue: rom.fs_name,
-          exclusionType: type,
-        });
-        configStore.addExclusion(type, rom.fs_name);
-      }
+          exclusionType: exclusionType(rom),
+        }),
+      );
     }
     romsStore.resetSelection();
     removeCachedRoms(deletedRoms);
@@ -204,12 +223,10 @@ function closeDialog() {
     <template #content>
       <ul class="r-v2-del-rom__list">
         <li
-          v-for="rom in roms"
+          v-for="rom in shownRoms"
           :key="rom.id"
           class="r-v2-del-rom__row"
-          :class="{
-            'r-v2-del-rom__row--fs': romsToDeleteFromFs.includes(rom.id),
-          }"
+          :class="{ 'r-v2-del-rom__row--fs': fsIds.has(rom.id) }"
         >
           <div class="r-v2-del-rom__cover">
             <img
@@ -232,18 +249,19 @@ function closeDialog() {
           <button
             type="button"
             class="r-v2-del-rom__fs-toggle"
-            :aria-pressed="romsToDeleteFromFs.includes(rom.id)"
+            :aria-pressed="fsIds.has(rom.id)"
             :aria-label="t('rom.delete-from-disk-aria', { name: rom.fs_name })"
-            :class="{
-              'r-v2-del-rom__fs-toggle--on': romsToDeleteFromFs.includes(
-                rom.id,
-              ),
-            }"
+            :class="{ 'r-v2-del-rom__fs-toggle--on': fsIds.has(rom.id) }"
             @click="toggleRomOnFs(rom.id)"
           >
             <RIcon icon="mdi-harddisk-remove" size="14" />
             {{ t("rom.delete-file") }}
           </button>
+        </li>
+        <li v-if="nextPageCount > 0" class="r-v2-del-rom__more">
+          <RBtn variant="text" size="small" @click="showMore">
+            {{ t("rom.delete-show-more", { n: nextPageCount }) }}
+          </RBtn>
         </li>
       </ul>
     </template>
@@ -319,6 +337,11 @@ function closeDialog() {
   gap: 6px;
   max-height: 360px;
   overflow-y: auto;
+}
+
+.r-v2-del-rom__more {
+  display: flex;
+  justify-content: center;
 }
 
 .r-v2-del-rom__row {

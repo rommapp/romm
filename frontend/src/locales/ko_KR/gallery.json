@@ -11,6 +11,7 @@
   "selection-delete": "삭제",
   "selection-deselect-all": "모두 선택 해제",
   "selection-download": "다운로드",
+  "selection-download-fail": "다운로드를 시작하지 못했습니다",
   "selection-download-many": "{n}개의 게임 다운로드 중…",
   "selection-favorite": "즐겨찾기에 추가",
   "selection-favorite-fail": "즐겨찾기를 업데이트하지 못했습니다",

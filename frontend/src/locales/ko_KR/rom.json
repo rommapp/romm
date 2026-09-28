@@ -128,6 +128,7 @@
   "delete-screenshot-body-named": "\"{name}\"이(가) 이 ROM과 파일 시스템에서 제거됩니다. 이 작업은 되돌릴 수 없습니다.",
   "delete-screenshot-title": "스크린샷을 삭제하시겠습니까?",
   "delete-select-instruction": "파일 시스템에서 제거할 게임을 선택하세요. 그렇지 않으면 RomM 데이터베이스에서만 삭제됩니다.",
+  "delete-show-more": "{n}개 더 보기",
   "delete-state": "상태 삭제",
   "delete-state-body-named": "\"{name}\"이(가) 이 ROM과 파일 시스템에서 제거됩니다. 이 작업은 되돌릴 수 없습니다.",
   "delete-state-title": "상태를 삭제하시겠습니까?",

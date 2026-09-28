@@ -106,3 +106,53 @@ describe("DeleteRomDialog", () => {
     expect(storeRoms().getDetailedRom(6)).toBeNull();
   });
 });
+
+describe("DeleteRomDialog with a large selection", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+    deleteRoms.mockResolvedValue({
+      data: { failed_ids: [], successful_items: 120 },
+    });
+  });
+
+  async function openWith(count: number) {
+    const emitter: Emitter<Events> = mitt<Events>();
+    const wrapper = mount(DeleteRomDialog, {
+      global: {
+        provide: { emitter },
+        stubs: { RDialog, RBtn, RCheckbox: true, RIcon: true },
+      },
+    });
+    emitter.emit(
+      "showDeleteRomDialog",
+      Array.from({ length: count }, (_, i) =>
+        makeRom({ id: i + 1, platform_id: 1 }),
+      ),
+    );
+    await flushPromises();
+    return wrapper;
+  }
+
+  it("renders rows a page at a time", async () => {
+    const wrapper = await openWith(120);
+    expect(wrapper.findAll(".r-v2-del-rom__row")).toHaveLength(50);
+
+    await wrapper.find(".r-v2-del-rom__more button").trigger("click");
+    expect(wrapper.findAll(".r-v2-del-rom__row")).toHaveLength(100);
+
+    await wrapper.find(".r-v2-del-rom__more button").trigger("click");
+    expect(wrapper.findAll(".r-v2-del-rom__row")).toHaveLength(120);
+    expect(wrapper.find(".r-v2-del-rom__more").exists()).toBe(false);
+  });
+
+  it("still deletes the rows that were never shown", async () => {
+    const wrapper = await openWith(120);
+
+    await wrapper.findAll("button").at(-1)?.trigger("click");
+    await flushPromises();
+
+    const sent = deleteRoms.mock.calls[0][0] as { roms: { id: number }[] };
+    expect(sent.roms).toHaveLength(120);
+  });
+});

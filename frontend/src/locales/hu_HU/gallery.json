@@ -11,6 +11,7 @@
   "selection-delete": "Törlés",
   "selection-deselect-all": "Kijelölés megszüntetése",
   "selection-download": "Letöltés",
+  "selection-download-fail": "A letöltés indítása sikertelen",
   "selection-download-many": "{n} játék letöltése folyamatban…",
   "selection-favorite": "Hozzáadás a kedvencekhez",
   "selection-favorite-fail": "A kedvencek frissítése sikertelen",

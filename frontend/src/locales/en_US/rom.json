@@ -128,6 +128,7 @@
   "delete-screenshot-body-named": "\"{name}\" will be removed from this ROM and from the file system. This can't be undone.",
   "delete-screenshot-title": "Delete screenshot?",
   "delete-select-instruction": "Select the games you want to remove from your filesystem, otherwise they will only be deleted from RomM database.",
+  "delete-show-more": "Show {n} more",
   "delete-state": "Delete state",
   "delete-state-body-named": "\"{name}\" will be removed from this ROM and from the file system. This can't be undone.",
   "delete-state-title": "Delete state?",

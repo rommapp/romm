@@ -11,6 +11,7 @@
   "selection-delete": "Löschen",
   "selection-deselect-all": "Alle abwählen",
   "selection-download": "Herunterladen",
+  "selection-download-fail": "Download konnte nicht gestartet werden",
   "selection-download-many": "{n} Spiele werden heruntergeladen…",
   "selection-favorite": "Zu Favoriten hinzufügen",
   "selection-favorite-fail": "Favoriten konnten nicht aktualisiert werden",

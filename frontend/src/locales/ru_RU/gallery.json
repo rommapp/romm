@@ -11,6 +11,7 @@
   "selection-delete": "Удалить",
   "selection-deselect-all": "Снять выбор со всех",
   "selection-download": "Скачать",
+  "selection-download-fail": "Не удалось начать скачивание",
   "selection-download-many": "Скачивание {n} игр…",
   "selection-favorite": "Добавить в избранное",
   "selection-favorite-fail": "Не удалось обновить избранное",

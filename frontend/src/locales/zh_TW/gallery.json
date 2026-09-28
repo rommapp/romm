@@ -11,6 +11,7 @@
   "selection-delete": "刪除",
   "selection-deselect-all": "取消選擇全部",
   "selection-download": "下載",
+  "selection-download-fail": "無法開始下載",
   "selection-download-many": "正在下載 {n} 個遊戲…",
   "selection-favorite": "加入喜好",
   "selection-favorite-fail": "更新喜好失敗",

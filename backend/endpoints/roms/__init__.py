@@ -1,6 +1,7 @@
 import binascii
 import json
 import re
+import secrets
 from base64 import b64encode
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -33,7 +34,7 @@ from config import (
     LIBRARY_BASE_PATH,
 )
 from decorators.auth import protected_route
-from endpoints.responses import BulkOperationResponse
+from endpoints.responses import BulkDownloadSelectionSchema, BulkOperationResponse
 from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
 from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
@@ -98,6 +99,7 @@ from handler.metadata.ss_handler import (
     get_preferred_media_types,
 )
 from handler.recommendation import similar_roms
+from handler.redis_handler import async_cache
 from handler.rom_conversion import promote_single_file_to_folder
 from handler.scan_handler import (
     MetadataSource,
@@ -911,6 +913,53 @@ def _bulk_download_target(
     return AuditTarget(target.type, target.id, None)
 
 
+BULK_DOWNLOAD_SELECTION_TTL: Final[int] = 3600
+
+
+def _bulk_download_selection_key(token: str) -> str:
+    return f"romm:bulk-download-selection:{token}"
+
+
+@protected_route(
+    router.post,
+    "/download/selection",
+    [Scope.ROMS_READ],
+)
+async def create_download_selection(
+    request: Request,
+    rom_ids: Annotated[
+        list[int],
+        Body(
+            description="ROM IDs to download as a zip file.",
+            embed=True,
+            min_length=1,
+        ),
+    ],
+) -> BulkDownloadSelectionSchema:
+    """Store a list of ROM IDs too long for a URL, for `GET /roms/download?selection=`."""
+    token = secrets.token_urlsafe(16)
+    user_id = request.user.id if request.user.is_authenticated else None
+    # The TTL outlives the download itself so a resumed transfer still resolves.
+    await async_cache.set(
+        _bulk_download_selection_key(token),
+        json.dumps({"user_id": user_id, "rom_ids": rom_ids}),
+        ex=BULK_DOWNLOAD_SELECTION_TTL,
+    )
+    return {"token": token}
+
+
+async def _resolve_download_selection(request: Request, token: str) -> list[int]:
+    raw = await async_cache.get(_bulk_download_selection_key(token))
+    user_id = request.user.id if request.user.is_authenticated else None
+    stored = json.loads(raw) if raw else None
+    if not stored or stored["user_id"] != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Download selection not found or expired",
+        )
+    return cast(list[int], stored["rom_ids"])
+
+
 @protected_route(
     router.get,
     "/download",
@@ -945,6 +994,12 @@ async def download_roms(
             ge=1,
         ),
     ] = None,
+    selection: Annotated[
+        str | None,
+        Query(
+            description="Token from `POST /roms/download/selection` naming the ROMs to download.",
+        ),
+    ] = None,
     filename: Annotated[
         str | None,
         Query(
@@ -971,6 +1026,8 @@ async def download_roms(
             hidden_rom_ids=list(perms.hidden_rom_ids),
             **HAS_FILE_ON_DISK_FILTERS,
         )
+    elif selection:
+        rom_id_list = await _resolve_download_selection(request, selection)
     elif rom_ids:
         try:
             rom_id_list = parse_comma_separated_ids(rom_ids, "ROM ID")

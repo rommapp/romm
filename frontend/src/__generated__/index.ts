@@ -29,6 +29,7 @@ export type { Body_add_smart_collection_api_collections_smart_post } from './mod
 export type { Body_add_state_api_states_post } from './models/Body_add_state_api_states_post';
 export type { Body_add_user_api_users_post } from './models/Body_add_user_api_users_post';
 export type { Body_confirm_download_api_saves__id__downloaded_post } from './models/Body_confirm_download_api_saves__id__downloaded_post';
+export type { Body_create_download_selection_api_roms_download_selection_post } from './models/Body_create_download_selection_api_roms_download_selection_post';
 export type { Body_create_user_from_invite_api_users_register_post } from './models/Body_create_user_from_invite_api_users_register_post';
 export type { Body_delete_firmware_api_firmware_delete_post } from './models/Body_delete_firmware_api_firmware_delete_post';
 export type { Body_delete_memory_cards_api_memory_cards_delete_post } from './models/Body_delete_memory_cards_api_memory_cards_delete_post';
@@ -63,6 +64,7 @@ export type { Body_update_state_favorite_api_states__id__favorite_put } from './
 export type { Body_update_state_labels_api_states__id__labels_put } from './models/Body_update_state_labels_api_states__id__labels_put';
 export type { Body_update_state_visibility_api_states__id__visibility_put } from './models/Body_update_state_visibility_api_states__id__visibility_put';
 export type { Body_upload_memory_card_version_api_memory_cards__id__versions_post } from './models/Body_upload_memory_card_version_api_memory_cards__id__versions_post';
+export type { BulkDownloadSelectionSchema } from './models/BulkDownloadSelectionSchema';
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
 export type { ClaimStreamingSessionRequest } from './models/ClaimStreamingSessionRequest';
 export type { CleanupTaskMeta } from './models/CleanupTaskMeta';

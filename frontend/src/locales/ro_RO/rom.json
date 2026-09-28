@@ -128,6 +128,7 @@
   "delete-screenshot-body-named": "„{name}” va fi eliminată din acest ROM și din sistemul de fișiere. Această acțiune nu poate fi anulată.",
   "delete-screenshot-title": "Ștergi captura de ecran?",
   "delete-select-instruction": "Selectează jocurile pe care vrei să le elimini din sistemul de fișiere, altfel vor fi șterse doar din baza de date RomM.",
+  "delete-show-more": "Afișează încă {n}",
   "delete-state": "Șterge starea",
   "delete-state-body-named": "„{name}” va fi eliminată din acest ROM și din sistemul de fișiere. Această acțiune nu poate fi anulată.",
   "delete-state-title": "Ștergi starea?",

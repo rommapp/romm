@@ -1,5 +1,5 @@
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeUpload from "@/stores/upload";
 
@@ -214,5 +214,51 @@ describe("getRoms game-length range", () => {
 
     expect(params).not.toHaveProperty("hltb_main_story_min");
     expect(params.hltb_main_story_max).toBe(36000);
+  });
+});
+
+describe("bulkDownloadRoms", () => {
+  beforeEach(() => {
+    post.mockReset();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  function clickedHref(): Promise<string> {
+    return new Promise((resolve) => {
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementationOnce(
+        function (this: HTMLAnchorElement) {
+          resolve(this.getAttribute("href") ?? "");
+        },
+      );
+    });
+  }
+
+  it("posts an id list and downloads it by token, not in the URL", async () => {
+    post.mockResolvedValue({ data: { token: "tok" } });
+    const href = clickedHref();
+
+    const done = romApi.bulkDownloadRoms({ romIDs: [1, 2, 3] });
+
+    expect(await href).toBe("/api/roms/download?selection=tok");
+    expect(post).toHaveBeenCalledWith("/roms/download/selection", {
+      rom_ids: [1, 2, 3],
+    });
+    await vi.runAllTimersAsync();
+    await done;
+  });
+
+  it("keeps a platform selector in the URL without a round trip", async () => {
+    const href = clickedHref();
+
+    const done = romApi.bulkDownloadRoms({ platformId: 7 });
+
+    expect(await href).toBe("/api/roms/download?platform_id=7");
+    expect(post).not.toHaveBeenCalled();
+    await vi.runAllTimersAsync();
+    await done;
   });
 });

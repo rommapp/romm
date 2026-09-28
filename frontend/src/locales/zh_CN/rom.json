@@ -128,6 +128,7 @@
   "delete-screenshot-body-named": "\"{name}\" 将从此 ROM 及文件系统中移除。此操作无法撤销。",
   "delete-screenshot-title": "确定要删除截图吗？",
   "delete-select-instruction": "选择要从文件系统中删除的游戏，否则它们只会从 RomM 数据库中删除。",
+  "delete-show-more": "再显示 {n} 个",
   "delete-state": "删除状态",
   "delete-state-body-named": "\"{name}\" 将从此 ROM 及文件系统中移除。此操作无法撤销。",
   "delete-state-title": "确定要删除状态吗？",

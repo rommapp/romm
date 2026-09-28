@@ -128,6 +128,7 @@
   "delete-screenshot-body-named": "\"{name}\", bu ROM'dan ve dosya sisteminden kaldırılacak. Bu işlem geri alınamaz.",
   "delete-screenshot-title": "Ekran görüntüsü silinsin mi?",
   "delete-select-instruction": "Dosya sisteminizden kaldırmak istediğiniz oyunları seçin; aksi takdirde yalnızca RomM veritabanından silinirler.",
+  "delete-show-more": "{n} tane daha göster",
   "delete-state": "Durum kaydını sil",
   "delete-state-body-named": "\"{name}\", bu ROM'dan ve dosya sisteminden kaldırılacak. Bu işlem geri alınamaz.",
   "delete-state-title": "Durum kaydı silinsin mi?",

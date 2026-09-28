@@ -11,6 +11,7 @@
   "selection-delete": "Sil",
   "selection-deselect-all": "Tümünün seçimini kaldır",
   "selection-download": "İndir",
+  "selection-download-fail": "İndirme başlatılamadı",
   "selection-download-many": "{n} oyun indiriliyor…",
   "selection-favorite": "Favorilere ekle",
   "selection-favorite-fail": "Favoriler güncellenemedi",

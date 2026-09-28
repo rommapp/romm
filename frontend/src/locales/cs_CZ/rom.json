@@ -128,6 +128,7 @@
   "delete-screenshot-body-named": "„{name}“ bude odebráno z této ROM a ze souborového systému. Tuto akci nelze vrátit zpět.",
   "delete-screenshot-title": "Smazat screenshot?",
   "delete-select-instruction": "Vyberte hry, které chcete odstranit ze souborového systému, jinak budou smazány pouze z databáze RomM.",
+  "delete-show-more": "Zobrazit dalších {n}",
   "delete-state": "Smazat stav",
   "delete-state-body-named": "„{name}“ bude odebráno z této ROM a ze souborového systému. Tuto akci nelze vrátit zpět.",
   "delete-state-title": "Smazat stav?",

@@ -128,6 +128,7 @@
   "delete-screenshot-body-named": "« {name} » sera supprimée de cette ROM et du système de fichiers. Cette action est irréversible.",
   "delete-screenshot-title": "Supprimer la capture d'écran ?",
   "delete-select-instruction": "Sélectionnez les jeux à supprimer de votre système de fichiers, sinon ils seront uniquement supprimés de la base de données RomM.",
+  "delete-show-more": "Afficher {n} de plus",
   "delete-state": "Supprimer l'état",
   "delete-state-body-named": "« {name} » sera supprimé de cette ROM et du système de fichiers. Cette action est irréversible.",
   "delete-state-title": "Supprimer l'état ?",

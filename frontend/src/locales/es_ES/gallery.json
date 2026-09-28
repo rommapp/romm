@@ -11,6 +11,7 @@
   "selection-delete": "Eliminar",
   "selection-deselect-all": "Deseleccionar todo",
   "selection-download": "Descargar",
+  "selection-download-fail": "Error al iniciar la descarga",
   "selection-download-many": "Descargando {n} juegos…",
   "selection-favorite": "Añadir a favoritos",
   "selection-favorite-fail": "Error al actualizar favoritos",

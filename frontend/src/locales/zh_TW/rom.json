@@ -128,6 +128,7 @@
   "delete-screenshot-body-named": "「{name}」將從此 ROM 及檔案系統中移除。此操作無法復原。",
   "delete-screenshot-title": "刪除螢幕截圖？",
   "delete-select-instruction": "選擇要從檔案系統中刪除的遊戲，否則它們只會從 RomM 資料庫中刪除。",
+  "delete-show-more": "再顯示 {n} 個",
   "delete-state": "刪除即時存檔",
   "delete-state-body-named": "「{name}」將從此 ROM 及檔案系統中移除。此操作無法復原。",
   "delete-state-title": "刪除即時存檔？",
