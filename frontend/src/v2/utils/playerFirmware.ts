@@ -64,7 +64,6 @@ export function firmwareExternalFiles(
   );
 }
 
-// Only these members are read off the EmulatorJS instance.
 interface ArcadeBiosEmulator {
   config: { biosUrl?: string; externalFiles?: Record<string, string> };
   getCore(generic?: boolean): string;

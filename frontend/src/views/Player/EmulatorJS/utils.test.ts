@@ -223,6 +223,31 @@ describe("installEJSDefaultOptionsTrap", () => {
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
+
+  it("hands an FBNeo BIOS archive to the core whole on the 4.2.3 build", () => {
+    const emulator = makeEmulator({});
+    Object.assign(emulator.config, {
+      system: "fbneo",
+      biosUrl: "/api/firmware/1/content/neogeo.zip",
+    });
+    // Mirrors EmulatorJS 4.2.3's generic core lookup.
+    emulator.getCores = () => ({ arcade: ["fbneo"], mame: ["mame2003"] });
+    emulator.getCore = function (generic?: boolean) {
+      const cores = this.getCores();
+      if (!generic) return this.config.system;
+      return (
+        Object.keys(cores).find((k) => cores[k].includes(this.config.system)) ??
+        this.config.system
+      );
+    };
+    emulator.downloadGameFile = () => {};
+    window.EJS_emulator = emulator;
+
+    expect(emulator.config.biosUrl).toBe("");
+    expect(emulator.config.externalFiles).toEqual({
+      "/neogeo.zip": "/api/firmware/1/content/neogeo.zip",
+    });
+  });
 });
 
 describe("createSaveSyncTracker", () => {
