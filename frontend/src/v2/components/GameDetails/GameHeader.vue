@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // GameHeader: right-column header for the details view.
 // Four rows, top to bottom:
-//   1. Title, or the game's logo when one was scraped (+ previous / next
-//      game arrows on the right, desktop only)
+//   1. Title, or the game's scraped logo when the user opts in (+ previous /
+//      next game arrows on the right, desktop only)
 //   2. Meta (year · platform-icon + platform · verified RTag)
 //   3. Tags (regions + languages + custom tags) as RTag primitives,
 //      each a `searchLocation` pivot into the filtered search
@@ -13,6 +13,7 @@
 import { RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useUISettings } from "@/composables/useUISettings";
 import type { DetailedRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
@@ -42,11 +43,12 @@ const props = defineProps<{
 }>();
 
 const actions = useGameActions(() => props.rom);
+const { showLogoTitle } = useUISettings();
 
 const logoFailed = ref(false);
 const logoUrl = computed(() => {
   const path = props.rom.ss_metadata?.logo_path;
-  if (!path || logoFailed.value) return null;
+  if (!showLogoTitle.value || !path || logoFailed.value) return null;
   return `${FRONTEND_RESOURCES_PATH}/${path}?v=${encodeURIComponent(props.rom.updated_at)}`;
 });
 watch(
