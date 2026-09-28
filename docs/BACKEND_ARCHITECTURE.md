@@ -521,21 +521,22 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 
 **Table:** `users`
 
-| Column            | Type                              | Notes                      |
-| ----------------- | --------------------------------- | -------------------------- |
-| `id`              | Integer                           | PK, autoincrement          |
-| `username`        | String(255)                       | Unique, indexed            |
-| `hashed_password` | String(255)                       | Nullable (OIDC users)      |
-| `email`           | String(255)                       | Unique, indexed, nullable  |
-| `oidc_sub`        | String(255)                       | OIDC `sub`, unique, null   |
-| `enabled`         | Boolean                           | Default `True`             |
-| `role`            | Enum(`VIEWER`, `EDITOR`, `ADMIN`) | Default `VIEWER`           |
-| `avatar_path`     | String(255)                       | Default `""`               |
-| `last_login`      | Timestamp                         | Nullable                   |
-| `last_active`     | Timestamp                         | Nullable                   |
-| `ra_username`     | String(255)                       | RetroAchievements username |
-| `ra_progression`  | JSON                              | RetroAchievements data     |
-| `ui_settings`     | JSON                              | User preferences           |
+| Column            | Type                              | Notes                                           |
+| ----------------- | --------------------------------- | ----------------------------------------------- |
+| `id`              | Integer                           | PK, autoincrement                               |
+| `username`        | String(255)                       | Unique, indexed                                 |
+| `hashed_password` | String(255)                       | Nullable (OIDC users)                           |
+| `email`           | String(255)                       | Unique, indexed, nullable                       |
+| `oidc_issuer`     | ExactString(255)                  | OIDC `iss`, nullable                            |
+| `oidc_sub`        | ExactString(255)                  | OIDC `sub`, nullable; unique with `oidc_issuer` |
+| `enabled`         | Boolean                           | Default `True`                                  |
+| `role`            | Enum(`VIEWER`, `EDITOR`, `ADMIN`) | Default `VIEWER`                                |
+| `avatar_path`     | String(255)                       | Default `""`                                    |
+| `last_login`      | Timestamp                         | Nullable                                        |
+| `last_active`     | Timestamp                         | Nullable                                        |
+| `ra_username`     | String(255)                       | RetroAchievements username                      |
+| `ra_progression`  | JSON                              | RetroAchievements data                          |
+| `ui_settings`     | JSON                              | User preferences                                |
 
 **Relationships:** saves (1:M), states (1:M), screenshots (1:M), rom_users (1:M), notes (1:M), collections (1:M), smart_collections (1:M), devices (1:M, cascade), client_tokens (1:M, cascade)
 

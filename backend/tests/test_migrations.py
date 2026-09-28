@@ -320,6 +320,7 @@ def test_the_user_oidc_sub_revision_reverses_and_replays():
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
             assert not has_column(connection, "users", "oidc_sub")
+            assert not has_column(connection, "users", "oidc_issuer")
 
             migration.downgrade()
             migration.upgrade()

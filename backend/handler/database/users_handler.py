@@ -65,12 +65,15 @@ class DBUsersHandler(DBBaseHandler):
         return session.scalar(query.limit(1))
 
     @begin_session
-    def get_user_by_oidc_sub(
+    def get_user_by_oidc_identity(
         self,
+        oidc_issuer: str,
         oidc_sub: str,
         session: Session = INJECTED_SESSION,
     ) -> User | None:
-        return session.scalar(select(User).filter_by(oidc_sub=oidc_sub).limit(1))
+        return session.scalar(
+            select(User).filter_by(oidc_issuer=oidc_issuer, oidc_sub=oidc_sub).limit(1)
+        )
 
     @begin_session
     def get_user(

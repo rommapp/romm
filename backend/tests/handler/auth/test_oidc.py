@@ -793,28 +793,43 @@ async def test_oidc_discovery_failure_falls_back_to_id_token(
     assert claims == mock_id_token_only_standard_claims["userinfo"]
 
 
-def _add_user(username: str, email: str, oidc_sub: str | None = None) -> User:
+ISSUER = "http://localhost:9000/application/o/romm/"
+
+
+def _add_user(
+    username: str,
+    email: str,
+    oidc_sub: str | None = None,
+    oidc_issuer: str | None = ISSUER,
+    enabled: bool = True,
+) -> User:
     return db_user_handler.add_user(
         User(
             username=username,
             hashed_password="",
             email=email,
+            oidc_issuer=oidc_issuer if oidc_sub else None,
             oidc_sub=oidc_sub,
+            enabled=enabled,
             role=Role.USER,
         )
     )
 
 
-async def test_oidc_login_links_the_sub_to_the_user_matched_by_email(
-    mocker, mock_oidc_enabled, mock_token, mock_openid_configuration
-):
-    existing = _add_user("testuser", "test@example.com")
-    mock_token["userinfo"]["sub"] = "sub-1"
+@pytest.fixture
+def mock_discovery(mocker, mock_openid_configuration):
     mocker.patch.object(
         StarletteOAuth2App,
         "load_server_metadata",
         return_value=mock_openid_configuration,
     )
+
+
+async def test_oidc_login_links_the_identity_to_the_user_matched_by_email(
+    mock_oidc_enabled, mock_token, mock_discovery
+):
+    existing = _add_user("testuser", "test@example.com")
+    mock_token["userinfo"]["sub"] = "sub-1"
 
     user, _ = await OpenIDHandler().get_current_active_user_from_openid_token(
         mock_token
@@ -822,24 +837,18 @@ async def test_oidc_login_links_the_sub_to_the_user_matched_by_email(
 
     assert user is not None
     assert user.id == existing.id
-    assert user.oidc_sub == "sub-1"
+    assert (user.oidc_issuer, user.oidc_sub) == (ISSUER, "sub-1")
 
 
 async def test_oidc_login_follows_an_email_change_at_the_provider(
-    mocker,
     mock_oidc_enabled,
     mock_oidc_allow_registration_disabled,
     mock_token,
-    mock_openid_configuration,
+    mock_discovery,
 ):
     existing = _add_user("testuser", "old@example.com", oidc_sub="sub-1")
     mock_token["userinfo"]["sub"] = "sub-1"
     mock_token["userinfo"]["email"] = "new@example.com"
-    mocker.patch.object(
-        StarletteOAuth2App,
-        "load_server_metadata",
-        return_value=mock_openid_configuration,
-    )
 
     user, _ = await OpenIDHandler().get_current_active_user_from_openid_token(
         mock_token
@@ -851,17 +860,12 @@ async def test_oidc_login_follows_an_email_change_at_the_provider(
 
 
 async def test_oidc_login_keeps_the_email_when_another_user_holds_the_new_one(
-    mocker, mock_oidc_enabled, mock_token, mock_openid_configuration
+    mock_oidc_enabled, mock_token, mock_discovery
 ):
     existing = _add_user("testuser", "old@example.com", oidc_sub="sub-1")
     _add_user("other", "new@example.com")
     mock_token["userinfo"]["sub"] = "sub-1"
     mock_token["userinfo"]["email"] = "new@example.com"
-    mocker.patch.object(
-        StarletteOAuth2App,
-        "load_server_metadata",
-        return_value=mock_openid_configuration,
-    )
 
     user, _ = await OpenIDHandler().get_current_active_user_from_openid_token(
         mock_token
@@ -872,19 +876,97 @@ async def test_oidc_login_keeps_the_email_when_another_user_holds_the_new_one(
     assert user.email == "old@example.com"
 
 
-async def test_oidc_registration_stores_the_sub(
-    mocker,
+async def test_oidc_login_keeps_the_email_when_it_is_claimed_during_login(
+    mocker, mock_oidc_enabled, mock_token, mock_discovery
+):
+    existing = _add_user("testuser", "old@example.com", oidc_sub="sub-1")
+    mock_token["userinfo"]["sub"] = "sub-1"
+    mock_token["userinfo"]["email"] = "new@example.com"
+    # The availability check misses an account that claims the email right after
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_email", return_value=None
+    )
+    _add_user("other", "new@example.com")
+
+    user, _ = await OpenIDHandler().get_current_active_user_from_openid_token(
+        mock_token
+    )
+
+    assert user is not None
+    assert user.id == existing.id
+    assert user.email == "old@example.com"
+
+
+async def test_oidc_login_refuses_an_email_linked_to_another_subject(
+    mock_oidc_enabled, mock_token, mock_discovery
+):
+    existing = _add_user("testuser", "test@example.com", oidc_sub="sub-1")
+    mock_token["userinfo"]["sub"] = "sub-2"
+
+    with pytest.raises(HTTPException) as exc:
+        await OpenIDHandler().get_current_active_user_from_openid_token(mock_token)
+
+    assert exc.value.status_code == 403
+    unchanged = db_user_handler.get_user(existing.id)
+    assert unchanged is not None
+    assert unchanged.oidc_sub == "sub-1"
+
+
+async def test_oidc_login_relinks_an_account_after_a_provider_switch(
+    mock_oidc_enabled, mock_token, mock_discovery
+):
+    existing = _add_user(
+        "testuser",
+        "test@example.com",
+        oidc_sub="sub-1",
+        oidc_issuer="https://old-idp.example.com",
+    )
+    mock_token["userinfo"]["sub"] = "sub-2"
+
+    user, _ = await OpenIDHandler().get_current_active_user_from_openid_token(
+        mock_token
+    )
+
+    assert user is not None
+    assert user.id == existing.id
+    assert (user.oidc_issuer, user.oidc_sub) == (ISSUER, "sub-2")
+
+
+async def test_oidc_login_matches_subjects_exactly(
+    mock_oidc_enabled,
+    mock_oidc_allow_registration_disabled,
+    mock_token,
+    mock_discovery,
+):
+    _add_user("testuser", "old@example.com", oidc_sub="abc")
+    mock_token["userinfo"]["sub"] = "ABC"
+    mock_token["userinfo"]["email"] = "unknown@example.com"
+
+    with pytest.raises(HTTPException, match="registration is disabled"):
+        await OpenIDHandler().get_current_active_user_from_openid_token(mock_token)
+
+
+async def test_oidc_login_does_not_relink_a_disabled_account(
+    mock_oidc_enabled, mock_token, mock_discovery
+):
+    existing = _add_user("testuser", "test@example.com", enabled=False)
+    mock_token["userinfo"]["sub"] = "sub-1"
+
+    with pytest.raises(HTTPException, match="Disabled user"):
+        await OpenIDHandler().get_current_active_user_from_openid_token(mock_token)
+
+    unchanged = db_user_handler.get_user(existing.id)
+    assert unchanged is not None
+    assert unchanged.oidc_sub is None
+
+
+async def test_oidc_registration_stores_the_identity(
     mock_oidc_enabled,
     mock_oidc_allow_registration_enabled,
     mock_token,
-    mock_openid_configuration,
+    mock_discovery,
 ):
     mock_token["userinfo"]["sub"] = "sub-1"
-    mocker.patch.object(
-        StarletteOAuth2App,
-        "load_server_metadata",
-        return_value=mock_openid_configuration,
-    )
 
     user, _ = await OpenIDHandler().get_current_active_user_from_openid_token(
         mock_token
@@ -892,4 +974,4 @@ async def test_oidc_registration_stores_the_sub(
 
     assert user is not None
     assert user.oidc_sub == "sub-1"
-    assert db_user_handler.get_user_by_oidc_sub("sub-1") is not None
+    assert db_user_handler.get_user_by_oidc_identity(ISSUER, "sub-1") is not None
