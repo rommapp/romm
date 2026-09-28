@@ -93,6 +93,8 @@ switch_product_ids.json
 
 # Playwright (e2e) artifacts
 frontend/e2e/.auth/
+# Sessions saved by older versions of the suite (live cookies)
+frontend/playwright/.auth/
 frontend/e2e/.env
 frontend/test-results/
 frontend/playwright-report/
