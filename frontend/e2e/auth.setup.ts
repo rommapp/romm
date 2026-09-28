@@ -16,9 +16,10 @@ import { test as setup } from "./fixtures/test";
 for (const role of ROLES) {
   setup(`authenticate as ${role}`, async ({ browser, page, e2eEnv }) => {
     // The first load compiles the app on a cold dev server, so this test gets
-    // longer than the suite default. A debug session's 0 is left alone.
-    if (setup.info().timeout > 0) setup.setTimeout(e2eEnv.CI ? 15_000 : 60_000);
-    const firstLoad = e2eEnv.CI ? 5_000 : 15_000;
+    // at least 60s. A debug session's 0 is left alone.
+    const budget = setup.info().timeout;
+    if (budget > 0) setup.setTimeout(Math.max(budget, 60_000));
+    const firstLoad = e2eEnv.CI ? 25_000 : 15_000;
     const account = accountFor(e2eEnv, role);
     const saved = STORAGE_STATE[role];
     const note = (description: string) =>

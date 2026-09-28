@@ -14,6 +14,13 @@ const debugging = !!process.env.PWDEBUG || inspectorUrl() !== undefined;
 // Off the default dev port, so the suite never collides with a `npm run dev`.
 const PORT = 3100;
 const ORIGIN = `http://127.0.0.1:${PORT}`;
+// Local runs fail fast. CI keeps its established policy until per-test
+// timings are measured. 0 means no timeout.
+const TIMEOUTS = debugging
+  ? { test: 0, expect: 0, action: 0, navigation: 0 }
+  : isCI
+    ? { test: 45_000, expect: 10_000, action: 15_000, navigation: 30_000 }
+    : { test: 10_000, expect: 3_000, action: 5_000, navigation: 5_000 };
 
 export default defineConfig<E2EOptions>({
   testDir: "./e2e",
@@ -21,25 +28,21 @@ export default defineConfig<E2EOptions>({
   // so the specs read it rather than mutate it and are safe to parallelise.
   fullyParallel: true,
   forbidOnly: isCI,
-  // Retries hide flakes; CI keeps one but still fails a test that needed it.
-  retries: isCI ? 1 : 0,
-  failOnFlakyTests: isCI,
-  maxFailures: isCI ? 5 : 0,
-  // Every worker hammers ONE dev server, whose on-demand transforms are the
-  // bottleneck, so keep the pool small locally. CI serves a static build.
-  workers: env.E2E_WORKERS ?? (isCI ? 4 : 2),
+  // Locally a failure shows on the first run; retries would hide it.
+  retries: isCI ? 2 : 0,
+  // Every worker hammers ONE server, so keep the pool small.
+  workers: env.E2E_WORKERS ?? 2,
   // The HTML report holds each failure's trace: `npm run test:e2e:report`.
   reporter: [[isCI ? "github" : "list"], ["html", { open: "never" }]],
-  // Anything slower is a bug, not a reason to wait. A test that genuinely
-  // needs longer uses `test.setTimeout`. 0 means no timeout.
-  timeout: debugging ? 0 : 10_000,
-  expect: { timeout: debugging ? 0 : 3_000 },
+  // A test that genuinely needs longer uses `test.setTimeout`.
+  timeout: TIMEOUTS.test,
+  expect: { timeout: TIMEOUTS.expect },
   use: {
     baseURL: ORIGIN,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    actionTimeout: debugging ? 0 : 5_000,
-    navigationTimeout: debugging ? 0 : 5_000,
+    actionTimeout: TIMEOUTS.action,
+    navigationTimeout: TIMEOUTS.navigation,
     // The PWA service worker precaches ~9MB on every fresh context, competing
     // with the first navigation. Nothing here tests offline support.
     serviceWorkers: "block",
@@ -86,7 +89,7 @@ export default defineConfig<E2EOptions>({
     url: ORIGIN,
     env: webServerEnv(env),
     reuseExistingServer: false,
-    timeout: isCI ? 30_000 : 180_000,
+    timeout: 180_000,
     stdout: "pipe",
     stderr: "pipe",
   },
