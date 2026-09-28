@@ -49,7 +49,12 @@ def build_ca_ssl_context(ca_path: str | None) -> ssl.SSLContext | None:
     ctx = ssl.create_default_context(cafile=certifi.where())
     ctx.load_default_certs()
     for file in files:
-        certs = _parse_certificates(file.read_bytes())
+        try:
+            data = file.read_bytes()
+        except OSError as exc:
+            log.error(f"Cannot read CA certificate file {hl(str(file))}: {exc}")
+            continue
+        certs = _parse_certificates(data)
         if not certs:
             log.warning(f"No certificates found in {hl(str(file))}")
             continue

@@ -1,5 +1,6 @@
 import datetime
 import ssl
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -70,8 +71,16 @@ def _issue(
     return builder.sign(signing_key, hashes.SHA256()), key
 
 
+@dataclass(frozen=True)
+class PKI:
+    root: x509.Certificate
+    intermediate: x509.Certificate
+    leaf_cert: Path
+    leaf_key: Path
+
+
 @pytest.fixture
-def pki(tmp_path: Path):
+def pki(tmp_path: Path) -> PKI:
     """Offline root, an intermediate, and a leaf issued by the intermediate."""
     root = _issue("Test Root CA", None, is_ca=True)
     intermediate = _issue("Test Enterprise CA", root, is_ca=True)
@@ -83,18 +92,18 @@ def pki(tmp_path: Path):
     leaf_key.write_bytes(
         leaf[1].private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
     )
-    return {
-        "root": root[0],
-        "intermediate": intermediate[0],
-        "leaf_cert": leaf_cert,
-        "leaf_key": leaf_key,
-    }
+    return PKI(
+        root=root[0],
+        intermediate=intermediate[0],
+        leaf_cert=leaf_cert,
+        leaf_key=leaf_key,
+    )
 
 
-def _handshake(client_ctx: ssl.SSLContext, pki) -> None:
+def _handshake(client_ctx: ssl.SSLContext, pki: PKI) -> None:
     """Run a TLS handshake in memory against a server sending only its leaf."""
     server_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    server_ctx.load_cert_chain(pki["leaf_cert"], pki["leaf_key"])
+    server_ctx.load_cert_chain(pki.leaf_cert, pki.leaf_key)
 
     c_in, c_out, s_in, s_out = (ssl.MemoryBIO() for _ in range(4))
     client = client_ctx.wrap_bio(c_in, c_out, server_hostname=HOSTNAME)
@@ -125,14 +134,16 @@ def _pem(*certs: x509.Certificate) -> bytes:
     return b"".join(c.public_bytes(Encoding.PEM) for c in certs)
 
 
-def test_unset_path_returns_none():
+def test_unset_path_returns_none() -> None:
     assert build_ca_ssl_context(None) is None
     assert build_ca_ssl_context("") is None
 
 
-def test_pem_bundle_with_root_and_intermediate_verifies_leaf(tmp_path, pki):
+def test_pem_bundle_with_root_and_intermediate_verifies_leaf(
+    tmp_path: Path, pki: PKI
+) -> None:
     bundle = tmp_path / "fullchain.pem"
-    bundle.write_bytes(_pem(pki["root"], pki["intermediate"]))
+    bundle.write_bytes(_pem(pki.root, pki.intermediate))
 
     ctx = build_ca_ssl_context(str(bundle))
 
@@ -142,9 +153,9 @@ def test_pem_bundle_with_root_and_intermediate_verifies_leaf(tmp_path, pki):
     _handshake(ctx, pki)
 
 
-def test_default_cas_are_kept_alongside_the_bundle(tmp_path, pki):
+def test_default_cas_are_kept_alongside_the_bundle(tmp_path: Path, pki: PKI) -> None:
     bundle = tmp_path / "fullchain.pem"
-    bundle.write_bytes(_pem(pki["root"], pki["intermediate"]))
+    bundle.write_bytes(_pem(pki.root, pki.intermediate))
 
     ctx = build_ca_ssl_context(str(bundle))
 
@@ -152,30 +163,30 @@ def test_default_cas_are_kept_alongside_the_bundle(tmp_path, pki):
     assert ctx.cert_store_stats()["x509_ca"] > 2
 
 
-def test_der_and_p7b_bundles_are_accepted(tmp_path, pki):
-    (tmp_path / "root.crt").write_bytes(pki["root"].public_bytes(Encoding.DER))
+def test_der_and_p7b_bundles_are_accepted(tmp_path: Path, pki: PKI) -> None:
+    (tmp_path / "root.crt").write_bytes(pki.root.public_bytes(Encoding.DER))
     (tmp_path / "chain.p7b").write_bytes(
-        pkcs7.serialize_certificates([pki["intermediate"]], Encoding.DER)
+        pkcs7.serialize_certificates([pki.intermediate], Encoding.DER)
     )
 
     ctx = build_ca_ssl_context(str(tmp_path / "root.crt"))
     assert ctx is not None
     ctx.load_verify_locations(
-        cadata=pki["intermediate"].public_bytes(Encoding.PEM).decode()
+        cadata=pki.intermediate.public_bytes(Encoding.PEM).decode()
     )
     _handshake(ctx, pki)
 
     ctx = build_ca_ssl_context(str(tmp_path / "chain.p7b"))
     assert ctx is not None
-    ctx.load_verify_locations(cadata=pki["root"].public_bytes(Encoding.PEM).decode())
+    ctx.load_verify_locations(cadata=pki.root.public_bytes(Encoding.PEM).decode())
     _handshake(ctx, pki)
 
 
-def test_directory_loads_every_certificate_file(tmp_path, pki):
+def test_directory_loads_every_certificate_file(tmp_path: Path, pki: PKI) -> None:
     certs_dir = tmp_path / "certs"
     certs_dir.mkdir()
-    (certs_dir / "root.crt").write_bytes(pki["root"].public_bytes(Encoding.DER))
-    (certs_dir / "intermediate.pem").write_bytes(_pem(pki["intermediate"]))
+    (certs_dir / "root.crt").write_bytes(pki.root.public_bytes(Encoding.DER))
+    (certs_dir / "intermediate.pem").write_bytes(_pem(pki.intermediate))
     (certs_dir / "notes.txt").write_text("not a certificate")
 
     ctx = build_ca_ssl_context(str(certs_dir))
@@ -184,9 +195,11 @@ def test_directory_loads_every_certificate_file(tmp_path, pki):
     _handshake(ctx, pki)
 
 
-def test_root_alone_cannot_verify_a_leaf_missing_its_intermediate(tmp_path, pki):
+def test_root_alone_cannot_verify_a_leaf_missing_its_intermediate(
+    tmp_path: Path, pki: PKI
+) -> None:
     bundle = tmp_path / "root.pem"
-    bundle.write_bytes(_pem(pki["root"]))
+    bundle.write_bytes(_pem(pki.root))
 
     ctx = build_ca_ssl_context(str(bundle))
 
@@ -195,10 +208,33 @@ def test_root_alone_cannot_verify_a_leaf_missing_its_intermediate(tmp_path, pki)
         _handshake(ctx, pki)
 
 
-def test_missing_path_still_verifies_with_default_cas(tmp_path, pki):
+def test_missing_path_still_verifies_with_default_cas(tmp_path: Path, pki: PKI) -> None:
     ctx = build_ca_ssl_context(str(tmp_path / "missing.pem"))
 
     assert ctx is not None
     assert ctx.verify_mode == ssl.CERT_REQUIRED
     with pytest.raises(ssl.SSLCertVerificationError):
         _handshake(ctx, pki)
+
+
+def test_unreadable_file_is_skipped(
+    tmp_path: Path, pki: PKI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    certs_dir = tmp_path / "certs"
+    certs_dir.mkdir()
+    (certs_dir / "chain.pem").write_bytes(_pem(pki.root, pki.intermediate))
+    locked = certs_dir / "locked.pem"
+    locked.write_bytes(_pem(pki.root))
+    read_bytes = Path.read_bytes
+
+    def fake_read_bytes(self: Path) -> bytes:
+        if self == locked:
+            raise PermissionError(13, "Permission denied")
+        return read_bytes(self)
+
+    monkeypatch.setattr(Path, "read_bytes", fake_read_bytes)
+
+    ctx = build_ca_ssl_context(str(certs_dir))
+
+    assert ctx is not None
+    _handshake(ctx, pki)
