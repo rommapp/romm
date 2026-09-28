@@ -88,7 +88,9 @@ export default defineConfig<E2EOptions>({
       : `npm run dev -- --port ${PORT} --strictPort --host 127.0.0.1`,
     url: ORIGIN,
     env: webServerEnv(env),
-    reuseExistingServer: false,
+    // 3100 is the suite's own port, so locally reuse its server (e.g. the one
+    // the VS Code extension keeps running). CI always starts fresh.
+    reuseExistingServer: !isCI,
     timeout: 180_000,
     stdout: "pipe",
     stderr: "pipe",
