@@ -1,18 +1,18 @@
 ---
 name: security-audit
-description: Audit a diff (a release tag range or a PR branch) for anything malicious or a serious security regression before shipping/merging. Use when asked to "check this release", "make sure nothing malicious slipped in", "security review this PR", or vet upstream/contributor changes. Covers supply chain, egress/exfiltration, auth/injection/traversal, CI/infra, and commit provenance — with a fast direct pass plus fanned-out deep review. Trigger on any "is this change safe?" request over a diff.
+description: Audit a diff (a release tag range or a PR branch) for anything malicious or a serious security regression before shipping/merging. Use when asked to "check this release", "make sure nothing malicious slipped in", "security review this PR", or vet upstream/contributor changes. Covers supply chain, egress/exfiltration, auth/injection/traversal, CI/infra, and commit provenance, with a fast direct pass plus fanned-out deep review. Trigger on any "is this change safe?" request over a diff.
 ---
 
 # Security Audit of a Diff
 
-Goal: decide whether a set of changes contains anything **malicious** (backdoor, exfiltration, injection, obfuscated payload, supply-chain tamper) or a serious security **regression** (removed auth/ownership check). Assume most of it is legitimate work — your job is to find the needle if there is one, and give an **honest verdict**, not a vibe.
+Goal: decide whether a set of changes contains anything **malicious** (backdoor, exfiltration, injection, obfuscated payload, supply-chain tamper) or a serious security **regression** (removed auth/ownership check). Assume most of it is legitimate work; your job is to find the needle if there is one, and give an **honest verdict**, not a vibe.
 
 Two speeds, both required for anything non-trivial:
 
-1. **Direct pass** (you, fast) — cheap high-signal sweeps that catch the obvious and scope the surface.
-2. **Fanned-out deep review** (parallel subagents) — one per surface, reading actual files, when the diff is large.
+1. **Direct pass** (you, fast): cheap high-signal sweeps that catch the obvious and scope the surface.
+2. **Fanned-out deep review** (parallel subagents): one per surface, reading actual files, when the diff is large.
 
-Don't skip the direct pass even when delegating — it tells you where the risk lives and cross-checks the agents.
+Don't skip the direct pass even when delegating: it tells you where the risk lives and cross-checks the agents.
 
 ---
 
@@ -28,15 +28,15 @@ git rev-list --count $RANGE           # how many commits
 git diff --stat $RANGE | tail -30     # size + what area moved
 ```
 
-Also pull the human context (release notes / PR description) — new env vars, new endpoints, and new deps named there tell you what to scrutinize.
+Also pull the human context (release notes / PR description): new env vars, new endpoints, and new deps named there tell you what to scrutinize.
 
 ---
 
-## 2. Direct pass — high-signal sweeps
+## 2. Direct pass: high-signal sweeps
 
 Run these yourself. The single most important signal for "malicious" is **unexpected outbound destinations**.
 
-**Egress — every new host/IP/domain in added lines** (exclude lockfiles/tests/generated to cut noise):
+**Egress: every new host/IP/domain in added lines** (exclude lockfiles/tests/generated to cut noise):
 
 ```bash
 git diff $RANGE -- . ':(exclude)*.lock' ':(exclude)**/tests/**' ':(exclude)**/__generated__/**' \
@@ -45,7 +45,7 @@ git diff $RANGE -- . ':(exclude)*.lock' ':(exclude)**/tests/**' ':(exclude)**/__
   | sort | uniq -c | sort -rn
 ```
 
-Every hostname must resolve to a known-legit provider, the app's own origin, or a config-example placeholder. An unrecognized domain/raw IP is the finding — chase it.
+Every hostname must resolve to a known-legit provider, the app's own origin, or a config-example placeholder. An unrecognized domain/raw IP is the finding; chase it.
 
 **Code-exec / obfuscation in added lines** (ignore test files):
 
@@ -62,10 +62,10 @@ Base64/hex blobs, `eval(atob(...))`, hand-obfuscated strings = stop and dig. Sub
 git diff $RANGE -- '**/package.json' '**/pyproject.toml' 'uv.lock' '**/package-lock.json' '**/requirements*.txt'
 ```
 
-- New deps must come from the official registry. Grep the lockfile diff for `git+`, non-`pythonhosted`/`pypi.org` / non-`registry.npmjs.org` URLs, alternate index URLs — any of those is a red flag.
+- New deps must come from the official registry. Grep the lockfile diff for `git+`, non-`pythonhosted`/`pypi.org` / non-`registry.npmjs.org` URLs, alternate index URLs; any of those is a red flag.
 - Watch for typosquats (name one char off a popular package) and unexpected new transitive sources.
 
-**CI / infra** — these run with secrets, so they're a prime exfil vector:
+**CI / infra**: these run with secrets, so they're a prime exfil vector:
 
 ```bash
 git diff $RANGE -- .github/ '**/Dockerfile' '**/*entrypoint*.sh' docker/ examples/*.yml
@@ -96,9 +96,9 @@ Do this for any non-trivial diff. The direct pass alone only catches what its pa
 
 Typical split:
 
-- **Backend** — new/changed endpoints missing `@protected_route` or with weakened scope/role/ownership checks; removed `assert_*_visible`; command/SQL injection; path traversal in new file ops (delete/upload/download endpoints are prime); SSRF where a request URL is user-influenced; secret handling.
-- **Frontend** — off-app `fetch`/`sendBeacon`/`Image().src`/`WebSocket`; token/cookie/localStorage reads sent anywhere off-origin; `eval`/`Function`/`v-html`/`innerHTML`/dynamic `<script>`; external redirects; iframe `src`/`postMessage` trust.
-- **Supply chain & provenance** — deps, lockfile sources, CI/infra, binaries, commit authorship (section 2, done thoroughly).
+- **Backend**: new/changed endpoints missing `@protected_route` or with weakened scope/role/ownership checks; removed `assert_*_visible`; command/SQL injection; path traversal in new file ops (delete/upload/download endpoints are prime); SSRF where a request URL is user-influenced; secret handling.
+- **Frontend**: off-app `fetch`/`sendBeacon`/`Image().src`/`WebSocket`; token/cookie/localStorage reads sent anywhere off-origin; `eval`/`Function`/`v-html`/`innerHTML`/dynamic `<script>`; external redirects; iframe `src`/`postMessage` trust.
+- **Supply chain & provenance**: deps, lockfile sources, CI/infra, binaries, commit authorship (section 2, done thoroughly).
 
 Prompt each agent to: assume legit-until-proven, cite `file:line`, say concretely whether each concern is **exploitable or benign**, and not to pad the report. See `docs/BACKEND_ARCHITECTURE.md` for the auth/scope model when judging backend changes.
 
@@ -106,20 +106,20 @@ Prompt each agent to: assume legit-until-proven, cite `file:line`, say concretel
 
 ## 4. Judge, then verdict
 
-For each candidate finding, decide reachability before calling it: Is the input attacker-controlled or admin-config/DB-derived? Is the endpoint authed and scoped? Does the tainted value actually reach a sink? A scary-looking sink fed only by trusted server-side data is benign — say so.
+For each candidate finding, decide reachability before calling it: Is the input attacker-controlled or admin-config/DB-derived? Is the endpoint authed and scoped? Does the tainted value actually reach a sink? A scary-looking sink fed only by trusted server-side data is benign, say so.
 
 Deliver one consolidated verdict:
 
-- **What you checked and cleared** — grouped by surface, so the reader sees coverage, not just a green light.
-- **Findings** — ranked by severity, each with `file:line`, what it does, and why it is/ isn't exploitable.
+- **What you checked and cleared**: grouped by surface, so the reader sees coverage, not just a green light.
+- **Findings**: ranked by severity, each with `file:line`, what it does, and why it is/ isn't exploitable.
 - **Overall:** `clean` / `needs attention` / `malicious`, plus any non-blocking belt-and-suspenders follow-ups (e.g. "enable `pinact run --check` in CI").
 
 Be honest about coverage limits: if you verified SHA pins by publisher but didn't resolve them over the network, or sampled rather than read every file, say so.
 
 ## Anti-patterns
 
-- Declaring "clean" from grep alone on a large diff — grep scopes risk, it doesn't clear it. Read the files at the sinks.
+- Declaring "clean" from grep alone on a large diff: grep scopes risk, it doesn't clear it. Read the files at the sinks.
 - Pasting raw diff dumps or agent transcripts back to the user instead of a judged summary.
 - Treating a subprocess/`urlopen`/iframe as a finding without tracing whether user input reaches it.
-- Ignoring CI/infra because "it's not app code" — it's where secrets leak.
-- Skipping commit-authorship review — a malicious commit can hide among legitimate ones.
+- Ignoring CI/infra because "it's not app code": it's where secrets leak.
+- Skipping commit-authorship review: a malicious commit can hide among legitimate ones.

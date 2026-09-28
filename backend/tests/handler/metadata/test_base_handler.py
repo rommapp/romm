@@ -494,7 +494,7 @@ class TestStripSensitiveQueryParams:
         """Non-sensitive params should keep their values and ordering."""
         url = "https://api.example.com/media?systemeid=1&ssid=user&romnom=Game.zip"
         result = strip_sensitive_query_params(url)
-        # parse rather than rely on a literal — urlencode may reorder identically-named keys
+        # parse rather than rely on a literal; urlencode may reorder identically-named keys
         parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
         assert ("systemeid", "1") in parsed
         assert ("romnom", "Game.zip") in parsed

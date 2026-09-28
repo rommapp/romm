@@ -164,15 +164,15 @@ class TestSearchRomGameTypeFilter:
             search_term=None, fields=None, where=None, limit=None
         ):
             if where and "game_type" not in where and not where.startswith("("):
-                # Primary search pass — return no results so we fall through to
+                # Primary search pass: return no results so we fall through to
                 # the expanded search
                 return []
             if where and where.startswith("("):
-                # Expanded game details lookup — return both candidates
+                # Expanded game details lookup: return both candidates
                 return [ecco_dolphin, ecco_tides]
             return []
 
-        # Expanded search returns two results — wrong game FIRST, correct game second
+        # Expanded search returns two results: wrong game FIRST, correct game second
         expanded_results = [
             {"game": {"id": 1799}, "name": "Ecco the Dolphin"},
             {"game": {"id": 5379}, "name": "Ecco: The Tides of Time"},
