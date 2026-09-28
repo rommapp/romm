@@ -30,8 +30,11 @@ function compileGme(): Promise<WebAssembly.Module> {
 }
 
 /** Fetch a track, gunzipping VGZ and friends since libgme is built without zlib. */
-async function fetchTrackData(url: string): Promise<ArrayBuffer> {
-  const response = await fetch(url);
+async function fetchTrackData(
+  url: string,
+  signal: AbortSignal,
+): Promise<ArrayBuffer> {
+  const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
   const data = await response.arrayBuffer();
   const head = new Uint8Array(data, 0, Math.min(2, data.byteLength));
@@ -50,8 +53,12 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   private port: Promise<MessagePort> | null = null;
   // Held so the main-thread fallback's node isn't collected while it plays.
   private output: AudioNode | null = null;
+  private download: AbortController | null = null;
   private loadToken = 0;
+  // Bumped by every play, pause and load, so a play still starting up yields.
+  private playToken = 0;
   private loaded = false;
+  private failed = false;
   private isPaused = true;
   private position = 0;
   private length = 0;
@@ -100,11 +107,15 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
    * @param track Zero-based index of the song within the file.
    */
   async load(url: string, track = 0): Promise<void> {
-    const token = this.reset();
+    // Silence the old track now, not once the new one has downloaded.
+    this.unload();
+    const token = this.loadToken;
+    const download = new AbortController();
+    this.download = download;
     try {
       const [port, data] = await Promise.all([
         this.ensurePort(),
-        fetchTrackData(url),
+        fetchTrackData(url, download.signal),
       ]);
       if (token !== this.loadToken) return;
       const command: GmeCommand = { type: "load", id: token, data, track };
@@ -112,20 +123,23 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     } catch (error) {
       if (token !== this.loadToken) return;
       console.error("[chiptune] load failed", error);
-      this.dispatchEvent(new Event("error"));
+      this.fail();
     }
   }
 
   async play(): Promise<void> {
+    const token = ++this.playToken;
     await this.ensurePort();
     await this.context?.resume();
-    if (!this.isPaused) return;
+    if (token !== this.playToken || this.failed || !this.isPaused) return;
     this.isPaused = false;
     if (this.loaded) this.post({ type: "play" });
     this.dispatchEvent(new Event("play"));
+    if (!this.loaded) this.dispatchEvent(new Event("waiting"));
   }
 
   pause(): void {
+    this.playToken += 1;
     if (this.isPaused) return;
     this.isPaused = true;
     this.post({ type: "pause" });
@@ -134,7 +148,15 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
 
   /** Drop the loaded track without firing any events. */
   unload(): void {
-    this.reset();
+    this.download?.abort();
+    this.download = null;
+    this.playToken += 1;
+    this.loadToken += 1;
+    this.loaded = false;
+    this.failed = false;
+    this.isPaused = true;
+    this.position = 0;
+    this.length = 0;
     this.post({ type: "unload" });
   }
 
@@ -147,12 +169,10 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     this.context = null;
   }
 
-  private reset(): number {
-    this.loaded = false;
+  private fail() {
+    this.failed = true;
     this.isPaused = true;
-    this.position = 0;
-    this.length = 0;
-    return ++this.loadToken;
+    this.dispatchEvent(new Event("error"));
   }
 
   private applyGain() {
@@ -175,11 +195,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   private async createPort(): Promise<MessagePort> {
     const module = await compileGme();
     const context = (this.context ??= new AudioContext());
-    // AudioWorklet only exists in secure contexts, and RomM is often served
-    // over plain HTTP on a LAN address.
-    const host = context.audioWorklet
-      ? await hostInWorklet(context, module)
-      : hostOnMainThread(context, module);
+    const host = await hostRenderer(context, module);
     const gain = context.createGain();
     host.output.connect(gain).connect(context.destination);
     this.output = host.output;
@@ -210,10 +226,28 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
         this.dispatchEvent(new Event("ended"));
         break;
       case "error":
-        this.isPaused = true;
-        this.dispatchEvent(new Event("error"));
+        this.fail();
         break;
     }
+  }
+}
+
+async function hostRenderer(
+  context: AudioContext,
+  module: WebAssembly.Module,
+): Promise<RendererHost> {
+  // AudioWorklet only exists in secure contexts, and RomM is often served
+  // over plain HTTP on a LAN address.
+  if (!context.audioWorklet) return hostOnMainThread(context, module);
+  try {
+    return await hostInWorklet(context, module);
+  } catch (error) {
+    // Some engines refuse the worklet or the compiled module handed to it.
+    console.warn(
+      "[chiptune] AudioWorklet failed, rendering on the main thread",
+      error,
+    );
+    return hostOnMainThread(context, module);
   }
 }
 

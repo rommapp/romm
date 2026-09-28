@@ -76,6 +76,7 @@ function recordEvents(player: ChiptunePlayer) {
     "ended",
     "timeupdate",
     "loadedmetadata",
+    "waiting",
     "canplay",
     "error",
   ]) {
@@ -157,7 +158,7 @@ describe("ChiptunePlayer", () => {
     const loading = player.load("/track.nsf");
     await player.play();
     await loading;
-    expect(events).toEqual(["play"]);
+    expect(events).toEqual(["play", "waiting"]);
     expect(port.types()).not.toContain("play");
 
     port.reply({ type: "loaded", id: port.lastLoad()?.id, durationMs: 1000 });
@@ -165,6 +166,42 @@ describe("ChiptunePlayer", () => {
 
     expect(player.paused).toBe(false);
     expect(port.types()).toContain("play");
+  });
+
+  it("silences the previous track while the next one downloads", async () => {
+    const player = new ChiptunePlayer();
+    await loaded(player);
+    port.posted = [];
+
+    await player.load("/track.nsf");
+
+    expect(port.types()).toEqual(["unload", "load"]);
+  });
+
+  it("stays paused when a pause overtakes a play still starting", async () => {
+    const player = new ChiptunePlayer();
+    await loaded(player);
+    const events = recordEvents(player);
+
+    const starting = player.play();
+    player.pause();
+    await starting;
+
+    expect(player.paused).toBe(true);
+    expect(events).toEqual([]);
+    expect(port.types()).not.toContain("play");
+  });
+
+  it("won't play a track that failed to load", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const player = new ChiptunePlayer();
+    const events = recordEvents(player);
+
+    await player.load("/missing.nsf");
+    await player.play();
+
+    expect(events).toEqual(["error"]);
+    expect(player.paused).toBe(true);
   });
 
   it("drops replies about a track that was replaced", async () => {
@@ -239,26 +276,7 @@ describe("ChiptunePlayer", () => {
   });
 
   it("renders on the main thread where AudioWorklet is unavailable", async () => {
-    const processor = {
-      onaudioprocess: null as ((event: object) => void) | null,
-      connect: vi.fn(() => gain),
-    };
-    vi.stubGlobal(
-      "AudioContext",
-      class {
-        audioWorklet = undefined;
-        sampleRate = 48000;
-        destination = {};
-        resume = resume;
-        close = vi.fn(async () => {});
-        createGain() {
-          return gain;
-        }
-        createScriptProcessor() {
-          return processor;
-        }
-      },
-    );
+    const processor = stubMainThreadContext(undefined);
     const player = new ChiptunePlayer();
     const events = recordEvents(player);
 
@@ -277,4 +295,44 @@ describe("ChiptunePlayer", () => {
     expect(player.duration).toBe(2);
     expect(renderer.rendered).toBe(1);
   });
+
+  it("falls back to the main thread when the worklet won't start", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    addModule.mockRejectedValueOnce(new Error("DataCloneError"));
+    stubMainThreadContext({ addModule });
+    const player = new ChiptunePlayer();
+
+    await player.load("/track.nsf");
+    await flush();
+
+    expect(addModule).toHaveBeenCalled();
+    expect(renderer.commands.at(-1)?.type).toBe("load");
+  });
 });
+
+/** An AudioContext that renders through a ScriptProcessorNode. */
+function stubMainThreadContext(
+  audioWorklet: { addModule: () => unknown } | undefined,
+) {
+  const processor = {
+    onaudioprocess: null as ((event: object) => void) | null,
+    connect: vi.fn(() => gain),
+  };
+  vi.stubGlobal(
+    "AudioContext",
+    class {
+      audioWorklet = audioWorklet;
+      sampleRate = 48000;
+      destination = {};
+      resume = resume;
+      close = vi.fn(async () => {});
+      createGain() {
+        return gain;
+      }
+      createScriptProcessor() {
+        return processor;
+      }
+    },
+  );
+  return processor;
+}

@@ -39,9 +39,13 @@ interface GmeExports {
 export class GmeRenderer {
   private gme: GmeExports;
   private emu = 0;
+  private track = 0;
   // Echoed on every reply, so the page can drop those about a replaced track.
   private loadId = 0;
   private playing = false;
+  // While playing, a scrub's seeks collapse into one per quantum, since each
+  // emulates its way to the target.
+  private pendingSeekMs: number | null = null;
   private bufferPointer = 0;
   private bufferSamples = 0;
   private framesSinceReport = 0;
@@ -73,16 +77,19 @@ export class GmeRenderer {
         this.load(command.id, command.data, command.track);
         break;
       case "play":
+        // Like `<audio>`, playing an ended track starts it over.
+        if (this.emu && this.gme.gme_track_ended(this.emu) && this.restart()) {
+          this.reportTime();
+        }
         this.playing = this.emu !== 0;
         break;
       case "pause":
         this.playing = false;
         break;
       case "seek":
-        if (this.emu) {
-          this.gme.gme_seek(this.emu, Math.max(0, Math.round(command.ms)));
-          this.reportTime();
-        }
+        if (!this.emu) break;
+        if (this.playing) this.pendingSeekMs = command.ms;
+        else this.seek(command.ms);
         break;
       case "unload":
         this.unload();
@@ -92,6 +99,11 @@ export class GmeRenderer {
 
   /** Fill one quantum of output, or silence while nothing plays. */
   render(left: Float32Array, right?: Float32Array) {
+    if (this.pendingSeekMs !== null) {
+      const ms = this.pendingSeekMs;
+      this.pendingSeekMs = null;
+      this.seek(ms);
+    }
     if (!this.playing) {
       left.fill(0);
       right?.fill(0);
@@ -145,7 +157,25 @@ export class GmeRenderer {
       return;
     }
     this.emu = emu;
+    this.track = track;
     this.reply({ type: "loaded", durationMs });
+  }
+
+  private seek(ms: number) {
+    const target = Math.max(0, Math.round(ms));
+    // libgme seeks backwards by restarting the track, which drops its fade.
+    if (target < this.gme.gme_tell(this.emu) && !this.restart()) return;
+    this.gme.gme_seek(this.emu, target);
+    this.reportTime();
+  }
+
+  /** Start the track over with its fade, or unload it if libgme refuses. */
+  private restart(): boolean {
+    this.framesSinceReport = 0;
+    if (this.gme.romm_gme_start(this.emu, this.track) >= 0) return true;
+    this.unload();
+    this.reply({ type: "error" });
+    return false;
   }
 
   private reply(message: GmeReplyBody) {
@@ -154,6 +184,7 @@ export class GmeRenderer {
 
   private unload() {
     this.playing = false;
+    this.pendingSeekMs = null;
     if (this.emu) this.gme.gme_delete(this.emu);
     this.emu = 0;
   }

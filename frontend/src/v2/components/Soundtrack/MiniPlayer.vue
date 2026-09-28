@@ -69,6 +69,7 @@ function getChiptune(): ChiptunePlayer {
   player.addEventListener("ended", onEnded);
   player.addEventListener("timeupdate", onTimeUpdate);
   player.addEventListener("loadedmetadata", onLoadedMetadata);
+  player.addEventListener("waiting", onWaiting);
   player.addEventListener("canplay", onCanPlay);
   player.addEventListener("error", onError);
   chiptune = player;

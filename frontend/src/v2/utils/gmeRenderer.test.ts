@@ -18,7 +18,10 @@ function fakeGme() {
     // A file starting with a zero byte is rejected.
     romm_gme_open: (data: number) =>
       new Uint8Array(memory.buffer)[data] === 0 ? 0 : 7,
-    romm_gme_start: () => 158000,
+    romm_gme_start: vi.fn(() => {
+      state.ended = false;
+      return 158000;
+    }),
     gme_play: (_emu: number, count: number, out: number) => {
       const pcm = new Int16Array(memory.buffer, out, count);
       for (let i = 0; i < count; i += 2) {
@@ -118,6 +121,57 @@ describe("GmeRenderer", () => {
 
     expect(replies.map((reply) => reply.type)).toEqual(["time", "ended"]);
     expect([...left]).toEqual([0, 0, 0, 0]);
+  });
+
+  it("starts an ended track over when told to play again", () => {
+    const target = renderer();
+    load(target);
+    target.handle({ type: "play" });
+    gme.state.ended = true;
+    target.render(new Float32Array(4));
+    replies = [];
+
+    target.handle({ type: "play" });
+    const left = new Float32Array(4);
+    target.render(left);
+
+    expect(gme.exports.romm_gme_start).toHaveBeenCalledTimes(2);
+    expect(replies).toEqual([{ type: "time", id: 1, ms: 1234 }]);
+    expect([...left]).toEqual([0.5, 0.5, 0.5, 0.5]);
+  });
+
+  it("restarts the track to seek backwards, so its fade survives", () => {
+    const target = renderer();
+    load(target);
+
+    target.handle({ type: "seek", ms: 500 });
+
+    expect(gme.exports.romm_gme_start).toHaveBeenCalledTimes(2);
+    expect(gme.exports.gme_seek).toHaveBeenCalledWith(7, 500);
+    expect(replies.at(-1)).toEqual({ type: "time", id: 1, ms: 1234 });
+  });
+
+  it("seeks forwards without restarting the track", () => {
+    const target = renderer();
+    load(target);
+
+    target.handle({ type: "seek", ms: 5000 });
+
+    expect(gme.exports.romm_gme_start).toHaveBeenCalledTimes(1);
+    expect(gme.exports.gme_seek).toHaveBeenCalledWith(7, 5000);
+  });
+
+  it("collapses a scrub while playing into one seek per quantum", () => {
+    const target = renderer();
+    load(target);
+    target.handle({ type: "play" });
+
+    for (const ms of [2000, 3000, 4000]) target.handle({ type: "seek", ms });
+    expect(gme.exports.gme_seek).not.toHaveBeenCalled();
+    target.render(new Float32Array(4));
+
+    expect(gme.exports.gme_seek).toHaveBeenCalledTimes(1);
+    expect(gme.exports.gme_seek).toHaveBeenCalledWith(7, 4000);
   });
 
   it("frees the previous track when another loads", () => {
