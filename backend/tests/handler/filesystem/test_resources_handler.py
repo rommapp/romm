@@ -1,6 +1,8 @@
 import asyncio
 import errno
 import os
+import struct
+import zlib
 from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
@@ -8,7 +10,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import httpx2
 import pytest
-from PIL import Image, ImageSequence
+from PIL import Image, ImageFile, ImageSequence
 from PIL.PngImagePlugin import Blend
 from tests.concurrency_stubs import InFlight
 from tests.utils.test_images import (
@@ -33,6 +35,7 @@ from handler.filesystem.resources_handler import (
     _check_content_type,
     _content_type_essence,
     _is_chroma_key_placeholder,
+    _trim_transparent_border,
 )
 from models.collection import Collection
 from models.rom import Rom
@@ -926,6 +929,178 @@ class TestChromaKeyDetection:
         await handler.store_media_file("http://example.com/x.png", rel)
 
         assert (tmp_path / rel).exists()
+
+
+class TestTrimTransparentBorder:
+    """Tests for cropping logos down to their visible pixels."""
+
+    @pytest.fixture
+    def handler(self, tmp_path):
+        handler = FSResourcesHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    def _write_padded_logo(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        img = Image.new("RGBA", (100, 50), (0, 0, 0, 0))
+        img.paste((255, 0, 0, 255), (20, 10, 80, 40))
+        img.save(path)
+
+    def _png_chunk(self, kind: bytes, data: bytes) -> bytes:
+        crc = zlib.crc32(kind + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", crc)
+
+    def test_crops_to_the_visible_pixels(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        self._write_padded_logo(logo)
+
+        trimmed = _trim_transparent_border(logo)
+
+        assert trimmed is not None
+        assert trimmed.size == (60, 30)
+        assert trimmed.getpixel((0, 0)) == (255, 0, 0, 255)
+
+    def test_keeps_a_palette_logo_in_palette_mode(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        img = Image.new("P", (100, 50), 0)
+        img.putpalette([0, 0, 0, 255, 0, 0])
+        img.paste(1, (20, 10, 80, 40))
+        img.save(logo, transparency=0)
+
+        trimmed = _trim_transparent_border(logo)
+
+        assert trimmed is not None
+        assert trimmed.mode == "P"
+        assert trimmed.size == (60, 30)
+
+    def test_leaves_an_unpadded_logo_untouched(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        Image.new("RGBA", (40, 20), (255, 0, 0, 255)).save(logo)
+
+        assert _trim_transparent_border(logo) is None
+
+    def test_leaves_an_opaque_image_untouched(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        Image.new("RGB", (40, 20), (255, 0, 0)).save(logo)
+
+        assert _trim_transparent_border(logo) is None
+
+    def test_leaves_a_fully_transparent_image_untouched(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        Image.new("RGBA", (40, 20), (0, 0, 0, 0)).save(logo)
+
+        assert _trim_transparent_border(logo) is None
+
+    def test_skips_an_oversized_image_without_decoding_it(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        self._write_padded_logo(logo)
+
+        with (
+            patch("handler.filesystem.resources_handler.MAX_TRIM_PIXELS", 100),
+            patch.object(
+                ImageFile.ImageFile, "load", side_effect=AssertionError("decoded")
+            ),
+        ):
+            assert _trim_transparent_border(logo) is None
+
+    def test_leaves_an_animated_logo_untouched(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        frames = []
+        for color in ("red", "blue"):
+            frame = Image.new("RGBA", (100, 50), (0, 0, 0, 0))
+            frame.paste(color, (20, 10, 80, 40))
+            frames.append(frame)
+        logo.write_bytes(encode_animation(frames, "PNG", [100, 100]))
+
+        assert _trim_transparent_border(logo) is None
+
+    def test_ignores_non_image_file(self, tmp_path):
+        not_an_image = tmp_path / "logo.png"
+        not_an_image.write_bytes(b"not an image")
+
+        assert _trim_transparent_border(not_an_image) is None
+
+    def test_ignores_a_decompression_bomb(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        header = struct.pack(">IIBBBBB", 20000, 20000, 8, 6, 0, 0, 0)
+        logo.write_bytes(
+            b"\x89PNG\r\n\x1a\n"
+            + self._png_chunk(b"IHDR", header)
+            + self._png_chunk(b"IEND", b"")
+        )
+
+        assert _trim_transparent_border(logo) is None
+
+    def test_ignores_a_broken_png_chunk(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        self._write_padded_logo(logo)
+        data = logo.read_bytes()
+        idat = data.index(b"IDAT") - 4
+        (length,) = struct.unpack(">I", data[idat : idat + 4])
+        body = data[idat + 8 : idat + 8 + length]
+        half = len(body) // 2
+        logo.write_bytes(
+            data[:idat]
+            + self._png_chunk(b"IDAT", body[:half])
+            + b"\x00\x00\x00\x04\x01\x02\x03\x04junkjunk"
+            + self._png_chunk(b"IDAT", body[half:])
+            + data[idat + 12 + length :]
+        )
+
+        assert _trim_transparent_border(logo) is None
+
+    @pytest.mark.asyncio
+    async def test_store_metadata_media_trims_only_logos(self, handler, tmp_path):
+        logo = "roms/1/1/logo/logo.png"
+        fanart = "roms/1/1/fanart/fanart.png"
+        self._write_padded_logo(tmp_path / logo)
+        self._write_padded_logo(tmp_path / fanart)
+        metadata = {"logo_path": logo, "fanart_path": fanart}
+
+        await handler.store_metadata_media(
+            metadata, [MetadataMediaType.LOGO, MetadataMediaType.FANART]
+        )
+
+        with Image.open(tmp_path / logo) as img:
+            assert img.size == (60, 30)
+        with Image.open(tmp_path / fanart) as img:
+            assert img.size == (100, 50)
+
+    @pytest.mark.asyncio
+    async def test_trim_leaves_a_hardlinked_source_intact(self, handler, tmp_path):
+        handler.base_path = tmp_path / "resources"
+        source = tmp_path / "library" / "logo.png"
+        self._write_padded_logo(source)
+        before = source.read_bytes()
+        logo = "roms/1/1/logo/logo.png"
+        (handler.base_path / logo).parent.mkdir(parents=True)
+        os.link(source, handler.base_path / logo)
+
+        await handler.store_metadata_media(
+            {"logo_path": logo}, [MetadataMediaType.LOGO]
+        )
+
+        with Image.open(handler.base_path / logo) as img:
+            assert img.size == (60, 30)
+        assert source.read_bytes() == before
+
+    @pytest.mark.asyncio
+    async def test_failed_trim_keeps_the_original_logo(self, handler, tmp_path):
+        logo = "roms/1/1/logo/logo.png"
+        self._write_padded_logo(tmp_path / logo)
+        before = (tmp_path / logo).read_bytes()
+
+        def save_partially(_img: Image.Image, fp: Path, **_kwargs: Any) -> None:
+            Path(fp).write_bytes(b"\x89PNG")
+            raise OSError("disk full")
+
+        with patch.object(Image.Image, "save", save_partially):
+            metadata = {"logo_path": logo}
+            await handler.store_metadata_media(metadata, [MetadataMediaType.LOGO])
+
+        assert (tmp_path / logo).read_bytes() == before
+        assert metadata["logo_path"] == logo
+        assert [p.name for p in (tmp_path / logo).parent.iterdir()] == ["logo.png"]
 
 
 class TestStoreMediaFileResult:
