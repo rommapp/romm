@@ -1,7 +1,7 @@
 import type { Browser, Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 import type { E2EEnv } from "../e2e-environment";
-import { expect } from "./test";
+import { expect, watchAppErrors } from "./test";
 
 export type Role = "admin" | "viewer";
 
@@ -61,12 +61,27 @@ export async function isSessionValid(
   if (!context) return false;
   try {
     const page = await context.newPage();
-    await page.goto("/");
+    // A separate context, so the test's app-error guard doesn't see this page.
+    const errors: string[] = [];
+    watchAppErrors(page, (message) => {
+      errors.push(message);
+      void page.close();
+    });
     const userName = page.locator(".r-v2-user__name");
-    await userName
-      .or(page.locator("form.r-v2-login-form"))
-      .first()
-      .waitFor({ timeout });
+    try {
+      await page.goto("/");
+      await userName
+        .or(page.locator("form.r-v2-login-form"))
+        .first()
+        .waitFor({ timeout });
+    } catch (error) {
+      if (!errors.length) throw error;
+    }
+    if (errors.length) {
+      throw new Error(
+        `The app failed while checking the saved session for ${username}: ${errors.join("; ")}`,
+      );
+    }
     return (
       (await userName.isVisible()) &&
       (await userName.innerText()).trim() === username
