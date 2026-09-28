@@ -3721,9 +3721,7 @@ class DBRomsHandler(DBBaseHandler):
             for raw_key in sync_cache.smembers(old_keys_set)
             if (key := _cache_value_to_str(raw_key)) is not None
         ]
-        if old_cache_keys:
-            sync_cache.delete(*old_cache_keys)
-        sync_cache.delete(old_keys_set)
+        sync_cache.delete(*old_cache_keys, old_keys_set)
 
     @begin_session
     def with_filter_values(

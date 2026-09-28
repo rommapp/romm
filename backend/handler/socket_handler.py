@@ -104,14 +104,29 @@ class SocketHandler:
             return None
 
         session_id = session.get("session_id")
-        if session_id:
-            await self.bind_to_login_session(sid, session_id)
+        if session_id and not await self.bind_to_login_session(sid, session_id):
+            return None
         return user
 
-    async def track(self, key: str, sid: str, ttl_seconds: int) -> None:
-        """Add a socket to the set under ``key`` and restart its expiry."""
-        await async_cache.sadd(key, sid)
-        await async_cache.expire(key, ttl_seconds)
+    async def track(
+        self, key: str, sid: str, ttl_seconds: int, *, while_exists: str | None = None
+    ) -> bool:
+        """Add a socket to the set under ``key`` and restart its expiry.
+
+        Returns:
+            False when ``while_exists`` names a key that is gone, leaving nothing added
+        """
+        # One transaction, so a dropped connection cannot leave the set without its TTL.
+        async with async_cache.pipeline() as pipe:
+            await pipe.sadd(key, sid)
+            await pipe.expire(key, ttl_seconds)
+            if while_exists:
+                await pipe.exists(while_exists)
+            results = await pipe.execute()
+        if while_exists and not results[-1]:
+            await async_cache.srem(key, sid)
+            return False
+        return True
 
     async def untrack(self, key: str, sid: str) -> None:
         """Drop a socket from the set under ``key``, logging a failure."""
@@ -123,8 +138,12 @@ class SocketHandler:
     async def close_tracked(self, key: str, namespace: str | None = None) -> None:
         """Disconnect every socket tracked under ``key`` on any worker, logging a failure."""
         try:
-            sids = await async_cache.smembers(key)
-            await async_cache.delete(key)
+            # One transaction, so a socket tracked in between is not dropped from
+            # the set without being disconnected.
+            async with async_cache.pipeline() as pipe:
+                await pipe.smembers(key)
+                await pipe.delete(key)
+                sids, _ = await pipe.execute()
         except Exception:  # noqa: BLE001
             log.warning(f"Failed to close the sockets under {key}", exc_info=True)
             return
@@ -135,13 +154,24 @@ class SocketHandler:
             except Exception:  # noqa: BLE001
                 log.warning(f"Failed to close socket {as_text(sid)}", exc_info=True)
 
-    async def bind_to_login_session(self, sid: str, session_id: str) -> None:
-        """Record which login session opened a socket, so revoking it closes the socket."""
-        await self.track(
-            self._login_session_sockets_key(session_id), sid, SESSION_MAX_AGE_SECONDS
-        )
+    async def bind_to_login_session(self, sid: str, session_id: str) -> bool:
+        """Record which login session opened a socket, so revoking it closes the socket.
+
+        Returns:
+            False when the session was revoked first, leaving the socket unbound
+        """
+        # Revocation deletes the session before reading the set, so a session
+        # still there after the add means revocation will see this socket.
+        if not await self.track(
+            self._login_session_sockets_key(session_id),
+            sid,
+            SESSION_MAX_AGE_SECONDS,
+            while_exists=f"session:{session_id}",
+        ):
+            return False
         async with self.socket_server.session(sid) as session:
             session[LOGIN_SESSION_ID_KEY] = session_id
+        return True
 
     async def unbind_from_login_session(self, sid: str) -> None:
         """Forget a disconnecting socket, logging a failure."""

@@ -98,12 +98,14 @@ class RedisSessionMiddleware:
 
                     headers.append("Set-Cookie", header_value)
                 elif session_id:
-                    await async_cache.delete(f"session:{session_id}")
-                    # Remove session_id from user set of sessions
+                    async with async_cache.pipeline() as pipe:
+                        await pipe.delete(f"session:{session_id}")
+                        if initial_user_id:
+                            await pipe.srem(
+                                f"user_sessions:{initial_user_id}", session_id
+                            )
+                        await pipe.execute()
                     if initial_user_id:
-                        await async_cache.srem(
-                            f"user_sessions:{initial_user_id}", session_id
-                        )
                         await close_login_session_sockets([session_id])
 
                     header_value = f"{self.session_cookie}=null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; {self.security_flags}"
