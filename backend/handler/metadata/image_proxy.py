@@ -1,3 +1,4 @@
+import asyncio
 from typing import Final, NamedTuple
 from urllib.parse import urlparse
 
@@ -24,7 +25,8 @@ PROVIDER_IMAGE_DOMAINS: Final = frozenset(
         "unstable.life",
     }
 )
-# Raster only: an SVG served from RomM's origin could run script.
+# Raster images and SteamGridDB's animated clips only: an SVG served from
+# RomM's origin could run script.
 PROVIDER_IMAGE_MEDIA_TYPES: Final = frozenset(
     {
         "image/avif",
@@ -33,6 +35,8 @@ PROVIDER_IMAGE_MEDIA_TYPES: Final = frozenset(
         "image/jpeg",
         "image/png",
         "image/webp",
+        "video/mp4",
+        "video/webm",
     }
 )
 PROVIDER_IMAGE_MAX_BYTES: Final = 10 * 1024 * 1024
@@ -68,7 +72,11 @@ async def fetch_provider_image(url: str) -> ProviderImage | None:
     """Download a provider image, or None when it is missing, too big or not raster."""
     httpx_client = ctx_httpx_client.get()
     try:
-        async with media_download_slot(url):
+        # Also bounds the wait for a ScreenScraper slot and the whole read.
+        async with (
+            asyncio.timeout(PROVIDER_IMAGE_TIMEOUT_SECONDS),
+            media_download_slot(url),
+        ):
             async with httpx_client.stream(
                 "GET",
                 url,
@@ -97,8 +105,8 @@ async def fetch_provider_image(url: str) -> ProviderImage | None:
                     content.extend(chunk)
                     if len(content) > PROVIDER_IMAGE_MAX_BYTES:
                         return None
-    except httpx2.HTTPError as exc:
-        log.warning(f"Unable to fetch provider image at {url}: {exc}")
+    except (httpx2.HTTPError, TimeoutError) as exc:
+        log.warning(f"Unable to fetch provider image at {url}: {exc!r}")
         return None
 
     return ProviderImage(content=bytes(content), media_type=media_type)

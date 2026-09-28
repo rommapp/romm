@@ -12,7 +12,7 @@ function searchRom(overrides: Partial<SearchRom>): SearchRom {
     is_identified: true,
     is_unidentified: false,
     ...overrides,
-  } as SearchRom;
+  };
 }
 
 describe("match cover previews", () => {

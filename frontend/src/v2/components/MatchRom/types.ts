@@ -96,8 +96,7 @@ export function matchKey(rom: SearchRom): string {
   return `${rom.igdb_id ?? "_"}-${rom.moby_id ?? "_"}-${rom.ss_id ?? "_"}-${rom.name}`;
 }
 
-// Preview URL (same-origin) of a search result's first provider cover, for
-// GameCard's `cover-src`, since SearchRom has no `path_cover_*`. Absent
+// Same-origin preview of a search result's first provider cover. Absent
 // providers come back as "", hence the truthy filter rather than `??`.
 export function firstAvailableCover(r: SearchRom): string | null {
   const candidates: Array<string | undefined> = [

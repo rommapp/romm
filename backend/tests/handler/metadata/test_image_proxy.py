@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator, Callable, Coroutine
 
 import httpx2
@@ -134,3 +135,33 @@ async def test_fetch_swallows_transport_errors():
         raise httpx2.ConnectTimeout("timed out", request=request)
 
     assert await _fetch_with(respond) is None
+
+
+async def test_fetch_gives_up_on_a_trickling_body(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        "handler.metadata.image_proxy.PROVIDER_IMAGE_TIMEOUT_SECONDS", 0.05
+    )
+
+    async def trickle() -> AsyncIterator[bytes]:
+        while True:
+            await asyncio.sleep(0.01)
+            yield b"x"
+
+    async def respond(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200, content=trickle(), headers={"content-type": "image/png"}
+        )
+
+    assert await _fetch_with(respond) is None
+
+
+async def test_fetch_accepts_an_animated_clip():
+    async def respond(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200, content=b"webm-bytes", headers={"content-type": "video/webm"}
+        )
+
+    image = await _fetch_with(respond, "https://cdn2.steamgriddb.com/thumb/a.webm")
+
+    assert image is not None
+    assert image.media_type == "video/webm"

@@ -30,6 +30,7 @@ import sgdbApi from "@/services/api/sgdb";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { providerImageUrl } from "@/utils/providerImage";
 import MatchRomProviderFilter from "@/v2/components/MatchRom/MatchRomProviderFilter.vue";
 import {
   getMatchSources,
@@ -558,7 +559,7 @@ function closeDialog() {
               >
                 <video
                   v-if="isAnimated(resource)"
-                  :src="resource.thumb"
+                  :src="providerImageUrl(resource.thumb)"
                   class="r-v2-sgdb__cover-img"
                   autoplay
                   loop
@@ -567,7 +568,7 @@ function closeDialog() {
                 />
                 <img
                   v-else
-                  :src="resource.thumb"
+                  :src="providerImageUrl(resource.thumb)"
                   :alt="game.name"
                   loading="lazy"
                   class="r-v2-sgdb__cover-img"
