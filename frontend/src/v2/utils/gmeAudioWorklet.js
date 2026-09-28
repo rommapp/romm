@@ -15,7 +15,7 @@ class GmeProcessor extends AudioWorkletProcessor {
 
   process(_inputs, outputs) {
     const [left, right] = outputs[0];
-    if (left) this.renderer.render(left, right);
+    if (left && right) this.renderer.render(left, right);
     return true;
   }
 }

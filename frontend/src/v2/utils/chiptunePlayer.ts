@@ -77,9 +77,12 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     return this.position;
   }
 
+  // Reports the new position at once, as `<audio>` does, since a suspended
+  // renderer only applies the seek when playback resumes.
   set currentTime(seconds: number) {
     this.position = seconds;
     this.post({ type: "seek", ms: seconds * 1000 });
+    this.dispatchEvent(new Event("timeupdate"));
   }
 
   get volume(): number {
@@ -103,8 +106,9 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   /**
    * Load one track of a sound file, replacing whatever was loaded.
    *
-   * @param url Where to fetch the file from.
-   * @param track Zero-based index of the song within the file.
+   * Args:
+   *   url: where to fetch the file from.
+   *   track: zero-based index of the song within the file.
    */
   async load(url: string, track = 0): Promise<void> {
     // Silence the old track now, not once the new one has downloaded.
@@ -143,6 +147,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     if (this.isPaused) return;
     this.isPaused = true;
     this.post({ type: "pause" });
+    this.idle();
     this.dispatchEvent(new Event("pause"));
   }
 
@@ -158,6 +163,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     this.position = 0;
     this.length = 0;
     this.post({ type: "unload" });
+    this.idle();
   }
 
   close(): void {
@@ -172,7 +178,14 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   private fail() {
     this.failed = true;
     this.isPaused = true;
+    this.idle();
     this.dispatchEvent(new Event("error"));
+  }
+
+  // Stops the render callbacks and frees the output device while nothing
+  // plays; `play()` resumes it.
+  private idle() {
+    void this.context?.suspend().catch(() => {});
   }
 
   private applyGain() {
@@ -223,6 +236,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
         break;
       case "ended":
         this.isPaused = true;
+        this.idle();
         this.dispatchEvent(new Event("ended"));
         break;
       case "error":

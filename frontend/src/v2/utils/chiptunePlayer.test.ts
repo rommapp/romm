@@ -53,6 +53,7 @@ const NSF_BYTES = new Uint8Array([0x4e, 0x45, 0x53, 0x4d, 0x1a, 0x01]);
 let port: FakePort;
 const addModule = vi.fn(async () => {});
 const resume = vi.fn(async () => {});
+const suspend = vi.fn(async () => {});
 const gain = { gain: { value: -1 }, connect: vi.fn() };
 let bodies: Map<string, Uint8Array>;
 
@@ -107,18 +108,7 @@ beforeEach(() => {
     }),
   );
   vi.spyOn(WebAssembly, "compile").mockResolvedValue({} as WebAssembly.Module);
-  vi.stubGlobal(
-    "AudioContext",
-    class {
-      audioWorklet = { addModule };
-      destination = {};
-      resume = resume;
-      close = vi.fn(async () => {});
-      createGain() {
-        return gain;
-      }
-    },
-  );
+  stubContext();
   vi.stubGlobal(
     "AudioWorkletNode",
     class {
@@ -231,13 +221,15 @@ describe("ChiptunePlayer", () => {
     expect(events).toEqual(["timeupdate", "ended"]);
   });
 
-  it("forwards seeks to the worklet in milliseconds", async () => {
+  it("forwards seeks to the renderer and reports the new position", async () => {
     const player = new ChiptunePlayer();
     await loaded(player);
 
+    const events = recordEvents(player);
     player.currentTime = 42;
     await flush();
 
+    expect(events).toEqual(["timeupdate"]);
     expect(port.posted.at(-1)).toEqual({ type: "seek", ms: 42000 });
     expect(player.currentTime).toBe(42);
   });
@@ -275,8 +267,23 @@ describe("ChiptunePlayer", () => {
     expect(events).toEqual(["error"]);
   });
 
+  it("suspends the audio context whenever nothing plays", async () => {
+    const player = new ChiptunePlayer();
+    await loaded(player);
+    await player.play();
+    suspend.mockClear();
+
+    player.pause();
+    expect(suspend).toHaveBeenCalledTimes(1);
+
+    await player.play();
+    player.unload();
+    expect(suspend).toHaveBeenCalledTimes(2);
+    expect(resume).toHaveBeenCalled();
+  });
+
   it("renders on the main thread where AudioWorklet is unavailable", async () => {
-    const processor = stubMainThreadContext(undefined);
+    const processor = stubContext({ worklet: false });
     const player = new ChiptunePlayer();
     const events = recordEvents(player);
 
@@ -299,7 +306,6 @@ describe("ChiptunePlayer", () => {
   it("falls back to the main thread when the worklet won't start", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     addModule.mockRejectedValueOnce(new Error("DataCloneError"));
-    stubMainThreadContext({ addModule });
     const player = new ChiptunePlayer();
 
     await player.load("/track.nsf");
@@ -310,10 +316,8 @@ describe("ChiptunePlayer", () => {
   });
 });
 
-/** An AudioContext that renders through a ScriptProcessorNode. */
-function stubMainThreadContext(
-  audioWorklet: { addModule: () => unknown } | undefined,
-) {
+/** An AudioContext, with or without AudioWorklet, returning its ScriptProcessorNode. */
+function stubContext({ worklet = true } = {}) {
   const processor = {
     onaudioprocess: null as ((event: object) => void) | null,
     connect: vi.fn(() => gain),
@@ -321,10 +325,11 @@ function stubMainThreadContext(
   vi.stubGlobal(
     "AudioContext",
     class {
-      audioWorklet = audioWorklet;
+      audioWorklet = worklet ? { addModule } : undefined;
       sampleRate = 48000;
       destination = {};
       resume = resume;
+      suspend = suspend;
       close = vi.fn(async () => {});
       createGain() {
         return gain;

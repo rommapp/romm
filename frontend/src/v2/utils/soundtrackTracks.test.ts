@@ -85,6 +85,7 @@ describe("panelTracksFromCatalog", () => {
   const base = {
     rom_file_id: 5,
     rom_id: 9,
+    file_name: "overworld.mp3",
     title: "Overworld",
     artist: "Kondo",
     album: "SMB OST",
@@ -98,6 +99,21 @@ describe("panelTracksFromCatalog", () => {
     const [track] = panelTracksFromCatalog([base]);
     expect(track.subtitle).toBe("Kondo · SMB OST · Super Mario Bros · NES");
     expect(track.durationSeconds).toBe(90);
+  });
+
+  it("titles an untagged track by its file name, keeping the game as context", () => {
+    const [track] = panelTracksFromCatalog([
+      {
+        ...base,
+        file_name: "Stage 1.spc",
+        title: null,
+        artist: null,
+        album: null,
+      },
+    ]);
+    expect(track.title).toBe("Stage 1");
+    expect(track.fileName).toBe("Stage 1.spc");
+    expect(track.subtitle).toBe("Super Mario Bros · NES");
   });
 
   it("drops the game name when it merely repeats the title", () => {

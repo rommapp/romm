@@ -47,6 +47,13 @@ function renderer(sampleRate = 48000) {
   );
 }
 
+/** Render one quantum and return its left channel. */
+function quantum(target: GmeRenderer, frames = 4, fill = 0) {
+  const left = new Float32Array(frames).fill(fill);
+  target.render(left, new Float32Array(frames));
+  return left;
+}
+
 function load(target: GmeRenderer, bytes = [1, 2, 3], id = 1) {
   target.handle({
     type: "load",
@@ -60,7 +67,7 @@ beforeEach(() => {
   gme = fakeGme();
   replies = [];
   vi.spyOn(WebAssembly, "Instance").mockImplementation(function () {
-    return { exports: gme.exports } as unknown as WebAssembly.Instance;
+    return { exports: gme.exports };
   });
 });
 
@@ -102,9 +109,9 @@ describe("GmeRenderer", () => {
     target.handle({ type: "play" });
     replies = [];
 
-    target.render(new Float32Array(128));
+    quantum(target, 128);
     expect(replies).toEqual([]);
-    target.render(new Float32Array(128));
+    quantum(target, 128);
     expect(replies).toEqual([{ type: "time", id: 1, ms: 1234 }]);
   });
 
@@ -115,9 +122,8 @@ describe("GmeRenderer", () => {
     replies = [];
     gme.state.ended = true;
 
-    target.render(new Float32Array(4));
-    const left = new Float32Array(4).fill(1);
-    target.render(left);
+    quantum(target);
+    const left = quantum(target, 4, 1);
 
     expect(replies.map((reply) => reply.type)).toEqual(["time", "ended"]);
     expect([...left]).toEqual([0, 0, 0, 0]);
@@ -128,12 +134,11 @@ describe("GmeRenderer", () => {
     load(target);
     target.handle({ type: "play" });
     gme.state.ended = true;
-    target.render(new Float32Array(4));
+    quantum(target);
     replies = [];
 
     target.handle({ type: "play" });
-    const left = new Float32Array(4);
-    target.render(left);
+    const left = quantum(target);
 
     expect(gme.exports.romm_gme_start).toHaveBeenCalledTimes(2);
     expect(replies).toEqual([{ type: "time", id: 1, ms: 1234 }]);
@@ -145,6 +150,7 @@ describe("GmeRenderer", () => {
     load(target);
 
     target.handle({ type: "seek", ms: 500 });
+    quantum(target);
 
     expect(gme.exports.romm_gme_start).toHaveBeenCalledTimes(2);
     expect(gme.exports.gme_seek).toHaveBeenCalledWith(7, 500);
@@ -156,19 +162,19 @@ describe("GmeRenderer", () => {
     load(target);
 
     target.handle({ type: "seek", ms: 5000 });
+    quantum(target);
 
     expect(gme.exports.romm_gme_start).toHaveBeenCalledTimes(1);
     expect(gme.exports.gme_seek).toHaveBeenCalledWith(7, 5000);
   });
 
-  it("collapses a scrub while playing into one seek per quantum", () => {
+  it("collapses a scrub into one seek per quantum", () => {
     const target = renderer();
     load(target);
-    target.handle({ type: "play" });
 
     for (const ms of [2000, 3000, 4000]) target.handle({ type: "seek", ms });
     expect(gme.exports.gme_seek).not.toHaveBeenCalled();
-    target.render(new Float32Array(4));
+    quantum(target);
 
     expect(gme.exports.gme_seek).toHaveBeenCalledTimes(1);
     expect(gme.exports.gme_seek).toHaveBeenCalledWith(7, 4000);

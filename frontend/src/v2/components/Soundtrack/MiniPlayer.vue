@@ -37,12 +37,6 @@ watch([() => playingStore.stageActive, smAndDown], ([stage, phone]) => {
   if (stage && phone) active?.pause();
 });
 
-// Generation token, bumped every time we reassign `src`. Any async
-// `play()` promise resolves against the token current when it was
-// kicked off, so stale awaits from prior tracks don't clobber the
-// current state. Same idiom as v1's mini player.
-let loadToken = 0;
-
 // Track loads, seeks and short stalls often resolve within a second; buffering
 // is only reported once a wait outlasts that, so the covers don't flash.
 const BUFFERING_DELAY_MS = 1000;
@@ -64,14 +58,9 @@ function scheduleBuffering() {
 function getChiptune(): ChiptunePlayer {
   if (chiptune) return chiptune;
   const player = new ChiptunePlayer();
-  player.addEventListener("play", onPlay);
-  player.addEventListener("pause", onPause);
-  player.addEventListener("ended", onEnded);
-  player.addEventListener("timeupdate", onTimeUpdate);
-  player.addEventListener("loadedmetadata", onLoadedMetadata);
-  player.addEventListener("waiting", onWaiting);
-  player.addEventListener("canplay", onCanPlay);
-  player.addEventListener("error", onError);
+  for (const [name, listener] of Object.entries(sinkListeners)) {
+    player.addEventListener(name, listener);
+  }
   chiptune = player;
   return player;
 }
@@ -104,7 +93,6 @@ onBeforeUnmount(() => {
 watch(track, async (t) => {
   const el = audioEl.value;
   if (!el) return;
-  const token = ++loadToken;
   if (!t) {
     setBuffered();
     unloadAudio(el);
@@ -115,18 +103,13 @@ watch(track, async (t) => {
   // The store flags a new track as buffering; hold that back like any wait.
   store.setBuffering(false);
   scheduleBuffering();
-  let sink: HTMLAudioElement | ChiptunePlayer;
-  // Catalog tracks carry a display title as `fileName`; the stream URL always
-  // ends in the real file name.
-  if (isChiptuneFile(new URL(t.url, window.location.href).pathname)) {
+  const sink = isChiptuneFile(t.fileName) ? getChiptune() : el;
+  activate(sink);
+  if (sink instanceof ChiptunePlayer) {
     unloadAudio(el);
-    sink = getChiptune();
-    activate(sink);
     void sink.load(t.url);
   } else {
     chiptune?.unload();
-    sink = el;
-    activate(sink);
     el.src = t.url;
     try {
       el.load();
@@ -137,59 +120,57 @@ watch(track, async (t) => {
   try {
     await sink.play();
   } catch {
-    if (token !== loadToken) return;
     // Autoplay may be blocked; the user can hit play in the UI. Real load
     // failures come through `error` events, so no snackbar here.
   }
 });
 
-function isActive(event: Event): boolean {
-  return event.target === active;
-}
+const sinkHandlers: Record<string, () => void> = {
+  play() {
+    store.setPlaying(true);
+    setBuffered();
+  },
+  pause() {
+    store.setPlaying(false);
+  },
+  ended() {
+    store.setPlaying(false);
+    if (hasNext.value) store.next();
+  },
+  timeupdate() {
+    store.reportCurrentTime(active?.currentTime || 0);
+  },
+  loadedmetadata() {
+    store.setDuration(active?.duration || 0);
+  },
+  waiting() {
+    scheduleBuffering();
+  },
+  canplay() {
+    setBuffered();
+  },
+  error() {
+    clearTimeout(bufferingTimer);
+    store.setError();
+    // Snackbar payload still uses v1's `snackbarShow` event shape;
+    // when v1 is removed, switch to `useSnackbar()` here.
+    emitter?.emit("snackbarShow", {
+      msg: t("rom.cant-play-track"),
+      icon: "mdi-alert",
+      color: "red",
+      timeout: 3000,
+    });
+  },
+};
 
-function onPlay(event: Event) {
-  if (!isActive(event)) return;
-  store.setPlaying(true);
-  setBuffered();
-}
-function onPause(event: Event) {
-  if (!isActive(event)) return;
-  store.setPlaying(false);
-}
-function onEnded(event: Event) {
-  if (!isActive(event)) return;
-  store.setPlaying(false);
-  if (hasNext.value) store.next();
-}
-function onTimeUpdate(event: Event) {
-  if (!isActive(event) || !active) return;
-  store.reportCurrentTime(active.currentTime || 0);
-}
-function onLoadedMetadata(event: Event) {
-  if (!isActive(event) || !active) return;
-  store.setDuration(active.duration || 0);
-}
-function onWaiting(event: Event) {
-  if (!isActive(event)) return;
-  scheduleBuffering();
-}
-function onCanPlay(event: Event) {
-  if (!isActive(event)) return;
-  setBuffered();
-}
-function onError(event: Event) {
-  if (!isActive(event)) return;
-  clearTimeout(bufferingTimer);
-  store.setError();
-  // Snackbar payload still uses v1's `snackbarShow` event shape;
-  // when v1 is removed, switch to `useSnackbar()` here.
-  emitter?.emit("snackbarShow", {
-    msg: t("rom.cant-play-track"),
-    icon: "mdi-alert",
-    color: "red",
-    timeout: 3000,
-  });
-}
+const sinkListeners = Object.fromEntries(
+  Object.entries(sinkHandlers).map(([name, handler]) => [
+    name,
+    (event: Event) => {
+      if (event.target === active) handler();
+    },
+  ]),
+);
 </script>
 
 <template>
@@ -200,14 +181,7 @@ function onError(event: Event) {
     class="r-v2-mp__audio"
     preload="metadata"
     aria-hidden="true"
-    @play="onPlay"
-    @pause="onPause"
-    @ended="onEnded"
-    @timeupdate="onTimeUpdate"
-    @loadedmetadata="onLoadedMetadata"
-    @waiting="onWaiting"
-    @canplay="onCanPlay"
-    @error="onError"
+    v-on="sinkListeners"
   />
 
   <Transition name="r-v2-mp-slide">

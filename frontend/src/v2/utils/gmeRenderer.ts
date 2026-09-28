@@ -22,7 +22,7 @@ export type GmeCommand =
   | { type: "seek"; ms: number }
   | { type: "unload" };
 
-interface GmeExports {
+type GmeExports = {
   memory: WebAssembly.Memory;
   _initialize: () => void;
   malloc: (size: number) => number;
@@ -34,6 +34,29 @@ interface GmeExports {
   gme_tell: (emu: number) => number;
   gme_track_ended: (emu: number) => number;
   gme_delete: (emu: number) => void;
+};
+
+const GME_FUNCTIONS = [
+  "_initialize",
+  "malloc",
+  "free",
+  "romm_gme_open",
+  "romm_gme_start",
+  "gme_play",
+  "gme_seek",
+  "gme_tell",
+  "gme_track_ended",
+  "gme_delete",
+] as const;
+
+function gmeExports(exports: WebAssembly.Exports): GmeExports {
+  const missing = GME_FUNCTIONS.filter(
+    (name) => typeof exports[name] !== "function",
+  );
+  if (!(exports.memory instanceof WebAssembly.Memory) || missing.length) {
+    throw new Error(`gme.wasm is missing exports: ${missing.join(", ")}`);
+  }
+  return exports as GmeExports;
 }
 
 export class GmeRenderer {
@@ -43,20 +66,24 @@ export class GmeRenderer {
   // Echoed on every reply, so the page can drop those about a replaced track.
   private loadId = 0;
   private playing = false;
-  // While playing, a scrub's seeks collapse into one per quantum, since each
-  // emulates its way to the target.
+  // A scrub's seeks collapse into one per quantum, since each emulates its way
+  // to the target.
   private pendingSeekMs: number | null = null;
   private bufferPointer = 0;
   private bufferSamples = 0;
+  private pcm = new Int16Array(0);
   private framesSinceReport = 0;
   private readonly framesPerReport: number;
   private readonly sampleRate: number;
   private readonly send: (reply: GmeReply) => void;
 
   /**
-   * @param module The compiled gme.wasm.
-   * @param sampleRate The output rate libgme renders at.
-   * @param send Delivers replies to the ChiptunePlayer.
+   * Instantiate gme.wasm for one output.
+   *
+   * Args:
+   *   module: the compiled gme.wasm.
+   *   sampleRate: the output rate libgme renders at.
+   *   send: delivers replies to the ChiptunePlayer.
    */
   constructor(
     module: WebAssembly.Module,
@@ -65,8 +92,7 @@ export class GmeRenderer {
   ) {
     this.sampleRate = sampleRate;
     this.send = send;
-    const instance = new WebAssembly.Instance(module, IMPORTS);
-    this.gme = instance.exports as unknown as GmeExports;
+    this.gme = gmeExports(new WebAssembly.Instance(module, IMPORTS).exports);
     this.gme._initialize();
     this.framesPerReport = sampleRate * TIME_REPORT_INTERVAL_SECONDS;
   }
@@ -87,9 +113,7 @@ export class GmeRenderer {
         this.playing = false;
         break;
       case "seek":
-        if (!this.emu) break;
-        if (this.playing) this.pendingSeekMs = command.ms;
-        else this.seek(command.ms);
+        if (this.emu) this.pendingSeekMs = command.ms;
         break;
       case "unload":
         this.unload();
@@ -98,36 +122,30 @@ export class GmeRenderer {
   }
 
   /** Fill one quantum of output, or silence while nothing plays. */
-  render(left: Float32Array, right?: Float32Array) {
+  render(left: Float32Array, right: Float32Array) {
     if (this.pendingSeekMs !== null) {
       const ms = this.pendingSeekMs;
       this.pendingSeekMs = null;
       this.seek(ms);
     }
+    const frames = left.length;
+    if (this.playing) {
+      this.reserve(frames * 2);
+      if (this.gme.gme_play(this.emu, frames * 2, this.bufferPointer)) {
+        this.unload();
+        this.reply({ type: "error" });
+      }
+    }
     if (!this.playing) {
       left.fill(0);
-      right?.fill(0);
+      right.fill(0);
       return;
     }
 
-    const frames = left.length;
-    this.reserve(frames * 2);
-    if (this.gme.gme_play(this.emu, frames * 2, this.bufferPointer)) {
-      this.unload();
-      this.reply({ type: "error" });
-      left.fill(0);
-      right?.fill(0);
-      return;
-    }
-    // Memory growth detaches old views, so take a fresh one each quantum.
-    const pcm = new Int16Array(
-      this.gme.memory.buffer,
-      this.bufferPointer,
-      frames * 2,
-    );
+    const pcm = this.pcmView(frames * 2);
     for (let frame = 0; frame < frames; frame += 1) {
       left[frame] = pcm[frame * 2] / 32768;
-      if (right) right[frame] = pcm[frame * 2 + 1] / 32768;
+      right[frame] = pcm[frame * 2 + 1] / 32768;
     }
 
     if (this.gme.gme_track_ended(this.emu)) {
@@ -171,7 +189,6 @@ export class GmeRenderer {
 
   /** Start the track over with its fade, or unload it if libgme refuses. */
   private restart(): boolean {
-    this.framesSinceReport = 0;
     if (this.gme.romm_gme_start(this.emu, this.track) >= 0) return true;
     this.unload();
     this.reply({ type: "error" });
@@ -192,6 +209,19 @@ export class GmeRenderer {
   private reportTime() {
     this.framesSinceReport = 0;
     this.reply({ type: "time", ms: this.gme.gme_tell(this.emu) });
+  }
+
+  // Memory growth detaches old views, so the view is rebuilt when that happens.
+  private pcmView(count: number): Int16Array {
+    const { buffer } = this.gme.memory;
+    if (
+      this.pcm.buffer !== buffer ||
+      this.pcm.byteOffset !== this.bufferPointer ||
+      this.pcm.length !== count
+    ) {
+      this.pcm = new Int16Array(buffer, this.bufferPointer, count);
+    }
+    return this.pcm;
   }
 
   // Interleaved stereo samples, reallocated only when the quantum grows.

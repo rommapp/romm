@@ -29,7 +29,7 @@ emcc -O3 -fno-exceptions -fno-rtti \
 	-sSTANDALONE_WASM \
 	-sALLOW_MEMORY_GROWTH \
 	-sFILESYSTEM=0 \
-	-sEXPORTED_FUNCTIONS=_malloc,_free,_romm_gme_open,_romm_gme_start,_gme_track_count,_gme_play,_gme_seek,_gme_tell,_gme_track_ended,_gme_delete \
+	-sEXPORTED_FUNCTIONS=_malloc,_free,_romm_gme_open,_romm_gme_start,_gme_play,_gme_seek,_gme_tell,_gme_track_ended,_gme_delete \
 	--no-entry \
 	-o "${out_dir}/gme.wasm"
 

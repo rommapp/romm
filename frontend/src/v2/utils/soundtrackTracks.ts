@@ -113,11 +113,11 @@ export function panelTracksFromCatalog(
   tracks: MusicTrackSchema[],
 ): PanelTrack[] {
   return tracks.map((track) => {
-    const title = track.title || stripExtension(track.game_name ?? "");
+    const title = track.title || stripExtension(track.file_name);
     return {
       id: track.rom_file_id,
       romId: track.rom_id,
-      fileName: track.title || track.game_name || String(track.rom_file_id),
+      fileName: track.file_name,
       title,
       // The game name is context only when it says something new: untagged
       // rips often reuse it as the title, and tagged ones as the album.

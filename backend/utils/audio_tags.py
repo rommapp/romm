@@ -120,21 +120,20 @@ def is_chiptune_file(file_name: str) -> bool:
 
 
 # MIME types for audio formats that the stdlib mimetypes module guesses
-# inconsistently (or not at all) across platforms.
+# inconsistently (or not at all) across platforms. It maps some chiptune
+# extensions to unrelated types (.nsf to Lotus Notes), so those are binary.
 AUDIO_MIME_OVERRIDES = {
     ".flac": "audio/flac",
     ".opus": "audio/ogg",
     ".m4a": "audio/mp4",
     ".oga": "audio/ogg",
     ".ogg": "audio/ogg",
+    **dict.fromkeys(CHIPTUNE_EXTENSIONS, "application/octet-stream"),
 }
 
 
 def guess_audio_media_type(file_name: str) -> str:
     ext = os.path.splitext(file_name)[1].lower()
-    # The stdlib maps some of these to unrelated types (.nsf to Lotus Notes).
-    if ext in CHIPTUNE_EXTENSIONS:
-        return "application/octet-stream"
     if ext in AUDIO_MIME_OVERRIDES:
         return AUDIO_MIME_OVERRIDES[ext]
     guessed, _ = mimetypes.guess_type(file_name)

@@ -140,6 +140,7 @@ def test_tracks_lists_all(client: TestClient, access_token: str, music_library):
     item = next(i for i in body["items"] if i["title"] == "Green Hill")
     assert item["year"] == 1991 and isinstance(item["year"], int)
     assert item["platform_slug"] == "genesis"
+    assert item["file_name"] == "Green Hill.mp3"
     assert item["stream_url"].endswith("/files/content/Green%20Hill.mp3")
     # track cover takes precedence
     assert item["cover_url"].endswith("/soundtrack/cover.jpg")
