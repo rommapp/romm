@@ -1,20 +1,19 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { expect, waitFor } from "storybook/test";
-import { onMounted } from "vue";
+import { expect, waitFor, within } from "storybook/test";
+import { ref } from "vue";
 import { useRouter } from "vue-router";
 import type { DetailedRomSchema } from "@/__generated__";
 import storeAuth from "@/stores/auth";
+import { userFixture } from "@/utils/user.fixtures";
 import {
   mixedCommunitySaves,
   mixedCommunityStates,
-  storyAuthUser,
   storyDetailedRom,
-} from "@/v2/utils/saveStateStoryFixtures";
+} from "@/v2/utils/saveStates.fixtures";
 import {
-  canvas,
   downloadButtons,
   pickSaveDataSubtab,
-} from "@/v2/utils/saveStateStoryPlays";
+} from "@/v2/utils/saveStates.plays";
 import SaveDataTab from "./SaveDataTab.vue";
 
 type Subtab = "saves" | "states";
@@ -38,14 +37,13 @@ const meta: Meta<StoryArgs> = {
     (_, { args }) => ({
       components: { SaveDataTab },
       setup() {
-        const router = useRouter();
-        onMounted(() => {
-          storeAuth().setCurrentUser(storyAuthUser());
-          void router.replace({
-            query: { tab: "save-data", subtab: args.subtab },
-          });
-        });
-        return { rom: args.rom };
+        storeAuth().setCurrentUser(userFixture({ username: "player" }));
+        // SaveDataTab reads `?subtab=` during setup, so mount it after navigating.
+        const ready = ref(false);
+        void useRouter()
+          .replace({ query: { tab: "save-data", subtab: args.subtab } })
+          .then(() => (ready.value = true));
+        return { rom: args.rom, ready };
       },
       template: `
         <div style="
@@ -55,7 +53,7 @@ const meta: Meta<StoryArgs> = {
           padding: var(--r-space-4);
           background: var(--r-color-bg);
         ">
-          <SaveDataTab :rom="rom" style="height: min(720px, 85vh);" />
+          <SaveDataTab v-if="ready" :rom="rom" style="height: min(720px, 85vh);" />
         </div>
       `,
     }),
@@ -69,7 +67,7 @@ export const SavesFull: Story = {
   name: "Saves · mine + community",
   args: { subtab: "saves", rom: storyDetailedRom() },
   play: async ({ canvasElement, step }) => {
-    const ui = canvas(canvasElement);
+    const ui = within(canvasElement);
     await step("saves subtab shows mine and community sections", async () => {
       await waitFor(() => {
         expect(ui.getByText("My saves")).toBeTruthy();
@@ -92,7 +90,7 @@ export const StatesFull: Story = {
   play: async ({ canvasElement, step }) => {
     await step("states subtab lists mine section", async () => {
       await waitFor(() => {
-        expect(canvas(canvasElement).getByText("My states")).toBeTruthy();
+        expect(within(canvasElement).getByText("My states")).toBeTruthy();
       });
     });
   },
@@ -109,7 +107,7 @@ export const SavesEmptyMine: Story = {
   play: async ({ canvasElement, step }) => {
     await step("empty mine promotes upload dropzone", async () => {
       await waitFor(() => {
-        expect(canvas(canvasElement).getByText("No saves yet")).toBeTruthy();
+        expect(within(canvasElement).getByText("No saves yet")).toBeTruthy();
       });
     });
   },

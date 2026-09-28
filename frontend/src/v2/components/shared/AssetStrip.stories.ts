@@ -1,8 +1,6 @@
-// AssetStrip is the horizontal card variant used for STATES in most surfaces.
-// Saves render through <AssetList> (vertical rows). Stories here cover strip
-// layouts plus Save data manage mode (flow + group-by emulator).
+// AssetStrip is the card variant for states; saves render through <AssetList>.
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { expect, userEvent } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import type { StateSchema } from "@/__generated__";
 import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
@@ -10,13 +8,9 @@ import {
   makeState,
   manyStates,
   mixedCommunityStates,
-  storyStateScreenshot,
-} from "@/v2/utils/saveStateStoryFixtures";
-import {
-  canvas,
-  downloadButtons,
-  stripTiles,
-} from "@/v2/utils/saveStateStoryPlays";
+  screenshotFixture,
+} from "@/v2/utils/saveStates.fixtures";
+import { downloadButtons, stripTiles } from "@/v2/utils/saveStates.plays";
 import AssetStrip from "./AssetStrip.vue";
 
 const stripDecorator = [
@@ -73,6 +67,8 @@ function selectableStrip(
   };
 }
 
+// Five states with screenshots, the headline case. The selected tile
+// carries the brand ring and check badge.
 export const FewStatesScreenshots: Story = {
   name: "States · 5 with screenshots",
   render: () => {
@@ -96,6 +92,7 @@ export const FewStatesScreenshots: Story = {
   },
 };
 
+// Twelve states overflow; tiles scroll horizontally with snap.
 export const ManyStatesOverflow: Story = {
   name: "States · 12 (horizontal scroll)",
   render: () => {
@@ -104,6 +101,8 @@ export const ManyStatesOverflow: Story = {
   },
 };
 
+// Grid and list: a long history, where the horizontal strip buries the
+// older entries behind a scroll.
 export const ManyStatesGrid: Story = {
   name: "States · 30 (grid layout)",
   render: () => {
@@ -120,6 +119,7 @@ export const ManyStatesList: Story = {
   },
 };
 
+// States without a screenshot fall back to a gradient with the file icon.
 export const StatesNoScreenshots: Story = {
   name: "States · 6 without screenshots",
   render: () => {
@@ -128,6 +128,7 @@ export const StatesNoScreenshots: Story = {
   },
 };
 
+// Long filenames should ellipsis cleanly without breaking the row.
 export const LongFilenames: Story = {
   name: "Long filenames (ellipsis)",
   render: () => {
@@ -135,7 +136,7 @@ export const LongFilenames: Story = {
       makeState({
         id: 1,
         file_name: "the_legend_of_zelda_a_link_to_the_past_speedrun_27.state",
-        screenshot: storyStateScreenshot(
+        screenshot: screenshotFixture(
           "https://placehold.co/640x360/2d2147/ffffff?text=LTTP",
           1,
         ),
@@ -144,7 +145,7 @@ export const LongFilenames: Story = {
         id: 2,
         file_name:
           "chrono_trigger_new_game_plus_attempt_third_run_boss_room.state",
-        screenshot: storyStateScreenshot(
+        screenshot: screenshotFixture(
           "https://placehold.co/640x360/4a1a1a/ffffff?text=CT+NG%2B",
           2,
         ),
@@ -159,11 +160,13 @@ export const LongFilenames: Story = {
   },
 };
 
+// Nothing selected yet; the strip is still clickable.
 export const NoneSelected: Story = {
   name: "States · none selected",
   render: () => selectableStrip(manyStates(4), null),
 };
 
+// Empty, distinct from "no asset selected".
 export const EmptyStates: Story = {
   name: "Empty (no states)",
   render: () => ({
@@ -175,7 +178,7 @@ export const EmptyStates: Story = {
   play: async ({ canvasElement, step }) => {
     await step("empty states message", async () => {
       expect(
-        canvas(canvasElement).getByText("No states available"),
+        within(canvasElement).getByText("No states available"),
       ).toBeTruthy();
     });
   },
@@ -217,6 +220,8 @@ export const IncompatibleStates: Story = {
   },
 };
 
+// One collapsible mini grid per core. The core that cannot load starts
+// closed and its tiles are greyed out when opened.
 export const GroupedByCore: Story = {
   name: "States · grouped by core",
   render: () => {
@@ -236,6 +241,7 @@ export const GroupedByCore: Story = {
   },
 };
 
+// Save data management: static tiles grouped by core, hosting the actions slot.
 export const ManageFlowGrouped: Story = {
   name: "Manage · flow + grouped (Save data)",
   render: () => ({
@@ -258,7 +264,7 @@ export const ManageFlowGrouped: Story = {
     `,
   }),
   play: async ({ canvasElement, step }) => {
-    const ui = canvas(canvasElement);
+    const ui = within(canvasElement);
     await step("core group headings appear", async () => {
       expect(ui.getByRole("button", { name: /snes9x/i })).toBeTruthy();
     });
@@ -272,6 +278,7 @@ export const ManageFlowGrouped: Story = {
   },
 };
 
+// Other users' public states: owner chip, download only.
 export const ManageCommunity: Story = {
   name: "Manage · community + show owner",
   render: () => ({

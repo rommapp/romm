@@ -68,6 +68,7 @@ const storyModules = import.meta.glob<StoryModule>(
   [
     "../src/v2/lib/**/*.stories.ts",
     "../src/v2/components/shared/**/*.stories.ts",
+    "../src/v2/components/GameDetails/**/*.stories.ts",
   ],
   { eager: true },
 );

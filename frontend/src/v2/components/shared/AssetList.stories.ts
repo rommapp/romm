@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { expect, userEvent } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
 import {
+  IDENTICAL_STATE_PREFIX,
   identicalPrefixStates,
   makeSave,
   makeSaveSlot,
@@ -11,17 +12,14 @@ import {
   saveScreenshot,
   saveSlotLibrary,
   toUserSave,
-} from "@/v2/utils/saveStateStoryFixtures";
+} from "@/v2/utils/saveStates.fixtures";
 import {
-  canvas,
   deleteButtons,
   downloadButtons,
   listRows,
   manageListRows,
-} from "@/v2/utils/saveStateStoryPlays";
+} from "@/v2/utils/saveStates.plays";
 import AssetList from "./AssetList.vue";
-
-const IDENTICAL_PREFIX = "emulatorjs_chrono_trigger_usa_rev_a_super_nintendo";
 
 const listDecorator = [
   () => ({
@@ -82,6 +80,7 @@ function selectableStates(states: StateSchema[], selected: number | null) {
   };
 }
 
+// Autosave history, two named slots and two archives: the full slot model.
 export const SlotLibrary: Story = {
   name: "Saves · slots (selectable)",
   render: () => {
@@ -89,7 +88,7 @@ export const SlotLibrary: Story = {
     return selectableSaves(saves, saves[0].id);
   },
   play: async ({ canvasElement, step }) => {
-    const ui = canvas(canvasElement);
+    const ui = within(canvasElement);
     await step("named slot groups are visible", async () => {
       expect(ui.getByText("autosave")).toBeTruthy();
       expect(ui.getByText("main_quest")).toBeTruthy();
@@ -106,6 +105,7 @@ export const SlotLibrary: Story = {
   },
 };
 
+// Selecting an older version unfolds its slot so the pick stays visible.
 export const OlderVersionSelected: Story = {
   name: "Saves · older version selected",
   render: () => {
@@ -115,6 +115,7 @@ export const OlderVersionSelected: Story = {
   },
 };
 
+// Only manual uploads, no screenshots: the pre-slot shape of a library.
 export const ArchiveOnly: Story = {
   name: "Saves · archive only",
   render: () => {
@@ -130,6 +131,7 @@ export const ArchiveOnly: Story = {
   },
 };
 
+// Flat list ordered by upload time, as the player's stream picker shows it.
 export const StreamArchives: Story = {
   name: "Saves · stream (created, flat)",
   render: () => {
@@ -174,6 +176,7 @@ export const SaveWithContentHash: Story = {
   },
 };
 
+// One slot, one version, the most common case for new players.
 export const SingleSave: Story = {
   name: "Saves · single",
   render: () => {
@@ -190,6 +193,7 @@ export const StatesSelectable: Story = {
   },
 };
 
+// Browser-player names differ only at the end, which the ellipsis hides.
 export const IdenticalPrefixStates: Story = {
   name: "States · identical prefix",
   render: () => {
@@ -198,15 +202,18 @@ export const IdenticalPrefixStates: Story = {
   },
   play: async ({ canvasElement, step }) => {
     await step("each row keeps the full filename in the DOM", async () => {
-      const names = canvasElement.querySelectorAll(".r-asset-list__name");
+      const names = Array.from(
+        canvasElement.querySelectorAll(".r-asset-list__name"),
+      );
       expect(names.length).toBe(4);
       for (const el of names) {
-        expect(el.textContent).toContain(IDENTICAL_PREFIX);
+        expect(el.textContent).toContain(IDENTICAL_STATE_PREFIX);
       }
     });
   },
 };
 
+// Management mode: static rows hosting the actions slot.
 export const ManageSaves: Story = {
   name: "Saves · manage + actions",
   render: () => ({
@@ -223,7 +230,6 @@ export const ManageSaves: Story = {
     `,
   }),
   play: async ({ canvasElement, step }) => {
-    const ui = canvas(canvasElement);
     await step("manage rows are static, not selectable buttons", async () => {
       const rows = manageListRows(canvasElement);
       expect(rows.length).toBeGreaterThan(0);
@@ -253,10 +259,11 @@ export const ManageStates: Story = {
   }),
 };
 
+// Other users' public saves: owner chip, download only.
 export const CommunitySaves: Story = {
   name: "Saves · community (show owner)",
   play: async ({ canvasElement, step }) => {
-    const ui = canvas(canvasElement);
+    const ui = within(canvasElement);
     await step("community author chips render", async () => {
       expect(ui.getByText("speedrunner42")).toBeTruthy();
       expect(ui.getByText("archivist")).toBeTruthy();
@@ -295,6 +302,7 @@ export const CommunitySaves: Story = {
   }),
 };
 
+// Empty, distinct from "no save selected".
 export const EmptySaves: Story = {
   name: "Empty · saves",
   render: () => ({
@@ -306,7 +314,7 @@ export const EmptySaves: Story = {
   play: async ({ canvasElement, step }) => {
     await step("empty saves message", async () => {
       expect(
-        canvas(canvasElement).getByText("No saves available"),
+        within(canvasElement).getByText("No saves available"),
       ).toBeTruthy();
     });
   },
@@ -323,7 +331,7 @@ export const EmptyStates: Story = {
   play: async ({ canvasElement, step }) => {
     await step("empty states message", async () => {
       expect(
-        canvas(canvasElement).getByText("No states available"),
+        within(canvasElement).getByText("No states available"),
       ).toBeTruthy();
     });
   },
