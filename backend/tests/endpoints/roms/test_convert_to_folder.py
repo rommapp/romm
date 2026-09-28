@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from handler import rom_conversion
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.redis_handler import async_cache
 from handler.rom_conversion import promote_single_file_to_folder
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -415,8 +416,8 @@ async def test_promotion_racing_across_workers_does_not_destroy_the_folder(
         async def __aexit__(self, *_: object) -> None:
             return None
 
-    # Separate workers hold separate locks, so neither serializes the other.
-    monkeypatch.setattr(rom_conversion, "_promotion_lock", _NoLock())
+    # The rollback has to hold up even when nothing serializes the two.
+    monkeypatch.setattr(rom_conversion, "redis_lock", lambda *_, **__: _NoLock())
 
     make_directory = fs_rom_handler.make_directory
     barrier = asyncio.Barrier(2)
@@ -439,3 +440,32 @@ async def test_promotion_racing_across_workers_does_not_destroy_the_folder(
     inside = real_library / f"{platform.slug}/roms/sf2ce/sf2ce.zip"
     assert inside.exists(), "the loser destroyed the winner's folder"
     assert inside.read_bytes() == b"romdata"
+
+
+async def test_promotion_waits_for_a_lock_held_by_another_worker(
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+):
+    rom = _single_file_rom(
+        platform,
+        admin_user,
+        real_library,
+        fs_name="sf2ce.zip",
+        fs_name_no_ext="sf2ce",
+        fs_extension="zip",
+    )
+    await async_cache.set(rom_conversion.PROMOTION_LOCK_KEY, "other-worker")
+
+    promotion = asyncio.create_task(promote_single_file_to_folder(rom))
+    await asyncio.sleep(0.3)
+    beside = real_library / f"{platform.slug}/roms/sf2ce.zip"
+    assert not promotion.done()
+    assert beside.exists()
+
+    await async_cache.delete(rom_conversion.PROMOTION_LOCK_KEY)
+    promoted = await asyncio.wait_for(promotion, 5)
+
+    assert promoted.fs_name == "sf2ce"
+    assert (real_library / f"{platform.slug}/roms/sf2ce/sf2ce.zip").exists()
+    assert not beside.exists()

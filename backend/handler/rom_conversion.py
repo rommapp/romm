@@ -1,8 +1,7 @@
-import asyncio
-
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.redis_handler import redis_lock
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -10,8 +9,11 @@ from models.rom import Rom
 
 _STAGE_PREFIX = ".romm_tmp_"
 
-# Uploading several files fires a request per file, each promoting the same ROM.
-_promotion_lock = asyncio.Lock()
+# Uploading several files fires a request per file, each promoting the same ROM,
+# and they may land on different gunicorn workers. One key for every ROM, since
+# two lone files sharing a stem would promote into the same folder.
+PROMOTION_LOCK_KEY = "rom_promotion"
+PROMOTION_LOCK_TIMEOUT_SECONDS = 600
 
 
 async def promote_single_file_to_folder(rom: Rom) -> Rom:
@@ -19,7 +21,9 @@ async def promote_single_file_to_folder(rom: Rom) -> Rom:
     and every relation. Idempotent; raises RomAlreadyExistsException on a
     folder-name collision.
     """
-    async with _promotion_lock:
+    async with redis_lock(
+        PROMOTION_LOCK_KEY, timeout_seconds=PROMOTION_LOCK_TIMEOUT_SECONDS
+    ):
         return await _promote(db_rom_handler.get_rom(rom.id) or rom)
 
 
