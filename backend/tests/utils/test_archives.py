@@ -189,9 +189,7 @@ class TestStalledExtractorIsKilled:
     @pytest.mark.usefixtures("stalling_7zz")
     def test_largest_member_hashing_fails(self):
         start = time.monotonic()
-        assert not archives._process_largest_7z_member(
-            Path("/fake/game.7z"), MagicMock()
-        )
+        assert not archives.hash_largest_7z_member(Path("/fake/game.7z"), MagicMock())
         assert time.monotonic() - start < 10
 
     @pytest.mark.usefixtures("stalling_7zz")
