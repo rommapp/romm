@@ -52,9 +52,26 @@ jobs:
         run: |
           uv sync --frozen --extra dev --extra test
 
+      # mypy revalidates each cached module against its source and options, so
+      # any earlier master cache is safe to seed from.
+      - name: Restore the mypy cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-${{ github.sha }}
+          restore-keys: mypy-${{ runner.os }}-
+
       # The scripts import the app from backend/, as they add it to sys.path.
       - name: Type check the backend and the scripts outside it
         env:
           MYPYPATH: backend
         run: |
           uv run mypy --config-file .trunk/configs/mypy.ini backend .github/scripts frontend/src/locales
+
+      # Only master writes the cache, so a PR can't evict or seed it.
+      - name: Save the mypy cache
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-${{ github.sha }}
