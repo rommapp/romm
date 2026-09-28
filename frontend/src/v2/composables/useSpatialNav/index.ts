@@ -34,6 +34,15 @@ const ARROW_OWNING_ROLES = new Set([
 
 function ownsArrowKeys(el: HTMLElement): boolean {
   if (el.isContentEditable) return true;
+  // An open popup's activator, such as RSelect's, steers its list by arrow.
+  const popup = el.getAttribute("aria-haspopup");
+  if (
+    popup &&
+    popup !== "false" &&
+    el.getAttribute("aria-expanded") === "true"
+  ) {
+    return true;
+  }
   if (el instanceof HTMLInputElement) return !BUTTON_LIKE_INPUTS.has(el.type);
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
     return true;

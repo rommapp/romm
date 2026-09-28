@@ -8,8 +8,10 @@ export const FOCUSABLE_SELECTOR = [
   "input:not([disabled])",
   "select:not([disabled])",
   "textarea:not([disabled])",
-  "[tabindex]:not([tabindex='-1'])",
-].join(",");
+  "[tabindex]",
+]
+  .map((selector) => `${selector}:not([tabindex='-1'])`)
+  .join(",");
 
 export type SpatialDirection = "up" | "down" | "left" | "right";
 

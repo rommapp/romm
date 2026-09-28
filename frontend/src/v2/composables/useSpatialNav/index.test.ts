@@ -132,6 +132,23 @@ describe("useSpatialNav", () => {
     vi.unstubAllGlobals();
   });
 
+  it("skips controls a roving tabindex has taken out of the tab order", () => {
+    el("tab").setAttribute("tabindex", "-1");
+    el("play").focus();
+
+    expect(press("ArrowDown").defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(el("play"));
+  });
+
+  it("leaves the arrows to an open popup's activator", () => {
+    el("tab").setAttribute("aria-haspopup", "listbox");
+    el("tab").setAttribute("aria-expanded", "true");
+    el("tab").focus();
+
+    expect(press("ArrowUp").defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(el("tab"));
+  });
+
   it("stays out of the way while a game is running", () => {
     storePlaying().setPlaying(true);
     el("play").focus();
