@@ -40,6 +40,7 @@ import {
 import {
   installEJSDefaultOptionsTrap,
   invalidateEmulatorJSRomCacheIfRenamed,
+  loadEmulatorJSSave,
 } from "@/views/Player/EmulatorJS/utils";
 
 const { t } = useI18n();
@@ -638,20 +639,9 @@ async function boot() {
           if (!resp.ok) throw new Error("Failed to fetch save");
           const buf = new Uint8Array(await resp.arrayBuffer());
           try {
-            const FS = gameManager.FS;
-            const path = gameManager.getSaveFilePath();
-            // Ensure dirs
-            const segs = path.split("/");
-            let accum = "";
-            for (let i = 0; i < segs.length - 1; i++) {
-              if (!segs[i]) continue;
-              accum += "/" + segs[i];
-              if (!FS.analyzePath(accum).exists) FS.mkdir(accum);
-            }
-            if (FS.analyzePath(path).exists) FS.unlink(path);
-            FS.writeFile(path, buf);
-            gameManager.loadSaveFiles?.();
-            console.info("[ConsolePlay] Loaded server save into path", path);
+            // A browser without this save cached booted the game on other SRAM.
+            if (loadEmulatorJSSave(buf)) gameManager.restart();
+            console.info("[ConsolePlay] Loaded server save");
           } catch (err) {
             console.warn("[ConsolePlay] Failed writing save file", err);
           }

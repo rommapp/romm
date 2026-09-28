@@ -12,6 +12,7 @@ import {
   RETRY_BACKOFF_MAX_MS,
   RETRY_BACKOFF_MIN_MS,
   installEJSDefaultOptionsTrap,
+  loadEmulatorJSSave,
   pollSaveFiles,
   resolveScreenshot,
   saveSave,
@@ -522,6 +523,52 @@ describe("dumpSaveFile", () => {
 
   it("has nothing to offer before the emulator is up", () => {
     expect(dumpSaveFile()).toBeNull();
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+});
+
+describe("loadEmulatorJSSave", () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const path = "/data/saves/nds/game.sav";
+  function mountEmulator(existing: Uint8Array | null) {
+    const files = new Map<string, Uint8Array>();
+    if (existing) files.set(path, existing);
+    const FS = {
+      analyzePath: (p: string) => ({ exists: files.has(p) || p !== path }),
+      mkdir: vi.fn(),
+      readFile: (p: string) => files.get(p),
+      unlink: (p: string) => files.delete(p),
+      writeFile: (p: string, bytes: Uint8Array) => files.set(p, bytes),
+    };
+    const loadSaveFiles = vi.fn();
+    (window as any).EJS_emulator = {
+      gameManager: { FS, getSaveFilePath: () => path, loadSaveFiles },
+    };
+    return { files, loadSaveFiles };
+  }
+
+  afterEach(() => {
+    (window as any).EJS_emulator = undefined;
+  });
+
+  it("reports a change when the browser had no save cached", () => {
+    const { files, loadSaveFiles } = mountEmulator(null);
+
+    expect(loadEmulatorJSSave(new Uint8Array([1, 2]))).toBe(true);
+    expect(files.get(path)).toEqual(new Uint8Array([1, 2]));
+    expect(loadSaveFiles).toHaveBeenCalledOnce();
+  });
+
+  it("reports a change when the cached save differs", () => {
+    mountEmulator(new Uint8Array([9]));
+
+    expect(loadEmulatorJSSave(new Uint8Array([1, 2]))).toBe(true);
+  });
+
+  it("reports no change when the core booted with the same save", () => {
+    mountEmulator(new Uint8Array([1, 2]));
+
+    expect(loadEmulatorJSSave(new Uint8Array([1, 2]))).toBe(false);
   });
   /* eslint-enable @typescript-eslint/no-explicit-any */
 });
