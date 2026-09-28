@@ -35,10 +35,8 @@ watch(musicBlocked, (isBlocked) => {
 });
 useMediaSession(() => musicBlocked.value);
 
-// Generation token, bumped every time we reassign `src`. Any async
-// `play()` promise resolves against the token current when it was
-// kicked off, so stale awaits from prior tracks don't clobber the
-// current state. Same idiom as v1's mini player.
+// Bumped on every `src` change, so a pending `play()` from an earlier track
+// can't change the current track's state.
 let loadToken = 0;
 
 // Track loads, seeks and short stalls often resolve within a second; buffering
