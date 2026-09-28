@@ -2847,10 +2847,14 @@ class TestIdentifyRomEmitsNewFlag:
 
     @pytest.mark.parametrize("existing, is_new", [(False, True), (True, False)])
     async def test_scanning_rom_payload_flags_new_roms(
-        self, identify_harness, existing, is_new
+        self, mocker, identify_harness, existing, is_new
     ):
-        schema = scan_module.SimpleRomSchema.from_orm_with_factory.return_value
-        schema.model_dump.side_effect = lambda **_: {"id": 1}
+        dumped = Mock(model_dump=Mock(side_effect=lambda **_: {"id": 1}))
+        mocker.patch.object(
+            scan_module,
+            "SimpleRomSchema",
+            Mock(from_orm_with_factory=Mock(return_value=dumped)),
+        )
         socket_manager = AsyncMock()
         rom = identify_harness.existing_rom() if existing else None
 

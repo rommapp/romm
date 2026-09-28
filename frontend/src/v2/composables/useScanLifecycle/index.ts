@@ -1,27 +1,27 @@
-// useScanLifecycle — global wire-up between the scan socket events and the
+// useScanLifecycle: global wire-up between the scan socket events and the
 // `scanning` Pinia store. Mounted once at the top of the v2 tree (AppLayout)
 // so the navbar's ScanningIndicator, the dedicated /scan view, and anyone
 // else reading `scanning` / `scanningPlatforms` / `scanStats` always see
-// the same truth — even when the user navigates between routes mid-scan.
+// the same truth, even when the user navigates between routes mid-scan.
 //
 // Events handled:
-//   * `scan:scanning_platform` — backend announces the platform it's about
+//   * `scan:scanning_platform`: backend announces the platform it's about
 //                                to process; push it onto the live log so
 //                                the /scan view can render a panel for it.
-//   * `scan:scanning_rom`      — per-ROM update during a scan. Batched on
+//   * `scan:scanning_rom`:      per-ROM update during a scan. Batched on
 //                                a 100ms debounce window so a thousand
 //                                rapid-fire updates don't tank rendering.
-//   * `scan:update_stats`      — periodic progress; keep `scanStats` fresh.
-//   * `scan:done`              — scan finished; persist the final stats,
+//   * `scan:update_stats`:      periodic progress; keep `scanStats` fresh.
+//   * `scan:done`:              scan finished; persist the final stats,
 //                                flip `scanning` off so the indicator hides,
 //                                then refetch platforms to reconcile counts.
-//   * `scan:done_ko`           — scan errored; flip `scanning` off.
+//   * `scan:done_ko`:           scan errored; flip `scanning` off.
 //
 // Both reach every connected user, so only the tab that started the scan
 // toasts its end. Whoever else it concerns gets a notification.
 //
 // Events alone can't tell a tab that loads mid-scan what's going on, so
-// install also reconciles against the running RQ job — see
+// install also reconciles against the running RQ job; see
 // `reconcileWithRunningScan` below.
 //
 // `useSocketEvent` is the typed subscription wrapper that auto-cleans up
@@ -72,7 +72,7 @@ export function installScanLifecycle() {
         (p) => p.display_name !== display_name,
       );
       // Prepend so the platform being scanned right now stays at the top of
-      // the live log — no scrolling to follow progress.
+      // the live log, with no scrolling to follow progress.
       scanningStore.scanningPlatforms.unshift({
         name,
         display_name,
@@ -85,7 +85,7 @@ export function installScanLifecycle() {
       });
 
       // Surface brand-new platforms in the canonical platforms store the
-      // moment the scan reaches them — previously they only appeared after
+      // moment the scan reaches them; previously they only appeared after
       // a manual page refresh. The socket payload is a partial (8 fields),
       // so fetch the full PlatformSchema before adding it to the store.
       if (!platformsStore.has(id)) {
@@ -135,7 +135,7 @@ export function installScanLifecycle() {
         (p) => p.fs_slug === rom.platform_fs_slug,
       );
 
-      // Socket may have dropped the `scan:scanning_platform` event — add
+      // Socket may have dropped the `scan:scanning_platform` event, so add
       // the platform synthetically so the user still sees something.
       if (!scannedPlatform) {
         scanningStore.scanningPlatforms.unshift({
@@ -159,7 +159,7 @@ export function installScanLifecycle() {
           r.id === rom.id ? rom : r,
         );
       } else {
-        // Newest ROM first, same as platforms — most recent stays on top.
+        // Newest ROM first, same as platforms, so the most recent stays on top.
         scannedPlatform.roms.unshift(rom);
         // Keep the canonical platforms store's count live for genuinely new
         // ROMs: the gallery/nav getters gate on `rom_count > 0`, so this is
