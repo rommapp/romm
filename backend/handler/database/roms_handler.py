@@ -574,7 +574,7 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
                 noload(Rom.metadatum),
                 # Per-sibling is_main_sibling resolution for the
                 # SiblingRomSchema needs each sibling's RomUser for the
-                # request user — the relationship is `lazy="raise"`, so
+                # request user; the relationship is `lazy="raise"`, so
                 # it has to be eager-loaded here.
                 selectinload(Rom.rom_users).options(
                     noload(RomUser.rom), noload(RomUser.user)
@@ -1471,7 +1471,7 @@ class DBRomsHandler(DBBaseHandler):
                 query = query.options(selectinload(Rom.notes))
 
         # Only load files (and the RomFile.rom backref needed by `is_top_level` /
-        # `file_name_for_download`) when the caller iterates them — e.g. the
+        # `file_name_for_download`) when the caller iterates them, e.g. the
         # feed endpoints. The gallery/list and filter-value paths serialize
         # SimpleRomSchema without files, so they skip this entirely.
         if include_files:

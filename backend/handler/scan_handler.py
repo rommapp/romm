@@ -125,7 +125,7 @@ class MetadataSource(enum.StrEnum):
 
 # Demozoo / Pouët identify a production, not a retail game. Game catalogs
 # (IGDB, Moby, ScreenScraper, SteamGridDB, …) still run and will happily
-# attach a similarly titled box — "Desert Dream" → Desert Fox, "State of
+# attach a similarly titled box: "Desert Dream" → Desert Fox, "State of
 # the Art" → a skate game. Once a scene ID exists, only Demozoo / Pouët /
 # CSDb may set name, summary, or artwork. Regular games never have those
 # IDs, so they keep the usual fuzzy cover matching.

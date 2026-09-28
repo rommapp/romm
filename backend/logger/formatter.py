@@ -58,7 +58,7 @@ LOGGING_CONFIG = {
 }
 
 
-# Strips ANSI SGR escapes (colors) embedded by `highlight()` — they render as
+# Strips ANSI SGR escapes (colors) embedded by `highlight()`; they render as
 # colors on a terminal but as garbage anywhere else (e.g. a browser log view).
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 

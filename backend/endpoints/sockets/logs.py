@@ -91,7 +91,7 @@ async def start_log_forwarder() -> None:
         return
 
     lock_id = str(uuid.uuid4())
-    # Write-only manager for emitting — the same proven path scan/sync use. It
+    # Write-only manager for emitting: the same proven path scan/sync use. It
     # publishes the room emit to Redis; the main socket server's read-side
     # manager resolves `admin` room membership and delivers.
     socket_manager = socket_handler.write_manager()
