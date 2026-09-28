@@ -56,10 +56,11 @@ function platform(overrides: Partial<Platform> = {}): Platform {
 function mountSection(
   platforms: Platform[],
   regionBreakdown: Record<string, { region: string; count: number }[]> = {},
+  metadataCoverage: Record<string, { source: string; matched: number }[]> = {},
 ) {
   storePlatforms().set(platforms);
   return mount(PlatformsStatsSection, {
-    props: { totalFilesize: 0, metadataCoverage: {}, regionBreakdown },
+    props: { totalFilesize: 0, metadataCoverage, regionBreakdown },
     global: {
       plugins: [i18n],
       stubs: {
@@ -209,6 +210,23 @@ describe("PlatformsStatsSection", () => {
       regions.length,
     );
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it("shows the TheGamesDB logo on its coverage chip", () => {
+    const wrapper = mountSection(
+      [platform({ id: 1, rom_count: 4 })],
+      {},
+      {
+        "1": [{ source: "tgdb", matched: 2 }],
+      },
+    );
+
+    const chip = wrapper.find(".r-v2-plat-stats__coverage");
+    expect(chip.find("img").attributes("src")).toBe(
+      "/assets/scrappers/tgdb.png",
+    );
+    expect(chip.attributes("title")).toContain("TheGamesDB");
+    expect(chip.text()).toBe("50%");
   });
 
   it("renders one row per platform on initial load", () => {

@@ -113,7 +113,11 @@ const metadataOptions = computed(() =>
 );
 
 const sourceInfo = computed(() => {
-  const map: Record<string, { name: string; logo_path: string }> = {};
+  // TheGamesDB ids arrive via other providers, so it is counted in coverage
+  // but never listed as a selectable scan source.
+  const map: Record<string, { name: string; logo_path: string }> = {
+    tgdb: { name: "TheGamesDB", logo_path: "/assets/scrappers/tgdb.png" },
+  };
   for (const opt of metadataOptions.value) {
     map[opt.value] = { name: opt.name, logo_path: opt.logo_path };
   }
