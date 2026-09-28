@@ -1,97 +1,17 @@
-// AssetStrip is the horizontal card variant used for STATES only —
-// saves render through <AssetList> (vertical rows). Stories here are
-// state-focused; see AssetList.stories.ts for the save scenarios.
+// AssetStrip is the card variant for states; saves render through <AssetList>.
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import type { StateSchema } from "@/__generated__";
+import AssetActions from "@/v2/components/shared/AssetActions.vue";
+import {
+  makeState,
+  manyStates,
+  mixedCommunityStates,
+  screenshotFixture,
+} from "@/v2/utils/saveStates.fixtures";
+import { downloadButtons, selectableItems } from "@/v2/utils/saveStates.plays";
 import AssetStrip from "./AssetStrip.vue";
-
-// ── Mock builders ────────────────────────────────────────────────
-
-function makeState(overrides: Partial<StateSchema> = {}): StateSchema {
-  const base = {
-    id: 1,
-    rom_id: 1,
-    user_id: 1,
-    file_name: "state_1.state",
-    file_name_no_tags: "state_1.state",
-    file_name_no_ext: "state_1",
-    file_extension: "state",
-    file_path: "/states/snes",
-    file_size_bytes: 524288,
-    full_path: "/states/snes/state_1.state",
-    download_path: "/api/states/1/content",
-    missing_from_fs: false,
-    created_at: "2026-04-02T09:00:00Z",
-    updated_at: "2026-05-13T22:08:00Z",
-    emulator: "snes9x",
-    screenshot: {
-      id: 1,
-      rom_id: 1,
-      user_id: 1,
-      file_name: "state_1.png",
-      file_name_no_tags: "state_1.png",
-      file_name_no_ext: "state_1",
-      file_extension: "png",
-      file_path: "/screenshots/snes",
-      download_path:
-        "https://placehold.co/640x360/2d2147/ffffff?text=Save+State",
-    } as StateSchema["screenshot"],
-  };
-  return { ...base, ...overrides } as StateSchema;
-}
-
-// Distinct placeholder shots so we can scan the strip visually.
-const shots: { color: string; label: string }[] = [
-  { color: "2d2147", label: "Overworld" },
-  { color: "1a3d2e", label: "Forest" },
-  { color: "4a1a1a", label: "Boss+Fight" },
-  { color: "0a3a5a", label: "Cave" },
-  { color: "5a3a0a", label: "Desert" },
-  { color: "3a0a4a", label: "Castle" },
-  { color: "0a5a3a", label: "Lake" },
-  { color: "5a0a3a", label: "Volcano" },
-  { color: "1a1a5a", label: "Sky" },
-  { color: "5a5a0a", label: "Tower" },
-];
-
-function manyStates(n: number, withScreenshots = true): StateSchema[] {
-  const now = new Date("2026-05-25T20:00:00Z").getTime();
-  const deltas = [
-    2 * 3600,
-    5 * 3600,
-    24 * 3600,
-    2 * 86400,
-    4 * 86400,
-    7 * 86400,
-    14 * 86400,
-    30 * 86400,
-    60 * 86400,
-    180 * 86400,
-  ];
-  return Array.from({ length: n }).map((_, i) => {
-    const shot = shots[i % shots.length];
-    return makeState({
-      id: i + 1,
-      file_name: `${shot.label.replace("+", " ").toLowerCase()}_${i + 1}.state`,
-      file_size_bytes: 256 * 1024 + i * 73 * 1024,
-      updated_at: new Date(
-        now - deltas[i % deltas.length] * 1000,
-      ).toISOString(),
-      screenshot: withScreenshots
-        ? ({
-            ...(makeState().screenshot as NonNullable<
-              StateSchema["screenshot"]
-            >),
-            download_path: `https://placehold.co/640x360/${shot.color}/ffffff?text=${shot.label}`,
-          } as StateSchema["screenshot"])
-        : null,
-      emulator: i % 3 === 0 ? "snes9x" : i % 3 === 1 ? "mesen" : null,
-    });
-  });
-}
-
-// ── Meta ─────────────────────────────────────────────────────────
 
 const meta: Meta<typeof AssetStrip> = {
   title: "Shared/AssetStrip",
@@ -117,180 +37,134 @@ export default meta;
 
 type Story = StoryObj<typeof AssetStrip>;
 
-// ── Stories ──────────────────────────────────────────────────────
+function selectableStrip(
+  states: StateSchema[],
+  selected: number | null,
+  extra: Partial<InstanceType<typeof AssetStrip>["$props"]> = {},
+) {
+  return {
+    components: { AssetStrip },
+    setup() {
+      const selectedId = ref<number | null>(selected);
+      return {
+        states,
+        selectedId,
+        extra,
+        onSelect: (a: StateSchema) => (selectedId.value = a.id),
+      };
+    },
+    template: `
+      <AssetStrip
+        :assets="states"
+        type="state"
+        :selected-id="selectedId"
+        v-bind="extra"
+        @select="onSelect"
+      />
+    `,
+  };
+}
 
-// Five states with screenshots — the headline case. Notice how the
-// selected tile carries the brand ring + check badge.
+// Five states with screenshots, the headline case. The selected tile
+// carries the brand ring and check badge.
 export const FewStatesScreenshots: Story = {
   name: "States · 5 with screenshots",
-  render: () => ({
-    components: { AssetStrip },
-    setup() {
-      const states = manyStates(5);
-      const selectedId = ref<number | null>(states[0].id);
-      return {
-        states,
-        selectedId,
-        onSelect: (a: StateSchema) => (selectedId.value = a.id),
-      };
-    },
-    template: `
-      <AssetStrip :assets="states" type="state" :selected-id="selectedId" @select="onSelect" />
-    `,
-  }),
+  render: () => {
+    const states = manyStates(5);
+    return selectableStrip(states, states[0].id);
+  },
+  play: async ({ canvasElement, step }) => {
+    await step("state tiles render with filenames", async () => {
+      expect(selectableItems(canvasElement).length).toBe(5);
+      expect(canvasElement.textContent).toContain("overworld_1.state");
+    });
+    await step("clicking a tile selects it", async () => {
+      const tiles = selectableItems(canvasElement);
+      const target = tiles.find(
+        (t) => t.getAttribute("aria-pressed") === "false",
+      );
+      expect(target).toBeTruthy();
+      await userEvent.click(target!);
+      expect(target).toHaveAttribute("aria-pressed", "true");
+    });
+  },
 };
 
-// Twelve states — overflow case. Tiles scroll horizontally with snap.
+// Twelve states overflow; tiles scroll horizontally with snap.
 export const ManyStatesOverflow: Story = {
   name: "States · 12 (horizontal scroll)",
-  render: () => ({
-    components: { AssetStrip },
-    setup() {
-      const states = manyStates(12);
-      const selectedId = ref<number | null>(states[4].id);
-      return {
-        states,
-        selectedId,
-        onSelect: (a: StateSchema) => (selectedId.value = a.id),
-      };
-    },
-    template: `
-      <AssetStrip :assets="states" type="state" :selected-id="selectedId" @select="onSelect" />
-    `,
-  }),
+  render: () => {
+    const states = manyStates(12);
+    return selectableStrip(states, states[4].id);
+  },
 };
 
-// Grid and list: a long save-state history, where the horizontal strip
-// buries the older entries behind a scroll.
+// Grid and list: a long history, where the horizontal strip buries the
+// older entries behind a scroll.
 export const ManyStatesGrid: Story = {
-  name: "States \u00b7 30 (grid layout)",
-  render: () => ({
-    components: { AssetStrip },
-    setup() {
-      const states = manyStates(30);
-      const selectedId = ref<number | null>(states[0].id);
-      return {
-        states,
-        selectedId,
-        onSelect: (a: StateSchema) => (selectedId.value = a.id),
-      };
-    },
-    template: `
-      <AssetStrip :assets="states" type="state" :selected-id="selectedId" layout="grid" @select="onSelect" />
-    `,
-  }),
+  name: "States · 30 (grid layout)",
+  render: () => {
+    const states = manyStates(30);
+    return selectableStrip(states, states[0].id, { layout: "grid" });
+  },
 };
 
 export const ManyStatesList: Story = {
-  name: "States \u00b7 30 (list layout)",
-  render: () => ({
-    components: { AssetStrip },
-    setup() {
-      const states = manyStates(30);
-      const selectedId = ref<number | null>(states[0].id);
-      return {
-        states,
-        selectedId,
-        onSelect: (a: StateSchema) => (selectedId.value = a.id),
-      };
-    },
-    template: `
-      <AssetStrip :assets="states" type="state" :selected-id="selectedId" layout="list" @select="onSelect" />
-    `,
-  }),
+  name: "States · 30 (list layout)",
+  render: () => {
+    const states = manyStates(30);
+    return selectableStrip(states, states[0].id, { layout: "list" });
+  },
 };
 
-// States that never had a screenshot taken — gradient fallback with
-// the file icon. Still readable; the row doesn't feel broken.
+// States without a screenshot fall back to a gradient with the file icon.
 export const StatesNoScreenshots: Story = {
   name: "States · 6 without screenshots",
-  render: () => ({
-    components: { AssetStrip },
-    setup() {
-      const states = manyStates(6, false);
-      const selectedId = ref<number | null>(states[2].id);
-      return {
-        states,
-        selectedId,
-        onSelect: (a: StateSchema) => (selectedId.value = a.id),
-      };
-    },
-    template: `
-      <AssetStrip :assets="states" type="state" :selected-id="selectedId" @select="onSelect" />
-    `,
-  }),
+  render: () => {
+    const states = manyStates(6).map((s) => ({ ...s, screenshot: null }));
+    return selectableStrip(states, states[2].id);
+  },
 };
 
 // Long filenames should ellipsis cleanly without breaking the row.
 export const LongFilenames: Story = {
   name: "Long filenames (ellipsis)",
-  render: () => ({
-    components: { AssetStrip },
-    setup() {
-      const states = [
-        makeState({
-          id: 1,
-          file_name: "the_legend_of_zelda_a_link_to_the_past_speedrun_27.state",
-          screenshot: {
-            ...(makeState().screenshot as NonNullable<
-              StateSchema["screenshot"]
-            >),
-            download_path:
-              "https://placehold.co/640x360/2d2147/ffffff?text=LTTP",
-          } as StateSchema["screenshot"],
-        }),
-        makeState({
-          id: 2,
-          file_name:
-            "chrono_trigger_new_game_plus_attempt_third_run_boss_room.state",
-          screenshot: {
-            ...(makeState().screenshot as NonNullable<
-              StateSchema["screenshot"]
-            >),
-            download_path:
-              "https://placehold.co/640x360/4a1a1a/ffffff?text=CT+NG%2B",
-          } as StateSchema["screenshot"],
-        }),
-        makeState({
-          id: 3,
-          file_name: "super_mario_world_special_world_complete_run.state",
-          screenshot: null,
-        }),
-      ];
-      const selectedId = ref<number | null>(states[0].id);
-      return {
-        states,
-        selectedId,
-        onSelect: (a: StateSchema) => (selectedId.value = a.id),
-      };
-    },
-    template: `
-      <AssetStrip :assets="states" type="state" :selected-id="selectedId" @select="onSelect" />
-    `,
-  }),
+  render: () => {
+    const states = [
+      makeState({
+        id: 1,
+        file_name: "the_legend_of_zelda_a_link_to_the_past_speedrun_27.state",
+        screenshot: screenshotFixture(
+          "https://placehold.co/640x360/2d2147/ffffff?text=LTTP",
+          1,
+        ),
+      }),
+      makeState({
+        id: 2,
+        file_name:
+          "chrono_trigger_new_game_plus_attempt_third_run_boss_room.state",
+        screenshot: screenshotFixture(
+          "https://placehold.co/640x360/4a1a1a/ffffff?text=CT+NG%2B",
+          2,
+        ),
+      }),
+      makeState({
+        id: 3,
+        file_name: "super_mario_world_special_world_complete_run.state",
+        screenshot: null,
+      }),
+    ];
+    return selectableStrip(states, states[0].id);
+  },
 };
 
-// Nothing selected yet — still shows a strip the user can click.
+// Nothing selected yet; the strip is still clickable.
 export const NoneSelected: Story = {
   name: "States · none selected",
-  render: () => ({
-    components: { AssetStrip },
-    setup() {
-      const states = manyStates(4);
-      const selectedId = ref<number | null>(null);
-      return {
-        states,
-        selectedId,
-        onSelect: (a: StateSchema) => (selectedId.value = a.id),
-      };
-    },
-    template: `
-      <AssetStrip :assets="states" type="state" :selected-id="selectedId" @select="onSelect" />
-    `,
-  }),
+  render: () => selectableStrip(manyStates(4), null),
 };
 
-// Empty — distinct from "no asset selected"; the strip itself is empty.
+// Empty, distinct from "no asset selected".
 export const EmptyStates: Story = {
   name: "Empty (no states)",
   render: () => ({
@@ -299,75 +173,109 @@ export const EmptyStates: Story = {
       <AssetStrip :assets="[]" type="state" :selected-id="null" />
     `,
   }),
+  play: async ({ canvasElement, step }) => {
+    await step("empty states message", async () => {
+      expect(
+        within(canvasElement).getByText("No states available"),
+      ).toBeTruthy();
+    });
+  },
 };
 
 // States from another emulator stay listed, dimmed, but cannot be picked.
 export const IncompatibleStates: Story = {
   name: "States · 6, half from another emulator",
-  render: () => ({
-    components: { AssetStrip },
-    setup() {
-      const states = manyStates(6).map((state, i) => ({
-        ...state,
-        emulator: i % 2 === 0 ? "snes9x" : "builtin",
-      }));
-      const selectedId = ref<number | null>(states[0].id);
-      const disabledReason = (asset: { emulator?: string | null }) =>
-        asset.emulator === "snes9x"
-          ? null
-          : `Saved with ${asset.emulator}, which the selected core cannot load.`;
-      return {
-        states,
-        selectedId,
-        disabledReason,
-        onSelect: (a: StateSchema) => (selectedId.value = a.id),
-      };
-    },
-    template: `
-      <AssetStrip
-        :assets="states"
-        type="state"
-        :selected-id="selectedId"
-        :disabled-reason="disabledReason"
-        @select="onSelect"
-      />
-    `,
-  }),
+  render: () => {
+    const states = manyStates(6).map((state, i) => ({
+      ...state,
+      emulator: i % 2 === 0 ? "snes9x" : "builtin",
+    }));
+    const disabledReason = (asset: { emulator?: string | null }) =>
+      asset.emulator === "snes9x"
+        ? null
+        : `Saved with ${asset.emulator}, which the selected core cannot load.`;
+    return selectableStrip(states, states[0].id, { disabledReason });
+  },
 };
 
 // One collapsible mini grid per core. The core that cannot load starts
 // closed and its tiles are greyed out when opened.
 export const GroupedByCore: Story = {
   name: "States · grouped by core",
+  render: () => {
+    const states = manyStates(9).map((state, i) => ({
+      ...state,
+      emulator: i % 3 === 0 ? "snes9x" : i % 3 === 1 ? "builtin" : null,
+    }));
+    const disabledReason = (asset: { emulator?: string | null }) =>
+      asset.emulator === "builtin"
+        ? "Saved with builtin, which the selected core cannot load."
+        : null;
+    return selectableStrip(states, states[0].id, {
+      layout: "flow",
+      groupBy: "emulator",
+      disabledReason,
+    });
+  },
+};
+
+// Save data management: static tiles grouped by core, hosting the actions slot.
+export const ManageFlowGrouped: Story = {
+  name: "Manage · flow + grouped (Save data)",
   render: () => ({
-    components: { AssetStrip },
+    components: { AssetStrip, AssetActions },
     setup() {
-      const states = manyStates(9).map((state, i) => ({
-        ...state,
-        emulator: i % 3 === 0 ? "snes9x" : i % 3 === 1 ? "builtin" : null,
-      }));
-      const selectedId = ref<number | null>(states[0].id);
-      const disabledReason = (asset: { emulator?: string | null }) =>
-        asset.emulator === "builtin"
-          ? "Saved with builtin, which the selected core cannot load."
-          : null;
-      return {
-        states,
-        selectedId,
-        disabledReason,
-        onSelect: (a: StateSchema) => (selectedId.value = a.id),
-      };
+      return { states: manyStates(6) };
     },
     template: `
       <AssetStrip
         :assets="states"
         type="state"
+        :selectable="false"
         layout="flow"
         group-by="emulator"
-        :selected-id="selectedId"
-        :disabled-reason="disabledReason"
-        @select="onSelect"
-      />
+      >
+        <template #actions="{ asset }">
+          <AssetActions :asset="asset" type="state" own />
+        </template>
+      </AssetStrip>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const ui = within(canvasElement);
+    await step("core group headings appear", async () => {
+      expect(ui.getByRole("button", { name: /snes9x/i })).toBeTruthy();
+    });
+    await step("static tiles host per-item actions", async () => {
+      const staticTiles = within(canvasElement).getAllByRole("listitem");
+      expect(staticTiles.length).toBeGreaterThan(0);
+      expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
+    });
+  },
+};
+
+// Other users' public states show an owner chip and only a download action.
+export const ManageCommunity: Story = {
+  name: "Manage · community + show owner",
+  render: () => ({
+    components: { AssetStrip, AssetActions },
+    setup() {
+      const states = mixedCommunityStates().filter((s) => s.user_id !== 1);
+      return { states };
+    },
+    template: `
+      <AssetStrip
+        :assets="states"
+        type="state"
+        :selectable="false"
+        layout="flow"
+        group-by="emulator"
+        show-owner
+      >
+        <template #actions="{ asset }">
+          <AssetActions :asset="asset" type="state" />
+        </template>
+      </AssetStrip>
     `,
   }),
 };
