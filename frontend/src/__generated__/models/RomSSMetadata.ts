@@ -18,6 +18,7 @@ export type RomSSMetadata = {
     miximage_url?: (string | null);
     miximage_v2_url?: (string | null);
     physical_url?: (string | null);
+    physical_disc?: (number | null);
     physical_extra_discs?: Array<SSPhysicalDisc>;
     screenshot_url?: (string | null);
     steamgrid_url?: (string | null);

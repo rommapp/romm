@@ -314,6 +314,7 @@ class SSMetadataMedia(TypedDict):
     miximage_url: str | None  # miximage1 | miximage2 | mixrbv1
     miximage_v2_url: str | None  # mixrbv2
     physical_url: str | None  # support-2D of the first disc
+    physical_disc: int | None  # the disc physical_url shows
     physical_extra_discs: list[SSPhysicalDisc]  # support-2D of every later disc
     screenshot_url: str | None  # ss
     steamgrid_url: str | None  # steamgrid
@@ -410,6 +411,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         miximage_url=None,
         miximage_v2_url=None,
         physical_url=None,
+        physical_disc=None,
         physical_extra_discs=[],
         screenshot_url=None,
         steamgrid_url=None,
@@ -588,6 +590,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
             rom.platform_id, rom.id, MetadataMediaType.PHYSICAL
         )
         ss_media["physical_url"] = physical_urls[first_disc]
+        ss_media["physical_disc"] = first_disc
         if store_physical:
             ss_media["physical_path"] = f"{physical_dir}/physical.png"
         ss_media["physical_extra_discs"] = [

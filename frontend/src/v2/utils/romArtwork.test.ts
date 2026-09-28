@@ -105,6 +105,7 @@ describe("resolveRomArtwork — scraped resources", () => {
     const rom = makeRom([], {
       ss_metadata: {
         physical_path: "roms/1/1/physical/physical.png",
+        physical_disc: 1,
         physical_extra_discs: [
           {
             disc: 2,
@@ -125,8 +126,31 @@ describe("resolveRomArtwork — scraped resources", () => {
       "artwork:physical",
       "artwork:physical_disc2",
     ]);
-    expect(entries[1].label).toBe("Physical media (disc 2)");
+    expect(entries.map((e) => e.label)).toEqual([
+      "Physical media (disc 1)",
+      "Physical media (disc 2)",
+    ]);
     expect(entries[1].url).toContain("roms/1/1/physical/physical_disc2.png");
+  });
+
+  it("keeps the plain label when no other disc has art on disk", () => {
+    const rom = makeRom([], {
+      ss_metadata: {
+        physical_path: "roms/1/1/physical/physical.png",
+        physical_disc: 1,
+        physical_extra_discs: [
+          {
+            disc: 2,
+            url: "https://screenscraper.example.com/support-2D[2]",
+            path: null,
+          },
+        ],
+      },
+    });
+
+    expect(resolveRomArtwork(rom).map((e) => e.label)).toEqual([
+      "Physical media",
+    ]);
   });
 });
 

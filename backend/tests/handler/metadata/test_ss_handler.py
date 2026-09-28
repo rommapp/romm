@@ -612,6 +612,7 @@ class TestExtractMediaFromSsGame:
             result["physical_url"] == "https://screenscraper.example.com/support-2D(jp)"
         )
         assert result["physical_path"] == "roms/1/100/physical/physical.png"
+        assert result["physical_disc"] == 1
         assert result["physical_extra_discs"] == [
             {
                 "disc": 2,
@@ -660,7 +661,28 @@ class TestExtractMediaFromSsGame:
         assert (
             result["physical_url"] == "https://screenscraper.example.com/support-2D(jp)"
         )
+        assert result["physical_disc"] == 1
         assert result["physical_extra_discs"] == []
+
+    def test_first_disc_with_art_leads_when_disc_one_has_none(self):
+        config = _make_config(scan_media=["physical"])
+        rom = self._make_rom()
+        game = cast(SSGame, {"medias": self._make_multi_disc_game()["medias"][3:]})
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["physical_disc"] == 2
+        assert result["physical_url"] == (
+            "https://screenscraper.example.com/support-2D(us)[2]"
+        )
+        assert [d["disc"] for d in result["physical_extra_discs"]] == [3]
 
 
 class TestExtractMetadataFromSsRom:
