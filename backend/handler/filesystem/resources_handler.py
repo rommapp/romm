@@ -119,8 +119,8 @@ def _is_chroma_key_placeholder(image_path: Path) -> bool:
 
 
 def _trim_transparent_border(image_path: Path) -> Image.Image | None:
-    """Crop an image to its visible pixels, so a logo aligns by its artwork
-    rather than the empty canvas around it.
+    """Crop an image to its visible pixels, dropping the empty canvas around
+    a logo's artwork.
 
     Returns:
         The cropped image, or None when there is no transparent border to trim.
@@ -840,8 +840,8 @@ class FSResourcesHandler(FSHandler):
             trimmed = await asyncio.to_thread(_trim_transparent_border, full_path)
             if trimmed is None:
                 return
-            # Replaced rather than rewritten, so a failed save keeps the logo
-            # intact and a hardlinked source image is never cropped.
+            # Saved to a temp file and swapped in, so a failed save keeps the
+            # logo intact and a hardlinked source image is never cropped.
             try:
                 async with self._atomic_write(full_path) as temp_path:
                     await asyncio.to_thread(trimmed.save, temp_path, format="PNG")
