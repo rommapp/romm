@@ -592,6 +592,22 @@ export function installEJSDefaultOptionsTrap() {
   });
 }
 
+/** Points EmulatorJS netplay at RomM's mounted Socket.IO server. */
+export function patchNetplaySocketIo() {
+  if (!window.io || window.io.__rommNetplayPatched) return;
+  const originalIo = window.io;
+  const patchedIo = ((url: string, opts?: Record<string, unknown>) =>
+    originalIo(url, {
+      ...opts,
+      path: "/netplay/socket.io",
+      // Gunicorn runs several workers without sticky sessions, so a polling
+      // request can land on a worker that never saw the handshake.
+      transports: ["websocket"],
+    })) as NonNullable<Window["io"]>;
+  patchedIo.__rommNetplayPatched = true;
+  window.io = patchedIo;
+}
+
 const IOS_FULLSCREEN_NAV_SELECTOR =
   ".v-app-bar, .v-bottom-navigation, .v-navigation-drawer";
 const IOS_FULLSCREEN_STYLE = `
