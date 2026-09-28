@@ -11,11 +11,10 @@
 // Metadata-provider links live in the Metadata tab, not the header.
 // Genre/franchise belong in the Overview tab info grid.
 import { RIcon, RTag, RTooltip } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
 import type { DetailedRom } from "@/stores/roms";
-import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
 import MainSiblingToggle from "@/v2/components/GameDetails/MainSiblingToggle.vue";
 import PrevNextNav from "@/v2/components/GameDetails/PrevNextNav.vue";
@@ -23,6 +22,7 @@ import VersionSwitcher from "@/v2/components/GameDetails/VersionSwitcher.vue";
 import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGameActions } from "@/v2/composables/useGameActions";
+import { versionedResourceUrl } from "@/v2/utils/romFiles";
 import { searchLocation } from "@/v2/utils/searchLocation";
 
 defineOptions({ inheritAttrs: false });
@@ -45,44 +45,47 @@ const props = defineProps<{
 const actions = useGameActions(() => props.rom);
 const { showLogoTitle } = useUISettings();
 
-const logoFailed = ref(false);
-const logoRatio = ref<number | null>(null);
 const logoSrc = computed(() => {
   const path = props.rom.ss_metadata?.logo_path;
-  if (!path) return null;
-  return `${FRONTEND_RESOURCES_PATH}/${path}?v=${encodeURIComponent(props.rom.updated_at)}`;
+  return path ? versionedResourceUrl(path, props.rom.updated_at) : null;
 });
+// Load state is keyed on the URL, so a rescan that replaces the logo gets a
+// fresh try.
+const failedSrc = ref<string | null>(null);
+const loadedLogo = ref<{ src: string; ratio: number } | null>(null);
 const logoUrl = computed(() =>
-  showLogoTitle.value && !logoFailed.value ? logoSrc.value : null,
+  showLogoTitle.value && logoSrc.value !== failedSrc.value
+    ? logoSrc.value
+    : null,
 );
-// A rescan that replaces the logo changes its URL, so it gets a fresh try.
-watch(logoSrc, () => {
-  logoFailed.value = false;
-  logoRatio.value = null;
-});
 
 // Logos are sized to a shared area rather than a shared height, so a square
 // logo reads as large as a wide one. Sizes are in CSS pixels.
+const LOGO_MAX_WIDTH = 420;
 const LOGO_BOX = {
-  regular: { area: 40000, maxWidth: 420, maxHeight: 176 },
-  xs: { area: 22000, maxWidth: 420, maxHeight: 120 },
+  regular: { area: 40000, maxHeight: 176 },
+  xs: { area: 22000, maxHeight: 120 },
 };
 const logoStyle = computed(() => {
   const box = xs.value ? LOGO_BOX.xs : LOGO_BOX.regular;
-  const ratio = logoRatio.value;
+  const ratio =
+    loadedLogo.value?.src === logoSrc.value ? loadedLogo.value.ratio : null;
   const width = ratio
     ? Math.min(Math.sqrt(box.area * ratio), box.maxHeight * ratio)
     : null;
   return {
-    maxWidth: `min(100%, ${box.maxWidth}px)`,
+    maxWidth: `min(100%, ${LOGO_MAX_WIDTH}px)`,
     maxHeight: `${box.maxHeight}px`,
     width: width ? `${Math.round(width)}px` : undefined,
   };
 });
 function onLogoLoad(event: Event) {
   const img = event.target as HTMLImageElement;
-  if (img.naturalWidth && img.naturalHeight) {
-    logoRatio.value = img.naturalWidth / img.naturalHeight;
+  if (logoSrc.value && img.naturalWidth && img.naturalHeight) {
+    loadedLogo.value = {
+      src: logoSrc.value,
+      ratio: img.naturalWidth / img.naturalHeight,
+    };
   }
 }
 </script>
@@ -101,7 +104,7 @@ function onLogoLoad(event: Event) {
           class="r-v2-det-header__logo"
           :style="logoStyle"
           @load="onLogoLoad"
-          @error="logoFailed = true"
+          @error="failedSrc = logoSrc"
         />
         <template v-else>{{ title }}</template>
       </h1>
@@ -225,10 +228,6 @@ function onLogoLoad(event: Event) {
    and light lettering on light. */
 .r-v2-det-header__logo {
   --logo-rim: color-mix(in srgb, var(--r-color-fg) 50%, transparent);
-  display: block;
-  height: auto;
-  object-fit: contain;
-  object-position: left bottom;
   filter: drop-shadow(0 0 1px var(--logo-rim))
     drop-shadow(0 0 1px var(--logo-rim));
 }
@@ -304,9 +303,6 @@ html[data-bp~="sm-and-down"] .r-v2-det-header__title-row {
 }
 html[data-bp~="sm-and-down"] .r-v2-det-header__title--logo {
   justify-content: center;
-}
-html[data-bp~="sm-and-down"] .r-v2-det-header__logo {
-  object-position: center bottom;
 }
 html[data-bp~="sm-and-down"] .r-v2-det-header__meta,
 html[data-bp~="sm-and-down"] .r-v2-det-header__tags,

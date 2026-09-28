@@ -127,12 +127,15 @@ def _trim_transparent_border(image_path: Path) -> Image.Image | None:
     """
     try:
         with Image.open(image_path) as img:
-            # Any multi-frame image, since a crop keeps only the first frame
-            if getattr(img, "n_frames", 1) > 1 or not (
-                "A" in img.getbands() or "transparency" in img.info
-            ):
+            has_alpha = "A" in img.getbands()
+            if not (has_alpha or "transparency" in img.info):
                 return None
-            bbox = img.convert("RGBA").getchannel("A").getbbox()
+            # Any multi-frame image, since a crop keeps only the first frame
+            if getattr(img, "is_animated", False):
+                return None
+            # getbbox measures the alpha band alone, so only a palette or
+            # colour-key image needs converting first
+            bbox = (img if has_alpha else img.convert("RGBA")).getbbox()
             if bbox is None or bbox == (0, 0, *img.size):
                 return None
             # Cropped in its own mode, so a palette logo stays compact

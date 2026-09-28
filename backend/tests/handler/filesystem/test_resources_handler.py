@@ -934,6 +934,12 @@ class TestChromaKeyDetection:
 class TestTrimTransparentBorder:
     """Tests for cropping logos down to their visible pixels."""
 
+    @pytest.fixture
+    def handler(self, tmp_path):
+        handler = FSResourcesHandler()
+        handler.base_path = tmp_path
+        return handler
+
     def _write_padded_logo(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         img = Image.new("RGBA", (100, 50), (0, 0, 0, 0))
@@ -1032,9 +1038,7 @@ class TestTrimTransparentBorder:
         assert _trim_transparent_border(logo) is None
 
     @pytest.mark.asyncio
-    async def test_store_metadata_media_trims_only_logos(self, tmp_path):
-        handler = FSResourcesHandler()
-        handler.base_path = tmp_path
+    async def test_store_metadata_media_trims_only_logos(self, handler, tmp_path):
         logo = "roms/1/1/logo/logo.png"
         fanart = "roms/1/1/fanart/fanart.png"
         self._write_padded_logo(tmp_path / logo)
@@ -1051,8 +1055,7 @@ class TestTrimTransparentBorder:
             assert img.size == (100, 50)
 
     @pytest.mark.asyncio
-    async def test_trim_leaves_a_hardlinked_source_intact(self, tmp_path):
-        handler = FSResourcesHandler()
+    async def test_trim_leaves_a_hardlinked_source_intact(self, handler, tmp_path):
         handler.base_path = tmp_path / "resources"
         source = tmp_path / "library" / "logo.png"
         self._write_padded_logo(source)
@@ -1070,9 +1073,7 @@ class TestTrimTransparentBorder:
         assert source.read_bytes() == before
 
     @pytest.mark.asyncio
-    async def test_failed_trim_keeps_the_original_logo(self, tmp_path):
-        handler = FSResourcesHandler()
-        handler.base_path = tmp_path
+    async def test_failed_trim_keeps_the_original_logo(self, handler, tmp_path):
         logo = "roms/1/1/logo/logo.png"
         self._write_padded_logo(tmp_path / logo)
         before = (tmp_path / logo).read_bytes()
