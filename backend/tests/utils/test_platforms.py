@@ -52,3 +52,11 @@ async def test_filesystem_platform_resolves_frontend_folder_name(monkeypatch):
     platforms = await get_filesystem_platforms()
 
     assert [(p.fs_slug, p.slug) for p in platforms] == [("gamecube", "ngc")]
+
+
+def test_supported_platform_sharing_ss_id_keeps_its_own_name():
+    """A platform sharing a ScreenScraper system ID must not take its sibling's name."""
+    supported = {p.slug: p for p in get_supported_platforms()}
+
+    assert supported["c128"].name == "Commodore 128"
+    assert supported["videopac-g7400"].name == "Videopac+ G7400"
