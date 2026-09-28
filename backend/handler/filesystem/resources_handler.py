@@ -250,14 +250,20 @@ class FSResourcesHandler(FSHandler):
         Returns True when the file was discarded, so callers can treat the
         artwork as missing (falling back to the dark placeholder).
         """
-        if not await self.file_exists(relative_path):
-            return False
+        full_path = self.validate_path(relative_path)
+        # Held from the check to the delete, so a file replaced while the check
+        # runs is never removed on the old file's verdict.
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
+            if not full_path.is_file():
+                return False
 
-        if not _is_chroma_key_placeholder(self.validate_path(relative_path)):
-            return False
+            # Decoding the full image would otherwise stall the event loop
+            if not await asyncio.to_thread(_is_chroma_key_placeholder, full_path):
+                return False
 
-        log.debug(f"Discarding chroma-key placeholder image {relative_path}")
-        await self.remove_file(relative_path)
+            log.debug(f"Discarding chroma-key placeholder image {relative_path}")
+            full_path.unlink()
         return True
 
     async def _discard_partial_file(self, relative_path: str) -> None:

@@ -2,6 +2,7 @@ import asyncio
 import errno
 import os
 import struct
+import threading
 import zlib
 from io import BytesIO
 from pathlib import Path
@@ -896,6 +897,67 @@ class TestChromaKeyDetection:
 
         assert discarded is False
         assert (tmp_path / rel).exists()
+
+    @pytest.mark.asyncio
+    async def test_discard_checks_the_image_off_the_event_loop(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        self._write_image(tmp_path / rel, (85, 62, 152))
+        threads: list[threading.Thread] = []
+
+        def record_thread(_path: Path) -> bool:
+            threads.append(threading.current_thread())
+            return False
+
+        with patch(
+            "handler.filesystem.resources_handler._is_chroma_key_placeholder",
+            side_effect=record_thread,
+        ):
+            await handler._discard_if_chroma_key(rel)
+
+        assert threads and threads[0] is not threading.main_thread()
+
+    @pytest.mark.asyncio
+    async def test_discard_keeps_a_file_replaced_during_the_check(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        folder, name = "roms/1/1/box2d_back", "box2d_back.png"
+        self._write_image(tmp_path / folder / name, (0, 255, 0))
+        checking, release = threading.Event(), threading.Event()
+
+        def slow_check(_path: Path) -> bool:
+            checking.set()
+            release.wait(5)
+            return True
+
+        async def replace() -> None:
+            async with handler.write_file_streamed(path=folder, filename=name) as f:
+                await f.write(b"real artwork")
+
+        with patch(
+            "handler.filesystem.resources_handler._is_chroma_key_placeholder",
+            side_effect=slow_check,
+        ):
+            discard = asyncio.create_task(
+                handler._discard_if_chroma_key(f"{folder}/{name}")
+            )
+            await asyncio.to_thread(checking.wait, 5)
+            lock = await handler._get_file_lock(
+                str(handler.validate_path(f"{folder}/{name}"))
+            )
+            assert lock.locked()
+            writer = asyncio.create_task(replace())
+            for _ in range(20):
+                await asyncio.sleep(0)
+            assert not writer.done()
+            release.set()
+            assert await discard is True
+            await writer
+
+        assert (tmp_path / folder / name).read_bytes() == b"real artwork"
 
     @pytest.mark.asyncio
     async def test_discard_missing_file_is_noop(
