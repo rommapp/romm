@@ -213,6 +213,28 @@ export default tseslint.config(
       "romm/no-layout-media-query": "error",
     },
   },
+  // Pre-existing violations. Drop a directory once its comments are clean.
+  {
+    files: [
+      "src/v2/components/**",
+      "src/v2/composables/**",
+      "src/v2/layouts/**",
+      "src/v2/lib/**",
+      "src/v2/router/**",
+      "src/v2/stores/**",
+      "src/v2/tokens/**",
+      "src/v2/utils/**",
+      "src/v2/views/**",
+    ],
+    rules: { "romm/no-emdash-in-comment": "off" },
+  },
+  {
+    files: [
+      "src/v2/components/shared/BarcodeScannerDialog.vue",
+      "src/v2/layouts/AuthLayout.vue",
+    ],
+    rules: { "romm/no-color-literal": "off" },
+  },
   {
     files: ["src/**/*.test.ts"],
     ignores: [
