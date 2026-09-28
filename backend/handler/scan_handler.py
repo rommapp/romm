@@ -2,7 +2,7 @@ import asyncio
 import enum
 import functools
 from collections.abc import Callable
-from typing import Any, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 import pydash
 import socketio
@@ -537,6 +537,28 @@ async def resolve_steam_rom(
     return await meta_steam_handler.get_rom(fs_name, platform_slug)
 
 
+# `files` is left out so a scan does not ship every file row of every rom.
+_SCANNING_ROM_EXCLUDE: Final = {
+    "created_at",
+    "updated_at",
+    "rom_user",
+    "last_modified",
+    "files",
+    "sibling_roms",
+}
+
+
+async def emit_scanning_rom(
+    socket_manager: socketio.AsyncRedisManager, rom: Rom, *, is_new: bool
+) -> None:
+    """Report a scanned rom; `is_new` lets clients count only roms the scan added."""
+    payload = SimpleRomSchema.from_orm_with_factory(rom).model_dump(
+        exclude=_SCANNING_ROM_EXCLUDE
+    )
+    payload["is_new"] = is_new
+    await socket_manager.emit("scan:scanning_rom", payload)
+
+
 async def scan_rom(
     scan_type: ScanType,
     platform: Platform,
@@ -737,21 +759,7 @@ async def scan_rom(
     _added_rom.is_identifying = True
 
     if socket_manager:
-        await socket_manager.emit(
-            "scan:scanning_rom",
-            {
-                **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                    exclude={
-                        "created_at",
-                        "updated_at",
-                        "rom_user",
-                        "last_modified",
-                        "files",
-                        "sibling_roms",
-                    }
-                ),
-            },
-        )
+        await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
 
     # Run hash fetches concurrently
     (
