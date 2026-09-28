@@ -92,6 +92,32 @@ describe("defaultDisc", () => {
     ).toBe(ALL_DISCS);
   });
 
+  it.each(["cue", "gdi", "ccd", "mds", "CUE"])(
+    "boots every file together when the set has a .%s sheet",
+    (extension) => {
+      expect(
+        defaultDisc([
+          file(1, `Game.${extension}`),
+          file(2, "Game (Track 1).bin"),
+          file(3, "Game (Track 2).bin"),
+        ]),
+      ).toBe(ALL_DISCS);
+    },
+  );
+
+  it("boots a lone sheet when it is the rom's only file", () => {
+    expect(defaultDisc([file(1, "Game.cue")])).toBe(1);
+  });
+
+  it("keeps a remembered track over the sheet default", () => {
+    const cueSet = [file(1, "Game.cue"), file(2, "Game.iso")];
+    expect(resolveStoredDisc("2", cueSet)).toEqual({ disc: 2, stale: false });
+    expect(resolveStoredDisc(null, cueSet)).toEqual({
+      disc: ALL_DISCS,
+      stale: false,
+    });
+  });
+
   it("boots the first file when a multi-file set has no playlist", () => {
     expect(defaultDisc(files(3, 4))).toBe(3);
   });
