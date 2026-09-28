@@ -57,6 +57,26 @@ function track(fileId: number): PlayerTrack {
   };
 }
 
+// Updates `paused` and `currentTime` at once, like a real element, while its
+// events (and so the store) lag behind.
+function fakeAudio() {
+  return {
+    paused: true,
+    currentTime: 0,
+    volume: 1,
+    muted: false,
+    play: vi.fn(function (this: { paused: boolean }) {
+      this.paused = false;
+      return Promise.resolve();
+    }),
+    pause: vi.fn(function (this: { paused: boolean }) {
+      this.paused = true;
+    }),
+    removeAttribute: vi.fn(),
+    load: vi.fn(),
+  };
+}
+
 describe("useMediaSession", () => {
   let session: FakeMediaSession;
   let scope: EffectScope;
@@ -78,8 +98,8 @@ describe("useMediaSession", () => {
     vi.unstubAllGlobals();
   });
 
-  function start() {
-    scope.run(() => useMediaSession());
+  function start(blocked?: () => boolean) {
+    scope.run(() => useMediaSession(blocked));
   }
 
   it("sets metadata with the mini player's cover and clears it on stop", async () => {
@@ -140,29 +160,61 @@ describe("useMediaSession", () => {
 
   it("routes play, pause and stop to the player", () => {
     const store = useSoundtrackPlayer();
-    const toggle = vi
-      .spyOn(store, "togglePlayPause")
-      .mockImplementation(() => {});
+    const audio = fakeAudio();
+    store.setAudioRef(audio as unknown as HTMLAudioElement);
     const stop = vi.spyOn(store, "stop");
     start();
 
     session.fire("play", {});
-    expect(toggle).not.toHaveBeenCalled();
+    expect(audio.play).not.toHaveBeenCalled();
 
     store.play(track(1), {});
     session.fire("pause", {});
-    expect(toggle).not.toHaveBeenCalled();
+    expect(audio.pause).not.toHaveBeenCalled();
     session.fire("play", {});
-    expect(toggle).toHaveBeenCalledTimes(1);
-
-    store.setPlaying(true);
+    expect(audio.play).toHaveBeenCalledTimes(1);
     session.fire("play", {});
-    expect(toggle).toHaveBeenCalledTimes(1);
-    session.fire("pause", {});
-    expect(toggle).toHaveBeenCalledTimes(2);
+    expect(audio.play).toHaveBeenCalledTimes(1);
 
     session.fire("stop", {});
     expect(stop).toHaveBeenCalledOnce();
+  });
+
+  it("follows the element through presses faster than its events", () => {
+    const store = useSoundtrackPlayer();
+    const audio = fakeAudio();
+    audio.paused = false;
+    store.setAudioRef(audio as unknown as HTMLAudioElement);
+    store.play(track(1), {});
+    store.setPlaying(true);
+    start();
+
+    session.fire("pause", {});
+    session.fire("play", {});
+
+    expect(audio.pause).toHaveBeenCalledOnce();
+    expect(audio.play).toHaveBeenCalledOnce();
+    expect(audio.paused).toBe(false);
+  });
+
+  it("ignores play while the music is blocked, but still pauses", () => {
+    const store = useSoundtrackPlayer();
+    const audio = fakeAudio();
+    store.setAudioRef(audio as unknown as HTMLAudioElement);
+    store.play(track(1), {});
+    let blocked = true;
+    start(() => blocked);
+
+    session.fire("play", {});
+    expect(audio.play).not.toHaveBeenCalled();
+
+    blocked = false;
+    session.fire("play", {});
+    expect(audio.play).toHaveBeenCalledOnce();
+
+    blocked = true;
+    session.fire("pause", {});
+    expect(audio.pause).toHaveBeenCalledOnce();
   });
 
   it("seeks to a time and by an offset within the track", () => {
@@ -185,6 +237,23 @@ describe("useMediaSession", () => {
     expect(seek).toHaveBeenLastCalledWith(100);
     session.fire("seekbackward", { seekOffset: 80 });
     expect(seek).toHaveBeenLastCalledWith(0);
+  });
+
+  it("adds up seek presses that land before the next time update", () => {
+    const store = useSoundtrackPlayer();
+    const audio = fakeAudio();
+    audio.currentTime = 50;
+    store.setAudioRef(audio as unknown as HTMLAudioElement);
+    start();
+    store.play(track(1), {});
+    store.setDuration(100);
+    store.currentTime = 50;
+
+    session.fire("seekforward", {});
+    session.fire("seekforward", {});
+
+    expect(audio.currentTime).toBe(70);
+    expect(store.currentTime).toBe(50);
   });
 
   it("offers previous and next only when the queue has them", async () => {

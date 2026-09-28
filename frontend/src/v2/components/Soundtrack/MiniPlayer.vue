@@ -3,7 +3,7 @@
 // card floats on desktop; on phones the top bar's NowPlayingPill opens it.
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import storePlaying from "@/stores/playing";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
@@ -22,15 +22,18 @@ const { track, hasNext } = storeToRefs(store);
 const { smAndDown } = useBreakpoint();
 const visible = useMiniPlayerVisible();
 const playingStore = storePlaying();
-useMediaSession();
 
 const audioEl = ref<HTMLAudioElement | null>(null);
 
 // On phones the mini player lives in the top bar, which a running game hides,
 // so the music pauses rather than play on with no controls.
-watch([() => playingStore.stageActive, smAndDown], ([active, phone]) => {
-  if (active && phone) audioEl.value?.pause();
+const musicBlocked = computed(
+  () => playingStore.stageActive && smAndDown.value,
+);
+watch(musicBlocked, (isBlocked) => {
+  if (isBlocked) audioEl.value?.pause();
 });
+useMediaSession(() => musicBlocked.value);
 
 // Generation token, bumped every time we reassign `src`. Any async
 // `play()` promise resolves against the token current when it was

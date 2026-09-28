@@ -49,18 +49,28 @@ function setPosition(session: MediaSession, state?: MediaPositionState) {
   }
 }
 
-export function useMediaSession(): void {
+/**
+ * Args:
+ *   blocked: true while the music must stay paused, so the play key is ignored.
+ */
+export function useMediaSession(blocked: () => boolean = () => false): void {
   const session = mediaSession();
   if (!session) return;
 
   const store = useSoundtrackPlayer();
 
-  function playOrPause(playing: boolean) {
-    if (store.track && store.isPlaying !== playing) store.togglePlayPause();
+  // The element, not the store, since the store only learns of a change from
+  // the element's events and a quick second key press can beat them.
+  function playOrPause(play: boolean) {
+    const el = store.audioRef;
+    if (!store.track || !el || el.paused !== play) return;
+    if (play && blocked()) return;
+    store.togglePlayPause();
   }
 
   function seekBy(offset: number) {
-    const target = store.currentTime + offset;
+    const from = store.audioRef?.currentTime ?? store.currentTime;
+    const target = from + offset;
     const max = store.duration > 0 ? store.duration : Infinity;
     store.seek(Math.min(max, Math.max(0, target)));
   }
