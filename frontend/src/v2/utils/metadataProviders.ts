@@ -29,7 +29,7 @@ export interface MetadataProvider {
   key: ProviderIdKey;
   /** Short brand name (e.g. "IGDB"), used as the gallery filter label. */
   name: string;
-  /** Tooltip text; also serves as the chip's `alt`. */
+  /** Tooltip text, also used as the chip's `alt`. */
   title: string;
   /** File under `/assets/scrappers/`. */
   logo: string;
