@@ -11,6 +11,7 @@ permissions:
 jobs:
   trunk-upgrade:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write # For create-pull-request to push the branch
       pull-requests: write # For create-pull-request to open the PR
@@ -33,3 +34,11 @@ jobs:
           github-token: ${{ secrets.TRUNK_UPGRADE_TOKEN || github.token }}
           reviewers: |
             gantoine
+
+  report-failure:
+    needs: [trunk-upgrade]
+    if: failure() && github.event_name == 'schedule'
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/report-scheduled-failure.yml

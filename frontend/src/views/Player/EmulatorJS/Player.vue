@@ -47,6 +47,7 @@ import {
   heldFor,
   resolveScreenshot,
   saveState,
+  bootEmulatorJSSave,
   loadEmulatorJSSave,
   loadEmulatorJSState,
   invalidateEmulatorJSRomCacheIfRenamed,
@@ -643,7 +644,10 @@ function onPageHide() {
 // Saves management
 // Resolves whether this pick reached the core: a later pick, a state load or
 // leaving the player voids a download still in flight.
-async function loadSave(save: SaveSchema): Promise<boolean> {
+async function loadSave(
+  save: SaveSchema,
+  apply: (bytes: Uint8Array) => void = loadEmulatorJSSave,
+): Promise<boolean> {
   const generation = ++saveGeneration;
   saveLoading = true;
 
@@ -654,7 +658,7 @@ async function loadSave(save: SaveSchema): Promise<boolean> {
     });
     if (disposed || generation !== saveGeneration) return false;
     const bytes = new Uint8Array(data);
-    loadEmulatorJSSave(bytes);
+    apply(bytes);
     // Writes follow the picked save only once its bytes are in the core.
     loadedSave = save;
     sessionSaveRef.value = null;
@@ -861,7 +865,7 @@ window.EJS_onGameStart = async () => {
         );
         await loadState(props.state);
       } else if (props.save) {
-        await loadSave(props.save);
+        await loadSave(props.save, bootEmulatorJSSave);
       } else {
         baselineSaveTrackerFromEmulator();
       }

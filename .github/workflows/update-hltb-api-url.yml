@@ -13,6 +13,7 @@ permissions:
 jobs:
   update-hltb-api-url:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write # For create-pull-request to push the branch
       pull-requests: write # For create-pull-request to open the PR
@@ -22,16 +23,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-
-      - name: Install python
-        run: |
-          uv python install
-
-      - name: Install dependencies
-        run: |
-          uv sync --frozen
+      - name: Set up the backend
+        uses: ./.github/actions/setup-backend
 
       - name: Run HLTB API URL discovery script
         # Only satisfies the backend config import; discovery authenticates nothing.
@@ -53,3 +46,11 @@ jobs:
           title: "Update HLTB API URL [skip CI]"
           reviewers: |
             gantoine
+
+  report-failure:
+    needs: [update-hltb-api-url]
+    if: failure() && github.event_name == 'schedule'
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/report-scheduled-failure.yml
