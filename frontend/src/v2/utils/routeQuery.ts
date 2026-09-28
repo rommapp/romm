@@ -7,9 +7,6 @@
 // wins with a query that never saw the first one's key, silently resetting
 // it. Routing every writer through here merges the patches and issues one
 // navigation per tick instead.
-//
-// A replace mid-navigation cancels it, or on Back/Forward overwrites the entry
-// the browser moved to, so writes wait it out and drop if it left their page.
 import { nextTick } from "vue";
 import {
   isNavigationFailure,
