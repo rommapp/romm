@@ -73,7 +73,7 @@ def server(mocker) -> Mock:
     """The netplay socket server, with the session store stubbed per socket."""
     sessions: dict[str, dict[str, Any]] = {}
 
-    async def get_session(sid: str) -> dict[str, Any]:
+    async def get_session(sid: str, namespace: str | None = None) -> dict[str, Any]:
         if sid not in sessions:
             raise KeyError(sid)
         return sessions[sid]

@@ -1,11 +1,15 @@
 import time
 from types import SimpleNamespace
 from typing import cast
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock
 
 import pytest
 import socketio
-from rq.exceptions import AbandonedJobError, InvalidJobOperation
+from rq.exceptions import (
+    AbandonedJobError,
+    DeserializationError,
+    InvalidJobOperation,
+)
 from rq.job import JobStatus
 from rq.timeouts import JobTimeoutException
 from tests.scan_job_stubs import (
@@ -2615,6 +2619,24 @@ class TestReportScanFailure:
 
         notify_scan_end.assert_awaited_once_with(
             9, "the worker running it stopped unexpectedly"
+        )
+
+    def test_reports_a_scan_whose_kwargs_can_no_longer_be_loaded(self, emit, mocker):
+        # An abandoned scan pickled by an older release must not crash the
+        # registry sweep that calls this.
+        notify_scan_end = mocker.patch.object(
+            scan_module, "notify_scan_end", AsyncMock()
+        )
+        job = make_job(SCAN_PLATFORMS_FUNC)
+        type(job).kwargs = PropertyMock(side_effect=DeserializationError("stale"))
+
+        scan_module.report_scan_failure(
+            job, MagicMock(), AbandonedJobError, AbandonedJobError("boom"), None
+        )
+
+        emit.assert_awaited_once()
+        notify_scan_end.assert_awaited_once_with(
+            None, "the worker running it stopped unexpectedly"
         )
 
     def test_swallows_a_report_that_cannot_be_sent(self, emit):

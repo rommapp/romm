@@ -74,6 +74,20 @@ class TestAuthMiddleware:
         mock_handler.assert_called_once_with(mock_request)
         assert result == mock_response
 
+    @patch("adapters.services.retroachievements.RETROACHIEVEMENTS_API_KEY", None)
+    @pytest.mark.asyncio
+    async def test_auth_middleware_sends_empty_key_when_unset(self):
+        mock_request = MagicMock()
+        mock_request.url = yarl.URL("https://retroachievements.org/API")
+        mock_handler = AsyncMock()
+
+        await auth_middleware(mock_request, mock_handler)
+
+        assert mock_request.url == yarl.URL(
+            "https://retroachievements.org/API"
+        ).with_query(y="")
+        mock_handler.assert_called_once_with(mock_request)
+
 
 class TestRetroAchievementsServiceUnit:
     """Unit tests with mocked dependencies."""

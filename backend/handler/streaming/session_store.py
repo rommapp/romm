@@ -25,7 +25,7 @@ from typing import Any, NamedTuple, cast
 from redis.exceptions import WatchError
 
 from handler.notification_handler import notify
-from handler.redis_handler import async_cache
+from handler.redis_handler import as_text, async_cache
 from handler.socket_handler import socket_handler
 from logger.logger import log
 from models.notification import NotificationKind, NotificationLevel
@@ -141,9 +141,7 @@ async def get_live_session(session_key: str) -> dict[str, Any] | None:
 async def iter_session_keys() -> AsyncIterator[str]:
     """Every container key with a session row in the cache."""
     async for key in async_cache.scan_iter(match=f"{SESSION_KEY_PREFIX}*"):
-        # scan_iter yields bytes unless the client decodes responses.
-        key_str = key.decode() if isinstance(key, bytes) else key
-        yield key_str.removeprefix(SESSION_KEY_PREFIX)
+        yield as_text(key).removeprefix(SESSION_KEY_PREFIX)
 
 
 async def iter_live_sessions() -> AsyncIterator[tuple[str, dict[str, Any]]]:
@@ -433,7 +431,11 @@ async def hold_session_claim(session_key: str, claim: dict[str, Any]) -> None:
 
 
 async def stamp_launched(
-    session_key: str, claim: dict[str, Any], host: str | None
+    session_key: str,
+    claim: dict[str, Any],
+    host: str | None,
+    core: str | None = None,
+    core_tier: str | None = None,
 ) -> None:
     """Record that the activate returned, so the status poll stops asking the
     broker for an extraction phase.
@@ -449,6 +451,8 @@ async def stamp_launched(
     Args:
         host: a game's room URL, for the status poll to hand a tab that missed
             the push; None for a desktop, whose POST is the only reader.
+        core, core_tier: the configured core and its tier, so that tab still
+            hears the warning launch-ready carried.
     """
     try:
         await mutate_session(
@@ -456,6 +460,7 @@ async def stamp_launched(
             {
                 "launched_at": datetime.now(timezone.utc).isoformat(),
                 **({"host": host} if host else {}),
+                **({"core": core, "core_tier": core_tier} if core_tier else {}),
             },
             require=lambda current: same_claim(current, claim),
         )

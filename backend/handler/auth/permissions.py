@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from config import KIOSK_MODE
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from handler.auth.constants import FULL_SCOPES, READ_SCOPES, Scope
 from handler.auth.permissions_map import (
     grants_to_scopes,
@@ -127,7 +127,7 @@ def resolve_permissions(user: User) -> ResolvedPermissions:
 def _resolve_non_admin(
     user: User,
     *,
-    session: Session = None,  # type: ignore[assignment]
+    session: Session = INJECTED_SESSION,
 ) -> ResolvedPermissions:
     from handler.database import db_permission_handler
 
@@ -178,7 +178,7 @@ def compute_oauth_scopes(user: User) -> list[Scope]:
 def _compute_non_admin_scopes(
     user: User,
     *,
-    session: Session = None,  # type: ignore[assignment]
+    session: Session = INJECTED_SESSION,
 ) -> list[Scope]:
     grant_map = _resolve_grant_map(user, session=session)
     scopes = set(

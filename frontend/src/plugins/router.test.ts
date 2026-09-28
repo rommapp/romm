@@ -114,5 +114,6 @@ describe("the rom route", () => {
 
     expect(getRom).toHaveBeenCalledWith({ romId: 9 });
     expect(roms.currentRom?.name).toBe("after the session");
+    expect(roms.getDetailedRom(9)?.name).toBe("after the session");
   });
 });

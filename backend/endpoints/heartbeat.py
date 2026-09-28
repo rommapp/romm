@@ -8,6 +8,8 @@ from fastapi import HTTPException, Request, status
 
 from adapters.services.sigil import SigilService
 from config import (
+    DEVICE_INSTALL_ENABLED,
+    DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS,
     DISABLE_EMULATOR_JS,
     DISABLE_JSDOS,
     DISABLE_LOGS_VIEWER,
@@ -183,6 +185,10 @@ async def heartbeat() -> HeartbeatResponse:
         "NOTIFICATIONS": {
             "EMAIL_ENABLED": EMAIL_ENABLED,
             "EMAILS_RESET_LINKS": reset_link_base_url() is not None,
+        },
+        "DEVICE_INSTALL": {
+            "ENABLED": DEVICE_INSTALL_ENABLED,
+            "EXCLUDED_PLATFORM_SLUGS": sorted(DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS),
         },
         "TASKS": {
             "ENABLE_SCHEDULED_RESCAN": ENABLE_SCHEDULED_RESCAN,
