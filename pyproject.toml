@@ -20,6 +20,7 @@ dependencies = [
   "anyio ~= 4.4",
   "apprise ~= 1.13",
   "authlib ~= 1.8.0",
+  "certifi >= 2024.7.4",
   "colorama ~= 0.4",
   "cryptography>=49,<51",
   "defusedxml ~= 0.7",

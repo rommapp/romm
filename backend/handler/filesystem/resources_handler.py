@@ -20,7 +20,13 @@ from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.concurrency import gather_all
 from utils.context import ctx_httpx_client
-from utils.images import frame_durations, is_animated, webp_loop
+from utils.images import (
+    IMAGE_DECODE_ERRORS,
+    MAX_TRIM_PIXELS,
+    frame_durations,
+    is_animated,
+    webp_loop,
+)
 from utils.rate_limiter import ConcurrencyLimiter
 
 from .base_handler import CoverSize, FSHandler
@@ -99,7 +105,7 @@ def _is_chroma_key_placeholder(image_path: Path) -> bool:
             sample = img.convert("RGB")
             sample.thumbnail((32, 32))  # cheap: sample a downscaled copy
             raw = sample.tobytes()  # flat RGB triples
-    except UnidentifiedImageError, OSError, ValueError:
+    except IMAGE_DECODE_ERRORS:
         return False
 
     total = len(raw) // 3
@@ -116,6 +122,35 @@ def _is_chroma_key_placeholder(image_path: Path) -> bool:
         ):
             green += 1
     return green / total >= _CHROMA_KEY_COVERAGE
+
+
+def _trim_transparent_border(image_path: Path) -> Image.Image | None:
+    """Crop an image to its visible pixels, dropping the empty canvas around
+    a logo's artwork.
+
+    Returns:
+        The cropped image, or None when there is no transparent border to trim.
+    """
+    try:
+        with Image.open(image_path) as img:
+            has_alpha = "A" in img.getbands()
+            if not (has_alpha or "transparency" in img.info):
+                return None
+            # Any multi-frame image, since a crop keeps only the first frame
+            if getattr(img, "is_animated", False):
+                return None
+            # The size comes from the header, so this runs before any decode
+            if img.width * img.height > MAX_TRIM_PIXELS:
+                return None
+            # getbbox measures the alpha band alone, so only a palette or
+            # colour-key image needs converting first
+            bbox = (img if has_alpha else img.convert("RGBA")).getbbox()
+            if bbox is None or bbox == (0, 0, *img.size):
+                return None
+            # Cropped in its own mode, so a palette logo stays compact
+            return img.crop(bbox)
+    except IMAGE_DECODE_ERRORS:
+        return None
 
 
 class RecordedMedia(NamedTuple):
@@ -215,14 +250,20 @@ class FSResourcesHandler(FSHandler):
         Returns True when the file was discarded, so callers can treat the
         artwork as missing (falling back to the dark placeholder).
         """
-        if not await self.file_exists(relative_path):
-            return False
+        full_path = self.validate_path(relative_path)
+        # Held from the check to the delete, so a file replaced while the check
+        # runs is never removed on the old file's verdict.
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
+            if not full_path.is_file():
+                return False
 
-        if not _is_chroma_key_placeholder(self.validate_path(relative_path)):
-            return False
+            # Decoding the full image would otherwise stall the event loop
+            if not await asyncio.to_thread(_is_chroma_key_placeholder, full_path):
+                return False
 
-        log.debug(f"Discarding chroma-key placeholder image {relative_path}")
-        await self.remove_file(relative_path)
+            log.debug(f"Discarding chroma-key placeholder image {relative_path}")
+            full_path.unlink()
         return True
 
     async def _discard_partial_file(self, relative_path: str) -> None:
@@ -827,6 +868,24 @@ class FSResourcesHandler(FSHandler):
         # file behind without raising.
         return await self.file_exists(dest_path)
 
+    async def _trim_logo(self, relative_path: str) -> None:
+        """Crop a stored logo to its visible pixels."""
+        full_path = self.validate_path(relative_path)
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
+            trimmed = await asyncio.to_thread(_trim_transparent_border, full_path)
+            if trimmed is None:
+                return
+            # Saved to a temp file and swapped in, so a failed save keeps the
+            # logo intact and a hardlinked source image is never cropped.
+            try:
+                async with self._atomic_write(full_path) as temp_path:
+                    await asyncio.to_thread(trimmed.save, temp_path, format="PNG")
+            except OSError as exc:
+                log.error(
+                    f"Unable to trim transparent border of {relative_path}: {str(exc)}"
+                )
+
     @staticmethod
     def recorded_media(
         metadata: dict[str, Any], media_types: Iterable[MetadataMediaType]
@@ -943,18 +1002,27 @@ class FSResourcesHandler(FSHandler):
         was modified.
         """
 
-        async def store(media_path: str, media_url: str | None) -> bool:
+        async def store(
+            media_type: MetadataMediaType, media_path: str, media_url: str | None
+        ) -> bool:
             if media_url:
-                return await self.store_media_file(
+                stored = await self.store_media_file(
                     url_transform(media_url) if url_transform else media_url,
                     media_path,
                 )
-            # Nothing to fetch from, so the path only holds if an earlier
-            # scan already stored the file.
-            return await self.file_exists(media_path)
+            else:
+                # Nothing to fetch from, so the path only holds if an earlier
+                # scan already stored the file.
+                stored = await self.file_exists(media_path)
+            # Also runs for logos already on disk, trimming them on rescan.
+            if stored and media_type == MetadataMediaType.LOGO:
+                await self._trim_logo(media_path)
+            return stored
 
         targets = self.recorded_media(metadata, media_types)
-        stored = await gather_all(*(store(media.path, media.url) for media in targets))
+        stored = await gather_all(
+            *(store(media.media_type, media.path, media.url) for media in targets)
+        )
         for media, ok in zip(targets, stored, strict=True):
             if not ok:
                 media.owner[media.key] = None
