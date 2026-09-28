@@ -46,6 +46,7 @@ import { installPendingAssetSync } from "@/v2/composables/usePendingAssetSync";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
+import { useSpatialNav } from "@/v2/composables/useSpatialNav";
 import { installStageActiveClass } from "@/v2/composables/useStageActive";
 import { installSyncConflictToast } from "@/v2/composables/useSyncConflictToast";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
@@ -178,6 +179,7 @@ provide(BACKGROUND_ART_KEY, setBackgroundArt);
 const { install: installInputModality } = useInputModality();
 const { install: installGamepad } = useGamepad();
 const { install: installGlobalHotkeys } = useGlobalHotkeys();
+const { install: installSpatialNav } = useSpatialNav();
 const router = useRouter();
 
 let removeBackMorph: (() => void) | null = null;
@@ -189,6 +191,7 @@ onMounted(() => {
   installInputModality();
   installGamepad();
   installGlobalHotkeys();
+  installSpatialNav();
   // Dialogs and drawers are mounted above the router view, so nothing else
   // dismisses them when the route changes under them (browser back included).
   removeOverlayRouteDismiss = installOverlayRouteDismiss(router);
