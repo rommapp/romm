@@ -466,6 +466,25 @@ def test_favorites_are_per_song(
     assert r.status_code == status.HTTP_400_BAD_REQUEST
 
 
+def test_favorites_take_the_older_file_id_list(
+    client: TestClient, access_token: str, admin_user: User
+):
+    chiptune = _make_chiptune(admin_user.id, _make_platform("nes"), songs=2)
+
+    r = client.post(
+        "/api/music/favorites",
+        json={"rom_file_ids": [chiptune.id]},
+        headers=_auth(access_token),
+    )
+    assert r.json()["added"] == 1
+
+    body = client.get("/api/music/tracks", headers=_auth(access_token)).json()
+    assert [(i["song"], i["is_favorite"]) for i in body["items"]] == [
+        (0, True),
+        (1, False),
+    ]
+
+
 def test_favorites_add_list_remove(
     client: TestClient, access_token: str, music_library
 ):

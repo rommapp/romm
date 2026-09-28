@@ -41,7 +41,17 @@ class MusicTrackRef(BaseModel):
 
 
 class MusicTrackIdsPayload(BaseModel):
-    tracks: list[MusicTrackRef]
+    tracks: list[MusicTrackRef] = Field(default_factory=list)
+    rom_file_ids: list[Annotated[int, Field(ge=1)]] = Field(
+        default_factory=list,
+        json_schema_extra={"deprecated": True},
+        description="The first song of each file. Use `tracks` instead.",
+    )
+
+    @property
+    def refs(self) -> list[MusicTrackRef]:
+        legacy = [MusicTrackRef(rom_file_id=i, song=0) for i in self.rom_file_ids]
+        return self.tracks + legacy
 
 
 def resolve_track_ids(
@@ -220,7 +230,7 @@ def add_music_favorites(
 ) -> dict[str, Any]:
     """Mark tracks as favorites; already-favorited tracks are ignored."""
     perms = get_permissions(request)
-    tracks = resolve_track_ids(payload.tracks, perms)
+    tracks = resolve_track_ids(payload.refs, perms)
     added = db_music_playlist_handler.add_favorite_tracks(request.user.id, tracks)
     return {"added": added}
 
@@ -231,7 +241,7 @@ def remove_music_favorites(
 ) -> dict[str, Any]:
     """Unmark tracks as favorites."""
     perms = get_permissions(request)
-    tracks = resolve_track_ids(payload.tracks, perms)
+    tracks = resolve_track_ids(payload.refs, perms)
     removed = db_music_playlist_handler.remove_favorite_tracks(request.user.id, tracks)
     return {"removed": removed}
 

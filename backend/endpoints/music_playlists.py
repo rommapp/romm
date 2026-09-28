@@ -193,7 +193,7 @@ def add_playlist_tracks(
     """Append tracks to the playlist; tracks already present are ignored."""
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
-    tracks = resolve_track_ids(payload.tracks, perms)
+    tracks = resolve_track_ids(payload.refs, perms)
     added = db_music_playlist_handler.add_tracks_to_playlist(playlist.id, tracks)
     return {"added": added}
 
@@ -206,7 +206,7 @@ def remove_playlist_tracks(
 ) -> dict[str, Any]:
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
-    tracks = resolve_track_ids(payload.tracks, perms)
+    tracks = resolve_track_ids(payload.refs, perms)
     removed = db_music_playlist_handler.remove_tracks_from_playlist(playlist.id, tracks)
     return {"removed": removed}
 
@@ -223,7 +223,7 @@ def set_playlist_track_order(
     listed tracks."""
     playlist = _get_owned_playlist(request, id)
     perms = get_permissions(request)
-    tracks = resolve_track_ids(payload.tracks, perms)
+    tracks = resolve_track_ids(payload.refs, perms)
     entries = db_music_playlist_handler.get_playlist_entries(playlist.id)
     entry_by_track = {TrackKey(e.rom_file_id, e.song): e.id for e in entries}
     if any(track not in entry_by_track for track in tracks):

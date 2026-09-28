@@ -4,6 +4,11 @@
 /* eslint-disable */
 import type { MusicTrackRef } from './MusicTrackRef';
 export type MusicTrackIdsPayload = {
-    tracks: Array<MusicTrackRef>;
+    tracks?: Array<MusicTrackRef>;
+    /**
+     * The first song of each file. Use `tracks` instead.
+     * @deprecated
+     */
+    rom_file_ids?: Array<number>;
 };
 
