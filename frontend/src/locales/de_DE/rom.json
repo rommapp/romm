@@ -257,6 +257,7 @@
   "media-miximage": "Mischbild",
   "media-miximage-v2": "Mischbild (v2)",
   "media-physical": "Physischer Datenträger",
+  "media-physical-disc": "Physischer Datenträger (Disc {n})",
   "media-title-screen": "Titelbildschirm",
   "media-video": "Video",
   "media-video-normalized": "Video (standardisiert)",

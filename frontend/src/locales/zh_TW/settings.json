@@ -430,6 +430,8 @@
   "show-home-widgets-desc": "在首頁儀表板各列上方顯示小工具列。隱藏後將移除整個區塊。",
   "show-languages": "顯示語言",
   "show-languages-desc": "在遊戲庫中顯示語言標示",
+  "show-logo-title": "以標誌作為標題",
+  "show-logo-title-desc": "如已抓取標誌，在遊戲頁面上顯示遊戲標誌而非遊戲名稱",
   "show-platforms": "顯示平台",
   "show-platforms-as-grid": "顯示平台卡片",
   "show-platforms-as-grid-desc": "在首頁上以卡片方式顯示平台",

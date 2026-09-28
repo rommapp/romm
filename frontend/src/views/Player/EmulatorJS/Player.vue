@@ -52,6 +52,7 @@ import {
   loadEmulatorJSState,
   invalidateEmulatorJSRomCacheIfRenamed,
   installEJSDefaultOptionsTrap,
+  patchNetplaySocketIo,
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
@@ -839,17 +840,7 @@ window.EJS_onGameStart = async () => {
     };
   }
 
-  // Wrap the bundled global `io` so netplay uses mounted socket path.
-  if (window.io && !window.io.__rommNetplayPatched) {
-    const originalIo = window.io;
-    const patchedIo = ((url: string, opts?: Record<string, unknown>) =>
-      originalIo(url, {
-        ...opts,
-        path: "/netplay/socket.io",
-      })) as NonNullable<Window["io"]>;
-    patchedIo.__rommNetplayPatched = true;
-    window.io = patchedIo;
-  }
+  patchNetplaySocketIo();
 
   void (async () => {
     const ready = await waitForGameManager();

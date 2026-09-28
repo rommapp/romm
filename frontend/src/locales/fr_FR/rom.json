@@ -257,6 +257,7 @@
   "media-miximage": "Image composite",
   "media-miximage-v2": "Image composite (v2)",
   "media-physical": "Support physique",
+  "media-physical-disc": "Support physique (disque {n})",
   "media-title-screen": "Écran-titre",
   "media-video": "Vidéo",
   "media-video-normalized": "Vidéo (standardisée)",
