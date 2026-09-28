@@ -28,6 +28,7 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:e2e": "tsc --noEmit -p e2e/tsconfig.json",
     "generate": "openapi --input http://127.0.0.1:3000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false",
     "test": "vitest run",
     "test:watch": "vitest",
