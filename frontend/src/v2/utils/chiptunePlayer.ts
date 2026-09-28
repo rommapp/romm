@@ -134,6 +134,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   async play(): Promise<void> {
     const token = ++this.playToken;
     await this.ensurePort();
+    if (token !== this.playToken || this.failed) return;
     await this.context?.resume();
     if (token !== this.playToken || this.failed || !this.isPaused) return;
     this.isPaused = false;
@@ -207,6 +208,8 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   private async createPort(): Promise<MessagePort> {
     const module = await compileGme();
     const context = (this.context ??= new AudioContext());
+    // A new context starts running; it stays suspended until `play()`.
+    this.suspendContext();
     const host = await hostRenderer(context, module);
     const gain = context.createGain();
     host.output.connect(gain).connect(context.destination);
@@ -256,7 +259,7 @@ async function hostRenderer(
     return await hostInWorklet(context, module);
   } catch (error) {
     // Some engines refuse the worklet or the compiled module handed to it.
-    console.warn(
+    console.error(
       "[chiptune] AudioWorklet failed, rendering on the main thread",
       error,
     );

@@ -182,6 +182,18 @@ describe("ChiptunePlayer", () => {
     expect(port.types()).not.toContain("play");
   });
 
+  it("leaves a new context suspended when its first play is cancelled", async () => {
+    const player = new ChiptunePlayer();
+
+    const loading = player.load("/track.nsf");
+    const starting = player.play();
+    player.unload();
+    await Promise.all([loading, starting]);
+
+    expect(suspend).toHaveBeenCalled();
+    expect(resume).not.toHaveBeenCalled();
+  });
+
   it("won't play a track that failed to load", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const player = new ChiptunePlayer();
@@ -304,7 +316,7 @@ describe("ChiptunePlayer", () => {
   });
 
   it("falls back to the main thread when the worklet won't start", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     addModule.mockRejectedValueOnce(new Error("DataCloneError"));
     const player = new ChiptunePlayer();
 

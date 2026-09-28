@@ -2,23 +2,22 @@
 // Owns the app-wide `<audio>` element and chiptune engine, so playback survives
 // route changes. The card floats on desktop; on phones the top bar's
 // NowPlayingPill opens it.
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import storePlaying from "@/stores/playing";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
-import type { Events } from "@/types/emitter";
 import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useMiniPlayerVisible } from "@/v2/composables/useMiniPlayerVisible";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { ChiptunePlayer } from "@/v2/utils/chiptunePlayer";
 import { isChiptuneFile } from "@/v2/utils/soundtrackTracks";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const store = useSoundtrackPlayer();
 const { track, hasNext } = storeToRefs(store);
 const { smAndDown } = useBreakpoint();
@@ -152,14 +151,7 @@ const sinkHandlers: Record<string, () => void> = {
   error() {
     clearTimeout(bufferingTimer);
     store.setError();
-    // Snackbar payload still uses v1's `snackbarShow` event shape;
-    // when v1 is removed, switch to `useSnackbar()` here.
-    emitter?.emit("snackbarShow", {
-      msg: t("rom.cant-play-track"),
-      icon: "mdi-alert",
-      color: "red",
-      timeout: 3000,
-    });
+    snackbar.error(t("rom.cant-play-track"));
   },
 };
 
