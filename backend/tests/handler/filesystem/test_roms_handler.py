@@ -3445,7 +3445,7 @@ class TestIncrementalRomFiles:
         assert by_name["fix.ips"].category == RomFileCategory.PATCH
 
     async def test_category_comes_from_the_folder_below_the_rom_root(
-        self, handler, platform
+        self, handler: FSRomsHandler, platform: Platform
     ):
         rom = self._rom(platform)
         self._write(handler, f"{self.ROM_DIR}/dlc/foo.bin", b"dlc")
@@ -3465,7 +3465,23 @@ class TestIncrementalRomFiles:
         assert by_name["archive.bin"].category is None
         assert by_name["effect.szs"].category is None
 
-    async def test_rom_folder_named_like_a_category_is_not_a_category(self, handler):
+    async def test_reused_row_takes_its_folder_category(
+        self, handler: FSRomsHandler, platform: Platform
+    ):
+        rom = self._rom(platform)
+        rel_dir = f"{self.ROM_DIR}/Sonic [Update]/content/Game"
+        st = self._write(handler, f"{rel_dir}/archive.bin", b"stats")
+        row = self._row(rom, rel_dir, "archive.bin", st)
+        row.category = RomFileCategory.GAME
+
+        parsed = await handler.get_rom_files(rom, existing_files=[row])
+
+        assert parsed.rom_files == [row]
+        assert row.category is None
+
+    async def test_rom_folder_named_like_a_category_is_not_a_category(
+        self, handler: FSRomsHandler
+    ):
         platform = Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
         rom = self._rom(platform, fs_name="Demo")
         self._write(handler, "n64/roms/Demo/game.n64", b"game")
@@ -3486,7 +3502,9 @@ class TestIncrementalRomFiles:
             (["content", "cmcmn", "demo"], None),
         ],
     )
-    def test_category_for_path_parts(self, parts, expected):
+    def test_category_for_path_parts(
+        self, parts: list[str], expected: RomFileCategory | None
+    ):
         assert category_for_path_parts(parts) == expected
 
     def test_category_matches_plural_forms(self):
