@@ -78,6 +78,11 @@
 #   skip_title_id_extraction: false
 #   # Rename Switch ROMs to embed ` [TITLEID][vVERSION]` in their filename
 #   embed_switch_title_ids: false
+#   # Extract the CD audio tracks of new or changed disc images (.cue/.bin, .gdi, .chd)
+#   # into each game's soundtrack folder as FLAC during scans. Needs flac, and libchdr for .chd.
+#   # A .chd alone in the platform folder is moved into a folder of its own first, unless
+#   # an .m3u beside it lists it, so update any tool that points at its old path.
+#   extract_cd_audio: false
 #   # Library structure, relative to the library root. `{platform}` is the
 #   # platform folder; `{game}` is where a game begins, a file there being one
 #   # game and a folder one multi-file game. Any other macro is a wildcard level.
@@ -175,10 +180,6 @@
 #       image: screenshot  # Use as the <image> tag in the exported gamelist.xml
 #   pegasus:
 #     export: false # Whether to export metadata.pegasus.txt for Pegasus (merged into an existing file)
-#   # Extract the CD audio tracks of new or changed disc images (.cue/.bin, .gdi, .chd) into each game's soundtrack folder as FLAC.
-#   # A .chd alone in the platform folder is moved into a folder of its own first, unless an .m3u beside it lists it.
-#   cd_audio:
-#     extract: false
 
 # EmulatorJS per-core options
 # emulatorjs:

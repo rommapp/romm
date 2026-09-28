@@ -18,6 +18,7 @@ from tests.scan_job_stubs import (
 from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
     ScanStats,
+    _extract_cd_audio,
     _identify_rom,
     _scan_selected_roms,
     _should_extract_title_ids,
@@ -29,7 +30,10 @@ from endpoints.sockets.scan import (
     should_scan_rom,
     stop_scan_handler,
 )
-from exceptions.fs_exceptions import FolderStructureNotMatchException
+from exceptions.fs_exceptions import (
+    FolderStructureNotMatchException,
+    RomListedByPlaylistException,
+)
 from exceptions.socket_exceptions import ScanStoppedException
 from handler import notification_handler
 from handler.audit_handler import SYSTEM_ACTOR
@@ -217,7 +221,7 @@ def patched(mocker):
     config = MagicMock()
     config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
     config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
-    config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN = False
+    config.EXTRACT_CD_AUDIO = False
     mocker.patch.object(scan_module.cm, "get_config", return_value=config)
 
     # Skip the actual per-platform scanning, returning the stats unchanged.
@@ -226,6 +230,22 @@ def patched(mocker):
 
     mocker.patch.object(scan_module, "_identify_platform", side_effect=fake_identify)
     return socket_manager
+
+
+class TestScanExtractsCdAudio:
+    async def test_extracts_the_roms_the_platforms_queued(self, patched, mocker):
+        mocker.patch.object(scan_module, "notify_scan_end", AsyncMock())
+
+        async def queue_one(**kwargs):
+            kwargs["cd_audio_rom_ids"].add(5)
+            return kwargs["scan_stats"]
+
+        mocker.patch.object(scan_module, "_identify_platform", side_effect=queue_one)
+        extract = mocker.patch.object(scan_module, "_extract_cd_audio", AsyncMock())
+
+        await scan_platforms(platform_ids=[], metadata_sources=[])
+
+        extract.assert_awaited_once_with({5})
 
 
 class TestScanFailureReporting:
@@ -1952,7 +1972,7 @@ class TestScopedScanSkipsLibraryWork:
         config = MagicMock()
         config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
         config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
-        config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN = False
+        config.EXTRACT_CD_AUDIO = False
         mocker.patch.object(scan_module.cm, "get_config", return_value=config)
 
         platform = MagicMock(id=1, fs_slug="test")
@@ -2713,6 +2733,7 @@ def identify_harness(mocker):
     config.SKIP_HASH_CALCULATION = False
     config.SKIP_TITLE_ID_EXTRACTION = False
     config.EMBED_SWITCH_TITLE_IDS = False
+    config.EXTRACT_CD_AUDIO = False
     mocker.patch.object(scan_module.cm, "get_config", return_value=config)
 
     scan_rom = mocker.patch.object(
@@ -2752,6 +2773,7 @@ def identify_harness(mocker):
         roms_ids: list[int],
         socket_manager: AsyncMock | None = None,
         scan_stats: AsyncMock | None = None,
+        cd_audio_rom_ids: set[int] | None = None,
     ) -> None:
         fs_rom: FSRom = {
             "fs_name": "Game",
@@ -2776,10 +2798,11 @@ def identify_harness(mocker):
             socket_manager=socket_manager or AsyncMock(),
             scan_stats=scan_stats or AsyncMock(),
             scanned_rom_ids=set(),
-            cd_audio_rom_ids=set(),
+            cd_audio_rom_ids=set() if cd_audio_rom_ids is None else cd_audio_rom_ids,
         )
 
     return SimpleNamespace(
+        config=config,
         db=db,
         scan_rom=scan_rom,
         get_rom_files=get_rom_files,
@@ -2844,6 +2867,123 @@ class TestIdentifyRomFiles:
         identify_harness.refresh.assert_not_called()
         identify_harness.scan_rom.assert_awaited_once()
         identify_harness.db.add_rom.assert_called()
+
+
+def _disc_image(size: int) -> RomFile:
+    return RomFile(
+        file_name="Game.chd",
+        file_path="test/roms/Game",
+        file_size_bytes=size,
+        last_modified=1.0,
+        category=RomFileCategory.GAME,
+    )
+
+
+class TestIdentifyRomQueuesCdAudio:
+    """With CD audio extraction on, a ROM whose disc image is new or changed is
+    queued for the extraction that follows the platform scans."""
+
+    async def test_a_changed_disc_is_queued(self, identify_harness):
+        identify_harness.config.EXTRACT_CD_AUDIO = True
+        identify_harness.loaded_rom_files.return_value = [_disc_image(10)]
+        identify_harness.db.rom_files_for_rom_id.return_value = [_disc_image(20)]
+        queued: set[int] = set()
+
+        await identify_harness.run(
+            identify_harness.existing_rom(),
+            ScanType.QUICK,
+            [],
+            cd_audio_rom_ids=queued,
+        )
+
+        assert queued == {1}
+
+    async def test_an_unchanged_disc_is_not_queued(self, identify_harness):
+        identify_harness.config.EXTRACT_CD_AUDIO = True
+        identify_harness.loaded_rom_files.return_value = [_disc_image(10)]
+        identify_harness.db.rom_files_for_rom_id.return_value = [_disc_image(10)]
+        queued: set[int] = set()
+
+        await identify_harness.run(
+            identify_harness.existing_rom(),
+            ScanType.QUICK,
+            [],
+            cd_audio_rom_ids=queued,
+        )
+
+        assert queued == set()
+
+    async def test_a_new_rom_with_a_disc_is_queued(self, identify_harness):
+        identify_harness.config.EXTRACT_CD_AUDIO = True
+        identify_harness.db.rom_files_for_rom_id.return_value = [_disc_image(10)]
+        queued: set[int] = set()
+
+        await identify_harness.run(None, ScanType.QUICK, [], cd_audio_rom_ids=queued)
+
+        assert queued == {1}
+
+    async def test_nothing_is_queued_with_extraction_off(self, identify_harness):
+        identify_harness.loaded_rom_files.return_value = [_disc_image(10)]
+        identify_harness.db.rom_files_for_rom_id.return_value = [_disc_image(20)]
+        queued: set[int] = set()
+
+        await identify_harness.run(
+            identify_harness.existing_rom(),
+            ScanType.QUICK,
+            [],
+            cd_audio_rom_ids=queued,
+        )
+
+        assert queued == set()
+        identify_harness.db.rom_files_for_rom_id.assert_not_called()
+
+
+class TestExtractCdAudioAfterScan:
+    """The queued ROMs' CD audio is extracted one by one, and a disc that can't
+    be extracted is logged without stopping the rest."""
+
+    @pytest.fixture
+    def extract(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+        mocker.patch.object(scan_module, "encoder_available", return_value=True)
+        db = mocker.patch.object(scan_module, "db_rom_handler")
+        db.get_rom.side_effect = lambda rom_id: Rom(id=rom_id, fs_name=f"Game {rom_id}")
+        return mocker.patch.object(scan_module, "extract_cd_audio", AsyncMock())
+
+    async def test_extracts_each_queued_rom(self, extract):
+        await _extract_cd_audio({2, 1})
+
+        assert [call.args[0].id for call in extract.await_args_list] == [1, 2]
+
+    async def test_a_refused_or_failed_disc_does_not_stop_the_rest(self, extract):
+        extract.side_effect = [
+            RomListedByPlaylistException("Game.m3u"),
+            OSError("Read-only file system"),
+            None,
+        ]
+
+        await _extract_cd_audio({1, 2, 3})
+
+        assert extract.await_count == 3
+
+    async def test_nothing_runs_without_the_encoder(self, extract, mocker):
+        mocker.patch.object(scan_module, "encoder_available", return_value=False)
+
+        await _extract_cd_audio({1})
+
+        extract.assert_not_awaited()
+
+    async def test_a_stop_request_ends_the_pass(self, extract, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=b"1"))
+        )
+
+        with pytest.raises(ScanStoppedException):
+            await _extract_cd_audio({1})
+
+        extract.assert_not_awaited()
 
 
 class TestIdentifyRomIncrementalHashing:

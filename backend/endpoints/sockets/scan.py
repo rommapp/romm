@@ -657,7 +657,7 @@ async def _identify_rom(
     if redis_client.get(STOP_SCAN_FLAG):
         return
 
-    track_cd_audio = cm.get_config().CD_AUDIO_AUTO_EXTRACT_ON_SCAN
+    track_cd_audio = cm.get_config().EXTRACT_CD_AUDIO
     disc_images_before = (
         disc_image_state(loaded_rom_files(rom)) if track_cd_audio and rom else {}
     )

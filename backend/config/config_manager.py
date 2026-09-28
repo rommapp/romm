@@ -467,13 +467,13 @@ class Config:
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     GAMELIST_AUTO_EXPORT_ON_SCAN: bool
     PEGASUS_AUTO_EXPORT_ON_SCAN: bool
-    CD_AUDIO_AUTO_EXTRACT_ON_SCAN: bool
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
     STRUCTURE_TEMPLATES: dict[str, str | list[str]]
     SKIP_HASH_CALCULATION: bool
     SKIP_TITLE_ID_EXTRACTION: bool
     EMBED_SWITCH_TITLE_IDS: bool
+    EXTRACT_CD_AUDIO: bool
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
@@ -750,6 +750,9 @@ class ConfigManager:
             EMBED_SWITCH_TITLE_IDS=pydash.get(
                 self._raw_config, "filesystem.embed_switch_title_ids", False
             ),
+            EXTRACT_CD_AUDIO=pydash.get(
+                self._raw_config, "filesystem.extract_cd_audio", False
+            ),
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
             EJS_CACHE_LIMIT=pydash.get(
                 self._raw_config, "emulatorjs.cache_limit", None
@@ -862,9 +865,6 @@ class ConfigManager:
             ),
             PEGASUS_AUTO_EXPORT_ON_SCAN=pydash.get(
                 self._raw_config, "scan.pegasus.export", False
-            ),
-            CD_AUDIO_AUTO_EXTRACT_ON_SCAN=pydash.get(
-                self._raw_config, "scan.cd_audio.extract", False
             ),
             STREAMING_ENABLED=pydash.get(self._raw_config, "streaming.enabled", False),
             STREAMING_CONTAINERS=pydash.get(
@@ -1038,8 +1038,10 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.pegasus.export must be a boolean")
             sys.exit(3)
 
-        if not isinstance(self.config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN, bool):
-            log.critical("Invalid config.yml: scan.cd_audio.extract must be a boolean")
+        if not isinstance(self.config.EXTRACT_CD_AUDIO, bool):
+            log.critical(
+                "Invalid config.yml: filesystem.extract_cd_audio must be a boolean"
+            )
             sys.exit(3)
 
         self.config.PLATFORMS_BINDING = self._validated_platform_map(
@@ -1351,6 +1353,7 @@ class ConfigManager:
                 "skip_hash_calculation": self.config.SKIP_HASH_CALCULATION,
                 "skip_title_id_extraction": self.config.SKIP_TITLE_ID_EXTRACTION,
                 "embed_switch_title_ids": self.config.EMBED_SWITCH_TITLE_IDS,
+                "extract_cd_audio": self.config.EXTRACT_CD_AUDIO,
             },
             "system": {
                 "platforms": self.config.PLATFORMS_BINDING,
@@ -1393,9 +1396,6 @@ class ConfigManager:
                 },
                 "pegasus": {
                     "export": self.config.PEGASUS_AUTO_EXPORT_ON_SCAN,
-                },
-                "cd_audio": {
-                    "extract": self.config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN,
                 },
             },
         }
@@ -1503,7 +1503,6 @@ class ConfigManager:
         gamelist_thumbnail: str,
         gamelist_image: str,
         pegasus_export: bool,
-        cd_audio_extract: bool,
     ) -> None:
         """Replace the whole scan.* section and persist it to config.yml.
 
@@ -1527,7 +1526,6 @@ class ConfigManager:
         self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType(gamelist_thumbnail)
         self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType(gamelist_image)
         self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
-        self.config.CD_AUDIO_AUTO_EXTRACT_ON_SCAN = cd_audio_extract
         self._update_config_file()
 
 

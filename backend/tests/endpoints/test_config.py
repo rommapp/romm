@@ -39,7 +39,6 @@ def test_config(client):
     assert config.get("GAMELIST_MEDIA_IMAGE") == "screenshot"
     assert config.get("GAMELIST_AUTO_EXPORT_ON_SCAN") is False
     assert config.get("PEGASUS_AUTO_EXPORT_ON_SCAN") is False
-    assert config.get("CD_AUDIO_AUTO_EXTRACT_ON_SCAN") is False
 
 
 def test_config_parse_error_gated_by_auth(client, access_token: str):
@@ -183,7 +182,6 @@ def _scan_payload(**overrides):
         "gamelist_thumbnail": "box2d",
         "gamelist_image": "screenshot",
         "pegasus_export": False,
-        "cd_audio_extract": True,
     }
     payload.update(overrides)
     return payload
@@ -213,7 +211,6 @@ def test_update_scan_settings_payload_shape(client, access_token: str):
         gamelist_thumbnail="box2d",
         gamelist_image="screenshot",
         pegasus_export=False,
-        cd_audio_extract=True,
     )
 
 
