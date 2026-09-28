@@ -9,12 +9,18 @@ on:
       - uv.lock
       - .python-version
 
+# A new push cancels a PR's superseded run; each master commit keeps its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
   migrate-postgres:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:18
@@ -68,6 +74,7 @@ jobs:
     # migration SQL that a default utf8mb4 server accepts (issue #4350).
     name: migrate-mariadb (${{ matrix.mariadb }}, ${{ matrix.collation }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:

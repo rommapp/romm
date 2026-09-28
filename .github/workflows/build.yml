@@ -38,6 +38,7 @@ jobs:
     # Forks have no registry credentials, so their nightly would fail every day.
     if: github.event_name != 'schedule' || github.repository == 'rommapp/romm'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     outputs:
@@ -70,6 +71,7 @@ jobs:
             arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: write
@@ -203,6 +205,7 @@ jobs:
   merge:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       DOCKER_METADATA_ANNOTATIONS_LEVELS: index
     permissions:

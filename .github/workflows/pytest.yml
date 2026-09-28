@@ -22,12 +22,18 @@ on:
       - Dockerfile
       - docker/Dockerfile
 
+# A new push cancels a PR's superseded run; each master commit keeps its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -120,6 +126,7 @@ jobs:
     needs: pytest
     if: ${{ !cancelled() && needs.pytest.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       # actionlint doesn't know the code-quality scope yet.

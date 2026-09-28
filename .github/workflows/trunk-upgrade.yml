@@ -11,6 +11,7 @@ permissions:
 jobs:
   trunk-upgrade:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write # For create-pull-request to push the branch
       pull-requests: write # For create-pull-request to open the PR

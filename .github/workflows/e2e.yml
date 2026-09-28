@@ -22,12 +22,18 @@ on:
       - uv.lock
       - .python-version
 
+# A new push cancels a PR's superseded run; each master commit keeps its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       mariadb:
         image: mariadb:13.0.2

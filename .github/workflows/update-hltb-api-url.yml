@@ -13,6 +13,7 @@ permissions:
 jobs:
   update-hltb-api-url:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write # For create-pull-request to push the branch
       pull-requests: write # For create-pull-request to open the PR
