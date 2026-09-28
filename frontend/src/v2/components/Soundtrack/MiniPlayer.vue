@@ -10,6 +10,7 @@ import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import type { Events } from "@/types/emitter";
 import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useMediaSession } from "@/v2/composables/useMediaSession";
 import { useMiniPlayerVisible } from "@/v2/composables/useMiniPlayerVisible";
 
 defineOptions({ inheritAttrs: false });
@@ -21,6 +22,7 @@ const { track, hasNext } = storeToRefs(store);
 const { smAndDown } = useBreakpoint();
 const visible = useMiniPlayerVisible();
 const playingStore = storePlaying();
+useMediaSession();
 
 const audioEl = ref<HTMLAudioElement | null>(null);
 
@@ -30,7 +32,7 @@ watch([() => playingStore.stageActive, smAndDown], ([active, phone]) => {
   if (active && phone) audioEl.value?.pause();
 });
 
-// Generation token — bumped every time we reassign `src`. Any async
+// Generation token, bumped every time we reassign `src`. Any async
 // `play()` promise resolves against the token current when it was
 // kicked off, so stale awaits from prior tracks don't clobber the
 // current state. Same idiom as v1's mini player.
@@ -82,7 +84,7 @@ watch(track, async (t) => {
     } catch {
       if (token !== loadToken) return;
       // Autoplay may be blocked; the user can hit play in the UI.
-      // Don't surface a snackbar for that — real load failures come
+      // Don't surface a snackbar for that; real load failures come
       // through `@error`.
     }
   } else {
@@ -123,7 +125,7 @@ function onCanPlay() {
 function onError() {
   clearTimeout(bufferingTimer);
   store.setError();
-  // Snackbar payload still uses v1's `snackbarShow` event shape —
+  // Snackbar payload still uses v1's `snackbarShow` event shape;
   // when v1 is removed, switch to `useSnackbar()` here.
   emitter?.emit("snackbarShow", {
     msg: t("rom.cant-play-track"),
@@ -135,7 +137,7 @@ function onError() {
 </script>
 
 <template>
-  <!-- Persistent audio element — hidden, always mounted. -->
+  <!-- Persistent audio element: hidden, always mounted. -->
   <!-- eslint-disable-next-line vuejs-accessibility/media-has-caption -->
   <audio
     ref="audioEl"
