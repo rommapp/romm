@@ -69,7 +69,6 @@ dev = [
   "types-authlib ~= 1.8.0",
   "types-colorama ~= 0.4",
   "types-defusedxml ~= 0.7",
-  "types-passlib ~= 1.7",
   "types-pyyaml ~= 6.0",
 ]
 test = [

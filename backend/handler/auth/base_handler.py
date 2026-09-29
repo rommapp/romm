@@ -105,8 +105,7 @@ def _invite_token_spent() -> HTTPException:
     )
 
 
-# bcrypt reads only the first 72 bytes. Hashes stored before bcrypt 5 were made
-# from silently truncated secrets, and bcrypt 5 raises instead of truncating.
+# bcrypt only reads the first 72 bytes and raises on longer secrets.
 BCRYPT_MAX_SECRET_BYTES = 72
 
 
