@@ -3,13 +3,14 @@
 // card floats on desktop; on phones the top bar's NowPlayingPill opens it.
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import storePlaying from "@/stores/playing";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import type { Events } from "@/types/emitter";
 import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useMediaSession } from "@/v2/composables/useMediaSession";
 import { useMiniPlayerVisible } from "@/v2/composables/useMiniPlayerVisible";
 
 defineOptions({ inheritAttrs: false });
@@ -26,14 +27,16 @@ const audioEl = ref<HTMLAudioElement | null>(null);
 
 // On phones the mini player lives in the top bar, which a running game hides,
 // so the music pauses rather than play on with no controls.
-watch([() => playingStore.stageActive, smAndDown], ([active, phone]) => {
-  if (active && phone) audioEl.value?.pause();
+const musicBlocked = computed(
+  () => playingStore.stageActive && smAndDown.value,
+);
+watch(musicBlocked, (isBlocked) => {
+  if (isBlocked) audioEl.value?.pause();
 });
+useMediaSession(() => musicBlocked.value);
 
-// Generation token — bumped every time we reassign `src`. Any async
-// `play()` promise resolves against the token current when it was
-// kicked off, so stale awaits from prior tracks don't clobber the
-// current state. Same idiom as v1's mini player.
+// Bumped on every `src` change, so a pending `play()` from an earlier track
+// can't change the current track's state.
 let loadToken = 0;
 
 // Track loads, seeks and short stalls often resolve within a second; buffering
@@ -82,7 +85,7 @@ watch(track, async (t) => {
     } catch {
       if (token !== loadToken) return;
       // Autoplay may be blocked; the user can hit play in the UI.
-      // Don't surface a snackbar for that — real load failures come
+      // Don't surface a snackbar for that; real load failures come
       // through `@error`.
     }
   } else {
@@ -123,7 +126,7 @@ function onCanPlay() {
 function onError() {
   clearTimeout(bufferingTimer);
   store.setError();
-  // Snackbar payload still uses v1's `snackbarShow` event shape —
+  // Snackbar payload still uses v1's `snackbarShow` event shape;
   // when v1 is removed, switch to `useSnackbar()` here.
   emitter?.emit("snackbarShow", {
     msg: t("rom.cant-play-track"),
@@ -135,7 +138,7 @@ function onError() {
 </script>
 
 <template>
-  <!-- Persistent audio element — hidden, always mounted. -->
+  <!-- Persistent audio element: hidden, always mounted. -->
   <!-- eslint-disable-next-line vuejs-accessibility/media-has-caption -->
   <audio
     ref="audioEl"
