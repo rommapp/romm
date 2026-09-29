@@ -61,6 +61,7 @@ from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_FACET_COLUMNS,
+    ROM_IS_IDENTIFIED,
     Rom,
     RomDeletionTarget,
     RomFacets,
@@ -1186,19 +1187,7 @@ class DBRomsHandler(DBBaseHandler):
         Args:
             value: True for matched ROMs, False for unmatched ROMs
         """
-        predicate = or_(
-            Rom.igdb_id.isnot(None),
-            Rom.moby_id.isnot(None),
-            Rom.ss_id.isnot(None),
-            Rom.ra_id.isnot(None),
-            Rom.launchbox_id.isnot(None),
-            Rom.hasheous_id.isnot(None),
-            Rom.tgdb_id.isnot(None),
-            Rom.flashpoint_id.isnot(None),
-        )
-        if not value:
-            predicate = not_(predicate)
-        return query.filter(predicate)
+        return query.filter(ROM_IS_IDENTIFIED if value else not_(ROM_IS_IDENTIFIED))
 
     def _filter_by_favorite[S: Select[Any]](
         self, query: S, value: bool, user_id: int | None

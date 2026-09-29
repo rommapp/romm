@@ -403,18 +403,10 @@ async def scan_platform(
         }
     )
 
-    if (
-        platform_attrs["igdb_id"]
-        or platform_attrs["moby_id"]
-        or platform_attrs["ss_id"]
-        or platform_attrs["ra_id"]
-        or platform_attrs["launchbox_id"]
-        or hasheous_platform["hasheous_id"]
-        or tgdb_platform["tgdb_id"]
-        or flashpoint_platform["flashpoint_id"]
-        or hltb_platform["hltb_slug"]
-        or libretro_platform["libretro_slug"]
-    ):
+    platform_attrs["missing_from_fs"] = False
+    scanned_platform = Platform(**platform_attrs)
+
+    if scanned_platform.is_identified:
         log.info(
             f"Folder {hl(platform_attrs['slug'])}[{hl(fs_slug, color=LIGHTYELLOW)}] identified as {hl(platform_attrs['name'], color=BLUE)} {emoji.EMOJI_VIDEO_GAME}",
             extra={"module_name": "scan"},
@@ -425,8 +417,7 @@ async def scan_platform(
             extra=LOGGER_MODULE_NAME,
         )
 
-    platform_attrs["missing_from_fs"] = False
-    return Platform(**platform_attrs)
+    return scanned_platform
 
 
 async def scan_firmware(

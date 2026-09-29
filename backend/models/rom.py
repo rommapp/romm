@@ -39,6 +39,7 @@ from sqlalchemy.orm import (
     validates,
 )
 from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
+from sqlalchemy.sql.elements import ColumnElement
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -1120,26 +1121,13 @@ class Rom(BaseModel):
 
     @property
     def is_unidentified(self) -> bool:
-        return (
-            not self.igdb_id
-            and not self.moby_id
-            and not self.ss_id
-            and not self.ra_id
-            and not self.launchbox_id
-            and not self.hasheous_id
-            and not self.flashpoint_id
-            and not self.hltb_id
-            and not self.demozoo_id
-            and not self.pouet_id
-            and not self.csdb_id
-            and not self.steam_id
-            and not self.gamelist_id
-            and not self.libretro_id
-        )
+        return not self.is_identified
 
     @property
     def is_identified(self) -> bool:
-        return not self.is_unidentified
+        return any(
+            getattr(self, column.key) for column in METADATA_SOURCE_COLUMNS.values()
+        )
 
     @property
     def has_file_on_disk(self) -> bool:
@@ -1292,9 +1280,9 @@ HAS_FILE_ON_DISK_FILTERS: Final[HasFileOnDiskFilters] = {
 
 # Maps a metadata-source slug (matching the MetadataSource enum) to the Rom
 # column holding that source's match id. A populated column means the ROM
-# matched that source. Shared by the stats coverage breakdown and the gallery
-# "metadata provider" filter. Sources without a per-ROM match id (e.g. sgdb
-# covers, playmatch) are intentionally absent.
+# matched that source, and a ROM that matched any of them is identified.
+# Sources without a per-ROM match id (e.g. sgdb covers, playmatch) are
+# intentionally absent.
 METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "igdb": Rom.igdb_id,
     "ss": Rom.ss_id,
@@ -1312,6 +1300,19 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "gamelist": Rom.gamelist_id,
     "libretro": Rom.libretro_id,
 }
+
+
+def _has_match_id(column: InstrumentedAttribute[Any]) -> ColumnElement[bool]:
+    # A garbled manual edit can store 0 or "", which `Rom.is_identified` treats
+    # as no match.
+    blank: int | str = "" if isinstance(column.type, String) else 0
+    return and_(column.isnot(None), column != blank)
+
+
+# Query-side twin of `Rom.is_identified`, for the gallery "matched" filter.
+ROM_IS_IDENTIFIED: Final[ColumnElement[bool]] = or_(
+    *(_has_match_id(column) for column in METADATA_SOURCE_COLUMNS.values())
+)
 
 # Same slugs mapped to the `roms_facets` mirror columns. The stats coverage
 # breakdown counts these off the narrow mirror instead of scanning `roms`.
