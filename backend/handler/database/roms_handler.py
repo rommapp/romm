@@ -83,6 +83,7 @@ from models.rom import (
 from utils import get_version
 from utils.database import (
     LIKE_ESCAPE_CHAR,
+    ROMS_SEARCH_FULLTEXT_COLUMNS,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
     escape_like,
@@ -229,9 +230,10 @@ def _nulls_last_ordering(
 
 
 def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
-    """A MariaDB/MySQL FULLTEXT match of the ROM's name and filename."""
+    """A MariaDB/MySQL FULLTEXT match of the ROM's name, filename and aliases."""
     return fulltext_match(
-        Rom.name.expression, Rom.fs_name.expression, boolean_query=boolean_query
+        *(getattr(Rom, column).expression for column in ROMS_SEARCH_FULLTEXT_COLUMNS),
+        boolean_query=boolean_query,
     )
 
 
@@ -1104,13 +1106,17 @@ class DBRomsHandler(DBBaseHandler):
         return " ".join(parts) if parts else None
 
     def _build_name_conditions(self, terms: Sequence[str]) -> list[Any]:
-        """One condition per term, matching it against the ROM's name and filename."""
+        """One condition per term, matching it against the ROM's name, filename and aliases."""
         # PostgreSQL's pg_trgm indexes serve the ILIKE; MariaDB and MySQL use
         # their FULLTEXT index unless a word is too short for it.
         like_conditions = [
             and_(
                 *(
-                    or_(Rom.fs_name.ilike(f"%{word}%"), Rom.name.ilike(f"%{word}%"))
+                    or_(
+                        Rom.fs_name.ilike(f"%{word}%"),
+                        Rom.name.ilike(f"%{word}%"),
+                        Rom.generated_search_aliases.ilike(f"%{word}%"),
+                    )
                     for word in term.split()
                 )
             )

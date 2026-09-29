@@ -29,6 +29,7 @@ from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     HLTB_MAIN_STORY_COLUMN,
     POSTGRESQL_FK_INDEXES,
+    SEARCH_ALIASES_COLUMN,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     exact_collation,
     full_path_digest_sql,
@@ -245,6 +246,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0142_state_core.py", "states"),
         ("0143_sibling_platform_names.py", "platforms"),
         ("0144_user_oidc_sub.py", "users"),
+        ("0145_roms_search_aliases.py", "roms"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -327,6 +329,23 @@ def test_the_user_oidc_sub_revision_reverses_and_replays():
             migration.upgrade()
 
         assert _schema_of(connection, "users") == before
+
+
+def test_the_search_aliases_revision_reverses_and_replays():
+    """0145 swaps the search index, and each step of either direction is guarded."""
+    migration = _load_migration("0145_roms_search_aliases.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "roms", SEARCH_ALIASES_COLUMN)
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "roms") == before
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:

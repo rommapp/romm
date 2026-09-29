@@ -59,6 +59,14 @@ FULL_PATH_HASH_LENGTH = 64
 AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
+
+# (metadata column, key) of each provider's alternative titles, in precedence order.
+ALTERNATIVE_NAME_SOURCES = (
+    ("igdb_metadata", "alternative_names"),
+    ("moby_metadata", "alternate_titles"),
+    ("ss_metadata", "alternative_names"),
+)
+
 # Limits on `RomUser.pinned_media`, a list of keys like `file:12` naming the
 # media shown on the user's overview.
 PINNED_MEDIA_MAX_ITEMS = 100
@@ -907,6 +915,14 @@ class Rom(BaseModel):
         server_default=FetchedValue(),
         server_onupdate=FetchedValue(),
     )
+    # STORED generated column over every provider's alternative titles, so the
+    # gallery search can index them without reading the JSON.
+    generated_search_aliases: Mapped[str | None] = mapped_column(
+        Text(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+    )
 
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
@@ -1176,12 +1192,11 @@ class Rom(BaseModel):
 
     @property
     def alternative_names(self) -> list[str]:
-        return (
-            (self.igdb_metadata or {}).get("alternative_names", None)
-            or (self.moby_metadata or {}).get("alternate_titles", None)
-            or (self.ss_metadata or {}).get("alternative_names", None)
-            or []
-        )
+        for column, key in ALTERNATIVE_NAME_SOURCES:
+            names: list[str] | None = (getattr(self, column) or {}).get(key)
+            if names:
+                return names
+        return []
 
     @cached_property
     def merged_ra_metadata(self) -> dict[str, Any] | None:

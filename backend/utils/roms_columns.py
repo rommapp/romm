@@ -19,9 +19,14 @@ from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.engine.interfaces import ReflectedColumn
 from sqlalchemy.schema import CreateColumn
 
-from models.rom import FULL_PATH_HASH_LENGTH, TITLE_ID_MAX_LENGTH
+from models.rom import (
+    ALTERNATIVE_NAME_SOURCES,
+    FULL_PATH_HASH_LENGTH,
+    TITLE_ID_MAX_LENGTH,
+)
 from utils.database import (
     HLTB_MAIN_STORY_COLUMN,
+    SEARCH_ALIASES_COLUMN,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     CustomJSON,
     column_names,
@@ -40,6 +45,9 @@ PRIMARY_REGION_COLUMN = "generated_primary_region"
 PRIMARY_REGION_LENGTH = 50
 FULL_PATH_HASH_COLUMN = "full_path_hash"
 RATING_COUNT_COLUMN = "generated_rating_count"
+# In characters: a utf8mb4 TEXT holds 65535 bytes, and a longer value would
+# fail the INSERT under strict mode.
+SEARCH_ALIASES_MARIA_LENGTH = 16000
 
 SAVE_TARGET_LAYOUT_COLUMN = "save_target_layout"
 SAVE_TARGET_LAYOUT_ENUM = "savetargetlayout"
@@ -324,6 +332,19 @@ _MARIA_PRIMARY_REGION = (
 )
 
 
+def _maria_search_aliases() -> str:
+    # Each non-empty array as JSON text: the FULLTEXT parser splits on the
+    # quotes and commas, so the titles need no unpacking.
+    arrays = [
+        f"CASE WHEN JSON_TYPE(JSON_EXTRACT({src}, '$.{key}')) = 'ARRAY' "
+        f"AND JSON_LENGTH(JSON_EXTRACT({src}, '$.{key}')) > 0 "
+        f"THEN CAST(JSON_EXTRACT({src}, '$.{key}') AS CHAR) ELSE NULL END"
+        for src, key in ALTERNATIVE_NAME_SOURCES
+    ]
+    joined = "CONCAT_WS(' ', " + ", ".join(arrays) + ")"
+    return f"NULLIF(LEFT({joined}, {SEARCH_ALIASES_MARIA_LENGTH}), '')"
+
+
 # ---------------------------------------------------------------------------
 # PostgreSQL expressions
 # ---------------------------------------------------------------------------
@@ -397,6 +418,16 @@ def _postgres_hltb_main_story() -> str:
 
 
 _POSTGRES_PRIMARY_REGION = f"left(regions ->> 0, {PRIMARY_REGION_LENGTH})"
+
+
+def _postgres_search_aliases() -> str:
+    # concat_ws is only STABLE, which a generated column refuses, hence `||`.
+    arrays = [
+        f"COALESCE(CASE WHEN jsonb_typeof({src} -> '{key}') = 'array' "
+        f"THEN NULLIF({src} -> '{key}', '[]'::jsonb)::text END, '')"
+        for src, key in ALTERNATIVE_NAME_SOURCES
+    ]
+    return "NULLIF(btrim(" + " || ' ' || ".join(arrays) + "), '')"
 
 
 # ---------------------------------------------------------------------------
@@ -476,6 +507,11 @@ def generated_columns(pg: bool) -> list[GeneratedColumn]:
         ),
         hltb_main_story,
         hltb_main_story.unset_flag,
+        GeneratedColumn(
+            SEARCH_ALIASES_COLUMN,
+            "TEXT",
+            _postgres_search_aliases() if pg else _maria_search_aliases(),
+        ),
     ]
 
 

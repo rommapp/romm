@@ -12,7 +12,7 @@ from tests.sql_dialects import (
 from handler.database.base_handler import sync_engine
 from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
 from models.rom import Rom
-from utils.database import CustomJSON
+from utils.database import ROMS_SEARCH_FULLTEXT_COLUMNS, CustomJSON
 from utils.sql_dialect import (
     Analyze,
     DialectCase,
@@ -286,7 +286,8 @@ class TestFulltextMatch:
         condition = DialectCase(
             postgresql=sa.true(),
             mysql=fulltext_match(
-                Rom.name.expression, Rom.fs_name.expression, boolean_query="+zelda*"
+                *(getattr(Rom, c).expression for c in ROMS_SEARCH_FULLTEXT_COLUMNS),
+                boolean_query="+zelda*",
             ),
         )
 
