@@ -1,7 +1,7 @@
 import os
 import re
 import uuid
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from pathlib import Path
 from typing import Final, Literal, NotRequired, TypedDict
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
@@ -464,8 +464,18 @@ class GamelistHandler(MetadataHandler):
     def __init__(self) -> None:
         # Cache for storing parsed gamelist data by platform ID
         self._gamelist_cache: dict[int, dict[str, GamelistRom]] = {}
+        # The file names a platform's cached entries were limited to, absent when complete
+        self._gamelist_cache_scope: dict[int, frozenset[str]] = {}
 
-    async def populate_cache(self, platform: Platform) -> None:
+    async def populate_cache(
+        self, platform: Platform, fs_names: Collection[str] | None = None
+    ) -> None:
+        """Parse a platform's gamelist.xml ahead of the scan's lookups.
+
+        Args:
+            fs_names: Limits the parse to the entries for these file names, since
+                resolving every entry's media is what makes a large gamelist slow.
+        """
         if not self.is_enabled():
             return
 
@@ -474,12 +484,27 @@ class GamelistHandler(MetadataHandler):
         if not gamelist_file_path:
             return
 
-        # Parse the gamelist file
-        self._parse_gamelist_xml(gamelist_file_path, platform)
+        self._parse_gamelist_xml(
+            gamelist_file_path,
+            platform,
+            fs_names=frozenset(fs_names) if fs_names is not None else None,
+        )
 
     def clear_cache(self) -> None:
         """Clear the gamelist cache"""
         self._gamelist_cache.clear()
+        self._gamelist_cache_scope.clear()
+
+    def _cache_covers(self, platform_id: int, fs_names: frozenset[str] | None) -> bool:
+        """Whether the platform's cached entries include every one for `fs_names`.
+
+        Args:
+            fs_names: The file names needed, or None for the whole gamelist.
+        """
+        if platform_id not in self._gamelist_cache:
+            return False
+        scope = self._gamelist_cache_scope.get(platform_id)
+        return scope is None or (fs_names is not None and fs_names <= scope)
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -529,7 +554,10 @@ class GamelistHandler(MetadataHandler):
                 yield elem
 
     def _parse_gamelist_xml(
-        self, gamelist_path: Path, platform: Platform
+        self,
+        gamelist_path: Path,
+        platform: Platform,
+        fs_names: frozenset[str] | None = None,
     ) -> dict[str, GamelistRom]:
         """Parse a gamelist.xml file and return ROM data indexed by <path>.
 
@@ -537,10 +565,12 @@ class GamelistHandler(MetadataHandler):
         identically named roms in different folders keep their own metadata. A bare
         file name stays a fallback key, since that is all some tools write.
         Results are cached by platform ID  to avoid re-parsing the same file multiple times.
+
+        Args:
+            fs_names: Limits the result to the entries for these file names.
         """
-        # Check if we already have cached data for this platform
         cache_key = platform.id
-        if cache_key in self._gamelist_cache:
+        if self._cache_covers(cache_key, fs_names):
             log.debug(f"Using cached gamelist data for platform {platform.id}")
             return self._gamelist_cache[cache_key]
 
@@ -560,6 +590,8 @@ class GamelistHandler(MetadataHandler):
                     continue
 
                 rel_path = gamelist_path_to_rel_path(path_elem.text)
+                if fs_names is not None and os.path.basename(rel_path) not in fs_names:
+                    continue
                 filename = gamelist_path_to_filename(path_elem.text)
 
                 # Extract metadata
@@ -638,6 +670,10 @@ class GamelistHandler(MetadataHandler):
 
             # Cache the parsed data for this platform
             self._gamelist_cache[cache_key] = roms_data
+            if fs_names is None:
+                self._gamelist_cache_scope.pop(cache_key, None)
+            else:
+                self._gamelist_cache_scope[cache_key] = fs_names
         except ET.ParseError as e:
             log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
             # Entries read before the document turned out to be invalid are
@@ -659,8 +695,12 @@ class GamelistHandler(MetadataHandler):
         if not gamelist_file_path:
             return GamelistRom(gamelist_id=None)
 
-        # Parse the gamelist file
-        all_roms_data = self._parse_gamelist_xml(gamelist_file_path, platform)
+        # A cache limited to other roms falls back to parsing the whole file
+        all_roms_data = (
+            self._gamelist_cache[platform.id]
+            if self._cache_covers(platform.id, frozenset({fs_name}))
+            else self._parse_gamelist_xml(gamelist_file_path, platform)
+        )
 
         # The rom's own path wins over its bare file name, which a custom library
         # structure can leave shared with a rom in another folder.

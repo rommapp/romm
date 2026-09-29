@@ -192,6 +192,79 @@ async def test_get_rom_matches_the_folder_the_rom_sits_in(
     assert matched == {"USA": "USA Release", "Japan": "Japan Release"}
 
 
+def test_parse_gamelist_xml_limited_to_file_names_skips_other_entries(
+    tmp_path: Path, platform: Platform
+):
+    gamelist_path = _write_gamelist(
+        tmp_path,
+        platform,
+        "<game><path>./USA/shared.zip</path><name>USA</name></game>"
+        "<game><path>./Japan/shared.zip</path><name>Japan</name></game>"
+        "<game><path>./Other.zip</path><name>Other</name></game>",
+    )
+    handler = GamelistHandler()
+
+    with (
+        patch(
+            "handler.metadata.gamelist_handler.extract_metadata_from_gamelist_rom",
+            return_value=MOCK_METADATA,
+        ) as extract,
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+    ):
+        roms_data = handler._parse_gamelist_xml(
+            gamelist_path, platform, fs_names=frozenset({"shared.zip"})
+        )
+
+    assert extract.call_count == 2
+    assert set(roms_data) == {"USA/shared.zip", "Japan/shared.zip"}
+
+
+@pytest.mark.asyncio
+async def test_get_rom_outside_a_limited_cache_parses_the_whole_gamelist(
+    tmp_path: Path, platform: Platform
+):
+    gamelist_path = _write_gamelist(
+        tmp_path,
+        platform,
+        "<game><path>./One.zip</path><name>One</name></game>"
+        "<game><path>./Two.zip</path><name>Two</name></game>",
+    )
+    handler = GamelistHandler()
+    platform_fs_path = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+
+    def rom_named(fs_name: str) -> Rom:
+        return Rom(platform_id=platform.id, fs_name=fs_name, fs_path=platform_fs_path)
+
+    with (
+        patch(
+            "handler.metadata.gamelist_handler.extract_metadata_from_gamelist_rom",
+            return_value=MOCK_METADATA,
+        ) as extract,
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+        patch.object(handler, "_find_gamelist_file", return_value=gamelist_path),
+    ):
+        await handler.populate_cache(platform, fs_names=["One.zip"])
+        one = await handler.get_rom("One.zip", platform, rom_named("One.zip"))
+        assert extract.call_count == 1
+
+        two = await handler.get_rom("Two.zip", platform, rom_named("Two.zip"))
+        assert extract.call_count == 3
+
+        # The full parse replaced the limited one, so later lookups reuse it
+        await handler.get_rom("One.zip", platform, rom_named("One.zip"))
+        await handler.populate_cache(platform, fs_names=["Two.zip"])
+        assert extract.call_count == 3
+
+    assert one.get("name") == "One"
+    assert two.get("name") == "Two"
+
+
 def test_parse_gamelist_xml_title_screen_not_in_screenshots(
     tmp_path: Path, platform: Platform
 ):
