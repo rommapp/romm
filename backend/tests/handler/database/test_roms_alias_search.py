@@ -1,9 +1,4 @@
-"""Searching the gallery by a provider's alternative titles.
-
-`generated_search_aliases` collects the alternative titles IGDB, MobyGames and
-ScreenScraper report, so a search for "FF9" or "Final Fantasy 9" finds the
-ROM named "Final Fantasy IX".
-"""
+"""Searching the gallery by a provider's alternative titles."""
 
 from typing import Any
 

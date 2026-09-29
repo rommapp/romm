@@ -1,15 +1,4 @@
-"""Search the gallery by every provider's alternative titles
-
-The providers' alternative titles ("FF9", "Final Fantasy 9") only lived in the
-raw metadata blobs, where no search index reaches. This adds
-``generated_search_aliases``, a STORED generated column the engine fills from
-those blobs, and puts it under the gallery search's index: the FULLTEXT index
-is rebuilt over (name, fs_name, aliases) on MariaDB and MySQL, and a pg_trgm
-GIN index joins 0084's on PostgreSQL.
-
-The expression and both indexes live in `utils.roms_columns`, which adds the
-column in the table copy shared by every revision that widens `roms` and puts
-the indexes back after any later rebuild.
+"""Index providers' alternative titles for the gallery search
 
 Revision ID: 0145_roms_search_aliases
 Revises: 0144_user_oidc_sub
