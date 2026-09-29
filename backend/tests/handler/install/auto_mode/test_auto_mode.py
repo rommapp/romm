@@ -189,8 +189,10 @@ class TestDriver:
         assert h.reports[-1][0] == STATUS_NEEDS_MANUAL
 
     def test_recovers_from_needs_manual_when_a_button_appears(self):
+        # Not "Finish": that's a late button, gated on real progress (see
+        # TestKeyPromptsAndExit), and this Harness never reports any.
         busy = screen(line("Installing files please wait", 20, 20, 1))
-        h = Harness([busy, busy, screen(line("Finish", 400, 400, 1))])
+        h = Harness([busy, busy, screen(line("Next >", 400, 400, 1))])
         h.driver.tick()
         h.now = 40
         h.driver.tick()
@@ -421,6 +423,15 @@ class TestFinishNeverFuzzyMatches:
 
     def test_the_real_word_still_matches_exactly(self):
         words = screen(line("Exit", 300, 400, 1))
+        (m,) = find_matches(words, CATALOG)
+        assert m.entry.category == "finish" and m.entry.late
+
+    def test_plain_finish_is_also_late(self):
+        # "Fine" (Italian for Finish) is also an ordinary English word, so
+        # it needs the same late gate as Exit against an early false match
+        # (see buttons.yml). Caught live: an install finalized as done
+        # after writing nothing but the installer's own placeholder files.
+        words = screen(line("Finish", 300, 400, 1))
         (m,) = find_matches(words, CATALOG)
         assert m.entry.category == "finish" and m.entry.late
 

@@ -34,13 +34,38 @@ context_keywords:
 buttons:
   - category: next
     mnemonic: n
-    labels: ["Next", "Next >", "OK", "Continue", "Proceed", "Weiter", "Suivant", "Siguiente", "次へ", "下一步"]
+    labels:
+      [
+        "Next",
+        "Next >",
+        "OK",
+        "Continue",
+        "Proceed",
+        "Weiter",
+        "Suivant",
+        "Siguiente",
+        "次へ",
+        "下一步",
+      ]
   - category: next
     mnemonic: a
     labels: ["Avanti", "Avanti >", "Procedi", "Continua"]
   - category: agree
     mnemonic: a
-    labels: ["Agree", "I Agree", "Accept", "Accetta", "Accetto", "Ich stimme zu", "J'accepte", "Acepto", "同意", "同意する", "我同意"]
+    labels:
+      [
+        "Agree",
+        "I Agree",
+        "Accept",
+        "Accetta",
+        "Accetto",
+        "Ich stimme zu",
+        "J'accepte",
+        "Acepto",
+        "同意",
+        "同意する",
+        "我同意",
+      ]
   - category: agree
     mnemonic: y
     labels: ["Yes", "Si", "Sì", "Ja", "Oui", "はい", "是"]
@@ -64,10 +89,25 @@ buttons:
       - "我接受许可协议中的条款"
   - category: install
     mnemonic: i
-    labels: ["Install", "Installa", "Installieren", "Instalar", "インストール", "安装", "安裝"]
+    labels:
+      [
+        "Install",
+        "Installa",
+        "Installieren",
+        "Instalar",
+        "インストール",
+        "安装",
+        "安裝",
+      ]
+  # "Fine" (Italian for Finish) is also an ordinary English word, so it can
+  # match stray OCR text on an early screen (license text, a readme, ...)
+  # long before the installer is actually done - late guards against
+  # ending the install right there, same reasoning as "Exit" below.
   - category: finish
+    late: true
     mnemonic: f
-    labels: ["Finish", "Fine", "Fertig", "Terminer", "Finalizar", "完了", "完成"]
+    labels:
+      ["Finish", "Fine", "Fertig", "Terminer", "Finalizar", "完了", "完成"]
   # Exit ends many GOG installers, but on a start screen it would abort the
   # install, so it is only pressed once files have been written.
   - category: finish
