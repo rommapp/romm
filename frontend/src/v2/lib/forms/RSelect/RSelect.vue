@@ -1608,6 +1608,7 @@ const describedBy = computed(() => {
   line-height: 1.2;
   align-self: flex-start;
   padding-inline-start: 2px;
+  margin-bottom: 4px;
 }
 .r-select__label--inline,
 .r-select__label--append {
