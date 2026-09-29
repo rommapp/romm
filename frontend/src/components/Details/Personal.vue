@@ -334,7 +334,7 @@ watch(
 </template>
 
 <style>
-.md-editor-dark {
+.md-editor[data-theme="dark"] {
   --md-bk-color: #161b22 !important;
 }
 .md-editor,
