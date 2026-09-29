@@ -275,7 +275,7 @@ def rom_file_unchanged(
     return (
         row.file_size_bytes == size
         and mtime_matches(row.last_modified, mtime)
-        # An empty file stores blank hashes, since it has no bytes to digest.
+        # _make_file_hash blanks the empty-input digest, so a 0-byte row has none.
         and (not hashable or size == 0 or bool(row.md5_hash))
     )
 
