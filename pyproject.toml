@@ -39,7 +39,7 @@ dependencies = [
   "opentelemetry-instrumentation-sqlalchemy ~= 0.56",
   "passlib[bcrypt] ~= 1.7",
   # passlib 1.7 self-checks bcrypt with a >72-byte secret; bcrypt 5+ rejects that.
-  "bcrypt < 5",
+  "bcrypt <6",
   "pillow~=12.3",
   "psycopg[c] ~= 3.2",
   "pydantic ~= 2.11",
