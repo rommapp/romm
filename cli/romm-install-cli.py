@@ -24,7 +24,8 @@ resolves everything server-side, no client has to replicate the logic):
     result.
 
 Flow:
-  1. login (HTTP Basic) -> session cookie
+  1. login (HTTP Basic, sent again on every later request; no session cookie
+     is kept, so nothing here ever needs a CSRF token)
   2. GET /api/roms/{romId}/install - already DONE? skip straight to step 5,
      no worker needed at all
   3. GET /api/roms/{romId}/install/candidates (informational only - the
@@ -44,6 +45,7 @@ Flow:
   7. stream each file via Range GET /api/roms/{romId}/install/stream/{path}
   8. cancel: POST /api/roms/{romId}/install/cancel
 """
+
 from __future__ import annotations
 
 import argparse
@@ -58,9 +60,9 @@ import sys
 import threading
 import time
 import urllib.error
-import uuid
 import urllib.parse
 import urllib.request
+import uuid
 from pathlib import Path
 
 POLL_INTERVAL = 3
@@ -105,49 +107,46 @@ class Client:
         self.user = user
         self.pw = pw
         self.timeout = timeout
-        self.cookie: str | None = None
 
     def _headers(self, extra: dict | None = None) -> dict:
+        # Basic auth on every request, never a session cookie: RomM's CSRF
+        # middleware only exempts a request from needing a CSRF token while
+        # it resolves as Basic-authenticated. Sending back the romm_session
+        # cookie the server sets on login would make it resolve as
+        # session-authenticated instead, and then reject every POST/DELETE
+        # with "CSRF token verification failed" since this CLI never has a
+        # CSRF token to send.
         h = {"Accept": "application/json", "User-Agent": "romm-install-cli/1.0"}
         if self.user and self.pw:
             h["Authorization"] = basic_header(self.user, self.pw)
-        if self.cookie:
-            h["Cookie"] = self.cookie
         if extra:
             h.update(extra)
         return h
 
-    def _store_cookie(self, headers: dict) -> None:
-        # urllib stores cookies via http.cookiejar; we manually capture Set-Cookie.
-        set_cookie = headers.get("Set-Cookie") or headers.get("set-cookie")
-        if not set_cookie:
-            return
-        # Keep only the session cookie name=value up to the first ';'.
-        pair = set_cookie.split(";", 1)[0].strip()
-        if "=" in pair:
-            name, _, value = pair.partition("=")
-            if name.strip() == "romm_session":
-                self.cookie = f"{name.strip()}={value.strip()}"
-
-    def request(self, method: str, path: str, body: dict | None = None,
-                headers: dict | None = None, raw: bool = False,
-                timeout: float | None = None) -> tuple[int, bytes, dict]:
+    def request(
+        self,
+        method: str,
+        path: str,
+        body: dict | None = None,
+        headers: dict | None = None,
+        raw: bool = False,
+        timeout: float | None = None,
+    ) -> tuple[int, bytes, dict]:
         url = self.base + path
         data = None
         if body is not None:
             data = json.dumps(body).encode()
             headers = headers or {}
             headers["Content-Type"] = "application/json"
-        req = urllib.request.Request(url, data=data, method=method,
-                                     headers=self._headers(headers))
+        req = urllib.request.Request(
+            url, data=data, method=method, headers=self._headers(headers)
+        )
         try:
             with urllib.request.urlopen(req, timeout=timeout or self.timeout) as resp:
                 content = resp.read()
-                self._store_cookie(resp.headers)
                 return resp.status, content, dict(resp.headers)
         except urllib.error.HTTPError as e:
             content = e.read()
-            self._store_cookie(e.headers)
             return e.code, content, dict(e.headers)
         except urllib.error.URLError as e:
             raise RuntimeError(f"connection error: {e}") from e
@@ -259,7 +258,9 @@ class RommClient:
         return data.get("builds", [])
 
     def proton_download(self, build_id: str) -> str:
-        status, data = self.c.post_json(f"/api/roms/install/proton/{build_id}/download", {})
+        status, data = self.c.post_json(
+            f"/api/roms/install/proton/{build_id}/download", {}
+        )
         if status != 200:
             raise RuntimeError(extract_error(json.dumps(data).encode(), status))
         return data.get("job_id")
@@ -271,10 +272,15 @@ class RommClient:
         return data.get("progress"), bool(data.get("extracting", False))
 
     # -- session ----------------------------------------------------------
-    def start_session(self, rom_id: int, installer_path: str | None,
-                      proton_build: str | None, ttl: int | None,
-                      auto_mode: bool | None = None,
-                      manual_mode: bool | None = None) -> dict:
+    def start_session(
+        self,
+        rom_id: int,
+        installer_path: str | None,
+        proton_build: str | None,
+        ttl: int | None,
+        auto_mode: bool | None = None,
+        manual_mode: bool | None = None,
+    ) -> dict:
         body = {"installer_path": installer_path, "proton_build": proton_build}
         if auto_mode is not None:
             body["auto_mode"] = auto_mode
@@ -324,8 +330,9 @@ class RommClient:
             raise RuntimeError(extract_error(json.dumps(data).encode(), status))
         return data
 
-    def download_file(self, rom_id: int, path: str,
-                      session_id: int | None = None) -> bytes:
+    def download_file(
+        self, rom_id: int, path: str, session_id: int | None = None
+    ) -> bytes:
         """Fetch one finished file in full (no Range) - used to re-download
         a file verify_and_repair found corrupted, not for the initial pull
         (stream_file already handles that, resumably, via the live endpoint).
@@ -340,7 +347,9 @@ class RommClient:
         return content
 
     # -- streaming --------------------------------------------------------
-    def stream_manifest(self, rom_id: int, session_id: int | None = None) -> dict | None:
+    def stream_manifest(
+        self, rom_id: int, session_id: int | None = None
+    ) -> dict | None:
         """Live view of the install's output so far, or None if there's
         nothing to show yet.
 
@@ -369,9 +378,14 @@ class RommClient:
             raise RuntimeError(extract_error(json.dumps(data).encode(), status))
         return data
 
-    def stream_file(self, rom_id: int, path: str, out_dir: Path,
-                    speed_limit: int | None = None,
-                    session_id: int | None = None) -> int:
+    def stream_file(
+        self,
+        rom_id: int,
+        path: str,
+        out_dir: Path,
+        speed_limit: int | None = None,
+        session_id: int | None = None,
+    ) -> int:
         """Range-stream whatever is currently available for one file,
         resuming from wherever the local copy left off. Returns the file's
         total size on disk after this call (not just what was added now).
@@ -392,8 +406,10 @@ class RommClient:
         params = {"device_id": DEVICE_ID}
         if session_id is not None:
             params["session_id"] = session_id
-        endpoint = (f"/api/roms/{rom_id}/install/stream/{encoded}"
-                   f"?{urllib.parse.urlencode(params)}")
+        endpoint = (
+            f"/api/roms/{rom_id}/install/stream/{encoded}"
+            f"?{urllib.parse.urlencode(params)}"
+        )
         out_dir.mkdir(parents=True, exist_ok=True)
         dest = out_dir / path
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -407,7 +423,8 @@ class RommClient:
             if written > 0:
                 headers["Range"] = f"bytes={written}-"
             status, content, resp_headers = self.c.request(
-                "GET", endpoint, headers=headers, timeout=60.0)
+                "GET", endpoint, headers=headers, timeout=60.0
+            )
             if status in (200, 206):
                 mode = "ab" if written > 0 else "wb"
                 with open(dest, mode) as f:
@@ -415,7 +432,9 @@ class RommClient:
                 written += len(content)
                 if status == 200 and not headers.get("Range"):
                     return written
-                cr = resp_headers.get("Content-Range") or resp_headers.get("content-range")
+                cr = resp_headers.get("Content-Range") or resp_headers.get(
+                    "content-range"
+                )
                 if cr and "/" in cr:
                     total_s = cr.rsplit("/", 1)[1]
                     if total_s.isdigit() and int(total_s) > 0:
@@ -433,10 +452,14 @@ class RommClient:
             raise RuntimeError(extract_error(content, status))
 
 
-def download_all_files(rom: RommClient, rom_id: int, out_dir: Path,
-                       speed_limit: int | None = None,
-                       stop_event: threading.Event | None = None,
-                       session_id: int | None = None) -> int:
+def download_all_files(
+    rom: RommClient,
+    rom_id: int,
+    out_dir: Path,
+    speed_limit: int | None = None,
+    stop_event: threading.Event | None = None,
+    session_id: int | None = None,
+) -> int:
     """Poll manifest and stream every file to out_dir. Returns total bytes.
 
     Works the same whether the install is still running or already DONE -
@@ -496,8 +519,10 @@ def download_all_files(rom: RommClient, rom_id: int, out_dir: Path,
         files = manifest.get("files", [])
         viewers = manifest.get("viewer_count", 0)
         limit = manifest.get("download_speed_limit_bytes_per_sec") or speed_limit
-        log(f"manifest: {len(files)} file(s), {viewers} viewer(s)"
-            + (f", limit {fmt_bytes(limit)}/s" if limit else ""))
+        log(
+            f"manifest: {len(files)} file(s), {viewers} viewer(s)"
+            + (f", limit {fmt_bytes(limit)}/s" if limit else "")
+        )
         new_done = 0
         for f in files:
             if stop_event.is_set():
@@ -525,8 +550,9 @@ def download_all_files(rom: RommClient, rom_id: int, out_dir: Path,
             # why that matters: a file the installer hasn't started writing
             # yet must never stall every other file in this same pass).
             try:
-                written = rom.stream_file(rom_id, path, out_dir, speed_limit=limit,
-                                          session_id=session_id)
+                written = rom.stream_file(
+                    rom_id, path, out_dir, speed_limit=limit, session_id=session_id
+                )
             except RuntimeError as e:
                 # A connection drop here would otherwise crash this
                 # background thread with an unhandled traceback - the
@@ -537,8 +563,10 @@ def download_all_files(rom: RommClient, rom_id: int, out_dir: Path,
                 return total
             delta = written - progress.get(path, 0)
             if delta > 0:
-                log(f"  streaming {path} ({fmt_bytes(written)} / {fmt_bytes(size)}"
-                    + (" DONE" if complete and written >= size else ")"))
+                log(
+                    f"  streaming {path} ({fmt_bytes(written)} / {fmt_bytes(size)}"
+                    + (" DONE" if complete and written >= size else ")")
+                )
             total += delta
             progress[path] = written
             if complete and written >= size:
@@ -566,8 +594,9 @@ def _sha1_of(path: Path) -> str:
     return digest.hexdigest()
 
 
-def verify_and_repair(rom: RommClient, rom_id: int, out_dir: Path,
-                      session_id: int | None = None) -> None:
+def verify_and_repair(
+    rom: RommClient, rom_id: int, out_dir: Path, session_id: int | None = None
+) -> None:
     """Verify every downloaded file's sha1 against the server's own
     finished, hash-verified manifest (GET /install/files) and re-fetch
     whatever doesn't match.
@@ -601,7 +630,9 @@ def verify_and_repair(rom: RommClient, rom_id: int, out_dir: Path,
         mismatches += 1
         warn(f"  {path}: hash mismatch - re-downloading")
         try:
-            local_path.write_bytes(rom.download_file(rom_id, path, session_id=session_id))
+            local_path.write_bytes(
+                rom.download_file(rom_id, path, session_id=session_id)
+            )
             if _sha1_of(local_path) == entry["sha1"]:
                 log(f"  {path}: repaired")
             else:
@@ -612,10 +643,15 @@ def verify_and_repair(rom: RommClient, rom_id: int, out_dir: Path,
         log("all files verified OK")
 
 
-def start_session_with_retry(rom: RommClient, rom_id: int, installer_path: str | None,
-                             proton_build: str | None, ttl: int | None,
-                             auto_mode: bool | None = None,
-                             manual_mode: bool | None = None) -> dict:
+def start_session_with_retry(
+    rom: RommClient,
+    rom_id: int,
+    installer_path: str | None,
+    proton_build: str | None,
+    ttl: int | None,
+    auto_mode: bool | None = None,
+    manual_mode: bool | None = None,
+) -> dict:
     """POST /install, riding out a transient "install worker not connected"
     503 instead of failing on it outright - same idea as the web UI's own
     withWorkerStartupRetry. A manual-mode result (AWAITING_INSTALLER) never
@@ -637,8 +673,9 @@ def start_session_with_retry(rom: RommClient, rom_id: int, installer_path: str |
         if delay:
             time.sleep(delay)
         try:
-            return rom.start_session(rom_id, installer_path, proton_build, ttl,
-                                     auto_mode, manual_mode)
+            return rom.start_session(
+                rom_id, installer_path, proton_build, ttl, auto_mode, manual_mode
+            )
         except ApiError as e:
             if e.status != 503 or attempt == len(WORKER_STARTUP_RETRY_DELAYS):
                 raise
@@ -647,8 +684,13 @@ def start_session_with_retry(rom: RommClient, rom_id: int, installer_path: str |
     raise AssertionError("unreachable")
 
 
-def poll_session(rom: RommClient, rom_id: int, proton_build: str | None,
-                 timeout: float = 600.0, session_id: int | None = None) -> dict:
+def poll_session(
+    rom: RommClient,
+    rom_id: int,
+    proton_build: str | None,
+    timeout: float = 600.0,
+    session_id: int | None = None,
+) -> dict:
     """Poll session state until terminal or timeout. Prints progress.
 
     AWAITING_INSTALLER (server-side auto-pick couldn't confidently resolve
@@ -705,19 +747,25 @@ def poll_session(rom: RommClient, rom_id: int, proton_build: str | None,
             # UI once the VNC bridge comes up.
             if vnc_url and not announced_install_page:
                 if session.get("auto_mode"):
-                    log("  installer is running - auto mode is clicking through "
-                        "it, watch or take over here:")
+                    log(
+                        "  installer is running - auto mode is clicking through "
+                        "it, watch or take over here:"
+                    )
                 else:
-                    log("  installer is running - the wizard itself still needs "
+                    log(
+                        "  installer is running - the wizard itself still needs "
                         "someone to click through it (or pass --auto-mode), "
-                        "open this to do that:")
+                        "open this to do that:"
+                    )
                 log(f"  {install_page_url}")
                 announced_install_page = True
             auto_status = session.get("auto_status")
             if auto_status != last_auto_status:
                 if auto_status == "needs_manual":
-                    warn("auto mode cannot continue - continue the installation "
-                         f"by hand: {install_page_url}")
+                    warn(
+                        "auto mode cannot continue - continue the installation "
+                        f"by hand: {install_page_url}"
+                    )
                 elif auto_status == "running":
                     detail = session.get("auto_detail")
                     if detail:
@@ -750,8 +798,10 @@ def poll_session(rom: RommClient, rom_id: int, proton_build: str | None,
             # "DONE" as "nothing left to do" and disconnected would silently
             # end up with a truncated local copy of whatever hadn't been
             # pulled yet.
-            log("install finished on the server (verified) - "
-                "any files not yet downloaded locally are still being pulled")
+            log(
+                "install finished on the server (verified) - "
+                "any files not yet downloaded locally are still being pulled"
+            )
         elif state == "failed":
             warn(f"session FAILED: {session.get('error', '')}")
         elif state == "expired":
@@ -765,39 +815,64 @@ def poll_session(rom: RommClient, rom_id: int, proton_build: str | None,
 
 def main() -> int:
     p = argparse.ArgumentParser(description="RomM stream-install CLI client")
-    p.add_argument("--base", required=True, help="RomM base URL, e.g. http://localhost:5100")
+    p.add_argument(
+        "--base", required=True, help="RomM base URL, e.g. http://localhost:5100"
+    )
     p.add_argument("--user", default="admin")
     p.add_argument("--pass", dest="password", default="admin")
     p.add_argument("--rom-id", type=int, required=True)
-    p.add_argument("--installer-path", default=None,
-                   help="optional: relative path of installer inside the ROM dir, "
-                        "to override the server's own auto-pick. Usually not "
-                        "needed - omit it and let the server decide (or fall back "
-                        "to manual mode if it can't).")
-    p.add_argument("--proton-build", default=None,
-                   help="proton build id (default: server)")
-    p.add_argument("--mode", choices=["auto", "manual", "none"], default="none",
-                   help="experimental: override install mode for this run only - "
-                        "auto=OCR auto-click, manual=force manual picker, "
-                        "none=use server default (default: none)")
+    p.add_argument(
+        "--installer-path",
+        default=None,
+        help="optional: relative path of installer inside the ROM dir, "
+        "to override the server's own auto-pick. Usually not "
+        "needed - omit it and let the server decide (or fall back "
+        "to manual mode if it can't).",
+    )
+    p.add_argument(
+        "--proton-build", default=None, help="proton build id (default: server)"
+    )
+    p.add_argument(
+        "--mode",
+        choices=["auto", "manual", "none"],
+        default="none",
+        help="experimental: override install mode for this run only - "
+        "auto=OCR auto-click, manual=force manual picker, "
+        "none=use server default (default: none)",
+    )
     p.add_argument("--ttl", type=int, default=None, help="cache TTL seconds")
-    p.add_argument("--out", default="/tmp/romm-install",
-                   help="base output dir - files land under a subfolder named "
-                        "after the game, e.g. --out ~/roms -> "
-                        "~/roms/<game name>/...")
-    p.add_argument("--no-download", action="store_true",
-                   help="start + poll, but do not stream files")
-    p.add_argument("--no-verify", action="store_true",
-                   help="skip the post-download sha1 verification pass "
-                        "against the server's finished manifest")
-    p.add_argument("--cancel", action="store_true",
-                   help="cancel an active session instead of starting")
-    p.add_argument("--clear", action="store_true",
-                   help="clear cache + session")
-    p.add_argument("--list-proton", action="store_true",
-                   help="list proton builds and exit")
-    p.add_argument("--download-proton", default=None,
-                   help="download a proton build by id and watch progress")
+    p.add_argument(
+        "--out",
+        default="/tmp/romm-install",
+        help="base output dir - files land under a subfolder named "
+        "after the game, e.g. --out ~/roms -> "
+        "~/roms/<game name>/...",
+    )
+    p.add_argument(
+        "--no-download",
+        action="store_true",
+        help="start + poll, but do not stream files",
+    )
+    p.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="skip the post-download sha1 verification pass "
+        "against the server's finished manifest",
+    )
+    p.add_argument(
+        "--cancel",
+        action="store_true",
+        help="cancel an active session instead of starting",
+    )
+    p.add_argument("--clear", action="store_true", help="clear cache + session")
+    p.add_argument(
+        "--list-proton", action="store_true", help="list proton builds and exit"
+    )
+    p.add_argument(
+        "--download-proton",
+        default=None,
+        help="download a proton build by id and watch progress",
+    )
     p.add_argument("--timeout", type=float, default=900.0)
     args = p.parse_args()
 
@@ -825,8 +900,10 @@ def _run(args: argparse.Namespace, rom: RommClient) -> int:
     if args.list_proton:
         builds = rom.proton_builds()
         for b in builds:
-            print(f"{b.get('id'):30s} installed={b.get('installed')} "
-                  f"version={b.get('version')} source={b.get('source')}")
+            print(
+                f"{b.get('id'):30s} installed={b.get('installed')} "
+                f"version={b.get('version')} source={b.get('source')}"
+            )
         return 0
 
     if args.download_proton:
@@ -876,16 +953,22 @@ def _run(args: argparse.Namespace, rom: RommClient) -> int:
     # if the install worker itself isn't running right now).
     existing = rom.get_session(args.rom_id)
     if existing and existing.get("state") == "done":
-        log(f"already installed: session id={existing.get('id')} - streaming cached files")
+        log(
+            f"already installed: session id={existing.get('id')} - streaming cached files"
+        )
         session = existing
     else:
         cands = rom.candidates(args.rom_id)
-        log(f"candidates: {len(cands.get('candidates', []))} "
+        log(
+            f"candidates: {len(cands.get('candidates', []))} "
             f"needs_manual_pick={cands.get('needs_manual_pick')} "
-            f"stream_copy={cands.get('stream_copy')}")
+            f"stream_copy={cands.get('stream_copy')}"
+        )
         for c in cands.get("candidates", []):
-            log(f"  - {c['file_name']} ({fmt_bytes(c['file_size_bytes'])}) "
-                f"rank={c['rank']} kind={c['kind']}")
+            log(
+                f"  - {c['file_name']} ({fmt_bytes(c['file_size_bytes'])}) "
+                f"rank={c['rank']} kind={c['kind']}"
+            )
 
         # Step 2: --installer-path stays a supported override, but is no
         # longer required - omit it and the server auto-picks the same way
@@ -901,9 +984,15 @@ def _run(args: argparse.Namespace, rom: RommClient) -> int:
             auto_mode, manual_mode = False, True
         else:
             auto_mode, manual_mode = None, False
-        session = start_session_with_retry(rom, args.rom_id, args.installer_path,
-                                           args.proton_build, args.ttl,
-                                           auto_mode, manual_mode)
+        session = start_session_with_retry(
+            rom,
+            args.rom_id,
+            args.installer_path,
+            args.proton_build,
+            args.ttl,
+            auto_mode,
+            manual_mode,
+        )
         log(f"session started: id={session.get('id')} state={session.get('state')}")
 
         # Step 3: manual mode - the server couldn't confidently resolve an
@@ -938,16 +1027,18 @@ def _run(args: argparse.Namespace, rom: RommClient) -> int:
     stream_result: dict[str, int] = {}
     stream_thread: threading.Thread | None = None
     if not args.no_download:
+
         def _stream() -> None:
             stream_result["total"] = download_all_files(
-                rom, args.rom_id, out_dir, stop_event=stop_event,
-                session_id=session_id)
+                rom, args.rom_id, out_dir, stop_event=stop_event, session_id=session_id
+            )
 
         stream_thread = threading.Thread(target=_stream, daemon=True)
         stream_thread.start()
 
-    session = poll_session(rom, args.rom_id, args.proton_build,
-                           timeout=args.timeout, session_id=session_id)
+    session = poll_session(
+        rom, args.rom_id, args.proton_build, timeout=args.timeout, session_id=session_id
+    )
     state = session.get("state")
 
     if stream_thread is not None:
@@ -958,8 +1049,10 @@ def _run(args: argparse.Namespace, rom: RommClient) -> int:
             stream_thread.join(timeout=30.0)
         else:
             if stream_thread.is_alive():
-                log("waiting for the local download to catch up "
-                    "(server-side install already finished)...")
+                log(
+                    "waiting for the local download to catch up "
+                    "(server-side install already finished)..."
+                )
             # Let it finish naturally (it stops on its own once every listed
             # file reports complete) - the overall --timeout budget doubles
             # as a safety net so this can't hang forever either.
@@ -970,11 +1063,15 @@ def _run(args: argparse.Namespace, rom: RommClient) -> int:
             # is the actual "you have everything, safe to disconnect" signal
             # - the two can land many seconds (or, for one very large file
             # on a slow link, much longer) apart.
-            log(f"all files downloaded ({fmt_bytes(total)}) to {out_dir} - install complete")
+            log(
+                f"all files downloaded ({fmt_bytes(total)}) to {out_dir} - install complete"
+            )
             if not args.no_verify:
                 verify_and_repair(rom, args.rom_id, out_dir, session_id=session_id)
     elif state == "done":
-        log("install done; files are cached on server, pass --no-download false to fetch")
+        log(
+            "install done; files are cached on server, pass --no-download false to fetch"
+        )
 
     if state == "failed":
         return 2
