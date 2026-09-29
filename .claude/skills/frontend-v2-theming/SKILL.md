@@ -76,3 +76,4 @@ If a literal would otherwise be needed, the answer is: **add a token** (steps ab
 - Scoped `<style>` by default; unscoped only for teleport overrides.
 - BEM-ish class names: `.feature__element--modifier`. Prefixes: `.r-v2-...` for app-shell surfaces outside components; `.r-...` for globally shared utilities/tokens.
 - No utility-class framework (no Tailwind, no Vuetify): layout is plain CSS in the component's scoped block, with tokens (`var(--r-space-*)`, `var(--r-radius-*)`) for every value that has one.
+- `romm/no-spacing-literal` (ESLint) flags a px value in `gap`, `margin*`, `padding*` or `inset*` that equals a `--r-space-*` step, in SFC styles and v2 `.css` files, and autofixes it (a negative becomes `calc(-1 * var(--r-space-N))`). Off-scale values stay as px. Its `files` list in `eslint.config.js` grows as each directory is converted.

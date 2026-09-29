@@ -28,7 +28,7 @@
 }
 
 .r-img-story-reload-btn {
-  padding: 6px 12px;
+  padding: 6px var(--r-space-3);
   background: var(--r-color-brand-primary);
   color: white;
   border: none;

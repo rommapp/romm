@@ -53,6 +53,20 @@ export function sfcStyleRoots(context) {
 }
 
 /**
+ * The style blocks of an SFC, or the whole stylesheet of a `.css` file
+ * loaded through `cssParser`.
+ * @param {import("eslint").Rule.RuleContext} context
+ * @returns {StyleRoot[]}
+ */
+export function styleRoots(context) {
+  const services = /** @type {{ cssRoot?: import("postcss").Root }} */ (
+    context.sourceCode.parserServices ?? {}
+  );
+  if (services.cssRoot) return [{ root: services.cssRoot, start: 0 }];
+  return sfcStyleRoots(context);
+}
+
+/**
  * Absolute source range of a node inside a parsed style block.
  * @param {StyleRoot} block
  * @param {import("postcss").AnyNode} node

@@ -6,6 +6,7 @@ import vue from "eslint-plugin-vue";
 import vuea11y from "eslint-plugin-vuejs-accessibility";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import cssParser from "./eslint-plugin-romm/cssParser.js";
 import romm from "./eslint-plugin-romm/index.js";
 
 export default tseslint.config(
@@ -216,6 +217,16 @@ export default tseslint.config(
       "romm/no-color-literal": "error",
       "romm/no-layout-media-query": "error",
     },
+  },
+  {
+    files: ["src/v2/**/*.css"],
+    languageOptions: { parser: cssParser },
+  },
+  // Widened directory by directory as each is converted to --r-space-* tokens.
+  {
+    files: ["src/v2/**/*.css"],
+    plugins: { romm },
+    rules: { "romm/no-spacing-literal": "error" },
   },
   {
     files: ["src/**/*.test.ts"],

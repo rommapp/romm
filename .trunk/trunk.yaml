@@ -70,6 +70,11 @@ lint:
         - frontend/src/components/**/*.vue
         - frontend/src/console/**/*.vue
         - frontend/src/layouts/**/*.vue
+    # ESLint reads stylesheets only for the v2 style rules.
+    - linters: [eslint]
+      paths:
+        - "**/*.css"
+        - "!frontend/src/v2/**"
   files:
     - name: vue
       extensions: [vue]
@@ -79,6 +84,7 @@ lint:
         - javascript
         - typescript
         - vue
+        - css
       commands:
         - name: lint
           run_from: ${root_or_parent_with_any_config}

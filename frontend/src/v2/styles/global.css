@@ -406,7 +406,7 @@ html.r-v2-reduced-motion {
   display: flex;
   width: 100%;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--r-space-5);
   max-width: 460px;
   margin-inline: auto;
 }
@@ -415,7 +415,7 @@ html.r-v2-reduced-motion {
 .r-section-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   margin-bottom: 10px;
   font-size: 11px;
   font-weight: var(--r-font-weight-bold);

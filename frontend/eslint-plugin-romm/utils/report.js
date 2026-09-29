@@ -7,8 +7,9 @@
  * @param {number} length
  * @param {string} messageId
  * @param {Record<string, string>} [data]
+ * @param {import("eslint").Rule.ReportFixer} [fix]
  */
-export function reportAt(context, index, length, messageId, data) {
+export function reportAt(context, index, length, messageId, data, fix) {
   const { sourceCode } = context;
   context.report({
     loc: {
@@ -17,5 +18,6 @@ export function reportAt(context, index, length, messageId, data) {
     },
     messageId,
     data,
+    fix,
   });
 }
