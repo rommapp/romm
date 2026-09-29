@@ -915,13 +915,14 @@ class Rom(BaseModel):
         server_default=FetchedValue(),
         server_onupdate=FetchedValue(),
     )
-    # STORED generated column over every provider's alternative titles, so the
-    # gallery search can index them without reading the JSON.
+    # STORED generated column over every provider's alternative titles. Only the
+    # gallery search reads it, so loading a ROM leaves it behind.
     generated_search_aliases: Mapped[str | None] = mapped_column(
         Text(),
         nullable=True,
         server_default=FetchedValue(),
         server_onupdate=FetchedValue(),
+        deferred=True,
     )
 
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))

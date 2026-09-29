@@ -229,10 +229,16 @@ def _nulls_last_ordering(
     return None, nulls_last(sort_key, descending)
 
 
+# What a gallery search term is matched against, on every engine.
+ROM_SEARCH_COLUMNS: tuple[QueryableAttribute[Any], ...] = tuple(
+    getattr(Rom, column) for column in ROMS_SEARCH_FULLTEXT_COLUMNS
+)
+
+
 def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
     """A MariaDB/MySQL FULLTEXT match of the ROM's name, filename and aliases."""
     return fulltext_match(
-        *(getattr(Rom, column).expression for column in ROMS_SEARCH_FULLTEXT_COLUMNS),
+        *(column.expression for column in ROM_SEARCH_COLUMNS),
         boolean_query=boolean_query,
     )
 
@@ -1112,11 +1118,7 @@ class DBRomsHandler(DBBaseHandler):
         like_conditions = [
             and_(
                 *(
-                    or_(
-                        Rom.fs_name.ilike(f"%{word}%"),
-                        Rom.name.ilike(f"%{word}%"),
-                        Rom.generated_search_aliases.ilike(f"%{word}%"),
-                    )
+                    or_(*(column.ilike(f"%{word}%") for column in ROM_SEARCH_COLUMNS))
                     for word in term.split()
                 )
             )

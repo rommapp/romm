@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 from sqlalchemy import select
+from tests.conftest import session as session_factory
 from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
 from handler.database import db_rom_handler
@@ -105,9 +106,11 @@ def test_a_rom_without_titles_has_no_aliases(platform: Platform):
         moby_metadata={"alternate_titles": "not a list"},
     )
 
-    stored = db_rom_handler.get_rom(rom.id)
-    assert stored is not None
-    assert stored.generated_search_aliases is None
+    with session_factory() as session:
+        aliases = session.scalar(
+            select(Rom.generated_search_aliases).where(Rom.id == rom.id)
+        )
+    assert aliases is None
 
 
 def test_updating_the_metadata_refreshes_the_aliases(ff9: Rom):
