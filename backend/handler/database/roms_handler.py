@@ -2722,7 +2722,6 @@ class DBRomsHandler(DBBaseHandler):
     def upsert_doc_meta(
         self,
         rom_file_id: int,
-        rom_id: int,
         values: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> RomFileDocMeta:
@@ -2734,7 +2733,7 @@ class DBRomsHandler(DBBaseHandler):
             session.flush()
             return existing
 
-        doc = RomFileDocMeta(rom_file_id=rom_file_id, rom_id=rom_id, **values)
+        doc = RomFileDocMeta(rom_file_id=rom_file_id, **values)
         session.add(doc)
         session.flush()
         return doc
