@@ -336,7 +336,7 @@ def _maria_search_aliases() -> str:
     # Each non-empty array as JSON text: the FULLTEXT parser splits on the
     # quotes and commas, so the titles need no unpacking.
     arrays = [
-        f"CASE WHEN JSON_TYPE(JSON_EXTRACT({src}, '$.{key}')) = 'ARRAY' "
+        f"CASE WHEN CAST(JSON_TYPE(JSON_EXTRACT({src}, '$.{key}')) AS CHAR) = 'ARRAY' "
         f"AND JSON_LENGTH(JSON_EXTRACT({src}, '$.{key}')) > 0 "
         f"THEN CAST(JSON_EXTRACT({src}, '$.{key}') AS CHAR) ELSE NULL END"
         for src, key in ALTERNATIVE_NAME_SOURCES
