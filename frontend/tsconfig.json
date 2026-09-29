@@ -1,12 +1,6 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.vue",
-    "src/**/*.d.ts",
-    "e2e/**/*.ts",
-    "playwright.config.ts"
-  ],
+  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts"],
   "exclude": ["node_modules"],
   "types": ["node", "lodash", "js-cookie", "vue-router", "vue"],
   "compilerOptions": {
