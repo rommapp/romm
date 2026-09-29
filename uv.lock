@@ -11,6 +11,15 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P7D"
 
 [[package]]
+name = "aiofiles"
+version = "25.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/c3/534eac40372d8ee36ef40df62ec129bee4fdb5ad9706e58a29be53b2c970/aiofiles-25.1.0.tar.gz", hash = "sha256:a8d728f0a29de45dc521f18f07297428d56992a742f0cd2701ba86e44d23d5b2", size = 46354, upload-time = "2025-10-09T20:51:04.358Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bc/8a/340a1555ae33d7354dbca4faa54948d76d89a27ceef032c8c3bc661d003e/aiofiles-25.1.0-py3-none-any.whl", hash = "sha256:abe311e527c862958650f9438e859c1fa7568a141b22abcd015e120e86a85695", size = 14668, upload-time = "2025-10-09T20:51:03.174Z" },
+]
+
+[[package]]
 name = "aiohappyeyeballs"
 version = "2.6.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2488,7 +2497,7 @@ requires-dist = [
     { name = "sentry-sdk", specifier = "~=2.32" },
     { name = "sqlalchemy", extras = ["mariadb-connector", "mysql-connector", "postgresql-psycopg"], specifier = "~=2.0" },
     { name = "starlette", specifier = "~=1.6.0" },
-    { name = "streaming-form-data", specifier = "~=1.19" },
+    { name = "streaming-form-data", specifier = "~=2.1" },
     { name = "strsimpy", specifier = "~=0.2" },
     { name = "types-authlib", marker = "extra == 'dev'", specifier = "~=1.8.0" },
     { name = "types-colorama", marker = "extra == 'dev'", specifier = "~=0.4" },
@@ -2643,12 +2652,13 @@ wheels = [
 
 [[package]]
 name = "streaming-form-data"
-version = "1.20.0"
+version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "aiofiles" },
     { name = "smart-open" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a7/86/4aff61bf1085fc8e10b678b5d5b295e4c205dcfc6ca4e46215506c839993/streaming_form_data-1.20.0.tar.gz", hash = "sha256:9a90316b50640ff1d2ce71833d830631bcf4cf28effc7a7e7566e8f446a4ad2e", size = 128074, upload-time = "2026-01-23T19:30:09.202Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/fd/d49f3b4e6258e865566fd8aa3da9966f47ca5a7d7fd8ca181f8209010605/streaming_form_data-2.1.0.tar.gz", hash = "sha256:2c5c81fc9c451ea133083bc6da959f87e9b91fba3effe99411f1f90461ea7c5b", size = 150867, upload-time = "2026-06-10T19:35:59.229Z" }
 
 [[package]]
 name = "strsimpy"
