@@ -2,20 +2,8 @@ import type { Locator, Page } from "@playwright/test";
 import { gotoFirstRom, seedUiState, STORAGE_STATE } from "../../support/auth";
 import { expect, test } from "../../support/test";
 
-// The Media and Files tabs write to the ROM (manuals, soundtracks, shared
-// screenshots, ROM files) and every one of those endpoints gates on ROMS_WRITE.
-// A read-only user must not be offered upload/delete there -- same 403-to-logout
-// trap as the ⋯ menu.
-//
-// The per-user "My screenshots" section is the deliberate exception: it writes
-// user assets, which every authenticated user may do.
-//
-// NOTE: MediaTab keeps every subtab panel mounted (v-show, not v-if) so the
-// heavy async panels don't re-mount on each switch. Assertions must therefore
-// scope to the VISIBLE panel -- a document-wide locator would also match the
-// hidden panels and pass or fail for the wrong reason.
-//
-// Sessions come from auth.setup.ts; see login.spec.ts for the form itself.
+// A viewer gets no ROMS_WRITE upload or delete on the Media and Files tabs.
+// "My screenshots" writes the user's own assets, so it stays.
 
 async function openTab(page: Page, tab: string) {
   await page.getByRole("tab", { name: tab }).click();
@@ -27,7 +15,7 @@ async function openSubtab(page: Page, subtab: string) {
   await page.locator(".r-v2-subtab-nav__btn", { hasText: subtab }).click();
 }
 
-/** The one Media panel currently on screen. */
+/** The Media panel on screen; the others stay mounted (v-show). */
 function visiblePanel(page: Page): Locator {
   return page.locator(".r-v2-media__panel:visible");
 }
@@ -101,9 +89,8 @@ test.describe(
         await openSubtab(page, subtab);
 
         const panel = visiblePanel(page);
-        // Empty ROM => CTA dropzone; populated ROM => Upload button. Either is a
-        // write affordance, and a read-only user gets neither. `.or()` keeps this
-        // auto-waiting: a bare `count()` reads 0 before the async panel mounts.
+        // Empty ROM shows the dropzone, a populated one the Upload button.
+        // `.or()` auto-waits; `count()` reads 0 before the async panel mounts.
         const writeAffordance = panel
           .locator(".r-dropzone__cta")
           .or(panel.getByRole("button", { name: "Upload", exact: true }));

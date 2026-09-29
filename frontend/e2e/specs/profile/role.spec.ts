@@ -1,12 +1,7 @@
 import { gotoOwnProfile, seedUiState, STORAGE_STATE } from "../../support/auth";
 import { expect, test } from "../../support/test";
 
-// Regression cover for #3954: the profile page shipped an editable role picker,
-// but `update_user` ignores `role` on a self-edit. Saving reported success and
-// then silently reverted on reload -- for admins as much as for regular users.
-// The role is display-only now: the chip in the identity row.
-//
-// Sessions come from auth.setup.ts; see login.spec.ts for the form itself.
+// A self-edit can't change the role, so the profile shows it read-only (#3954).
 for (const role of ["viewer", "admin"] as const) {
   test.describe(
     `Profile page role field (${role})`,

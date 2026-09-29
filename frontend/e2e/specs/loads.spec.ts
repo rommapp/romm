@@ -1,4 +1,4 @@
-import type { Page, Response } from "@playwright/test";
+import type { Page, Request } from "@playwright/test";
 import {
   gotoFirstRom,
   gotoHydrated,
@@ -52,18 +52,26 @@ const PAGES: Record<string, PageDef> = {
   controllerDebug: { open: "/controller-debug" },
 };
 
-/** A response the page's load depends on: a document or an API call. */
-function isLoadResponse(response: Response) {
+/** A request the page's load depends on: a document or an API call. */
+function isLoadRequest(request: Request) {
   return (
-    response.request().isNavigationRequest() ||
-    new URL(response.url()).pathname.startsWith("/api/")
+    request.isNavigationRequest() ||
+    new URL(request.url()).pathname.startsWith("/api/")
   );
 }
 
 async function expectPageLoads(page: Page, name: string, { open }: PageDef) {
+  const pending = new Set<Request>();
+  const settle = (request: Request) => pending.delete(request);
+  page.on("request", (request) => {
+    if (isLoadRequest(request)) pending.add(request);
+  });
+  page.on("requestfinished", settle);
+  page.on("requestfailed", settle);
+
   const failed: string[] = [];
   page.on("response", (response) => {
-    if (isLoadResponse(response) && !response.ok()) {
+    if (isLoadRequest(response.request()) && !response.ok()) {
       const { pathname } = new URL(response.url());
       failed.push(
         `${response.request().method()} ${pathname} returned ${response.status()}`,
@@ -84,6 +92,12 @@ async function expectPageLoads(page: Page, name: string, { open }: PageDef) {
   // The router-view's content, which exists only once the lazy view resolves.
   await expect(page.locator("#r-v2-main > *").first()).toBeVisible();
   await expect(page.locator(".r-v2-notfound")).toHaveCount(0);
+  // Mount-time API calls can outlive the first render; their failures count too.
+  await expect
+    .poll(() => pending.size, {
+      message: `${name} still has requests in flight`,
+    })
+    .toBe(0);
   expect(
     failed,
     `Responses that failed while loading ${name} (a 404 from /api usually means the site's backend is older than this branch)`,

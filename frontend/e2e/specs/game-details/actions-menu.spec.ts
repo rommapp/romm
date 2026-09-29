@@ -7,12 +7,8 @@ import {
 } from "../../support/auth";
 import { expect, test } from "../../support/test";
 
-// Regression cover for #3954: the ⋯ menu offered Match / Refresh metadata /
-// Edit / Delete to users with no ROM write grant. Those endpoints gate on
-// ROMS_WRITE, so the click 403'd and the axios interceptor turned that into a
-// logout -- the "page reloads back to the login page" in the bug report.
-//
-// Sessions come from auth.setup.ts; see login.spec.ts for the form itself.
+// A viewer's ⋯ menu offers no ROMS_WRITE action: the 403 it would hit logs
+// them out (#3954).
 const WRITE_ACTIONS = [
   "Match ROM",
   "Refresh metadata",
@@ -46,9 +42,8 @@ test.describe(
       await gotoFirstRom(page);
       const panel = await openMoreMenu(page);
 
-      // Hiding the metadata + destructive groups must hide their leading dividers
-      // too, or the menu ends in stray rules. One divider survives: the split
-      // between the primary and per-user groups.
+      // Hidden groups take their leading dividers with them; only the one
+      // between the primary and per-user groups remains.
       await expect(panel.locator('[role="separator"]')).toHaveCount(1);
 
       // And the last thing in the panel is an item, not a rule.
@@ -87,9 +82,8 @@ test.describe(
       await gotoFirstRom(page);
       const panel = await openMoreMenu(page);
 
-      // `expect.poll` rather than a one-shot `menuLabels()` read: the menu is
-      // reactive, so items appear as grants resolve. Snapshotting the array once
-      // can capture the pre-grant menu and report a permissions bug that isn't.
+      // Polled: items appear as grants resolve, so a single read can catch the
+      // menu before they do.
       for (const action of WRITE_ACTIONS) {
         await expect
           .poll(() => menuLabels(page), {
