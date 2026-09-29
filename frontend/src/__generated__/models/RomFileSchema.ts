@@ -5,6 +5,7 @@
 import type { DocMetaSchema } from './DocMetaSchema';
 import type { RomArchiveMember } from './RomArchiveMember';
 import type { RomFileCategory } from './RomFileCategory';
+import type { RomFileContentType } from './RomFileContentType';
 import type { TrackMetaSchema } from './TrackMetaSchema';
 export type RomFileSchema = {
     id: number;
@@ -24,6 +25,18 @@ export type RomFileSchema = {
     chd_sha1_hash: (string | null);
     title_id: (string | null);
     title_version: (number | null);
+    title: (string | null);
+    serial: (string | null);
+    content_type: (RomFileContentType | null);
+    display_version: (string | null);
+    regions: (Array<string> | null);
+    languages: (Array<string> | null);
+    publisher: (string | null);
+    min_firmware_version: (string | null);
+    is_compressed: (boolean | null);
+    compression: (string | null);
+    file_format: (string | null);
+    uncompressed_size_bytes: (number | null);
     archive_members: (Array<RomArchiveMember> | null);
     category: (RomFileCategory | null);
     track_meta?: (TrackMetaSchema | null);

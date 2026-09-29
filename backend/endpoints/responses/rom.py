@@ -37,6 +37,7 @@ from models.rom import (
     RomArchiveMember,
     RomFile,
     RomFileCategory,
+    RomFileContentType,
     RomNote,
     RomUserStatus,
     SaveTargetLayout,
@@ -268,6 +269,18 @@ class RomFileSchema(BaseModel):
     chd_sha1_hash: str | None
     title_id: str | None
     title_version: int | None
+    title: str | None
+    serial: str | None
+    content_type: RomFileContentType | None
+    display_version: str | None
+    regions: list[str] | None
+    languages: list[str] | None
+    publisher: str | None
+    min_firmware_version: str | None
+    is_compressed: bool | None
+    compression: str | None
+    file_format: str | None
+    uncompressed_size_bytes: int | None
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
     track_meta: TrackMetaSchema | None = None

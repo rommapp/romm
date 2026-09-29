@@ -1,0 +1,80 @@
+"""Add the per-file title id and rom-converto metadata columns on rom_files.
+
+Revision ID: 0145_rom_file_binary_metadata
+Revises: 0144_user_oidc_sub
+Create Date: 2026-09-29 00:00:00.000000
+
+"""
+
+import sqlalchemy as sa
+from alembic import op  # type: ignore[attr-defined]
+from sqlalchemy.dialects.postgresql import ENUM
+
+from utils.database import CustomJSON, is_postgresql
+
+# revision identifiers, used by Alembic.
+revision = "0145_rom_file_binary_metadata"
+down_revision = "0144_user_oidc_sub"
+branch_labels = None
+depends_on = None
+
+# A snapshot of `models.rom.RomFileContentType` member names, frozen so this
+# revision keeps creating the same type after the model grows a member.
+CONTENT_TYPE_VALUES = ("GAME", "UPDATE", "DLC", "DEMO", "SYSTEM")
+CONTENT_TYPE_ENUM = "romfilecontenttype"
+
+
+def _content_type_type() -> ENUM:
+    """The PostgreSQL type behind `content_type`, which the other engines inline."""
+    return ENUM(*CONTENT_TYPE_VALUES, name=CONTENT_TYPE_ENUM, create_type=False)
+
+
+def _columns() -> list[sa.Column]:
+    return [
+        sa.Column("title_id", sa.String(length=100), nullable=True),
+        # BigInteger: Switch title versions are u32 and can exceed signed int32.
+        sa.Column("title_version", sa.BigInteger(), nullable=True),
+        sa.Column("title", sa.String(length=255), nullable=True),
+        sa.Column("serial", sa.String(length=255), nullable=True),
+        sa.Column(
+            "content_type",
+            sa.Enum(*CONTENT_TYPE_VALUES, name=CONTENT_TYPE_ENUM),
+            nullable=True,
+        ),
+        sa.Column("display_version", sa.String(length=255), nullable=True),
+        sa.Column("regions", CustomJSON(), nullable=True),
+        sa.Column("languages", CustomJSON(), nullable=True),
+        sa.Column("publisher", sa.String(length=255), nullable=True),
+        sa.Column("min_firmware_version", sa.String(length=255), nullable=True),
+        sa.Column("is_compressed", sa.Boolean(), nullable=True),
+        sa.Column("compression", sa.String(length=255), nullable=True),
+        sa.Column("file_format", sa.String(length=255), nullable=True),
+        sa.Column("uncompressed_size_bytes", sa.BigInteger(), nullable=True),
+    ]
+
+
+def upgrade() -> None:
+    bind = op.get_bind()
+    if is_postgresql(bind):
+        _content_type_type().create(bind, checkfirst=True)
+
+    with op.batch_alter_table("rom_files", schema=None) as batch_op:
+        for column in _columns():
+            batch_op.add_column(column, if_not_exists=True)
+        batch_op.create_index(
+            "idx_rom_files_title_id",
+            ["title_id"],
+            unique=False,
+            if_not_exists=True,
+        )
+
+
+def downgrade() -> None:
+    with op.batch_alter_table("rom_files", schema=None) as batch_op:
+        batch_op.drop_index("idx_rom_files_title_id", if_exists=True)
+        for column in reversed(_columns()):
+            batch_op.drop_column(column.name, if_exists=True)
+
+    bind = op.get_bind()
+    if is_postgresql(bind):
+        _content_type_type().drop(bind, checkfirst=True)
