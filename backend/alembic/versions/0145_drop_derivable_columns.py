@@ -8,6 +8,7 @@ Create Date: 2026-09-29 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.engine.interfaces import ReflectedColumn
 
 from utils.database import is_postgresql
 
@@ -32,11 +33,15 @@ def _doc_meta_fk_name(conn: sa.Connection) -> str | None:
     return None
 
 
+def _column(conn: sa.Connection, table: str, name: str) -> ReflectedColumn:
+    """The reflected `table.name`, which the step before has just added."""
+    return next(c for c in sa.inspect(conn).get_columns(table) if c["name"] == name)
+
+
 def upgrade() -> None:
     conn = op.get_bind()
 
     op.drop_column("smart_collections", "rom_count", if_exists=True)
-    op.drop_column("platforms", "temp_old_slug", if_exists=True)
 
     # PostgreSQL drops a column's constraints with it; MariaDB and MySQL refuse
     # while the foreign key stands, and 0110 left it for the server to name.
@@ -52,6 +57,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     conn = op.get_bind()
 
+    # The server default only lets the NOT NULL column be added to existing
+    # rows; 0047 gave it none, so it goes again once the backfill is done.
     op.add_column(
         "smart_collections",
         sa.Column("rom_count", sa.Integer(), nullable=False, server_default="0"),
@@ -62,13 +69,14 @@ def downgrade() -> None:
         if is_postgresql(conn)
         else "UPDATE smart_collections SET rom_count = JSON_LENGTH(rom_ids)"
     )
-
-    # Emptied, so 0046's downgrade no longer restores the pre-0046 slugs.
-    op.add_column(
-        "platforms",
-        sa.Column("temp_old_slug", sa.String(length=100), nullable=True),
-        if_not_exists=True,
-    )
+    if _column(conn, "smart_collections", "rom_count")["default"] is not None:
+        op.alter_column(
+            "smart_collections",
+            "rom_count",
+            existing_type=sa.Integer(),
+            existing_nullable=False,
+            server_default=None,
+        )
 
     op.add_column(
         DOC_META_TABLE,
@@ -80,14 +88,13 @@ def downgrade() -> None:
         "SELECT rom_files.rom_id FROM rom_files"
         " WHERE rom_files.id = rom_file_doc_meta.rom_file_id)"
     )
-    op.alter_column(
-        DOC_META_TABLE, "rom_id", existing_type=sa.Integer(), nullable=False
-    )
+    if _column(conn, DOC_META_TABLE, "rom_id")["nullable"]:
+        op.alter_column(
+            DOC_META_TABLE, "rom_id", existing_type=sa.Integer(), nullable=False
+        )
     # Before the foreign key, so MariaDB and MySQL back it with this index
     # rather than one of their own that the upgrade would leave behind.
     op.create_index(DOC_META_INDEX_NAME, DOC_META_TABLE, ["rom_id"], if_not_exists=True)
-    # Guarded like the steps above, since these databases commit each one and a
-    # downgrade that stopped halfway is replayed from the top.
     if not _doc_meta_fk_name(conn):
         op.create_foreign_key(
             DOC_META_FK_NAME,

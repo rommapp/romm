@@ -335,7 +335,7 @@ def test_the_user_oidc_sub_revision_reverses_and_replays():
 def test_the_derivable_columns_revision_reverses_and_replays(admin_user: User):
     """0145 drops a foreign key MariaDB and MySQL named for themselves in 0110."""
     migration = _load_migration("0145_drop_derivable_columns.py")
-    tables = ("smart_collections", "platforms", "rom_file_doc_meta")
+    tables = ("smart_collections", "rom_file_doc_meta")
     smart = db_collection_handler.add_smart_collection(
         SmartCollection(
             name="Smart",
@@ -349,8 +349,13 @@ def test_the_derivable_columns_revision_reverses_and_replays(admin_user: User):
         before = {table: _schema_of(connection, table) for table in tables}
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
-            assert has_column(connection, "platforms", "temp_old_slug")
-            assert has_column(connection, "rom_file_doc_meta", "rom_id")
+            columns = {
+                (table, c["name"]): c
+                for table in tables
+                for c in sa.inspect(connection).get_columns(table)
+            }
+            assert not columns[("rom_file_doc_meta", "rom_id")]["nullable"]
+            assert columns[("smart_collections", "rom_count")]["default"] is None
             rom_count = connection.execute(
                 sa.text("SELECT rom_count FROM smart_collections WHERE id = :id"),
                 {"id": smart.id},
