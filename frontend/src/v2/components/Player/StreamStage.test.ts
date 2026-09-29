@@ -30,4 +30,26 @@ describe("StreamStage", () => {
       .attributes("sandbox");
     expect(sandbox).not.toContain("allow-top-navigation");
   });
+
+  it.each(["gamepad", "fullscreen", "autoplay", "camera", "microphone"])(
+    "delegates %s to the container",
+    (feature) => {
+      const allow = mountStage("http://box:3010/room")
+        .find("iframe")
+        .attributes("allow");
+      expect(allow).toContain(`${feature} *`);
+    },
+  );
+
+  // An opaque origin gets no media permission, so the room's webcam and mic
+  // need the container to keep its own origin.
+  it.each(["allow-scripts", "allow-same-origin"])(
+    "keeps %s so the room can run and ask for media",
+    (flag) => {
+      const sandbox = mountStage("http://box:3010/room")
+        .find("iframe")
+        .attributes("sandbox");
+      expect(sandbox).toContain(flag);
+    },
+  );
 });
