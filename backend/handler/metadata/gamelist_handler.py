@@ -1,7 +1,7 @@
 import os
 import re
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Final, Literal, NotRequired, TypedDict
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
@@ -167,10 +167,15 @@ def gamelist_path_to_rel_path(raw_path: str) -> str:
     return raw_path.removeprefix("./").strip("/")
 
 
-def _make_file_uri(platform_dir: str, raw_text: str) -> str:
+PathValidator = Callable[[str], Path]
+
+
+def _make_file_uri(
+    platform_dir: str, raw_text: str, validate_path: PathValidator
+) -> str:
     cleaned_text = raw_text.replace("./", "")
     joined_path = Path(platform_dir, cleaned_text)
-    fs_platform_handler.validate_path(str(joined_path))
+    validate_path(str(joined_path))
     return f"file://{joined_path.as_posix()}"
 
 
@@ -251,9 +256,13 @@ def build_media_file_index(platform: Platform) -> MediaFileIndex:
 
 
 def extract_media_from_gamelist_rom(
-    game: Element, platform: Platform, media_files: MediaFileIndex
+    game: Element,
+    platform: Platform,
+    media_files: MediaFileIndex,
+    validate_path: PathValidator | None = None,
 ) -> GamelistMetadataMedia:
     platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+    validate_path = validate_path or fs_platform_handler.validate_path
 
     gamelist_media = GamelistMetadataMedia(
         box2d_url=None,
@@ -277,7 +286,9 @@ def extract_media_from_gamelist_rom(
         elem = game.find(xml_tag)
         if elem is not None and elem.text:
             try:
-                gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)
+                gamelist_media[media_key] = _make_file_uri(
+                    platform_dir, elem.text, validate_path
+                )
             except ValueError as e:
                 log.debug(f"Skipping gamelist <{xml_tag}> outside the library: {e}")
 
@@ -298,7 +309,7 @@ def extract_media_from_gamelist_rom(
                 # after its stem, so only a name both could match needs the disk.
                 if is_directory is None:
                     is_directory = _is_directory_entry(
-                        game, platform_dir, path_elem.text
+                        game, platform_dir, path_elem.text, validate_path
                     )
                 name = rom_name if is_directory else rom_stem
             else:
@@ -308,12 +319,14 @@ def extract_media_from_gamelist_rom(
     return gamelist_media
 
 
-def _is_directory_entry(game: Element, platform_dir: str, raw_path: str) -> bool:
+def _is_directory_entry(
+    game: Element, platform_dir: str, raw_path: str, validate_path: PathValidator
+) -> bool:
     """Whether a gamelist entry names a directory rather than a file."""
     if game.tag == "folder":
         return True
     try:
-        return fs_platform_handler.validate_path(
+        return validate_path(
             os.path.join(platform_dir, gamelist_path_to_rel_path(raw_path))
         ).is_dir()
     except ValueError:
@@ -321,7 +334,10 @@ def _is_directory_entry(game: Element, platform_dir: str, raw_path: str) -> bool
 
 
 def extract_metadata_from_gamelist_rom(
-    game: Element, platform: Platform, media_files: MediaFileIndex
+    game: Element,
+    platform: Platform,
+    media_files: MediaFileIndex,
+    validate_path: PathValidator | None = None,
 ) -> GamelistMetadata:
     rating_elem = game.find("rating")
     releasedate_elem = game.find("releasedate")
@@ -386,7 +402,7 @@ def extract_metadata_from_gamelist_rom(
         marquee_path=None,
         title_screen_path=None,
         video_path=None,
-        **extract_media_from_gamelist_rom(game, platform, media_files),
+        **extract_media_from_gamelist_rom(game, platform, media_files, validate_path),
     )
 
 
@@ -551,6 +567,7 @@ class GamelistHandler(MetadataHandler):
 
         try:
             media_files = build_media_file_index(platform)
+            validate_path = fs_platform_handler.cached_path_validator()
             for game in self._iter_game_elements(gamelist_path):
                 if game.tag not in ("game", "folder"):
                     continue
@@ -593,7 +610,7 @@ class GamelistHandler(MetadataHandler):
 
                 # Build ROM data
                 rom_metadata = extract_metadata_from_gamelist_rom(
-                    game, platform, media_files
+                    game, platform, media_files, validate_path
                 )
                 name_sort_key = compute_name_sort_key(sort_name) if sort_name else None
                 rom_data = GamelistRom(
