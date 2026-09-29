@@ -1298,7 +1298,7 @@ const describedBy = computed(() => {
 .r-select {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   width: 100%;
   /* As a flex child, default `min-width: auto` refuses to shrink below the
      selection's content width, so a long value overflows its container.
