@@ -467,7 +467,7 @@ function closeDialog() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   background: color-mix(in srgb, var(--r-color-bg) 30%, transparent);
   backdrop-filter: blur(4px);
   color: var(--r-color-fg);
@@ -491,7 +491,7 @@ function closeDialog() {
 .r-v2-match__filters {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   overflow-x: auto;
   padding-bottom: 2px;
 }
@@ -503,7 +503,7 @@ function closeDialog() {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: var(--r-space-1) 10px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
@@ -511,7 +511,7 @@ function closeDialog() {
   color: var(--r-color-fg-secondary);
 }
 .r-v2-match__results-count {
-  padding: 2px 8px;
+  padding: 2px var(--r-space-2);
   background: color-mix(in srgb, var(--r-color-brand-primary) 20%, transparent);
   color: var(--r-color-brand-primary);
   border-radius: var(--r-radius-pill);
@@ -521,7 +521,7 @@ function closeDialog() {
 .r-v2-match__search-row {
   display: grid;
   grid-template-columns: 1fr 140px auto;
-  gap: 8px;
+  gap: var(--r-space-2);
   align-items: stretch;
 }
 /* Grid children default to `min-width: auto`, so each track can't shrink below

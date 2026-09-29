@@ -823,7 +823,7 @@ function onRowPointerDown(e: PointerEvent) {
   appearance: none;
   background: transparent;
   border: 0;
-  padding: 4px;
+  padding: var(--r-space-1);
   display: inline-flex;
   align-items: center;
   color: var(--r-color-fg-muted);
@@ -1020,7 +1020,7 @@ html[data-input="pad"] .game-list-row:focus-visible {
 .game-list-row__badges {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   flex-shrink: 0;
 }
 
@@ -1035,7 +1035,7 @@ html[data-input="pad"] .game-list-row:focus-visible {
 /* The badges own their look; the column layout only adds the gap under the
    file name above them. */
 .game-list-row__providers {
-  margin-top: 4px;
+  margin-top: var(--r-space-1);
 }
 
 /* Pills cell — chips wrap to multiple lines inside the cell when they
@@ -1071,6 +1071,6 @@ html[data-input="pad"] .game-list-row:focus-visible {
 .game-list-row__actions {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 </style>

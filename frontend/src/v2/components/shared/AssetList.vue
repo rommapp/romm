@@ -365,7 +365,7 @@ const fadeIndex = computed(() =>
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
   min-height: 0;
 }
 /* Internal scroll only where the parent does not own scrolling. The
@@ -373,24 +373,24 @@ const fadeIndex = computed(() =>
 .r-asset-list--scroll .r-asset-list__groups {
   overflow-y: auto;
   max-height: 380px;
-  padding: 4px 10px 4px 0;
+  padding: var(--r-space-1) 10px var(--r-space-1) 0;
 }
 
 .r-asset-list__group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 /* Each slot sits on its own neutral band, so the gaps between sections
    read as separators. */
 .r-asset-list__group--slot {
-  padding-bottom: 8px;
+  padding-bottom: var(--r-space-2);
   border-radius: var(--r-radius-md);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
 .r-asset-list__group--slot > .r-asset-list__items,
 .r-asset-list__group--slot > .r-asset-list__fold {
-  margin-inline: 8px;
+  margin-inline: var(--r-space-2);
 }
 
 .r-asset-list__items {
@@ -399,7 +399,7 @@ const fadeIndex = computed(() =>
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 
 .r-asset-list__item {
@@ -413,9 +413,9 @@ const fadeIndex = computed(() =>
   width: 100%;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: var(--r-space-3);
   align-items: center;
-  padding: 10px 12px;
+  padding: 10px var(--r-space-3);
   border-radius: var(--r-radius-md);
   cursor: pointer;
   text-align: left;
@@ -485,7 +485,7 @@ const fadeIndex = computed(() =>
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-asset-list__title {
   display: flex;
@@ -528,7 +528,7 @@ const fadeIndex = computed(() =>
 .r-asset-list__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--r-space-1);
   align-items: center;
 }
 
@@ -604,7 +604,7 @@ html[data-bp~="xs"] .r-asset-list__marks {
   grid-area: labels;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--r-space-1);
   align-items: center;
   min-width: 0;
 }

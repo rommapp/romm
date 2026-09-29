@@ -170,7 +170,7 @@ function onInput(e: Event) {
   gap: 14px;
   width: 100%;
   margin: 0;
-  padding: 10px 16px;
+  padding: 10px var(--r-space-4);
   background: transparent;
   cursor: pointer;
   color: inherit;
@@ -238,7 +238,7 @@ function onInput(e: Event) {
   font-size: 14px;
   font-family: inherit;
   font-weight: var(--r-font-weight-medium);
-  padding: 8px 0;
+  padding: var(--r-space-2) 0;
   outline: none;
   min-width: 0;
   width: 100%;
@@ -251,7 +251,7 @@ function onInput(e: Event) {
 .new-row__actions {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   flex-shrink: 0;
 }
 

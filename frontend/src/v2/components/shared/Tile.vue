@@ -70,13 +70,13 @@ const tag = computed(() => (props.to ? "router-link" : "button"));
 }
 
 .r-v2-tile--comfortable {
-  gap: 12px;
-  padding: 24px 16px 18px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-6) var(--r-space-4) 18px;
 }
 
 .r-v2-tile--compact {
   gap: 7px;
-  padding: 14px 12px 12px;
+  padding: 14px var(--r-space-3) var(--r-space-3);
 }
 
 /* Hover is gated to mouse/touch modality so a cursor parked from a
@@ -154,13 +154,13 @@ html[data-bp~="xs"] .r-v2-tile--row {
 }
 
 html[data-bp~="xs"] .r-v2-tile--comfortable {
-  padding: 12px 8px 10px;
+  padding: var(--r-space-3) var(--r-space-2) 10px;
   gap: 6px;
 }
 
 html[data-bp~="xs"] .r-v2-tile--compact {
-  padding: 8px;
-  gap: 4px;
+  padding: var(--r-space-2);
+  gap: var(--r-space-1);
 }
 
 html[data-bp~="xs"] .r-v2-tile__icon {

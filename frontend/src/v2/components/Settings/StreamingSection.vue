@@ -223,7 +223,7 @@ onMounted(load);
 
 <style scoped>
 .r-v2-streaming__loading {
-  padding: 16px;
+  padding: var(--r-space-4);
   color: var(--r-color-fg-muted);
 }
 
@@ -231,8 +231,8 @@ onMounted(load);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-3) var(--r-space-4);
   border-bottom: 1px solid var(--r-color-border);
 }
 .r-v2-streaming__row:last-child {
@@ -272,7 +272,7 @@ onMounted(load);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 /* On a phone the actions drop under the details instead of squeezing them out. */

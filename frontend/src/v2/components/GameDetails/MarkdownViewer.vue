@@ -262,6 +262,6 @@ watch(() => props.url, load, { immediate: true });
    bg-elevated container so there's no visible seam under the toolbar. */
 .r-v2-mdv__preview {
   background: transparent;
-  padding: 0 16px 16px;
+  padding: 0 var(--r-space-4) var(--r-space-4);
 }
 </style>

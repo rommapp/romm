@@ -198,14 +198,14 @@ function onLogoLoad(event: Event) {
 .r-v2-det-header {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 24px;
+  gap: var(--r-space-3);
+  padding-top: var(--r-space-6);
 }
 
 .r-v2-det-header__title-row {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: var(--r-space-4);
 }
 
 .r-v2-det-header__title {
@@ -282,7 +282,7 @@ function onLogoLoad(event: Event) {
 .r-v2-det-header__versions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   flex-wrap: wrap;
 }
 
@@ -295,7 +295,7 @@ html[data-bp~="xs"] .r-v2-det-header__title {
 html[data-bp~="sm-and-down"] .r-v2-det-header {
   align-items: center;
   text-align: center;
-  padding-top: 4px;
+  padding-top: var(--r-space-1);
 }
 html[data-bp~="sm-and-down"] .r-v2-det-header__title-row {
   align-self: stretch;

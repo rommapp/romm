@@ -28,7 +28,7 @@ const labels = computed(() => props.asset.labels ?? []);
 .r-asset-labels {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--r-space-1);
   align-items: center;
   min-width: 0;
 }

@@ -614,7 +614,7 @@ onBeforeUnmount(() => {
 .r-v2-tok-dialog__body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--r-space-4);
 }
 .r-v2-tok-dialog__body--center {
   align-items: center;
@@ -632,7 +632,7 @@ onBeforeUnmount(() => {
 .r-v2-tok-dialog__scopes-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--r-space-4);
 }
 /* Phones: the two scope columns get cramped (and their content can push the
    tracks past the sheet); stack them into one. */
@@ -645,14 +645,14 @@ html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
 .r-v2-tok-dialog__scopes-col {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-tok-dialog__scopes-group {
   font-size: 11px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg-muted);
-  margin-top: 8px;
-  margin-bottom: 4px;
+  margin-top: var(--r-space-2);
+  margin-bottom: var(--r-space-1);
 }
 
 .r-v2-tok-dialog__intro {
@@ -669,7 +669,7 @@ html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
 
 .r-v2-tok-dialog__delivery-row {
   display: flex;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 .r-v2-tok-dialog__token-input {
@@ -697,7 +697,7 @@ html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
   margin: 0 auto;
 }
 .r-v2-tok-dialog__pair-code {
-  margin-top: 8px;
+  margin-top: var(--r-space-2);
   font-family: var(--r-font-family-mono, monospace);
   font-size: 28px;
   font-weight: var(--r-font-weight-bold);
@@ -709,7 +709,7 @@ html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
   color: var(--r-color-fg-muted);
 }
 .r-v2-tok-dialog__pair-loading {
-  padding: 32px;
+  padding: var(--r-space-8);
 }
 .r-v2-tok-dialog__pair-ok {
   color: var(--r-color-success);
@@ -719,7 +719,7 @@ html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
 }
 .r-v2-tok-dialog__pair-result {
   font-size: 14px;
-  margin: 4px 0;
+  margin: var(--r-space-1) 0;
   color: var(--r-color-fg);
 }
 </style>

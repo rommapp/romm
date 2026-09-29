@@ -102,10 +102,10 @@ defineExpose({ open: () => filledDz.value?.open() });
 
 <style scoped>
 .r-pending-files {
-  padding: 12px;
+  padding: var(--r-space-3);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-pending-files__head {
@@ -121,7 +121,7 @@ defineExpose({ open: () => filledDz.value?.open() });
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   max-height: 240px;
   overflow-y: auto;
 }
@@ -129,7 +129,7 @@ defineExpose({ open: () => filledDz.value?.open() });
 .r-pending-files__row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   min-width: 0;
 }
 

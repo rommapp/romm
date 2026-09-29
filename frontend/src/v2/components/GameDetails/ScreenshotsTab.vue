@@ -170,7 +170,7 @@ function canEdit(shot: ScreenshotItem): boolean {
      room to render past the leftmost / rightmost thumbnail before
      the overview's scroll container clips them (it has `overflow-y:
      auto`, which clips on X too per the CSS spec). */
-  padding: 6px 6px 4px;
+  padding: 6px 6px var(--r-space-1);
 }
 
 .r-v2-det-shots__cell {
@@ -212,7 +212,7 @@ function canEdit(shot: ScreenshotItem): boolean {
   top: 6px;
   right: 6px;
   display: flex;
-  gap: 4px;
+  gap: var(--r-space-1);
   opacity: 0;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
@@ -242,10 +242,10 @@ html[data-bp~="sm-and-down"] .r-v2-det-shots__pin {
   bottom: 6px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   /* Leaves the bottom-right corner to the pin. */
   max-width: calc(100% - 52px);
-  padding: 2px 8px 2px 2px;
+  padding: 2px var(--r-space-2) 2px 2px;
   border-radius: 999px;
   background: var(--r-color-overlay-scrim-strong);
   color: var(--r-color-overlay-fg);

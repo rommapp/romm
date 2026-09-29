@@ -155,7 +155,7 @@ const badges = computed<Badge[]>(() => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
+  padding: var(--r-space-1) 10px;
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-chip);

@@ -182,7 +182,7 @@ onMounted(() => reroll({ notify: false }));
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 
 .r-v2-widget-pick__name {

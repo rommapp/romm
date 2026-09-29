@@ -345,13 +345,13 @@ function onRowClick(e: MouseEvent, platformId: number): void {
 .r-v2-plat-stats-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--r-space-5);
 }
 
 .r-v2-plat-stats__toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 /* Search width mirrors GalleryToolbar, bounded so the sort cluster
@@ -377,7 +377,7 @@ function onRowClick(e: MouseEvent, platformId: number): void {
   display: grid;
   grid-template-columns: auto 1fr auto;
   column-gap: 14px;
-  row-gap: 12px;
+  row-gap: var(--r-space-3);
   align-items: center;
   padding: 7px var(--r-space-2);
   margin: 0 calc(-1 * var(--r-space-2));
@@ -409,7 +409,7 @@ function onRowClick(e: MouseEvent, platformId: number): void {
   color: var(--r-color-fg);
 }
 .r-v2-plat-stats__meta {
-  margin-top: 4px;
+  margin-top: var(--r-space-1);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -436,7 +436,7 @@ function onRowClick(e: MouseEvent, platformId: number): void {
 .r-v2-plat-stats__region {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   padding: 1px 6px;
   border-radius: 4px;
   background: var(--r-color-surface);

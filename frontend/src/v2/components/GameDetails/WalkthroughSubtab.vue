@@ -315,7 +315,7 @@ async function requestDelete() {
 .r-v2-wt__head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   flex-shrink: 0;
   flex-wrap: wrap;
 }
@@ -329,7 +329,7 @@ async function requestDelete() {
 .r-v2-wt__url {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   min-width: 260px;
 }
 .r-v2-wt__fill {

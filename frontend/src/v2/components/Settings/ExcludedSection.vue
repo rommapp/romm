@@ -445,7 +445,7 @@ function onSort({ key, dir }: RTableSortPayload) {
 .r-v2-excluded__toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-excluded__search {
   flex: 1;
@@ -460,7 +460,7 @@ function onSort({ key, dir }: RTableSortPayload) {
 .r-v2-excluded__type {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   color: var(--r-color-fg-muted);
 }
 
@@ -479,7 +479,7 @@ function onSort({ key, dir }: RTableSortPayload) {
 /* Defaults list (read-only). */
 .r-v2-excluded__defaults {
   border-top: 1px solid var(--r-color-border);
-  padding-top: 16px;
+  padding-top: var(--r-space-4);
 }
 .r-v2-excluded__defaults-label {
   font-size: 11px;
@@ -495,12 +495,12 @@ function onSort({ key, dir }: RTableSortPayload) {
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-excluded__defaults-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   padding: 6px 0;
   color: var(--r-color-fg-secondary);
   font-size: 12px;

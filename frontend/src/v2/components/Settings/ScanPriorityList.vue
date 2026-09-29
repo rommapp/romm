@@ -262,8 +262,8 @@ function onDragEnd() {
 .r-v2-spl {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-4);
 }
 .r-v2-spl--disabled {
   opacity: 0.55;
@@ -276,14 +276,14 @@ function onDragEnd() {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 
 .r-v2-spl__row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px 6px 10px;
+  padding: 6px var(--r-space-2) 6px 10px;
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
   border-radius: 8px;
@@ -352,7 +352,7 @@ function onDragEnd() {
 .r-v2-spl__entry {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-spl__entry :deep(.r-text-field) {
   flex: 1;
@@ -362,9 +362,9 @@ function onDragEnd() {
 .r-v2-spl__tray {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
   border-top: 1px solid var(--r-color-border);
-  padding-top: 12px;
+  padding-top: var(--r-space-3);
 }
 .r-v2-spl__tray-label {
   font-size: 11px;
@@ -382,7 +382,7 @@ function onDragEnd() {
 .r-v2-spl__add {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   padding: 5px 10px;
   border-radius: 999px;
   border: 1px dashed var(--r-color-border-strong);

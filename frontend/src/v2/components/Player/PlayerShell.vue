@@ -137,13 +137,13 @@ usePlayFocus(
 .r-v2-player {
   position: relative;
   min-height: calc(100vh - var(--r-nav-h));
-  padding: 24px var(--r-row-pad) 48px;
+  padding: var(--r-space-6) var(--r-row-pad) var(--r-space-12);
 }
 
 .r-v2-player__config {
   display: grid;
   grid-template-columns: 240px 1fr;
-  gap: 24px;
+  gap: var(--r-space-6);
   max-width: 820px;
   margin: 0 auto;
 }
@@ -153,7 +153,7 @@ usePlayFocus(
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-v2-player__cover-box {
@@ -188,19 +188,19 @@ usePlayFocus(
 }
 
 .r-v2-player__settings {
-  padding: 16px;
+  padding: var(--r-space-4);
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
 .r-v2-player__play {
-  margin-top: 8px;
+  margin-top: var(--r-space-2);
 }
 
 .r-v2-player__brand {
   grid-column: 1 / -1;
-  margin-top: 12px;
+  margin-top: var(--r-space-3);
 }
 
 .r-v2-player__stage-wrap {

@@ -232,7 +232,7 @@ watch(() => props.url, load, { immediate: true });
 }
 .r-v2-txtv__pre {
   margin: 0;
-  padding: 16px;
+  padding: var(--r-space-4);
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--r-font-mono, ui-monospace, monospace);

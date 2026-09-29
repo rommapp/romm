@@ -847,7 +847,7 @@ const labelSuggestions = computed(() =>
 .r-v2-saves {
   display: flex;
   align-items: stretch;
-  gap: 24px;
+  gap: var(--r-space-6);
   height: 100%;
   min-height: 0;
 }
@@ -885,7 +885,7 @@ const labelSuggestions = computed(() =>
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 .r-v2-saves__section-title {
   margin: 0;

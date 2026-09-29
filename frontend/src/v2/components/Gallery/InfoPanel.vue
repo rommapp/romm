@@ -60,8 +60,8 @@ withDefaults(
 .info-panel {
   display: flex;
   align-items: flex-start;
-  gap: 40px;
-  padding: 28px 0;
+  gap: var(--r-space-10);
+  padding: var(--r-space-7) 0;
 }
 
 .info-panel__cover {
@@ -99,29 +99,29 @@ withDefaults(
 
 .info-panel__stats {
   display: flex;
-  gap: 32px;
+  gap: var(--r-space-8);
   flex-wrap: wrap;
 }
 
 .info-panel__providers {
   display: flex;
-  gap: 8px;
+  gap: var(--r-space-2);
   flex-wrap: wrap;
-  margin-top: 16px;
+  margin-top: var(--r-space-4);
 }
 
 .info-panel__actions {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 html[data-bp~="xs"] .info-panel {
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  padding: 16px 0;
+  padding: var(--r-space-4) 0;
 }
 /* Drive the vertical rhythm purely from one flex gap on xs — the
    per-child margins (title / tags / providers) compound with the column
@@ -132,7 +132,7 @@ html[data-bp~="xs"] .info-panel__details {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   width: 100%;
   text-align: center;
 }
@@ -152,7 +152,7 @@ html[data-bp~="xs"] .info-panel__providers {
   margin-top: 0;
 }
 html[data-bp~="xs"] .info-panel__stats {
-  gap: 16px;
+  gap: var(--r-space-4);
 }
 html[data-bp~="xs"] .info-panel__cover {
   align-self: center;

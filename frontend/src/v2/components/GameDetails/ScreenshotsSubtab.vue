@@ -381,7 +381,7 @@ async function submitEdit(isPublic: boolean) {
 .r-v2-shots {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--r-space-6);
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -399,7 +399,7 @@ async function submitEdit(isPublic: boolean) {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 .r-v2-shots__title {
   margin: 0;

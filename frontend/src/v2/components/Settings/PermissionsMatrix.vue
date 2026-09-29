@@ -166,8 +166,8 @@ function toggleColumn(a: PermAction, value: boolean) {
 .r-v2-perm-matrix__row {
   display: grid;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: var(--r-space-2);
+  padding: var(--r-space-2) 14px;
 }
 
 .r-v2-perm-matrix__head {

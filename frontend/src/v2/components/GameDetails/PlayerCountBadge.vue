@@ -56,8 +56,8 @@ const label = computed(() => {
 .player-count {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 12px 5px 10px;
+  gap: var(--r-space-2);
+  padding: 5px var(--r-space-3) 5px 10px;
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-pill);

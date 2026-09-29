@@ -131,8 +131,8 @@ function clear() {
 .r-v2-metric-menu__header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 4px;
+  gap: var(--r-space-2);
+  padding: 0 var(--r-space-1);
   font-size: 13px;
   font-weight: var(--r-font-weight-semibold);
 }
@@ -166,7 +166,7 @@ function clear() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   padding: 6px;
   border-radius: var(--r-radius-sm);
   cursor: pointer;

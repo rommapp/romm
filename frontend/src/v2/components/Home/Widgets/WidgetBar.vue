@@ -54,7 +54,7 @@ const anyEnabled = computed(() => orderedWidgets.value.length > 0);
   flex-wrap: nowrap;
   /* Extra bottom padding so the rail breathes before the first
      CardRow underneath (Continue playing / Recently added). */
-  padding: 16px var(--r-row-pad) 24px;
+  padding: var(--r-space-4) var(--r-row-pad) var(--r-space-6);
   overflow-x: auto;
   overflow-y: visible;
   scrollbar-width: none;

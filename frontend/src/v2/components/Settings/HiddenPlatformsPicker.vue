@@ -108,13 +108,13 @@ function remove(id: number) {
 .r-v2-hidplat__list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-hidplat__row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px;
+  padding: 6px var(--r-space-2);
   border-radius: 8px;
   background: var(--r-color-surface);
 }

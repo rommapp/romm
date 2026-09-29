@@ -48,7 +48,7 @@ const caption = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   /* Pinned to the cover's width the way GameCard pins its own label, rather
      than to the card-width token, which GameCard overrides on itself. */
   width: 0;

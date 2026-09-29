@@ -129,10 +129,10 @@ function onDragEnd() {
 .r-v2-widget-reorder {
   list-style: none;
   margin: 0;
-  padding: 8px;
+  padding: var(--r-space-2);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-widget-reorder--disabled {
   opacity: 0.5;
@@ -143,7 +143,7 @@ function onDragEnd() {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: var(--r-space-2) 10px;
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
   border-radius: 8px;

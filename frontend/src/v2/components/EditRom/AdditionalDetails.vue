@@ -182,6 +182,6 @@ function updateManualMetadata(
 .r-v2-additional {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 </style>

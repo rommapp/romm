@@ -94,8 +94,8 @@ const { t } = useI18n();
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 2px 4px;
+  gap: var(--r-space-3);
+  padding: 2px var(--r-space-1);
   /* Holds the row's height so it does not jump when the actions appear. */
   min-height: 36px;
 }
@@ -106,6 +106,6 @@ const { t } = useI18n();
 .r-v2-asset-select__actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 </style>

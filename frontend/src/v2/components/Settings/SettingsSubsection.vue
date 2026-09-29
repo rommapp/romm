@@ -42,8 +42,8 @@ defineProps<{
 .r-v2-settings-sub__head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px 4px;
+  gap: var(--r-space-2);
+  padding: 10px var(--r-space-4) var(--r-space-1);
   color: var(--r-color-fg-muted);
 }
 

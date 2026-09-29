@@ -505,7 +505,7 @@ function closeDialog() {
 .r-v2-refresh {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--r-space-4);
 }
 
 /* ROM identity row — cover + name + filename. Mirrors the row layout
@@ -514,8 +514,8 @@ function closeDialog() {
 .r-v2-refresh__rom {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: var(--r-space-3);
+  padding: 10px var(--r-space-3);
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
@@ -565,8 +565,8 @@ function closeDialog() {
 .r-v2-refresh__rom-bulk {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--r-space-2);
+  padding: var(--r-space-2) var(--r-space-3);
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
@@ -582,7 +582,7 @@ function closeDialog() {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-top: 12px;
+  padding-top: var(--r-space-3);
   border-top: 1px solid var(--r-color-border);
 }
 .r-v2-refresh__section:first-of-type {
@@ -604,10 +604,10 @@ function closeDialog() {
 .r-v2-refresh__providers-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-refresh__providers-group + .r-v2-refresh__providers-group {
-  margin-top: 8px;
+  margin-top: var(--r-space-2);
 }
 .r-v2-refresh__providers-group-label {
   font-size: 10px;
@@ -637,7 +637,7 @@ function closeDialog() {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: var(--r-space-1) var(--r-space-2);
   border-radius: var(--r-radius-pill);
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
@@ -667,6 +667,6 @@ function closeDialog() {
 }
 
 .r-v2-refresh__hint {
-  margin-top: -4px;
+  margin-top: calc(-1 * var(--r-space-1));
 }
 </style>

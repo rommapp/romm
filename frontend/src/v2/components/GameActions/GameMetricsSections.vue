@@ -48,7 +48,7 @@ const actions = useGameActions(() => romRef.value);
 }
 .game-metrics__title {
   margin: 0;
-  padding: 8px 14px 2px;
+  padding: var(--r-space-2) 14px 2px;
   font-size: 11px;
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.06em;

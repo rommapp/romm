@@ -303,7 +303,7 @@ function requestDeleteManual() {
 .r-v2-manual__head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   flex-shrink: 0;
 }
 

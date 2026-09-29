@@ -132,7 +132,7 @@ const groups = computed<Group[]>(() => {
 .r-v2-scope-tree__group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   min-width: 0;
 }
 
@@ -156,7 +156,7 @@ const groups = computed<Group[]>(() => {
   /* Indent the branch glyphs so they sit under the label's first
      letter rather than flush with the column edge — reads as a
      proper child indent. */
-  padding-left: 4px;
+  padding-left: var(--r-space-1);
 }
 
 .r-v2-scope-tree__leaf {
@@ -177,7 +177,7 @@ const groups = computed<Group[]>(() => {
 
 /* Compact mode — tighter vertical rhythm for table-cell use. */
 .r-v2-scope-tree--compact {
-  gap: 8px 14px;
+  gap: var(--r-space-2) 14px;
 }
 .r-v2-scope-tree--compact .r-v2-scope-tree__group {
   gap: 3px;

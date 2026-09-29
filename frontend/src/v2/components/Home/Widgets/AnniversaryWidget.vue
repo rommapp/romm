@@ -289,7 +289,7 @@ useIntervalFn(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 
 .r-v2-widget-anniv__name {

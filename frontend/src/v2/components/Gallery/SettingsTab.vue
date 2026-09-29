@@ -256,7 +256,7 @@ const details = computed<DetailRow[]>(() => {
 .r-v2-plat-settings__form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 /* ── Read-only details table ─────────────────────────────────── */
@@ -271,7 +271,7 @@ const details = computed<DetailRow[]>(() => {
 .r-v2-plat-settings__detail-row {
   display: grid;
   grid-template-columns: 140px 1fr;
-  gap: 12px;
+  gap: var(--r-space-3);
   padding: 10px 14px;
   font-size: 12px;
   border-bottom: 1px solid var(--r-color-border);

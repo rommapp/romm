@@ -285,11 +285,11 @@ const emptyText = computed(() =>
   inset: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
   align-items: center;
   justify-content: center;
   color: var(--r-color-fg-muted);
-  padding: 12px;
+  padding: var(--r-space-3);
   text-align: center;
 }
 .r-asset-preview__stage-fill p {
@@ -312,8 +312,8 @@ const emptyText = computed(() =>
 .r-asset-preview--save .r-asset-preview__body {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: var(--r-space-3);
+  padding: 10px var(--r-space-3);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   background: linear-gradient(
@@ -389,7 +389,7 @@ const emptyText = computed(() =>
 .r-asset-preview__clear::before {
   content: "";
   position: absolute;
-  inset: -8px;
+  inset: calc(-1 * var(--r-space-2));
 }
 .r-asset-preview__clear:hover {
   background: color-mix(
@@ -422,7 +422,7 @@ const emptyText = computed(() =>
 .r-asset-preview__meta {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
   padding: 0 2px;
   flex: 1;
   min-width: 0;

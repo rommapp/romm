@@ -261,8 +261,8 @@ const hasAnyHash = computed(
 .r-v2-file-row {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: var(--r-space-3);
+  padding: 10px var(--r-space-3);
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
@@ -365,13 +365,13 @@ const hasAnyHash = computed(
 .r-v2-file-row__hashes {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 
 .r-v2-file-row__actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   flex-shrink: 0;
   /* Row uses `align-items: flex-start` so the checkbox lines up with
      the filename top; the actions cluster overrides to centre against

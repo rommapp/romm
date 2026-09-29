@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
   z-index: var(--r-z-snackbar, 2700);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
   max-width: min(420px, calc(100vw - 32px));
   pointer-events: none;
 }
@@ -150,7 +150,7 @@ onBeforeUnmount(() => {
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 10px var(--r-space-3);
   background: var(--r-color-toast-bg);
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-md);

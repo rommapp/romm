@@ -591,7 +591,7 @@ function fmtDate(iso: string): string {
   border: none;
   cursor: pointer;
   text-align: left;
-  padding: 8px 12px;
+  padding: var(--r-space-2) var(--r-space-3);
   border-radius: var(--r-radius-md);
   color: var(--r-color-fg-muted);
   font-family: inherit;
@@ -617,7 +617,7 @@ function fmtDate(iso: string): string {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--r-space-2);
-  padding: 10px 12px;
+  padding: 10px var(--r-space-3);
 }
 .r-v2-notes__nav-title {
   flex: 1;
@@ -680,14 +680,14 @@ function fmtDate(iso: string): string {
 .r-v2-notes__author {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   font-size: var(--r-font-size-sm);
   color: var(--r-color-fg-muted);
 }
 .r-v2-notes__actions {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   flex-shrink: 0;
 }
 .r-v2-notes__edit-controls {
@@ -712,7 +712,7 @@ function fmtDate(iso: string): string {
   position: relative;
   background: color-mix(in srgb, black 28%, transparent);
   border-radius: var(--r-radius-lg);
-  padding: 4px 18px;
+  padding: var(--r-space-1) 18px;
 }
 
 .r-v2-notes__editor :deep(.md-editor) {

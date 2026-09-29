@@ -166,7 +166,7 @@ function remove(id: number) {
 .r-v2-hgames__status {
   display: flex;
   justify-content: center;
-  padding: 8px;
+  padding: var(--r-space-2);
 }
 .r-v2-hgames__results {
   border: 1px solid var(--r-color-border);
@@ -178,13 +178,13 @@ function remove(id: number) {
 .r-v2-hgames__selected {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-hgames__row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px;
+  padding: 6px var(--r-space-2);
   border-radius: 8px;
 }
 .r-v2-hgames__selected .r-v2-hgames__row {

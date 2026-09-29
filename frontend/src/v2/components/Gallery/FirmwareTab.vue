@@ -465,7 +465,7 @@ async function performDelete(
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px;
+  padding: var(--r-space-3);
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-md);
   background: var(--r-color-bg-elevated);
@@ -493,7 +493,7 @@ async function performDelete(
   grid-template-columns: auto 1fr auto auto;
   gap: 10px;
   align-items: center;
-  padding: 8px 12px;
+  padding: var(--r-space-2) var(--r-space-3);
   font-size: 13px;
   color: var(--r-color-fg);
   border-bottom: 1px solid var(--r-color-border);
@@ -509,7 +509,7 @@ async function performDelete(
 .r-v2-fw__pending-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 /* ── Toolbar ───────────────────────────────────────────────────── */
@@ -517,8 +517,8 @@ async function performDelete(
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: var(--r-space-2);
+  padding: var(--r-space-2) 10px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
@@ -556,7 +556,7 @@ async function performDelete(
   grid-template-columns: auto 1fr auto;
   gap: 10px;
   align-items: center;
-  padding: 10px 12px;
+  padding: 10px var(--r-space-3);
   border-bottom: 1px solid var(--r-color-border);
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
@@ -582,7 +582,7 @@ async function performDelete(
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-fw__row-name-line {
   display: flex;
@@ -600,7 +600,7 @@ async function performDelete(
 .r-v2-fw__row-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-fw__row-actions {
   display: inline-flex;

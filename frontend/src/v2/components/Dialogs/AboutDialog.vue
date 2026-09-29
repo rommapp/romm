@@ -137,8 +137,8 @@ watch(() => links.value.map((link) => link.value), measure, { flush: "post" });
 .r-v2-about__tile {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-3) 14px;
   border-radius: var(--r-radius-md);
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);

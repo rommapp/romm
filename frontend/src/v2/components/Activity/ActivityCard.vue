@@ -111,7 +111,7 @@ const { t } = useI18n();
 .activity-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
   text-decoration: none;
   color: inherit;
   /* Each card keeps its cover's natural width and wraps — no grow/shrink. */
@@ -170,7 +170,7 @@ html[data-bp~="xs"] .activity-card .activity-card__art {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: var(--r-space-2);
   min-width: 0;
 }
 
@@ -196,7 +196,7 @@ html[data-bp~="xs"] .activity-card .activity-card__art {
 }
 
 .activity-card__release {
-  margin-top: 8px;
+  margin-top: var(--r-space-2);
   width: 100%;
 }
 </style>

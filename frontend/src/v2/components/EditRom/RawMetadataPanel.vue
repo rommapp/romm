@@ -139,7 +139,7 @@ const ariaLabel = computed(() => `${props.label} ${t("rom.metadata")} JSON`);
 .r-v2-raw-meta {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-v2-raw-meta__actions {

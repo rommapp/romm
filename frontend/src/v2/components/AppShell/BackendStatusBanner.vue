@@ -134,7 +134,7 @@ function onRetry() {
   align-items: center;
   gap: 10px;
   max-width: min(440px, calc(100vw - 32px));
-  padding: 8px 8px 8px 14px;
+  padding: var(--r-space-2) var(--r-space-2) var(--r-space-2) 14px;
   background: color-mix(
     in srgb,
     var(--r-color-status-base-danger) 16%,
@@ -162,7 +162,7 @@ function onRetry() {
   max-width: min(420px, calc(100vw - 32px));
   /* The retry button is what pads the right edge out; without it the text
      needs the same room the icon gets. */
-  padding: 8px 14px;
+  padding: var(--r-space-2) 14px;
 }
 
 .r-backend-banner--in-game .r-backend-banner__body {
@@ -170,7 +170,7 @@ function onRetry() {
 }
 
 .r-backend-banner--collapsed {
-  padding: 8px;
+  padding: var(--r-space-2);
 }
 
 .r-backend-banner__icon {

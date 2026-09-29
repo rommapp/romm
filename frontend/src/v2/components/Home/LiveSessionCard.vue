@@ -101,7 +101,7 @@ async function join(): Promise<void> {
 .r-live-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
   width: 150px;
   flex-shrink: 0;
   padding: 0;
@@ -132,7 +132,7 @@ async function join(): Promise<void> {
   left: 8px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: var(--r-font-weight-bold);
@@ -165,7 +165,7 @@ async function join(): Promise<void> {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px;
+  padding: var(--r-space-2);
   background: color-mix(
     in srgb,
     var(--r-color-overlay-scrim-strong) 92%,

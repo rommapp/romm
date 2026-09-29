@@ -182,7 +182,7 @@ async function confirm() {
 }
 
 .r-v2-del-fw__bulk {
-  padding: 10px 12px;
+  padding: 10px var(--r-space-3);
   margin-bottom: 10px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
@@ -203,7 +203,7 @@ async function confirm() {
   grid-template-columns: auto 1fr;
   gap: 10px;
   align-items: center;
-  padding: 10px 12px;
+  padding: 10px var(--r-space-3);
   border-bottom: 1px solid var(--r-color-border);
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
@@ -243,9 +243,9 @@ async function confirm() {
 .r-v2-del-fw__warn {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  margin: 12px 0 0;
-  padding: 10px 12px;
+  gap: var(--r-space-2);
+  margin: var(--r-space-3) 0 0;
+  padding: 10px var(--r-space-3);
   background: color-mix(
     in srgb,
     var(--r-color-status-base-danger) 10%,

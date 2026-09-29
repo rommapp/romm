@@ -402,7 +402,7 @@ function downloadLogs() {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: var(--r-space-3);
 }
 
 .r-v2-logs__level-select {
@@ -472,7 +472,7 @@ html[data-bp~="sm-and-down"] .r-v2-logs__spacer {
   gap: 10px;
   box-sizing: border-box;
   height: 24px;
-  padding: 0 16px;
+  padding: 0 var(--r-space-4);
   line-height: 22px;
   white-space: nowrap;
   /* Structural guard: the row is one line tall, so anything taller would
@@ -535,7 +535,7 @@ html[data-bp~="sm-and-down"] .r-v2-logs__spacer {
 }
 
 .r-v2-logs__empty {
-  padding: 48px 16px;
+  padding: var(--r-space-12) var(--r-space-4);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-card);
   background: var(--r-color-bg-elevated);

@@ -319,7 +319,7 @@ const fadeIndex = computed(() =>
 .r-asset-strip--grouped {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 .r-asset-strip__group {
   display: flex;
@@ -333,7 +333,7 @@ const fadeIndex = computed(() =>
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
 .r-asset-strip--grouped .r-asset-strip__fold {
-  padding: 0 8px 8px;
+  padding: 0 var(--r-space-2) var(--r-space-2);
 }
 .r-asset-strip__track {
   display: flex;
@@ -341,7 +341,7 @@ const fadeIndex = computed(() =>
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x proximity;
-  padding: 4px 2px 10px;
+  padding: var(--r-space-1) 2px 10px;
   scrollbar-color: var(--r-color-border-strong) transparent;
   scrollbar-width: thin;
 }
@@ -363,7 +363,7 @@ const fadeIndex = computed(() =>
   grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   overflow: visible;
   scroll-snap-type: none;
-  padding: 4px 0;
+  padding: var(--r-space-1) 0;
 }
 .r-asset-strip--flow .r-asset-strip__tile {
   scroll-snap-align: none;
@@ -379,7 +379,7 @@ const fadeIndex = computed(() =>
   overflow-y: auto;
   max-height: 340px;
   scroll-snap-type: none;
-  padding: 4px 2px;
+  padding: var(--r-space-1) 2px;
 }
 .r-asset-strip--grid .r-asset-strip__tile {
   flex: initial;
@@ -405,7 +405,7 @@ const fadeIndex = computed(() =>
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 5px 8px;
+  padding: 5px var(--r-space-2);
   border-radius: var(--r-radius-sm);
   scroll-snap-align: none;
   text-align: left;
@@ -424,7 +424,7 @@ const fadeIndex = computed(() =>
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   padding: 0;
 }
 .r-asset-strip--list .r-asset-strip__name {
@@ -548,7 +548,7 @@ const fadeIndex = computed(() =>
   flex-direction: column;
   gap: 6px;
   min-width: 0;
-  padding: 8px 8px 10px;
+  padding: var(--r-space-2) var(--r-space-2) 10px;
   border-radius: 0 0 calc(var(--r-radius-md) - 1px)
     calc(var(--r-radius-md) - 1px);
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
@@ -560,7 +560,7 @@ const fadeIndex = computed(() =>
 .r-asset-strip__meta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   min-width: 0;
 }
 
@@ -592,7 +592,7 @@ const fadeIndex = computed(() =>
 .r-asset-strip__owner {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   margin-top: 2px;
   font-size: 10px;
   font-weight: var(--r-font-weight-medium);

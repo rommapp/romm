@@ -85,8 +85,8 @@ const cards = computed<StatCard[]>(() => [
 .r-v2-stats-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  padding: 16px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-4);
 }
 html[data-bp~="sm-and-down"] .r-v2-stats-summary {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -99,8 +99,8 @@ html[data-bp~="xs"] .r-v2-stats-summary {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
-  padding: 16px;
+  gap: var(--r-space-1);
+  padding: var(--r-space-4);
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
   border-radius: 10px;

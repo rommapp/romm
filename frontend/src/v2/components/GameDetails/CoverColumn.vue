@@ -72,7 +72,7 @@ const box3d = computed(() => {
   align-self: flex-start;
   /* No sticky needed: GameDetails fits the main viewport exactly and only
      the inner tab panel scrolls. */
-  padding-top: 40px;
+  padding-top: var(--r-space-10);
   width: var(--r-cover-w);
 }
 /* Larger radius than the gallery card (this is the hero cover). */

@@ -153,8 +153,8 @@ function coverFor(rom: SimpleRom): string {
 .r-v2-scan-platform__rom {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-2) var(--r-space-4);
   border-top: 1px solid var(--r-color-border);
   /* Fixed row height — required for RVirtualScroller's offset table to
      match what the row actually renders at. Padding + 48px cover +
@@ -278,7 +278,7 @@ function coverFor(rom: SimpleRom): string {
 .r-v2-scan-platform__rom-meta {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   flex-shrink: 0;
 }
 .r-v2-scan-platform__provider {

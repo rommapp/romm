@@ -1282,7 +1282,7 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
    context so child margins don't collapse out visually. */
 .r-v2-shell__header {
   display: flow-root;
-  padding-top: calc(var(--r-nav-h) + 32px);
+  padding-top: calc(var(--r-nav-h) + var(--r-space-8));
 }
 /* Without a header this clears the top bar instead; the scroller's padding
    can't, as it would also offset the sticky toolbar. */
@@ -1292,7 +1292,7 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
 
 /* Divider between header and toolbar; scrolls away with the header. */
 .r-v2-shell__header-divider {
-  margin-bottom: 16px;
+  margin-bottom: var(--r-space-4);
 }
 
 /* Flow-packed wrapping row: same-height, natural-width cards. The packer
@@ -1302,7 +1302,7 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
   display: flex;
   flex-wrap: nowrap;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--r-space-3);
   padding-bottom: 18px;
 }
 /* Never shrink: float rounding can push a "just fits" row a hair over, and
@@ -1449,9 +1449,9 @@ html[data-bp~="sm-and-down"] .r-v2-shell__scroller::after {
   height: calc(var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px);
 }
 html[data-bp~="xs"] .r-v2-shell__header {
-  padding-top: calc(var(--r-nav-h) + 16px);
+  padding-top: calc(var(--r-nav-h) + var(--r-space-4));
 }
 html[data-bp~="xs"] .r-v2-shell__row {
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 </style>

@@ -250,7 +250,7 @@ onMounted(() => {
 .r-v2-missing-fw__toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-v2-missing-fw__platform-select {
@@ -291,9 +291,9 @@ onMounted(() => {
 .r-v2-missing-fw__row {
   display: grid;
   grid-template-columns: auto 1fr auto auto;
-  gap: 12px;
+  gap: var(--r-space-3);
   align-items: center;
-  padding: 10px 12px;
+  padding: 10px var(--r-space-3);
   border-bottom: 1px solid var(--r-color-border);
 }
 .r-v2-missing-fw__row:last-child {

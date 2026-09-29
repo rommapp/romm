@@ -238,7 +238,7 @@ function close() {
 .r-v2-user-dialog__admin {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   flex-wrap: wrap;
 }
 .r-v2-user-dialog__field {

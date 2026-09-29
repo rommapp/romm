@@ -163,10 +163,10 @@ function select(id: I["id"]) {
 .r-v2-subtab-nav {
   list-style: none;
   margin: 0;
-  padding: 0 4px 4px 0;
+  padding: 0 var(--r-space-1) var(--r-space-1) 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -181,7 +181,7 @@ function select(id: I["id"]) {
   border-radius: 2px;
 }
 .r-v2-subtab-nav__group {
-  padding: 8px 12px 4px;
+  padding: var(--r-space-2) var(--r-space-3) var(--r-space-1);
   font-size: var(--r-font-size-xs);
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.08em;
@@ -201,8 +201,8 @@ function select(id: I["id"]) {
   text-align: left;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--r-space-2);
+  padding: var(--r-space-2) var(--r-space-3);
   border-radius: var(--r-radius-md);
   color: var(--r-color-fg-muted);
   font-family: inherit;
@@ -250,7 +250,7 @@ html[data-input="pad"] .r-v2-subtab-nav__btn:focus-visible {
 .r-v2-subtab-nav-menu {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   min-width: 0;
 }
 .r-v2-subtab-nav__trigger {

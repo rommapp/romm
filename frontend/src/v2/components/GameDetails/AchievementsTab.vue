@@ -241,9 +241,9 @@ function achievementTypeLabel(type: string | null | undefined): string {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   border-right: 1px solid var(--r-color-border);
-  padding: 0 12px;
+  padding: 0 var(--r-space-3);
 }
 .r-v2-det-ach__stat:last-child {
   border-right: none;
@@ -328,7 +328,7 @@ function achievementTypeLabel(type: string | null | undefined): string {
   width: 1px;
   height: 16px;
   background: var(--r-color-surface-hover);
-  margin: 0 4px;
+  margin: 0 var(--r-space-1);
 }
 
 /* ── List ────────────────────────────────────────────── */
@@ -383,7 +383,7 @@ function achievementTypeLabel(type: string | null | undefined): string {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: var(--r-space-1);
   white-space: nowrap;
 }
 .r-v2-det-ach__points {

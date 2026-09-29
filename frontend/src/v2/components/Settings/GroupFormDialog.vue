@@ -315,7 +315,7 @@ async function save() {
 .r-v2-group-dialog__form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--r-space-4);
   min-width: 0;
 }
 .r-v2-group-dialog__sys-warn {
@@ -329,7 +329,7 @@ async function save() {
 .r-v2-group-dialog__default {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   flex-wrap: wrap;
 }
 .r-v2-group-dialog__default-hint {
@@ -339,7 +339,7 @@ async function save() {
 .r-v2-group-dialog__color {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-group-dialog__color-label {
   font-size: 11px;
@@ -351,7 +351,7 @@ async function save() {
 .r-v2-group-dialog__swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-group-dialog__swatch {
   width: 26px;
@@ -375,7 +375,7 @@ async function save() {
 .r-v2-group-dialog__matrix {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-group-dialog__matrix-label {
   font-size: 11px;

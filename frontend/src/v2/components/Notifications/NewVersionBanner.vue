@@ -125,8 +125,8 @@ onBeforeUnmount(() => {
   z-index: 8800;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 8px 8px 14px;
+  gap: var(--r-space-4);
+  padding: var(--r-space-2) var(--r-space-2) var(--r-space-2) 14px;
   background: var(--r-color-toast-bg);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
@@ -167,14 +167,14 @@ onBeforeUnmount(() => {
 .r-v2-new-version__actions {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   flex-shrink: 0;
 }
 /* Extra breathing room before the dismiss link so it reads as a
    secondary, "I'm done here" affordance rather than a sibling action
    of the primary CTA. */
 .r-v2-new-version__dismiss {
-  margin-left: 8px;
+  margin-left: var(--r-space-2);
   color: var(--r-color-fg-muted);
 }
 
@@ -200,8 +200,8 @@ html[data-bp~="xs"] .r-v2-new-version {
   transform: none;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
-  padding: 12px;
+  gap: var(--r-space-2);
+  padding: var(--r-space-3);
 }
 html[data-bp~="xs"] .r-v2-new-version-enter-from,
 html[data-bp~="xs"] .r-v2-new-version-leave-to {

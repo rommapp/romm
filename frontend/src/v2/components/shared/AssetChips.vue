@@ -50,13 +50,13 @@ const { emulatorLabel } = useStreamingStore();
 .r-asset-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--r-space-1);
   align-items: center;
 }
 .r-asset-chips__size {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   padding: 1px 6px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);

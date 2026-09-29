@@ -294,14 +294,14 @@ function closeDialog() {
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   color: var(--r-color-fg-secondary);
-  padding: 4px 10px;
+  padding: var(--r-space-1) 10px;
   border-radius: var(--r-radius-pill);
   font-size: 11px;
   font-weight: var(--r-font-weight-medium);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   font-family: inherit;
 }
 .r-v2-del-rom__toggle-all:hover {
@@ -324,7 +324,7 @@ function closeDialog() {
   grid-template-columns: 36px 1fr auto;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: var(--r-space-2) 10px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
@@ -390,8 +390,8 @@ function closeDialog() {
   appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
+  gap: var(--r-space-1);
+  padding: var(--r-space-1) 10px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
@@ -425,16 +425,16 @@ function closeDialog() {
 }
 
 .r-v2-del-rom__append {
-  padding: 10px 14px 12px;
+  padding: 10px 14px var(--r-space-3);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-v2-del-rom__warn {
   display: flex;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: var(--r-space-2);
+  padding: var(--r-space-2) 10px;
   margin: 0;
   background: color-mix(
     in srgb,

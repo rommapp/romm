@@ -560,7 +560,7 @@ async function setVisibility(next: boolean) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   padding: 14px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
@@ -582,7 +582,7 @@ async function setVisibility(next: boolean) {
 }
 .r-v2-coll-set__cover-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-coll-set__file {
   position: absolute;
@@ -596,17 +596,17 @@ async function setVisibility(next: boolean) {
 .r-v2-coll-set__form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 .r-v2-coll-set__row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-coll-set__form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 /* ── Filters (smart) ────────────────────────────────────────────── */
@@ -632,13 +632,13 @@ async function setVisibility(next: boolean) {
   font-weight: var(--r-font-weight-semibold);
 }
 .r-v2-coll-set__filter-logic {
-  margin-left: 4px;
+  margin-left: var(--r-space-1);
   text-transform: uppercase;
 }
 .r-v2-coll-set__filter-values {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding-left: 20px;
+  gap: var(--r-space-1);
+  padding-left: var(--r-space-5);
 }
 </style>

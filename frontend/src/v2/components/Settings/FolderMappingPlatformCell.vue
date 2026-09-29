@@ -129,7 +129,7 @@ const modelSlug = computed({
 .r-v2-fmpc__readonly {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   font-size: 13px;
   color: var(--r-color-fg);
   min-width: 0;

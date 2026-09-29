@@ -231,7 +231,7 @@ onMounted(() => {
 .r-v2-debug__row {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-v2-debug__label {

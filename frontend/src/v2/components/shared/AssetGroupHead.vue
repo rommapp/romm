@@ -66,7 +66,7 @@ const emit = defineEmits<{ toggle: [] }>();
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   padding: 10px;
   border-radius: var(--r-radius-md);
   font: inherit;

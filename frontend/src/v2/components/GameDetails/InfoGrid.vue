@@ -72,7 +72,7 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
 .r-v2-det-infogrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, auto));
-  gap: 18px 24px;
+  gap: 18px var(--r-space-6);
   width: 100%;
 }
 
@@ -85,7 +85,7 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--r-color-fg-faint);
-  margin-bottom: 8px;
+  margin-bottom: var(--r-space-2);
 }
 .r-v2-det-infogrid__label-icon {
   /* Brand-primary keeps the section header readable as a "label" cue
@@ -103,7 +103,7 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-chip);
-  padding: 4px 10px;
+  padding: var(--r-space-1) 10px;
   font-size: 11.5px;
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg-secondary);

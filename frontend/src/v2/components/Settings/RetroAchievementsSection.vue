@@ -121,13 +121,13 @@ async function saveAndSync() {
 
 <style scoped>
 .r-v2-ra__field {
-  padding: 14px 16px;
+  padding: 14px var(--r-space-4);
 }
 
 .r-v2-ra__actions {
   display: flex;
   gap: 10px;
-  padding: 14px 16px;
+  padding: 14px var(--r-space-4);
   border-top: 1px solid var(--r-color-border);
 }
 </style>

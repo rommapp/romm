@@ -98,9 +98,9 @@ const valueLabel = computed(() => {
   color: var(--r-color-fg-secondary);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   height: 44px;
-  padding: 0 16px;
+  padding: 0 var(--r-space-4);
   border-radius: var(--r-radius-pill);
   cursor: pointer;
   font-family: inherit;

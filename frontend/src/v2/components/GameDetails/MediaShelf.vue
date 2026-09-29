@@ -121,12 +121,12 @@ function close() {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 28px 26px;
+  gap: var(--r-space-7) 26px;
   padding: 10px 2px 6px;
 }
 .r-v2-media-shelf--compact {
   --art-h: 168px;
-  gap: 20px 18px;
+  gap: var(--r-space-5) 18px;
 }
 
 /* Never shrink: a squeezed cell would keep the fixed frame height while
@@ -136,7 +136,7 @@ function close() {
   flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   margin: 0;
   max-width: var(--art-w);
 }

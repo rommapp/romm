@@ -89,8 +89,8 @@ async function retryCopy() {
 .r-v2-copy-link {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 4px 4px 0;
+  gap: var(--r-space-3);
+  padding: var(--r-space-1) var(--r-space-1) 0;
 }
 
 .r-v2-copy-link__hint {
@@ -101,7 +101,7 @@ async function retryCopy() {
 
 .r-v2-copy-link__box {
   display: block;
-  padding: 12px 14px;
+  padding: var(--r-space-3) 14px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);

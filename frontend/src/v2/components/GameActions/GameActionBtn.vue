@@ -583,7 +583,7 @@ function onClick(e: MouseEvent) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   border-radius: var(--r-radius-pill);
   cursor: pointer;
   padding: 0;
@@ -676,16 +676,16 @@ function onClick(e: MouseEvent) {
   padding: 0 18px;
 }
 .r-v2-game-btn--labelled.r-v2-game-btn--x-small {
-  padding: 0 8px;
+  padding: 0 var(--r-space-2);
 }
 .r-v2-game-btn--labelled.r-v2-game-btn--small {
-  padding: 0 12px;
+  padding: 0 var(--r-space-3);
 }
 .r-v2-game-btn--labelled.r-v2-game-btn--large {
-  padding: 0 24px;
+  padding: 0 var(--r-space-6);
 }
 .r-v2-game-btn--labelled.r-v2-game-btn--x-large {
-  padding: 0 32px;
+  padding: 0 var(--r-space-8);
 }
 
 /* Surface — RTag-style translucent grey. Used in the GameDetails
@@ -777,7 +777,7 @@ function onClick(e: MouseEvent) {
 }
 .r-v2-game-btn--orient-vertical .r-v2-game-btn__icons {
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 
 .r-v2-game-btn--multi-status {
@@ -793,37 +793,37 @@ function onClick(e: MouseEvent) {
 .r-v2-game-btn--multi-status.r-v2-game-btn--small {
   min-width: 28px;
   min-height: 28px;
-  padding: 4px 8px;
+  padding: var(--r-space-1) var(--r-space-2);
 }
 .r-v2-game-btn--multi-status.r-v2-game-btn--default {
   min-width: 40px;
   min-height: 40px;
-  padding: 4px 10px;
+  padding: var(--r-space-1) 10px;
 }
 .r-v2-game-btn--multi-status.r-v2-game-btn--large {
   min-width: 44px;
   min-height: 44px;
-  padding: 4px 12px;
+  padding: var(--r-space-1) var(--r-space-3);
 }
 .r-v2-game-btn--multi-status.r-v2-game-btn--x-large {
   min-width: 52px;
   min-height: 52px;
-  padding: 4px 14px;
+  padding: var(--r-space-1) 14px;
 }
 /* Vertical: swap the padding axis so the pill grows tall, not wide. */
 .r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--x-small {
   padding: 6px 3px;
 }
 .r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--small {
-  padding: 8px 4px;
+  padding: var(--r-space-2) var(--r-space-1);
 }
 .r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--default {
-  padding: 10px 4px;
+  padding: 10px var(--r-space-1);
 }
 .r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--large {
-  padding: 12px 4px;
+  padding: var(--r-space-3) var(--r-space-1);
 }
 .r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--x-large {
-  padding: 14px 4px;
+  padding: 14px var(--r-space-1);
 }
 </style>

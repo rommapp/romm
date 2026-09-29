@@ -139,10 +139,10 @@ watch(
   justify-content: safe center;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 8px 0;
+  padding: var(--r-space-2) 0;
   /* Breathe away from the viewport edge — the strip shouldn't touch the
      right border of the gallery section. */
-  margin-right: var(--r-alpha-strip-gap, 12px);
+  margin-right: var(--r-alpha-strip-gap, var(--r-space-3));
   user-select: none;
 }
 
@@ -157,7 +157,7 @@ watch(
   cursor: default;
   line-height: 1;
   padding: 3px;
-  margin-top: 4px;
+  margin-top: var(--r-space-1);
   width: 100%;
   text-align: center;
   border-radius: 3px;

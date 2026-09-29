@@ -410,7 +410,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
 .r-v2-platsel__selection {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   min-width: 0;
 }
 .r-v2-platsel__name {
@@ -452,10 +452,10 @@ function showPromoteRomBadge(platform: Platform): boolean {
   white-space: nowrap;
 }
 .r-v2-platsel__missing {
-  margin-left: 4px;
+  margin-left: var(--r-space-1);
 }
 .r-v2-platsel__count {
-  margin-left: 4px;
+  margin-left: var(--r-space-1);
 }
 .r-v2-platsel__fs-slug {
   font-family: var(--r-font-family-mono);
@@ -468,15 +468,15 @@ function showPromoteRomBadge(platform: Platform): boolean {
 .r-v2-platsel__scrappers {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 4px;
+  gap: var(--r-space-1);
+  margin-left: var(--r-space-1);
 }
 .r-v2-platsel__scrapper {
   background: var(--r-color-surface);
   flex-shrink: 0;
 }
 .r-v2-platsel__not-identified {
-  margin-left: 4px;
+  margin-left: var(--r-space-1);
 }
 .r-v2-platsel__chip-icon {
   display: inline-flex;

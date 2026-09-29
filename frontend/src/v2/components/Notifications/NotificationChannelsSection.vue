@@ -450,7 +450,7 @@ async function remove(channel: NotificationChannelSchema) {
 .r-v2-channel__meta {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   font-size: var(--r-font-size-sm);
   color: var(--r-color-fg-muted);
 }

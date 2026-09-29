@@ -88,7 +88,7 @@ const isFull = computed(() => props.state === "all");
   grid-template-columns: var(--tile-w, 36px) 1fr auto 26px;
   align-items: center;
   gap: 14px;
-  padding: 8px 16px;
+  padding: var(--r-space-2) var(--r-space-4);
   cursor: pointer;
   text-align: left;
   color: inherit;

@@ -293,7 +293,7 @@ function closeDialog() {
 .r-v2-mng-coll__head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   min-width: 0;
 }
 .r-v2-mng-coll__head-cover {

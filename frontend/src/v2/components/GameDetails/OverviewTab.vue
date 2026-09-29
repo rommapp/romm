@@ -417,7 +417,7 @@ const coverSource = computed(() => {
 .overview-tab__row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--r-space-4);
 }
 .overview-tab__label {
   width: 120px;
@@ -433,7 +433,7 @@ const coverSource = computed(() => {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 .overview-tab__field--chips {
   flex-wrap: wrap;
@@ -456,12 +456,12 @@ const coverSource = computed(() => {
   align-items: flex-start;
 }
 .overview-tab__row--tiles .overview-tab__label {
-  padding-top: 8px;
+  padding-top: var(--r-space-2);
 }
 .overview-tab__field--scroll-x {
   flex-wrap: nowrap;
   gap: 18px;
-  padding: 6px 4px 10px;
+  padding: 6px var(--r-space-1) 10px;
   overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--r-color-border-strong) transparent;
@@ -480,7 +480,7 @@ const coverSource = computed(() => {
 .overview-tab__section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .overview-tab__section-heading {
   margin: 0;
@@ -498,7 +498,7 @@ const coverSource = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .overview-tab__empty {
   margin: 0;

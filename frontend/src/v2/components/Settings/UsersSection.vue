@@ -448,7 +448,7 @@ html[data-bp~="xs"]
 .r-v2-users__actions {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 
 .r-v2-users__footer {

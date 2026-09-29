@@ -446,7 +446,7 @@ onBeforeUnmount(() => {
 .r-v2-missing__toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   flex-shrink: 0;
 }
 

@@ -173,8 +173,8 @@ defineSlots<{
 .r-provider-card__pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: var(--r-space-1);
+  padding: 3px var(--r-space-2);
   border-radius: var(--r-radius-sm);
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
@@ -201,7 +201,7 @@ defineSlots<{
 .r-provider-card__actions {
   display: flex;
   gap: var(--r-space-2);
-  padding: 12px 14px;
+  padding: var(--r-space-3) 14px;
   border-top: 1px solid var(--r-color-border);
   background: var(--r-color-bg-elevated);
 }
@@ -216,7 +216,7 @@ defineSlots<{
   display: flex;
   align-items: center;
   gap: var(--r-space-3);
-  padding: 16px 16px 14px;
+  padding: var(--r-space-4) var(--r-space-4) 14px;
 }
 .r-provider-card--tile .r-provider-card__logo {
   width: 44px;
@@ -238,7 +238,7 @@ defineSlots<{
   font-size: 14px;
 }
 .r-provider-card--tile .r-provider-card__body {
-  padding: 0 16px 14px;
+  padding: 0 var(--r-space-4) 14px;
 }
 .r-provider-card--tile .r-provider-card__actions {
   margin-top: auto;

@@ -348,7 +348,7 @@ html[data-bp~="sm-and-up"] .r-v2-csc__grid {
 .r-v2-csc__fields {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 .r-v2-csc__preview {
@@ -369,7 +369,7 @@ html[data-bp~="sm-and-up"] .r-v2-csc__grid {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   font-size: 11px;
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.08em;
@@ -392,7 +392,7 @@ html[data-bp~="sm-and-up"] .r-v2-csc__grid {
   scrollbar-width: thin;
   scrollbar-color: var(--r-color-border-strong) transparent;
   /* Keep chips off the scrollbar gutter. */
-  padding-right: 4px;
+  padding-right: var(--r-space-1);
 }
 .r-v2-csc__preview-list::-webkit-scrollbar {
   width: 8px;
@@ -418,14 +418,14 @@ html[data-bp~="sm-and-up"] .r-v2-csc__grid {
 }
 
 .r-v2-csc__preview-logic {
-  margin-left: 4px;
+  margin-left: var(--r-space-1);
   text-transform: uppercase;
 }
 
 .r-v2-csc__preview-values {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding-left: 20px;
+  gap: var(--r-space-1);
+  padding-left: var(--r-space-5);
 }
 </style>

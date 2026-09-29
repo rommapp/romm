@@ -154,7 +154,7 @@ onMounted(async () => {
 .r-v2-widget-lib__stats--multi-col {
   display: grid;
   grid-template-columns: repeat(3, auto);
-  column-gap: 20px;
+  column-gap: var(--r-space-5);
   row-gap: 6px;
 }
 
@@ -162,7 +162,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--r-space-2);
   font-size: 12.5px;
   min-width: 0;
 }

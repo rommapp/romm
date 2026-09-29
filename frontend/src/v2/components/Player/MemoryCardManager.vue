@@ -506,7 +506,7 @@ const hasCards = computed(() => cards.value.length > 0);
 .r-mc-mgr__head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-mc-mgr__count {
   margin-right: auto;
@@ -537,7 +537,7 @@ const hasCards = computed(() => cards.value.length > 0);
   grid-template-columns: auto 1fr auto;
   gap: 10px;
   align-items: center;
-  padding: 10px 12px;
+  padding: 10px var(--r-space-3);
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-mc-mgr__row:hover {
@@ -589,7 +589,7 @@ const hasCards = computed(() => cards.value.length > 0);
 
 /* ── Versions ──────────────────────────────────────────────────── */
 .r-mc-mgr__versions {
-  padding: 4px 12px 10px 38px;
+  padding: var(--r-space-1) var(--r-space-3) 10px 38px;
   background: var(--r-color-bg);
 }
 .r-mc-mgr__versions-empty {
@@ -612,8 +612,8 @@ const hasCards = computed(() => cards.value.length > 0);
 .r-mc-mgr__version {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  gap: var(--r-space-2);
+  padding: var(--r-space-1) 0;
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-secondary);
 }

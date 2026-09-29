@@ -241,7 +241,7 @@ const groups = computed<Group[]>(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 24px 0;
+  padding: var(--r-space-6) 0;
   border-right: 1px solid var(--r-color-border);
   position: sticky;
   top: var(--r-nav-h);
@@ -256,7 +256,7 @@ const groups = computed<Group[]>(() => {
   gap: 1px;
 }
 .r-v2-settings-sidebar__group + .r-v2-settings-sidebar__group {
-  margin-top: 8px;
+  margin-top: var(--r-space-2);
 }
 
 .r-v2-settings-sidebar__group-label {
@@ -265,7 +265,7 @@ const groups = computed<Group[]>(() => {
   font-size: 10px;
   font-weight: var(--r-font-weight-bold);
   color: var(--r-color-fg-faint);
-  padding: 10px 20px 6px;
+  padding: 10px var(--r-space-5) 6px;
 }
 
 .r-v2-settings-sidebar__list {
@@ -280,7 +280,7 @@ const groups = computed<Group[]>(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 20px;
+  padding: 9px var(--r-space-5);
   text-decoration: none;
   color: var(--r-color-fg-muted);
   font-size: 13px;

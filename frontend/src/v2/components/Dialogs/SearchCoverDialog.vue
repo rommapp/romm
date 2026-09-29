@@ -621,13 +621,13 @@ function closeDialog() {
 .r-v2-sgdb__providers {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-v2-sgdb__search-row {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px;
+  gap: var(--r-space-2);
   align-items: stretch;
 }
 .r-v2-sgdb__search-row > * {
@@ -638,7 +638,7 @@ function closeDialog() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-v2-sgdb__advanced {
@@ -653,7 +653,7 @@ function closeDialog() {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-sgdb__filter {
   flex: 1 1 0;
@@ -664,7 +664,7 @@ function closeDialog() {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 html[data-bp~="xs"] .r-v2-sgdb__search-row {
@@ -703,7 +703,7 @@ html[data-bp~="xs"] .r-v2-sgdb__content-toggles {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  padding: 12px 16px 16px;
+  padding: var(--r-space-3) var(--r-space-4) var(--r-space-4);
 }
 
 .r-v2-sgdb__cover {

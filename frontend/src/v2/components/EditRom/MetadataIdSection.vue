@@ -113,6 +113,6 @@ function onUpdate(field: IdField, raw: string | number | null) {
 .r-v2-meta-ids {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 </style>

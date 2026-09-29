@@ -711,16 +711,16 @@ function saveAsSmartCollection() {
 .r-v2-fd__bool-rows {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-fd__bool-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--r-space-3);
   /* The negative margin widens the "on" highlight without moving the content. */
-  margin-inline: -8px;
-  padding: 8px 12px;
+  margin-inline: calc(-1 * var(--r-space-2));
+  padding: var(--r-space-2) var(--r-space-3);
   border-radius: 8px;
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
@@ -730,7 +730,7 @@ function saveAsSmartCollection() {
 .r-v2-fd__bool-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   color: var(--r-color-fg-secondary);
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
@@ -749,7 +749,7 @@ function saveAsSmartCollection() {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: end;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-fd__multi-select {
   min-width: 0;
@@ -759,7 +759,7 @@ function saveAsSmartCollection() {
   display: grid;
   /* `minmax(0, …)`: a number input's intrinsic width would floor a bare `1fr`. */
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-fd__length-note {
   margin: 0;

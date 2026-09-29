@@ -283,7 +283,7 @@ watch(
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--r-color-border-strong) transparent;
-  padding: 10px 8px 6px;
+  padding: 10px var(--r-space-2) 6px;
   /* Flow-pack of natural-width cards (like the gallery) rather than a rigid
      uniform-width grid — each GameCard renders at its cover's true aspect, so
      a wide cover would spill out of a fixed grid cell. */
@@ -355,10 +355,10 @@ watch(
 /* ── Overlay panel ───────────────────────────────────────── */
 .match-grid__overlay {
   position: absolute;
-  inset: -18px -16px;
+  inset: -18px calc(-1 * var(--r-space-4));
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: var(--r-space-4);
   z-index: 5;
 }
 
@@ -392,7 +392,7 @@ watch(
   );
   border: 1px solid var(--r-color-brand-primary);
   border-radius: var(--r-radius-card);
-  padding: 18px 20px 20px;
+  padding: 18px var(--r-space-5) var(--r-space-5);
   box-shadow:
     0 30px 80px color-mix(in srgb, black 60%, transparent),
     0 0 0 6px color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
@@ -435,7 +435,7 @@ watch(
 
 .match-grid__sources-empty {
   margin: 0;
-  padding: 12px 14px;
+  padding: var(--r-space-3) 14px;
   font-size: 12px;
   line-height: 1.5;
   color: var(--r-color-fg-muted);
@@ -557,7 +557,7 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-top: 4px;
+  padding-top: var(--r-space-1);
 }
 .match-grid__cta {
   display: flex;

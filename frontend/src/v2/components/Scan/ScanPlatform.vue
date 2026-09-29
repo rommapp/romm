@@ -128,7 +128,7 @@ function getItemKey(item: unknown) {
 }
 
 .r-v2-scan-platform__empty {
-  padding: 16px;
+  padding: var(--r-space-4);
   text-align: center;
   color: var(--r-color-fg-muted);
   font-size: 13px;

@@ -55,7 +55,7 @@ const entries = computed<Entry[]>(() => {
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
   grid-template-rows: auto auto auto;
-  row-gap: 4px;
+  row-gap: var(--r-space-1);
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
@@ -68,7 +68,7 @@ const entries = computed<Entry[]>(() => {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: subgrid;
   grid-row: span 3;
-  padding: 0 12px;
+  padding: 0 var(--r-space-3);
   border-right: 1px solid var(--r-color-border);
   text-align: center;
 }
@@ -87,7 +87,7 @@ const entries = computed<Entry[]>(() => {
     flex-direction: column;
     flex: 1;
     min-width: 0;
-    gap: 4px;
+    gap: var(--r-space-1);
   }
 }
 

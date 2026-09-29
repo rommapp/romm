@@ -190,7 +190,7 @@ function closeDialog() {
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
-  padding: 14px 16px;
+  padding: 14px var(--r-space-4);
   display: grid;
   grid-template-columns: 42px 1fr auto;
   gap: 14px;
@@ -238,7 +238,7 @@ function closeDialog() {
   color: var(--r-color-fg);
 }
 .r-v2-upload-target__desc {
-  margin: 4px 0 0;
+  margin: var(--r-space-1) 0 0;
   font-size: 12px;
   color: var(--r-color-fg-secondary);
   line-height: 1.4;

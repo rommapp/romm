@@ -34,13 +34,13 @@ defineProps<{
 .similar-games {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px 16px;
-  padding: 6px 6px 4px;
+  gap: var(--r-space-5) var(--r-space-4);
+  padding: 6px 6px var(--r-space-1);
 }
 
 .similar-games__item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 </style>

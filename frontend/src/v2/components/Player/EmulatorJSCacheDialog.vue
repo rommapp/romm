@@ -78,7 +78,7 @@ function closeDialog() {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 8px 4px;
+  padding: var(--r-space-2) var(--r-space-1);
   gap: 10px;
 }
 
@@ -94,7 +94,7 @@ function closeDialog() {
   color: var(--r-color-danger-fg);
   display: grid;
   place-items: center;
-  margin-bottom: 4px;
+  margin-bottom: var(--r-space-1);
 }
 
 .r-v2-clear-cache__title {

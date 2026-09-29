@@ -228,6 +228,7 @@ export default tseslint.config(
       "src/v2/**/*.css",
       "src/v2/lib/**/*.vue",
       "src/v2/layouts/**/*.vue",
+      "src/v2/components/**/*.vue",
     ],
     plugins: { romm },
     rules: { "romm/no-spacing-literal": "error" },

@@ -649,7 +649,7 @@ const applyLabel = computed(() => {
 .r-v2-patch__status {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-patch__status-spinner {
   width: 16px;
@@ -672,7 +672,7 @@ const applyLabel = computed(() => {
 .r-v2-patch__flow {
   display: flex;
   align-items: stretch;
-  gap: 8px;
+  gap: var(--r-space-2);
   padding: 10px;
   border-radius: var(--r-radius-xl);
   background: color-mix(in srgb, var(--r-color-surface) 45%, transparent);
@@ -686,10 +686,10 @@ const applyLabel = computed(() => {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
-  padding: 16px;
+  padding: var(--r-space-4);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 /* The "+" bridging the two panels, just a muted glyph, no surface/border,
@@ -726,7 +726,7 @@ const applyLabel = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 /* ROM identity row, platform icon + name/file + missing-fs badge. */
@@ -760,7 +760,7 @@ const applyLabel = computed(() => {
 .r-v2-patch__file-single {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   flex-wrap: wrap;
 }
 .r-v2-patch__upload {
@@ -776,7 +776,7 @@ const applyLabel = computed(() => {
 /* The uploaded patch reads as the picked option, same as a selected row. */
 .r-v2-patch__uploaded {
   flex-wrap: nowrap;
-  padding: 12px 12px 12px 16px;
+  padding: var(--r-space-3) var(--r-space-3) var(--r-space-3) var(--r-space-4);
   border: 1px solid
     color-mix(in srgb, var(--r-color-brand-primary) 55%, transparent);
   border-radius: var(--r-radius-lg);
@@ -803,7 +803,7 @@ const applyLabel = computed(() => {
 .r-v2-patch__file-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-patch__file-size {
   margin-left: auto;
@@ -820,8 +820,8 @@ const applyLabel = computed(() => {
 .r-v2-patch__chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: var(--r-space-1);
+  padding: 2px var(--r-space-2);
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
@@ -860,7 +860,7 @@ const applyLabel = computed(() => {
 .r-v2-patch__formats-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 6px;
+  gap: var(--r-space-1) 6px;
   max-width: 220px;
   padding-block: 5px;
 }
@@ -877,7 +877,7 @@ const applyLabel = computed(() => {
 .r-v2-patch__controls {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
   padding: 18px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
@@ -894,7 +894,7 @@ const applyLabel = computed(() => {
 .r-v2-patch__apply-row {
   display: flex;
   justify-content: flex-end;
-  margin-top: 4px;
+  margin-top: var(--r-space-1);
   padding-top: 14px;
   border-top: 1px solid var(--r-color-border);
 }
@@ -903,8 +903,8 @@ const applyLabel = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
+  gap: var(--r-space-2);
+  margin-top: var(--r-space-1);
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-faint);
   font-style: italic;

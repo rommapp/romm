@@ -261,7 +261,7 @@ html[data-bp~="xs"] .r-v2-plat__panel-icon {
 .r-v2-plat__tabs {
   /* Tuck the nav up against the InfoPanel's bottom padding so the
      two read as a single head band. */
-  margin-top: -8px;
+  margin-top: calc(-1 * var(--r-space-2));
 }
 
 /* ── Provider chip cluster ───────────────────────────────────────
@@ -272,7 +272,7 @@ html[data-bp~="xs"] .r-v2-plat__panel-icon {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 10px 2px 4px;
+  padding: 2px 10px 2px var(--r-space-1);
   border-radius: var(--r-radius-pill);
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
@@ -298,7 +298,7 @@ html[data-bp~="xs"] .r-v2-plat__panel-icon {
   cursor: default;
 }
 .r-v2-plat__provider--icon-only {
-  padding: 2px 4px;
+  padding: 2px var(--r-space-1);
 }
 .r-v2-plat__provider-logo {
   width: 22px;

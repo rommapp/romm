@@ -200,7 +200,7 @@ function closeDialog() {
   min-height: 0;
   /* Extra breathing room under the last release so it doesn't touch
      the footer border once scrolled to the end. */
-  padding-bottom: 12px;
+  padding-bottom: var(--r-space-3);
 }
 .r-v2-changelog--center {
   flex: 1;
@@ -212,7 +212,7 @@ function closeDialog() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   color: var(--r-color-fg-muted);
 }
 .r-v2-changelog__state-label {
@@ -242,7 +242,7 @@ function closeDialog() {
   border: 1px solid
     color-mix(in srgb, var(--r-color-brand-primary) 25%, transparent);
   border-radius: 6px;
-  padding: 2px 8px;
+  padding: 2px var(--r-space-2);
   text-decoration: none;
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
@@ -265,7 +265,7 @@ function closeDialog() {
 .r-v2-changelog__body {
   border-radius: var(--r-radius-lg);
   background: color-mix(in srgb, black 22%, transparent);
-  padding: 6px 16px;
+  padding: 6px var(--r-space-4);
   min-width: 0;
   overflow: hidden;
 }
@@ -311,12 +311,12 @@ function closeDialog() {
 .r-v2-changelog__view-all {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   color: var(--r-color-fg-secondary);
   text-decoration: none;
   font-size: var(--r-font-size-sm);
   font-weight: var(--r-font-weight-medium);
-  padding: 4px 8px;
+  padding: var(--r-space-1) var(--r-space-2);
   border-radius: var(--r-radius-md);
   transition: color var(--r-motion-fast) var(--r-motion-ease-out);
 }

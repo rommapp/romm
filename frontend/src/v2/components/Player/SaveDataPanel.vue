@@ -63,7 +63,7 @@ const { t } = useI18n();
 .r-v2-save-data__status {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 .r-v2-save-data__badge {
@@ -93,8 +93,8 @@ const { t } = useI18n();
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 8px;
-  margin-top: 4px;
+  gap: var(--r-space-1) var(--r-space-2);
+  margin-top: var(--r-space-1);
 }
 .r-v2-save-data__detail {
   margin: 2px 0 0;

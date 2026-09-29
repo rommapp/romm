@@ -352,7 +352,7 @@ async function onLogout() {
   background: var(--r-color-surface) !important;
   border: 1px solid var(--r-color-border-strong) !important;
   border-radius: var(--r-radius-pill) !important;
-  padding: 3px 12px 3px 3px !important;
+  padding: 3px var(--r-space-3) 3px 3px !important;
   color: var(--r-color-fg) !important;
   height: var(--r-nav-pill-h) !important;
   min-width: 0 !important;
@@ -391,7 +391,7 @@ html[data-bp~="xs"] .r-v2-user__chevron {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 4px 0 6px;
+  padding: var(--r-space-1) 0 6px;
 }
 
 .r-v2-user-menu__group-label {
@@ -400,7 +400,7 @@ html[data-bp~="xs"] .r-v2-user__chevron {
   font-size: 10px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg-muted);
-  padding: 4px 12px 2px;
+  padding: var(--r-space-1) var(--r-space-3) 2px;
 }
 
 /* Inlined header. Identity card at the top
@@ -409,7 +409,7 @@ html[data-bp~="xs"] .r-v2-user__chevron {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 10px 12px;
+  padding: 10px 10px var(--r-space-3);
   min-width: 0;
 }
 .r-v2-user-menu__header-text {

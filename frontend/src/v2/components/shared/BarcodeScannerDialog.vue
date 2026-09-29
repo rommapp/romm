@@ -155,7 +155,7 @@ onBeforeUnmount(stopCamera);
 .r-v2-bsc {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 .r-v2-bsc__viewport {
@@ -185,8 +185,8 @@ onBeforeUnmount(stopCamera);
 .r-v2-bsc__error {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 16px;
+  gap: var(--r-space-2);
+  padding: var(--r-space-4);
   color: var(--r-color-fg-secondary);
   background: var(--r-color-bg-elevated);
   border-radius: var(--r-radius-md);

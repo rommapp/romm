@@ -418,7 +418,7 @@ function onScan() {
 .r-v2-scan-plat {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--r-space-4);
 }
 
 /* Platform identity row — sibling of `.r-v2-refresh__rom` in
@@ -426,8 +426,8 @@ function onScan() {
 .r-v2-scan-plat__head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: var(--r-space-3);
+  padding: 10px var(--r-space-3);
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
@@ -463,7 +463,7 @@ function onScan() {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-top: 12px;
+  padding-top: var(--r-space-3);
   border-top: 1px solid var(--r-color-border);
 }
 .r-v2-scan-plat__section:first-of-type {
@@ -482,10 +482,10 @@ function onScan() {
 .r-v2-scan-plat__providers-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-scan-plat__providers-group + .r-v2-scan-plat__providers-group {
-  margin-top: 8px;
+  margin-top: var(--r-space-2);
 }
 .r-v2-scan-plat__providers-group-label {
   font-size: 10px;
@@ -512,7 +512,7 @@ function onScan() {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: var(--r-space-1) var(--r-space-2);
   border-radius: var(--r-radius-pill);
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
@@ -541,6 +541,6 @@ function onScan() {
 }
 
 .r-v2-scan-plat__hint {
-  margin-top: -4px;
+  margin-top: calc(-1 * var(--r-space-1));
 }
 </style>

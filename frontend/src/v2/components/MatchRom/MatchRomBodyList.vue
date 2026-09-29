@@ -264,7 +264,7 @@ watch(
 .match-list__list {
   list-style: none;
   margin: 0;
-  padding: 4px;
+  padding: var(--r-space-1);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -297,8 +297,8 @@ watch(
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-2) 10px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--r-radius-sm);
@@ -359,7 +359,7 @@ watch(
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 
 .match-list__row-name {
@@ -372,7 +372,7 @@ watch(
 
 .match-list__row-chips {
   display: flex;
-  gap: 4px;
+  gap: var(--r-space-1);
   flex-wrap: wrap;
 }
 
@@ -396,7 +396,7 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 4px;
+  padding: var(--r-space-1);
   min-height: 0;
 }
 
@@ -413,15 +413,15 @@ watch(
   scrollbar-color: var(--r-color-border-strong) transparent;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 8px 4px 8px 2px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-2) var(--r-space-1) var(--r-space-2) 2px;
 }
 
 .match-list__detail-head {
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
-  padding: 12px 14px;
+  padding: var(--r-space-3) 14px;
 }
 .match-list__detail-title {
   margin: 0;
@@ -450,7 +450,7 @@ watch(
 
 .match-list__sources-empty {
   margin: 0;
-  padding: 12px 14px;
+  padding: var(--r-space-3) 14px;
   font-size: 12px;
   line-height: 1.5;
   color: var(--r-color-fg-muted);
@@ -572,13 +572,13 @@ watch(
 .match-list__detail-empty {
   display: grid;
   place-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   border: 1px dashed var(--r-color-border);
   border-radius: var(--r-radius-md);
   color: var(--r-color-fg-muted);
   font-size: 13px;
   text-align: center;
-  padding: 24px;
+  padding: var(--r-space-6);
 }
 .match-list__detail-empty p {
   margin: 0;
@@ -603,7 +603,7 @@ watch(
 /* ── Mobile: stack columns ──────────────────────────────── */
 html[data-bp~="xs"] .match-list {
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: var(--r-space-3);
   /* Flow with the content and let the full-height dialog body scroll, rather
      than squeezing both columns into a fixed height where the detail
      (artwork) panel collapses to a tiny, barely-scrollable window. */

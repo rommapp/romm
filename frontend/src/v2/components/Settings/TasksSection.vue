@@ -268,7 +268,7 @@ function statusInfo(task: TaskStatusResponse) {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--r-color-fg-faint);
-  padding: 10px 16px 4px;
+  padding: 10px var(--r-space-4) var(--r-space-1);
 }
 .r-v2-tasks__sub-heading + .r-v2-tasks__sub-heading {
   border-top: 1px solid var(--r-color-border);
@@ -290,7 +290,7 @@ html[data-bp~="xs"] .r-v2-tasks__row--two-col {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
+  padding: var(--r-space-3) var(--r-space-4);
   border-top: 1px solid var(--r-color-border);
 }
 
@@ -366,7 +366,7 @@ html[data-bp~="xs"] .r-v2-tasks__row--two-col {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
+  padding: 10px var(--r-space-4);
   border-top: 1px solid var(--r-color-border);
   font-size: 12px;
 }
@@ -377,7 +377,7 @@ html[data-bp~="xs"] .r-v2-tasks__row--two-col {
   font-weight: var(--r-font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 2px 8px;
+  padding: 2px var(--r-space-2);
   border-radius: 4px;
   background: var(--r-color-surface);
   color: var(--r-color-fg-muted);
@@ -414,8 +414,8 @@ html[data-bp~="xs"] .r-v2-tasks__row--two-col {
 .r-v2-tasks__history-empty {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: var(--r-space-2);
+  padding: var(--r-space-3) var(--r-space-4);
   border-top: 1px solid var(--r-color-border);
   font-size: 12px;
   color: var(--r-color-fg-muted);

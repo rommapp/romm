@@ -463,7 +463,7 @@ onMounted(async () => {
 .r-v2-mappings__toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-mappings__search {
   flex: 1;
@@ -535,7 +535,7 @@ html[data-bp~="xs"]
 .r-v2-mappings__help-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-mappings__help-row-title {
   margin: 0;
@@ -552,8 +552,8 @@ html[data-bp~="xs"]
   color: var(--r-color-fg-secondary);
 }
 .r-v2-mappings__help-foot {
-  margin: 4px 0 0;
-  padding: 10px 12px;
+  margin: var(--r-space-1) 0 0;
+  padding: 10px var(--r-space-3);
   display: inline-flex;
   align-items: center;
   gap: 10px;

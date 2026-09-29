@@ -88,7 +88,7 @@ function toggle() {
 .rename-toggle {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
   padding: 10px 14px;
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
@@ -119,7 +119,7 @@ function toggle() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--r-space-3);
   background: transparent;
   border: none;
   padding: 0;
@@ -135,7 +135,7 @@ function toggle() {
 .rename-toggle__label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   font-size: 12px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg-secondary);
@@ -148,13 +148,13 @@ function toggle() {
 .rename-toggle__preview {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   flex-wrap: wrap;
   font-family: var(--r-font-family-mono, ui-monospace, monospace);
   font-size: 11px;
 }
 .rename-toggle__name {
-  padding: 3px 8px;
+  padding: 3px var(--r-space-2);
   border-radius: var(--r-radius-sm);
   background: color-mix(in srgb, var(--r-color-fg) 6%, transparent);
   color: var(--r-color-fg-muted);

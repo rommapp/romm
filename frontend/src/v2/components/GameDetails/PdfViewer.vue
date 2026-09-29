@@ -366,7 +366,7 @@ html[data-bp~="xs"] .r-v2-pdfv__btn--step {
   color: var(--r-color-fg);
   font-family: inherit;
   font-size: 12px;
-  padding: 2px 4px;
+  padding: 2px var(--r-space-1);
   margin-left: 6px;
   -moz-appearance: textfield;
   appearance: textfield;
@@ -384,7 +384,7 @@ html[data-bp~="xs"] .r-v2-pdfv__btn--step {
 .r-v2-pdfv__page-total {
   font-size: 12px;
   color: var(--r-color-fg-muted);
-  margin: 0 6px 0 4px;
+  margin: 0 6px 0 var(--r-space-1);
   font-variant-numeric: tabular-nums;
 }
 

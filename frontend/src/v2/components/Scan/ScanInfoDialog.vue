@@ -205,7 +205,7 @@ function paragraphs(text: string): string[] {
 .r-v2-scan-info__list {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--r-space-5);
 }
 
 /* Section grouping inside the providers tab — header + rows. The
@@ -221,7 +221,7 @@ function paragraphs(text: string): string[] {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
-  column-gap: 8px;
+  column-gap: var(--r-space-2);
   row-gap: 2px;
   color: var(--r-color-fg-secondary);
 }
@@ -243,7 +243,7 @@ function paragraphs(text: string): string[] {
   display: grid;
   grid-template-columns: 140px 1fr;
   gap: 14px;
-  padding: 12px 14px;
+  padding: var(--r-space-3) 14px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
@@ -261,7 +261,7 @@ function paragraphs(text: string): string[] {
 .r-v2-scan-info__row-desc {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-scan-info__para {
   margin: 0;
@@ -290,6 +290,6 @@ function paragraphs(text: string): string[] {
    Stack name + desc vertically on narrow viewports. */
 html[data-bp~="sm-and-down"] .r-v2-scan-info__row {
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 </style>

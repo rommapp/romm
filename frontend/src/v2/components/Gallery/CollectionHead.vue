@@ -131,6 +131,6 @@ html[data-bp~="xs"] .r-v2-coll__panel-cover {
 .r-v2-coll__tabs {
   /* Tuck the nav up against the InfoPanel's bottom padding so the
      two read as a single head band — same vocabulary as PlatformHead. */
-  margin-top: -8px;
+  margin-top: calc(-1 * var(--r-space-2));
 }
 </style>

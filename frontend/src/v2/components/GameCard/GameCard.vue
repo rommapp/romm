@@ -620,7 +620,7 @@ function onStaticKeydown(e: KeyboardEvent) {
   transition: opacity 0.12s ease;
   display: flex;
   flex-direction: column;
-  padding: 8px;
+  padding: var(--r-space-2);
   border-radius: var(--r-radius-art);
 }
 
@@ -763,7 +763,7 @@ html:not([data-input="pad"]) .r-gc:hover .r-gc__overlay,
   z-index: 3;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   pointer-events: none;
 }
 

@@ -696,7 +696,7 @@ function refreshRom() {
 .r-v2-files {
   display: flex;
   align-items: stretch;
-  gap: 24px;
+  gap: var(--r-space-6);
   /* Anchor the FilesTab to `.r-v2-det__panel`'s visible viewport
      via absolute positioning rather than `height: 100%`. The panel
      has `overflow-y: auto`, which is a scroll container, percentage
@@ -730,7 +730,7 @@ function refreshRom() {
 .r-v2-files__section-head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   flex-shrink: 0;
 }
 .r-v2-files__subtab-menu {
@@ -769,8 +769,8 @@ function refreshRom() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 6px 4px;
+  gap: var(--r-space-3);
+  padding: 6px var(--r-space-1);
   flex-shrink: 0;
   /* Reserve the height of the action cluster (small RBtn = 32px +
      6px×2 vertical padding) so toggling the selection state doesn't
@@ -781,7 +781,7 @@ function refreshRom() {
 .r-v2-files__toolbar-select {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   font-size: 12px;
   color: var(--r-color-fg-muted);
   cursor: pointer;
@@ -793,7 +793,7 @@ function refreshRom() {
 .r-v2-files__toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 
 /* File rows: sole scrollable area. Sits in the grid's `1fr` track,
@@ -807,7 +807,7 @@ function refreshRom() {
   gap: 6px;
   list-style: none;
   margin: 0;
-  padding: 0 4px 4px 0;
+  padding: 0 var(--r-space-1) var(--r-space-1) 0;
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;

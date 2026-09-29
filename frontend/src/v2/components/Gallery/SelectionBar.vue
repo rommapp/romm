@@ -657,7 +657,7 @@ html[data-bp~="sm-and-down"] .selection-bar {
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
-  padding: 9px 16px 13px;
+  padding: 9px var(--r-space-4) 13px;
   /* The foot stays square so the sides run straight down into the fillets
      below. Rounding it would pull the edge inward and open a gap between
      hill, fillet and bar. The square corners themselves sit inside the bar,

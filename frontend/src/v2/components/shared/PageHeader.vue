@@ -53,7 +53,7 @@ const countText = useAnimatedNumber(() => props.count);
      auto-measures the hero slot to position the toolbar's divider, and
      a margin-bottom would collapse out of that measurement. Visually
      identical for non-gallery consumers (PlatformsIndex etc). */
-  padding-bottom: 24px;
+  padding-bottom: var(--r-space-6);
 }
 
 .page-header__title-wrap {
@@ -64,7 +64,7 @@ const countText = useAnimatedNumber(() => props.count);
      wrap taller than the h1 line-box and shifted the gallery down on
      first paint of the chip. */
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 .page-header__title {

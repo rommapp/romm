@@ -161,7 +161,7 @@ useGridNav(rootEl, {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 6px 0 4px;
+  margin: 6px 0 var(--r-space-1);
   flex-wrap: wrap;
 }
 .game-actions__spacer {
@@ -173,7 +173,7 @@ useGridNav(rootEl, {
    phones (they aren't rendered here), so no spacer/hairline is needed. */
 html[data-bp~="sm-and-down"] .game-actions {
   justify-content: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 /* Full-width break after the Play CTA so it keeps its natural width but
    sits alone (centred) on its own row above the icon ribbon on phones.

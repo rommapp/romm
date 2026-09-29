@@ -198,7 +198,7 @@ onBeforeUnmount(() => {
   align-items: center;
   /* gap is driven inline via the --card-row icon gap prop. */
   padding: 0 var(--r-row-pad);
-  margin-bottom: 12px;
+  margin-bottom: var(--r-space-3);
   color: var(--r-color-fg-secondary);
 }
 
@@ -228,7 +228,7 @@ onBeforeUnmount(() => {
 
 .card-row__track {
   display: flex;
-  padding: 16px var(--r-row-pad) 20px;
+  padding: var(--r-space-4) var(--r-row-pad) var(--r-space-5);
   overflow-x: auto;
   overflow-y: visible;
   scroll-behavior: smooth;
@@ -263,7 +263,7 @@ onBeforeUnmount(() => {
 }
 
 html[data-bp~="xs"] .card-row__track {
-  padding: 8px 14px 16px;
+  padding: var(--r-space-2) 14px var(--r-space-4);
 }
 html[data-bp~="xs"] .card-row__arrow {
   display: none;

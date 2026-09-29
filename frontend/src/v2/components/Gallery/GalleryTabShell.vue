@@ -25,15 +25,15 @@ defineSlots<{
 /* Plain document flow, so the page scrolls under the translucent top bar like
    Home; AppLayout's bottom padding clears the phone tab bar. */
 .gallery-tab-shell {
-  padding: 32px var(--r-row-pad) 24px;
+  padding: var(--r-space-8) var(--r-row-pad) var(--r-space-6);
 }
 /* GalleryShell's phone header gap, so the head holds still across tabs. */
 html[data-bp~="xs"] .gallery-tab-shell {
-  padding-top: 16px;
+  padding-top: var(--r-space-4);
 }
 
 .gallery-tab-shell__divider {
-  margin: 0 0 24px;
+  margin: 0 0 var(--r-space-6);
 }
 
 /* Desktop: fill at least the viewport so the panel, and a `fill` child such as

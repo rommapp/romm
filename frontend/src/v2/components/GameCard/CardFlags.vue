@@ -55,7 +55,7 @@ const languages = computed(() =>
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   max-width: calc(100% - 14px);
   pointer-events: none;
   transition: opacity 0.12s ease;

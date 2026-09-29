@@ -44,6 +44,6 @@ const artwork = computed(() => resolveRomArtwork(props.rom));
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--r-color-border-strong) transparent;
-  padding-right: 4px;
+  padding-right: var(--r-space-1);
 }
 </style>

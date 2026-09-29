@@ -82,8 +82,8 @@ function closeDialog() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 4px;
+  gap: var(--r-space-1);
+  padding: var(--r-space-1);
 }
 
 .r-v2-qr__name {
@@ -111,7 +111,7 @@ function closeDialog() {
 }
 
 .r-v2-qr__canvas-wrap {
-  margin: 20px 0px 0px;
+  margin: var(--r-space-5) 0px 0px;
   padding: 6px;
   background: var(--r-color-overlay-emphasis-bg);
   border-radius: var(--r-radius-md);

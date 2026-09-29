@@ -85,7 +85,7 @@ const hashes = computed<RomHash[]>(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 14px;
+  padding: var(--r-space-3) 14px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
@@ -94,12 +94,12 @@ const hashes = computed<RomHash[]>(() => {
 .r-v2-files-summary__head {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-files-summary__title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   color: var(--r-color-fg);
   font-size: 13.5px;
   font-weight: var(--r-font-weight-medium);

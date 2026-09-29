@@ -113,7 +113,7 @@ const counterLabel = computed(() => {
   align-items: stretch;
   gap: 0;
   height: var(--r-nav-pill-h);
-  padding: 0 12px;
+  padding: 0 var(--r-space-3);
   border-radius: var(--r-radius-pill);
   background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
   border: 1px solid
@@ -144,7 +144,7 @@ const counterLabel = computed(() => {
 .r-scan-indicator__row {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   flex: 1;
   min-width: 0;
   /* Leave a sliver of breathing room above the progress bar without

@@ -461,7 +461,7 @@ const { smAndUp } = useBreakpoint();
 .gallery-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 /* Header variant: full width, search left, controls right. Padding, not
@@ -477,7 +477,7 @@ const { smAndUp } = useBreakpoint();
   top: 14px;
   right: 14px;
   z-index: 5;
-  padding: 4px;
+  padding: var(--r-space-1);
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
@@ -488,7 +488,7 @@ const { smAndUp } = useBreakpoint();
 .gallery-toolbar__controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   margin-left: auto;
 }
 

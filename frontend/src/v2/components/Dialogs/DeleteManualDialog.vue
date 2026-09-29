@@ -116,8 +116,8 @@ function closeDialog() {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 12px;
-  padding: 4px 4px 8px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-1) var(--r-space-1) var(--r-space-2);
 }
 
 .r-v2-del-manual__icon {

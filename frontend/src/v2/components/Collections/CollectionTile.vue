@@ -184,7 +184,7 @@ html:not([data-input="pad"]) .coll-tile:hover .coll-tile__cover,
   /* Match the GameCard corner-badge footprint (icon + padding +
      hairline border, circular) so collection cards read as the same
      family. */
-  padding: 4px;
+  padding: var(--r-space-1);
   border-radius: 50%;
   border: 1px solid var(--r-color-overlay-border);
   color: var(--r-color-overlay-fg);

@@ -269,7 +269,7 @@ html[data-bp~="xs"]
 .r-v2-groups__name {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   font-weight: var(--r-font-weight-semibold);
   min-width: 0;
 }
@@ -307,7 +307,7 @@ html[data-bp~="xs"] .r-v2-groups__desc {
 .r-v2-groups__actions {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-groups__footer {
   display: flex;

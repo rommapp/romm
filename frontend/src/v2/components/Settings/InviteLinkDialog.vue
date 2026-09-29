@@ -164,7 +164,7 @@ function close() {
 .r-v2-invite__field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-invite__label {
   font-size: 11px;
@@ -175,7 +175,7 @@ function close() {
 }
 .r-v2-invite__role-row {
   display: flex;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-invite__role-btn {
   flex: 1;
@@ -183,7 +183,7 @@ function close() {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: var(--r-space-2) var(--r-space-3);
   border: 1px solid var(--r-color-border);
   background: var(--r-color-surface);
   border-radius: 8px;
@@ -213,7 +213,7 @@ function close() {
 .r-v2-invite__link {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   padding: 10px 14px;
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);

@@ -466,7 +466,7 @@ function close() {
 .r-v2-user-dialog__edit-grid {
   display: grid;
   grid-template-columns: 1fr 160px;
-  gap: 24px;
+  gap: var(--r-space-6);
   align-items: start;
 }
 html[data-bp~="xs"] .r-v2-user-dialog__edit-grid {
@@ -524,9 +524,9 @@ html[data-bp~="xs"] .r-v2-user-dialog__edit-grid {
 .r-v2-user-dialog__access {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-top: 20px;
-  padding-top: 20px;
+  gap: var(--r-space-4);
+  margin-top: var(--r-space-5);
+  padding-top: var(--r-space-5);
   border-top: 1px solid var(--r-color-border);
 }
 .r-v2-user-dialog__access-label {
@@ -542,7 +542,7 @@ html[data-bp~="xs"] .r-v2-user-dialog__edit-grid {
 .r-v2-user-dialog__admin {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   flex-wrap: wrap;
 }
 .r-v2-user-dialog__field {

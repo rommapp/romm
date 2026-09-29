@@ -510,26 +510,26 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
 .r-v2-edit__hero {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 24px;
+  gap: var(--r-space-6);
   align-items: start;
 }
 
 .r-v2-edit__cover-col {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
   align-items: center;
 }
 
 .r-v2-edit__cover-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 
 .r-v2-edit__fields {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
   min-width: 0;
 }
 
@@ -552,7 +552,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
 }
 
 .r-v2-edit__tab-content {
-  padding-top: 16px;
+  padding-top: var(--r-space-4);
 }
 
 /* ── Compact breakpoint ───────────────────────────────────────────

@@ -93,8 +93,8 @@ function toggle() {
      label. */
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: var(--r-space-3);
+  padding: 14px var(--r-space-4);
   background: var(--r-color-bg-elevated);
   cursor: pointer;
   border: none;

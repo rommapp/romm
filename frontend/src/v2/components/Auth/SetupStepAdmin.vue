@@ -275,7 +275,7 @@ html[data-bp~="sm-and-down"] .r-setup-admin__avatar-row {
 }
 
 .r-setup-admin__avatar-trash {
-  margin-bottom: -4px;
+  margin-bottom: calc(-1 * var(--r-space-1));
 }
 
 .r-setup-admin__avatar {

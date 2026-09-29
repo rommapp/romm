@@ -150,7 +150,7 @@ function stopCard(e: Event) {
   justify-content: center;
   gap: 2px;
   min-width: 28px;
-  padding: 5px 4px;
+  padding: 5px var(--r-space-1);
   background: var(--r-color-overlay-scrim-soft);
   border: 1px solid var(--r-color-overlay-border);
   border-radius: var(--r-radius-pill);
@@ -171,8 +171,8 @@ function stopCard(e: Event) {
 }
 .sibling-badge--horizontal {
   flex-direction: row;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: var(--r-space-1);
+  padding: var(--r-space-1) var(--r-space-2);
 }
 .sibling-badge:hover,
 .sibling-badge--pinned {

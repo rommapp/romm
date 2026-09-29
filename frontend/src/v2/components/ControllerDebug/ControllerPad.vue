@@ -280,11 +280,11 @@ function magnitude(x: number, y: number) {
 /* Outer wrapper centres the silhouette and caps its width — at full
    container width the layout starts looking sparse. */
 .r-v2-pad__wrap {
-  padding: 24px 16px;
+  padding: var(--r-space-6) var(--r-space-4);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: var(--r-space-5);
 }
 
 .r-v2-pad {
@@ -297,7 +297,7 @@ function magnitude(x: number, y: number) {
     "corner-l system  corner-r"
     "dpad     .       face"
     "lstick   .       rstick";
-  gap: 20px 18px;
+  gap: var(--r-space-5) 18px;
   align-items: center;
   justify-items: center;
 }
@@ -361,7 +361,7 @@ function magnitude(x: number, y: number) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-v2-pad__trigger {
@@ -469,7 +469,7 @@ function magnitude(x: number, y: number) {
   display: grid;
   grid-template-columns: 32px 32px 32px;
   grid-template-rows: 32px 32px 32px;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-pad__face-btn {
   display: flex;
@@ -501,13 +501,13 @@ function magnitude(x: number, y: number) {
 .r-v2-pad__system {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-pad__sys-btn {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
+  padding: var(--r-space-1) 10px;
   border-radius: var(--r-radius-pill);
   font-size: 10px;
   font-weight: var(--r-font-weight-bold);
@@ -527,7 +527,7 @@ function magnitude(x: number, y: number) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-pad__stick {
   position: relative;
@@ -604,11 +604,11 @@ function magnitude(x: number, y: number) {
 /* Extras (idx > 16) ---------------------------------------------- */
 .r-v2-pad__extras {
   width: 100%;
-  padding-top: 16px;
+  padding-top: var(--r-space-4);
   border-top: 1px solid var(--r-color-border);
 }
 .r-v2-pad__extras-title {
-  margin: 0 0 8px;
+  margin: 0 0 var(--r-space-2);
   font-size: 11px;
   font-weight: var(--r-font-weight-bold);
   text-transform: uppercase;
@@ -625,7 +625,7 @@ function magnitude(x: number, y: number) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--r-space-2);
   padding: 6px 10px;
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
@@ -672,7 +672,7 @@ html[data-bp~="xs"] .r-v2-pad {
     "system   system"
     "dpad     face"
     "lstick   rstick";
-  gap: 16px 12px;
+  gap: var(--r-space-4) var(--r-space-3);
 }
 html[data-bp~="xs"] .r-v2-pad__corner--right {
   justify-self: end;

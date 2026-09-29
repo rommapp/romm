@@ -75,10 +75,10 @@ const { toolbarHeight, pinned, bindToolbar, bindSentinel } = usePinnedToolbar();
 /* Plain document flow: <main> clears the top bar and, on phones, the bottom
    tab bar. */
 .r-v2-idx-shell {
-  padding: 32px var(--r-row-pad) 60px;
+  padding: var(--r-space-8) var(--r-row-pad) 60px;
 }
 html[data-bp~="xs"] .r-v2-idx-shell {
-  padding: 16px 14px 24px;
+  padding: var(--r-space-4) 14px var(--r-space-6);
 }
 
 /* List column header: sticky just below the pinned toolbar, and under it

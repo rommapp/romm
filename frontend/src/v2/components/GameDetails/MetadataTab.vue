@@ -156,13 +156,13 @@ const downloadUrls = computed(() => {
 .metadata-tab {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--r-space-6);
 }
 
 .metadata-tab__section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 .metadata-tab__heading {
@@ -176,12 +176,12 @@ const downloadUrls = computed(() => {
 .metadata-tab__rows {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px 24px;
+  gap: var(--r-space-3) var(--r-space-6);
 }
 .metadata-tab__row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   min-width: 0;
 }
 .metadata-tab__label {
@@ -201,7 +201,7 @@ const downloadUrls = computed(() => {
 .metadata-tab__inline {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--r-space-2);
   align-items: center;
 }
 
