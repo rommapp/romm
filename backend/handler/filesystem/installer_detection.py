@@ -21,7 +21,7 @@ import fnmatch
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # Platform slugs the remote-install feature currently knows how to install.
 # Only the Windows family is implemented today (the runner drives everything
