@@ -593,6 +593,19 @@ def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
         )
 
 
+def test_the_roms_columns_helper_rebuilds_the_search_index_with_the_alias_column():
+    """A rebuild of the alias column must not leave the gallery search unindexed."""
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        connection.execute(
+            sa.text(f"ALTER TABLE roms DROP COLUMN {SEARCH_ALIASES_COLUMN}")
+        )
+
+        ensure_roms_columns(connection)
+
+        assert _schema_of(connection, "roms") == before
+
+
 def test_dropping_the_roms_columns_takes_the_sort_indexes_with_them():
     """A descending sort index reads an inherited column, so nothing else drops it."""
     # Those indexes are PostgreSQL's alone, and only its DDL rolls back, which

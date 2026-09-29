@@ -7,8 +7,9 @@ those blobs, and puts it under the gallery search's index: the FULLTEXT index
 is rebuilt over (name, fs_name, aliases) on MariaDB and MySQL, and a pg_trgm
 GIN index joins 0084's on PostgreSQL.
 
-The expression lives in `utils.roms_columns`, which adds the column in the
-table copy shared by every revision that widens `roms`.
+The expression and both indexes live in `utils.roms_columns`, which adds the
+column in the table copy shared by every revision that widens `roms` and puts
+the indexes back after any later rebuild.
 
 Revision ID: 0145_roms_search_aliases
 Revises: 0144_user_oidc_sub
@@ -21,9 +22,9 @@ from alembic import op
 
 from utils.database import (
     ROMS_SEARCH_ALIASES_TRGM_INDEX,
-    ROMS_SEARCH_FULLTEXT_COLUMNS,
     ROMS_SEARCH_FULLTEXT_INDEX,
     SEARCH_ALIASES_COLUMN,
+    has_column,
     is_postgresql,
 )
 from utils.roms_columns import ensure_roms_columns
@@ -36,41 +37,20 @@ depends_on = None
 
 # 0084's FULLTEXT index, over the name columns alone.
 NAME_FULLTEXT_INDEX = "idx_roms_name_fs_name_fulltext"
-NAME_FULLTEXT_COLUMNS = ("name", "fs_name")
 
 
-def _swap_fulltext_index(
-    conn: sa.Connection,
-    *,
-    drop: str,
-    create: str,
-    columns: tuple[str, ...],
-) -> None:
-    # Each step is guarded so a run that died between the two replays cleanly.
-    existing = {index["name"] for index in sa.inspect(conn).get_indexes("roms")}
-    if drop in existing:
-        op.execute(f"ALTER TABLE roms DROP INDEX {drop}")
-    if create not in existing:
-        op.execute(f"CREATE FULLTEXT INDEX {create} ON roms ({', '.join(columns)})")
+def _index_names(conn: sa.Connection) -> set[str | None]:
+    return {index["name"] for index in sa.inspect(conn).get_indexes("roms")}
 
 
 def upgrade() -> None:
     conn = op.get_bind()
+    # Builds the search index beside 0084's, which goes only after: dropping the
+    # last FULLTEXT index first would make InnoDB rebuild the table once more.
     ensure_roms_columns(conn)
 
-    if is_postgresql(conn):
-        op.execute(
-            f"CREATE INDEX IF NOT EXISTS {ROMS_SEARCH_ALIASES_TRGM_INDEX} "
-            f"ON roms USING gin ({SEARCH_ALIASES_COLUMN} gin_trgm_ops)"
-        )
-        return
-
-    _swap_fulltext_index(
-        conn,
-        drop=NAME_FULLTEXT_INDEX,
-        create=ROMS_SEARCH_FULLTEXT_INDEX,
-        columns=ROMS_SEARCH_FULLTEXT_COLUMNS,
-    )
+    if not is_postgresql(conn) and NAME_FULLTEXT_INDEX in _index_names(conn):
+        op.execute(f"ALTER TABLE roms DROP INDEX {NAME_FULLTEXT_INDEX}")
 
 
 def downgrade() -> None:
@@ -79,11 +59,14 @@ def downgrade() -> None:
     if is_postgresql(conn):
         op.execute(f"DROP INDEX IF EXISTS {ROMS_SEARCH_ALIASES_TRGM_INDEX}")
     else:
-        _swap_fulltext_index(
-            conn,
-            drop=ROMS_SEARCH_FULLTEXT_INDEX,
-            create=NAME_FULLTEXT_INDEX,
-            columns=NAME_FULLTEXT_COLUMNS,
-        )
+        existing = _index_names(conn)
+        if NAME_FULLTEXT_INDEX not in existing:
+            op.execute(
+                f"CREATE FULLTEXT INDEX {NAME_FULLTEXT_INDEX} ON roms (name, fs_name)"
+            )
+        if ROMS_SEARCH_FULLTEXT_INDEX in existing:
+            op.execute(f"ALTER TABLE roms DROP INDEX {ROMS_SEARCH_FULLTEXT_INDEX}")
 
-    op.drop_column("roms", SEARCH_ALIASES_COLUMN, if_exists=True)
+    # MySQL has no DROP COLUMN IF EXISTS.
+    if has_column(conn, "roms", SEARCH_ALIASES_COLUMN):
+        op.execute(f"ALTER TABLE roms DROP COLUMN {SEARCH_ALIASES_COLUMN}")
