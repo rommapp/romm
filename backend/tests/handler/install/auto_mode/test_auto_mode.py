@@ -120,6 +120,20 @@ class TestPlanner:
         action, _ = plan_action(words, CATALOG, ScreenMemory())
         assert action.match.entry.category == "agree"
 
+    def test_agree_buttons_also_used_on_a_plain_install_confirmation(self):
+        # "Do you want to install DirectX 6.1?" (Re-Volt's installer) is not
+        # a EULA, but just as safe to answer Yes to. Caught live: auto mode
+        # got stuck needs_manual on exactly this dialog, forever, because
+        # "Yes" only used to fire on a detected license page.
+        words = screen(
+            line("Do you want to install DirectX 6.1?", 20, 20, 1),
+            line("Yes", 300, 400, 2),
+            line("No", 400, 400, 3),
+        )
+        action, _ = plan_action(words, CATALOG, ScreenMemory())
+        assert action.match.entry.category == "agree"
+        assert action.match.label.lower() == "yes"
+
     def test_click_then_mnemonic_then_next_candidate(self):
         words = screen(
             line("License Agreement", 20, 20, 1),

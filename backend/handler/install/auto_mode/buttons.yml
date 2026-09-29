@@ -30,6 +30,22 @@ context_keywords:
       "協議",
       "协议",
     ]
+  # "Do you want to install DirectX/the VC++ redistributable/...?" - a plain
+  # Yes/No prerequisite prompt, not a EULA, but just as safe to answer Yes to
+  # (see the "agree" entry's own comment on why "Yes" needs a context gate
+  # at all).
+  confirm:
+    [
+      "do you want to install",
+      "would you like to install",
+      "vuoi installare",
+      "desideri installare",
+      "möchten sie installieren",
+      "desea instalar",
+      "をインストールしますか",
+      "是否安装",
+      "是否安裝",
+    ]
 
 buttons:
   - category: next

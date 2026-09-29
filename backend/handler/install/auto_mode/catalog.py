@@ -49,6 +49,7 @@ class ButtonEntry:
 class Catalog:
     buttons: tuple[ButtonEntry, ...]
     license_keywords: tuple[str, ...]
+    confirm_keywords: tuple[str, ...]
 
     def entries(self, category: str) -> tuple[ButtonEntry, ...]:
         return tuple(b for b in self.buttons if b.category == category)
@@ -72,18 +73,17 @@ def _parse_entry(raw: dict) -> ButtonEntry | None:
     )
 
 
+def _keywords(context: dict, key: str) -> tuple[str, ...]:
+    return tuple(k for k in (normalize(x) for x in context.get(key, [])) if k)
+
+
 def load_catalog(extra_buttons: list[dict] | None = None) -> Catalog:
     raw = yaml.safe_load(CATALOG_PATH.read_text(encoding="utf-8")) or {}
     entries = [_parse_entry(x) for x in raw.get("buttons", [])]
     entries += [_parse_entry(x) for x in extra_buttons or [] if isinstance(x, dict)]
-    keywords = tuple(
-        k
-        for k in (
-            normalize(x) for x in raw.get("context_keywords", {}).get("license", [])
-        )
-        if k
-    )
+    context = raw.get("context_keywords", {})
     return Catalog(
         buttons=tuple(e for e in entries if e is not None),
-        license_keywords=keywords,
+        license_keywords=_keywords(context, "license"),
+        confirm_keywords=_keywords(context, "confirm"),
     )

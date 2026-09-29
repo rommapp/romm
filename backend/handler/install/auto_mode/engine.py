@@ -53,6 +53,13 @@ def is_license_page(lines: list[str], catalog: Catalog) -> bool:
     return any(k in line for line in lines for k in catalog.license_keywords)
 
 
+def is_confirm_page(lines: list[str], catalog: Catalog) -> bool:
+    """A plain Yes/No prerequisite prompt ("Do you want to install
+    DirectX?"), not a EULA, but just as safe to answer Yes to - see
+    buttons.yml's own "confirm" keyword list."""
+    return any(k in line for line in lines for k in catalog.confirm_keywords)
+
+
 def _priority(match: Match) -> int:
     entry = match.entry
     return _PRIORITY["toggle" if entry.toggle else entry.category]
@@ -73,10 +80,11 @@ def plan_action(
     lines = screen_lines(words)
     matches = find_matches(words, catalog)
     license_page = is_license_page(lines, catalog)
+    agree_allowed = license_page or is_confirm_page(lines, catalog)
 
     ranked: list[tuple[tuple[int, int], Match, str, int]] = []
     for m in matches:
-        if m.entry.category == "agree" and not license_page:
+        if m.entry.category == "agree" and not agree_allowed:
             continue
         if m.entry.late and not installing:
             continue
