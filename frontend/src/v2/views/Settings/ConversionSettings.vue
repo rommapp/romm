@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Editor for the converto.* section of config.yml: download-time
-// conversion, scan metadata extraction, cache TTL and the platform to
-// target-format mapping.
+// conversion, scan metadata extraction, cache TTL and size limits and
+// the platform to target-format mapping.
 import { RAlert, RIcon, RSelect, RTextField, RBtn, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
@@ -52,21 +52,26 @@ interface ConversionForm {
   downloadConversionEnabled: boolean;
   scanMetadata: boolean;
   cacheTtlHours: number | null;
+  cacheMaxSizeGb: number | null;
+  maxSyncSizeMb: number | null;
   // Platform slug to target; empty string keeps the original file.
   formats: Record<string, string>;
 }
 
 function configToForm(cfg: Config): ConversionForm {
-  const saved = cfg.CONVERTO.platform_formats;
+  const saved = cfg.CONVERTO.platform_formats ?? {};
   const formats: Record<string, string> = {};
   for (const [slug, targets] of Object.entries(cfg.CONVERTO_TARGETS)) {
     const target = saved[slug];
     formats[slug] = target && targets.includes(target) ? target : "";
   }
   return {
-    downloadConversionEnabled: cfg.CONVERTO.download_conversion_enabled,
-    scanMetadata: cfg.CONVERTO.scan_metadata,
-    cacheTtlHours: cfg.CONVERTO.cache_ttl_hours,
+    downloadConversionEnabled:
+      cfg.CONVERTO.download_conversion_enabled ?? false,
+    scanMetadata: cfg.CONVERTO.scan_metadata ?? true,
+    cacheTtlHours: cfg.CONVERTO.cache_ttl_hours ?? 24,
+    cacheMaxSizeGb: cfg.CONVERTO.cache_max_size_gb ?? 20,
+    maxSyncSizeMb: cfg.CONVERTO.max_sync_size_mb ?? 512,
     formats,
   };
 }
@@ -80,6 +85,8 @@ function formToPayload(f: ConversionForm): ConvertoSettingsPayload {
     download_conversion_enabled: f.downloadConversionEnabled,
     scan_metadata: f.scanMetadata,
     cache_ttl_hours: f.cacheTtlHours ?? 1,
+    cache_max_size_gb: f.cacheMaxSizeGb ?? 0,
+    max_sync_size_mb: f.maxSyncSizeMb ?? 0,
     platform_formats: platformFormats,
   };
 }
@@ -93,6 +100,25 @@ const cacheTtlValid = computed(
     form.cacheTtlHours !== null &&
     Number.isInteger(form.cacheTtlHours) &&
     form.cacheTtlHours >= 1,
+);
+
+const cacheMaxSizeValid = computed(
+  () =>
+    form.cacheMaxSizeGb !== null &&
+    Number.isInteger(form.cacheMaxSizeGb) &&
+    form.cacheMaxSizeGb >= 0,
+);
+
+const maxSyncSizeValid = computed(
+  () =>
+    form.maxSyncSizeMb !== null &&
+    Number.isInteger(form.maxSyncSizeMb) &&
+    form.maxSyncSizeMb >= 0,
+);
+
+const formValid = computed(
+  () =>
+    cacheTtlValid.value && cacheMaxSizeValid.value && maxSyncSizeValid.value,
 );
 
 function resetForm(cfg: Config) {
@@ -158,6 +184,16 @@ function setCacheTtl(value: unknown) {
   form.cacheTtlHours = Number.isNaN(parsed) ? null : parsed;
 }
 
+function setCacheMaxSize(value: unknown) {
+  const parsed = Number.parseInt(String(value), 10);
+  form.cacheMaxSizeGb = Number.isNaN(parsed) ? null : parsed;
+}
+
+function setMaxSyncSize(value: unknown) {
+  const parsed = Number.parseInt(String(value), 10);
+  form.maxSyncSizeMb = Number.isNaN(parsed) ? null : parsed;
+}
+
 const hasPendingEdits = () => dirty.value && canEdit.value;
 
 onBeforeRouteLeave(async () => {
@@ -190,7 +226,10 @@ onBeforeUnmount(() =>
   <div v-if="loading" class="r-v2-conversion-settings__loading">
     <RSpinner />
   </div>
-  <div v-else-if="loadError" class="r-v2-section-stack r-v2-conversion-settings">
+  <div
+    v-else-if="loadError"
+    class="r-v2-section-stack r-v2-conversion-settings"
+  >
     <RAlert type="error">
       <template #title>
         {{ t("settings.conversion-settings-load-error-title") }}
@@ -203,10 +242,7 @@ onBeforeUnmount(() =>
       </template>
     </RAlert>
   </div>
-  <div
-    v-else
-    class="r-v2-section-stack r-v2-conversion-settings"
-  >
+  <div v-else class="r-v2-section-stack r-v2-conversion-settings">
     <RAlert v-if="!config.CONFIG_FILE_MOUNTED" type="error">
       <template #title>
         {{ t("settings.config-file-not-mounted-title") }}
@@ -274,6 +310,48 @@ onBeforeUnmount(() =>
           {{ t("settings.conversion-cache-ttl-hours-desc") }}
         </p>
       </div>
+      <div class="r-v2-conversion-settings__field">
+        <RTextField
+          :model-value="form.cacheMaxSizeGb"
+          type="number"
+          min="0"
+          step="1"
+          :label="t('settings.conversion-cache-max-size-gb')"
+          :disabled="!canEdit"
+          :hide-details="cacheMaxSizeValid"
+          :error-messages="
+            cacheMaxSizeValid
+              ? []
+              : [t('settings.conversion-cache-max-size-gb-invalid')]
+          "
+          @update:model-value="setCacheMaxSize"
+        />
+        <p class="r-v2-conversion-settings__note">
+          <RIcon icon="mdi-information-outline" size="13" />
+          {{ t("settings.conversion-cache-max-size-gb-desc") }}
+        </p>
+      </div>
+      <div class="r-v2-conversion-settings__field">
+        <RTextField
+          :model-value="form.maxSyncSizeMb"
+          type="number"
+          min="0"
+          step="1"
+          :label="t('settings.conversion-max-sync-size-mb')"
+          :disabled="!canEdit"
+          :hide-details="maxSyncSizeValid"
+          :error-messages="
+            maxSyncSizeValid
+              ? []
+              : [t('settings.conversion-max-sync-size-mb-invalid')]
+          "
+          @update:model-value="setMaxSyncSize"
+        />
+        <p class="r-v2-conversion-settings__note">
+          <RIcon icon="mdi-information-outline" size="13" />
+          {{ t("settings.conversion-max-sync-size-mb-desc") }}
+        </p>
+      </div>
     </SettingsSection>
 
     <!-- Platform → target format mapping -->
@@ -305,10 +383,7 @@ onBeforeUnmount(() =>
     </SettingsSection>
 
     <Transition name="r-v2-conversion-settings__bar">
-      <div
-        v-if="dirty && canEdit"
-        class="r-v2-conversion-settings__bar"
-      >
+      <div v-if="dirty && canEdit" class="r-v2-conversion-settings__bar">
         <span class="r-v2-conversion-settings__bar-label">
           {{ t("settings.conversion-unsaved-changes") }}
         </span>
@@ -321,7 +396,7 @@ onBeforeUnmount(() =>
             color="primary"
             prepend-icon="mdi-content-save-outline"
             :loading="saving"
-            :disabled="!cacheTtlValid"
+            :disabled="!formValid"
             @click="onSave"
           >
             {{ t("common.save") }}
