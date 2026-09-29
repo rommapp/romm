@@ -2,7 +2,7 @@
 // BackToTopButton: floating control that returns a long gallery scroll to
 // its top, shown once the viewer is more than a viewport down.
 import { RBtn } from "@v2/lib";
-import { useResizeObserver } from "@vueuse/core";
+import { useEventListener, useResizeObserver } from "@vueuse/core";
 import { computed, ref, toRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
@@ -51,6 +51,14 @@ watch(
       ?.focus({ preventScroll: true });
   },
 );
+// A ride that stops short of the top, or focus the user moves elsewhere
+// meanwhile, cancels the handoff.
+useEventListener(toRef(props, "scroller"), "scrollend", () => {
+  if ((props.scroller?.scrollTop ?? 0) > 0) focusOnArrival.value = false;
+});
+useEventListener(document, "focusin", () => {
+  focusOnArrival.value = false;
+});
 
 function scrollToTop(event: MouseEvent) {
   const el = props.scroller;

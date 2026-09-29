@@ -7,7 +7,8 @@ vi.mock("vue-i18n", () => ({
 }));
 
 const { resized } = vi.hoisted(() => ({ resized: { callback: () => {} } }));
-vi.mock("@vueuse/core", () => ({
+vi.mock("@vueuse/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@vueuse/core")>()),
   useResizeObserver: (_target: unknown, callback: () => void) => {
     resized.callback = callback;
   },
@@ -109,6 +110,33 @@ describe("BackToTopButton", () => {
     expect(document.activeElement).not.toBe(first);
     await wrapper.setProps({ scrollTop: 0 });
     expect(document.activeElement).toBe(first);
+  });
+
+  it("drops the handoff when the scroll stops short of the top", async () => {
+    const scroller = makeScroller();
+    const wrapper = mountButton(scroller, 1200);
+    const btn = wrapper.get("button");
+    (btn.element as HTMLElement).focus();
+    await btn.trigger("click");
+    scroller.scrollTop = 500;
+    scroller.dispatchEvent(new Event("scrollend"));
+
+    await wrapper.setProps({ scrollTop: 0 });
+    expect(document.activeElement).not.toBe(scroller.querySelector(".first"));
+  });
+
+  it("drops the handoff when focus moves elsewhere mid-scroll", async () => {
+    const scroller = makeScroller();
+    const other = document.createElement("button");
+    document.body.appendChild(other);
+    const wrapper = mountButton(scroller, 1200);
+    const btn = wrapper.get("button");
+    (btn.element as HTMLElement).focus();
+    await btn.trigger("click");
+    other.focus();
+
+    await wrapper.setProps({ scrollTop: 0 });
+    expect(document.activeElement).toBe(other);
   });
 
   it("leaves focus alone on a pointer click", async () => {
