@@ -34,6 +34,33 @@ def test_verify_password():
     assert not auth_handler.verify_password(
         "password", "3f2b1c7e-0c1d-4f5a-9a2b-8e7d6c5b4a39"
     )
+    assert not auth_handler.verify_password("password", None)
+
+
+def test_verify_password_long_secret():
+    long_password = "x" * 100
+    assert auth_handler.verify_password(
+        long_password, auth_handler.get_password_hash(long_password)
+    )
+
+
+@pytest.mark.parametrize(
+    "password, legacy_hash",
+    [
+        (
+            "password",
+            "$2b$12$LMZZK1kiutIELMOo4/fpOeljO2j6NrutGrLk72/mJQfhueGMPCi/O",
+        ),
+        (
+            "x" * 100,
+            "$2b$12$6PshUF896mGxuAeJyKdlVewsFCgOlduOYYHWQo.VtTvXtuw.4tbou",
+        ),
+    ],
+)
+def test_verify_password_passlib_hash(password: str, legacy_hash: str):
+    """Hashes stored by passlib 1.7 with bcrypt 4 keep verifying."""
+    assert auth_handler.verify_password(password, legacy_hash)
+    assert not auth_handler.verify_password("wrong", legacy_hash)
 
 
 def test_authenticate_user(admin_user: User):
