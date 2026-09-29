@@ -57,8 +57,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     conn = op.get_bind()
 
-    # The server default only lets the NOT NULL column be added to existing
-    # rows; 0047 gave it none, so it goes again once the backfill is done.
+    # A temporary server default lets existing rows take the NOT NULL column.
     op.add_column(
         "smart_collections",
         sa.Column("rom_count", sa.Integer(), nullable=False, server_default="0"),
