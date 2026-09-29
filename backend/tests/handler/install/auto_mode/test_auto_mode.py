@@ -113,6 +113,20 @@ class TestPlanner:
         action, _ = plan_action(words, CATALOG, ScreenMemory())
         assert action.match.entry.toggle and action.kind == "click"
 
+    def test_option_toggle_is_checked_on_any_page_before_next(self):
+        # Unlike the EULA-accept toggle, an "option" toggle isn't gated to a
+        # license page - it's a plain installer preference, safe anywhere it
+        # appears. Caught live: a real installer's welcome page offering a
+        # memory-usage cap, never on a page that also has license text.
+        words = screen(
+            line("Welcome", 20, 20, 1),
+            line("Limit installer to 2 GB of RAM usage", 20, 200, 2),
+            line("Next >", 400, 400, 3),
+        )
+        action, _ = plan_action(words, CATALOG, ScreenMemory())
+        assert action.match.entry.category == "option"
+        assert action.match.entry.toggle and action.kind == "click"
+
     def test_agree_buttons_only_used_on_license_pages(self):
         words = screen(line("Welcome", 20, 20, 1), line("Yes", 500, 400, 2))
         assert plan_action(words, CATALOG, ScreenMemory())[0] is None

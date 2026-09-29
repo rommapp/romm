@@ -1,14 +1,17 @@
 # Buttons the install auto mode knows how to press. To support another
 # installer or language, append an entry: the engine picks it up as is.
 #
-# category: next | agree | install | finish | key | deny
+# category: next | agree | install | finish | key | deny | option
 #   deny entries are never pressed; a line containing one is ignored.
+#   agree entries only fire on a license or plain-confirmation page (see
+#     context_keywords below); option entries fire anywhere.
 # labels:   OCR text to look for (case, spaces, "&", ">" and "(N)" are ignored).
 # mnemonic: Alt+<letter> tried when clicking the label changes nothing.
 # key:      (key only) xdotool key name pressed when the text is on screen.
 # late:     only used once the install has written files (e.g. "Exit").
-# toggle:   (agree only) a radio/checkbox to select before pressing Next,
-#           only used on license pages. Otherwise the entry is a button.
+# toggle:   (agree/option only) a checkbox to select before pressing Next,
+#           e.g. the EULA-accept radio or an installer preference worth
+#           always turning on. Otherwise the entry is a button.
 
 context_keywords:
   license:
@@ -38,13 +41,20 @@ context_keywords:
     [
       "do you want to install",
       "would you like to install",
+      "do you wish to continue",
+      "do you want to continue",
       "vuoi installare",
       "desideri installare",
+      "vuoi continuare",
       "möchten sie installieren",
+      "möchten sie fortfahren",
       "desea instalar",
+      "desea continuar",
       "をインストールしますか",
+      "続行しますか",
       "是否安装",
       "是否安裝",
+      "是否继续",
     ]
 
 buttons:
@@ -103,6 +113,15 @@ buttons:
       - "同意する"
       - "我接受协议"
       - "我接受许可协议中的条款"
+  # Some installers offer this to cap their own memory use during
+  # extraction - worth always turning on in the sandbox, which has no
+  # guarantee of a generous RAM allowance either way.
+  - category: option
+    toggle: true
+    labels:
+      - "Limit installer to 2 GB of RAM usage"
+      - "Limit installer to 2GB of RAM usage"
+      - "Limit install to 2 GB of RAM usage"
   - category: install
     mnemonic: i
     labels:

@@ -12,7 +12,15 @@ SAME_SCREEN_THRESHOLD = 0.7
 MAX_ATTEMPTS_PER_BUTTON = 2
 
 # Lower is pressed first. Agree entries are only ever used on license pages.
-_PRIORITY = {"key": -1, "toggle": 0, "install": 1, "finish": 2, "next": 3, "agree": 4}
+_PRIORITY = {
+    "key": -1,
+    "toggle": 0,
+    "install": 1,
+    "finish": 2,
+    "next": 3,
+    "agree": 4,
+    "option": 4,
+}
 
 
 @dataclass(frozen=True, slots=True)

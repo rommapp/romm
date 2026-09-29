@@ -15,7 +15,10 @@ import yaml
 
 CATALOG_PATH = Path(__file__).with_name("buttons.yml")
 
-CATEGORIES = ("next", "agree", "install", "finish", "key", "deny")
+CATEGORIES = ("next", "agree", "install", "finish", "key", "deny", "option")
+# Categories whose "toggle" checkboxes get selected before Next, same as the
+# EULA-accept radio (see ButtonEntry.toggle).
+_TOGGLE_CATEGORIES = ("agree", "option")
 
 _PAREN_RE = re.compile(r"[\(（][^\)）]*[\)）]")
 _NON_WORD_RE = re.compile(r"[\W_]+", re.UNICODE)
@@ -67,7 +70,7 @@ def _parse_entry(raw: dict) -> ButtonEntry | None:
         category=category,
         labels=tuple(str(x) for x in labels if str(x).strip()),
         mnemonic=str(mnemonic).lower()[:1] if mnemonic else None,
-        toggle=bool(raw.get("toggle", False)) and category == "agree",
+        toggle=bool(raw.get("toggle", False)) and category in _TOGGLE_CATEGORIES,
         key=str(raw["key"]) if category == "key" and raw.get("key") else None,
         late=bool(raw.get("late", False)),
     )
