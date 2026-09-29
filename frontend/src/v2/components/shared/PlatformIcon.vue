@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RTooltip } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import {
   DEFAULT_PLATFORM_ICON,
   platformIconUrl,
@@ -46,17 +46,15 @@ const resolvedSrc = computed(
 
 // A shipped file can still fail to load (e.g. a stale deploy), so an error
 // drops to the default glyph once instead of showing a broken image.
-const failed = ref(false);
-watch(resolvedSrc, () => {
-  failed.value = false;
-});
+const failedSrc = ref<string | null>(null);
+const failed = computed(() => failedSrc.value === resolvedSrc.value);
 
 const currentSrc = computed(() =>
   failed.value ? DEFAULT_PLATFORM_ICON : resolvedSrc.value,
 );
 
 function onError() {
-  failed.value = true;
+  failedSrc.value = resolvedSrc.value;
 }
 
 const resolvedSize = computed(() =>

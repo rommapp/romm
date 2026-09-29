@@ -2,7 +2,7 @@
 // Prefers the blob cache filled by `prefetchPlatformIcons(...)` (zero
 // network), then the shipped icon, then `default.ico`.
 import { RImg } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import {
   getCachedPlatformIcon,
   invalidatePlatformIcon,
@@ -24,14 +24,8 @@ const props = withDefaults(defineProps<Props>(), { name: "", size: 40 });
 const cached = computed(() =>
   props.slug ? getCachedPlatformIcon(props.slug) : undefined,
 );
-const failed = ref(false);
-
-watch(
-  () => props.slug,
-  () => {
-    failed.value = false;
-  },
-);
+const failedSlug = ref<string | null>(null);
+const failed = computed(() => failedSlug.value === props.slug);
 
 const src = computed<string>(() => {
   if (failed.value) return DEFAULT_PLATFORM_ICON;
@@ -41,7 +35,7 @@ const src = computed<string>(() => {
 function onError() {
   // A blob that fails to decode is dropped so the shipped URL gets a turn.
   if (cached.value) invalidatePlatformIcon(props.slug);
-  else failed.value = true;
+  else failedSlug.value = props.slug;
 }
 </script>
 

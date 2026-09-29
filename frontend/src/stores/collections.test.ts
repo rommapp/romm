@@ -157,4 +157,16 @@ describe("collections store favorites", () => {
 
     expect(collections.favoriteCollection).toBeUndefined();
   });
+
+  it("follows membership writes to the favorites collection", () => {
+    const collections = storeCollections();
+    collections.setCollections([favoriteCollection(5, 7)]);
+
+    collections.updateCollection({
+      ...favoriteCollection(5, 7),
+      rom_ids: [1, 2],
+    });
+
+    expect(collections.favoriteCollection?.rom_ids).toEqual([1, 2]);
+  });
 });
