@@ -574,6 +574,18 @@ class GamelistHandler(MetadataHandler):
             log.debug(f"Using cached gamelist data for platform {platform.id}")
             return self._gamelist_cache[cache_key]
 
+        # A limited cache is widened by reading only the names it lacks
+        wanted = fs_names
+        cached_scope = self._gamelist_cache_scope.get(cache_key)
+        widened_from: dict[str, GamelistRom] | None = None
+        if (
+            fs_names is not None
+            and cached_scope is not None
+            and cache_key in self._gamelist_cache
+        ):
+            wanted = fs_names - cached_scope
+            widened_from = self._gamelist_cache[cache_key]
+
         preferred_media_types = get_preferred_media_types()
         roms_data: dict[str, GamelistRom] = {}
         by_filename: dict[str, GamelistRom] = {}
@@ -590,7 +602,7 @@ class GamelistHandler(MetadataHandler):
                     continue
 
                 rel_path = gamelist_path_to_rel_path(path_elem.text)
-                if fs_names is not None and os.path.basename(rel_path) not in fs_names:
+                if wanted is not None and os.path.basename(rel_path) not in wanted:
                     continue
                 filename = gamelist_path_to_filename(path_elem.text)
 
@@ -669,11 +681,15 @@ class GamelistHandler(MetadataHandler):
                     roms_data.setdefault(name, data)
 
             # Cache the parsed data for this platform
+            if widened_from is not None:
+                roms_data = {**widened_from, **roms_data}
             self._gamelist_cache[cache_key] = roms_data
             if fs_names is None:
                 self._gamelist_cache_scope.pop(cache_key, None)
             else:
-                self._gamelist_cache_scope[cache_key] = fs_names
+                self._gamelist_cache_scope[cache_key] = fs_names | (
+                    cached_scope or set()
+                )
         except ET.ParseError as e:
             log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
             # Entries read before the document turned out to be invalid are
@@ -695,13 +711,12 @@ class GamelistHandler(MetadataHandler):
         if not gamelist_file_path:
             return GamelistRom(gamelist_id=None)
 
-        # A cache limited to other roms widens to take this one in, which keeps a
-        # rom renamed mid-scan from costing a parse of the whole file
-        scope = self._gamelist_cache_scope.get(platform.id)
+        # A cache limited to other file names is widened to this one
+        is_limited = platform.id in self._gamelist_cache_scope
         all_roms_data = self._parse_gamelist_xml(
             gamelist_file_path,
             platform,
-            fs_names=scope | {fs_name} if scope is not None else None,
+            fs_names=frozenset({fs_name}) if is_limited else None,
         )
 
         # The rom's own path wins over its bare file name, which a custom library

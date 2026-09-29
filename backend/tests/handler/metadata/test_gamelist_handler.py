@@ -255,11 +255,11 @@ async def test_get_rom_outside_a_limited_cache_widens_it_to_that_rom(
         assert extract.call_count == 1
 
         two = await handler.get_rom("Two.zip", platform, rom_named("Two.zip"))
-        assert extract.call_count == 3
+        assert extract.call_count == 2
 
         await handler.get_rom("One.zip", platform, rom_named("One.zip"))
         await handler.populate_cache(platform, fs_names=["Two.zip"])
-        assert extract.call_count == 3
+        assert extract.call_count == 2
 
     assert set(handler._gamelist_cache[platform.id]) == {"One.zip", "Two.zip"}
 
