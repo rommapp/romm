@@ -164,3 +164,21 @@ class TestCleanupMissingRomsTask:
 
         assert stats["roms_deleted"] == 1
         assert stats["errors"] == 0
+
+    async def test_a_cache_failure_still_refreshes_smart_collections(
+        self, task: CleanupMissingRomsTask, platform: Platform, mocker: MockerFixture
+    ):
+        rom = _add_rom(platform, "gone", missing=True)
+        mocker.patch.object(
+            db_rom_handler,
+            "invalidate_filter_values_cache",
+            side_effect=RuntimeError("redis down"),
+        )
+        refresh = mocker.patch.object(
+            db_collection_handler, "refresh_smart_collections_for_roms"
+        )
+
+        stats = await task.run()
+
+        refresh.assert_called_once_with([rom.id])
+        assert stats["roms_deleted"] == 1
