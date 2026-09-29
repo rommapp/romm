@@ -570,6 +570,20 @@ function applyOnlyEnabledCheats(emulator: any) {
   };
 }
 
+// Building the disks menu re-selects the current disk before boot, which 4.2.3
+// crashes on (no allSettings yet) and PUAE traps on (EmulatorJS#1260).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function skipDiskSelectionBeforeStart(emulator: any) {
+  if (emulator.__rommDiskPatched) return;
+  emulator.__rommDiskPatched = true;
+
+  const originalMenuOptionChanged = emulator.menuOptionChanged.bind(emulator);
+  emulator.menuOptionChanged = (option: string, value: unknown) => {
+    if (option === "disk" && !emulator.started) return;
+    originalMenuOptionChanged(option, value);
+  };
+}
+
 // Trap the window.EJS_emulator assignment so the instance is patched right
 // after the constructor returns, before the async core download and boot
 // consume any of the patched values. Patching later (e.g. in EJS_onGameStart)
@@ -588,6 +602,7 @@ export function installEJSDefaultOptionsTrap() {
       replayConnectedGamepads(value);
       keepArcadeBiosWhole(value);
       applyOnlyEnabledCheats(value);
+      skipDiskSelectionBeforeStart(value);
     },
   });
 }
