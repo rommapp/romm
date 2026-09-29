@@ -38,9 +38,7 @@ async def heartbeat(session_id: int, user_id: int, device_id: str) -> None:
     """Refresh (or create) this client's presence for `session_id`."""
     member = _member(user_id, device_id)
     async with async_cache.pipeline() as pipe:
-        await pipe.set(
-            _viewer_key(session_id, user_id, device_id), "1", ex=VIEWER_TTL
-        )
+        await pipe.set(_viewer_key(session_id, user_id, device_id), "1", ex=VIEWER_TTL)
         await pipe.sadd(_index_key(session_id), member)
         await pipe.expire(_index_key(session_id), VIEWER_INDEX_TTL)
         await pipe.execute()
@@ -66,7 +64,7 @@ async def count_viewers(session_id: int) -> int:
         try:
             user_id_str, device_id = member.rsplit(":", 1)
             user_id = int(user_id_str)
-        except (ValueError, AttributeError):
+        except ValueError, AttributeError:
             stale.append(member)
             continue
         if await async_cache.exists(_viewer_key(session_id, user_id, device_id)):

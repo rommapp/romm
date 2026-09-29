@@ -12,12 +12,16 @@ async def _clear_bandwidth_state():
     whole test session - clear this module's keys so tests don't leak
     the configured limit or window counters into each other."""
     await async_cache.delete(bandwidth._LIMIT_KEY)
-    keys = [k async for k in async_cache.scan_iter(match=f"{bandwidth._WINDOW_KEY_PREFIX}*")]
+    keys = [
+        k async for k in async_cache.scan_iter(match=f"{bandwidth._WINDOW_KEY_PREFIX}*")
+    ]
     if keys:
         await async_cache.delete(*keys)
     yield
     await async_cache.delete(bandwidth._LIMIT_KEY)
-    keys = [k async for k in async_cache.scan_iter(match=f"{bandwidth._WINDOW_KEY_PREFIX}*")]
+    keys = [
+        k async for k in async_cache.scan_iter(match=f"{bandwidth._WINDOW_KEY_PREFIX}*")
+    ]
     if keys:
         await async_cache.delete(*keys)
 
@@ -91,7 +95,9 @@ class TestAcquire:
         # caller in the same window even after they back off.
         await bandwidth.set_bytes_per_second(100)
         window_key_before = None
-        async for key in async_cache.scan_iter(match=f"{bandwidth._WINDOW_KEY_PREFIX}*"):
+        async for key in async_cache.scan_iter(
+            match=f"{bandwidth._WINDOW_KEY_PREFIX}*"
+        ):
             window_key_before = key
         assert window_key_before is None
 

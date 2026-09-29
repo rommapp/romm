@@ -15,7 +15,11 @@ from config import INSTALL_TIMEOUT
 from handler.database import db_install_session_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.install.copier import copy_files
-from handler.install.manifest import build_manifest, manifest_total_bytes, write_manifest
+from handler.install.manifest import (
+    build_manifest,
+    manifest_total_bytes,
+    write_manifest,
+)
 from handler.install.progress import ThrottledProgress
 from handler.redis_handler import install_queue
 from logger.formatter import highlight as hl
@@ -37,7 +41,9 @@ def enqueue_stream_copy(install_session_id: int) -> str:
     return job.id
 
 
-def _rom_copy_pairs(rom: Rom, rom_root: Path, work_dir: Path) -> list[tuple[Path, Path]]:
+def _rom_copy_pairs(
+    rom: Rom, rom_root: Path, work_dir: Path
+) -> list[tuple[Path, Path]]:
     """(src, dst) pairs for every file the ROM is made of."""
     if rom_root.is_dir():
         return [
@@ -63,9 +69,7 @@ def run_stream_copy(install_session_id: int) -> None:
         rom_root = fs_rom_handler.get_rom_root_abs_path(rom)
         work_dir = ensure_session_cache_dir(install_session_id)
         pairs = _rom_copy_pairs(rom, rom_root, work_dir)
-        bytes_total = sum(
-            f.size_bytes for f in fs_rom_handler.list_rom_files_flat(rom)
-        )
+        bytes_total = sum(f.size_bytes for f in fs_rom_handler.list_rom_files_flat(rom))
 
         db_install_session_handler.update_session(
             install_session_id,

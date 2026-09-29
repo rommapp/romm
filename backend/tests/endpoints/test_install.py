@@ -106,7 +106,9 @@ class TestGetInstallCandidates:
 
 
 class TestStartInstallSession:
-    def test_no_worker_by_default(self, client: TestClient, access_token: str, rom: Rom):
+    def test_no_worker_by_default(
+        self, client: TestClient, access_token: str, rom: Rom
+    ):
         r = client.post(
             f"/api/roms/{rom.id}/install", json={}, headers=_auth(access_token)
         )
@@ -395,7 +397,9 @@ class TestStartInstallSession:
 
 
 class TestClearInstallSession:
-    def test_missing_session_404s(self, client: TestClient, access_token: str, rom: Rom):
+    def test_missing_session_404s(
+        self, client: TestClient, access_token: str, rom: Rom
+    ):
         r = client.delete(f"/api/roms/{rom.id}/install", headers=_auth(access_token))
         assert r.status_code == status.HTTP_404_NOT_FOUND
 
@@ -409,7 +413,9 @@ class TestClearInstallSession:
                 state=InstallSessionState.INSTALLING,
             )
         )
-        r = client.delete(f"/api/roms/{win_rom.id}/install", headers=_auth(access_token))
+        r = client.delete(
+            f"/api/roms/{win_rom.id}/install", headers=_auth(access_token)
+        )
         assert r.status_code == status.HTTP_409_CONFLICT
         assert db_install_session_handler.get_session(session.id) is not None
 
@@ -423,7 +429,9 @@ class TestClearInstallSession:
                 state=InstallSessionState.DONE,
             )
         )
-        r = client.delete(f"/api/roms/{win_rom.id}/install", headers=_auth(access_token))
+        r = client.delete(
+            f"/api/roms/{win_rom.id}/install", headers=_auth(access_token)
+        )
         assert r.status_code == status.HTTP_200_OK
         assert db_install_session_handler.get_session(session.id) is None
 
@@ -444,7 +452,9 @@ class TestClearInstallSession:
         )
         await stream_presence.heartbeat(session.id, user_id=99, device_id="steamdeck")
 
-        r = client.delete(f"/api/roms/{win_rom.id}/install", headers=_auth(access_token))
+        r = client.delete(
+            f"/api/roms/{win_rom.id}/install", headers=_auth(access_token)
+        )
         assert r.status_code == status.HTTP_409_CONFLICT
         assert db_install_session_handler.get_session(session.id) is not None
 
@@ -463,8 +473,12 @@ class TestClearInstallSession:
 
 
 class TestCancelInstallSession:
-    def test_missing_session_404s(self, client: TestClient, access_token: str, rom: Rom):
-        r = client.post(f"/api/roms/{rom.id}/install/cancel", headers=_auth(access_token))
+    def test_missing_session_404s(
+        self, client: TestClient, access_token: str, rom: Rom
+    ):
+        r = client.post(
+            f"/api/roms/{rom.id}/install/cancel", headers=_auth(access_token)
+        )
         assert r.status_code == status.HTTP_404_NOT_FOUND
 
     def test_terminal_session_409s(
@@ -860,7 +874,9 @@ class TestGetInstallFiles:
     ):
         db_install_session_handler.add_session(
             InstallSession(
-                rom_id=rom.id, user_id=admin_user.id, state=InstallSessionState.STREAMING
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                state=InstallSessionState.STREAMING,
             )
         )
         r = client.get(f"/api/roms/{rom.id}/install/files", headers=_auth(access_token))
@@ -1354,7 +1370,9 @@ class TestInstallDashboard:
     ):
         db_install_session_handler.add_session(
             InstallSession(
-                rom_id=rom.id, user_id=admin_user.id, state=InstallSessionState.INSTALLING
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                state=InstallSessionState.INSTALLING,
             )
         )
         r = client.get("/api/roms/install/dashboard", headers=_auth(access_token))

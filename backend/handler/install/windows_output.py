@@ -92,7 +92,7 @@ def save_baseline(prefix_root: Path, baseline: frozenset[Path]) -> None:
 def load_baseline(prefix_root: Path) -> frozenset[Path] | None:
     try:
         raw = json.loads((prefix_root / _BASELINE_FILE).read_text())
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     return frozenset(Path(p) for p in raw)
 
@@ -125,7 +125,7 @@ def resolve_install_root(drive_c: Path, files: Iterable[Path]) -> Path:
     for f in files:
         try:
             top_segments.add(f.relative_to(drive_c).parts[0])
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             return drive_c
     if len(top_segments) == 1:
         (only,) = top_segments

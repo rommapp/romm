@@ -29,7 +29,9 @@ class TestBuildPublicUrl:
     def test_proxied_mode_points_at_the_backend_and_carries_a_path_override(
         self, monkeypatch
     ):
-        monkeypatch.setattr(vnc, "INSTALL_VNC_PUBLIC_BASE_URL", "http://localhost:13000")
+        monkeypatch.setattr(
+            vnc, "INSTALL_VNC_PUBLIC_BASE_URL", "http://localhost:13000"
+        )
 
         url = vnc._build_public_url(6900, "s3cr3t")
 
@@ -41,7 +43,9 @@ class TestBuildPublicUrl:
         )
 
     def test_proxied_mode_strips_a_trailing_slash_from_the_base_url(self, monkeypatch):
-        monkeypatch.setattr(vnc, "INSTALL_VNC_PUBLIC_BASE_URL", "http://localhost:13000/")
+        monkeypatch.setattr(
+            vnc, "INSTALL_VNC_PUBLIC_BASE_URL", "http://localhost:13000/"
+        )
 
         url = vnc._build_public_url(6900, "s3cr3t")
 

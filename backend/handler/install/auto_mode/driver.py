@@ -127,7 +127,9 @@ class AutoModeDriver:
         while not stop.is_set():
             try:
                 acted = self.tick()
-            except Exception as e:  # noqa: BLE001 - never let auto mode kill the install
+            except (
+                Exception
+            ) as e:  # noqa: BLE001 - never let auto mode kill the install
                 log.warning(f"Install auto mode tick failed: {e}")
                 acted = False
             stop.wait(SETTLE_SECONDS if acted else POLL_INTERVAL)

@@ -94,12 +94,16 @@ class TestDirSizeBytes:
 class TestConfiguredTtl:
     def test_zero_days_is_unlimited(self, monkeypatch):
         monkeypatch.setattr(install_cache.cm.config, "INSTALL_CACHE_TTL_DAYS", 0)
-        monkeypatch.setattr(install_cache.cm, "get_config", lambda: install_cache.cm.config)
+        monkeypatch.setattr(
+            install_cache.cm, "get_config", lambda: install_cache.cm.config
+        )
         assert resolve_expires_at(None) is None
 
     def test_days_setting_drives_the_default(self, monkeypatch):
         monkeypatch.setattr(install_cache.cm.config, "INSTALL_CACHE_TTL_DAYS", 3)
-        monkeypatch.setattr(install_cache.cm, "get_config", lambda: install_cache.cm.config)
+        monkeypatch.setattr(
+            install_cache.cm, "get_config", lambda: install_cache.cm.config
+        )
         before = datetime.now(timezone.utc)
         expires = resolve_expires_at(None)
         assert expires is not None

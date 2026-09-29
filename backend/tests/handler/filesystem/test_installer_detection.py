@@ -1,4 +1,5 @@
 from handler.filesystem.installer_detection import (
+    ARCHIVE_SOURCE_KINDS,
     RANK_ARCHIVE,
     RANK_DISC_IMAGE,
     RANK_KNOWN_INSTALLER,
@@ -7,7 +8,6 @@ from handler.filesystem.installer_detection import (
     RANK_TOP_LEVEL_EXECUTABLE,
     DetectedFile,
     detect_installer_candidates,
-    ARCHIVE_SOURCE_KINDS,
     pick_default_installer,
 )
 

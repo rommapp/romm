@@ -106,9 +106,7 @@ class ProtonBuildNotFoundException(Exception):
             f"Proton build '{build_id}' not found or not available for download"
         )
         super().__init__(self.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=self.message
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=self.message)
 
     def __repr__(self) -> str:
         return self.message

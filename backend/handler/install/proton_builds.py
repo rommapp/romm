@@ -84,9 +84,7 @@ def _scan_proton_root(root: str) -> list[ProtonBuild]:
             # extraction (e.g. from an interrupted download) passes the
             # proton-binary check but is unusable at runtime.
             if not _is_proton_build_complete(entry):
-                log.debug(
-                    f"Skipping incomplete Proton build at {entry}"
-                )
+                log.debug(f"Skipping incomplete Proton build at {entry}")
                 continue
             builds.append(
                 ProtonBuild(
@@ -254,9 +252,7 @@ def _fetch_ge_latest_per_major() -> list[ProtonBuild]:
             if not match or release.get("prerelease") or release.get("draft"):
                 continue
             major, minor = int(match.group(1)), int(match.group(2))
-            if major >= _GE_MIN_MAJOR and (
-                major not in best or minor > best[major][0]
-            ):
+            if major >= _GE_MIN_MAJOR and (major not in best or minor > best[major][0]):
                 best[major] = (minor, release)
         if best and min(best) <= _GE_MIN_MAJOR:
             break
@@ -294,7 +290,9 @@ def get_custom_builds() -> list[dict[str, str]]:
     worker container sees additions made through the API."""
     try:
         return list(cm.get_config().INSTALL_CUSTOM_PROTON_BUILDS)
-    except Exception as e:  # noqa: BLE001 - a broken config must not hide upstream builds
+    except (
+        Exception
+    ) as e:  # noqa: BLE001 - a broken config must not hide upstream builds
         log.debug(f"Could not read custom Proton builds: {e}")
         return []
 
@@ -392,7 +390,7 @@ def download_progress(build_id: str) -> float | None:
         if total_int == 0:
             return None
         return min(1.0, int(downloaded) / total_int)
-    except (ValueError, ZeroDivisionError):
+    except ValueError, ZeroDivisionError:
         return None
 
 
@@ -421,7 +419,9 @@ def _download_proton_build(build_id: str) -> None:
         # from an interrupted download). A valid Proton build has at least
         # the `proton` binary and `files/share/default_pfx/`.
         if _is_proton_build_complete(dest):
-            log.info(f"Proton build {build_id} already present at {dest}, skipping download")
+            log.info(
+                f"Proton build {build_id} already present at {dest}, skipping download"
+            )
             redis_client.delete(_JOB_KEY.format(build_id=build_id))
             redis_client.delete(_PROGRESS_KEY.format(build_id=build_id))
             return
@@ -513,6 +513,7 @@ def remove_proton_build(build_id: str) -> None:
 # --------------------------------------------------------------------------- #
 # Public API (backward-compatible signatures)
 # --------------------------------------------------------------------------- #
+
 
 # Module-level singleton — recomputed on each call so new downloads are visible
 # without a process restart. The discovery work is cheap (a directory scan).

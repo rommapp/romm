@@ -94,7 +94,9 @@ PROTON_INSTALL_ROOT: Final[str] = _get_env("PROTON_INSTALL_ROOT") or "/opt/proto
 # build isn't on disk it is auto-downloaded on first use during install.
 # The value is a build *id* as it appears in _SOURCES (e.g. "cachyos-latest",
 # "GE-Proton10-34"). Falls back to the first installed build if unset or None.
-INSTALL_DEFAULT_PROTON_BUILD: Final[str | None] = _get_env("INSTALL_DEFAULT_PROTON_BUILD") or None
+INSTALL_DEFAULT_PROTON_BUILD: Final[str | None] = (
+    _get_env("INSTALL_DEFAULT_PROTON_BUILD") or None
+)
 
 # Auto mode (experimental): OCR-driven clicking through installer dialogs.
 # Tesseract language codes joined with "+" (the sandbox image ships these),

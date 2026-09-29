@@ -92,11 +92,7 @@ def build_manifest(
 ) -> list[ManifestEntry]:
     """Hash every file under `root` (the stream-copy case: everything copied
     into the session cache directory is the install's output)."""
-    files = (
-        p
-        for p in root.rglob("*")
-        if p.is_file() and p.name != MANIFEST_FILENAME
-    )
+    files = (p for p in root.rglob("*") if p.is_file() and p.name != MANIFEST_FILENAME)
     return hash_files(files, root, on_progress=on_progress)
 
 
@@ -117,9 +113,7 @@ def manifest_total_bytes(entries: list[ManifestEntry]) -> int:
 
 def write_manifest(cache_dir: Path, entries: list[ManifestEntry]) -> None:
     payload = {"files": [asdict(e) for e in entries]}
-    (cache_dir / MANIFEST_FILENAME).write_text(
-        json.dumps(payload), encoding="utf-8"
-    )
+    (cache_dir / MANIFEST_FILENAME).write_text(json.dumps(payload), encoding="utf-8")
 
 
 def read_manifest(cache_dir: Path) -> list[ManifestEntry] | None:
@@ -290,7 +284,7 @@ def read_live_manifest(cache_dir: Path) -> dict[str, LiveManifestEntry] | None:
         return None
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return None
 
     entries: dict[str, LiveManifestEntry] = {}

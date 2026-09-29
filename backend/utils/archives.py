@@ -671,7 +671,9 @@ def list_archive_members(file_path: Path) -> list[tuple[str, int]]:
                 return [(m.name, m.size) for m in tf.getmembers() if m.isfile()]
         if lower.endswith(".zip"):
             with zipfile.ZipFile(file_path, "r") as z:
-                return [(e.filename, e.file_size) for e in z.infolist() if not e.is_dir()]
+                return [
+                    (e.filename, e.file_size) for e in z.infolist() if not e.is_dir()
+                ]
     except (tarfile.TarError, zipfile.BadZipFile, RuntimeError, OSError) as e:
         log.error(f"Error listing archive {file_path}: {e}")
         return []

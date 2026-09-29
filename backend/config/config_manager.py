@@ -919,7 +919,9 @@ class ConfigManager:
             ),
             INSTALL_DEFAULT_PROTON_BUILD=pydash.get(
                 self._raw_config, "install.default_proton_build", None
-            ) or os.environ.get("INSTALL_DEFAULT_PROTON_BUILD") or None,
+            )
+            or os.environ.get("INSTALL_DEFAULT_PROTON_BUILD")
+            or None,
             INSTALL_STREAM_UNCOMPLETED_FILES=pydash.get(
                 self._raw_config, "install.stream_uncompleted_files", False
             ),

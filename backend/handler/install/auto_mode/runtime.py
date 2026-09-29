@@ -11,13 +11,20 @@ from handler.install.manifest import read_live_manifest
 from logger.logger import log
 
 from .catalog import load_catalog
-from .driver import STATUS_NEEDS_MANUAL, AutoModeDriver, make_x11_actor, make_x11_observer
+from .driver import (
+    STATUS_NEEDS_MANUAL,
+    AutoModeDriver,
+    make_x11_actor,
+    make_x11_observer,
+)
 
 
 def _extra_buttons() -> list[dict]:
     try:
         return list(cm.get_config().INSTALL_AUTO_MODE_EXTRA_BUTTONS)
-    except Exception as e:  # noqa: BLE001 - a broken config must not stop the built-in list
+    except (
+        Exception
+    ) as e:  # noqa: BLE001 - a broken config must not stop the built-in list
         log.debug(f"Could not read auto mode extra buttons: {e}")
         return []
 

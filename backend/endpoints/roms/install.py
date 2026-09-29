@@ -6,9 +6,9 @@ from typing import Annotated
 from urllib.parse import quote
 
 import aiohttp
-from fastapi import Body, HTTPException, Response, WebSocket
+from fastapi import Body, HTTPException
 from fastapi import Path as PathVar
-from fastapi import Request, status
+from fastapi import Request, Response, WebSocket, status
 from pydantic import BaseModel
 from rq.command import send_stop_job_command
 from starlette.authentication import requires
@@ -24,8 +24,8 @@ from endpoints.responses.install import (
     InstallCacheClearSchema,
     InstallCacheEntrySchema,
     InstallCacheSchema,
-    InstallCandidatesSchema,
     InstallCandidateSchema,
+    InstallCandidatesSchema,
     InstallDashboardEntrySchema,
     InstallDashboardSchema,
     InstallFileSchema,
@@ -96,10 +96,10 @@ from utils.install_cache import (
     session_cache_dir,
 )
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
-from utils.zip_cache import ensure_zipfile_writable
 from utils.router import APIRouter
 from utils.ssrf import validate_url_for_http_request
 from utils.validation import ValidationError
+from utils.zip_cache import ensure_zipfile_writable
 
 router = APIRouter()
 
@@ -157,7 +157,8 @@ def _pick_reusable_session(sessions: list[InstallSession]) -> InstallSession | N
         x
         for x in sessions
         if session_cache_dir(x.id).is_dir()
-        or x.state in (InstallSessionState.DETECTING, InstallSessionState.AWAITING_INSTALLER)
+        or x.state
+        in (InstallSessionState.DETECTING, InstallSessionState.AWAITING_INSTALLER)
     ]
     if not with_cache:
         return None
@@ -333,13 +334,17 @@ async def start_install_session(
                 source_path = default.path
             else:
                 installer_path = default.path
-    needs_manual_pick = is_installable and (manual_mode or (not installer_path and not source_path))
+    needs_manual_pick = is_installable and (
+        manual_mode or (not installer_path and not source_path)
+    )
 
     # Resolved now (not left NULL for the worker to decide implicitly) so the
     # client can poll /install/proton/{id}/progress and show "Downloading
     # Proton X…" instead of a silent stall while the worker auto-downloads it
     # on first use - see resolve_effective_build's own docstring.
-    proton_build = resolve_effective_build(data.proton_build) if is_installable else None
+    proton_build = (
+        resolve_effective_build(data.proton_build) if is_installable else None
+    )
 
     initial_state = (
         InstallSessionState.AWAITING_INSTALLER
@@ -348,7 +353,9 @@ async def start_install_session(
     )
     previous_state = existing.state if existing else None
     auto_mode = (
-        data.auto_mode if data.auto_mode is not None else cm.get_config().INSTALL_AUTO_MODE
+        data.auto_mode
+        if data.auto_mode is not None
+        else cm.get_config().INSTALL_AUTO_MODE
     )
     if existing:
         session = db_install_session_handler.update_session(
@@ -837,7 +844,9 @@ def _build_cache_listing() -> InstallCacheSchema:
     for directory in cache_root_dirs():
         size = dir_size_bytes(directory)
         total += size
-        session = sessions.get(int(directory.name)) if directory.name.isdigit() else None
+        session = (
+            sessions.get(int(directory.name)) if directory.name.isdigit() else None
+        )
         if session is None:
             continue
         rom = db_rom_handler.get_rom(session.rom_id)
@@ -1471,7 +1480,9 @@ async def download_install_stream_file(
         try:
             await asyncio.to_thread(f.seek, start)
             while remaining > 0:
-                piece = await asyncio.to_thread(f.read, min(remaining, _STREAM_PIECE_SIZE))
+                piece = await asyncio.to_thread(
+                    f.read, min(remaining, _STREAM_PIECE_SIZE)
+                )
                 if not piece:
                     break
                 await bandwidth.acquire(len(piece))

@@ -76,9 +76,7 @@ class TestReportNotifiesOnlyOnNeedsManual:
         session_handler = MagicMock()
         monkeypatch.setattr(runtime, "db_install_session_handler", session_handler)
         notify_needs_manual = MagicMock()
-        monkeypatch.setattr(
-            runtime, "_notify_needs_manual", notify_needs_manual
-        )
+        monkeypatch.setattr(runtime, "_notify_needs_manual", notify_needs_manual)
 
         driver = runtime.build_driver(1, ":50", MagicMock())
         driver.report("running", "click on 'Install'")
@@ -89,13 +87,9 @@ class TestReportNotifiesOnlyOnNeedsManual:
         session_handler = MagicMock()
         monkeypatch.setattr(runtime, "db_install_session_handler", session_handler)
         notify_needs_manual = MagicMock()
-        monkeypatch.setattr(
-            runtime, "_notify_needs_manual", notify_needs_manual
-        )
+        monkeypatch.setattr(runtime, "_notify_needs_manual", notify_needs_manual)
 
         driver = runtime.build_driver(1, ":50", MagicMock())
         driver.report(runtime.STATUS_NEEDS_MANUAL, "No known button on screen")
 
-        notify_needs_manual.assert_called_once_with(
-            1, "No known button on screen"
-        )
+        notify_needs_manual.assert_called_once_with(1, "No known button on screen")

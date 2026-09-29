@@ -14,8 +14,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    false as sa_false,
 )
+from sqlalchemy import false as sa_false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel

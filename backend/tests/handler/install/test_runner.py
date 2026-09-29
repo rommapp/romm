@@ -28,7 +28,10 @@ class TestWineOrProton:
         monkeypatch.setattr(
             runner, "resolve_proton_path", lambda _: "/opt/proton/GE-Proton10-34/proton"
         )
-        assert runner._wine_or_proton("GE-Proton10-34") == "/opt/proton/GE-Proton10-34/proton"
+        assert (
+            runner._wine_or_proton("GE-Proton10-34")
+            == "/opt/proton/GE-Proton10-34/proton"
+        )
 
     def test_unset_proton_build_falls_back_to_first_installed(self, monkeypatch):
         from handler.install.proton_builds import ProtonBuild
@@ -55,9 +58,7 @@ class TestWineOrProton:
         # With proton_build=None, falls back to the first installed build.
         assert runner._wine_or_proton(None) == "/opt/proton/GE-Proton10-34/proton"
 
-    def test_unknown_proton_build_falls_back_to_first_installed(
-        self, monkeypatch
-    ):
+    def test_unknown_proton_build_falls_back_to_first_installed(self, monkeypatch):
         from handler.install.proton_builds import ProtonBuild
 
         monkeypatch.setattr(runner, "resolve_proton_path", lambda _: None)
@@ -73,7 +74,10 @@ class TestWineOrProton:
                 ),
             ],
         )
-        assert runner._wine_or_proton("not-a-real-build") == "/opt/proton/GE-Proton10-34/proton"
+        assert (
+            runner._wine_or_proton("not-a-real-build")
+            == "/opt/proton/GE-Proton10-34/proton"
+        )
 
     def test_recognized_proton_build_resolves_via_the_registry(self, monkeypatch):
         monkeypatch.setattr(
@@ -504,9 +508,7 @@ class TestFocusInstallerWindow:
 
         return fake_run, calls
 
-    def test_focuses_the_largest_non_chrome_window_on_first_check(
-        self, monkeypatch
-    ):
+    def test_focuses_the_largest_non_chrome_window_on_first_check(self, monkeypatch):
         # Nothing has been seen yet, so every non-chrome candidate is
         # technically "new" - with only one real candidate, that's
         # indistinguishable from the old largest-area behaviour.
@@ -547,9 +549,7 @@ class TestFocusInstallerWindow:
         # Must not raise: a missing/misbehaving xdotool shouldn't crash the install.
         runner._focus_installer_window({"DISPLAY": ":99"}, runner._FocusState())
 
-    def test_a_new_small_window_wins_over_a_bigger_already_seen_one(
-        self, monkeypatch
-    ):
+    def test_a_new_small_window_wins_over_a_bigger_already_seen_one(self, monkeypatch):
         # The actual bug this loop used to have: a big window (e.g. a
         # progress/splash dialog) is already on screen and already seen,
         # then a small dialog needing immediate keyboard input (e.g. "press
@@ -707,7 +707,10 @@ class TestInstallOutputLooksFinished:
                 ),
                 "b.dll": LiveManifestEntry(
                     # Still growing - not yet sealed up to its current size.
-                    path="b.dll", size_bytes=500, sealed_bytes=50, complete=False
+                    path="b.dll",
+                    size_bytes=500,
+                    sealed_bytes=50,
+                    complete=False,
                 ),
             },
         )
@@ -734,9 +737,7 @@ class TestFinalizeInstall:
     """
 
     def _setup(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(
-            runner, "db_install_session_handler", MagicMock()
-        )
+        monkeypatch.setattr(runner, "db_install_session_handler", MagicMock())
         work_dir = tmp_path / "work"
         prefix_dir = work_dir / "prefix"
         drive_c = prefix_dir / "drive_c"
@@ -918,7 +919,9 @@ class TestLiveManifestLoop:
 
 
 class TestRunInstallerAutoMode:
-    def test_auto_mode_thread_starts_only_when_a_session_is_given(self, monkeypatch, tmp_path):
+    def test_auto_mode_thread_starts_only_when_a_session_is_given(
+        self, monkeypatch, tmp_path
+    ):
         started = []
 
         class FakeProc:

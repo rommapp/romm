@@ -102,7 +102,9 @@ class TestExplicitInstallerInsideArchive:
 
 
 class TestListSourceCandidates:
-    def test_lists_only_executables_from_the_member_listing(self, tmp_path, monkeypatch):
+    def test_lists_only_executables_from_the_member_listing(
+        self, tmp_path, monkeypatch
+    ):
         monkeypatch.setattr(
             archive_prescan,
             "list_archive_members",

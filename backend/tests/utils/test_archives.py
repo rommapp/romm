@@ -670,9 +670,7 @@ class TestExtractArchiveTree:
         assert (dest / "DATA").is_dir()
         assert (dest / "DATA" / "SETUP.EXE").read_bytes() == b"exe!"
 
-    def test_directory_placeholder_listed_after_its_contents_is_skipped(
-        self, tmp_path
-    ):
+    def test_directory_placeholder_listed_after_its_contents_is_skipped(self, tmp_path):
         """The reverse ordering of the same collision (see the test above) -
         "DATA/SETUP.EXE" creates the "DATA" directory first, then a later
         bare "DATA" entry (the same zero-byte placeholder) must be skipped

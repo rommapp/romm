@@ -32,7 +32,12 @@ class TestBuildBwrapCommand:
         argv = build_bwrap_command(_spec(), ["true"])
         assert "--unshare-all" not in argv
         assert "--unshare-ipc" not in argv
-        for flag in ("--unshare-user", "--unshare-pid", "--unshare-uts", "--unshare-cgroup"):
+        for flag in (
+            "--unshare-user",
+            "--unshare-pid",
+            "--unshare-uts",
+            "--unshare-cgroup",
+        ):
             assert flag in argv
 
     def test_installer_bound_read_only(self):
@@ -140,9 +145,7 @@ class TestBuildBwrapCommand:
         joined = " ".join(argv)
         assert "--setenv DISPLAY :99" in joined
         assert "--setenv WINEPREFIX /cache/installs/1/prefix" in joined
-        assert (
-            "--setenv STEAM_COMPAT_DATA_PATH /cache/installs/1/prefix" in joined
-        )
+        assert "--setenv STEAM_COMPAT_DATA_PATH /cache/installs/1/prefix" in joined
         assert (
             "--setenv STEAM_COMPAT_CLIENT_INSTALL_PATH /cache/installs/1/steam-client"
             in joined

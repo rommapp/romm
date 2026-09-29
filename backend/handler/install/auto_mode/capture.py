@@ -29,7 +29,7 @@ def _xdotool(display: str, *args: str) -> str:
             timeout=XDOTOOL_TIMEOUT,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError, subprocess.TimeoutExpired:
         return ""
     return result.stdout
 
@@ -59,7 +59,7 @@ def active_window_box(
     dims = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
     try:
         x, y, w, h = (int(dims[k]) for k in ("X", "Y", "WIDTH", "HEIGHT"))
-    except (KeyError, ValueError):
+    except KeyError, ValueError:
         return 0, 0, screen[0], screen[1]
     if w < MIN_WINDOW_SIDE or h < MIN_WINDOW_SIDE:
         return 0, 0, screen[0], screen[1]
@@ -118,7 +118,7 @@ def _windows(display: str) -> list[tuple[str, str, Rect]]:
         dims = dict(line.split("=", 1) for line in geometry.splitlines() if "=" in line)
         try:
             rect = tuple(int(dims[k]) for k in ("X", "Y", "WIDTH", "HEIGHT"))
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             continue
         found.append((wid, name, rect))
     return found

@@ -1935,9 +1935,7 @@ class TestFSRomsHandler:
         deleting anything there risks corrupting those instead of just this
         test's own scratch data, see the incident this comment is here to
         prevent)."""
-        platform = Platform(
-            name="Windows", slug="win", fs_slug="romm-test-scratch-win"
-        )
+        platform = Platform(name="Windows", slug="win", fs_slug="romm-test-scratch-win")
         return Rom(
             id=999,
             fs_name="ROMM_TEST_SCRATCH_INSTALL.iso",
@@ -1988,9 +1986,7 @@ class TestFSRomsHandler:
             secret.write_text("nope")
 
             with pytest.raises(ValueError, match="escapes the game's directory"):
-                handler.resolve_installer_abs_path(
-                    rom_iso_single, "../secret.txt"
-                )
+                handler.resolve_installer_abs_path(rom_iso_single, "../secret.txt")
         finally:
             shutil.rmtree(scratch_root, ignore_errors=True)
 

@@ -32,13 +32,13 @@ from config import (
     INSTALL_TIMEOUT,
 )
 from handler.database import db_install_session_handler, db_rom_handler
-from handler.install.auto_mode.runtime import start_auto_mode
 from handler.filesystem import fs_rom_handler
 from handler.install.archive_prescan import (
     extract_and_rescan,
     is_archive_candidate,
     source_phase,
 )
+from handler.install.auto_mode.runtime import start_auto_mode
 from handler.install.manifest import (
     LiveManifestEntry,
     delete_live_manifest,
@@ -149,7 +149,9 @@ def _wine_or_proton(proton_build: str | None = None) -> str:
             if resolved:
                 return resolved
         except TimeoutError:
-            log.warning(f"Auto-download of Proton {proton_build} timed out, falling back")
+            log.warning(
+                f"Auto-download of Proton {proton_build} timed out, falling back"
+            )
         # proton_build was requested but never resolved (unknown id, or the
         # download failed/timed out) - fall through to the same defaults an
         # unset choice would use below, rather than dropping straight to
@@ -547,7 +549,7 @@ def _run_install(install_session_id: int) -> None:
                 f"Install session {install_session_id} hit its timeout, but "
                 "every discovered file looks finished and stable - most "
                 "likely the installer reached its own final dialog (e.g. "
-                "\"Finish\") and nobody was there to click it. Salvaging "
+                '"Finish") and nobody was there to click it. Salvaging '
                 "the install instead of discarding it."
             )
 
@@ -677,7 +679,9 @@ def _live_manifest_loop(
                 # than once at loop start, so toggling the setting mid-install
                 # takes effect on the very next tick.
                 state = scan_live_manifest(
-                    work_dir, live_paths, state,
+                    work_dir,
+                    live_paths,
+                    state,
                     aggressive=stream_uncompleted_files_enabled(),
                 )
                 write_live_manifest(work_dir, state)
@@ -960,7 +964,7 @@ def _focus_installer_window(env: dict, state: _FocusState) -> None:
             timeout=5,
             text=True,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError, subprocess.TimeoutExpired:
         return
 
     candidates: list[tuple[str, int]] = []
@@ -988,7 +992,7 @@ def _focus_installer_window(env: dict, state: _FocusState) -> None:
                 line.split("=", 1) for line in geometry.splitlines() if "=" in line
             )
             area = int(dims.get("WIDTH", 0)) * int(dims.get("HEIGHT", 0))
-        except (OSError, subprocess.TimeoutExpired, ValueError):
+        except OSError, subprocess.TimeoutExpired, ValueError:
             continue
         candidates.append((window_id, area))
 

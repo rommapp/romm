@@ -9,8 +9,10 @@ class TestListProtonBuilds:
             "_discover_installed",
             lambda: [
                 ProtonBuild(
-                    id="GE-Proton10-34", label="GE-Proton 10-34",
-                    installed=True, path="/opt/proton/GE-Proton10-34/proton",
+                    id="GE-Proton10-34",
+                    label="GE-Proton 10-34",
+                    installed=True,
+                    path="/opt/proton/GE-Proton10-34/proton",
                 ),
             ],
         )
@@ -29,12 +31,16 @@ class TestListProtonBuilds:
             "_discover_installed",
             lambda: [
                 ProtonBuild(
-                    id="GE-Proton10-34", label="GE-Proton 10-34",
-                    installed=True, path="/opt/proton/GE-Proton10-34/proton",
+                    id="GE-Proton10-34",
+                    label="GE-Proton 10-34",
+                    installed=True,
+                    path="/opt/proton/GE-Proton10-34/proton",
                 ),
                 ProtonBuild(
-                    id="cachyos-latest", label="Proton-CachyOS (latest)",
-                    installed=True, path="/opt/proton/cachyos-latest/proton",
+                    id="cachyos-latest",
+                    label="Proton-CachyOS (latest)",
+                    installed=True,
+                    path="/opt/proton/cachyos-latest/proton",
                 ),
             ],
         )
@@ -42,14 +48,18 @@ class TestListProtonBuilds:
         installed = [b for b in proton_builds.list_proton_builds() if b.installed]
         assert len(installed) == 2
 
-    def test_downloadable_builds_that_are_now_installed_merge_version_info(self, monkeypatch):
+    def test_downloadable_builds_that_are_now_installed_merge_version_info(
+        self, monkeypatch
+    ):
         monkeypatch.setattr(
             proton_builds,
             "_discover_installed",
             lambda: [
                 ProtonBuild(
-                    id="GE-Proton11-7", label="GE-Proton 11-7",
-                    installed=True, path="/opt/proton/GE-Proton11-7/proton",
+                    id="GE-Proton11-7",
+                    label="GE-Proton 11-7",
+                    installed=True,
+                    path="/opt/proton/GE-Proton11-7/proton",
                 ),
             ],
         )
@@ -58,8 +68,10 @@ class TestListProtonBuilds:
             "_cached_downloadable",
             lambda: [
                 ProtonBuild(
-                    id="GE-Proton11-7", label="GE-Proton 11-7",
-                    installed=False, source="upstream",
+                    id="GE-Proton11-7",
+                    label="GE-Proton 11-7",
+                    installed=False,
+                    source="upstream",
                     download_url="https://example.com/release.tar.gz",
                     version="GE-Proton11-7",
                 ),
@@ -102,41 +114,55 @@ class TestResolveProtonPath:
             "_discover_installed",
             lambda: [
                 ProtonBuild(
-                    id="current", label="Current", installed=True,
+                    id="current",
+                    label="Current",
+                    installed=True,
                     path="/opt/proton/current/proton",
                 ),
             ],
         )
-        assert proton_builds.resolve_proton_path("current") == "/opt/proton/current/proton"
+        assert (
+            proton_builds.resolve_proton_path("current") == "/opt/proton/current/proton"
+        )
 
-    def test_each_installed_build_resolves_to_its_own_distinct_path(
-        self, monkeypatch
-    ):
+    def test_each_installed_build_resolves_to_its_own_distinct_path(self, monkeypatch):
         monkeypatch.setattr(
             proton_builds,
             "_discover_installed",
             lambda: [
                 ProtonBuild(
-                    id="ge", label="GE", installed=True,
+                    id="ge",
+                    label="GE",
+                    installed=True,
                     path="/opt/proton-ge/proton",
                 ),
                 ProtonBuild(
-                    id="cachyos", label="CachyOS", installed=True,
+                    id="cachyos",
+                    label="CachyOS",
+                    installed=True,
                     path="/opt/proton-cachyos/proton",
                 ),
             ],
         )
         assert proton_builds.resolve_proton_path("ge") == "/opt/proton-ge/proton"
-        assert proton_builds.resolve_proton_path("cachyos") == "/opt/proton-cachyos/proton"
+        assert (
+            proton_builds.resolve_proton_path("cachyos") == "/opt/proton-cachyos/proton"
+        )
 
 
 class TestResolveEffectiveBuild:
     def test_explicit_choice_wins(self, monkeypatch):
-        monkeypatch.setattr(proton_builds, "INSTALL_DEFAULT_PROTON_BUILD", "cachyos-latest")
-        assert proton_builds.resolve_effective_build("GE-Proton10-34") == "GE-Proton10-34"
+        monkeypatch.setattr(
+            proton_builds, "INSTALL_DEFAULT_PROTON_BUILD", "cachyos-latest"
+        )
+        assert (
+            proton_builds.resolve_effective_build("GE-Proton10-34") == "GE-Proton10-34"
+        )
 
     def test_falls_back_to_configured_default(self, monkeypatch):
-        monkeypatch.setattr(proton_builds, "INSTALL_DEFAULT_PROTON_BUILD", "cachyos-latest")
+        monkeypatch.setattr(
+            proton_builds, "INSTALL_DEFAULT_PROTON_BUILD", "cachyos-latest"
+        )
         assert proton_builds.resolve_effective_build(None) == "cachyos-latest"
 
     def test_falls_back_to_whatever_is_installed_when_no_default_configured(
@@ -148,8 +174,10 @@ class TestResolveEffectiveBuild:
             "_discover_installed",
             lambda: [
                 ProtonBuild(
-                    id="GE-Proton10-34", label="GE-Proton 10-34",
-                    installed=True, path="/opt/proton/GE-Proton10-34/proton",
+                    id="GE-Proton10-34",
+                    label="GE-Proton 10-34",
+                    installed=True,
+                    path="/opt/proton/GE-Proton10-34/proton",
                 ),
             ],
         )
@@ -163,14 +191,19 @@ class TestResolveEffectiveBuild:
     def test_configured_default_returned_even_if_not_yet_downloaded(self, monkeypatch):
         # The whole point: the id is surfaced immediately so the client can
         # poll download progress, even though nothing is on disk yet.
-        monkeypatch.setattr(proton_builds, "INSTALL_DEFAULT_PROTON_BUILD", "cachyos-latest")
+        monkeypatch.setattr(
+            proton_builds, "INSTALL_DEFAULT_PROTON_BUILD", "cachyos-latest"
+        )
         monkeypatch.setattr(proton_builds, "_discover_installed", lambda: [])
         assert proton_builds.resolve_effective_build(None) == "cachyos-latest"
 
 
 class TestCustomBuilds:
     def test_custom_build_id_is_a_directory_safe_slug(self):
-        assert proton_builds.custom_build_id(" My Proton (beta)! ") == "custom-my-proton-beta"
+        assert (
+            proton_builds.custom_build_id(" My Proton (beta)! ")
+            == "custom-my-proton-beta"
+        )
 
     def test_custom_builds_are_listed_as_downloadable(self, monkeypatch):
         monkeypatch.setattr(proton_builds, "_discover_installed", lambda: [])
@@ -190,7 +223,9 @@ class TestCustomBuilds:
             proton_builds,
             "_discover_installed",
             lambda: [
-                ProtonBuild(id="custom-my-proton", label="custom-my-proton", installed=True)
+                ProtonBuild(
+                    id="custom-my-proton", label="custom-my-proton", installed=True
+                )
             ],
         )
         monkeypatch.setattr(proton_builds, "_cached_upstream", lambda: [])
@@ -218,11 +253,21 @@ class TestGeLatestPerMajor:
             }
 
         pages = {
-            1: [release("GE-Proton11-7"), release("GE-Proton10-34"), release("GE-Proton10-9")],
-            2: [release("GE-Proton9-27"), release("GE-Proton8-32"), release("GE-Proton7-55")],
+            1: [
+                release("GE-Proton11-7"),
+                release("GE-Proton10-34"),
+                release("GE-Proton10-9"),
+            ],
+            2: [
+                release("GE-Proton9-27"),
+                release("GE-Proton8-32"),
+                release("GE-Proton7-55"),
+            ],
         }
         monkeypatch.setattr(
-            proton_builds, "_github_get", lambda url, params=None: pages.get(params["page"])
+            proton_builds,
+            "_github_get",
+            lambda url, params=None: pages.get(params["page"]),
         )
         builds = proton_builds._fetch_ge_latest_per_major()
         assert [(b.id, b.label) for b in builds] == [
