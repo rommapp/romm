@@ -97,7 +97,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.16",
-    "vite-plugin-mkcert": "^1.17.8",
+    "vite-plugin-mkcert": "^2.0.0",
     "vite-plugin-pwa": "^1.3.0",
     "vite-plugin-vuetify": "^2.0.4",
     "vitest": "^5.0.1",
