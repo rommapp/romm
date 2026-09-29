@@ -99,7 +99,7 @@ def extract_metadata_from_rom_details(
             # pinned to UTC midnight so the host's offset never shifts the day.
             parsed_date = datetime.strptime(release_date_str.split()[0], "%Y-%m-%d")
             return int(parsed_date.replace(tzinfo=timezone.utc).timestamp())
-        except AttributeError, ValueError, IndexError:
+        except (AttributeError, ValueError, IndexError):
             return None
 
     publishers = pydash.compact([rom_details.get("Publisher", None)])

@@ -316,7 +316,7 @@ class AuthHandler:
             # write has committed, so a failure here is logged, not raised.
             try:
                 await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
-            except RedisError, OSError:
+            except (RedisError, OSError):
                 log.error(
                     "Credentials for '%s' changed, but revoking its sessions "
                     "afterwards failed; a session created during the update may "

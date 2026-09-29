@@ -160,7 +160,7 @@ class CSRFMiddleware:
 
         try:
             decoded_csrf_cookie = self.serializer.loads(csrf_cookie)
-        except TypeError, BadSignature:
+        except (TypeError, BadSignature):
             return False
 
         return bool(decoded_csrf_cookie.get("user_id") == user_id)
@@ -191,7 +191,7 @@ class CSRFMiddleware:
                 decoded_doc_cookie["user_id"] == user_id
                 and decoded_header_cookie["user_id"] == user_id
             )
-        except TypeError, BadSignature:
+        except (TypeError, BadSignature):
             return False
 
     def _get_error_response(self, request: Request) -> Response:

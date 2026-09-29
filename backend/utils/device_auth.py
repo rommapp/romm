@@ -104,7 +104,7 @@ def polled_too_fast(device_code: str, interval_seconds: int) -> bool:
         return False
     try:
         prev_ms = int(as_text(prev_raw))
-    except ValueError, AttributeError:
+    except (ValueError, AttributeError):
         return False
     return (now_ms - prev_ms) < (interval_seconds * 1000)
 

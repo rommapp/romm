@@ -242,7 +242,7 @@ def build_media_file_index(platform: Platform) -> MediaFileIndex:
                     (entry.name for entry in it if entry.is_file()),
                     key=_esde_media_rank,
                 )
-        except OSError, ValueError:
+        except (OSError, ValueError):
             file_names = []
 
         stems: dict[str, str] = {}
