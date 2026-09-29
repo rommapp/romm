@@ -1,12 +1,13 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeAuth from "@/stores/auth";
-import storeCollections, { type Collection } from "@/stores/collections";
+import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Platform } from "@/stores/platforms";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
-import type { User } from "@/stores/users";
+import { collectionFixture } from "@/utils/collection.fixtures";
 import { makeDetailedRom, makeRom as baseRom } from "@/utils/rom.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import { useRomSync } from "./index";
@@ -153,13 +154,8 @@ describe("useRomSync", () => {
   it("refreshAfterUserStateChange refetches the Favourites collection", () => {
     const gallery = seedGallery(makeRom());
     const collections = storeCollections();
-    const favorites = {
-      id: 9,
-      name: "Favorites",
-      is_favorite: true,
-      user_id: 1,
-    } as unknown as Collection;
-    storeAuth().setCurrentUser({ id: 1 } as User);
+    const favorites = collectionFixture({ id: 9, is_favorite: true });
+    storeAuth().setCurrentUser(userFixture());
     collections.setCollections([favorites]);
     gallery.setCurrentCollection(favorites);
 

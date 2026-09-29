@@ -5,7 +5,8 @@ import { ref } from "vue";
 import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
-import type { User } from "@/stores/users";
+import { collectionFixture } from "@/utils/collection.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import SelectionBar from "./SelectionBar.vue";
@@ -86,14 +87,12 @@ function rom(id: number): SimpleRom {
 }
 
 function favorites(romIds: number[]): Collection {
-  return {
+  return collectionFixture({
     id: 7,
-    name: "Favorites",
     is_favorite: true,
-    user_id: 1,
     rom_ids: romIds,
     rom_count: romIds.length,
-  } as Collection;
+  });
 }
 
 function select(...roms: SimpleRom[]) {
@@ -142,7 +141,7 @@ async function clickHeart(wrapper: VueWrapper) {
 describe("SelectionBar bulk favorite", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    storeAuth().setCurrentUser({ id: 1 } as User);
+    storeAuth().setCurrentUser(userFixture());
     vi.clearAllMocks();
   });
 

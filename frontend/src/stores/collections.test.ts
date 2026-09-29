@@ -6,7 +6,8 @@ import storeCollections, {
   type Collection,
   type VirtualCollection,
 } from "@/stores/collections";
-import type { User } from "@/stores/users";
+import { collectionFixture } from "@/utils/collection.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
 
 const { getCollections, getVirtualCollection, getVirtualCollections } =
   vi.hoisted(() => ({
@@ -117,21 +118,19 @@ describe("collections store virtual refresh", () => {
 });
 
 function favoriteCollection(id: number, userId: number): Collection {
-  return {
+  return collectionFixture({
     id,
-    name: "Favourites",
     is_favorite: true,
     is_public: true,
     user_id: userId,
-    rom_ids: [],
-  } as unknown as Collection;
+  });
 }
 
 describe("collections store favorites", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     getCollections.mockReset();
-    storeAuth().setCurrentUser({ id: 7 } as User);
+    storeAuth().setCurrentUser(userFixture({ id: 7 }));
   });
 
   // Another user's favorites collection turns up here once they make it
