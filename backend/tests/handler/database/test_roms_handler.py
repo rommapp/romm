@@ -14,8 +14,10 @@ from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
+from decorators.database import INJECTED_SESSION
 from handler.database import (
     db_platform_handler,
     db_rom_handler,
@@ -615,6 +617,25 @@ class TestSyncRomFilesWithReusedRows:
         assert second[0].md5_hash == "md5"
 
 
+def _add_rom_file(
+    rom: Rom,
+    file_name: str = "game.bin",
+    size: int = 1000,
+    category: RomFileCategory | None = None,
+    session: Session = INJECTED_SESSION,
+) -> RomFile:
+    return db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=file_name,
+            file_path=rom.fs_path,
+            file_size_bytes=size,
+            category=category,
+        ),
+        session=session,
+    )
+
+
 class TestRomFileSizeTotal:
     """`fs_size_bytes` sums every file row whatever its category, as a scan and
     migration 0049 do, so each per-file write has to keep it in step."""
@@ -624,73 +645,49 @@ class TestRomFileSizeTotal:
         assert stored is not None
         return stored.fs_size_bytes
 
-    def _add(
-        self, rom: Rom, file_name: str, size: int, category: RomFileCategory
-    ) -> RomFile:
-        return db_rom_handler.add_rom_file(
-            RomFile(
-                rom_id=rom.id,
-                file_name=file_name,
-                file_path=rom.fs_path,
-                file_size_bytes=size,
-                category=category,
-            )
-        )
-
     def test_add_counts_every_category(self, rom: Rom):
-        self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
-        self._add(rom, "manual.pdf", 200, RomFileCategory.MANUAL)
-        self._add(rom, "guide.txt", 30, RomFileCategory.WALKTHROUGH)
+        _add_rom_file(rom, "game.bin", 1000, RomFileCategory.GAME)
+        _add_rom_file(rom, "manual.pdf", 200, RomFileCategory.MANUAL)
+        _add_rom_file(rom, "guide.txt", 30, RomFileCategory.WALKTHROUGH)
 
         assert self._size(rom) == 1230
 
     def test_delete_subtracts_the_file(self, rom: Rom):
-        self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
-        manual = self._add(rom, "manual.pdf", 200, RomFileCategory.MANUAL)
+        _add_rom_file(rom, "game.bin", 1000, RomFileCategory.GAME)
+        manual = _add_rom_file(rom, "manual.pdf", 200, RomFileCategory.MANUAL)
 
         db_rom_handler.delete_rom_file(manual.id)
 
         assert self._size(rom) == 1000
 
     def test_deleting_the_last_file_leaves_zero(self, rom: Rom):
-        game = self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
+        game = _add_rom_file(rom, "game.bin", 1000, RomFileCategory.GAME)
 
         db_rom_handler.delete_rom_file(game.id)
 
         assert self._size(rom) == 0
 
     def test_resized_file_updates_the_total(self, rom: Rom):
-        game = self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
+        game = _add_rom_file(rom, "game.bin", 1000, RomFileCategory.GAME)
 
         db_rom_handler.update_rom_file(game.id, {"file_size_bytes": 4000})
 
         assert self._size(rom) == 4000
 
     def test_other_roms_keep_their_total(self, rom: Rom, second_rom: Rom):
-        self._add(second_rom, "other.bin", 500, RomFileCategory.GAME)
-        game = self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
+        _add_rom_file(second_rom, "other.bin", 500, RomFileCategory.GAME)
+        game = _add_rom_file(rom, "game.bin", 1000, RomFileCategory.GAME)
 
         db_rom_handler.delete_rom_file(game.id)
 
         assert self._size(second_rom) == 500
 
     def test_deleting_an_unknown_file_is_a_no_op(self, rom: Rom):
-        self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
+        _add_rom_file(rom, "game.bin", 1000, RomFileCategory.GAME)
 
         db_rom_handler.delete_rom_file(999_999)
 
         assert self._size(rom) == 1000
-
-
-def _add_game_file(rom: Rom, size: int = 1000) -> RomFile:
-    return db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="game.bin",
-            file_path=rom.fs_path,
-            file_size_bytes=size,
-        )
-    )
 
 
 class TestRomFileSizeSidecarInvalidation:
@@ -700,12 +697,12 @@ class TestRomFileSizeSidecarInvalidation:
     def test_add_moves_the_version(self, rom: Rom):
         before = _filter_values_cache_version()
 
-        _add_game_file(rom)
+        _add_rom_file(rom)
 
         assert _filter_values_cache_version() != before
 
     def test_delete_moves_the_version(self, rom: Rom):
-        game = _add_game_file(rom)
+        game = _add_rom_file(rom)
         before = _filter_values_cache_version()
 
         db_rom_handler.delete_rom_file(game.id)
@@ -713,7 +710,7 @@ class TestRomFileSizeSidecarInvalidation:
         assert _filter_values_cache_version() != before
 
     def test_resize_moves_the_version(self, rom: Rom):
-        game = _add_game_file(rom)
+        game = _add_rom_file(rom)
         before = _filter_values_cache_version()
 
         db_rom_handler.update_rom_file(game.id, {"file_size_bytes": 5})
@@ -721,7 +718,7 @@ class TestRomFileSizeSidecarInvalidation:
         assert _filter_values_cache_version() != before
 
     def test_rename_leaves_the_version(self, rom: Rom):
-        game = _add_game_file(rom)
+        game = _add_rom_file(rom)
         before = _filter_values_cache_version()
 
         db_rom_handler.update_rom_file(game.id, {"file_name": "renamed.bin"})
@@ -739,15 +736,7 @@ class TestRomFileSizeSidecarInvalidation:
         before = _filter_values_cache_version()
 
         with pytest.raises(RuntimeError), sync_session.begin() as session:
-            db_rom_handler.add_rom_file(
-                RomFile(
-                    rom_id=rom.id,
-                    file_name="game.bin",
-                    file_path=rom.fs_path,
-                    file_size_bytes=1000,
-                ),
-                session=session,
-            )
+            _add_rom_file(rom, session=session)
             raise RuntimeError("abort")
 
         assert _filter_values_cache_version() == before
@@ -758,15 +747,7 @@ class TestRomFileSizeSidecarInvalidation:
 
         with sync_session.begin() as session:
             for name in ("a.bin", "b.bin"):
-                db_rom_handler.add_rom_file(
-                    RomFile(
-                        rom_id=rom.id,
-                        file_name=name,
-                        file_path=rom.fs_path,
-                        file_size_bytes=10,
-                    ),
-                    session=session,
-                )
+                _add_rom_file(rom, name, size=10, session=session)
 
         assert int(_filter_values_cache_version()) == before + 1
 
@@ -802,12 +783,12 @@ class TestRomFileSizeLocking:
         )
 
     def test_add_locks_the_rom_first(self, rom: Rom, statements: list[str]):
-        _add_game_file(rom)
+        _add_rom_file(rom)
 
         self._assert_locked_before(statements, "INSERT INTO rom_files")
 
     def test_delete_locks_the_rom_first(self, rom: Rom, statements: list[str]):
-        game = _add_game_file(rom)
+        game = _add_rom_file(rom)
         statements.clear()
 
         db_rom_handler.delete_rom_file(game.id)
@@ -815,7 +796,7 @@ class TestRomFileSizeLocking:
         self._assert_locked_before(statements, "DELETE FROM rom_files")
 
     def test_resize_locks_the_rom_first(self, rom: Rom, statements: list[str]):
-        game = _add_game_file(rom)
+        game = _add_rom_file(rom)
         statements.clear()
 
         db_rom_handler.update_rom_file(game.id, {"file_size_bytes": 5})
