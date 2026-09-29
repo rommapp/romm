@@ -293,6 +293,7 @@ onBeforeUnmount(() =>
         <RTextField
           :model-value="form.cacheTtlHours"
           type="number"
+          prefix-label="stacked"
           min="1"
           step="1"
           :label="t('settings.conversion-cache-ttl-hours')"
@@ -314,6 +315,7 @@ onBeforeUnmount(() =>
         <RTextField
           :model-value="form.cacheMaxSizeGb"
           type="number"
+          prefix-label="stacked"
           min="0"
           step="1"
           :label="t('settings.conversion-cache-max-size-gb')"
@@ -335,6 +337,7 @@ onBeforeUnmount(() =>
         <RTextField
           :model-value="form.maxSyncSizeMb"
           type="number"
+          prefix-label="stacked"
           min="0"
           step="1"
           :label="t('settings.conversion-max-sync-size-mb')"
