@@ -1407,15 +1407,19 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
   }
 }
 
-/* Bottom corner of the rows' column, clear of the strip and the scrollbar. */
+/* Bottom right, just inside the strip column and clear of the scrollbar. */
 .r-v2-shell__back-to-top {
   position: absolute;
   right: calc(
-    var(--r-row-pad) + var(--r-v2-shell-strip) +
-      var(--r-v2-shell-scrollbar-w, 0px)
+    var(--r-v2-shell-strip) + var(--r-v2-shell-scrollbar-w, 0px) +
+      var(--r-space-2)
   );
   bottom: var(--r-space-6);
   z-index: 6;
+}
+/* No strip: line up with the cards' right edge instead. */
+.r-v2-shell--no-strip .r-v2-shell__back-to-top {
+  right: calc(var(--r-row-pad) + var(--r-v2-shell-scrollbar-w, 0px));
 }
 html[data-bp~="sm-and-down"] .r-v2-shell__back-to-top {
   bottom: calc(
