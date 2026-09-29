@@ -528,6 +528,32 @@ function installDefaultOptionsFallback(emulator: any) {
   }
 }
 
+// EmulatorJS 4.2.3 indexes its compact pad list by browser gamepad index, which
+// throws and stops polling when Chromium puts a lone pad at index 1.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function lookUpGamepadsByBrowserIndex(emulator: any) {
+  const handler = emulator.gamepad;
+  if (
+    emulator.__rommGamepadLookupPatched ||
+    // Builds with this method already look pads up by browser index.
+    typeof emulator.getGamepadSelectionValue === "function" ||
+    !handler?.listeners
+  )
+    return;
+  emulator.__rommGamepadLookupPatched = true;
+  for (const name of ["connected", "axischanged", "buttondown", "buttonup"]) {
+    const listener = handler.listeners[name];
+    if (typeof listener !== "function") continue;
+    handler.listeners[name] = (event: { gamepadIndex: number }) => {
+      const position = (handler.gamepads ?? []).findIndex(
+        (pad: { index: number } | null) => pad?.index === event.gamepadIndex,
+      );
+      if (position === -1) return;
+      listener({ ...event, gamepadIndex: position });
+    };
+  }
+}
+
 // GamepadHandler polls before EmulatorJS registers its "connected" listener,
 // so pads it already saw (e.g. the one that pressed Play) get no player.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -585,6 +611,7 @@ export function installEJSDefaultOptionsTrap() {
       instance = value;
       if (!value) return;
       installDefaultOptionsFallback(value);
+      lookUpGamepadsByBrowserIndex(value);
       replayConnectedGamepads(value);
       keepArcadeBiosWhole(value);
       applyOnlyEnabledCheats(value);

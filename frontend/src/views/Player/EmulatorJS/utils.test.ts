@@ -257,6 +257,67 @@ describe("installEJSDefaultOptionsTrap", () => {
     warn.mockRestore();
   });
 
+  describe("with a pad at a sparse browser gamepad index", () => {
+    type PadEvent = { gamepadIndex: number; type?: string; label?: string };
+    type Listener = (event: PadEvent) => void;
+
+    // Mirrors the EmulatorJS 4.2.3 GamepadHandler and the listeners
+    // bindListeners registers on it, including their compact-list lookup.
+    function makeGamepadEmulator() {
+      const emulator = makeEmulator({});
+      const pressed: string[] = [];
+      emulator.gamepadSelection = ["", "", "", ""];
+      emulator.gamepad = {
+        gamepads: [{ index: 1, id: "pad" }],
+        listeners: {} as Record<string, Listener>,
+        on(name: string, cb: Listener) {
+          this.listeners[name] = cb;
+        },
+        dispatchEvent(name: string, arg: PadEvent) {
+          arg.type = name;
+          this.listeners[name]?.(arg);
+        },
+      };
+      const selectionFor = (gamepadIndex: number) => {
+        const pad = emulator.gamepad.gamepads[gamepadIndex];
+        return `${pad.id}_${pad.index}`;
+      };
+      emulator.gamepad.on("connected", ({ gamepadIndex }: PadEvent) => {
+        const slot = emulator.gamepadSelection.indexOf("");
+        if (slot !== -1)
+          emulator.gamepadSelection[slot] = selectionFor(gamepadIndex);
+      });
+      emulator.gamepad.on("buttondown", ({ gamepadIndex, label }: PadEvent) => {
+        const player = emulator.gamepadSelection.indexOf(
+          selectionFor(gamepadIndex),
+        );
+        if (player !== -1) pressed.push(`${player}:${label}`);
+      });
+      return { emulator, pressed };
+    }
+
+    it("assigns the pad to a player and routes its buttons", () => {
+      const { emulator, pressed } = makeGamepadEmulator();
+      window.EJS_emulator = emulator;
+
+      expect(emulator.gamepadSelection).toEqual(["pad_1", "", "", ""]);
+      emulator.gamepad.dispatchEvent("buttondown", {
+        gamepadIndex: 1,
+        label: "BUTTON_1",
+      });
+      expect(pressed).toEqual(["0:BUTTON_1"]);
+    });
+
+    it("leaves builds that already look pads up by browser index alone", () => {
+      const { emulator } = makeGamepadEmulator();
+      emulator.getGamepadSelectionValue = () => null;
+      const listener = emulator.gamepad.listeners.buttondown;
+      window.EJS_emulator = emulator;
+
+      expect(emulator.gamepad.listeners.buttondown).toBe(listener);
+    });
+  });
+
   it("hands an FBNeo BIOS archive to the core whole on the 4.2.3 build", () => {
     const emulator = makeEmulator({});
     Object.assign(emulator.config, {
