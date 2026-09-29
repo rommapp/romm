@@ -64,6 +64,8 @@ function makeEmulator(defaultOptions: Record<string, unknown>): any {
     rewindEnabled: false,
     videoRotation: undefined,
     webgl2Enabled: null,
+    started: false,
+    menuOptionChanged: vi.fn(),
     getLocalStorageKey() {
       return STORAGE_KEY;
     },
@@ -342,6 +344,43 @@ describe("installEJSDefaultOptionsTrap", () => {
         0,
         true,
         "SLUSZTVS",
+      );
+    });
+  });
+
+  describe("disk selection", () => {
+    it("skips the disk the menu selects while the game boots", () => {
+      // 4.2.3 crashes on it with a multi-disk game (EmulatorJS#1260).
+      const emulator = makeEmulator({});
+      const original = emulator.menuOptionChanged;
+      window.EJS_emulator = emulator;
+
+      emulator.menuOptionChanged("disk", "0");
+
+      expect(original).not.toHaveBeenCalled();
+    });
+
+    it("forwards a disk swap once the game runs", () => {
+      const emulator = makeEmulator({});
+      const original = emulator.menuOptionChanged;
+      window.EJS_emulator = emulator;
+      emulator.started = true;
+
+      emulator.menuOptionChanged("disk", "1");
+
+      expect(original).toHaveBeenCalledExactlyOnceWith("disk", "1");
+    });
+
+    it("forwards other options before the game runs", () => {
+      const emulator = makeEmulator({});
+      const original = emulator.menuOptionChanged;
+      window.EJS_emulator = emulator;
+
+      emulator.menuOptionChanged("shader", "crt-easymode.glslp");
+
+      expect(original).toHaveBeenCalledExactlyOnceWith(
+        "shader",
+        "crt-easymode.glslp",
       );
     });
   });
