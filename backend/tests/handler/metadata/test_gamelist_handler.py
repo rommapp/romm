@@ -1,3 +1,4 @@
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
@@ -9,6 +10,7 @@ from defusedxml import ElementTree as ET
 from config.config_manager import MetadataMediaType
 from handler.filesystem import fs_platform_handler
 from handler.metadata.gamelist_handler import (
+    ESDE_MEDIA_MAP,
     GamelistHandler,
     GamelistMetadataMedia,
     build_media_file_index,
@@ -558,6 +560,10 @@ def test_parse_gamelist_xml_validates_each_media_folder_once(
             "handler.metadata.gamelist_handler.get_preferred_media_types",
             return_value=[],
         ),
+        patch(
+            "handler.metadata.gamelist_handler.build_media_file_index",
+            return_value={key: {} for key in ESDE_MEDIA_MAP},
+        ),
         patch.object(
             fs_platform_handler,
             "validate_path",
@@ -566,8 +572,11 @@ def test_parse_gamelist_xml_validates_each_media_folder_once(
     ):
         roms_data = GamelistHandler()._parse_gamelist_xml(gamelist_path, platform)
 
-    validated = [call.args[0] for call in validate_path.call_args_list]
-    assert not [path for path in validated if path.endswith((".png", ".mp4"))]
+    platform_dir = _platform_dir(platform)
+    assert Counter(call.args[0] for call in validate_path.call_args_list) == {
+        f"{platform_dir}/covers": 1,
+        f"{platform_dir}/videos": 1,
+    }
     assert roms_data["Three.zip"].get("url_cover", "").endswith("/covers/Three.png")
 
 

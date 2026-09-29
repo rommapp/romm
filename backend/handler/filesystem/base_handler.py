@@ -456,12 +456,7 @@ class FSHandler:
         return full_path
 
     def cached_path_validator(self) -> Callable[[str], Path]:
-        """Return a `validate_path` that checks each distinct parent directory once.
-
-        For validating many files that share a few folders, like a gamelist's
-        media tags. The cache lives as long as the returned callable, so make a
-        new one per pass over the library.
-        """
+        """Return a `validate_path` that checks each parent directory once per callable."""
         validated_dirs: dict[Path, Path] = {}
 
         def validate(path: str) -> Path:
