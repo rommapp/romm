@@ -349,16 +349,16 @@ def _song_identity(meta: TrackMeta) -> SongIdentity:
 def _match_songs(
     old: dict[int, SongIdentity], new: dict[int, SongIdentity]
 ) -> dict[int, int]:
-    """Which stored song each rescanned one is, as {stored index: new index}.
+    """Pair each stored song with the rescanned song it became.
 
-    A song keeps its row when its index and tags are unchanged, or when its tags
-    turn up at exactly one other index, as when an .m3u is reordered. When the
-    file has as many songs as before, a song left at its index was only
-    retagged. Stored songs matched to nothing are gone.
+    Returns:
+        {stored index: new index}; stored songs left out are gone.
     """
+    # The same index and tags: the same song.
     kept = {song: song for song, identity in old.items() if new.get(song) == identity}
     free = [song for song in new if song not in kept]
 
+    # Its tags at exactly one other index: it moved, as in a reordered .m3u.
     unmatched = Counter(identity for song, identity in old.items() if song not in kept)
     for song, identity in old.items():
         if song in kept or unmatched[identity] != 1:
@@ -368,6 +368,7 @@ def _match_songs(
             kept[song] = matches[0]
             free.remove(matches[0])
 
+    # With as many songs as before, a song left at its index was retagged.
     if len(old) == len(new):
         for song in old:
             if song not in kept and song in free:

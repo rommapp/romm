@@ -50,6 +50,8 @@ function setPosition(session: MediaSession, state?: MediaPositionState) {
 }
 
 /**
+ * Mirror the soundtrack player into the Media Session API while mounted.
+ *
  * Args:
  *   blocked: true while the music must stay paused, so the play key is ignored.
  */
