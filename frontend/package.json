@@ -25,9 +25,11 @@
     "prebuild": "npm run build:tokens",
     "dev": "vite --host",
     "build": "vite build",
+    "build:e2e": "vite build --sourcemap",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:e2e": "tsc --noEmit -p e2e/tsconfig.json",
     "generate": "openapi --input http://127.0.0.1:3000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -35,8 +37,11 @@
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
     "storybook:test": "vitest run test/storybook.test.ts",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e": "playwright test --project=chromium",
+    "test:e2e:smoke": "playwright test --project=chromium --grep @smoke",
+    "test:e2e:axe": "playwright test --project=axe",
+    "test:e2e:lighthouse": "playwright test --project=lighthouse",
+    "test:e2e:report": "playwright show-report e2e/.output/specs/report"
   },
   "dependencies": {
     "@floating-ui/vue": "^2.0.0",
@@ -65,6 +70,7 @@
     "vuetify": "^3.9.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.61.1",
     "@storybook/addon-a11y": "^10.2.19",
@@ -86,10 +92,12 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-import-x": "^4.17.1",
+    "eslint-plugin-playwright": "^2.12.0",
     "eslint-plugin-vue": "^10.8.0",
     "eslint-plugin-vuejs-accessibility": "^2.5.0",
     "globals": "^17.0.0",
     "happy-dom": "^20.9.0",
+    "lighthouse": "^13.5.0",
     "openapi-typescript-codegen": "^0.29.0",
     "postcss": "^8.5.23",
     "storybook": "^10.2.19",
