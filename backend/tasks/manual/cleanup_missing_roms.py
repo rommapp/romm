@@ -2,6 +2,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, cast
 
 from endpoints.responses import MissingRomsCleanupStats
+from endpoints.roms import refresh_affected_smart_collections
 from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
@@ -65,6 +66,7 @@ class CleanupMissingRomsTask(Task):
             )
         )
 
+        deleted_ids: list[int] = []
         for rom in missing_roms:
             try:
                 log.info(
@@ -75,6 +77,7 @@ class CleanupMissingRomsTask(Task):
                 log.error(f"Failed to delete missing ROM {rom.id}: {e}")
                 stats.update(errors=stats.errors + 1)
                 continue
+            deleted_ids.append(rom.id)
 
             try:
                 await fs_resource_handler.remove_directory(rom.fs_resources_path)
@@ -84,6 +87,10 @@ class CleanupMissingRomsTask(Task):
                 )
 
             stats.update(roms_deleted=stats.roms_deleted + 1)
+
+        if deleted_ids:
+            db_rom_handler.invalidate_filter_values_cache()
+            refresh_affected_smart_collections(deleted_ids)
 
         log.info(
             f"Cleanup of missing ROMs completed: {stats.roms_deleted} deleted, {stats.errors} error(s)"
