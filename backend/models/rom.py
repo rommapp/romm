@@ -1302,16 +1302,16 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
 }
 
 
-def _has_match_id(column: InstrumentedAttribute[Any]) -> ColumnElement[bool]:
-    # A garbled manual edit can store 0 or "", which `Rom.is_identified` treats
-    # as no match.
+def has_match_id(column: InstrumentedAttribute[Any]) -> ColumnElement[bool]:
+    """Whether a match id column holds a real id, as `Rom.is_identified` reads it."""
+    # A garbled manual edit can store 0 or "", which counts as no match.
     blank: int | str = "" if isinstance(column.type, String) else 0
     return and_(column.isnot(None), column != blank)
 
 
 # Query-side twin of `Rom.is_identified`, for the gallery "matched" filter.
 ROM_IS_IDENTIFIED: Final[ColumnElement[bool]] = or_(
-    *(_has_match_id(column) for column in METADATA_SOURCE_COLUMNS.values())
+    *(has_match_id(column) for column in METADATA_SOURCE_COLUMNS.values())
 )
 
 # Same slugs mapped to the `roms_facets` mirror columns. The stats coverage

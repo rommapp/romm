@@ -106,6 +106,16 @@ class TestMetadataCoverage:
         assert {"source": "flashpoint", "matched": 1} in coverage[platform.id]
         assert {"source": "libretro", "matched": 1} in coverage[platform.id]
 
+    def test_blank_ids_are_not_counted(self):
+        """0 and "" read as no match, as they do for `Rom.is_identified`."""
+        platform = _add_platform("platform_a")
+        _add_rom(platform, "a1", igdb_id=0, libretro_id="")
+        _add_rom(platform, "a2", ss_id=4)
+
+        coverage = db_stats_handler.get_metadata_coverage_by_platform()
+
+        assert coverage[platform.id] == [{"source": "ss", "matched": 1}]
+
     def test_unmatched_sources_are_omitted(self):
         platform = _add_platform("platform_a")
         _add_rom(platform, "a1", igdb_id=1)

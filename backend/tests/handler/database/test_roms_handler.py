@@ -4,9 +4,17 @@ Bulk `update()` bypasses the ORM `@validates` hooks, so `update_rom` keeps
 the columns derived from `name` / `fs_name` / `fs_path` in sync explicitly.
 """
 
+import re
+from collections.abc import Iterator
+from typing import Any
+from unittest.mock import MagicMock
+
 import pytest
+from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import IntegrityError
+from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
 from handler.database import (
     db_platform_handler,
@@ -14,6 +22,8 @@ from handler.database import (
     db_save_handler,
     db_state_handler,
 )
+from handler.database.base_handler import sync_engine, sync_session
+from handler.database.roms_handler import _filter_values_cache_version
 from models.assets import Save, State
 from models.platform import Platform
 from models.rom import (
@@ -670,3 +680,157 @@ class TestRomFileSizeTotal:
         db_rom_handler.delete_rom_file(999_999)
 
         assert self._size(rom) == 1000
+
+
+def _add_game_file(rom: Rom, size: int = 1000) -> RomFile:
+    return db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="game.bin",
+            file_path=rom.fs_path,
+            file_size_bytes=size,
+        )
+    )
+
+
+class TestRomFileSizeSidecarInvalidation:
+    """The size-sorted rom-id and char indexes are cached under the filter
+    values version, so a size recompute has to move it once it commits."""
+
+    def test_add_moves_the_version(self, rom: Rom):
+        before = _filter_values_cache_version()
+
+        _add_game_file(rom)
+
+        assert _filter_values_cache_version() != before
+
+    def test_delete_moves_the_version(self, rom: Rom):
+        game = _add_game_file(rom)
+        before = _filter_values_cache_version()
+
+        db_rom_handler.delete_rom_file(game.id)
+
+        assert _filter_values_cache_version() != before
+
+    def test_resize_moves_the_version(self, rom: Rom):
+        game = _add_game_file(rom)
+        before = _filter_values_cache_version()
+
+        db_rom_handler.update_rom_file(game.id, {"file_size_bytes": 5})
+
+        assert _filter_values_cache_version() != before
+
+    def test_rename_leaves_the_version(self, rom: Rom):
+        game = _add_game_file(rom)
+        before = _filter_values_cache_version()
+
+        db_rom_handler.update_rom_file(game.id, {"file_name": "renamed.bin"})
+
+        assert _filter_values_cache_version() == before
+
+    def test_unknown_delete_leaves_the_version(self, rom: Rom):
+        before = _filter_values_cache_version()
+
+        db_rom_handler.delete_rom_file(999_999)
+
+        assert _filter_values_cache_version() == before
+
+    def test_rolled_back_write_leaves_the_version(self, rom: Rom):
+        before = _filter_values_cache_version()
+
+        with pytest.raises(RuntimeError), sync_session.begin() as session:
+            db_rom_handler.add_rom_file(
+                RomFile(
+                    rom_id=rom.id,
+                    file_name="game.bin",
+                    file_path=rom.fs_path,
+                    file_size_bytes=1000,
+                ),
+                session=session,
+            )
+            raise RuntimeError("abort")
+
+        assert _filter_values_cache_version() == before
+        assert db_rom_handler.rom_files_for_rom_id(rom.id) == []
+
+    def test_one_transaction_moves_the_version_once(self, rom: Rom):
+        before = int(_filter_values_cache_version())
+
+        with sync_session.begin() as session:
+            for name in ("a.bin", "b.bin"):
+                db_rom_handler.add_rom_file(
+                    RomFile(
+                        rom_id=rom.id,
+                        file_name=name,
+                        file_path=rom.fs_path,
+                        file_size_bytes=10,
+                    ),
+                    session=session,
+                )
+
+        assert int(_filter_values_cache_version()) == before + 1
+
+
+class TestRomFileSizeLocking:
+    """Concurrent writers to one rom serialise on its row, taken before the
+    file write so the foreign key check cannot lock it first."""
+
+    @pytest.fixture
+    def statements(self) -> Iterator[list[str]]:
+        seen: list[str] = []
+
+        def record(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+            seen.append(" ".join(statement.split()))
+
+        event.listen(sync_engine, "before_cursor_execute", record)
+        yield seen
+        event.remove(sync_engine, "before_cursor_execute", record)
+
+    @staticmethod
+    def _first(statements: list[str], prefix: str) -> int:
+        return next(i for i, s in enumerate(statements) if s.startswith(prefix))
+
+    def _assert_locked_before(self, statements: list[str], write: str) -> None:
+        lock = next(
+            i
+            for i, s in enumerate(statements)
+            if s.startswith("SELECT roms.id") and re.search(r"FOR (NO KEY )?UPDATE$", s)
+        )
+        assert lock < self._first(statements, write)
+        assert self._first(statements, write) < self._first(
+            statements, "UPDATE roms SET fs_size_bytes"
+        )
+
+    def test_add_locks_the_rom_first(self, rom: Rom, statements: list[str]):
+        _add_game_file(rom)
+
+        self._assert_locked_before(statements, "INSERT INTO rom_files")
+
+    def test_delete_locks_the_rom_first(self, rom: Rom, statements: list[str]):
+        game = _add_game_file(rom)
+        statements.clear()
+
+        db_rom_handler.delete_rom_file(game.id)
+
+        self._assert_locked_before(statements, "DELETE FROM rom_files")
+
+    def test_resize_locks_the_rom_first(self, rom: Rom, statements: list[str]):
+        game = _add_game_file(rom)
+        statements.clear()
+
+        db_rom_handler.update_rom_file(game.id, {"file_size_bytes": 5})
+
+        self._assert_locked_before(statements, "UPDATE rom_files")
+
+    @pytest.mark.parametrize(
+        ("dialect", "clause"),
+        [(MARIADB_DIALECT, "FOR UPDATE"), (POSTGRESQL_DIALECT, "FOR NO KEY UPDATE")],
+    )
+    def test_lock_spelling(self, dialect: Dialect, clause: str):
+        # NO KEY UPDATE leaves other tables' foreign key checks on the row free.
+        session = MagicMock()
+
+        db_rom_handler._lock_rom_row(7, session)
+
+        (statement,) = session.execute.call_args.args
+        assert compile_sql(statement, dialect).endswith(clause)

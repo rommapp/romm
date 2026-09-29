@@ -1,5 +1,6 @@
-"""The gallery "matched" filter and `Rom.is_identified` share one provider set,
-so a ROM the API reports as identified is the one the filter returns."""
+"""The gallery "matched" filter, the provider filter and `Rom.is_identified`
+read match ids alike, so a ROM the API reports as identified is the one the
+filters return."""
 
 from typing import Any
 
@@ -62,3 +63,27 @@ def test_artwork_only_sgdb_does_not_identify(rom: Rom, admin_user: User):
 
     assert stored.is_unidentified is True
     assert rom.id not in _matched_ids(admin_user, matched=True)
+
+
+def _provider_ids(user: User, source: str) -> set[int]:
+    return {
+        r.id
+        for r in db_rom_handler.get_roms_scalar(
+            user_id=user.id, metadata_providers=[source]
+        )
+    }
+
+
+@pytest.mark.parametrize("source", sorted(METADATA_SOURCE_COLUMNS))
+def test_provider_filter_agrees_with_matched_filter(
+    source: str, rom: Rom, admin_user: User
+):
+    column = METADATA_SOURCE_COLUMNS[source]
+
+    db_rom_handler.update_rom(rom.id, {column.key: _blank_value(column)})
+    assert rom.id not in _provider_ids(admin_user, source)
+    assert rom.id in _matched_ids(admin_user, matched=False)
+
+    db_rom_handler.update_rom(rom.id, {column.key: _match_value(column)})
+    assert rom.id in _provider_ids(admin_user, source)
+    assert rom.id in _matched_ids(admin_user, matched=True)

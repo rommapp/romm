@@ -2,8 +2,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, cast
 
 from endpoints.responses import MissingRomsCleanupStats
-from endpoints.roms import refresh_affected_smart_collections
-from handler.database import db_rom_handler
+from handler.database import db_collection_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
 from tasks.tasks import Task, TaskType, update_job_meta
@@ -28,6 +27,18 @@ class CleanupMissingRomsStats:
 
     def to_dict(self) -> MissingRomsCleanupStats:
         return cast(MissingRomsCleanupStats, asdict(self))
+
+
+def _refresh_after_delete(rom_ids: list[int]) -> None:
+    """Drop what the library caches about the deleted ROMs, as the delete endpoint does."""
+    if not rom_ids:
+        return
+    # The rows are already gone, so a cache failure must not mask how the run ended.
+    try:
+        db_rom_handler.invalidate_filter_values_cache()
+        db_collection_handler.refresh_smart_collections_for_roms(rom_ids)
+    except Exception as e:
+        log.error(f"Couldn't refresh caches after deleting ROMs {rom_ids}: {e}")
 
 
 class CleanupMissingRomsTask(Task):
@@ -67,30 +78,29 @@ class CleanupMissingRomsTask(Task):
         )
 
         deleted_ids: list[int] = []
-        for rom in missing_roms:
-            try:
-                log.info(
-                    f"Deleting missing ROM '{rom.name or rom.fs_name}' [ID: {rom.id}] from database"
-                )
-                db_rom_handler.delete_rom(rom.id)
-            except Exception as e:
-                log.error(f"Failed to delete missing ROM {rom.id}: {e}")
-                stats.update(errors=stats.errors + 1)
-                continue
-            deleted_ids.append(rom.id)
+        try:
+            for rom in missing_roms:
+                try:
+                    log.info(
+                        f"Deleting missing ROM '{rom.name or rom.fs_name}' [ID: {rom.id}] from database"
+                    )
+                    db_rom_handler.delete_rom(rom.id)
+                except Exception as e:
+                    log.error(f"Failed to delete missing ROM {rom.id}: {e}")
+                    stats.update(errors=stats.errors + 1)
+                    continue
+                deleted_ids.append(rom.id)
 
-            try:
-                await fs_resource_handler.remove_directory(rom.fs_resources_path)
-            except FileNotFoundError:
-                log.warning(
-                    f"Couldn't find resources to delete for '{rom.name or rom.fs_name}'"
-                )
+                try:
+                    await fs_resource_handler.remove_directory(rom.fs_resources_path)
+                except FileNotFoundError:
+                    log.warning(
+                        f"Couldn't find resources to delete for '{rom.name or rom.fs_name}'"
+                    )
 
-            stats.update(roms_deleted=stats.roms_deleted + 1)
-
-        if deleted_ids:
-            db_rom_handler.invalidate_filter_values_cache()
-            refresh_affected_smart_collections(deleted_ids)
+                stats.update(roms_deleted=stats.roms_deleted + 1)
+        finally:
+            _refresh_after_delete(deleted_ids)
 
         log.info(
             f"Cleanup of missing ROMs completed: {stats.roms_deleted} deleted, {stats.errors} error(s)"

@@ -80,6 +80,7 @@ from models.rom import (
     TrackMeta,
     compute_full_path_hash,
     compute_name_sort_key,
+    has_match_id,
 )
 from utils import get_version
 from utils.database import (
@@ -1392,7 +1393,7 @@ class DBRomsHandler(DBBaseHandler):
         if not columns:
             return query
 
-        predicates = [column.isnot(None) for column in columns]
+        predicates = [has_match_id(column) for column in columns]
         if match_none:
             return query.filter(not_(or_(*predicates)))
         if match_all:
@@ -2425,8 +2426,18 @@ class DBRomsHandler(DBBaseHandler):
 
         return rom_user
 
+    def _lock_rom_row(self, rom_id: int, session: Session) -> None:
+        """Serialise writers of one rom's files so each size total counts the others'."""
+        # Taken before the file write, whose foreign key check would otherwise
+        # share-lock the row first and deadlock two writers on MariaDB.
+        session.execute(
+            select(Rom.id).where(Rom.id == rom_id).with_for_update(key_share=True)
+        )
+
     def _recompute_fs_size_bytes(self, rom_id: int, session: Session) -> None:
         """Re-derive the size the gallery sorts on from the rom's file rows."""
+        # Summed inside the UPDATE, which MariaDB reads with locks rather than
+        # from the transaction snapshot; the caller holds `_lock_rom_row`.
         total = (
             select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
             .where(RomFile.rom_id == rom_id)
@@ -2438,6 +2449,27 @@ class DBRomsHandler(DBBaseHandler):
             .values(fs_size_bytes=total)
             .execution_options(synchronize_session="fetch")
         )
+        self._queue_filter_values_invalidation(session)
+
+    def _queue_filter_values_invalidation(self, session: Session) -> None:
+        """Queue `invalidate_filter_values_cache` for after this transaction
+        commits, for the same reasons as `_queue_user_cache_bumps`."""
+        if "filter_values_bump_armed" in session.info:
+            return
+        session.info["filter_values_bump_armed"] = True
+
+        @event.listens_for(session, "after_commit", once=True)
+        def _flush(_session: Session) -> None:
+            _session.info.pop("filter_values_bump_armed", None)
+            # The write is already durable; a stale entry falls to the TTL.
+            try:
+                self.invalidate_filter_values_cache()
+            except Exception:
+                log.exception("Failed to invalidate cached filter values")
+
+        @event.listens_for(session, "after_rollback", once=True)
+        def _discard(_session: Session) -> None:
+            _session.info.pop("filter_values_bump_armed", None)
 
     @begin_session
     def add_rom_file(
@@ -2445,6 +2477,7 @@ class DBRomsHandler(DBBaseHandler):
         rom_file: RomFile,
         session: Session = INJECTED_SESSION,
     ) -> RomFile:
+        self._lock_rom_row(rom_file.rom_id, session)
         merged = session.merge(rom_file)
         session.flush()
         self._recompute_fs_size_bytes(merged.rom_id, session)
@@ -2683,6 +2716,14 @@ class DBRomsHandler(DBBaseHandler):
         data: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> RomFile | None:
+        resized_rom_id = (
+            session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
+            if "file_size_bytes" in data
+            else None
+        )
+        if resized_rom_id is not None:
+            self._lock_rom_row(resized_rom_id, session)
+
         session.execute(
             update(RomFile)
             .where(RomFile.id == id)
@@ -2690,10 +2731,9 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        rom_file = session.scalars(select(RomFile).filter_by(id=id)).one_or_none()
-        if rom_file and "file_size_bytes" in data:
-            self._recompute_fs_size_bytes(rom_file.rom_id, session)
-        return rom_file
+        if resized_rom_id is not None:
+            self._recompute_fs_size_bytes(resized_rom_id, session)
+        return session.scalars(select(RomFile).filter_by(id=id)).one_or_none()
 
     @begin_session
     def upsert_track_meta(
@@ -3322,6 +3362,7 @@ class DBRomsHandler(DBBaseHandler):
         rom_id = session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
         if rom_id is None:
             return
+        self._lock_rom_row(rom_id, session)
         session.execute(
             delete(RomFile)
             .where(RomFile.id == id)

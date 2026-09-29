@@ -128,3 +128,39 @@ class TestCleanupMissingRomsTask:
         assert stats["errors"] == 1
         assert stats["roms_deleted"] == 0
         refresh.assert_not_called()
+
+    async def test_a_resource_failure_still_refreshes_what_was_deleted(
+        self,
+        task: CleanupMissingRomsTask,
+        platform: Platform,
+        resources: AsyncMock,
+        mocker: MockerFixture,
+    ):
+        gone = _add_rom(platform, "gone", missing=True)
+        resources.side_effect = PermissionError("read-only")
+        invalidate = mocker.spy(db_rom_handler, "invalidate_filter_values_cache")
+        refresh = mocker.spy(
+            db_collection_handler, "refresh_smart_collections_for_roms"
+        )
+
+        with pytest.raises(PermissionError):
+            await task.run()
+
+        assert db_rom_handler.get_rom(gone.id) is None
+        invalidate.assert_called_once_with()
+        refresh.assert_called_once_with([gone.id])
+
+    async def test_a_refresh_failure_does_not_fail_the_run(
+        self, task: CleanupMissingRomsTask, platform: Platform, mocker: MockerFixture
+    ):
+        _add_rom(platform, "gone", missing=True)
+        mocker.patch.object(
+            db_collection_handler,
+            "refresh_smart_collections_for_roms",
+            side_effect=RuntimeError("boom"),
+        )
+
+        stats = await task.run()
+
+        assert stats["roms_deleted"] == 1
+        assert stats["errors"] == 0
