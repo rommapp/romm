@@ -4,7 +4,7 @@ from utils.conversion_cache import cleanup_stale_conversions
 
 
 class CleanupConversionCacheTask(PeriodicTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled conversion cache cleanup",
             description="Removes stale converted download files based on TTL",

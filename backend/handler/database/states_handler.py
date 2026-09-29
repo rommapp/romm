@@ -1,10 +1,12 @@
 from collections.abc import Collection, Sequence
+from typing import Any
 
 from sqlalchemy import Select, and_, delete, desc, or_, select, update
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.assets import State
+from models.base import with_file_name_parts
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
@@ -15,7 +17,7 @@ class DBStatesHandler(DBBaseHandler):
     def add_state(
         self,
         state: State,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> State:
         return session.merge(state)
 
@@ -24,7 +26,7 @@ class DBStatesHandler(DBBaseHandler):
         self,
         user_id: int,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> State | None:
         return session.scalar(select(State).filter_by(user_id=user_id, id=id).limit(1))
 
@@ -34,7 +36,7 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         file_name: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> State | None:
         return session.scalar(
             select(State)
@@ -67,7 +69,7 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[State]:
         query = self._states_query(
             user_id=user_id, rom_ids=rom_ids, platform_id=platform_id
@@ -80,7 +82,7 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> list[int]:
         """Ids only, so no `State` is built and no eager rom or user join fires."""
         query = self._states_query(
@@ -92,7 +94,7 @@ class DBStatesHandler(DBBaseHandler):
     def get_state_by_id(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> State | None:
         """Fetch a state by id without scoping to an owner. Used for the
         visibility toggle and community downloads, where the caller may not own
@@ -105,7 +107,7 @@ class DBStatesHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         public_only: bool = False,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[State]:
         """States for a ROM visible to the requesting user: own (public +
         private) plus other users' public ones. Mirrors
@@ -124,9 +126,9 @@ class DBStatesHandler(DBBaseHandler):
     def update_state(
         self,
         id: int,
-        data: dict,
+        data: dict[str, Any],
         touch: bool = True,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> State:
         """Write `data` onto a state.
 
@@ -134,6 +136,7 @@ class DBStatesHandler(DBBaseHandler):
             touch: False keeps `updated_at`, since annotating is not a write
                 to the bytes and device sync reads it to detect staleness.
         """
+        data = with_file_name_parts(data)
         values = data if touch else {**data, "updated_at": State.updated_at}
         session.execute(
             update(State)
@@ -141,13 +144,13 @@ class DBStatesHandler(DBBaseHandler):
             .values(**values)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(State).filter_by(id=id).one()
+        return session.scalars(select(State).filter_by(id=id)).one()
 
     @begin_session
     def delete_state(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             delete(State)
@@ -161,7 +164,7 @@ class DBStatesHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         states_to_keep: list[str],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[State]:
         missing_states = session.scalars(
             select(State).filter(

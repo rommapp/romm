@@ -27,7 +27,7 @@ function mountPlatform(overrides: Partial<ScanningPlatform> = {}) {
         RCollapsible: {
           template: "<div><slot /><slot name='header-append' /></div>",
         },
-        RPlatformIcon: true,
+        PlatformIcon: true,
         RTag: {
           props: ["text"],
           template: "<span class='r-tag'>{{ text }}</span>",

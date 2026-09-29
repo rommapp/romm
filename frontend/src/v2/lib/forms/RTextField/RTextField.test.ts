@@ -1,5 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import RTextField from "./RTextField.vue";
 
 const POPUP = {
@@ -49,6 +50,99 @@ describe("RTextField popup wiring", () => {
     expect(error).toHaveBeenCalledWith(
       expect.stringContaining("`popup` is ignored when `multiline` is set"),
     );
+    wrapper.unmount();
+  });
+});
+
+describe("RTextField required", () => {
+  function tooltip(wrapper: ReturnType<typeof mount>) {
+    return wrapper.findComponent({ name: "RTooltip" });
+  }
+
+  it("announces it without the browser's own validation", () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "", required: true },
+    });
+
+    const input = wrapper.get("input");
+    expect(input.attributes("aria-required")).toBe("true");
+    expect(input.attributes("required")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("says so in a tooltip only while it's empty", async () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "", required: true },
+    });
+
+    expect(tooltip(wrapper).props("text")).toBe("Required");
+    expect(tooltip(wrapper).props("disabled")).toBe(false);
+
+    await wrapper.setProps({ modelValue: "RomM" });
+    expect(tooltip(wrapper).props("disabled")).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("keeps quiet on a field that isn't required", () => {
+    const wrapper = mount(RTextField, { props: { modelValue: "" } });
+
+    expect(wrapper.get("input").attributes("aria-required")).toBeUndefined();
+    expect(tooltip(wrapper).props("disabled")).toBe(true);
+    wrapper.unmount();
+  });
+});
+
+describe("RTextField autofocus", () => {
+  // RDialog focuses `[autofocus]` on open, ahead of its own close button.
+  it("marks the native field for the surface that opens it", () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "", autofocus: true },
+    });
+    expect(wrapper.get("input").attributes("autofocus")).toBeDefined();
+    wrapper.unmount();
+  });
+
+  it("leaves the attribute off unless asked", () => {
+    const wrapper = mount(RTextField, { props: { modelValue: "" } });
+    expect(wrapper.get("input").attributes("autofocus")).toBeUndefined();
+    wrapper.unmount();
+  });
+});
+
+describe("RTextField rules", () => {
+  const required = (v: string) => !!v || "Required";
+
+  function details(wrapper: ReturnType<typeof mount>) {
+    return wrapper.find(".r-text-field__details--error");
+  }
+
+  it("stays quiet until the first blur, then tracks every edit", async () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "", rules: [required] },
+    });
+    expect(details(wrapper).exists()).toBe(false);
+
+    await wrapper.get("input").trigger("blur");
+    expect(details(wrapper).text()).toBe("Required");
+
+    await wrapper.setProps({ modelValue: "RomM" });
+    expect(details(wrapper).exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("re-checks a touched field when its rules change", async () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "abc", rules: [] },
+    });
+    await wrapper.get("input").trigger("blur");
+    expect(details(wrapper).exists()).toBe(false);
+
+    await wrapper.setProps({ rules: [() => "Passwords don't match"] });
+    expect(details(wrapper).text()).toBe("Passwords don't match");
+
+    wrapper.vm.reset();
+    await nextTick();
+    expect(details(wrapper).exists()).toBe(false);
     wrapper.unmount();
   });
 });

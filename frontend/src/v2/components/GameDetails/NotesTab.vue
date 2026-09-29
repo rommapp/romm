@@ -1,15 +1,13 @@
 <script setup lang="ts">
 // NotesTab: per-ROM notes with a left index (own + community sections;
 // a grouped note picker on phones) and a right pane that swaps between
-// MdPreview (read) and MdEditor (edit-in-place). Public/private toggles via a
-// single icon button (no dialog), edits save inline, and the active note is
-// URL-persistent via `?note=<id>` so links deep-link straight to a specific
-// note.
+// MdPreview (read) and MdEditor (edit-in-place). Visibility is set in the
+// editor, edits save inline, and the active note is URL-persistent via
+// `?note=<id>` so links deep-link straight to a specific note.
 import {
   REmptyState,
   RAvatar,
   RBtn,
-  RIcon,
   RTextField,
   RTooltip,
   RDivider,
@@ -27,11 +25,14 @@ import type { DetailedRom } from "@/stores/roms";
 import SubtabNav, {
   type SubtabNavItem,
 } from "@/v2/components/GameDetails/SubtabNav.vue";
+import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
+import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
@@ -117,17 +118,6 @@ function readNoteFromQuery(): number | null {
   return allNotes.value.some((x) => x.id === n) ? n : null;
 }
 
-function writeNoteToQuery(id: number | null) {
-  const next = { ...route.query };
-  if (id === null) {
-    delete next.note;
-  } else {
-    next.note = String(id);
-  }
-  if (route.query.note === next.note) return;
-  router.replace({ path: route.path, query: next });
-}
-
 function defaultSelection(): number | null {
   if (myNotes.value.length > 0) return myNotes.value[0].id;
   if (communityNotes.value.length > 0) return communityNotes.value[0].id;
@@ -136,7 +126,9 @@ function defaultSelection(): number | null {
 
 selectedNoteId.value = readNoteFromQuery() ?? defaultSelection();
 
-watch(selectedNoteId, (id) => writeNoteToQuery(id));
+watch(selectedNoteId, (id) =>
+  syncQueryParam(router, "note", id === null ? undefined : String(id)),
+);
 
 // React to URL changes (back/forward, external nav).
 watch(
@@ -168,7 +160,6 @@ interface EditForm {
 
 const editForm = ref<EditForm | null>(null);
 const saving = ref(false);
-const togglingLockId = ref<number | null>(null);
 // RTextField forwards $attrs to the underlying VTextField; we focus the
 // inner <input> by reaching through .$el. Triggered when the form opens
 // (user just clicked "Add" / "Edit"), so it's never a surprise focus.
@@ -256,26 +247,6 @@ async function saveEdit() {
   }
 }
 
-async function toggleLock(note: UserNoteSchema) {
-  if (!isOwn(note)) return;
-  togglingLockId.value = note.id;
-  try {
-    await romApi.updateRomNote({
-      romId: props.rom.id,
-      noteId: note.id,
-      noteData: { is_public: !note.is_public },
-    });
-    await refreshRom();
-  } catch (err) {
-    console.error("Note visibility toggle failed:", err);
-    snackbar.error(t("rom.notes-cant-toggle-visibility"), {
-      icon: "mdi-close-circle",
-    });
-  } finally {
-    togglingLockId.value = null;
-  }
-}
-
 async function removeNote(note: UserNoteSchema) {
   if (!isOwn(note)) return;
   const ok = await confirm({
@@ -302,8 +273,8 @@ async function removeNote(note: UserNoteSchema) {
 }
 
 function selectNote(id: number) {
-  // Switching notes silently drops an unsaved draft — user picked a
-  // different note, the intent is clear.
+  // Switching notes silently drops an unsaved draft: the user picked a
+  // different note, so the intent is clear.
   if (editForm.value) editForm.value = null;
   selectedNoteId.value = id;
 }
@@ -350,12 +321,7 @@ function fmtDate(iso: string): string {
             <RAvatar :image="noteAvatar(item.note)" size="18" />
             <span>{{ item.note.username }}</span>
           </span>
-          <RIcon
-            v-else-if="!item.note.is_public"
-            icon="mdi-lock"
-            size="13"
-            class="r-v2-notes__nav-lock"
-          />
+          <PublicBadge v-else-if="item.note.is_public" inline />
         </template>
         <template #actions>
           <RBtn
@@ -386,12 +352,7 @@ function fmtDate(iso: string): string {
                 @click="selectNote(n.id)"
               >
                 <span class="r-v2-notes__nav-title">{{ n.title }}</span>
-                <RIcon
-                  v-if="!n.is_public"
-                  icon="mdi-lock"
-                  size="13"
-                  class="r-v2-notes__nav-lock"
-                />
+                <PublicBadge v-if="n.is_public" inline />
               </button>
             </li>
           </ul>
@@ -436,7 +397,7 @@ function fmtDate(iso: string): string {
 
       <section class="r-v2-notes__pane">
         <template v-if="editForm">
-          <header class="r-v2-notes__pane-head">
+          <header class="r-v2-notes__pane-head r-v2-notes__pane-head--edit">
             <RTextField
               ref="titleFieldRef"
               v-model="editForm.title"
@@ -447,49 +408,32 @@ function fmtDate(iso: string): string {
               class="r-v2-notes__title-field"
               :disabled="saving"
             />
-            <div class="r-v2-notes__actions">
-              <RTooltip
-                :text="
-                  editForm.isPublic
-                    ? t('rom.make-private')
-                    : t('rom.make-public')
-                "
-              >
-                <template #activator="{ props: activator }">
-                  <RBtn
-                    v-bind="activator"
-                    variant="text"
-                    size="small"
-                    :icon="
-                      editForm.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'
-                    "
-                    :color="
-                      editForm.isPublic ? 'var(--r-color-fg-muted)' : 'primary'
-                    "
-                    :disabled="saving"
-                    @click="editForm.isPublic = !editForm.isPublic"
-                  />
-                </template>
-              </RTooltip>
-              <RBtn
-                variant="outlined"
-                size="small"
+            <div class="r-v2-notes__edit-controls">
+              <VisibilitySwitch
+                v-model="editForm.isPublic"
                 :disabled="saving"
-                @click="cancelEdit"
-              >
-                {{ t("common.cancel") }}
-              </RBtn>
-              <RBtn
-                variant="flat"
-                color="primary"
-                size="small"
-                prepend-icon="mdi-check"
-                :loading="saving"
-                :disabled="!canSave"
-                @click="saveEdit"
-              >
-                {{ t("common.save") }}
-              </RBtn>
+              />
+              <div class="r-v2-notes__actions">
+                <RBtn
+                  variant="outlined"
+                  size="small"
+                  :disabled="saving"
+                  @click="cancelEdit"
+                >
+                  {{ t("common.cancel") }}
+                </RBtn>
+                <RBtn
+                  variant="flat"
+                  color="primary"
+                  size="small"
+                  prepend-icon="mdi-check"
+                  :loading="saving"
+                  :disabled="!canSave"
+                  @click="saveEdit"
+                >
+                  {{ t("common.save") }}
+                </RBtn>
+              </div>
             </div>
           </header>
           <MdEditor
@@ -512,6 +456,11 @@ function fmtDate(iso: string): string {
             <div class="r-v2-notes__pane-title-block">
               <h3 class="r-v2-notes__pane-title">
                 {{ selectedNote.title }}
+                <PublicBadge
+                  v-if="isSelectedOwn && selectedNote.is_public"
+                  class="r-v2-notes__title-badge"
+                  inline
+                />
               </h3>
               <div v-if="!isSelectedOwn" class="r-v2-notes__author">
                 <RAvatar :image="noteAvatar(selectedNote)" size="20" />
@@ -519,33 +468,6 @@ function fmtDate(iso: string): string {
               </div>
             </div>
             <div v-if="isSelectedOwn" class="r-v2-notes__actions">
-              <RTooltip
-                :text="
-                  selectedNote.is_public
-                    ? t('rom.make-private')
-                    : t('rom.make-public')
-                "
-              >
-                <template #activator="{ props: activator }">
-                  <RBtn
-                    v-bind="activator"
-                    variant="text"
-                    size="small"
-                    :icon="
-                      selectedNote.is_public
-                        ? 'mdi-lock-open-variant'
-                        : 'mdi-lock'
-                    "
-                    :color="
-                      selectedNote.is_public
-                        ? 'var(--r-color-fg-muted)'
-                        : 'primary'
-                    "
-                    :loading="togglingLockId === selectedNote.id"
-                    @click="toggleLock(selectedNote)"
-                  />
-                </template>
-              </RTooltip>
               <RTooltip :text="t('rom.notes-edit')">
                 <template #activator="{ props: activator }">
                   <RBtn
@@ -704,10 +626,6 @@ function fmtDate(iso: string): string {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.r-v2-notes__nav-lock {
-  color: var(--r-color-fg-faint);
-  flex-shrink: 0;
-}
 .r-v2-notes__nav-author {
   display: inline-flex;
   align-items: center;
@@ -751,6 +669,10 @@ function fmtDate(iso: string): string {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.r-v2-notes__title-badge {
+  margin-inline-start: var(--r-space-2);
+  vertical-align: middle;
+}
 .r-v2-notes__title-field {
   flex: 1;
   min-width: 0;
@@ -768,11 +690,17 @@ function fmtDate(iso: string): string {
   gap: 4px;
   flex-shrink: 0;
 }
+.r-v2-notes__edit-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--r-space-5);
+  flex-shrink: 0;
+}
 
 .r-v2-notes__pane-foot {
   font-size: var(--r-font-size-sm);
   color: var(--r-color-fg-muted);
-  /* No border / extra padding — the markdown surface above already
+  /* No border / extra padding: the markdown surface above already
      provides the visual separation via its glass background. */
 }
 
@@ -833,7 +761,7 @@ function fmtDate(iso: string): string {
   color: var(--r-color-fg) !important;
 }
 
-/* Empty preview state — when md-preview gets no content it still renders
+/* Empty preview state: when md-preview gets no content it still renders
    an empty wrapper. Add a quiet hint line so the right pane isn't blank. */
 .r-v2-notes__preview :deep(.md-editor-preview):empty::before {
   content: "(empty)";
@@ -843,5 +771,19 @@ function fmtDate(iso: string): string {
 
 html[data-bp~="sm-and-down"] .r-v2-notes__body {
   grid-template-columns: 1fr;
+}
+/* Phones give the title its own row; visibility and the buttons share the
+   next one, at its two ends. */
+html[data-bp~="sm-and-down"] .r-v2-notes__pane-head--edit {
+  flex-wrap: wrap;
+}
+html[data-bp~="sm-and-down"]
+  .r-v2-notes__pane-head--edit
+  .r-v2-notes__title-field {
+  flex-basis: 100%;
+}
+html[data-bp~="sm-and-down"] .r-v2-notes__edit-controls {
+  flex: 1;
+  justify-content: space-between;
 }
 </style>

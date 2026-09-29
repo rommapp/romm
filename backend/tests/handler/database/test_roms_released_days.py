@@ -53,7 +53,7 @@ def _names(
         released_before_year=before_year,
         order_by="first_release_date",
     )
-    return [rom.name for rom in roms]
+    return [rom.name or "" for rom in roms]
 
 
 class TestMatching:

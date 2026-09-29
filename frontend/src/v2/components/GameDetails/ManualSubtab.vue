@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ManualSubtab — the Media tab's Manual panel. Surfaces the scraped primary
+// ManualSubtab: the Media tab's Manual panel. Surfaces the scraped primary
 // manual plus any manual-category files sitting in the ROM folder, picking the
 // viewer (PDF or Markdown) by extension. An entry selector appears when more
 // than one manual exists. The panel doubles as a drag-and-drop upload target.
@@ -14,11 +14,11 @@ import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { versionedResourceUrl, versionedRomFileUrl } from "@/v2/utils/romFiles";
 
 const PdfViewer = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/PdfViewer.vue"),
@@ -35,6 +35,9 @@ const props = defineProps<{
   /** Drop the header Upload button when the parent renders it elsewhere
    *  (through the exposed `openUpload`). */
   hideUpload?: boolean;
+  /** Whether this panel may mount the PDF viewer (one per page, see
+   *  MediaTab). */
+  pdfActive?: boolean;
 }>();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
@@ -67,12 +70,11 @@ const kindFor = (name: string): ManualEntry["kind"] => {
 
 const manualEntries = computed<ManualEntry[]>(() => {
   const entries: ManualEntry[] = [];
-  const cacheBust = encodeURIComponent(props.rom.updated_at);
   if (props.rom.has_manual && props.rom.path_manual) {
     entries.push({
       id: "primary",
       label: t("rom.scraped-manual"),
-      url: `${FRONTEND_RESOURCES_PATH}/${props.rom.path_manual}?v=${cacheBust}`,
+      url: versionedResourceUrl(props.rom.path_manual, props.rom.updated_at),
       isPrimary: true,
       fileId: null,
       kind: kindFor(props.rom.path_manual),
@@ -83,9 +85,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
       entries.push({
         id: `file-${file.id}`,
         label: file.file_name.replace(/\.[^.]+$/, ""),
-        url: `/api/roms/${file.id}/files/content/${encodeURIComponent(
-          file.file_name,
-        )}?v=${cacheBust}`,
+        url: versionedRomFileUrl(file),
         isPrimary: false,
         fileId: file.id,
         kind: kindFor(file.file_name),
@@ -270,8 +270,8 @@ function requestDeleteManual() {
           @delete="requestDeleteManual"
         />
         <PdfViewer
-          v-else
-          :key="`${selectedManual.id}-${rom.updated_at}-pdf`"
+          v-else-if="pdfActive"
+          :key="selectedManual.url"
           :pdf-url="selectedManual.url"
           :rom-id="rom.id"
           :file-id="selectedManual.fileId ?? undefined"
@@ -298,7 +298,7 @@ function requestDeleteManual() {
   scrollbar-color: var(--r-color-border-strong) transparent;
 }
 
-/* Header — hosts the manual entry selector (when more than one manual) and
+/* Header: hosts the manual entry selector (when more than one manual) and
    the Upload button, pushed to the right. */
 .r-v2-manual__head {
   display: flex;
@@ -307,7 +307,7 @@ function requestDeleteManual() {
   flex-shrink: 0;
 }
 
-/* Manual entry selector — capped width so it doesn't stretch to fill the
+/* Manual entry selector: capped width so it doesn't stretch to fill the
    row. */
 .r-v2-manual__select {
   max-width: 360px;
@@ -339,7 +339,7 @@ html[data-bp~="sm-and-down"] .r-v2-manual__fill {
   min-height: 20rem;
 }
 
-/* Viewer — fills the available panel height so the inner PDF / Markdown uses
+/* Viewer: fills the available panel height so the inner PDF / Markdown uses
    100% and only its own scroll triggers. */
 .r-v2-manual__viewer {
   flex: 1;

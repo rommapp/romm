@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { SSAgeRating } from './SSAgeRating';
+import type { SSPhysicalDisc } from './SSPhysicalDisc';
 export type RomSSMetadata = {
     bezel_url?: (string | null);
     box2d_url?: (string | null);
@@ -17,6 +18,8 @@ export type RomSSMetadata = {
     miximage_url?: (string | null);
     miximage_v2_url?: (string | null);
     physical_url?: (string | null);
+    physical_disc?: (number | null);
+    physical_extra_discs?: Array<SSPhysicalDisc>;
     screenshot_url?: (string | null);
     steamgrid_url?: (string | null);
     title_screen_url?: (string | null);
@@ -47,5 +50,8 @@ export type RomSSMetadata = {
     game_modes?: Array<string>;
     genres?: Array<string>;
     player_count?: string;
+    dump_regions?: Array<string>;
+    dump_languages?: Array<string>;
+    dump_tags?: Array<string>;
 };
 

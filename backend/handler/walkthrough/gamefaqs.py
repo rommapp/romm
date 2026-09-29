@@ -13,7 +13,7 @@ from html.parser import HTMLParser
 from typing import TypedDict
 from urllib.parse import urlparse
 
-import httpx
+import httpx2
 
 from utils.context import ctx_httpx_client
 
@@ -138,7 +138,7 @@ def parse_gamefaqs_guide(html: str) -> ParsedGuide:
     return extractor.finalize()
 
 
-def is_bot_challenge(response: httpx.Response) -> bool:
+def is_bot_challenge(response: httpx2.Response) -> bool:
     """Whether the response is an anti-bot interstitial rather than the guide.
 
     Cloudflare marks a served challenge with `Cf-Mitigated`; some edges only

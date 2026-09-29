@@ -176,3 +176,20 @@ describe("RSelect multi-select without chips", () => {
     expect(selection.text()).toBe("Screenshot, Manual");
   });
 });
+
+describe("RSelect rules", () => {
+  it("re-checks a touched field when its rules change", async () => {
+    const wrapper = mount(RSelect, {
+      props: { items: ["a", "b"], modelValue: "a", rules: [] },
+    });
+    wrapper.vm.validate();
+    await nextTick();
+    expect(wrapper.find(".r-select__details--error").exists()).toBe(false);
+
+    await wrapper.setProps({ rules: [() => "Pick another"] });
+    expect(wrapper.get(".r-select__details--error").text()).toBe(
+      "Pick another",
+    );
+    wrapper.unmount();
+  });
+});

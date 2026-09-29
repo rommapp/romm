@@ -1,30 +1,35 @@
 <script setup lang="ts">
-// GameHeader — right-column header for the details view.
+// GameHeader: right-column header for the details view.
 // Four rows, top to bottom:
-//   1. Title (+ previous / next game arrows on the right, desktop only)
+//   1. Title, or the game's scraped logo when the user opts in (+ previous /
+//      next game arrows on the right, desktop only)
 //   2. Meta (year · platform-icon + platform · verified RTag)
-//   3. Tags (regions + languages + custom tags) — RTag primitive,
+//   3. Tags (regions + languages + custom tags) as RTag primitives,
 //      each a `searchLocation` pivot into the filtered search
 //   4. GameActions (Play · Download · Favorite · Share · More)
 //
 // Metadata-provider links live in the Metadata tab, not the header.
 // Genre/franchise belong in the Overview tab info grid.
-import { RIcon, RPlatformIcon, RTag, RTooltip } from "@v2/lib";
+import { RIcon, RTag, RTooltip } from "@v2/lib";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useUISettings } from "@/composables/useUISettings";
 import type { DetailedRom } from "@/stores/roms";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
 import MainSiblingToggle from "@/v2/components/GameDetails/MainSiblingToggle.vue";
 import PrevNextNav from "@/v2/components/GameDetails/PrevNextNav.vue";
 import VersionSwitcher from "@/v2/components/GameDetails/VersionSwitcher.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGameActions } from "@/v2/composables/useGameActions";
+import { versionedResourceUrl } from "@/v2/utils/romFiles";
 import { searchLocation } from "@/v2/utils/searchLocation";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 // Phones render the arrows around the cover instead (GameDetails).
-const { smAndDown } = useBreakpoint();
+const { smAndDown, xs } = useBreakpoint();
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -38,13 +43,69 @@ const props = defineProps<{
 }>();
 
 const actions = useGameActions(() => props.rom);
+const { showLogoTitle } = useUISettings();
+
+const logoSrc = computed(() => {
+  const path = props.rom.ss_metadata?.logo_path;
+  return path ? versionedResourceUrl(path, props.rom.updated_at) : null;
+});
+// Load state is keyed on the URL, so a rescan that replaces the logo gets a
+// fresh try.
+const failedSrc = ref<string | null>(null);
+const loadedLogo = ref<{ src: string; ratio: number } | null>(null);
+const logoUrl = computed(() =>
+  showLogoTitle.value && logoSrc.value !== failedSrc.value
+    ? logoSrc.value
+    : null,
+);
+
+// Every logo gets the same area, so a square one reads as large as a wide one.
+const LOGO_MAX_WIDTH = 420;
+const LOGO_BOX = {
+  regular: { area: 40000, maxHeight: 176 },
+  xs: { area: 22000, maxHeight: 120 },
+};
+const logoStyle = computed(() => {
+  const box = xs.value ? LOGO_BOX.xs : LOGO_BOX.regular;
+  const ratio =
+    loadedLogo.value?.src === logoSrc.value ? loadedLogo.value.ratio : null;
+  const width = ratio
+    ? Math.min(Math.sqrt(box.area * ratio), box.maxHeight * ratio)
+    : null;
+  return {
+    maxWidth: `min(100%, ${LOGO_MAX_WIDTH}px)`,
+    maxHeight: `${box.maxHeight}px`,
+    width: width ? `${Math.round(width)}px` : undefined,
+  };
+});
+function onLogoLoad(event: Event) {
+  const img = event.target as HTMLImageElement;
+  if (logoSrc.value && img.naturalWidth && img.naturalHeight) {
+    loadedLogo.value = {
+      src: logoSrc.value,
+      ratio: img.naturalWidth / img.naturalHeight,
+    };
+  }
+}
 </script>
 
 <template>
   <div class="r-v2-det-header">
     <div class="r-v2-det-header__title-row">
-      <h1 class="r-v2-det-header__title">
-        {{ title }}
+      <h1
+        class="r-v2-det-header__title"
+        :class="{ 'r-v2-det-header__title--logo': logoUrl }"
+      >
+        <img
+          v-if="logoUrl"
+          :src="logoUrl"
+          :alt="title"
+          class="r-v2-det-header__logo"
+          :style="logoStyle"
+          @load="onLogoLoad"
+          @error="failedSrc = logoSrc"
+        />
+        <template v-else>{{ title }}</template>
       </h1>
       <PrevNextNav v-if="!smAndDown" :rom-id="rom.id" />
     </div>
@@ -56,7 +117,7 @@ const actions = useGameActions(() => props.rom);
         class="r-v2-det-header__platform"
         :aria-label="t('platform.browse-platform', { platform: platformLabel })"
       >
-        <RPlatformIcon
+        <PlatformIcon
           :slug="rom.platform_slug"
           :fs-slug="rom.platform_fs_slug"
           :alt="platformLabel"
@@ -159,6 +220,17 @@ const actions = useGameActions(() => props.rom);
   text-shadow: 0 2px 20px var(--r-color-title-shadow);
 }
 
+.r-v2-det-header__title--logo {
+  display: flex;
+}
+/* A rim in the theme's text colour keeps dark lettering readable on dark,
+   and light lettering on light. */
+.r-v2-det-header__logo {
+  --logo-rim: color-mix(in srgb, var(--r-color-fg) 50%, transparent);
+  filter: drop-shadow(0 0 1px var(--logo-rim))
+    drop-shadow(0 0 1px var(--logo-rim));
+}
+
 .r-v2-det-header__meta {
   display: flex;
   align-items: center;
@@ -227,6 +299,9 @@ html[data-bp~="sm-and-down"] .r-v2-det-header {
 }
 html[data-bp~="sm-and-down"] .r-v2-det-header__title-row {
   align-self: stretch;
+}
+html[data-bp~="sm-and-down"] .r-v2-det-header__title--logo {
+  justify-content: center;
 }
 html[data-bp~="sm-and-down"] .r-v2-det-header__meta,
 html[data-bp~="sm-and-down"] .r-v2-det-header__tags,

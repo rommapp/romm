@@ -12,12 +12,13 @@
 //
 // All admin actions are forwarded as events; permission gating lives
 // on the parent so the bar stays in sync with `useCan`.
-import { RBtn, RChip, RIcon, RPlatformIcon, RTabNav } from "@v2/lib";
+import { RBtn, RChip, RIcon, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import {
@@ -92,7 +93,7 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         class="r-v2-plat__panel-icon"
         :style="{ viewTransitionName: `platform-icon-${platform.id}` }"
       >
-        <RPlatformIcon
+        <PlatformIcon
           :slug="platform.slug"
           :fs-slug="platform.fs_slug"
           :alt="platform.display_name"

@@ -22,19 +22,25 @@ on:
       - Dockerfile
       - docker/Dockerfile
 
+# A new push cancels a PR's superseded run; each master commit keeps its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         db: [mariadb, postgresql]
     services:
       mariadb:
-        image: mariadb:12.3.3
+        image: mariadb:13.0.2
         ports:
           - 3306
         env:
@@ -64,21 +70,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install mariadb connectors
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libmariadb3 libmariadb-dev 7zip
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-
-      - name: Install python
-        run: |
-          uv python install
-
-      - name: Install dependencies
-        run: |
-          uv sync --frozen --extra test
+      - name: Set up the backend
+        uses: ./.github/actions/setup-backend
+        with:
+          sync-args: --extra test
+          apt-packages: 7zip
 
       - name: Initiate MariaDB database
         if: matrix.db == 'mariadb'
@@ -102,4 +98,41 @@ jobs:
         run: |
           cd backend
           # GitHub-hosted Linux runners have 4 vCPUs; run one worker per core.
-          uv run pytest -n 4 -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
+          # --cov=.. makes report paths repo-relative (backend/...), as code coverage expects.
+          uv run pytest -n 4 -vv --maxfail=10 --junitxml=pytest-report.xml --cov=.. --cov-report xml:coverage.xml --cov-config=.coveragerc .
+
+      # Both legs cover the same code, so one report is enough. Fork PRs can't upload.
+      - name: Upload coverage report artifact
+        if: matrix.db == 'mariadb' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-report
+          path: backend/coverage.xml
+          if-no-files-found: error
+          retention-days: 1
+
+  # A separate job keeps code-quality: write away from the job that runs the PR's code.
+  upload-coverage:
+    needs: pytest
+    if: ${{ !cancelled() && needs.pytest.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # actionlint doesn't know the code-quality scope yet.
+      # trunk-ignore(actionlint)
+      code-quality: write
+    steps:
+      - name: Download coverage report
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: coverage-report
+
+      # Best-effort while GitHub code coverage is in preview; errors still show as annotations.
+      - name: Upload coverage to GitHub
+        uses: actions/upload-code-coverage@bfa741d815a28cb064a8e3a0837e577457a017d5 # v1.4.3
+        with:
+          file: coverage.xml
+          language: Python
+          label: code-coverage/pytest
+          fail-on-error: false

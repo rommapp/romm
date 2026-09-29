@@ -301,7 +301,7 @@ export const useNativeStore = defineStore("native", () => {
     try {
       await launchNative({
         romId: rom.id,
-        downloadPath: getDownloadPath({ rom: detailed }),
+        downloadPath: getDownloadPath({ rom: detailed, purpose: "play" }),
         // What the endpoint will actually serve, which for a folder rom is
         // neither `fs_name` nor `fs_name` with an extension.
         fileName: getDownloadFileName(detailed),

@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from typing import Final, overload
@@ -51,7 +52,7 @@ ROM_UPLOAD_TTL: Final[int] = 86400  # 24 hours
 ROM_UPLOAD_ASSEMBLING_EXT: Final[str] = "assembling"
 
 # SEVEN ZIP
-SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
+SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 180)
 
 # ROM PATCHER
 ROM_PATCHER_TIMEOUT: Final[int] = safe_int(_get_env("ROM_PATCHER_TIMEOUT"), 120)
@@ -69,17 +70,12 @@ ROM_CONVERTO_ENABLED: Final[bool] = safe_str_to_bool(_get_env("ROM_CONVERTO_ENAB
 ROM_CONVERTO_PATH: Final[str] = _get_env("ROM_CONVERTO_PATH", "/usr/bin/rom-converto")
 # Seconds per rom-converto CLI operation.
 ROM_CONVERTO_TIMEOUT: Final[int] = safe_int(_get_env("ROM_CONVERTO_TIMEOUT"), 600)
-# Limit concurrent conversion subprocesses to bound total memory use.
+# Concurrent conversion subprocesses per process (each web and RQ worker).
 ROM_CONVERTO_MAX_CONCURRENCY: Final[int] = max(
     1, safe_int(_get_env("ROM_CONVERTO_MAX_CONCURRENCY"), 2)
 )
 # Disk cache for converted downloads, under the tree nginx serves at /cache/.
 ROM_CONVERTO_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/converts"
-# Max source file size (MB) converted in-request on download; 0 disables
-# in-request conversion entirely and serves the original file.
-ROM_CONVERTO_MAX_SYNC_SIZE_MB: Final[int] = safe_int(
-    _get_env("ROM_CONVERTO_MAX_SYNC_SIZE_MB"), 512
-)
 
 # DATABASE
 DB_HOST: Final[str | None] = _get_env("DB_HOST")
@@ -207,11 +203,31 @@ DISABLE_USERPASS_LOGIN: Final[bool] = safe_str_to_bool(
     _get_env("DISABLE_USERPASS_LOGIN")
 )
 
+# EMAIL, for notification channels and password reset links; off until a host and a sender are set
+SMTP_HOST: Final[str] = _get_env("SMTP_HOST", "")
+SMTP_PORT: Final[int] = safe_int(_get_env("SMTP_PORT"), 587)
+SMTP_USERNAME: Final[str] = _get_env("SMTP_USERNAME", "")
+SMTP_PASSWORD: Final[str] = _get_env("SMTP_PASSWORD", "")
+SMTP_FROM: Final[str] = _get_env("SMTP_FROM", "")
+# `tls` is implicit TLS, usually on port 465; any other value leaves email off.
+SMTP_SECURITY_MODES: Final = ("starttls", "tls", "none")
+SMTP_SECURITY: Final[str] = _get_env("SMTP_SECURITY", "starttls").strip().lower()
+EMAIL_ENABLED: Final[bool] = bool(
+    SMTP_HOST and SMTP_FROM and SMTP_SECURITY in SMTP_SECURITY_MODES
+)
+
 ROMM_CORS_ALLOWED_ORIGINS: Final[list[str]] = [
     o.strip()
-    for o in (_get_env("ROMM_CORS_ALLOWED_ORIGINS", "*")).split(",")
+    for o in (_get_env("ROMM_CORS_ALLOWED_ORIGINS") or "").split(",")
     if o.strip()
 ]
+
+
+def cors_allow_credentials(origins: list[str]) -> bool:
+    """A wildcard origin carries no credentials, since it echoes any caller's."""
+    return "*" not in origins
+
+
 ROMM_SESSION_SECURE_COOKIE: Final[bool] = safe_str_to_bool(
     _get_env("ROMM_SESSION_SECURE_COOKIE")
 )
@@ -314,6 +330,12 @@ SCHEDULED_BUILD_RECOMMENDATIONS_CRON: Final[str] = _get_env(
     "30 5 * * *",  # At 5:30 AM every day, after the nightly scan and metadata tasks
 )
 
+# AUDIT LOG
+# Days an audit event is kept; 0 keeps every event.
+AUDIT_LOG_RETENTION_DAYS: Final[int] = safe_int(
+    _get_env("AUDIT_LOG_RETENTION_DAYS"), 90
+)
+
 # SYNC
 SYNC_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/sync"
 ENABLE_SYNC_FOLDER_WATCHER: Final[bool] = safe_str_to_bool(
@@ -332,6 +354,32 @@ SYNC_SSH_KEYS_PATH: Final[str] = _get_env(
 )
 SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
     "SYNC_SSH_KNOWN_HOSTS_PATH", f"{SYNC_BASE_PATH}/known_hosts"
+)
+# RetroArch Cloud Sync's config/, thumbnails/ and system/ files, which no ROM owns.
+SYNC_RETROARCH_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/retroarch_sync"
+# PSP save folder files buffered until the folder resolves to a rom.
+SYNC_RETROARCH_PSP_PENDING_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/retroarch_sync"
+# JSON map of PSP serial to extensionless rom file name, for saves whose title
+# matches no rom, e.g. {"ULUS10336": "Crisis Core - Final Fantasy VII (USA)"}.
+SYNC_RETROARCH_PSP_SERIAL_MAP: Final[dict[str, str]] = json.loads(
+    _get_env("SYNC_RETROARCH_PSP_SERIAL_MAP", "{}")
+)
+
+# DEVICE INSTALL
+DEVICE_INSTALL_ENABLED: Final[bool] = safe_str_to_bool(
+    _get_env("DEVICE_INSTALL_ENABLED", "true")
+)
+# Days an unfinished install request lives after its last change; 0 or less never expires.
+DEVICE_INSTALL_REQUEST_TTL_DAYS: Final[int] = safe_int(
+    _get_env("DEVICE_INSTALL_REQUEST_TTL_DAYS"), 2
+)
+# Platforms whose roms cannot be pushed to a device for install.
+DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset(
+    slug.strip().lower()
+    for slug in _get_env(
+        "DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS", "win,win3x,win9x,windows-apps"
+    ).split(",")
+    if slug.strip()
 )
 
 # EMULATION

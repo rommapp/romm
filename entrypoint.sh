@@ -116,6 +116,10 @@ start_rq_worker rq_worker high default low
 echo "Starting RQ scan worker..."
 start_rq_worker rq_scan_worker scans
 
+# Streaming teardowns get a worker of their own, see STREAMING_QUEUE_NAME.
+echo "Starting RQ streaming worker..."
+start_rq_worker rq_streaming_worker streaming
+
 echo "Starting watcher..."
 watchfiles \
 	--target-type command \

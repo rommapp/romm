@@ -34,3 +34,58 @@ export function resolveInitialFirmware<T extends FirmwareLike>({
 
   return fromStorage ?? fromConfig ?? fromSingleOption ?? null;
 }
+
+const SYSTEM_DIRECTORY = "/home/web_user/retroarch/userdata/system";
+const UNSAFE_FILE_NAME = /^\.{1,2}$|[\\/]/;
+// EJS_externalFiles writes an archive to a file key raw (4.2.3) or as its first
+// entry (nightly), so archives keep loading through EJS_biosUrl.
+const ARCHIVE_EXTENSION = /\.(zip|7z|rar)$/i;
+
+/** Every platform firmware file for PUAE, as EJS_externalFiles entries. */
+export function firmwareExternalFiles(
+  core: string,
+  firmware: readonly FirmwareLike[],
+): Record<string, string> {
+  // PUAE picks among several Kickstarts by name for each game.
+  if (core !== "puae") return {};
+
+  return Object.fromEntries(
+    firmware
+      .filter(
+        ({ file_name, missing_from_fs }) =>
+          !missing_from_fs &&
+          !UNSAFE_FILE_NAME.test(file_name) &&
+          !ARCHIVE_EXTENSION.test(file_name),
+      )
+      .map(({ id, file_name }) => [
+        `${SYSTEM_DIRECTORY}/${file_name}`,
+        `/api/firmware/${id}/content/${encodeURIComponent(file_name)}`,
+      ]),
+  );
+}
+
+interface ArcadeBiosEmulator {
+  config: { biosUrl?: string; externalFiles?: Record<string, string> };
+  getCore(generic?: boolean): string;
+  downloadGameFile?: unknown;
+}
+
+/** Hands an arcade BIOS archive to the core whole, the way FBNeo and MAME read it. */
+export function keepArcadeBiosWhole(emulator: ArcadeBiosEmulator): void {
+  // EmulatorJS 4.2.3 (the build with downloadGameFile) unpacks every BIOS
+  // archive, but these cores only find a romset like neogeo.zip as a zip.
+  if (typeof emulator.downloadGameFile !== "function") return;
+  if (!["arcade", "mame"].includes(emulator.getCore(true))) return;
+
+  const { biosUrl } = emulator.config;
+  const name = biosUrl?.split("/").pop()?.split(/[?#]/)[0];
+  if (!biosUrl || !name || !ARCHIVE_EXTENSION.test(name)) return;
+
+  // EJS_externalFiles writes an archive raw on 4.2.3. The root is the content
+  // directory the game zip sits in, which both cores search.
+  emulator.config.externalFiles = {
+    ...emulator.config.externalFiles,
+    [`/${name}`]: biosUrl,
+  };
+  emulator.config.biosUrl = "";
+}

@@ -16,13 +16,40 @@ Create Date: 2026-09-07 00:00:00.000000
 
 from alembic import op
 
-from utils.database import POSTGRESQL_FK_INDEXES, is_postgresql
+from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0124_gallery_and_fk_indexes"
 down_revision = "0123_recommendation_metadata"
 branch_labels = None
 depends_on = None
+
+# The foreign keys this revision indexed on PostgreSQL, as they stood then.
+# `utils.database.POSTGRESQL_FK_INDEXES` tracks the models and a later revision
+# can drop one of these columns, which would silently change what this revision
+# creates and, worse, what its downgrade drops.
+POSTGRESQL_FK_INDEXES = (
+    ("collections", "ix_collections_user_id", "user_id"),
+    ("smart_collections", "ix_smart_collections_user_id", "user_id"),
+    ("rom_notes", "ix_rom_notes_user_id", "user_id"),
+    ("firmware", "ix_firmware_platform_id", "platform_id"),
+    ("collections_roms", "ix_collections_roms_rom_id", "rom_id"),
+    ("music_playlist_tracks", "ix_music_playlist_tracks_rom_file_id", "rom_file_id"),
+    ("music_favorite_tracks", "ix_music_favorite_tracks_rom_file_id", "rom_file_id"),
+    ("play_sessions", "ix_play_sessions_rom_id", "rom_id"),
+    ("play_sessions", "ix_play_sessions_device_id", "device_id"),
+    ("play_sessions", "ix_play_sessions_sync_session_id", "sync_session_id"),
+    ("saves", "ix_saves_user_id", "user_id"),
+    ("states", "ix_states_user_id", "user_id"),
+    ("screenshots", "ix_screenshots_user_id", "user_id"),
+    ("rom_file_user", "ix_rom_file_user_user_id", "user_id"),
+    ("memory_cards", "ix_memory_cards_platform_id", "platform_id"),
+    (
+        "streaming_container_adoptions",
+        "ix_streaming_container_adoptions_decided_by_user_id",
+        "decided_by_user_id",
+    ),
+)
 
 # (table, index name, columns)
 PORTABLE_INDEXES = (

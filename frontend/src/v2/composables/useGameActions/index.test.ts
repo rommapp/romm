@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionKey } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
+import { makeRom as baseRom } from "@/utils/rom.fixtures";
 import { useGameActions } from "./index";
 
 // Controllable stubs shared with the mocked modules below.
@@ -16,9 +17,8 @@ const canPlayRuffle = { value: false };
 const canPlayNative = { value: false };
 const streamContainer = { value: null as object | null };
 const joinableSession = {
-  value: null as { host_username: string | null } | null,
+  value: null as { host_username: string | null; container?: string } | null,
 };
-// Granted action keys — `null` means "everything" (the default).
 const grantedActions: { value: Set<ActionKey> | null } = { value: null };
 
 vi.mock("vue-i18n", () => ({
@@ -39,8 +39,17 @@ vi.mock("@/composables/useUISettings", () => ({
 vi.mock("@/services/api/rom", () => ({
   default: { updateUserRomProps: vi.fn() },
 }));
+const authScopes: string[] = [];
+const deviceInstall = {
+  ENABLED: true,
+  EXCLUDED_PLATFORM_SLUGS: ["win"] as string[],
+};
+
 vi.mock("@/stores/auth", () => ({
-  default: () => ({ scopes: [] as string[] }),
+  default: () => ({ scopes: authScopes }),
+}));
+vi.mock("@/stores/heartbeat", () => ({
+  default: () => ({ value: { DEVICE_INSTALL: deviceInstall } }),
 }));
 vi.mock("@/stores/roms", () => ({
   default: () => ({ update: vi.fn(), removeFromContinuePlaying: vi.fn() }),
@@ -116,14 +125,13 @@ vi.mock("@/v2/composables/useViewTransition", () => ({
 }));
 
 function makeRom(status: SimpleRom["rom_user"]["status"] = null): SimpleRom {
-  return {
-    id: 1,
+  return baseRom({
     name: "Chrono Trigger",
     fs_name_no_ext: "Chrono Trigger",
     platform_slug: "snes",
     has_file_on_disk: true,
-    rom_user: { status },
-  } as unknown as SimpleRom;
+    rom_user: { status } as SimpleRom["rom_user"],
+  });
 }
 
 beforeEach(() => {
@@ -140,12 +148,57 @@ beforeEach(() => {
   streamContainer.value = null;
   joinableSession.value = null;
   grantedActions.value = null;
+  authScopes.splice(0, authScopes.length);
+  deviceInstall.ENABLED = true;
+});
+
+describe("useGameActions.canInstallOnDevice", () => {
+  beforeEach(() => {
+    authScopes.push("devices.read", "devices.write", "roms.read");
+  });
+
+  it("offers the install for a rom with files on an allowed platform", () => {
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.canInstallOnDevice.value).toBe(true);
+  });
+
+  it("hides it for an excluded platform", () => {
+    const rom = { ...makeRom(), platform_slug: "win" } as SimpleRom;
+    const actions = useGameActions(() => rom);
+
+    expect(actions.canInstallOnDevice.value).toBe(false);
+  });
+
+  it("hides it while the server has the feature off", () => {
+    deviceInstall.ENABLED = false;
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.canInstallOnDevice.value).toBe(false);
+  });
+
+  it("hides it from a caller without the devices.write scope", () => {
+    authScopes.splice(0, authScopes.length, "devices.read", "roms.read");
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.canInstallOnDevice.value).toBe(false);
+  });
+
+  it("hides it from a caller without the devices.read scope", () => {
+    authScopes.splice(0, authScopes.length, "devices.write", "roms.read");
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.canInstallOnDevice.value).toBe(false);
+  });
 });
 
 describe("useGameActions.joinStream", () => {
   beforeEach(() => {
     streamContainer.value = { host: "http://stream" };
-    joinableSession.value = { host_username: "ada" };
+    joinableSession.value = {
+      host_username: "ada",
+      container: "http://box:8000",
+    };
   });
 
   it("does not navigate until the user confirms", async () => {
@@ -164,7 +217,11 @@ describe("useGameActions.joinStream", () => {
 
     await actions.joinStream();
 
-    expect(push).toHaveBeenCalledWith("/rom/1/stream?join=1");
+    // The joinable row names the container, and a pool needs it: the stream
+    // view would otherwise walk the pool and could land on another session.
+    expect(push).toHaveBeenCalledWith(
+      "/rom/1/stream?join=1&container=http%3A%2F%2Fbox%3A8000",
+    );
   });
 
   it("names the host in the confirmation", async () => {

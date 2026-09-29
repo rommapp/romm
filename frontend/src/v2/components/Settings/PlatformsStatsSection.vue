@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PlatformsStatsSection — v2-native rebuild of v1
+// PlatformsStatsSection: v2-native rebuild of v1
 // `Settings/ServerStats/PlatformsStats.vue`. Per-platform breakdown
 // rows: icon · name + meta (games count, metadata coverage chips,
 // region chips with expand/collapse) · size + percentage of total ·
@@ -8,13 +8,12 @@
 // rows use.
 //
 // Toolbar mirrors GalleryToolbar's pattern: inline-prefix search on
-// the left, icon-only segmented sort on the right. No card chrome —
+// the left, icon-only segmented sort on the right. No card chrome:
 // this section sits flush in the page; only the Summary section above
 // keeps a surface.
 import {
   REmptyState,
   RIcon,
-  RPlatformIcon,
   RProgressLinear,
   RSliderBtnGroup,
   RTextField,
@@ -26,13 +25,15 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeConfig from "@/stores/config";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, regionToEmoji } from "@/utils";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
+import { METADATA_SOURCE_INFO } from "@/v2/utils/metadataProviders";
 
 defineOptions({ inheritAttrs: false });
 
@@ -49,7 +50,7 @@ const { morphTransition } = useViewTransition();
 const platformsStore = storePlatforms();
 // Only platforms that contain games should be displayed
 const { filledPlatforms } = storeToRefs(platformsStore);
-const heartbeat = storeHeartbeat();
+const { config } = storeToRefs(storeConfig());
 
 type OrderBy = "name" | "size" | "count";
 const orderBy = ref<OrderBy>("name");
@@ -108,25 +109,21 @@ const sortedPlatforms = computed(() => {
   );
 });
 
-const metadataOptions = computed(() =>
-  heartbeat.getMetadataOptionsByPriority(),
-);
-
-const sourceInfo = computed(() => {
-  const map: Record<string, { name: string; logo_path: string }> = {};
-  for (const opt of metadataOptions.value) {
-    map[opt.value] = { name: opt.name, logo_path: opt.logo_path };
-  }
-  return map;
-});
-
 const orderedCoverageByPlatform = computed(() => {
-  const priority = metadataOptions.value.map((o) => o.value);
+  // Configured scan priority first, then registry order for the rest.
+  const rankBySource = new Map(
+    [
+      ...new Set([
+        ...(config.value.SCAN_METADATA_PRIORITY ?? []),
+        ...METADATA_SOURCE_INFO.keys(),
+      ]),
+    ].map((source, i) => [source, i]),
+  );
+  const rank = (source: string) =>
+    rankBySource.get(source) ?? rankBySource.size;
   const result: Record<string, MetadataCoverageItem[]> = {};
   for (const [id, items] of Object.entries(props.metadataCoverage)) {
-    result[id] = [...items].sort(
-      (a, b) => priority.indexOf(a.source) - priority.indexOf(b.source),
-    );
+    result[id] = [...items].sort((a, b) => rank(a.source) - rank(b.source));
   }
   return result;
 });
@@ -237,7 +234,7 @@ function onRowClick(e: MouseEvent, platformId: number): void {
         "
         @click="onRowClick($event, platform.id)"
       >
-        <RPlatformIcon
+        <PlatformIcon
           :slug="platform.slug"
           :name="platform.name"
           :fs-slug="platform.fs_slug"
@@ -267,15 +264,17 @@ function onRowClick(e: MouseEvent, platformId: number): void {
                 class="r-v2-plat-stats__coverage"
                 :title="
                   t('settings.platform-metadata-matches', {
-                    source: sourceInfo[item.source]?.name ?? item.source,
+                    source:
+                      METADATA_SOURCE_INFO.get(item.source)?.name ??
+                      item.source,
                     matched: item.matched,
                     total: platform.rom_count,
                   })
                 "
               >
                 <img
-                  v-if="sourceInfo[item.source]?.logo_path"
-                  :src="sourceInfo[item.source]?.logo_path"
+                  v-if="METADATA_SOURCE_INFO.has(item.source)"
+                  :src="`/assets/scrappers/${METADATA_SOURCE_INFO.get(item.source)?.logo}`"
                   class="r-v2-plat-stats__coverage-logo"
                   alt=""
                 />
@@ -355,7 +354,7 @@ function onRowClick(e: MouseEvent, platformId: number): void {
   gap: 8px;
 }
 
-/* Search width mirrors GalleryToolbar — bounded so the sort cluster
+/* Search width mirrors GalleryToolbar, bounded so the sort cluster
    stays comfortably visible on wide screens but the field collapses
    gracefully when the panel narrows. */
 .r-v2-plat-stats__search {

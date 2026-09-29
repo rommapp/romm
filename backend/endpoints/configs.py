@@ -1,8 +1,12 @@
 from fastapi import HTTPException, Request, status
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
-from adapters.services.rom_converto import TARGETS_BY_PLATFORM
+from adapters.services.rom_converto import (
+    TARGETS_BY_PLATFORM,
+    normalize_platform_formats,
+)
 from config.config_manager import (
+    CONVERTO_INT_MINIMUMS,
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
     DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
@@ -10,6 +14,7 @@ from config.config_manager import (
     VALID_GAMELIST_IMAGE_TYPES,
     VALID_GAMELIST_THUMBNAIL_TYPES,
     VALID_SCAN_PRIORITY_SOURCES,
+    ConvertoConfig,
     ExclusionType,
     MetadataMediaType,
 )
@@ -17,10 +22,12 @@ from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.filesystem import fs_platform_handler
 from logger.logger import log
+from models.audit_event import AuditAction, AuditTargetType
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -121,27 +128,15 @@ class ConvertoSettingsPayload(BaseModel):
 
     download_conversion_enabled: bool
     scan_metadata: bool
-    cache_ttl_hours: int
+    cache_ttl_hours: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_ttl_hours"])
+    cache_max_size_gb: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_max_size_gb"])
+    max_sync_size_mb: int = Field(ge=CONVERTO_INT_MINIMUMS["max_sync_size_mb"])
     platform_formats: dict[str, str]
-
-    @field_validator("cache_ttl_hours")
-    @classmethod
-    def validate_cache_ttl(cls, value: int) -> int:
-        if value < 1:
-            raise ValueError("cache_ttl_hours must be an integer >= 1")
-        return value
 
     @field_validator("platform_formats")
     @classmethod
     def validate_platform_formats(cls, value: dict[str, str]) -> dict[str, str]:
-        cleaned = {
-            slug.strip().lower(): target.strip().lower()
-            for slug, target in value.items()
-        }
-        for slug, target in cleaned.items():
-            if target not in TARGETS_BY_PLATFORM.get(slug, ()):
-                raise ValueError(f"{target!r} is not a conversion target for {slug}")
-        return cleaned
+        return normalize_platform_formats(value)
 
 
 @router.get("")
@@ -216,6 +211,15 @@ async def _reject_ambiguous_folder(fs_slug: str) -> None:
         )
 
 
+def _record_config(request: Request, setting: str, op: str, **values: str) -> None:
+    record(
+        AuditAction.CONFIG_UPDATE,
+        request,
+        AuditTarget(AuditTargetType.CONFIG, setting, None),
+        {"setting": setting, "op": op, **values},
+    )
+
+
 @protected_route(router.post, "/system/platforms", [Scope.PLATFORMS_WRITE])
 async def add_platform_binding(
     request: Request, payload: PlatformBindingPayload
@@ -233,6 +237,7 @@ async def add_platform_binding(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_binding", "add", fs_slug=fs_slug, slug=slug)
 
 
 @protected_route(router.delete, "/system/platforms/{fs_slug}", [Scope.PLATFORMS_WRITE])
@@ -246,6 +251,7 @@ async def delete_platform_binding(request: Request, fs_slug: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_binding", "remove", fs_slug=fs_slug)
 
 
 @protected_route(router.post, "/system/versions", [Scope.PLATFORMS_WRITE])
@@ -265,6 +271,7 @@ async def add_platform_version(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_version", "add", fs_slug=fs_slug, slug=slug)
 
 
 @protected_route(router.delete, "/system/versions/{fs_slug}", [Scope.PLATFORMS_WRITE])
@@ -278,6 +285,7 @@ async def delete_platform_version(request: Request, fs_slug: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_version", "remove", fs_slug=fs_slug)
 
 
 @protected_route(router.post, "/exclude", [Scope.PLATFORMS_WRITE])
@@ -293,6 +301,9 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(
+        request, "exclusion", "add", type=exclusion_type, value=exclusion_value
+    )
 
 
 @protected_route(
@@ -312,6 +323,9 @@ async def delete_exclusion(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(
+        request, "exclusion", "remove", type=exclusion_type, value=exclusion_value
+    )
 
 
 @protected_route(router.put, "/scan", [Scope.PLATFORMS_WRITE])
@@ -344,6 +358,7 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "scan_settings", "update")
 
     # Region priority picks the primary rom of each sibling group, so every
     # cached gallery sidecar is stale the moment the order changes.
@@ -358,12 +373,7 @@ async def update_converto_settings(
     """Replace the converto.* section of the configuration"""
 
     try:
-        cm.update_converto_settings(
-            download_conversion_enabled=payload.download_conversion_enabled,
-            scan_metadata=payload.scan_metadata,
-            cache_ttl_hours=payload.cache_ttl_hours,
-            platform_formats=payload.platform_formats,
-        )
+        cm.update_converto_settings(ConvertoConfig(**payload.model_dump()))
     except ConfigNotWritableException as exc:
         log.critical(exc.message)
         raise HTTPException(

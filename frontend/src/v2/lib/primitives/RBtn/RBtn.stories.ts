@@ -200,7 +200,7 @@ export const IconSizeLadder: Story = {
 // set as a flag (boolean / empty / `true`) and a default slot is
 // provided, the slot replaces the icon glyph. Used for composite icon
 // content like GameCard's platform badge, where the "icon" is an
-// RPlatformIcon SVG rather than an MDI codepoint.
+// PlatformIcon SVG rather than an MDI codepoint.
 export const IconSlotCustom: Story = {
   name: "Icon-mode · custom slot content",
   render: () => ({

@@ -206,6 +206,12 @@ async function setSaveLabels({ id, labels }: { id: number; labels: string[] }) {
   return api.put<SaveSchema>(`/saves/${id}/labels`, { labels });
 }
 
+async function renameSave({ id, fileName }: { id: number; fileName: string }) {
+  return api.put<SaveSchema>(`/saves/${id}/file-name`, {
+    file_name: fileName,
+  });
+}
+
 export default {
   uploadSaves,
   updateSave,
@@ -214,4 +220,5 @@ export default {
   setSaveVisibility,
   setSaveFavorite,
   setSaveLabels,
+  renameSave,
 };

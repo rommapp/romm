@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any
 
 from anyio import Path
 from fastapi import Body, HTTPException
@@ -12,6 +12,7 @@ from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema, RomFileUserSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from handler.audit_handler import AuditTarget, record, record_download
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_can, assert_rom_visible, get_permissions
 from handler.database import db_rom_handler
@@ -19,6 +20,7 @@ from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.permission import PermAction, PermEntity
 from models.rom import DOCUMENT_CATEGORIES, RomFileCategory
 from utils.audio_tags import guess_audio_media_type
@@ -69,6 +71,11 @@ async def get_romfile(
     return RomFileSchema.model_validate(file)
 
 
+def _rom_target(rom_id: int) -> AuditTarget | None:
+    rom = db_rom_handler.get_rom_visibility_label(rom_id)
+    return AuditTarget.of_rom(rom) if rom else None
+
+
 @protected_route(
     router.get,
     "/{id}/files/content/{file_name}",
@@ -79,7 +86,7 @@ async def get_romfile_content(
     request: Request,
     id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
     file_name: Annotated[str, PathVar(description="File name to download")],
-):
+) -> Response:
     """Download a rom file."""
 
     current_username = (
@@ -108,7 +115,7 @@ async def get_romfile_content(
     )
 
     # Derive content type / disposition / download name from the trusted DB
-    # record, never from the client-supplied file_name path param — otherwise a
+    # record, never from the client-supplied file_name path param; otherwise a
     # caller could request the same bytes with an arbitrary extension to force a
     # mismatched Content-Type while served inline (content-sniffing/XSS).
     # Audio, images and videos are served inline so <audio>/<video>/<img> in the
@@ -131,6 +138,20 @@ async def get_romfile_content(
         media_type = "application/octet-stream"
         disposition = "attachment"
 
+    # Inline files feed the in-page viewers and players; only an attachment is
+    # someone taking the file away.
+    if disposition == "attachment":
+        record_download(
+            request,
+            lambda: _rom_target(file.rom_id),
+            f"file:{file.id}",
+            {
+                "file_name": file.file_name,
+                "file_ids": [file.id],
+                "size_bytes": file.file_size_bytes,
+            },
+        )
+
     # Inline files are served under an explicit, trusted Content-Type; nosniff
     # keeps the browser from sniffing them into anything script-capable (e.g. a
     # Markdown manual into HTML).
@@ -143,7 +164,7 @@ async def get_romfile_content(
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         rom_path = fs_rom_handler.validate_path(file.full_path)
-        # Starlette sets Content-Length and honors Range natively — inline
+        # Starlette sets Content-Length and honors Range natively; inline
         # disposition lets <audio> seek via Range requests.
         return FileResponse(
             path=rom_path,
@@ -216,6 +237,12 @@ async def delete_rom_file(
         f"Deleted file {hl(rom_file.file_name)} from "
         f"{hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
     )
+    record(
+        AuditAction.ROM_FILE_DELETE,
+        request,
+        AuditTarget.of_rom(rom),
+        {"file_id": file_id, "file_name": rom_file.file_name},
+    )
 
     return Response()
 
@@ -284,7 +311,7 @@ async def update_rom_file_progress(
     request: Request,
     rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
-    body: Annotated[dict, Body()],
+    body: Annotated[dict[str, Any], Body()],
 ) -> RomFileUserSchema:
     """Upsert the current user's reading progress for a document file.
 
@@ -294,7 +321,7 @@ async def update_rom_file_progress(
 
     _assert_document_file(rom_id, file_id, request)
 
-    values: dict = {"last_read_at": datetime.now(timezone.utc)}
+    values: dict[str, Any] = {"last_read_at": datetime.now(timezone.utc)}
     if "progress" in body:
         try:
             values["progress"] = min(1.0, max(0.0, float(body["progress"])))

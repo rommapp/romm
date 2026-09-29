@@ -17,6 +17,7 @@
   "reset-link-failed": "No se pudo enviar el enlace.",
   "reset-password": "Restablecer contraseña",
   "reset-sent": "Enlace de restablecimiento enviado. Contacta a tu administrador.",
+  "reset-sent-email": "Si esa cuenta tiene un correo, el enlace de restablecimiento va de camino. Si no, pregunta a tu administrador.",
   "send-reset-link": "Enviar enlace de restablecimiento",
   "setup-wizard": "Asistente de configuración",
   "unable-to-login": "No se puede iniciar sesión",

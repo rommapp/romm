@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { SimpleRom } from "@/stores/roms";
+import { makeRom as baseRom } from "@/utils/rom.fixtures";
 import { useCanPlay } from "./index";
 
 // Each engine's support check is stubbed so a test can enable one route at a
@@ -49,13 +50,12 @@ vi.mock("@/utils", () => ({
 }));
 
 function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return {
-    id: 1,
+  return baseRom({
     name: "Chrono Trigger",
     platform_slug: "snes",
     has_file_on_disk: true,
     ...overrides,
-  } as unknown as SimpleRom;
+  });
 }
 
 beforeEach(() => {

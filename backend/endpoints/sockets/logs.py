@@ -4,7 +4,8 @@ Pieces:
 - ``connect`` handler on the main socket server: resolves the session user,
   joins them to their own ``user:{id}`` room, and, if they are an admin, also
   joins the ``admin`` room. It never rejects a connection, so the existing
-  scan/sync sockets keep working for everyone.
+  scan/sync sockets keep working for everyone. It also ties the socket to its
+  login session, which ``disconnect`` undoes.
 - ``start_log_forwarder``: a single background task (Redis-lock guarded) that
   subscribes to the ``romm:logs`` pub/sub channel — fed by ``LogStreamHandler``
   in every backend process — and relays each line to the ``admin`` room.
@@ -17,23 +18,21 @@ from typing import Any, Final
 
 import socketio
 
-from config import DISABLE_LOGS_VIEWER, REDIS_URL
-from endpoints.sockets.activity import store_authenticated_user
-from handler.database import db_user_handler
+from config import DISABLE_LOGS_VIEWER
+from endpoints.sockets.activity import activity_on_disconnect, store_authenticated_user
 from handler.redis_handler import async_cache
 from handler.socket_handler import socket_handler
 from logger.log_stream_handler import LOG_BUFFER_KEY, LOG_CHANNEL
 from logger.logger import log
 from models.user import Role
 from utils import json_module
-from utils.auth import get_session_from_environ
 
 ADMIN_ROOM: Final = "admin"
 FORWARDER_LOCK_KEY: Final = "romm:logs:forwarder"
 FORWARDER_LOCK_TTL: Final = 30  # seconds
 
 
-@socket_handler.socket_server.on("connect")
+@socket_handler.on("connect")
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     """Resolve the authenticated user on socket connect.
 
@@ -46,16 +45,8 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
     scan/sync sockets keep working for everyone.
     """
     try:
-        session = await get_session_from_environ(environ)
-        if session.get("iss") != "romm:auth":
-            return
-
-        username = session.get("sub")
-        if not username:
-            return
-
-        user = db_user_handler.get_user_by_username(username)
-        if not user or not user.enabled:
+        user = await socket_handler.authenticate(sid, environ)
+        if user is None:
             return
 
         await store_authenticated_user(sid, user.id)
@@ -65,6 +56,14 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> None:
             await socket_handler.socket_server.enter_room(sid, ADMIN_ROOM)
     except Exception:  # noqa: BLE001 - never let auth resolution refuse a socket
         log.exception("Failed to resolve user on socket connect")
+
+
+# A server takes one handler per event, so this one does every module's cleanup.
+@socket_handler.on("disconnect")
+async def disconnect(sid: str) -> None:
+    """Undo what ``connect`` and the activity events tied to the socket."""
+    await socket_handler.unbind_from_login_session(sid)
+    await activity_on_disconnect(sid)
 
 
 async def get_recent_logs(limit: int) -> list[dict[str, Any]]:
@@ -86,75 +85,79 @@ async def start_log_forwarder() -> None:
 
     Guarded by a Redis lock so that, when more than one web worker is running
     (WEB_SERVER_CONCURRENCY > 1), exactly one forwards and clients don't receive
-    duplicate lines.
+    duplicate lines. Runs until cancelled, retrying after any Redis error.
     """
     if DISABLE_LOGS_VIEWER:
         return
 
     lock_id = str(uuid.uuid4())
-    pubsub = None
-    # Write-only manager for emitting — the same proven path scan/sync use. It
+    # Write-only manager for emitting: the same proven path scan/sync use. It
     # publishes the room emit to Redis; the main socket server's read-side
-    # manager resolves `admin` room membership and delivers. Created inside the
-    # running loop (like sync.py) rather than at import time.
-    socket_manager = socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+    # manager resolves `admin` room membership and delivers.
+    socket_manager = socket_handler.write_manager()
     try:
         while True:
-            got_lock = await async_cache.set(
-                FORWARDER_LOCK_KEY, lock_id, nx=True, ex=FORWARDER_LOCK_TTL
-            )
-            if not got_lock:
-                # Another worker owns the forwarder; check back periodically in
-                # case it dies and the lock expires.
-                await asyncio.sleep(FORWARDER_LOCK_TTL / 2)
-                continue
-
-            pubsub = async_cache.pubsub()
-            await pubsub.subscribe(LOG_CHANNEL)
-            log.info("Log stream forwarder started")
             try:
-                while True:
-                    # Heartbeat the lock, but only while we still own it. If
-                    # another worker took it (after a stall / Redis hiccup),
-                    # stop forwarding to avoid duplicate lines — the outer loop
-                    # will then contend for the lock again.
-                    if await async_cache.get(FORWARDER_LOCK_KEY) != lock_id:
-                        break
-                    await async_cache.set(
-                        FORWARDER_LOCK_KEY, lock_id, ex=FORWARDER_LOCK_TTL
-                    )
-                    message = await pubsub.get_message(
-                        ignore_subscribe_messages=True,
-                        timeout=FORWARDER_LOCK_TTL / 3,
-                    )
-                    if not message:
-                        continue
-                    data = message.get("data")
-                    if not data:
-                        continue
-                    # One bad message or emit must not kill the forwarder —
-                    # swallow per-line and keep relaying.
-                    try:
-                        payload = json_module.loads(data)
-                        await socket_manager.emit(
-                            "logs:entry", payload, room=ADMIN_ROOM
-                        )
-                    except Exception:  # noqa: BLE001 - keep forwarding  # nosec B112
-                        continue
-            finally:
-                await pubsub.unsubscribe(LOG_CHANNEL)
-                await pubsub.aclose()  # type: ignore[attr-defined]
-                pubsub = None
+                await _forward_while_locked(lock_id, socket_manager)
+            except Exception:  # noqa: BLE001 - never let the forwarder kill the app
+                log.exception("Log forwarder failed, retrying")
+                await _release_lock(lock_id)
+            # Another worker owns the forwarder, or we just lost Redis; check
+            # back periodically in case the lock expires or Redis recovers.
+            await asyncio.sleep(FORWARDER_LOCK_TTL / 2)
     except asyncio.CancelledError:
-        if pubsub is not None:
-            await pubsub.aclose()  # type: ignore[attr-defined]
         # Release the lock on shutdown so a restart (e.g. uvicorn --reload)
         # resumes forwarding immediately instead of waiting out the TTL.
         await _release_lock(lock_id)
         raise
-    except Exception:  # noqa: BLE001 - never let the forwarder kill the app
-        log.exception("Log forwarder crashed")
-        await _release_lock(lock_id)
+
+
+async def _forward_while_locked(
+    lock_id: str, socket_manager: socketio.AsyncRedisManager
+) -> None:
+    """Forward log lines for as long as this worker holds the lock."""
+    got_lock = await async_cache.set(
+        FORWARDER_LOCK_KEY, lock_id, nx=True, ex=FORWARDER_LOCK_TTL
+    )
+    if not got_lock:
+        return
+
+    loop = asyncio.get_running_loop()
+    refresh_interval = FORWARDER_LOCK_TTL / 3
+    last_refresh = loop.time()
+    pubsub = async_cache.pubsub()
+    try:
+        await pubsub.subscribe(LOG_CHANNEL)
+        log.info("Log stream forwarder started")
+        while True:
+            if loop.time() - last_refresh >= refresh_interval:
+                # Another worker took the lock after a stall, so stop before
+                # both relay every line.
+                if await async_cache.get(FORWARDER_LOCK_KEY) != lock_id:
+                    return
+                await async_cache.set(
+                    FORWARDER_LOCK_KEY, lock_id, ex=FORWARDER_LOCK_TTL
+                )
+                last_refresh = loop.time()
+            message = await pubsub.get_message(
+                ignore_subscribe_messages=True,
+                timeout=refresh_interval,
+            )
+            if not message:
+                continue
+            data = message.get("data")
+            if not data:
+                continue
+            # One bad message or emit must not kill the forwarder, so swallow
+            # per-line and keep relaying.
+            try:
+                payload = json_module.loads(data)
+                await socket_manager.emit("logs:entry", payload, room=ADMIN_ROOM)
+            except Exception:  # noqa: BLE001 - keep forwarding  # nosec B112
+                continue
+    finally:
+        # Closing drops the subscription and works on a dead connection.
+        await pubsub.aclose()
 
 
 async def _release_lock(lock_id: str) -> None:

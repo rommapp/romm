@@ -221,11 +221,12 @@
 #   containers:
 #     # One container can serve many platforms. Container keys are defaults
 #     # for every platform it serves; a platform block may override emulator,
-#     # label, memory_card_sync, and clears_stale_saves.
+#     # label, memory_card_sync, clears_stale_saves, core and
+#     # experimental_cores.
 #     - protocol: webstation
 #       host: https://192.168.1.56:3010  # browser-facing UI, must be https
 #       subfolder: /streaming            # matches the container's SUBFOLDER
-#       library_path: /romm              # where it mounts your ROM library
+#       # library_path: /mnt/games/library  # only if the container can't mount the library at /romm/library
 #       broker_secret: change-me         # matches the container's BROKER_SECRET
 #       label: Emulation station
 #       broker_host: http://192.168.1.56:3010  # server-to-broker URL, when RomM can't dial `host` itself
@@ -241,18 +242,33 @@
 #         wii:
 #           emulator: dolphin
 #           clears_stale_saves: true
+#         # RetroArch boots the broker's best-tested core for each platform.
+#         # To pick another libretro core, name it after the emulator...
+#         gba: retroarch:gpsp
+#         # ...or set `core` in a block. The broker refuses a core it doesn't
+#         # know and warns about one nobody has tested yet; see
+#         # https://github.com/romm-streaming/romm-broker (retroarch-cores docs).
+#         n64:
+#           emulator: retroarch
+#           core: parallel_n64
+#           # Lets a core listed as broken by the broker run anyway.
+#           # experimental_cores: true
 
 # converto:
-#   # Serve single-file downloads converted by rom-converto (needs ROM_CONVERTO_ENABLED)
+#   # Serve converted single-file downloads when a client asks with ?converted=true
+#   # (needs ROM_CONVERTO_ENABLED)
 #   download_conversion_enabled: false
 #   # Read title ids and serials with rom-converto during scans
 #   scan_metadata: true
-#   # Hours a converted download stays cached
+#   # Hours a converted download stays cached after it was last downloaded
 #   cache_ttl_hours: 24
+#   # Cache size before the least recently downloaded copies are evicted (0: unbounded)
+#   cache_max_size_gb: 20
+#   # Largest file (MB) a download waits on while it converts; larger files are
+#   # served as-is and converted in the background for the next download (0: never wait)
+#   max_sync_size_mb: 512
 #   # Platform slug -> target format. Targets per platform:
-#   #   3ds: cci, cia, decrypted, encrypted, z3ds
-#   #   nds: decrypted, encrypted
-#   #   ps3: decrypted
+#   #   3ds: cci, cia, z3ds
 #   #   psp, ps2: chd, cso, iso, zso
 #   #   psx, saturn, segacd, dc: chd, iso
 #   #   ngc: iso, rvz

@@ -1,7 +1,7 @@
 """Tests for the ScreenScraper metadata handler."""
 
 import json
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
@@ -24,6 +24,7 @@ from handler.metadata.ss_handler import (
     SWITCH_SS_ID,
     ScreenScraperExhaustedError,
     SSHandler,
+    SSMetadataMedia,
     SSRom,
     _get_rom_type,
     _is_daily_quota_error,
@@ -561,6 +562,114 @@ class TestExtractMediaFromSsGame:
         assert "mixrbv2" in result["miximage_v2_url"]
         assert result["miximage_v2_path"] is not None
 
+    @staticmethod
+    def _disc(region: str, support: str | None = None) -> dict[str, str]:
+        """A support-2D media item, tagged with ``support`` when one is given."""
+        suffix = f"[{support}]" if support else ""
+        media = {
+            "type": "support-2D",
+            "parent": "jeu",
+            "region": region,
+            "url": f"https://screenscraper.example.com/support-2D({region}){suffix}",
+            "crc": "aabbccdd",
+            "md5": "deadbeef",
+            "sha1": "cafebabe",
+            "format": "png",
+        }
+        if support is not None:
+            media["support"] = support
+        return media
+
+    def _extract(self, medias: list[dict[str, str]], config: Config) -> SSMetadataMedia:
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            return extract_media_from_ss_game(
+                self._make_rom(), cast(SSGame, {"medias": medias})
+            )
+
+    def _three_disc_medias(self) -> list[dict[str, str]]:
+        """Disc art spread across regions, with untagged and tagged disc 1 art."""
+        return [
+            self._disc("jp"),
+            self._disc("jp", "1"),
+            self._disc("jp", "2"),
+            self._disc("us", "2"),
+            self._disc("eu", "3"),
+        ]
+
+    def test_every_disc_of_a_multi_disc_game_is_kept(self):
+        result = self._extract(
+            self._three_disc_medias(),
+            _make_config(region_priority=["us"], scan_media=["physical"]),
+        )
+
+        # Untagged art stands for the first disc.
+        assert (
+            result["physical_url"] == "https://screenscraper.example.com/support-2D(jp)"
+        )
+        assert result["physical_path"] == "roms/1/100/physical/physical.png"
+        assert result["physical_disc"] == 1
+        assert result["physical_extra_discs"] == [
+            {
+                "disc": 2,
+                "url": "https://screenscraper.example.com/support-2D(us)[2]",
+                "path": "roms/1/100/physical/physical_disc2.png",
+            },
+            {
+                "disc": 3,
+                "url": "https://screenscraper.example.com/support-2D(eu)[3]",
+                "path": "roms/1/100/physical/physical_disc3.png",
+            },
+        ]
+
+    def test_extra_discs_not_stored_when_physical_absent_from_config(self):
+        result = self._extract(
+            self._three_disc_medias(), _make_config(scan_media=["box2d"])
+        )
+
+        assert result["physical_path"] is None
+        assert [d["disc"] for d in result["physical_extra_discs"]] == [2, 3]
+        assert all(d["path"] is None for d in result["physical_extra_discs"])
+
+    def test_single_disc_game_has_no_extra_discs(self):
+        result = self._extract(
+            [self._disc("jp"), self._disc("jp", "1")],
+            _make_config(scan_media=["physical"]),
+        )
+
+        assert (
+            result["physical_url"] == "https://screenscraper.example.com/support-2D(jp)"
+        )
+        assert result["physical_disc"] == 1
+        assert result["physical_extra_discs"] == []
+
+    def test_first_disc_with_art_leads_when_disc_one_has_none(self):
+        result = self._extract(
+            [self._disc("us", "2"), self._disc("eu", "3")],
+            _make_config(scan_media=["physical"]),
+        )
+
+        assert result["physical_disc"] == 2
+        assert result["physical_url"] == (
+            "https://screenscraper.example.com/support-2D(us)[2]"
+        )
+        assert [d["disc"] for d in result["physical_extra_discs"]] == [3]
+
+    @pytest.mark.parametrize("support", ["0", "-1", "two", ""])
+    def test_unreadable_disc_number_counts_as_the_first(self, support: str):
+        result = self._extract(
+            [self._disc("jp", support), self._disc("us", "2")],
+            _make_config(scan_media=["physical"]),
+        )
+
+        assert result["physical_disc"] == 1
+        assert [d["disc"] for d in result["physical_extra_discs"]] == [2]
+
 
 class TestExtractMetadataFromSsRom:
     def _make_rom(self, regions: list[str] | None = None) -> MagicMock:
@@ -680,7 +789,7 @@ class TestBuildSSGame:
         rom.regions = regions
         return rom
 
-    def _make_media(self, media_type: str) -> dict:
+    def _make_media(self, media_type: str) -> dict[str, Any]:
         return {
             "type": media_type,
             "parent": "jeu",
@@ -1120,6 +1229,13 @@ class TestGetPlatform:
 
         assert platform["ss_id"] == 231
         assert platform["name"] == "EasyRPG"
+
+    def test_win9x_maps_to_the_generic_windows_system(self):
+        handler = SSHandler()
+        platform = handler.get_platform("win9x")
+
+        assert platform["ss_id"] == handler.get_platform("win")["ss_id"] == 138
+        assert platform["name"] == "PC Win9X"
 
 
 class TestGetRomType:
@@ -1954,7 +2070,7 @@ class TestSearchTermEncoding:
     ):
         """``_search_rom`` hands the service a term that is not pre-encoded."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -1971,7 +2087,7 @@ class TestSearchTermEncoding:
     async def test_search_rom_still_transliterates_unicode(self):
         """Unidecode is still applied so accented titles match ScreenScraper."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -1986,7 +2102,7 @@ class TestSearchTermEncoding:
     async def test_get_matched_roms_by_name_passes_unencoded_term(self):
         """``get_matched_roms_by_name`` also avoids pre-encoding the term."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture(**kwargs):
             captured.update(kwargs)
@@ -2008,7 +2124,7 @@ class TestSearchTermEncoding:
         """End-to-end through the real service: a ``+`` is encoded exactly once
         in the request URL (``%2B``), never doubly (``%252B``)."""
         handler = SSHandler()
-        captured: dict = {}
+        captured: dict[str, Any] = {}
 
         async def capture_request(url, *args, **kwargs):
             captured["url"] = url
@@ -2118,7 +2234,7 @@ class TestExtractFromSSDump:
     # Shaped after a real jeuInfos payload, trimmed to the keys read here.
     ROMS = [
         {
-            "id": 4219,
+            "id": "4219",
             "romfilename": "Super Mario Bros.",
             "rommd5": "B330314E19126D87D156D0618C4657B0",
             "romsha1": "8EE8032491DEE422534B82F107DE0E9F5F9D44F9",
@@ -2127,7 +2243,7 @@ class TestExtractFromSSDump:
             "regions": {"regions_shortname": ["wor"], "regions_en": ["World"]},
         },
         {
-            "id": 154585,
+            "id": "154585",
             "romfilename": "Super Mario Bros. (W) [T Fre].nes",
             "rommd5": "811B027EAF99C2DEF7B933C5208636DE",
             "romsha1": "",
@@ -2140,7 +2256,7 @@ class TestExtractFromSSDump:
 
     def _game(self) -> SSGame:
         # `romid` names a dump that is not ours, which is why hashes decide.
-        return cast(SSGame, {"id": 1245, "romid": "999999", "roms": self.ROMS})
+        return cast(SSGame, {"id": "1245", "romid": "999999", "roms": self.ROMS})
 
     def test_the_dump_is_found_by_md5_whatever_romid_says(self):
         dump = find_ss_dump(
@@ -2149,7 +2265,7 @@ class TestExtractFromSSDump:
         )
 
         assert dump is not None
-        assert dump["id"] == 154585
+        assert dump["id"] == "154585"
 
     def test_the_dump_is_found_by_sha1(self):
         dump = find_ss_dump(
@@ -2160,7 +2276,7 @@ class TestExtractFromSSDump:
         )
 
         assert dump is not None
-        assert dump["id"] == 4219
+        assert dump["id"] == "4219"
 
     def test_a_hash_no_dump_carries_matches_nothing(self):
         assert (

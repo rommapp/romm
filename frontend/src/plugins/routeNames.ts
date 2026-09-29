@@ -21,6 +21,7 @@ export const ROUTES = {
   SCAN: "scan",
   UPLOAD: "upload",
   ACTIVITY: "activity",
+  NOTIFICATIONS: "notifications",
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",

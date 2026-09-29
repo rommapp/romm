@@ -13,7 +13,6 @@ class PlaySessionSchema(BaseModel):
     user_id: int
     device_id: str | None
     rom_id: int | None
-    sync_session_id: int | None
     save_slot: str | None
     start_time: datetime
     end_time: datetime

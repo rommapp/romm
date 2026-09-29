@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 from handler.dump_cache import hget_json
 from handler.redis_handler import async_cache
 from logger.logger import log
@@ -18,10 +20,13 @@ from .utils import deinvert_article, file_name_forms, fold_title
 
 
 class RemoteSource:
-    async def get_by_id(self, database_id: int | str) -> dict | None:
-        return await hget_json(LAUNCHBOX_METADATA_DATABASE_ID_KEY, str(database_id))
+    async def get_by_id(self, database_id: int | str) -> dict[str, Any] | None:
+        return cast(
+            dict[str, Any] | None,
+            await hget_json(LAUNCHBOX_METADATA_DATABASE_ID_KEY, str(database_id)),
+        )
 
-    async def _lookup_title_index(self, key: str, field: str) -> dict | None:
+    async def _lookup_title_index(self, key: str, field: str) -> dict[str, Any] | None:
         """Read a title index hit and resolve the database id it holds."""
         database_id = await hget_json(key, field)
         if not database_id:
@@ -35,7 +40,7 @@ class RemoteSource:
         platform_slug: str,
         *,
         assume_cache_present: bool = False,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         if not assume_cache_present and not await is_cache_store_ready(
             async_cache, LAUNCHBOX_METADATA_STORE, LAUNCHBOX_METADATA_NAME_KEY
         ):
@@ -101,7 +106,7 @@ class RemoteSource:
 
     async def get_rom_by_file_name(
         self, file_name: str, platform_slug: str
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Resolve a ROM file name to its metadata entry via LaunchBox's Files.xml.
 
         The dump ships a filename to title mapping, the only route to games whose
@@ -129,7 +134,7 @@ class RemoteSource:
 
         return None
 
-    async def get_mame_entry(self, file_name: str) -> dict | None:
+    async def get_mame_entry(self, file_name: str) -> dict[str, Any] | None:
         """Resolve a MAME arcade filename to its LaunchBox MAME entry.
 
         LaunchBox's Mame.xml indexes `<MameFile>` records by `<FileName>`, the
@@ -151,17 +156,17 @@ class RemoteSource:
         for candidate in candidates:
             entry = await hget_json(LAUNCHBOX_MAME_KEY, candidate)
             if entry:
-                return entry
+                return cast(dict[str, Any], entry)
 
         return None
 
     async def fetch_images(
         self,
         *,
-        remote: dict | None = None,
+        remote: dict[str, Any] | None = None,
         database_id: str | int | None = None,
         remote_enabled: bool = True,
-    ) -> list[dict] | None:
+    ) -> list[dict[str, Any]] | None:
         if not remote_enabled:
             return None
 
@@ -172,4 +177,7 @@ class RemoteSource:
         if not resolved_id:
             return None
 
-        return await hget_json(LAUNCHBOX_METADATA_IMAGE_KEY, str(resolved_id))
+        return cast(
+            list[dict[str, Any]] | None,
+            await hget_json(LAUNCHBOX_METADATA_IMAGE_KEY, str(resolved_id)),
+        )

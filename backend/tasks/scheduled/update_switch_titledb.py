@@ -30,7 +30,7 @@ SWITCH_TITLEDB_STORE: Final = VersionedCacheStore(
 
 
 class UpdateSwitchTitleDBTask(RemoteFilePullTask):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Scheduled Switch TitleDB update",
             description="Updates the Nintendo Switch TitleDB file",
@@ -52,8 +52,6 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
         update_stats = UpdateStats()
 
         content = await super().run()
-        if content is None:
-            return update_stats.to_dict()
 
         # An import merges into its hashes, so an older release's rows go first.
         await drop_stale_cache_store(async_cache, SWITCH_TITLEDB_STORE)

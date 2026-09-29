@@ -17,7 +17,7 @@ class CleanupMissingFirmwareStats:
     firmware_deleted: int = 0
     errors: int = 0
 
-    def update(self, **kwargs) -> None:
+    def update(self, **kwargs: object) -> None:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
@@ -29,7 +29,7 @@ class CleanupMissingFirmwareStats:
 
 
 class CleanupMissingFirmwareTask(Task):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             title="Cleanup missing firmware",
             description="Delete all firmware flagged as missing from the filesystem from the database",

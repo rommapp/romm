@@ -1,8 +1,10 @@
 import asyncio
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
+import anyio
 import pytest
 
 from adapters.services import rom_converto
@@ -64,6 +66,21 @@ class TestRun:
             await rom_converto._run(["info", "--json", "x"], timeout_seconds=0.01)
         assert proc.killed is True
 
+    async def test_cancellation_kills_process(self) -> None:
+        proc = FakeProc(delay=5.0)
+        with (
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            run = asyncio.create_task(
+                rom_converto._run(["info", "--json", "x"], timeout_seconds=10)
+            )
+            await asyncio.sleep(0.01)
+            run.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await run
+        assert proc.killed is True
+
 
 class TestIsEnabled:
     async def test_disabled_when_config_disabled(self, service: RomConvertoService):
@@ -91,8 +108,31 @@ class TestIsEnabled:
             assert await service.is_enabled() is False
         assert spawn_count == 1
 
+    @pytest.mark.parametrize(
+        "error",
+        [OSError(8, "Exec format error"), RomConvertoTimeoutError("timed out")],
+    )
+    async def test_probe_that_cannot_run_is_cached_false(
+        self, service: RomConvertoService, error: Exception
+    ):
+        spawn_count = 0
+
+        async def spawn(*args, **kwargs):
+            nonlocal spawn_count
+            spawn_count += 1
+            raise error
+
+        with (
+            patch.object(rom_converto, "ROM_CONVERTO_ENABLED", True),
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            assert await service.is_enabled() is False
+            assert await service.is_enabled() is False
+        assert spawn_count == 1
+
     async def test_probe_ok_logs_version(self, service: RomConvertoService, mocker):
-        log_info = mocker.patch.object(rom_converto.log, "info")
+        log_info = mocker.patch("adapters.services.rom_converto.log.info")
         proc = FakeProc(stdout=b'{"version": "0.21.0"}')
         with (
             patch.object(rom_converto, "ROM_CONVERTO_ENABLED", True),
@@ -118,134 +158,214 @@ class TestIsEnabled:
             assert await service.is_enabled() is True
 
 
-class TestReadInfo:
-    async def test_nonzero_returns_none(self, service: RomConvertoService):
-        proc = FakeProc(
-            returncode=1,
-            stderr=b"error: could not detect console for path: /roms/junk.bin",
-        )
-        with (
-            patch("shutil.which", return_value="rc"),
-            patch("asyncio.create_subprocess_exec", return_value=proc),
-        ):
-            assert await service.read_info(Path("/roms/junk.bin")) is None
+def _capture_spawn(proc: FakeProc, calls: list[tuple[str, ...]]):
+    async def spawn(*args, **kwargs):
+        calls.append(args)
+        return proc
 
-    async def test_non_json_output_returns_none(self, service: RomConvertoService):
-        proc = FakeProc(returncode=0, stdout=b"not json at all")
-        with (
-            patch("shutil.which", return_value="rc"),
-            patch("asyncio.create_subprocess_exec", return_value=proc),
-        ):
-            assert await service.read_info(Path("/roms/game.iso")) is None
+    return spawn
 
-    async def test_parses_nx_payload(self, service: RomConvertoService):
-        payload = json.dumps(
+
+class TestReadInfos:
+    async def test_batches_paths_and_keys_recognized_files(
+        self, service: RomConvertoService
+    ):
+        records = [
             {
-                "kind": "nx",
-                "container_kind": "nsp",
-                "full": {
-                    "application_title_id_hex": "0100ABCD12345000",
-                    "title_version": 65536,
+                "path": "/roms/game.nsp",
+                "ok": True,
+                "info": {
+                    "kind": "nx",
+                    "full": {
+                        "application_title_id_hex": "0100ABCD12345000",
+                        "title_version": 65536,
+                    },
                 },
-            }
-        )
-        proc = FakeProc(stdout=payload.encode())
+            },
+            {"path": "/roms/junk.bin", "ok": False, "error": "could not detect"},
+        ]
+        calls: list[tuple[str, ...]] = []
+        listed: list[str] = []
+        proc = FakeProc(stdout=json.dumps(records).encode())
+
+        async def spawn(*args, **kwargs):
+            calls.append(args)
+            paths_file = anyio.Path(args[args.index("--paths-file") + 1])
+            listed.extend((await paths_file.read_text()).split())
+            return proc
+
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            infos = await service.read_infos(
+                [Path("/roms/game.nsp"), Path("/roms/junk.bin")]
+            )
+
+        assert len(calls) == 1
+        assert listed == ["/roms/game.nsp", "/roms/junk.bin"]
+        assert infos == {
+            Path("/roms/game.nsp"): RomConvertoInfo(
+                title_id="0100ABCD12345000", title_version=65536
+            )
+        }
+
+    async def test_paths_file_is_removed(self, service: RomConvertoService):
+        calls: list[tuple[str, ...]] = []
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch(
+                "asyncio.create_subprocess_exec",
+                _capture_spawn(FakeProc(stdout=b"[]"), calls),
+            ),
+        ):
+            await service.read_infos([Path("/roms/game.iso")])
+
+        paths_file = calls[0][calls[0].index("--paths-file") + 1]
+        assert not await anyio.Path(paths_file).exists()
+
+    async def test_nonzero_returns_empty(self, service: RomConvertoService):
+        proc = FakeProc(returncode=2, stderr=b"error: bad arguments")
         with (
             patch("shutil.which", return_value="rc"),
             patch("asyncio.create_subprocess_exec", return_value=proc),
         ):
-            info = await service.read_info(Path("/roms/game.nsp"))
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
 
-        assert info == RomConvertoInfo(
-            kind="nx", title_id="0100ABCD12345000", title_version=65536
+    async def test_non_json_output_returns_empty(self, service: RomConvertoService):
+        proc = FakeProc(stdout=b"not json at all")
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
+
+    async def test_no_listable_paths_skips_the_subprocess(
+        self, service: RomConvertoService
+    ):
+        with patch("asyncio.create_subprocess_exec") as spawn:
+            assert await service.read_infos([Path("/roms/bad\nname.iso")]) == {}
+        spawn.assert_not_called()
+
+
+class TestReadInfosFailures:
+    @pytest.mark.parametrize(
+        "error", [RomConvertoTimeoutError("slow"), OSError(8, "Exec format error")]
+    )
+    async def test_run_failure_returns_empty(
+        self, service: RomConvertoService, error: Exception
+    ):
+        with patch.object(rom_converto, "_run", side_effect=error):
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
+
+
+class TestUpdateCheck:
+    async def test_every_run_disables_the_update_check(self):
+        calls: list[tuple[str, ...]] = []
+        with (
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", _capture_spawn(FakeProc(), calls)),
+        ):
+            await rom_converto._run(["capabilities"], timeout_seconds=1)
+
+        assert calls[0][:3] == (
+            "/usr/bin/rom-converto",
+            "--no-update-check",
+            "capabilities",
         )
+
+
+class TestCanInspect:
+    async def test_manifest_extensions_gate_inspection(
+        self, service: RomConvertoService
+    ):
+        proc = FakeProc(
+            stdout=b'{"version": "0.21.0", "info_extensions": ["ISO", "nsp"]}'
+        )
+        with (
+            patch.object(rom_converto, "ROM_CONVERTO_ENABLED", True),
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            assert await service.is_enabled() is True
+
+        assert service.can_inspect(Path("/roms/Game.iso")) is True
+        assert service.can_inspect(Path("/roms/game.NSP")) is True
+        assert service.can_inspect(Path("/roms/readme.nfo")) is False
+
+    def test_unknown_manifest_inspects_everything(self, service: RomConvertoService):
+        assert service.can_inspect(Path("/roms/anything.xyz")) is True
 
 
 class TestParseInfo:
-    def test_nx_without_prod_keys_has_no_title_id(self):
-        payload = {"kind": "nx", "container_kind": "nsp"}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info == RomConvertoInfo(kind="nx", title_id=None, title_version=None)
-
-    def test_chd_inner_disc_flattens_content(self):
-        payload = {"kind": "chd", "content": {"kind": "psx", "title_id": "SLUS-00594"}}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info == RomConvertoInfo(
-            kind="chd", title_id="SLUS-00594", title_version=None
-        )
-
-    def test_dol_hex_encodes_game_id(self):
-        payload = {"kind": "dol", "game_id": "GZLE01"}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "475A4C45"
-
-    def test_rvl_hex_encodes_game_id(self):
-        payload = {"kind": "rvl", "game_id": "RZTE01"}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "525A5445"
-
-    def test_wup_takes_last_8_of_title_id_hex(self):
-        payload = {
-            "kind": "wup",
-            "title_id_hex": "0005000010143500",
-            "title_version": 16,
-        }
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "10143500"
-        assert info.title_version == 16
-
-    def test_xbox_uses_nested_xbe_title_id_code(self):
-        payload = {
-            "kind": "xbox",
-            "xbe": {"title_id_code": "TT-027", "title_id_hex": "5454001B"},
-        }
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "TT-027"
-
-    def test_xenon_uses_nested_xex_title_id_hex(self):
-        payload = {"kind": "xenon", "xex": {"title_id_hex": "4D5307DC"}}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "4D5307DC"
-
-    def test_ctr_title_id_ignores_product_code(self):
-        payload = {
-            "kind": "ctr",
-            "title_id": "0004000000123456",
-            "product_code": "CTR-P-AXXE",
-        }
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "0004000000123456"
-
-    def test_nds_falls_back_to_game_code(self):
-        payload = {"kind": "nds", "game_code": "AXXE"}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "AXXE"
-
-    def test_ps3_string_version_is_none(self):
-        payload = {"kind": "ps3", "title_id": "BLUS31426", "version": "01.00"}
-
-        info = rom_converto._parse_info(payload)
-
-        assert info.title_id == "BLUS31426"
-        assert info.title_version is None
+    @pytest.mark.parametrize(
+        ("payload", "expected"),
+        [
+            pytest.param(
+                {"kind": "nx", "container_kind": "nsp"},
+                RomConvertoInfo(title_id=None, title_version=None),
+                id="nx-without-prod-keys",
+            ),
+            pytest.param(
+                {"kind": "chd", "content": {"kind": "psx", "title_id": "SLUS-00594"}},
+                RomConvertoInfo(title_id="SLUS-00594", title_version=None),
+                id="chd-flattens-inner-disc",
+            ),
+            pytest.param(
+                {"kind": "dol", "game_id": "GZLE01"},
+                RomConvertoInfo(title_id="475A4C45", title_version=None),
+                id="dol-hex-encodes-game-id",
+            ),
+            pytest.param(
+                {"kind": "rvl", "game_id": "RZTE01"},
+                RomConvertoInfo(title_id="525A5445", title_version=None),
+                id="rvl-hex-encodes-game-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "wup",
+                    "title_id_hex": "0005000010143500",
+                    "title_version": 16,
+                },
+                RomConvertoInfo(title_id="10143500", title_version=16),
+                id="wup-last-8-of-title-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "xbox",
+                    "xbe": {"title_id_code": "TT-027", "title_id_hex": "5454001B"},
+                },
+                RomConvertoInfo(title_id="TT-027", title_version=None),
+                id="xbox-nested-xbe-code",
+            ),
+            pytest.param(
+                {"kind": "xenon", "xex": {"title_id_hex": "4D5307DC"}},
+                RomConvertoInfo(title_id="4D5307DC", title_version=None),
+                id="xenon-nested-xex-hex",
+            ),
+            pytest.param(
+                {
+                    "kind": "ctr",
+                    "title_id": "0004000000123456",
+                    "product_code": "CTR-P-AXXE",
+                },
+                RomConvertoInfo(title_id="0004000000123456", title_version=None),
+                id="ctr-ignores-product-code",
+            ),
+            pytest.param(
+                {"kind": "nds", "game_code": "AXXE"},
+                RomConvertoInfo(title_id="AXXE", title_version=None),
+                id="nds-falls-back-to-game-code",
+            ),
+            pytest.param(
+                {"kind": "ps3", "title_id": "BLUS31426", "version": "01.00"},
+                RomConvertoInfo(title_id="BLUS31426", title_version=None),
+                id="ps3-string-version-is-none",
+            ),
+        ],
+    )
+    def test_parse_info(self, payload: dict[str, Any], expected: RomConvertoInfo):
+        assert rom_converto._parse_info(payload) == expected
 
 
 class TestConvert:
@@ -274,7 +394,7 @@ class TestConvert:
 
         assert recorded == [["chd", "compress", str(src), str(out)]]
 
-    async def test_nonzero_raises_operation_error_with_stderr(
+    async def test_nonzero_raises_operation_error_with_diagnostic(
         self, service: RomConvertoService, tmp_path: Path
     ):
         async def fake_run(argv: list[str], timeout_seconds: float):
@@ -288,61 +408,65 @@ class TestConvert:
         ):
             await service.convert(self._op(), src, out)
 
-        assert exc_info.value.returncode == 1
-        assert exc_info.value.stderr == "error: bad disc key"
         assert "bad disc key" in str(exc_info.value)
 
 
 class TestResolveOperation:
-    def test_ngc_rvz_nkit_iso_picks_dol_migrate(self):
-        resolved = resolve_operation("ngc", "rvz", "Game.nkit.iso")
+    @pytest.mark.parametrize(
+        ("platform", "target", "file_name", "argv", "input_ext", "output_name"),
+        [
+            (
+                "ngc",
+                "rvz",
+                "Game.nkit.iso",
+                ("dol", "migrate"),
+                ".nkit.iso",
+                "Game.rvz",
+            ),
+            ("ngc", "rvz", "Game.iso", ("dol", "compress"), ".iso", "Game.rvz"),
+            ("wii", "wbfs", "Game.rvz", ("rvl", "decompress"), ".rvz", "Game.wbfs"),
+            ("3ds", "z3ds", "Game.3ds", ("ctr", "compress"), ".3ds", "Game.zcci"),
+            ("3ds", "cci", "My Game.CIA", ("ctr", "convert"), ".cia", "My Game.cci"),
+            ("psp", "chd", "Game.ISO", ("chd", "compress"), ".iso", "Game.chd"),
+        ],
+    )
+    def test_resolves_operation_and_output_name(
+        self,
+        platform: str,
+        target: str,
+        file_name: str,
+        argv: tuple[str, ...],
+        input_ext: str,
+        output_name: str,
+    ):
+        resolved = resolve_operation(platform, target, file_name)
+
         assert resolved is not None
         op, ext = resolved
-        assert op.argv == ("dol", "migrate")
-        assert ext == ".nkit.iso"
+        assert (op.argv, ext) == (argv, input_ext)
+        assert op.output_name(Path(file_name), ext) == output_name
 
-    def test_ngc_rvz_plain_iso_picks_dol_compress(self):
-        resolved = resolve_operation("ngc", "rvz", "Game.iso")
-        assert resolved is not None
-        op, ext = resolved
-        assert op.argv == ("dol", "compress")
-        assert ext == ".iso"
-
-    def test_psp_iso_already_target_returns_none(self):
-        assert resolve_operation("psp", "iso", "Game.iso") is None
-
-    def test_psx_chd_has_no_extract_operation(self):
-        assert resolve_operation("psx", "iso", "Game.chd") is None
-
-    def test_wii_wbfs_output_name(self):
-        resolved = resolve_operation("wii", "wbfs", "Game.rvz")
-        assert resolved is not None
-        op, ext = resolved
-        assert op.output_name(Path("Game.rvz"), ext) == "Game.wbfs"
-
-    def test_3ds_decrypted_output_name_keeps_source_ext_casing(self):
-        resolved = resolve_operation("3ds", "decrypted", "Game.CIA")
-        assert resolved is not None
-        op, ext = resolved
-        assert op.output_name(Path("Game.CIA"), ext) == "Game.CIA"
-
-    def test_3ds_z3ds_output_name(self):
-        resolved = resolve_operation("3ds", "z3ds", "Game.3ds")
-        assert resolved is not None
-        op, ext = resolved
-        assert op.output_name(Path("Game.3ds"), ext) == "Game.zcci"
-
-    def test_case_insensitive_ext_match(self):
-        resolved = resolve_operation("psp", "chd", "Game.ISO")
-        assert resolved is not None
-        _, ext = resolved
-        assert ext == ".iso"
+    @pytest.mark.parametrize(
+        ("platform", "target", "file_name"),
+        [
+            pytest.param("psp", "iso", "Game.iso", id="already-in-target-format"),
+            pytest.param("psx", "iso", "Game.chd", id="cd-chd-has-no-extract"),
+        ],
+    )
+    def test_returns_none_when_nothing_applies(
+        self, platform: str, target: str, file_name: str
+    ):
+        assert resolve_operation(platform, target, file_name) is None
 
 
 class TestTargetsByPlatform:
     def test_psp_targets(self):
         assert TARGETS_BY_PLATFORM["psp"] == {"chd", "cso", "iso", "zso"}
 
-    def test_wiiu_and_psvita_have_no_conversions(self):
-        assert "wiiu" not in TARGETS_BY_PLATFORM
-        assert "psvita" not in TARGETS_BY_PLATFORM
+    def test_platforms_without_format_conversions(self):
+        for slug in ("wiiu", "psvita", "nds", "ps3"):
+            assert slug not in TARGETS_BY_PLATFORM
+
+    def test_no_decrypt_or_encrypt_targets(self):
+        targets = set().union(*TARGETS_BY_PLATFORM.values())
+        assert not targets & {"decrypted", "encrypted"}

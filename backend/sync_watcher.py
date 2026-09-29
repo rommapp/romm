@@ -21,6 +21,7 @@ import sentry_sdk
 
 from config import ENABLE_SYNC_FOLDER_WATCHER, SENTRY_DSN
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_platform_handler,
@@ -31,7 +32,7 @@ from handler.filesystem import fs_asset_handler, get_fs_sync_handler
 from handler.sync.comparison import compare_save_state
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.device import SyncMode
+from models.device import Device, SyncMode
 from models.sync_session import SyncSessionStatus
 from utils import get_version
 
@@ -204,7 +205,11 @@ def _process_device_incoming(
 
 
 def _process_incoming_file(
-    device, session_id: int, platform_slug: str, filename: str, full_path: str
+    device: Device,
+    session_id: int,
+    platform_slug: str,
+    filename: str,
+    full_path: str,
 ) -> None:
     """Process a single incoming file from a device's sync folder."""
     from endpoints.sockets.sync import emit_sync_conflict
@@ -249,10 +254,26 @@ def _process_incoming_file(
             server_hash=matched_save.content_hash,
             server_updated_at=matched_save.updated_at,
             device_last_synced_at=device_sync.last_synced_at if device_sync else None,
+            device_last_sync_hash=device_sync.last_sync_hash if device_sync else None,
+            device_last_sync_server_hash=(
+                device_sync.last_sync_server_hash if device_sync else None
+            ),
+            # Identical content is a no_op, which never reads removals.
+            removed_at=(
+                db_deleted_asset_handler.removal_times(
+                    device.user_id, matched_save.rom_id, matched_save.slot
+                )
+                if file_hash != matched_save.content_hash
+                else None
+            ),
         )
 
         if result.action == "no_op":
             log.debug(f"Sync watcher: {filename} is already in sync, skipping")
+            if file_hash == matched_save.content_hash:
+                db_device_save_sync_handler.record_identical_content(
+                    device.id, matched_save.id, file_hash
+                )
             fs_sync_handler.remove_incoming_file(full_path)
             return
 
@@ -263,6 +284,7 @@ def _process_incoming_file(
             )
             with open(full_path, "rb") as f:
                 file_data = f.read()
+            replaced_hash = asyncio.run(fs_asset_handler.unrecorded_hash(matched_save))
             asyncio.run(
                 fs_asset_handler.write_file(
                     file=file_data,
@@ -276,11 +298,14 @@ def _process_incoming_file(
                     "file_size_bytes": file_size,
                     "content_hash": file_hash,
                 },
+                replaced_hash=replaced_hash,
             )
+            # This path hashes the device's file itself, so both sides hold file_hash.
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
+                last_sync_hash=file_hash,
+                last_sync_server_hash=file_hash,
             )
             fs_sync_handler.remove_incoming_file(full_path)
 
@@ -303,6 +328,7 @@ def _process_incoming_file(
                     session_id=session_id,
                     file_name=filename,
                     rom_id=matched_save.rom_id,
+                    rom_name=matched_save.rom.name or matched_save.rom.fs_name,
                     reason=result.reason,
                 )
             )
@@ -323,10 +349,11 @@ def _process_incoming_file(
                 file_name=filename,
                 data=server_data,
             )
+            # The device has no bytes yet, so only the server half is known.
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
+                last_sync_server_hash=matched_save.content_hash,
             )
             fs_sync_handler.remove_incoming_file(full_path)
     else:

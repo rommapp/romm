@@ -24,15 +24,18 @@ from endpoints.responses import (
     WatcherTaskStatusResponse,
 )
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.redis_handler import (
     ALL_QUEUES,
     get_job_func_name,
+    get_job_kwargs,
     get_worker_current_job,
     has_live_worker,
     low_prio_queue,
     redis_client,
 )
+from models.audit_event import AuditAction, AuditTargetType
 from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS, enqueue_task
 from tasks.tasks import Task, TaskType
 from utils.router import APIRouter
@@ -110,7 +113,7 @@ def _build_task_status_response(
     job_meta = job.get_meta()
     task_type = job_meta.get("task_type")
     task_name = job_meta.get("task_name") or get_job_func_name(job)
-    task_key = job_meta.get("task_key") or job.kwargs.get("name")
+    task_key = job_meta.get("task_key") or (get_job_kwargs(job) or {}).get("name")
 
     # Convert datetime objects to ISO format strings
     created_at = job.created_at.isoformat() if job.created_at else None
@@ -330,7 +333,18 @@ async def run_single_task(
 
     # The caller's arguments are nested rather than spread, so a body cannot
     # name a different task than the one this route just authorized.
-    job = enqueue_task(task_name, queue=low_prio_queue, task_kwargs=task_kwargs or {})
+    job = enqueue_task(
+        task_name,
+        queue=low_prio_queue,
+        task_kwargs=task_kwargs or {},
+        run_by_user_id=request.user.id,
+    )
+    record(
+        AuditAction.TASK_RUN,
+        request,
+        AuditTarget(AuditTargetType.TASK, task_name, task_instance.title),
+        {"job_id": job.id, "kwargs": task_kwargs or {}},
+    )
 
     return {
         "task_key": task_name,

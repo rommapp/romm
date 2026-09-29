@@ -5,6 +5,7 @@
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
 #   - rahasher-build: Build RAHasher
 #   - sigil-build: Build sigil Python bindings (title ID extraction)
+#   - rom-converto-fetch: Fetch the rom-converto CLI (ROM conversion and metadata)
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
@@ -24,8 +25,8 @@ ARG NODE_VERSION=24.16
 ARG NODE_ALPINE_SHA256=21f403ab171f2dc89bad4dd69d7721bfd15f084ccb46cdd225f31f2bc59b5c9a
 ARG NGINX_VERSION=1.30.5
 ARG NGINX_SHA256=a5f2157a0302eb0c5e300415effb63a9e70ed1eb9c107283819bf6d149ab607c
-ARG UV_VERSION=0.12.13
-ARG UV_SHA256=eb47c391d3a252d9d912270dd2b5e234af5493e92039fedb483f1dd1cb5659ce
+ARG UV_VERSION=0.12.19
+ARG UV_SHA256=b165481b747c340b4b3b820f6e453c3aea939c8b583cbfc01c4e99ec61181bc2
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
@@ -60,7 +61,7 @@ COPY ./backend/utils/rom_patcher/package*.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
 
 
-# https://github.com/astral-sh/uv/pkgs/container/uv/452595714
+# https://github.com/astral-sh/uv/pkgs/container/uv
 FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${UV_SHA256} AS uv-stage
 
 
@@ -101,10 +102,14 @@ RUN apk add --no-cache \
     zlib-dev \
     bash
 
-ARG RALIBRETRO_VERSION=1.8.3
+# Tag 1.8.3. Pinned by commit because a tag can be moved.
+# Keep this pin in sync with the dev image's RALIBRETRO_COMMIT in ../Dockerfile.
+ARG RALIBRETRO_COMMIT=8ab61f745ab753a70b5482f2a0ccb6a4ced5193f
 
-RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
+RUN git clone --filter=blob:none https://github.com/RetroAchievements/RALibretro.git && \
     cd ./RALibretro && \
+    git checkout "${RALIBRETRO_COMMIT}" && \
+    git submodule update --init --recursive && \
     sed -i '22a #include <ctime>' ./src/Util.h && \
     sed -i '6a #include <unistd.h>' \
         ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
@@ -140,56 +145,73 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
     cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
 
 
+# ROM-CONVERTO CLI
+# Keep the version and both sums in sync with the dev image's copy in ../Dockerfile.
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
+ARG TARGETARCH
+ARG ROM_CONVERTO_VERSION=v0.21.0
+RUN case "${TARGETARCH}" in \
+        amd64) rc="linux-x64-musl"; sum="d6446fac50ca2dae2a3702351bc2c409a19f8a4f7a91ae838283ebf5f151e578" ;; \
+        arm64) rc="linux-arm64-musl"; sum="3ef3414ad425fb222f647ef0f3e74122077721a046eb07256c6d870b007b3c2e" ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    wget -qO /rom-converto \
+        "https://github.com/DevYukine/rom-converto/releases/download/${ROM_CONVERTO_VERSION}/rom-converto-cli-${rc}" && \
+    echo "${sum}  /rom-converto" | sha256sum -c - && \
+    chmod 0755 /rom-converto
+
+
 # FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08
 # Keep the pins below in sync with the dev image's copies in ../Dockerfile.
+# checkov:skip=CKV_DOCKER_4:every ADD below is a remote URL pinned by --checksum
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
 
 RUN apk add --no-cache \
-    7zip \
-    wget \
-    ca-certificates
+    7zip
 
 ARG EMULATORJS_VERSION=4.2.3
 ARG EMULATORJS_SHA256=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b
 
-RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
-    echo "${EMULATORJS_SHA256}  ${EMULATORJS_VERSION}.7z" | sha256sum -c - && \
-    7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
-    rm -f "${EMULATORJS_VERSION}.7z"
+ADD --checksum=sha256:${EMULATORJS_SHA256} \
+    "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" \
+    /downloads/emulatorjs.7z
+RUN 7z x -y /downloads/emulatorjs.7z -o/emulatorjs
 
 ARG RUFFLE_VERSION=nightly-2025-08-14
 ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
 ARG RUFFLE_SHA256=178870c5e7dd825a8df35920dfc5328d83e53f3c4d5d95f70b1ea9cd13494151
 
-RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
-    echo "${RUFFLE_SHA256}  ${RUFFLE_FILE}" | sha256sum -c - && \
-    unzip -o "${RUFFLE_FILE}" -d /ruffle && \
-    rm -f "${RUFFLE_FILE}"
+ADD --checksum=sha256:${RUFFLE_SHA256} \
+    "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" \
+    /downloads/ruffle.zip
+RUN unzip -o /downloads/ruffle.zip -d /ruffle
 
 ARG JSDOS_VERSION=8.4.1
 ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
 
+ADD --checksum=sha256:${JSDOS_SHA256} \
+    "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" \
+    /downloads/jsdos.zip
 # The bundled index.html is a js-dos demo page that would be served unauthenticated;
 # source maps, Emscripten symbol files and type declarations are unused at runtime.
-RUN wget "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" -O jsdos.zip && \
-    echo "${JSDOS_SHA256}  jsdos.zip" | sha256sum -c - && \
-    unzip -o jsdos.zip -d /jsdos && \
-    rm -f jsdos.zip && \
+RUN unzip -o /downloads/jsdos.zip -d /jsdos && \
     rm -rf /jsdos/dist/index.html /jsdos/dist/emulators/types && \
     find /jsdos/dist \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
 
+# FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
+# which compiled them. Pinned by commit and checksum: that tree has no tags.
 ARG FAKE08_P3A_COMMIT=6519efd9dd1ca853e5c66f7ae9146ace0b7073dc
 ARG FAKE08_JS_SHA256=fd2cd4677956037e41a91dbd40fc1a9c4f5979355d55ce3f9312400e11da463e
 ARG FAKE08_WASM_SHA256=4339a77e0aa5aa6f4a5bce9fd8286053eedf7f23f2d853db7f4900f6fff4c93a
-ARG FAKE08_P3A_RAW=https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8
 
-# FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
-# which compiled them. Pinned by commit and checksum: that tree has no tags.
-RUN mkdir -p /fake08 && \
-    wget "${FAKE08_P3A_RAW}/fake08.js" -O /fake08/fake08.js && \
-    wget "${FAKE08_P3A_RAW}/fake08.wasm" -O /fake08/fake08.wasm && \
-    echo "${FAKE08_JS_SHA256}  /fake08/fake08.js" | sha256sum -c - && \
-    echo "${FAKE08_WASM_SHA256}  /fake08/fake08.wasm" | sha256sum -c -
+# Created first, or ADD --chmod would also apply to the directory it creates.
+RUN mkdir /fake08
+ADD --checksum=sha256:${FAKE08_JS_SHA256} --chmod=644 \
+    "https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8/fake08.js" \
+    /fake08/fake08.js
+ADD --checksum=sha256:${FAKE08_WASM_SHA256} --chmod=644 \
+    "https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8/fake08.wasm" \
+    /fake08/fake08.wasm
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
@@ -253,6 +275,7 @@ COPY --from=python-runtime /usr/local/lib/libpython* /usr/local/lib/
 COPY --from=python-runtime /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
+COPY --from=rom-converto-fetch /rom-converto /usr/bin/rom-converto
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 COPY --from=backend-node-build /backend-node/rom_patcher/node_modules/rom-patcher/rom-patcher-js /backend/utils/rom_patcher/rom-patcher-js

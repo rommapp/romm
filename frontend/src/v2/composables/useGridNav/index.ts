@@ -16,32 +16,26 @@
 //   * ArrowLeft / ArrowRight → prev / next cell in the current row.
 //   * ArrowUp / ArrowDown → same column in the prev / next row (clamped).
 //   * On autofocus we remember a "preferred column" and restore it when
-//     moving up/down through rows of different lengths — common media-UI
+//     moving up/down through rows of different lengths, a common media-UI
 //     pattern so row switching doesn't permanently lose horizontal place.
 //
 // Integration:
 //   * Input modality flipping to `"pad"` (gamepad connected / pressed)
 //     autofocuses the first cell, so `useGamepad`'s synthetic arrow keys
 //     immediately land somewhere useful.
-//   * `useGamepad` itself dispatches keydowns — so everything here is
+//   * A key that would leave the grid (up from the first row, …) is left
+//     unclaimed, so `useSpatialNav` carries focus to the next region.
+//   * `useGamepad` itself dispatches keydowns, so everything here is
 //     plain keyboard code; gamepad users transparently benefit.
 //
-// For wrapping CSS grids (PlatformsIndex / CollectionsIndex) — where
-// there are no per-row DOM containers — use `useWrapGridNav` instead;
+// For wrapping CSS grids (PlatformsIndex / CollectionsIndex), where
+// there are no per-row DOM containers, use `useWrapGridNav` instead;
 // it detects rows spatially from cell rects.
 import { onBeforeUnmount, onMounted, watch, type Ref } from "vue";
 import { useRoute } from "vue-router";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import storeFocusRestoration from "@/v2/stores/focusRestoration";
-
-const FOCUSABLE_SELECTOR = [
-  "a[href]",
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  "[tabindex]:not([tabindex='-1'])",
-].join(",");
+import { FOCUSABLE_SELECTOR } from "@/v2/utils/spatialNav";
 
 export interface UseGridNavOptions {
   /** Selector that resolves to one DOM element per logical row.
@@ -50,7 +44,7 @@ export interface UseGridNavOptions {
   rowSelector?: string;
   /** Returns the row elements. Overrides `rowSelector`. Useful when
    *  the root element itself IS the only row (single-row toolbars
-   *  like GameDetails' action ribbon) — pass `() => [rootEl.value!]`. */
+   *  like GameDetails' action ribbon): pass `() => [rootEl.value!]`. */
   getRows?: () => HTMLElement[];
   /** Returns the cells of a given row. Defaults to the row's direct
    *  children. Pass `(row) => [row]` for list-mode rows where the row
@@ -134,7 +128,7 @@ export function useGridNav(
     const cell = cs[clamped];
     const target = focusableIn(cell);
 
-    // Roving tabindex — only the current cell is a tab stop, every other
+    // Roving tabindex: only the current cell is a tab stop, every other
     // cell sets tabindex="-1". Lets the user land on the last focused
     // card via Tab from outside the grid, and keeps Shift+Tab escape
     // behaviour clean. Borrowed from the v1 console useRovingDom.
@@ -210,7 +204,7 @@ export function useGridNav(
       return;
     }
     if (!rootRef.value) return;
-    // Only steer when focus is already inside the grid — don't hijack
+    // Only steer when focus is already inside the grid; don't hijack
     // arrow keys meant for input fields, menus, or other widgets.
     const active = document.activeElement;
     if (!(active instanceof Node) || !rootRef.value.contains(active)) return;
@@ -249,7 +243,7 @@ export function useGridNav(
 
   // Watches card rows for late-arriving children (data fetching finishes
   // after mount, skeletons swap to real cards). When the first cell shows
-  // up — and the user is in pad modality without focus in the grid — we
+  // up (and the user is in pad modality without focus in the grid), we
   // land focus on it.
   let observer: MutationObserver | null = null;
 
@@ -273,7 +267,7 @@ export function useGridNav(
   }
 
   onMounted(() => {
-    window.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey);
     window.addEventListener("focusin", onFocusIn);
     if (rootRef.value) {
       observer = new MutationObserver(() => maybeAutofocus());
@@ -283,7 +277,7 @@ export function useGridNav(
   });
 
   onBeforeUnmount(() => {
-    window.removeEventListener("keydown", onKey);
+    document.removeEventListener("keydown", onKey);
     window.removeEventListener("focusin", onFocusIn);
     observer?.disconnect();
     observer = null;

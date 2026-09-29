@@ -6,6 +6,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema } from "@/__generated__";
 import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
+import { useStreamingStore } from "@/stores/streaming";
 import PendingFilesDropzone from "@/v2/components/shared/PendingFilesDropzone.vue";
 import type { AssetType } from "@/v2/utils/assets";
 import {
@@ -48,6 +49,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const { emulatorLabel } = useStreamingStore();
 
 const slot = ref<UploadSlot>(existingSlot(AUTOSAVE_SLOT));
 const newSlotName = ref("");
@@ -78,7 +80,7 @@ function onSlot(value: unknown) {
 
 const coreItems = computed(() => [
   { value: "", title: t("play.any-core") },
-  ...props.cores.map((value) => ({ value, title: value })),
+  ...props.cores.map((value) => ({ value, title: emulatorLabel(value) })),
 ]);
 
 watch(

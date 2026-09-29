@@ -13,7 +13,7 @@ router = APIRouter(
     tags=["logs"],
 )
 
-# Largest backfill the buffer holds — derived from the producer's ring buffer
+# Largest backfill the buffer holds, derived from the producer's ring buffer
 # so the two never drift.
 MAX_LOG_LIMIT = LOG_BUFFER_SIZE
 

@@ -16,6 +16,10 @@ type ComposedStory = {
   parameters?: { a11y?: A11yParameters };
 };
 
+// axe over a full composite takes about a second locally and several times
+// that on a shared CI runner, past Vitest's 5s default.
+const STORY_TIMEOUT_MS = 20_000;
+
 // color-contrast needs real layout, which happy-dom lacks; disable it here
 // (covered by the a11y panel / a future browser-mode run).
 const DEFAULT_AXE_OPTIONS: axe.RunOptions = {
@@ -65,8 +69,10 @@ async function checkA11y(
 }
 
 const storyModules = import.meta.glob<StoryModule>(
-  "../src/v2/lib/**/*.stories.ts",
-  { eager: true },
+  "../src/v2/**/*.stories.ts",
+  {
+    eager: true,
+  },
 );
 
 for (const [path, module] of Object.entries(storyModules)) {
@@ -74,27 +80,31 @@ for (const [path, module] of Object.entries(storyModules)) {
   describe(path.replace(/^\.\.\//, ""), () => {
     for (const [name, story] of Object.entries(composed)) {
       const s = story as ComposedStory;
-      it(name, async () => {
-        if (typeof s.run !== "function") {
-          throw new Error(
-            `Story "${name}" has no run() helper — composeStories incompatible.`,
-          );
-        }
-        // Render into an owned canvas so axe scans exactly this story's
-        // subtree, then clean it up so stories stay isolated.
-        const canvasElement = document.createElement("div");
-        document.body.appendChild(canvasElement);
-        try {
-          await s.run({ canvasElement });
-          await checkA11y(
-            canvasElement,
-            s.parameters?.a11y ?? {},
-            `${path.replace(/^\.\.\//, "")} > ${name}`,
-          );
-        } finally {
-          canvasElement.remove();
-        }
-      });
+      it(
+        name,
+        async () => {
+          if (typeof s.run !== "function") {
+            throw new Error(
+              `Story "${name}" has no run() helper — composeStories incompatible.`,
+            );
+          }
+          // Render into an owned canvas so axe scans exactly this story's
+          // subtree, then clean it up so stories stay isolated.
+          const canvasElement = document.createElement("div");
+          document.body.appendChild(canvasElement);
+          try {
+            await s.run({ canvasElement });
+            await checkA11y(
+              canvasElement,
+              s.parameters?.a11y ?? {},
+              `${path.replace(/^\.\.\//, "")} > ${name}`,
+            );
+          } finally {
+            canvasElement.remove();
+          }
+        },
+        STORY_TIMEOUT_MS,
+      );
     }
   });
 }

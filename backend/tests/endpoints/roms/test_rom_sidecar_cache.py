@@ -25,7 +25,7 @@ These tests pin the split gate:
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi import status
@@ -103,14 +103,14 @@ def _seed_rom_id_index(cache_key: str, ids: list[int]) -> str:
     return redis_key
 
 
-def _get_roms(client: TestClient, access_token: str, **params: Any) -> dict:
+def _get_roms(client: TestClient, access_token: str, **params: Any) -> dict[str, Any]:
     response = client.get(
         "/api/roms",
         headers={"Authorization": f"Bearer {access_token}"},
         params=params,
     )
     assert response.status_code == status.HTTP_200_OK
-    return response.json()
+    return cast(dict[str, Any], response.json())
 
 
 def test_row_filter_reads_unscoped_filter_values_cache(

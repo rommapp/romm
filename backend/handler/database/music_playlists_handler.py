@@ -1,11 +1,12 @@
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack
 
 from .base_handler import DBBaseHandler, affected_rows
@@ -16,7 +17,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def add_playlist(
         self,
         playlist: MusicPlaylist,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> MusicPlaylist:
         playlist = session.merge(playlist)
         session.flush()
@@ -29,7 +30,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def get_playlist(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> MusicPlaylist | None:
         return session.scalar(select(MusicPlaylist).filter_by(id=id).limit(1))
 
@@ -38,7 +39,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
         self,
         name: str,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> MusicPlaylist | None:
         return session.scalar(
             select(MusicPlaylist).filter_by(name=name, user_id=user_id).limit(1)
@@ -48,7 +49,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def get_playlists(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[MusicPlaylist]:
         """The user's own playlists plus other users' public ones."""
         return (
@@ -70,8 +71,8 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def update_playlist(
         self,
         id: int,
-        data: dict,
-        session: Session = None,  # type: ignore
+        data: dict[str, Any],
+        session: Session = INJECTED_SESSION,
     ) -> MusicPlaylist:
         session.execute(
             update(MusicPlaylist)
@@ -86,7 +87,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def delete_playlist(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             delete(MusicPlaylist)
@@ -98,7 +99,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def get_playlist_track_counts(
         self,
         playlist_ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> dict[int, int]:
         """Stored entry counts per playlist, before any visibility filtering."""
         if not playlist_ids:
@@ -114,7 +115,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
     def get_playlist_entries(
         self,
         playlist_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[MusicPlaylistTrack]:
         return session.scalars(
             select(MusicPlaylistTrack)
@@ -127,7 +128,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
         self,
         playlist_id: int,
         rom_file_ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> int:
         candidates = list(dict.fromkeys(rom_file_ids))
         if not candidates:
@@ -175,7 +176,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
         self,
         playlist_id: int,
         rom_file_ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> int:
         if not rom_file_ids:
             return 0
@@ -194,7 +195,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
         self,
         playlist_id: int,
         ordered_entry_ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
         """Rewrite positions to match ordered_entry_ids; entries not listed keep
         their relative order after the listed ones."""
@@ -217,7 +218,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_file_ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> int:
         candidates = list(dict.fromkeys(rom_file_ids))
         if not candidates:
@@ -252,7 +253,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_file_ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> int:
         if not rom_file_ids:
             return 0

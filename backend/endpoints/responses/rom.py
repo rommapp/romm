@@ -180,6 +180,7 @@ def rom_user_schema_factory() -> RomUserSchema:
         difficulty=0,
         completion=0,
         status=None,
+        pinned_media=None,
     )
 
 
@@ -200,6 +201,7 @@ class RomUserSchema(BaseModel):
     difficulty: int
     completion: int
     status: RomUserStatus | None
+    pinned_media: list[str] | None
 
     @classmethod
     def for_user(cls, user_id: int, db_rom: Rom) -> RomUserSchema:
@@ -490,7 +492,7 @@ class SiblingRomSchema(BaseModel):
     fs_name_no_ext: str
     is_main_sibling: bool
 
-    @computed_field  # type: ignore
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def sort_comparator(self) -> str:
         return (

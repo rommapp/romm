@@ -59,6 +59,14 @@ const defaultHeartbeat: Heartbeat = {
     PROVIDER: "",
     RP_INITIATED_LOGOUT: false,
   },
+  NOTIFICATIONS: {
+    EMAIL_ENABLED: false,
+    EMAILS_RESET_LINKS: false,
+  },
+  DEVICE_INSTALL: {
+    ENABLED: false,
+    EXCLUDED_PLATFORM_SLUGS: [],
+  },
   TASKS: {
     ENABLE_SCHEDULED_RESCAN: false,
     SCHEDULED_RESCAN_CRON: "",

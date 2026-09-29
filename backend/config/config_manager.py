@@ -5,16 +5,17 @@ import glob
 import json
 import os
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, Self, TextIO, TypedDict
 
 import pydash
 import yaml
 from sqlalchemy import URL
 from yaml.loader import SafeLoader
 
-from adapters.services.rom_converto import TARGETS_BY_PLATFORM
+from adapters.services.rom_converto import normalize_platform_formats
 from config import (
     DB_HOST,
     DB_NAME,
@@ -407,7 +408,19 @@ class ConvertoConfig:
     download_conversion_enabled: bool = False
     scan_metadata: bool = True
     cache_ttl_hours: int = 24
+    # 0 leaves the cache unbounded.
+    cache_max_size_gb: int = 20
+    # Largest file a download waits on while it converts; 0 never waits.
+    max_sync_size_mb: int = 512
     platform_formats: dict[str, str] = dataclasses.field(default_factory=dict)
+
+
+# The smallest value each integer converto.* setting accepts.
+CONVERTO_INT_MINIMUMS: Final[dict[str, int]] = {
+    "cache_ttl_hours": 1,
+    "cache_max_size_gb": 0,
+    "max_sync_size_mb": 0,
+}
 
 
 class EjsControls(TypedDict):
@@ -433,6 +446,11 @@ class StreamingPlatformOverride(TypedDict):
     label: NotRequired[str]
     memory_card_sync: NotRequired[bool]
     clears_stale_saves: NotRequired[bool]
+    # RetroArch only: the libretro core to boot instead of the broker's
+    # default, e.g. "bsnes". Shorthand: `snes: retroarch:bsnes`.
+    core: NotRequired[str]
+    # Lets a core the broker lists as known broken run anyway.
+    experimental_cores: NotRequired[bool]
 
 
 class StreamingContainer(TypedDict):
@@ -458,6 +476,12 @@ class StreamingContainer(TypedDict):
     # Whether this broker empties the save tree before restoring an archive,
     # which is what lets the launch screen offer a save other than the newest.
     clears_stale_saves: NotRequired[bool]
+    # A single-platform entry's RetroArch core. Beside `platforms` it is
+    # ignored: set it on the platform instead.
+    core: NotRequired[str]
+    # Default for every platform this container serves; a platform block's
+    # own value wins.
+    experimental_cores: NotRequired[bool]
     # Broker dialect. Omitted (or "broker") is the per-emulator mod contract;
     # "webstation" is the LSIO webstation container's activate/exit contract.
     protocol: NotRequired[str]
@@ -506,7 +530,7 @@ class Config:
     STREAMING_CONTAINERS: list[StreamingContainer]
     CONVERTO: ConvertoConfig
 
-    def __init__(self, **entries):
+    def __init__(self, **entries: Any) -> None:
         self.__dict__.update(entries)
 
     def _raw_template(self, key: str, fallback: str) -> str:
@@ -561,19 +585,19 @@ class ConfigManager:
     """
 
     _self = None
-    _raw_config: dict = {}
+    _raw_config: dict[str, Any] = {}
     _config_file_mounted: bool = False
     _config_file_writable: bool = False
     _config_file_parse_error: str | None = None
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
         if cls._self is None:
             cls._self = super().__new__(cls, *args, **kwargs)
 
         return cls._self
 
     # Tests require custom config path
-    def __init__(self, config_file: str = ROMM_USER_CONFIG_FILE):
+    def __init__(self, config_file: str = ROMM_USER_CONFIG_FILE) -> None:
         self.config_file = config_file
 
         try:
@@ -595,7 +619,7 @@ class ConfigManager:
             self._parse_config()
             self._validate_config()
 
-    def _safe_load_yaml(self, cf) -> dict:
+    def _safe_load_yaml(self, cf: TextIO) -> dict[str, Any]:
         """Load YAML, falling back to an empty config on syntax errors so the
         app can still boot with defaults rather than crashing."""
         try:
@@ -678,7 +702,7 @@ class ConfigManager:
             query=query,
         )
 
-    def _parse_config(self):
+    def _parse_config(self) -> None:
         """Parses each entry in the config.yml"""
 
         self.config = Config(
@@ -878,18 +902,14 @@ class ConfigManager:
                 self._raw_config, "streaming.containers", []
             ),
             CONVERTO=ConvertoConfig(
-                download_conversion_enabled=pydash.get(
-                    self._raw_config, "converto.download_conversion_enabled", False
-                ),
-                scan_metadata=pydash.get(
-                    self._raw_config, "converto.scan_metadata", True
-                ),
-                cache_ttl_hours=pydash.get(
-                    self._raw_config, "converto.cache_ttl_hours", 24
-                ),
-                platform_formats=pydash.get(
-                    self._raw_config, "converto.platform_formats", {}
-                ),
+                **{
+                    field.name: pydash.get(
+                        self._raw_config,
+                        f"converto.{field.name}",
+                        getattr(ConvertoConfig(), field.name),
+                    )
+                    for field in dataclasses.fields(ConvertoConfig)
+                }
             ),
             STRUCTURE_TEMPLATES=pydash.get(
                 self._raw_config, "filesystem.structure", {}
@@ -963,7 +983,7 @@ class ConfigManager:
 
         Ignoring one would relocate the library under the user.
         """
-        retired = {
+        retired: dict[str, tuple[str, Callable[[str], str]]] = {
             "filesystem.roms_folder": (
                 STRUCTURE_DEFAULT_KEY,
                 lambda folder: f"{folder}/{{platform}}/{{game}}",
@@ -1013,7 +1033,7 @@ class ConfigManager:
         )
         sys.exit(3)
 
-    def _validate_config(self):
+    def _validate_config(self) -> None:
         """Validates the config.yml file"""
         self._check_retired_filesystem_keys()
 
@@ -1337,40 +1357,23 @@ class ConfigManager:
             log.critical("Invalid config.yml: converto.scan_metadata must be a boolean")
             sys.exit(3)
 
-        if (
-            not isinstance(self.config.CONVERTO.cache_ttl_hours, int)
-            or self.config.CONVERTO.cache_ttl_hours < 1
-        ):
-            log.critical(
-                "Invalid config.yml: converto.cache_ttl_hours must be an integer >= 1"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.CONVERTO.platform_formats, dict):
-            log.critical(
-                "Invalid config.yml: converto.platform_formats must be a dictionary"
-            )
-            sys.exit(3)
-
-        self.config.CONVERTO.platform_formats = {
-            str(slug).lower(): str(target).lower()
-            for slug, target in self.config.CONVERTO.platform_formats.items()
-        }
-        for slug, target in self.config.CONVERTO.platform_formats.items():
-            targets = TARGETS_BY_PLATFORM.get(slug)
-            if targets is None:
+        for key, minimum in CONVERTO_INT_MINIMUMS.items():
+            value = getattr(self.config.CONVERTO, key)
+            if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
                 log.critical(
-                    f"Invalid config.yml: converto.platform_formats.{slug}: "
-                    f"rom-converto has no conversions for this platform. "
-                    f"Supported: {sorted(TARGETS_BY_PLATFORM)}."
+                    f"Invalid config.yml: converto.{key} must be an integer >= {minimum}"
                 )
                 sys.exit(3)
-            if target not in targets:
-                log.critical(
-                    f"Invalid config.yml: converto.platform_formats.{slug} has an "
-                    f"invalid target {target!r}. Valid options: {sorted(targets)}."
+
+        try:
+            self.config.CONVERTO.platform_formats = normalize_platform_formats(
+                self._validated_platform_map(
+                    self.config.CONVERTO.platform_formats, "converto.platform_formats"
                 )
-                sys.exit(3)
+            )
+        except ValueError as exc:
+            log.critical(f"Invalid config.yml: converto.platform_formats: {exc}")
+            sys.exit(3)
 
     def get_config(self) -> Config:
         try:
@@ -1457,12 +1460,7 @@ class ConfigManager:
                     "export": self.config.PEGASUS_AUTO_EXPORT_ON_SCAN,
                 },
             },
-            "converto": {
-                "download_conversion_enabled": self.config.CONVERTO.download_conversion_enabled,
-                "scan_metadata": self.config.CONVERTO.scan_metadata,
-                "cache_ttl_hours": self.config.CONVERTO.cache_ttl_hours,
-                "platform_formats": self.config.CONVERTO.platform_formats,
-            },
+            "converto": dataclasses.asdict(self.config.CONVERTO),
         }
 
         # The streaming section isn't editable at runtime, but it must survive
@@ -1532,7 +1530,9 @@ class ConfigManager:
         self.config.PLATFORMS_VERSIONS = platform_versions
         self._update_config_file()
 
-    def add_exclusion(self, exclusion_type: ExclusionType, exclusion_value: str):
+    def add_exclusion(
+        self, exclusion_type: ExclusionType, exclusion_value: str
+    ) -> None:
         config_item = self.config.__getattribute__(exclusion_type)
         if exclusion_value in config_item:
             log.warning(
@@ -1544,7 +1544,9 @@ class ConfigManager:
         self.config.__setattr__(exclusion_type, config_item)
         self._update_config_file()
 
-    def remove_exclusion(self, exclusion_type: ExclusionType, exclusion_value: str):
+    def remove_exclusion(
+        self, exclusion_type: ExclusionType, exclusion_value: str
+    ) -> None:
         config_item = self.config.__getattribute__(exclusion_type)
 
         try:
@@ -1593,21 +1595,9 @@ class ConfigManager:
         self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
         self._update_config_file()
 
-    def update_converto_settings(
-        self,
-        *,
-        download_conversion_enabled: bool,
-        scan_metadata: bool,
-        cache_ttl_hours: int,
-        platform_formats: dict[str, str],
-    ) -> None:
+    def update_converto_settings(self, converto: ConvertoConfig) -> None:
         """Replace the whole converto.* section and persist it to config.yml."""
-        self.config.CONVERTO = ConvertoConfig(
-            download_conversion_enabled=download_conversion_enabled,
-            scan_metadata=scan_metadata,
-            cache_ttl_hours=cache_ttl_hours,
-            platform_formats=platform_formats,
-        )
+        self.config.CONVERTO = converto
         self._update_config_file()
 
 

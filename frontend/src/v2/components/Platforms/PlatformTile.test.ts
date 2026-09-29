@@ -13,8 +13,8 @@ vi.mock("vue-router", async (importOriginal) => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-vi.mock("@v2/lib", () => ({
-  RPlatformIcon: defineComponent({ template: "<i />" }),
+vi.mock("@/v2/components/shared/PlatformIcon.vue", () => ({
+  default: defineComponent({ template: "<i />" }),
 }));
 
 vi.mock("@/v2/composables/usePlatformPlayable", () => ({

@@ -23,7 +23,7 @@
 //
 //      RTooltip wires the listeners onto `$el.parentElement` itself.
 //      Used inside primitives that already have their own root
-//      element (RPlatformIcon, MissingFSBadge, …).
+//      element (PlatformIcon, MissingFSBadge, …).
 //
 // Open / close motion mirrors the rest of the lib — a short fade +
 // subtle scale-up from 0.96, with reduced-motion stripping the scale.

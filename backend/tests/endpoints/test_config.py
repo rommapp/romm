@@ -1,5 +1,6 @@
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi import status
 
 from config.config_manager import (
@@ -7,6 +8,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_FILES,
     DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
     DEFAULT_EXCLUDED_PLATFORM_DIRS,
+    ConvertoConfig,
     ExclusionType,
 )
 from config.config_manager import config_manager as cm
@@ -261,3 +263,66 @@ def test_update_scan_settings_normalizes_codes(client, access_token: str):
     _, kwargs = update_scan_settings.call_args
     assert kwargs["region_priority"] == ["us", "eu"]
     assert kwargs["language_priority"] == ["en"]
+
+
+def _converto_payload(**overrides):
+    payload = {
+        "download_conversion_enabled": True,
+        "scan_metadata": True,
+        "cache_ttl_hours": 24,
+        "cache_max_size_gb": 20,
+        "max_sync_size_mb": 512,
+        "platform_formats": {"psp": "cso"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_update_converto_settings_normalizes_formats(client, access_token: str):
+    with patch.object(cm, "update_converto_settings") as update_converto_settings:
+        response = client.put(
+            "/api/config/converto_settings",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json=_converto_payload(platform_formats={" PSP ": "CSO"}),
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    update_converto_settings.assert_called_once_with(
+        ConvertoConfig(
+            download_conversion_enabled=True,
+            scan_metadata=True,
+            cache_ttl_hours=24,
+            cache_max_size_gb=20,
+            max_sync_size_mb=512,
+            platform_formats={"psp": "cso"},
+        )
+    )
+
+
+def test_update_converto_settings_requires_auth(client):
+    response = client.put("/api/config/converto_settings", json=_converto_payload())
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"platform_formats": {"psp": "rvz"}},
+        {"platform_formats": {"psvita": "iso"}},
+        {"cache_ttl_hours": 0},
+        {"cache_max_size_gb": -1},
+        {"max_sync_size_mb": -1},
+    ],
+)
+def test_update_converto_settings_rejects_invalid_values(
+    client, access_token: str, overrides
+):
+    with patch.object(cm, "update_converto_settings") as update_converto_settings:
+        response = client.put(
+            "/api/config/converto_settings",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json=_converto_payload(**overrides),
+        )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    update_converto_settings.assert_not_called()

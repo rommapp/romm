@@ -1,0 +1,31 @@
+import { mount } from "@vue/test-utils";
+import { describe, expect, it, vi } from "vitest";
+import CollectionTile from "./CollectionTile.vue";
+
+vi.mock("vue-i18n", () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}));
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+function tile(props: Record<string, unknown>) {
+  return mount(CollectionTile, {
+    props: { name: "Racers", to: "/collection/1", ...props },
+    global: {
+      stubs: {
+        RouterLink: { template: "<a><slot /></a>" },
+        CollectionMosaic: true,
+        PublicBadge: { template: "<span class='globe' />" },
+      },
+    },
+  });
+}
+
+describe("CollectionTile", () => {
+  it("carries the globe only while public", () => {
+    expect(tile({ isPublic: true }).find(".globe").exists()).toBe(true);
+    expect(tile({ isPublic: false }).find(".globe").exists()).toBe(false);
+  });
+});

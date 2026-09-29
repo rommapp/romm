@@ -22,11 +22,8 @@ from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
 from logger.logger import log
 from models.assets import MemoryCard
-from utils.memory_cards import (
-    MEMORY_CARD_MAX_BYTES,
-    content_hash_of_bytes,
-    store_memory_card_version,
-)
+from utils.memory_cards import MEMORY_CARD_MAX_BYTES, content_hash_of_bytes
+from utils.memory_cards import store_memory_card_version as store_memory_card_version
 
 
 def _empty_zip_bytes() -> bytes:

@@ -1,6 +1,6 @@
-// Singleton in-memory cache of platform icon SVGs as blob URLs.
+// Singleton in-memory cache of platform icons as blob URLs.
 //
-// Why: `/assets/platforms/*.svg` is served without explicit cache
+// Why: `/assets/platforms/*` is served without explicit cache
 // headers, so the browser revalidates / re-downloads on every
 // `<img>` mount. In tables and menus that render many platform icons,
 // this turns into a flood of network requests every time the surface
@@ -15,21 +15,22 @@
 // SSR / non-browser environments: `window` is guarded; `fetch` and
 // `URL.createObjectURL` are no-ops there.
 import { reactive } from "vue";
+import {
+  platformSlugKey,
+  shippedPlatformIconUrl,
+} from "@/v2/utils/platformIcons";
 
 const cache = reactive(new Map<string, string>());
 const inflight = new Set<string>();
 
 export function getCachedPlatformIcon(slug: string): string | undefined {
-  return cache.get(slug.toLowerCase());
+  return cache.get(platformSlugKey(slug));
 }
 
-/** Blob URL for one candidate, or null when it is missing or unreadable. */
-async function fetchCandidateUrl(
-  key: string,
-  ext: string,
-): Promise<string | null> {
+/** Blob URL for `url`, or null when it is missing or unreadable. */
+async function fetchBlobUrl(url: string): Promise<string | null> {
   try {
-    const res = await fetch(`/assets/platforms/${key}.${ext}`);
+    const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
     // The SPA fallback answers with 200 + HTML, which must not reach the
@@ -37,24 +38,18 @@ async function fetchCandidateUrl(
     if (!blob.type || !blob.type.startsWith("image/")) return null;
     return URL.createObjectURL(blob);
   } catch {
-    // A transport failure on one extension must not abandon the other.
     return null;
   }
 }
 
 async function fetchOne(slug: string): Promise<void> {
-  const key = slug.toLowerCase();
-  if (cache.has(key) || inflight.has(key)) return;
+  const key = platformSlugKey(slug);
+  const url = shippedPlatformIconUrl(key);
+  if (!url || cache.has(key) || inflight.has(key)) return;
   inflight.add(key);
   try {
-    // Over half the catalogue ships `.ico` with no `.svg`, so both are tried.
-    for (const ext of ["svg", "ico"]) {
-      const url = await fetchCandidateUrl(key, ext);
-      if (url) {
-        cache.set(key, url);
-        return;
-      }
-    }
+    const blobUrl = await fetchBlobUrl(url);
+    if (blobUrl) cache.set(key, blobUrl);
   } finally {
     inflight.delete(key);
   }
@@ -62,12 +57,11 @@ async function fetchOne(slug: string): Promise<void> {
 
 /**
  * Drop a slug's cached entry. Called by CachedPlatformIcon when its
- * `<img>` reports a render error, so the next render falls through
- * to its own fallback chain (.ico → default.ico) instead of leaving
- * the broken-image glyph on screen.
+ * `<img>` reports a render error, so the next render falls back to the
+ * shipped URL instead of leaving the broken-image glyph on screen.
  */
 export function invalidatePlatformIcon(slug: string): void {
-  const key = slug.toLowerCase();
+  const key = platformSlugKey(slug);
   const url = cache.get(key);
   if (url) {
     URL.revokeObjectURL(url);

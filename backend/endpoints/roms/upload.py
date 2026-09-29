@@ -1,7 +1,7 @@
 import json
 import shutil
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, cast
 from uuid import UUID, uuid4
 
 from anyio import Path as AsyncPath
@@ -17,6 +17,7 @@ from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import db_platform_handler, db_rom_handler
@@ -35,6 +36,7 @@ from handler.rom_upload import (
     staging_path,
 )
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.rom import Rom, RomFile
 from utils.router import APIRouter
 
@@ -63,17 +65,17 @@ def _expected_chunk_size(total_size: int, total_chunks: int, chunk_index: int) -
     return total_size - (chunk_size * (total_chunks - 1))
 
 
-async def _get_session(upload_id: str) -> dict:
+async def _get_session(upload_id: str) -> dict[str, Any]:
     raw = await async_cache.get(_session_key(upload_id))
     if not raw:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Upload session not found or expired",
         )
-    return json.loads(raw)
+    return cast(dict[str, Any], json.loads(raw))
 
 
-async def _save_session(upload_id: str, session: dict) -> None:
+async def _save_session(upload_id: str, session: dict[str, Any]) -> None:
     await async_cache.set(
         _session_key(upload_id), json.dumps(session), ex=ROM_UPLOAD_TTL
     )
@@ -95,7 +97,7 @@ def _validate_upload_id(upload_id: str) -> None:
         ) from exc
 
 
-def _validate_session_owner(session: dict, user_id: int) -> None:
+def _validate_session_owner(session: dict[str, Any], user_id: int) -> None:
     if session["user_id"] != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -162,6 +164,27 @@ async def _commit(
         ) from exc
 
 
+def _upload_target(rom: Rom | None, platform_id: int) -> AuditTarget | None:
+    if rom is not None:
+        return AuditTarget.of_rom(rom)
+    # A platform folder upload has no rom until the next scan finds it.
+    platform = db_platform_handler.get_platform(platform_id)
+    return AuditTarget.of_platform(platform) if platform else None
+
+
+def _record_upload(request: Request, rom: Rom | None, session: dict[str, Any]) -> None:
+    record(
+        AuditAction.ROM_UPLOAD,
+        request,
+        lambda: _upload_target(rom, session["platform_id"]),
+        {
+            "file_name": session["filename"],
+            "size_bytes": session["total_size"],
+            "overwrite": session["overwrite"],
+        },
+    )
+
+
 async def receive_rom_file(
     request: Request, rom: Rom, folder: str, filename: str
 ) -> RomFile | None:
@@ -207,7 +230,9 @@ async def receive_rom_file(
     return await _commit(destination, staged, overwrite=True)
 
 
-async def _resolve_destination(request: Request, session: dict) -> UploadDestination:
+async def _resolve_destination(
+    request: Request, session: dict[str, Any]
+) -> UploadDestination:
     """Where a completed upload lands, with its directory created."""
     filename = session["filename"]
     rom_id = session.get("rom_id")
@@ -276,7 +301,7 @@ async def start_chunked_upload(
         Header(alias="x-upload-total-chunks", ge=0),
     ],
     target: UploadTargetPayload | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Initiate a chunked ROM upload session."""
 
     # Only an empty file takes no chunks, and it goes straight to /complete.
@@ -369,7 +394,7 @@ async def upload_chunk(
         int,
         Header(alias="x-chunk-index", ge=0),
     ],
-) -> dict:
+) -> dict[str, Any]:
     """Upload a single chunk of a ROM file."""
 
     _validate_upload_id(upload_id)
@@ -426,6 +451,8 @@ async def upload_chunk(
             chunk_path.unlink()
         if isinstance(exc, HTTPException):
             raise
+        # A cancel that removed the directory mid-write gets the session's 404.
+        await _get_session(upload_id)
         log.error(
             f"Error writing chunk {chunk_index} for upload {upload_id}", exc_info=exc
         )
@@ -434,17 +461,19 @@ async def upload_chunk(
             detail="Error writing chunk to disk",
         ) from exc
 
-    # Atomically add chunk to set and update TTL
-    await async_cache.sadd(_chunks_key(upload_id), chunk_index)
-    await async_cache.expire(_chunks_key(upload_id), ROM_UPLOAD_TTL)
-
-    # Get current chunk count
-    received_count = await async_cache.scard(_chunks_key(upload_id))
+    # One transaction, so a dropped connection cannot leave the set without its TTL.
+    async with async_cache.pipeline() as pipe:
+        await pipe.sadd(_chunks_key(upload_id), chunk_index)
+        await pipe.expire(_chunks_key(upload_id), ROM_UPLOAD_TTL)
+        await pipe.scard(_chunks_key(upload_id))
+        *_, received_count = await pipe.execute()
 
     return {"received": received_count, "total": session["total_chunks"]}
 
 
-async def _assemble_chunks(upload_id: str, session: dict, staged: Path) -> None:
+async def _assemble_chunks(
+    upload_id: str, session: dict[str, Any], staged: Path
+) -> None:
     """Concatenate the received chunks into the staged file, dropping it on
     any failure."""
     total_chunks = session["total_chunks"]
@@ -499,7 +528,6 @@ async def complete_chunked_upload(
 
     total_chunks = session["total_chunks"]
 
-    # Atomically get received chunk count and members from Redis set
     received_count = await async_cache.scard(_chunks_key(upload_id))
 
     if received_count != total_chunks:
@@ -527,6 +555,7 @@ async def complete_chunked_upload(
     finally:
         await _cleanup_upload_state(upload_id)
 
+    _record_upload(request, destination.rom, session)
     return Response(status_code=status.HTTP_201_CREATED)
 
 
@@ -552,7 +581,8 @@ async def cancel_chunked_upload(
     session = json.loads(raw)
     _validate_session_owner(session, request.user.id)
 
-    await async_cache.delete(_session_key(upload_id))
-    await _cleanup_upload_state(upload_id)
+    # The session goes first, so a chunk PUT arriving mid-cancel is refused.
+    await async_cache.delete(_session_key(upload_id), _chunks_key(upload_id))
+    _cleanup_tmp(upload_id)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

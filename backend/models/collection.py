@@ -162,7 +162,7 @@ class VirtualCollection(BaseModel):
         return base64.urlsafe_b64encode(data.encode()).decode()
 
     @classmethod
-    def from_id(cls, id_: str):
+    def from_id(cls, id_: str) -> tuple[str, str]:
         data = json.loads(base64.urlsafe_b64decode(id_).decode())
         return data["name"], data["type"]
 

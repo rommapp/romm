@@ -32,11 +32,13 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
+import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import {
   buildStateFormData,
   resolveScreenshot,
 } from "@/views/Player/EmulatorJS/utils";
 import {
+  bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
   invalidateEmulatorJSRomCacheIfRenamed,
 } from "@/views/Player/EmulatorJS/utils";
@@ -230,14 +232,9 @@ async function uploadState(
   screenshotFile: ArrayBuffer,
 ) {
   if (!romRef.value) return;
-  const filename = `${romRef.value.fs_name_no_ext.trim()} [${new Date()
-    .toISOString()
-    .replace(/[:.]/g, "-")
-    .replace("T", " ")
-    .replace("Z", "")}]`;
-
   try {
     const stateApi = await import("@/services/api/state");
+    const filename = stateApi.sessionStateName(romRef.value, new Date());
 
     const uploadedStates = await stateApi.default.uploadStates({
       rom: romRef.value,
@@ -450,6 +447,7 @@ async function boot() {
   window.EJS_gameUrl = getDownloadPath({
     rom: rom,
     fileIDs: validDiscId ? [validDiscId] : [],
+    purpose: "play",
   });
 
   // BIOS selection persistence
@@ -470,8 +468,10 @@ async function boot() {
     window.EJS_biosUrl = bios
       ? `/api/firmware/${bios.id}/content/${bios.file_name}`
       : "";
+    window.EJS_externalFiles = firmwareExternalFiles(core, firmware);
   } catch {
     window.EJS_biosUrl = "";
+    window.EJS_externalFiles = {};
   }
 
   window.EJS_player = "#game";
@@ -639,20 +639,8 @@ async function boot() {
           if (!resp.ok) throw new Error("Failed to fetch save");
           const buf = new Uint8Array(await resp.arrayBuffer());
           try {
-            const FS = gameManager.FS;
-            const path = gameManager.getSaveFilePath();
-            // Ensure dirs
-            const segs = path.split("/");
-            let accum = "";
-            for (let i = 0; i < segs.length - 1; i++) {
-              if (!segs[i]) continue;
-              accum += "/" + segs[i];
-              if (!FS.analyzePath(accum).exists) FS.mkdir(accum);
-            }
-            if (FS.analyzePath(path).exists) FS.unlink(path);
-            FS.writeFile(path, buf);
-            gameManager.loadSaveFiles?.();
-            console.info("[ConsolePlay] Loaded server save into path", path);
+            bootEmulatorJSSave(buf);
+            console.info("[ConsolePlay] Loaded server save");
           } catch (err) {
             console.warn("[ConsolePlay] Failed writing save file", err);
           }

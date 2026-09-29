@@ -1,21 +1,24 @@
 <script setup lang="ts">
 // NewCollectionRow — the "create collection" CTA row inside the
 // ManageCollectionsDialog. Collapsed: purple-tinted plus-tile + label.
-// Expanded: inline name input with Create / Cancel actions.
+// Expanded: inline name input and visibility switch with Create / Cancel
+// actions.
 //
-// Stateless — the parent owns `expanded`, `name`, and `creating`. The
-// outer row + tile are persistent across both states so the background
+// Stateless: the parent owns `expanded`, `name`, `isPublic` and `creating`.
+// The outer row + tile are persistent across both states so the background
 // tint and tile-active swap transition smoothly instead of remounting;
 // only the middle (label vs input) and the trailing actions toggle.
 import { RBtn, RIcon } from "@v2/lib";
 import { computed, nextTick, ref, useId, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 
 defineOptions({ inheritAttrs: false });
 
 interface Props {
   expanded: boolean;
   name: string;
+  isPublic: boolean;
   creating: boolean;
   // Tile diameter in px. Drives both the grid first-column width and the
   // plus-tile width so the prepended slot stays flush with the label
@@ -34,6 +37,7 @@ const rowStyle = computed(() => ({
 const emit = defineEmits<{
   (e: "update:expanded", value: boolean): void;
   (e: "update:name", value: string): void;
+  (e: "update:isPublic", value: boolean): void;
   (e: "create"): void;
   (e: "cancel"): void;
 }>();
@@ -112,6 +116,11 @@ function onInput(e: Event) {
         :aria-label="t('collection.create-collection')"
         @input="onInput"
         @keydown.esc.prevent="onCancel"
+      />
+      <VisibilitySwitch
+        :model-value="isPublic"
+        :disabled="creating"
+        @update:model-value="emit('update:isPublic', $event)"
       />
     </form>
 
@@ -215,6 +224,9 @@ function onInput(e: Event) {
 
 .new-row__form {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--r-space-1);
   min-width: 0;
 }
 

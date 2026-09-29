@@ -9,8 +9,15 @@ ANIMATED_FORMATS = frozenset({"GIF", "PNG", "WEBP"})
 # first frame, since re-encoding one holds every frame in memory.
 MAX_ANIMATION_PIXELS = 100_000_000
 
+# Largest image a logo trim decodes; real wheels are about half a million pixels.
+MAX_TRIM_PIXELS = 16_000_000
+
 # Largest loop count a WebP animation can store
 _MAX_WEBP_LOOP = 0xFFFF
+
+# What Pillow raises for an undecodable image: a broken PNG chunk is a
+# SyntaxError, and an oversized canvas is refused before any pixel is read.
+IMAGE_DECODE_ERRORS = (OSError, SyntaxError, ValueError, Image.DecompressionBombError)
 
 
 def is_animated(img: Image.Image) -> bool:
@@ -50,7 +57,7 @@ def frame_durations(
             if on_frame:
                 on_frame(frame)
             durations.append(frame.info.get("duration", 0))
-    except OSError, SyntaxError, ValueError, Image.DecompressionBombError:
+    except IMAGE_DECODE_ERRORS:
         return None
     finally:
         img.seek(0)

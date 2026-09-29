@@ -1,20 +1,36 @@
+import asyncio
 import base64
 import json
 import threading
 from datetime import timedelta
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
+import httpx2
 import pytest
+from authlib.integrations.base_client.errors import MismatchingStateError, OAuthError
 from fastapi import status
+from fastapi.testclient import TestClient
+from joserfc.errors import InvalidClaimError
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from endpoints import permissions as permissions_endpoints
+from endpoints import user as user_endpoints
+from handler.auth import auth_handler
 from handler.auth import base_handler as auth_handler_module
 from handler.auth import oauth_handler
+from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
+from handler.database import (
+    db_device_handler,
+    db_notification_handler,
+)
 from handler.database.users_handler import DBUsersHandler
-from handler.redis_handler import async_cache
+from handler.device_install import device_install_handler
+from handler.redis_handler import async_cache, redis_client
+from models.device import Device
+from models.notification import NotificationKind
 from models.user import Role, User
 
 
@@ -34,6 +50,25 @@ def test_login_logout(client, admin_user: User):
     response = client.post("/api/logout")
 
     assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.parametrize("known", [True, False])
+def test_forgot_password_answers_alike_and_sends_the_link_afterwards(
+    client, admin_user: User, known: bool
+):
+    with mock.patch.object(auth_handler, "send_password_reset_link") as send_link:
+        response = client.post(
+            "/api/forgot-password",
+            json={"username": admin_user.username if known else "nobody"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() is None
+    if known:
+        send_link.assert_called_once()
+        assert send_link.call_args.args[0].id == admin_user.id
+    else:
+        send_link.assert_not_called()
 
 
 def test_get_all_users(client, access_token: str):
@@ -198,6 +233,34 @@ def test_update_user(client, access_token: str, editor_user: User):
     assert user["role"] == "user"
 
 
+def test_role_change_notifies_the_user(
+    client, access_token: str, admin_user: User, editor_user: User
+):
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"role": "admin"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    [notification] = db_notification_handler.get_notifications(editor_user.id)
+    assert notification.kind == NotificationKind.ROLE_CHANGED
+    assert notification.actor_id == admin_user.id
+    assert notification.data == {"role": "admin"}
+
+
+def test_resubmitting_the_same_role_notifies_nobody(
+    client, access_token: str, editor_user: User
+):
+    client.put(
+        f"/api/users/{editor_user.id}",
+        data={"role": "user"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert db_notification_handler.get_notifications(editor_user.id) == []
+
+
 def test_update_user_rejects_non_image_avatar(
     client, access_token: str, editor_user: User
 ):
@@ -244,7 +307,7 @@ def _invite_token(client, access_token: str) -> str:
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == HTTPStatus.CREATED
-    return response.json()["token"]
+    return cast(str, response.json()["token"])
 
 
 def test_register_with_a_bad_token_does_not_disclose_existing_accounts(
@@ -316,7 +379,7 @@ def test_overlapping_registrations_spend_one_invite_once(client, access_token: s
     # Hold each request at the token check until the other arrives, so the only
     # thing that can keep the second out is the consume being one operation.
     rendezvous = threading.Barrier(2)
-    live_redis = auth_handler_module.redis_client
+    live_redis = redis_client
 
     class _RendezvousRedis:
         def get(self, key, *args, **kwargs):
@@ -328,7 +391,7 @@ def test_overlapping_registrations_spend_one_invite_once(client, access_token: s
         def __getattr__(self, name):
             return getattr(live_redis, name)
 
-    responses: list = []
+    responses: list[httpx2.Response] = []
 
     def register(index: int) -> None:
         responses.append(
@@ -404,6 +467,102 @@ def test_delete_user(client, access_token: str, editor_user: User):
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == HTTPStatus.OK
+
+
+def test_delete_user_closes_their_device_sockets(
+    mocker, client, access_token: str, editor_user: User, add_device_token
+):
+    token, _ = add_device_token(editor_user, None, scopes="devices.read")
+    close = mocker.patch.object(
+        user_endpoints, "close_client_token_sockets", mock.AsyncMock()
+    )
+
+    response = client.delete(
+        f"/api/users/{editor_user.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    close.assert_awaited_once_with([token.id])
+
+
+def test_delete_user_drops_their_install_requests(
+    client, access_token: str, editor_user: User
+):
+    db_device_handler.add_device(
+        Device(id="deleted-user-device", user_id=editor_user.id, name="Handheld")
+    )
+    install, _ = asyncio.run(
+        device_install_handler.create(
+            user_id=editor_user.id,
+            device_id="deleted-user-device",
+            rom_id=7,
+            file_ids=[1],
+        )
+    )
+
+    response = client.delete(
+        f"/api/users/{editor_user.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert asyncio.run(device_install_handler.get(install.id)) is None
+
+
+def test_disabling_a_user_closes_their_device_sockets(
+    mocker, client, access_token: str, editor_user: User, add_device_token
+):
+    token, _ = add_device_token(editor_user, None, scopes="devices.read")
+    close = mocker.patch.object(
+        user_endpoints, "close_client_token_sockets", mock.AsyncMock()
+    )
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"enabled": "false"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    close.assert_awaited_once_with([token.id])
+
+
+def test_changing_a_users_role_closes_their_device_sockets(
+    mocker, client, access_token: str, editor_user: User, add_device_token
+):
+    token, _ = add_device_token(editor_user, None, scopes="devices.read")
+    close = mocker.patch.object(
+        permissions_endpoints, "close_client_token_sockets", mock.AsyncMock()
+    )
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"role": "admin"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    close.assert_awaited_once_with([token.id])
+
+
+@pytest.mark.parametrize("form", [{"ra_username": "someone"}, {"enabled": "true"}])
+def test_other_user_edits_leave_their_device_sockets_open(
+    mocker, client, access_token: str, editor_user: User, form, add_device_token
+):
+    add_device_token(editor_user, None, scopes="devices.read")
+    close = mocker.patch.object(
+        user_endpoints, "close_client_token_sockets", mock.AsyncMock()
+    )
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data=form,
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    close.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -509,7 +668,7 @@ async def test_sessions_are_revoked_on_both_sides_of_the_write(
     real_update = DBUsersHandler.update_user
 
     def record_update(
-        self: DBUsersHandler, id: int, data: dict, *args: Any, **kwargs: Any
+        self: DBUsersHandler, id: int, data: dict[str, Any], *args: Any, **kwargs: Any
     ) -> User:
         # `set_last_active` writes on every authenticated request; only the
         # credential write is being ordered here.
@@ -668,6 +827,74 @@ async def test_logout_with_oidc_rp_initiated_logout(client, admin_user: User):
         assert "oidc_logout_url" in data
         assert data["oidc_logout_url"].startswith(end_session_url)
         assert f"id_token_hint={fake_id_token}" in data["oidc_logout_url"]
+
+
+def _rejected_oidc_callback(
+    client: TestClient,
+    error: Exception | None = None,
+    headers: dict[str, str] | None = None,
+) -> httpx2.Response:
+    fake_oauth = mock.MagicMock()
+    fake_oauth.openid.authorize_access_token = mock.AsyncMock(
+        side_effect=error or MismatchingStateError()
+    )
+    with (
+        mock.patch("endpoints.auth.OIDC_ENABLED", True),
+        mock.patch("endpoints.auth.oauth", fake_oauth),
+    ):
+        return client.get(
+            "/api/oauth/openid?code=new&state=spent",
+            headers=headers,
+            follow_redirects=False,
+        )
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        MismatchingStateError(),
+        OAuthError(error="access_denied"),
+        InvalidClaimError("nonce"),
+    ],
+    ids=["spent_state", "provider_error", "invalid_id_token"],
+)
+def test_oidc_callback_rejected_redirects_to_login(
+    client: TestClient, error: Exception
+):
+    response = _rejected_oidc_callback(client, error)
+
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
+    assert response.headers["location"] == "/login?bypass_autologin=true"
+
+
+def test_oidc_callback_rejected_in_kiosk_mode_redirects_to_login(
+    client: TestClient,
+):
+    with mock.patch("handler.auth.hybrid_auth.KIOSK_MODE", True):
+        response = _rejected_oidc_callback(client)
+
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
+    assert response.headers["location"] == "/login?bypass_autologin=true"
+
+
+def test_oidc_callback_with_spent_state_keeps_existing_session(
+    client: TestClient, admin_user: User
+):
+    basic_auth = base64.b64encode(b"test_admin:test_admin_password").decode("ascii")
+    response = client.post(
+        "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
+    )
+    session_cookie = response.cookies.get(SESSION_COOKIE_NAME)
+    assert session_cookie is not None
+    cookie_header = {"Cookie": f"{SESSION_COOKIE_NAME}={session_cookie}"}
+
+    response = _rejected_oidc_callback(client, headers=cookie_header)
+
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
+    assert response.headers["location"] == "/"
+    assert client.get("/api/users/me", headers=cookie_header).status_code == (
+        status.HTTP_200_OK
+    )
 
 
 def test_update_user_with_valid_ui_settings(

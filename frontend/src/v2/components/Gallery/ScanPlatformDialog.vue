@@ -14,7 +14,6 @@ import {
   RAvatar,
   RBtn,
   RDialog,
-  RPlatformIcon,
   RSelect,
   RSwitch,
   RTooltip,
@@ -22,6 +21,7 @@ import {
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -140,7 +140,7 @@ function onScan() {
              scan-launching surfaces read as siblings. -->
         <div class="r-v2-scan-plat__head">
           <div class="r-v2-scan-plat__icon">
-            <RPlatformIcon
+            <PlatformIcon
               :slug="platform.slug"
               :fs-slug="platform.fs_slug"
               :alt="platform.display_name"

@@ -14,11 +14,11 @@ import time
 import unicodedata
 import zipfile
 from collections.abc import Callable, Iterator
+from compression import zstd
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
 import redis
-import zstandard
 from defusedxml import ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -249,7 +249,9 @@ def plain(value: Any) -> bytes:
 
 
 def load(
-    client: redis.Redis, records: Iterator[Record], serialize: Callable[[Any], bytes]
+    client: redis.Redis,
+    records: Iterator[Record],
+    serialize: Callable[[Any], bytes],
 ) -> None:
     """Write every record into the store its key names."""
     pipe = client.pipeline(transaction=False)
@@ -315,7 +317,7 @@ def mb(value: float) -> str:
 def sweep_threshold(metadata_zip: Path, limit: int) -> int:
     """Print total stored bytes at each candidate COMPRESS_MIN_BYTES, on real
     records, and return an exit code."""
-    compressor = zstandard.ZstdCompressor(level=COMPRESSION_LEVEL)
+    compressor = zstd.ZstdCompressor(level=COMPRESSION_LEVEL)
     sample: list[bytes] = []
     for _, _, value in iter_launchbox(metadata_zip):
         # The threshold applies to the payload `encode` builds, not the wider
@@ -336,7 +338,9 @@ def sweep_threshold(metadata_zip: Path, limit: int) -> int:
         compressed = 0
         for payload in sample:
             if len(payload) >= threshold:
-                total += len(compressor.compress(payload))
+                total += len(
+                    compressor.compress(payload, zstd.ZstdCompressor.FLUSH_FRAME)
+                )
                 compressed += 1
             else:
                 total += len(payload)
@@ -353,7 +357,7 @@ def bench_decode(
     client: redis.Redis, key: str, rounds: int = 5
 ) -> tuple[float, float] | None:
     """Median `decode` latency, and mean stored size, on real stored records."""
-    fields = client.hrandfield(key, 2000)
+    fields = cast(list[bytes], client.hrandfield(key, 2000))
     if not fields:
         return None
     blobs = [b for b in client.hmget(key, fields) if b]

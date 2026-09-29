@@ -6,9 +6,10 @@ to 0 in an existing row, which renders as unset and sorts as unset.
 """
 
 from datetime import datetime, timezone
+from typing import Any
 
 import pytest
-from sqlalchemy.dialects import mysql
+from tests.sql_dialects import MARIADB_DIALECT, compile_sql
 
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
@@ -47,7 +48,7 @@ def _set_rom_user_fields(rom: Rom, user: User, fields: dict[str, object]) -> Non
 
 
 def _ordered_names(
-    user: User, order_by: str, order_dir: str, *, attr: str = "name", **kwargs: object
+    user: User, order_by: str, order_dir: str, *, attr: str = "name", **kwargs: Any
 ) -> list[str]:
     return [
         getattr(rom, attr)
@@ -72,9 +73,7 @@ class TestRomUserSortQueryShape:
 
     # The dialect matrix for the shared NULL-placement block lives in
     # test_roms_metadata_sort.py; this pins the rom_user branch's shape.
-    def test_zero_default_columns_fold_zero_into_the_null_bucket(
-        self, mariadb_driver: None
-    ):
+    def test_zero_default_columns_fold_zero_into_the_null_bucket(self):
         query, sort_key = db_rom_handler.get_roms_query(order_by="rating", user_id=1)
 
         # NULLIF turns the 0 default into a NULL sort key, so a touched but
@@ -82,7 +81,7 @@ class TestRomUserSortQueryShape:
         assert (
             "ORDER BY nullif(rom_user.rating, :nullif_1) IS NULL, "
             "nullif(rom_user.rating, :nullif_1) ASC"
-        ) in str(query)
+        ) in compile_sql(query, MARIADB_DIALECT)
         assert sort_key.column is RomUser.rating
 
     @pytest.mark.parametrize(
@@ -375,13 +374,13 @@ class TestGroupedRomUserSortQueryShape:
         )
 
     def _grouped_sql(self, order_by: str, order_dir: str = "desc") -> str:
-        return str(self._grouped_query(order_by, order_dir))
+        return compile_sql(self._grouped_query(order_by, order_dir), MARIADB_DIALECT)
 
     @pytest.mark.parametrize(
         ("order_dir", "aggregate"), [("desc", "max"), ("asc", "min")]
     )
     def test_group_key_aggregates_with_the_sort_direction(
-        self, mariadb_driver: None, order_dir: str, aggregate: str
+        self, order_dir: str, aggregate: str
     ):
         sql = self._grouped_sql("last_played", order_dir)
         direction = order_dir.upper()
@@ -402,7 +401,7 @@ class TestGroupedRomUserSortQueryShape:
     def test_group_key_join_stays_outer(self):
         # Compiled for MariaDB, where the null-safe <=> is what stops the
         # optimizer from converting the join to inner and re-planning.
-        sql = str(self._grouped_query("last_played").compile(dialect=mysql.dialect()))
+        sql = self._grouped_sql("last_played")
 
         assert "LEFT OUTER JOIN (SELECT" in sql
         assert "<=> roms.id" in sql
@@ -415,7 +414,7 @@ class TestGroupedRomUserSortQueryShape:
         ],
     )
     def test_lexical_and_enum_sorts_keep_the_representative_key(
-        self, mariadb_driver: None, order_by: str, order_clause: str
+        self, order_by: str, order_clause: str
     ):
         sql = self._grouped_sql(order_by)
 
@@ -424,3 +423,105 @@ class TestGroupedRomUserSortQueryShape:
         assert "group_sort_value" not in sql
         assert "IN (SELECT" in sql
         assert order_clause in sql
+
+
+class TestGroupedRepresentativeVisibility:
+    """A group's representative is picked among the siblings the user sees."""
+
+    def _names(self, user: User, platform: Platform, **kwargs: Any) -> list[str]:
+        return _ordered_names(
+            user,
+            "name",
+            "asc",
+            attr="fs_name_no_ext",
+            platform_ids=[platform.id],
+            group_by_meta_id=True,
+            **kwargs,
+        )
+
+    def test_hidden_representative_promotes_a_visible_sibling(
+        self, admin_user: User, platform: Platform
+    ):
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="USA", igdb_id=100),
+            admin_user,
+            {"hidden": True},
+        )
+        _make_rom(platform, "Sonic", region="Japan", igdb_id=100)
+
+        assert self._names(admin_user, platform) == ["Sonic (Japan)"]
+
+    def test_fully_hidden_group_stays_out(self, admin_user: User, platform: Platform):
+        for region in ("USA", "Japan"):
+            _set_rom_user_fields(
+                _make_rom(platform, "Sonic", region=region, igdb_id=100),
+                admin_user,
+                {"hidden": True},
+            )
+
+        assert self._names(admin_user, platform) == []
+
+    def test_hidden_status_view_shows_the_hidden_sibling(
+        self, admin_user: User, platform: Platform
+    ):
+        _make_rom(platform, "Sonic", region="USA", igdb_id=100)
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="Japan", igdb_id=100),
+            admin_user,
+            {"hidden": True},
+        )
+
+        assert self._names(admin_user, platform, statuses=["hidden"]) == [
+            "Sonic (Japan)"
+        ]
+
+    def test_status_match_on_a_non_primary_sibling_keeps_the_group(
+        self, admin_user: User, platform: Platform
+    ):
+        _make_rom(platform, "Sonic", region="USA", igdb_id=100)
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="Japan", igdb_id=100),
+            admin_user,
+            {"now_playing": True},
+        )
+
+        assert self._names(admin_user, platform, statuses=["now_playing"]) == [
+            "Sonic (Japan)"
+        ]
+
+    def test_non_matching_sibling_does_not_drive_the_group_sort(
+        self, admin_user: User, platform: Platform
+    ):
+        # Sonic's newest play belongs to the Japan sibling, which the status
+        # filter drops, so its group sorts by the matching USA play.
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="USA", igdb_id=100),
+            admin_user,
+            {
+                "now_playing": True,
+                "last_played": datetime(2020, 1, 1, tzinfo=timezone.utc),
+            },
+        )
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="Japan", igdb_id=100),
+            admin_user,
+            {"last_played": datetime(2026, 1, 1, tzinfo=timezone.utc)},
+        )
+        _set_rom_user_fields(
+            _make_rom(platform, "Tails", region="USA", igdb_id=200),
+            admin_user,
+            {
+                "now_playing": True,
+                "last_played": datetime(2024, 1, 1, tzinfo=timezone.utc),
+            },
+        )
+
+        assert _ordered_names(
+            admin_user,
+            "last_played",
+            "desc",
+            attr="fs_name_no_ext",
+            platform_ids=[platform.id],
+            group_by_meta_id=True,
+            statuses=["now_playing"],
+        ) == ["Tails (USA)", "Sonic (USA)"]

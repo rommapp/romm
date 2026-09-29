@@ -1,6 +1,7 @@
 """Startup script to run tasks before the main application is started."""
 
 import asyncio
+from typing import cast
 
 import sentry_sdk
 from opentelemetry import trace
@@ -12,6 +13,9 @@ from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     LAUNCHBOX_API_ENABLED,
     SENTRY_DSN,
+    SMTP_HOST,
+    SMTP_SECURITY,
+    SMTP_SECURITY_MODES,
 )
 from config.config_manager import config_manager as cm
 from handler.database import db_save_handler
@@ -138,7 +142,9 @@ def _drop_legacy_scheduler_state() -> None:
     try:
         legacy_job_ids = {
             as_text(job_id)
-            for job_id in redis_client.zrange(LEGACY_SCHEDULED_JOBS_KEY, 0, -1)
+            for job_id in cast(
+                list[bytes], redis_client.zrange(LEGACY_SCHEDULED_JOBS_KEY, 0, -1)
+            )
         }
 
         if legacy_job_ids:
@@ -172,6 +178,12 @@ async def main() -> None:
         log.info("Running startup tasks")
 
         cm.check_library_layout()
+
+        if SMTP_HOST and SMTP_SECURITY not in SMTP_SECURITY_MODES:
+            log.warning(
+                f"Email is off: SMTP_SECURITY is {SMTP_SECURITY!r}, not one of "
+                + ", ".join(SMTP_SECURITY_MODES)
+            )
 
         try:
             drop_stale_scheduled_scans()

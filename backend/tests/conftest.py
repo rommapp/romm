@@ -3,9 +3,11 @@ import functools
 import os
 import re
 import socket
+import uuid
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from unittest.mock import MagicMock
 
 import alembic.config
 import pytest
@@ -14,11 +16,14 @@ from joserfc import jwt
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
+from adapters.services import response_validation
 from config import ROMM_DB_DRIVER
 from config.config_manager import ConfigManager
 from handler.auth import auth_handler
-from handler.auth.base_handler import ALGORITHM, oct_key
+from handler.auth.base_handler import oct_key
+from handler.auth.constants import ALGORITHM
 from handler.database import (
+    db_client_token_handler,
     db_firmware_handler,
     db_memory_card_handler,
     db_permission_handler,
@@ -30,12 +35,18 @@ from handler.database import (
     db_user_handler,
 )
 from handler.database.base_handler import sync_engine
+from handler.metadata.base_handler import SENSITIVE_KEYS
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
+from models.audit_event import AuditEvent
 from models.client_token import ClientToken
 from models.container_adoption import StreamingContainerAdoption
+from models.deleted_asset import DeletedAsset
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.firmware import Firmware
+from models.notification import Notification
+from models.notification_channel import NotificationChannel
+from models.permission import SystemGroupKey
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
@@ -122,6 +133,21 @@ def _ensure_database_exists() -> None:
         admin_engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def raise_on_response_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(response_validation, "RAISE_ON_MISMATCH", True)
+
+
+@pytest.fixture
+def lenient(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Production mode: mismatches log to the returned mock instead of raising."""
+    log = MagicMock()
+    monkeypatch.setattr(response_validation, "RAISE_ON_MISMATCH", False)
+    monkeypatch.setattr(response_validation, "_reported", set())
+    monkeypatch.setattr(response_validation, "log", log)
+    return log
+
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     _ensure_database_exists()
@@ -131,6 +157,9 @@ def setup_database():
 @pytest.fixture(autouse=True)
 def clear_database():
     with session.begin() as s:
+        s.query(AuditEvent).delete(synchronize_session="evaluate")
+        s.query(Notification).delete(synchronize_session="evaluate")
+        s.query(NotificationChannel).delete(synchronize_session="evaluate")
         s.query(PlaySession).delete(synchronize_session="evaluate")
         s.query(ClientToken).delete(synchronize_session="evaluate")
         s.query(SyncSession).delete(synchronize_session="evaluate")
@@ -139,6 +168,7 @@ def clear_database():
         s.query(MemoryCardVersion).delete(synchronize_session="evaluate")
         s.query(MemoryCard).delete(synchronize_session="evaluate")
         s.query(StreamingContainerAdoption).delete(synchronize_session="evaluate")
+        s.query(DeletedAsset).delete(synchronize_session="evaluate")
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")
@@ -174,12 +204,36 @@ def executed_statements() -> Iterator[list[str]]:
         event.remove(sync_engine, "before_cursor_execute", before_execute)
 
 
+_VCR_REDACTED = "x" * 30
+
+# The lookbehind stops RetroAchievements' `y` key matching inside `display=`.
+_BODY_SECRET_RE = re.compile(
+    rf"(?<![A-Za-z_-])({'|'.join(re.escape(k) for k in SENSITIVE_KEYS)})=[^&\s\"\\]*".encode(),
+    re.IGNORECASE,
+)
+
+
+def _scrub_response_body(response: dict[str, Any]) -> dict[str, Any]:
+    """Mask credentials that providers echo back inside response bodies."""
+    body = response.get("body", {}).get("string")
+    if isinstance(body, str):
+        body = body.encode()
+    if body:
+        response["body"]["string"] = _BODY_SECRET_RE.sub(
+            rf"\1={_VCR_REDACTED}".encode(), body
+        )
+    return response
+
+
 @pytest.fixture(scope="module")
 def vcr_config():
     """Fixture to configure VCR.py settings."""
     return {
         # Default `match_on`, plus raw_body.
         "match_on": ["method", "scheme", "host", "port", "path", "query", "raw_body"],
+        "filter_headers": [(k, _VCR_REDACTED) for k in sorted(SENSITIVE_KEYS)],
+        "filter_query_parameters": [(k, _VCR_REDACTED) for k in sorted(SENSITIVE_KEYS)],
+        "before_record_response": _scrub_response_body,
     }
 
 
@@ -476,7 +530,7 @@ def admin_user():
 @pytest.fixture
 def editor_user():
     # role collapses to `user`; editor-level access now comes from the group.
-    group = db_permission_handler.get_group_by_name("Editor (legacy)")
+    group = db_permission_handler.get_system_group(SystemGroupKey.EDITOR)
     user = User(
         username="test_editor",
         hashed_password=_password_hash("test_editor_password"),
@@ -488,7 +542,7 @@ def editor_user():
 
 @pytest.fixture
 def viewer_user():
-    group = db_permission_handler.get_group_by_name("Viewer (legacy)")
+    group = db_permission_handler.get_system_group(SystemGroupKey.VIEWER)
     user = User(
         username="test_viewer",
         hashed_password=_password_hash("test_viewer_password"),
@@ -496,6 +550,36 @@ def viewer_user():
         permission_group_id=group.id if group else None,
     )
     return db_user_handler.add_user(user)
+
+
+@pytest.fixture
+def add_device_token():
+    """Factory for a client token, bound to ``device_id`` unless it is None.
+
+    Returns the stored token and the raw ``rmm_`` credential a client sends.
+    """
+
+    def _add(
+        user: User,
+        device_id: str | None,
+        *,
+        scopes: str = "devices.read devices.write roms.read",
+        expires_at: datetime | None = None,
+    ) -> tuple[ClientToken, str]:
+        raw_token = f"rmm_test_{uuid.uuid4().hex}"
+        token = db_client_token_handler.add_token(
+            ClientToken(
+                user_id=user.id,
+                name="Handheld",
+                hashed_token=auth_handler.hash_client_token(raw_token),
+                scopes=scopes,
+                expires_at=expires_at,
+                device_id=device_id,
+            )
+        )
+        return token, raw_token
+
+    return _add
 
 
 @pytest.fixture

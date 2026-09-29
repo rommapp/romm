@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// EmulatorJS — v2 shell around the v1 <Player> component. The emulator
+// EmulatorJS: v2 shell around the v1 <Player> component. The emulator
 // integration (EJS_* globals, loader fallback, save/state sync, firmware
 // resolution) is ported verbatim from `src/views/Player/EmulatorJS/Base.vue`
 // so behaviour stays identical; only the chrome is v2.
@@ -8,7 +8,7 @@
 // the in-browser one; a platform the shell alone can run opens this page with
 // the hero by itself, since nothing EmulatorJS owns applies to that launch.
 //
-// Layout — three columns:
+// Layout: three columns:
 //   1. Hero: cover + title + play CTAs + back links.
 //   2. Resume: tabs (Saves/States), big <AssetPreview> of the selected
 //      asset, and an <AssetStrip> below to swap between options inline.
@@ -126,7 +126,7 @@ import {
   type ResumeSelection,
 } from "./resumeSelection";
 
-// Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
+// Reuse v1's heavy emulator integration; do NOT rewrite this. Lazy so the
 // bundle doesn't pull in the EJS shims until we actually mount the player.
 const Player = defineAsyncComponent(
   () => import("@/views/Player/EmulatorJS/Player.vue"),
@@ -156,7 +156,16 @@ const isSavesTabSelected = ref(true);
 const selectedDisc = ref<DiscSelection>(null);
 const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
-const supportedCores = ref<string[]>([]);
+const supportedCores = computed<string[]>(() =>
+  rom.value
+    ? [
+        ...getSupportedEJSCores(
+          rom.value.platform_slug,
+          configStore.config.EJS_NETPLAY_ENABLED,
+        ),
+      ]
+    : [],
+);
 const gameRunning = ref(false);
 // Threaded cores need SharedArrayBuffer, so their launch may first have to
 // reload the view into a cross-origin isolated document.
@@ -244,7 +253,7 @@ const discItems = computed<{ title: string; value: DiscSelection }[]>(() => [
 // details). We keep a lightweight `useCoverArt` here only to know whether
 // the active style is alt-art, so the purple glow can be dropped for a
 // floating disc / cartridge / mix image. The launch flourish is triggered
-// imperatively on the GameCover via `coverRef` — see onPlay.
+// imperatively on the GameCover via `coverRef`, see onPlay.
 const art = useCoverArt(() => heroRom.value, { context: "player" });
 const heroIsAlt = computed(
   () =>
@@ -588,12 +597,6 @@ onMounted(async () => {
   firmwareOptions.value = firmwareResponse.data;
 
   const platformSlug = rom.value.platform_slug;
-  supportedCores.value = [
-    ...getSupportedEJSCores(
-      platformSlug,
-      configStore.config.EJS_NETPLAY_ENABLED,
-    ),
-  ];
 
   emitter?.on("saveSelected", selectSave);
   emitter?.on("stateSelected", selectState);
@@ -658,7 +661,7 @@ watch(gameRunning, (running, prev) => {
   if (prev && !running) endSession();
 });
 
-// Y toggles the saves/states tab — view-local binding wired through
+// Y toggles the saves/states tab, view-local binding wired through
 // the `gamepad:buttondown` window event dispatched by useGamepad.
 function onGamepadButton(e: CustomEvent<{ name?: string }>) {
   if (e.detail?.name !== "y") return;
@@ -1084,6 +1087,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         :save-slot="saveSlot"
         :load-state-label="t('rom.load-save-or-state')"
         :bios="selectedFirmware"
+        :firmware="firmwareOptions"
         :core="selectedCore"
         :disc="bootDiscId(selectedDisc)"
       />
@@ -1116,7 +1120,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
   padding: 32px var(--r-row-pad) 48px;
 }
 
-/* Pre-game layout — hero | resume | setup. The resume column owns
+/* Pre-game layout: hero | resume | setup. The resume column owns
    most of the visual weight because the user's primary question is
    "which save/state am I about to resume from?". */
 .r-v2-ejs__config {
@@ -1141,7 +1145,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
   margin: 0 auto;
 }
 
-/* Shared glass-panel skin — single visual vocabulary across panels. */
+/* Shared glass-panel skin: single visual vocabulary across panels. */
 .r-v2-ejs__panel {
   background: var(--r-color-bg-elevated) !important;
   border: 1px solid var(--r-color-border) !important;
@@ -1204,7 +1208,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
   z-index: -1;
   pointer-events: none;
 }
-/* Alt-art (disc / cartridge / 3D / mix) floats free — no frame, no glow.
+/* Alt-art (disc / cartridge / 3D / mix) floats free, no frame, no glow.
    The glow stays for the procedural placeholder (no cover), which keeps
    `heroIsAlt` false. */
 .r-v2-ejs__cover--alt-art .r-v2-ejs__cover-glow {

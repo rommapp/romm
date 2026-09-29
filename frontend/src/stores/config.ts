@@ -55,6 +55,8 @@ const defaultConfig = {
     download_conversion_enabled: false,
     scan_metadata: true,
     cache_ttl_hours: 24,
+    cache_max_size_gb: 20,
+    max_sync_size_mb: 512,
     platform_formats: {},
   },
   CONVERTO_TARGETS: {},

@@ -16,12 +16,10 @@ from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
-from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
+from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
-from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
-from endpoints.responses.rom import SimpleRomSchema
 from endpoints.sockets.activity import get_authenticated_user
 from exceptions.fs_exceptions import (
     FOLDER_STRUCT_MSG,
@@ -30,6 +28,7 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from exceptions.socket_exceptions import ScanStoppedException
+from handler.audit_handler import AuditActor, record
 from handler.auth.constants import Scope
 from handler.database import (
     db_collection_handler,
@@ -53,9 +52,11 @@ from handler.metadata.launchbox_handler.types import LAUNCHBOX_PLATFORMS_DIR
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
+from handler.notification_handler import notify_user_or_admins
 from handler.recommendation import top_up_similarity
 from handler.redis_handler import (
     cancel_job,
+    get_job_kwargs,
     get_job_status,
     redis_client,
     scan_queue,
@@ -66,6 +67,7 @@ from handler.scan_handler import (
     ScanType,
     build_hashless_fs_rom,
     download_rom_resources,
+    emit_scanning_rom,
     persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
@@ -81,10 +83,13 @@ from handler.socket_handler import socket_handler
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.firmware import Firmware
+from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
 from models.rom import Rom, RomFile
-from tasks.tasks import update_job_meta
+from models.user import User
+from tasks.tasks import TaskType, update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
@@ -126,7 +131,11 @@ def _scan_reported_itself(job: Job) -> bool:
 
 
 def report_scan_failure(
-    job: Job, connection: Redis, exc_type: type, exc_value: BaseException, tb: Any
+    job: Job,
+    connection: Redis,
+    exc_type: type,
+    exc_value: BaseException,
+    tb: Any,
 ) -> None:
     """Tell the clients a scan is over when the scan could not say so itself.
 
@@ -138,8 +147,20 @@ def report_scan_failure(
 
     reason = _SCAN_FAILURE_REASONS.get(exc_type, "it stopped unexpectedly")
     log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} is over: {reason}")
+    started_by_user_id = (get_job_kwargs(job) or {}).get("started_by_user_id")
+
+    async def report() -> None:
+        await _get_socket_manager().emit("scan:done_ko", reason)
+        await notify_scan_end(started_by_user_id, reason)
+
+    record(
+        AuditAction.SCAN_FINISH,
+        AuditActor.for_user_id(started_by_user_id),
+        data={"status": "failed", "error": reason},
+    )
+
     try:
-        asyncio.run(_get_socket_manager().emit("scan:done_ko", reason))
+        asyncio.run(report())
     except Exception:
         # RQ re-raises out of the registry sweep that calls this, which would
         # leave the failed scans in the registry and stop the worker.
@@ -183,7 +204,7 @@ class ScanStats:
     updated_roms: int = 0
     new_files: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # Lock for thread-safe updates
         self._lock = asyncio.Lock()
         self._unpublished = False
@@ -209,7 +230,9 @@ class ScanStats:
         update_job_meta({"scan_stats": stats})
         await socket_manager.emit("scan:update_stats", stats)
 
-    async def update(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
+    async def update(
+        self, socket_manager: socketio.AsyncRedisManager, **kwargs: int
+    ) -> None:
         async with self._lock:
             for key, value in kwargs.items():
                 if hasattr(self, key):
@@ -219,7 +242,9 @@ class ScanStats:
             # to report as they happen.
             await self._publish(socket_manager, force=True)
 
-    async def increment(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
+    async def increment(
+        self, socket_manager: socketio.AsyncRedisManager, **kwargs: int
+    ) -> None:
         async with self._lock:
             for key, value in kwargs.items():
                 if hasattr(self, key):
@@ -253,7 +278,35 @@ class ScanStats:
 
 def _get_socket_manager() -> socketio.AsyncRedisManager:
     """Connect to external socketio server"""
-    return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+    return socket_handler.write_manager()
+
+
+async def notify_scan_end(
+    started_by_user_id: int | None, outcome: ScanStats | str
+) -> None:
+    """Notify whoever started a scan of how it ended.
+
+    Args:
+        started_by_user_id: None for a scheduled or watcher scan, which notifies
+            the admins only when it failed or found something new.
+        outcome: The scan's stats, or why it failed.
+    """
+    if isinstance(outcome, str):
+        await notify_user_or_admins(
+            started_by_user_id,
+            NotificationKind.SCAN_FAILED,
+            NotificationLevel.ERROR,
+            {"error": outcome},
+            admins_too=True,
+        )
+    else:
+        await notify_user_or_admins(
+            started_by_user_id,
+            NotificationKind.SCAN_COMPLETED,
+            NotificationLevel.SUCCESS,
+            outcome.to_dict(),
+            admins_too=bool(outcome.new_roms or outcome.new_platforms),
+        )
 
 
 async def _identify_firmware(
@@ -307,28 +360,6 @@ async def _identify_firmware(
     db_firmware_handler.add_firmware(scanned_firmware)
 
     return 1 if not firmware else 0
-
-
-# `files` is left out so a scan does not ship every file row of every rom.
-SCANNING_ROM_EXCLUDE: Final = {
-    "created_at",
-    "updated_at",
-    "rom_user",
-    "last_modified",
-    "files",
-    "sibling_roms",
-}
-
-
-async def _emit_scanning_rom(
-    socket_manager: socketio.AsyncRedisManager, rom: Rom
-) -> None:
-    await socket_manager.emit(
-        "scan:scanning_rom",
-        SimpleRomSchema.from_orm_with_factory(rom).model_dump(
-            exclude=SCANNING_ROM_EXCLUDE
-        ),
-    )
 
 
 def should_scan_rom(
@@ -575,7 +606,7 @@ async def _identify_rom(
             )
             hydrated_rom = db_rom_handler.get_rom_simple(rom.id)
             if hydrated_rom is not None:
-                await _emit_scanning_rom(socket_manager, hydrated_rom)
+                await emit_scanning_rom(socket_manager, hydrated_rom, is_new=False)
         return
 
     # Update properties that don't require metadata
@@ -758,7 +789,7 @@ async def _identify_rom(
     scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:
-        await _emit_scanning_rom(socket_manager, _added_rom)
+        await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
 
     if should_update_files:
         # Reconcile against the existing rows instead of replacing them, so file
@@ -780,9 +811,14 @@ async def _identify_rom(
         previous_url_manual=rom.url_manual,
         previous_url_screenshots=rom.url_screenshots,
         metadata_sources=metadata_sources,
+        previous_media={
+            "ss_metadata": rom.ss_metadata,
+            "gamelist_metadata": rom.gamelist_metadata,
+            "launchbox_metadata": rom.launchbox_metadata,
+        },
     )
 
-    await _emit_scanning_rom(socket_manager, _added_rom)
+    await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
 
 
 async def _scan_selected_roms(
@@ -807,9 +843,11 @@ async def _scan_selected_roms(
         raise ScanStoppedException()
 
     # Gamelist matches are served from a per-platform cache, so it has to be
-    # warm before any of these ROMs is scanned.
+    # warm before any of these ROMs is scanned. Only their entries are read.
     if MetadataSource.GAMELIST in metadata_sources:
-        await meta_gamelist_handler.populate_cache(platform)
+        await meta_gamelist_handler.populate_cache(
+            platform, fs_names=[rom.fs_name for rom in roms]
+        )
 
     await scan_stats.increment(
         socket_manager=socket_manager,
@@ -1046,7 +1084,7 @@ async def _identify_platform(
             if hydrated_rom is None:
                 continue
 
-            await _emit_scanning_rom(socket_manager, hydrated_rom)
+            await emit_scanning_rom(socket_manager, hydrated_rom, is_new=False)
 
         # Process only ROMs that actually need scanning
         scan_tasks = [
@@ -1103,6 +1141,7 @@ async def scan_platforms(
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
     platform_fs_slugs: list[str] | None = None,
+    started_by_user_id: int | None = None,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -1112,6 +1151,8 @@ async def scan_platforms(
         scan_type (ScanType): Type of scan to be performed.
         roms_ids (list[int], optional): List of selected roms to be scanned.
         platform_fs_slugs (list[str], optional): Folders to scan with no database row.
+        started_by_user_id (int, optional): Who asked for the scan, None for a scan
+            the schedule or the filesystem watcher started.
     """
     # The flag is cleared by the scan that observes it, so one set against a
     # scan that ended first would otherwise stop this one before it began. A
@@ -1130,6 +1171,19 @@ async def scan_platforms(
     if not platform_fs_slugs:
         platform_fs_slugs = []
 
+    audit_actor = AuditActor.for_user_id(started_by_user_id)
+    record(
+        AuditAction.SCAN_START,
+        audit_actor,
+        data={
+            "type": scan_type.value,
+            "platform_ids": platform_ids,
+            "platform_fs_slugs": platform_fs_slugs,
+            "rom_ids": roms_ids,
+            "sources": metadata_sources,
+        },
+    )
+
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
 
@@ -1137,11 +1191,28 @@ async def scan_platforms(
     # which entries changed rather than how many.
     scanned_rom_ids: set[int] = set()
 
-    async def finish(event: str, payload: Any) -> None:
+    async def finish(event: str, payload: Any, *, stopped: bool = False) -> None:
         """End the scan, reporting whatever a coalesced increment held back."""
         update_job_meta({SCAN_REPORTED_META_KEY: True})
         await scan_stats.flush(socket_manager)
         await socket_manager.emit(event, payload)
+        failed = event == "scan:done_ko"
+        record(
+            AuditAction.SCAN_FINISH,
+            audit_actor,
+            data={
+                "status": "failed" if failed else "stopped" if stopped else "completed",
+                "error": payload if failed else None,
+                "rom_ids": roms_ids,
+                **scan_stats.to_dict(),
+            },
+        )
+        if event == "scan:done_ko":
+            await notify_scan_end(started_by_user_id, payload)
+        # A stop is the user's own doing, and a rescan of named roms answers a
+        # click whose result is already on screen.
+        elif not stopped and not roms_ids:
+            await notify_scan_end(started_by_user_id, scan_stats)
 
     # A ROM-id-scoped scan resolves its work from the database, so it neither
     # needs nor can afford the filesystem walk a library scan starts with.
@@ -1266,9 +1337,9 @@ async def scan_platforms(
         total_roms=total_roms,
     )
 
-    async def stop_scan():
+    async def stop_scan() -> None:
         log.info(f"{emoji.EMOJI_STOP_SIGN} Scan stopped manually")
-        await finish("scan:done", scan_stats.to_dict())
+        await finish("scan:done", scan_stats.to_dict(), stopped=True)
         redis_client.delete(STOP_SCAN_FLAG)
 
     try:
@@ -1411,8 +1482,8 @@ async def scan_platforms(
     return scan_stats
 
 
-async def reject_unauthorized_scan(sid: str) -> bool:
-    """Return ``True`` (and notify the caller) if the socket may not run scans.
+async def authorize_scan(sid: str) -> User | None:
+    """Return the socket's user if they may run scans, else tell the caller and return None.
 
     Scans are a privileged, destructive operation, so gate them on the same
     ``TASKS_RUN`` scope the REST task endpoints require, resolved from the
@@ -1420,7 +1491,7 @@ async def reject_unauthorized_scan(sid: str) -> bool:
     """
     user = await get_authenticated_user(sid)
     if user is not None and Scope.TASKS_RUN in user.oauth_scopes:
-        return False
+        return user
 
     log.warning(f"{emoji.EMOJI_STOP_SIGN} Unauthorized scan request rejected")
     await socket_handler.socket_server.emit(
@@ -1428,18 +1499,19 @@ async def reject_unauthorized_scan(sid: str) -> bool:
         "You are not authorized to run scans",
         to=sid,
     )
-    return True
+    return None
 
 
-@socket_handler.socket_server.on("scan")
-async def scan_handler(sid: str, options: dict[str, Any]):
+@socket_handler.on("scan")
+async def scan_handler(sid: str, options: dict[str, Any]) -> None:
     """Scan socket endpoint
 
     Args:
         options (dict): Socket options
     """
 
-    if await reject_unauthorized_scan(sid):
+    user = await authorize_scan(sid)
+    if user is None:
         return
 
     platform_ids = options.get("platforms", [])
@@ -1467,16 +1539,18 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
 
     if DEV_MODE:
-        return await scan_platforms(
+        await scan_platforms(
             platform_ids=platform_ids,
             metadata_sources=metadata_sources,
             scan_type=scan_type,
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
             platform_fs_slugs=platform_fs_slugs,
+            started_by_user_id=user.id,
         )
+        return
 
-    return scan_queue.enqueue(
+    scan_queue.enqueue(
         scan_platforms,
         # A scan of named roms resolves its work from the database and is done
         # in seconds, so it goes ahead of any library scan already waiting.
@@ -1488,17 +1562,19 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
         platform_fs_slugs=platform_fs_slugs,
+        started_by_user_id=user.id,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta=scan_job_meta(scan_type),
     )
 
 
-@socket_handler.socket_server.on("scan:stop")
-async def stop_scan_handler(sid: str):
+@socket_handler.on("scan:stop")
+async def stop_scan_handler(sid: str) -> None:
     """Stop scan socket endpoint"""
 
-    if await reject_unauthorized_scan(sid):
+    user = await authorize_scan(sid)
+    if user is None:
         return
 
     log.info(f"{emoji.EMOJI_STOP_BUTTON} Stop scan requested...")
@@ -1525,4 +1601,12 @@ async def stop_scan_handler(sid: str):
         f"{emoji.EMOJI_STOP_BUTTON} Stopping scan "
         f"({int(running_job is not None)} running, {len(queued_jobs)} queued, "
         f"{len(scheduled_jobs)} scheduled)"
+    )
+    record(
+        AuditAction.SCAN_STOP,
+        AuditActor.for_user(user),
+        data={
+            "running": running_job is not None,
+            "cancelled": len(queued_jobs) + len(scheduled_jobs),
+        },
     )

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Administration — v2-native page chrome for the admin-only sections.
+// Administration: v2-native page chrome for the admin-only sections.
 // Uses the shared `RTabNav` primitive (same one Library Management
 // uses) to expose Users / Groups / Tasks / Streaming as sibling tabs,
 // keeping the `?tab=` query param so deep links survive a reload.
@@ -13,6 +13,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import storeAuth from "@/stores/auth";
+import storePermissions from "@/stores/permissions";
 import CreateUserDialog from "@/v2/components/Settings/CreateUserDialog.vue";
 import EditUserDialog from "@/v2/components/Settings/EditUserDialog.vue";
 import GroupFormDialog from "@/v2/components/Settings/GroupFormDialog.vue";
@@ -22,11 +23,13 @@ import StreamingSection from "@/v2/components/Settings/StreamingSection.vue";
 import TasksSection from "@/v2/components/Settings/TasksSection.vue";
 import UsersSection from "@/v2/components/Settings/UsersSection.vue";
 import { useCan } from "@/v2/composables/useCan";
+import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
+const permissions = storePermissions();
 const isAdmin = useCan("app.admin");
 
 type Tab = "users" | "groups" | "tasks" | "streaming";
@@ -38,12 +41,7 @@ const tab = ref<Tab>(
     : "users",
 );
 
-watch(tab, (newTab) => {
-  router.replace({
-    path: route.path,
-    query: { ...route.query, tab: newTab },
-  });
-});
+watch(tab, (newTab) => syncQueryParam(router, "tab", newTab));
 
 watch(
   () => route.query.tab,
@@ -95,8 +93,9 @@ const tabs = computed<RTabNavItem[]>(() => {
 // admits `users.write` as well, and Streaming would otherwise deep-link them
 // to a panel whose every request 403s.
 watch(
-  tabs,
-  (items) => {
+  () => [tabs.value, permissions.hydrated] as const,
+  ([items, hydrated]) => {
+    if (!hydrated) return; // Admin-only tabs appear once permissions load.
     if (!items.some((item) => item.id === tab.value)) tab.value = "users";
   },
   { immediate: true },

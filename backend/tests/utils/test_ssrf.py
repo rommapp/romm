@@ -6,7 +6,7 @@ import socket
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-import httpcore
+import httpcore2
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
@@ -155,7 +155,7 @@ class TestSSRFProtectedAsyncBackend:
 
         monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", fake_getaddrinfo)
 
-        with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
+        with pytest.raises(httpcore2.ConnectError, match="forbidden IP"):
             await backend.connect_tcp("nat64.rebind.example.com", 80)
         inner.connect_tcp.assert_not_called()
 
@@ -169,7 +169,7 @@ class TestSSRFProtectedAsyncBackend:
 
         monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", fake_getaddrinfo)
 
-        with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
+        with pytest.raises(httpcore2.ConnectError, match="forbidden IP"):
             await backend.connect_tcp("127.0.0.1.nip.io", 80)
         inner.connect_tcp.assert_not_called()
 
@@ -183,14 +183,14 @@ class TestSSRFProtectedAsyncBackend:
 
         monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", fake_getaddrinfo)
 
-        with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
+        with pytest.raises(httpcore2.ConnectError, match="forbidden IP"):
             await backend.connect_tcp("mixed.example.com", 80)
         inner.connect_tcp.assert_not_called()
 
     async def test_literal_forbidden_ip_rejected(self):
         inner = _stub_async_inner([])
         backend = SSRFProtectedAsyncBackend(inner=inner)
-        with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
+        with pytest.raises(httpcore2.ConnectError, match="forbidden IP"):
             await backend.connect_tcp("169.254.169.254", 80)
         inner.connect_tcp.assert_not_called()
 
@@ -206,7 +206,7 @@ class TestSSRFProtectedAsyncBackend:
         """Hex/decimal IPv4 forms must be blocked, matching httpx's parsing."""
         inner = _stub_async_inner([])
         backend = SSRFProtectedAsyncBackend(inner=inner)
-        with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
+        with pytest.raises(httpcore2.ConnectError, match="forbidden IP"):
             await backend.connect_tcp("2130706433", 80)  # 127.0.0.1
         inner.connect_tcp.assert_not_called()
 
@@ -226,7 +226,7 @@ class TestSSRFProtectedAsyncBackend:
 
         monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", hang_forever)
 
-        with pytest.raises(httpcore.ConnectTimeout, match="DNS resolution timed out"):
+        with pytest.raises(httpcore2.ConnectTimeout, match="DNS resolution timed out"):
             await backend.connect_tcp("slow.example.com", 80, timeout=0.05)
         inner.connect_tcp.assert_not_called()
 
@@ -239,7 +239,7 @@ class TestSSRFProtectedAsyncBackend:
 
         monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", fake_getaddrinfo)
 
-        with pytest.raises(httpcore.ConnectError, match="DNS resolution failed"):
+        with pytest.raises(httpcore2.ConnectError, match="DNS resolution failed"):
             await backend.connect_tcp("nonexistent.invalid", 80)
         inner.connect_tcp.assert_not_called()
 
@@ -267,14 +267,14 @@ class TestSSRFProtectedSyncBackend:
             "getaddrinfo",
             lambda host, port, *a, **kw: _addr_info("127.0.0.1", port),
         )
-        with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
+        with pytest.raises(httpcore2.ConnectError, match="forbidden IP"):
             backend.connect_tcp("127.0.0.1.nip.io", 80)
         inner.connect_tcp.assert_not_called()
 
     def test_literal_forbidden_ip_rejected(self):
         inner = _stub_sync_inner([])
         backend = SSRFProtectedSyncBackend(inner=inner)
-        with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
+        with pytest.raises(httpcore2.ConnectError, match="forbidden IP"):
             backend.connect_tcp("10.0.0.1", 80)
         inner.connect_tcp.assert_not_called()
 
@@ -331,7 +331,7 @@ class TestInternalOriginAllowlist:
             inner=inner, allowlist=frozenset({("192.168.1.50", 8000)})
         )
 
-        with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
+        with pytest.raises(httpcore2.ConnectError, match="forbidden IP"):
             await backend.connect_tcp("192.168.1.50", 9999)
         inner.connect_tcp.assert_not_called()
 
@@ -439,14 +439,12 @@ class TestInstallation:
         proxy hop is the operator's responsibility; the destination URL
         is still validated by the request event hook on the client.
         """
-        import httpx
+        import httpx2
 
         from utils.ssrf import SSRFProtectedAsyncBackend as Async
-        from utils.ssrf import (
-            install_async_ssrf_protection,
-        )
+        from utils.ssrf import install_async_ssrf_protection
 
-        client = httpx.AsyncClient(proxy="http://proxy.invalid:3128")
+        client = httpx2.AsyncClient(proxy="http://proxy.invalid:3128")
         try:
             install_async_ssrf_protection(client)
             transport: Any = client._transport

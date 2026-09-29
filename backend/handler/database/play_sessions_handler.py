@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.play_session import PlaySession
 
 from .base_handler import DBBaseHandler, affected_rows
@@ -15,7 +15,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
     def add_sessions(
         self,
         play_sessions: list[PlaySession],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> list[PlaySession]:
         session.add_all(play_sessions)
         session.flush()
@@ -27,7 +27,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
         user_id: int,
         device_id: str | None,
         rom_start_pairs: list[tuple[int | None, datetime]],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> set[tuple[int | None, datetime]]:
         """Return which (rom_id, start_time) pairs already exist for this user+device."""
         if not rom_start_pairs:
@@ -75,7 +75,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
         end_before: datetime | None = None,
         limit: int | None = 50,
         offset: int = 0,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[PlaySession]:
         stmt = select(PlaySession).filter_by(user_id=user_id)
 
@@ -99,7 +99,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> int:
         result = session.scalar(
             select(func.sum(PlaySession.duration_ms)).where(
@@ -114,7 +114,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> bool:
         result = session.execute(
             delete(PlaySession)

@@ -1,6 +1,6 @@
 ---
 name: review-polish
-description: The before-review and before-handoff pass for RomM, covering both stacks. First shapes the code the checks can't see — comment and docstring discipline (the single most-corrected thing in this repo), duplicated constants/types/getters, imprecise names, loose typing in tests. Then runs the verification gate that keeps CI green — frontend (typecheck/lint/test/build/i18n/tokens), backend (pytest/alembic/trunk), the OpenAPI regen step, and (for UI) manual browser/theme/input/Storybook checks. Ends with what the PR description owes a reviewer: screenshots of a UI change, a mermaid diagram of an architectural one. Use after the code works, right before committing, opening a PR, or telling the user a change is done.
+description: "The before-review and before-handoff pass for RomM, covering both stacks. First shapes the code the checks can't see: comment and docstring discipline (the single most-corrected thing in this repo), duplicated constants/types/getters, imprecise names, loose typing in tests. Then runs the verification gate that keeps CI green: frontend (typecheck/lint/test/build/i18n/tokens), backend (pytest/alembic/trunk), the OpenAPI regen step, and (for UI) manual browser/theme/input/Storybook checks. Ends with what the PR description owes a reviewer: screenshots of a UI change, a mermaid diagram of an architectural one. Use after the code works, right before committing, opening a PR, or telling the user a change is done."
 ---
 
 # RomM: Review Polish & Verification
@@ -9,7 +9,7 @@ Two passes, in order, once the change works:
 
 1. **Polish (A–D):** shape the code the checks can't see. Derived from the
    corrections a maintainer actually pushed on top of 37 approved contributor
-   PRs — every rule below is something that got hand-fixed after review, so
+   PRs: every rule below is something that got hand-fixed after review, so
    applying it up front saves a round trip.
 2. **Verify (E):** run the checks that match what you touched, mirroring the CI
    gates so review isn't the first place a failure shows up. Polish comes
@@ -21,7 +21,7 @@ fmt && trunk check` comes last of all, so nothing lands unformatted. If
 
 ## A. Comments and docstrings: the most-corrected thing in this repo
 
-`CLAUDE.md` already says keep comments short, don't restate the code, don't
+`AGENTS.md` already says keep comments short, don't restate the code, don't
 explain a change. In practice contributions still ship multi-paragraph
 rationale, and it gets cut. Cut it yourself.
 
@@ -106,7 +106,7 @@ short a word.
 
 ## D. Tests: strict typing is part of the test
 
-Trunk runs mypy over `backend/tests/`, and `vue-tsc` covers frontend tests. Both
+mypy covers `backend/tests/`, and `vue-tsc` covers frontend tests. Both
 catch these, but only after the contributor has handed the PR over.
 
 - **Narrow optionals before attribute access.** `mock.await_args` is
@@ -124,10 +124,24 @@ catch these, but only after the contributor has handed the PR over.
 
 ---
 
+## Encode what you fixed twice
+
+If polish turned up a mechanical pattern (you fixed the same kind of thing
+twice), propose a check as a named follow-up instead of relying on the next
+reviewer. For the frontend, that is a stock rule in `eslint.config.js`, or
+`frontend/eslint-plugin-romm/rules/<name>.js` plus `<name>.test.ts`
+(`RuleTester`, valid and invalid cases), registered in the plugin's `index.js`
+and turned on in `eslint.config.js`. Test with `npx vitest run
+eslint-plugin-romm` and `npm run typecheck:scripts`. A plain text pattern across
+the repo can be a Trunk regex linter instead (a `definitions` entry in
+`.trunk/trunk.yaml`).
+
+---
+
 ## E. Verification before handoff
 
 Run the checks that match what you touched. **Static checks don't prove a
-feature works** — when UI changed, also test it in the browser. **Never
+feature works**; when UI changed, also test it in the browser. **Never
 `--no-verify`.**
 
 **Commit whatever `trunk fmt` rewrites.** A "run fmt" commit landing on top of a
@@ -144,8 +158,8 @@ Run from `frontend/`:
 
 1. `npm run typecheck`: zero errors (`vue-tsc --noEmit`).
 2. `npm run typecheck:scripts`: zero errors (`tsc -p tsconfig.node.json`, covers `scripts/`).
-3. `npm run lint` _(if present)_ / ESLint clean. Trunk also runs ESLint + Prettier in CI.
-4. `npm run test`: zero failures (Vitest + happy-dom; runs unit tests **and** every `/lib` story's `play()` via `composeStories`).
+3. `trunk check`: ESLint clean on the changed files.
+4. `npm run test`: zero failures (Vitest + happy-dom; runs unit tests **and** story `play()` functions via `composeStories`).
 5. `npm run build`: zero failures (CI sanity check).
 
 **If you touched the backend API:** start the backend, run `npm run generate`, then re-`typecheck`.
@@ -154,13 +168,13 @@ Run from `frontend/`:
 
 **If you touched locales** (`src/locales/**`): `python3 frontend/src/locales/check_i18n_locales.py` must pass with zero missing/extra keys. See the `frontend-i18n` skill.
 
-#### UI manual pass (when changes are visible) — v2
+#### UI manual pass (when changes are visible): v2
 
 With `uiVersion = "v2"`:
 
 - **Golden path + edge cases:** empty, error, loading, no-permission, extreme data; plus nearby regressions.
 - **Both themes:** `v2-dark` and `v2-light`.
-- **All four input modalities:** mouse, touch, keyboard, gamepad — focus ring only on `key`/`pad`.
+- **All four input modalities:** mouse, touch, keyboard, gamepad; focus ring only on `key`/`pad`.
 - **Responsive sweep:** 320px → 4K across the `useBreakpoint` tiers; overlays full-bleed on `xs`.
 - **Accessibility:** contrast, keyboard reachability with no traps, aria-labels on icon-only controls.
 - **Performance:** lists/grids of 1000+ items stay smooth; every `v-for` has a stable `:key`.
@@ -180,14 +194,15 @@ With `uiVersion = "v2"`:
 
 Run from `backend/`:
 
-1. `uv run pytest <path/file>` — zero failures on the tests affected by the diff. Never run the whole suite locally (20+ minutes); see [AGENTS.md](../../../AGENTS.md) for how to pick targets. CI runs it in full.
-2. `trunk fmt && trunk check` — ruff/black/isort/mypy/bandit clean (CI enforces Trunk).
-3. **If you added a migration:** `uv run alembic upgrade head` then `uv run alembic downgrade -1` to prove both directions; it must work on MariaDB **and** PostgreSQL (CI runs both).
-4. **If a response schema or route signature changed:** regenerate frontend types (`npm run generate`) and typecheck the frontend.
+1. `uv run pytest <path/file>`: zero failures on the tests affected by the diff. Never run the whole suite locally (20+ minutes); see [AGENTS.md](../../../AGENTS.md) for how to pick targets. CI runs it in full.
+2. `trunk fmt && trunk check`: ruff/black/isort/bandit clean (CI enforces Trunk).
+3. `uv run mypy --config-file ../.trunk/configs/mypy.ini .`: zero errors across the backend (CI enforces it).
+4. **If you added a migration:** `uv run alembic upgrade head` then `uv run alembic downgrade -1` to prove both directions; it must work on MariaDB **and** PostgreSQL (CI runs both).
+5. **If a response schema or route signature changed:** regenerate frontend types (`npm run generate`) and typecheck the frontend.
 
 ### CI gates this mirrors
 
-`typecheck.yml` (vue-tsc + lockfile lint), `frontend.yml` (vitest + build), `i18n.yml` (locale check), `pytest.yml` (pytest on MariaDB + PostgreSQL), `migrations.yml` (alembic on both DBs), `trunk-check.yml` (Trunk across the repo). Green locally → green in CI.
+`frontend.yml` (vitest, build, vue-tsc + lockfile lint), `api-types.yml` (generated API types match the backend schema), `i18n.yml` (locale check), `pytest.yml` (pytest on MariaDB + PostgreSQL), `migrations.yml` (alembic on both DBs), `mypy.yml` (mypy across the backend), `trunk-check.yml` (Trunk across the repo). Green locally → green in CI.
 
 ### Don't
 

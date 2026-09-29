@@ -5,7 +5,7 @@ for the effect and never for the route that produces it.
 """
 
 import urllib.error
-from typing import Any
+from typing import Any, NamedTuple
 
 from config import STREAMING_SAVE_TIMEOUT
 from handler.streaming import broker, webstation
@@ -50,14 +50,23 @@ def launch(
         )
 
 
+class SaveAndExitOutcome(NamedTuple):
+    """What a save-and-exit reports back to the route."""
+
+    saved: bool
+    slot: int
+    # The broker answered once the emulator was done writing its saves.
+    settled: bool
+
+
 def save_and_exit(
     container: ResolvedContainer, slot: int = 0, wait: bool = True
-) -> tuple[bool, int]:
+) -> SaveAndExitOutcome:
     """
     POST /save-and-exit to the broker. Best-effort, logs but never raises.
     With wait=True the call blocks until save+kill completes (use for button press).
     With wait=False the broker fires save+kill in the background (use for navigation away).
-    Returns (saved, slot). Brokers resolve slot 0 to their default autosave
+    Returns (saved, slot, settled). Brokers resolve slot 0 to their default autosave
     slot and echo the effective slot back, which the state sync needs to pull
     the right file afterwards.
     """
@@ -75,7 +84,7 @@ def save_and_exit(
         if report is not None and isinstance(report.get("state_slot"), int):
             effective_slot = report["state_slot"]
         log.info("broker exit, saved=%s slot=%d", saved, effective_slot)
-        return saved, effective_slot
+        return SaveAndExitOutcome(saved, effective_slot, settled=report is not None)
 
     body = broker.request_safe(
         container,
@@ -91,7 +100,8 @@ def save_and_exit(
     log.info(
         "broker save-and-exit, saved=%s slot=%d wait=%s", saved, effective_slot, wait
     )
-    return saved, effective_slot
+    # Only a confirmed save that blocked on the kill leaves nothing still writing.
+    return SaveAndExitOutcome(saved, effective_slot, settled=saved and wait)
 
 
 def set_volume(container: ResolvedContainer, level: int) -> bool:
@@ -169,10 +179,18 @@ def swap_disc(container: ResolvedContainer, disc_path: str) -> bool:
     return bool(body and body.get("status") == "ok")
 
 
-def stop(container: ResolvedContainer, save: bool = True) -> int | None:
+class StopOutcome(NamedTuple):
+    """What a stop leaves for the teardown to collect."""
+
+    state_slot: int | None = None
+    # The broker answered once the emulator was done writing its saves.
+    settled: bool = False
+
+
+def stop(container: ResolvedContainer, save: bool = True) -> StopOutcome:
     """Tell the broker to stop emulator. Best-effort, don't raise on failure.
 
-    Returns the slot a state was captured in, or None when none was. With
+    The outcome's slot is where a state was captured, if one was. With
     `save` off no state is written at all, which is what a player leaving
     without saving asked for; the game's own save data still travels either
     way, so progress made at an in-game save point survives the stop.
@@ -183,11 +201,14 @@ def stop(container: ResolvedContainer, save: bool = True) -> int | None:
     """
     if container.is_webstation:
         report = webstation.exit_session(container, slot=0, save=save)
-        if save and report and report.get("state_saved"):
-            slot = report.get("state_slot")
-            return slot if isinstance(slot, int) else None
-        return None
+        if report is None:
+            return StopOutcome()
+        slot = report.get("state_slot")
+        if save and report.get("state_saved") and isinstance(slot, int):
+            return StopOutcome(slot, settled=True)
+        return StopOutcome(settled=True)
+    # These brokers ack before the emulator has flushed its saves.
     broker.request_safe(
         container, "/launch", "stop", method="DELETE", timeout=ACK_TIMEOUT
     )
-    return None
+    return StopOutcome()

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// AppLayout — top-level v2 shell. Thin orchestrator: owns the background-art
+// AppLayout: top-level v2 shell. Thin orchestrator: owns the background-art
 // provider and mounts the visual chrome.
 //
-//   * BackgroundArt — two-layer blurred backdrop with cross-fade
-//   * AppNav        — logo · centred tab pill · user menu
-//   * GlobalDialogs — emitter-driven dialog + notification stack
+//   * BackgroundArt: two-layer blurred backdrop with cross-fade
+//   * AppNav: logo · centred tab pill · user menu
+//   * GlobalDialogs: emitter-driven dialog + notification stack
 //
 // Per-ROM action menus are not app-wide: each GameCard owns its own
 // `MoreMenu` dropdown on the three-dots button. Right-click is left to
@@ -19,6 +19,7 @@ import {
   watch,
 } from "vue";
 import { useRouter } from "vue-router";
+import socket from "@/services/socket";
 import storeCollections from "@/stores/collections";
 import { useNativeStore } from "@/stores/native";
 import storePlatforms from "@/stores/platforms";
@@ -39,23 +40,34 @@ import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { installNativeLaunchFeedback } from "@/v2/composables/useNativeLaunch";
+import { installNotificationInbox } from "@/v2/composables/useNotificationInbox";
 import { installOverlayRouteDismiss } from "@/v2/composables/useOverlayRouteDismiss";
 import { installPendingAssetSync } from "@/v2/composables/usePendingAssetSync";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
+import { useSpatialNav } from "@/v2/composables/useSpatialNav";
 import { installStageActiveClass } from "@/v2/composables/useStageActive";
+import { installSyncConflictToast } from "@/v2/composables/useSyncConflictToast";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
+import { installQueryNavigationGuard } from "@/v2/utils/routeQuery";
 
+// The server joins a socket to its user's rooms when it connects, so one left
+// open across a logout would still get the last user's pushes.
+if (socket.connected) socket.disconnect().connect();
 installPermissionsHydration();
 // Global scan socket → store wiring so `scanning` flips back to false on
 // `scan:done` / `scan:done_ko` and `scanStats` keeps ticking from any
 // route the user is on (navbar indicator + /scan view consume the same
 // store state).
 installScanLifecycle();
+// Save-sync conflicts reach the user from any route.
+installSyncConflictToast();
 // Saves and states a player could not hand over reach the server from any
 // route, so the next launch screen can offer them.
 installPendingAssetSync();
+// The navbar badge counts unread notifications on every route.
+installNotificationInbox();
 // Mirror useBreakpoint() refs onto <html data-bp="…"> so scoped styles
 // can branch on viewport via `html[data-bp~="xs"] .foo { … }` instead of
 // hardcoding `@media (max-width: …)` values across every SFC.
@@ -111,18 +123,24 @@ watch(
 // notice. Re-asked when the window comes back, which is when whatever did the
 // installing has just been in front. Throttled because alt-tabbing is cheap
 // and the shell answers this off the filesystem; a no-op outside the shell.
+// No trailing call: a refocus inside the window would queue a second forced
+// probe of every platform.
 const NATIVE_REPROBE_THROTTLE_MS = 10_000;
 useEventListener(
   window,
   "focus",
-  useThrottleFn(() => {
-    const slugs = platformsStore.allPlatforms.map((p) => p.slug);
-    if (slugs.length === 0) return;
-    void nativeStore.probe(slugs, { force: true });
-  }, NATIVE_REPROBE_THROTTLE_MS),
+  useThrottleFn(
+    () => {
+      const slugs = platformsStore.allPlatforms.map((p) => p.slug);
+      if (slugs.length === 0) return;
+      void nativeStore.probe(slugs, { force: true });
+    },
+    NATIVE_REPROBE_THROTTLE_MS,
+    false,
+  ),
 );
 
-// Developer debug overlay — opt-in via Settings → Developer (per-device).
+// Developer debug overlay: opt-in via Settings → Developer (per-device).
 // Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
 // fetched once the toggle is on, keeping it out of the default bundle.
 const { enabled: debugEnabled } = useDebugMode();
@@ -130,7 +148,7 @@ const DebugOverlay = defineAsyncComponent(
   () => import("@/v2/components/AppShell/DebugOverlay.vue"),
 );
 
-// Shared reactive background art — views paint covers via the injected setter.
+// Shared reactive background art: views paint covers via the injected setter.
 const layerA = ref<string | null>(null);
 const layerB = ref<string | null>(null);
 const activeLayer = ref<"a" | "b">("a");
@@ -167,19 +185,24 @@ provide(BACKGROUND_ART_KEY, setBackgroundArt);
 const { install: installInputModality } = useInputModality();
 const { install: installGamepad } = useGamepad();
 const { install: installGlobalHotkeys } = useGlobalHotkeys();
+const { install: installSpatialNav } = useSpatialNav();
 const router = useRouter();
 
 let removeBackMorph: (() => void) | null = null;
 let removeGalleryProvenance: (() => void) | null = null;
 let removeOverlayRouteDismiss: (() => void) | null = null;
+let removeQueryNavigationGuard: (() => void) | null = null;
 
 onMounted(() => {
   installInputModality();
   installGamepad();
   installGlobalHotkeys();
+  installSpatialNav();
   // Dialogs and drawers are mounted above the router view, so nothing else
   // dismisses them when the route changes under them (browser back included).
   removeOverlayRouteDismiss = installOverlayRouteDismiss(router);
+  // URL-backed view state must not write into a navigation still in flight.
+  removeQueryNavigationGuard = installQueryNavigationGuard(router);
   // Mirror morph: GameDetails cover → destination card on back/navbar/popstate.
   // Forward direction is handled at the source side in GameCard.
   removeBackMorph = installBackMorph(router);
@@ -198,7 +221,7 @@ onMounted(() => {
   if (collectionsStore.smartCollections.length === 0) {
     void collectionsStore.fetchSmartCollections();
   }
-  // Hydrate platforms for the same reason — views like MissingGames,
+  // Hydrate platforms for the same reason: views like MissingGames,
   // GameDetails, etc. read `platformsStore.get(id)` to resolve a
   // platform's display name and slug. Without this, direct loads of
   // those views in v2 see undefined slugs and icons fall through to
@@ -226,6 +249,8 @@ onBeforeUnmount(() => {
   removeGalleryProvenance = null;
   removeOverlayRouteDismiss?.();
   removeOverlayRouteDismiss = null;
+  removeQueryNavigationGuard?.();
+  removeQueryNavigationGuard = null;
   if (bgTimer !== null) {
     clearTimeout(bgTimer);
     bgTimer = null;
@@ -264,7 +289,7 @@ onBeforeUnmount(() => {
    active scrollbar of the app. AppNav is `position: fixed` (defined
    in its own SFC) and main reserves the navbar's height with a top
    padding so content starts right under it.
-     · Views that fit within `100vh - --r-nav-h` (Gallery — its own
+     · Views that fit within `100vh - --r-nav-h` (Gallery, its own
        shell already uses that calc and `overflow: hidden`; GameDetails
        uses the same calc with an internal panel scroll) generate no
        document overflow → no document scrollbar on those routes.
@@ -299,7 +324,7 @@ onBeforeUnmount(() => {
 }
 
 /* On sm-and-down the fixed bottom tab bar (BottomNav) overlays the
-   bottom edge — reserve its height (+ safe-area inset) so natural-flow
+   bottom edge: reserve its height (+ safe-area inset) so natural-flow
    views (Home, Settings, Library Tools, …) can scroll their last content
    clear of the bar. Fixed-height views with their own internal scroll
    (galleries) subtract the same amount from their height calc so the

@@ -19,7 +19,7 @@ reading code, not as a substitute for reading it.
 
 Skip it when you already know the file or symbol (read that directly), and when
 the question is about work on the current branch, since the server cannot see
-the checkout. For the rules on how to write code, `CLAUDE.md`, the focused
+the checkout. For the rules on how to write code, `AGENTS.md`, the focused
 skills and `docs/*_ARCHITECTURE.md` are authoritative.
 
 ## Tools

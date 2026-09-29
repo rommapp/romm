@@ -9,6 +9,17 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def count_in_window(key: str, window_seconds: int) -> int:
+    """Count one call against a fixed window and return the window's count so far."""
+    pipe = sync_cache.pipeline()
+    pipe.incr(key)
+    # NX in the same transaction as the INCR: only the call that starts a window
+    # sets its TTL, and no counter can be left without one.
+    pipe.expire(key, window_seconds, nx=True)
+    count, _ = pipe.execute()
+    return int(count)
+
+
 def enforce_rate_limit(
     key: str, *, max_requests: int, window_seconds: int, detail: str
 ) -> None:
@@ -21,14 +32,7 @@ def enforce_rate_limit(
         window_seconds: Window length.
         detail: Message returned with the 429.
     """
-    pipe = sync_cache.pipeline()
-    pipe.incr(key)
-    # NX in the same transaction as the INCR: only the call that starts a window
-    # sets its TTL, and no counter can be left without one.
-    pipe.expire(key, window_seconds, nx=True)
-    count, _ = pipe.execute()
-
-    if count > max_requests:
+    if count_in_window(key, window_seconds) > max_requests:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=detail,

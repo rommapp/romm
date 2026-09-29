@@ -1,5 +1,5 @@
 class ConfigNotWritableException(Exception):
-    def __init__(self):
+    def __init__(self) -> None:
         self.message = "Config file is not writable. Check config.yml permissions"
         super().__init__(self.message)
 
