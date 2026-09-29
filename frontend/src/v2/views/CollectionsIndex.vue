@@ -695,13 +695,13 @@ const showListHeader = computed(
 /* Mirror the gallery shell's header→toolbar separator so the visual
    rhythm matches Search / Platform / Collection ROM views. */
 .r-v2-cidx__header-divider {
-  margin-bottom: 16px;
+  margin-bottom: var(--r-space-4);
 }
 
 .r-v2-cidx__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 20px 16px;
+  gap: var(--r-space-5) var(--r-space-4);
 }
 
 .r-v2-cidx__list :deep(.coll-list-row:last-child) {
@@ -716,8 +716,8 @@ const showListHeader = computed(
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
-  padding: 18px 20px 22px;
-  margin-bottom: 24px;
+  padding: 18px var(--r-space-5) 22px;
+  margin-bottom: var(--r-space-6);
 }
 
 /* Section heading — small uppercase label at the top of each kind
@@ -739,7 +739,7 @@ const showListHeader = computed(
 
 html[data-bp~="xs"] .r-v2-cidx__grid {
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 16px 10px;
+  gap: var(--r-space-4) 10px;
 }
 html[data-bp~="xs"] .r-v2-cidx__panel {
   padding: 14px 14px 18px;

@@ -422,7 +422,7 @@ onBeforeUnmount(releaseGame);
   grid-template-rows: minmax(0, 1fr) auto;
   justify-items: center;
   align-items: center;
-  gap: 20px;
+  gap: var(--r-space-5);
   overflow: hidden;
   padding: var(--r-pico8-stage-pad);
   box-sizing: border-box;
@@ -476,7 +476,7 @@ html[data-bp~="sm-and-down"] .r-v2-pico8__stage {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 /* Clear the bottom tab bar, which overlays this corner on sm-and-down. */
@@ -496,7 +496,7 @@ html[data-bp~="sm-and-down"] .r-v2-pico8__actions {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 32px;
+  gap: var(--r-space-8);
   touch-action: none;
   user-select: none;
 }
@@ -542,14 +542,14 @@ html[data-bp~="sm-and-down"] .r-v2-pico8__actions {
 .r-v2-pico8__face-buttons {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 .r-v2-pico8__brand {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--r-space-2);
   color: var(--r-color-fg-faint);
   font-size: var(--r-font-size-xs);
   font-style: italic;
@@ -562,7 +562,7 @@ html[data-bp~="sm-and-down"] .r-v2-pico8__actions {
 
 html[data-bp~="xs"] .r-v2-pico8__stage {
   --r-pico8-stage-pad: 16px;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 html[data-bp~="xs"] .r-v2-pico8__screen {
@@ -570,7 +570,7 @@ html[data-bp~="xs"] .r-v2-pico8__screen {
 }
 
 html[data-bp~="xs"] .r-v2-pico8__controls {
-  gap: 16px;
+  gap: var(--r-space-4);
   transform: scale(0.9);
 }
 </style>

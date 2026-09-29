@@ -207,14 +207,14 @@ function onDelete(fileId: number, romId: number) {
 }
 
 .jukebox__sidebar-head {
-  padding: 14px 16px;
+  padding: 14px var(--r-space-4);
   border-bottom: 1px solid var(--r-color-border);
 }
 
 .jukebox__entries {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: var(--r-space-2);
 }
 
 .jukebox__entry-icon {
@@ -257,7 +257,7 @@ html[data-bp~="xs"] .jukebox__sidebar-head {
 }
 
 html[data-bp~="xs"] .jukebox__entries {
-  padding: 8px;
+  padding: var(--r-space-2);
 }
 
 html[data-bp~="xs"] .jukebox__entries :deep(.r-list-item) {

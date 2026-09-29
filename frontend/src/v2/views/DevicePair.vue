@@ -314,7 +314,7 @@ async function deny() {
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(22px);
-  padding: 32px;
+  padding: var(--r-space-8);
   box-shadow:
     0 22px 60px color-mix(in srgb, black 55%, transparent),
     0 2px 6px color-mix(in srgb, black 30%, transparent);
@@ -324,21 +324,21 @@ async function deny() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: var(--r-space-4);
   text-align: center;
 }
 
 .r-v2-devpair__form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--r-space-4);
 }
 
 .r-v2-devpair__header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   text-align: center;
 }
 
@@ -398,7 +398,7 @@ async function deny() {
 .r-v2-devpair__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-v2-devpair__identifier {
@@ -412,7 +412,7 @@ async function deny() {
 .r-v2-devpair__scopes {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-v2-devpair__label {
@@ -424,7 +424,7 @@ async function deny() {
 .r-v2-devpair__scope-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--r-space-2);
   max-height: 168px;
   overflow-y: auto;
 }
@@ -436,7 +436,7 @@ async function deny() {
 .r-v2-devpair__actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--r-space-2);
+  margin-top: var(--r-space-2);
 }
 </style>

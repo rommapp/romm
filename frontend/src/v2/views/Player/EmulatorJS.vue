@@ -1117,7 +1117,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 .r-v2-ejs {
   position: relative;
   min-height: calc(100vh - var(--r-nav-h));
-  padding: 32px var(--r-row-pad) 48px;
+  padding: var(--r-space-8) var(--r-row-pad) var(--r-space-12);
 }
 
 /* Pre-game layout: hero | resume | setup. The resume column owns
@@ -1129,7 +1129,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
       220px,
       240px
     );
-  gap: 20px;
+  gap: var(--r-space-5);
   max-width: 1280px;
   margin: 0 auto;
   align-items: stretch;
@@ -1163,7 +1163,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 }
 .r-v2-ejs__panel-head--label {
   justify-content: flex-start;
-  gap: 8px;
+  gap: var(--r-space-2);
   align-items: center;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1174,8 +1174,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 
 /* ── Hero column ─────────────────────────────────────────── */
 .r-v2-ejs__hero {
-  padding: 16px;
-  gap: 12px;
+  padding: var(--r-space-4);
+  gap: var(--r-space-3);
   text-align: center;
 }
 
@@ -1198,7 +1198,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 }
 .r-v2-ejs__cover-glow {
   position: absolute;
-  inset: 12px;
+  inset: var(--r-space-3);
   background: radial-gradient(
     120% 120% at 50% 60%,
     color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent),
@@ -1219,7 +1219,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 4px 4px 0;
+  padding: var(--r-space-1) var(--r-space-1) 0;
 }
 .r-v2-ejs__title {
   margin: 0;
@@ -1234,7 +1234,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 }
 
 .r-v2-ejs__play {
-  margin-top: 4px;
+  margin-top: var(--r-space-1);
   font-weight: var(--r-font-weight-semibold) !important;
   letter-spacing: 0.02em;
   box-shadow: 0 10px 24px
@@ -1273,7 +1273,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
   display: flex;
   flex-direction: column;
   /* Between the preview section and the list section when stacked. */
-  gap: 20px;
+  gap: var(--r-space-5);
   flex: 1;
   min-height: 0;
 }
@@ -1355,7 +1355,7 @@ html[data-bp~="md-and-up"]
 .r-v2-ejs__slot {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-ejs__assets {
   flex: 1;
@@ -1391,7 +1391,7 @@ html[data-bp~="md-and-up"]
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
   flex: 1;
 }
 .r-v2-ejs__setup-note {
@@ -1410,8 +1410,8 @@ html[data-bp~="md-and-up"]
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
+  gap: var(--r-space-2);
+  margin-top: var(--r-space-3);
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-faint);
   font-style: italic;
@@ -1524,6 +1524,6 @@ html[data-bp~="sm-and-down"] .r-v2-ejs__hero-links {
   flex: 1 1 100%;
   flex-direction: row;
   border-top: 1px solid var(--r-color-border);
-  padding-top: 4px;
+  padding-top: var(--r-space-1);
 }
 </style>

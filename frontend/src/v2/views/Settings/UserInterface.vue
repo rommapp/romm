@@ -586,10 +586,10 @@ function onVirtualCollectionTypeChange(value: unknown) {
 <style scoped>
 /* Generic field row inside a section body. */
 .r-v2-ui__field {
-  padding: 16px;
+  padding: var(--r-space-4);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 .r-v2-ui__field--bordered {
   border-top: 1px solid var(--r-color-border);
@@ -632,14 +632,14 @@ html[data-bp~="xs"] .r-v2-ui__toggle-grid {
 .r-v2-ui__theme-row {
   display: flex;
   gap: 10px;
-  padding: 16px;
+  padding: var(--r-space-4);
 }
 .r-v2-ui__theme-btn {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   padding: 10px;
   border-radius: 8px;
   border: 1px solid var(--r-color-border);
@@ -674,7 +674,7 @@ html[data-bp~="xs"] .r-v2-ui__theme-row {
 .r-v2-ui__version-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 .r-v2-ui__version-card {
@@ -682,7 +682,7 @@ html[data-bp~="xs"] .r-v2-ui__theme-row {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px 18px;
+  padding: var(--r-space-4) 18px;
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
   border-radius: 10px;
@@ -729,7 +729,7 @@ html[data-bp~="xs"] .r-v2-ui__theme-row {
 .r-v2-ui__version-titles {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-ui__version-title {
   font-size: 14px;

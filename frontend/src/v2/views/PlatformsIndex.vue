@@ -612,13 +612,13 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
 /* Mirror the gallery shell's header→toolbar separator so the visual
    rhythm matches Search / Platform / Collection ROM views. */
 .r-v2-pidx__header-divider {
-  margin-bottom: 16px;
+  margin-bottom: var(--r-space-4);
 }
 
 .r-v2-pidx__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 16px;
+  gap: var(--r-space-4);
 }
 
 .r-v2-pidx__list :deep(.plat-list-row:last-child) {
@@ -632,7 +632,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
    creates breathing room above the grid; vertical rhythm between
    sibling sections lives on the heading's `margin-top`. */
 .r-v2-pidx__group-heading {
-  margin: 24px 0 12px;
+  margin: var(--r-space-6) 0 var(--r-space-3);
   font-size: 11px;
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.1em;
@@ -640,7 +640,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
   color: var(--r-color-fg-faint);
 }
 .r-v2-pidx__group-heading:first-child {
-  margin-top: 4px;
+  margin-top: var(--r-space-1);
 }
 
 html[data-bp~="xs"] .r-v2-pidx__grid {

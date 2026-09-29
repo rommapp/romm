@@ -640,7 +640,7 @@ function collectionCovers(c: {
 
 <style scoped>
 .r-v2-home {
-  padding: 16px 0 48px;
+  padding: var(--r-space-4) 0 var(--r-space-12);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -649,7 +649,7 @@ function collectionCovers(c: {
 .r-v2-home__empty {
   color: var(--r-color-fg-faint);
   font-size: 13px;
-  padding: 24px var(--r-row-pad);
+  padding: var(--r-space-6) var(--r-row-pad);
 }
 
 /* Stacks the cover over its reason caption. The card sets its own width, so
@@ -657,7 +657,7 @@ function collectionCovers(c: {
 .r-v2-home__rec {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   flex-shrink: 0;
 }
 

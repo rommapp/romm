@@ -202,7 +202,7 @@ onBeforeUnmount(() => {
 .r-v2-ruffle__section-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   font-size: var(--r-font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
 .r-v2-ruffle__color-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 .r-v2-ruffle__color-input {
   appearance: none;
@@ -243,7 +243,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--r-space-2);
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-faint);
   font-style: italic;

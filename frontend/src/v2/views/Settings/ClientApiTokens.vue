@@ -295,7 +295,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: var(--r-space-1);
   min-width: 0;
 }
 
@@ -315,7 +315,7 @@ onMounted(() => {
 .r-v2-tok__actions {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 
 /* Dimmed at rest, full red on hover. RBtn's text variant uses

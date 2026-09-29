@@ -226,6 +226,6 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
 }
 
 html[data-bp~="xs"] .jukebox__home {
-  padding: var(--r-space-4) 0 40px;
+  padding: var(--r-space-4) 0 var(--r-space-10);
 }
 </style>

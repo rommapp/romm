@@ -611,7 +611,7 @@ onBeforeUnmount(() =>
 
 .r-v2-scan-settings__desc {
   margin: 0;
-  padding: 16px 16px 0;
+  padding: var(--r-space-4) var(--r-space-4) 0;
   color: var(--r-color-fg-muted);
   font-size: 13px;
   line-height: 1.5;
@@ -623,10 +623,10 @@ onBeforeUnmount(() =>
 }
 
 .r-v2-scan-settings__field {
-  padding: 16px;
+  padding: var(--r-space-4);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 .r-v2-scan-settings__field--bordered {
   border-top: 1px solid var(--r-color-border);
@@ -653,9 +653,9 @@ html[data-bp~="xs"] .r-v2-scan-settings__toggle-grid {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 8px;
-  padding: 12px 16px;
+  gap: var(--r-space-4);
+  margin-top: var(--r-space-2);
+  padding: var(--r-space-3) var(--r-space-4);
   border-radius: 12px;
   background: var(--r-color-panel);
   border: 1px solid var(--r-color-panel-border);
@@ -669,7 +669,7 @@ html[data-bp~="xs"] .r-v2-scan-settings__toggle-grid {
 .r-v2-scan-settings__bar-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-v2-scan-settings__bar-enter-active,

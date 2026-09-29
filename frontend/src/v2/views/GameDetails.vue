@@ -405,13 +405,13 @@ const tabs = computed<RTabNavItem[]>(() => [
   height: calc(100vh - var(--r-nav-h));
   display: flex;
   flex-direction: column;
-  padding-top: 20px;
+  padding-top: var(--r-space-5);
 }
 
 .r-v2-det__topbar {
   position: relative;
   z-index: 2;
-  padding: 20px var(--r-row-pad) 0;
+  padding: var(--r-space-5) var(--r-row-pad) 0;
 }
 
 .r-v2-det__body {
@@ -424,7 +424,7 @@ const tabs = computed<RTabNavItem[]>(() => [
      scroll. The cover keeps its natural height via `align-self:
      flex-start` declared on CoverColumn itself. */
   align-items: stretch;
-  padding: 0 var(--r-row-pad) 32px;
+  padding: 0 var(--r-row-pad) var(--r-space-8);
   gap: 52px;
   min-height: 0;
   /* Cap the canvas so the cover + info column stay readable on
@@ -447,7 +447,7 @@ const tabs = computed<RTabNavItem[]>(() => [
 }
 
 .r-v2-det__tabs {
-  margin: 14px 0 16px;
+  margin: 14px 0 var(--r-space-4);
 }
 
 .r-v2-det__panel {
@@ -489,14 +489,14 @@ const tabs = computed<RTabNavItem[]>(() => [
    AppLayout document scroll takes over (its bottom-nav padding clears the last
    content). Every fixed-height / internal-scroll rule is unwound below. */
 html[data-bp~="sm-and-down"] .r-v2-det {
-  padding-top: 8px;
+  padding-top: var(--r-space-2);
   height: auto;
 }
 html[data-bp~="sm-and-down"] .r-v2-det__body {
   flex-direction: column;
   align-items: stretch;
   gap: 14px;
-  padding: 8px var(--r-row-pad) 16px;
+  padding: var(--r-space-2) var(--r-row-pad) var(--r-space-4);
   flex: none;
   min-height: 0;
 }
@@ -512,6 +512,6 @@ html[data-bp~="sm-and-down"] .r-v2-det__panel {
   padding-right: 0;
 }
 html[data-bp~="sm-and-down"] .r-v2-det__tabs {
-  margin: 28px 0 12px;
+  margin: var(--r-space-7) 0 var(--r-space-3);
 }
 </style>

@@ -347,8 +347,8 @@ onUnmounted(() => {
 .r-v2-profile__identity-row {
   display: flex;
   align-items: center;
-  gap: 24px;
-  margin-bottom: 28px;
+  gap: var(--r-space-6);
+  margin-bottom: var(--r-space-7);
 }
 
 .r-v2-profile__avatar {
@@ -407,7 +407,7 @@ onUnmounted(() => {
 .r-v2-profile__identity {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
   min-width: 0;
 }
 
@@ -442,7 +442,7 @@ onUnmounted(() => {
 .r-v2-profile__meta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   font-size: 12px;
   color: var(--r-color-fg-muted);
 }
@@ -454,7 +454,7 @@ onUnmounted(() => {
 
 /* Field rows — hairline-divided, padding mirrors the mock. */
 .r-v2-profile__field {
-  padding: 14px 16px;
+  padding: 14px var(--r-space-4);
   border-bottom: 1px solid var(--r-color-border);
 }
 .r-v2-profile__field:last-of-type {
@@ -464,14 +464,14 @@ onUnmounted(() => {
 /* Change-password button lives inside the password field's append-inner
    area — keep it compact so it doesn't blow out the row height. */
 .r-v2-profile__pwd-btn {
-  margin-right: 4px;
+  margin-right: var(--r-space-1);
 }
 
 .r-v2-profile__actions {
   display: flex;
   justify-content: flex-start;
-  gap: 8px;
-  padding: 14px 16px;
+  gap: var(--r-space-2);
+  padding: 14px var(--r-space-4);
   border-top: 1px solid var(--r-color-border);
 }
 </style>

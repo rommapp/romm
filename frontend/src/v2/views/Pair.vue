@@ -147,7 +147,7 @@ async function copyCode() {
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(22px);
-  padding: 40px 32px;
+  padding: var(--r-space-10) var(--r-space-8);
   box-shadow:
     0 22px 60px color-mix(in srgb, black 55%, transparent),
     0 2px 6px color-mix(in srgb, black 30%, transparent);
@@ -157,7 +157,7 @@ async function copyCode() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: var(--r-space-4);
   text-align: center;
 }
 
@@ -195,13 +195,13 @@ async function copyCode() {
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-md);
-  padding: 18px 28px;
-  margin: 4px 0;
+  padding: 18px var(--r-space-7);
+  margin: var(--r-space-1) 0;
   user-select: all;
 }
 
 .r-v2-pair__hint {
-  margin: 4px 0 0;
+  margin: var(--r-space-1) 0 0;
   color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-sm);
   max-width: 360px;

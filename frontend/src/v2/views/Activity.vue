@@ -415,14 +415,14 @@ function elapsedLabel(startedAt: string): string {
 .r-v2-activity__head {
   display: flex;
   justify-content: flex-start;
-  margin-bottom: 20px;
+  margin-bottom: var(--r-space-5);
 }
 
 .r-v2-activity__total {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 12px;
+  padding: 6px var(--r-space-3);
   border-radius: var(--r-radius-pill);
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
@@ -471,22 +471,22 @@ function elapsedLabel(startedAt: string): string {
 .r-v2-activity__grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px 16px;
+  gap: var(--r-space-5) var(--r-space-4);
   align-items: flex-start;
 }
 
 html[data-bp~="xs"] .r-v2-activity__grid {
-  gap: 16px 10px;
+  gap: var(--r-space-4) 10px;
 }
 
 /* Admin streaming-session panel: plain rows, not cards; these are
    operational controls, not part of the presence board. */
 .r-v2-activity__streaming {
-  margin-top: 32px;
+  margin-top: var(--r-space-8);
 }
 
 .r-v2-activity__streaming-title {
-  margin-bottom: 12px;
+  margin-bottom: var(--r-space-3);
   font-size: var(--r-font-size-md);
   font-weight: var(--r-font-weight-bold);
   color: var(--r-color-fg);
@@ -495,7 +495,7 @@ html[data-bp~="xs"] .r-v2-activity__grid {
 .r-v2-activity__streaming-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -505,7 +505,7 @@ html[data-bp~="xs"] .r-v2-activity__grid {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--r-space-3);
   padding: 10px 14px;
   border-radius: var(--r-radius-card);
   background: var(--r-color-surface);

@@ -211,7 +211,7 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
-  padding: 16px;
+  padding: var(--r-space-4);
 }
 html[data-bp~="sm-and-down"] .r-v2-meta__grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));

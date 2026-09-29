@@ -838,7 +838,7 @@ function stopScan() {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 16px 18px 18px;
+  padding: var(--r-space-4) 18px 18px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
@@ -856,7 +856,7 @@ function stopScan() {
   justify-content: flex-end;
   align-items: center;
   min-height: 0;
-  margin-bottom: -8px;
+  margin-bottom: calc(-1 * var(--r-space-2));
 }
 
 .r-v2-scan-card__fields {
@@ -912,7 +912,7 @@ function stopScan() {
 
 .r-v2-scan-card__cta {
   align-items: stretch;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-scan-card__start {
   width: 100%;
@@ -956,10 +956,10 @@ function stopScan() {
 .r-v2-scan-card__providers-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-scan-card__providers-group + .r-v2-scan-card__providers-group {
-  margin-top: 8px;
+  margin-top: var(--r-space-2);
 }
 .r-v2-scan-card__providers-group-label {
   font-size: 10px;
@@ -991,7 +991,7 @@ function stopScan() {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: var(--r-space-1) var(--r-space-2);
   border-radius: var(--r-radius-pill);
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
@@ -1053,7 +1053,7 @@ function stopScan() {
   grid-template-columns: auto 1fr auto;
   align-items: center;
   column-gap: 14px;
-  padding: 12px 16px;
+  padding: var(--r-space-3) var(--r-space-4);
   border-bottom: 1px solid var(--r-color-border);
   flex-shrink: 0;
   min-height: 56px;
@@ -1062,7 +1062,7 @@ function stopScan() {
 .r-v2-scan-live__status {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   font-size: 13px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-brand-primary);
@@ -1113,8 +1113,8 @@ function stopScan() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 4px 10px;
+  gap: var(--r-space-1);
+  padding: var(--r-space-1) 10px;
   border-radius: var(--r-radius-pill);
   background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
   color: var(--r-color-brand-primary);
@@ -1159,7 +1159,7 @@ function stopScan() {
   min-height: 0;
   overflow-y: auto;
   scroll-behavior: smooth;
-  padding: 12px;
+  padding: var(--r-space-3);
 }
 
 /* Empty state — calm, centred, brand-orbed icon. The orb provides the
@@ -1169,8 +1169,8 @@ function stopScan() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 56px 24px 64px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-14) var(--r-space-6) 64px;
   color: var(--r-color-fg-muted);
   text-align: center;
   min-height: 280px;
@@ -1188,7 +1188,7 @@ function stopScan() {
     transparent 100%
   );
   color: var(--r-color-brand-primary);
-  margin-bottom: 4px;
+  margin-bottom: var(--r-space-1);
 }
 .r-v2-scan-live__empty-title {
   margin: 0;
@@ -1206,7 +1206,7 @@ function stopScan() {
 .r-v2-scan-live__panels {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-v2-scan-live__panel {
   background: transparent;

@@ -1977,7 +1977,7 @@ onBeforeUnmount(() => {
 .r-v2-stream {
   position: relative;
   min-height: calc(100vh - var(--r-nav-h));
-  padding: 32px var(--r-row-pad) 48px;
+  padding: var(--r-space-8) var(--r-row-pad) var(--r-space-12);
 }
 
 /* Pre-game layout: hero | resume | session over aside. Mirrors the
@@ -1992,7 +1992,7 @@ onBeforeUnmount(() => {
   grid-template-areas:
     "hero resume session"
     "hero resume aside";
-  gap: 20px;
+  gap: var(--r-space-5);
   max-width: 1280px;
   margin: 0 auto;
   align-items: stretch;
@@ -2015,7 +2015,7 @@ onBeforeUnmount(() => {
 }
 .r-v2-stream__panel-head--label {
   justify-content: flex-start;
-  gap: 8px;
+  gap: var(--r-space-2);
   align-items: center;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -2027,8 +2027,8 @@ onBeforeUnmount(() => {
 /* ── Hero column ─────────────────────────────────────────── */
 .r-v2-stream__hero {
   grid-area: hero;
-  padding: 16px;
-  gap: 12px;
+  padding: var(--r-space-4);
+  gap: var(--r-space-3);
   text-align: center;
 }
 
@@ -2048,7 +2048,7 @@ onBeforeUnmount(() => {
 }
 .r-v2-stream__cover-glow {
   position: absolute;
-  inset: 12px;
+  inset: var(--r-space-3);
   background: radial-gradient(
     120% 120% at 50% 60%,
     color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent),
@@ -2066,7 +2066,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 4px 4px 0;
+  padding: var(--r-space-1) var(--r-space-1) 0;
 }
 .r-v2-stream__title {
   margin: 0;
@@ -2081,7 +2081,7 @@ onBeforeUnmount(() => {
 }
 
 .r-v2-stream__play {
-  margin-top: 4px;
+  margin-top: var(--r-space-1);
   font-weight: var(--r-font-weight-semibold) !important;
   letter-spacing: 0.02em;
   white-space: normal;
@@ -2113,7 +2113,7 @@ onBeforeUnmount(() => {
   grid-area: aside;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--r-space-5);
   min-width: 0;
 }
 
@@ -2138,7 +2138,7 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--r-color-fg-secondary);
-  margin-top: 4px;
+  margin-top: var(--r-space-1);
 }
 .r-v2-stream__strip-views {
   margin-left: auto;
@@ -2191,7 +2191,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 10px var(--r-space-3);
   font-size: var(--r-font-size-sm);
   color: var(--r-color-fg-secondary);
 }
@@ -2212,13 +2212,13 @@ onBeforeUnmount(() => {
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--r-space-3);
   flex: 1;
 }
 .r-v2-stream__setup-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-v2-stream__setup-hint {
   font-size: var(--r-font-size-xs);
@@ -2265,8 +2265,8 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 .r-v2-stream__ended-reason {
-  margin-top: 12px;
-  padding: 10px 12px;
+  margin-top: var(--r-space-3);
+  padding: 10px var(--r-space-3);
   border-radius: var(--r-radius-md);
   border-left: 3px solid var(--r-color-warning);
   background: var(--r-color-surface);
@@ -2279,7 +2279,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--r-space-2);
   width: 100%;
 }
 
@@ -2340,7 +2340,7 @@ html[data-bp~="sm-and-down"] .r-v2-stream__hero-links {
   flex: 1 1 100%;
   flex-direction: row;
   border-top: 1px solid var(--r-color-border);
-  padding-top: 4px;
+  padding-top: var(--r-space-1);
 }
 html[data-bp~="sm-and-down"] .r-v2-stream__bar-title,
 html[data-bp~="sm-and-down"] .r-v2-stream__bar-platform {

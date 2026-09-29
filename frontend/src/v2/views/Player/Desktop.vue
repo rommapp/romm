@@ -293,12 +293,12 @@ onMounted(() => {
 }
 
 .r-v2-desktop__error {
-  margin: 24px auto;
+  margin: var(--r-space-6) auto;
   max-width: 560px;
 }
 
 .r-v2-desktop__ended-reason {
-  margin-top: 8px;
+  margin-top: var(--r-space-2);
 }
 
 .r-v2-desktop__spinner {

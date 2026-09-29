@@ -346,7 +346,7 @@ html[data-bp~="sm-and-down"] .r-v2-upload__list {
   grid-template-columns: auto 1fr auto auto;
   gap: 10px;
   align-items: center;
-  padding: 8px 12px;
+  padding: var(--r-space-2) var(--r-space-3);
   font-size: 13px;
   color: var(--r-color-fg);
   border-bottom: 1px solid var(--r-color-border);

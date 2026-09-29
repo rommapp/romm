@@ -216,20 +216,12 @@ export default tseslint.config(
       "romm/no-emdash-in-comment": "error",
       "romm/no-color-literal": "error",
       "romm/no-layout-media-query": "error",
+      "romm/no-spacing-literal": "error",
     },
   },
   {
     files: ["src/v2/**/*.css"],
     languageOptions: { parser: cssParser },
-  },
-  // Widened directory by directory as each is converted to --r-space-* tokens.
-  {
-    files: [
-      "src/v2/**/*.css",
-      "src/v2/lib/**/*.vue",
-      "src/v2/layouts/**/*.vue",
-      "src/v2/components/**/*.vue",
-    ],
     plugins: { romm },
     rules: { "romm/no-spacing-literal": "error" },
   },
