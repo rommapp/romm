@@ -553,20 +553,11 @@ def _run_install(install_session_id: int) -> None:
                 "the install instead of discarding it."
             )
 
-        # Installer exited (or timed out but looks done): it's done
-        # writing, VNC is no longer needed. Move to STREAMING while we hash
-        # the output so clients see it as "still working" rather than DONE
-        # early.
-        db_install_session_handler.update_session(
-            install_session_id,
-            {
-                "state": InstallSessionState.STREAMING,
-                "vnc_url": None,
-                "vnc_web_port": None,
-                "auto_status": None,
-                "auto_detail": None,
-            },
-        )
+        # Installer exited (or timed out but looks done): it's done writing,
+        # VNC is no longer needed. Set to None so the finally block below
+        # doesn't try to stop it again.
+        _enter_streaming(install_session_id, vnc)
+        vnc = None
         _finalize_install(
             install_session_id,
             _wine_drive_c_root(prefix_dir, proton_or_wine),
@@ -689,6 +680,28 @@ def _live_manifest_loop(
             log.warning(f"Live manifest scan failed, will retry: {e}")
         if stop.wait(LIVE_MANIFEST_INTERVAL):
             return
+
+
+def _enter_streaming(install_session_id: int, vnc: VncSession) -> None:
+    """Move a session from INSTALLING to STREAMING and tear down its VNC.
+
+    Called the moment the installer process exits (or a timed-out run looks
+    finished): nothing left needs a display, and hashing a large install in
+    _finalize_install can take a while, so there is no reason to keep
+    Xvfb/x11vnc/icewm/picom/websockify running for the rest of that (see
+    vnc.stop's own docstring for what it tears down).
+    """
+    db_install_session_handler.update_session(
+        install_session_id,
+        {
+            "state": InstallSessionState.STREAMING,
+            "vnc_url": None,
+            "vnc_web_port": None,
+            "auto_status": None,
+            "auto_detail": None,
+        },
+    )
+    vnc.stop()
 
 
 def _finalize_install(

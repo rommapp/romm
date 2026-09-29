@@ -722,6 +722,38 @@ class TestInstallOutputLooksFinished:
         assert runner._install_output_looks_finished(tmp_path) is False
 
 
+class TestEnterStreaming:
+    """Regression coverage for a real bug: vnc.stop() used to run only in
+    _run_install's outer finally, after _finalize_install had already hashed
+    every file - keeping Xvfb/x11vnc/icewm/picom/websockify running for that
+    whole time even though the installer had already exited and nothing
+    left needed a display. Caught live installing a real game: the VNC
+    session stayed up burning CPU/RAM in the sandbox container well past
+    the point the installer had closed.
+    """
+
+    def test_stops_vnc_and_moves_the_session_to_streaming(self, monkeypatch):
+        from models.install_session import InstallSessionState
+
+        session_handler = MagicMock()
+        monkeypatch.setattr(runner, "db_install_session_handler", session_handler)
+        vnc = MagicMock()
+
+        runner._enter_streaming(1, vnc)
+
+        vnc.stop.assert_called_once_with()
+        session_handler.update_session.assert_called_once_with(
+            1,
+            {
+                "state": InstallSessionState.STREAMING,
+                "vnc_url": None,
+                "vnc_web_port": None,
+                "auto_status": None,
+                "auto_detail": None,
+            },
+        )
+
+
 class TestFinalizeInstall:
     """Regression coverage for a real bug: the installer's actual output
     lives several levels deep inside the Wine prefix
