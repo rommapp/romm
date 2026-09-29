@@ -94,7 +94,7 @@
     "postcss": "^8.5.23",
     "storybook": "^10.2.19",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.0",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.16",
     "vite-plugin-mkcert": "^2.0.0",
