@@ -1,6 +1,5 @@
-"""The gallery "matched" filter, the provider filter and `Rom.is_identified`
-read match ids alike, so a ROM the API reports as identified is the one the
-filters return."""
+"""Check that `Rom.is_identified` and the gallery matched and provider filters
+agree on which ROMs have a match."""
 
 from typing import Any
 

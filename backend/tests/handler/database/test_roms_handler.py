@@ -637,8 +637,7 @@ def _add_rom_file(
 
 
 class TestRomFileSizeTotal:
-    """`fs_size_bytes` sums every file row whatever its category, as a scan and
-    migration 0049 do, so each per-file write has to keep it in step."""
+    """Check that per-file writes keep the ROM size total in sync."""
 
     def _size(self, rom: Rom) -> int:
         stored = db_rom_handler.get_rom(rom.id)
