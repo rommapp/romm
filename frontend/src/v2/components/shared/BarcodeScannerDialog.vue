@@ -179,7 +179,7 @@ onBeforeUnmount(stopCamera);
   inset: 22% 12%;
   border: 2px solid var(--r-color-brand);
   border-radius: var(--r-radius-sm);
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 100vmax color-mix(in srgb, black 35%, transparent);
 }
 
 .r-v2-bsc__error {
