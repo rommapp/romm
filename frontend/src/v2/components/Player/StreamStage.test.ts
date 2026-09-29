@@ -1,12 +1,22 @@
-import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
+import { afterEach, describe, expect, it } from "vitest";
 import StreamStage from "./StreamStage.vue";
+
+// The stage listens on window and runs attach timers, so a mount left standing
+// would answer the next test's events.
+enableAutoUnmount(afterEach);
 
 function mountStage(src: string) {
   return mount(StreamStage, {
     props: { src, frameTitle: "Stream" },
     global: { stubs: { teleport: true } },
   });
+}
+
+function frameAttr(name: string): string {
+  return (
+    mountStage("http://box:3010/room").find("iframe").attributes(name) ?? ""
+  );
 }
 
 describe("StreamStage", () => {
@@ -25,31 +35,29 @@ describe("StreamStage", () => {
   );
 
   it("does not let the container steer the tab it sits in", () => {
-    const sandbox = mountStage("http://box:3010/room")
-      .find("iframe")
-      .attributes("sandbox");
-    expect(sandbox).not.toContain("allow-top-navigation");
+    expect(frameAttr("sandbox")).not.toContain("allow-top-navigation");
   });
 
-  it.each(["gamepad", "fullscreen", "autoplay", "camera", "microphone"])(
-    "delegates %s to the container",
-    (feature) => {
-      const allow = mountStage("http://box:3010/room")
-        .find("iframe")
-        .attributes("allow");
-      expect(allow).toContain(`${feature} *`);
-    },
-  );
+  it.each([
+    "gamepad",
+    "fullscreen",
+    "autoplay",
+    "camera",
+    "microphone",
+    "clipboard-write",
+  ])("delegates %s to the container", (feature) => {
+    const directives = frameAttr("allow")
+      .split(";")
+      .map((d) => d.trim());
+    expect(directives).toContain(`${feature} *`);
+  });
 
   // An opaque origin gets no media permission, so the room's webcam and mic
   // need the container to keep its own origin.
   it.each(["allow-scripts", "allow-same-origin"])(
     "keeps %s so the room can run and ask for media",
     (flag) => {
-      const sandbox = mountStage("http://box:3010/room")
-        .find("iframe")
-        .attributes("sandbox");
-      expect(sandbox).toContain(flag);
+      expect(frameAttr("sandbox").split(/\s+/)).toContain(flag);
     },
   );
 });

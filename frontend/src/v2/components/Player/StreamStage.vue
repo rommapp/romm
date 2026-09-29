@@ -304,7 +304,14 @@ defineExpose({
       ref="streamFrame"
       :src="frameSrc"
       class="r-v2-stage__frame"
-      allow="gamepad *; fullscreen *; autoplay *; camera *; microphone *"
+      allow="
+        gamepad *;
+        fullscreen *;
+        autoplay *;
+        camera *;
+        microphone *;
+        clipboard-write *;
+      "
       allowfullscreen
       referrerpolicy="no-referrer"
       sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-pointer-lock allow-downloads"
