@@ -34,6 +34,9 @@ class NotificationKind(enum.StrEnum):
     CHANNEL_DISABLED = "channel_disabled"
     DEVICE_INSTALL_COMPLETED = "device_install_completed"
     DEVICE_INSTALL_FAILED = "device_install_failed"
+    INSTALL_COMPLETED = "install_completed"
+    INSTALL_FAILED = "install_failed"
+    INSTALL_NEEDS_MANUAL = "install_needs_manual"
 
 
 class NotificationTopic(enum.StrEnum):
@@ -43,6 +46,7 @@ class NotificationTopic(enum.StrEnum):
     TASKS = "tasks"
     STREAMING = "streaming"
     DEVICES = "devices"
+    INSTALL = "install"
     ACCOUNT = "account"
     CUSTOM = "custom"
 
@@ -57,6 +61,9 @@ _KIND_TOPICS: Final[dict[str, NotificationTopic]] = {
     NotificationKind.CHANNEL_DISABLED: NotificationTopic.ACCOUNT,
     NotificationKind.DEVICE_INSTALL_COMPLETED: NotificationTopic.DEVICES,
     NotificationKind.DEVICE_INSTALL_FAILED: NotificationTopic.DEVICES,
+    NotificationKind.INSTALL_COMPLETED: NotificationTopic.INSTALL,
+    NotificationKind.INSTALL_FAILED: NotificationTopic.INSTALL,
+    NotificationKind.INSTALL_NEEDS_MANUAL: NotificationTopic.INSTALL,
 }
 
 

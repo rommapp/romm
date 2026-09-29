@@ -133,6 +133,42 @@ describe("describeNotification", () => {
     expect(view.body).toBe("no emulator for this platform");
   });
 
+  it("names the game a server-side install finished", () => {
+    const view = describeNotification(
+      notification("install_completed", { rom_id: 7, rom_name: "Olden Era" }),
+    );
+
+    expect(view.title).toBe("Olden Era finished installing");
+    expect(view.to).toEqual({ name: ROUTES.ROM, params: { rom: 7 } });
+  });
+
+  it("carries the error for a failed server-side install", () => {
+    const view = describeNotification(
+      notification("install_failed", {
+        rom_id: 7,
+        rom_name: "Olden Era",
+        error: "Installer timed out",
+      }),
+    );
+
+    expect(view.title).toBe("Olden Era could not be installed");
+    expect(view.body).toBe("Installer timed out");
+  });
+
+  it("points a stuck auto mode install at the install page", () => {
+    const view = describeNotification(
+      notification("install_needs_manual", {
+        rom_id: 7,
+        rom_name: "Olden Era",
+        detail: "No known button on screen",
+      }),
+    );
+
+    expect(view.title).toBe("Olden Era needs your help to keep installing");
+    expect(view.body).toBe("No known button on screen");
+    expect(view.to).toEqual({ name: ROUTES.INSTALL, params: { rom: 7 } });
+  });
+
   it("shows a custom notification with its own content", () => {
     const view = describeNotification({
       ...notification("argosy.sync_done"),

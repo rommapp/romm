@@ -289,7 +289,59 @@ def _init_wine_prefix(
 
 
 def run_install(install_session_id: int) -> None:
-    """Entry point enqueued on the RQ worker for one install session."""
+    """Entry point enqueued on the RQ worker for one install session.
+
+    Wraps the actual run so the session's owner is notified exactly once,
+    from the final DB state, regardless of which of `_run_install`'s many
+    internal `_fail`/`_finalize_install` call sites got there.
+    """
+    try:
+        _run_install(install_session_id)
+    finally:
+        _notify_install_end(install_session_id)
+
+
+def _notify_install_end(install_session_id: int) -> None:
+    session = db_install_session_handler.get_session(install_session_id)
+    if session is None or session.state not in (
+        InstallSessionState.DONE,
+        InstallSessionState.FAILED,
+    ):
+        return
+
+    try:
+        import asyncio
+
+        from handler.notification_handler import notify
+        from models.notification import NotificationKind, NotificationLevel
+
+        rom = db_rom_handler.get_rom_visibility_label(session.rom_id)
+        rom_name = (rom.name or rom.fs_name) if rom else None
+        failed = session.state == InstallSessionState.FAILED
+        asyncio.run(
+            notify(
+                session.user_id,
+                (
+                    NotificationKind.INSTALL_FAILED
+                    if failed
+                    else NotificationKind.INSTALL_COMPLETED
+                ),
+                NotificationLevel.ERROR if failed else NotificationLevel.SUCCESS,
+                {
+                    "rom_id": session.rom_id,
+                    "rom_name": rom_name,
+                    "error": session.error,
+                },
+            )
+        )
+    except Exception:  # noqa: BLE001 - never let a notification failure mask the result
+        log.error(
+            f"Could not notify install session {install_session_id}'s end",
+            exc_info=True,
+        )
+
+
+def _run_install(install_session_id: int) -> None:
     session = db_install_session_handler.get_session(install_session_id)
     if session is None:
         log.error(f"Install session {install_session_id} not found; aborting")

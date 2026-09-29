@@ -76,6 +76,32 @@ function deviceInstallView(
   };
 }
 
+function installView(
+  data: NotificationData,
+  outcome: "completed" | "failed" | "needs-manual",
+): NotificationView {
+  const romId = count(data.rom_id);
+  const game = text(data.rom_name) ?? t("notifications.install-unknown-game");
+  const icon =
+    outcome === "completed"
+      ? "mdi-check-circle-outline"
+      : outcome === "failed"
+        ? "mdi-close-circle-outline"
+        : "mdi-hand-back-right-outline";
+  return {
+    icon,
+    title: t(`notifications.install-${outcome}`, { game }),
+    body: text(outcome === "needs-manual" ? data.detail : data.error),
+    to: romId
+      ? {
+          name: outcome === "needs-manual" ? ROUTES.INSTALL : ROUTES.ROM,
+          params: { rom: romId },
+        }
+      : null,
+    toast: true,
+  };
+}
+
 function taskView(
   key: string,
   data: NotificationData,
@@ -142,6 +168,9 @@ const DESCRIBERS: Record<
   }),
   device_install_completed: (data) => deviceInstallView(data, false),
   device_install_failed: (data) => deviceInstallView(data, true),
+  install_completed: (data) => installView(data, "completed"),
+  install_failed: (data) => installView(data, "failed"),
+  install_needs_manual: (data) => installView(data, "needs-manual"),
   role_changed: (data) => {
     const role = text(data.role);
     return {

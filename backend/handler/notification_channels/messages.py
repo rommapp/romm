@@ -79,6 +79,30 @@ def _describe(n: NotificationSchema) -> tuple[str, str | None, str | None]:
                 _text(data.get("error")),
                 "/notifications?tab=channels",
             )
+        case NotificationKind.INSTALL_COMPLETED:
+            game = _text(data.get("rom_name")) or "A game"
+            rom_id = _count(data.get("rom_id"))
+            return (
+                f"{game} finished installing",
+                None,
+                f"/rom/{rom_id}" if rom_id else None,
+            )
+        case NotificationKind.INSTALL_FAILED:
+            game = _text(data.get("rom_name")) or "A game"
+            rom_id = _count(data.get("rom_id"))
+            return (
+                f"{game} could not be installed",
+                _text(data.get("error")),
+                f"/rom/{rom_id}" if rom_id else None,
+            )
+        case NotificationKind.INSTALL_NEEDS_MANUAL:
+            game = _text(data.get("rom_name")) or "A game"
+            rom_id = _count(data.get("rom_id"))
+            return (
+                f"{game} needs your help to keep installing",
+                None,
+                f"/rom/{rom_id}/install" if rom_id else None,
+            )
         case (
             NotificationKind.DEVICE_INSTALL_COMPLETED
             | NotificationKind.DEVICE_INSTALL_FAILED

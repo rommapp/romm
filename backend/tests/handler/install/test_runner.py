@@ -1,7 +1,7 @@
 import subprocess
 import threading
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -943,3 +943,118 @@ class TestRunInstallerAutoMode:
 
         runner._run_installer(["true"], ":50", auto_mode_session=(7, tmp_path))
         assert started == [(7, ":50", tmp_path)]
+
+
+class TestNotifyInstallEnd:
+    """`run_install` notifies the session's owner exactly once, from the
+    final DB state - regardless of which internal `_fail`/`_finalize_install`
+    call site got there, since none of them know about notifications."""
+
+    def _session(self, state, **overrides):
+        return MagicMock(state=state, user_id=42, rom_id=7, error=None, **overrides)
+
+    def _rom(self, name="Olden Era", fs_name="olden-era"):
+        # MagicMock reserves the "name" kwarg for its own repr, not an
+        # attribute - it has to be set afterwards.
+        rom = MagicMock(fs_name=fs_name)
+        rom.name = name
+        return rom
+
+    def test_done_notifies_success(self, monkeypatch):
+        from models.install_session import InstallSessionState
+        from models.notification import NotificationKind, NotificationLevel
+
+        session_handler = MagicMock()
+        session_handler.get_session.return_value = self._session(
+            InstallSessionState.DONE
+        )
+        monkeypatch.setattr(runner, "db_install_session_handler", session_handler)
+        monkeypatch.setattr(
+            runner,
+            "db_rom_handler",
+            MagicMock(get_rom_visibility_label=lambda _id: self._rom()),
+        )
+        notify = AsyncMock()
+        monkeypatch.setattr("handler.notification_handler.notify", notify)
+
+        runner._notify_install_end(1)
+
+        notify.assert_awaited_once()
+        args, _ = notify.await_args
+        assert args[0] == 42
+        assert args[1] == NotificationKind.INSTALL_COMPLETED
+        assert args[2] == NotificationLevel.SUCCESS
+        assert args[3]["rom_name"] == "Olden Era"
+
+    def test_failed_notifies_failure_with_the_error(self, monkeypatch):
+        from models.install_session import InstallSessionState
+        from models.notification import NotificationKind, NotificationLevel
+
+        session_handler = MagicMock()
+        session_handler.get_session.return_value = self._session(
+            InstallSessionState.FAILED, error="Installer timed out"
+        )
+        monkeypatch.setattr(runner, "db_install_session_handler", session_handler)
+        monkeypatch.setattr(
+            runner,
+            "db_rom_handler",
+            MagicMock(get_rom_visibility_label=lambda _id: self._rom()),
+        )
+        notify = AsyncMock()
+        monkeypatch.setattr("handler.notification_handler.notify", notify)
+
+        runner._notify_install_end(1)
+
+        args, _ = notify.await_args
+        assert args[1] == NotificationKind.INSTALL_FAILED
+        assert args[2] == NotificationLevel.ERROR
+        assert args[3]["error"] == "Installer timed out"
+
+    def test_non_terminal_state_does_not_notify(self, monkeypatch):
+        from models.install_session import InstallSessionState
+
+        session_handler = MagicMock()
+        session_handler.get_session.return_value = self._session(
+            InstallSessionState.INSTALLING
+        )
+        monkeypatch.setattr(runner, "db_install_session_handler", session_handler)
+        notify = AsyncMock()
+        monkeypatch.setattr("handler.notification_handler.notify", notify)
+
+        runner._notify_install_end(1)
+
+        notify.assert_not_awaited()
+
+    def test_a_notify_failure_does_not_raise(self, monkeypatch):
+        from models.install_session import InstallSessionState
+
+        session_handler = MagicMock()
+        session_handler.get_session.return_value = self._session(
+            InstallSessionState.DONE
+        )
+        monkeypatch.setattr(runner, "db_install_session_handler", session_handler)
+        monkeypatch.setattr(
+            runner,
+            "db_rom_handler",
+            MagicMock(get_rom_visibility_label=lambda _id: None),
+        )
+        monkeypatch.setattr(
+            "handler.notification_handler.notify",
+            AsyncMock(side_effect=RuntimeError("redis is down")),
+        )
+
+        runner._notify_install_end(1)  # must not raise
+
+    def test_run_install_notifies_after_an_unhandled_exception(self, monkeypatch):
+        """The `finally` still fires even when `_run_install` itself blows up,
+        so a bug in the runner doesn't also leave the owner never notified."""
+        monkeypatch.setattr(
+            runner, "_run_install", MagicMock(side_effect=RuntimeError("boom"))
+        )
+        notify_end = MagicMock()
+        monkeypatch.setattr(runner, "_notify_install_end", notify_end)
+
+        with pytest.raises(RuntimeError):
+            runner.run_install(1)
+
+        notify_end.assert_called_once_with(1)
