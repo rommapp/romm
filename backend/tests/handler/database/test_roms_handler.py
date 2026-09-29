@@ -603,3 +603,70 @@ class TestSyncRomFilesWithReusedRows:
 
         assert [f.id for f in second] == [f.id for f in first]
         assert second[0].md5_hash == "md5"
+
+
+class TestRomFileSizeTotal:
+    """`fs_size_bytes` sums every file row whatever its category, as a scan and
+    migration 0049 do, so each per-file write has to keep it in step."""
+
+    def _size(self, rom: Rom) -> int:
+        stored = db_rom_handler.get_rom(rom.id)
+        assert stored is not None
+        return stored.fs_size_bytes
+
+    def _add(
+        self, rom: Rom, file_name: str, size: int, category: RomFileCategory
+    ) -> RomFile:
+        return db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name=file_name,
+                file_path=rom.fs_path,
+                file_size_bytes=size,
+                category=category,
+            )
+        )
+
+    def test_add_counts_every_category(self, rom: Rom):
+        self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
+        self._add(rom, "manual.pdf", 200, RomFileCategory.MANUAL)
+        self._add(rom, "guide.txt", 30, RomFileCategory.WALKTHROUGH)
+
+        assert self._size(rom) == 1230
+
+    def test_delete_subtracts_the_file(self, rom: Rom):
+        self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
+        manual = self._add(rom, "manual.pdf", 200, RomFileCategory.MANUAL)
+
+        db_rom_handler.delete_rom_file(manual.id)
+
+        assert self._size(rom) == 1000
+
+    def test_deleting_the_last_file_leaves_zero(self, rom: Rom):
+        game = self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
+
+        db_rom_handler.delete_rom_file(game.id)
+
+        assert self._size(rom) == 0
+
+    def test_resized_file_updates_the_total(self, rom: Rom):
+        game = self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
+
+        db_rom_handler.update_rom_file(game.id, {"file_size_bytes": 4000})
+
+        assert self._size(rom) == 4000
+
+    def test_other_roms_keep_their_total(self, rom: Rom, second_rom: Rom):
+        self._add(second_rom, "other.bin", 500, RomFileCategory.GAME)
+        game = self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
+
+        db_rom_handler.delete_rom_file(game.id)
+
+        assert self._size(second_rom) == 500
+
+    def test_deleting_an_unknown_file_is_a_no_op(self, rom: Rom):
+        self._add(rom, "game.bin", 1000, RomFileCategory.GAME)
+
+        db_rom_handler.delete_rom_file(999_999)
+
+        assert self._size(rom) == 1000

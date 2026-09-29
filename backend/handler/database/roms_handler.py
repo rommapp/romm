@@ -2436,6 +2436,20 @@ class DBRomsHandler(DBBaseHandler):
 
         return rom_user
 
+    def _recompute_fs_size_bytes(self, rom_id: int, session: Session) -> None:
+        """Re-derive the size the gallery sorts on from the rom's file rows."""
+        total = (
+            select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
+            .where(RomFile.rom_id == rom_id)
+            .scalar_subquery()
+        )
+        session.execute(
+            update(Rom)
+            .where(Rom.id == rom_id)
+            .values(fs_size_bytes=total)
+            .execution_options(synchronize_session="fetch")
+        )
+
     @begin_session
     def add_rom_file(
         self,
@@ -2444,6 +2458,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile:
         merged = session.merge(rom_file)
         session.flush()
+        self._recompute_fs_size_bytes(merged.rom_id, session)
         return merged
 
     def _apply_scanned_rom_file(
@@ -2686,7 +2701,10 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        return session.scalars(select(RomFile).filter_by(id=id)).one_or_none()
+        rom_file = session.scalars(select(RomFile).filter_by(id=id)).one_or_none()
+        if rom_file and "file_size_bytes" in data:
+            self._recompute_fs_size_bytes(rom_file.rom_id, session)
+        return rom_file
 
     @begin_session
     def upsert_track_meta(
@@ -3312,11 +3330,15 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
+        rom_id = session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
+        if rom_id is None:
+            return
         session.execute(
             delete(RomFile)
             .where(RomFile.id == id)
             .execution_options(synchronize_session="evaluate")
         )
+        self._recompute_fs_size_bytes(rom_id, session)
 
     # Note management methods
     def _rom_notes_query(
