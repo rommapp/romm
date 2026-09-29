@@ -152,7 +152,7 @@ const styleVars = computed(() => {
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 9px 12px;
+  padding: 9px var(--r-space-3);
   border-radius: 9px;
   cursor: pointer;
   font-size: 13px;

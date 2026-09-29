@@ -215,9 +215,9 @@ function onClose(evt: MouseEvent) {
 /* ── Size ladder — height + horizontal padding + font-size ─────── */
 .r-chip--x-small {
   height: 20px;
-  padding: 0 8px;
+  padding: 0 var(--r-space-2);
   font-size: 10px;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-chip--x-small .r-chip__icon {
   font-size: 12px;
@@ -257,7 +257,7 @@ function onClose(evt: MouseEvent) {
   height: 48px;
   padding: 0 22px;
   font-size: 16px;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-chip--x-large .r-chip__icon {
   font-size: 20px;
@@ -267,10 +267,10 @@ function onClose(evt: MouseEvent) {
    icon sits at a consistent visual inset instead of disappearing
    behind the larger gap. */
 .r-chip:has(.r-chip__icon--prepend) {
-  padding-inline-start: 8px;
+  padding-inline-start: var(--r-space-2);
 }
 .r-chip:has(.r-chip__icon--append) {
-  padding-inline-end: 8px;
+  padding-inline-end: var(--r-space-2);
 }
 
 /* ── Variant: flat (solid colour fill) ─────────────────────────── */
@@ -344,7 +344,7 @@ function onClose(evt: MouseEvent) {
   background: transparent;
   border: none;
   padding: 0;
-  margin-inline-start: 4px;
+  margin-inline-start: var(--r-space-1);
   margin-inline-end: -2px;
   color: inherit;
   cursor: pointer;

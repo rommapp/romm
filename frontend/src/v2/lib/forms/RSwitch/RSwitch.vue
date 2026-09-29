@@ -100,7 +100,7 @@ function toggle() {
 .r-switch {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   background: transparent;
   border: none;
   padding: 0;

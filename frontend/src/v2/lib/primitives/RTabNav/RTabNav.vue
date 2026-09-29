@@ -397,7 +397,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   font-family: inherit;
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg-muted);
@@ -469,23 +469,23 @@ html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
   color: var(--r-color-fg);
 }
 .r-tab-nav--underlined.r-tab-nav--x-small .r-tab-nav__btn {
-  padding: 4px 8px;
+  padding: var(--r-space-1) var(--r-space-2);
   font-size: 11px;
 }
 .r-tab-nav--underlined.r-tab-nav--small .r-tab-nav__btn {
-  padding: 6px 12px;
+  padding: 6px var(--r-space-3);
   font-size: 12px;
 }
 .r-tab-nav--underlined.r-tab-nav--default .r-tab-nav__btn {
-  padding: 8px 18px;
+  padding: var(--r-space-2) 18px;
   font-size: 13px;
 }
 .r-tab-nav--underlined.r-tab-nav--large .r-tab-nav__btn {
-  padding: 10px 24px;
+  padding: 10px var(--r-space-6);
   font-size: var(--r-font-size-lg);
 }
 .r-tab-nav--underlined.r-tab-nav--x-large .r-tab-nav__btn {
-  padding: 12px 28px;
+  padding: var(--r-space-3) var(--r-space-7);
   font-size: var(--r-font-size-xl);
 }
 
@@ -511,7 +511,7 @@ html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
 
 /* ---------- Pill variant ---------- */
 .r-tab-nav--pill .r-tab-nav__track {
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-tab-nav--pill .r-tab-nav__btn {
   border-radius: var(--r-radius-md);
@@ -529,11 +529,11 @@ html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
   color: var(--r-color-brand-primary);
 }
 .r-tab-nav--pill.r-tab-nav--x-small .r-tab-nav__btn {
-  padding: 6px 8px;
+  padding: 6px var(--r-space-2);
   font-size: 11px;
 }
 .r-tab-nav--pill.r-tab-nav--small .r-tab-nav__btn {
-  padding: 8px 12px;
+  padding: var(--r-space-2) var(--r-space-3);
   font-size: 12px;
 }
 .r-tab-nav--pill.r-tab-nav--default .r-tab-nav__btn {
@@ -541,7 +541,7 @@ html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
   font-size: 13px;
 }
 .r-tab-nav--pill.r-tab-nav--large .r-tab-nav__btn {
-  padding: 12px 18px;
+  padding: var(--r-space-3) 18px;
   font-size: var(--r-font-size-lg);
 }
 .r-tab-nav--pill.r-tab-nav--x-large .r-tab-nav__btn {
@@ -581,7 +581,7 @@ html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
 html[data-bp~="sm-and-down"]
   .r-tab-nav--underlined.r-tab-nav--default
   .r-tab-nav__btn {
-  padding: 8px 14px;
+  padding: var(--r-space-2) 14px;
   font-size: 12px;
 }
 </style>

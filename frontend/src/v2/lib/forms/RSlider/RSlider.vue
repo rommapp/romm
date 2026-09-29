@@ -267,7 +267,7 @@ const verticalListeners = computed(() =>
 .r-slider {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   width: 100%;
   --r-slider-accent: var(--r-color-brand-primary);
   --r-slider-percent: 0%;

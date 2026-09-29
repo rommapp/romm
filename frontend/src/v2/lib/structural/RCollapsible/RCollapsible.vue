@@ -205,7 +205,7 @@ function toggle() {
 .r-collapsible__header-append {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   flex-shrink: 0;
 }
 

@@ -241,7 +241,7 @@ const gap = computed(() => GAP_MAP[props.density]);
 .r-rating {
   display: inline-flex;
   align-items: center;
-  gap: var(--r-rating-gap, 4px);
+  gap: var(--r-rating-gap, var(--r-space-1));
   --r-rating-fill: var(--r-color-romm-gold);
   --r-rating-empty: var(--r-color-romm-gold);
   --r-rating-size: 22px;
@@ -252,7 +252,7 @@ const gap = computed(() => GAP_MAP[props.density]);
   appearance: none;
   background: transparent;
   border: 0;
-  padding: 4px;
+  padding: var(--r-space-1);
   margin: 0;
   cursor: pointer;
   font: inherit;

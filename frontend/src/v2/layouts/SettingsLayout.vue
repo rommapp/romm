@@ -86,7 +86,7 @@ setBgArt(null);
 .r-v2-settings__content {
   flex: 1;
   min-width: 0;
-  padding: 32px 40px 60px;
+  padding: var(--r-space-8) var(--r-space-10) 60px;
 }
 
 /* Default body = panel mode (background + border + padding). Bare
@@ -139,7 +139,7 @@ html[data-bp~="sm-and-down"] .r-v2-settings--fill {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding-bottom: 12px;
+  padding-bottom: var(--r-space-3);
   overflow: hidden;
 }
 .r-v2-settings--fill .r-v2-settings__body {
@@ -151,12 +151,12 @@ html[data-bp~="sm-and-down"] .r-v2-settings--fill {
    column fills the row on its own — just tighten the gutters to the
    responsive page padding. The nav bar right above already separates it. */
 html[data-bp~="sm-and-down"] .r-v2-settings__content {
-  padding: var(--r-space-2) var(--r-row-pad) 48px;
+  padding: var(--r-space-2) var(--r-row-pad) var(--r-space-12);
 }
 /* Fill views own their height and reserve the bottom bar separately, so the
    generous 48px scroll gutter above just leaves a big empty band under the
    panel — trim it to a small breather. */
 html[data-bp~="sm-and-down"] .r-v2-settings--fill .r-v2-settings__content {
-  padding-bottom: 12px;
+  padding-bottom: var(--r-space-3);
 }
 </style>

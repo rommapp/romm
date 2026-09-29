@@ -96,7 +96,7 @@ const resolvedRounded = computed<string>(() => {
 .r-list {
   list-style: none;
   margin: 0;
-  padding: 4px;
+  padding: var(--r-space-1);
   display: flex;
   flex-direction: column;
   gap: 2px;

@@ -438,7 +438,7 @@ function onBackdropClick(event: MouseEvent) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 56px 80px;
+  padding: var(--r-space-14) 80px;
   overflow: hidden;
 }
 
@@ -556,7 +556,7 @@ function onBackdropClick(event: MouseEvent) {
   bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 6px 12px;
+  padding: 6px var(--r-space-3);
   border-radius: 999px;
   background: var(--r-color-overlay-border);
   border: 1px solid var(--r-color-overlay-border-strong);
@@ -583,7 +583,7 @@ function onBackdropClick(event: MouseEvent) {
 .r-carousel__thumbs-wrap {
   /* Block, not flex-centred: the inner strip spans full width and does its
      own `safe center` so it can scroll when it overflows. */
-  padding: 12px 24px 18px;
+  padding: var(--r-space-3) var(--r-space-6) 18px;
 }
 .r-carousel--fullscreen .r-carousel__thumbs-wrap {
   /* When both thumbs and the footer counter are visible, drop the bottom
@@ -597,14 +597,14 @@ function onBackdropClick(event: MouseEvent) {
      flex-start when it overflows — plain `center` on an overflowing flex
      container makes the leading items unreachable (can't scroll to them). */
   justify-content: safe center;
-  gap: 8px;
+  gap: var(--r-space-2);
   max-width: 100%;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
   scrollbar-width: thin;
-  padding: 4px 4px 8px;
+  padding: var(--r-space-1) var(--r-space-1) var(--r-space-2);
   scroll-padding-inline: 24px;
 }
 .r-carousel__thumbs::-webkit-scrollbar {
@@ -718,7 +718,7 @@ function onBackdropClick(event: MouseEvent) {
 
 /* Smaller viewports -------------------------------------------------------- */
 html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__stage {
-  padding: 48px 12px 8px;
+  padding: var(--r-space-12) var(--r-space-3) var(--r-space-2);
 }
 /* Fit the active item to the stage row (the grid gives the thumb strip +
    counter their own row below). The desktop `86vh` cap is taller than the

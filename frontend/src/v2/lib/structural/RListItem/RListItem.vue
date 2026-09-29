@@ -190,7 +190,7 @@ const showPrependIcon = computed(
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   min-height: var(--r-list-item-h, 40px);
   padding: 6px 10px;
   width: 100%;

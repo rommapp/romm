@@ -654,7 +654,7 @@ const showDetails = computed(
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   padding: 6px var(--r-cf-pad-x);
   min-width: 0;
 }
@@ -667,7 +667,7 @@ const showDetails = computed(
   background: transparent;
   border: 0;
   margin-left: 2px;
-  margin-right: -4px;
+  margin-right: calc(-1 * var(--r-space-1));
   padding: 1px;
   display: inline-grid;
   place-items: center;
@@ -739,7 +739,7 @@ const showDetails = computed(
 /* Details / hint / error row. Mirrors RTextField's gutter so the two
    primitives stack with identical bottom-edge padding. */
 .r-combobox-field__details {
-  padding-inline: 4px;
+  padding-inline: var(--r-space-1);
   font-size: 11px;
   line-height: 1.3;
   color: var(--r-color-fg-muted);
@@ -776,7 +776,7 @@ const showDetails = computed(
   max-height: inherit;
 }
 .r-combobox-field__item {
-  padding: 8px 12px;
+  padding: var(--r-space-2) var(--r-space-3);
   border-radius: 8px;
   font-size: 13px;
   color: var(--r-color-fg-secondary);

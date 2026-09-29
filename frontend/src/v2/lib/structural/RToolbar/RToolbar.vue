@@ -137,7 +137,7 @@ const resolvedHeight = computed<string | undefined>(() => {
 .r-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   background: var(--r-toolbar-color, var(--r-color-bg-elevated));
   color: var(--r-color-fg);
   border-bottom: 1px solid var(--r-color-border);
@@ -161,7 +161,7 @@ const resolvedHeight = computed<string | undefined>(() => {
 /* ── Density — drives height + padding ───────────────────────── */
 .r-toolbar--density-default {
   height: 64px;
-  padding: 0 16px;
+  padding: 0 var(--r-space-4);
 }
 .r-toolbar--density-comfortable {
   height: 56px;
@@ -169,7 +169,7 @@ const resolvedHeight = computed<string | undefined>(() => {
 }
 .r-toolbar--density-compact {
   height: 48px;
-  padding: 0 12px;
+  padding: 0 var(--r-space-3);
   gap: 10px;
 }
 
@@ -188,7 +188,7 @@ html[data-bp~="xs"] .r-toolbar--density-comfortable {
 .r-toolbar__append {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   flex-shrink: 0;
 }
 

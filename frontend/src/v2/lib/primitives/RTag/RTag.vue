@@ -101,7 +101,7 @@ withDefaults(defineProps<Props>(), {
 .r-tag--x-small {
   padding: 1px 7px;
   font-size: var(--r-font-size-xs);
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-tag--small {
   padding: 2px 9px;
@@ -109,19 +109,19 @@ withDefaults(defineProps<Props>(), {
   gap: 5px;
 }
 .r-tag--default {
-  padding: 4px 10px;
+  padding: var(--r-space-1) 10px;
   font-size: 12px;
   gap: 6px;
 }
 .r-tag--large {
-  padding: 6px 12px;
+  padding: 6px var(--r-space-3);
   font-size: var(--r-font-size-md);
   gap: 7px;
 }
 .r-tag--x-large {
-  padding: 8px 14px;
+  padding: var(--r-space-2) 14px;
   font-size: var(--r-font-size-lg);
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 /* Inner pieces */

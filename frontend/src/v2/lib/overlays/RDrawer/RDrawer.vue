@@ -278,8 +278,8 @@ html[data-bp~="xs"] .r-drawer__panel {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: var(--r-space-2);
+  padding: var(--r-space-3) 14px;
   border-bottom: 1px solid var(--r-color-border);
 }
 .r-drawer__lead-icon {
@@ -294,7 +294,7 @@ html[data-bp~="xs"] .r-drawer__panel {
   color: var(--r-color-fg);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-drawer__close {
   appearance: none;
@@ -344,8 +344,8 @@ html[data-bp~="xs"] .r-drawer__panel {
 .r-drawer__footer {
   flex-shrink: 0;
   display: flex;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: var(--r-space-2);
+  padding: var(--r-space-3) 14px;
   border-top: 1px solid var(--r-color-border);
 }
 

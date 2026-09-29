@@ -129,12 +129,12 @@ const lineStyle = computed(() => {
 .r-divider--horizontal.r-divider--with-text {
   flex-direction: row;
   width: 100%;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 .r-divider--vertical.r-divider--with-text {
   flex-direction: column;
   align-self: stretch;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 
 .r-divider__line {
@@ -168,7 +168,7 @@ const lineStyle = computed(() => {
    further (e.g. ManageCollectionsDialog's 18px row margin) set
    `--r-divider-bleed-x` on the divider or any ancestor to override. */
 .r-divider--full-width {
-  margin-inline: calc(-1 * var(--r-divider-bleed-x, 16px));
+  margin-inline: calc(-1 * var(--r-divider-bleed-x, var(--r-space-4)));
   width: calc(100% + 2 * var(--r-divider-bleed-x, 16px));
 }
 </style>

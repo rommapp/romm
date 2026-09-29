@@ -344,7 +344,7 @@ onBeforeUnmount(() => {
 .r-table__header-cell {
   display: inline-flex;
   align-items: center;
-  gap: var(--r-space-1, 4px);
+  gap: var(--r-space-1, var(--r-space-1));
   min-width: 0;
   height: 100%;
   color: var(--r-color-fg-muted);
@@ -374,7 +374,7 @@ onBeforeUnmount(() => {
   color: inherit;
   display: inline-flex;
   align-items: center;
-  gap: var(--r-space-1, 4px);
+  gap: var(--r-space-1, var(--r-space-1));
   min-width: 0;
   cursor: pointer;
   text-align: inherit;
@@ -460,7 +460,7 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   display: flex;
   align-items: center;
-  gap: var(--r-space-1, 4px);
+  gap: var(--r-space-1, var(--r-space-1));
 }
 .r-table__cell--end {
   justify-content: flex-end;
@@ -496,7 +496,7 @@ html[data-bp~="xs"] .r-table--mobile-stack .r-table__row {
      dense desktop table) — a fixed height crushes the stacked cells into
      each other, so the card must always grow to fit its content. */
   height: auto !important;
-  padding: 12px var(--r-space-3);
+  padding: var(--r-space-3) var(--r-space-3);
 }
 html[data-bp~="xs"] .r-table--mobile-stack .r-table__cell {
   height: auto;

@@ -30,6 +30,6 @@ withDefaults(defineProps<Props>(), {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--r-color-fg-faint);
-  padding: 20px 0 12px;
+  padding: var(--r-space-5) 0 var(--r-space-3);
 }
 </style>

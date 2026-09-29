@@ -826,7 +826,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   /* Hug the field edges symmetrically when the textarea is the only
      direct child: the row-aligned vertical centring we lost above is
      replaced by an inset that gives the caret room. */
-  padding-block: 8px;
+  padding-block: var(--r-space-2);
 }
 .r-text-field__input--multiline {
   /* Native textarea: line-height is the layout unit, not the field
@@ -955,7 +955,7 @@ function onAppendInnerClick(evt: MouseEvent) {
 
 /* ── Details row ───────────────────────────────────────────────── */
 .r-text-field__details {
-  padding-inline: 4px;
+  padding-inline: var(--r-space-1);
   font-size: 11px;
   line-height: 1.3;
   color: var(--r-color-fg-muted);
@@ -975,7 +975,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding-inline: 4px;
+  padding-inline: var(--r-space-1);
   font-family: var(--r-font-family-mono);
   font-size: 11px;
   line-height: 1.3;

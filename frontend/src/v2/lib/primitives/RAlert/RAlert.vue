@@ -193,8 +193,8 @@ function close(evt: MouseEvent) {
      the icon hugs the top of the title rather than floating between
      title and body. */
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-3) 14px;
   border: 1px solid transparent;
   font-size: var(--r-font-size-sm);
   line-height: 1.45;
@@ -216,8 +216,8 @@ function close(evt: MouseEvent) {
   gap: 10px;
 }
 .r-alert--density-compact {
-  padding: 8px 12px;
-  gap: 8px;
+  padding: var(--r-space-2) var(--r-space-3);
+  gap: var(--r-space-2);
   font-size: var(--r-font-size-xs);
 }
 
@@ -261,8 +261,8 @@ function close(evt: MouseEvent) {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--r-space-2);
+  margin-top: var(--r-space-2);
 }
 
 /* ── Close button — own hover halo so it reads as separate ────── */
@@ -273,7 +273,7 @@ function close(evt: MouseEvent) {
   flex-shrink: 0;
   width: 26px;
   height: 26px;
-  margin-right: -4px;
+  margin-right: calc(-1 * var(--r-space-1));
   background: transparent;
   border: none;
   color: inherit;

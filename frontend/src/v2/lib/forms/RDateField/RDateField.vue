@@ -662,7 +662,7 @@ onBeforeUnmount(() => {
   position: fixed;
   z-index: var(--r-z-menu, 2500);
   width: 280px;
-  padding: 8px;
+  padding: var(--r-space-2);
   background: var(--r-color-panel);
   border: 1px solid var(--r-color-panel-border);
   border-radius: 12px;
@@ -683,7 +683,7 @@ onBeforeUnmount(() => {
   grid-template-columns: auto auto 1fr auto auto;
   align-items: center;
   gap: 2px;
-  padding: 2px 4px 4px;
+  padding: 2px var(--r-space-1) var(--r-space-1);
 }
 .r-date-cal__title {
   text-align: center;
@@ -738,7 +738,7 @@ onBeforeUnmount(() => {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--r-color-fg-muted);
-  padding: 4px 0;
+  padding: var(--r-space-1) 0;
 }
 
 /* ── Day grid ──────────────────────────────────────────────────── */
@@ -825,7 +825,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 2px 0;
+  padding: var(--r-space-1) 2px 0;
   border-top: 1px solid var(--r-color-border);
   margin-top: 2px;
   padding-top: 6px;

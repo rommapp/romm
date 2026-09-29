@@ -292,7 +292,7 @@ const hasHeader = computed(
 
 /* ── Header (title / subtitle) ─────────────────────────────────── */
 .r-card__header {
-  padding: 16px 20px 8px;
+  padding: var(--r-space-4) var(--r-space-5) var(--r-space-2);
 }
 .r-card__title {
   font-size: var(--r-font-size-md, 15px);
@@ -300,7 +300,7 @@ const hasHeader = computed(
   line-height: 1.3;
 }
 .r-card__subtitle {
-  margin-top: 4px;
+  margin-top: var(--r-space-1);
   font-size: var(--r-font-size-sm, 12px);
   color: var(--r-color-fg-muted);
   line-height: 1.4;

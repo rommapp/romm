@@ -317,7 +317,7 @@ const panelStyle = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: var(--r-space-4);
 }
 
 .r-dialog__scrim {
@@ -386,7 +386,7 @@ html[data-bp~="sm-and-down"]
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 10px 12px 16px;
+  padding: var(--r-space-3) 10px var(--r-space-3) var(--r-space-4);
   border-bottom: 1px solid var(--r-color-border);
 }
 .r-dialog__lead-icon {
@@ -422,7 +422,7 @@ html[data-bp~="sm-and-down"]
 
 /* ── Toolbar / append / footer ────────────────────────────────── */
 .r-dialog__toolbar {
-  padding: 8px var(--r-dialog-inset);
+  padding: var(--r-space-2) var(--r-dialog-inset);
   background: var(--r-color-bg-elevated);
   border-bottom: 1px solid var(--r-color-border);
 }
@@ -445,7 +445,7 @@ html[data-bp~="sm-and-down"]
      a `__body` wrapper just to space their fields. Override at the
      consumer end only when the layout genuinely differs (grids, hero
      rows, centred icon stacks). */
-  padding: 20px 24px;
+  padding: var(--r-space-5) var(--r-space-6);
   gap: 14px;
 }
 .r-dialog__body--scroll {
@@ -464,7 +464,7 @@ html[data-bp~="sm-and-down"]
   border-top: 1px solid var(--r-color-border);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-dialog__footer-spacer {
   flex: 1;

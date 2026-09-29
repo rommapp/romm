@@ -1476,7 +1476,7 @@ const describedBy = computed(() => {
 }
 .r-select__divider {
   padding: 0;
-  margin: 4px 0;
+  margin: var(--r-space-1) 0;
   pointer-events: none;
   list-style: none;
 }
@@ -1519,7 +1519,7 @@ const describedBy = computed(() => {
 .r-select__adornment--append {
   padding-inline-start: 0;
   padding-inline-end: var(--r-tf-pad-x);
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-select--focused .r-select__adornment {
   color: var(--r-color-fg-secondary);
@@ -1577,7 +1577,7 @@ const describedBy = computed(() => {
 
 /* ── Details ───────────────────────────────────────────────────── */
 .r-select__details {
-  padding-inline: 4px;
+  padding-inline: var(--r-space-1);
   font-size: 11px;
   line-height: 1.3;
   color: var(--r-color-fg-muted);
@@ -1725,7 +1725,7 @@ html[data-input="pad"] .r-select__field:focus {
 }
 
 .r-select__empty {
-  padding: 12px 14px;
+  padding: var(--r-space-3) 14px;
   color: var(--r-color-fg-muted);
   font-size: 13px;
   text-align: center;
@@ -1735,7 +1735,7 @@ html[data-input="pad"] .r-select__field:focus {
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 9px 12px;
+  padding: 9px var(--r-space-3);
   border-radius: 9px;
   margin-bottom: 2px;
   font-size: 13px;

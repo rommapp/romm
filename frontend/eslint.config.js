@@ -224,7 +224,11 @@ export default tseslint.config(
   },
   // Widened directory by directory as each is converted to --r-space-* tokens.
   {
-    files: ["src/v2/**/*.css"],
+    files: [
+      "src/v2/**/*.css",
+      "src/v2/lib/**/*.vue",
+      "src/v2/layouts/**/*.vue",
+    ],
     plugins: { romm },
     rules: { "romm/no-spacing-literal": "error" },
   },

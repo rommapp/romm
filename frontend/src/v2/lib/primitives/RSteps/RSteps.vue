@@ -170,7 +170,7 @@ watch(
 .r-steps__dot[data-state="current"]::after {
   content: "";
   position: absolute;
-  inset: -4px;
+  inset: calc(-1 * var(--r-space-1));
   border-radius: 50%;
   border: 2px solid var(--r-color-brand-primary);
   opacity: 0;

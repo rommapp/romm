@@ -389,7 +389,7 @@ const spinnerSize = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--r-space-2);
   border: 1px solid transparent;
   font-family: inherit;
   font-weight: var(--r-font-weight-medium);
@@ -552,33 +552,33 @@ const spinnerSize = computed(() => {
 
 .r-btn--x-small {
   --r-btn-rest-h: 24px;
-  padding: 0 8px;
+  padding: 0 var(--r-space-2);
   font-size: 11px;
-  gap: 4px;
+  gap: var(--r-space-1);
 }
 .r-btn--small {
   --r-btn-rest-h: 32px;
-  padding: 0 12px;
+  padding: 0 var(--r-space-3);
   font-size: 13px;
   gap: 6px;
 }
 .r-btn--default {
   --r-btn-rest-h: 40px;
-  padding: 0 16px;
+  padding: 0 var(--r-space-4);
   font-size: 14px;
-  gap: 8px;
+  gap: var(--r-space-2);
 }
 .r-btn--large {
   --r-btn-rest-h: 48px;
-  padding: 0 20px;
+  padding: 0 var(--r-space-5);
   font-size: 15px;
   gap: 10px;
 }
 .r-btn--x-large {
   --r-btn-rest-h: 56px;
-  padding: 0 24px;
+  padding: 0 var(--r-space-6);
   font-size: 16px;
-  gap: 12px;
+  gap: var(--r-space-3);
 }
 
 /* Icon size scales with text — same 1.2em ratio RIcon uses. */

@@ -335,7 +335,7 @@ const hasLabel = computed(
   user-select: none;
   /* Slight vertical breathing room so a row of checkboxes is
      touch-comfortable even without extra padding from the consumer. */
-  padding: 4px 0;
+  padding: var(--r-space-1) 0;
 }
 
 /* Bare mode: used when the consumer (overlay chrome on a GameCard,
@@ -616,8 +616,8 @@ html[data-input="pad"]
 /* ── Variant card: whole row clickable card ────────────────── */
 .r-checkbox--variant-card .r-checkbox {
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: var(--r-space-3);
+  padding: var(--r-space-3) 14px;
   border: 1px solid var(--r-color-border);
   border-radius: 10px;
   background: var(--r-color-bg-elevated);

@@ -303,7 +303,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
 
 /* Tab — text-padded cluster (top-nav style). */
 .r-slider-btn-group--tab {
-  padding: 4px;
+  padding: var(--r-space-1);
   gap: 2px;
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border-strong);
