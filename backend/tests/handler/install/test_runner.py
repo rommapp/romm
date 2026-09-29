@@ -951,7 +951,8 @@ class TestNotifyInstallEnd:
     call site got there, since none of them know about notifications."""
 
     def _session(self, state, **overrides):
-        return MagicMock(state=state, user_id=42, rom_id=7, error=None, **overrides)
+        fields = {"user_id": 42, "rom_id": 7, "error": None, **overrides}
+        return MagicMock(state=state, **fields)
 
     def _rom(self, name="Olden Era", fs_name="olden-era"):
         # MagicMock reserves the "name" kwarg for its own repr, not an
