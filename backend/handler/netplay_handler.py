@@ -1,5 +1,5 @@
 import json
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, cast
 
 from handler.redis_handler import async_cache
 
@@ -43,7 +43,7 @@ class NetplayHandler:
 
     async def get_all(self) -> dict[str, NetplayRoom]:
         """Get all rooms from Redis."""
-        rooms = await async_cache.hgetall(self.hash_name)
+        rooms = cast(dict[str, str], await async_cache.hgetall(self.hash_name))
         return {room_id: json.loads(room_data) for room_id, room_data in rooms.items()}
 
 

@@ -11,7 +11,10 @@ import {
   createSaveSyncTracker,
   RETRY_BACKOFF_MAX_MS,
   RETRY_BACKOFF_MIN_MS,
+  bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
+  loadEmulatorJSSave,
+  patchNetplaySocketIo,
   pollSaveFiles,
   resolveScreenshot,
   saveSave,
@@ -101,6 +104,36 @@ function saveSettings(settings: Record<string, unknown>) {
     JSON.stringify({ controlSettings: {}, settings, cheats: [] }),
   );
 }
+
+describe("patchNetplaySocketIo", () => {
+  afterEach(() => {
+    delete window.io;
+  });
+
+  it("connects netplay over websocket on the mounted path", () => {
+    const io = vi.fn();
+    window.io = io;
+    patchNetplaySocketIo();
+
+    window.io("https://romm.example", { transports: ["polling", "websocket"] });
+
+    expect(io).toHaveBeenCalledWith("https://romm.example", {
+      path: "/netplay/socket.io",
+      transports: ["websocket"],
+    });
+  });
+
+  it("wraps the global only once", () => {
+    const io = vi.fn();
+    window.io = io;
+    patchNetplaySocketIo();
+    patchNetplaySocketIo();
+
+    window.io("https://romm.example");
+
+    expect(io).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("installEJSDefaultOptionsTrap", () => {
   beforeEach(() => {
@@ -222,6 +255,95 @@ describe("installEJSDefaultOptionsTrap", () => {
     }).not.toThrow();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  it("hands an FBNeo BIOS archive to the core whole on the 4.2.3 build", () => {
+    const emulator = makeEmulator({});
+    Object.assign(emulator.config, {
+      system: "fbneo",
+      biosUrl: "/api/firmware/1/content/neogeo.zip",
+    });
+    // Mirrors EmulatorJS 4.2.3's generic core lookup.
+    emulator.getCores = () => ({ arcade: ["fbneo"], mame: ["mame2003"] });
+    emulator.getCore = function (generic?: boolean) {
+      const cores = this.getCores();
+      if (!generic) return this.config.system;
+      return (
+        Object.keys(cores).find((k) => cores[k].includes(this.config.system)) ??
+        this.config.system
+      );
+    };
+    emulator.downloadGameFile = () => {};
+    window.EJS_emulator = emulator;
+
+    expect(emulator.config.biosUrl).toBe("");
+    expect(emulator.config.externalFiles).toEqual({
+      "/neogeo.zip": "/api/firmware/1/content/neogeo.zip",
+    });
+  });
+
+  describe("cheats", () => {
+    function makeCheatEmulator(
+      cheats: { desc: string; code: string; checked: boolean }[],
+    ) {
+      const emulator = makeEmulator({});
+      emulator.cheats = cheats;
+      emulator.gameManager = { setCheat: vi.fn(), resetCheat: vi.fn() };
+      window.EJS_emulator = emulator;
+      return emulator;
+    }
+
+    it("never hands a disabled cheat to the core", () => {
+      // fceumm applies every code it receives, whatever the flag (#4208).
+      const emulator = makeCheatEmulator([
+        { desc: "lives", code: "SLUSZTVS", checked: false },
+      ]);
+
+      emulator.cheatChanged(false, "SLUSZTVS", 0);
+
+      expect(emulator.gameManager.resetCheat).toHaveBeenCalled();
+      expect(emulator.gameManager.setCheat).not.toHaveBeenCalled();
+    });
+
+    it("reapplies the other enabled cheats when one is turned off", () => {
+      const emulator = makeCheatEmulator([
+        { desc: "lives", code: "SLUSZTVS", checked: false },
+        { desc: "time", code: "AAAAAAAA", checked: true },
+      ]);
+
+      emulator.cheatChanged(false, "SLUSZTVS", 0);
+
+      expect(emulator.gameManager.setCheat).toHaveBeenCalledExactlyOnceWith(
+        1,
+        true,
+        "AAAAAAAA",
+      );
+    });
+
+    it("drops a checked cheat that is being removed", () => {
+      const emulator = makeCheatEmulator([
+        { desc: "lives", code: "SLUSZTVS", checked: true },
+      ]);
+
+      emulator.cheatChanged(false, "SLUSZTVS", 0);
+
+      expect(emulator.gameManager.setCheat).not.toHaveBeenCalled();
+    });
+
+    it("enables a cheat without resetting the others", () => {
+      const emulator = makeCheatEmulator([
+        { desc: "lives", code: "SLUSZTVS", checked: true },
+      ]);
+
+      emulator.cheatChanged(true, "SLUSZTVS", 0);
+
+      expect(emulator.gameManager.resetCheat).not.toHaveBeenCalled();
+      expect(emulator.gameManager.setCheat).toHaveBeenCalledWith(
+        0,
+        true,
+        "SLUSZTVS",
+      );
+    });
   });
 });
 
@@ -522,6 +644,70 @@ describe("dumpSaveFile", () => {
 
   it("has nothing to offer before the emulator is up", () => {
     expect(dumpSaveFile()).toBeNull();
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+});
+
+describe("loadEmulatorJSSave", () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const path = "/data/saves/nds/game.sav";
+  function mountEmulator(existing: Uint8Array | null) {
+    const files = new Map<string, Uint8Array>();
+    if (existing) files.set(path, existing);
+    const FS = {
+      analyzePath: (p: string) => ({ exists: files.has(p) || p !== path }),
+      mkdir: vi.fn(),
+      readFile: (p: string) => files.get(p),
+      unlink: (p: string) => files.delete(p),
+      writeFile: (p: string, bytes: Uint8Array) => files.set(p, bytes),
+    };
+    const loadSaveFiles = vi.fn();
+    const restart = vi.fn();
+    (window as any).EJS_emulator = {
+      gameManager: { FS, getSaveFilePath: () => path, loadSaveFiles, restart },
+    };
+    return { files, loadSaveFiles, restart };
+  }
+
+  afterEach(() => {
+    (window as any).EJS_emulator = undefined;
+  });
+
+  it("reports a change when the browser had no save cached", () => {
+    const { files, loadSaveFiles } = mountEmulator(null);
+
+    expect(loadEmulatorJSSave(new Uint8Array([1, 2]))).toBe(true);
+    expect(files.get(path)).toEqual(new Uint8Array([1, 2]));
+    expect(loadSaveFiles).toHaveBeenCalledOnce();
+  });
+
+  it("reports a change when the cached save differs", () => {
+    mountEmulator(new Uint8Array([9]));
+
+    expect(loadEmulatorJSSave(new Uint8Array([1, 2]))).toBe(true);
+  });
+
+  it("reports no change when the core booted with the same save", () => {
+    mountEmulator(new Uint8Array([1, 2]));
+
+    expect(loadEmulatorJSSave(new Uint8Array([1, 2]))).toBe(false);
+  });
+
+  it("restarts a freshly booted core when the save changed", () => {
+    const { files, restart } = mountEmulator(null);
+
+    bootEmulatorJSSave(new Uint8Array([1, 2]));
+
+    expect(files.get(path)).toEqual(new Uint8Array([1, 2]));
+    expect(restart).toHaveBeenCalledOnce();
+  });
+
+  it("leaves a core that booted with the same save running", () => {
+    const { restart } = mountEmulator(new Uint8Array([1, 2]));
+
+    bootEmulatorJSSave(new Uint8Array([1, 2]));
+
+    expect(restart).not.toHaveBeenCalled();
   });
   /* eslint-enable @typescript-eslint/no-explicit-any */
 });

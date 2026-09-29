@@ -2,8 +2,10 @@
 end-to-end effect on a member's /permissions/me."""
 
 from datetime import timedelta
+from unittest.mock import AsyncMock
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from endpoints import permissions as permissions_endpoints
 from handler.auth import oauth_handler
 from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
@@ -130,6 +132,61 @@ def test_user_override_adds_capability(client, access_token, viewer_user):
         )
         actions, _ = _me_actions(client, viewer_user.id)
         assert "rom.delete" in actions  # granted by override on top of read-only group
+    finally:
+        _cleanup()
+
+
+def test_a_permission_change_closes_the_users_device_sockets(
+    mocker, client, access_token, viewer_user, add_device_token
+):
+    token, _ = add_device_token(viewer_user, None, scopes="devices.read")
+    close = mocker.patch.object(
+        permissions_endpoints, "close_client_token_sockets", AsyncMock()
+    )
+
+    response = client.put(
+        f"/api/permissions/users/{viewer_user.id}",
+        headers=_bearer(access_token),
+        json={"overrides": [{"entity": "roms", "action": "delete", "granted": True}]},
+    )
+
+    assert response.status_code == 200
+    close.assert_awaited_once_with([token.id])
+
+
+def test_a_group_edit_closes_every_members_device_sockets_at_once(
+    mocker, client, access_token, viewer_user, editor_user, add_device_token
+):
+    try:
+        gid = client.post(
+            "/api/permissions/groups",
+            headers=_bearer(access_token),
+            json={"name": "Handhelds"},
+        ).json()["id"]
+        for user in (viewer_user, editor_user):
+            client.put(
+                f"/api/permissions/users/{user.id}",
+                headers=_bearer(access_token),
+                json={"set_group": True, "permission_group_id": gid},
+            )
+        viewer_token, _ = add_device_token(viewer_user, None, scopes="devices.read")
+        editor_token, _ = add_device_token(editor_user, None, scopes="devices.read")
+        close = mocker.patch.object(
+            permissions_endpoints, "close_client_token_sockets", AsyncMock()
+        )
+
+        response = client.put(
+            f"/api/permissions/groups/{gid}",
+            headers=_bearer(access_token),
+            json={"grants": [{"entity": "roms", "action": "read"}]},
+        )
+
+        assert response.status_code == 200
+        close.assert_awaited_once()
+        assert close.await_args is not None
+        assert sorted(close.await_args.args[0]) == sorted(
+            [viewer_token.id, editor_token.id]
+        )
     finally:
         _cleanup()
 

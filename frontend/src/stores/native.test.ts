@@ -8,6 +8,7 @@ import type {
   PlatformSupport,
   PlatformSupportQuery,
 } from "@/types/rommNative";
+import { makeRom as baseRom } from "@/utils/rom.fixtures";
 
 const shellPresent = { value: true };
 const fetchPlatformSupport = vi.fn(
@@ -74,8 +75,7 @@ vi.mock("@/utils", () => ({
 const { useNativeStore } = await import("@/stores/native");
 
 function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return {
-    id: 1,
+  return baseRom({
     name: "Chrono Trigger",
     fs_name: "Chrono Trigger.sfc",
     fs_name_no_ext: "Chrono Trigger",
@@ -84,9 +84,11 @@ function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
     platform_slug: "snes",
     has_file_on_disk: true,
     // As a single-rom endpoint answers. A gallery card passes `files: []`.
-    files: [{ full_path: "snes/game.sfc", file_size_bytes: 4194304 }],
+    files: [
+      { full_path: "snes/game.sfc", file_size_bytes: 4194304 },
+    ] as SimpleRom["files"],
     ...overrides,
-  } as unknown as SimpleRom;
+  });
 }
 
 beforeEach(() => {

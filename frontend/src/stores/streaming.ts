@@ -42,12 +42,8 @@ export const useStreamingStore = defineStore("streaming", () => {
     containers: [],
     emulator_labels: {},
   });
-  const launchingSession = ref<LaunchingSession | null>(null);
-  const loading = ref(false);
-  // `loading` is false both before and after the fetch, so consumers that must
-  // not act on an unresolved config need this instead.
+  // Consumers that must not act on an unresolved config wait on this.
   const configLoaded = ref(false);
-  const error = ref<string | null>(null);
 
   const isEnabled = computed(() => config.value.enabled);
 
@@ -121,8 +117,6 @@ export const useStreamingStore = defineStore("streaming", () => {
    * If it fails, streaming stays disabled and no buttons appear.
    */
   async function fetchConfig(): Promise<void> {
-    loading.value = true;
-    error.value = null;
     try {
       const { data } = await streamingApi.fetchConfig();
       config.value = {
@@ -131,10 +125,8 @@ export const useStreamingStore = defineStore("streaming", () => {
         emulator_labels: data.emulator_labels ?? {},
       };
     } catch (err) {
-      error.value = String(err);
       console.warn("[streaming] Could not fetch config:", err);
     } finally {
-      loading.value = false;
       configLoaded.value = true;
     }
   }
@@ -175,7 +167,6 @@ export const useStreamingStore = defineStore("streaming", () => {
       cardImport,
       multiplayer,
     );
-    launchingSession.value = data;
     return data;
   }
 
@@ -272,7 +263,6 @@ export const useStreamingStore = defineStore("streaming", () => {
         save,
         claimedAt,
       );
-      launchingSession.value = null;
       return true;
     } catch (err) {
       console.warn("[streaming] Could not release session:", err);
@@ -307,7 +297,6 @@ export const useStreamingStore = defineStore("streaming", () => {
         claimedAt,
       );
       const released = data.released ?? true;
-      if (released) launchingSession.value = null;
       return { released, saved: data.saved ?? false };
     } catch (err) {
       console.warn("[streaming] Could not save-and-exit:", err);
@@ -375,7 +364,6 @@ export const useStreamingStore = defineStore("streaming", () => {
     claimedAt?: string | null,
   ): void {
     if (!platform) return;
-    launchingSession.value = null;
     // The caller is unloading and cannot await, so the rejection is caught on
     // the promise itself; try/catch here would only see a synchronous throw.
     streamingApi
@@ -395,7 +383,6 @@ export const useStreamingStore = defineStore("streaming", () => {
     claimedAt?: string | null,
   ): void {
     if (!platform) return;
-    launchingSession.value = null;
     streamingApi
       .releaseSessionKeepalive(platform, container, claimedAt)
       .catch((err) => {
@@ -405,10 +392,7 @@ export const useStreamingStore = defineStore("streaming", () => {
 
   return {
     config,
-    launchingSession,
-    loading,
     configLoaded,
-    error,
     isEnabled,
     containerForPlatform,
     containerLabelForPlatform,

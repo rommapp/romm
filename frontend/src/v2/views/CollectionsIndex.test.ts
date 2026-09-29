@@ -17,7 +17,7 @@ vi.mock("vue-i18n", () => ({
 // Plain object rather than a reactive route: every test sets the query
 // before mounting, which is when the view reads it.
 const { routeState, routerState, searchState } = vi.hoisted(() => ({
-  routeState: { query: {} as Record<string, string> },
+  routeState: { path: "/collections", query: {} as Record<string, string> },
   routerState: { replace: vi.fn() },
   searchState: { term: "" },
 }));
@@ -237,7 +237,10 @@ describe("CollectionsIndex", () => {
     expect(wrapper.text()).toContain("Favourites");
     expect(wrapper.text()).toContain("Recently Added");
     expect(wrapper.text()).not.toContain("Nintendo");
-    expect(routerState.replace).toHaveBeenCalledWith({ query: {} });
+    expect(routerState.replace).toHaveBeenCalledWith({
+      path: "/collections",
+      query: {},
+    });
   });
 
   it("drops ?kind=virtual when the setting is turned off after mount", async () => {
@@ -255,7 +258,10 @@ describe("CollectionsIndex", () => {
 
     expect(wrapper.text()).not.toContain("Nintendo");
     expect(wrapper.text()).toContain("Favourites");
-    expect(routerState.replace).toHaveBeenCalledWith({ query: {} });
+    expect(routerState.replace).toHaveBeenCalledWith({
+      path: "/collections",
+      query: {},
+    });
   });
 
   it("honors ?kind=virtual when the setting is on", () => {

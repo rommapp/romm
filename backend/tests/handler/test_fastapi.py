@@ -32,6 +32,7 @@ from handler.metadata.ss_handler import (
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    build_hashless_fs_rom,
     scan_platform,
     scan_rom,
 )
@@ -197,7 +198,7 @@ async def test_scan_rom_complete_clears_unselected_metadata(
             newly_added=False,
         )
 
-    # IGDB and RA were unselected — their id and metadata must be cleared.
+    # IGDB and RA were unselected; their id and metadata must be cleared.
     assert result.igdb_id is None
     assert result.igdb_metadata == {}
     assert result.ra_id is None
@@ -1300,11 +1301,13 @@ async def test_lookup_rom_sends_all_top_level_file_hashes(
     assert result["hasheous_id"] is None
     # Hasheous answered, it just knows nothing about these hashes.
     assert conclusive is True
-    mock_request.assert_called_once()
-    sent_data = mock_request.call_args.kwargs["data"]
-    assert sent_data == [
-        {"mD5": "md5one", "shA1": "sha1one", "crc": "crcone"},
-        {"shA1": "chdsha1"},
+    disc1 = {"mD5": "md5one", "shA1": "sha1one", "crc": "crcone"}
+    disc2 = {"shA1": "chdsha1"}
+    # The missed batch is retried one file at a time.
+    assert [call.kwargs["data"] for call in mock_request.call_args_list] == [
+        [disc1, disc2],
+        [disc1],
+        [disc2],
     ]
 
 
@@ -1709,3 +1712,33 @@ async def test_scan_rom_games_still_use_fuzzy_catalog_covers(
     assert result.igdb_id == 3340
     assert result.name == "Paper Mario"
     assert result.url_cover == "https://images.igdb.com/paper-mario.jpg"
+
+
+@pytest.mark.parametrize("newly_added", [True, False])
+async def test_scan_rom_emit_flags_new_roms(newly_added: bool):
+    """Clients count a ROM toward its platform's games off `is_new`."""
+    platform = db_platform_handler.add_platform(
+        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64")
+    )
+    rom = db_rom_handler.add_rom(
+        Rom(platform_id=platform.id, fs_name="Game.z64", fs_path="n64", tags=[])
+    )
+    socket_manager = AsyncMock()
+
+    async with initialize_context():
+        await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=build_hashless_fs_rom(rom.fs_name, rom.fs_path, flat=True),
+            metadata_sources=[],
+            newly_added=newly_added,
+            socket_manager=socket_manager,
+        )
+
+    payloads = [
+        call.args[1]
+        for call in socket_manager.emit.await_args_list
+        if call.args[0] == "scan:scanning_rom"
+    ]
+    assert [payload["is_new"] for payload in payloads] == [newly_added]

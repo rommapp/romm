@@ -63,6 +63,10 @@ const defaultHeartbeat: Heartbeat = {
     EMAIL_ENABLED: false,
     EMAILS_RESET_LINKS: false,
   },
+  DEVICE_INSTALL: {
+    ENABLED: false,
+    EXCLUDED_PLATFORM_SLUGS: [],
+  },
   TASKS: {
     ENABLE_SCHEDULED_RESCAN: false,
     SCHEDULED_RESCAN_CRON: "",

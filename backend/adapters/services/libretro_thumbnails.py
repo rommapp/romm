@@ -1,5 +1,6 @@
 import json
 from html.parser import HTMLParser
+from typing import cast
 from urllib.parse import quote, unquote
 
 import aiohttp
@@ -83,7 +84,7 @@ class LibretroThumbnailsService:
         cached = await async_cache.get(cache_key)
         if cached:
             try:
-                return json.loads(cached)
+                return cast(list[str], json.loads(cached))
             except json.JSONDecodeError:
                 log.warning("Invalid cached libretro listing for %s", cache_key)
 

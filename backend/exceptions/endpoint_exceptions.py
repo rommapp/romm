@@ -88,6 +88,16 @@ class MusicPlaylistAlreadyExistsException(Exception):
         return self.message
 
 
+class DeviceInstallDisabledException(Exception):
+    def __init__(self) -> None:
+        self.message = "Installing on a device is disabled on this server"
+        super().__init__(self.message)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=self.message)
+
+    def __repr__(self) -> str:
+        return self.message
+
+
 class RomNotFoundInRetroAchievementsException(Exception):
     def __init__(self, id: int) -> None:
         self.message = f"Rom with id '{id}' does not exist on RetroAchievements"

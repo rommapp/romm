@@ -48,8 +48,8 @@ from utils.archives import (
     ArchiveReadError,
     detect_mime_type,
     extract_chd_hash,
+    hash_largest_7z_member,
     is_chd_file,
-    process_7z_file,
     read_7z_archive_files,
     read_basic_file,
     read_bz2_file,
@@ -150,12 +150,15 @@ def category_matches(category: str, path_parts: list[str]) -> bool:
 
 
 def category_for_path_parts(path_parts_lower: list[str]) -> RomFileCategory | None:
-    """The file category a folder path implies, from its lowercased parts."""
+    """The file category of a folder, from its lowercased parts below the ROM root."""
+    # Only the top folder counts, so a dump's inner `content/game` never matches.
+    if not path_parts_lower:
+        return None
     return next(
         (
             category
             for category in RomFileCategory
-            if category_matches(category.value, path_parts_lower)
+            if category_matches(category.value, path_parts_lower[:1])
         ),
         None,
     )
@@ -531,6 +534,17 @@ class FSRomsHandler(FSHandler):
 
         return kept_roms
 
+    @staticmethod
+    def _folder_category(rom: Rom, rom_path: Path) -> RomFileCategory | None:
+        """The category a file's folder gives it, relative to the ROM's own root."""
+        rom_root = Path(rom.full_path)
+        rom_relative_parts = (
+            rom_path.relative_to(rom_root).parts
+            if rom_path.is_relative_to(rom_root)
+            else ()
+        )
+        return category_for_path_parts(list(map(str.lower, rom_relative_parts)))
+
     def _build_rom_file(
         self,
         rom: Rom,
@@ -542,10 +556,7 @@ class FSRomsHandler(FSHandler):
         archive_members: list[dict[str, Any]] | None = None,
     ) -> RomFile:
         abs_file_path = Path(self.base_path, rom_path, file_name)
-
-        matching_category = category_for_path_parts(
-            list(map(str.lower, rom_path.parts))
-        )
+        matching_category = self._folder_category(rom, rom_path)
 
         track_meta = None
         if matching_category == RomFileCategory.SOUNDTRACK:
@@ -795,6 +806,8 @@ class FSRomsHandler(FSHandler):
                         hashable=hashable_platform,
                     )
                 ):
+                    # Title id extraction below may settle a content category.
+                    row.category = self._folder_category(rom, rel_dir)
                     rom_files.append(row)
                     _record_title_id_source(abs_file_path, row)
                     continue
@@ -938,7 +951,7 @@ class FSRomsHandler(FSHandler):
                 # Empty, malformed, unreadable, or all-excluded archive: hash the archive
                 # file's raw bytes. We avoid `_calculate_rom_hashes` here because
                 # it would decompress based on extension and end up hashing the
-                # largest internal member, not the archive itself — and would
+                # largest internal member, not the archive itself, and would
                 # crash on an empty zip. `archive_members` stays None.
                 def _hash_raw_archive(crc: int) -> int:
                     for chunk in read_basic_file(rom_dir):
@@ -1102,10 +1115,20 @@ class FSRomsHandler(FSHandler):
                     update_hashes(chunk)
 
             elif extension == ".7z" or file_type == "application/x-7z-compressed":
-                process_7z_file(
-                    file_path=file_path,
-                    fn_hash_update=update_hashes,
+                # A failed extraction may have fed part of the member already,
+                # so the raw-archive fallback starts from the hashers' prior state.
+                snapshot = (
+                    crc_c,
+                    rom_crc_c,
+                    md5_h.copy(),
+                    sha1_h.copy(),
+                    rom_md5_h.copy() if accumulate else rom_md5_h,
+                    rom_sha1_h.copy() if accumulate else rom_sha1_h,
                 )
+                if not hash_largest_7z_member(file_path, update_hashes):
+                    crc_c, rom_crc_c, md5_h, sha1_h, rom_md5_h, rom_sha1_h = snapshot
+                    for chunk in read_basic_file(file_path):
+                        update_hashes(chunk)
 
             elif extension == ".bz2" or file_type == "application/x-bzip2":
                 for chunk in read_bz2_file(file_path):

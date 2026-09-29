@@ -163,7 +163,7 @@ class CSRFMiddleware:
         except TypeError, BadSignature:
             return False
 
-        return decoded_csrf_cookie.get("user_id") == user_id
+        return bool(decoded_csrf_cookie.get("user_id") == user_id)
 
     def _csrf_tokens_match(
         self, document_cookie: str, header_cookie: str, user_id: int | None
@@ -187,7 +187,7 @@ class CSRFMiddleware:
             if user_id is None:
                 return True
 
-            return (
+            return bool(
                 decoded_doc_cookie["user_id"] == user_id
                 and decoded_header_cookie["user_id"] == user_id
             )

@@ -1,15 +1,19 @@
 import asyncio
 import errno
 import os
+import struct
+import threading
+import zlib
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock, patch
 
-import httpx
+import httpx2
 import pytest
-from PIL import Image, ImageSequence
+from PIL import Image, ImageFile, ImageSequence
 from PIL.PngImagePlugin import Blend
+from tests.concurrency_stubs import InFlight
 from tests.utils.test_images import (
     DURATIONS,
     FRAME_SIZE,
@@ -27,10 +31,12 @@ from config import RESOURCES_BASE_PATH
 from config.config_manager import MetadataMediaType
 from handler.filesystem.base_handler import CoverSize
 from handler.filesystem.resources_handler import (
+    RA_BADGE_MAX_CONCURRENCY,
     FSResourcesHandler,
     _check_content_type,
     _content_type_essence,
     _is_chroma_key_placeholder,
+    _trim_transparent_border,
 )
 from models.collection import Collection
 from models.rom import Rom
@@ -106,11 +112,11 @@ class TestCheckContentType:
     """Tests for the _check_content_type helper."""
 
     @staticmethod
-    def _make_response(content_type: str | None) -> httpx.Response:
+    def _make_response(content_type: str | None) -> httpx2.Response:
         headers = {}
         if content_type is not None:
             headers["content-type"] = content_type
-        return httpx.Response(200, headers=headers)
+        return httpx2.Response(200, headers=headers)
 
     def test_valid_image_prefix(self):
         resp = self._make_response("image/png")
@@ -160,7 +166,7 @@ class TestCheckContentType:
 
     def test_bom_still_matches(self):
         # httpx rejects non-ASCII header values, so mock the response
-        resp = Mock(spec=httpx.Response)
+        resp = Mock(spec=httpx2.Response)
         resp.headers = {"content-type": "\ufeffimage/png"}
         assert _check_content_type(resp, ("image/",), "cover") is True
 
@@ -893,6 +899,67 @@ class TestChromaKeyDetection:
         assert (tmp_path / rel).exists()
 
     @pytest.mark.asyncio
+    async def test_discard_checks_the_image_off_the_event_loop(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        rel = "roms/1/1/box2d_back/box2d_back.png"
+        self._write_image(tmp_path / rel, (85, 62, 152))
+        threads: list[threading.Thread] = []
+
+        def record_thread(_path: Path) -> bool:
+            threads.append(threading.current_thread())
+            return False
+
+        with patch(
+            "handler.filesystem.resources_handler._is_chroma_key_placeholder",
+            side_effect=record_thread,
+        ):
+            await handler._discard_if_chroma_key(rel)
+
+        assert threads and threads[0] is not threading.main_thread()
+
+    @pytest.mark.asyncio
+    async def test_discard_keeps_a_file_replaced_during_the_check(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        handler.base_path = tmp_path
+        folder, name = "roms/1/1/box2d_back", "box2d_back.png"
+        self._write_image(tmp_path / folder / name, (0, 255, 0))
+        checking, release = threading.Event(), threading.Event()
+
+        def slow_check(_path: Path) -> bool:
+            checking.set()
+            release.wait(5)
+            return True
+
+        async def replace() -> None:
+            async with handler.write_file_streamed(path=folder, filename=name) as f:
+                await f.write(b"real artwork")
+
+        with patch(
+            "handler.filesystem.resources_handler._is_chroma_key_placeholder",
+            side_effect=slow_check,
+        ):
+            discard = asyncio.create_task(
+                handler._discard_if_chroma_key(f"{folder}/{name}")
+            )
+            await asyncio.to_thread(checking.wait, 5)
+            lock = await handler._get_file_lock(
+                str(handler.validate_path(f"{folder}/{name}"))
+            )
+            assert lock.locked()
+            writer = asyncio.create_task(replace())
+            for _ in range(20):
+                await asyncio.sleep(0)
+            assert not writer.done()
+            release.set()
+            assert await discard is True
+            await writer
+
+        assert (tmp_path / folder / name).read_bytes() == b"real artwork"
+
+    @pytest.mark.asyncio
     async def test_discard_missing_file_is_noop(
         self, handler: FSResourcesHandler, tmp_path
     ):
@@ -924,6 +991,178 @@ class TestChromaKeyDetection:
         await handler.store_media_file("http://example.com/x.png", rel)
 
         assert (tmp_path / rel).exists()
+
+
+class TestTrimTransparentBorder:
+    """Tests for cropping logos down to their visible pixels."""
+
+    @pytest.fixture
+    def handler(self, tmp_path):
+        handler = FSResourcesHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    def _write_padded_logo(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        img = Image.new("RGBA", (100, 50), (0, 0, 0, 0))
+        img.paste((255, 0, 0, 255), (20, 10, 80, 40))
+        img.save(path)
+
+    def _png_chunk(self, kind: bytes, data: bytes) -> bytes:
+        crc = zlib.crc32(kind + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", crc)
+
+    def test_crops_to_the_visible_pixels(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        self._write_padded_logo(logo)
+
+        trimmed = _trim_transparent_border(logo)
+
+        assert trimmed is not None
+        assert trimmed.size == (60, 30)
+        assert trimmed.getpixel((0, 0)) == (255, 0, 0, 255)
+
+    def test_keeps_a_palette_logo_in_palette_mode(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        img = Image.new("P", (100, 50), 0)
+        img.putpalette([0, 0, 0, 255, 0, 0])
+        img.paste(1, (20, 10, 80, 40))
+        img.save(logo, transparency=0)
+
+        trimmed = _trim_transparent_border(logo)
+
+        assert trimmed is not None
+        assert trimmed.mode == "P"
+        assert trimmed.size == (60, 30)
+
+    def test_leaves_an_unpadded_logo_untouched(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        Image.new("RGBA", (40, 20), (255, 0, 0, 255)).save(logo)
+
+        assert _trim_transparent_border(logo) is None
+
+    def test_leaves_an_opaque_image_untouched(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        Image.new("RGB", (40, 20), (255, 0, 0)).save(logo)
+
+        assert _trim_transparent_border(logo) is None
+
+    def test_leaves_a_fully_transparent_image_untouched(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        Image.new("RGBA", (40, 20), (0, 0, 0, 0)).save(logo)
+
+        assert _trim_transparent_border(logo) is None
+
+    def test_skips_an_oversized_image_without_decoding_it(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        self._write_padded_logo(logo)
+
+        with (
+            patch("handler.filesystem.resources_handler.MAX_TRIM_PIXELS", 100),
+            patch.object(
+                ImageFile.ImageFile, "load", side_effect=AssertionError("decoded")
+            ),
+        ):
+            assert _trim_transparent_border(logo) is None
+
+    def test_leaves_an_animated_logo_untouched(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        frames = []
+        for color in ("red", "blue"):
+            frame = Image.new("RGBA", (100, 50), (0, 0, 0, 0))
+            frame.paste(color, (20, 10, 80, 40))
+            frames.append(frame)
+        logo.write_bytes(encode_animation(frames, "PNG", [100, 100]))
+
+        assert _trim_transparent_border(logo) is None
+
+    def test_ignores_non_image_file(self, tmp_path):
+        not_an_image = tmp_path / "logo.png"
+        not_an_image.write_bytes(b"not an image")
+
+        assert _trim_transparent_border(not_an_image) is None
+
+    def test_ignores_a_decompression_bomb(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        header = struct.pack(">IIBBBBB", 20000, 20000, 8, 6, 0, 0, 0)
+        logo.write_bytes(
+            b"\x89PNG\r\n\x1a\n"
+            + self._png_chunk(b"IHDR", header)
+            + self._png_chunk(b"IEND", b"")
+        )
+
+        assert _trim_transparent_border(logo) is None
+
+    def test_ignores_a_broken_png_chunk(self, tmp_path):
+        logo = tmp_path / "logo.png"
+        self._write_padded_logo(logo)
+        data = logo.read_bytes()
+        idat = data.index(b"IDAT") - 4
+        (length,) = struct.unpack(">I", data[idat : idat + 4])
+        body = data[idat + 8 : idat + 8 + length]
+        half = len(body) // 2
+        logo.write_bytes(
+            data[:idat]
+            + self._png_chunk(b"IDAT", body[:half])
+            + b"\x00\x00\x00\x04\x01\x02\x03\x04junkjunk"
+            + self._png_chunk(b"IDAT", body[half:])
+            + data[idat + 12 + length :]
+        )
+
+        assert _trim_transparent_border(logo) is None
+
+    @pytest.mark.asyncio
+    async def test_store_metadata_media_trims_only_logos(self, handler, tmp_path):
+        logo = "roms/1/1/logo/logo.png"
+        fanart = "roms/1/1/fanart/fanart.png"
+        self._write_padded_logo(tmp_path / logo)
+        self._write_padded_logo(tmp_path / fanart)
+        metadata = {"logo_path": logo, "fanart_path": fanart}
+
+        await handler.store_metadata_media(
+            metadata, [MetadataMediaType.LOGO, MetadataMediaType.FANART]
+        )
+
+        with Image.open(tmp_path / logo) as img:
+            assert img.size == (60, 30)
+        with Image.open(tmp_path / fanart) as img:
+            assert img.size == (100, 50)
+
+    @pytest.mark.asyncio
+    async def test_trim_leaves_a_hardlinked_source_intact(self, handler, tmp_path):
+        handler.base_path = tmp_path / "resources"
+        source = tmp_path / "library" / "logo.png"
+        self._write_padded_logo(source)
+        before = source.read_bytes()
+        logo = "roms/1/1/logo/logo.png"
+        (handler.base_path / logo).parent.mkdir(parents=True)
+        os.link(source, handler.base_path / logo)
+
+        await handler.store_metadata_media(
+            {"logo_path": logo}, [MetadataMediaType.LOGO]
+        )
+
+        with Image.open(handler.base_path / logo) as img:
+            assert img.size == (60, 30)
+        assert source.read_bytes() == before
+
+    @pytest.mark.asyncio
+    async def test_failed_trim_keeps_the_original_logo(self, handler, tmp_path):
+        logo = "roms/1/1/logo/logo.png"
+        self._write_padded_logo(tmp_path / logo)
+        before = (tmp_path / logo).read_bytes()
+
+        def save_partially(_img: Image.Image, fp: Path, **_kwargs: Any) -> None:
+            Path(fp).write_bytes(b"\x89PNG")
+            raise OSError("disk full")
+
+        with patch.object(Image.Image, "save", save_partially):
+            metadata = {"logo_path": logo}
+            await handler.store_metadata_media(metadata, [MetadataMediaType.LOGO])
+
+        assert (tmp_path / logo).read_bytes() == before
+        assert metadata["logo_path"] == logo
+        assert [p.name for p in (tmp_path / logo).parent.iterdir()] == ["logo.png"]
 
 
 class TestStoreMediaFileResult:
@@ -998,7 +1237,7 @@ class TestStoreMediaFileResult:
 
         with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
             client = Mock()
-            client.stream.side_effect = httpx.ConnectError("no route")
+            client.stream.side_effect = httpx2.ConnectError("no route")
             mock_ctx.get.return_value = client
             stored = await handler.store_media_file(
                 "http://example.com/x.png", "roms/1/1/box2d_back/box2d_back.png"
@@ -1144,6 +1383,245 @@ class TestStoreMetadataMedia:
             "http://example.com/fanart.png?ssid=user", "roms/1/1/fanart/fanart.png"
         )
 
+    @pytest.mark.asyncio
+    async def test_stores_every_extra_disc(self, handler: FSResourcesHandler):
+        metadata: dict[str, Any] = {
+            "physical_url": "http://example.com/disc1.png",
+            "physical_path": "roms/1/1/physical/physical.png",
+            "physical_extra_discs": [
+                {
+                    "disc": 2,
+                    "url": "http://example.com/disc2.png",
+                    "path": "roms/1/1/physical/physical_disc2.png",
+                },
+                {
+                    "disc": 3,
+                    "url": "http://example.com/disc3.png",
+                    "path": "roms/1/1/physical/physical_disc3.png",
+                },
+            ],
+        }
+
+        async def fake_store(_url: str, dest_path: str) -> bool:
+            return "disc3" not in dest_path
+
+        with patch.object(
+            handler, "store_media_file", side_effect=fake_store
+        ) as store_mock:
+            changed = await handler.store_metadata_media(
+                metadata,
+                [MetadataMediaType.PHYSICAL],
+                lambda url: f"{url}?ssid=user",
+            )
+
+        assert store_mock.await_count == 3
+        store_mock.assert_any_await(
+            "http://example.com/disc2.png?ssid=user",
+            "roms/1/1/physical/physical_disc2.png",
+        )
+        assert changed is True
+        assert metadata["physical_path"] == "roms/1/1/physical/physical.png"
+        discs = metadata["physical_extra_discs"]
+        assert discs[0]["path"] == "roms/1/1/physical/physical_disc2.png"
+        assert discs[1]["path"] is None
+        assert discs[1]["url"] == "http://example.com/disc3.png"
+
+    @pytest.mark.asyncio
+    async def test_skips_extra_discs_when_physical_is_not_preferred(
+        self, handler: FSResourcesHandler
+    ):
+        metadata = {
+            "physical_extra_discs": [
+                {
+                    "disc": 2,
+                    "url": "http://example.com/disc2.png",
+                    "path": "roms/1/1/physical/physical_disc2.png",
+                }
+            ],
+        }
+
+        with patch.object(handler, "store_media_file") as store_mock:
+            changed = await handler.store_metadata_media(
+                metadata, [MetadataMediaType.FANART]
+            )
+
+        assert changed is False
+        store_mock.assert_not_called()
+
+
+class TestRemoveStaleMedia:
+    """Stored media whose owner or source changed is deleted before a store."""
+
+    shared = "roms/1/1/physical/physical.png"
+    disc2 = "roms/1/1/physical/physical_disc2.png"
+
+    @pytest.fixture
+    def handler(self, tmp_path):
+        handler = FSResourcesHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    @staticmethod
+    def _write(tmp_path, rel: str) -> None:
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_bytes(b"art")
+
+    @classmethod
+    def _physical(cls, url: str | None) -> dict[str, Any]:
+        return {"physical_url": url, "physical_path": cls.shared}
+
+    async def _remove(
+        self,
+        handler: FSResourcesHandler,
+        previous: list[dict[str, Any] | None],
+        current: list[dict[str, Any] | None],
+    ) -> None:
+        await handler.remove_stale_media(
+            previous, current, [MetadataMediaType.PHYSICAL]
+        )
+
+    @pytest.mark.asyncio
+    async def test_removes_a_file_whose_url_changed(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        self._write(tmp_path, self.shared)
+
+        await self._remove(
+            handler,
+            [self._physical("http://ss/disc2.png")],
+            [self._physical("http://ss/disc1.png")],
+        )
+
+        assert not (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_keeps_a_file_whose_url_is_unchanged_or_unknown(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        self._write(tmp_path, self.shared)
+
+        await self._remove(
+            handler, [self._physical("http://ss/disc1.png")], [self._physical(None)]
+        )
+
+        assert (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_removes_a_dropped_disc(self, handler: FSResourcesHandler, tmp_path):
+        self._write(tmp_path, self.disc2)
+        previous = {
+            "physical_extra_discs": [
+                {"disc": 2, "url": "http://ss/disc2.png", "path": self.disc2}
+            ]
+        }
+
+        await self._remove(handler, [previous], [{"physical_extra_discs": []}])
+
+        assert not (tmp_path / self.disc2).exists()
+
+    @pytest.mark.asyncio
+    async def test_a_lower_priority_change_keeps_a_higher_ones_file(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        self._write(tmp_path, self.shared)
+        screenscraper = self._physical("http://ss/disc1.png")
+
+        await self._remove(
+            handler,
+            [screenscraper, self._physical("file://old.png")],
+            [screenscraper, self._physical("file://new.png")],
+        )
+
+        assert (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_removes_a_file_a_higher_priority_provider_takes_over(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        # The file on disk is gamelist's, so ScreenScraper's new claim refetches it.
+        self._write(tmp_path, self.shared)
+        gamelist = self._physical("file://gamelist.png")
+
+        await self._remove(
+            handler,
+            [{}, gamelist],
+            [self._physical("http://ss/disc1.png"), gamelist],
+        )
+
+        assert not (tmp_path / self.shared).exists()
+
+    @pytest.mark.asyncio
+    async def test_removes_a_file_a_lower_priority_provider_takes_over(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        self._write(tmp_path, self.shared)
+        gamelist = self._physical("file://gamelist.png")
+
+        await self._remove(
+            handler,
+            [self._physical("http://ss/disc1.png"), gamelist],
+            [{}, gamelist],
+        )
+
+        assert not (tmp_path / self.shared).exists()
+
+
+class TestRemoveRecordedMedia:
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler()
+
+    @pytest.mark.asyncio
+    async def test_removes_the_folder_of_a_top_level_path(
+        self, handler: FSResourcesHandler
+    ):
+        with (
+            patch.object(
+                handler, "remove_media_resources_path", new_callable=AsyncMock
+            ) as remove_dir,
+            patch.object(handler, "remove_file", new_callable=AsyncMock) as remove_file,
+        ):
+            await handler.remove_recorded_media(
+                1,
+                7,
+                {"fanart_path": "roms/1/7/fanart/fanart.png"},
+                [MetadataMediaType.FANART],
+            )
+
+        remove_dir.assert_awaited_once_with(1, 7, MetadataMediaType.FANART)
+        remove_file.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_removes_only_the_file_of_a_later_disc(
+        self, handler: FSResourcesHandler
+    ):
+        disc2 = "roms/1/7/physical/physical_disc2.png"
+        with (
+            patch.object(
+                handler, "remove_media_resources_path", new_callable=AsyncMock
+            ) as remove_dir,
+            patch.object(
+                handler,
+                "remove_file",
+                new_callable=AsyncMock,
+                side_effect=FileNotFoundError,
+            ) as remove_file,
+        ):
+            await handler.remove_recorded_media(
+                1,
+                7,
+                {
+                    "physical_path": None,
+                    "physical_extra_discs": [
+                        {"disc": 2, "url": "http://example.com/2.png", "path": disc2}
+                    ],
+                },
+                [MetadataMediaType.PHYSICAL],
+            )
+
+        remove_dir.assert_not_awaited()
+        remove_file.assert_awaited_once_with(disc2)
+
 
 class _FakeResponse:
     """Minimal stand-in for an httpx streaming response."""
@@ -1165,7 +1643,7 @@ class _DroppedResponse:
 
     async def aiter_raw(self):
         yield b"partial"
-        raise httpx.ReadError("connection reset")
+        raise httpx2.ReadError("connection reset")
 
 
 class _FakeStreamContext:
@@ -1538,7 +2016,7 @@ class TestCoverSingleFetch:
 
     @staticmethod
     def _cover_dir(handler: FSResourcesHandler, entity) -> Path:
-        return handler.base_path / entity.fs_resources_path / "cover"
+        return cast(Path, handler.base_path / entity.fs_resources_path / "cover")
 
     @staticmethod
     def _image_size(path: Path) -> tuple[int, int]:
@@ -1809,3 +2287,153 @@ class TestCoverSingleFetch:
         assert client.requests == [COVER_URL]
         assert path_small == "collections/3/cover/small.png"
         assert path_big == "collections/3/cover/big.png"
+
+
+class _InFlightStreamContext(_FakeStreamContext):
+    def __init__(self, tracker: InFlight):
+        super().__init__(_FakeResponse())
+        self._tracker = tracker
+
+    async def __aenter__(self) -> Any:
+        self._tracker.enter()
+        await asyncio.sleep(0.01)
+        return await super().__aenter__()
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        self._tracker.leave()
+        return bool(await super().__aexit__(*exc))
+
+
+class _InFlightClient:
+    def __init__(self, tracker: InFlight):
+        self._tracker = tracker
+
+    def stream(self, *_args: Any, **_kwargs: Any) -> _InFlightStreamContext:
+        return _InFlightStreamContext(self._tracker)
+
+
+class TestConcurrentDownloads:
+    """A rom's media files are fetched together rather than one at a time."""
+
+    @pytest.fixture
+    def handler(self, tmp_path):
+        handler = FSResourcesHandler()
+        handler.base_path = tmp_path
+        return handler
+
+    @pytest.fixture
+    def rom(self):
+        rom = Mock(spec=Rom)
+        rom.id = 1
+        rom.platform_id = 1
+        rom.fs_resources_path = "roms/1/1"
+        return rom
+
+    @pytest.mark.asyncio
+    async def test_badges_download_together_up_to_the_cap(
+        self, handler: FSResourcesHandler, tmp_path
+    ):
+        tracker = InFlight()
+        paths = [
+            f"roms/1/1/badges/{i}.png" for i in range(RA_BADGE_MAX_CONCURRENCY * 2)
+        ]
+
+        with patch("handler.filesystem.resources_handler.ctx_httpx_client") as mock_ctx:
+            mock_ctx.get.return_value = _InFlightClient(tracker)
+            await asyncio.gather(
+                *(handler.store_ra_badge("http://x/badge.png", p) for p in paths)
+            )
+
+        assert tracker.peak == RA_BADGE_MAX_CONCURRENCY
+        assert all((tmp_path / p).exists() for p in paths)
+
+    @pytest.mark.asyncio
+    async def test_screenshots_download_together_and_keep_their_order(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
+        tracker = InFlight()
+
+        async def store(_rom, _url, idx):
+            # The first screenshot finishes last, so order can't come from timing.
+            await tracker.hold(0.03 if idx == 0 else 0.01)
+            return idx != 1
+
+        with patch.object(handler, "_store_screenshot", side_effect=store):
+            paths = await handler.get_rom_screenshots(
+                rom=rom,
+                overwrite=True,
+                url_screenshots=["http://x/a.jpg", "http://x/b.jpg", "http://x/c.jpg"],
+            )
+
+        assert tracker.peak == 3
+        assert paths == ["roms/1/1/screenshots/0.jpg", "roms/1/1/screenshots/2.jpg"]
+
+    @pytest.mark.asyncio
+    async def test_provider_media_downloads_together(self, handler: FSResourcesHandler):
+        tracker = InFlight()
+        metadata = {
+            "box2d_back_url": "http://x/back.png",
+            "box2d_back_path": "roms/1/1/box2d_back/box2d_back.png",
+            "fanart_url": "http://x/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+            "video_url": "http://x/video.mp4",
+            "video_path": "roms/1/1/video/video.mp4",
+        }
+
+        async def store(_url: str, dest_path: str) -> bool:
+            await tracker.hold()
+            return "video" not in dest_path
+
+        with patch.object(handler, "store_media_file", side_effect=store):
+            changed = await handler.store_metadata_media(
+                metadata,
+                [
+                    MetadataMediaType.BOX2D_BACK,
+                    MetadataMediaType.FANART,
+                    MetadataMediaType.VIDEO,
+                ],
+            )
+
+        assert tracker.peak == 3
+        assert changed is True
+        assert metadata["video_path"] is None
+        assert metadata["fanart_path"] == "roms/1/1/fanart/fanart.png"
+
+    @pytest.mark.asyncio
+    async def test_media_type_listed_twice_is_fetched_once(
+        self, handler: FSResourcesHandler
+    ):
+        metadata = {
+            "fanart_url": "http://x/fanart.png",
+            "fanart_path": "roms/1/1/fanart/fanart.png",
+        }
+        store = AsyncMock(return_value=True)
+
+        with patch.object(handler, "store_media_file", store):
+            await handler.store_metadata_media(
+                metadata, [MetadataMediaType.FANART, MetadataMediaType.FANART]
+            )
+
+        store.assert_awaited_once_with(
+            "http://x/fanart.png", "roms/1/1/fanart/fanart.png"
+        )
+
+    @pytest.mark.asyncio
+    async def test_badges_shared_by_achievements_are_fetched_once(
+        self, handler: FSResourcesHandler
+    ):
+        badge = {
+            "badge_url": "http://x/1.png",
+            "badge_path": "roms/1/1/badges/1.png",
+            "badge_url_lock": "http://x/1_lock.png",
+            "badge_path_lock": "roms/1/1/badges/1_lock.png",
+        }
+        store = AsyncMock()
+
+        with patch.object(handler, "store_ra_badge", store):
+            await handler.store_ra_badges([badge, dict(badge), {"badge_url": "x"}])
+
+        assert sorted(call.args for call in store.await_args_list) == [
+            ("http://x/1.png", "roms/1/1/badges/1.png"),
+            ("http://x/1_lock.png", "roms/1/1/badges/1_lock.png"),
+        ]

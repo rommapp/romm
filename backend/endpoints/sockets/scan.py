@@ -20,7 +20,6 @@ from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from endpoints.responses.platform import PlatformSchema
-from endpoints.responses.rom import SimpleRomSchema
 from endpoints.sockets.activity import get_authenticated_user
 from exceptions.fs_exceptions import (
     FOLDER_STRUCT_MSG,
@@ -57,6 +56,7 @@ from handler.notification_handler import notify_user_or_admins
 from handler.recommendation import top_up_similarity
 from handler.redis_handler import (
     cancel_job,
+    get_job_kwargs,
     get_job_status,
     redis_client,
     scan_queue,
@@ -67,6 +67,7 @@ from handler.scan_handler import (
     ScanType,
     build_hashless_fs_rom,
     download_rom_resources,
+    emit_scanning_rom,
     persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
@@ -131,7 +132,7 @@ def _scan_reported_itself(job: Job) -> bool:
 
 def report_scan_failure(
     job: Job,
-    connection: Redis[bytes],
+    connection: Redis,
     exc_type: type,
     exc_value: BaseException,
     tb: Any,
@@ -146,14 +147,15 @@ def report_scan_failure(
 
     reason = _SCAN_FAILURE_REASONS.get(exc_type, "it stopped unexpectedly")
     log.warning(f"{emoji.EMOJI_STOP_SIGN} Scan {job.id} is over: {reason}")
+    started_by_user_id = (get_job_kwargs(job) or {}).get("started_by_user_id")
 
     async def report() -> None:
         await _get_socket_manager().emit("scan:done_ko", reason)
-        await notify_scan_end(job.kwargs.get("started_by_user_id"), reason)
+        await notify_scan_end(started_by_user_id, reason)
 
     record(
         AuditAction.SCAN_FINISH,
-        AuditActor.for_user_id(job.kwargs.get("started_by_user_id")),
+        AuditActor.for_user_id(started_by_user_id),
         data={"status": "failed", "error": reason},
     )
 
@@ -358,28 +360,6 @@ async def _identify_firmware(
     db_firmware_handler.add_firmware(scanned_firmware)
 
     return 1 if not firmware else 0
-
-
-# `files` is left out so a scan does not ship every file row of every rom.
-SCANNING_ROM_EXCLUDE: Final = {
-    "created_at",
-    "updated_at",
-    "rom_user",
-    "last_modified",
-    "files",
-    "sibling_roms",
-}
-
-
-async def _emit_scanning_rom(
-    socket_manager: socketio.AsyncRedisManager, rom: Rom
-) -> None:
-    await socket_manager.emit(
-        "scan:scanning_rom",
-        SimpleRomSchema.from_orm_with_factory(rom).model_dump(
-            exclude=SCANNING_ROM_EXCLUDE
-        ),
-    )
 
 
 def should_scan_rom(
@@ -626,7 +606,7 @@ async def _identify_rom(
             )
             hydrated_rom = db_rom_handler.get_rom_simple(rom.id)
             if hydrated_rom is not None:
-                await _emit_scanning_rom(socket_manager, hydrated_rom)
+                await emit_scanning_rom(socket_manager, hydrated_rom, is_new=False)
         return
 
     # Update properties that don't require metadata
@@ -809,7 +789,7 @@ async def _identify_rom(
     scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:
-        await _emit_scanning_rom(socket_manager, _added_rom)
+        await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
 
     if should_update_files:
         # Reconcile against the existing rows instead of replacing them, so file
@@ -831,9 +811,14 @@ async def _identify_rom(
         previous_url_manual=rom.url_manual,
         previous_url_screenshots=rom.url_screenshots,
         metadata_sources=metadata_sources,
+        previous_media={
+            "ss_metadata": rom.ss_metadata,
+            "gamelist_metadata": rom.gamelist_metadata,
+            "launchbox_metadata": rom.launchbox_metadata,
+        },
     )
 
-    await _emit_scanning_rom(socket_manager, _added_rom)
+    await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
 
 
 async def _scan_selected_roms(
@@ -858,9 +843,11 @@ async def _scan_selected_roms(
         raise ScanStoppedException()
 
     # Gamelist matches are served from a per-platform cache, so it has to be
-    # warm before any of these ROMs is scanned.
+    # warm before any of these ROMs is scanned. Only their entries are read.
     if MetadataSource.GAMELIST in metadata_sources:
-        await meta_gamelist_handler.populate_cache(platform)
+        await meta_gamelist_handler.populate_cache(
+            platform, fs_names=[rom.fs_name for rom in roms]
+        )
 
     await scan_stats.increment(
         socket_manager=socket_manager,
@@ -1097,7 +1084,7 @@ async def _identify_platform(
             if hydrated_rom is None:
                 continue
 
-            await _emit_scanning_rom(socket_manager, hydrated_rom)
+            await emit_scanning_rom(socket_manager, hydrated_rom, is_new=False)
 
         # Process only ROMs that actually need scanning
         scan_tasks = [
@@ -1515,7 +1502,7 @@ async def authorize_scan(sid: str) -> User | None:
     return None
 
 
-@socket_handler.socket_server.on("scan")
+@socket_handler.on("scan")
 async def scan_handler(sid: str, options: dict[str, Any]) -> None:
     """Scan socket endpoint
 
@@ -1582,7 +1569,7 @@ async def scan_handler(sid: str, options: dict[str, Any]) -> None:
     )
 
 
-@socket_handler.socket_server.on("scan:stop")
+@socket_handler.on("scan:stop")
 async def stop_scan_handler(sid: str) -> None:
     """Stop scan socket endpoint"""
 

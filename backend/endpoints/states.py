@@ -23,12 +23,12 @@ from handler.filesystem.assets_handler import build_asset_file_response
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import State
+from models.assets import EMULATOR_MAX_LENGTH, State
 from models.base import FILE_NAME_MAX_LENGTH
 from utils.assets import normalize_asset_labels
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
-from utils.uploads import check_asset_upload_size
+from utils.uploads import check_asset_upload_size, check_emulator_folder_name
 from utils.validation import RomIdScope, narrow_rom_id_scope
 
 
@@ -67,7 +67,7 @@ STATE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot fil
 async def add_state(
     request: Request,
     rom_id: int,
-    emulator: str | None = None,
+    emulator: Annotated[str | None, Query(max_length=EMULATOR_MAX_LENGTH)] = None,
     stateFile: UploadFile = STATE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
@@ -93,6 +93,8 @@ async def add_state(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid state filename: {str(exc)}",
         ) from exc
+
+    check_emulator_folder_name(emulator)
 
     log.info(
         f"Uploading state {hl(sanitized_state_filename)} for {hl(str(rom.name), color=BLUE)}"

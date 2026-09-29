@@ -209,7 +209,20 @@ gh release view 5.1.0-beta.1 --json body --jq .body
   during the beta, as `5.1.0` did going from three variables to seven, since a
   reader upgrading straight from the last stable has seen none of them.
 
-## 7. Before handing it over
+## 7. Humanize the prose
+
+Read `.claude/skills/humanizer/SKILL.md` and apply it in embedded mode, rather
+than invoking the skill, since a personal install of the same name would load
+instead. Only the Highlights and callouts written or changed for this tag are in
+scope. Highlights carried over from the previous release on the line stay as
+they are, so the notes do not churn between prereleases. Bullet lines, tables,
+`## New Contributors` and `**Full Changelog**` are copied, not written, so leave
+them alone. Keep every `#NNNN`, backticked key, `yaml` block, screenshot
+placeholder and callout marker exactly as written.
+
+## 8. Before handing it over
+
+Run these on the humanized draft.
 
 - Every PR in `/tmp/raw-notes.md` is accounted for exactly once, either as a
   Highlight or as a bullet, never both and never dropped.

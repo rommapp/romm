@@ -4,10 +4,11 @@ from collections.abc import Iterable
 from enum import Enum
 from typing import Any, Final, Literal, NotRequired, TypedDict, TypeIs, get_args
 
-import httpx
+import httpx2
 import yarl
 from fastapi import status
 
+from adapters.services.response_validation import parse_response
 from config import PLAYMATCH_API_ENABLED, PLAYMATCH_API_URL
 from handler.metadata.base_handler import MetadataHandler, unavailable
 from logger.logger import log
@@ -188,15 +189,18 @@ class PlaymatchHandler(MetadataHandler):
                     str(url_with_query), headers=headers, timeout=60
                 )
                 res.raise_for_status()
-                return res.json()
+                return (
+                    parse_response(dict[str, Any], res.content, source="Playmatch")
+                    or {}
+                )
             except (
-                httpx.HTTPStatusError,
-                httpx.ConnectError,
-                httpx.ReadTimeout,
+                httpx2.HTTPStatusError,
+                httpx2.ConnectError,
+                httpx2.ReadTimeout,
             ) as exc:
                 if (
                     attempt == 0
-                    and isinstance(exc, httpx.HTTPStatusError)
+                    and isinstance(exc, httpx2.HTTPStatusError)
                     and exc.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
                 ):
                     log.warning("Playmatch: rate limit hit, retrying after 2s")

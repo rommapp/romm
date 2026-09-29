@@ -25,6 +25,7 @@ permissions:
 jobs:
   resolve:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       images: ${{ steps.resolve.outputs.images }}
     steps:
@@ -51,6 +52,7 @@ jobs:
       matrix:
         image: ${{ fromJSON(needs.resolve.outputs.images) }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: read
@@ -81,11 +83,11 @@ jobs:
           ignore-unfixed: true
           format: sarif
           output: trivy.sarif
-          # A vulnerability disclosed after the build must not fail a release:
-          # the report is the deliverable, not a gate.
+          # Exit cleanly so the report is always kept; the critical pass below is the gate.
           exit-code: "0"
 
       - name: Write summary
+        id: summary
         env:
           IMAGE: ${{ matrix.image }}
         run: |
@@ -102,13 +104,94 @@ jobs:
                 | "| \($fields.Severity) | \($result.ruleId) | \($fields.Package) | \($fields["Installed Version"]) | \($fields["Fixed Version"]) |"' trivy.sarif
             fi
           } >>"$GITHUB_STEP_SUMMARY"
+          echo "artifact=trivy-${IMAGE//[:\/]/-}" >>"$GITHUB_OUTPUT"
 
-      # Code scanning rejects a tag ref, so release runs stop at the summary.
+      # Code scanning rejects a tag ref, so this is the only copy a release run keeps.
+      - name: Upload report artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.summary.outputs.artifact }}
+          path: trivy.sarif
+          if-no-files-found: error
+          retention-days: 90
+          # A re-run of a job that failed at the gate reuses this run's artifact names.
+          overwrite: true
+
       - name: Upload results to code scanning
         if: github.ref_type == 'branch'
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: trivy.sarif
           # Keyed by image ref, so a dispatched scan of an older tag can't
           # replace the analysis of latest.
           category: trivy-image-${{ matrix.image }}
+
+      # Runs after the image is published, so this flags the run rather than blocking the release.
+      - name: Fail on fixable critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.image }}
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+
+  malware:
+    needs: resolve
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.resolve.outputs.images) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    env:
+      # clamav/clamav:stable, which only ships amd64.
+      CLAMAV_IMAGE: clamav/clamav@sha256:ebec5bc138401b36ae987caa1a3fa3c3b2a21ed3d51f0bfa5852825e663e67b0
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The containers are created but never started, so the arm64 image
+      # exports on an amd64 runner without emulation.
+      - name: Export image filesystems
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          for platform in linux/amd64 linux/arm64; do
+            docker pull --quiet --platform "$platform" "$IMAGE"
+            container=$(docker create --platform "$platform" "$IMAGE")
+            mkdir -p "rootfs/${platform#linux/}"
+            docker export "$container" | sudo tar -x -C "rootfs/${platform#linux/}"
+            docker rm "$container"
+            docker rmi "$IMAGE"
+          done
+
+      # freshclam is rate limited from shared runner IPs, so a failed update falls back to
+      # the image's bundled signatures; the summary shows which version was used.
+      - name: Scan for malware
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          echo "### ${IMAGE}" >>"$GITHUB_STEP_SUMMARY"
+          docker run --rm --entrypoint sh -v "$PWD/rootfs:/scan:ro" -v "$GITHUB_STEP_SUMMARY:/summary" "$CLAMAV_IMAGE" -c '
+            freshclam --stdout || echo "::warning::freshclam failed, scanning with bundled signatures"
+            echo "Signatures: $(clamscan --version)" >>/summary
+            clamscan --recursive --infected /scan
+          '
+
+  # When the nightly build calls this, its own report-failure job covers it.
+  report-failure:
+    needs: [resolve, scan, malware]
+    if: failure() && github.event_name == 'schedule' && !inputs.images
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/report-scheduled-failure.yml

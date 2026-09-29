@@ -255,6 +255,7 @@ def put_binary_json(
     *,
     content_type: str,
     timeout: float,
+    extra_headers: dict[str, str] | None = None,
 ) -> dict[str, Any] | None:
     """
     PUT a binary body to the broker and return its parsed JSON reply, or None
@@ -268,6 +269,7 @@ def put_binary_json(
             "Content-Type": content_type,
             "Content-Length": str(len(content)),
             **broker_headers(container),
+            **(extra_headers or {}),
         },
     )
     deadline = time.monotonic() + timeout
@@ -290,10 +292,17 @@ def put_binary(
     *,
     content_type: str,
     timeout: float,
+    extra_headers: dict[str, str] | None = None,
 ) -> bool:
     """PUT a binary body to the broker, reporting whether it acked with ok."""
     body = put_binary_json(
-        container, path, content, label, content_type=content_type, timeout=timeout
+        container,
+        path,
+        content,
+        label,
+        content_type=content_type,
+        timeout=timeout,
+        extra_headers=extra_headers,
     )
     return bool(body and body.get("status") == "ok")
 

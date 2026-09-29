@@ -221,7 +221,8 @@
 #   containers:
 #     # One container can serve many platforms. Container keys are defaults
 #     # for every platform it serves; a platform block may override emulator,
-#     # label, memory_card_sync, and clears_stale_saves.
+#     # label, memory_card_sync, clears_stale_saves, core and
+#     # experimental_cores.
 #     - protocol: webstation
 #       host: https://192.168.1.56:3010  # browser-facing UI, must be https
 #       subfolder: /streaming            # matches the container's SUBFOLDER
@@ -241,6 +242,17 @@
 #         wii:
 #           emulator: dolphin
 #           clears_stale_saves: true
+#         # RetroArch boots the broker's best-tested core for each platform.
+#         # To pick another libretro core, name it after the emulator...
+#         gba: retroarch:gpsp
+#         # ...or set `core` in a block. The broker refuses a core it doesn't
+#         # know and warns about one nobody has tested yet; see
+#         # https://github.com/romm-streaming/romm-broker (retroarch-cores docs).
+#         n64:
+#           emulator: retroarch
+#           core: parallel_n64
+#           # Lets a core listed as broken by the broker run anyway.
+#           # experimental_cores: true
 
 # converto:
 #   # Serve converted single-file downloads when a client asks with ?converted=true

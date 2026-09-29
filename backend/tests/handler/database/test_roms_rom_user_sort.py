@@ -423,3 +423,105 @@ class TestGroupedRomUserSortQueryShape:
         assert "group_sort_value" not in sql
         assert "IN (SELECT" in sql
         assert order_clause in sql
+
+
+class TestGroupedRepresentativeVisibility:
+    """A group's representative is picked among the siblings the user sees."""
+
+    def _names(self, user: User, platform: Platform, **kwargs: Any) -> list[str]:
+        return _ordered_names(
+            user,
+            "name",
+            "asc",
+            attr="fs_name_no_ext",
+            platform_ids=[platform.id],
+            group_by_meta_id=True,
+            **kwargs,
+        )
+
+    def test_hidden_representative_promotes_a_visible_sibling(
+        self, admin_user: User, platform: Platform
+    ):
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="USA", igdb_id=100),
+            admin_user,
+            {"hidden": True},
+        )
+        _make_rom(platform, "Sonic", region="Japan", igdb_id=100)
+
+        assert self._names(admin_user, platform) == ["Sonic (Japan)"]
+
+    def test_fully_hidden_group_stays_out(self, admin_user: User, platform: Platform):
+        for region in ("USA", "Japan"):
+            _set_rom_user_fields(
+                _make_rom(platform, "Sonic", region=region, igdb_id=100),
+                admin_user,
+                {"hidden": True},
+            )
+
+        assert self._names(admin_user, platform) == []
+
+    def test_hidden_status_view_shows_the_hidden_sibling(
+        self, admin_user: User, platform: Platform
+    ):
+        _make_rom(platform, "Sonic", region="USA", igdb_id=100)
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="Japan", igdb_id=100),
+            admin_user,
+            {"hidden": True},
+        )
+
+        assert self._names(admin_user, platform, statuses=["hidden"]) == [
+            "Sonic (Japan)"
+        ]
+
+    def test_status_match_on_a_non_primary_sibling_keeps_the_group(
+        self, admin_user: User, platform: Platform
+    ):
+        _make_rom(platform, "Sonic", region="USA", igdb_id=100)
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="Japan", igdb_id=100),
+            admin_user,
+            {"now_playing": True},
+        )
+
+        assert self._names(admin_user, platform, statuses=["now_playing"]) == [
+            "Sonic (Japan)"
+        ]
+
+    def test_non_matching_sibling_does_not_drive_the_group_sort(
+        self, admin_user: User, platform: Platform
+    ):
+        # Sonic's newest play belongs to the Japan sibling, which the status
+        # filter drops, so its group sorts by the matching USA play.
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="USA", igdb_id=100),
+            admin_user,
+            {
+                "now_playing": True,
+                "last_played": datetime(2020, 1, 1, tzinfo=timezone.utc),
+            },
+        )
+        _set_rom_user_fields(
+            _make_rom(platform, "Sonic", region="Japan", igdb_id=100),
+            admin_user,
+            {"last_played": datetime(2026, 1, 1, tzinfo=timezone.utc)},
+        )
+        _set_rom_user_fields(
+            _make_rom(platform, "Tails", region="USA", igdb_id=200),
+            admin_user,
+            {
+                "now_playing": True,
+                "last_played": datetime(2024, 1, 1, tzinfo=timezone.utc),
+            },
+        )
+
+        assert _ordered_names(
+            admin_user,
+            "last_played",
+            "desc",
+            attr="fs_name_no_ext",
+            platform_ids=[platform.id],
+            group_by_meta_id=True,
+            statuses=["now_playing"],
+        ) == ["Tails (USA)", "Sonic (USA)"]

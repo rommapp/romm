@@ -7,7 +7,7 @@ import pytest
 
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
-from handler.filesystem.roms_handler import ParsedRomFiles
+from handler.filesystem.roms_handler import ParsedRomFiles, category_for_path_parts
 from handler.rom_files import refresh_rom_files
 from models.platform import Platform
 from models.rom import (
@@ -64,6 +64,9 @@ def _folder_rom(
                 rom_id=rom.id,
                 file_name=Path(rel).name,
                 file_path=str(Path(rom.fs_path, FOLDER, rel).parent),
+                category=category_for_path_parts(
+                    [part.lower() for part in Path(rel).parent.parts]
+                ),
                 file_size_bytes=st.st_size,
                 last_modified=st.st_mtime,
                 crc_hash="row-crc",

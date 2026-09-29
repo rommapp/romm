@@ -6,9 +6,10 @@ on:
     branches:
       - "master"
 
+# A new push cancels a PR's superseded run; each master commit keeps its own.
 concurrency:
-  group: ${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -16,6 +17,7 @@ permissions:
 jobs:
   trunk_check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       checks: write # For trunk to post annotations
       contents: read # For repo checkout

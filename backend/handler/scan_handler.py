@@ -1,7 +1,8 @@
 import asyncio
 import enum
 import functools
-from typing import Any, NotRequired, TypedDict
+from collections.abc import Callable, Mapping
+from typing import Any, Final, NotRequired, TypedDict
 
 import pydash
 import socketio
@@ -80,6 +81,7 @@ from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
+from utils.concurrency import gather_all
 from utils.filesystem import sanitize_filename
 from utils.platform_aliases import (
     resolve_fs_folder,
@@ -123,7 +125,7 @@ class MetadataSource(enum.StrEnum):
 
 # Demozoo / Pouët identify a production, not a retail game. Game catalogs
 # (IGDB, Moby, ScreenScraper, SteamGridDB, …) still run and will happily
-# attach a similarly titled box — "Desert Dream" → Desert Fox, "State of
+# attach a similarly titled box: "Desert Dream" → Desert Fox, "State of
 # the Art" → a skate game. Once a scene ID exists, only Demozoo / Pouët /
 # CSDb may set name, summary, or artwork. Regular games never have those
 # IDs, so they keep the usual fuzzy cover matching.
@@ -535,6 +537,28 @@ async def resolve_steam_rom(
     return await meta_steam_handler.get_rom(fs_name, platform_slug)
 
 
+# `files` is left out so a scan does not ship every file row of every rom.
+_SCANNING_ROM_EXCLUDE: Final = {
+    "created_at",
+    "updated_at",
+    "rom_user",
+    "last_modified",
+    "files",
+    "sibling_roms",
+}
+
+
+async def emit_scanning_rom(
+    socket_manager: socketio.AsyncRedisManager, rom: Rom, *, is_new: bool
+) -> None:
+    """Report a scanned rom; `is_new` lets clients count only roms the scan added."""
+    payload = SimpleRomSchema.from_orm_with_factory(rom).model_dump(
+        exclude=_SCANNING_ROM_EXCLUDE
+    )
+    payload["is_new"] = is_new
+    await socket_manager.emit("scan:scanning_rom", payload)
+
+
 async def scan_rom(
     scan_type: ScanType,
     platform: Platform,
@@ -735,21 +759,7 @@ async def scan_rom(
     _added_rom.is_identifying = True
 
     if socket_manager:
-        await socket_manager.emit(
-            "scan:scanning_rom",
-            {
-                **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                    exclude={
-                        "created_at",
-                        "updated_at",
-                        "rom_user",
-                        "last_modified",
-                        "files",
-                        "sibling_roms",
-                    }
-                ),
-            },
-        )
+        await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
 
     # Run hash fetches concurrently
     (
@@ -1747,89 +1757,107 @@ async def download_rom_resources(
     previous_url_manual: str | None,
     previous_url_screenshots: list[str] | None,
     metadata_sources: list[str],
+    previous_media: Mapping[str, dict[str, Any] | None] | None = None,
 ) -> None:
     """Download and persist cover, manual, screenshots and provider media for a rom.
 
     Shared by the scan socket flow and the manual physical-game endpoint. Only
     re-downloads when the source URL changed, then stores the resulting paths.
+
+    Args:
+        previous_media: Each provider column's metadata before this scan, keyed
+            like ``ss_metadata``, so media whose source changed is fetched again.
     """
-    path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-        entity=added_rom,
-        overwrite=added_rom.url_cover != previous_url_cover,
-        url_cover=add_ss_auth_to_url(added_rom.url_cover),
-    )
-
-    path_manual = await fs_resource_handler.get_manual(
-        rom=added_rom,
-        overwrite=added_rom.url_manual != previous_url_manual,
-        url_manual=add_ss_auth_to_url(added_rom.url_manual),
-    )
-
     screenshots_changed = pydash.xor(
         added_rom.url_screenshots or [], previous_url_screenshots or []
     )
     url_screenshots = added_rom.url_screenshots or []
-    path_screenshots = await fs_resource_handler.get_rom_screenshots(
-        rom=added_rom,
-        overwrite=bool(screenshots_changed),
-        url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
-    )
 
-    added_rom.path_cover_s = path_cover_s
-    added_rom.path_cover_l = path_cover_l
-    added_rom.path_screenshots = path_screenshots
-    added_rom.path_manual = path_manual
-
-    db_rom_handler.update_rom(
-        added_rom.id,
-        {
-            "path_cover_s": path_cover_s,
-            "path_cover_l": path_cover_l,
-            "path_screenshots": path_screenshots,
-            "path_manual": path_manual,
-        },
-    )
-
-    # Handle special media files from Screenscraper, ES-DE gamelist.xml and
-    # LaunchBox. Media that didn't land on disk has its recorded path cleared, so
-    # write those dicts back when that happens.
     preferred_media_types = get_preferred_media_types()
-    media_updates: dict[str, Any] = {}
+    # Highest priority first, the order their files land in shared paths.
+    providers: tuple[tuple[str, str, Callable[[str], str] | None], ...] = (
+        ("ss_metadata", MetadataSource.SS, add_ss_auth_to_url),
+        ("gamelist_metadata", MetadataSource.GAMELIST, None),
+        ("launchbox_metadata", MetadataSource.LAUNCHBOX, None),
+    )
+    provider_media: list[tuple[str, dict[str, Any], Callable[[str], str] | None]] = [
+        (column, metadata, url_transform)
+        for column, source, url_transform in providers
+        if (metadata := getattr(added_rom, column)) and source in metadata_sources
+    ]
 
-    if added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            added_rom.ss_metadata, preferred_media_types, add_ss_auth_to_url
-        ):
-            media_updates["ss_metadata"] = added_rom.ss_metadata
+    # Filled as each provider finishes, so a later one failing keeps the rest.
+    media_updates: dict[str, dict[str, Any]] = {}
 
-    if added_rom.gamelist_metadata and MetadataSource.GAMELIST in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            added_rom.gamelist_metadata, preferred_media_types
-        ):
-            media_updates["gamelist_metadata"] = added_rom.gamelist_metadata
+    async def store_provider_media() -> None:
+        # Compared across every provider at once, before any stores, since a
+        # shared path's file belongs to whichever provider records it first.
+        if previous_media:
+            await fs_resource_handler.remove_stale_media(
+                [previous_media.get(column) for column, *_ in providers],
+                [getattr(added_rom, column) for column, *_ in providers],
+                preferred_media_types,
+            )
+        # Providers share media paths, so they take turns: a later one finds the
+        # file an earlier one landed on disk and keeps it.
+        for column, metadata, url_transform in provider_media:
+            # Paths of media that didn't land are cleared, so the dict is written back.
+            if await fs_resource_handler.store_metadata_media(
+                metadata, preferred_media_types, url_transform
+            ):
+                media_updates[column] = metadata
 
-    if added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
-        if await fs_resource_handler.store_metadata_media(
-            added_rom.launchbox_metadata, preferred_media_types
-        ):
-            media_updates["launchbox_metadata"] = added_rom.launchbox_metadata
+    achievements = (
+        added_rom.ra_metadata.get("achievements", [])
+        if added_rom.ra_metadata and MetadataSource.RA in metadata_sources
+        else []
+    )
 
-    if media_updates:
-        db_rom_handler.update_rom(added_rom.id, media_updates)
+    # ScreenScraper media and RA badges are bounded by their own limiters. What
+    # landed is saved even when another download failed, then that failure raised.
+    outcomes: tuple[Any, ...] = await asyncio.gather(
+        gather_all(
+            fs_resource_handler.get_cover(
+                entity=added_rom,
+                overwrite=added_rom.url_cover != previous_url_cover,
+                url_cover=add_ss_auth_to_url(added_rom.url_cover),
+            ),
+            fs_resource_handler.get_manual(
+                rom=added_rom,
+                overwrite=added_rom.url_manual != previous_url_manual,
+                url_manual=add_ss_auth_to_url(added_rom.url_manual),
+            ),
+            fs_resource_handler.get_rom_screenshots(
+                rom=added_rom,
+                overwrite=bool(screenshots_changed),
+                url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
+            ),
+        ),
+        store_provider_media(),
+        fs_resource_handler.store_ra_badges(achievements),
+        return_exceptions=True,
+    )
+    paths = outcomes[0]
 
-    # Store normal and locked achievement badges from RetroAchievements
-    if added_rom.ra_metadata and MetadataSource.RA in metadata_sources:
-        for ach in added_rom.ra_metadata.get("achievements", []):
-            badge_url_lock = ach.get("badge_url_lock", None)
-            badge_path_lock = ach.get("badge_path_lock", None)
-            if badge_url_lock and badge_path_lock:
-                await fs_resource_handler.store_ra_badge(
-                    badge_url_lock, badge_path_lock
-                )
-            badge_url = ach.get("badge_url", None)
-            badge_path = ach.get("badge_path", None)
-            if badge_url and badge_path:
-                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
+    updates: dict[str, Any] = dict(media_updates)
+    if not isinstance(paths, BaseException):
+        (path_cover_s, path_cover_l), path_manual, path_screenshots = paths
+        added_rom.path_cover_s = path_cover_s
+        added_rom.path_cover_l = path_cover_l
+        added_rom.path_screenshots = path_screenshots
+        added_rom.path_manual = path_manual
+        updates.update(
+            path_cover_s=path_cover_s,
+            path_cover_l=path_cover_l,
+            path_screenshots=path_screenshots,
+            path_manual=path_manual,
+        )
+    if updates:
+        db_rom_handler.update_rom(added_rom.id, updates)
+
+    for outcome in outcomes:
+        if isinstance(outcome, BaseException):
+            raise outcome
 
 
 class ScannedAsset(TypedDict):

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi import status
@@ -109,7 +109,7 @@ def _fetch_one(
     assert response.status_code == status.HTTP_200_OK
     items = response.json()["items"]
     assert len(items) == 1
-    return items[0]
+    return cast(dict[str, Any], items[0])
 
 
 @pytest.mark.parametrize(

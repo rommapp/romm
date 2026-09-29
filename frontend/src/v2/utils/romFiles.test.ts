@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { RomFileSchema } from "@/__generated__";
-import { romFileUrl, versionedRomFileUrl } from "./romFiles";
+import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import {
+  romFileUrl,
+  versionedResourceUrl,
+  versionedRomFileUrl,
+} from "./romFiles";
 
 const file: RomFileSchema = {
   id: 7,
@@ -42,5 +47,15 @@ describe("versionedRomFileUrl", () => {
   it("changes when the file row is updated", () => {
     const replaced = { ...file, updated_at: "2024-03-01T00:00:00+00:00" };
     expect(versionedRomFileUrl(replaced)).not.toBe(versionedRomFileUrl(file));
+  });
+});
+
+describe("versionedResourceUrl", () => {
+  it("serves the path from the resources root, versioned by the ROM timestamp", () => {
+    expect(
+      versionedResourceUrl("roms/1/2/logo/logo.png", "2024-02-03T04:05:06"),
+    ).toBe(
+      `${FRONTEND_RESOURCES_PATH}/roms/1/2/logo/logo.png?v=2024-02-03T04%3A05%3A06`,
+    );
   });
 });

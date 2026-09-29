@@ -47,10 +47,12 @@ import {
   heldFor,
   resolveScreenshot,
   saveState,
+  bootEmulatorJSSave,
   loadEmulatorJSSave,
   loadEmulatorJSState,
   invalidateEmulatorJSRomCacheIfRenamed,
   installEJSDefaultOptionsTrap,
+  patchNetplaySocketIo,
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
@@ -643,7 +645,10 @@ function onPageHide() {
 // Saves management
 // Resolves whether this pick reached the core: a later pick, a state load or
 // leaving the player voids a download still in flight.
-async function loadSave(save: SaveSchema): Promise<boolean> {
+async function loadSave(
+  save: SaveSchema,
+  apply: (bytes: Uint8Array) => void = loadEmulatorJSSave,
+): Promise<boolean> {
   const generation = ++saveGeneration;
   saveLoading = true;
 
@@ -654,7 +659,7 @@ async function loadSave(save: SaveSchema): Promise<boolean> {
     });
     if (disposed || generation !== saveGeneration) return false;
     const bytes = new Uint8Array(data);
-    loadEmulatorJSSave(bytes);
+    apply(bytes);
     // Writes follow the picked save only once its bytes are in the core.
     loadedSave = save;
     sessionSaveRef.value = null;
@@ -835,17 +840,7 @@ window.EJS_onGameStart = async () => {
     };
   }
 
-  // Wrap the bundled global `io` so netplay uses mounted socket path.
-  if (window.io && !window.io.__rommNetplayPatched) {
-    const originalIo = window.io;
-    const patchedIo = ((url: string, opts?: Record<string, unknown>) =>
-      originalIo(url, {
-        ...opts,
-        path: "/netplay/socket.io",
-      })) as NonNullable<Window["io"]>;
-    patchedIo.__rommNetplayPatched = true;
-    window.io = patchedIo;
-  }
+  patchNetplaySocketIo();
 
   void (async () => {
     const ready = await waitForGameManager();
@@ -861,7 +856,7 @@ window.EJS_onGameStart = async () => {
         );
         await loadState(props.state);
       } else if (props.save) {
-        await loadSave(props.save);
+        await loadSave(props.save, bootEmulatorJSSave);
       } else {
         baselineSaveTrackerFromEmulator();
       }

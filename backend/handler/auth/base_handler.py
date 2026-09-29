@@ -10,6 +10,7 @@ from joserfc.errors import BadSignatureError, DecodeError
 from joserfc.jwk import OctKey
 from passlib.context import CryptContext
 from redis.exceptions import RedisError
+from sqlalchemy.exc import IntegrityError
 from starlette.requests import HTTPConnection
 
 import models.user
@@ -28,7 +29,12 @@ from config import (
 )
 from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
-from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
+from handler.auth.constants import (
+    ALGORITHM,
+    CLIENT_TOKEN_PREFIX,
+    DEFAULT_OAUTH_TOKEN_EXPIRY,
+    TokenPurpose,
+)
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.email_handler import EmailError, send_email
 from handler.redis_handler import redis_client
@@ -106,7 +112,7 @@ class AuthHandler:
 
     @staticmethod
     def generate_client_token() -> str:
-        return "rmm_" + secrets.token_hex(32)
+        return CLIENT_TOKEN_PREFIX + secrets.token_hex(32)
 
     @staticmethod
     def hash_client_token(raw: str) -> str:
@@ -186,8 +192,10 @@ class AuthHandler:
             to_encode,
             oct_key,
         )
-        redis_client.setex(
-            f"reset-jti:{jti}", self.reset_passwd_token_expires_in_minutes * 60, "valid"
+        redis_client.set(
+            f"reset-jti:{jti}",
+            "valid",
+            ex=self.reset_passwd_token_expires_in_minutes * 60,
         )
         return token
 
@@ -368,7 +376,7 @@ class AuthHandler:
         log.info(
             f"Invite link created by {hl(user.username, color=CYAN)} (jti: {hl(jti)})"
         )
-        redis_client.setex(f"invite-jti:{jti}", expires_in, "valid")
+        redis_client.set(f"invite-jti:{jti}", "valid", ex=expires_in)
         return token
 
     def assert_invite_link_token_valid(self, token: str) -> None:
@@ -466,10 +474,8 @@ class OAuthHandler:
 
         token = self._create_oauth_token(to_encode, expires_delta)
 
-        redis_client.setex(
-            f"refresh-jti:{jti}",
-            int(expires_delta.total_seconds()),
-            "valid",
+        redis_client.set(
+            f"refresh-jti:{jti}", "valid", ex=int(expires_delta.total_seconds())
         )
 
         return token
@@ -542,6 +548,39 @@ class OAuthHandler:
 
 
 class OpenIDHandler:
+    async def _with_userinfo_endpoint_claims(
+        self, token: Any, id_claims: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Fill claims missing from the ID token from the UserInfo endpoint (OIDC Core 5.4)."""
+        wanted = ("email", "email_verified", OIDC_USERNAME_ATTRIBUTE, OIDC_CLAIM_ROLES)
+        missing = [claim for claim in wanted if claim and claim not in id_claims]
+        if not missing or not token.get("access_token"):
+            return id_claims
+
+        try:
+            metadata = await oauth.openid.load_server_metadata()
+            if not metadata.get("userinfo_endpoint"):
+                return id_claims
+            endpoint_claims = dict(await oauth.openid.userinfo(token=token))
+        except Exception as exc:  # noqa: BLE001
+            log.warning(f"Failed to fetch OIDC userinfo endpoint: {exc!r}")
+            return id_claims
+
+        # OIDC Core 5.3.2: the UserInfo sub must match the ID token's sub
+        if endpoint_claims.get("sub") != id_claims.get("sub"):
+            log.warning("Ignoring OIDC userinfo response: 'sub' does not match.")
+            return id_claims
+
+        # A verification flag only vouches for the email it came with
+        id_email = id_claims.get("email")
+        endpoint_email = endpoint_claims.get("email")
+        if id_email is not None and (
+            endpoint_email is None or endpoint_email.lower() != id_email.lower()
+        ):
+            endpoint_claims.pop("email_verified", None)
+
+        return {**endpoint_claims, **id_claims}
+
     async def get_current_active_user_from_openid_token(
         self, token: Any
     ) -> UserWithClaims | tuple[None, None]:
@@ -560,6 +599,8 @@ class OpenIDHandler:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Userinfo is missing from token.",
             )
+
+        userinfo = await self._with_userinfo_endpoint_claims(token, userinfo)
 
         email = userinfo.get("email")
         if email is None:
@@ -615,7 +656,34 @@ class OpenIDHandler:
                     detail="User has not been granted any roles for this application.",
                 )
 
-        user = db_user_handler.get_user_by_email(email)
+        issuer = userinfo.get("iss") or None
+        sub = userinfo.get("sub") or None
+        identity = (issuer, sub) if issuer and sub else None
+        user = (
+            db_user_handler.get_user_by_oidc_identity(*identity) if identity else None
+        )
+        matched_by_identity = user is not None
+        if user is None:
+            user = db_user_handler.get_user_by_email(email)
+            # The provider now vouches for another subject under this email, so
+            # it was reassigned or the account recreated; linking it would hand
+            # the account over.
+            if (
+                user is not None
+                and identity is not None
+                and user.oidc_issuer == issuer
+                and user.oidc_sub is not None
+            ):
+                log.error(
+                    "OIDC subject for '%s' does not match the one linked to %s",
+                    hl(email, color=CYAN),
+                    hl(user.username, color=CYAN),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This account is linked to a different identity at the provider. Please contact an administrator.",
+                )
+
         if user is None:
             if not OIDC_ALLOW_REGISTRATION:
                 log.error(
@@ -635,6 +703,8 @@ class OpenIDHandler:
                 username=username,
                 hashed_password=str(uuid.uuid4()),
                 email=email,
+                oidc_issuer=issuer if identity else None,
+                oidc_sub=sub if identity else None,
                 enabled=True,
                 role=role,
             )
@@ -645,22 +715,52 @@ class OpenIDHandler:
                 AuditTarget.of_user(user),
                 {"role": user.role, "via": "oidc"},
             )
-        elif claims_provided and user.role != role:
-            previous_role = user.role
-            user = db_user_handler.update_user(user.id, {"role": role})
-            record(
-                AuditAction.USER_EDIT,
-                SYSTEM_ACTOR,
-                AuditTarget.of_user(user),
-                {
-                    "changed": ["role"],
-                    "role": {"from": previous_role, "to": role},
-                    "via": "oidc",
-                },
-            )
+        else:
+            if not user.enabled:
+                raise UserDisabledException
 
-        if not user.enabled:
-            raise UserDisabledException
+            updates: dict[str, Any] = {}
+            if identity and (user.oidc_issuer, user.oidc_sub) != identity:
+                updates["oidc_issuer"], updates["oidc_sub"] = identity
+            if matched_by_identity and (user.email or "").lower() != email.lower():
+                if db_user_handler.get_user_by_email(email) is None:
+                    updates["email"] = email
+                else:
+                    log.warning(
+                        "Not updating the email of %s: '%s' belongs to another user",
+                        hl(user.username, color=CYAN),
+                        hl(email, color=CYAN),
+                    )
+            if claims_provided and user.role != role:
+                updates["role"] = role
+
+            if updates:
+                previous_role = user.role
+                try:
+                    user = db_user_handler.update_user(user.id, updates)
+                except IntegrityError:
+                    # Another account claimed the email since the check above
+                    if "email" not in updates:
+                        raise
+                    log.warning(
+                        "Not updating the email of %s: '%s' belongs to another user",
+                        hl(user.username, color=CYAN),
+                        hl(email, color=CYAN),
+                    )
+                    del updates["email"]
+                    if updates:
+                        user = db_user_handler.update_user(user.id, updates)
+                changed = [f for f in ("email", "role") if f in updates]
+                if changed:
+                    data: dict[str, Any] = {"changed": changed, "via": "oidc"}
+                    if "role" in updates:
+                        data["role"] = {"from": previous_role, "to": role}
+                    record(
+                        AuditAction.USER_EDIT,
+                        SYSTEM_ACTOR,
+                        AuditTarget.of_user(user),
+                        data,
+                    )
 
         log.info("User successfully authenticated: %s", hl(email, color=CYAN))
         return user, userinfo

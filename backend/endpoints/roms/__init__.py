@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
-from typing import Annotated, Any, Final, Literal, Sequence
+from typing import Annotated, Any, Final, Literal, Sequence, cast
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -20,12 +20,7 @@ from fastapi import (
     HTTPException,
 )
 from fastapi import Path as PathVar
-from fastapi import (
-    Query,
-    Request,
-    UploadFile,
-    status,
-)
+from fastapi import Query, Request, UploadFile, status
 from fastapi.responses import Response
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 from sqlalchemy.exc import IntegrityError
@@ -158,6 +153,7 @@ from utils.zip_cache import (
 )
 
 from .files import router as files_router
+from .installs import router as installs_router
 from .manual import router as manual_router
 from .notes import router as notes_router
 from .patch import router as patch_router
@@ -172,6 +168,7 @@ router = APIRouter(
 )
 router.include_router(upload_router)
 router.include_router(files_router)
+router.include_router(installs_router)
 router.include_router(manual_router)
 router.include_router(walkthrough_router)
 router.include_router(soundtrack_router)
@@ -476,7 +473,7 @@ def parse_raw_metadata(
         return None
 
     try:
-        return json.loads(str(raw_json))
+        return cast(dict[str, Any] | None, json.loads(str(raw_json)))
     except json.JSONDecodeError as e:
         log.warning(f"Invalid JSON for {form_key}: {e}")
         return None
@@ -2255,31 +2252,18 @@ async def update_rom(
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
-        for ach in cleaned_data.get("ra_metadata", {}).get("achievements", []):
-            # Store both normal and locked version
-            badge_url_lock = ach.get("badge_url_lock", None)
-            badge_path_lock = ach.get("badge_path_lock", None)
-            if badge_url_lock and badge_path_lock:
-                await fs_resource_handler.store_ra_badge(
-                    badge_url_lock, badge_path_lock
-                )
-            badge_url = ach.get("badge_url", None)
-            badge_path = ach.get("badge_path", None)
-            if badge_url and badge_path:
-                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
+        await fs_resource_handler.store_ra_badges(
+            cleaned_data.get("ra_metadata", {}).get("achievements", [])
+        )
 
     # Handle special media files from Screenscraper when the ID has changed
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
         preferred_media_types = get_preferred_media_types()
 
-        for media_type in preferred_media_types:
-            # Remove old media files if the ss_id is changing
-            if rom.ss_metadata and rom.ss_metadata.get(f"{media_type.value}_path"):
-                await fs_resource_handler.remove_media_resources_path(
-                    rom.platform_id,
-                    rom.id,
-                    media_type,
-                )
+        # Remove old media files if the ss_id is changing
+        await fs_resource_handler.remove_recorded_media(
+            rom.platform_id, rom.id, rom.ss_metadata or {}, preferred_media_types
+        )
 
         ss_metadata = cleaned_data.get("ss_metadata")
         if ss_metadata:
@@ -2294,16 +2278,10 @@ async def update_rom(
     ):
         preferred_media_types = get_preferred_media_types()
 
-        for media_type in preferred_media_types:
-            # Remove old media files if the launchbox_id is changing
-            if rom.launchbox_metadata and rom.launchbox_metadata.get(
-                f"{media_type.value}_path"
-            ):
-                await fs_resource_handler.remove_media_resources_path(
-                    rom.platform_id,
-                    rom.id,
-                    media_type,
-                )
+        # Remove old media files if the launchbox_id is changing
+        await fs_resource_handler.remove_recorded_media(
+            rom.platform_id, rom.id, rom.launchbox_metadata or {}, preferred_media_types
+        )
 
         launchbox_metadata = cleaned_data.get("launchbox_metadata")
         if launchbox_metadata:

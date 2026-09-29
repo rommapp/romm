@@ -186,7 +186,7 @@ class RAHasherService:
 
         # For folder-based multi-file ROMs the path ends with /*. RAHasher is
         # launched without a shell (create_subprocess_exec), so it never expands
-        # the glob — it receives the literal "*" and fails ("Could not open
+        # the glob: it receives the literal "*" and fails ("Could not open
         # track/file"). Resolve "/*" to a single real file: hash the largest
         # archive directly when the folder holds archives (or skip for disc
         # platforms that can't buffer-hash them), otherwise pick a disc
@@ -221,7 +221,7 @@ class RAHasherService:
                 # Folder of uncompressed disc tracks (the standard Redump
                 # .cue + .bin layout, .gdi sets, multi-bin) or a multi-file
                 # cartridge set. RAHasher never expands the "/*" glob itself,
-                # so resolve it to a single real file — the disc descriptor
+                # so resolve it to a single real file; the disc descriptor
                 # when present, otherwise the largest track.
                 resolved = await asyncio.to_thread(_pick_ra_file, folder)
                 if resolved is not None:

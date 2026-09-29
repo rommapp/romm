@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from http.cookies import SimpleCookie
-from typing import Any
+from typing import Any, cast
 
 from fastapi import Request
 from starlette.requests import HTTPConnection
@@ -19,11 +19,14 @@ from models.user import User
 from utils import json_module
 
 
+def token_device_id(conn: HTTPConnection) -> str | None:
+    """The device the request's client token is bound to, if any."""
+    return getattr(conn.state, "device_id", None)
+
+
 def current_device_id(conn: HTTPConnection) -> str | None:
     """The device a request comes from: its client token's, else its web session's."""
-    return getattr(conn.state, "device_id", None) or (
-        conn.scope.get("session") or {}
-    ).get("device_id")
+    return token_device_id(conn) or (conn.scope.get("session") or {}).get("device_id")
 
 
 async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
@@ -37,7 +40,7 @@ async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
     scope = environ.get("asgi.scope", {})
     session = scope.get("session")
     if session:
-        return session
+        return cast(dict[str, Any], session)
 
     raw_cookie = environ.get("HTTP_COOKIE", "")
     if not raw_cookie:

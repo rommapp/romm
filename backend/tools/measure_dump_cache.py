@@ -14,11 +14,11 @@ import time
 import unicodedata
 import zipfile
 from collections.abc import Callable, Iterator
+from compression import zstd
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
 import redis
-import zstandard
 from defusedxml import ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -249,7 +249,7 @@ def plain(value: Any) -> bytes:
 
 
 def load(
-    client: redis.Redis[bytes],
+    client: redis.Redis,
     records: Iterator[Record],
     serialize: Callable[[Any], bytes],
 ) -> None:
@@ -266,7 +266,7 @@ def load(
         pipe.execute()
 
 
-def store_stats(client: redis.Redis[bytes]) -> tuple[dict[str, int], dict[str, int]]:
+def store_stats(client: redis.Redis) -> tuple[dict[str, int], dict[str, int]]:
     """Field count and total value bytes per store, read back off the hashes."""
     # Not tallied while writing: the dump repeats a title on one platform and an
     # alternate name across platforms, so ~9k records overwrite another's field.
@@ -283,13 +283,13 @@ def store_stats(client: redis.Redis[bytes]) -> tuple[dict[str, int], dict[str, i
     return counts, value_bytes
 
 
-def foreign_keys(client: redis.Redis[bytes]) -> int:
+def foreign_keys(client: redis.Redis) -> int:
     """How many keys on the server are not this tool's own stores."""
     owned = {key.encode() for key in DUMP_STORE_KEYS}
     return sum(1 for key in client.scan_iter(count=1000) if key not in owned)
 
 
-def clear_stores(client: redis.Redis[bytes]) -> int:
+def clear_stores(client: redis.Redis) -> int:
     """Drop only this tool's stores, returning `used_memory` without them."""
     # Not `flushall`: the URL can point at a live RomM, whose sessions and RQ
     # queues share the database with these stores.
@@ -298,7 +298,7 @@ def clear_stores(client: redis.Redis[bytes]) -> int:
 
 
 def store_memory(
-    client: redis.Redis[bytes], keys: list[str]
+    client: redis.Redis, keys: list[str]
 ) -> tuple[dict[str, int], int, int]:
     sizes = {}
     for key in keys:
@@ -317,7 +317,7 @@ def mb(value: float) -> str:
 def sweep_threshold(metadata_zip: Path, limit: int) -> int:
     """Print total stored bytes at each candidate COMPRESS_MIN_BYTES, on real
     records, and return an exit code."""
-    compressor = zstandard.ZstdCompressor(level=COMPRESSION_LEVEL)
+    compressor = zstd.ZstdCompressor(level=COMPRESSION_LEVEL)
     sample: list[bytes] = []
     for _, _, value in iter_launchbox(metadata_zip):
         # The threshold applies to the payload `encode` builds, not the wider
@@ -338,7 +338,9 @@ def sweep_threshold(metadata_zip: Path, limit: int) -> int:
         compressed = 0
         for payload in sample:
             if len(payload) >= threshold:
-                total += len(compressor.compress(payload))
+                total += len(
+                    compressor.compress(payload, zstd.ZstdCompressor.FLUSH_FRAME)
+                )
                 compressed += 1
             else:
                 total += len(payload)
@@ -352,10 +354,10 @@ def sweep_threshold(metadata_zip: Path, limit: int) -> int:
 
 
 def bench_decode(
-    client: redis.Redis[bytes], key: str, rounds: int = 5
+    client: redis.Redis, key: str, rounds: int = 5
 ) -> tuple[float, float] | None:
     """Median `decode` latency, and mean stored size, on real stored records."""
-    fields = client.hrandfield(key, 2000)
+    fields = cast(list[bytes], client.hrandfield(key, 2000))
     if not fields:
         return None
     blobs = [b for b in client.hmget(key, fields) if b]

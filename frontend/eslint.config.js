@@ -89,6 +89,10 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ["src/v2/utils/pico8AudioWorklet.js"],
+    languageOptions: { globals: globals.audioWorklet },
+  },
   // Import cycles. The resolver has to be the one that reads tsconfig `paths`,
   // or `@/*` and `@v2/*` go unresolved and the rule silently passes.
   {
@@ -211,6 +215,26 @@ export default tseslint.config(
       "romm/no-emdash-in-comment": "error",
       "romm/no-color-literal": "error",
       "romm/no-layout-media-query": "error",
+    },
+  },
+  {
+    files: ["src/**/*.test.ts"],
+    ignores: [
+      "src/views/**",
+      "src/components/**",
+      "src/console/**",
+      "src/layouts/**",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "TSAsExpression[expression.type='TSAsExpression'][expression.typeAnnotation.type='TSUnknownKeyword'][typeAnnotation.typeName.name=/^(DetailedRom|SimpleRom)$/]",
+          message:
+            "Build ROM fixtures with makeRom or makeDetailedRom from @/utils/rom.fixtures instead of `as unknown as`.",
+        },
+      ],
     },
   },
   // Keep last: Prettier owns formatting, so this switches off every

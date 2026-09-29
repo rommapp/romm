@@ -1,0 +1,84 @@
+name: Check Generated API Types
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/src/__generated__/**"
+      - frontend/package.json
+      - frontend/package-lock.json
+      - ".github/workflows/api-types.yml"
+      - pyproject.toml
+      - uv.lock
+      - .python-version
+  push:
+    branches:
+      - "master"
+    paths:
+      - "backend/**"
+      - "frontend/src/__generated__/**"
+      - frontend/package.json
+      - frontend/package-lock.json
+      - ".github/workflows/api-types.yml"
+      - pyproject.toml
+      - uv.lock
+      - .python-version
+
+# A new push cancels a PR's superseded run; each master commit keeps its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  api-types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up the backend
+        uses: ./.github/actions/setup-backend
+
+      - name: Set up the frontend
+        uses: ./.github/actions/setup-frontend
+
+      # Nothing connects to the database; importing the app only needs credentials set.
+      - name: Dump the OpenAPI schema
+        working-directory: backend
+        env:
+          ROMM_AUTH_SECRET_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+          DB_HOST: 127.0.0.1
+          DB_USER: unused
+          DB_PASSWD: unused
+          DB_NAME: unused
+        run: |
+          mkdir -p "$RUNNER_TEMP/romm" "$RUNNER_TEMP/openapi"
+          ROMM_BASE_PATH="$RUNNER_TEMP/romm" uv run python -m tools.dump_openapi "$RUNNER_TEMP/openapi/openapi.json"
+
+      # Served where `npm run generate` reads it, so the generator flags live in
+      # package.json alone.
+      - name: Regenerate the types
+        working-directory: frontend
+        run: |
+          python3 -m http.server 3000 --bind 127.0.0.1 --directory "$RUNNER_TEMP/openapi" &
+          for _ in $(seq 1 10); do
+            curl -sf http://127.0.0.1:3000/openapi.json >/dev/null && break
+            sleep 1
+          done
+          npm run generate
+
+      - name: Fail if the committed types differ
+        # Intent-to-add surfaces new files; diffing against HEAD keeps deleted ones.
+        run: |
+          git add --intent-to-add frontend/src/__generated__
+          if ! git diff --exit-code --stat HEAD -- frontend/src/__generated__; then
+            git diff HEAD -- frontend/src/__generated__
+            echo "::error::frontend/src/__generated__ is out of date with the backend schema. Run \`npm run generate\` against a running backend and commit the result."
+            exit 1
+          fi

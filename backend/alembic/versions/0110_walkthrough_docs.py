@@ -11,7 +11,7 @@ Create Date: 2026-07-18 00:00:00.000000
 """
 
 import sqlalchemy as sa
-from alembic import op  # type: ignore[attr-defined]
+from alembic import op
 
 from utils.database import is_postgresql
 

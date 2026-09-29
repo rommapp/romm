@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The per-item buttons of the Save data tab: download for everything, then
+// The per-item buttons of a save or state row: download for everything, then
 // edit, favorite and delete for own saves and states.
 import { RBtn } from "@v2/lib";
 import { computed } from "vue";

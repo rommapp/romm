@@ -1,7 +1,7 @@
 """Add the per-file title id columns on rom_files: title_id and title_version.
 
-Revision ID: 0141_add_rom_file_title_ids
-Revises: 0140_device_save_sync_baseline
+Revision ID: 0145_add_rom_file_title_ids
+Revises: 0144_user_oidc_sub
 Create Date: 2026-09-03 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
 
 # revision identifiers, used by Alembic.
-revision = "0141_add_rom_file_title_ids"
-down_revision = "0140_device_save_sync_baseline"
+revision = "0145_add_rom_file_title_ids"
+down_revision = "0144_user_oidc_sub"
 branch_labels = None
 depends_on = None
 

@@ -11,5 +11,7 @@ export type LaunchReadyPayload = {
     claimed_at: string;
     host: string;
     resume?: (boolean | null);
+    core?: (string | null);
+    core_tier?: (string | null);
 };
 
