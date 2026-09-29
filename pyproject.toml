@@ -64,7 +64,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "ipdb ~= 0.13",
-  "ipykernel ~= 6.29",
+  "ipykernel ~=7.3",
   "memray ~= 1.15",
   "mypy ~= 2.3.0",
   "pyinstrument ~= 5.0",
