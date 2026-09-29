@@ -354,7 +354,6 @@ def _match_songs(
     Returns:
         {stored index: new index}; stored songs left out are gone.
     """
-    # The same index and tags: the same song.
     kept = {song: song for song, identity in old.items() if new.get(song) == identity}
     free = [song for song in new if song not in kept]
 
@@ -368,7 +367,7 @@ def _match_songs(
             kept[song] = matches[0]
             free.remove(matches[0])
 
-    # With as many songs as before, a song left at its index was retagged.
+    # An unchanged song count means tags were edited, not songs replaced.
     if len(old) == len(new):
         for song in old:
             if song not in kept and song in free:
