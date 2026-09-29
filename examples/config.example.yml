@@ -75,6 +75,7 @@
 #   # Skip file hash calculations on low power devices (eg. Raspberry PI)
 #   skip_hash_calculation: false
 #   # Skip reading platform-native title IDs out of ROM binaries during scans
+#   # (rom-converto's per-file metadata follows `converto.scan_metadata` instead)
 #   skip_title_id_extraction: false
 #   # Rename Switch ROMs to embed ` [TITLEID][vVERSION]` in their filename
 #   embed_switch_title_ids: false
@@ -258,7 +259,9 @@
 #   # Serve converted single-file downloads when a client asks with ?converted=true
 #   # (needs ROM_CONVERTO_ENABLED)
 #   download_conversion_enabled: false
-#   # Read title ids and serials with rom-converto during scans
+#   # Read title ids and file metadata (title, serial, content type, version,
+#   # region, languages, publisher, minimum firmware, format, compression) with
+#   # rom-converto during scans
 #   scan_metadata: true
 #   # Hours a converted download stays cached after it was last downloaded
 #   cache_ttl_hours: 24

@@ -245,6 +245,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0142_state_core.py", "states"),
         ("0143_sibling_platform_names.py", "platforms"),
         ("0144_user_oidc_sub.py", "users"),
+        ("0145_rom_file_binary_metadata.py", "rom_files"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -327,6 +328,23 @@ def test_the_user_oidc_sub_revision_reverses_and_replays():
             migration.upgrade()
 
         assert _schema_of(connection, "users") == before
+
+
+def test_the_rom_file_binary_metadata_revision_reverses_and_replays():
+    migration = _load_migration("0145_rom_file_binary_metadata.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "rom_files")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "rom_files", "content_type")
+            assert not has_column(connection, "rom_files", "title_id")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "rom_files") == before
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:

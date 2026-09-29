@@ -59,6 +59,8 @@ FULL_PATH_HASH_LENGTH = 64
 AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
+# Max length of the per-file rom-converto metadata text columns on `rom_files`.
+ROM_FILE_INFO_MAX_LENGTH = 255
 # Limits on `RomUser.pinned_media`, a list of keys like `file:12` naming the
 # media shown on the user's overview.
 PINNED_MEDIA_MAX_ITEMS = 100
@@ -145,6 +147,14 @@ class SaveTargetLayout(enum.StrEnum):
     FILE_EXACT = "file-exact"
     FILE_PREFIX = "file-prefix"
     FOLDER_SPLIT = "folder-split"
+
+
+class RomFileContentType(enum.StrEnum):
+    GAME = "game"
+    UPDATE = "update"
+    DLC = "dlc"
+    DEMO = "demo"
+    SYSTEM = "system"
 
 
 @dataclass(frozen=True)
@@ -307,6 +317,37 @@ class RomFile(BaseModel):
     title_id: Mapped[str | None] = mapped_column(String(length=TITLE_ID_MAX_LENGTH))
     # BigInteger because Switch title versions exceed int32
     title_version: Mapped[int | None] = mapped_column(BigInteger, default=None)
+    # Per-file metadata rom-converto reads during scans.
+    title: Mapped[str | None] = mapped_column(String(length=ROM_FILE_INFO_MAX_LENGTH))
+    serial: Mapped[str | None] = mapped_column(String(length=ROM_FILE_INFO_MAX_LENGTH))
+    content_type: Mapped[RomFileContentType | None] = mapped_column(
+        Enum(RomFileContentType), default=None
+    )
+    display_version: Mapped[str | None] = mapped_column(
+        String(length=ROM_FILE_INFO_MAX_LENGTH)
+    )
+    regions: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(none_as_null=True), default=None, nullable=True
+    )
+    languages: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(none_as_null=True), default=None, nullable=True
+    )
+    publisher: Mapped[str | None] = mapped_column(
+        String(length=ROM_FILE_INFO_MAX_LENGTH)
+    )
+    min_firmware_version: Mapped[str | None] = mapped_column(
+        String(length=ROM_FILE_INFO_MAX_LENGTH)
+    )
+    is_compressed: Mapped[bool | None] = mapped_column(Boolean, default=None)
+    compression: Mapped[str | None] = mapped_column(
+        String(length=ROM_FILE_INFO_MAX_LENGTH)
+    )
+    file_format: Mapped[str | None] = mapped_column(
+        String(length=ROM_FILE_INFO_MAX_LENGTH)
+    )
+    uncompressed_size_bytes: Mapped[int | None] = mapped_column(
+        BigInteger, default=None
+    )
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )

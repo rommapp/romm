@@ -18,6 +18,7 @@ from adapters.services.rom_converto import (
     RomConvertoTimeoutError,
     resolve_operation,
 )
+from models.rom import ROM_FILE_INFO_MAX_LENGTH, RomFileContentType
 
 
 class FakeProc:
@@ -302,24 +303,141 @@ class TestParseInfo:
         ("payload", "expected"),
         [
             pytest.param(
+                {
+                    "kind": "nx",
+                    "container_kind": "nsz",
+                    "is_compressed": True,
+                    "full": {
+                        "title_kind": "application",
+                        "required_system_version": 1073741824,
+                        "title_version": 65536,
+                        "application_title_id_hex": "0100000000010000",
+                        "control": {
+                            "display_version": "1.0.0",
+                            "supported_languages": [
+                                "AmericanEnglish",
+                                "CanadianFrench",
+                            ],
+                            "titles": [
+                                {
+                                    "language": "Japanese",
+                                    "name": "ゼルダの伝説",
+                                    "publisher": "任天堂",
+                                },
+                                {
+                                    "language": "AmericanEnglish",
+                                    "name": "The Legend of Zelda",
+                                    "publisher": "Nintendo",
+                                },
+                            ],
+                        },
+                    },
+                },
+                RomConvertoInfo(
+                    title_id="0100000000010000",
+                    title_version=65536,
+                    title="The Legend of Zelda",
+                    content_type="game",
+                    display_version="1.0.0",
+                    languages=("English", "French"),
+                    publisher="Nintendo",
+                    min_firmware_version="16.0.0",
+                    is_compressed=True,
+                    compression="zstd",
+                    file_format="NSZ",
+                ),
+                id="nx-reads-the-full-header",
+            ),
+            pytest.param(
                 {"kind": "nx", "container_kind": "nsp"},
-                RomConvertoInfo(title_id=None, title_version=None),
+                RomConvertoInfo(file_format="NSP"),
                 id="nx-without-prod-keys",
             ),
             pytest.param(
-                {"kind": "chd", "content": {"kind": "psx", "title_id": "SLUS-00594"}},
-                RomConvertoInfo(title_id="SLUS-00594", title_version=None),
-                id="chd-flattens-inner-disc",
+                {"kind": "nx", "full": {"title_kind": "add_on_content"}},
+                RomConvertoInfo(content_type="dlc"),
+                id="nx-title-kind-maps-to-content-type",
             ),
             pytest.param(
-                {"kind": "dol", "game_id": "GZLE01"},
-                RomConvertoInfo(title_id="475A4C45", title_version=None),
-                id="dol-hex-encodes-game-id",
+                {
+                    "kind": "ctr",
+                    "title_id": "0004000000123456",
+                    "product_code": "CTR-P-AZRE",
+                    "content_kind": "game",
+                    "compressed": True,
+                    "format": "cia",
+                    "smdh": {
+                        "region_names": ["North America", "Japan"],
+                        "titles": [
+                            {
+                                "language": "Japanese",
+                                "short_description": "ロックマンゼロ",
+                                "publisher": "カプコン",
+                            },
+                            {
+                                "language": "English",
+                                "short_description": "Mega Man Zero",
+                                "long_description": "Mega Man Zero",
+                                "publisher": "Capcom",
+                            },
+                        ],
+                    },
+                },
+                RomConvertoInfo(
+                    title_id="0004000000123456",
+                    title="Mega Man Zero",
+                    serial="CTR-P-AZRE",
+                    content_type="game",
+                    regions=("USA", "Japan"),
+                    languages=("Japanese", "English"),
+                    publisher="Capcom",
+                    is_compressed=True,
+                    compression="zstd",
+                    file_format="CIA",
+                ),
+                id="ctr-reads-smdh-from-a-compressed-cia",
             ),
             pytest.param(
-                {"kind": "rvl", "game_id": "RZTE01"},
-                RomConvertoInfo(title_id="525A5445", title_version=None),
-                id="rvl-hex-encodes-game-id",
+                {"kind": "ctr", "compressed": False, "format": "unknown"},
+                RomConvertoInfo(is_compressed=False),
+                id="ctr-format-unknown-has-no-file-format",
+            ),
+            pytest.param(
+                {
+                    "kind": "wup",
+                    "title_id_hex": "0005000010143500",
+                    "title_version": 16,
+                    "content_kind": "game",
+                    "source_kind": "disc (GM0005000010143500)",
+                    "meta": {
+                        "product_code": "WUP-P-ARZE",
+                        "company_name": "Nintendo",
+                        "region_names": ["Europe", "Australia"],
+                        "long_names": {
+                            "entries": [
+                                ["japanese", "ゼルダの伝説"],
+                                ["english", "The Legend of Zelda"],
+                            ]
+                        },
+                        "publishers": {
+                            "entries": [["japanese", "任天堂"], ["english", "Nintendo"]]
+                        },
+                    },
+                },
+                RomConvertoInfo(
+                    title_id="10143500",
+                    title_version=16,
+                    title="The Legend of Zelda",
+                    serial="WUP-P-ARZE",
+                    content_type="game",
+                    regions=("Europe", "Australia"),
+                    languages=("japanese", "english"),
+                    publisher="Nintendo",
+                    # .wud vs .wux cannot be told apart.
+                    is_compressed=None,
+                    file_format="DISC",
+                ),
+                id="wup-reads-the-xml-meta",
             ),
             pytest.param(
                 {
@@ -331,26 +449,398 @@ class TestParseInfo:
                 id="wup-last-8-of-title-id",
             ),
             pytest.param(
+                {"kind": "wup", "source_kind": "wua (00050000101c9500)"},
+                RomConvertoInfo(is_compressed=True, file_format="WUA"),
+                id="wup-wua-archive-is-compressed",
+            ),
+            pytest.param(
+                {"kind": "wup", "source_kind": "nus"},
+                RomConvertoInfo(is_compressed=False, file_format="NUS"),
+                id="wup-nus-content-is-not-compressed",
+            ),
+            pytest.param(
+                {
+                    "kind": "dol",
+                    "game_id": "GZLE01",
+                    "game_name": "The Legend of Zelda",
+                    "disc_version": 2,
+                    "region": "Usa",
+                    "container": "RVZ",
+                    "banner": {
+                        "titles": [
+                            {"language": "Default", "long_game_name": "ZELDA"},
+                            {
+                                "language": "English",
+                                "long_game_name": "The Legend of Zelda",
+                                "short_game_name": "Zelda",
+                                "long_maker": "Nintendo",
+                            },
+                        ],
+                    },
+                },
+                RomConvertoInfo(
+                    title_id="475A4C45",
+                    title="The Legend of Zelda",
+                    serial="GZLE01",
+                    content_type="game",
+                    display_version="v2",
+                    regions=("Usa",),
+                    languages=("English",),
+                    publisher="Nintendo",
+                    is_compressed=True,
+                    file_format="RVZ",
+                ),
+                id="dol-reads-the-banner-and-rvz-container",
+            ),
+            pytest.param(
+                {
+                    "kind": "dol",
+                    "game_id": "GZLE01",
+                },
+                RomConvertoInfo(
+                    title_id="475A4C45", serial="GZLE01", content_type="game"
+                ),
+                id="dol-hex-encodes-game-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "rvl",
+                    "game_id": "SMNE01",
+                    "game_name": "New Super Mario Bros. Wii",
+                    "disc_version": 1,
+                    "region": "PAL",
+                    "container": "iso",
+                    "tmd": {"title_version": 3},
+                    "imet_names": {
+                        "entries": [
+                            ["Japanese", "ニュースーパーマリオブラザーズWii"],
+                            ["English", "New Super Mario Bros. Wii"],
+                        ]
+                    },
+                    "maker_name": "Nintendo",
+                },
+                RomConvertoInfo(
+                    title_id="534D4E45",
+                    title="New Super Mario Bros. Wii",
+                    serial="SMNE01",
+                    content_type="game",
+                    display_version="v3",
+                    regions=("Europe",),
+                    languages=("Japanese", "English"),
+                    publisher="Nintendo",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="rvl-prefers-the-tmd-title-version",
+            ),
+            pytest.param(
+                {"kind": "rvl", "game_id": "RZTE01"},
+                RomConvertoInfo(
+                    title_id="525A5445", serial="RZTE01", content_type="game"
+                ),
+                id="rvl-hex-encodes-game-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "ntr",
+                    "game_code": "ARZE",
+                    "game_title": "Single Line",
+                    "rom_version": 2,
+                    "banner": {
+                        "titles": {
+                            "entries": [
+                                ["Japanese", "ホームブルー\n作者不明"],
+                                ["English", "Homebrew Game\nby TestDev\nfinal release"],
+                            ]
+                        }
+                    },
+                },
+                RomConvertoInfo(
+                    title_id="ARZE",
+                    title="Homebrew Game",
+                    serial="ARZE",
+                    content_type="game",
+                    display_version="v2",
+                    publisher="final release",
+                    is_compressed=False,
+                    file_format="NDS",
+                ),
+                id="ntr-splits-the-banner-into-title-and-publisher",
+            ),
+            pytest.param(
+                {
+                    "kind": "xbox",
+                    "xbe": {
+                        "title_id_code": "TT-027",
+                        "title_name": "Stubbs the Zombie",
+                        "version": 1,
+                        "region_names": ["NTSC-U"],
+                    },
+                },
+                RomConvertoInfo(
+                    title_id="TT-027",
+                    title="Stubbs the Zombie",
+                    serial="TT-027",
+                    content_type="game",
+                    display_version="1",
+                    regions=("USA",),
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="xbox-reads-the-xbe-header",
+            ),
+            pytest.param(
+                {
+                    "kind": "xbox",
+                    "xex": {
+                        "title_name": "Devkit Demo",
+                        "version": "1.0",
+                        "region_names": ["RegionFree"],
+                    },
+                },
+                RomConvertoInfo(
+                    title="Devkit Demo",
+                    content_type="game",
+                    display_version="1.0",
+                    regions=("World",),
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="xbox-falls-back-to-the-xex-header",
+            ),
+            pytest.param(
                 {
                     "kind": "xbox",
                     "xbe": {"title_id_code": "TT-027", "title_id_hex": "5454001B"},
                 },
-                RomConvertoInfo(title_id="TT-027", title_version=None),
+                RomConvertoInfo(
+                    title_id="TT-027",
+                    serial="TT-027",
+                    content_type="game",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
                 id="xbox-nested-xbe-code",
             ),
             pytest.param(
+                {
+                    "kind": "xenon",
+                    "compressed_size": 725614592,
+                    "logical_size": 786432000,
+                    "xex": {
+                        "title_id_hex": "4D5307DC",
+                        "title_name": "Halo 3",
+                        "version": "2.0.4552.0",
+                        "region_names": ["RegionFree"],
+                    },
+                },
+                RomConvertoInfo(
+                    title_id="4D5307DC",
+                    title="Halo 3",
+                    content_type="game",
+                    display_version="2.0.4552.0",
+                    regions=("World",),
+                    is_compressed=True,
+                    file_format="ZAR",
+                    uncompressed_size_bytes=786432000,
+                ),
+                id="xenon-reads-the-xex-header-and-zar-sizes",
+            ),
+            pytest.param(
                 {"kind": "xenon", "xex": {"title_id_hex": "4D5307DC"}},
-                RomConvertoInfo(title_id="4D5307DC", title_version=None),
+                RomConvertoInfo(
+                    title_id="4D5307DC", content_type="game", file_format="ZAR"
+                ),
                 id="xenon-nested-xex-hex",
             ),
             pytest.param(
+                {"kind": "psx", "title_id": "SCUS-94163", "version": "1.1"},
+                RomConvertoInfo(
+                    title_id="SCUS-94163",
+                    serial="SCUS-94163",
+                    content_type="game",
+                    display_version="1.1",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="psx-reads-the-disc-header",
+            ),
+            pytest.param(
                 {
-                    "kind": "ctr",
-                    "title_id": "0004000000123456",
-                    "product_code": "CTR-P-AXXE",
+                    "kind": "psp",
+                    "title": "Patapon",
+                    "title_id": "UCUS-98696",
+                    "content_kind": "game",
+                    "version": "1.0",
+                    "firmware": "5.00",
                 },
-                RomConvertoInfo(title_id="0004000000123456", title_version=None),
-                id="ctr-ignores-product-code",
+                RomConvertoInfo(
+                    title_id="UCUS-98696",
+                    title="Patapon",
+                    serial="UCUS-98696",
+                    content_type="game",
+                    display_version="1.0",
+                    min_firmware_version="5.00",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="psp-reads-the-disc-header",
+            ),
+            pytest.param(
+                {
+                    "kind": "pbp",
+                    "title": "Patapon",
+                    "disc_id": "UCUS-98696",
+                    "content_kind": "update",
+                    "disc_version": "1.00",
+                    "psp_system_ver": "5.55",
+                },
+                RomConvertoInfo(
+                    title="Patapon",
+                    serial="UCUS-98696",
+                    content_type="update",
+                    display_version="1.00",
+                    min_firmware_version="5.55",
+                    file_format="EBOOT.PBP",
+                ),
+                id="pbp-reads-the-eboot-header",
+            ),
+            pytest.param(
+                {
+                    "kind": "ps3",
+                    "title": "Gran Turismo 5",
+                    "title_id": "BCUS98114",
+                    "content_kind": "dlc",
+                    "version": "01.02",
+                    "region": "USA",
+                    "firmware": "3.50",
+                },
+                RomConvertoInfo(
+                    title_id="BCUS98114",
+                    title="Gran Turismo 5",
+                    serial="BCUS98114",
+                    content_type="dlc",
+                    display_version="01.02",
+                    regions=("USA",),
+                    min_firmware_version="3.50",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="ps3-reads-the-disc-metadata",
+            ),
+            pytest.param(
+                {"kind": "ps3", "title_id": "BLUS31426", "version": "01.00"},
+                RomConvertoInfo(
+                    title_id="BLUS31426",
+                    serial="BLUS31426",
+                    content_type="game",
+                    display_version="01.00",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="ps3-string-version-is-display-only",
+            ),
+            pytest.param(
+                {
+                    "kind": "vpk",
+                    "title": "Vita Homebrew",
+                    "content_id": "JM0000-ABCDEF12_00-0000000000000000",
+                    "content_kind": "game",
+                    "app_ver": "1.02",
+                },
+                RomConvertoInfo(
+                    title="Vita Homebrew",
+                    serial="JM0000-ABCDEF12_00-0000000000000000",
+                    content_type="game",
+                    display_version="1.02",
+                    file_format="VPK",
+                ),
+                id="vpk-reads-the-package-header",
+            ),
+            pytest.param(
+                {
+                    "kind": "pkg",
+                    "title": "Journey",
+                    "content_id": "UP9000-CUSA00264_00-JOURNEY00000000",
+                    "content_kind": "game",
+                },
+                RomConvertoInfo(
+                    title="Journey",
+                    serial="UP9000-CUSA00264_00-JOURNEY00000000",
+                    content_type="game",
+                    file_format="PKG",
+                ),
+                id="pkg-reads-the-package-header",
+            ),
+            pytest.param(
+                {
+                    "kind": "chd",
+                    "compressors": ["zstd"],
+                    "logical_bytes": 1234567890,
+                    "content": {
+                        "kind": "psp",
+                        "title": "Daxter",
+                        "title_id": "UCUS-98718",
+                        "content_kind": "game",
+                        "version": "1.00",
+                    },
+                },
+                RomConvertoInfo(
+                    title_id="UCUS-98718",
+                    title="Daxter",
+                    serial="UCUS-98718",
+                    content_type="game",
+                    display_version="1.00",
+                    is_compressed=True,
+                    compression="zstd",
+                    file_format="CHD",
+                    uncompressed_size_bytes=1234567890,
+                ),
+                id="chd-layers-the-container-over-the-inner-psp-disc",
+            ),
+            pytest.param(
+                {"kind": "chd", "compressors": [], "logical_bytes": 786432000},
+                RomConvertoInfo(
+                    is_compressed=False,
+                    file_format="CHD",
+                    uncompressed_size_bytes=786432000,
+                ),
+                id="chd-without-an-inner-disc-has-only-container-fields",
+            ),
+            pytest.param(
+                {
+                    "kind": "chd",
+                    "compressors": [1, "zstd"],
+                    "logical_bytes": 2**64 - 1,
+                },
+                RomConvertoInfo(
+                    is_compressed=True,
+                    compression="zstd",
+                    file_format="CHD",
+                ),
+                id="chd-corrupt-header-values-are-dropped",
+            ),
+            pytest.param(
+                {
+                    "kind": "cso",
+                    "format": "zso",
+                    "uncompressed_size": 456789012,
+                    "content": {
+                        "kind": "psx",
+                        "title_id": "SCUS-94163",
+                        "version": "1.1",
+                    },
+                },
+                RomConvertoInfo(
+                    title_id="SCUS-94163",
+                    serial="SCUS-94163",
+                    content_type="game",
+                    display_version="1.1",
+                    is_compressed=True,
+                    file_format="ZSO",
+                    uncompressed_size_bytes=456789012,
+                ),
+                id="cso-layers-the-container-over-the-inner-psx-disc",
             ),
             pytest.param(
                 {"kind": "nds", "game_code": "AXXE"},
@@ -358,14 +848,131 @@ class TestParseInfo:
                 id="nds-falls-back-to-game-code",
             ),
             pytest.param(
-                {"kind": "ps3", "title_id": "BLUS31426", "version": "01.00"},
-                RomConvertoInfo(title_id="BLUS31426", title_version=None),
-                id="ps3-string-version-is-none",
+                {"kind": "psp", "title": "Gran\n\nTurismo\t5"},
+                RomConvertoInfo(
+                    title="Gran Turismo 5",
+                    content_type="game",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="text-cleaner-collapses-newline-and-tab-runs",
+            ),
+            pytest.param(
+                {"kind": "psp", "title": "Home\x00brew\x00\x00"},
+                RomConvertoInfo(
+                    title="Homebrew",
+                    content_type="game",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="text-cleaner-drops-nul-bytes",
+            ),
+            pytest.param(
+                {"kind": "psp", "title": "A" * 300},
+                RomConvertoInfo(
+                    title="A" * ROM_FILE_INFO_MAX_LENGTH,
+                    content_type="game",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="text-cleaner-clips-at-the-column-limit",
+            ),
+            pytest.param(
+                {
+                    "kind": "ctr",
+                    "smdh": {
+                        "region_names": [
+                            "NorthAmerica",
+                            "PAL",
+                            "Rest of World",
+                            "RegionFree",
+                            "NTSC-J Japan",
+                            "NTSC-J China",
+                            "NTSC-J",
+                            "PAL Australia/New Zealand",
+                            "Manufacturing",
+                            "Other",
+                            "Unknown 12",
+                            "Korea",
+                        ],
+                    },
+                },
+                RomConvertoInfo(
+                    # The scan handler drops the duplicates once names are canonical.
+                    regions=(
+                        "USA",
+                        "Europe",
+                        "Europe",
+                        "World",
+                        "Japan",
+                        "China",
+                        "Asia",
+                        "Australia",
+                        "Korea",
+                    )
+                ),
+                id="region-names-map-aliases-and-drop-junk",
+            ),
+            pytest.param(
+                {
+                    "kind": "nx",
+                    "full": {
+                        "control": {
+                            "supported_languages": [
+                                "AmericanEnglish",
+                                "BritishEnglish",
+                                "CanadianFrench",
+                                "LatinAmericanSpanish",
+                                "BrazilianPortuguese",
+                                "SimplifiedChinese",
+                                "TraditionalChinese",
+                                "TaiwaneseChinese",
+                                "Japanese",
+                                "german",
+                                "Default",
+                            ],
+                        },
+                    },
+                },
+                RomConvertoInfo(
+                    languages=(
+                        "English",
+                        "English",
+                        "French",
+                        "Spanish",
+                        "Portuguese",
+                        "Chinese",
+                        "Chinese",
+                        "Chinese",
+                        "Japanese",
+                        "german",
+                    )
+                ),
+                id="language-variants-fold-and-default-drops",
+            ),
+            pytest.param(
+                {
+                    "kind": "nx",
+                    "is_compressed": "yes",
+                    "full": {
+                        "title_kind": ["patch"],
+                        "control": {"titles": {"language": "English"}},
+                    },
+                },
+                RomConvertoInfo(),
+                id="malformed-shapes-yield-nothing",
             ),
         ],
     )
     def test_parse_info(self, payload: dict[str, Any], expected: RomConvertoInfo):
         assert rom_converto._parse_info(payload) == expected
+
+    def test_every_content_type_is_a_stored_enum_value(self):
+        # The scan builds a `RomFileContentType` from each one; a value the
+        # enum lacks would abort the whole platform scan.
+        stored = {member.value for member in RomFileContentType}
+        assert rom_converto._CONTENT_TYPES == stored
+        assert set(rom_converto._SWITCH_CONTENT_TYPES.values()) <= stored
 
 
 class TestConvert:

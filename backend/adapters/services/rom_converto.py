@@ -4,7 +4,8 @@ import json
 import os
 import shutil
 import tempfile
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Final
 
@@ -46,6 +47,9 @@ _PROBE_TIMEOUT_SECONDS = 30
 
 _STDERR_TAIL_BYTES = 400
 
+# The width of the `rom_files` text columns this metadata is stored into.
+_TEXT_MAX_LENGTH = 255
+
 
 class RomConvertoError(Exception): ...
 
@@ -64,8 +68,26 @@ class RomConvertoOperationError(RomConvertoError):
 class RomConvertoInfo:
     # Rendered the way sigil renders the same platform's id, so either
     # extractor can fill `Rom.title_id` interchangeably.
-    title_id: str | None
-    title_version: int | None
+    title_id: str | None = None
+    title_version: int | None = None
+    title: str | None = None
+    serial: str | None = None
+    # rom-converto's `ContentKind`: "game", "update", "dlc", "demo" or "system".
+    content_type: str | None = None
+    display_version: str | None = None
+    # RomM spellings where rom-converto's differ ("NorthAmerica" -> "USA").
+    regions: tuple[str, ...] = ()
+    # Regional variants folded ("AmericanEnglish" -> "English").
+    languages: tuple[str, ...] = ()
+    publisher: str | None = None
+    min_firmware_version: str | None = None
+    # None when the container can't tell.
+    is_compressed: bool | None = None
+    # Only when rom-converto names the method.
+    compression: str | None = None
+    # The format badge rom-converto's GUI shows (NSZ, CIA, RVZ, CHD, DISC, ...).
+    file_format: str | None = None
+    uncompressed_size_bytes: int | None = None
 
 
 @dataclass(frozen=True)
@@ -244,6 +266,400 @@ def _first_str(data: dict[str, Any], *keys: str) -> str | None:
     return None
 
 
+def _dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _int(value: Any) -> int | None:
+    """The value when it is an int a signed BIGINT column holds, else None.
+
+    A corrupt header's u64 would otherwise overflow the column and fail the row.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if 0 <= value < 2**63 else None
+
+
+def _text(value: Any) -> str | None:
+    """The text on one line, clipped to the `rom_files` column width, or None if empty."""
+    if not isinstance(value, str):
+        return None
+    text = " ".join(value.replace("\x00", "").split())
+    return text[:_TEXT_MAX_LENGTH].rstrip() or None
+
+
+def _upper(value: Any) -> str | None:
+    text = _text(value)
+    return text.upper() if text else None
+
+
+def _version_tag(value: Any) -> str | None:
+    """`v<n>` for a numeric disc or ROM revision, else None."""
+    number = _int(value)
+    return None if number is None else f"v{number}"
+
+
+def _lang_key(language: Any) -> str:
+    """`AmericanEnglish` and `american_english` both as `americanenglish`."""
+    return "".join(str(language).split()).replace("_", "").lower()
+
+
+def _english_first(items: list[Any], language_of: Callable[[Any], Any]) -> Any:
+    """The American, plain, then British English item, else the first, or None if there is none."""
+    for key in ("americanenglish", "english", "britishenglish"):
+        for item in items:
+            if _lang_key(language_of(item)) == key:
+                return item
+    return items[0] if items else None
+
+
+def _row_language(row: Any) -> Any:
+    return _dict(row).get("language")
+
+
+def _entries(value: Any) -> list[list[Any]]:
+    """The `[language, text]` pairs of a rom-converto MultilingualString."""
+    entries = _list(_dict(value).get("entries"))
+    return [e for e in entries if isinstance(e, list) and len(e) >= 2]
+
+
+def _english_entry(value: Any) -> Any:
+    """The raw text of the MultilingualString entry `_english_first` picks, or None."""
+    entry = _english_first(_entries(value), lambda e: e[0])
+    return entry[1] if entry else None
+
+
+_REGION_ALIASES: Final[dict[str, str]] = {
+    "northamerica": "USA",
+    "north america": "USA",
+    "ntsc-u": "USA",
+    "pal": "Europe",
+    "rest of world": "Europe",
+    "regionfree": "World",
+    "ntsc-j japan": "Japan",
+    "ntsc-j china": "China",
+    "ntsc-j": "Asia",
+    "pal australia/new zealand": "Australia",
+}
+
+
+def _is_region(label: str) -> bool:
+    key = label.lower()
+    return key not in ("manufacturing", "other") and not key.startswith("unknown")
+
+
+def _regions(labels: Any) -> tuple[str, ...]:
+    """The region labels in RomM's spelling where rom-converto's differs, non-regions dropped."""
+    texts = (_text(label) for label in _list(labels))
+    return tuple(
+        _REGION_ALIASES.get(text.lower(), text)
+        for text in texts
+        if text and _is_region(text)
+    )
+
+
+_LANGUAGE_FOLDS: Final[dict[str, str]] = {
+    "americanenglish": "English",
+    "britishenglish": "English",
+    "canadianfrench": "French",
+    "latinamericanspanish": "Spanish",
+    "brazilianportuguese": "Portuguese",
+    "simplifiedchinese": "Chinese",
+    "traditionalchinese": "Chinese",
+    "taiwanesechinese": "Chinese",
+}
+
+
+def _languages(names: Any) -> tuple[str, ...]:
+    """The language names with regional variants folded.
+
+    A GameCube BNR1 banner's one slot is named `Default`, which is no language.
+    """
+    texts = (_text(name) for name in _list(names))
+    return tuple(
+        _LANGUAGE_FOLDS.get(_lang_key(text), text)
+        for text in texts
+        if text and _lang_key(text) != "default"
+    )
+
+
+# rom-converto's `ContentKind`, which `RomFileContentType` mirrors.
+_CONTENT_TYPES: Final[frozenset[str]] = frozenset(
+    {"game", "update", "dlc", "demo", "system"}
+)
+
+_SWITCH_CONTENT_TYPES: Final[dict[str, str]] = {
+    "application": "game",
+    "patch": "update",
+    "add_on_content": "dlc",
+    "delta": "update",
+    "system_program": "system",
+    "system_data": "system",
+    "system_update": "system",
+}
+
+
+def _content_type(value: Any) -> str | None:
+    return value if isinstance(value, str) and value in _CONTENT_TYPES else None
+
+
+def _switch_firmware(value: Any) -> str | None:
+    """The packed `required_system_version` as major.minor.micro, or None when unset."""
+    version = _int(value)
+    if not version:
+        return None
+    return f"{(version >> 26) & 0x3F}.{(version >> 20) & 0x3F}.{(version >> 16) & 0xF}"
+
+
+def _nintendo_disc(flat: dict[str, Any]) -> tuple[bool | None, str | None]:
+    """GameCube/Wii `(is_compressed, file_format)`: RVZ, WIA and GCZ compress, ISO shows as DISC."""
+    container = _upper(flat.get("container"))
+    if container is None:
+        return None, None
+    return container in ("RVZ", "WIA", "GCZ"), (
+        "DISC" if container == "ISO" else container
+    )
+
+
+def _nx_info(flat: dict[str, Any]) -> RomConvertoInfo:
+    """Switch; everything but the container comes from `full`, which needs prod.keys."""
+    control = _dict(flat.get("control"))
+    row = _dict(_english_first(_list(control.get("titles")), _row_language))
+    title_kind = flat.get("title_kind")
+    compressed = flat.get("is_compressed")
+    return RomConvertoInfo(
+        title=_text(row.get("name")),
+        content_type=(
+            _SWITCH_CONTENT_TYPES.get(title_kind)
+            if isinstance(title_kind, str)
+            else None
+        ),
+        display_version=_text(control.get("display_version")),
+        languages=_languages(control.get("supported_languages")),
+        publisher=_text(row.get("publisher")),
+        min_firmware_version=_switch_firmware(flat.get("required_system_version")),
+        is_compressed=compressed if isinstance(compressed, bool) else None,
+        compression="zstd" if compressed is True else None,
+        file_format=_upper(flat.get("container_kind")),
+    )
+
+
+def _ctr_info(flat: dict[str, Any]) -> RomConvertoInfo:
+    smdh = _dict(flat.get("smdh"))
+    titles = _list(smdh.get("titles"))
+    row = _dict(_english_first(titles, _row_language))
+    compressed = flat.get("compressed")
+    file_format = _upper(flat.get("format"))
+    return RomConvertoInfo(
+        title=_text(row.get("long_description")) or _text(row.get("short_description")),
+        serial=_text(flat.get("product_code")),
+        content_type=_content_type(flat.get("content_kind")),
+        regions=_regions(smdh.get("region_names")),
+        languages=_languages([_row_language(title) for title in titles]),
+        publisher=_text(row.get("publisher")) or _text(flat.get("maker_name")),
+        is_compressed=compressed if isinstance(compressed, bool) else None,
+        compression="zstd" if compressed is True else None,
+        file_format=None if file_format == "UNKNOWN" else file_format,
+    )
+
+
+def _wup_info(flat: dict[str, Any]) -> RomConvertoInfo:
+    meta = _dict(flat.get("meta"))
+    # "nus", "loadiine", "disc (<partition>)" or "wua (<title>)".
+    source = (_text(flat.get("source_kind")) or "").split(" ")[0].lower()
+    return RomConvertoInfo(
+        title=_text(_english_entry(meta.get("long_names"))),
+        serial=_text(meta.get("product_code")),
+        content_type=_content_type(flat.get("content_kind")),
+        regions=_regions(meta.get("region_names")),
+        languages=_languages([e[0] for e in _entries(meta.get("long_names"))]),
+        publisher=_text(_english_entry(meta.get("publishers")))
+        or _text(meta.get("company_name")),
+        # A .wux disc is compressed and a .wud is not, yet both read as "disc".
+        is_compressed={"wua": True, "nus": False, "loadiine": False}.get(source),
+        file_format=source.upper() or None,
+    )
+
+
+def _dol_info(flat: dict[str, Any]) -> RomConvertoInfo:
+    titles = _list(_dict(flat.get("banner")).get("titles"))
+    row = _dict(_english_first(titles, _row_language))
+    is_compressed, file_format = _nintendo_disc(flat)
+    return RomConvertoInfo(
+        title=_text(row.get("long_game_name"))
+        or _text(row.get("short_game_name"))
+        or _text(flat.get("game_name")),
+        serial=_text(flat.get("game_id")),
+        content_type="game",
+        display_version=_version_tag(flat.get("disc_version")),
+        regions=_regions([flat.get("region")]),
+        languages=_languages([_row_language(title) for title in titles]),
+        publisher=_text(row.get("long_maker")) or _text(flat.get("maker_name")),
+        is_compressed=is_compressed,
+        file_format=file_format,
+    )
+
+
+def _rvl_info(flat: dict[str, Any]) -> RomConvertoInfo:
+    tmd = _dict(flat.get("tmd"))
+    is_compressed, file_format = _nintendo_disc(flat)
+    return RomConvertoInfo(
+        title=_text(_english_entry(flat.get("imet_names")))
+        or _text(flat.get("game_name")),
+        serial=_text(flat.get("game_id")),
+        content_type="game",
+        display_version=_version_tag(
+            tmd.get("title_version") if tmd else flat.get("disc_version")
+        ),
+        regions=_regions([flat.get("region")]),
+        languages=_languages([e[0] for e in _entries(flat.get("imet_names"))]),
+        publisher=_text(flat.get("maker_name")),
+        is_compressed=is_compressed,
+        file_format=file_format,
+    )
+
+
+def _ntr_info(flat: dict[str, Any]) -> RomConvertoInfo:
+    """DS; the banner text holds the title, an optional subtitle, then the publisher, one per line."""
+    banner = _english_entry(_dict(flat.get("banner")).get("titles"))
+    text = banner if isinstance(banner, str) else ""
+    lines = [line for line in map(_text, text.splitlines()) if line]
+    return RomConvertoInfo(
+        title=lines[0] if lines else _text(flat.get("game_title")),
+        serial=_text(flat.get("game_code")),
+        content_type="game",
+        display_version=_version_tag(flat.get("rom_version")),
+        publisher=lines[-1] if len(lines) > 1 else None,
+        is_compressed=False,
+        file_format="NDS",
+    )
+
+
+def _xbox_info(flat: dict[str, Any]) -> RomConvertoInfo:
+    """Xbox and Xbox 360 disc images; an original Xbox game carries `xbe`, a 360 one `xex`."""
+    xbe, xex = _dict(flat.get("xbe")), _dict(flat.get("xex"))
+    header = xbe or xex
+    # An XBE version is a plain integer, an XEX one a dotted string.
+    version = header.get("version")
+    return RomConvertoInfo(
+        title=_text(xbe.get("title_name")) or _text(xex.get("title_name")),
+        serial=_text(xbe.get("title_id_code")),
+        content_type="game",
+        display_version=str(version) if _int(version) is not None else _text(version),
+        regions=_regions(header.get("region_names")),
+        is_compressed=False,
+        file_format="DISC",
+    )
+
+
+def _xenon_info(flat: dict[str, Any]) -> RomConvertoInfo:
+    """An Xbox 360 ZArchive."""
+    xex = _dict(flat.get("xex"))
+    compressed_size = _int(flat.get("compressed_size"))
+    logical_size = _int(flat.get("logical_size"))
+    return RomConvertoInfo(
+        title=_text(xex.get("title_name")),
+        content_type="game",
+        display_version=_text(xex.get("version")),
+        regions=_regions(xex.get("region_names")),
+        is_compressed=(
+            None
+            if compressed_size is None or logical_size is None
+            else compressed_size < logical_size
+        ),
+        file_format="ZAR",
+        uncompressed_size_bytes=logical_size,
+    )
+
+
+def _sony_disc_info(flat: dict[str, Any]) -> RomConvertoInfo:
+    """PS1, PS2, PSP and PS3 disc images, whose title id is the serial."""
+    return RomConvertoInfo(
+        title=_text(flat.get("title")),
+        serial=_text(flat.get("title_id")),
+        content_type=_content_type(flat.get("content_kind")) or "game",
+        display_version=_text(flat.get("version")),
+        regions=_regions([flat.get("region")]),
+        min_firmware_version=_text(flat.get("firmware")),
+        is_compressed=False,
+        file_format="DISC",
+    )
+
+
+def _pbp_info(flat: dict[str, Any]) -> RomConvertoInfo:
+    return RomConvertoInfo(
+        title=_text(flat.get("title")),
+        serial=_text(flat.get("disc_id")),
+        content_type=_content_type(flat.get("content_kind")),
+        display_version=_text(flat.get("disc_version")),
+        min_firmware_version=_text(flat.get("psp_system_ver")),
+        file_format="EBOOT.PBP",
+    )
+
+
+def _psn_package_info(flat: dict[str, Any], file_format: str) -> RomConvertoInfo:
+    """Vita VPKs and PS3/PSP/Vita PKGs, whose content id is the serial."""
+    return RomConvertoInfo(
+        title=_text(flat.get("title")),
+        serial=_text(flat.get("content_id")),
+        content_type=_content_type(flat.get("content_kind")),
+        display_version=_text(flat.get("app_ver")),
+        file_format=file_format,
+    )
+
+
+# Kinds outside this map (retro cartridges, LaserDisc, PS4/PS5 packages) only
+# get a title id and version.
+_KIND_PARSERS: Final[dict[str, Callable[[dict[str, Any]], RomConvertoInfo]]] = {
+    "nx": _nx_info,
+    "ctr": _ctr_info,
+    "wup": _wup_info,
+    "dol": _dol_info,
+    "rvl": _rvl_info,
+    "ntr": _ntr_info,
+    "xbox": _xbox_info,
+    "xenon": _xenon_info,
+    "psx": _sony_disc_info,
+    "psp": _sony_disc_info,
+    "ps3": _sony_disc_info,
+    "pbp": _pbp_info,
+    "vpk": lambda flat: _psn_package_info(flat, "VPK"),
+    "pkg": lambda flat: _psn_package_info(flat, "PKG"),
+}
+
+
+def _container_info(kind: str, payload: dict[str, Any]) -> RomConvertoInfo:
+    """CHD and CSO: the nested disc's info with the container's own fields on top."""
+    content = payload.get("content")
+    # rom-converto only nests a PS1/PS2 or PSP disc here.
+    disc = (
+        _parse_info(content)
+        if isinstance(content, dict) and content.get("kind") not in ("chd", "cso")
+        else RomConvertoInfo()
+    )
+    if kind == "chd":
+        compressors = _list(payload.get("compressors"))
+        names = [name for name in map(_text, compressors) if name]
+        return replace(
+            disc,
+            is_compressed=bool(names),
+            compression=_text(", ".join(names)),
+            file_format="CHD",
+            uncompressed_size_bytes=_int(payload.get("logical_bytes")),
+        )
+    return replace(
+        disc,
+        is_compressed=True,
+        compression=None,
+        file_format=_upper(payload.get("format")),
+        uncompressed_size_bytes=_int(payload.get("uncompressed_size")),
+    )
+
+
 def _title_id(kind: str, flat: dict[str, Any]) -> str | None:
     if kind in ("dol", "rvl"):
         # Sigil keys GameCube and Wii by the hex-encoded 4-char game id.
@@ -262,18 +678,22 @@ def _title_id(kind: str, flat: dict[str, Any]) -> str | None:
 
 
 def _parse_info(payload: dict[str, Any]) -> RomConvertoInfo:
-    # Consoles nest their header (Xbox `xbe`, 360 `xex`, Switch `full`,
-    # CHD/CSO inner disc `content`); top-level keys win on conflict.
+    kind = str(payload.get("kind") or "")
+    if kind in ("chd", "cso"):
+        # Their own `version` and `kind` would shadow the disc's inside `content`.
+        return _container_info(kind, payload)
+    # Consoles nest their header (Xbox `xbe`, 360 `xex`, Switch `full`); top-level
+    # keys win on conflict.
     flat = dict(payload)
-    for key in ("xbe", "xex", "full", "content"):
+    for key in ("xbe", "xex", "full"):
         nested = payload.get(key)
         if isinstance(nested, dict):
             flat = {**nested, **flat}
-    kind = str(flat.get("kind") or "")
-    title_version = flat.get("title_version")
-    return RomConvertoInfo(
+    parser = _KIND_PARSERS.get(kind)
+    return replace(
+        parser(flat) if parser else RomConvertoInfo(),
         title_id=_title_id(kind, flat),
-        title_version=title_version if isinstance(title_version, int) else None,
+        title_version=_int(flat.get("title_version")),
     )
 
 
