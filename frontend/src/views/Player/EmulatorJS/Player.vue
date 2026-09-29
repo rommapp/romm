@@ -53,6 +53,7 @@ import {
   loadEmulatorJSState,
   invalidateEmulatorJSRomCacheIfRenamed,
   installEJSDefaultOptionsTrap,
+  installNetplayHostAudioTap,
   patchNetplaySocketIo,
   createQuickLoadButton,
   createSaveQuitButton,
@@ -411,6 +412,9 @@ window.EJS_disableBatchBootup = EJS_DISABLE_BATCH_BOOTUP;
 if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
 
 installEJSDefaultOptionsTrap();
+const patchNetplayHostAudio = EJS_NETPLAY_ENABLED
+  ? installNetplayHostAudioTap()
+  : null;
 
 onMounted(() => {
   window.scrollTo(0, 0);
@@ -843,6 +847,7 @@ window.EJS_onGameStart = async () => {
         return {};
       }
     };
+    patchNetplayHostAudio?.(netplay);
   }
 
   patchNetplaySocketIo();

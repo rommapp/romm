@@ -13,6 +13,7 @@ import {
   RETRY_BACKOFF_MIN_MS,
   bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
+  installNetplayHostAudioTap,
   loadEmulatorJSSave,
   patchNetplaySocketIo,
   pollSaveFiles,
@@ -134,6 +135,98 @@ describe("patchNetplaySocketIo", () => {
     window.io("https://romm.example");
 
     expect(io).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("installNetplayHostAudioTap", () => {
+  class FakeAudioNode {
+    targets: unknown[] = [];
+    gain = { value: 1 };
+    stream = { id: "capture" };
+    context: FakeAudioContext;
+    constructor(context: FakeAudioContext) {
+      this.context = context;
+    }
+    connect(target: unknown) {
+      this.targets.push(target);
+      return target;
+    }
+  }
+  class FakeAudioContext {
+    destination = new FakeAudioNode(this);
+    createGain() {
+      return new FakeAudioNode(this);
+    }
+    createMediaStreamDestination() {
+      return new FakeAudioNode(this);
+    }
+  }
+
+  const nativeConnect = FakeAudioNode.prototype.connect;
+  const fallbackStream = { id: "fallback" } as unknown as MediaStream;
+  function createNetplay() {
+    return {
+      _captureHostAudio: vi.fn((): MediaStream | null => fallbackStream),
+      _hostAudioDest: null as MediaStreamAudioDestinationNode | null,
+      _audioBoostFactor: 1.5,
+    };
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal("AudioNode", FakeAudioNode);
+  });
+
+  afterEach(() => {
+    FakeAudioNode.prototype.connect = nativeConnect;
+    vi.unstubAllGlobals();
+  });
+
+  it("streams what the core plays to the destination", () => {
+    const patch = installNetplayHostAudioTap();
+    const context = new FakeAudioContext();
+    const source = new FakeAudioNode(context);
+    source.connect(context.destination);
+    const netplay = createNetplay();
+    patch(netplay);
+
+    const stream = netplay._captureHostAudio();
+
+    const output = netplay._hostAudioDest as unknown as FakeAudioNode;
+    expect(stream).toBe(output.stream);
+    const [played, boost] = source.targets as FakeAudioNode[];
+    expect(played).toBe(context.destination);
+    expect(boost.targets).toEqual([output]);
+    expect(boost.gain.value).toBe(1.5);
+  });
+
+  it("leaves other connections alone", () => {
+    installNetplayHostAudioTap();
+    const context = new FakeAudioContext();
+    const source = new FakeAudioNode(context);
+    const gain = context.createGain();
+
+    source.connect(gain);
+
+    expect(source.targets).toEqual([gain]);
+  });
+
+  it("falls back to EmulatorJS capture before anything plays", () => {
+    const patch = installNetplayHostAudioTap();
+    const netplay = createNetplay();
+    patch(netplay);
+
+    expect(netplay._captureHostAudio()).toBe(fallbackStream);
+  });
+
+  it("tees each connection once when installed twice", () => {
+    installNetplayHostAudioTap();
+    installNetplayHostAudioTap();
+    const context = new FakeAudioContext();
+    const source = new FakeAudioNode(context);
+
+    source.connect(context.destination);
+
+    expect(source.targets).toHaveLength(2);
   });
 });
 
