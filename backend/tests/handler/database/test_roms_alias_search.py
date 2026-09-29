@@ -38,6 +38,13 @@ def _search_ids(term: str) -> list[int]:
     return [r.id for r in db_rom_handler.get_roms_scalar(search_term=term)]
 
 
+def _stored_aliases(rom: Rom) -> str | None:
+    with session_factory() as session:
+        return session.scalar(
+            select(Rom.generated_search_aliases).where(Rom.id == rom.id)
+        )
+
+
 @pytest.fixture
 def ff9(platform: Platform) -> Rom:
     return _add_rom(
@@ -106,11 +113,23 @@ def test_a_rom_without_titles_has_no_aliases(platform: Platform):
         moby_metadata={"alternate_titles": "not a list"},
     )
 
-    with session_factory() as session:
-        aliases = session.scalar(
-            select(Rom.generated_search_aliases).where(Rom.id == rom.id)
-        )
-    assert aliases is None
+    assert _stored_aliases(rom) is None
+
+
+def test_the_aliases_are_stored_as_plain_titles(platform: Platform):
+    rom = _add_rom(
+        platform,
+        "Final Fantasy IX",
+        igdb_metadata={"alternative_names": ["FF9", "Final Fantasy 9"]},
+        ss_metadata={"alternative_names": ["FFIX"]},
+    )
+
+    assert _stored_aliases(rom) == "FF9 Final Fantasy 9 FFIX"
+
+
+@pytest.mark.parametrize("term", ['"', ",", "["])
+def test_json_punctuation_matches_nothing(ff9: Rom, term: str):
+    assert _search_ids(term) == []
 
 
 def test_updating_the_metadata_refreshes_the_aliases(ff9: Rom):

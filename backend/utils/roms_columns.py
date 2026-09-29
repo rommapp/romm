@@ -211,6 +211,17 @@ class GeneratedColumn:
         )
 
 
+def _titles_text(json_array_text: str) -> str:
+    """A JSON array of strings as its titles separated by spaces."""
+    # Both engines print an array as `["a", "b"]`, however it was stored, and
+    # search terms split on whitespace, so a space never matches on its own.
+    separator, opening, closing = '", "', '["', '"]'
+    return (
+        f"REPLACE(REPLACE(REPLACE({json_array_text}, '{separator}', ' '), "
+        f"'{opening}', ''), '{closing}', '')"
+    )
+
+
 # ---------------------------------------------------------------------------
 # MariaDB / MySQL expressions (0098's, with 0112, 0123 and 0128's additions)
 # ---------------------------------------------------------------------------
@@ -344,13 +355,11 @@ def _maria_alias_array(source: str, key: str) -> str:
     value = f"JSON_EXTRACT({source}, '$.{key}')"
     return (
         f"CASE WHEN {_maria_char(f'JSON_TYPE({value})')} = 'ARRAY' "
-        f"THEN NULLIF({_maria_char(value)}, '[]') END"
+        f"THEN NULLIF({_titles_text(_maria_char(value))}, '[]') END"
     )
 
 
 def _maria_search_aliases() -> str:
-    # Each non-empty array as JSON text: the FULLTEXT parser splits on the
-    # quotes and commas, so the titles need no unpacking.
     arrays = [_maria_alias_array(src, key) for src, key in ALTERNATIVE_NAME_SOURCES]
     joined = "CONCAT_WS(' ', " + ", ".join(arrays) + ")"
     return f"NULLIF(LEFT({joined}, {SEARCH_ALIASES_MARIA_LENGTH}), '')"
@@ -432,13 +441,14 @@ _POSTGRES_PRIMARY_REGION = f"left(regions ->> 0, {PRIMARY_REGION_LENGTH})"
 
 
 def _postgres_search_aliases() -> str:
-    # concat_ws is only STABLE, which a generated column refuses, hence `||`.
+    # concat_ws is only STABLE, which a generated column refuses, so each array
+    # carries its own separator and a missing one contributes nothing.
     arrays = [
         f"COALESCE(CASE WHEN jsonb_typeof({src} -> '{key}') = 'array' "
-        f"THEN NULLIF({src} -> '{key}', '[]'::jsonb)::text END, '')"
+        f"THEN {_titles_text(f"NULLIF({src} -> '{key}', '[]'::jsonb)::text")} || ' ' END, '')"
         for src, key in ALTERNATIVE_NAME_SOURCES
     ]
-    return "NULLIF(btrim(" + " || ' ' || ".join(arrays) + "), '')"
+    return "NULLIF(rtrim(" + " || ".join(arrays) + "), '')"
 
 
 # ---------------------------------------------------------------------------
