@@ -497,7 +497,15 @@ def _dol_info(flat: dict[str, Any]) -> RomConvertoInfo:
         content_type="game",
         display_version=_version_tag(flat.get("disc_version")),
         regions=_regions([flat.get("region")]),
-        languages=_languages([_row_language(title) for title in titles]),
+        # A BNR2 banner lists all six slots, filled or not.
+        languages=_languages(
+            [
+                _row_language(title)
+                for title in titles
+                if _text(_dict(title).get("long_game_name"))
+                or _text(_dict(title).get("short_game_name"))
+            ]
+        ),
         publisher=_text(row.get("long_maker")) or _text(flat.get("maker_name")),
         is_compressed=is_compressed,
         file_format=file_format,
@@ -612,8 +620,7 @@ def _psn_package_info(flat: dict[str, Any], file_format: str) -> RomConvertoInfo
     )
 
 
-# Kinds outside this map (retro cartridges, LaserDisc, PS4/PS5 packages) only
-# get a title id and version.
+# Kinds outside this map only get the title id their payload carries, if any.
 _KIND_PARSERS: Final[dict[str, Callable[[dict[str, Any]], RomConvertoInfo]]] = {
     "nx": _nx_info,
     "ctr": _ctr_info,
@@ -671,7 +678,8 @@ def _title_id(kind: str, flat: dict[str, Any]) -> str | None:
         title_id_hex = flat.get("title_id_hex")
         return title_id_hex[-8:] if isinstance(title_id_hex, str) else None
     if kind == "xbox":
-        return _first_str(flat, "title_id_code")
+        # An Xbox 360 disc image carries only the `xex` header, keyed by hex.
+        return _first_str(flat, "title_id_code", "title_id_hex")
     if kind == "xenon":
         return _first_str(flat, "title_id_hex")
     return _first_str(flat, "application_title_id_hex", "title_id", "game_code")
@@ -682,10 +690,10 @@ def _parse_info(payload: dict[str, Any]) -> RomConvertoInfo:
     if kind in ("chd", "cso"):
         # Their own `version` and `kind` would shadow the disc's inside `content`.
         return _container_info(kind, payload)
-    # Consoles nest their header (Xbox `xbe`, 360 `xex`, Switch `full`); top-level
-    # keys win on conflict.
+    # Consoles nest their header (Xbox `xbe`, 360 `xex`, Switch `full`, the Wii
+    # `tmd` holding its title version); top-level keys win on conflict.
     flat = dict(payload)
-    for key in ("xbe", "xex", "full"):
+    for key in ("xbe", "xex", "full", "tmd"):
         nested = payload.get(key)
         if isinstance(nested, dict):
             flat = {**nested, **flat}

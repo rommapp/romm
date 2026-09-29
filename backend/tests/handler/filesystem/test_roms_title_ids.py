@@ -542,7 +542,7 @@ class TestRomLevelIdentity:
     """A sigil extraction (already holding rom-converto's id) wins; else a file's bare id."""
 
     def test_no_files_returns_empty_identity(self):
-        assert _rom_level_identity("psx", [], []) == RomIdentity()
+        assert _rom_level_identity("psx", [], [], RomIdentity()) == RomIdentity()
 
     def test_converto_only_ids_use_first_found(self):
         files = [
@@ -550,7 +550,7 @@ class TestRomLevelIdentity:
             _rom_file("disc2.chd", title_id="SCUS-94163"),
             _rom_file("disc3.chd", title_id="OTHER-ID"),
         ]
-        identity = _rom_level_identity("psx", [], files)
+        identity = _rom_level_identity("psx", [], files, RomIdentity())
         assert identity.title_id == "SCUS-94163"
         assert identity.save_target is None
 
@@ -561,7 +561,7 @@ class TestRomLevelIdentity:
             _rom_file("disc1.bin", title_id="0100ABCD12340800"),
             _rom_file("disc2.bin", title_id="0100ABCD12340000"),
         ]
-        identity = _rom_level_identity("psx", [], files)
+        identity = _rom_level_identity("psx", [], files, RomIdentity())
         assert identity.title_id == "0100ABCD12340800"
 
     def test_switch_picks_base_id_when_present_among_converto_ids(self):
@@ -569,17 +569,52 @@ class TestRomLevelIdentity:
             _rom_file("update.nsp", title_id="0100ABCD12340800"),
             _rom_file("base.nsp", title_id="0100ABCD12340000"),
         ]
-        identity = _rom_level_identity("switch", [], files)
+        identity = _rom_level_identity("switch", [], files, RomIdentity())
         assert identity.title_id == "0100ABCD12340000"
         assert switch.is_base_title_id(identity.title_id)
 
     def test_switch_derives_base_id_when_only_update_id_present(self):
         files = [_rom_file("update.nsp", title_id="0100ABCD12340800")]
-        identity = _rom_level_identity("switch", [], files)
+        identity = _rom_level_identity("switch", [], files, RomIdentity())
 
         assert identity.title_id == "0100ABCD12340000"
         assert identity.save_target == "0100ABCD12340000"
         assert identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+
+    @pytest.mark.parametrize(
+        ("stored", "expected"),
+        [
+            pytest.param(
+                RomIdentity(
+                    title_id="SCUS-94163",
+                    save_target="SCUS-94163",
+                    save_target_layout=SaveTargetLayout.FILE_PREFIX,
+                ),
+                RomIdentity(
+                    title_id="SCUS-94163",
+                    save_target="SCUS-94163",
+                    save_target_layout=SaveTargetLayout.FILE_PREFIX,
+                ),
+                id="same-id-keeps-the-stored-save-target",
+            ),
+            pytest.param(
+                RomIdentity(
+                    title_id="SLUS-00001",
+                    save_target="SLUS-00001",
+                    save_target_layout=SaveTargetLayout.FILE_PREFIX,
+                ),
+                RomIdentity(title_id="SCUS-94163"),
+                id="another-id-drops-the-stored-save-target",
+            ),
+        ],
+    )
+    def test_converto_fallback_against_the_stored_identity(
+        self, stored: RomIdentity, expected: RomIdentity
+    ):
+        # sigil read nothing this pass, e.g. a transient read error.
+        files = [_rom_file("game.chd", title_id="SCUS-94163")]
+
+        assert _rom_level_identity("psx", [], files, stored) == expected
 
     def test_extraction_wins_over_file_ids(self):
         files = [_rom_file("game.chd", title_id="CONVERTO-ID")]
@@ -587,7 +622,7 @@ class TestRomLevelIdentity:
             title_id="SIGIL-ID", save_target="SIGIL-TARGET", usage="file-prefix"
         )
 
-        identity = _rom_level_identity("psx", [extraction], files)
+        identity = _rom_level_identity("psx", [extraction], files, RomIdentity())
 
         assert identity.title_id == "SIGIL-ID"
         assert identity.save_target == "SIGIL-TARGET"

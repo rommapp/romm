@@ -320,8 +320,16 @@ class RomFile(BaseModel):
     # Per-file metadata rom-converto reads during scans.
     title: Mapped[str | None] = mapped_column(String(length=ROM_FILE_INFO_MAX_LENGTH))
     serial: Mapped[str | None] = mapped_column(String(length=ROM_FILE_INFO_MAX_LENGTH))
+    # VARCHAR-backed like `User.role`, so a new rom-converto kind needs no
+    # PostgreSQL `ALTER TYPE`.
     content_type: Mapped[RomFileContentType | None] = mapped_column(
-        Enum(RomFileContentType), default=None
+        Enum(
+            RomFileContentType,
+            native_enum=False,
+            length=20,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        default=None,
     )
     display_version: Mapped[str | None] = mapped_column(
         String(length=ROM_FILE_INFO_MAX_LENGTH)

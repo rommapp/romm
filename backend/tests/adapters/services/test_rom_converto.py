@@ -469,6 +469,7 @@ class TestParseInfo:
                     "banner": {
                         "titles": [
                             {"language": "Default", "long_game_name": "ZELDA"},
+                            {"language": "German", "long_game_name": ""},
                             {
                                 "language": "English",
                                 "long_game_name": "The Legend of Zelda",
@@ -521,6 +522,7 @@ class TestParseInfo:
                 },
                 RomConvertoInfo(
                     title_id="534D4E45",
+                    title_version=3,
                     title="New Super Mario Bros. Wii",
                     serial="SMNE01",
                     content_type="game",
@@ -593,20 +595,22 @@ class TestParseInfo:
                 {
                     "kind": "xbox",
                     "xex": {
-                        "title_name": "Devkit Demo",
-                        "version": "1.0",
-                        "region_names": ["RegionFree"],
+                        "title_id_hex": "4D5307E6",
+                        "title_name": "Halo 3",
+                        "version": "1.0.0.0",
+                        "region_names": ["NTSC-U", "PAL"],
                     },
                 },
                 RomConvertoInfo(
-                    title="Devkit Demo",
+                    title_id="4D5307E6",
+                    title="Halo 3",
                     content_type="game",
-                    display_version="1.0",
-                    regions=("World",),
+                    display_version="1.0.0.0",
+                    regions=("USA", "Europe"),
                     is_compressed=False,
                     file_format="DISC",
                 ),
-                id="xbox-falls-back-to-the-xex-header",
+                id="xbox-360-iso-reads-the-xex-header",
             ),
             pytest.param(
                 {

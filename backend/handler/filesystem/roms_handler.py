@@ -367,6 +367,7 @@ def _rom_level_identity(
     platform_slug: str,
     extractions: list[SigilExtractionResult],
     rom_files: list[RomFile],
+    stored: RomIdentity,
 ) -> RomIdentity:
     """The rom's identity: sigil's extraction (holding rom-converto's id where it read one), else rom-converto's file ids."""
     is_switch = platform_slug in SWITCH_PLATFORM_SLUGS
@@ -390,7 +391,17 @@ def _rom_level_identity(
                 title_ids[0] if title_ids else None,
             )
         )
-    return switch.normalize_identity(is_switch, identity)
+    identity = switch.normalize_identity(is_switch, identity)
+    # rom-converto reads no save target, so when sigil read nothing this pass
+    # the one it stored for the same id stands.
+    if (
+        not extractions
+        and not identity.save_target
+        and identity.title_id
+        and identity.title_id == stored.title_id
+    ):
+        return stored
+    return identity
 
 
 class FSRomsHandler(FSHandler):
@@ -1079,6 +1090,7 @@ class FSRomsHandler(FSHandler):
                 rom.platform_slug,
                 sigil_extractions,
                 rom_files if converto_active and extract_title_ids else [],
+                RomIdentity.from_rom(rom),
             ),
             embed_candidates=embed_candidates,
         )
