@@ -223,14 +223,15 @@ def test_parse_gamelist_xml_limited_to_file_names_skips_other_entries(
 
 
 @pytest.mark.asyncio
-async def test_get_rom_outside_a_limited_cache_parses_the_whole_gamelist(
+async def test_get_rom_outside_a_limited_cache_widens_it_to_that_rom(
     tmp_path: Path, platform: Platform
 ):
     gamelist_path = _write_gamelist(
         tmp_path,
         platform,
         "<game><path>./One.zip</path><name>One</name></game>"
-        "<game><path>./Two.zip</path><name>Two</name></game>",
+        "<game><path>./Two.zip</path><name>Two</name></game>"
+        "<game><path>./Three.zip</path><name>Three</name></game>",
     )
     handler = GamelistHandler()
     platform_fs_path = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
@@ -256,10 +257,11 @@ async def test_get_rom_outside_a_limited_cache_parses_the_whole_gamelist(
         two = await handler.get_rom("Two.zip", platform, rom_named("Two.zip"))
         assert extract.call_count == 3
 
-        # The full parse replaced the limited one, so later lookups reuse it
         await handler.get_rom("One.zip", platform, rom_named("One.zip"))
         await handler.populate_cache(platform, fs_names=["Two.zip"])
         assert extract.call_count == 3
+
+    assert set(handler._gamelist_cache[platform.id]) == {"One.zip", "Two.zip"}
 
     assert one.get("name") == "One"
     assert two.get("name") == "Two"

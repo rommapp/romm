@@ -695,11 +695,13 @@ class GamelistHandler(MetadataHandler):
         if not gamelist_file_path:
             return GamelistRom(gamelist_id=None)
 
-        # A cache limited to other roms falls back to parsing the whole file
-        all_roms_data = (
-            self._gamelist_cache[platform.id]
-            if self._cache_covers(platform.id, frozenset({fs_name}))
-            else self._parse_gamelist_xml(gamelist_file_path, platform)
+        # A cache limited to other roms widens to take this one in, which keeps a
+        # rom renamed mid-scan from costing a parse of the whole file
+        scope = self._gamelist_cache_scope.get(platform.id)
+        all_roms_data = self._parse_gamelist_xml(
+            gamelist_file_path,
+            platform,
+            fs_names=scope | {fs_name} if scope is not None else None,
         )
 
         # The rom's own path wins over its bare file name, which a custom library
