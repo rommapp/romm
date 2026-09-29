@@ -14,8 +14,6 @@ function mountStage(src: string) {
 }
 
 describe("StreamStage", () => {
-  // The frame's allow and sandbox lists are static, so one mount serves every
-  // case that reads them.
   let allow: string[] = [];
   let sandbox: string[] = [];
   beforeAll(() => {
