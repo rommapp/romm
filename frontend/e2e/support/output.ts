@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const OUTPUT_DIR = fileURLToPath(new URL("../.output/", import.meta.url));
 
 /** A Playwright suite, named after the e2e/ folder that holds its tests. */
-export type Suite = "specs";
+export type Suite = "specs" | "lighthouse" | "axe";
 
 /** Where a suite writes its per-test traces and screenshots, and its HTML report. */
 export function suiteOutput(suite: Suite) {
@@ -17,3 +17,8 @@ export function suiteOutput(suite: Suite) {
 
 /** Saved sign-in sessions (live cookies). */
 export const AUTH_DIR = `${OUTPUT_DIR}auth`;
+
+/** HTML and JSON reports from the Lighthouse suite, one file per page. */
+export const LIGHTHOUSE_DIR = `${OUTPUT_DIR}lighthouse`;
+
+export const AXE_DIR = `${OUTPUT_DIR}axe`;

@@ -36,7 +36,8 @@ export default defineConfig<E2EOptions>({
   workers: env.E2E_WORKERS ?? 2,
   // The HTML report holds each failure's trace: `npm run test:e2e:report`.
   reporter: [
-    [isCI ? "github" : "list"],
+    // `line` shows a running [n/total] count locally.
+    [isCI ? "github" : "line"],
     ["html", { outputFolder: output.report, open: "never" }],
   ],
   // A test that genuinely needs longer uses `test.setTimeout`.
@@ -63,6 +64,25 @@ export default defineConfig<E2EOptions>({
     },
     {
       name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
+    },
+    {
+      name: "lighthouse",
+      testDir: "./e2e/lighthouse",
+      // Lighthouse occupies a fixed CDP port; parallelism would conflict.
+      workers: 1,
+      // One audit takes up to 60s; beforeAll runs it before any test starts.
+      timeout: 180_000,
+      // The test's page only draws the attached cards; a failure shot repeats one.
+      use: { ...devices["Desktop Chrome"], screenshot: "off" },
+      dependencies: ["setup"],
+    },
+    {
+      name: "axe",
+      testDir: "./e2e/axe",
+      // axe analysis typically takes 5–15s per page.
+      timeout: 30_000,
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
     },

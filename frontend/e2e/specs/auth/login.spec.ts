@@ -1,4 +1,10 @@
-import { accountFor, fillLoginForm, seedUiState } from "../../support/auth";
+import {
+  accountFor,
+  fillLoginForm,
+  seedUiState,
+  SIGNED_OUT,
+} from "../../support/auth";
+import { SMOKE } from "../../support/sitemap";
 import { expect, test } from "../../support/test";
 
 // The only spec that drives the login form. Every other spec starts from a
@@ -7,9 +13,9 @@ import { expect, test } from "../../support/test";
 //
 // It starts explicitly signed out, whatever sessions are saved in e2e/.output/auth/ or
 // set elsewhere in the config: exercising the form is the whole point.
-test.use({ storageState: { cookies: [], origins: [] } });
+test.use({ storageState: SIGNED_OUT });
 
-test.describe("Login", () => {
+test.describe("Login", { tag: [SMOKE, "@page:login"] }, () => {
   test("signs in and lands on the app", async ({ page, e2eEnv }) => {
     const { username, password } = accountFor(e2eEnv, "viewer");
     await seedUiState(page, "dark");

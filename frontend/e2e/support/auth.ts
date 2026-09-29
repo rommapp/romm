@@ -1,4 +1,4 @@
-import type { Browser, Page } from "@playwright/test";
+import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
 import type { E2EEnv } from "./e2e-environment";
 import { AUTH_DIR } from "./output";
 import { expect, watchAppErrors } from "./test";
@@ -24,6 +24,12 @@ export const STORAGE_STATE: Record<Role, string> = {
   admin: `${AUTH_DIR}/admin.json`,
   viewer: `${AUTH_DIR}/viewer.json`,
 };
+
+/** An empty session, for pages audited as a visitor who hasn't signed in. */
+export const SIGNED_OUT: Exclude<
+  BrowserContextOptions["storageState"],
+  string | undefined
+> = { cookies: [], origins: [] };
 
 /** Fill and submit the login form.
  *
