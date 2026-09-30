@@ -17,10 +17,9 @@
 // other provider's cover can outrank, so it needs a home of its own.
 import i18n from "@/locales";
 import type { DetailedRom } from "@/stores/roms";
-import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import type { MediaShelfItem } from "@/v2/components/GameDetails/MediaShelf.vue";
 import { mediaKey } from "@/v2/utils/mediaKeys";
-import { versionedRomFileUrl } from "@/v2/utils/romFiles";
+import { versionedResourceUrl, versionedRomFileUrl } from "@/v2/utils/romFiles";
 
 // Library file extensions the browser can render inline. Kept in sync with the
 // backend download endpoint (utils/media_types.py), which serves these inline.
@@ -51,9 +50,9 @@ type ArtworkDef = Omit<MediaShelfItem, "url"> & {
 export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
   const ss = rom.ss_metadata;
   const gl = rom.gamelist_metadata;
-  const cacheBust = encodeURIComponent(rom.updated_at);
   const seen = new Set<string>();
   const out: MediaShelfItem[] = [];
+  const extraDiscs = (ss?.physical_extra_discs ?? []).filter((d) => d.path);
 
   const artworkDefs: ArtworkDef[] = [
     {
@@ -111,9 +110,17 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
     },
     {
       key: "physical",
-      label: i18n.global.t("rom.media-physical"),
+      label:
+        ss?.physical_path && ss.physical_disc && extraDiscs.length > 0
+          ? i18n.global.t("rom.media-physical-disc", { n: ss.physical_disc })
+          : i18n.global.t("rom.media-physical"),
       url: ss?.physical_path ?? gl?.physical_path ?? null,
     },
+    ...extraDiscs.map(({ disc, path }) => ({
+      key: `physical_disc${disc}`,
+      label: i18n.global.t("rom.media-physical-disc", { n: disc }),
+      url: path,
+    })),
     {
       key: "miximage",
       label: i18n.global.t("rom.media-miximage"),
@@ -172,7 +179,7 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
       label: def.label,
       url: def.isAbsolute
         ? def.url
-        : `${FRONTEND_RESOURCES_PATH}/${def.url}?v=${cacheBust}`,
+        : versionedResourceUrl(def.url, rom.updated_at),
       isVideo: def.isVideo ?? false,
     });
   }

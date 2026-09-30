@@ -27,7 +27,6 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
       },
     });
     collectionsStore.addCollection(data);
-    collectionsStore.setFavoriteCollection(data);
     emitter?.emit("snackbarShow", {
       msg: `Collection ${data.name} created successfully!`,
       icon: "mdi-check-bold",
@@ -51,7 +50,6 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
         : await collectionApi.addRomsToCollection(fav.id, [rom.id]);
 
       collectionsStore.updateCollection(data);
-      collectionsStore.setFavoriteCollection(data);
 
       if (currentlyFav && romsStore.currentCollection?.id === fav.id) {
         romsStore.remove([rom]);

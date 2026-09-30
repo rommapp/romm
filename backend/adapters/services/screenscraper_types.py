@@ -75,6 +75,8 @@ class SSGameMedia(TypedDict):
     parent: str
     url: str
     region: NotRequired[str]
+    # The disc a media item shows, for games that ship on several.
+    support: NotRequired[str]
     crc: str
     md5: str
     sha1: str

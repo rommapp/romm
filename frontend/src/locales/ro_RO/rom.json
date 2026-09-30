@@ -257,6 +257,7 @@
   "media-miximage": "Imagine combinată",
   "media-miximage-v2": "Imagine combinată (v2)",
   "media-physical": "Suport fizic",
+  "media-physical-disc": "Suport fizic (disc {n})",
   "media-title-screen": "Ecran de titlu",
   "media-video": "Video",
   "media-video-normalized": "Video (standardizat)",

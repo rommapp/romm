@@ -257,6 +257,7 @@
   "media-miximage": "Imagem combinada",
   "media-miximage-v2": "Imagem combinada (v2)",
   "media-physical": "Mídia física",
+  "media-physical-disc": "Mídia física (disco {n})",
   "media-title-screen": "Tela de título",
   "media-video": "Vídeo",
   "media-video-normalized": "Vídeo (padronizado)",

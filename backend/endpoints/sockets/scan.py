@@ -811,6 +811,11 @@ async def _identify_rom(
         previous_url_manual=rom.url_manual,
         previous_url_screenshots=rom.url_screenshots,
         metadata_sources=metadata_sources,
+        previous_media={
+            "ss_metadata": rom.ss_metadata,
+            "gamelist_metadata": rom.gamelist_metadata,
+            "launchbox_metadata": rom.launchbox_metadata,
+        },
     )
 
     await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
@@ -838,9 +843,11 @@ async def _scan_selected_roms(
         raise ScanStoppedException()
 
     # Gamelist matches are served from a per-platform cache, so it has to be
-    # warm before any of these ROMs is scanned.
+    # warm before any of these ROMs is scanned. Only their entries are read.
     if MetadataSource.GAMELIST in metadata_sources:
-        await meta_gamelist_handler.populate_cache(platform)
+        await meta_gamelist_handler.populate_cache(
+            platform, fs_names=[rom.fs_name for rom in roms]
+        )
 
     await scan_stats.increment(
         socket_manager=socket_manager,
