@@ -27,8 +27,8 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy import literal, not_, or_, select, true, union, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import literal, not_, or_, select, text, true, union, update
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import (
     ColumnProperty,
     Mapper,
@@ -102,7 +102,7 @@ from utils.sql_dialect import (
     nulls_last,
 )
 
-from .base_handler import DBBaseHandler, affected_rows
+from .base_handler import DBBaseHandler, affected_rows, sync_engine
 
 type RomSelect = Select[tuple[Rom]]
 
@@ -164,11 +164,10 @@ RUFFLE_SUPPORTED_PLATFORMS = [
 # Used to remove native full-text SQL operators
 FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
 
-# 3 is the default minimum size in InnoDB
-FULLTEXT_MIN_TOKEN_SIZE = 3
-
-# InnoDB's default stopwords of indexable length. The index skips them, so a
+# InnoDB's defaults, for when the server's own settings can't be read (MySQL
+# needs PROCESS for its stopword table). The index skips stopwords, so a
 # required `+the*` would match nothing.
+FULLTEXT_MIN_TOKEN_SIZE = 3
 FULLTEXT_STOPWORDS = frozenset(
     {
         "about",
@@ -253,6 +252,51 @@ def _nulls_last_ordering(
         if flag is not None:
             return flag, sort_key.asc()
     return None, nulls_last(sort_key, descending)
+
+
+class FulltextSettings(NamedTuple):
+    min_token_size: int
+    stopwords: frozenset[str]
+
+
+DEFAULT_FULLTEXT_SETTINGS = FulltextSettings(
+    FULLTEXT_MIN_TOKEN_SIZE, FULLTEXT_STOPWORDS
+)
+
+
+def _stopword_table(setting: str) -> str:
+    """`innodb_ft_server_stopword_table`'s `db/table` as a quoted identifier."""
+    return ".".join(f"`{part.replace('`', '``')}`" for part in setting.split("/", 1))
+
+
+@functools.cache
+def fulltext_settings() -> FulltextSettings:
+    """The server's InnoDB full-text token size and stopwords, read once."""
+    if sync_engine.name not in ("mariadb", "mysql"):
+        return DEFAULT_FULLTEXT_SETTINGS
+    try:
+        with sync_engine.connect() as conn:
+            min_token_size, stopwords_enabled, server_table = conn.execute(
+                text(
+                    "SELECT @@innodb_ft_min_token_size, @@innodb_ft_enable_stopword,"
+                    " @@innodb_ft_server_stopword_table"
+                )
+            ).one()
+            if not stopwords_enabled:
+                return FulltextSettings(int(min_token_size), frozenset())
+            source = (
+                _stopword_table(server_table)
+                if server_table
+                else "information_schema.INNODB_FT_DEFAULT_STOPWORD"
+            )
+            query = text(f"SELECT value FROM {source}")  # nosec B608
+            stopwords = conn.scalars(query).all()
+    except SQLAlchemyError as exc:
+        log.warning(f"Using InnoDB's default full-text settings: {exc}")
+        return DEFAULT_FULLTEXT_SETTINGS
+    return FulltextSettings(
+        int(min_token_size), frozenset(word.lower() for word in stopwords)
+    )
 
 
 def _name_like(word: str) -> ColumnElement[bool]:
@@ -1142,13 +1186,14 @@ class DBRomsHandler(DBBaseHandler):
 
     def _split_fulltext_words(self, term: str) -> tuple[list[str], list[str]]:
         """A term's words as (FULLTEXT-indexable pieces, words to match by LIKE)."""
+        settings = fulltext_settings()
         indexed: list[str] = []
         unindexed: list[str] = []
         for word in term.split():
             pieces = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", word).split()
             if pieces and all(
-                len(piece) >= FULLTEXT_MIN_TOKEN_SIZE
-                and piece.lower() not in FULLTEXT_STOPWORDS
+                len(piece) >= settings.min_token_size
+                and piece.lower() not in settings.stopwords
                 for piece in pieces
             ):
                 indexed.extend(pieces)
