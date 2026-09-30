@@ -751,7 +751,7 @@ async def scan_rom(
             return match, conclusive
 
         return (
-            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
+            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None),
             False,
         )
 
@@ -1122,7 +1122,7 @@ async def scan_rom(
 
         return LaunchboxRom(launchbox_id=None)
 
-    async def fetch_ra_rom(hasheous_rom: HasheousRom) -> RAGameRom:
+    async def fetch_ra_rom() -> RAGameRom:
         if (
             MetadataSource.RA in metadata_sources
             and platform.ra_id
@@ -1139,18 +1139,8 @@ async def scan_rom(
             )
         ):
             attempted_sources.add(MetadataSource.RA)
-            # Use Hasheous match to get the RA ID
-            h_ra_id = hasheous_rom.get("ra_id")
-            if h_ra_id:
-                log.debug(
-                    f"{hl(rom_attrs['fs_name'])} identified by Hasheous as "
-                    f"{hl(str(h_ra_id), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
-                    extra=LOGGER_MODULE_NAME,
-                )
-                return await meta_ra_handler.get_rom_by_id(
-                    rom=rom, ra_id=h_ra_id, ra_hash=rom_attrs["ra_hash"]
-                )
-
+            # Hasheous and Playmatch map an RA game to every dump of a title, so
+            # only RA's own hash list says whether this dump can unlock it.
             if (scan_type == ScanType.UPDATE and rom.ra_id) or (
                 scan_type == ScanType.UNMATCHED and rom.ra_id and not rom.ra_metadata
             ):
@@ -1184,23 +1174,10 @@ async def scan_rom(
             # that never answered leaves a complete rescan nothing to redo.
             if MetadataSource.HASHEOUS not in inconclusive_sources:
                 attempted_sources.add(MetadataSource.HASHEOUS)
-            (
-                igdb_game,
-                ra_game,
-            ) = await asyncio.gather(
-                meta_hasheous_handler.get_igdb_game(hasheous_rom),
-                meta_hasheous_handler.get_ra_game(hasheous_rom),
-            )
+            igdb_game = await meta_hasheous_handler.get_igdb_game(hasheous_rom)
+            return HasheousRom({**hasheous_rom, **igdb_game})
 
-            return HasheousRom(
-                {
-                    **hasheous_rom,
-                    **ra_game,
-                    **igdb_game,
-                }
-            )
-
-        return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+        return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
 
     # Run metadata fetches concurrently. One provider raising must not discard the
     # others' results for this ROM, so each failure falls back to an empty match.
@@ -1216,7 +1193,7 @@ async def scan_rom(
             MobyGamesRom(moby_id=None),
         ),
         (MetadataSource.SS, fetch_ss_rom(playmatch_hash_match), SSRom(ss_id=None)),
-        (MetadataSource.RA, fetch_ra_rom(hasheous_hash_match), RAGameRom(ra_id=None)),
+        (MetadataSource.RA, fetch_ra_rom(), RAGameRom(ra_id=None)),
         (
             MetadataSource.LAUNCHBOX,
             fetch_launchbox_rom(platform.slug, playmatch_hash_match),
@@ -1225,7 +1202,7 @@ async def scan_rom(
         (
             MetadataSource.HASHEOUS,
             fetch_hasheous_rom(hasheous_hash_match),
-            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
+            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None),
         ),
         (
             MetadataSource.FLASHPOINT,
