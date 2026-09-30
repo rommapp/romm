@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, model_validator
@@ -105,12 +106,18 @@ def get_play_sessions(
     device_id: str | None = None,
     start_after: datetime | None = None,
     end_before: datetime | None = None,
-    limit: int = 50,
-    offset: int = 0,
-    all_devices: bool = Query(
-        default=False,
-        description="Include this user's sessions from all devices unless device_id is provided.",
-    ),
+    limit: Annotated[int, Query(ge=0)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    all_devices: Annotated[
+        bool,
+        Query(
+            description=(
+                "For a device-bound client token, include sessions from all of "
+                "this user's devices instead of only the token's. "
+                "Ignored when device_id is provided."
+            )
+        ),
+    ] = False,
 ) -> list[PlaySessionSchema]:
     effective_device_id = device_id or (
         None if all_devices else token_device_id(request)

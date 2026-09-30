@@ -673,7 +673,7 @@ class TestPlaySessionRomUserUpdates:
 
 
 class TestPlaySessionQuery:
-    @pytest.mark.parametrize("all_devices", [False, True])
+    @pytest.mark.parametrize("all_devices", [None, False, True])
     def test_paired_client_all_devices(
         self,
         client,
@@ -687,6 +687,12 @@ class TestPlaySessionQuery:
         other_device = db_device_handler.add_device(
             Device(id=str(uuid.uuid4()), user_id=admin_user.id, name="Other device")
         )
+        owners = [
+            (admin_user.id, device.id),
+            (admin_user.id, other_device.id),
+            (admin_user.id, None),
+            (editor_user.id, None),
+        ]
         now = datetime.now(timezone.utc).replace(microsecond=0)
         sessions = db_play_session_handler.add_sessions(
             [
@@ -694,25 +700,20 @@ class TestPlaySessionQuery:
                     user_id=user_id,
                     device_id=device_id,
                     rom_id=rom.id,
-                    start_time=now - timedelta(hours=index + 1),
-                    end_time=now - timedelta(hours=index + 1, minutes=-30),
-                    duration_ms=1800000,
+                    start_time=now - timedelta(hours=hours),
+                    end_time=now - timedelta(hours=hours) + timedelta(minutes=30),
+                    duration_ms=30 * 60 * 1000,
                 )
-                for index, (user_id, device_id) in enumerate(
-                    [
-                        (admin_user.id, device.id),
-                        (admin_user.id, other_device.id),
-                        (admin_user.id, None),
-                        (editor_user.id, None),
-                    ]
-                )
+                for hours, (user_id, device_id) in enumerate(owners, start=1)
             ]
         )
         _, raw = add_device_token(admin_user, device.id, scopes="roms.user.read")
         headers = {"Authorization": f"Bearer {raw}"}
+        # None leaves the flag off the query so the default is exercised.
+        flag = {} if all_devices is None else {"all_devices": all_devices}
         response = client.get(
             "/api/play-sessions",
-            params={"rom_id": rom.id, "all_devices": all_devices},
+            params={"rom_id": rom.id, **flag},
             headers=headers,
         )
         assert response.status_code == status.HTTP_200_OK
@@ -722,7 +723,7 @@ class TestPlaySessionQuery:
         # An explicit device filter still narrows the current user's results.
         response = client.get(
             "/api/play-sessions",
-            params={"device_id": other_device.id, "all_devices": all_devices},
+            params={"device_id": other_device.id, **flag},
             headers=headers,
         )
         assert response.status_code == status.HTTP_200_OK
@@ -737,6 +738,15 @@ class TestPlaySessionQuery:
             headers={"Authorization": f"Bearer {raw}"},
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    @pytest.mark.parametrize("param", ["limit", "offset"])
+    def test_rejects_negative_paging(self, client, access_token: str, param: str):
+        response = client.get(
+            "/api/play-sessions",
+            params={param: -1},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_filter_by_rom_id(
         self, client, access_token: str, rom: Rom, platform: Platform
