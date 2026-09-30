@@ -846,6 +846,8 @@ def main() -> int:
             )
         finally:
             cur.close()
+        # PostgreSQL's SET is transactional: the pool's rollback on return would undo it.
+        dbapi_conn.commit()
 
     pw_hash = auth_handler.get_password_hash(args.password)
 
