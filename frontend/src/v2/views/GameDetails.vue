@@ -317,11 +317,16 @@ const tabs = computed<RTabNavItem[]>(() => [
   { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
   { id: "media", label: t("rom.media") },
   { id: "notes", label: t("rom.tab-notes") },
-  {
-    id: "achievements",
-    label: t("rom.tab-achievements"),
-    badge: `${achievementsEarned.value}/${achievementsTotal.value}`,
-  },
+  // A ROM without an RA set would only offer an empty 0/0 tab.
+  ...(achievementsTotal.value > 0
+    ? [
+        {
+          id: "achievements",
+          label: t("rom.tab-achievements"),
+          badge: `${achievementsEarned.value}/${achievementsTotal.value}`,
+        },
+      ]
+    : []),
   {
     id: "save-data",
     label: t("rom.save-data"),
@@ -330,6 +335,16 @@ const tabs = computed<RTabNavItem[]>(() => [
   { id: "patcher", label: t("common.patcher") },
   { id: "metadata", label: t("rom.metadata") },
 ]);
+
+// A `?tab=` this ROM has no tab for shows the overview but stays in the URL,
+// so stepping on to a ROM that has the tab opens it again.
+const activeTab = computed({
+  get: () =>
+    tabs.value.some((item) => item.id === tab.value) ? tab.value : "overview",
+  set: (value: string) => {
+    tab.value = value;
+  },
+});
 </script>
 
 <template>
@@ -354,11 +369,11 @@ const tabs = computed<RTabNavItem[]>(() => [
           :tags="tags"
         />
 
-        <RTabNav v-model="tab" :items="tabs" class="r-v2-det__tabs" />
+        <RTabNav v-model="activeTab" :items="tabs" class="r-v2-det__tabs" />
 
         <div ref="panelEl" class="r-v2-det__panel">
           <OverviewTab
-            v-if="tab === 'overview'"
+            v-if="activeTab === 'overview'"
             :rom="currentRom"
             :summary="currentRom.summary ?? null"
             :sections="overviewSections"
@@ -374,17 +389,17 @@ const tabs = computed<RTabNavItem[]>(() => [
             :ports="ports"
             :similar-roms="similarRoms"
           />
-          <FilesTab v-if="tab === 'files'" :rom="currentRom" />
-          <MediaTab v-if="tab === 'media'" :rom="currentRom" />
-          <NotesTab v-if="tab === 'notes'" :rom="currentRom" />
+          <FilesTab v-if="activeTab === 'files'" :rom="currentRom" />
+          <MediaTab v-if="activeTab === 'media'" :rom="currentRom" />
+          <NotesTab v-if="activeTab === 'notes'" :rom="currentRom" />
           <AchievementsTab
-            v-if="tab === 'achievements'"
+            v-if="activeTab === 'achievements'"
             :metadata="raMetadata"
             :earned-achievement-ids="earnedAchievementIds"
           />
-          <SaveDataTab v-if="tab === 'save-data'" :rom="currentRom" />
-          <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />
-          <MetadataTab v-if="tab === 'metadata'" :rom="currentRom" />
+          <SaveDataTab v-if="activeTab === 'save-data'" :rom="currentRom" />
+          <PatcherTab v-if="activeTab === 'patcher'" :rom="currentRom" />
+          <MetadataTab v-if="activeTab === 'metadata'" :rom="currentRom" />
         </div>
       </div>
     </div>
