@@ -22,16 +22,6 @@ type ProtonDownloadProgressSchema = {
   extracting: boolean;
 };
 
-// Shapes added on the backend that `npm run generate` hasn't picked up yet.
-// Once regenerated they live in @/__generated__ and these can be dropped.
-export type InstallSessionExtended = InstallSessionSchema & {
-  source_path?: string | null;
-  phase?: "extracting" | "mounting" | null;
-  phase_detail?: string | null;
-  auto_mode?: boolean;
-  auto_status?: "running" | "needs_manual" | null;
-  auto_detail?: string | null;
-};
 export type ProtonBuildExtended = ProtonBuildSchema & {
   version?: string | null;
   path?: string | null;
@@ -86,7 +76,7 @@ async function startInstall({
   ttlSeconds?: number;
   autoMode?: boolean;
 }) {
-  return api.post<InstallSessionExtended>(`/roms/${romId}/install`, {
+  return api.post<InstallSessionSchema>(`/roms/${romId}/install`, {
     installer_path: installerPath ?? null,
     source_path: sourcePath ?? null,
     proton_build: protonBuild ?? null,
@@ -98,13 +88,13 @@ async function startInstall({
 /** Flip the experimental auto mode (OCR clicks through the installer's
  *  dialogs) on a session, also while the installer is running. */
 async function setInstallAutoMode(romId: number, enabled: boolean) {
-  return api.patch<InstallSessionExtended>(`/roms/${romId}/install/auto-mode`, {
+  return api.patch<InstallSessionSchema>(`/roms/${romId}/install/auto-mode`, {
     enabled,
   });
 }
 
 async function getInstallSession(romId: number) {
-  return api.get<InstallSessionExtended>(`/roms/${romId}/install`);
+  return api.get<InstallSessionSchema>(`/roms/${romId}/install`);
 }
 
 async function clearInstallCache(romId: number) {
@@ -112,7 +102,7 @@ async function clearInstallCache(romId: number) {
 }
 
 async function cancelInstall(romId: number, { clearCache = true } = {}) {
-  return api.post<InstallSessionExtended>(
+  return api.post<InstallSessionSchema>(
     `/roms/${romId}/install/cancel?clear_cache=${clearCache}`,
   );
 }

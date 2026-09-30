@@ -13,24 +13,23 @@
 // why it stays cheap-per-card). Mounted once by GameActions' InstallButton
 // (for the ribbon control) and once by the Install page (for the full
 // controls) - each gets its own independent poll loop.
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, onScopeDispose, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Router } from "vue-router";
 import type {
   InstallCandidateSchema,
+  InstallSessionSchema,
   InstallSessionState,
 } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import installApi from "@/services/api/install";
-import type {
-  InstallSessionExtended,
-  ProtonBuildExtended,
-} from "@/services/api/install";
+import type { ProtonBuildExtended } from "@/services/api/install";
 import storeAuth from "@/stores/auth";
 import type { Config } from "@/stores/config";
 import storeConfig from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 export type { ProtonBuildExtended };
@@ -118,7 +117,7 @@ export function useInstallSession(getRom: () => SimpleRom | null | undefined) {
   const auth = storeAuth();
   const configStore = storeConfig();
 
-  const session = ref<InstallSessionExtended | null>(null);
+  const session = ref<InstallSessionSchema | null>(null);
   const candidates = ref<InstallCandidateSchema[]>([]);
   // Executables inside the currently selected archive/disc image source.
   const sourceCandidates = ref<InstallCandidateSchema[]>([]);
@@ -138,8 +137,11 @@ export function useInstallSession(getRom: () => SimpleRom | null | undefined) {
   // whatever timer id we're tracking" on unmount can miss a call that's
   // already in flight - it resolves anyway and reschedules regardless.
   // Checked right before every reschedule so an in-flight call becomes a
-  // no-op once the consumer has unmounted.
-  let stopped = false;
+  // no-op once the consumer has unmounted. useIsAlive (onScopeDispose)
+  // rather than a local flag + onBeforeUnmount, so this still works if
+  // useInstallSession is ever called from inside another composable, not
+  // just directly from a component's setup().
+  const alive = useIsAlive();
 
   const canInstall = computed(() => auth.scopes.includes("roms.install"));
 
@@ -243,7 +245,7 @@ export function useInstallSession(getRom: () => SimpleRom | null | undefined) {
 
   function schedulePoll() {
     stopPolling();
-    if (stopped) return;
+    if (!alive.value) return;
     pollTimer = setTimeout(refreshSession, POLL_INTERVAL_MS);
   }
 
@@ -337,7 +339,7 @@ export function useInstallSession(getRom: () => SimpleRom | null | undefined) {
           }),
         {
           onWaiting: (w) => (waitingForWorker.value = w),
-          shouldStop: () => stopped,
+          shouldStop: () => !alive.value,
         },
       );
       session.value = data;
@@ -571,8 +573,7 @@ export function useInstallSession(getRom: () => SimpleRom | null | undefined) {
     }
   }
 
-  onBeforeUnmount(() => {
-    stopped = true;
+  onScopeDispose(() => {
     stopPolling();
   });
 
